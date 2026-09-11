@@ -3,11 +3,14 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useCallback, useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Ticket, AlertCircle } from 'lucide-react';
+import { Ticket, AlertCircle, UserCheck } from 'lucide-react';
 
 import { Button, Modal } from '../../components';
 import { useCreateTicketMutation, useAssignableUsersQuery, useDepartmentsQuery } from './hook';
 import { useCategoriesQuery } from '../settings/hook';
+import { useTagsQuery } from '../tags/hook';
+import { LabelsField } from '../tags/LabelsField';
+import { AssigneeField } from '../assignees/AssigneeField';
 import { ticketApi } from '../../api/ticket';
 import { ticketSchema, type TicketFields } from './form/ticketFormSchema';
 import { AssignmentModeToggle } from './form/AssignmentModeToggle';
@@ -15,16 +18,24 @@ import { CategoryField } from './form/CategoryField';
 import { TicketDetailsFields } from './form/TicketDetailsFields';
 import { PhotoUploadField } from './form/PhotoUploadField';
 import { PriorityField } from './form/PriorityField';
-import { DepartmentAssigneeFields } from './form/DepartmentAssigneeFields';
+import { DepartmentField } from './form/DepartmentField';
 import { DueDateField } from './form/DueDateField';
+import { LABEL_CLASS } from './form/formConstants';
+import { SECTION_LABEL_CLASS } from '../tasks/taskFormFieldStyles';
+import { useAuth } from '../../context/AuthContext';
 
 interface TicketFormProps {
   onClose: () => void;
 }
 
 export const TicketForm = ({ onClose }: TicketFormProps) => {
+  const { user } = useAuth();
+  // Same role test the rest of the app uses for "may create a new label" — matches Delegation's
+  // TaskForm exactly, since it's the same server-side gate (POST /tags is ADMIN/PC only).
+  const isVerifier = user?.role === 'PC' || user?.role === 'ADMIN';
   const { data: departments } = useDepartmentsQuery();
   const { data: categories } = useCategoriesQuery();
+  const { data: tags } = useTagsQuery();
   const mutation = useCreateTicketMutation();
   const queryClient = useQueryClient();
 
@@ -51,7 +62,8 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
   const departmentId = useWatch({ control, name: 'departmentId' });
   const priority = useWatch({ control, name: 'priority' });
   const assigneeId = useWatch({ control, name: 'assigneeId' });
-  const { data: assignableUsers } = useAssignableUsersQuery(departmentId || undefined);
+  const tagIds = useWatch({ control, name: 'tagIds' });
+  const { data: assignableUsers, isLoading: isLoadingAssignableUsers } = useAssignableUsersQuery(departmentId || undefined);
 
   const selectedCategory = categories?.find(c => c.id === categoryId);
 
@@ -89,6 +101,7 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
         departmentId: data.departmentId !== '' ? data.departmentId : undefined,
         assigneeId: data.assigneeId !== '' ? data.assigneeId : undefined,
         tatHours: tatHours ?? (data.assignmentMode === 'AUTO' ? (selectedCategory?.tatHours ?? 24) : undefined),
+        tagIds: data.tagIds?.length ? data.tagIds : undefined,
       },
       {
         onSuccess: async (created) => {
@@ -107,14 +120,22 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
   }, [mutation, photos, queryClient, onClose, selectedCategory]);
 
   const footer = (
-    <>
-      <Button type="button" variant="outline" size="sm" onClick={onClose} className="font-display">
-        Cancel
-      </Button>
-      <Button type="submit" form="ticket-form" variant="primary" size="sm" isLoading={mutation.isPending} className="font-display">
-        Create Ticket
-      </Button>
-    </>
+    <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between w-full gap-3">
+      {/* Only Title and Description are mandatory, so say so once here instead of leaving people
+          to discover it by submitting — same treatment as Delegation's own footer hint. */}
+      <p className="text-xs font-medium text-text-light font-display">
+        <span className="text-danger">*</span> Title and Description are required — everything else can be added later.
+      </p>
+
+      <div className="flex items-center justify-end gap-3">
+        <Button type="button" variant="outline" size="sm" onClick={onClose} className="font-display">
+          Cancel
+        </Button>
+        <Button type="submit" form="ticket-form" variant="primary" size="sm" isLoading={mutation.isPending} className="font-display">
+          Create Ticket
+        </Button>
+      </div>
+    </div>
   );
 
   return (
@@ -130,6 +151,13 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
       title="Create New Ticket"
       description="Fill in the parameters to dispatch a task."
       footer={footer}
+      // No rules under the title or above the buttons — matches Delegation's own modal: the
+      // dialog's own edge already separates it from the page. And no X in the corner: the
+      // footer's Cancel is the dismiss action, so two of them in one small dialog is one too many
+      // — Escape and the backdrop still close it.
+      headerClassName="border-b-0"
+      footerClassName="border-t-0"
+      showCloseButton={false}
       contentClassName="
         left-0 right-0 top-auto bottom-0 translate-x-0 translate-y-0 w-full max-w-full
         sm:left-[50%] sm:right-auto sm:top-[50%] sm:bottom-auto sm:translate-x-[-50%] sm:translate-y-[-50%]
@@ -147,45 +175,75 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
         <div className="h-1.5 w-10 rounded-full bg-border/70" />
       </div>
 
-      <form id="ticket-form" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5 sm:gap-6" noValidate>
-        {[
-          <AssignmentModeToggle key="mode" mode={assignmentMode} onChange={m => setValue('assignmentMode', m)} />,
+      <form id="ticket-form" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-6" noValidate>
+        {/* Decides how everything below behaves (Auto hides Department/Assignee/Due Date once a
+            category is picked), so it comes first — before Title/Description — not buried inside
+            the Assignment section beneath fields it already controls. */}
+        <AssignmentModeToggle mode={assignmentMode} onChange={m => setValue('assignmentMode', m)} />
+
+        <section className="flex flex-col gap-4">
+          <h3 className={SECTION_LABEL_CLASS}>The work</h3>
+
+          <TicketDetailsFields register={register} errors={errors} />
+          <PhotoUploadField photos={photos} onAddPhotos={addPhotos} onRemovePhoto={removePhoto} />
+        </section>
+
+        <section className="flex flex-col gap-4">
+          <h3 className={SECTION_LABEL_CLASS}>Assignment</h3>
+
           <CategoryField
-            key="category"
             categoryId={categoryId}
             onChange={v => setValue('categoryId', v)}
             categories={categories}
-          />,
-          <TicketDetailsFields key="details" register={register} errors={errors} />,
-          <PhotoUploadField key="photos" photos={photos} onAddPhotos={addPhotos} onRemovePhoto={removePhoto} />,
-          <PriorityField key="priority" value={priority} onChange={v => setValue('priority', v)} />,
-          <DepartmentAssigneeFields
-            key="assignee"
-            departmentId={departmentId}
-            onDepartmentChange={v => setValue('departmentId', v)}
-            departments={departments}
-            assigneeId={assigneeId}
-            onAssigneeChange={v => setValue('assigneeId', v)}
-            assignableUsers={assignableUsers}
-            locked={!!selectedCategory}
-          />,
-          <DueDateField
-            key="due"
-            mode={assignmentMode}
-            control={control}
-            setValue={setValue}
-            errors={errors}
-            categoryTatHours={selectedCategory?.tatHours}
-          />,
-        ].map((field, i) => (
-          <div
-            key={field.key}
-            className="animate-in fade-in slide-in-from-bottom-2 duration-300"
-            style={{ animationDelay: `${i * 40}ms`, animationFillMode: 'backwards' }}
-          >
-            {field}
+          />
+
+          {/* Two-up from sm, same pairing Delegation's own Assignment section uses — each field is
+              one grid cell so labels line up across the row. Assignee and Labels are placed as
+              their own pair (both pickers that add chips) so they sit next to each other, and Due
+              Date closes the section full-width since it's the most important field here. */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-4">
+            <DepartmentField
+              value={departmentId}
+              onChange={v => setValue('departmentId', v)}
+              departments={departments}
+              disabled={!!selectedCategory}
+            />
+
+            <PriorityField value={priority} onChange={v => setValue('priority', v)} />
+
+            <div className="flex flex-col gap-2">
+              <label className={LABEL_CLASS}>
+                <UserCheck className="w-3.5 h-3.5" /> Assignee
+              </label>
+              <AssigneeField
+                single
+                hideLabel
+                selectedIds={assigneeId ? [assigneeId] : []}
+                onChange={ids => setValue('assigneeId', ids[0] ?? '')}
+                users={assignableUsers}
+                isLoading={isLoadingAssignableUsers}
+                disabled={!!selectedCategory}
+              />
+            </div>
+
+            <LabelsField
+              tags={tags ?? []}
+              selectedIds={tagIds ?? []}
+              onChange={v => setValue('tagIds', v)}
+              canCreate={isVerifier}
+            />
+
+            <div className="sm:col-span-2">
+              <DueDateField
+                mode={assignmentMode}
+                control={control}
+                setValue={setValue}
+                errors={errors}
+                categoryTatHours={selectedCategory?.tatHours}
+              />
+            </div>
           </div>
-        ))}
+        </section>
 
         {/* Global Mutation Error */}
         {mutation.isError && (

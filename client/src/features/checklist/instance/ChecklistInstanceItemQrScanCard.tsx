@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import jsQR from 'jsqr';
-import { Loader2, RotateCcw, ScanLine, AlertCircle, X } from 'lucide-react';
+import { Loader2, ScanLine, AlertCircle, X } from 'lucide-react';
 import { useSetChecklistInstanceItemDoneMutation } from '../hook';
+import { ChecklistItemCardHeader } from './ChecklistItemCardHeader';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
-import { formatDate } from '../checklistDisplay';
 
 interface ChecklistInstanceItemQrScanCardProps {
   item:       ChecklistInstanceItem;
@@ -87,25 +87,21 @@ export const ChecklistInstanceItemQrScanCard = ({ item, instanceId, canWork, isL
 
   return (
     <div className={`flex flex-col gap-3 p-4 rounded-lg border border-border bg-surface ${isLocked ? 'opacity-75' : ''}`}>
-      <div className="flex items-start gap-3">
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-display font-medium leading-snug text-text">{item.label}</p>
-          {item.isDone && item.completedAt && (
-            <p className="text-xs text-text-muted font-display mt-0.5">Completed {formatDate(item.completedAt)}</p>
-          )}
-        </div>
-        {interactive && item.isDone && (
-          <button
-            onClick={() => setItemDone.mutate({ itemId: item.id, isDone: false, textValue: item.textValue ?? undefined })}
-            disabled={setItemDone.isPending}
-            className="shrink-0 p-2 rounded-md text-text-light hover:text-warning hover:bg-warning/10 transition-colors cursor-pointer disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-warning/50"
-            aria-label="Reopen item"
-            title="Reopen"
-          >
-            <RotateCcw size={14} />
-          </button>
-        )}
-      </div>
+      <ChecklistItemCardHeader
+        item={item}
+        interactive={interactive}
+        reopenPending={setItemDone.isPending}
+        onReopen={() => setItemDone.mutate({ itemId: item.id, isDone: false, textValue: item.textValue ?? undefined })}
+      />
+
+      {/* The scanned value display is NOT gated on `interactive` — it's evidence, and must stay
+          visible to a reviewer/approver after the item (or the whole instance) locks. Only the
+          scan/manual-entry/save controls are for the still-editable case. */}
+      {scannedValue && !interactive && (
+        <p className="text-xs font-display px-2.5 py-1.5 rounded-md bg-background border border-border/60 text-text-secondary w-fit max-w-full break-all">
+          Scanned: {scannedValue}
+        </p>
+      )}
 
       {interactive && (
         <div className="flex flex-col gap-2">
@@ -122,10 +118,10 @@ export const ChecklistInstanceItemQrScanCard = ({ item, instanceId, canWork, isL
               <div className="absolute inset-6 border-2 border-primary-400/80 rounded-lg pointer-events-none" />
               <button
                 onClick={stopScan}
-                className="absolute top-2 right-2 flex items-center justify-center size-6 rounded-full bg-black/60 text-white cursor-pointer"
+                className="absolute top-2 right-2 flex items-center justify-center size-9 rounded-full bg-black/60 text-white cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                 aria-label="Cancel scan"
               >
-                <X size={13} />
+                <X size={16} />
               </button>
             </div>
           )}
@@ -149,7 +145,7 @@ export const ChecklistInstanceItemQrScanCard = ({ item, instanceId, canWork, isL
           )}
 
           {scannedValue && (
-            <p className="text-xs font-display px-2.5 py-1.5 rounded-md bg-background border border-border/60 text-text-secondary w-fit">
+            <p className="text-xs font-display px-2.5 py-1.5 rounded-md bg-background border border-border/60 text-text-secondary w-fit max-w-full break-all">
               Scanned: {scannedValue}
             </p>
           )}
@@ -167,7 +163,7 @@ export const ChecklistInstanceItemQrScanCard = ({ item, instanceId, canWork, isL
             <button
               onClick={() => scannedValue.trim() && setItemDone.mutate({ itemId: item.id, isDone: true, textValue: scannedValue.trim() })}
               disabled={!scannedValue.trim() || setItemDone.isPending}
-              className="w-fit flex items-center gap-1.5 text-xs font-display font-medium px-2.5 py-1.5 rounded-md border border-success/50 text-success hover:bg-success/10 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-fit flex items-center gap-1.5 text-xs font-display font-medium px-2.5 py-1.5 rounded-md border border-primary-500/50 text-primary-600 hover:bg-primary-500/10 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {setItemDone.isPending && <Loader2 size={12} className="animate-spin" />}
               Save

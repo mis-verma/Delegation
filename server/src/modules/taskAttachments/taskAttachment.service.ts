@@ -25,9 +25,20 @@ const assertCanAttach = async (user: AccessTokenPayload, task: { id: string; use
 
 export const taskAttachmentService = {
     async upload(taskId: string, files: Express.Multer.File[], user: AccessTokenPayload) {
+        // Multer's already written these to disk by the time this runs — every throw below must
+        // clean them up first, or a caller with no access to the task can repeatedly fill disk by
+        // uploading to tasks they'll always get rejected on (same pattern as checklistImage.service).
         const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
-        if (!task) throw AppError.notFound("Delegation not found");
-        await assertCanAttach(user, task);
+        if (!task) {
+            files.forEach((f) => fs.unlink(f.path, () => {}));
+            throw AppError.notFound("Delegation not found");
+        }
+        try {
+            await assertCanAttach(user, task);
+        } catch (err) {
+            files.forEach((f) => fs.unlink(f.path, () => {}));
+            throw err;
+        }
 
         if (!files.length) {
             throw AppError.badRequest("No valid files were received (check file type and size)");

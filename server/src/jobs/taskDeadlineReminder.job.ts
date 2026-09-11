@@ -14,7 +14,20 @@ const REMINDER_BATCH_SIZE = 500;
 // check "is it time to remind someone about this deadline" — nobody has to be looking at the
 // task for the reminder to fire.
 export const startTaskDeadlineReminder = () => {
+  // node-cron fires on its timer regardless of whether the previous tick's callback has resolved
+  // — `reminderSentAt` is only stamped in one bulk UPDATE at the very end, after every recipient's
+  // been notified/emailed, so a slow run (large batch, slow SMTP) that's still going when the next
+  // 5-minute tick fires would have that tick re-SELECT the same still-unmarked tasks and send
+  // duplicate reminders before the first tick's UPDATE lands. This flag makes the two ticks
+  // mutually exclusive instead.
+  let isRunning = false;
+
   cron.schedule('*/5 * * * *', async () => {
+    if (isRunning) {
+      console.warn('Task deadline reminder: previous run still in progress, skipping this tick.');
+      return;
+    }
+    isRunning = true;
     try {
       const now = new Date();
 
@@ -100,6 +113,8 @@ export const startTaskDeadlineReminder = () => {
       console.log(`Task deadline reminder: notified for ${due.length} task(s)`);
     } catch (err) {
       console.error('Task deadline reminder sweep failed:', err);
+    } finally {
+      isRunning = false;
     }
   });
 };

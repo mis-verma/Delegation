@@ -1,9 +1,11 @@
 import { STATUS_CONFIG, PRIORITY_CONFIG } from '../ticketDisplay';
 import { SelectFilterRow, MultiSelectFilterRow, PeopleFilterRow, type FilterOption } from '../../../components/filterRow';
 import { toFilterPeople } from '../../../lib/filterPeople';
+import { labelDotClass } from '../../../lib/labelColors';
 import type { Ticket } from '../../../api/ticket';
 import type { Department } from '../../../api/departments';
 import type { AssignableUser } from '../../../api/users';
+import type { Tag } from '../../../api/tags';
 
 export interface TicketFilters {
   status:       Ticket['status'] | 'all';
@@ -11,6 +13,7 @@ export interface TicketFilters {
   departmentId: string;
   assigneeIds:  string[];
   raisedByIds:  string[];
+  labelIds:     string[];
 }
 
 interface TicketFilterFieldsProps {
@@ -18,6 +21,7 @@ interface TicketFilterFieldsProps {
   onChange:         (patch: Partial<TicketFilters>) => void;
   departments?:     Department[];
   assignableUsers?: AssignableUser[];
+  tags?:            Tag[];
 }
 
 const STATUS_OPTIONS: FilterOption<TicketFilters['status']>[] = [
@@ -35,7 +39,7 @@ const PRIORITY_OPTIONS: FilterOption<Ticket['priority']>[] = [
 // Renders Status/Priority/Department/Assignee/Raised By as ordinary rows inside the Options
 // modal's own list — no separate trigger, header, or Apply/Clear footer of its own. Every change
 // applies to `filters` immediately, same as Scope/Group-by/Sort above it.
-export const TicketFilterFields = ({ filters, onChange, departments, assignableUsers }: TicketFilterFieldsProps) => {
+export const TicketFilterFields = ({ filters, onChange, departments, assignableUsers, tags }: TicketFilterFieldsProps) => {
   const departmentOptions: FilterOption<string>[] = [
     { value: '', label: 'All Departments' },
     ...(departments ?? []).map((d) => ({ value: d.id, label: d.name })),
@@ -52,6 +56,17 @@ export const TicketFilterFields = ({ filters, onChange, departments, assignableU
         selected={filters.priority}
         onChange={(priority) => onChange({ priority })}
       />
+
+      {/* Hidden entirely when none exist rather than shown as an empty row — same treatment as
+          Delegation's Labels filter. */}
+      {!!tags?.length && (
+        <MultiSelectFilterRow
+          label="Labels"
+          options={tags.map((tag) => ({ value: tag.id, label: tag.name, dotClassName: labelDotClass(tag.name) }))}
+          selected={filters.labelIds}
+          onChange={(labelIds) => onChange({ labelIds })}
+        />
+      )}
 
       <SelectFilterRow
         label="Department"

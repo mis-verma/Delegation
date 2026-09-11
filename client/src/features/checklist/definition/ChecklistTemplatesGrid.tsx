@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Plus, AlertCircle, ClipboardList, FileDown, Upload } from 'lucide-react';
 import { Button, Skeleton } from '../../../components';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from '../../../context/AuthContext';
 import { useChecklistDefinitionsQuery } from '../hook';
 import { ChecklistDefinitionCard } from './ChecklistDefinitionCard';
 import { ChecklistBulkImportModal } from './bulkImport/ChecklistBulkImportModal';
@@ -14,9 +15,17 @@ interface ChecklistTemplatesGridProps {
 
 export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGridProps) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  // This grid's route (`/admin/scheduled-checklists`) is open to ADMIN and PC alike, but creating,
+  // importing, and exporting checklist definitions is an ADMIN-only action — PC gets read access
+  // to the grid (browsing/opening existing definitions) without the ability to add or bulk-change
+  // them.
+  const isAdmin = user?.role === 'ADMIN';
   const [showExport, setShowExport] = useState(false);
   const [showBulkImport, setShowBulkImport] = useState(false);
-  const { data: definitions = [], isPending, isError } = useChecklistDefinitionsQuery();
+  const { data, isPending, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } = useChecklistDefinitionsQuery();
+  const definitions = useMemo(() => data?.pages.flatMap((p) => p.data) ?? [], [data]);
+  const total = data?.pages[0]?.meta?.total ?? definitions.length;
 
   return (
     <div className={`flex flex-col gap-6 w-full ${className}`}>
@@ -29,7 +38,7 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
             </h1>
             {!isPending && !isError && (
               <Badge variant="outline" className="font-mono text-xs py-0.5 px-2 font-semibold">
-                {definitions.length}
+                {total}
               </Badge>
             )}
           </div>
@@ -38,38 +47,40 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
           </p>
         </div>
 
-        {/* Top Action Buttons */}
-        <div className="flex items-center gap-2.5 shrink-0">
-          <Button
-            size="sm"
-            variant="secondary"
-            className="gap-1.5 text-xs font-display font-medium"
-            onClick={() => setShowExport(true)}
-          >
-            <FileDown size={14} className="text-text-muted" />
-            <span>Export</span>
-          </Button>
+        {/* Top Action Buttons — create/import/export are ADMIN-only, see the isAdmin comment above. */}
+        {isAdmin && (
+          <div className="flex items-center gap-2.5 shrink-0">
+            <Button
+              size="sm"
+              variant="secondary"
+              className="gap-1.5 text-xs font-display font-medium"
+              onClick={() => setShowExport(true)}
+            >
+              <FileDown size={14} className="text-text-muted" />
+              <span>Export</span>
+            </Button>
 
-          <Button
-            size="sm"
-            variant="secondary"
-            className="gap-1.5 text-xs font-display font-medium"
-            onClick={() => setShowBulkImport(true)}
-          >
-            <Upload size={14} className="text-text-muted" />
-            <span>Import</span>
-          </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="gap-1.5 text-xs font-display font-medium"
+              onClick={() => setShowBulkImport(true)}
+            >
+              <Upload size={14} className="text-text-muted" />
+              <span>Import</span>
+            </Button>
 
-          <Button
-            size="sm"
-            variant="primary"
-            className="gap-1.5 text-xs font-display font-medium"
-            onClick={() => navigate('/admin/scheduled-checklists/builder')}
-          >
-            <Plus size={14} />
-            <span>New checklist</span>
-          </Button>
-        </div>
+            <Button
+              size="sm"
+              variant="primary"
+              className="gap-1.5 text-xs font-display font-medium"
+              onClick={() => navigate('/admin/scheduled-checklists/builder')}
+            >
+              <Plus size={14} />
+              <span>New checklist</span>
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Loading Skeleton */}
@@ -102,7 +113,14 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
           className="flex items-center gap-3 px-4 py-3.5 rounded-xl bg-danger/10 border border-danger/20 text-danger text-sm font-display shadow-xs"
         >
           <AlertCircle size={18} className="shrink-0" />
-          <span>Failed to load checklist templates. Please check your connection and try again.</span>
+          <span className="flex-1">Failed to load checklist templates. Please check your connection and try again.</span>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="shrink-0 px-3 py-1.5 rounded-md text-xs font-display font-semibold border border-danger/30 hover:bg-danger/10 cursor-pointer transition-colors outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+          >
+            Retry
+          </button>
         </div>
       )}
 
@@ -116,17 +134,21 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
             No checklist templates yet
           </h2>
           <p className="text-xs sm:text-sm font-display text-text-muted max-w-sm mb-6 leading-relaxed">
-            Create your first recurring checklist to standardize procedures, quality audits, and safety checks across your store fleet.
+            {isAdmin
+              ? 'Create your first recurring checklist to standardize procedures, quality audits, and safety checks across your store fleet.'
+              : 'An admin hasn’t created any recurring checklists yet.'}
           </p>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => navigate('/admin/scheduled-checklists/builder')}
-            className="gap-1.5 text-xs sm:text-sm font-display font-medium"
-          >
-            <Plus size={15} />
-            <span>Create new checklist</span>
-          </Button>
+          {isAdmin && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => navigate('/admin/scheduled-checklists/builder')}
+              className="gap-1.5 text-xs sm:text-sm font-display font-medium"
+            >
+              <Plus size={15} />
+              <span>Create new checklist</span>
+            </Button>
+          )}
         </div>
       )}
 
@@ -137,6 +159,17 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
             <ChecklistDefinitionCard key={d.id} definition={d} />
           ))}
         </div>
+      )}
+
+      {!isPending && !isError && hasNextPage && (
+        <button
+          type="button"
+          onClick={() => fetchNextPage()}
+          disabled={isFetchingNextPage}
+          className="self-center inline-flex items-center gap-1.5 h-9 px-4 rounded-xl border border-border/60 bg-surface text-xs font-display font-semibold text-text-secondary hover:bg-surface-hover hover:border-border hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 transition-all duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {isFetchingNextPage ? 'Loading…' : `Load more (${total - definitions.length} remaining)`}
+        </button>
       )}
 
       {/* Export Dialog */}

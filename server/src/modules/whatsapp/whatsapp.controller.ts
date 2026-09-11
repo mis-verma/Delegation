@@ -9,6 +9,16 @@ import { sendWhatsAppMessage, verifySignature } from "./whatsapp.service.js";
 import { transcribeWhatsAppVoiceNote } from "./transcription.service.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { departmentService } from "../departments/department.service.js";
+import { claimInboundMessage } from "../../utils/inboundMessageDedupe.js";
+import { SLOT_QUESTIONS, CANCEL_PATTERN, DATE_HINT_PATTERN, derivePriorityHint, computeMissingSlots } from "../tasks/ai/slotFilling.js";
+import { resolveSlotAnswer, type ConversationDraftLike } from "../tasks/ai/slotResolvers.js";
+import {
+    findActiveConversation,
+    startConversation,
+    advanceConversation,
+    cancelConversation,
+    toDraftObject,
+} from "../taskConversations/taskConversation.service.js";
 
 declare global {
     namespace Express {
@@ -16,6 +26,35 @@ declare global {
             rawBody?: Buffer;
         }
     }
+}
+
+// Mirrors doubletick.controller.ts's own draftToConfirmInput/formatTaskConfirmation exactly —
+// kept as separate local copies (like the rest of this controller vs. doubletick.controller.ts)
+// rather than a shared import, since the two providers' payload shapes and error handling
+// otherwise have nothing in common to abstract over.
+function draftToConfirmInput(draft: ConversationDraftLike) {
+    return {
+        title: draft.title,
+        context: draft.context || undefined,
+        category: draft.category,
+        priority: draft.priority,
+        dueDate: (draft.dueDate ?? new Date()).toISOString(),
+        assigneeId: draft.assigneeId ?? undefined,
+        departmentId: draft.departmentId ?? undefined,
+        assigneeRaw: draft.assigneeName || undefined,
+        departmentRaw: draft.departmentName || undefined,
+        confidence: draft.confidence ?? undefined,
+        rawInput: draft.rawInput,
+        inputMode: draft.inputMode,
+        channel: "whatsapp" as const,
+        wonBy: draft.wonBy ?? undefined,
+    };
+}
+
+function formatTaskConfirmation(taskTitle: string, draft: ConversationDraftLike) {
+    const assigneeLabel = draft.assigneeId ? draft.assigneeName : "unassigned";
+    const dueDate = draft.dueDate ?? new Date();
+    return `Delegation Created: ${taskTitle}\nAssigned to: ${assigneeLabel}\nDue: ${dueDate.toLocaleDateString()}\nPriority: ${draft.priority}`;
 }
 
 export const whatsappController = {
@@ -40,6 +79,10 @@ export const whatsappController = {
 
         const message = req.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]
         if(!message) return;
+
+        // Meta retries a webhook delivery on any hiccup on their end — claim the message id first
+        // so a retried delivery of the same message is a no-op instead of a second task/reply.
+        if (message.id && !(await claimInboundMessage("whatsapp", message.id as string))) return;
 
         const from = message.from as string;
 
@@ -76,43 +119,98 @@ export const whatsappController = {
                 return;
             }
 
-            const refereceDate = new Date();
-            const extraction = await extractTaskFromText(text, refereceDate);
+            const rankFallback = priorityForCreatorRank(sender.rank ?? 5);
+            const conversation = await findActiveConversation(from);
+
+            // Same slot-filling conversation flow doubletick.controller.ts already used —
+            // previously this handler skipped straight to task creation regardless of how much
+            // information the message actually contained, so a WhatsApp message missing an
+            // assignee/department/due date got a task auto-created with those fields blank
+            // instead of getting asked, unlike the identical input arriving via DoubleTick.
+            if (conversation) {
+                try {
+                    if (CANCEL_PATTERN.test(text)) {
+                        await cancelConversation(from);
+                        await sendWhatsAppMessage(from, "Okay, I've cancelled that delegation request. Send a new message anytime to start again.");
+                        return;
+                    }
+
+                    const currentDraft = toDraftObject(conversation);
+                    const { draft: updatedDraft, ack } = await resolveSlotAnswer(
+                        conversation.pendingSlot,
+                        text,
+                        currentDraft,
+                        { rankFallbackPriority: rankFallback },
+                    );
+
+                    const advance = await advanceConversation(conversation, updatedDraft);
+                    if (advance.status === "raced") return;
+
+                    if (advance.status === "next") {
+                        await sendWhatsAppMessage(from, `${ack} ${SLOT_QUESTIONS[advance.nextSlot]}`);
+                        return;
+                    }
+
+                    // advanceConversation already deleted the row as part of returning "done" (see
+                    // its own comment) — nothing left to clean up here even if createFromSmartInput
+                    // throws below; the user just gets the error message and can resend to restart.
+                    const task = await taskService.createFromSmartInput(
+                        draftToConfirmInput(updatedDraft),
+                        { sub: sender.id, role: sender.role, departmentId: sender.departmentId ?? undefined },
+                    );
+
+                    await sendWhatsAppMessage(from, `${ack}\n\n${formatTaskConfirmation(task.title, updatedDraft)}`);
+                } catch (err) {
+                    console.error("WhatsApp conversation turn failed:", err);
+                    await sendWhatsAppMessage(from, "Sorry, something went wrong with that. Please try again or add it manually.");
+                }
+                return;
+            }
+
+            const referenceDate = new Date();
+            const extraction = await extractTaskFromText(text, referenceDate);
             const assignee = await resolveAssignee(extraction.assigneeName, extraction.department);
             const department = await departmentService.resolveByName(extraction.department);
-            const dueDate = resolveDueDate(extraction.dueDateISO, text, refereceDate)
-            const priority = priorityForCreatorRank(sender.rank ?? 5)
+            const priorityHint = derivePriorityHint(text);
 
-            const task = await taskService.createFromSmartInput(
-                {
-                    title : extraction.title,
-                    context : extraction.context || undefined,
-                    category : extraction.category,
-                    priority,
-                    dueDate : dueDate.toISOString(),
-                    assigneeId : assignee?.id,
-                    departmentId : department?.id,
-                    assigneeRaw : extraction.assigneeName || undefined,
-                    departmentRaw : extraction.department || undefined,
-                    confidence : extraction.confidence,
-                    rawInput : text,
-                    inputMode,
-                    channel : "whatsapp",
-                    wonBy : extraction.wonBy,
+            const draft: ConversationDraftLike = {
+                title: extraction.title,
+                context: extraction.context || "",
+                category: extraction.category,
+                priority: priorityHint ?? rankFallback,
+                dueDate: DATE_HINT_PATTERN.test(text) ? resolveDueDate(extraction.dueDateISO, text, referenceDate) : null,
+                assigneeId: assignee?.id ?? null,
+                assigneeName: assignee ? `${assignee.firstName} ${assignee.lastName ?? ""}`.trim() : (extraction.assigneeName || ""),
+                departmentId: department?.id ?? null,
+                departmentName: department?.name ?? (extraction.department || ""),
+                rawInput: text,
+                inputMode,
+                confidence: extraction.confidence,
+                wonBy: extraction.wonBy,
+            };
 
-                },
-                { sub : sender.id, role : sender.role, departmentId : sender.departmentId ?? undefined},
-            );
+            const missing = computeMissingSlots(draft, text);
 
-            const assigneeName = assignee ? `${assignee.firstName} ${assignee.lastName ?? ""}`.trim() : "unassigned";
-            await sendWhatsAppMessage(
-                from,
-                `Delegation Created: ${task.title}\nAssigned to: ${assigneeName}\nDue: ${dueDate.toLocaleDateString()}\nPriority: ${priority}`,
-            );
+            if (missing.length === 0) {
+                const task = await taskService.createFromSmartInput(
+                    draftToConfirmInput(draft),
+                    { sub: sender.id, role: sender.role, departmentId: sender.departmentId ?? undefined },
+                );
+                await sendWhatsAppMessage(from, formatTaskConfirmation(task.title, draft));
+                return;
+            }
 
+            await startConversation({
+                phone: from,
+                userId: sender.id,
+                firstSlot: missing[0],
+                remainingSlots: missing.slice(1),
+                draft,
+            });
+            await sendWhatsAppMessage(from, SLOT_QUESTIONS[missing[0]]);
         }catch(err){
             console.error("WhatsApp task creation failed:" ,err);
-            await sendWhatsAppMessage(from, "Sorry, something wend wrong creating that delegation. Please try again or add it manually.")
+            await sendWhatsAppMessage(from, "Sorry, something went wrong creating that delegation. Please try again or add it manually.")
 
         }
     })

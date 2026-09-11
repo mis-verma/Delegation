@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Loader2, RotateCcw, MapPin, LocateFixed, AlertCircle } from 'lucide-react';
+import { Loader2, MapPin, LocateFixed, AlertCircle } from 'lucide-react';
 import { useSetChecklistInstanceItemDoneMutation } from '../hook';
+import { ChecklistItemCardHeader } from './ChecklistItemCardHeader';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
-import { formatDate } from '../checklistDisplay';
 
 interface ChecklistInstanceItemGpsCardProps {
   item:       ChecklistInstanceItem;
@@ -65,28 +65,29 @@ export const ChecklistInstanceItemGpsCard = ({ item, instanceId, canWork, isLock
 
   return (
     <div className={`flex flex-col gap-3 p-4 rounded-lg border border-border bg-surface ${isLocked ? 'opacity-75' : ''}`}>
-      <div className="flex items-start gap-3">
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-display font-medium leading-snug text-text">{item.label}</p>
-          {item.isDone && item.completedAt && (
-            <p className="text-xs text-text-muted font-display mt-0.5">Completed {formatDate(item.completedAt)}</p>
+      <ChecklistItemCardHeader
+        item={item}
+        interactive={interactive}
+        reopenPending={setItemDone.isPending}
+        onReopen={() => setItemDone.mutate({
+          itemId: item.id, isDone: false,
+          gpsLat: item.gpsLat ?? undefined, gpsLng: item.gpsLng ?? undefined, gpsAccuracy: item.gpsAccuracy ?? undefined,
+        })}
+      />
+
+      {/* The captured coordinates are NOT gated on `interactive` — they're evidence, and must stay
+          visible to a reviewer/approver after the item (or the whole instance) locks. Only the
+          capture/save controls are for the still-editable case. */}
+      {captured && (
+        <div className="flex flex-col gap-1 px-2.5 py-2 rounded-md bg-background border border-border/60 text-xs font-display text-text-secondary">
+          <span className="flex items-center gap-1.5"><MapPin size={12} className="text-primary-500" /> {captured.lat.toFixed(6)}, {captured.lng.toFixed(6)} (±{Math.round(captured.accuracy)}m)</span>
+          {hasTarget && distance != null && (
+            <span className={withinRadius === false ? 'text-danger' : 'text-success'}>
+              {Math.round(distance)}m from required location{item.gpsRadiusMeters ? ` (max ${item.gpsRadiusMeters}m)` : ''}
+            </span>
           )}
         </div>
-        {interactive && item.isDone && (
-          <button
-            onClick={() => setItemDone.mutate({
-              itemId: item.id, isDone: false,
-              gpsLat: item.gpsLat ?? undefined, gpsLng: item.gpsLng ?? undefined, gpsAccuracy: item.gpsAccuracy ?? undefined,
-            })}
-            disabled={setItemDone.isPending}
-            className="shrink-0 p-2 rounded-md text-text-light hover:text-warning hover:bg-warning/10 transition-colors cursor-pointer disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-warning/50"
-            aria-label="Reopen item"
-            title="Reopen"
-          >
-            <RotateCcw size={14} />
-          </button>
-        )}
-      </div>
+      )}
 
       {interactive && (
         <div className="flex flex-col gap-2">
@@ -95,23 +96,12 @@ export const ChecklistInstanceItemGpsCard = ({ item, instanceId, canWork, isLock
               {setItemDone.error instanceof Error ? setItemDone.error.message : 'Could not save this location.'}
             </p>
           )}
-          {captureError && (
+          {!item.isDone && captureError && (
             <p className="flex items-center gap-1.5 text-xs text-danger"><AlertCircle size={12} /> {captureError}</p>
           )}
 
-          {captured && (
-            <div className="flex flex-col gap-1 px-2.5 py-2 rounded-md bg-background border border-border/60 text-xs font-display text-text-secondary">
-              <span className="flex items-center gap-1.5"><MapPin size={12} className="text-primary-500" /> {captured.lat.toFixed(6)}, {captured.lng.toFixed(6)} (±{Math.round(captured.accuracy)}m)</span>
-              {hasTarget && distance != null && (
-                <span className={withinRadius === false ? 'text-danger' : 'text-success'}>
-                  {Math.round(distance)}m from required location{item.gpsRadiusMeters ? ` (max ${item.gpsRadiusMeters}m)` : ''}
-                </span>
-              )}
-            </div>
-          )}
-
-          <div className="flex items-center gap-2">
-            {!item.isDone && (
+          {!item.isDone && (
+            <div className="flex items-center gap-2">
               <button
                 onClick={capture}
                 disabled={isCapturing}
@@ -120,18 +110,18 @@ export const ChecklistInstanceItemGpsCard = ({ item, instanceId, canWork, isLock
                 {isCapturing ? <Loader2 size={12} className="animate-spin" /> : <LocateFixed size={12} />}
                 {captured ? 'Recapture location' : 'Capture location'}
               </button>
-            )}
-            {!item.isDone && captured && (
-              <button
-                onClick={() => setItemDone.mutate({ itemId: item.id, isDone: true, gpsLat: captured.lat, gpsLng: captured.lng, gpsAccuracy: captured.accuracy })}
-                disabled={setItemDone.isPending}
-                className="flex items-center gap-1.5 text-xs font-display font-medium px-2.5 py-1.5 rounded-md border border-success/50 text-success hover:bg-success/10 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {setItemDone.isPending && <Loader2 size={12} className="animate-spin" />}
-                Save
-              </button>
-            )}
-          </div>
+              {captured && (
+                <button
+                  onClick={() => setItemDone.mutate({ itemId: item.id, isDone: true, gpsLat: captured.lat, gpsLng: captured.lng, gpsAccuracy: captured.accuracy })}
+                  disabled={setItemDone.isPending}
+                  className="flex items-center gap-1.5 text-xs font-display font-medium px-2.5 py-1.5 rounded-md border border-primary-500/50 text-primary-600 hover:bg-primary-500/10 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {setItemDone.isPending && <Loader2 size={12} className="animate-spin" />}
+                  Save
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

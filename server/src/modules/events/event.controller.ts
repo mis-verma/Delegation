@@ -1,6 +1,6 @@
 import { type Request, type Response } from "express";
 import { eventService } from "./event.service.js";
-import { createEventSchema, updateEventSchema } from "./event.validation.js";
+import { createEventSchema, updateEventSchema, listUpcomingEventsQuerySchema } from "./event.validation.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 
 export const eventController = {
@@ -10,7 +10,7 @@ export const eventController = {
     }),
 
     listUpcoming: asyncHandler(async (req: Request, res: Response) => {
-        const limit = Number(req.query.limit) || 5
+        const { limit } = listUpcomingEventsQuerySchema.parse(req.query)
         const events = await eventService.listUpcoming(limit)
         res.json({ success: true, data: events })
     }),

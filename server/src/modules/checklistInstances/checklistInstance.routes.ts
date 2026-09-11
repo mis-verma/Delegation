@@ -10,12 +10,15 @@ import { checklistInstanceImageUpload } from "../../config/upload.js"
 export const checklistInstanceRouter = Router()
 checklistInstanceRouter.use(authenticate)
 checklistInstanceRouter.get("/mine", checklistInstanceController.getMine)
-checklistInstanceRouter.get("/pending-verification", requireRole("PC", "ADMIN"), checklistInstanceController.listPendingVerification)
+// No role gate — an explicitly named reviewer (checklistDefinitionReviewers) can be any role at
+// all, so listPendingVerification/verify scope access themselves, per-instance, instead of at the
+// router (same "No role gate on setItemDone" convention as the item router below).
+checklistInstanceRouter.get("/pending-verification", checklistInstanceController.listPendingVerification)
 checklistInstanceRouter.get("/", requireRole("ADMIN", "PC"), checklistInstanceController.list)
 checklistInstanceRouter.get("/summary", checklistInstanceController.summary)
 checklistInstanceRouter.get("/reports/compliance", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), checklistInstanceController.complianceReport)
 checklistInstanceRouter.get("/:id", checklistInstanceController.getOne)
-checklistInstanceRouter.patch("/:id/verify", requireRole("PC", "ADMIN"), checklistInstanceController.verify)
+checklistInstanceRouter.patch("/:id/verify", checklistInstanceController.verify)
 
 // Mounted at /checklist-instance-items in app.ts. No role gate on setItemDone/images — the
 // service authorizes based on whether the requester is ADMIN or one of the parent instance's

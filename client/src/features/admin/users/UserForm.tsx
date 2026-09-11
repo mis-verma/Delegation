@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { UserPlus, Eye, EyeOff, AlertCircle, ShieldCheck, Building2, Store, KeyRound } from 'lucide-react';
+import { UserPlus, AlertCircle, ShieldCheck, Building2, Store, KeyRound } from 'lucide-react';
 import { Input, Button, Modal, Combobox, AvatarUpload } from '../../../components';
 import {
   useCreateUserMutation,
@@ -75,7 +75,6 @@ interface UserFormProps {
 const ResetPasswordSection = ({ userId }: { userId: string }) => {
   const [expanded, setExpanded] = useState(false);
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const resetMutation = useResetUserPasswordMutation();
 
@@ -108,28 +107,17 @@ const ResetPasswordSection = ({ userId }: { userId: string }) => {
 
   return (
     <div className="flex flex-col gap-2.5 pt-3 mt-1 border-t border-border">
-      <div className="relative">
-        <Input
-          id="reset-password"
-          label="New password"
-          type={showPassword ? 'text' : 'password'}
-          placeholder="Min. 8 characters"
-          icon={KeyRound}
-          value={password}
-          onChange={(e) => { setPassword(e.target.value); setError(null); }}
-          error={error ?? undefined}
-          autoFocus
-        />
-        <button
-          type="button"
-          onClick={() => setShowPassword((v) => !v)}
-          className="absolute right-3 top-[38px] text-text-light hover:text-text-secondary transition-colors cursor-pointer"
-          tabIndex={-1}
-          aria-label={showPassword ? 'Hide password' : 'Show password'}
-        >
-          {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-        </button>
-      </div>
+      <Input
+        id="reset-password"
+        label="New password"
+        type="password"
+        placeholder="Min. 8 characters"
+        icon={KeyRound}
+        value={password}
+        onChange={(e) => { setPassword(e.target.value); setError(null); }}
+        error={error ?? undefined}
+        autoFocus
+      />
       <div className="flex items-center gap-2">
         <Button type="button" variant="outline" size="sm" onClick={collapse} disabled={resetMutation.isPending}>
           Cancel
@@ -144,7 +132,6 @@ const ResetPasswordSection = ({ userId }: { userId: string }) => {
 
 export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) => {
   const isEditing = Boolean(user);
-  const [showPassword, setShowPassword] = useState(false);
   // Tracked locally (seeded from `user`, then updated straight from each mutation's response)
   // rather than re-read from `user` on every render — `user` is a snapshot captured when this
   // modal was opened, so it won't reflect a photo change made a moment ago in this same session.
@@ -311,25 +298,14 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
           />
 
           {!isEditing && (
-            <div className="relative">
-              <Input
-                id="password"
-                label="Password"
-                type={showPassword ? 'text' : 'password'}
-                placeholder="Min. 8 characters"
-                error={errors.password?.message}
-                {...register('password')}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(prev => !prev)}
-                className="absolute right-3 top-[38px] text-text-light hover:text-text-secondary transition-colors cursor-pointer"
-                tabIndex={-1}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-              >
-                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
+            <Input
+              id="password"
+              label="Password"
+              type="password"
+              placeholder="Min. 8 characters"
+              error={errors.password?.message}
+              {...register('password')}
+            />
           )}
 
           <div className="flex flex-col gap-1.5">

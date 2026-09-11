@@ -43,6 +43,10 @@ export const SignaturePadCanvas = ({ label, disabled, onChange }: SignaturePadCa
     const { x, y } = pointFromEvent(e);
     ctx.lineWidth = 2.5;
     ctx.lineCap = 'round';
+    // Deliberately NOT a theme token — a signature is ink on paper, meant to read the same
+    // regardless of the app's light/dark theme (and stay legible in an exported/printed PNG,
+    // which has no access to CSS variables at all), so both this stroke color and the canvas's
+    // own white background below are a fixed pairing rather than dark-mode-reactive.
     ctx.strokeStyle = '#1e293b';
     ctx.lineTo(x, y);
     ctx.stroke();
@@ -78,16 +82,20 @@ export const SignaturePadCanvas = ({ label, disabled, onChange }: SignaturePadCa
           </button>
         )}
       </div>
-      <canvas
-        ref={canvasRef}
-        width={480}
-        height={140}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={finishStroke}
-        onPointerLeave={finishStroke}
-        className={`w-full h-[140px] rounded-md border border-border bg-white touch-none ${disabled ? 'opacity-60' : 'cursor-crosshair'}`}
-      />
+      {/* Themed mat around the canvas's own fixed white "paper" — keeps a dark-mode page from
+          bordering straight onto an unframed white rectangle. */}
+      <div className="rounded-md border border-border bg-surface p-1.5">
+        <canvas
+          ref={canvasRef}
+          width={480}
+          height={140}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={finishStroke}
+          onPointerLeave={finishStroke}
+          className={`w-full h-[140px] rounded-sm bg-white touch-none ${disabled ? 'opacity-60' : 'cursor-crosshair'}`}
+        />
+      </div>
     </div>
   );
 };

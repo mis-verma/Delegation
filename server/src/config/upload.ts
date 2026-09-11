@@ -70,12 +70,42 @@ if (!fs.existsSync(AVATAR_UPLOAD_DIR)) {
     fs.mkdirSync(AVATAR_UPLOAD_DIR, { recursive: true })
 }
 
+// The stored extension used to come from `path.extname(file.originalname)` — but both
+// `originalname` and `mimetype` are attacker-controlled multipart fields, and `fileFilter` only
+// checks `mimetype`. That let a request pass the filter with `Content-Type: image/jpeg` while
+// naming the file `x.html`, which then got saved as `<hex>.html` and served back as `text/html`
+// by app.ts's `express.static(uploads)` — stored XSS on the app's own origin. The extension now
+// comes from this fixed mimetype->extension map instead, completely ignoring `originalname`. Any
+// mimetype that reaches a `filename` callback has already passed that upload's `fileFilter`, so
+// the `.bin` fallback below is defense-in-depth only (e.g. an admin adding an exotic mimetype to
+// `allowedImageTypes` that isn't in this map yet) — it never serves as an executable extension.
+const SAFE_MIME_EXTENSIONS: Record<string, string> = {
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+    "image/heic": ".heic",
+    "image/heif": ".heif",
+    "image/avif": ".avif",
+    "image/bmp": ".bmp",
+    "image/tiff": ".tiff",
+    "video/mp4": ".mp4",
+    "video/quicktime": ".mov",
+    "video/webm": ".webm",
+    "application/pdf": ".pdf",
+    "text/csv": ".csv",
+    "application/vnd.ms-excel": ".xls",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+}
+
+const safeExtensionFor = (mimetype: string): string => SAFE_MIME_EXTENSIONS[mimetype] ?? ".bin"
+
 const storage = multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
     filename: (_req, file, cb) => {
         const randomName = crypto.randomBytes(16).toString("hex");
-        const ext = path.extname(file.originalname).toLowerCase();
-        cb(null, `${randomName}${ext}`)
+        cb(null, `${randomName}${safeExtensionFor(file.mimetype)}`)
     },
 });
 
@@ -83,8 +113,7 @@ const ticketStorage = multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, TICKET_UPLOAD_DIR),
     filename: (_req, file, cb) => {
         const randomName = crypto.randomBytes(16).toString("hex");
-        const ext = path.extname(file.originalname).toLowerCase();
-        cb(null, `${randomName}${ext}`)
+        cb(null, `${randomName}${safeExtensionFor(file.mimetype)}`)
     },
 })
 
@@ -92,8 +121,7 @@ const ticketAttachmentStorage = multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, TICKET_ATTACHMENT_UPLOAD_DIR),
     filename: (_req, file, cb) => {
         const randomName = crypto.randomBytes(16).toString("hex");
-        const ext = path.extname(file.originalname).toLowerCase();
-        cb(null, `${randomName}${ext}`)
+        cb(null, `${randomName}${safeExtensionFor(file.mimetype)}`)
     },
 })
 
@@ -101,8 +129,7 @@ const checklistInstanceStorage = multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, CHECKLIST_INSTANCE_UPLOAD_DIR),
     filename: (_req, file, cb) => {
         const randomName = crypto.randomBytes(16).toString("hex");
-        const ext = path.extname(file.originalname).toLowerCase();
-        cb(null, `${randomName}${ext}`)
+        cb(null, `${randomName}${safeExtensionFor(file.mimetype)}`)
     },
 })
 
@@ -110,8 +137,7 @@ const checklistInstanceSubmissionStorage = multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, CHECKLIST_INSTANCE_SUBMISSION_UPLOAD_DIR),
     filename: (_req, file, cb) => {
         const randomName = crypto.randomBytes(16).toString("hex");
-        const ext = path.extname(file.originalname).toLowerCase();
-        cb(null, `${randomName}${ext}`)
+        cb(null, `${randomName}${safeExtensionFor(file.mimetype)}`)
     },
 })
 
@@ -119,8 +145,7 @@ const taskAttachmentStorage = multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, TASK_ATTACHMENT_UPLOAD_DIR),
     filename: (_req, file, cb) => {
         const randomName = crypto.randomBytes(16).toString("hex");
-        const ext = path.extname(file.originalname).toLowerCase();
-        cb(null, `${randomName}${ext}`)
+        cb(null, `${randomName}${safeExtensionFor(file.mimetype)}`)
     },
 })
 
@@ -128,8 +153,7 @@ const avatarStorage = multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, AVATAR_UPLOAD_DIR),
     filename: (_req, file, cb) => {
         const randomName = crypto.randomBytes(16).toString("hex");
-        const ext = path.extname(file.originalname).toLowerCase();
-        cb(null, `${randomName}${ext}`)
+        cb(null, `${randomName}${safeExtensionFor(file.mimetype)}`)
     },
 })
 
@@ -137,8 +161,7 @@ const taskCommentAttachmentStorage = multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, TASK_COMMENT_ATTACHMENT_UPLOAD_DIR),
     filename: (_req, file, cb) => {
         const randomName = crypto.randomBytes(16).toString("hex");
-        const ext = path.extname(file.originalname).toLowerCase();
-        cb(null, `${randomName}${ext}`)
+        cb(null, `${randomName}${safeExtensionFor(file.mimetype)}`)
     },
 })
 

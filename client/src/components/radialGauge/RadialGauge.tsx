@@ -141,8 +141,12 @@ export const RadialGauge = ({
               displayPercent <= 0
                 ? `var(--color-border)`
                 : `conic-gradient(from 0deg, ${gradientFrom} ${displayPercent}%, var(--color-border) ${displayPercent}% 100%)`,
-            WebkitMask: `radial-gradient(farthest-side, transparent calc(100% - ${ringThickness}px), #000 calc(100% - ${ringThickness}px))`,
-            mask: `radial-gradient(farthest-side, transparent calc(100% - ${ringThickness}px), #000 calc(100% - ${ringThickness}px))`,
+            // Both mask stops used to sit at the exact same offset — a zero-width transition, which
+            // some browsers rasterize as a visibly jagged/stepped inner edge (worse at the smaller
+            // 132px mobile size, where each pixel is a bigger share of the ring). A 1px-wide feather
+            // between the stops gives the mask something to actually antialias.
+            WebkitMask: `radial-gradient(farthest-side, transparent calc(100% - ${ringThickness}px - 0.5px), #000 calc(100% - ${ringThickness}px + 0.5px))`,
+            mask: `radial-gradient(farthest-side, transparent calc(100% - ${ringThickness}px - 0.5px), #000 calc(100% - ${ringThickness}px + 0.5px))`,
           }}
         />
       ) : (

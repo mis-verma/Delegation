@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { BarChart3, AlertTriangle, RotateCw } from 'lucide-react';
+import { BarChart3, AlertTriangle, RotateCw, ClipboardList, TicketCheck, ListTodo, ListChecks, CalendarDays } from 'lucide-react';
+import { QuickActionsGrid, type QuickAction } from '../admin/overview/QuickActionsGrid';
 import { Skeleton } from '../../components/skeleton';
 import { useAuth } from '../../context/AuthContext';
 import { useTicketsQuery } from '../tickets/hook';
@@ -16,6 +17,7 @@ import { ActivityComplianceGauges } from './ActivityComplianceGauges';
 import { ActivityGroupByControl } from './ActivityGroupByControl';
 import { ActivityCategoryFilter } from './ActivityCategoryFilter';
 import { CompareDashboard } from './CompareDashboard';
+import { TeamProgressCard } from './TeamProgressCard';
 import { RecentActivity, RECENT_ACTIVITY_FEED_SIZE } from './RecentActivity';
 import { UpcomingEvents } from './UpcomingEvents';
 import {
@@ -32,6 +34,16 @@ import {
   pointDelta,
 } from './dashboardDisplay';
 import type { Task } from '../../api/task';
+
+// The user-facing counterpart to Admin Overview's QuickActionsGrid — same shared component, own
+// action list (everyday work routes, not admin management pages).
+const USER_QUICK_ACTIONS: readonly QuickAction[] = [
+  { to: '/tasks', icon: ClipboardList, label: 'Delegations', description: 'View your assigned work' },
+  { to: '/tickets', icon: TicketCheck, label: 'Tickets', description: 'Raise or track an issue' },
+  { to: '/todo', icon: ListTodo, label: 'Todo', description: 'Your personal task list' },
+  { to: '/checklists', icon: ListChecks, label: 'Checklists', description: "Today's runs" },
+  { to: '/events', icon: CalendarDays, label: 'Events', description: 'Upcoming deadlines' },
+];
 
 export const HomePage = () => {
   const { user } = useAuth();
@@ -65,7 +77,7 @@ export const HomePage = () => {
   const { data: todos = [] } = useTodosQuery();
   // Feed-only consumer: it merges these with tasks/tickets/todos and shows the newest handful,
   // so it asks for a page rather than every instance the user has ever been assigned.
-  const { data: checklistInstances = [] } = useMyChecklistInstancesQuery(undefined, { limit: 25 });
+  const { data: checklistInstances = [] } = useMyChecklistInstancesQuery({}, { limit: 25 });
 
   const isPending = ticketsPending || tasksPending;
   // React Query drops `isPending` the moment a query settles — including when it settles as a
@@ -85,6 +97,10 @@ export const HomePage = () => {
 
   const isOrgWideRole = user?.role === 'ADMIN' || user?.role === 'PC';
   const workflowTasks = isOrgWideRole ? (allTasks ?? []) : tasks;
+  // Same org-wide-for-admin/PC treatment as workflowTasks above — the Tickets card in the KPI
+  // strip and Compare Dashboard were still being fed `tickets` (always "mine", unconditionally),
+  // so an ADMIN saw every delegation but only their own tickets in the same row of stat cards.
+  const workflowTickets = isOrgWideRole ? (ticketPage?.data ?? []) : tickets;
   const workflowStats = {
     pending: workflowTasks.filter((t) => t.status === 'todo' || t.status === 'in_progress').length,
     approvals: workflowTasks.filter((t) => t.status === 'pending_verification').length,
@@ -201,7 +217,13 @@ export const HomePage = () => {
         </div>
       )}
 
-      <DashboardOverview isPending={isPending} tickets={tickets} tasks={tasks} workflowStats={workflowStats} />
+      {/* `workflowTasks`/`workflowTickets`, not `tasks`/`tickets` — the KPI strip's Due/Completed
+          drill-down modals have to list the exact records `workflowStats` counted (org-wide for
+          ADMIN/PC), not the user-scoped lists, or a stat's popup would show a different set of
+          records than the number it explains. */}
+      <DashboardOverview isPending={isPending} tickets={workflowTickets} tasks={workflowTasks} todos={todos} workflowStats={workflowStats} />
+
+      <QuickActionsGrid actions={USER_QUICK_ACTIONS} />
 
       {/* No overflow-hidden here — nothing inside needs clipping, and it was cutting off the bar
           chart's hover tooltip whenever it popped out past this card's own rounded border. The
@@ -264,42 +286,38 @@ export const HomePage = () => {
         )}
       </section>
 
-      {/* Its own card now, not a side-panel squeezed into the bar chart's — same header weight
-          as every other Dashboard card instead of reading as a lesser fragment. Admin/PC-only:
-          it scopes by Department/Store/Person across the whole org, which isn't a view a regular
-          user (who only ever sees their own work anyway) needs or should get. */}
-      {isOrgWideRole && (
-        isPending ? (
-          <div className="relative rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface p-4 sm:p-6 lg:p-7 overflow-hidden">
-            <div className="absolute -top-20 -left-16 w-56 h-56 bg-primary-500/10 dark:bg-primary-400/5 rounded-full blur-[90px] pointer-events-none" />
-            <div className="relative flex items-center gap-3 mb-5">
-              <Skeleton className="size-10 rounded-xl shrink-0" />
-              <div className="flex flex-col gap-2">
-                <Skeleton className="h-4 w-28 rounded" />
-                <Skeleton className="h-3 w-48 rounded" />
+      {/* Compliance + Delegation Score, one row — both are "how are we scoring" cards, so they
+          read as a pair rather than Compliance sitting alone above an unrelated 3-up row.
+          isOrgWideRole gates Compliance (Admin/PC-only, org-wide scope) — for everyone else this
+          row is just Delegation Score on its own, not a half-empty grid with one dead column, so
+          the grid itself only turns on when there's a second card to pair it with. */}
+      <div className={isOrgWideRole ? 'grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6' : 'flex flex-col'}>
+        {isOrgWideRole && (
+          isPending ? (
+            <div className="relative rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface p-4 sm:p-6 lg:p-7 overflow-hidden">
+              <div className="absolute -top-20 -left-16 w-56 h-56 bg-primary-500/10 dark:bg-primary-400/5 rounded-full blur-[90px] pointer-events-none" />
+              <div className="relative flex items-center gap-3 mb-5">
+                <Skeleton className="size-10 rounded-xl shrink-0" />
+                <div className="flex flex-col gap-2">
+                  <Skeleton className="h-4 w-28 rounded" />
+                  <Skeleton className="h-3 w-48 rounded" />
+                </div>
+              </div>
+              {/* Two circles, matching the two-gauge grid this replaces — same rough footprint as
+                  the real 176px-diameter charts so the card doesn't visibly resize once data lands. */}
+              <div className="relative grid grid-cols-2 gap-3 sm:gap-6" role="status" aria-label="Loading compliance">
+                {[0, 1].map((i) => (
+                  <div key={i} className="flex flex-col items-center gap-4 p-3 sm:p-6">
+                    <Skeleton className="rounded-full" style={{ width: 176, height: 176, maxWidth: '100%' }} />
+                    <Skeleton className="h-3 w-20 rounded" />
+                  </div>
+                ))}
               </div>
             </div>
-            {/* Two circles, matching the two-gauge grid this replaces — same rough footprint as
-                the real 176px-diameter charts so the card doesn't visibly resize once data lands. */}
-            <div className="relative grid grid-cols-2 gap-3 sm:gap-6" role="status" aria-label="Loading compliance">
-              {[0, 1].map((i) => (
-                <div key={i} className="flex flex-col items-center gap-4 p-3 sm:p-6">
-                  <Skeleton className="rounded-full" style={{ width: 176, height: 176, maxWidth: '100%' }} />
-                  <Skeleton className="h-3 w-20 rounded" />
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <ActivityComplianceGauges items={orgActivityItems} activeCategories={activeCategories} groupBy={activityGroupBy} />
-        )
-      )}
-
-      {/* Both card rows share one gap scale — they previously used different values (4/5 here vs.
-          a flat 6 below) for no reason tied to their content, just drift between when each was
-          last touched. */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-        <CompareDashboard tasks={tasks} tickets={tickets} period={comparePeriod} onPeriodChange={setComparePeriod} />
+          ) : (
+            <ActivityComplianceGauges items={orgActivityItems} activeCategories={activeCategories} groupBy={activityGroupBy} />
+          )
+        )}
 
         <MonthlyTargetCard
           percent={targetPercent}
@@ -311,7 +329,20 @@ export const HomePage = () => {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 pb-8">
+      {/* Everything else — 2x2 on desktop, one column below that. Same gap scale as the row
+          above so the whole page keeps one rhythm instead of drifting between values depending on
+          when a section was last touched. */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 pb-8">
+        {/* Compare Dashboard, like Compliance above, is an oversight widget — Admin/PC-only, same
+            as the request. A regular user's dashboard shows only cards scoped to their own work.
+            `workflowTasks`/`workflowTickets` (org-wide here, since this only ever renders for
+            ADMIN/PC), not `tasks`/`tickets` — this is the one widget explicitly gated to org-wide
+            roles specifically so it can compare across the whole org, so feeding it the "mine"-only
+            lists defeated its own purpose. */}
+        {isOrgWideRole && (
+          <CompareDashboard tasks={workflowTasks} tickets={workflowTickets} period={comparePeriod} onPeriodChange={setComparePeriod} />
+        )}
+        <TeamProgressCard tasks={workflowTasks} isOrgWideRole={isOrgWideRole} />
         <RecentActivity feed={feed} isPending={isPending} />
         <UpcomingEvents events={upcomingEvents ?? []} isPending={eventsPending} />
       </div>

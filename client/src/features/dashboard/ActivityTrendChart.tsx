@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Cell } from 'recharts';
-import { BarChart3 } from 'lucide-react';
+import { BarChart3, ChevronRight } from 'lucide-react';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { PinnedBreakdown, BreakdownHint } from './PinnedBreakdown';
+import { DrilldownModal } from './DrilldownModal';
 import {
   lastActivityBuckets,
   countItemsInRange,
+  itemsInRange,
   ACTIVITY_BUCKET_COUNT,
   ACTIVITY_CATEGORY_ORDER,
   ACTIVITY_CATEGORY_LABEL,
@@ -61,18 +63,46 @@ const NarrowCursor = ({ x = 0, y = 0, width = 0, height = 0 }: NarrowCursorProps
 // Shared by the hover tooltip and the tap-to-pin panel below the chart, so mobile (no hover) gets
 // the exact same breakdown a desktop user sees on hover, not a stripped-down version. Only shows
 // rows for categories the filter above the chart currently has active.
-const BreakdownRows = ({ datum, activeCategories }: { datum: ActivityDatum; activeCategories: ReadonlySet<ActivityCategory> }) => (
+//
+// `onCategoryClick` is only ever passed by the tap-to-pin panel, never the hover tooltip — a
+// hover tooltip disappears the instant the pointer moves toward it, so nothing inside one can be
+// clickable in practice.
+const BreakdownRows = ({
+  datum,
+  activeCategories,
+  onCategoryClick,
+}: {
+  datum: ActivityDatum;
+  activeCategories: ReadonlySet<ActivityCategory>;
+  onCategoryClick?: (category: ActivityCategory) => void;
+}) => (
   <>
     <div className="flex flex-col gap-1.5">
-      {ACTIVITY_CATEGORY_ORDER.filter((category) => activeCategories.has(category)).map((category) => (
-        <div key={category} className="flex items-center justify-between gap-4 text-[13px]">
-          <div className="flex items-center gap-1.5 text-text-secondary">
-            <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: ACTIVITY_CATEGORY_COLOR[category] }} />
-            {ACTIVITY_CATEGORY_LABEL[category]}
-          </div>
-          <span className="font-display font-bold text-text tabular-nums">{datum[category]}</span>
-        </div>
-      ))}
+      {ACTIVITY_CATEGORY_ORDER.filter((category) => activeCategories.has(category)).map((category) => {
+        const clickable = !!onCategoryClick && datum[category] > 0;
+        const RowTag = clickable ? 'button' : 'div';
+        return (
+          // min-h-11 (44px) — same tap-target fix as ActivityComplianceGauges' BreakdownRatioRows;
+          // this row became a button when the drill-down modal was added and needs the same floor.
+          <RowTag
+            key={category}
+            type={clickable ? 'button' : undefined}
+            onClick={clickable ? () => onCategoryClick!(category) : undefined}
+            className={`flex items-center justify-between gap-4 text-[13px] w-full min-h-11 rounded-lg -mx-2 px-2 transition-colors duration-200 ${
+              clickable ? 'cursor-pointer text-left hover:bg-surface-hover' : ''
+            }`}
+          >
+            <div className="flex items-center gap-1.5 text-text-secondary">
+              <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: ACTIVITY_CATEGORY_COLOR[category] }} />
+              {ACTIVITY_CATEGORY_LABEL[category]}
+            </div>
+            <span className="flex items-center gap-2.5 shrink-0">
+              <span className="font-display font-bold text-text tabular-nums">{datum[category]}</span>
+              {clickable && <ChevronRight size={14} strokeWidth={2.5} className="text-text-light" />}
+            </span>
+          </RowTag>
+        );
+      })}
     </div>
   </>
 );
@@ -107,6 +137,7 @@ const ChartEmptyState = ({ message, tinted }: { message: string; tinted: boolean
 
 export const ActivityTrendChart = ({ items, activeCategories, groupBy }: ActivityTrendChartProps) => {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [drilldownCategory, setDrilldownCategory] = useState<ActivityCategory | null>(null);
   const isMobile = useIsMobile();
 
   // Bucket indices mean something different per granularity (e.g. index 3 of 7 days vs. index 3
@@ -117,13 +148,17 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
   if (groupBy !== prevGroupBy) {
     setPrevGroupBy(groupBy);
     setSelectedIndex(null);
+    setDrilldownCategory(null);
   }
 
   const activeOrder = useMemo(() => ACTIVITY_CATEGORY_ORDER.filter((c) => activeCategories.has(c)), [activeCategories]);
 
-  const data = useMemo<ActivityDatum[]>(() => {
-    const buckets = lastActivityBuckets(groupBy, ACTIVITY_BUCKET_COUNT[groupBy]);
+  // Kept alongside `data` (same index) purely so a clicked breakdown row can look its bucket's
+  // [start, end) back up — the bar itself only ever needed the count, not the range that produced
+  // it, until drill-down needed to re-filter `items` for the exact same window.
+  const buckets = useMemo(() => lastActivityBuckets(groupBy, ACTIVITY_BUCKET_COUNT[groupBy]), [groupBy]);
 
+  const data = useMemo<ActivityDatum[]>(() => {
     return buckets.map((b) => {
       const counts = {} as Record<ActivityCategory, number>;
       for (const category of ACTIVITY_CATEGORY_ORDER) {
@@ -131,7 +166,7 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
       }
       return { label: b.label, ...counts };
     });
-  }, [items, activeCategories, groupBy]);
+  }, [items, activeCategories, buckets]);
 
   const hasData = data.some((d) => ACTIVITY_CATEGORY_ORDER.some((category) => d[category] > 0));
 
@@ -259,13 +294,31 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
       </div>
 
       {/* Tap-to-pin breakdown — same data the hover tooltip shows, kept visible after the tap so
-          it works on touch devices (no hover) and doesn't disappear the moment a finger lifts. */}
+          it works on touch devices (no hover) and doesn't disappear the moment a finger lifts.
+          Its rows are clickable here (never on the hover tooltip — see BreakdownRows) since a
+          pinned panel actually stays put long enough to be clicked. */}
       {selectedDatum ? (
         <PinnedBreakdown title={selectedDatum.label} onClose={() => setSelectedIndex(null)}>
-          <BreakdownRows datum={selectedDatum} activeCategories={activeCategories} />
+          <BreakdownRows datum={selectedDatum} activeCategories={activeCategories} onCategoryClick={setDrilldownCategory} />
         </PinnedBreakdown>
       ) : (
         <BreakdownHint>Tap a bar to see its full breakdown</BreakdownHint>
+      )}
+
+      {drilldownCategory && selectedIndex !== null && (
+        <DrilldownModal
+          open
+          onClose={() => setDrilldownCategory(null)}
+          title={`${ACTIVITY_CATEGORY_LABEL[drilldownCategory]} — ${data[selectedIndex].label}`}
+          rows={itemsInRange(items, drilldownCategory, buckets[selectedIndex].start, buckets[selectedIndex].end)}
+          viewAllHref={
+            drilldownCategory === 'delegation' ? '/tasks'
+              : drilldownCategory === 'ticket' ? '/tickets'
+              : drilldownCategory === 'checklist' ? '/checklists'
+              : '/todo'
+          }
+          viewAllLabel={`View all ${ACTIVITY_CATEGORY_LABEL[drilldownCategory].toLowerCase()}s`}
+        />
       )}
     </div>
   );

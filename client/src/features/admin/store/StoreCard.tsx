@@ -19,7 +19,15 @@ interface StoreCardProps {
 }
 
 export const StoreCard = ({ store, memberCount, isUpdating, isDeleting, onToggleActive, onEdit, onDelete }: StoreCardProps) => (
-  <article className={cn(ENTITY_CARD_CLASS, isDeleting && 'opacity-50 pointer-events-none grayscale-[0.3]')}>
+  <article
+    className={cn(
+      ENTITY_CARD_CLASS,
+      // Inactive stores read as visibly muted, not just via the small text pill, so a scan of the
+      // grid shows who's active/inactive at a glance.
+      !store.isActive && 'opacity-65 saturate-50',
+      isDeleting && 'opacity-50 pointer-events-none grayscale-[0.3]'
+    )}
+  >
     <header className="flex items-start justify-between gap-2.5 mb-2.5">
       <div className="flex items-center gap-2.5 min-w-0">
         <EntityIconTile icon={StoreIcon} tone="coral" />

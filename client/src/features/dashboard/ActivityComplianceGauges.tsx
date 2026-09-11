@@ -2,8 +2,10 @@ import { useMemo, useState } from 'react';
 import { ClipboardCheck, ShieldCheck, Sparkles, TrendingUp, TrendingDown, Minus, Download, FileSpreadsheet, FileText, type LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { RadialGauge } from '../../components';
+import { Modal } from '../../components/modal';
 import { useIsMobile } from '../../lib/useMediaQuery';
-import { PinnedBreakdown, BreakdownRatioRows, BreakdownHint } from './PinnedBreakdown';
+import { BreakdownRatioRows } from './PinnedBreakdown';
+import { DrilldownModal } from './DrilldownModal';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../../components/ui/select';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '../../components/ui/dropdown-menu';
 import { csvBlob, xlsxBlob, downloadBlob, stampedFilename, type TableRows } from '../../lib/exportTable';
@@ -27,6 +29,20 @@ import {
 // `null`/`undefined` isn't a valid controlled value either, so every filter uses this string and
 // gets translated back to `null` at the point it's read.
 const ALL = 'all';
+
+// The breakdown rows only carry a display label ("Ticket"), not the category key that produced
+// it — this reverses ACTIVITY_CATEGORY_LABEL once so a clicked row's label can look its category
+// back up for drill-down filtering.
+const LABEL_TO_CATEGORY = Object.fromEntries(
+  ACTIVITY_CATEGORY_ORDER.map((c) => [ACTIVITY_CATEGORY_LABEL[c], c]),
+) as Record<string, ActivityCategory>;
+
+const CATEGORY_VIEW_ALL_HREF: Record<ActivityCategory, string> = {
+  delegation: '/tasks',
+  ticket: '/tickets',
+  checklist: '/checklists',
+  todo: '/todo',
+};
 
 interface ActivityComplianceGaugesProps {
   items: ActivityWorkItem[];
@@ -140,6 +156,7 @@ const Gauge = ({ icon: Icon, label, percent, count, total, trend, isSelected, on
 
 export const ActivityComplianceGauges = ({ items, activeCategories, groupBy }: ActivityComplianceGaugesProps) => {
   const [selected, setSelected] = useState<GaugeKey | null>(null);
+  const [drilldownCategory, setDrilldownCategory] = useState<ActivityCategory | null>(null);
 
   // "All" until an admin narrows it — Department, Store and Person are independent, combinable
   // scopes (e.g. one department at one store), not tabs. A Department filter is also the
@@ -181,9 +198,10 @@ export const ActivityComplianceGauges = ({ items, activeCategories, groupBy }: A
   if (groupBy !== prevGroupBy) {
     setPrevGroupBy(groupBy);
     setSelected(null);
+    setDrilldownCategory(null);
   }
 
-  const { completionRate, onTimeRate, completed, onTime, total, completionBreakdown, onTimeBreakdown, completionTrend, onTimeTrend } = useMemo(() => {
+  const { completionRate, onTimeRate, completed, onTime, total, completionBreakdown, onTimeBreakdown, completionTrend, onTimeTrend, scoped } = useMemo(() => {
     const buckets = lastActivityBuckets(groupBy, ACTIVITY_BUCKET_COUNT[groupBy]);
     const start = buckets[0].start;
     const end = buckets[buckets.length - 1].end;
@@ -233,6 +251,9 @@ export const ActivityComplianceGauges = ({ items, activeCategories, groupBy }: A
       onTimeBreakdown,
       completionTrend: completionRate != null && prevCompletionRate != null ? pointDelta(completionRate, prevCompletionRate) : null,
       onTimeTrend: onTimeRate != null && prevOnTimeRate != null ? pointDelta(onTimeRate, prevOnTimeRate) : null,
+      // Kept for drill-down — the exact same time+scope-filtered set the rates above were computed
+      // from, so a clicked breakdown row lists precisely the records behind its number.
+      scoped,
     };
   }, [scopedItems, activeCategories, groupBy]);
 
@@ -334,109 +355,134 @@ export const ActivityComplianceGauges = ({ items, activeCategories, groupBy }: A
         </DropdownMenu>
       </div>
 
-      {/* Two 176px gauges in a full-page-width card left ~1000px of dead space on a large monitor.
-          Once the card is wide enough (@3xl ≈ the point an xl viewport reaches), the scope filters
-          move into a fixed rail on the left and the gauges take the remaining width — capped, so
-          they stay circles in a readable cluster rather than drifting apart to the card's edges.
-          Below that width it's the original single stack. */}
-      <div className="grid grid-cols-1 @3xl:grid-cols-[17rem_minmax(0,1fr)] gap-5 @3xl:gap-8 items-start">
-        {/* Scope filters — Department, Store and Person are independent and combinable, so an admin
-            can drill into e.g. one department at one store, or one person org-wide. Only Ticket
-            carries all three dimensions; Task has no store and a Todo has neither a store nor a
-            department nor an owner, so items missing the scoped dimension simply drop out once a
-            filter is applied (see the userIds/departmentId/storeId comments on ActivityWorkItem). */}
-        <div className="flex flex-col gap-2">
-          <p className="hidden @3xl:block text-[11px] font-display font-semibold text-text-muted tracking-wide">Scope</p>
-          <div className="flex flex-wrap @3xl:flex-col gap-2">
-            <Select value={departmentId ?? ALL} onValueChange={(v) => setDepartmentId(v === ALL ? null : v)}>
-              {/* aria-label, not just the placeholder — once a department is picked, SelectValue shows
-                  its name ("Engineering"), which on its own gives a screen reader no indication this
-                  trigger is the *department* filter rather than the store or person one. */}
-              <SelectTrigger size="sm" className="w-auto @3xl:w-full min-w-[9.5rem]" aria-label="Filter by department">
-                <SelectValue placeholder="All departments" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>All departments</SelectItem>
-                {departments.map((d) => (
-                  <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      {/* One compact row, not a two-column layout with its own rail — the previous 17rem sidebar
+          of three selects next to a taller gauges+breakdown column left a block of dead space under
+          the selects on every screen wide enough to split them apart. Wrapping in a single row
+          scales with however many filters are active instead of reserving a fixed-width column
+          for them. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Select value={departmentId ?? ALL} onValueChange={(v) => setDepartmentId(v === ALL ? null : v)}>
+          {/* aria-label, not just the placeholder — once a department is picked, SelectValue shows
+              its name ("Engineering"), which on its own gives a screen reader no indication this
+              trigger is the *department* filter rather than the store or person one. */}
+          <SelectTrigger size="sm" className="w-auto min-w-[8.5rem]" aria-label="Filter by department">
+            <SelectValue placeholder="All departments" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>All departments</SelectItem>
+            {departments.map((d) => (
+              <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-            <Select value={storeId ?? ALL} onValueChange={(v) => setStoreId(v === ALL ? null : v)}>
-              <SelectTrigger size="sm" className="w-auto @3xl:w-full min-w-[9.5rem]" aria-label="Filter by store">
-                <SelectValue placeholder="All stores" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>All stores</SelectItem>
-                {stores.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        <Select value={storeId ?? ALL} onValueChange={(v) => setStoreId(v === ALL ? null : v)}>
+          <SelectTrigger size="sm" className="w-auto min-w-[8.5rem]" aria-label="Filter by store">
+            <SelectValue placeholder="All stores" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>All stores</SelectItem>
+            {stores.map((s) => (
+              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-            <Select value={personId ?? ALL} onValueChange={(v) => setPersonId(v === ALL ? null : v)}>
-              <SelectTrigger size="sm" className="w-auto @3xl:w-full min-w-[9.5rem]" aria-label="Filter by person">
-                <SelectValue placeholder="All people" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL}>All people</SelectItem>
-                {people.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.firstName}{p.lastName ? ` ${p.lastName}` : ''}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <Select value={personId ?? ALL} onValueChange={(v) => setPersonId(v === ALL ? null : v)}>
+          <SelectTrigger size="sm" className="w-auto min-w-[8.5rem]" aria-label="Filter by person">
+            <SelectValue placeholder="All people" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>All people</SelectItem>
+            {people.map((p) => (
+              <SelectItem key={p.id} value={p.id}>{p.firstName}{p.lastName ? ` ${p.lastName}` : ''}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
 
-          {/* Only Ticket carries all three scope dimensions — narrowing by any of them silently drops
-              categories that don't have it (Task has no store, Todo/checklist have no department,
-              Todo has no owner at all) rather than matching them against the wrong thing. Surfaced
-              here so a shrunk total reads as "expected" rather than "is this broken". */}
-          {(departmentId || storeId || personId) && (
-            <p className="text-[11px] font-medium text-text-light">
-              Scoped view — items with no matching {[departmentId && 'department', storeId && 'store', personId && 'assignee'].filter(Boolean).join('/')} (e.g. Todos) are excluded from these totals.
-            </p>
-          )}
-        </div>
+        {/* Only Ticket carries all three scope dimensions — narrowing by any of them silently drops
+            categories that don't have it (Task has no store, Todo/checklist have no department,
+            Todo has no owner at all) rather than matching them against the wrong thing. Surfaced
+            here so a shrunk total reads as "expected" rather than "is this broken". Inline now
+            instead of its own paragraph below the selects — one more thing the concise row folds
+            in rather than stacking. */}
+        {(departmentId || storeId || personId) && (
+          <p className="text-[11px] font-medium text-text-light basis-full sm:basis-auto">
+            Scoped — excludes items with no matching {[departmentId && 'department', storeId && 'store', personId && 'assignee'].filter(Boolean).join('/')}.
+          </p>
+        )}
+      </div>
 
-        <div className="flex flex-col items-center gap-5 w-full @3xl:max-w-2xl @3xl:mx-auto">
-          {/* Gauges Layout — grid, not flex, so each tile takes exactly half the card's width instead
-              of shrinking to its content and leaving the extra space unevenly distributed. */}
-          <div className="grid grid-cols-2 gap-3 sm:gap-6 w-full">
-            <Gauge
-              icon={ClipboardCheck}
-              label="Completion"
-              percent={completionRate}
-              count={completed}
-              total={total}
-              trend={completionTrend}
-              isSelected={selected === 'completion'}
-              onToggle={() => setSelected((prev) => (prev === 'completion' ? null : 'completion'))}
-            />
-            <Gauge
-              icon={ShieldCheck}
-              label="On-time Compliance"
-              percent={onTimeRate}
-              count={onTime}
-              total={total}
-              trend={onTimeTrend}
-              isSelected={selected === 'onTime'}
-              onToggle={() => setSelected((prev) => (prev === 'onTime' ? null : 'onTime'))}
-            />
-          </div>
-
-          {/* Tap-to-pin breakdown — same per-category split the bar chart's tooltip shows (and follows
-              the same category filter), so tapping either gauge answers "completion/compliance of
-              what, exactly?" without leaving the card. */}
-          {activeBreakdown && activeLabel ? (
-            <PinnedBreakdown title={`${activeLabel} breakdown`} onClose={() => setSelected(null)} className="w-full">
-              <BreakdownRatioRows rows={activeBreakdown} />
-            </PinnedBreakdown>
-          ) : (
-            <BreakdownHint>Tap a gauge to see its breakdown</BreakdownHint>
-          )}
+      {/* Gauges — a centered pair, capped so they read as a cluster of circles rather than
+          drifting apart on a wide monitor. Tapping one now opens the breakdown straight in a modal
+          (see below) instead of an always-reserved panel under the gauges, which is what let this
+          whole card shrink down to just its header + filter row + rings when nothing is selected. */}
+      <div className="flex justify-center">
+        <div className="grid grid-cols-2 gap-3 sm:gap-6 w-full max-w-xl">
+          <Gauge
+            icon={ClipboardCheck}
+            label="Completion"
+            percent={completionRate}
+            count={completed}
+            total={total}
+            trend={completionTrend}
+            isSelected={selected === 'completion'}
+            onToggle={() => setSelected((prev) => (prev === 'completion' ? null : 'completion'))}
+          />
+          <Gauge
+            icon={ShieldCheck}
+            label="On-time Compliance"
+            percent={onTimeRate}
+            count={onTime}
+            total={total}
+            trend={onTimeTrend}
+            isSelected={selected === 'onTime'}
+            onToggle={() => setSelected((prev) => (prev === 'onTime' ? null : 'onTime'))}
+          />
         </div>
       </div>
+
+      {/* Tapping a ring opens its full breakdown here — a real modal, not an inline panel — so it
+          reads as "this expands to show everything" rather than a small addendum tucked under the
+          card. Picking a category inside hands off to the item-level DrilldownModal below. */}
+      {activeBreakdown && activeLabel && (
+        <Modal
+          open={selected !== null}
+          onClose={() => setSelected(null)}
+          title={`${activeLabel} breakdown`}
+          description={`Trailing ${ACTIVITY_GROUP_RANGE_LABEL[groupBy]}`}
+          size="sm"
+        >
+          <div className="flex items-center gap-4 pb-1">
+            <div className="flex items-center justify-center size-16 rounded-full border-4 border-primary-700/90 shrink-0">
+              <span className="text-lg font-display font-black text-text tabular-nums">
+                {selected === 'completion' ? completionRate : onTimeRate}%
+              </span>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <p className="text-sm font-display font-bold text-text">
+                {selected === 'completion' ? completed : onTime} of {total}
+              </p>
+              <p className="text-[11px] font-medium text-text-light">Across every active category below</p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-1 border-t border-border/50 pt-3">
+            <BreakdownRatioRows rows={activeBreakdown} onRowClick={(label) => { setSelected(null); setDrilldownCategory(LABEL_TO_CATEGORY[label]); }} />
+          </div>
+        </Modal>
+      )}
+
+      {drilldownCategory && activeLabel && (
+        <DrilldownModal
+          open
+          onClose={() => setDrilldownCategory(null)}
+          title={`${ACTIVITY_CATEGORY_LABEL[drilldownCategory]} — ${activeLabel}`}
+          description={`Trailing ${ACTIVITY_GROUP_RANGE_LABEL[groupBy]}`}
+          rows={scoped.filter((i) => i.category === drilldownCategory)}
+          viewAllHref={CATEGORY_VIEW_ALL_HREF[drilldownCategory]}
+          viewAllLabel={`View all ${ACTIVITY_CATEGORY_LABEL[drilldownCategory].toLowerCase()}s`}
+        />
+      )}
     </section>
   );
 };

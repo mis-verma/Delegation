@@ -7,6 +7,7 @@ export type Notification = {
     message : string;
     ticketId : string | null;
     taskId : string | null;
+    checklistInstanceId : string | null;
     isRead : boolean;
     createdAt : string;
 }

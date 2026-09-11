@@ -6,8 +6,12 @@ interface PriorityFieldProps {
   onChange: (value: TicketPriority) => void;
 }
 
+// Same @container short/full swap as Delegation's TaskFormPrioritySelector: in a half-width grid
+// cell there isn't room for four full words side by side, so each chip shows just its letter
+// until its own container is wide enough for the word — not a fixed choice, so it also grows back
+// to the full label wherever this field gets more room (e.g. full-width on a narrow phone).
 export const PriorityField = ({ value, onChange }: PriorityFieldProps) => (
-  <div className="flex flex-col gap-2">
+  <div className="group/field @container flex flex-col gap-2">
     <label className={LABEL_CLASS}>Priority Level</label>
     <div className="flex flex-wrap gap-1.5" role="group" aria-label="Priority Level">
       {PRIORITIES.map((p) => {
@@ -19,17 +23,15 @@ export const PriorityField = ({ value, onChange }: PriorityFieldProps) => (
             aria-pressed={isSelected}
             aria-label={`Select ${p.label} priority`}
             onClick={() => onChange(p.value)}
-          
-            className={`h-8 px-3.5 text-xs font-display font-semibold rounded-full border-2 bg-surface transition-all duration-150 cursor-pointer outline-none active:scale-95 focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
-              isSelected 
-                ? `${p.selectedClass} shadow-sm` 
+            className={`flex items-center justify-center gap-1 h-8 px-3.5 text-xs font-display font-semibold rounded-full border-2 bg-surface transition-all duration-150 cursor-pointer outline-none active:scale-95 focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
+              isSelected
+                ? `${p.selectedClass} shadow-sm`
                 : `${p.outlineClass} hover:border-border-hover`
             }`}
           >
-            <span className="inline-flex items-center gap-1.5">
-              {isSelected && <Check size={12} strokeWidth={3} className="shrink-0" />}
-              <span>{p.label}</span>
-            </span>
+            {isSelected && <Check size={11} strokeWidth={3} className="shrink-0" />}
+            <span className="@sm:hidden">{p.short}</span>
+            <span className="hidden @sm:inline truncate">{p.label}</span>
           </button>
         );
       })}

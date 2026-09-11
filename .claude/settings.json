@@ -1,0 +1,9 @@
+{
+  "enabledPlugins": {
+    "context7@context7-marketplace": true,
+    "commands-ci-deployment@buildwithclaude": true,
+    "genshijin@claude-community": true,
+    "perxel-blocks@claude-community": true,
+    "caveman@claude-community": false
+  }
+}

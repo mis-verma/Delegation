@@ -2,12 +2,15 @@ import { db } from "../../config/db.js"
 import {
     checklistInstances,
     checklistInstanceAssignees,
+    checklistInstanceReviewers,
     checklistInstanceItems,
     checklistInstanceImages,
     checklistInstanceItemSubmissions,
     checklistInstanceItemSubmissionAccessories,
     checklistInstanceItemSubmissionImages,
     users,
+    CHECKLIST_RECURRENCES,
+    CHECKLIST_VERIFICATION_STATUSES,
 } from "../../db/schema/index.js"
 import { eq, and, inArray, desc, asc, sql } from "drizzle-orm"
 import { AppError } from "../../utils/AppError.js"
@@ -20,12 +23,17 @@ import type { VerifyChecklistInstanceInput } from "./checklistInstance.validatio
 import type { Role } from "../../db/schema/core.js"
 import { DATE_FORMATS } from "../../utils/dateBucket.js"
 import type { DateBucket } from "../../utils/index.js"
+import { emitChecklistEvent } from "../../sockets/checklistEvent.js"
 
 // OVERDUE is a subset of OPEN (unfinished *and* past its period end), not a third
 // independent state — the compliance board and MyChecklists both offer it as a filter, and
 // it was being applied client-side over the full list, which is one of the two reasons those
 // lists could not paginate.
-export type InstanceStatusFilter = "OPEN" | "COMPLETED" | "OVERDUE"
+// "OPEN" is every incomplete instance (overdue ones included) — the same broad "not done yet"
+// bucket Delegation/Tickets call "Pending". "DUE" is the on-track subset of that: incomplete but
+// not yet past its period end, mirroring how Delegation/Tickets split "Pending" into "Due" +
+// "Delayed"/"Overdue" instead of leaving "Due" as a synonym for "Pending".
+export type InstanceStatusFilter = "OPEN" | "DUE" | "COMPLETED" | "OVERDUE"
 
 // Not using Drizzle's relational query API (`db.query...with:{...}`) here — that API compiles
 // every relation into a `LEFT JOIN LATERAL (...)` subquery, and the actual database this app
@@ -47,6 +55,14 @@ const hydrateInstances = async (instanceRows: (typeof checklistInstances.$inferS
         const list = assigneeIdsByInstance.get(link.instanceId) ?? []
         list.push(link.userId)
         assigneeIdsByInstance.set(link.instanceId, list)
+    }
+
+    const reviewerLinks = await db.select().from(checklistInstanceReviewers).where(inArray(checklistInstanceReviewers.instanceId, instanceIds))
+    const reviewerIdsByInstance = new Map<string, string[]>()
+    for (const link of reviewerLinks) {
+        const list = reviewerIdsByInstance.get(link.instanceId) ?? []
+        list.push(link.userId)
+        reviewerIdsByInstance.set(link.instanceId, list)
     }
 
     const items = await db.select().from(checklistInstanceItems).where(inArray(checklistInstanceItems.instanceId, instanceIds)).orderBy(asc(checklistInstanceItems.order))
@@ -115,6 +131,7 @@ const hydrateInstances = async (instanceRows: (typeof checklistInstances.$inferS
     return instanceRows.map((instance) => ({
         ...instance,
         assigneeIds: assigneeIdsByInstance.get(instance.id) ?? [],
+        reviewerIds: reviewerIdsByInstance.get(instance.id) ?? [],
         items: itemsByInstance.get(instance.id) ?? [],
     }))
 }
@@ -125,6 +142,36 @@ const getPopulatedInstanceById = async (id: string) => {
     const [hydrated] = await hydrateInstances([instance])
     return hydrated
 }
+
+// opensTime/cutoffTime (HH:mm, copied from the definition at generation time — see
+// checklistInstanceGenerator.job.ts) anchor a same-day fill window to periodStart's calendar date,
+// the day the period begins. For DAILY recurrence that's the obvious match; for longer recurrences
+// (WEEKLY/MONTHLY) this is a deliberate simplification — the window applies on the period's first
+// day, not a full per-day recurring window.
+//
+// Real data in this app includes overnight windows (e.g. "Store Opening checklist": opens 18:00,
+// cutoff 07:00 the next morning) — a cutoff clock-time earlier than the opens clock-time means the
+// deadline rolls over to the next calendar day, not the same one.
+//
+// assertInstanceOpen below enforces this same opensTime rule in JS (not SQL — it runs once per
+// mutation, not as a list-query filter), shared by setItemDone and the AUDIT submissions service
+// so both completion paths honor the same opens gate instead of drifting apart.
+export const assertInstanceOpen = (instance: { opensTime: string | null; periodStart: Date }) => {
+    if (!instance.opensTime) return
+    const [hours, minutes] = instance.opensTime.split(":").map(Number)
+    const opensAt = new Date(instance.periodStart)
+    opensAt.setUTCHours(hours, minutes, 0, 0)
+    if (Date.now() < opensAt.getTime()) {
+        throw AppError.badRequest(`This checklist doesn't open until ${instance.opensTime} — come back then.`)
+    }
+}
+
+const deadlineExpr = sql`CASE
+    WHEN ${checklistInstances.cutoffTime} IS NULL THEN ${checklistInstances.periodEnd}
+    WHEN ${checklistInstances.opensTime} IS NOT NULL AND ${checklistInstances.cutoffTime} < ${checklistInstances.opensTime}
+        THEN TIMESTAMP(DATE_ADD(DATE(${checklistInstances.periodStart}), INTERVAL 1 DAY), CONCAT(${checklistInstances.cutoffTime}, ':00'))
+    ELSE TIMESTAMP(DATE(${checklistInstances.periodStart}), CONCAT(${checklistInstances.cutoffTime}, ':00'))
+END`
 
 /**
  * "Complete" means: has at least one item, and none of them is unfinished.
@@ -142,9 +189,11 @@ const completionCondition = (status: InstanceStatusFilter) => {
     const incomplete = sql`NOT ${anyItem} OR ${anyUnfinished}`
 
     if (status === "COMPLETED") return complete
-    // Same rule the summary's `overdue` count uses, and the client's isInstanceOverdue before it.
-    if (status === "OVERDUE") return sql`(${incomplete}) AND ${checklistInstances.periodEnd} < NOW()`
-    return incomplete
+    // Deadline is cutoffTime (same-day, or next-day for an overnight window) when set, else
+    // periodEnd — same rule the summary's `overdue` count uses, and the client's isInstanceOverdue.
+    if (status === "OVERDUE") return sql`(${incomplete}) AND ${deadlineExpr} < NOW()`
+    if (status === "DUE") return sql`(${incomplete}) AND ${deadlineExpr} >= NOW()`
+    return incomplete // "OPEN" — every incomplete instance, overdue or not ("Pending")
 }
 
 /**
@@ -185,6 +234,32 @@ const countInstances = async (where: any) => {
 const assertCanAccess = (instance: { assigneeIds: string[] }, user: AccessTokenPayload) => {
     const isAssignee = instance.assigneeIds.some((id) => id === user.sub)
     if (user.role !== "ADMIN" && user.role !== "PC" && !isAssignee) throw AppError.forbidden()
+}
+
+// Shared by assertCanView/CAN_VERIFY_BY_ROLE's MANAGER branch — a checklist instance has no
+// departmentId of its own (only storeId), so "does this belong to my department" is derived
+// from whichever department(s) its assignees actually sit in.
+const getDepartmentIdsForUserIds = async (userIds: string[]): Promise<Set<string>> => {
+    if (!userIds.length) return new Set()
+    const rows = await db.select({ departmentId: users.departmentId }).from(users).where(inArray(users.id, userIds))
+    return new Set(rows.map((r) => r.departmentId).filter((d): d is string => !!d))
+}
+
+// View-only widening of assertCanAccess: a MANAGER (HOD) may open any instance assigned to
+// someone in their own department, to review it before approving/rejecting — deliberately NOT
+// folded into assertCanAccess itself, which stays assignee/ADMIN/PC only and still gates
+// setItemDone, so a HOD can view but never fill in an employee's checklist. An explicitly named
+// reviewer (checklistInstanceReviewers, additive on top of the role-based rule — see
+// CAN_VERIFY_BY_ROLE) can always view too, regardless of role or department, since they need to
+// see it before they can approve/reject it.
+const assertCanView = async (instance: { assigneeIds: string[]; reviewerIds: string[] }, user: AccessTokenPayload) => {
+    const isAssignee = instance.assigneeIds.some((id) => id === user.sub)
+    if (user.role === "ADMIN" || user.role === "PC" || isAssignee || instance.reviewerIds.includes(user.sub)) return
+    if (user.role === "MANAGER" && user.departmentId) {
+        const departmentIds = await getDepartmentIdsForUserIds(instance.assigneeIds)
+        if (departmentIds.has(user.departmentId)) return
+    }
+    throw AppError.forbidden()
 }
 
 // Same rule as checklist.service.ts's completeItem — never trust the client's isDone, always
@@ -346,17 +421,24 @@ const VALUE_VALIDATORS_BY_ITEM_TYPE: Record<string, (item: any, values: ItemValu
     DUAL_SIGNATURE: (_item, v) => assertDualSignatureSatisfied(v.signatureValue, v.secondSignatureValue),
 }
 
-// Builder-authored "If answer is X then:" rules (see ChecklistDefinitionItem.conditionalTrigger/
-// conditionalActions) — only ever meaningful for YES_NO/PASS_FAIL items, and only fire when the
-// answer being submitted right now matches the trigger. REQUIRE_PHOTO/ASK_REASON are validated
-// here (block completion until satisfied, same as the type validators above); CREATE_ISSUE/
-// NOTIFY_AREA_MANAGER are side effects applied after validation passes.
+// Builder-authored "If answer is X then:" rules (see ChecklistDefinitionItem.yesActions/
+// noActions) — only ever meaningful for YES_NO/PASS_FAIL items. Each answer value has its own
+// independent action set, so a Yes rule and a No rule can both be armed on the same item at once;
+// this just looks up whichever branch matches the answer actually being submitted right now.
+// REQUIRE_PHOTO/ASK_REASON are validated here (block completion until satisfied, same as the type
+// validators above); CREATE_ISSUE/NOTIFY_AREA_MANAGER are side effects applied after validation passes.
+const actionsForAnswer = (item: any, answer: "YES" | "NO" | undefined): string[] => {
+    if (answer === "YES") return item.yesActions ?? []
+    if (answer === "NO") return item.noActions ?? []
+    return []
+}
+
 const isConditionTriggered = (item: any, values: ItemValueInput) =>
-    !!item.conditionalTrigger && item.conditionalTrigger === values.booleanAnswer
+    actionsForAnswer(item, values.booleanAnswer).length > 0
 
 const assertConditionalActionsSatisfied = async (item: any, values: ItemValueInput) => {
     if (!isConditionTriggered(item, values)) return
-    const actions: string[] = item.conditionalActions ?? []
+    const actions: string[] = actionsForAnswer(item, values.booleanAnswer)
 
     if (actions.includes("REQUIRE_PHOTO")) {
         const images = await db.select().from(checklistInstanceImages).where(eq(checklistInstanceImages.checklistInstanceItemId, item.id))
@@ -385,7 +467,7 @@ const applyConditionalSideEffects = async (
     values: ItemValueInput,
 ) => {
     if (!isConditionTriggered(item, values)) return item
-    const actions: string[] = item.conditionalActions ?? []
+    const actions: string[] = actionsForAnswer(item, values.booleanAnswer)
     let updatedItem = item
 
     if (actions.includes("CREATE_ISSUE") && !item.issueId) {
@@ -450,24 +532,48 @@ export const syncVerificationStatus = async (instanceId: string) => {
 }
 
 // PC has the same org-wide verification access as ADMIN — same parity as everywhere else in
-// the app (tickets, tasks) — so a PC user isn't limited to their own store.
-const CAN_VERIFY_BY_ROLE: Partial<Record<Role, (instance: any, user: AccessTokenPayload) => boolean>> = {
+// the app (tickets, tasks) — so a PC user isn't limited to their own store. MANAGER (HOD) is
+// additive on top of that, not a replacement: they may only verify an instance whose assignees
+// include someone from their own department.
+const CAN_VERIFY_BY_ROLE: Partial<Record<Role, (assigneeDepartmentIds: Set<string>, user: AccessTokenPayload) => boolean>> = {
     ADMIN: () => true,
     PC: () => true,
+    MANAGER: (assigneeDepartmentIds, user) => !!user.departmentId && assigneeDepartmentIds.has(user.departmentId),
 }
 
-const assertCanVerify = (instance: any, user: AccessTokenPayload) => {
-    const canVerify = CAN_VERIFY_BY_ROLE[user.role]?.(instance, user) ?? false
+// An explicitly named reviewer (checklistDefinitionReviewers, copied onto the instance at
+// generation time) can always verify, on top of whatever CAN_VERIFY_BY_ROLE already grants —
+// additive, never a replacement, so nothing that could already verify a checklist loses access by
+// someone else being named a reviewer. This is also why /verify's route no longer role-gates: a
+// reviewer can be any role at all, so the check has to happen here, against this specific
+// instance, not generically at the router.
+const assertCanVerify = (assigneeDepartmentIds: Set<string>, reviewerIds: string[], user: AccessTokenPayload) => {
+    if (reviewerIds.includes(user.sub)) return
+    const canVerify = CAN_VERIFY_BY_ROLE[user.role]?.(assigneeDepartmentIds, user) ?? false
     if (!canVerify) throw AppError.forbidden()
 }
+
+export type InstanceRecurrence = (typeof CHECKLIST_RECURRENCES)[number]
+export type InstanceVerificationStatus = (typeof CHECKLIST_VERIFICATION_STATUSES)[number]
 
 export type InstanceListFilter = {
     definitionId?: string
     storeId?: string
     status?: InstanceStatusFilter
+    recurrence?: InstanceRecurrence
+    verificationStatus?: InstanceVerificationStatus
     assigneeId?: string
+    /**
+     * "Also shared with any of these people" — independent of, and combinable with, `userId`
+     * (the "mine" scope) and `assigneeId` (the single-id ADMIN list filter): each resolves to its
+     * own `instance.id IN (...)` condition, AND'd together, so "my checklists that are ALSO
+     * shared with X" narrows correctly instead of one filter silently replacing the other.
+     */
+    assigneeIds?: string[]
     /** Restrict to instances assigned to this user — how the "mine" scope is expressed. */
     userId?: string
+    /** Instances with at least one assignee in this department — see instanceIdsForDepartment. */
+    departmentId?: string
 }
 
 /**
@@ -479,11 +585,25 @@ export type InstanceListFilter = {
  */
 const NO_MATCHES = Symbol("no-matches")
 
+// A checklist instance carries no departmentId of its own (only storeId — see
+// checklistInstance.ts's schema comment) — "department" is derived from whichever department(s)
+// its assignees actually sit in, same convention as assertCanView/CAN_VERIFY_BY_ROLE's MANAGER
+// branch above. Shared by instanceConditions (org-wide list/summary) and getMine (my checklists).
+const instanceIdsForDepartment = async (departmentId: string): Promise<string[]> => {
+    const links = await db.select({ instanceId: checklistInstanceAssignees.instanceId })
+        .from(checklistInstanceAssignees)
+        .innerJoin(users, eq(users.id, checklistInstanceAssignees.userId))
+        .where(eq(users.departmentId, departmentId))
+    return [...new Set(links.map((l) => l.instanceId))]
+}
+
 const instanceConditions = async (filter: InstanceListFilter) => {
     const conditions = []
     if (filter.definitionId) conditions.push(eq(checklistInstances.definitionId, filter.definitionId))
     if (filter.storeId) conditions.push(eq(checklistInstances.storeId, filter.storeId))
     if (filter.status) conditions.push(completionCondition(filter.status))
+    if (filter.recurrence) conditions.push(eq(checklistInstances.recurrence, filter.recurrence))
+    if (filter.verificationStatus) conditions.push(eq(checklistInstances.verificationStatus, filter.verificationStatus))
 
     // assigneeIds lives in the checklistInstanceAssignees junction table, not on the instance, so
     // both people filters resolve to a set of instance ids first — same convention as
@@ -497,6 +617,22 @@ const instanceConditions = async (filter: InstanceListFilter) => {
         conditions.push(inArray(checklistInstances.id, links.map((l) => l.instanceId)))
     }
 
+    // Separate condition from assigneeFilter above (not merged into it) so "mine, AND also
+    // shared with any of these people" intersects both sets instead of one replacing the other.
+    if (filter.assigneeIds?.length) {
+        const links = await db.select({ instanceId: checklistInstanceAssignees.instanceId })
+            .from(checklistInstanceAssignees)
+            .where(inArray(checklistInstanceAssignees.userId, filter.assigneeIds))
+        if (!links.length) return NO_MATCHES
+        conditions.push(inArray(checklistInstances.id, [...new Set(links.map((l) => l.instanceId))]))
+    }
+
+    if (filter.departmentId) {
+        const ids = await instanceIdsForDepartment(filter.departmentId)
+        if (!ids.length) return NO_MATCHES
+        conditions.push(inArray(checklistInstances.id, ids))
+    }
+
     return conditions.length ? and(...conditions) : undefined
 }
 
@@ -507,17 +643,33 @@ export const checklistInstanceService = {
      * in JS. On a store a few months old that is the app's most expensive request by a wide
      * margin, and it grew forever. Status is now a SQL condition so only the page is hydrated.
      */
-    async getMine(userId: string, status?: InstanceStatusFilter, page?: number, limit?: number) {
-        // assigneeIds is now the checklistInstanceAssignees junction table rather than a real
-        // embedded array field — look up the matching instance ids first, same convention as
-        // checklistDefinition.service.ts's list() storeId filter.
-        const links = await db.select({ instanceId: checklistInstanceAssignees.instanceId }).from(checklistInstanceAssignees).where(eq(checklistInstanceAssignees.userId, userId))
+    async getMine(userId: string, options: {
+        status?: InstanceStatusFilter
+        page?: number
+        limit?: number
+        storeId?: string
+        recurrence?: InstanceRecurrence
+        verificationStatus?: InstanceVerificationStatus
+        /** Among my checklists, only ones shared with a department (see instanceIdsForDepartment). */
+        departmentId?: string
+        /**
+         * Among my checklists, only ones ALSO shared with any of these people ("Assigned with" in
+         * MyChecklists' Options). A second, independent junction-table lookup — not merged into
+         * the `userId` one below — so both narrow together (AND) instead of one replacing the
+         * other.
+         */
+        assigneeIds?: string[]
+    } = {}) {
+        const { status, page, limit, storeId, recurrence, verificationStatus, departmentId, assigneeIds } = options
         const p = paginate(page, limit)
-        if (!links.length) return { data: [], meta: buildMeta(p, 0) }
-
-        const conditions = [inArray(checklistInstances.id, links.map(l => l.instanceId))]
-        if (status) conditions.push(completionCondition(status))
-        const where = and(...conditions)
+        // Delegates to the same condition-builder as listAll/summary instead of reimplementing the
+        // userId/status/store/recurrence/verificationStatus/department/assigneeIds filters here —
+        // this used to drift from instanceConditions as a separate ~25-line copy. "Mine" is just
+        // instanceConditions with `userId` filled in, which resolves to the same
+        // "assignee junction lookup, AND'd with the rest" logic that path already has.
+        const built = await instanceConditions({ userId, status, storeId, recurrence, verificationStatus, departmentId, assigneeIds })
+        if (built === NO_MATCHES) return { data: [], meta: buildMeta(p, 0) }
+        const where = built
 
         const total = await countInstances(where)
         const instanceRows = await db.select().from(checklistInstances)
@@ -554,7 +706,7 @@ export const checklistInstanceService = {
      */
     async summary(filter: InstanceListFilter) {
         const built = await instanceConditions(filter)
-        const empty = { total: 0, completed: 0, pending: 0, overdue: 0, totalItems: 0, doneItems: 0 }
+        const empty = { total: 0, completed: 0, pending: 0, due: 0, overdue: 0, totalItems: 0, doneItems: 0 }
         if (built === NO_MATCHES) return empty
 
         // 30s, and no explicit invalidation: these counts move whenever anyone ticks a checklist
@@ -562,7 +714,7 @@ export const checklistInstanceService = {
         // being up to half a minute stale is a fair trade for two aggregate scans per dashboard
         // load rather than per viewer. Deliberately short for the same reason.
         return cached(
-            cacheKey("checklist-summary", filter.userId, filter.storeId, filter.assigneeId, filter.definitionId, filter.status),
+            cacheKey("checklist-summary", filter.userId, filter.storeId, filter.assigneeId, filter.assigneeIds?.join(","), filter.definitionId, filter.status, filter.departmentId, filter.recurrence, filter.verificationStatus),
             30,
             async () => {
                 const isComplete = completionCondition("COMPLETED")
@@ -582,11 +734,16 @@ export const checklistInstanceService = {
 
                 const total = Number(counts?.total ?? 0)
                 const completed = Number(counts?.completed ?? 0)
+                const pending = total - completed
+                const overdue = Number(counts?.overdue ?? 0)
                 return {
                     total,
                     completed,
-                    pending: total - completed,
-                    overdue: Number(counts?.overdue ?? 0),
+                    pending,
+                    // On-track subset of `pending` — incomplete but not yet past its period end.
+                    // No extra query: every incomplete instance is either overdue or due.
+                    due: pending - overdue,
+                    overdue,
                     totalItems: Number(items?.totalItems ?? 0),
                     doneItems: Number(items?.doneItems ?? 0),
                 }
@@ -597,7 +754,7 @@ export const checklistInstanceService = {
     async getById(id: string, user: AccessTokenPayload) {
         const instance = await getPopulatedInstanceById(id)
         if (!instance) throw AppError.notFound("Checklist instance not found")
-        assertCanAccess(instance, user)
+        await assertCanView(instance, user)
         return instance
     },
 
@@ -612,6 +769,20 @@ export const checklistInstanceService = {
         const assigneeLinkRows = await db.select({ userId: checklistInstanceAssignees.userId }).from(checklistInstanceAssignees).where(eq(checklistInstanceAssignees.instanceId, instanceRow.id))
         const assigneeIds = assigneeLinkRows.map((l) => l.userId)
         assertCanAccess({ assigneeIds }, user)
+
+        // AUDIT items only complete through checklistInstanceItemSubmission.service.ts's
+        // per-named-auditor flow (recomputeItemAndVerification flips this once every auditor has
+        // submitted). Letting this endpoint flip isDone directly would let any assignee mark the
+        // audit "done" with no auditor ever having submitted anything.
+        if (isDone && item.itemType === "AUDIT") {
+            throw AppError.badRequest("Audit items can only be completed by submitting each auditor's entry.")
+        }
+
+        // opensTime gates STARTING work, not un-doing it — reopening an already-completed item
+        // (isDone: false) is always allowed regardless of the window, same as it already ignores
+        // isLocked/verification state elsewhere. periodStart is a UTC-midnight calendar-day label
+        // (see checklistDisplay.ts's formatDate comment), so opensTime is anchored to it in UTC too.
+        if (isDone) assertInstanceOpen(instanceRow)
 
         const patch: Partial<typeof checklistInstanceItems.$inferInsert> = {}
         if (values.numericValue !== undefined) patch.numericValue = values.numericValue
@@ -667,13 +838,45 @@ export const checklistInstanceService = {
         // Re-select so the response reflects exactly what's in the DB (e.g. if applyConditionalSideEffects's
         // issueId update above landed).
         const [finalItem] = await db.select().from(checklistInstanceItems).where(eq(checklistInstanceItems.id, itemId)).limit(1)
+        emitChecklistEvent("checklist-instance:updated", { storeId: instanceRow.storeId }, { instanceId: instanceRow.id })
         return finalItem
     },
 
-    // GET /checklist-instances/pending-verification — PC sees every store's queue, same as ADMIN.
-    async listPendingVerification(_user: AccessTokenPayload, page?: number, limit?: number) {
+    // GET /checklist-instances/pending-verification — PC sees every store's queue, same as
+    // ADMIN. MANAGER (HOD) only sees the subset assigned to someone in their own department.
+    async listPendingVerification(user: AccessTokenPayload, page?: number, limit?: number) {
         const p = paginate(page, limit)
-        const where = eq(checklistInstances.verificationStatus, "PENDING")
+        const conditions = [eq(checklistInstances.verificationStatus, "PENDING")]
+
+        // ADMIN/PC see everything (unchanged). Everyone else is scoped to the union of their
+        // MANAGER/HOD department (if any) and whatever they've been explicitly named a reviewer
+        // on — the same additive rule as assertCanVerify. This also covers a role with no
+        // department-based access at all (e.g. an AGENT named as an explicit reviewer): they used
+        // to be blocked from this endpoint entirely by the route's role gate, which is now gone in
+        // favor of this per-instance scoping.
+        if (user.role !== "ADMIN" && user.role !== "PC") {
+            const scopeIds = new Set<string>()
+
+            if (user.role === "MANAGER" && user.departmentId) {
+                const deptUsers = await db.select({ id: users.id }).from(users).where(eq(users.departmentId, user.departmentId))
+                if (deptUsers.length) {
+                    const links = await db.select({ instanceId: checklistInstanceAssignees.instanceId })
+                        .from(checklistInstanceAssignees)
+                        .where(inArray(checklistInstanceAssignees.userId, deptUsers.map((u) => u.id)))
+                    for (const l of links) scopeIds.add(l.instanceId)
+                }
+            }
+
+            const reviewerLinks = await db.select({ instanceId: checklistInstanceReviewers.instanceId })
+                .from(checklistInstanceReviewers)
+                .where(eq(checklistInstanceReviewers.userId, user.sub))
+            for (const l of reviewerLinks) scopeIds.add(l.instanceId)
+
+            if (!scopeIds.size) return { data: [], meta: buildMeta(p, 0) }
+            conditions.push(inArray(checklistInstances.id, [...scopeIds]))
+        }
+
+        const where = and(...conditions)
         const total = await countInstances(where)
         const instanceRows = await db.select().from(checklistInstances)
             .where(where)
@@ -685,19 +888,29 @@ export const checklistInstanceService = {
     async verify(id: string, input: VerifyChecklistInstanceInput, user: AccessTokenPayload) {
         const [instance] = await db.select().from(checklistInstances).where(eq(checklistInstances.id, id)).limit(1)
         if (!instance) throw AppError.notFound("Checklist instance not found")
-        assertCanVerify(instance, user)
+
+        const assigneeLinks = await db.select({ userId: checklistInstanceAssignees.userId }).from(checklistInstanceAssignees).where(eq(checklistInstanceAssignees.instanceId, id))
+        const assigneeDepartmentIds = await getDepartmentIdsForUserIds(assigneeLinks.map((l) => l.userId))
+        const reviewerLinks = await db.select({ userId: checklistInstanceReviewers.userId }).from(checklistInstanceReviewers).where(eq(checklistInstanceReviewers.instanceId, id))
+        assertCanVerify(assigneeDepartmentIds, reviewerLinks.map((l) => l.userId), user)
 
         if (instance.verificationStatus !== "PENDING") {
             throw AppError.badRequest("This checklist isn't pending verification.")
         }
 
+        const now = new Date()
+        // Built up locally instead of re-selecting the row after the write — this is exactly what
+        // the UPDATE below sets, so a second round trip just to read back our own write is wasted.
+        let afterRow: typeof instance
+
         if (input.action === "APPROVE") {
+            afterRow = { ...instance, verificationStatus: "APPROVED", verifiedBy: user.sub, verifiedAt: now, verificationNote: input.note ?? null, updatedAt: now }
             await db.update(checklistInstances).set({
                 verificationStatus: "APPROVED",
                 verifiedBy: user.sub,
-                verifiedAt: new Date(),
+                verifiedAt: now,
                 verificationNote: input.note ?? null,
-                updatedAt: new Date(),
+                updatedAt: now,
             }).where(eq(checklistInstances.id, id))
         } else {
             // A reject sends the whole checklist back, not just a status label: bump
@@ -705,23 +918,23 @@ export const checklistInstanceService = {
             // quality score below) and reopen every item so the assignee has a genuinely
             // incomplete checklist to fix and resubmit — matches the "re-check everything to
             // resubmit" copy already shown on the instance detail page for REJECTED.
+            afterRow = { ...instance, verificationStatus: "REJECTED", verificationNote: input.note ?? null, rejectionCount: instance.rejectionCount + 1, updatedAt: now }
             await db.transaction(async (tx) => {
                 await tx.update(checklistInstances).set({
                     verificationStatus: "REJECTED",
                     verificationNote: input.note ?? null,
                     rejectionCount: sql`${checklistInstances.rejectionCount} + 1`,
-                    updatedAt: new Date(),
+                    updatedAt: now,
                 }).where(eq(checklistInstances.id, id))
                 await tx.update(checklistInstanceItems).set({
                     isDone: false,
                     completedAt: null,
                     completedBy: null,
-                    updatedAt: new Date(),
+                    updatedAt: now,
                 }).where(eq(checklistInstanceItems.instanceId, id))
             })
         }
 
-        const assigneeLinks = await db.select({ userId: checklistInstanceAssignees.userId }).from(checklistInstanceAssignees).where(eq(checklistInstanceAssignees.instanceId, id))
         notificationService
             .notifyChecklistVerificationResult({ _id: instance.id, title: instance.title, assigneeIds: assigneeLinks.map(l => l.userId) }, input.action, input.note)
             .catch((err) => console.error("Failed to notify checklist verification result:", err))
@@ -729,7 +942,6 @@ export const checklistInstanceService = {
         // The compliance decision itself — who approved or rejected a store's checklist, when,
         // and with what note. `before` is the pre-decision row so a reject's item reset is visible
         // as a change rather than just a status label flipping.
-        const [afterRow] = await db.select().from(checklistInstances).where(eq(checklistInstances.id, id)).limit(1)
         await auditService.record({
             entityType: "ChecklistInstance",
             entityId: id,
@@ -740,6 +952,7 @@ export const checklistInstanceService = {
         })
 
         const result = await getPopulatedInstanceById(id)
+        emitChecklistEvent("checklist-instance:updated", { storeId: instance.storeId }, { instanceId: id })
         return result!
     },
 

@@ -17,15 +17,15 @@ export const connectSocket = ( token : string) : Socket => {
     return socket;
 };
 
+// The only teardown path. There used to be a `disconnectSocket()` alongside this that dropped the
+// connection regardless of refCount, and the task and ticket hooks each called it right after
+// releaseSocket() — so whichever unmounted first disconnected the socket the other two consumers
+// were still using. Signing out is covered without it: token goes null, all three hooks clean up,
+// refCount reaches 0 here and the socket closes.
 export const releaseSocket = () => {
     refCount = Math.max(0, refCount - 1);
     if(refCount === 0){
         socket?.disconnect();
         socket = null;
     }
-}
-
-export const disconnectSocket = () => {
-    socket?.disconnect();
-    socket = null;
 }

@@ -62,7 +62,7 @@ export const ChecklistRolesField = ({
           <button
             type="button"
             onClick={handleToggleAll}
-            className="text-[11px] font-display font-medium text-text-muted hover:text-text underline cursor-pointer transition-colors"
+            className="text-[11px] font-display font-medium text-text-muted hover:text-text underline cursor-pointer transition-colors rounded-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
           >
             {selected.length === ROLE_OPTIONS.length ? 'Clear all' : 'Select all'}
           </button>
@@ -116,7 +116,7 @@ export const ChecklistRolesField = ({
 
       {/* Helper Subtext */}
       <p className="text-[11px] font-display text-text-muted">
-        Any store team member holding one of the selected roles will have access to run this checklist.
+        Tag for reference only — shown on the checklist card, doesn't assign or grant access to anyone. Use Assigned Users below for that.
       </p>
     </div>
   );

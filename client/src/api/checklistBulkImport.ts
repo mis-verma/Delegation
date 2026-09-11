@@ -32,7 +32,12 @@ export type BulkImportPublishPayload = {
   cutoffTime?: string;
 };
 
-export type BulkImportSummary = { updatedDefinitions: number; storesAdded: number; assigneesAdded: number };
+export type BulkImportSummary = {
+  updatedDefinitions: number;
+  storesAdded: number;
+  assigneesAdded: number;
+  failed: { definitionId: string; message: string }[];
+};
 
 export const checklistBulkImportApi = {
   preview: (file: File) => {

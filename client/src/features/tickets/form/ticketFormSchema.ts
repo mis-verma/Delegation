@@ -10,6 +10,7 @@ export const ticketSchema = z.object({
   assigneeId: z.string().optional().or(z.literal('')),
   dueDate: z.string().optional().or(z.literal('')),
   dueTime: z.string().optional().or(z.literal('')),
+  tagIds: z.array(z.string()).max(12).optional(),
 }).refine(
   (data) => data.assignmentMode !== 'MANUAL' || (!!data.dueDate && !!data.dueTime),
   { message: 'Pick a due date and time', path: ['dueDate'] },

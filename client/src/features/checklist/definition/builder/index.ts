@@ -1,5 +1,4 @@
 export { BuilderAssignPanel} from "./BuilderAssignPanel"
-export { BuilderProofPanel} from "./BuilderProofPanel"
 export { BuilderSchedulePanel} from "./BuilderSchedulePanel"
 export { ChecklistBuilder} from "./ChecklistBuilder"
 export { AddQuestionModal} from "./AddQuestionModal"

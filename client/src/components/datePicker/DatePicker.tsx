@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { Popover, PopoverTrigger, PopoverContent } from '../ui/popover';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -85,7 +86,9 @@ export function DatePicker({
   const [open, setOpen] = useState(false);
   const [viewMonth, setViewMonth] = useState(() => startOfDay(value ?? new Date()));
   const [dialMode, setDialMode] = useState<'hour' | 'minute'>('hour');
-  const containerRef = useRef<HTMLDivElement>(null);
+  // Reading a ref's .current during render isn't allowed (it can go stale without triggering a
+  // re-render), so the trigger's DOM node is tracked in state via a callback ref instead.
+  const [triggerEl, setTriggerEl] = useState<HTMLButtonElement | null>(null);
 
   const grid = useMemo(() => buildMonthGrid(viewMonth), [viewMonth]);
   const today = useMemo(() => startOfDay(new Date()), []);
@@ -126,81 +129,75 @@ export function DatePicker({
     onChange(next);
   };
 
-  const toggleOpen = () => {
-    if (disabled) return;
-    if (!open) {
-      setViewMonth(startOfDay(value ?? new Date()));
-      setDialMode('hour');
-    }
-    setOpen((prev) => !prev);
-  };
-
-  useEffect(() => {
-    if (!open) return;
-    const handlePointerDown = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('mousedown', handlePointerDown);
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const timer = setTimeout(() => {
-      containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }, 320);
-    return () => clearTimeout(timer);
-  }, [open]);
-
   return (
-    <div ref={containerRef} className={cn('w-full', className)}>
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={toggleOpen}
-        aria-expanded={open}
-        className={cn(
-          'flex items-center gap-2.5 w-full h-11 px-4 rounded-xl border bg-surface text-sm transition-all cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30',
-          'disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-surface-hover',
-          open ? 'border-primary-500' : 'border-border hover:border-border-hover',
-          triggerClassName,
-        )}
-      >
-        <CalendarIcon size={18} className="text-text-light shrink-0" />
-        <span className={cn('truncate', value ? 'text-text font-medium' : 'text-text-light font-medium')}>
-          {value ? formatDate(value) + (showTime ? ` • ${formatTime(value)}` : '') : placeholder}
-        </span>
-        {value && (
-          <span
-            role="button"
-            tabIndex={0}
+    <Popover
+      open={open}
+      // Modal, same as Combobox: this popover is portaled to document.body, outside a parent
+      // Dialog's DOM subtree, and every day/hour/minute cell is a real <button> that takes DOM
+      // focus on click. A non-modal Popover has no focus trap of its own, so the Dialog's own trap
+      // yanks focus straight back the instant a cell is focused — which a non-modal Popover reads
+      // as "focus left" and closes on, right as the click lands. `modal` gives it Radix's own
+      // dedicated handling for that nested-focus-trap case instead of losing every pick to it.
+      modal
+      onOpenChange={(next) => {
+        if (disabled) return;
+        if (next) {
+          setViewMonth(startOfDay(value ?? new Date()));
+          setDialMode('hour');
+        }
+        setOpen(next);
+      }}
+    >
+      {/* relative wrapper: the clear control used to be a span[role=button] nested inside the
+          trigger <button> — invalid interactive-in-interactive nesting that screen readers can't
+          expose correctly. It's now a real sibling <button>, absolutely positioned over the
+          trigger's own end padding (reserved below) instead of living inside it. */}
+      <div className="relative">
+        <PopoverTrigger asChild>
+          <button
+            ref={setTriggerEl}
+            type="button"
+            disabled={disabled}
+            className={cn(
+              'w-full flex items-center gap-2 h-10 px-3 rounded-md border bg-surface text-sm transition-all cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30',
+              'disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-surface-hover',
+              open ? 'border-primary-500' : 'border-border hover:border-border-hover',
+              value && 'pr-9',
+              className,
+              triggerClassName,
+            )}
+          >
+            <CalendarIcon size={15} className="text-text-light shrink-0" />
+            <span className={cn('truncate', value ? 'text-text font-medium' : 'text-text-light font-medium')}>
+              {value ? formatDate(value) + (showTime ? ` • ${formatTime(value)}` : '') : placeholder}
+            </span>
+          </button>
+        </PopoverTrigger>
+        {value && !disabled && (
+          <button
+            type="button"
             aria-label="Clear date"
-            className="ml-auto p-1.5 text-text-light bg-surface-hover hover:bg-danger/10 hover:text-danger rounded-full transition-colors shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 text-text-light bg-surface-hover hover:bg-danger/10 hover:text-danger rounded-full transition-colors shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
             onClick={(e) => {
               e.stopPropagation();
               onChange(null);
             }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.stopPropagation();
-                onChange(null);
-              }
-            }}
           >
             <X size={14} strokeWidth={2.5} />
-          </span>
+          </button>
         )}
-      </button>
+      </div>
 
-      {open && (
-      <div className="mt-2 w-full p-4 bg-surface border border-border rounded-2xl shadow-xl shadow-black/10 animate-in fade-in slide-in-from-top-2 duration-200">
+      {/* A small floating popup, not an inline panel that pushed everything below it down and
+          grew the whole dialog with it — same floating-over-content treatment as Combobox. Sized
+          to its own content (no forced trigger width) since a calendar+clock has its own natural,
+          compact size regardless of how wide the field above it is. */}
+      <PopoverContent
+        align="start"
+        collisionBoundary={triggerEl?.closest('[data-slot="dialog-content"]') ?? undefined}
+        collisionPadding={16}
+        className="w-auto min-w-0 max-w-[calc(100vw-2rem)] p-4"
+      >
         <div className="flex flex-col sm:flex-row sm:gap-5">
           {/* Calendar column */}
           <div className="sm:w-[260px] shrink-0">
@@ -392,8 +389,7 @@ export function DatePicker({
             );
           })()}
         </div>
-      </div>
-      )}
-    </div>
+      </PopoverContent>
+    </Popover>
   );
 }

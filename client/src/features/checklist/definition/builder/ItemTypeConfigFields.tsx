@@ -8,12 +8,13 @@ import type { ItemDraft } from '../ChecklistDefinitionItemDraftRow';
 export interface ItemTypeFieldsProps {
   draft: ItemDraft;
   onChange: (patch: Partial<ItemDraft>) => void;
-  storeId?: string;
+  /** Every store this checklist targets, so an auditor can come from any of them. */
+  storeIds?: string[];
 }
 
-const FIELD_LABEL = 'text-[11px] font-display font-semibold uppercase tracking-wider text-text-muted';
+const FIELD_LABEL = 'text-[11px] font-display font-semibold text-text-muted';
 const INPUT_BASE =
-  'px-2.5 py-1.5 text-xs font-display bg-surface text-text rounded-lg border border-border ' +
+  'px-2.5 py-1.5 text-xs font-display bg-surface text-text rounded-md border border-border ' +
   'placeholder:text-text-muted/60 hover:border-border/80 transition-all duration-150 ' +
   'focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20';
 
@@ -71,12 +72,12 @@ const VideoFields = (props: ItemTypeFieldsProps) => (
   </div>
 );
 
-const AuditFields = ({ draft, onChange, storeId }: ItemTypeFieldsProps) => (
+const AuditFields = ({ draft, onChange, storeIds }: ItemTypeFieldsProps) => (
   <div className="flex flex-col gap-4">
     <div className="flex flex-col gap-1.5">
       <span className="text-xs font-display font-semibold text-text">Who audits this?</span>
       <UserMultiSelect
-        storeId={storeId}
+        storeIds={storeIds}
         selected={draft.auditUserIds}
         onChange={(ids) => onChange({ auditUserIds: ids })}
       />
@@ -251,10 +252,10 @@ const ConditionalFields = ({ draft, onChange }: ItemTypeFieldsProps) => {
   return (
     <ConditionalLogicPanel
       itemType={draft.itemType}
-      trigger={draft.conditionalTrigger}
-      actions={draft.conditionalActions}
-      onTriggerChange={(trigger) => onChange({ conditionalTrigger: trigger })}
-      onActionsChange={(actions) => onChange({ conditionalActions: actions })}
+      yesActions={draft.yesActions}
+      noActions={draft.noActions}
+      onYesActionsChange={(actions) => onChange({ yesActions: actions })}
+      onNoActionsChange={(actions) => onChange({ noActions: actions })}
     />
   );
 };

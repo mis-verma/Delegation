@@ -8,6 +8,7 @@ import { transcribeVoiceNote } from "../whatsapp/transcription.service.js";
 import { sendDoubleTickMessage, verifyDoubleTickAuth, downloadDoubleTickAudio } from "./doubletick.service.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { departmentService } from "../departments/department.service.js";
+import { claimInboundMessage } from "../../utils/inboundMessageDedupe.js";
 import { SLOT_QUESTIONS, CANCEL_PATTERN, DATE_HINT_PATTERN, derivePriorityHint, computeMissingSlots } from "../tasks/ai/slotFilling.js";
 import { resolveSlotAnswer, type ConversationDraftLike } from "../tasks/ai/slotResolvers.js";
 import {
@@ -15,7 +16,6 @@ import {
     startConversation,
     advanceConversation,
     cancelConversation,
-    finishConversation,
     toDraftObject,
 } from "../taskConversations/taskConversation.service.js";
 
@@ -66,6 +66,10 @@ export const doubletickController = {
 
         const body = req.body as DoubleTickIncomingPayload;
         if (body.integrationType !== "WHATSAPP" || !body.message) return;
+
+        // DoubleTick retries a delivery on any hiccup on their end — claim the message id first
+        // so a retried delivery of the same message is a no-op instead of a second task.
+        if (body.messageId && !(await claimInboundMessage("doubletick", body.messageId))) return;
 
         const from = body.from;
         let text: string;
@@ -124,12 +128,14 @@ export const doubletickController = {
                     return;
                 }
 
+                // advanceConversation already deleted the row as part of returning "done" (see its
+                // own comment) — nothing left to clean up here even if createFromSmartInput throws
+                // below; the user just gets the error message and can resend to restart.
                 const task = await taskService.createFromSmartInput(
                     draftToConfirmInput(updatedDraft),
                     { sub: sender.id, role: sender.role, departmentId: sender.departmentId ?? undefined },
                 );
 
-                await finishConversation(from);
                 await sendDoubleTickMessage(from, `${ack}\n\n${formatTaskConfirmation(task.title, updatedDraft)}`);
             } catch (err) {
                 console.error("DoubleTick conversation turn failed:", err);

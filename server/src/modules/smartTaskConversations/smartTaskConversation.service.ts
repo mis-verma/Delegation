@@ -1,5 +1,5 @@
 import { db } from "../../config/db.js"
-import { smartTaskConversations, smartTaskConversationMessages } from "../../db/schema/index.js"
+import { smartTaskConversations, smartTaskConversationMessages, tasks } from "../../db/schema/index.js"
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
 import { AppError } from "../../utils/AppError.js"
@@ -73,9 +73,17 @@ export const smartTaskConversationService = {
     // i.e. an append-only INSERT rather than a delete-and-reinsert of the whole table.
     async patch(id: string, userId: string, input: PatchSmartTaskConversationInput) {
         await db.transaction(async (tx) => {
+            // FOR UPDATE: two concurrent PATCH calls for the same conversation (client retry on
+            // timeout, a double form submit) used to both read the same plain SELECT count(*),
+            // both compute the identical "new" message tail, and both insert it — there's no
+            // unique constraint on smartTaskConversationMessages to catch that, so duplicates
+            // landed silently. Locking this row for the transaction's duration serializes the two
+            // patches: the second one only proceeds once the first has committed its inserts, so
+            // its own count(*) below already reflects them.
             const [existing] = await tx.select({ id: smartTaskConversations.id })
                 .from(smartTaskConversations)
                 .where(and(eq(smartTaskConversations.id, id), eq(smartTaskConversations.userId, userId)))
+                .for('update')
                 .limit(1);
             if (!existing) throw AppError.notFound("Conversation not found");
 
@@ -94,6 +102,17 @@ export const smartTaskConversationService = {
                         })),
                     );
                 }
+            }
+
+            // Verify the task actually exists and belongs to this same user before stamping it
+            // onto the conversation — without this, any string passes Zod and the conversation
+            // ends up pointing at a phantom or another user's task.
+            if (input.resultingTaskId) {
+                const [task] = await tx.select({ id: tasks.id })
+                    .from(tasks)
+                    .where(and(eq(tasks.id, input.resultingTaskId), eq(tasks.userId, userId)))
+                    .limit(1);
+                if (!task) throw AppError.badRequest("resultingTaskId does not refer to a task you created");
             }
 
             const updates: Partial<typeof smartTaskConversations.$inferInsert> = { updatedAt: new Date() };

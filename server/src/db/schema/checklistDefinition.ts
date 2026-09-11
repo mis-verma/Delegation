@@ -26,7 +26,6 @@ export const CHECKLIST_ASSIGNEE_ROLES = [
   'HOUSEKEEPING',
   'OPERATIONS',
 ] as const;
-export const CHECKLIST_PROOF_TYPES = ['PHOTO', 'GPS_MATCH', 'TIMESTAMP', 'SIGNATURE', 'QR_SCAN'] as const;
 export const CHECKLIST_ICONS = [
   'store',
   'clock',
@@ -78,7 +77,6 @@ export const checklistDefinitions = mysqlTable('ChecklistDefinition', {
   cutoffTime: varchar('cutoffTime', { length: 5 }), // HH:mm, validated at app layer
   isActive: boolean('isActive').notNull().default(true),
   assigneeRoles: json('assigneeRoles').$type<(typeof CHECKLIST_ASSIGNEE_ROLES)[number][]>(),
-  proofRequired: json('proofRequired').$type<(typeof CHECKLIST_PROOF_TYPES)[number][]>(),
   icon: mysqlEnum('icon', CHECKLIST_ICONS).notNull().default('store'),
   version: int('version').notNull().default(1),
   createdBy: varchar('createdBy', { length: 191 }).notNull().references(() => users.id),
@@ -117,12 +115,38 @@ export const checklistDefinitionAssignees = mysqlTable(
   ],
 );
 
+// Explicit reviewers, additive on top of the role-based verify rule (ADMIN/PC always, MANAGER/HOD
+// scoped to their own department — see checklistInstance.service.ts's CAN_VERIFY_BY_ROLE): naming
+// someone here lets them approve/reject this checklist's instances regardless of role or
+// department, without replacing who could already verify it.
+export const checklistDefinitionReviewers = mysqlTable(
+  'ChecklistDefinitionReviewer',
+  {
+    id: varchar('id', { length: 191 }).primaryKey().$defaultFn(() => createId()),
+    definitionId: varchar('definitionId', { length: 191 }).notNull(),
+    userId: varchar('userId', { length: 191 }).notNull().references(() => users.id),
+    createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex('ChecklistDefinitionReviewer_definitionId_userId_key').on(table.definitionId, table.userId),
+    foreignKey({
+      columns: [table.definitionId],
+      foreignColumns: [checklistDefinitions.id],
+      name: 'ChklistDefReviewer_definitionId_fk',
+    }).onDelete('cascade'),
+  ],
+);
+
 export const checklistDefinitionItems = mysqlTable(
   'ChecklistDefinitionItem',
   {
     id: varchar('id', { length: 191 }).primaryKey().$defaultFn(() => createId()),
     label: varchar('label', { length: 191 }).notNull(),
     order: int('order').notNull().default(0),
+    // Free-text grouping label (e.g. "Opening", "Closing", "Operational") — purely organizational,
+    // items with no section (null) render in an "Ungrouped" bucket. Copied onto the generated
+    // ChecklistInstanceItem at generation time, same as every other definition-authored field.
+    section: varchar('section', { length: 120 }),
     requiredImageCount: int('requiredImageCount').notNull().default(0),
     maxImageCount: int('maxImageCount'),
     requiresLivePhoto: boolean('requiresLivePhoto').notNull().default(false),
@@ -139,8 +163,11 @@ export const checklistDefinitionItems = mysqlTable(
     signatureLabels: json('signatureLabels').$type<string[]>(),
     qrExpectedValue: varchar('qrExpectedValue', { length: 191 }),
     cashExpectedAmount: float('cashExpectedAmount'),
-    conditionalTrigger: mysqlEnum('conditionalTrigger', YES_NO_VALUES),
-    conditionalActions: json('conditionalActions').$type<(typeof CHECKLIST_CONDITIONAL_ACTIONS)[number][]>(),
+    // Two independent action sets, one per possible Yes/No answer — a single item can require
+    // e.g. a photo when answered Yes AND a reason when answered No, both active at once. An empty/
+    // null array means no rule for that branch.
+    yesActions: json('yesActions').$type<(typeof CHECKLIST_CONDITIONAL_ACTIONS)[number][]>(),
+    noActions: json('noActions').$type<(typeof CHECKLIST_CONDITIONAL_ACTIONS)[number][]>(),
     definitionId: varchar('definitionId', { length: 191 })
       .notNull()
       .references(() => checklistDefinitions.id, { onDelete: 'cascade' }),

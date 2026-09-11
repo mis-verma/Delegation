@@ -15,6 +15,23 @@ const pad2 = (n: number) => String(n).padStart(2, '0');
 const toDateStr = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 const parseDateStr = (v: string) => (v ? new Date(`${v}T00:00:00`) : null);
 
+// Shared with ChecklistBuilder.tsx's `scheduleValid` gate. Only an EQUAL opens/cutoff time is a
+// real problem — a genuinely zero-length window that can never be completed. A cutoff EARLIER
+// than open time is not a mismatch: it's this app's real, supported overnight window (see
+// checklistDisplay.ts's instanceDeadline — "opens 18:00, cutoff 07:00" is the documented example),
+// which rolls the deadline to the next calendar day. This used to also flag that case as a
+// blocking error, which meant the builder could never actually create the schedule its own
+// backend was built to support.
+// eslint-disable-next-line react-refresh/only-export-components
+export const hasScheduleTimeMismatch = (opensTime: string, cutoffTime: string): boolean =>
+  Boolean(opensTime && cutoffTime) && opensTime === cutoffTime;
+
+// True when cutoff-before-open means the window rolls past midnight into the next calendar day —
+// purely informational (not a validation error, see hasScheduleTimeMismatch above).
+// eslint-disable-next-line react-refresh/only-export-components
+export const isOvernightWindow = (opensTime: string, cutoffTime: string): boolean =>
+  Boolean(opensTime && cutoffTime) && cutoffTime < opensTime;
+
 // Colocated with the component like ui/badge.tsx's own badgeVariants export — only affects Fast
 // Refresh granularity (a full reload instead of a hot-swap when this file changes), not runtime
 // correctness.
@@ -59,9 +76,8 @@ export const BuilderSchedulePanel = ({
   onCutoffTimeChange,
   className = '',
 }: BuilderSchedulePanelProps) => {
-  // Optional validation hint for daily time window
-  const hasTimeMismatch =
-    Boolean(opensTime && cutoffTime) && opensTime >= cutoffTime;
+  const hasTimeMismatch = hasScheduleTimeMismatch(opensTime, cutoffTime);
+  const isOvernight = isOvernightWindow(opensTime, cutoffTime);
 
   return (
     <div
@@ -153,7 +169,7 @@ export const BuilderSchedulePanel = ({
             value={parseDateStr(startDate)}
             onChange={(d) => onStartDateChange(d ? toDateStr(d) : '')}
             placeholder="Select a date"
-            triggerClassName="h-12 rounded-xl px-4"
+            triggerClassName="h-12 rounded-lg px-4"
           />
           <p className="text-[11px] font-display text-text-muted px-1">
             {recurrence === 'ONE_TIME'
@@ -178,7 +194,7 @@ export const BuilderSchedulePanel = ({
                 value={opensTime}
                 onChange={onOpensTimeChange}
                 placeholder="Any time"
-                triggerClassName="h-12 rounded-xl px-4"
+                triggerClassName="h-12 rounded-lg px-4"
               />
             </div>
             <div className="flex flex-col gap-1.5">
@@ -189,7 +205,7 @@ export const BuilderSchedulePanel = ({
                 value={cutoffTime}
                 onChange={onCutoffTimeChange}
                 placeholder="Any time"
-                triggerClassName="h-12 rounded-xl px-4"
+                triggerClassName="h-12 rounded-lg px-4"
               />
             </div>
           </div>
@@ -197,7 +213,12 @@ export const BuilderSchedulePanel = ({
           {hasTimeMismatch ? (
             <p className="text-[11px] font-display text-warning flex items-center gap-1 mt-1">
               <AlertCircle size={12} className="shrink-0" />
-              Notice: Cut-off time is earlier than or equal to open time.
+              Open and cut-off can't be the same time — there'd be no time to complete it.
+            </p>
+          ) : isOvernight ? (
+            <p className="text-[11px] font-display text-primary-600 dark:text-primary-400 flex items-center gap-1 mt-1">
+              <Info size={12} className="shrink-0" />
+              Overnight window — cuts off at {cutoffTime} the next morning, not the same day.
             </p>
           ) : (
             <p className="text-[11px] font-display text-text-muted">

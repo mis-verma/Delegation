@@ -92,8 +92,11 @@ export async function startConversation(params: {
             expiresAt: new Date(Date.now() + CONVERSATION_TTL_MS),
         });
     } catch (err: any) {
-        // Two fresh messages from the same phone racing to start a conversation at once.
-        if (err?.code === "ER_DUP_ENTRY") {
+        // Two fresh messages from the same phone racing to start a conversation at once. Drizzle
+        // wraps the real mysql2 error inside a DrizzleQueryError, whose own `code` is undefined —
+        // the actual code sits on `.cause` (see errorHandler.ts's asMySqlError for the same gotcha)
+        // — so this previously never matched and the race fell through to the generic throw below.
+        if (err?.code === "ER_DUP_ENTRY" || err?.cause?.code === "ER_DUP_ENTRY") {
             const existing = await findActiveConversation(params.phone);
             if (existing) return existing;
         }
@@ -119,8 +122,16 @@ export async function advanceConversation(
     const [nextSlot, ...remainingQueue] = conversation.slotQueue;
 
     if (!nextSlot) {
-        const [result] = await db.update(pendingTaskConversations)
-            .set({ ...fromDraftObject(updatedDraft), updatedAt: new Date() })
+        // The "done" case used to UPDATE the draft columns here and rely on the caller deleting
+        // the row afterward (finishConversation, once task creation succeeds) — but pendingSlot
+        // never changes on this branch, so a second, genuinely distinct message arriving before
+        // that later delete (not caught by the per-message webhook dedupe, since it's a different
+        // message.id) matched the exact same guarded WHERE and also got "done" back, double-firing
+        // task creation. Deleting the row right here, as part of the same guarded statement, closes
+        // that window: a second racer's identical WHERE now matches zero rows because the first
+        // racer already removed it, and it also means a task-creation failure downstream no longer
+        // leaves an orphaned row that retries forever on every later message from that phone.
+        const [result] = await db.delete(pendingTaskConversations)
             .where(and(
                 eq(pendingTaskConversations.id, conversation.id),
                 eq(pendingTaskConversations.pendingSlot, conversation.pendingSlot),
@@ -144,9 +155,5 @@ export async function advanceConversation(
 }
 
 export async function cancelConversation(phone: string) {
-    await db.delete(pendingTaskConversations).where(eq(pendingTaskConversations.phone, phone));
-}
-
-export async function finishConversation(phone: string) {
     await db.delete(pendingTaskConversations).where(eq(pendingTaskConversations.phone, phone));
 }

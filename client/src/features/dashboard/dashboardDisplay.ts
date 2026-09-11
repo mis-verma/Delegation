@@ -2,6 +2,7 @@ import type { Ticket, TicketStatus } from '../../api/ticket';
 import type { Task } from '../../api/task';
 import type { Todo } from '../../api/todos';
 import type { ChecklistInstance } from '../../api/checklistInstances';
+import { instanceDeadline } from '../checklist/checklistDisplay';
 
 // Mirrors taskDisplay.tsx's STATUS_CONFIG badge classes exactly — the feed sits on the same
 // dashboard as the KPI modal that already uses those tokens, so the same task's status color
@@ -131,6 +132,12 @@ const isoWeek = (d: Date) => {
 
 // Builds the exact same bucket key string the server's $dateToString grouping produces for
 // this granularity, so a client-computed "current period" lookup actually finds its row.
+// Relies on an unenforced assumption: the server's MySQL pool has no `timezone` option set, so
+// mysql2 stores/reads Date columns in the DB *host's* local OS timezone, and DATE_FORMAT()
+// buckets on that same local value with no shift applied. This only lines up with the local
+// getters used below because every deployment so far runs the app host and its viewers in the
+// same zone (IST, matching env.CHECKLIST_TIMEZONE_OFFSET_MINUTES' default of 330) — a host moved
+// to a different OS timezone would silently desync "current period" lookups near local midnight.
 export const bucketKeyFor = (period: CompliancePeriod, date: Date): string => {
   switch (period) {
     case 'day': return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
@@ -260,6 +267,14 @@ export const ACTIVITY_CATEGORY_DOT_CLASS: Record<ActivityCategory, string> = {
 };
 
 export interface ActivityWorkItem {
+  id: string;
+  /** Task title, ticket title, checklist instance title, or todo text — whatever that record's
+   *  own display name is called. Powers the drill-down modal's row label. */
+  title: string;
+  /** Where clicking this item in a drill-down modal should navigate. Tasks/tickets open via the
+   *  `?open=<id>` deep-link their own list pages already support; checklist instances have a real
+   *  detail route; todos have neither, so they land on the plain list. */
+  link: string;
   category: ActivityCategory;
   createdAt: string;
   completed: boolean;
@@ -293,6 +308,9 @@ export const buildActivityItems = (
   now: number,
 ): ActivityWorkItem[] => [
   ...tasks.map((t): ActivityWorkItem => ({
+    id: t.id,
+    title: t.title,
+    link: `/tasks?open=${t.id}`,
     category: 'delegation',
     createdAt: t.createdAt,
     completed: t.status === 'done',
@@ -305,6 +323,9 @@ export const buildActivityItems = (
     storeId: null,
   })),
   ...tickets.map((t): ActivityWorkItem => ({
+    id: t.id,
+    title: t.title,
+    link: `/tickets?open=${t.id}`,
     category: 'ticket',
     createdAt: t.createdAt,
     completed: t.status === 'CLOSED',
@@ -318,18 +339,30 @@ export const buildActivityItems = (
     const done = c.items.filter((i) => i.isDone).length;
     const completed = total > 0 && done === total;
     return {
+      id: c.id,
+      title: c.title,
+      link: `/checklists/${c.id}`,
       category: 'checklist',
       // Checklist instances have no createdAt of their own — generatedAt (when this recurring
       // instance was spun up) is the closest equivalent for bucketing "when this happened".
       createdAt: c.generatedAt,
       completed,
-      overdue: !completed && !!c.cutoffTime && new Date(c.cutoffTime).getTime() < now,
+      // Was `new Date(c.cutoffTime).getTime() < now` — cutoffTime is a bare "HH:mm" string, not a
+      // full timestamp, so that parsed to Invalid Date/NaN and this could never actually fire.
+      // instanceDeadline anchors cutoffTime (or falls back to periodEnd) to the instance's own
+      // periodStart date, same real deadline the server now enforces.
+      overdue: !completed && instanceDeadline(c) < now,
       userIds: c.assigneeIds ?? [],
       departmentId: null,
       storeId: c.storeId,
     };
   }),
   ...todos.map((t): ActivityWorkItem => ({
+    id: t.id,
+    title: t.text,
+    // Todos have no standalone detail view or `?open=` deep link — the list page is the closest
+    // thing to "the item" a drill-down link can point at.
+    link: '/todo',
     category: 'todo',
     createdAt: t.createdAt,
     completed: t.completed,
@@ -342,6 +375,12 @@ export const buildActivityItems = (
     storeId: null,
   })),
 ];
+
+/** Items of one category whose `createdAt` falls in `[start, end)` — the drill-down counterpart
+ *  to `countItemsInRange`, used when a chart/gauge breakdown row is clicked and the actual records
+ *  (not just their count) need to be shown. */
+export const itemsInRange = (items: ActivityWorkItem[], category: ActivityCategory, start: Date, end: Date) =>
+  items.filter((i) => i.category === category && inTimeRange(i.createdAt, start, end));
 
 export const countItemsInRange = (items: ActivityWorkItem[], category: ActivityCategory, start: Date, end: Date) =>
   items.filter((i) => i.category === category && inTimeRange(i.createdAt, start, end)).length;

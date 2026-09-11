@@ -1,17 +1,19 @@
 import { QuickFilterStats, statusTiles } from '../../../components/quickFilterStats';
 
-export type MyChecklistsQuickFilterKey = 'completed' | 'due' | 'overdue';
+// Same four-tile shape Delegation and Tickets both use — "Pending" is the broad not-yet-done
+// bucket (mirrors the Dashboard's own Due/Completed split), "Due" is its on-track subset, and
+// "Overdue" is the subset that has run past its period end — the same pending/due/overdue
+// relationship Tickets uses (as "delayed").
+export type MyChecklistsQuickFilterKey = 'pending' | 'completed' | 'due' | 'overdue';
 
 export interface MyChecklistsQuickFilterCounts {
+  pending: number;
   completed: number;
   due: number;
   overdue: number;
 }
 
-// The user-facing counterpart of the admin Compliance board's stat row, one tier down: "Due" is
-// the broad not-yet-done bucket (mirrors the Dashboard's own Due/Completed split), "Overdue" is
-// the subset that has run past its period end — the same due/overdue relationship Tickets uses.
-const TILES = statusTiles<MyChecklistsQuickFilterKey>(['due', 'completed', 'overdue']);
+const TILES = statusTiles<MyChecklistsQuickFilterKey>(['pending', 'completed', 'due', 'overdue']);
 
 interface MyChecklistsQuickStatsProps {
   counts: MyChecklistsQuickFilterCounts;

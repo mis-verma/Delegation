@@ -22,6 +22,13 @@ import { emitTicketEvent } from '../sockets/ticketEvent.js';
 // Due At"). This function just registers the schedule; call it once when the
 // server starts up.
 export const startSlaSweep = () => {
+  // node-cron fires on its timer regardless of whether the previous tick's callback has
+  // resolved — this run's own UPDATE happens right after its SELECT (a much smaller window than
+  // taskDeadlineReminder's), but at scale (a large overdue backlog, a slow DB round-trip) a still-
+  // running tick could still overlap the next one and re-flag/re-emit the same tickets. This flag
+  // makes the two ticks mutually exclusive instead.
+  let isRunning = false;
+
   // cron.schedule takes a "cron expression" (a 5-part time pattern) and a
   // callback to run each time that pattern matches. The pattern here is
   // '*/5 * * * *', which in plain English means: "every 5 minutes, every
@@ -29,6 +36,11 @@ export const startSlaSweep = () => {
   // wakes up and runs once every 5 minutes, forever, for as long as the
   // server process is alive.
   cron.schedule('*/5 * * * *', async () => {
+    if (isRunning) {
+      console.warn('SLA sweep: previous run still in progress, skipping this tick.');
+      return;
+    }
+    isRunning = true;
     // Wrapped in try/catch because this callback runs unattended on a timer -
     // nobody is watching a request/response to surface a thrown error, so
     // without this the whole sweep would silently die (or crash the process
@@ -89,6 +101,8 @@ export const startSlaSweep = () => {
       console.log(`SLA sweep: flagged ${overdue.length} ticket(s) as overdue`);
     } catch (err) {
       console.error('SLA sweep failed:', err);
+    } finally {
+      isRunning = false;
     }
   });
 };

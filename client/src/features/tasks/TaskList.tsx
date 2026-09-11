@@ -1,19 +1,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { toast } from "sonner";
-import { Wand2, AlertCircle, Save, Inbox, X, Plus, ChevronDown, Store, Building2, Check, type LucideIcon } from "lucide-react";
-import { Button, Skeleton, Fab } from "../../components";
+import { Wand2, AlertCircle, Save, Inbox, X, Plus, ChevronDown, Upload } from "lucide-react";
+import { Button, Skeleton, Fab, ViewToggle, type ViewTab } from "../../components";
 import { ExportDialog } from "../reports";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import { useTasksQuery, useAssignableUsersQuery } from "./hook";
+import { useTasksQuery, useTasksMetaQuery, useAssignableUsersQuery } from "./hook";
+import { useTagsQuery } from "../tags/hook";
 import { useDepartmentsQuery, useStoresQuery } from "../tickets/hook";
 import type { Task } from '../../api/task';
 import { TaskForm } from "./TaskForm";
 import { TaskDetail } from "./TaskDetail";
 import { TaskBoard } from "./TaskBoard";
-import { TaskMobileList } from "./TaskMobileList";
+import { TaskListView } from "./TaskListView";
+import { TaskTable } from "./TaskTable";
+import { TaskTimeline } from "./TaskTimeline";
+import { TASK_VIEWS, TASK_VIEW_LABEL, TASK_VIEW_ICON, defaultTaskView, isTaskViewKey, type TaskViewKey } from "./taskViews";
 import { useIsMobile } from "../../lib/useMediaQuery";
 import { SmartTaskModal } from "./SmartTaskModal";
+import { TaskBulkImportModal } from "./bulkImport/TaskBulkImportModal";
 import { TaskOptionsDialog } from "./TaskOptionsDialog";
 import { TaskQuickStats, type QuickFilterKey } from "./TaskQuickStats";
 import { type BoardGroupBy } from "./taskBoardGroups";
@@ -25,6 +30,15 @@ import { useNotificationsQuery, useMarkNotificationReadMutation } from "../notif
 import { readQuickFilterParam } from "../../lib/readQuickFilterParam";
 
 const QUICK_FILTER_VALUES = ["pending", "completed", "due", "delayed"] as const;
+
+// Module scope so the array is referentially stable — ViewToggle is a plain component but the
+// controls band re-renders on every filter keystroke, and rebuilding this per render is the same
+// wasted work as TicketList's `new Map(departments)`.
+const VIEW_TABS: ViewTab<TaskViewKey>[] = TASK_VIEWS.map((key) => ({
+  key,
+  label: TASK_VIEW_LABEL[key],
+  icon: TASK_VIEW_ICON[key],
+}));
 
 interface TaskListProps {
   userId?: string;
@@ -39,10 +53,10 @@ const QUICK_FILTER_PREDICATES: Record<QuickFilterKey, (t: Task) => boolean> = {
   delayed: isOverdueTask,
 };
 
-const DEFAULT_FILTERS: TaskFilters = { category: 'all', status: 'all', priority: [], storeId: '', departmentId: '', assigneeIds: [], raisedByIds: [] };
+const DEFAULT_FILTERS: TaskFilters = { category: 'all', status: 'all', priority: [], storeId: '', departmentId: '', assigneeIds: [], raisedByIds: [], tagIds: [] };
 
-const URL_TRACKED_DEFAULTS: Pick<TaskFilters, 'category' | 'status' | 'storeId' | 'departmentId' | 'assigneeIds' | 'raisedByIds'> = {
-  category: 'all', status: 'all', storeId: '', departmentId: '', assigneeIds: [], raisedByIds: [],
+const URL_TRACKED_DEFAULTS: Pick<TaskFilters, 'category' | 'status' | 'storeId' | 'departmentId' | 'assigneeIds' | 'raisedByIds' | 'tagIds'> = {
+  category: 'all', status: 'all', storeId: '', departmentId: '', assigneeIds: [], raisedByIds: [], tagIds: [],
 };
 
 const filtersFromUrl = (searchParams: URLSearchParams): Partial<TaskFilters> => {
@@ -59,53 +73,13 @@ const filtersFromUrl = (searchParams: URLSearchParams): Partial<TaskFilters> => 
   if (departmentId) fromUrl.departmentId = departmentId;
   if (assigneeIds) fromUrl.assigneeIds = assigneeIds.split(',');
   if (raisedByIds) fromUrl.raisedByIds = raisedByIds.split(',');
+  const tagIds = searchParams.get('tagIds');
+  if (tagIds) fromUrl.tagIds = tagIds.split(',');
   return fromUrl;
 };
 
 const filtersStorageKey = (userId?: string) => `task-filters:${userId ?? 'anon'}`;
 
-
-const ScopeSelect = ({
-  icon: Icon, label, allLabel, options, value, onSelect,
-}: {
-  icon: LucideIcon;
-  label: string;
-  allLabel: string;
-  options: { id: string; name: string }[];
-  value: string;
-  onSelect: (id: string) => void;
-}) => {
-  const activeName = value ? options.find(o => o.id === value)?.name ?? 'Unknown' : allLabel;
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label={`${label} scope: ${activeName}`}
-          className="group flex items-center gap-2 h-9 pl-3 pr-2.5 rounded-full border border-border bg-surface text-left transition-all duration-200 ease-in-out cursor-pointer hover:border-primary-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-        >
-          <Icon size={15} strokeWidth={2.5} className="text-primary-600 shrink-0" />
-          <span className="text-xs font-medium text-text-muted hidden sm:inline">{label}</span>
-          <span className="text-xs font-bold tracking-tight text-text truncate max-w-40">{activeName}</span>
-          <ChevronDown size={14} className="text-text-light group-hover:text-text-muted transition-colors shrink-0" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-56 rounded-xl max-h-80 overflow-y-auto">
-        {[{ id: '', name: allLabel }, ...options].map((option) => (
-          <DropdownMenuItem
-            key={option.id || 'all'}
-            onClick={() => onSelect(option.id)}
-            className="gap-2.5 py-2 cursor-pointer justify-between"
-          >
-            <span className="font-medium text-sm truncate">{option.name}</span>
-            {value === option.id && <Check size={14} className="text-primary-600 shrink-0" />}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-};
 
 export const TaskList = ({ userId, hideHeader = false }: TaskListProps = {}) => {
   const { user } = useAuth();
@@ -113,12 +87,40 @@ export const TaskList = ({ userId, hideHeader = false }: TaskListProps = {}) => 
   const isVerifier = user?.role === "PC" || user?.role === "ADMIN";
   const [searchParams, setSearchParams] = useSearchParams();
   const [showSmartModal, setShowSmartModal] = useState(false);
+  const [showBulkImport, setShowBulkImport] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const [selected, setSelected] = useState<{ task: Task; mode: 'view' | 'edit' } | null>(null);
 
-  const { data: tasks, isPending, isError } = useTasksQuery(userId);
+  // Declared before the queries below because one of these filters — tagIds — is applied by the
+  // server, so it feeds the tasks request and its cache key rather than filtering the result.
+  const [filters, setFilters] = useState<TaskFilters>(() => {
+    const fromUrl = filtersFromUrl(searchParams);
+    if (Object.keys(fromUrl).length) return { ...DEFAULT_FILTERS, ...fromUrl };
+
+    try {
+      const raw = localStorage.getItem(filtersStorageKey(user?.id));
+      if (raw) {
+        const saved = JSON.parse(raw);
+        if (!Array.isArray(saved.priority)) delete saved.priority;
+        if (!Array.isArray(saved.assigneeIds)) delete saved.assigneeIds;
+        if (!Array.isArray(saved.raisedByIds)) delete saved.raisedByIds;
+        if (!Array.isArray(saved.tagIds)) delete saved.tagIds;
+        return { ...DEFAULT_FILTERS, ...saved };
+      }
+    } catch {
+      // Corrupt/unavailable localStorage
+    }
+    return DEFAULT_FILTERS;
+  });
+
+  const { data: tasks, isPending, isError } = useTasksQuery(userId, true, filters.tagIds);
+  // Shares useTasksQuery's cache entry — no extra request. Every other count on this page is
+  // derived client-side from the fetched array, so when the server has more rows than one page
+  // holds those counts describe the page, not the org; `meta.total` is what makes that visible.
+  const { data: listMeta } = useTasksMetaQuery(userId, true, filters.tagIds);
+  const { data: tags } = useTagsQuery();
   const { data: assignableUsers } = useAssignableUsersQuery();
   const { data: departments } = useDepartmentsQuery();
   const { data: stores } = useStoresQuery();
@@ -167,25 +169,6 @@ export const TaskList = ({ userId, hideHeader = false }: TaskListProps = {}) => 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, tasks]);
 
-  const [filters, setFilters] = useState<TaskFilters>(() => {
-    const fromUrl = filtersFromUrl(searchParams);
-    if (Object.keys(fromUrl).length) return { ...DEFAULT_FILTERS, ...fromUrl };
-
-    try {
-      const raw = localStorage.getItem(filtersStorageKey(user?.id));
-      if (raw) {
-        const saved = JSON.parse(raw);
-        if (!Array.isArray(saved.priority)) delete saved.priority;
-        if (!Array.isArray(saved.assigneeIds)) delete saved.assigneeIds;
-        if (!Array.isArray(saved.raisedByIds)) delete saved.raisedByIds;
-        return { ...DEFAULT_FILTERS, ...saved };
-      }
-    } catch {
-      // Corrupt/unavailable localStorage
-    }
-    return DEFAULT_FILTERS;
-  });
-
   const isFirstFiltersRun = useRef(true);
   useEffect(() => {
     if (isFirstFiltersRun.current) {
@@ -197,6 +180,25 @@ export const TaskList = ({ userId, hideHeader = false }: TaskListProps = {}) => 
 
   const [sort, setSort] = useState<TaskSortKey>('dueDate');
   const [boardGroupBy, setBoardGroupBy] = useState<BoardGroupBy>('status');
+
+  // Which layout renders the list. Read from ?view= first so a shared or bookmarked link opens in
+  // the view it was sent in, exactly like the filters above; otherwise the per-viewport default.
+  const [view, setView] = useState<TaskViewKey>(() => {
+    const fromUrl = searchParams.get('view');
+    return isTaskViewKey(fromUrl) ? fromUrl : defaultTaskView(isMobile);
+  });
+
+  const changeView = (next: TaskViewKey) => {
+    setView(next);
+    setSearchParams(prev => {
+      const params = new URLSearchParams(prev);
+      // The viewport default isn't worth a URL param — leaving it out keeps a plain /tasks link
+      // adapting to whatever device opens it.
+      if (next === defaultTaskView(isMobile)) params.delete('view');
+      else params.set('view', next);
+      return params;
+    }, { replace: true });
+  };
 
   const [quickFilter, setQuickFilter] = useState<QuickFilterKey | null>(
     () => readQuickFilterParam(searchParams, QUICK_FILTER_VALUES),
@@ -213,6 +215,7 @@ export const TaskList = ({ userId, hideHeader = false }: TaskListProps = {}) => 
       if (next.departmentId) params.set('departmentId', next.departmentId); else params.delete('departmentId');
       if (next.assigneeIds.length) params.set('assigneeIds', next.assigneeIds.join(',')); else params.delete('assigneeIds');
       if (next.raisedByIds.length) params.set('raisedByIds', next.raisedByIds.join(',')); else params.delete('raisedByIds');
+      if (next.tagIds.length) params.set('tagIds', next.tagIds.join(',')); else params.delete('tagIds');
       return params;
     }, { replace: true });
   };
@@ -228,8 +231,22 @@ export const TaskList = ({ userId, hideHeader = false }: TaskListProps = {}) => 
     }
   };
 
+  // A delegation carries a departmentId, never a storeId — the store is one hop further out, on
+  // the department. This is that hop, resolved once instead of per task per render.
+  const departmentStoreId = useMemo(
+    () => new Map((departments ?? []).map(d => [d.id, d.storeId])),
+    [departments],
+  );
   const updateFilters = (patch: Partial<TaskFilters>) => {
     const next = { ...filters, ...patch };
+    // Switching store while a department belonging to the OLD store is still selected leaves a
+    // filter pair that can never match anything. This lived in the store box's own onSelect while
+    // Store was a toolbar control; it belongs here now that the Store row inside Options sets the
+    // same field, so the rule holds no matter which control changed it.
+    if (patch.storeId !== undefined && next.departmentId && next.storeId
+      && departmentStoreId.get(next.departmentId) !== next.storeId) {
+      next.departmentId = '';
+    }
     setFilters(next);
     syncFiltersToUrl(next);
     persistFiltersIfSaved(next);
@@ -278,11 +295,11 @@ export const TaskList = ({ userId, hideHeader = false }: TaskListProps = {}) => 
     () => new Map((departments ?? []).map(d => [d.id, d.name])),
     [departments],
   );
-  // A delegation carries a departmentId, never a storeId — the store is one hop further out, on
-  // the department. This is that hop, resolved once instead of per task per render.
-  const departmentStoreId = useMemo(
-    () => new Map((departments ?? []).map(d => [d.id, d.storeId])),
-    [departments],
+  // Only for resolving the active-filter chip's label — the views read each delegation's own
+  // `tags` array, which the server already returns with names attached.
+  const tagNames = useMemo(
+    () => new Map((tags ?? []).map(t => [t.id, t.name])),
+    [tags],
   );
   const storeOptions = useMemo(
     () => (stores ?? []).filter(s => s.isActive).map(s => ({ id: s.id, name: s.name })),
@@ -297,11 +314,6 @@ export const TaskList = ({ userId, hideHeader = false }: TaskListProps = {}) => 
       .map(d => ({ id: d.id, name: d.name })),
     [departments, filters.storeId],
   );
-
-  // Switching store while a department from the old store is selected would otherwise leave a
-  // filter pair that matches nothing, and a Department box showing a name no longer in its list.
-  const clearsDepartment = (nextStoreId: string) =>
-    !!filters.departmentId && !!nextStoreId && departmentStoreId.get(filters.departmentId) !== nextStoreId;
 
   const mineOnly = searchParams.get('mine') === '1';
   const mineFiltered = useMemo(
@@ -365,8 +377,20 @@ export const TaskList = ({ userId, hideHeader = false }: TaskListProps = {}) => 
       label: `Priority: ${filters.priority.map(p => PRIORITY_MAP[p].label).join(', ')}`,
       onClear: () => updateFilters({ priority: [] }),
     }] : []),
-    // No chip for storeId/departmentId: their boxes above state the selection permanently, so a
-    // chip would be the same fact a second time. They're counted into `activeCount` below instead.
+    // Store and Department DO get chips now. They used to be permanent boxes in the toolbar that
+    // stated their own selection, which made a chip a duplicate; as rows inside Options their
+    // selection is invisible while the dialog is closed, so the chip is the only thing telling
+    // you the page is scoped.
+    ...(filters.storeId ? [{
+      key: 'storeId',
+      label: `Store: ${storeOptions.find(s => s.id === filters.storeId)?.name ?? 'Unknown'}`,
+      onClear: () => updateFilters({ storeId: '' }),
+    }] : []),
+    ...(filters.departmentId ? [{
+      key: 'departmentId',
+      label: `Department: ${departmentNames.get(filters.departmentId) ?? 'Unknown'}`,
+      onClear: () => updateFilters({ departmentId: '' }),
+    }] : []),
     ...(filters.assigneeIds.length > 0 ? [{
       key: 'assigneeIds',
       label: filters.assigneeIds.length === 1
@@ -381,12 +405,20 @@ export const TaskList = ({ userId, hideHeader = false }: TaskListProps = {}) => 
         : `Raised by: ${filters.raisedByIds.length}`,
       onClear: () => updateFilters({ raisedByIds: [] }),
     }] : []),
+    ...(filters.tagIds.length > 0 ? [{
+      key: 'tagIds',
+      // Names, not a count, while there's room — a label filter is only useful if you can see
+      // which labels are on.
+      label: filters.tagIds.length <= 2
+        ? `Labels: ${filters.tagIds.map(id => tagNames.get(id) ?? 'Unknown').join(', ')}`
+        : `Labels: ${filters.tagIds.length}`,
+      onClear: () => updateFilters({ tagIds: [] }),
+    }] : []),
   ];
 
-  // The two scope boxes state their own selection permanently, so they don't also get chips — but
-  // they still have to count towards the Options badge, or picking a store would leave "Clear
-  // filters" hidden with a filter active.
-  const activeCount = activeChips.length + (filters.storeId ? 1 : 0) + (filters.departmentId ? 1 : 0);
+  // Store and Department are chips now, so they're already counted — adding them again would
+  // double-count and show "2" on the Options badge for one selected store.
+  const activeCount = activeChips.length;
 
   const isEmpty = sorted.length === 0;
 
@@ -430,6 +462,15 @@ export const TaskList = ({ userId, hideHeader = false }: TaskListProps = {}) => 
                           </span>
                         )}
                       </DropdownMenuItem>
+                      {/* Admin/PC only, and absent rather than shown-disabled for anyone else —
+                          unlike Smart Task's "Soon" state, this is a real, ready feature that's
+                          just scoped to who's allowed to bulk-create delegations for other people. */}
+                      {isVerifier && (
+                        <DropdownMenuItem onClick={() => setShowBulkImport(true)} className="gap-2.5 py-2 cursor-pointer">
+                          <Upload size={15} className="text-primary-600" />
+                          <span className="font-medium text-sm">Bulk Import</span>
+                        </DropdownMenuItem>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -445,6 +486,7 @@ export const TaskList = ({ userId, hideHeader = false }: TaskListProps = {}) => 
                       disabled: !isVerifier,
                       badge: !isVerifier ? 'Soon' : undefined,
                     },
+                    ...(isVerifier ? [{ key: 'bulk-import', label: 'Bulk Import', icon: Upload, onClick: () => setShowBulkImport(true) }] : []),
                   ]}
                 />
               </>
@@ -460,11 +502,15 @@ export const TaskList = ({ userId, hideHeader = false }: TaskListProps = {}) => 
               activeCount={activeCount}
               sort={sort}
               onSortChange={setSort}
+              storeOptions={storeOptions}
+              departmentOptions={departmentOptions}
+              view={view}
               groupBy={boardGroupBy}
               onGroupByChange={setBoardGroupBy}
               fieldVisibility={fieldVisibility}
               onToggleField={toggleField}
               assignableUsers={assignableUsers}
+              tags={tags}
               isAdmin={isVerifier}
               canExport={isVerifier}
               onExport={() => setShowExport(true)}
@@ -476,28 +522,6 @@ export const TaskList = ({ userId, hideHeader = false }: TaskListProps = {}) => 
               } : undefined}
             />
     </>
-  );
-
-  const storeScopeBox = storeOptions.length > 1 && (
-    <ScopeSelect
-      icon={Store}
-      label="Store"
-      allLabel="All stores"
-      options={storeOptions}
-      value={filters.storeId}
-      onSelect={(storeId) => updateFilters({ storeId, ...(clearsDepartment(storeId) ? { departmentId: '' } : {}) })}
-    />
-  );
-
-  const departmentScopeBox = departmentOptions.length > 1 && (
-    <ScopeSelect
-      icon={Building2}
-      label="Department"
-      allLabel="All departments"
-      options={departmentOptions}
-      value={filters.departmentId}
-      onSelect={(departmentId) => updateFilters({ departmentId })}
-    />
   );
 
   return (
@@ -522,6 +546,11 @@ export const TaskList = ({ userId, hideHeader = false }: TaskListProps = {}) => 
 
       
         <div className="flex items-center gap-3 flex-wrap">
+          {/* View lives in the toolbar, not inside Options. It changes what the whole page looks
+              like, so it reads as a place you are rather than a setting you went and configured —
+              and unlike every other control here it isn't a way of narrowing the list. */}
+          <ViewToggle tabs={VIEW_TABS} value={view} onChange={changeView} />
+
           {activeChips.length > 0 && (
             <div className="flex items-center gap-2 flex-wrap min-w-0">
               {activeChips.map(chip => (
@@ -554,16 +583,22 @@ export const TaskList = ({ userId, hideHeader = false }: TaskListProps = {}) => 
           )}
 
        
-          {sorted.length !== scopeFiltered.length && (
-            <span className="text-xs font-semibold tracking-tight text-text-muted tabular-nums">
-              {sorted.length} of {scopeFiltered.length} shown
+
+          {/* Only when the server actually has more than it sent. Says so plainly rather than
+              letting the stat tiles above present a partial count as the total. */}
+          {listMeta?.hasNext && (
+            <span
+              className="text-xs font-semibold tracking-tight text-warning tabular-nums"
+              title={`This page holds the ${listMeta.limit} most recent delegations. Counts above describe these, not all ${listMeta.total}.`}
+            >
+              Newest {listMeta.limit} of {listMeta.total}
             </span>
           )}
 
         
+          {/* Sort, Store and Department all live inside Options now, so the toolbar's right side
+              is just the primary actions. */}
           <div className="flex items-center gap-2.5 flex-wrap shrink-0 ml-auto">
-            {storeScopeBox}
-            {departmentScopeBox}
             {headerActions}
           </div>
         </div>
@@ -622,8 +657,21 @@ export const TaskList = ({ userId, hideHeader = false }: TaskListProps = {}) => 
     
       {!isPending && !isError && !isEmpty && (
         <div className="pb-12">
-          {isMobile ? (
-            <TaskMobileList
+          {/* All four views receive the same already-scoped, already-filtered, already-sorted
+              `sorted` array and the same field visibility — a view is a layout, never its own
+              query or its own filter logic. */}
+          {view === 'list' && (
+            <TaskListView
+              tasks={sorted}
+              departmentNames={departmentNames}
+              onOpen={handleOpen}
+              fields={fieldVisibility}
+              newlyAssignedTaskIds={newlyAssignedTaskIds}
+            />
+          )}
+
+          {view === 'table' && (
+            <TaskTable
               tasks={sorted}
               assigneeNames={assigneeNames}
               departmentNames={departmentNames}
@@ -632,7 +680,21 @@ export const TaskList = ({ userId, hideHeader = false }: TaskListProps = {}) => 
               fields={fieldVisibility}
               newlyAssignedTaskIds={newlyAssignedTaskIds}
             />
-          ) : (
+          )}
+
+          {view === 'timeline' && (
+            <TaskTimeline
+              tasks={sorted}
+              assigneeNames={assigneeNames}
+              departmentNames={departmentNames}
+              isVerifier={isVerifier}
+              onOpen={handleOpen}
+              fields={fieldVisibility}
+              newlyAssignedTaskIds={newlyAssignedTaskIds}
+            />
+          )}
+
+          {view === 'board' && (
             <TaskBoard
               tasks={sorted}
               assigneeNames={assigneeNames}
@@ -656,6 +718,7 @@ export const TaskList = ({ userId, hideHeader = false }: TaskListProps = {}) => 
         />
       )}
       {showSmartModal && <SmartTaskModal onClose={() => setShowSmartModal(false)} />}
+      {showBulkImport && <TaskBulkImportModal onClose={() => setShowBulkImport(false)} />}
       {showExport && (
         <ExportDialog
           reportModule="tasks"

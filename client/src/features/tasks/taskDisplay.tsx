@@ -2,26 +2,34 @@ import React from 'react';
 import { CheckCircle2, Clock, CircleDashed, ShieldQuestion } from 'lucide-react';
 import type { Task } from '../../api/task';
 
+// `stripe` is the thin rail on a card or tile — a faint accent beside content, deliberately quiet.
+// `bar` is the same priority at full strength, for a shape that IS the data rather than an accent
+// on it: the Gantt bars, where a 35%-opacity fill on a light background reads as "disabled" and
+// the three priorities become almost indistinguishable from each other and from the empty track.
+// Low is blue rather than grey — grey on a chart looks like missing data, not low priority.
 export const PRIORITY_MAP = {
   low: {
     label: 'Low',
     className: 'bg-surface-hover text-text-muted transition-colors duration-200',
     accent: 'bg-text-light',
     stripe: 'bg-text-light/40',
+    bar: 'bg-info',
   },
   medium: {
     label: 'Medium',
     className: 'bg-warning/10 text-warning transition-colors duration-200',
     accent: 'bg-warning/35',
     stripe: 'bg-warning/35',
+    bar: 'bg-warning',
   },
   high: {
     label: 'High',
     className: 'bg-danger/10 text-danger transition-colors duration-200',
     accent: 'bg-danger/35',
     stripe: 'bg-danger/35',
+    bar: 'bg-danger',
   },
-} satisfies Record<Task['priority'], { label: string; className: string; accent: string; stripe: string }>;
+} satisfies Record<Task['priority'], { label: string; className: string; accent: string; stripe: string; bar: string }>;
 
 
 export const STATUS_ICON = {
@@ -30,6 +38,12 @@ export const STATUS_ICON = {
   pending_verification: <ShieldQuestion size={16} className="text-status-verify shrink-0 transition-colors duration-200" strokeWidth={2.5} />,
   done: <CheckCircle2 size={16} className="text-status-done shrink-0 transition-colors duration-200" strokeWidth={2.5} />,
 } satisfies Record<Task['status'], React.ReactNode>;
+
+
+// The statuses a "Move to" menu offers, in board order. Lives here rather than in TaskCard now
+// that the card, the table view and the timeline view all render the same menu — three private
+// copies of this array is exactly how the modules' stat tiles drifted apart before.
+export const MOVABLE_STATUSES: Task['status'][] = ['todo', 'in_progress', 'pending_verification', 'done'];
 
 
 export const STATUS_LABEL = {

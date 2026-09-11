@@ -22,6 +22,7 @@ import {
   rateToneClass,
   rateBarClass,
   RECURRENCE_LABEL,
+  isInstanceOverdue,
   type InstanceProgressStatus,
 } from '../checklistDisplay';
 import type { ChecklistInstance } from '../../../api/checklistInstances';
@@ -38,7 +39,7 @@ interface RateTileProps {
 const RateTile = ({ icon: Icon, label, rate, emptyLabel }: RateTileProps) => (
   <div className="flex flex-col gap-2.5 p-4 rounded-lg border border-border bg-surface flex-1 min-w-[12rem]">
     <div className="flex items-center justify-between">
-      <span className="flex items-center gap-1.5 text-xs font-display font-semibold text-text-muted uppercase tracking-wider">
+      <span className="flex items-center gap-1.5 text-xs font-display font-semibold text-text-muted">
         <Icon size={14} className="text-text-muted" />
         {label}
       </span>
@@ -79,7 +80,7 @@ const groupByStatus = (instances: ChecklistInstance[]) =>
 export const ChecklistDefinitionDetail = () => {
   const { definitionId = '' } = useParams();
   const navigate = useNavigate();
-  const { data: definition, isPending, isError } = useChecklistDefinitionQuery(definitionId);
+  const { data: definition, isPending, isError, refetch } = useChecklistDefinitionQuery(definitionId);
   // The instance list is now paginated server-side (default 50). This panel shows a recent
   // history for one definition rather than an audit of all time, so it asks for the newest
   // 100 explicitly instead of silently receiving whatever the default happens to be.
@@ -110,7 +111,14 @@ export const ChecklistDefinitionDetail = () => {
       <div className="w-full max-w-4xl mx-auto py-6">
         <div className="flex items-center gap-3 px-4 py-3.5 rounded-xl bg-danger/10 border border-danger/20 text-danger text-sm font-display">
           <AlertCircle size={18} className="shrink-0" />
-          <span>Failed to load checklist details. Please check your network and try again.</span>
+          <span className="flex-1">Failed to load checklist details. Please check your network and try again.</span>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="shrink-0 px-3 py-1.5 rounded-md text-xs font-display font-semibold border border-danger/30 hover:bg-danger/10 cursor-pointer transition-colors outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+          >
+            Retry
+          </button>
         </div>
       </div>
     );
@@ -236,28 +244,42 @@ export const ChecklistDefinitionDetail = () => {
           </div>
         ) : (
           <div className="flex flex-col gap-5">
-            {groupByStatus(instances).map((group) => (
-              <div key={group.status} className="flex flex-col gap-2.5">
-                <div className="flex items-center gap-2">
-                  <Badge
-                    variant={
-                      group.status === 'COMPLETED' ? 'success' : group.status === 'IN_PROGRESS' ? 'info' : 'neutral'
-                    }
-                  >
-                    {INSTANCE_STATUS_LABEL[group.status]}
-                  </Badge>
-                  <span className="text-[11px] font-mono font-medium px-1.5 py-0.5 rounded-full bg-muted/70 text-text-muted border border-border/60">
-                    {group.instances.length}
-                  </span>
-                </div>
+            {groupByStatus(instances).map((group) => {
+              // TODO/IN_PROGRESS groups can hide overdue instances indistinguishably among
+              // merely-not-yet-started ones — this is the only urgency signal at the group-header
+              // level; without it, telling "how many of these are actually overdue" means reading
+              // every row's own small chip individually. COMPLETED instances are never overdue.
+              const overdueCount = group.status === 'COMPLETED'
+                ? 0
+                : group.instances.filter((i) => isInstanceOverdue(i, false)).length;
+              return (
+                <div key={group.status} className="flex flex-col gap-2.5">
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant={
+                        group.status === 'COMPLETED' ? 'success' : group.status === 'IN_PROGRESS' ? 'info' : 'neutral'
+                      }
+                    >
+                      {INSTANCE_STATUS_LABEL[group.status]}
+                    </Badge>
+                    <span className="text-[11px] font-mono font-medium px-1.5 py-0.5 rounded-full bg-muted/70 text-text-muted border border-border/60">
+                      {group.instances.length}
+                    </span>
+                    {overdueCount > 0 && (
+                      <span className="text-[11px] font-display font-semibold px-1.5 py-0.5 rounded-full bg-danger/10 text-danger border border-danger/20">
+                        {overdueCount} overdue
+                      </span>
+                    )}
+                  </div>
 
-                <div className="flex flex-col gap-2">
-                  {group.instances.map((instance) => (
-                    <ChecklistInstanceRow key={instance.id} instance={instance} />
-                  ))}
+                  <div className="flex flex-col gap-2">
+                    {group.instances.map((instance) => (
+                      <ChecklistInstanceRow key={instance.id} instance={instance} />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

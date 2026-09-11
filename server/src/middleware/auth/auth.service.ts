@@ -20,6 +20,15 @@ import { hashPassword, comparePassword, deriveDefaultRank } from '../../utils/pa
 // TypeScript type describing the shape of a validated login request body.
 import type { LoginInput, RegisterInput, ResetPasswordInput } from './auth.validation.js';
 
+// A precomputed bcrypt hash of a value nobody will ever actually submit as a password — login()
+// compares against this when no user was found, so a bcrypt.compare() (~100ms) always runs either
+// way. Without it, "no such user" returned instantly (comparePassword only ran when a user
+// existed) while "wrong password" took the full bcrypt round-trip — a timing side-channel letting
+// an attacker distinguish registered emails from unregistered ones purely from response latency,
+// even though the response body is identical (the same class of leak forgotPassword's own comment
+// below already guards against, via its unawaited sendMail).
+const DUMMY_PASSWORD_HASH = '$2a$12$AP9v7BykEtGtvg7jStw7XusQRbTIjqkuvFNOcvITorrW1v566Io3.';
+
 // The shape of a user row as used by this service (a plain object now, not a Mongoose
 // document — no more `._id`/`.comparePassword()` methods attached to it).
 type UserRow = {
@@ -142,14 +151,16 @@ export const authService = {
     // email (which is how the account is actually stored) silently fails to match.
     const email = input.email.trim().toLowerCase();
     const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
-    // If no user was found, OR the account has been deactivated, reject with a generic message.
-    // Using the same "Invalid credentials" message for "no such user" and "wrong password" stops
-    // attackers from being able to tell whether a given email is registered (user enumeration).
-    if (!user || !user.isActive) throw AppError.unauthorized('Invalid credentials');
 
-    // Compare the submitted plain-text password against the stored bcrypt hash.
-    const valid = await comparePassword(input.password, user.passwordHash);
-    if (!valid) throw AppError.unauthorized('Invalid credentials');
+    // Compare against the real hash when a user exists, or a fixed dummy hash when they don't —
+    // always paying the same bcrypt cost either way (see DUMMY_PASSWORD_HASH above) so the two
+    // cases can't be told apart by response timing, only by the identical rejection below.
+    const valid = await comparePassword(input.password, user?.passwordHash ?? DUMMY_PASSWORD_HASH);
+
+    // If no user was found, OR the account has been deactivated, OR the password didn't match,
+    // reject with the same generic message — stops attackers from being able to tell whether a
+    // given email is registered (user enumeration).
+    if (!user || !user.isActive || !valid) throw AppError.unauthorized('Invalid credentials');
 
     // Credentials check out - issue a new short-lived access token...
     const accessToken = signAccessToken(user);

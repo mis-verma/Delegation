@@ -15,6 +15,8 @@ import { toggleValue } from '../../lib/toggleValue';
 export interface FilterOption<T> {
   value: T;
   label: string;
+  /** Passed straight through to FilterPill's optional leading dot — see its own comment. */
+  dotClassName?: string;
 }
 
 /**
@@ -62,6 +64,7 @@ export const MultiSelectFilterRow = <T extends string>({
           key={option.value}
           active={selected.includes(option.value)}
           onClick={() => onChange(toggleValue(selected, option.value))}
+          dotClassName={option.dotClassName}
         >
           {option.label}
         </FilterPill>

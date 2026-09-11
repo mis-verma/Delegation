@@ -1,20 +1,21 @@
 import { useState, type FormEvent } from 'react';
 import { Sparkles } from 'lucide-react';
 import { Modal } from '../../../../components';
+import { useConfirm } from '@/components/confirmDialog';
 import { ItemTypeConfigFields, isItemDraftComplete } from './ItemTypeConfigFields';
 import { emptyItemDraft, type ItemDraft } from '../ChecklistDefinitionItemDraftRow';
 import type { PaletteEntry } from './QuestionTypePalette';
 
 interface AddQuestionModalProps {
   entry: PaletteEntry;
-  storeId?: string;
+  storeIds?: string[];
   onClose: () => void;
   onConfirm: (patch: Partial<ItemDraft>) => void;
 }
 
 export const AddQuestionModal = ({
   entry,
-  storeId,
+  storeIds,
   onClose,
   onConfirm,
 }: AddQuestionModalProps) => {
@@ -38,10 +39,29 @@ export const AddQuestionModal = ({
     onConfirm(draft);
   };
 
+  // Escape/overlay-click and the shared Modal's own close button all funnel through the same
+  // onOpenChange -> onClose path with no distinction between them — so without this, typing a
+  // question and tapping outside the modal (or hitting Escape) silently threw it away, unlike a
+  // destructive action elsewhere in the app, which at least asks first.
+  const confirm = useConfirm();
+  const handleClose = async () => {
+    if (hasLabel) {
+      const ok = await confirm({
+        title: 'Discard this question?',
+        description: 'What you\'ve entered here hasn\'t been added to the checklist yet.',
+        confirmLabel: 'Discard',
+        cancelLabel: 'Keep editing',
+        variant: 'danger',
+      });
+      if (!ok) return;
+    }
+    onClose();
+  };
+
   return (
     <Modal
       open
-      onClose={onClose}
+      onClose={handleClose}
       title={entry.label}
       description="Set this up once — you can still fine-tune it in the list afterwards."
       icon={<Icon size={18} className="text-primary-700 dark:text-primary-400" />}
@@ -50,7 +70,7 @@ export const AddQuestionModal = ({
         <div className="flex items-center justify-end gap-2.5 w-full">
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="px-4 py-2 rounded-lg text-xs sm:text-sm font-display font-medium text-text-secondary border border-border bg-surface hover:bg-surface-hover transition-colors duration-150 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
           >
             Cancel
@@ -106,7 +126,7 @@ export const AddQuestionModal = ({
           <ItemTypeConfigFields
             draft={draft}
             onChange={patchDraft}
-            storeId={storeId}
+            storeIds={storeIds}
           />
         </div>
       </form>

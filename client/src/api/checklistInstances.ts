@@ -6,7 +6,9 @@ import type { CaptureMethod } from './ticket';
 
 // OVERDUE is a subset of OPEN (unfinished and past its period end), matching the server's
 // InstanceStatusFilter — it used to be applied client-side over the whole list.
-export type ChecklistInstanceStatus = 'OPEN' | 'COMPLETED' | 'OVERDUE';
+// 'OPEN' is every incomplete instance (overdue included) — the broad "Pending" bucket. 'DUE' is
+// the on-track subset: incomplete but not yet past its period end.
+export type ChecklistInstanceStatus = 'OPEN' | 'DUE' | 'COMPLETED' | 'OVERDUE';
 export type ChecklistVerificationStatus = 'NOT_SUBMITTED' | 'PENDING' | 'APPROVED' | 'REJECTED';
 
 export type ChecklistInstanceImage = {
@@ -59,6 +61,7 @@ export type ChecklistInstanceItem = {
   id:                 string;
   label:              string;
   order:              number;
+  section:            string | null;
   isDone:             boolean;
   completedAt:        string | null;
   completedBy:        string | null;
@@ -88,8 +91,10 @@ export type ChecklistInstanceItem = {
   secondSignatureValue: string | null;
   qrExpectedValue:    string | null;
   cashExpectedAmount: number | null;
-  conditionalTrigger: 'YES' | 'NO' | null;
-  conditionalActions: ChecklistConditionalAction[];
+  // Two independent action sets — one per possible Yes/No answer — mirroring
+  // ChecklistDefinitionItem's model. See checklistInstanceArrayDefaults below for null->[] defaults.
+  yesActions:         ChecklistConditionalAction[];
+  noActions:          ChecklistConditionalAction[];
   conditionalReasonValue: string | null;
   remarks:            string | null;
   issueId:            string | null;
@@ -107,6 +112,9 @@ export type ChecklistInstance = {
   opensTime:        string | null;
   cutoffTime:       string | null;
   assigneeIds:      string[];
+  // Additive on top of the role-based verify rule (ADMIN/PC always, MANAGER/HOD own department
+  // only) — copied from the definition's reviewerIds at generation time.
+  reviewerIds:      string[];
   periodKey:        string;
   periodStart:      string;
   periodEnd:        string;
@@ -157,6 +165,7 @@ const buildQuery = (params: Record<string, string | number | undefined>) => {
 // real response isn't guaranteed to include.
 const checklistInstanceArrayDefaults = withArrayDefaults({
   assigneeIds: arrayField(z.string()),
+  reviewerIds: arrayField(z.string()),
   items: arrayField(z.unknown()),
 });
 const normalizeInstance = (raw: unknown) => normalizeWith<ChecklistInstance>(checklistInstanceArrayDefaults, raw);
@@ -181,6 +190,8 @@ export type ChecklistInstanceSummary = {
   total: number;
   completed: number;
   pending: number;
+  /** On-track subset of `pending` — incomplete but not yet past its period end. */
+  due: number;
   overdue: number;
   /** Across every item of every matching instance — powers completion-ratio gauges. */
   totalItems: number;
@@ -188,9 +199,16 @@ export type ChecklistInstanceSummary = {
 };
 
 export const checklistInstanceApi = {
-  getMine: (status?: ChecklistInstanceStatus, paging: PageParams = {}) =>
+  getMine: (
+    filter: { status?: ChecklistInstanceStatus; storeId?: string; recurrence?: ChecklistRecurrence; verificationStatus?: ChecklistVerificationStatus; departmentId?: string; assigneeIds?: string[] } = {},
+    paging: PageParams = {},
+  ) =>
     apiFetch<ApiResponse<ChecklistInstance[]> & { meta: ChecklistInstancePage }>(
-      `/checklist-instances/mine${buildQuery({ status, ...paging })}`,
+      `/checklist-instances/mine${buildQuery({
+        ...filter,
+        assigneeIds: filter.assigneeIds?.length ? filter.assigneeIds.join(',') : undefined,
+        ...paging,
+      })}`,
     ).then(r => ({ ...r, data: normalizeInstances(r.data) })),
 
   /**
@@ -198,13 +216,27 @@ export const checklistInstanceApi = {
    * these instead of `.length`-ing a list — that pattern is why the list endpoints could not
    * paginate.
    */
-  getSummary: (filter: { mine?: boolean; storeId?: string; assigneeId?: string; definitionId?: string } = {}) =>
+  getSummary: (filter: {
+    mine?: boolean;
+    storeId?: string;
+    assigneeId?: string;
+    /** "Also shared with any of these people" — independent of `assigneeId` above. */
+    assigneeIds?: string[];
+    definitionId?: string;
+    recurrence?: ChecklistRecurrence;
+    verificationStatus?: ChecklistVerificationStatus;
+    departmentId?: string;
+  } = {}) =>
     apiFetch<ApiResponse<ChecklistInstanceSummary>>(
       `/checklist-instances/summary${buildQuery({
         mine: filter.mine ? '1' : undefined,
         storeId: filter.storeId,
         assigneeId: filter.assigneeId,
+        assigneeIds: filter.assigneeIds?.length ? filter.assigneeIds.join(',') : undefined,
         definitionId: filter.definitionId,
+        recurrence: filter.recurrence,
+        verificationStatus: filter.verificationStatus,
+        departmentId: filter.departmentId,
       })}`,
     ),
 

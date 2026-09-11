@@ -1,5 +1,5 @@
-import { useMemo, useState, type KeyboardEvent, type ReactNode } from 'react';
-import { Check, ChevronDown, Plus, Search } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { Check, ChevronDown, Plus, Search, SearchX } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { Loader } from '../loaders/Loader';
@@ -20,27 +20,22 @@ interface ComboboxProps {
   onChange: (value: string) => void;
   options: ComboboxOption[];
   placeholder?: string;
-  /** Pinned as the first, always-present option (e.g. "No department") — its value is typically ''. */
   emptyOptionLabel?: string;
   isLoading?: boolean;
   disabled?: boolean;
   className?: string;
-  /** Renders a pinned "+ Create new…" row at the end of the list. Called with whatever text is
-   *  currently typed in the search box, so the caller can prefill a name field with it. */
   onCreateNew?: (query: string) => void;
   createNewLabel?: string;
 }
 
-// Wraps the substring of `label` that matches `query` in a <mark> — lets a long list read as
-// "type 2-3 letters, see exactly why each result matched" instead of a plain filtered list.
-const highlightMatch = (label: string, query: string): ReactNode => {
+const highlightMatch = (label: string, query: string, isActive: boolean): ReactNode => {
   if (!query) return label;
   const idx = label.toLowerCase().indexOf(query.toLowerCase());
   if (idx === -1) return label;
   return (
     <>
       {label.slice(0, idx)}
-      <mark className="bg-primary-500/20 text-primary-700 dark:text-primary-400 rounded-sm">
+      <mark className={cn('font-bold rounded-sm px-0.5', isActive ? 'bg-white/25 text-white' : 'bg-primary-600 text-white')}>
         {label.slice(idx, idx + query.length)}
       </mark>
       {label.slice(idx + query.length)}
@@ -48,11 +43,6 @@ const highlightMatch = (label: string, query: string): ReactNode => {
   );
 };
 
-// A button trigger showing the current value (same shape as DatePicker's trigger) that opens a
-// small floating popup with a search box + list — not an always-editable text input, and not an
-// inline panel that pushes the rest of the form down. Radix's Popover owns open/close, outside-
-// click, and Escape entirely on its own here (same as the Assignees/Notification-days popups),
-// since the search box now lives inside the popup content instead of doubling as the trigger.
 export const Combobox = ({
   id,
   value,
@@ -75,18 +65,22 @@ export const Combobox = ({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(0);
-  // Reading a ref's .current during render isn't allowed (it can go stale without triggering a
-  // re-render), so the trigger's DOM node is tracked in state via a callback ref instead.
   const [triggerEl, setTriggerEl] = useState<HTMLButtonElement | null>(null);
+  const listRef = useRef<HTMLUListElement>(null);
 
   const trimmedQuery = query.trim();
   const filtered = useMemo(
     () => (trimmedQuery ? allOptions.filter((o) => o.label.toLowerCase().includes(trimmedQuery.toLowerCase())) : allOptions),
     [allOptions, trimmedQuery]
   );
-  // Clamp rather than reset-via-effect: if the list shrinks (e.g. typing narrows it further),
-  // the cursor just settles on the new last item instead of needing a synced side effect.
   const safeHighlightedIndex = Math.min(highlightedIndex, Math.max(filtered.length - 1, 0));
+
+  const hasExactMatch = trimmedQuery
+    ? allOptions.some((o) => o.label.trim().toLowerCase() === trimmedQuery.toLowerCase())
+    : false;
+
+  const optionId = (option: ComboboxOption) =>
+    `${id ?? 'combobox'}-option-${option.value ? option.value : '__empty__'}`;
 
   const commit = (option: ComboboxOption) => {
     onChange(option.value);
@@ -105,26 +99,24 @@ export const Combobox = ({
       const option = filtered[safeHighlightedIndex];
       if (option) commit(option);
     }
-    // Escape is left to Radix's own DismissableLayer, which already closes the popover.
   };
+
+  useEffect(() => {
+    if (!open) return;
+    const row = listRef.current?.children[safeHighlightedIndex] as HTMLElement | undefined;
+    row?.scrollIntoView({ block: 'nearest' });
+  }, [open]);
 
   return (
     <Popover
       open={open}
-      // Modal (unlike every other Popover/DropdownMenu in the app): this one has a real editable
-      // search input living inside it, so it genuinely needs Radix's built-in focus trap — a non-
-      // modal Popover's FocusScope doesn't trap at all, so auto-focusing that input moves DOM focus
-      // outside the parent Dialog's own trapped boundary, which yanks it straight back and, with no
-      // Radix-side guard for that case, reads as "focus left" and dismisses the popup out from
-      // under the click that was meant to select something. `modal` here uses Radix's own dedicated
-      // handling for exactly this nested-focus-trap case (already proven at DropdownMenu, which
-      // traps focus unconditionally) instead of a custom guard fighting the same fight blind.
       modal
       onOpenChange={(next) => {
         setOpen(next);
         if (next) {
           setQuery('');
-          setHighlightedIndex(0);
+          const currentIndex = allOptions.findIndex((o) => o.value === value);
+          setHighlightedIndex(currentIndex >= 0 ? currentIndex : 0);
         }
       }}
     >
@@ -156,21 +148,19 @@ export const Combobox = ({
       </PopoverTrigger>
 
       <PopoverContent
-        // Same fix as everywhere else: constrain flip/shift to the modal's own content element
-        // instead of the viewport, so a trigger near the bottom of a modal doesn't spill the
-        // popup out past the modal's card.
         collisionBoundary={triggerEl?.closest('[data-slot="dialog-content"]') ?? undefined}
         collisionPadding={16}
-        // Cap to Radix's own computed available space (not just an arbitrary max-h-52) and let the
-        // list — not the whole popup — be the scrolling region, with the search box pinned above
-        // it. Without binding to this variable the popup could ask for more height than actually
-        // fits within the collision boundary and just get cut off with nothing to scroll.
+       
         className="w-(--radix-popover-trigger-width) max-h-(--radix-popover-content-available-height) flex flex-col p-2"
       >
         <div className="relative mb-1.5 shrink-0">
           <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-light pointer-events-none" />
           <input
             autoFocus
+            role="combobox"
+            aria-expanded={open}
+            aria-controls={id ? `${id}-listbox` : undefined}
+            aria-activedescendant={filtered[safeHighlightedIndex] ? optionId(filtered[safeHighlightedIndex]) : undefined}
             value={query}
             placeholder="Type to search…"
             onChange={(e) => {
@@ -182,13 +172,17 @@ export const Combobox = ({
           />
         </div>
 
-        <ul id={id ? `${id}-listbox` : undefined} role="listbox" className="flex-1 min-h-0 overflow-y-auto">
+        <ul ref={listRef} id={id ? `${id}-listbox` : undefined} role="listbox" className="flex-1 min-h-0 overflow-y-auto">
           {filtered.length === 0 ? (
-            <li className="px-2.5 py-2 text-sm text-text-muted font-display">No matches</li>
+            <li className="flex items-center gap-2 px-3 py-2.5 text-sm font-display text-text-muted">
+              <SearchX size={14} className="shrink-0 text-text-light" />
+              <span className="truncate">{trimmedQuery ? `No matches for "${trimmedQuery}"` : 'No options'}</span>
+            </li>
           ) : (
             filtered.map((option, i) => (
               <li
                 key={option.value || '__empty__'}
+                id={optionId(option)}
                 role="option"
                 aria-selected={option.value === value}
                 onMouseDown={(e) => {
@@ -197,18 +191,20 @@ export const Combobox = ({
                 }}
                 onMouseEnter={() => setHighlightedIndex(i)}
                 className={cn(
-                  'flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg text-sm font-display cursor-pointer transition-colors',
-                  i === safeHighlightedIndex ? 'bg-primary-500/10 text-primary-700 dark:text-primary-400' : 'text-text hover:bg-surface-hover',
+                  'flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-sm font-display font-medium cursor-pointer transition-all duration-200 active:scale-[0.98]',
+                  i === safeHighlightedIndex ? 'bg-primary-600 text-white font-semibold' : 'text-text hover:bg-surface-hover',
                   !option.value && 'text-text-muted italic'
                 )}
               >
-                <span className="truncate">{highlightMatch(option.label, trimmedQuery)}</span>
-                {option.value === value && <Check size={14} className="shrink-0 text-primary-600 dark:text-primary-400" />}
+                <span className="truncate">{highlightMatch(option.label, trimmedQuery, i === safeHighlightedIndex)}</span>
+                {option.value === value && (
+                  <Check size={14} className={cn('shrink-0', i === safeHighlightedIndex ? 'text-white' : 'text-primary-600 dark:text-primary-400')} />
+                )}
               </li>
             ))
           )}
 
-          {onCreateNew && (
+          {onCreateNew && !hasExactMatch && (
             <li
               role="option"
               aria-selected={false}
@@ -217,7 +213,7 @@ export const Combobox = ({
                 onCreateNew(trimmedQuery);
                 setOpen(false);
               }}
-              className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-sm font-display font-medium text-primary-600 dark:text-primary-400 cursor-pointer transition-colors hover:bg-primary-500/10 border-t border-border mt-1 pt-2.5"
+              className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-display font-medium text-primary-600 dark:text-primary-400 cursor-pointer transition-all duration-200 active:scale-[0.98] hover:bg-primary-500/10 border-t border-border mt-1 pt-3"
             >
               <Plus size={14} className="shrink-0" />
               <span className="truncate">

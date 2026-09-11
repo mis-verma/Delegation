@@ -55,13 +55,19 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  overlayClassName,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
+  /** Overrides the backdrop's own classes (default `bg-black/40 backdrop-blur-sm`) — for a dialog
+   *  that's opened/closed constantly (e.g. an Options filter panel) rather than read, where the
+   *  default dimming makes the rest of the page go dark every time. Optional and additive: every
+   *  other dialog keeps the default backdrop untouched. */
+  overlayClassName?: string
 }) {
   return (
     <DialogPortal data-slot="dialog-portal">
-      <DialogOverlay />
+      <DialogOverlay className={overlayClassName} />
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(

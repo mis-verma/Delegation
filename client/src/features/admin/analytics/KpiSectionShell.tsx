@@ -47,13 +47,18 @@ export const KpiSectionShell = ({ icon: Icon, title, description, isPending, isE
     </header>
 
     {isError ? (
-      <div className="flex items-start gap-3 p-4 bg-danger/10 border border-danger/30 rounded-xl">
+      // rounded-2xl, not rounded-xl — this is an alternative render of the same chart-card slot
+      // below (isError ? this : the rounded-2xl chart card), so the two used to visibly flip
+      // corner radius depending on whether the request failed.
+      <div className="flex items-start gap-3 p-4 bg-danger/10 border border-danger/30 rounded-2xl">
         <AlertCircle className="w-5 h-5 text-danger shrink-0 mt-0.5" />
         <p className="text-sm font-display font-medium text-danger">{errorMessage}</p>
       </div>
     ) : (
       <div className="flex flex-col gap-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+        {/* Caps at 2 columns when there are only 2 cards (e.g. Delegation Checklists) instead of
+            always reserving a 3rd column that then sits visibly empty. */}
+        <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 ${cards.length >= 3 ? 'lg:grid-cols-3' : ''}`}>
           {cards.map((c) => (
             <StatCard key={c.label} {...c} />
           ))}

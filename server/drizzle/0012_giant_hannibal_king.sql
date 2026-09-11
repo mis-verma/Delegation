@@ -1,0 +1,1 @@
+CREATE INDEX `ChecklistInstance_verificationStatus_idx` ON `ChecklistInstance` (`verificationStatus`);

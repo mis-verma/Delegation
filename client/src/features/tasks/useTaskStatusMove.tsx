@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { TaskStatusRemarkDialog } from './TaskStatusRemarkDialog';
 import { useUpdateTaskMutation } from './hook';
@@ -20,7 +20,12 @@ export const useTaskStatusMove = (isVerifier: boolean) => {
   const updateMutation = useUpdateTaskMutation();
   const [pendingMove, setPendingMove] = useState<{ task: Task; toStatus: Task['status'] } | null>(null);
 
-  const requestMove = (task: Task, toStatus: Task['status']) => {
+  // useCallback, not a plain function: this is handed to TaskBoard's Column as `onMove`, and
+  // Column is React.memo'd specifically so a drag pickup/drop (which sets state elsewhere in the
+  // board) doesn't force every card in every column to re-render before the card can visually
+  // lift. A fresh function identity every render would silently defeat that memo — the board
+  // would look correct but the "laggy pickup" it was fixing would come right back.
+  const requestMove = useCallback((task: Task, toStatus: Task['status']) => {
     if (task.status === toStatus) return;
 
     // Mirrors task.service.ts's update() guard — "done" only happens through the verification
@@ -34,7 +39,7 @@ export const useTaskStatusMove = (isVerifier: boolean) => {
     // Never commits on its own: the server requires a remark for any status change, and a path
     // that skipped it would both fail and be a way around the rule the detail modal enforces.
     setPendingMove({ task, toStatus });
-  };
+  }, [isVerifier]);
 
   const statusRemarkDialog: ReactNode = pendingMove && (
     <TaskStatusRemarkDialog

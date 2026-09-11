@@ -1,5 +1,5 @@
-import { CheckSquare } from "lucide-react";
 import { NavLink } from "react-router";
+import logo from "../../assets/logo.png";
 
 const LINKS = [
   { to: '/tasks', label: 'Delegation' },
@@ -24,14 +24,9 @@ export const Footer = () => {
         
         <NavLink
           to="/"
-          className="flex items-center gap-2 shrink-0 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 rounded-lg p-0.5"
+          className="flex items-center shrink-0 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 rounded-lg p-0.5"
         >
-          <span className="size-6 rounded-lg bg-gradient-to-tr from-primary-600 to-primary-500 flex items-center justify-center shrink-0 border border-border/60 group-hover:scale-105 transition-transform">
-            <CheckSquare size={13} className="text-white" />
-          </span>
-          <span className="font-mono font-bold text-text tracking-tight text-xs group-hover:text-primary-600 transition-colors">
-            TaskMatrix
-          </span>
+          <img src={logo} alt="Karya" className="h-6 w-auto object-contain group-hover:scale-105 transition-transform" />
         </NavLink>
 
         <nav className="flex flex-wrap items-center justify-center gap-x-1 gap-y-1">
@@ -54,7 +49,7 @@ export const Footer = () => {
           ))}
         </nav>
         <p className="text-xs text-text-muted font-mono shrink-0">
-          © {currentYear} TaskMatrix. All rights reserved.
+          © {currentYear} Karya. All rights reserved.
         </p>
       </div>
     </footer>

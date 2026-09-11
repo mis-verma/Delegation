@@ -38,9 +38,11 @@ interface TaskFormPrioritySelectorProps {
 
 export const TaskFormPrioritySelector = ({ value, onChange, disabled = false, hideLabel = false }: TaskFormPrioritySelectorProps) => (
   <div className={`group/field @container flex flex-col gap-1.5 ${FIELD_CARD_CLASS}`}>
+    {/* "Priority", sentence case — matches every other field label in the form ("Delegation
+        title", "Timeline", "Department", "Labels"). This was the only Title Case one. */}
     {!hideLabel && (
       <label className={FIELD_LABEL_CLASS}>
-        Priority Level
+        Priority
       </label>
     )}
     <div className="flex flex-wrap gap-1.5">

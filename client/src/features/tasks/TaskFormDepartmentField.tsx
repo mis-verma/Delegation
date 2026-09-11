@@ -16,8 +16,10 @@ interface TaskFormDepartmentFieldProps {
   triggerClassName?: string;
 }
 
+// gap-1.5 on the wrapper, because FIELD_LABEL_CLASS no longer carries its own mb-1.5 — that
+// margin was doubling up with the `gap` every other field wrapper already set.
 export const TaskFormDepartmentField = ({ value, onChange, departments, isLoading, disabled = false, hideLabel = false, triggerClassName }: TaskFormDepartmentFieldProps) => (
-  <div className={`group/field flex flex-col justify-end ${FIELD_CARD_CLASS}`}>
+  <div className={`group/field flex flex-col justify-end gap-1.5 ${FIELD_CARD_CLASS}`}>
     {!hideLabel && (
       <label className={FIELD_LABEL_CLASS}>
         Department

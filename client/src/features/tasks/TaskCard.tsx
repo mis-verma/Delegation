@@ -25,7 +25,7 @@ import { getInitials } from "../../lib/getInitials";
 import { getChecklistProgress } from "../../lib/checklistProgress";
 import { ChecklistProgressBar, DueProgressBar } from "../../components/progress";
 import { CATEGORY_CONFIG, formatShortDateTime, type CardFieldVisibility } from "./cardFields";
-import { STATUS_LABEL, STATUS_ICON } from "./taskDisplay";
+import { STATUS_LABEL, STATUS_ICON, MOVABLE_STATUSES } from "./taskDisplay";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
 import type { Task } from "../../api/task";
 
@@ -51,11 +51,18 @@ interface TaskCardProps {
    * overlay and anywhere the move isn't available.
    */
   onMove?: (task: Task, toStatus: Task['status']) => void;
+  /**
+   * Draws priority as a colored rail down the card's leading edge.
+   *
+   * Opt-in rather than always on: in the List view a full-width row has no priority column, so the
+   * rail is what carries priority and it scans down a long stack far faster than reading a chip on
+   * each row. On the board, cards are already grouped into narrow columns and can be grouped BY
+   * priority, where a second priority signal on every card is noise.
+   */
+  priorityRail?: boolean;
 }
 
 const MAX_VISIBLE_AVATARS = 3;
-
-const MOVABLE_STATUSES: Task['status'][] = ['todo', 'in_progress', 'pending_verification', 'done'];
 
 const daysLeftLabel = (dueDate: string) => {
   const diffMs = new Date(dueDate).setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0);
@@ -65,7 +72,7 @@ const daysLeftLabel = (dueDate: string) => {
   return `${days} day${days === 1 ? '' : 's'} left`;
 };
 
-export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentName, isVerifier, onOpen, fields, isNewlyAssigned, onMove }: TaskCardProps) => {
+export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentName, isVerifier, onOpen, fields, isNewlyAssigned, onMove, priorityRail = false }: TaskCardProps) => {
   const deleteMutation = useDeleteTaskMutation();
   const priority = PRIORITY_MAP[task.priority];
   const coverPhoto = coverPhotoFor(task.attachments);
@@ -105,8 +112,18 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
       }}
       role="button"
       tabIndex={0}
-      className="group relative flex flex-col gap-2 p-3.5 rounded-lg border border-border bg-surface hover:border-primary-500/40 transition-colors duration-200 cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 overflow-hidden"
+      className={`group relative flex flex-col gap-2 p-3.5 rounded-lg border border-border bg-surface hover:border-primary-500/40 transition-colors duration-200 cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 overflow-hidden ${priorityRail ? 'pl-4' : ''}`}
     >
+      {/* Absolutely positioned so it hugs the rounded edge without becoming a flex child that
+          every other row in the card has to lay out around. aria-hidden because the priority is
+          already announced by the chip in the card's own footer. */}
+      {priorityRail && (
+        <span
+          aria-hidden
+          className={`absolute left-0 top-0 bottom-0 w-1 ${priority.stripe}`}
+        />
+      )}
+
       {isNewlyAssigned && raisedByName && (
         <div className="flex items-center gap-1.5 -mt-1 -mx-1 px-2.5 py-1.5 rounded-lg bg-info/10 text-[11px] font-semibold text-info">
           <UserCog size={12} strokeWidth={2.5} className="shrink-0" />

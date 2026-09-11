@@ -1,17 +1,21 @@
 import { ChecklistAssigneesField } from '../form/ChecklistAssigneesField';
+import { ChecklistReviewersField } from '../form/ChecklistReviewersField';
 import { ChecklistRolesField } from '../form/ChecklistRolesField';
 import type { ChecklistAssigneeRole } from '../../../../api/checklistDefinitions';
 
 interface BuilderAssignPanelProps {
-  storeId: string;
+  storeIds: string[];
   assigneeIds: string[];
   onAssigneeIdsChange: (ids: string[]) => void;
   assigneeRoles: ChecklistAssigneeRole[];
   onAssigneeRolesChange: (roles: ChecklistAssigneeRole[]) => void;
+  reviewerIds: string[];
+  onReviewerIdsChange: (ids: string[]) => void;
 }
 
 export const BuilderAssignPanel = ({
-  storeId, assigneeIds, onAssigneeIdsChange, assigneeRoles, onAssigneeRolesChange,
+  storeIds, assigneeIds, onAssigneeIdsChange, assigneeRoles, onAssigneeRolesChange,
+  reviewerIds, onReviewerIdsChange,
 }: BuilderAssignPanelProps) => (
   <div className="flex flex-col gap-5 p-5 rounded-xl border border-border bg-surface shadow-xs transition-all duration-200">
     <h2 className="text-xs font-display font-bold text-text-muted">Assign To</h2>
@@ -20,7 +24,11 @@ export const BuilderAssignPanel = ({
 
       <hr className="border-border/50" />
 
-      <ChecklistAssigneesField storeId={storeId} selected={assigneeIds} onChange={onAssigneeIdsChange} />
+      <ChecklistAssigneesField storeIds={storeIds} selected={assigneeIds} onChange={onAssigneeIdsChange} />
+
+      <hr className="border-border/50" />
+
+      <ChecklistReviewersField storeIds={storeIds} selected={reviewerIds} onChange={onReviewerIdsChange} />
     </div>
   </div>
 )

@@ -1,0 +1,1 @@
+ALTER TABLE `ChecklistDefinition` DROP COLUMN `proofRequired`;

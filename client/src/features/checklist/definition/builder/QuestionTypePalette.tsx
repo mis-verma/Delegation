@@ -19,7 +19,7 @@ interface PaletteCategory {
 }
 
 // Static catalog of every question type the Builder can add — grouped the way the reference
-// UI kit groups its component demos (small uppercase section labels), so the 17 types stay
+// UI kit groups its component demos (small bold section labels), so the 17 types stay
 // scannable instead of one long undifferentiated list.
 const CATEGORIES: PaletteCategory[] = [
   {
@@ -58,10 +58,10 @@ const CATEGORIES: PaletteCategory[] = [
 
 interface QuestionTypePaletteProps {
   onAdd: (patch: Partial<ItemDraft>) => void;
-  storeId?: string;
+  storeIds?: string[];
 }
 
-export const QuestionTypePalette = ({ onAdd, storeId }: QuestionTypePaletteProps) => {
+export const QuestionTypePalette = ({ onAdd, storeIds }: QuestionTypePaletteProps) => {
   const [activeEntry, setActiveEntry] = useState<PaletteEntry | null>(null);
 
   return (
@@ -69,7 +69,7 @@ export const QuestionTypePalette = ({ onAdd, storeId }: QuestionTypePaletteProps
       <h2 className="px-1 pb-2 text-xs font-display font-bold text-text-muted">Question Types</h2>
       {CATEGORIES.map(({ title, entries }, i) => (
         <div key={title} className={i > 0 ? 'mt-3' : ''}>
-          <p className="px-2.5 pb-1 text-[10px] font-display font-bold uppercase tracking-wider text-text-light">{title}</p>
+          <p className="px-2.5 pb-1 text-[10px] font-display font-bold text-text-light">{title}</p>
           <div className="flex flex-col gap-0.5">
             {entries.map(entry => {
               const Icon = entry.icon;
@@ -97,7 +97,7 @@ export const QuestionTypePalette = ({ onAdd, storeId }: QuestionTypePaletteProps
       {activeEntry && (
         <AddQuestionModal
           entry={activeEntry}
-          storeId={storeId}
+          storeIds={storeIds}
           onClose={() => setActiveEntry(null)}
           onConfirm={patch => { onAdd(patch); setActiveEntry(null); }}
         />

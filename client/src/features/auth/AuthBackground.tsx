@@ -23,7 +23,7 @@ export const AuthBackground = ({
                     {tagline}
                 </p>
                 <p className="text-white/25 text-[10px] font-mono tracking-widest uppercase">
-                    &copy; {new Date().getFullYear()} TaskMatrix
+                    &copy; {new Date().getFullYear()} Karya
                 </p>
             </div>
         </div>

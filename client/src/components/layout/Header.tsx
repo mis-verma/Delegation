@@ -2,7 +2,6 @@ import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import { NavLink, useLocation } from 'react-router';
 import {
-  CheckSquare,
   ChevronDown,
   LayoutDashboard,
   LogOut,
@@ -14,6 +13,7 @@ import {
 } from 'lucide-react';
 import { NotificationBell } from '../../features/notifications/NotificationBell';
 import { Dropdown, type DropdownAction } from '../dropdown';
+import logo from '../../assets/logo.png';
 
 export const ICON_BUTTON_CLASS =
   'inline-flex items-center justify-center size-9 rounded-full text-text-muted ' +
@@ -94,14 +94,9 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
 
             <NavLink
               to="/"
-              className="flex items-center gap-2.5 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 rounded-lg py-1.5 -ml-2 transition-colors hover:bg-surface-hover"
+              className="flex items-center group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 rounded-lg py-1.5 -ml-2 transition-colors hover:bg-surface-hover"
             >
-              <div className="size-8 rounded-lg bg-gradient-to-tr from-primary-600 to-primary-500 flex items-center justify-center shrink-0 border border-border/60 group-hover:scale-105 transition-all duration-300">
-                <CheckSquare size={16} className="text-white" strokeWidth={2.5} />
-              </div>
-              <span className="hidden sm:inline font-display font-bold text-text text-[15px] tracking-tight group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
-                TaskMatrix
-              </span>
+              <img src={logo} alt="Karya" className="h-10 w-auto object-contain shrink-0 group-hover:scale-105 transition-all duration-300" />
             </NavLink>
 
             {pageLabel && (

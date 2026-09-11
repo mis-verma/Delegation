@@ -1,7 +1,6 @@
-import { RotateCcw } from 'lucide-react';
 import { useSetChecklistInstanceItemDoneMutation } from '../hook';
+import { ChecklistItemCardHeader } from './ChecklistItemCardHeader';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
-import { formatDate } from '../checklistDisplay';
 
 interface ChecklistInstanceItemChoiceCardProps {
   item:       ChecklistInstanceItem;
@@ -26,25 +25,12 @@ export const ChecklistInstanceItemChoiceCard = ({ item, instanceId, canWork, isL
 
   return (
     <div className={`flex flex-col gap-3 p-4 rounded-lg border border-border bg-surface ${isLocked ? 'opacity-75' : ''}`}>
-      <div className="flex items-start gap-3">
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-display font-medium leading-snug text-text">{item.label}</p>
-          {item.isDone && item.completedAt && (
-            <p className="text-xs text-text-muted font-display mt-0.5">Completed {formatDate(item.completedAt)}</p>
-          )}
-        </div>
-        {interactive && item.isDone && (
-          <button
-            onClick={() => setItemDone.mutate({ itemId: item.id, isDone: false, textValue: item.textValue ?? undefined })}
-            disabled={setItemDone.isPending}
-            className="shrink-0 p-2 rounded-md text-text-light hover:text-warning hover:bg-warning/10 transition-colors cursor-pointer disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-warning/50"
-            aria-label="Reopen item"
-            title="Reopen"
-          >
-            <RotateCcw size={14} />
-          </button>
-        )}
-      </div>
+      <ChecklistItemCardHeader
+        item={item}
+        interactive={interactive}
+        reopenPending={setItemDone.isPending}
+        onReopen={() => setItemDone.mutate({ itemId: item.id, isDone: false, textValue: item.textValue ?? undefined })}
+      />
 
       {setItemDone.isError && (
         <p className="text-xs text-danger">

@@ -1,4 +1,5 @@
 import path from "node:path"
+import fs from "node:fs"
 import { db } from "../../config/db.js"
 import { tasks, taskAdditionalAssignees, taskComments, taskCommentAttachments, taskAttachments } from "../../db/schema/index.js"
 import { users } from "../../db/schema/core.js"
@@ -63,9 +64,20 @@ export const taskCommentService = {
     },
 
     async create(taskId: string, input: CreateTaskCommentInput, files: Express.Multer.File[], user: AccessTokenPayload) {
+        // Multer's already written these to disk by the time this runs — every throw below must
+        // clean them up first, or a caller with no access to the task can repeatedly fill disk by
+        // commenting on tasks they'll always get rejected on (same pattern as checklistImage.service).
         const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
-        if (!task) throw AppError.notFound("Delegation not found");
-        await assertCanComment(user, task);
+        if (!task) {
+            files.forEach((f) => fs.unlink(f.path, () => {}));
+            throw AppError.notFound("Delegation not found");
+        }
+        try {
+            await assertCanComment(user, task);
+        } catch (err) {
+            files.forEach((f) => fs.unlink(f.path, () => {}));
+            throw err;
+        }
 
         const attachments = files.map((file) => ({
             url: `/uploads/task-comment-attachments/${path.basename(file.path)}`,

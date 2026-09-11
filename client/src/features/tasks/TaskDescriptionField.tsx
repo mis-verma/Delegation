@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { FIELD_LABEL_CLASS } from './taskFormFieldStyles';
 
 interface TaskDescriptionFieldProps {
   id?: string;
@@ -8,6 +9,12 @@ interface TaskDescriptionFieldProps {
   disabled?: boolean;
   placeholder?: string;
   rows?: number;
+  /**
+   * Visible field label. Optional because TaskDetail renders this inside a row that already has
+   * its own; in a form it should always be set — a placeholder disappears the moment you type,
+   * so a field identified only by its placeholder is unlabelled as soon as it has content.
+   */
+  label?: string;
 
   toolbar?: ReactNode;
 
@@ -22,12 +29,22 @@ export const TaskDescriptionField = ({
   disabled,
   placeholder = 'Add more detail…',
   rows = 6,
+  label,
   toolbar,
   children,
 }: TaskDescriptionFieldProps) => (
-  <div className="flex flex-col gap-1.5 flex-1 min-h-0">
-  
-    <div className="flex flex-col flex-1 min-h-0 rounded-md border border-border bg-surface transition-colors focus-within:border-primary-400 focus-within:ring-2 focus-within:ring-primary-500/20 overflow-hidden">
+  // Sizes to its `rows`, rather than stretching to fill its parent. It used to carry
+  // `flex-1 min-h-0`, which inside TaskForm's flex column meant the textarea absorbed every
+  // spare pixel of the modal — so on a short viewport the description was the only field you
+  // could see and everything under it was pushed out of view behind a nested scrollbar.
+  <div className="group/field flex flex-col gap-1.5">
+    {label && (
+      <label htmlFor={id} className={FIELD_LABEL_CLASS}>
+        {label}
+      </label>
+    )}
+
+    <div className="flex flex-col rounded-lg border border-border bg-surface transition-colors focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-500/20 overflow-hidden">
       <textarea
         id={id}
         value={value}
@@ -36,7 +53,7 @@ export const TaskDescriptionField = ({
         disabled={disabled}
         placeholder={placeholder}
         rows={rows}
-        className="w-full flex-1 min-h-[100px] px-3 py-2.5 text-sm text-text bg-transparent outline-none resize-none placeholder:text-text-light disabled:text-text-light disabled:cursor-not-allowed"
+        className="w-full px-3 py-2.5 text-sm text-text bg-transparent outline-none resize-y placeholder:text-text-light disabled:text-text-light disabled:cursor-not-allowed" 
       />
 
       {toolbar && (

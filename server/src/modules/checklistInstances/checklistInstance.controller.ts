@@ -1,17 +1,35 @@
 import type { Request, Response } from "express"
-import { checklistInstanceService, type InstanceStatusFilter } from "./checklistInstance.service.js"
+import { checklistInstanceService, type InstanceStatusFilter, type InstanceRecurrence, type InstanceVerificationStatus } from "./checklistInstance.service.js"
 import { setChecklistInstanceItemDoneSchema, verifyChecklistInstanceSchema, checklistInstanceComplianceReportQuerySchema, listChecklistInstancesQuerySchema } from "./checklistInstance.validation.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
 import { resolveReportScope, resolveStoreIdForDepartment } from "../../utils/reportScope.js"
 
+// "Assigned with" (MyChecklists' Options) sends a comma-separated list of user ids — a single
+// scalar query param, same convention as every other filter on this controller, rather than
+// repeated-key array syntax (?assigneeIds=a&assigneeIds=b), which needs extra body-parser config
+// to come through as an array instead of a string of just the last value.
+const parseIdsParam = (value: unknown): string[] | undefined => {
+    if (typeof value !== "string" || !value) return undefined
+    const ids = value.split(",").map((v) => v.trim()).filter(Boolean)
+    return ids.length ? ids : undefined
+}
+
 export const checklistInstanceController = {
-    // GET /checklist-instances/mine?status=OPEN|COMPLETED
+    // GET /checklist-instances/mine?status=OPEN|COMPLETED&storeId=&recurrence=&verificationStatus=&assigneeIds=
     // Paginated. Responds `{ success, data, meta }` — `data` is the same array shape as before,
     // so a caller that ignores `meta` still works, it just gets the first page.
     getMine: asyncHandler(async (req: Request, res: Response) => {
-        const status = req.query.status as InstanceStatusFilter | undefined
         const { page, limit } = listChecklistInstancesQuerySchema.parse(req.query)
-        const result = await checklistInstanceService.getMine(req.user!.sub, status, page, limit)
+        const result = await checklistInstanceService.getMine(req.user!.sub, {
+            status: req.query.status as InstanceStatusFilter | undefined,
+            storeId: req.query.storeId as string | undefined,
+            recurrence: req.query.recurrence as InstanceRecurrence | undefined,
+            verificationStatus: req.query.verificationStatus as InstanceVerificationStatus | undefined,
+            departmentId: req.query.departmentId as string | undefined,
+            assigneeIds: parseIdsParam(req.query.assigneeIds),
+            page,
+            limit,
+        })
         res.json({ success: true, ...result })
     }),
 
@@ -30,14 +48,14 @@ export const checklistInstanceController = {
         res.json({ success: true, ...result })
     }),
 
-    // GET /checklist-instances/pending-verification (PC own-store / ADMIN all)
+    // GET /checklist-instances/pending-verification (ADMIN/PC all stores, MANAGER own department)
     listPendingVerification: asyncHandler(async (req: Request, res: Response) => {
         const { page, limit } = listChecklistInstancesQuerySchema.parse(req.query)
         const result = await checklistInstanceService.listPendingVerification(req.user!, page, limit)
         res.json({ success: true, ...result })
     }),
 
-    // GET /checklist-instances/summary?mine=1|storeId=&assigneeId=&definitionId=
+    // GET /checklist-instances/summary?mine=1|storeId=&assigneeId=&assigneeIds=&definitionId=
     // The counts the compliance board and dashboard cards used to compute by downloading every
     // instance. `mine=1` scopes to the caller, which is what the dashboard cards want.
     summary: asyncHandler(async (req: Request, res: Response) => {
@@ -50,6 +68,10 @@ export const checklistInstanceController = {
             definitionId: definitionId as string | undefined,
             storeId: storeId as string | undefined,
             assigneeId: assigneeId as string | undefined,
+            assigneeIds: parseIdsParam(req.query.assigneeIds),
+            recurrence: req.query.recurrence as InstanceRecurrence | undefined,
+            verificationStatus: req.query.verificationStatus as InstanceVerificationStatus | undefined,
+            departmentId: req.query.departmentId as string | undefined,
             userId: scopedToSelf || !isOrgWide ? req.user!.sub : undefined,
         })
         res.json({ success: true, data })
@@ -66,7 +88,9 @@ export const checklistInstanceController = {
         res.json({ success: true, data: item })
     }),
 
-    // PATCH /checklist-instances/:id/verify (PC own-department / ADMIN all)
+    // PATCH /checklist-instances/:id/verify — ADMIN/PC any instance, MANAGER own department only,
+    // plus whoever's explicitly named a reviewer on this instance regardless of role/department
+    // (see checklistInstance.service.ts's assertCanVerify)
     verify: asyncHandler(async (req: Request, res: Response) => {
         const input = verifyChecklistInstanceSchema.parse(req.body)
         const instance = await checklistInstanceService.verify(req.params.id, input, req.user!)

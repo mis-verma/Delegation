@@ -24,7 +24,20 @@ export const FilterGroup = ({ children }: { children: ReactNode }) => (
   </div>
 );
 
-export const FilterPill = ({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) => (
+export const FilterPill = ({
+  active,
+  onClick,
+  children,
+  dotClassName,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: ReactNode;
+  /** Bg/text/border classes for a small leading dot (e.g. `lib/labelColors`'s `labelDotClass`) —
+   *  opt-in, so Priority/Category/Status/etc. pills are unaffected. Used by Delegation's Labels
+   *  filter so a label reads as the same colour here as everywhere else it's shown. */
+  dotClassName?: string;
+}) => (
   <button
     type="button"
     onClick={onClick}
@@ -35,6 +48,7 @@ export const FilterPill = ({ active, onClick, children }: { active: boolean; onC
         : 'text-text-muted hover:text-text-secondary hover:bg-surface-active/50'
     }`}
   >
+    {dotClassName && <span aria-hidden className={`size-2 rounded-full shrink-0 ${dotClassName}`} />}
     {children}
   </button>
 );

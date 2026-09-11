@@ -17,8 +17,11 @@ const run = async () => {
         const payload = {
             to: env.DOUBLETICK_SENDER_NUMBER,
             from: phone,
-            messageId: "test-message-id",
-            dtMessageId: "test-dt-message-id",
+            // Must be unique per message, not per run — the webhook handler now dedupes deliveries
+            // by messageId (see inboundMessageDedupe.ts), so a hardcoded id here would make every
+            // message after the first in a multi-message conversation silently no-op.
+            messageId: `test-message-${Date.now()}-${i}`,
+            dtMessageId: `test-dt-message-${Date.now()}-${i}`,
             receivedAt: new Date().toISOString(),
             contact: { name: "Test Contact" },
             integrationType: "WHATSAPP",

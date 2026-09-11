@@ -29,7 +29,6 @@ import {
   taskComments,
   taskStatusUpdates,
   taskCommentAttachments,
-  taskReviews,
   todos,
   smartTaskConversations,
   smartTaskConversationMessages,
@@ -37,6 +36,7 @@ import {
 } from './task.js';
 import {
   tickets,
+  ticketTags,
   ticketStatusUpdates,
   ticketAttachments,
   ticketComments,
@@ -108,7 +108,6 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   assignedTaskChecklistItems: many(taskChecklistItems),
   uploadedTaskImages: many(taskImages),
   taskComments: many(taskComments),
-  taskReviews: many(taskReviews),
 
   // PendingTaskConversation has 2 separate FKs to User, disambiguated by relationName.
   pendingTaskConversations: many(pendingTaskConversations, { relationName: 'PendingConversationUser' }),
@@ -210,7 +209,6 @@ export const tasksRelations = relations(tasks, ({ one, many }) => ({
   checklists: many(taskChecklists),
   comments: many(taskComments),
   statusUpdates: many(taskStatusUpdates),
-  reviews: many(taskReviews),
   notifications: many(notifications),
   smartTaskConversations: many(smartTaskConversations),
 }));
@@ -231,6 +229,7 @@ export const taskDependenciesRelations = relations(taskDependencies, ({ one }) =
 
 export const tagsRelations = relations(tags, ({ many }) => ({
   taskLinks: many(taskTags),
+  ticketLinks: many(ticketTags),
 }));
 
 export const taskTagsRelations = relations(taskTags, ({ one }) => ({
@@ -275,11 +274,6 @@ export const taskCommentsRelations = relations(taskComments, ({ one, many }) => 
 
 export const taskCommentAttachmentsRelations = relations(taskCommentAttachments, ({ one }) => ({
   comment: one(taskComments, { fields: [taskCommentAttachments.commentId], references: [taskComments.id] }),
-}));
-
-export const taskReviewsRelations = relations(taskReviews, ({ one }) => ({
-  task: one(tasks, { fields: [taskReviews.taskId], references: [tasks.id] }),
-  reviewer: one(users, { fields: [taskReviews.reviewerId], references: [users.id] }),
 }));
 
 export const todosRelations = relations(todos, ({ one }) => ({
@@ -333,6 +327,12 @@ export const ticketsRelations = relations(tickets, ({ one, many }) => ({
   checklists: many(checklists),
   notifications: many(notifications),
   checklistInstanceIssues: many(checklistInstanceItems),
+  tagLinks: many(ticketTags),
+}));
+
+export const ticketTagsRelations = relations(ticketTags, ({ one }) => ({
+  ticket: one(tickets, { fields: [ticketTags.ticketId], references: [tickets.id] }),
+  tag: one(tags, { fields: [ticketTags.tagId], references: [tags.id] }),
 }));
 
 export const ticketStatusUpdatesRelations = relations(ticketStatusUpdates, ({ one, many }) => ({

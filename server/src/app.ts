@@ -4,13 +4,14 @@ import cookieParser from "cookie-parser"
 import morgan from "morgan"
 import path from "node:path"
 import { env } from "./config/env.js"
-import { authRouter } from "./middleware/auth/auth.routes.js"
+import { createAuthRouter } from "./middleware/auth/auth.routes.js"
 import { userRouter } from "./modules/users/user.routes.js"
 import { errorHandler } from "./middleware/errorHandler/errorHandler.js"
 import { StoreRouter } from "./modules/stores/store.routes.js"
 import { departmentRouter } from "./modules/departments/department.routes.js"
 import { categoryRouter } from "./modules/categories/category.routes.js"
 import { taskRouter } from "./modules/tasks/task.routes.js"
+import { tagRouter } from "./modules/tags/tag.routes.js"
 import { projectRouter } from "./modules/projects/project.routes.js"
 import { auditRouter } from "./modules/audit/audit.routes.js"
 import { ticketRouter } from "./modules/tickets/ticket.routes.js"
@@ -32,7 +33,7 @@ import { reportRouter } from "./modules/reports/report.routes.js"
 import { eventRouter } from "./modules/events/event.routes.js"
 import { smartTaskConversationRouter } from "./modules/smartTaskConversations/smartTaskConversation.routes.js"
 import { todoRouter } from "./modules/todos/todo.routes.js"
-import { createApiLimiter, createAuthLimiter, createAiLimiter , createWebhookLimiter } from "./middleware/rateLimiter/rateLimiter.js"
+import { createApiLimiter, createAiLimiter , createWebhookLimiter } from "./middleware/rateLimiter/rateLimiter.js"
 import { whatsappRouter } from "./modules/whatsapp/whatsapp.routes.js"
 import { doubletickRouter } from "./modules/doubletick/doubletick.routes.js"
 import helmet from "helmet"
@@ -70,7 +71,7 @@ class App {
 
     private initRoutes(rateLimitStore?: Store): void {
         this.app.get('/health', (_req: Request, res: Response) => res.json({ status: 'ok' }));
-        this.app.use('/auth', createAuthLimiter(rateLimitStore), authRouter);
+        this.app.use('/auth', createAuthRouter(rateLimitStore));
         this.app.use('/users', userRouter);
         this.app.use('/stores', StoreRouter);
         this.app.use('/departments', departmentRouter);
@@ -78,6 +79,7 @@ class App {
 
         this.app.use('/tasks/ai', createAiLimiter(rateLimitStore));
         this.app.use('/tasks', taskRouter);
+        this.app.use('/tags', tagRouter);
         this.app.use('/projects', projectRouter)
 
         this.app.use('/tickets', ticketRouter);

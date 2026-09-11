@@ -2,7 +2,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { db } from "../../config/db.js";
 import { users, refreshTokens } from "../../db/schema/core.js";
-import { eq, and, or, desc, asc, sql, isNull } from "drizzle-orm";
+import { eq, and, or, desc, asc, sql, isNull, inArray } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 import { AppError } from "../../utils/AppError.js";
 import { auditService } from "../audit/audit.service.js";
@@ -245,16 +245,23 @@ export const userService = {
     },
 
 
-    async listAssignable(user: AccessTokenPayload, departmentId?: string, storeId?: string) {
+    async listAssignable(user: AccessTokenPayload, departmentId?: string, storeId?: string, storeIds?: string[]) {
         const isScoped = user.role !== "ADMIN" && user.role !== "PC";
         const effectiveDepartmentId = isScoped && departmentId !== user.departmentId ? undefined : departmentId;
         const effectiveStoreId = isScoped && storeId !== user.storeId ? undefined : storeId
+        // A checklist can target several stores at once, so the assignee picker needs "assignable
+        // in ANY of these stores", not just the first one - a scoped caller (non-ADMIN/PC) can only
+        // ever see their own store regardless of what the checklist's store list contains.
+        const effectiveStoreIds = storeIds?.length
+            ? (isScoped ? storeIds.filter((id) => id === user.storeId) : storeIds)
+            : undefined
 
         const conditions = [eq(users.isActive, true)];
         if (effectiveDepartmentId) conditions.push(eq(users.departmentId, effectiveDepartmentId))
-        if (effectiveStoreId) conditions.push(eq(users.storeId, effectiveStoreId))
+        if (effectiveStoreIds?.length) conditions.push(inArray(users.storeId, effectiveStoreIds))
+        else if (effectiveStoreId) conditions.push(eq(users.storeId, effectiveStoreId))
 
-        if (isScoped && !effectiveDepartmentId && !effectiveStoreId) {
+        if (isScoped && !effectiveDepartmentId && !effectiveStoreId && !effectiveStoreIds?.length) {
             const onConditions = [eq(users.id, user.sub)];
             if (user.departmentId) onConditions.push(eq(users.departmentId, user.departmentId))
             if (user.storeId) onConditions.push(eq(users.storeId, user.storeId))

@@ -164,6 +164,13 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
       }
     >
       {step === 'upload' && (
+        <div className="flex flex-col gap-3">
+        {previewMutation.isError && (
+          <div role="alert" className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-danger/10 text-danger text-xs font-display">
+            <AlertCircle size={14} className="shrink-0" />
+            {previewMutation.error instanceof Error ? previewMutation.error.message : 'Could not read that file — check it matches the expected columns and try again.'}
+          </div>
+        )}
         <label
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
@@ -194,6 +201,7 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
             </p>
           </div>
         </label>
+        </div>
       )}
 
       {step === 'review' && (
@@ -215,9 +223,9 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/30">
-                  <th className="text-left font-display font-semibold text-text-muted text-[11px] uppercase tracking-wider px-3 py-2">Checklist</th>
-                  <th className="text-left font-display font-semibold text-text-muted text-[11px] uppercase tracking-wider px-3 py-2">Store</th>
-                  <th className="text-left font-display font-semibold text-text-muted text-[11px] uppercase tracking-wider px-3 py-2">Person</th>
+                  <th className="text-left font-display font-semibold text-text-muted text-[11px] px-3 py-2">Checklist</th>
+                  <th className="text-left font-display font-semibold text-text-muted text-[11px] px-3 py-2">Store</th>
+                  <th className="text-left font-display font-semibold text-text-muted text-[11px] px-3 py-2">Person</th>
                   <th className="w-10" />
                 </tr>
               </thead>
@@ -275,6 +283,13 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
 
       {step === 'schedule' && (
         <div className="flex flex-col gap-4">
+          {publishMutation.isError && (
+            <div role="alert" className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-danger/10 text-danger text-xs font-display">
+              <AlertCircle size={14} className="shrink-0" />
+              {publishMutation.error instanceof Error ? publishMutation.error.message : 'Could not publish this batch. Try again.'}
+            </div>
+          )}
+
           <p className="text-xs font-display text-text-muted">
             Optional — leave blank to keep each checklist's own existing schedule. Set these to apply one shared start date/time window across every checklist touched by this batch.
           </p>
@@ -308,6 +323,21 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
             {summary.storesAdded} store assignment{summary.storesAdded === 1 ? '' : 's'} and{' '}
             {summary.assigneesAdded} people added.
           </p>
+
+          {summary.failed.length > 0 && (
+            <div className="w-full max-w-sm text-left mt-2">
+              <p className="text-xs font-display font-semibold text-danger flex items-center gap-1.5 mb-1.5">
+                <AlertCircle size={13} /> {summary.failed.length} checklist{summary.failed.length === 1 ? '' : 's'} failed
+              </p>
+              <ul className="flex flex-col gap-1 text-[11px] font-display text-text-muted max-h-32 overflow-y-auto">
+                {summary.failed.map((f) => (
+                  <li key={f.definitionId}>
+                    {checklistOptions.find((c) => c.value === f.definitionId)?.label ?? f.definitionId}: {f.message}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
     </Modal>

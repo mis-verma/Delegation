@@ -59,7 +59,27 @@ export const OptionsDialog = ({
       </Button>
     </DialogTrigger>
 
-    <DialogContent className="bg-surface sm:max-w-2xl">
+    <DialogContent
+      // Half the default dimming (bg-black/40 -> /20) — this dialog is a filter panel you flip
+      // open and shut constantly, not a document you read, so the rest of the page going dark
+      // every time reads as heavier than the moment warrants. Blur stays as-is; brightness is an
+      // opacity thing, not a blur one.
+      overlayClassName="bg-black/20 backdrop-blur-sm"
+      className={
+        'bg-surface sm:max-w-2xl ' +
+        // The shared Dialog only tunes the *open* direction (200ms, a settle-in bezier) and
+        // leaves close on the browser's default ease — fine for a dialog you read, wrong for one
+        // you open and close constantly to toggle a filter. will-change promotes this to its own
+        // compositor layer before the very first frame, so the animation doesn't pay a layer-
+        // promotion cost mid-transition. Faster on both ends (open 150ms, close 100ms — closing
+        // stays the shorter of the two, matching the enter/exit-speed convention used elsewhere in
+        // this app), and closing now gets a real accelerate curve mirroring the open curve's
+        // decelerate, instead of reading like a different, mushier animation.
+        'will-change-transform ' +
+        'data-[state=open]:duration-150 data-[state=closed]:duration-100 ' +
+        'data-[state=open]:ease-[cubic-bezier(0.16,1,0.3,1)] data-[state=closed]:ease-[cubic-bezier(0.7,0,0.84,0)]'
+      }
+    >
       <DialogHeader>
         <DialogTitle className="text-base">{title}</DialogTitle>
       </DialogHeader>

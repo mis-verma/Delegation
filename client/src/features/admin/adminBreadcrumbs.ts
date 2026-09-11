@@ -34,7 +34,7 @@ export function getAdminBreadcrumbs(pathname: string): BreadcrumbTrailItem[] | n
     return [DASHBOARD, ADMIN_ROOT, { label: 'Tickets' }];
   }
   if (pathname.startsWith('/admin/directory')) {
-    return [DASHBOARD, ADMIN_ROOT, { label: 'Directory' }];
+    return [DASHBOARD, ADMIN_ROOT, { label: 'People & Teams' }];
   }
   if (pathname.startsWith('/admin/org-structure')) {
     return [DASHBOARD, ADMIN_ROOT, { label: 'Org Structure' }];

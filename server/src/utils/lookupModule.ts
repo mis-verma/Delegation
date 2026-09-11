@@ -37,7 +37,13 @@ const listQuerySchema = z.object({
     limit: z.coerce.number().int().min(1).max(100).optional(),
 })
 
-export const createLookupRouter = (table: LookupTable) => {
+// Every caller of this factory (Store, Tag) only ever needs a `name` plus a handful of simple
+// optional fields — bodySchema whitelists exactly those. z.object().parse() already strips any
+// key not declared on the schema (id/createdAt/updatedAt included), which is what stops a caller
+// mass-assigning those on create or overwriting them on update, on top of catching a missing
+// `name` as a clean 400 instead of a raw NOT NULL constraint error surfacing as a masked 500.
+export const createLookupRouter = (table: LookupTable, bodySchema: z.AnyZodObject) => {
+    const updateSchema = bodySchema.partial()
     // Lookup rows change a few times a year and are read on nearly every page (every dropdown,
     // the org tree, filter bars), so they cache well.
     //
@@ -88,18 +94,19 @@ export const createLookupRouter = (table: LookupTable) => {
 
     // POST / -> create a new lookup item (admin only).
     router.post("/", asyncHandler(async (req, res) => {
+        const input = bodySchema.parse(req.body)
         // Before creating, check whether an item with this same name already exists,
         // to avoid duplicate entries (e.g. two "Electronics" categories).
-        const [existing] = await db.select().from(table).where(eq(table.name, req.body.name)).limit(1);
+        const [existing] = await db.select().from(table).where(eq(table.name, input.name)).limit(1);
         // If it already exists, stop here and throw a 409 Conflict error. Because this
         // route is wrapped in asyncHandler, throwing here is safe - asyncHandler makes
         // sure this gets forwarded to the error-handling middleware instead of crashing.
         if (existing) throw AppError.conflict("Name already exists")
-        // Otherwise, create the new row using whatever fields were sent in the body.
+        // Otherwise, create the new row using whatever fields the schema whitelisted.
         // The id is DB/schema-generated (cuid `$defaultFn`), so we insert first, then
         // re-select by name (unique) to hand back the full row including generated columns.
-        await db.insert(table).values(req.body)
-        const [item] = await db.select().from(table).where(eq(table.name, req.body.name)).limit(1);
+        await db.insert(table).values(input)
+        const [item] = await db.select().from(table).where(eq(table.name, input.name)).limit(1);
         // 201 = "Created" - the conventional success status code for a successful POST
         // that creates a new resource.
         await dropCache()
@@ -108,8 +115,17 @@ export const createLookupRouter = (table: LookupTable) => {
 
     // PATCH /:id -> update an existing lookup item by its id (admin only).
     router.patch("/:id", asyncHandler(async (req, res) => {
+        const input = updateSchema.parse(req.body)
+        // Same duplicate-name guard as POST above — without it, renaming an item to match another
+        // existing row either silently succeeds (if the table happens to have no unique index on
+        // `name`) or surfaces as a generic "Duplicate value" 500-adjacent error from the DB's own
+        // unique constraint instead of this clean, field-specific 409.
+        if (input.name !== undefined) {
+            const [existing] = await db.select().from(table).where(eq(table.name, input.name)).limit(1);
+            if (existing && existing.id !== req.params.id) throw AppError.conflict("Name already exists")
+        }
         // Drizzle's update doesn't return the updated row on MySQL, so update then re-select.
-        await db.update(table).set({ ...req.body, updatedAt: new Date() }).where(eq(table.id, req.params.id));
+        await db.update(table).set({ ...input, updatedAt: new Date() }).where(eq(table.id, req.params.id));
         const [item] = await db.select().from(table).where(eq(table.id, req.params.id)).limit(1);
         // If no row was found with that id, `item` will be undefined - throw a 404 instead
         // of silently sending back nothing.
@@ -132,7 +148,7 @@ export const createLookupRouter = (table: LookupTable) => {
     }))
 
     // Hand back the fully-configured router so the caller can mount it, e.g.
-    // `app.use("/api/stores", createLookupRouter(stores))`.
+    // `app.use("/api/stores", createLookupRouter(stores, z.object({ name: z.string().min(1), ... })))`.
     return router;
 
 }

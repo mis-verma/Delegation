@@ -6,6 +6,20 @@ import { createId } from '@paralleldrive/cuid2';
 import { AppError } from '../../utils/AppError.js'; // helper for creating consistent HTTP error objects (e.g. 404 Not Found)
 import { getIO } from '../../sockets/socket.js'; // gives us access to the Socket.IO server so we can push notifications to the browser in real time
 
+// Ticket/task mutations call notificationService.notify* AFTER their own write is already
+// committed, with no shared transaction — the write already succeeded regardless of whether the
+// notification does. Awaiting one of these bare would let a notification-insert failure (bad
+// recipient row, transient DB blip) surface as a 500 for an operation that actually went through,
+// risking a client retry/duplicate submission. Wrap those calls in this instead: same posture as
+// taskDeadlineReminder.job.ts's per-email .catch() — log and move on, never fail the request over it.
+export const notifySafely = async (fn: () => Promise<unknown>) => {
+  try {
+    await fn();
+  } catch (err) {
+    console.error('Notification send failed (request already succeeded):', err);
+  }
+};
+
 // Shape of the data needed to create a single notification
 type CreateNotificationInput = {
   recipientId: string; // who the notification is for
@@ -204,17 +218,16 @@ export const notificationService = {
     });
   },
 
-  // Checklist-instance equivalent of notifyPendingVerification — a recurring checklist has no
-  // storeId and can have several assignees rather than one, so this scopes PCs by departmentId
-  // only rather than reusing the ticket/task departmentId-or-storeId `$or`.
-  // (Preserved exactly from the Mongoose source: this compares `instance.storeId` against the
-  // PC's `departmentId`, not `storeId` — looks odd but matches the original behavior.)
+  // Checklist-instance equivalent of notifyPendingVerification, scoped by storeId (a recurring
+  // checklist instance does have one — matches notifyPendingVerification's storeId check).
+  // Was comparing instance.storeId against users.departmentId (copied as-is from the old Mongoose
+  // source) — two unrelated id spaces, so this never matched and PCs were never notified.
   async notifyChecklistPendingVerification(instance: VerifiableChecklistInstance) {
     if (!instance.storeId) return [];
     const pcs = await db
       .select({ id: users.id })
       .from(users)
-      .where(and(eq(users.role, 'PC'), eq(users.departmentId, instance.storeId.toString())));
+      .where(and(eq(users.role, 'PC'), eq(users.storeId, instance.storeId.toString())));
     const recipientIds = pcs.map((p) => p.id);
     if (!recipientIds.length) return [];
 

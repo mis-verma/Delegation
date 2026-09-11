@@ -1,4 +1,7 @@
-@import url("https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,500;1,600&display=swap");
+/* The Poppins <link> lives in index.html, NOT here. A CSS `@import` of the Google Fonts URL is
+   only discoverable after this stylesheet has been downloaded and parsed, so the font request
+   chains behind it: HTML -> index.css -> fonts CSS -> woff2, three serial round trips before any
+   text can paint. From <head> the browser starts the font CSS in parallel with this file. */
 @import "tailwindcss";
 @import "tw-animate-css";
 @plugin "tailwindcss-debug-screens";

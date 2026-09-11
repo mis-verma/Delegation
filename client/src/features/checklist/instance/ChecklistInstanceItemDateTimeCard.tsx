@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Loader2, RotateCcw } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useSetChecklistInstanceItemDoneMutation } from '../hook';
+import { DatePicker } from '../../../components';
+import { ChecklistItemCardHeader } from './ChecklistItemCardHeader';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
-import { formatDate } from '../checklistDisplay';
 
 interface ChecklistInstanceItemDateTimeCardProps {
   item:       ChecklistInstanceItem;
@@ -11,73 +12,56 @@ interface ChecklistInstanceItemDateTimeCardProps {
   isLocked:   boolean;
 }
 
-// <input type="datetime-local"> takes/returns a timezone-less "YYYY-MM-DDTHH:mm" string, not an
-// ISO instant — this converts item.dateValue (an ISO instant from the server) to that local-input
-// shape for display. toISOString() would shift the clock to UTC, showing the wrong local time.
-const toLocalInputValue = (iso: string | null) => {
-  if (!iso) return '';
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-};
-
 export const ChecklistInstanceItemDateTimeCard = ({ item, instanceId, canWork, isLocked }: ChecklistInstanceItemDateTimeCardProps) => {
   const setItemDone = useSetChecklistInstanceItemDoneMutation(instanceId);
-  const [draft, setDraft] = useState(toLocalInputValue(item.dateValue));
+  // Was a raw <input type="datetime-local"> — the shared DatePicker (used everywhere else a date
+  // is picked in this app) works in real Date objects directly, so no timezone-string conversion
+  // is needed here anymore.
+  const [draft, setDraft] = useState<Date | null>(item.dateValue ? new Date(item.dateValue) : null);
   const interactive = canWork && !isLocked;
-  const canSubmit = interactive && draft !== '';
+  const canSubmit = interactive && draft != null;
 
   return (
     <div className={`flex flex-col gap-3 p-4 rounded-lg border border-border bg-surface ${isLocked ? 'opacity-75' : ''}`}>
-      <div className="flex items-start gap-3">
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-display font-medium leading-snug text-text">{item.label}</p>
-          {item.isDone && item.completedAt && (
-            <p className="text-xs text-text-muted font-display mt-0.5">Completed {formatDate(item.completedAt)}</p>
-          )}
-        </div>
-        {interactive && item.isDone && (
-          <button
-            onClick={() => setItemDone.mutate({ itemId: item.id, isDone: false, dateValue: new Date(draft).toISOString() })}
-            disabled={setItemDone.isPending}
-            className="shrink-0 p-2 rounded-md text-text-light hover:text-warning hover:bg-warning/10 transition-colors cursor-pointer disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-warning/50"
-            aria-label="Reopen item"
-            title="Reopen"
-          >
-            <RotateCcw size={14} />
-          </button>
+      <ChecklistItemCardHeader
+        item={item}
+        interactive={interactive}
+        reopenPending={setItemDone.isPending}
+        onReopen={() => setItemDone.mutate({ itemId: item.id, isDone: false, dateValue: draft ? draft.toISOString() : undefined })}
+      />
+
+      {/* The DatePicker itself is NOT gated on `interactive` — it's the only place this evidence
+          is shown (there's no separate read-only display), so it must stay visible, just
+          disabled, after the item (or the whole instance) locks. Only the Save button and the
+          save-error message are for the still-editable case. */}
+      <div className="flex flex-col gap-2">
+        {interactive && setItemDone.isError && (
+          <p className="text-xs text-danger">
+            {setItemDone.error instanceof Error ? setItemDone.error.message : 'Could not save this answer.'}
+          </p>
         )}
-      </div>
 
-      {interactive && (
-        <div className="flex flex-col gap-2">
-          {setItemDone.isError && (
-            <p className="text-xs text-danger">
-              {setItemDone.error instanceof Error ? setItemDone.error.message : 'Could not save this answer.'}
-            </p>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+          <DatePicker
+            value={draft}
+            onChange={setDraft}
+            showTime
+            disabled={!interactive || item.isDone}
+            placeholder="Select date & time"
+            className="w-full sm:w-64"
+          />
+          {interactive && !item.isDone && (
+            <button
+              onClick={() => canSubmit && setItemDone.mutate({ itemId: item.id, isDone: true, dateValue: draft!.toISOString() })}
+              disabled={!canSubmit || setItemDone.isPending}
+              className="flex items-center justify-center gap-1.5 text-xs font-display font-medium px-2.5 py-1.5 rounded-md border border-primary-500/50 text-primary-600 hover:bg-primary-500/10 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+            >
+              {setItemDone.isPending && <Loader2 size={12} className="animate-spin" />}
+              Save
+            </button>
           )}
-
-          <div className="flex items-center gap-2 flex-wrap">
-            <input
-              type="datetime-local"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              disabled={item.isDone}
-              className="px-2.5 py-1.5 text-sm font-display bg-surface text-text rounded-md border border-border focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all disabled:opacity-60"
-            />
-            {!item.isDone && (
-              <button
-                onClick={() => canSubmit && setItemDone.mutate({ itemId: item.id, isDone: true, dateValue: new Date(draft).toISOString() })}
-                disabled={!canSubmit || setItemDone.isPending}
-                className="flex items-center gap-1.5 text-xs font-display font-medium px-2.5 py-1.5 rounded-md border border-success/50 text-success hover:bg-success/10 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {setItemDone.isPending && <Loader2 size={12} className="animate-spin" />}
-                Save
-              </button>
-            )}
-          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };

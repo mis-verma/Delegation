@@ -32,7 +32,7 @@ export const ImportFromTemplateField = ({
           <span className="flex items-center justify-center p-1 rounded-md bg-primary-100 dark:bg-primary-900/60 text-primary-700 dark:text-primary-300 shrink-0">
             <Sparkles size={13} />
           </span>
-          <span className="text-xs font-display font-bold uppercase tracking-wider text-primary-900 dark:text-primary-300">
+          <span className="text-xs font-display font-bold text-primary-900 dark:text-primary-300">
             Start From a Template
           </span>
         </div>

@@ -88,10 +88,16 @@ export const userController = {
         // undefined), otherwise we treat them as "not provided".
         const departmentId = typeof req.query.departmentId === 'string' ? req.query.departmentId : undefined;
         const storeId = typeof req.query.storeId === 'string' ? req.query.storeId : undefined;
+        // A checklist can target several stores at once (?storeIds=a&storeIds=b), which Express
+        // parses as a string array; a single repeated value still comes through as a plain string.
+        const rawStoreIds = req.query.storeIds;
+        const storeIds = Array.isArray(rawStoreIds)
+            ? rawStoreIds.filter((v): v is string => typeof v === 'string')
+            : typeof rawStoreIds === 'string' ? [rawStoreIds] : undefined;
         // `req.user!` here is the full decoded token payload (id, role, departmentId, storeId, etc)
         // for whoever is logged in - the service needs this to figure out scoping rules (see
         // user.service.ts `listAssignable` for the department/store scoping logic for MANAGERs).
-        const users = await userService.listAssignable(req.user!, departmentId, storeId);
+        const users = await userService.listAssignable(req.user!, departmentId, storeId, storeIds);
         res.json({ success : true, data : users})
     })
 }

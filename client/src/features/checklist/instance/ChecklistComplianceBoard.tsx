@@ -2,31 +2,22 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { PageNav } from '../../../components';
 import { Link } from 'react-router';
-import { Store, AlertCircle } from 'lucide-react';
+import { Store, AlertCircle, SearchX } from 'lucide-react';
 import { Skeleton, SelectDropdown, StatusChip } from '../../../components';
 import { Badge } from '@/components/ui/badge';
 import { useStoresQuery, useAssignableUsersQuery, useChecklistInstancesBoardQuery, useChecklistInstanceSummaryQuery } from '../hook';
 import {
-  formatDate, instanceProgressStatus, VERIFICATION_STATUS_LABEL,
-  rateToneClass, rateBarClass, isInstanceOverdue,
+  formatDate, formatDeadlineTime, instanceProgressStatus, VERIFICATION_STATUS_LABEL, VERIFICATION_BADGE_VARIANT,
+  instanceProgressToneClass, instanceProgressBarClass, isInstanceOverdue,
 } from '../checklistDisplay';
 import { ChecklistComplianceQuickStats, type ComplianceQuickFilterKey } from './ChecklistComplianceQuickStats';
-import type { ChecklistInstance, ChecklistInstanceStatus, ChecklistVerificationStatus } from '../../../api/checklistInstances';
+import type { ChecklistInstance, ChecklistInstanceStatus } from '../../../api/checklistInstances';
 
 const STATUS_OPTIONS: { value: '' | ChecklistInstanceStatus; label: string }[] = [
   { value: '', label: 'All' },
   { value: 'OPEN', label: 'Not completed' },
   { value: 'COMPLETED', label: 'Completed' },
 ];
-
-// Semantic Badge variant per verification status — mirrors the success/warning/destructive
-// meaning used everywhere else in this feature instead of a hand-rolled color map.
-const VERIFICATION_STATUS_VARIANT: Record<ChecklistVerificationStatus, 'success' | 'warning' | 'destructive' | 'neutral'> = {
-  NOT_SUBMITTED: 'neutral',
-  PENDING: 'warning',
-  APPROVED: 'success',
-  REJECTED: 'destructive',
-};
 
 interface ComplianceRowProps {
   instance: ChecklistInstance;
@@ -43,23 +34,25 @@ const ComplianceRow = ({ instance, storeName, nameById }: ComplianceRowProps) =>
   const done = instance.items.filter(i => i.isDone).length;
   const status = instanceProgressStatus(done, total);
   const progress = total ? Math.round((done / total) * 100) : 0;
-  const overdue = isInstanceOverdue(instance.periodEnd, status === 'COMPLETED');
+  const overdue = isInstanceOverdue(instance, status === 'COMPLETED');
+  const deadlineTime = formatDeadlineTime(instance);
 
   return (
     <Link
       to={`/checklists/${instance.id}`}
-      className="flex flex-col gap-3 p-4 rounded-lg border border-border bg-surface hover:border-border-hover transition-colors duration-200"
+      className="flex flex-col gap-3 p-4 rounded-lg border border-border bg-surface hover:border-border-hover transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
     >
       <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div>
-          <p className="text-sm font-display font-bold text-text">{instance.title}</p>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-display font-bold text-text truncate">{instance.title}</p>
           <div className="flex items-center gap-2 mt-1 text-xs text-text-muted font-display flex-wrap">
             <span className="flex items-center gap-1"><Store size={11} /> {storeName}</span>
             <span>{formatDate(instance.periodStart)} – {formatDate(instance.periodEnd)}</span>
+            {status !== 'COMPLETED' && deadlineTime && <span>· Due {deadlineTime}</span>}
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <Badge variant={VERIFICATION_STATUS_VARIANT[instance.verificationStatus]}>
+          <Badge variant={VERIFICATION_BADGE_VARIANT[instance.verificationStatus]}>
             {VERIFICATION_STATUS_LABEL[instance.verificationStatus]}
           </Badge>
           {overdue && <StatusChip status="overdue" />}
@@ -69,11 +62,11 @@ const ComplianceRow = ({ instance, storeName, nameById }: ComplianceRowProps) =>
       <div className="flex items-center gap-2">
         <div className="h-1.5 flex-1 bg-surface-hover rounded-full overflow-hidden border border-border/50">
           <div
-            className={`h-full rounded-full transition-all duration-500 ${rateBarClass(progress)}`}
+            className={`h-full rounded-full transition-all duration-500 ${instanceProgressBarClass(overdue, status === 'COMPLETED')}`}
             style={{ width: `${progress}%` }}
           />
         </div>
-        <span className={`text-xs font-display font-medium shrink-0 ${rateToneClass(progress)}`}>{done}/{total}</span>
+        <span className={`text-xs font-display font-medium shrink-0 ${instanceProgressToneClass(overdue, status === 'COMPLETED')}`}>{done}/{total}</span>
       </div>
 
       {instance.assigneeIds.length > 0 && (
@@ -153,7 +146,7 @@ export const ChecklistComplianceBoard = () => {
     : quickFilter === 'overdue' ? 'OVERDUE'
     : (status || undefined);
 
-  const { data: instancePage, isPending, isError } = useChecklistInstancesBoardQuery({
+  const { data: instancePage, isPending, isError, refetch } = useChecklistInstancesBoardQuery({
     storeId: storeId || undefined,
     assigneeId: assigneeId || undefined,
     status: effectiveStatus,
@@ -238,7 +231,7 @@ export const ChecklistComplianceBoard = () => {
                 type="button"
                 onClick={() => setStatus(opt.value)}
                 aria-pressed={status === opt.value}
-                className={`px-3 py-1.5 rounded-full text-xs font-display font-medium transition-all duration-200 cursor-pointer ${
+                className={`px-3 py-1.5 rounded-full text-xs font-display font-medium transition-all duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
                   status === opt.value ? 'bg-primary-700 text-white shadow-sm' : 'text-text-secondary hover:bg-surface-hover'
                 }`}
               >
@@ -260,12 +253,20 @@ export const ChecklistComplianceBoard = () => {
       {isError && (
         <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-danger/10 text-danger text-sm font-display">
           <AlertCircle size={15} />
-          Failed to load checklist compliance data.
+          <span className="flex-1">Failed to load checklist compliance data.</span>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="shrink-0 px-3 py-1.5 rounded-md text-xs font-display font-semibold border border-danger/30 hover:bg-danger/10 cursor-pointer transition-colors outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+          >
+            Retry
+          </button>
         </div>
       )}
 
       {!isPending && !isError && visibleInstances.length === 0 && (
-        <div className="p-10 text-center text-sm text-text-muted bg-surface rounded-xl border border-dashed border-border">
+        <div className="flex flex-col items-center gap-2 p-10 text-center text-sm text-text-muted bg-surface rounded-xl border border-dashed border-border">
+          <SearchX size={20} className="text-text-light" />
           No checklist instances match these filters.
         </div>
       )}

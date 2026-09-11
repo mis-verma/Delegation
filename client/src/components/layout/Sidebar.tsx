@@ -49,6 +49,8 @@ const TASK_ADMIN_CHILDREN: NavChild[] = [
   { to: '/tasks/team', label: 'Team Delegations' },
 ];
 
+const CHECKLIST_APPROVALS_CHILD: NavChild = { to: '/checklists/approvals', label: 'Team Approvals' };
+
 const NAV: NavItem[] = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/tasks', icon: CheckSquare, label: 'Delegation', children: TASK_CHILDREN },
@@ -104,8 +106,12 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
     .toUpperCase();
 
   const navItems: NavItem[] = NAV.map((item) => {
-    if (item.label === 'Checklists' && (isAdmin || isPC)) {
-      return { ...item, quickCreateTo: '/admin/scheduled-checklists/builder' };
+    if (item.label === 'Checklists') {
+      return {
+        ...item,
+        ...(isAdmin || isPC ? { quickCreateTo: '/admin/scheduled-checklists/builder' } : {}),
+        ...(isManager ? { children: [CHECKLIST_APPROVALS_CHILD] } : {}),
+      };
     }
     if (item.label === 'Delegation') {
       return {

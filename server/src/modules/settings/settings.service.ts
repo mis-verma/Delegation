@@ -10,6 +10,13 @@ import { auditService } from "../audit/audit.service.js";
 // instead of hitting the database on every request. Refreshed on init() and every update().
 let cache: typeof settings.$inferSelect | null = null;
 
+// getCached() must stay synchronous (see above), which rules out routing it through
+// config/queryCache.ts's Redis cache — that's Promise-based. On a multi-worker/replica
+// deployment, update() only refreshes the process that received the PATCH; every other process's
+// `cache` was previously stale until its next restart. This periodic re-read bounds that staleness
+// to REFRESH_INTERVAL_MS instead, without changing getCached()'s synchronous contract.
+const REFRESH_INTERVAL_MS = 30_000;
+
 // Settings is a "single row" config table with no natural unique business key, so there's no
 // column to target a MySQL upsert (`onDuplicateKeyUpdate`) against. Simplest correct approach:
 // try to select the one row, and if the table is empty, insert a single default row (with a
@@ -29,6 +36,11 @@ export const settingsService = {
     // starts accepting requests — everything downstream assumes getCached() always has a value.
     async init() {
         cache = await loadOrCreate();
+        setInterval(() => {
+            db.select().from(settings).limit(1)
+                .then(([row]) => { if (row) cache = row; })
+                .catch((err) => console.error("Settings background refresh failed:", err));
+        }, REFRESH_INTERVAL_MS).unref();
         return cache;
     },
 

@@ -3,17 +3,28 @@ import {
     checklistDefinitions,
     checklistDefinitionStores,
     checklistDefinitionAssignees,
+    checklistDefinitionReviewers,
     checklistDefinitionItems,
     checklistDefinitionItemAuditUsers,
+    users,
     type CHECKLIST_RECURRENCES,
 } from "../../db/schema/index.js"
-import { eq, and, asc, inArray, sql } from "drizzle-orm"
+import { eq, and, asc, inArray, notInArray, sql } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
+import { cached, cacheKey } from "../../config/queryCache.js"
 import { AppError } from "../../utils/AppError.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { CreateChecklistDefinitionInput, UpdateChecklistDefinitionInput, SetChecklistDefinitionActiveInput } from "./checklistDefinition.validation.js"
 import { generateInstanceForDefinition, loadDefinitionForGeneration } from "../../jobs/checklistInstanceGenerator.job.js"
 import { auditService } from "../audit/audit.service.js";
+import { emitChecklistEvent } from "../../sockets/checklistEvent.js"
+
+// create/update/setActive/remove all end by broadcasting to every store this definition touches —
+// a definition can span several, and the Templates grid / builder open elsewhere need to hear
+// about all of them, not just the first.
+const emitToStores = (event: string, storeIds: string[], payload: unknown) => {
+    for (const storeId of storeIds) emitChecklistEvent(event, { storeId }, payload)
+}
 
 export type ChecklistRecurrence = (typeof CHECKLIST_RECURRENCES)[number]
 
@@ -21,36 +32,69 @@ export type ListChecklistDefinitionsFilter = {
     storeId?: string
     recurrence?: ChecklistRecurrence
     isActive?: boolean
+    page?: number
+    limit?: number
 }
+
+const DEFINITION_DEFAULT_PAGE_SIZE = 50
+
+// Same shape/reasoning as checklistInstance.service.ts's own paginate/buildMeta — list() used to
+// hydrate every matching definition (items, stores, assignees, reviewers) on every call.
+const paginateDefinitions = (page?: number, limit?: number) => {
+    const safePage = Math.max(1, Math.trunc(page ?? 1) || 1)
+    const safeLimit = Math.min(200, Math.max(1, Math.trunc(limit ?? DEFINITION_DEFAULT_PAGE_SIZE) || DEFINITION_DEFAULT_PAGE_SIZE))
+    return { page: safePage, limit: safeLimit, offset: (safePage - 1) * safeLimit }
+}
+
+const buildDefinitionsMeta = (p: { page: number; limit: number }, total: number) => ({
+    page: p.page,
+    limit: p.limit,
+    total,
+    totalPages: Math.max(1, Math.ceil(total / p.limit)),
+    hasNext: p.page * p.limit < total,
+})
 
 const statsByDefinition = async (definitionIds: string[]): Promise<Map<string, { completionRate: number | null; qualityRate: number | null }>> => {
     const map = new Map<string, { completionRate: number | null; qualityRate: number | null }>()
     if (!definitionIds.length) return map
 
-    // db.execute() on the mysql2 driver resolves to the raw mysql2 tuple [rows, fields],
-    // NOT a plain row array — must destructure element 0 (see task.service.ts#complianceReport).
-    const [rows] = await db.execute(sql`
-        SELECT
-            ci.definitionId AS definitionId,
-            COUNT(*) AS totalItems,
-            SUM(cii.isDone) AS doneItems,
-            SUM(cii.requiredImageCount > 0) AS itemsRequiringPhotos,
-            SUM(
-                CASE WHEN cii.requiredImageCount > 0
-                    AND (CASE WHEN cii.requiresLivePhoto THEN COALESCE(img.liveCount, 0) ELSE COALESCE(img.totalCount, 0) END) >= cii.requiredImageCount
-                THEN 1 ELSE 0 END
-            ) AS photoCompliantItems
-        FROM ChecklistInstanceItem cii
-        JOIN ChecklistInstance ci ON ci.id = cii.instanceId
-        LEFT JOIN (
-            SELECT checklistInstanceItemId, COUNT(*) AS totalCount, SUM(captureMethod = 'LIVE') AS liveCount
-            FROM ChecklistInstanceImage GROUP BY checklistInstanceItemId
-        ) img ON img.checklistInstanceItemId = cii.id
-        WHERE ci.definitionId IN (${sql.join(definitionIds.map((id) => sql`${id}`), sql`, `)})
-        GROUP BY ci.definitionId
-    `)
+    // Unbounded scan over every instance+item this definition has ever generated — unlike
+    // checklistInstance.service.ts's near-identical summary() aggregate, this used to recompute on
+    // every single list()/getById() call with no caching at all. Same short-TTL posture as
+    // summary(): these rates move whenever anyone ticks an item, so there's no clean "just
+    // changed" moment to invalidate on, and a fixed key per (sorted) id set means concurrent
+    // viewers of the same page/definition share one computation instead of each re-running it.
+    const rows = await cached(
+        cacheKey("checklist-definition-stats", [...definitionIds].sort().join(",")),
+        30,
+        async () => {
+            // db.execute() on the mysql2 driver resolves to the raw mysql2 tuple [rows, fields],
+            // NOT a plain row array — must destructure element 0 (see task.service.ts#complianceReport).
+            const [rows] = await db.execute(sql`
+                SELECT
+                    ci.definitionId AS definitionId,
+                    COUNT(*) AS totalItems,
+                    SUM(cii.isDone) AS doneItems,
+                    SUM(cii.requiredImageCount > 0) AS itemsRequiringPhotos,
+                    SUM(
+                        CASE WHEN cii.requiredImageCount > 0
+                            AND (CASE WHEN cii.requiresLivePhoto THEN COALESCE(img.liveCount, 0) ELSE COALESCE(img.totalCount, 0) END) >= cii.requiredImageCount
+                        THEN 1 ELSE 0 END
+                    ) AS photoCompliantItems
+                FROM ChecklistInstanceItem cii
+                JOIN ChecklistInstance ci ON ci.id = cii.instanceId
+                LEFT JOIN (
+                    SELECT checklistInstanceItemId, COUNT(*) AS totalCount, SUM(captureMethod = 'LIVE') AS liveCount
+                    FROM ChecklistInstanceImage GROUP BY checklistInstanceItemId
+                ) img ON img.checklistInstanceItemId = cii.id
+                WHERE ci.definitionId IN (${sql.join(definitionIds.map((id) => sql`${id}`), sql`, `)})
+                GROUP BY ci.definitionId
+            `)
+            return rows as unknown as any[]
+        },
+    )
 
-    for (const r of rows as unknown as any[]) {
+    for (const r of rows) {
         const totalItems = Number(r.totalItems)
         const itemsRequiringPhotos = Number(r.itemsRequiringPhotos)
         map.set(r.definitionId as string, {
@@ -82,6 +126,14 @@ const hydrateDefinitions = async (definitionRows: (typeof checklistDefinitions.$
         assigneeIdsByDefinition.set(link.definitionId, list)
     }
 
+    const reviewerLinks = await db.select().from(checklistDefinitionReviewers).where(inArray(checklistDefinitionReviewers.definitionId, definitionIds))
+    const reviewerIdsByDefinition = new Map<string, string[]>()
+    for (const link of reviewerLinks) {
+        const list = reviewerIdsByDefinition.get(link.definitionId) ?? []
+        list.push(link.userId)
+        reviewerIdsByDefinition.set(link.definitionId, list)
+    }
+
     const items = await db.select().from(checklistDefinitionItems).where(inArray(checklistDefinitionItems.definitionId, definitionIds)).orderBy(asc(checklistDefinitionItems.order))
     const itemIds = items.map((i) => i.id)
     const auditUserLinks = itemIds.length ? await db.select().from(checklistDefinitionItemAuditUsers).where(inArray(checklistDefinitionItemAuditUsers.itemId, itemIds)) : []
@@ -104,14 +156,64 @@ const hydrateDefinitions = async (definitionRows: (typeof checklistDefinitions.$
         ...definition,
         storeIds: storeIdsByDefinition.get(definition.id) ?? [],
         assigneeIds: assigneeIdsByDefinition.get(definition.id) ?? [],
+        reviewerIds: reviewerIdsByDefinition.get(definition.id) ?? [],
         items: itemsByDefinition.get(definition.id) ?? [],
         completionRate: stats.get(definition.id)?.completionRate ?? null,
         qualityRate: stats.get(definition.id)?.qualityRate ?? null,
     }))
 }
 
+// The client scopes the assignee/auditor pickers to the checklist's own target stores, but that's
+// just UI - nothing stopped a POST from naming a userId who belongs to a completely different
+// store (or no store at all). A checklist assigned to someone who can never see it in their own
+// store's queue isn't "assigned", it's silently lost, so this is enforced again here regardless of
+// what the client sent.
+const assertUsersBelongToStores = async (userIds: string[], storeIds: string[], roleLabel: string) => {
+    if (!userIds.length) return
+    const uniqueIds = [...new Set(userIds)]
+    const rows = await db.select({ id: users.id, storeId: users.storeId, firstName: users.firstName, lastName: users.lastName })
+        .from(users)
+        .where(inArray(users.id, uniqueIds))
+
+    const foundIds = new Set(rows.map((r) => r.id))
+    const missing = uniqueIds.filter((id) => !foundIds.has(id))
+    if (missing.length) throw AppError.badRequest(`Unknown ${roleLabel} id(s): ${missing.join(", ")}`)
+
+    const storeSet = new Set(storeIds)
+    const outOfScope = rows.filter((r) => !r.storeId || !storeSet.has(r.storeId))
+    if (outOfScope.length) {
+        const names = outOfScope.map((r) => `${r.firstName} ${r.lastName ?? ""}`.trim()).join(", ")
+        throw AppError.badRequest(`These ${roleLabel} don't belong to any of the selected stores: ${names}`)
+    }
+}
+
+// Internal, unbounded — for callers that must see every matching definition regardless of page
+// size (checklistBulkImport.service.ts's matchRows fuzzy-matches an uploaded row's checklist name
+// against every definition that exists; silently only searching the first page would misfile rows
+// for any org with more definitions than one page, which is worse than the query cost this
+// function exists to avoid). The paginated, HTTP-facing list() below is for the templates grid.
+export const listAllChecklistDefinitions = async (filter: Pick<ListChecklistDefinitionsFilter, "storeId" | "recurrence" | "isActive"> = {}) => {
+    const conditions = []
+    if (filter.recurrence) conditions.push(eq(checklistDefinitions.recurrence, filter.recurrence))
+    if (filter.isActive !== undefined) conditions.push(eq(checklistDefinitions.isActive, filter.isActive))
+    if (filter.storeId) {
+        const links = await db
+            .select({ definitionId: checklistDefinitionStores.definitionId })
+            .from(checklistDefinitionStores)
+            .where(eq(checklistDefinitionStores.storeId, filter.storeId))
+        if (!links.length) return []
+        conditions.push(inArray(checklistDefinitions.id, links.map(l => l.definitionId)))
+    }
+
+    const definitionRows = await db.select().from(checklistDefinitions)
+        .where(conditions.length ? and(...conditions) : undefined)
+        .orderBy(asc(checklistDefinitions.name))
+    return hydrateDefinitions(definitionRows)
+}
+
 export const checklistDefinitionService = {
     async list(filter: ListChecklistDefinitionsFilter) {
+        const p = paginateDefinitions(filter.page, filter.limit)
         const conditions = []
         if (filter.recurrence) conditions.push(eq(checklistDefinitions.recurrence, filter.recurrence))
         if (filter.isActive !== undefined) conditions.push(eq(checklistDefinitions.isActive, filter.isActive))
@@ -123,14 +225,17 @@ export const checklistDefinitionService = {
                 .select({ definitionId: checklistDefinitionStores.definitionId })
                 .from(checklistDefinitionStores)
                 .where(eq(checklistDefinitionStores.storeId, filter.storeId))
-            if (!links.length) return []
+            if (!links.length) return { data: [], meta: buildDefinitionsMeta(p, 0) }
             conditions.push(inArray(checklistDefinitions.id, links.map(l => l.definitionId)))
         }
 
+        const where = conditions.length ? and(...conditions) : undefined
+        const [{ value: total }] = await db.select({ value: sql<number>`COUNT(*)` }).from(checklistDefinitions).where(where)
         const definitionRows = await db.select().from(checklistDefinitions)
-            .where(conditions.length ? and(...conditions) : undefined)
+            .where(where)
             .orderBy(asc(checklistDefinitions.name))
-        return hydrateDefinitions(definitionRows)
+            .limit(p.limit).offset(p.offset)
+        return { data: await hydrateDefinitions(definitionRows), meta: buildDefinitionsMeta(p, Number(total ?? 0)) }
     },
 
     async getById(id: string) {
@@ -141,6 +246,13 @@ export const checklistDefinitionService = {
     },
 
     async create(input: CreateChecklistDefinitionInput, user: AccessTokenPayload) {
+        await assertUsersBelongToStores(input.assigneeIds, input.storeIds, "assignees")
+        for (const item of input.items) {
+            if (item.itemType === "AUDIT" && item.auditUserIds?.length) {
+                await assertUsersBelongToStores(item.auditUserIds, input.storeIds, "auditors")
+            }
+        }
+
         const definitionId = createId()
 
         // Wrapped in a transaction (source had none) — creating a definition fans out into
@@ -156,7 +268,6 @@ export const checklistDefinitionService = {
                 opensTime: input.opensTime ?? null,
                 cutoffTime: input.cutoffTime ?? null,
                 assigneeRoles: input.assigneeRoles ?? [],
-                proofRequired: input.proofRequired ?? [],
                 icon: input.icon,
                 createdBy: user.sub,
             })
@@ -167,6 +278,11 @@ export const checklistDefinitionService = {
             await tx.insert(checklistDefinitionAssignees).values(
                 input.assigneeIds.map(userId => ({ definitionId, userId })),
             )
+            if (input.reviewerIds?.length) {
+                await tx.insert(checklistDefinitionReviewers).values(
+                    input.reviewerIds.map(userId => ({ definitionId, userId })),
+                )
+            }
 
             for (const [index, item] of input.items.entries()) {
                 const itemId = createId()
@@ -174,6 +290,7 @@ export const checklistDefinitionService = {
                     id: itemId,
                     label: item.label,
                     order: item.order ?? index,
+                    section: item.section ?? null,
                     requiredImageCount: item.requiredImageCount ?? 0,
                     maxImageCount: item.maxImageCount ?? null,
                     requiresLivePhoto: item.requiresLivePhoto ?? false,
@@ -190,8 +307,8 @@ export const checklistDefinitionService = {
                     signatureLabels: item.signatureLabels ?? null,
                     qrExpectedValue: item.qrExpectedValue ?? null,
                     cashExpectedAmount: item.cashExpectedAmount ?? null,
-                    conditionalTrigger: item.conditionalTrigger ?? null,
-                    conditionalActions: item.conditionalActions ?? null,
+                    yesActions: item.yesActions ?? null,
+                    noActions: item.noActions ?? null,
                     definitionId,
                 })
                 if (item.itemType === "AUDIT" && item.auditUserIds?.length) {
@@ -208,21 +325,45 @@ export const checklistDefinitionService = {
 
         const created = await this.getById(definitionId)
         await auditService.record({ entityType: "ChecklistDefinition", entityId: definitionId, action: "CREATE", actorId: user.sub, after: created })
+        emitToStores("checklist-definition:created", created.storeIds, { definitionId })
         return created
     },
 
     async update(id: string, input: UpdateChecklistDefinitionInput, actorId: string) {
-    
+        await assertUsersBelongToStores(input.assigneeIds, input.storeIds, "assignees")
+        for (const item of input.items) {
+            if (item.itemType === "AUDIT" && item.auditUserIds?.length) {
+                await assertUsersBelongToStores(item.auditUserIds, input.storeIds, "auditors")
+            }
+        }
+
         let wasActive = false
 
-      
+        // Captured before the update so a store REMOVED from storeIds still hears that this
+        // definition no longer applies to it, not just the (possibly different) stores it ends up
+        // targeting afterward.
+        const oldStoreLinks = await db.select({ storeId: checklistDefinitionStores.storeId })
+            .from(checklistDefinitionStores).where(eq(checklistDefinitionStores.definitionId, id))
+        const affectedStoreIds = [...new Set([...oldStoreLinks.map(l => l.storeId), ...input.storeIds])]
+
         await db.transaction(async (tx) => {
+            // Locked (not a plain select) so two concurrent update() calls can't both read the
+            // same version and both pass the check below — the second waits for the first's
+            // transaction to commit (bumping the version), then genuinely sees the new value.
             const [existing] = await tx
                 .select({ id: checklistDefinitions.id, version: checklistDefinitions.version, isActive: checklistDefinitions.isActive })
                 .from(checklistDefinitions)
                 .where(eq(checklistDefinitions.id, id))
+                .for("update")
                 .limit(1)
             if (!existing) throw AppError.notFound("Checklist not found")
+            // Optimistic-concurrency guard: the client sends back whichever version it loaded the
+            // checklist at. If someone else has saved a change since, this no longer matches, and
+            // a full-replace write here would silently discard their changes with no warning —
+            // reject instead and ask the admin to reload and reapply their edit.
+            if (existing.version !== input.version) {
+                throw AppError.conflict("This checklist was changed by someone else. Refresh the page and reapply your edit.")
+            }
             wasActive = existing.isActive
 
             await tx.update(checklistDefinitions).set({
@@ -233,7 +374,6 @@ export const checklistDefinitionService = {
                 opensTime: input.opensTime ?? null,
                 cutoffTime: input.cutoffTime ?? null,
                 assigneeRoles: input.assigneeRoles ?? [],
-                proofRequired: input.proofRequired ?? [],
                 icon: input.icon,
                 version: existing.version + 1,
                 updatedAt: new Date(),
@@ -246,6 +386,12 @@ export const checklistDefinitionService = {
             await tx.insert(checklistDefinitionAssignees).values(
                 input.assigneeIds.map(userId => ({ definitionId: id, userId })),
             )
+            await tx.delete(checklistDefinitionReviewers).where(eq(checklistDefinitionReviewers.definitionId, id))
+            if (input.reviewerIds?.length) {
+                await tx.insert(checklistDefinitionReviewers).values(
+                    input.reviewerIds.map(userId => ({ definitionId: id, userId })),
+                )
+            }
             const newItemIds: string[] = []
             for (const [index, item] of input.items.entries()) {
                 const itemId = createId()
@@ -254,6 +400,7 @@ export const checklistDefinitionService = {
                     id: itemId,
                     label: item.label,
                     order: item.order ?? index,
+                    section: item.section ?? null,
                     requiredImageCount: item.requiredImageCount ?? 0,
                     maxImageCount: item.maxImageCount ?? null,
                     requiresLivePhoto: item.requiresLivePhoto ?? false,
@@ -270,8 +417,8 @@ export const checklistDefinitionService = {
                     signatureLabels: item.signatureLabels ?? null,
                     qrExpectedValue: item.qrExpectedValue ?? null,
                     cashExpectedAmount: item.cashExpectedAmount ?? null,
-                    conditionalTrigger: item.conditionalTrigger ?? null,
-                    conditionalActions: item.conditionalActions ?? null,
+                    yesActions: item.yesActions ?? null,
+                    noActions: item.noActions ?? null,
                     definitionId: id,
                 })
                 if (item.itemType === "AUDIT" && item.auditUserIds?.length) {
@@ -281,9 +428,15 @@ export const checklistDefinitionService = {
                 }
             }
            
+            // Deletes the OLD item rows (every row for this definition NOT among the ones just
+            // inserted above) so the fresh insert-then-delete-stale pattern actually replaces the
+            // item list. This used to delete `inArray(..., newItemIds)` — the rows just inserted —
+            // which discarded every edit silently: the new rows were inserted then immediately
+            // deleted in the same transaction, leaving the untouched originals as the "current"
+            // items. `notInArray` is what makes stale-row cleanup instead of self-sabotage.
             await tx.delete(checklistDefinitionItems).where(
                 newItemIds.length
-                    ? and(eq(checklistDefinitionItems.definitionId, id), inArray(checklistDefinitionItems.id, newItemIds))
+                    ? and(eq(checklistDefinitionItems.definitionId, id), notInArray(checklistDefinitionItems.id, newItemIds))
                     : eq(checklistDefinitionItems.definitionId, id),
             )
         })
@@ -297,6 +450,7 @@ export const checklistDefinitionService = {
 
         const updated = await this.getById(id)
         await auditService.record({ entityType: "ChecklistDefinition", entityId: id, action: "UPDATE", actorId, after: updated })
+        emitToStores("checklist-definition:updated", affectedStoreIds, { definitionId: id })
         return updated
     },
 
@@ -308,6 +462,7 @@ export const checklistDefinitionService = {
         // Its own action: deactivating a checklist silently stops instances being generated, which
         // is the kind of change people later swear nobody made.
         await auditService.record({ entityType: "ChecklistDefinition", entityId: id, action: input.isActive ? "ACTIVATE" : "DEACTIVATE", actorId, after: updated })
+        emitToStores("checklist-definition:updated", updated.storeIds, { definitionId: id })
         return updated
     },
 
@@ -332,6 +487,7 @@ export const checklistDefinitionService = {
         if (!existing) throw AppError.notFound("Checklist not found")
         await db.delete(checklistDefinitions).where(eq(checklistDefinitions.id, id))
         await auditService.record({ entityType: "ChecklistDefinition", entityId: id, action: "DELETE", actorId, before: existing })
+        emitToStores("checklist-definition:deleted", existing.storeIds, { definitionId: id })
         return existing
     },
 }

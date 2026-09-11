@@ -4,6 +4,8 @@ import {
   useUploadChecklistInstanceImagesMutation,
   useDeleteChecklistInstanceImageMutation,
 } from '../hook';
+import { ITEM_TYPE_ICON } from './checklistItemIcon';
+import { ChecklistItemIconTile } from './ChecklistItemIconTile';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 import type { CaptureMethod } from '../../../api/ticket';
 import { formatDateTime, formatTimeOnly } from '../checklistDisplay';
@@ -44,7 +46,7 @@ export const ChecklistInstanceItemCard = ({ item, instanceId, canWork, isLocked 
     return (
       <button
         type="button"
-        disabled={!interactive}
+        disabled={!interactive || setItemDone.isPending}
         onClick={() => setItemDone.mutate({ itemId: item.id, isDone: !item.isDone })}
         className={`flex items-center gap-3 p-4 rounded-lg border text-left transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-1 ${
           interactive ? 'cursor-pointer hover:border-primary-500/40' : 'cursor-not-allowed opacity-75'
@@ -83,11 +85,7 @@ export const ChecklistInstanceItemCard = ({ item, instanceId, canWork, isLocked 
 
       {/* Header */}
       <div className="flex items-start gap-3">
-        <span className={`flex items-center justify-center size-9 rounded-lg shrink-0 ${
-          item.isDone ? 'bg-primary-500/10 text-primary-600' : 'bg-surface-hover text-text-light'
-        }`}>
-          {item.isDone ? <CheckSquare size={18} /> : <Square size={18} />}
-        </span>
+        <ChecklistItemIconTile icon={ITEM_TYPE_ICON[item.itemType]} done={item.isDone} />
         <div className="flex-1 min-w-0">
           <p className={`text-sm font-display font-medium leading-snug ${item.isDone ? 'line-through text-text-muted' : 'text-text'}`}>
             {item.label}
@@ -113,7 +111,7 @@ export const ChecklistInstanceItemCard = ({ item, instanceId, canWork, isLocked 
       {images.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {images.map(img => (
-            <div key={img.id} className="relative group/img">
+            <div key={img.id} className="relative">
               {isVideoFile(img) ? (
                 <video
                   src={`${UPLOADS_BASE}${img.url}`}
@@ -140,7 +138,8 @@ export const ChecklistInstanceItemCard = ({ item, instanceId, canWork, isLocked 
               {interactive && (
                 <button
                   onClick={() => deleteImage.mutate(img.id)}
-                  className="absolute -top-2 -right-2 size-6 rounded-full bg-surface border border-border flex items-center justify-center text-text-muted hover:text-danger opacity-0 group-hover/img:opacity-100 focus:opacity-100 transition-opacity cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"
+                  disabled={deleteImage.isPending}
+                  className="absolute -top-2 -right-2 size-6 rounded-full bg-surface border border-border flex items-center justify-center text-text-muted hover:text-danger opacity-90 hover:opacity-100 transition-opacity cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"
                   aria-label="Delete image"
                 >
                   <X size={11} />
@@ -193,7 +192,7 @@ export const ChecklistInstanceItemCard = ({ item, instanceId, canWork, isLocked 
             <button
               onClick={() => setItemDone.mutate({ itemId: item.id, isDone: true })}
               disabled={setItemDone.isPending}
-              className="flex items-center gap-1.5 text-xs font-display font-medium px-3 py-1.5 rounded-lg border border-success/50 text-success hover:bg-success/10 cursor-pointer transition-colors disabled:opacity-50 ml-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-success/50"
+              className="flex items-center gap-1.5 text-xs font-display font-medium px-3 py-1.5 rounded-lg border border-primary-500/50 text-primary-600 hover:bg-primary-500/10 cursor-pointer transition-colors disabled:opacity-50 ml-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
             >
               {setItemDone.isPending && <Loader2 size={12} className="animate-spin" />}
               Mark complete

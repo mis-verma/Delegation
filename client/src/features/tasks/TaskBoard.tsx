@@ -101,9 +101,9 @@ interface CardProps {
 //
 // `touch-manipulation`, NOT `touch-none`: `touch-action: none` tells the browser to handle no
 // gestures at all on this element, and since cards fill the columns, a finger landing anywhere on
-// a card couldn't scroll the board. This board renders from 768px up (TaskMobileList covers
-// narrower screens), so that hit touch tablets and touchscreen laptops — exactly the devices most
-// likely to drag a card in the first place. `manipulation` keeps scrolling and drops the legacy
+// a card couldn't scroll the board. The board is now selectable at any width (it snap-scrolls
+// horizontally below xl), so that hit touch tablets, touchscreen laptops and phones — exactly the
+// devices most likely to drag a card in the first place. `manipulation` keeps scrolling and drops the legacy
 // 300ms tap delay; the TouchSensor's press-and-hold constraint is what separates "drag this card"
 // from "scroll the board".
 const DraggableCard = ({ task, ...cardProps }: CardProps) => {
@@ -161,7 +161,14 @@ interface ColumnProps {
   isFiltered?: boolean;
 }
 
-const Column = ({ columnKey, label, tasks, isDropTarget, fillsRow, assigneeNames, departmentNames, isVerifier, onOpen, onAddTask, fields, newlyAssignedTaskIds, onMove, maxVisible, isFiltered }: ColumnProps) => {
+// memo: `activeTask` lives in the parent (TaskBoardComponent) and changes on every drag
+// start/end. Without this, that state update re-renders every column's every card — each doing
+// its own date maths, checklist progress and avatar colouring — synchronously before the card can
+// even visually lift, which is exactly what a laggy-feeling pickup is. None of this column's own
+// props change when a drag starts elsewhere on the board, so memoizing lets React skip it
+// entirely (this depends on `onMove` having a stable identity — see useTaskStatusMove's own
+// comment on `requestMove`).
+const Column = memo(({ columnKey, label, tasks, isDropTarget, fillsRow, assigneeNames, departmentNames, isVerifier, onOpen, onAddTask, fields, newlyAssignedTaskIds, onMove, maxVisible, isFiltered }: ColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({ id: columnKey, disabled: !isDropTarget });
   const [expanded, setExpanded] = useState(false);
 
@@ -266,7 +273,7 @@ const Column = ({ columnKey, label, tasks, isDropTarget, fillsRow, assigneeNames
       )}
     </section>
   );
-};
+});
 
 // memo: every prop TaskList passes is now referentially stable, so the board (and with it every
 // card, each of which does date maths, checklist progress and avatar colouring) no longer
@@ -366,7 +373,7 @@ const TaskBoardComponent = ({ tasks, assigneeNames, departmentNames, isVerifier 
           // No width class: dnd-kit sizes the overlay wrapper from the dragged card's measured
           // rect, so `w-full` makes the ghost exactly the width of the card you picked up. The old
           // fixed `w-60` was right for one column width and wrong at every other breakpoint.
-          <div className="w-full rotate-1 scale-105 shadow-xl cursor-grabbing">
+          <div className="w-full rotate-1 scale-105 shadow-xl cursor-grabbing will-change-transform">
             <TaskCard
               task={activeTask}
               isVerifier={isVerifier}

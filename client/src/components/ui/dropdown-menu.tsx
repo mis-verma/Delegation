@@ -27,16 +27,28 @@ function DropdownMenuTrigger({
 function DropdownMenuContent({
   className,
   sideOffset = 4,
+  container,
   ...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {
+}: React.ComponentProps<typeof DropdownMenuPrimitive.Content> & {
+  /**
+   * Where to portal the menu. Defaults to `document.body`.
+   *
+   * Pass the dialog's content element for a menu opened from inside a modal. Radix Dialog wraps
+   * its content in react-remove-scroll, which blocks wheel and touch events on everything OUTSIDE
+   * that subtree — and a body-portalled menu is outside it. The result is a menu you can see and
+   * click but cannot scroll with a trackpad or a touch drag, however tall its list gets. Portalled
+   * into the dialog instead, it sits inside the allowed subtree and scrolls normally.
+   */
+  container?: HTMLElement | null;
+}) {
   return (
-    <DropdownMenuPrimitive.Portal>
+    <DropdownMenuPrimitive.Portal container={container ?? undefined}>
       <DropdownMenuPrimitive.Content
         data-slot="dropdown-menu-content"
         sideOffset={sideOffset}
         className={cn(
           // z-[80] — above Dialog's z-[70] (see dialog.tsx), since this menu is routinely opened
-          // from inside a modal (e.g. the assignee picker in a task/delegation form) and, being
+          // from inside a modal (e.g. the assignee picker in a task/delegation form) and, when
           // portalled to document.body as a sibling of the dialog, needs a higher z-index of its
           // own to actually render on top of it rather than invisibly underneath.
           "z-[80] max-h-(--radix-dropdown-menu-content-available-height) min-w-[12rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto",

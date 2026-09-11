@@ -3,6 +3,11 @@ import { ItemTypeConfigFields } from './builder/ItemTypeConfigFields';
 import type { ChecklistItemType, ChecklistConditionalAction } from '../../../api/checklistDefinitions';
 
 export type ItemDraft = {
+  // Client-only identity for drag-and-drop and React keys — stable across reorders, unlike the
+  // array index. Set to the definition item's real id when hydrating an existing checklist.
+  key: string;
+  // Free-text grouping label (e.g. "Opening", "Closing", "Operational"); null = ungrouped.
+  section: string | null;
   label: string;
   requiredImageCount: string;
   maxImageCount: string;
@@ -20,12 +25,16 @@ export type ItemDraft = {
   gpsRadiusMeters: string;
   qrExpectedValue: string;
   cashExpectedAmount: string;
-  conditionalTrigger: 'YES' | 'NO' | '';
-  conditionalActions: ChecklistConditionalAction[];
+  // Two independent action sets — one per possible Yes/No answer — so both can be armed on the
+  // same item at once (e.g. Yes requires a photo AND No requires a reason).
+  yesActions: ChecklistConditionalAction[];
+  noActions: ChecklistConditionalAction[];
 };
 
 // eslint-disable-next-line react-refresh/only-export-components
 export const emptyItemDraft = (): ItemDraft => ({
+  key: crypto.randomUUID(),
+  section: null,
   label: '',
   requiredImageCount: '0',
   maxImageCount: '',
@@ -43,8 +52,8 @@ export const emptyItemDraft = (): ItemDraft => ({
   gpsRadiusMeters: '',
   qrExpectedValue: '',
   cashExpectedAmount: '',
-  conditionalTrigger: '',
-  conditionalActions: [],
+  yesActions: [],
+  noActions: [],
 });
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -74,10 +83,12 @@ const ITEM_TYPES = [
 ] as const satisfies readonly ChecklistItemType[];
 
 interface ChecklistDefinitionItemDraftRowProps {
+  // Display-only (row number, placeholder text) — the draft being edited is identified by its
+  // stable `key`, not this position, so a stale/racing index here can't mutate the wrong row.
   index: number;
   draft: ItemDraft;
-  onChange: (index: number, patch: Partial<ItemDraft>) => void;
-  storeId?: string;
+  onChange: (key: string, patch: Partial<ItemDraft>) => void;
+  storeIds?: string[];
   className?: string;
 }
 
@@ -85,18 +96,25 @@ export const ChecklistDefinitionItemDraftRow = ({
   index,
   draft,
   onChange,
-  storeId,
+  storeIds,
   className = '',
 }: ChecklistDefinitionItemDraftRowProps) => {
-  const patch = (p: Partial<ItemDraft>) => onChange(index, p);
+  const patch = (p: Partial<ItemDraft>) => onChange(draft.key, p);
+  // A blank label used to be silently exempted from the "complete item" check — which meant
+  // clearing an already-configured item's label (its audit users, GPS target, conditional
+  // actions, all still set) let it pass every validity gate, then vanish from the actual save
+  // with no warning. It's a real error state now, flagged right here instead of failing silently.
+  const isLabelBlank = !draft.label.trim();
 
   return (
     <div
-      className={`flex flex-col gap-3.5 p-4 rounded-xl border border-border bg-surface transition-all duration-150 hover:border-border-hover ${className}`}
+      className={`flex flex-col gap-3.5 p-4 rounded-lg border bg-surface transition-all duration-150 ${
+        isLabelBlank ? 'border-danger/50' : 'border-border hover:border-border-hover'
+      } ${className}`}
     >
       {/* Item Index + Main Description Input */}
       <div className="flex items-center gap-2.5">
-        <span className="flex items-center justify-center size-7 rounded-lg bg-muted/60 text-text-secondary text-xs font-mono font-bold shrink-0 tabular-nums select-none border border-border/40">
+        <span className="flex items-center justify-center size-7 rounded-md bg-muted/60 text-text-secondary text-xs font-mono font-bold shrink-0 tabular-nums select-none border border-border/40">
           {String(index + 1).padStart(2, '0')}
         </span>
 
@@ -106,9 +124,20 @@ export const ChecklistDefinitionItemDraftRow = ({
           onChange={(e) => patch({ label: e.target.value })}
           placeholder={`Task ${index + 1} prompt (e.g. Inspect refrigeration temperature)...`}
           aria-label={`Task ${index + 1} title`}
-          className="flex-1 min-w-0 px-3.5 py-2 text-sm font-display bg-surface text-text rounded-lg border border-border placeholder:text-text-muted/60 hover:border-border/80 transition-all duration-150 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+          aria-invalid={isLabelBlank}
+          className={`flex-1 min-w-0 px-3.5 py-2 text-sm font-display bg-surface text-text rounded-lg border placeholder:text-text-muted/60 transition-all duration-150 focus:outline-none focus:ring-2 ${
+            isLabelBlank
+              ? 'border-danger/60 focus:border-danger focus:ring-danger/20'
+              : 'border-border hover:border-border/80 focus:border-primary-500 focus:ring-primary-500/20'
+          }`}
         />
       </div>
+
+      {isLabelBlank && (
+        <p className="text-[11px] font-display text-danger -mt-2">
+          This item has no title, so it won't be saved — enter one or remove this item.
+        </p>
+      )}
 
       {/* Question Type Switcher — wraps to multiple rows instead of scrolling sideways, so all
           16 types stay visible and scannable even with several items stacked in the builder. */}
@@ -142,7 +171,7 @@ export const ChecklistDefinitionItemDraftRow = ({
 
       {/* Type-specific Fields Configuration */}
       <div className="pt-2.5 border-t border-dashed border-border/60">
-        <ItemTypeConfigFields draft={draft} onChange={patch} storeId={storeId} />
+        <ItemTypeConfigFields draft={draft} onChange={patch} storeIds={storeIds} />
       </div>
     </div>
   );

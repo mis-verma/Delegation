@@ -113,6 +113,13 @@ export const TicketBoard = ({ tickets, departmentNames, isVerifier = false, onOp
 
     // Validation rule
     if (newStatus === 'CLOSED') {
+      // Server-side /verify is PC/ADMIN-only (see ticket.routes.ts) — reject client-side with a
+      // clear reason instead of letting the request round-trip into a 403, same posture as
+      // useTaskStatusMove's own "done" guard.
+      if (!isVerifier) {
+        toast.error('Only a verifier can close a ticket — send it for review instead.');
+        return;
+      }
       if (ticket.status !== 'IN_REVIEW') {
         toast.error('Move to In Review before closing a ticket.', {
           description: 'Only fully reviewed tickets can be closed.',
@@ -129,10 +136,6 @@ export const TicketBoard = ({ tickets, departmentNames, isVerifier = false, onOp
     // move made from the board, while the identical move from the detail sheet recorded both.
     requestMove(ticket, newStatus);
   };
-
-  if (!isVerifier) {
-    return <TicketBoardColumnsRow tickets={tickets} draggable={false} onOpen={onOpen} departmentNames={departmentNames} />;
-  }
 
   return (
     <DndContext

@@ -12,7 +12,7 @@ interface QuickActionButtonProps {
 export const QuickActionButton = ({ to, icon: Icon, label, description }: QuickActionButtonProps) => (
   <Link
     to={to}
-    className="group relative flex items-center gap-4 rounded-xl border border-border/60 bg-surface p-4 transition-all duration-300 hover:-translate-y-0.5 hover:border-primary-300 focus-visible:outline-none focus-visible:border-primary-500 active:scale-[0.98]"
+    className="group relative flex items-center gap-4 rounded-2xl border border-border/60 bg-surface p-4 transition-all duration-300 hover:-translate-y-0.5 hover:border-primary-300 focus-visible:outline-none focus-visible:border-primary-500 active:scale-[0.98]"
   >
     <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary-500/10 text-primary-600 ring-1 ring-primary-500/10 transition-all duration-300 group-hover:bg-primary-500/15 group-hover:ring-primary-500/20 dark:text-primary-400">
       <Icon size={19} strokeWidth={1.75} />

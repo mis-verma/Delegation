@@ -1,10 +1,11 @@
-import { Building2 } from 'lucide-react';
+import { Building2, Clock } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { ENTITY_CARD_CLASS, StatusPill, EntityCardActions, Avatar } from '../../../components';
 import type { AdminUser } from '../../../api/admin';
 import { ROLE_STYLES, ROLE_LABEL } from '../roleBadge';
 import { resolveAvatarUrl } from '../../../lib/uploadsBase';
+import { formatRelativeTime } from '../../dashboard/dashboardDisplay';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -22,7 +23,15 @@ interface UserCardProps {
 }
 
 export const UserCard = ({ user, departmentName, isUpdating, isDeleting, onToggleActive, onEdit, onDelete }: UserCardProps) => (
-  <article className={cn(ENTITY_CARD_CLASS, isDeleting && 'opacity-50 pointer-events-none grayscale-[0.3]')}>
+  <article
+    className={cn(
+      ENTITY_CARD_CLASS,
+      // Inactive accounts read as visibly muted (not just a small text pill) so a scan of the
+      // grid shows who's active/inactive at a glance, not just on close reading of each card.
+      !user.isActive && 'opacity-65 saturate-50',
+      isDeleting && 'opacity-50 pointer-events-none grayscale-[0.3]'
+    )}
+  >
     <div>
       <header className="flex items-start justify-between gap-2.5 mb-2.5">
         <div className="flex items-center gap-2.5 min-w-0">
@@ -48,11 +57,17 @@ export const UserCard = ({ user, departmentName, isUpdating, isDeleting, onToggl
         />
       </header>
 
-      <div className="flex items-center gap-1 text-[11px] font-display font-medium text-text-muted bg-surface-hover px-1.5 py-1 rounded-md border border-border/50 w-fit">
-        <Building2 className="w-3 h-3 text-text-light shrink-0" />
-        <span className={cn('truncate max-w-[150px]', !departmentName && 'italic text-text-light')}>
-          {departmentName ?? 'No department assigned'}
-        </span>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex items-center gap-1 text-[11px] font-display font-medium text-text-muted bg-surface-hover px-1.5 py-1 rounded-md border border-border/50 w-fit">
+          <Building2 className="w-3 h-3 text-text-light shrink-0" />
+          <span className={cn('truncate max-w-[150px]', !departmentName && 'italic text-text-light')}>
+            {departmentName ?? 'No department assigned'}
+          </span>
+        </div>
+        <div className="flex items-center gap-1 text-[11px] font-display font-medium text-text-light" title={new Date(user.createdAt).toLocaleDateString()}>
+          <Clock className="w-3 h-3 shrink-0" />
+          Joined {formatRelativeTime(user.createdAt)}
+        </div>
       </div>
     </div>
 

@@ -1,16 +1,12 @@
-import { Building2, User, LayoutGrid, UserPen, UserCheck, LayoutList, Kanban } from 'lucide-react';
-import { ViewToggle, OptionsDialog, SortOptionRow, OptionRow, type ViewTab } from '../../components';
+import { Building2, User, LayoutGrid, UserPen, UserCheck } from 'lucide-react';
+import { OptionsDialog, SortOptionRow, OptionRow } from '../../components';
 import { TicketFilterFields } from './list/TicketFilterFields';
 import { SORT_LABEL, SORT_ICON } from './list/ticketSort';
 import { SCOPE_FILTERS, type ScopeFilter } from './list/ticketFilters';
 import type { useTicketOrganizer } from './useTicketOrganizer';
 import type { Department } from '../../api/departments';
 import type { AssignableUser } from '../../api/users';
-
-const VIEW_TABS: ViewTab<'list' | 'board'>[] = [
-  { key: 'list', label: 'List', icon: LayoutList },
-  { key: 'board', label: 'Board', icon: Kanban },
-];
+import type { Tag } from '../../api/tags';
 
 const SCOPE_ICON: Record<ScopeFilter, typeof LayoutGrid> = {
   ALL: LayoutGrid,
@@ -24,15 +20,18 @@ interface TicketSettingsMenuProps {
   organizer: ReturnType<typeof useTicketOrganizer>;
   departments?: Department[];
   assignableUsers?: AssignableUser[];
+  tags?: Tag[];
   canExport: boolean;
   onExport: () => void;
 }
 
 // The dialog shell and Sort row come from components/optionsDialog, shared with Delegation's own
-// Options dialog. What stays here is what's genuinely ticket-specific: the List/Board view
-// toggle, the scope filter, and grouping.
+// Options dialog. The view toggle lives in the toolbar now, not here (see TicketList.tsx) — same
+// as Delegation, it changes what the whole page looks like rather than narrowing the list, so it
+// reads as a place you are rather than a setting you configured. What stays here is genuinely
+// ticket-specific: the scope filter and grouping.
 export const TicketSettingsMenu = ({
-  isOpen, setIsOpen, organizer, departments, assignableUsers, canExport, onExport
+  isOpen, setIsOpen, organizer, departments, assignableUsers, tags, canExport, onExport
 }: TicketSettingsMenuProps) => {
   return (
     <OptionsDialog
@@ -44,10 +43,6 @@ export const TicketSettingsMenu = ({
       canExport={canExport}
       onExport={onExport}
     >
-      <OptionRow label="View">
-        <ViewToggle tabs={VIEW_TABS} value={organizer.view} onChange={organizer.setView} />
-      </OptionRow>
-
       <OptionRow label="Scope">
         <div className="flex items-center gap-1 p-1 rounded-lg bg-surface-hover/50 border border-border/40 w-fit flex-wrap">
           {SCOPE_FILTERS.map((f) => {
@@ -87,6 +82,7 @@ export const TicketSettingsMenu = ({
         onChange={(patch) => { organizer.setFilters((prev) => ({ ...prev, ...patch })); organizer.setPage(1); }}
         departments={departments}
         assignableUsers={assignableUsers}
+        tags={tags}
       />
     </OptionsDialog>
   );

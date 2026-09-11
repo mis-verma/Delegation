@@ -3,12 +3,30 @@
 
 <head>
   <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
   <!-- viewport-fit=cover is required for env(safe-area-inset-*) to resolve to anything but 0 on
        notched devices — without it, the safe-area padding already used in BottomNav/TodoDrawer
        silently does nothing. -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>TaskMatrix</title>
+  <title>Karya</title>
+
+  <!-- Fonts are requested from here rather than via `@import` in index.css, so the font CSS
+       downloads in parallel with our stylesheet instead of chaining behind it. gstatic (where the
+       woff2 files themselves live) needs `crossorigin` for the preconnect to be reused by the
+       actual font fetch, which is a CORS request. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <!-- Only the weights the app actually uses: 400/500/600/700/900 plus italic 400. Dropped 300
+       and 800 (zero `font-light` / `font-extrabold` usages) and italic 500/600 (every italic in
+       the app is muted placeholder text at regular weight). Added 900, which `font-black` uses in
+       8 places and was never being loaded — the browser was synthesising it. -->
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,400;0,500;0,600;0,700;0,900;1,400&display=swap" />
+
+  <!-- No preconnect for the API: VITE_API_URL is `/api`, i.e. same-origin behind a reverse proxy,
+       so there is no separate DNS/TLS handshake to warm. Add one here only if the API ever moves
+       to its own hostname. -->
 </head>
 
 <body>

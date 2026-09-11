@@ -11,6 +11,9 @@ import { startSlaSweep } from "./src/jobs/slaSweep.job.js";
 import { startChecklistInstanceGenerator } from "./src/jobs/checklistInstanceGenerator.job.js";
 import { startTaskDeadlineReminder } from "./src/jobs/taskDeadlineReminder.job.js";
 import { startAuditRetention } from "./src/jobs/auditRetention.job.js";
+import { startNotificationRetention } from "./src/jobs/notificationRetention.job.js";
+import { startInboundMessageRetention } from "./src/jobs/inboundMessageRetention.job.js";
+import { startPendingConversationRetention } from "./src/jobs/pendingConversationRetention.job.js";
 import { settingsService } from "./src/modules/settings/settings.service.js";
 
 class ServerBootstrap {
@@ -33,6 +36,9 @@ class ServerBootstrap {
       startChecklistInstanceGenerator();
       startTaskDeadlineReminder();
       startAuditRetention();
+      startNotificationRetention();
+      startInboundMessageRetention();
+      startPendingConversationRetention();
     }
 
     this.httpServer.listen(env.PORT, () => {

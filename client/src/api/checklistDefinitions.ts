@@ -15,14 +15,15 @@ export type ChecklistAssigneeRole =
 export type ChecklistIcon =
   | 'store' | 'clock' | 'star' | 'check' | 'shield' | 'alert-triangle' | 'hash' | 'shield-check' | 'calendar';
 
-export type ChecklistProofType = 'PHOTO' | 'GPS_MATCH' | 'TIMESTAMP' | 'SIGNATURE' | 'QR_SCAN';
-
 export type ChecklistConditionalAction = 'REQUIRE_PHOTO' | 'ASK_REASON' | 'CREATE_ISSUE' | 'NOTIFY_AREA_MANAGER';
 
 export type ChecklistDefinitionItem = {
   id: string;
   label: string;
   order: number;
+  // Free-text grouping label (e.g. "Opening", "Closing", "Operational") — null items render in
+  // an "Ungrouped" bucket.
+  section: string | null;
   requiredImageCount: number;
   maxImageCount: number | null;
   requiresLivePhoto: boolean;
@@ -40,8 +41,10 @@ export type ChecklistDefinitionItem = {
   signatureLabels: string[];
   qrExpectedValue: string | null;
   cashExpectedAmount: number | null;
-  conditionalTrigger: 'YES' | 'NO' | null;
-  conditionalActions: ChecklistConditionalAction[];
+  // Two independent action sets — one per possible Yes/No answer — so an item can require e.g. a
+  // photo when answered Yes AND a reason when answered No, both active at once.
+  yesActions: ChecklistConditionalAction[];
+  noActions: ChecklistConditionalAction[];
   definitionId: string;
 };
 
@@ -56,8 +59,11 @@ export type ChecklistDefinition = {
   cutoffTime: string | null;
   isActive: boolean;
   assigneeIds: string[];
+  // Additive on top of the role-based verify rule (ADMIN/PC always, MANAGER/HOD own department
+  // only) — naming someone here lets them approve/reject this checklist's instances regardless of
+  // role or department.
+  reviewerIds: string[];
   assigneeRoles: ChecklistAssigneeRole[];
-  proofRequired: ChecklistProofType[];
   icon: ChecklistIcon;
   version: number;
   createdBy: string;
@@ -73,6 +79,7 @@ export type ApiResponse<T> = { success: boolean; data: T };
 export type CreateChecklistDefinitionItemPayload = {
   label: string;
   order?: number;
+  section?: string | null;
   requiredImageCount?: number;
   maxImageCount?: number;
   requiresLivePhoto?: boolean;
@@ -90,8 +97,8 @@ export type CreateChecklistDefinitionItemPayload = {
   signatureLabels?: string[];
   qrExpectedValue?: string;
   cashExpectedAmount?: number;
-  conditionalTrigger?: 'YES' | 'NO';
-  conditionalActions?: ChecklistConditionalAction[];
+  yesActions?: ChecklistConditionalAction[];
+  noActions?: ChecklistConditionalAction[];
 };
 
 export type CreateChecklistDefinitionPayload = {
@@ -103,20 +110,36 @@ export type CreateChecklistDefinitionPayload = {
   opensTime?: string;
   cutoffTime?: string;
   assigneeIds: string[];
+  reviewerIds?: string[];
   assigneeRoles?: ChecklistAssigneeRole[];
-  proofRequired?: ChecklistProofType[];
   icon?: ChecklistIcon;
   items: CreateChecklistDefinitionItemPayload[];
 };
 
 // Builder's edit mode replaces the whole definition (name/schedule/items) in one PUT — same shape
-// as create.
-export type UpdateChecklistDefinitionPayload = CreateChecklistDefinitionPayload;
+// as create, plus `version`: whichever version the builder loaded the checklist at, so the server
+// can reject the write (409) if someone else has saved a change since, instead of silently
+// discarding it.
+export type UpdateChecklistDefinitionPayload = CreateChecklistDefinitionPayload & { version: number };
 
 export type ListChecklistDefinitionsParams = {
   storeId?: string;
   recurrence?: ChecklistRecurrence;
   isActive?: boolean;
+  page?: number;
+  limit?: number;
+};
+
+/**
+ * Same page/limit response shape as ChecklistInstancePage (checklistInstances.ts) — the endpoint
+ * used to be unbounded, hydrating every matching definition on every call.
+ */
+export type ChecklistDefinitionsPage = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNext: boolean;
 };
 
 const buildQuery = (params: Record<string, string | undefined>) => {
@@ -139,14 +162,15 @@ const definitionItemDefaults = withArrayDefaults({
   accessories: arrayField(z.string()),
   options: arrayField(z.string()),
   signatureLabels: arrayField(z.string()),
-  conditionalActions: arrayField(z.string()),
+  yesActions: arrayField(z.string()),
+  noActions: arrayField(z.string()),
 });
 
 const definitionDefaults = withArrayDefaults({
   storeIds: arrayField(z.string()),
   assigneeIds: arrayField(z.string()),
+  reviewerIds: arrayField(z.string()),
   assigneeRoles: arrayField(z.string()),
-  proofRequired: arrayField(z.string()),
   items: arrayField(definitionItemDefaults),
 });
 
@@ -155,10 +179,12 @@ const normalizeDefinitions = (raw: unknown[]) => raw.map(normalizeDefinition);
 
 export const checklistDefinitionApi = {
   getAll: (params: ListChecklistDefinitionsParams = {}) =>
-    apiFetch<ApiResponse<ChecklistDefinition[]>>(`/checklist-definitions${buildQuery({
+    apiFetch<ApiResponse<ChecklistDefinition[]> & { meta: ChecklistDefinitionsPage }>(`/checklist-definitions${buildQuery({
       storeId: params.storeId,
       recurrence: params.recurrence,
       isActive: params.isActive === undefined ? undefined : String(params.isActive),
+      page: params.page === undefined ? undefined : String(params.page),
+      limit: params.limit === undefined ? undefined : String(params.limit),
     })}`).then((r) => ({ ...r, data: normalizeDefinitions(r.data) })),
 
   getOne: (id: string) =>

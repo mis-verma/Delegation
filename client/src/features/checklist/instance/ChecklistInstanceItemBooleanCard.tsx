@@ -1,14 +1,14 @@
 import { useState } from 'react';
-import { RotateCcw, Camera, ImageUp, X, Loader2, Zap } from 'lucide-react';
+import { Camera, ImageUp, X, Loader2, Zap } from 'lucide-react';
 import {
   useSetChecklistInstanceItemDoneMutation,
   useUploadChecklistInstanceImagesMutation,
   useDeleteChecklistInstanceImageMutation,
 } from '../hook';
+import { ChecklistItemCardHeader } from './ChecklistItemCardHeader';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 import type { ChecklistConditionalAction } from '../../../api/checklistDefinitions';
 import type { CaptureMethod } from '../../../api/ticket';
-import { formatDate } from '../checklistDisplay';
 
 const UPLOADS_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:5050';
 
@@ -40,15 +40,23 @@ export const ChecklistInstanceItemBooleanCard = ({ item, instanceId, canWork, is
   const labels = LABELS_BY_ITEM_TYPE[item.itemType] ?? LABELS_BY_ITEM_TYPE.YES_NO!;
   const interactive = canWork && !isLocked;
 
-  // Builder-authored "if answer is X then:" rule (see ChecklistDefinitionItem.conditionalTrigger)
-  // — clicking the triggering answer doesn't submit immediately, it reveals whatever the rule
-  // requires (a reason, a photo) first, gated behind a separate Confirm step.
-  const actions = item.conditionalActions ?? [];
-  const requiresPhoto = actions.includes('REQUIRE_PHOTO');
-  const requiresReason = actions.includes('ASK_REASON');
-  const isTriggering = (value: 'YES' | 'NO') => item.conditionalTrigger === value && actions.length > 0;
+  // Builder-authored "if answer is X then:" rules (see ChecklistDefinitionItem.yesActions/
+  // noActions) — clicking a triggering answer doesn't submit immediately, it reveals whatever
+  // that branch's rule requires (a reason, a photo) first, gated behind a separate Confirm step.
+  // Both branches are independent, so Yes and No can each carry their own rule at once.
+  const yesActions = item.yesActions ?? [];
+  const noActions = item.noActions ?? [];
+  const actionsFor = (value: 'YES' | 'NO') => (value === 'YES' ? yesActions : noActions);
+  const isTriggering = (value: 'YES' | 'NO') => actionsFor(value).length > 0;
 
   const [pendingAnswer, setPendingAnswer] = useState<'YES' | 'NO' | null>(null);
+  const activeActions = pendingAnswer
+    ? actionsFor(pendingAnswer)
+    : item.isDone && item.booleanAnswer
+      ? actionsFor(item.booleanAnswer)
+      : [];
+  const requiresPhoto = activeActions.includes('REQUIRE_PHOTO');
+  const requiresReason = activeActions.includes('ASK_REASON');
   const [reasonDraft, setReasonDraft] = useState(item.conditionalReasonValue ?? '');
   const images = item.images ?? [];
 
@@ -89,25 +97,12 @@ export const ChecklistInstanceItemBooleanCard = ({ item, instanceId, canWork, is
 
   return (
     <div className={`flex flex-col gap-3 p-4 rounded-lg border border-border bg-surface ${isLocked ? 'opacity-75' : ''}`}>
-      <div className="flex items-start gap-3">
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-display font-medium leading-snug text-text">{item.label}</p>
-          {item.isDone && item.completedAt && (
-            <p className="text-xs text-text-muted font-display mt-0.5">Completed {formatDate(item.completedAt)}</p>
-          )}
-        </div>
-        {interactive && item.isDone && (
-          <button
-            onClick={() => { setPendingAnswer(null); setItemDone.mutate({ itemId: item.id, isDone: false, booleanAnswer: item.booleanAnswer ?? undefined }); }}
-            disabled={setItemDone.isPending}
-            className="shrink-0 p-2 rounded-md text-text-light hover:text-warning hover:bg-warning/10 transition-colors cursor-pointer disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-warning/50"
-            aria-label="Reopen item"
-            title="Reopen"
-          >
-            <RotateCcw size={14} />
-          </button>
-        )}
-      </div>
+      <ChecklistItemCardHeader
+        item={item}
+        interactive={interactive}
+        reopenPending={setItemDone.isPending}
+        onReopen={() => { setPendingAnswer(null); setItemDone.mutate({ itemId: item.id, isDone: false, booleanAnswer: item.booleanAnswer ?? undefined }); }}
+      />
 
       {setItemDone.isError && (
         <p className="text-xs text-danger">
@@ -115,11 +110,21 @@ export const ChecklistInstanceItemBooleanCard = ({ item, instanceId, canWork, is
         </p>
       )}
 
-      {!item.isDone && !pendingAnswer && item.conditionalTrigger && actions.length > 0 && (
-        <p className="flex items-center gap-1.5 text-[11px] font-display text-coral-700 dark:text-coral-400">
-          <Zap size={11} className="shrink-0" />
-          If you answer {item.conditionalTrigger === 'YES' ? labels.yes : labels.no}, you'll need to provide {actions.map(a => ACTION_HINT[a]).join(', ')}.
-        </p>
+      {!item.isDone && !pendingAnswer && (yesActions.length > 0 || noActions.length > 0) && (
+        <div className="flex flex-col gap-1">
+          {yesActions.length > 0 && (
+            <p className="flex items-center gap-1.5 text-[11px] font-display text-coral-700 dark:text-coral-400">
+              <Zap size={11} className="shrink-0" />
+              If you answer {labels.yes}, you'll need to provide {yesActions.map(a => ACTION_HINT[a]).join(', ')}.
+            </p>
+          )}
+          {noActions.length > 0 && (
+            <p className="flex items-center gap-1.5 text-[11px] font-display text-coral-700 dark:text-coral-400">
+              <Zap size={11} className="shrink-0" />
+              If you answer {labels.no}, you'll need to provide {noActions.map(a => ACTION_HINT[a]).join(', ')}.
+            </p>
+          )}
+        </div>
       )}
 
       <div className="flex items-center gap-2">
@@ -176,7 +181,7 @@ export const ChecklistInstanceItemBooleanCard = ({ item, instanceId, canWork, is
               {images.length > 0 && (
                 <div className="flex flex-wrap gap-2">
                   {images.map(img => (
-                    <div key={img.id} className="relative group/img">
+                    <div key={img.id} className="relative">
                       <img
                         src={`${UPLOADS_BASE}${img.url}`}
                         alt={img.originalFilename ?? 'evidence'}
@@ -185,10 +190,11 @@ export const ChecklistInstanceItemBooleanCard = ({ item, instanceId, canWork, is
                       {pendingAnswer && (
                         <button
                           onClick={() => deleteImage.mutate(img.id)}
-                          className="absolute -top-1.5 -right-1.5 size-4 rounded-full bg-surface border border-border flex items-center justify-center text-text-muted hover:text-danger opacity-0 group-hover/img:opacity-100 transition-opacity cursor-pointer"
+                          disabled={deleteImage.isPending}
+                          className="absolute -top-2 -right-2 size-6 rounded-full bg-surface border border-border flex items-center justify-center text-text-muted hover:text-danger opacity-90 hover:opacity-100 transition-opacity cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"
                           aria-label="Delete image"
                         >
-                          <X size={9} />
+                          <X size={11} />
                         </button>
                       )}
                     </div>
@@ -228,7 +234,7 @@ export const ChecklistInstanceItemBooleanCard = ({ item, instanceId, canWork, is
                 type="button"
                 onClick={confirmPendingAnswer}
                 disabled={!canConfirm || setItemDone.isPending}
-                className="flex items-center gap-1.5 text-xs font-display font-medium px-2.5 py-1.5 rounded-md border border-success/50 text-success hover:bg-success/10 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-1.5 text-xs font-display font-medium px-2.5 py-1.5 rounded-md border border-primary-500/50 text-primary-600 hover:bg-primary-500/10 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {setItemDone.isPending && <Loader2 size={12} className="animate-spin" />}
                 Confirm answer

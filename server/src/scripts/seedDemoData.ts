@@ -17,6 +17,9 @@ import {
   checklistDefinitions, checklistDefinitionStores,
   checklistInstances, checklistInstanceAssignees, checklistInstanceItems,
 } from '../db/schema/index.js'
+import { refuseInProductionUnlessOverridden } from './_productionGuard.js'
+
+refuseInProductionUnlessOverridden('seedDemoData')
 
 type TaskStatus = (typeof TASK_STATUSES)[number]
 
@@ -269,8 +272,10 @@ const run = async () => {
         })
       } catch (err: any) {
         // (definitionId, storeId, periodKey) already exists from a previous run of this script —
-        // skip rather than crash the whole batch.
-        if (err?.code === 'ER_DUP_ENTRY') continue
+        // skip rather than crash the whole batch. Drizzle wraps the real mysql2 driver error
+        // inside `err.cause` (a DrizzleQueryError), so `err.code` itself is always undefined here
+        // — this never actually caught anything until checking `err.cause?.code` too.
+        if (err?.code === 'ER_DUP_ENTRY' || err?.cause?.code === 'ER_DUP_ENTRY') continue
         throw err
       }
       await db.insert(checklistInstanceAssignees).values({ instanceId, userId: pick(userRows).id })

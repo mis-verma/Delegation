@@ -13,7 +13,7 @@ import {
   tickets, ticketStatusUpdates, ticketAttachments, ticketComments,
   checklists, checklistItems, checklistImages, checklistTemplates, checklistTemplateItems,
   tasks, taskAdditionalAssignees, taskDependencies, taskTags, taskAttachments,
-  taskChecklists, taskChecklistItems, taskImages, taskComments, taskCommentAttachments, taskReviews,
+  taskChecklists, taskChecklistItems, taskImages, taskComments, taskCommentAttachments,
   checklistDefinitions, checklistDefinitionStores, checklistDefinitionAssignees,
   checklistDefinitionItems, checklistDefinitionItemAuditUsers,
   checklistInstances, checklistInstanceAssignees, checklistInstanceItems,
@@ -26,7 +26,7 @@ import {
 // loose type here is fine rather than writing a distinct branch per table.
 const GROUPS: Record<string, AnyMySqlTable[]> = {
   ticket: [tickets, ticketStatusUpdates, ticketAttachments, ticketComments, checklists, checklistItems, checklistImages, checklistTemplates, checklistTemplateItems],
-  delegation: [tasks, taskAdditionalAssignees, taskDependencies, taskTags, taskAttachments, taskChecklists, taskChecklistItems, taskImages, taskComments, taskCommentAttachments, taskReviews],
+  delegation: [tasks, taskAdditionalAssignees, taskDependencies, taskTags, taskAttachments, taskChecklists, taskChecklistItems, taskImages, taskComments, taskCommentAttachments],
   checklist: [checklistDefinitions, checklistDefinitionStores, checklistDefinitionAssignees, checklistDefinitionItems, checklistDefinitionItemAuditUsers, checklistInstances, checklistInstanceAssignees, checklistInstanceItems, checklistInstanceItemSubmissions, checklistInstanceItemSubmissionAccessories, checklistInstanceImages, checklistInstanceItemSubmissionImages],
 }
 

@@ -8,10 +8,11 @@ import {
   datetime,
   mysqlEnum,
   index,
+  uniqueIndex,
 } from 'drizzle-orm/mysql-core';
 import { createId } from '@paralleldrive/cuid2';
 import { users, stores, categories, departments } from './core.js';
-import { CAPTURE_METHODS } from './task.js';
+import { CAPTURE_METHODS, tags } from './task.js';
 
 // ---------------------------------------------------------------------------
 // Shared enum value arrays
@@ -56,6 +57,29 @@ export const tickets = mysqlTable(
     index('Ticket_assigneeId_createdAt_idx').on(table.assigneeId, table.createdAt),
     index('Ticket_departmentId_createdAt_idx').on(table.departmentId, table.createdAt),
     index('Ticket_status_createdAt_idx').on(table.status, table.createdAt),
+    // ticket.service.ts's visibilityFilter uses a bare eq(tickets.storeId, ...) as the SENIOR
+    // role's sole filter on the main ticket-list endpoint — with no storeId-leading index that's
+    // a full table scan on every page load for that role.
+    index('Ticket_storeId_createdAt_idx').on(table.storeId, table.createdAt),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// TicketTag — labels a Ticket, reusing Task's own `tags` table so a label ("Travel",
+// "Billing", ...) is one shared org-wide vocabulary rather than two parallel ones.
+// Byte-identical shape to task.ts's TaskTag join table.
+// ---------------------------------------------------------------------------
+export const ticketTags = mysqlTable(
+  'TicketTag',
+  {
+    id: varchar('id', { length: 191 }).primaryKey().$defaultFn(() => createId()),
+    ticketId: varchar('ticketId', { length: 191 }).notNull().references(() => tickets.id, { onDelete: 'cascade' }),
+    tagId: varchar('tagId', { length: 191 }).notNull().references(() => tags.id, { onDelete: 'cascade' }),
+    createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex('TicketTag_ticketId_tagId_key').on(table.ticketId, table.tagId),
+    index('TicketTag_tagId_idx').on(table.tagId),
   ],
 );
 

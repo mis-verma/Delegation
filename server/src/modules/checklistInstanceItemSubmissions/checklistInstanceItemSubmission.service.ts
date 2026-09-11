@@ -4,10 +4,12 @@ import {
     checklistInstanceItems,
     checklistInstanceItemSubmissionImages,
     checklistInstanceItemSubmissionAccessories,
+    checklistInstances,
 } from "../../db/schema/index.js"
-import { eq, and } from "drizzle-orm"
+import { eq, sql } from "drizzle-orm"
 import { AppError } from "../../utils/AppError.js"
-import { syncVerificationStatus } from "../checklistInstances/checklistInstance.service.js"
+import { syncVerificationStatus, assertInstanceOpen } from "../checklistInstances/checklistInstance.service.js"
+import { emitChecklistEvent } from "../../sockets/checklistEvent.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { UpdateChecklistInstanceItemSubmissionAccessoriesInput, UpdateChecklistInstanceItemSubmissionRemarksInput } from "./checklistInstanceItemSubmission.validation.js"
 
@@ -77,14 +79,16 @@ export const checklistInstanceItemSubmissionService = {
         // Accessories are now a real child table (one row per accessory, copied from the
         // definition item's `accessories: string[]` at stamp-out) rather than an embedded array
         // replaced wholesale — toggling is an UPDATE by (submissionId, name), not an in-memory
-        // array mutation + whole-document save.
-        for (const accessory of accessories) {
-            await db.update(checklistInstanceItemSubmissionAccessories)
-                .set({ checked: accessory.checked, updatedAt: new Date() })
-                .where(and(
-                    eq(checklistInstanceItemSubmissionAccessories.submissionId, id),
-                    eq(checklistInstanceItemSubmissionAccessories.name, accessory.name),
-                ))
+        // array mutation + whole-document save. One batched CASE-WHEN statement, not one UPDATE
+        // per accessory in a loop.
+        if (accessories.length) {
+            const cases = accessories.map((a) => sql`WHEN ${a.name} THEN ${a.checked}`)
+            const names = accessories.map((a) => a.name)
+            await db.execute(sql`
+                UPDATE ${checklistInstanceItemSubmissionAccessories}
+                SET checked = CASE name ${sql.join(cases, sql` `)} ELSE checked END, updatedAt = NOW()
+                WHERE submissionId = ${id} AND name IN (${sql.join(names.map((n) => sql`${n}`), sql`, `)})
+            `)
         }
 
         const rows = await db.select().from(checklistInstanceItemSubmissionAccessories).where(eq(checklistInstanceItemSubmissionAccessories.submissionId, id))
@@ -104,7 +108,18 @@ export const checklistInstanceItemSubmissionService = {
         const { submission, item } = await loadSubmissionAndItem(id)
         assertCanAccess(submission, user)
 
-        if (isDone) await assertPhotosSatisfied(submission, item)
+        // Fetched once, used both for the opens-time gate below and to know which store's room to
+        // broadcast the live update to afterward.
+        const [instance] = await db.select({ opensTime: checklistInstances.opensTime, periodStart: checklistInstances.periodStart, storeId: checklistInstances.storeId })
+            .from(checklistInstances).where(eq(checklistInstances.id, item.instanceId)).limit(1)
+
+        if (isDone) {
+            // Same opens-time gate a STANDARD item's setItemDone enforces — an auditor shouldn't be
+            // able to complete their submission before the checklist "opens" either.
+            if (instance) assertInstanceOpen(instance)
+
+            await assertPhotosSatisfied(submission, item)
+        }
 
         const completion = deriveSubmissionCompletion(isDone)
         await db.update(checklistInstanceItemSubmissions).set({
@@ -116,6 +131,7 @@ export const checklistInstanceItemSubmissionService = {
         await recomputeItemAndVerification(item)
 
         const [updated] = await db.select().from(checklistInstanceItemSubmissions).where(eq(checklistInstanceItemSubmissions.id, id)).limit(1)
+        if (instance) emitChecklistEvent("checklist-instance:updated", { storeId: instance.storeId }, { instanceId: item.instanceId })
         return updated
     },
 }

@@ -1,5 +1,5 @@
 import type { MouseEvent } from 'react';
-import { X, type LucideIcon } from 'lucide-react';
+import { X, ChevronRight, type LucideIcon } from 'lucide-react';
 import { AdminChromeAccents } from '../admin/AdminChromeAccents';
 
 export interface StatusBreakdownRow {
@@ -169,17 +169,29 @@ export const StatusBreakdownCard = ({
                         }
                       : undefined
                   }
-                  className={`flex items-start gap-2 text-sm font-display rounded-lg px-1.5 py-1.5 -mx-1.5 transition-colors ${
+                  // min-h-11 (44px) — these rows are buttons on interactive cards; py-1.5 alone
+                  // (~25px) sat well under the minimum tap-target size.
+                  className={`flex items-center gap-2 min-h-11 text-sm font-display rounded-lg px-1.5 -mx-1.5 transition-colors ${
                     row.onClick ? `cursor-pointer text-left ${shell.rowHover}` : ''
                   }`}
                 >
                   {/* Removed truncate here as well */}
-                  <span className={`font-bold break-words flex-1 mt-0.5 leading-tight ${shell.rowLabel}`}>
+                  <span className={`font-bold break-words flex-1 leading-tight ${shell.rowLabel}`}>
                     {row.label}
                   </span>
-                  <span className={`ml-auto font-bold tabular-nums shrink-0 ${tones[row.tone ?? 'default']}`}>
+                  <span className={`font-bold tabular-nums shrink-0 ${tones[row.tone ?? 'default']}`}>
                     {row.value}
                   </span>
+                  {/* Signals "tap for the breakdown" — without it a clickable row looked identical
+                      to a static one until hovered/tapped, which hides the interaction entirely on
+                      touch devices. */}
+                  {row.onClick && (
+                    <ChevronRight
+                      size={14}
+                      strokeWidth={2.5}
+                      className={`shrink-0 ml-1 opacity-50 group-hover:opacity-100 transition-opacity duration-200 ${shell.rowLabel}`}
+                    />
+                  )}
                 </RowTag>
               );
             })}

@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Clock, AlertCircle, User } from 'lucide-react';
 import type { Ticket } from '../../api/ticket';
 import { getChecklistProgress } from '../../lib/checklistProgress';
@@ -10,6 +11,7 @@ import { ChecklistProgressBar, DueProgressBar } from '../../components/progress'
 import { StatusChip, getStatusChipLabel, type StatusChipStatus } from '../../components/statusChip';
 import { PriorityChip } from '../../components/priorityChip';
 import { DepartmentChip } from '../../components/departmentChip';
+import { TagChip } from '../../components/tagChip';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 interface TicketCardProps {
@@ -19,7 +21,7 @@ interface TicketCardProps {
   index?: number;
 }
 
-export const TicketCard = ({ ticket, onClick, departmentName, index = 0 }: TicketCardProps) => {
+const TicketCardComponent = ({ ticket, onClick, departmentName, index = 0 }: TicketCardProps) => {
   const { user } = useAuth();
   const { totalItems, doneItems, progress } = getChecklistProgress(ticket.checklists);
 
@@ -54,6 +56,19 @@ export const TicketCard = ({ ticket, onClick, departmentName, index = 0 }: Ticke
         )}
       </div>
 
+      {/* Capped at 3 + a "+N" overflow rather than wrapping freely like the badge row below —
+          a ticket can carry up to 12 labels, and this card is reused by the board's kanban
+          columns too (narrow, dense), where an uncapped label list would dominate the card. */}
+      {ticket.tags.length > 0 && (
+        <div className="flex items-center gap-1 flex-wrap">
+          {ticket.tags.slice(0, 3).map((tag) => (
+            <TagChip key={tag.id} tag={tag} />
+          ))}
+          {ticket.tags.length > 3 && (
+            <span className="text-[10px] font-medium text-text-light px-1">+{ticket.tags.length - 3}</span>
+          )}
+        </div>
+      )}
 
       <div className="flex items-center justify-between gap-2 pt-2">
         <div className="flex items-center gap-1.5 flex-wrap">
@@ -133,3 +148,5 @@ export const TicketCard = ({ ticket, onClick, departmentName, index = 0 }: Ticke
     </button>
   );
 };
+
+export const TicketCard = memo(TicketCardComponent);

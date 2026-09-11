@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import { TicketCard } from '../TicketCard';
 import { TicketGroupHeader } from './TicketGroupHeader';
 import { groupChecklistStats } from './ticketGrouping';
@@ -17,7 +17,7 @@ interface TicketGroupedListProps {
   departmentNames: Map<string, string>;
 }
 
-export const TicketGroupedList = ({
+const TicketGroupedListComponent = ({
   groups,
   groupBy,
   onSelectTicket,
@@ -65,3 +65,5 @@ export const TicketGroupedList = ({
     </div>
   );
 };
+
+export const TicketGroupedList = memo(TicketGroupedListComponent);

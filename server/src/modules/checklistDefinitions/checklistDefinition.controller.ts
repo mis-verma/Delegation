@@ -1,19 +1,24 @@
 import type { Request, Response } from "express"
 import { checklistDefinitionService } from "./checklistDefinition.service.js"
-import { createChecklistDefinitionSchema, updateChecklistDefinitionSchema, setChecklistDefinitionActiveSchema } from "./checklistDefinition.validation.js"
+import { createChecklistDefinitionSchema, updateChecklistDefinitionSchema, setChecklistDefinitionActiveSchema, listChecklistDefinitionsQuerySchema } from "./checklistDefinition.validation.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
 import type { ChecklistRecurrence } from "./checklistDefinition.service.js"
 
 export const checklistDefinitionController = {
-    // GET /checklist-definitions?storeId=&recurrence=&isActive=
+    // GET /checklist-definitions?storeId=&recurrence=&isActive=&page=&limit=
+    // Paginated. Responds `{ success, data, meta }` — `data` is the same array shape as before,
+    // so a caller that ignores `meta` still works, it just gets the first page.
     list: asyncHandler(async (req: Request, res: Response) => {
         const { storeId, recurrence, isActive } = req.query
-        const definitions = await checklistDefinitionService.list({
+        const { page, limit } = listChecklistDefinitionsQuerySchema.parse(req.query)
+        const result = await checklistDefinitionService.list({
             storeId: storeId as string | undefined,
             recurrence: recurrence as ChecklistRecurrence | undefined,
             isActive: isActive === undefined ? undefined : isActive === "true",
+            page,
+            limit,
         })
-        res.json({ success: true, data: definitions })
+        res.json({ success: true, ...result })
     }),
 
     getOne: asyncHandler(async (req: Request, res: Response) => {

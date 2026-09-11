@@ -10,23 +10,22 @@ import {
   Calendar,
   Clock,
   Users,
-  ShieldCheck,
   FileText,
   ListChecks,
   UserCheck,
+  ShieldCheck,
 } from 'lucide-react';
 import { Button } from '../../../../../components';
 import { Badge } from '@/components/ui/badge';
 import { useStoresQuery } from '../../../hook';
 import { useAssignableUsersQuery } from '../../../../tickets/hook';
 import { RECURRENCE_LABEL, formatDate } from '../../../checklistDisplay';
-import { PROOF_OPTIONS } from '../BuilderProofPanel';
+import { isOvernightWindow } from '../BuilderSchedulePanel';
 import { ROLE_OPTIONS } from '../../form/ChecklistRolesField';
 import { ITEM_TYPE_LABEL, type ItemDraft } from '../../ChecklistDefinitionItemDraftRow';
 import type {
   ChecklistRecurrence,
   ChecklistAssigneeRole,
-  ChecklistProofType,
 } from '../../../../../api/checklistDefinitions';
 
 interface BuilderReviewStepProps {
@@ -40,7 +39,7 @@ interface BuilderReviewStepProps {
   itemDrafts: ItemDraft[];
   assigneeIds: string[];
   assigneeRoles: ChecklistAssigneeRole[];
-  proofRequired: ChecklistProofType[];
+  reviewerIds: string[];
   sectionValidity: readonly [boolean, boolean, boolean, boolean];
   onEditSection: (stepIndex: number) => void;
   canSubmit: boolean;
@@ -54,7 +53,7 @@ const SECTION_CONFIG = [
   { label: 'Basics', icon: FileText },
   { label: 'Schedule', icon: Calendar },
   { label: 'Items', icon: ListChecks },
-  { label: 'Assign & Proof', icon: Users },
+  { label: 'Assign', icon: Users },
 ] as const;
 
 /** Safe date formatter to prevent invalid date runtime crashes */
@@ -153,7 +152,7 @@ export const BuilderReviewStep = ({
   itemDrafts,
   assigneeIds,
   assigneeRoles,
-  proofRequired,
+  reviewerIds,
   sectionValidity,
   onEditSection,
   canSubmit,
@@ -163,20 +162,31 @@ export const BuilderReviewStep = ({
   submitError,
 }: BuilderReviewStepProps) => {
   const { data: stores = [] } = useStoresQuery();
+  // Every selected store, not just the first — a checklist can span multiple stores, and an
+  // assignee added via a later store's "select everyone" bulk-add otherwise resolved to nothing
+  // here and rendered as "Unknown user" even though they're a perfectly valid assignee.
   const { data: assignableUsers = [] } = useAssignableUsersQuery(
     undefined,
-    storeIds[0]
+    undefined,
+    storeIds
   );
+  // Reviewers aren't necessarily store-scoped (a checklist can be reviewed by someone outside its
+  // own stores, e.g. a corporate/compliance reviewer), so their names can't be resolved off the
+  // store-scoped assignableUsers list above — an ADMIN/PC caller with no scope args at all gets
+  // every active user back (see user.service.ts's listAssignable), which is what this needs.
+  const { data: allActiveUsers = [] } = useAssignableUsersQuery();
 
   const selectedStores = storeIds
     .map((id) => stores.find((s) => s.id === id)?.name ?? 'Unknown store');
   const namedItems = itemDrafts.filter((d) => d.label.trim());
-  const assignees = assigneeIds.map((id) => {
-    const u = assignableUsers.find((a) => a.id === id);
+  const resolveName = (id: string, pool: typeof assignableUsers) => {
+    const u = pool.find((a) => a.id === id);
     if (!u) return 'Unknown user';
     const full = `${u.firstName} ${u.lastName ?? ''}`.trim();
     return full || u.email;
-  });
+  };
+  const assignees = assigneeIds.map((id) => resolveName(id, assignableUsers));
+  const reviewers = reviewerIds.map((id) => resolveName(id, allActiveUsers));
 
   const incompleteSections = sectionValidity
     .map((valid, i) => (valid ? null : { index: i, label: SECTION_CONFIG[i].label }))
@@ -204,7 +214,7 @@ export const BuilderReviewStep = ({
           onEdit={() => onEditSection(0)}
         >
           <div className="space-y-1">
-            <span className="text-[11px] font-medium uppercase tracking-wider text-text-muted">
+            <span className="text-[11px] font-medium text-text-muted">
               Checklist Title
             </span>
             <p className="text-sm font-display font-semibold text-text">
@@ -212,7 +222,7 @@ export const BuilderReviewStep = ({
             </p>
           </div>
           <div className="space-y-1">
-            <span className="text-[11px] font-medium uppercase tracking-wider text-text-muted">
+            <span className="text-[11px] font-medium text-text-muted">
               Description
             </span>
             <p className="text-xs font-display text-text-secondary leading-relaxed line-clamp-3">
@@ -273,6 +283,12 @@ export const BuilderReviewStep = ({
                   <span className="font-medium text-text">
                     {opensTime || 'Anytime'} &rarr; {cutoffTime || 'End of day'}
                   </span>
+                  {/* Cutoff earlier than open time rolls the deadline to the next calendar day
+                      (checklistDisplay.ts's instanceDeadline) — called out here so publishing
+                      this schedule doesn't silently land a day later than it visually reads. */}
+                  {isOvernightWindow(opensTime, cutoffTime) && (
+                    <span className="text-text-muted"> (cuts off the next day)</span>
+                  )}
                 </div>
               </div>
             )}
@@ -310,6 +326,11 @@ export const BuilderReviewStep = ({
                     <span className="truncate text-text font-medium" title={item.label}>
                       {item.label}
                     </span>
+                    {item.section && (
+                      <span className="shrink-0 text-[10px] font-display text-text-muted px-1.5 py-0.5 rounded-full bg-muted/50">
+                        {item.section}
+                      </span>
+                    )}
                   </div>
                   <Badge variant="outline" className="shrink-0 text-[10px] py-0 px-1.5">
                     {ITEM_TYPE_LABEL[item.itemType] ?? item.itemType}
@@ -331,7 +352,7 @@ export const BuilderReviewStep = ({
             {/* Roles */}
             {assigneeRoles.length > 0 && (
               <div className="space-y-1">
-                <span className="text-[11px] font-medium uppercase tracking-wider text-text-muted">
+                <span className="text-[11px] font-medium text-text-muted">
                   Assigned Roles
                 </span>
                 <div className="flex flex-wrap gap-1.5">
@@ -346,7 +367,7 @@ export const BuilderReviewStep = ({
 
             {/* Specific Assignees */}
             <div className="space-y-1">
-              <span className="text-[11px] font-medium uppercase tracking-wider text-text-muted flex items-center gap-1">
+              <span className="text-[11px] font-medium text-text-muted flex items-center gap-1">
                 <UserCheck size={11} /> Specific Assignees
               </span>
               <p className="text-xs font-display text-text-secondary">
@@ -358,19 +379,13 @@ export const BuilderReviewStep = ({
               </p>
             </div>
 
-            {/* Proof Types */}
-            {proofRequired.length > 0 && (
-              <div className="space-y-1 pt-2 border-t border-dashed border-border/60">
-                <span className="text-[11px] font-medium uppercase tracking-wider text-text-muted flex items-center gap-1">
-                  <ShieldCheck size={11} /> Required Proof
+            {/* Reviewers */}
+            {reviewers.length > 0 && (
+              <div className="space-y-1">
+                <span className="text-[11px] font-medium text-text-muted flex items-center gap-1">
+                  <ShieldCheck size={11} /> Reviewers
                 </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {proofRequired.map((proof) => (
-                    <Badge key={proof} variant="outline" className="text-[11px] py-0.5">
-                      {PROOF_OPTIONS.find((o) => o.value === proof)?.label ?? proof}
-                    </Badge>
-                  ))}
-                </div>
+                <p className="text-xs font-display text-text-secondary">{reviewers.join(', ')}</p>
               </div>
             )}
           </div>

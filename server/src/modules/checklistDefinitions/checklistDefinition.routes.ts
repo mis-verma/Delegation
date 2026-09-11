@@ -5,8 +5,10 @@ import { checklistBulkImportUpload } from "../../config/upload.js"
 import { authenticate, requireRole } from "../../middleware/auth/auth.js"
 
 // Mounted at /checklist-definitions in app.ts. Unlike checklist-templates, every route here is
-// ADMIN-only — non-admins interact with this feature only through the generated instances
-// (see modules/checklistInstances), never the definitions directly.
+// ADMIN/PC-only — PC has the same org-wide access as ADMIN throughout this app (see
+// ticket.service.ts's visibilityFilter/assertCanMutate for the same pattern), so it's
+// intentionally not store-scoped here either. Every other role interacts with this feature only
+// through the generated instances (see modules/checklistInstances), never the definitions directly.
 export const checklistDefinitionRouter = Router()
 checklistDefinitionRouter.use(authenticate)
 checklistDefinitionRouter.use(requireRole("ADMIN", "PC"))

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { Contact, Users, Building2, Store } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { UserList } from '../users';
@@ -18,8 +18,20 @@ type TabValue = (typeof TABS)[number]['value'];
 // One home for the three entities that make up the org ladder (see Org Structure for the
 // read-only combined view of how they relate) — each tab is the existing, self-contained
 // List component as-is, just no longer scattered across three separate sidebar pages.
+const isTabValue = (v: string | null): v is TabValue => TABS.some((t) => t.value === v);
+
+// Deep-linkable via ?tab= (e.g. the owner-facing dashboard's snapshot tiles jump straight to
+// the Departments/Stores tab instead of always landing on Users) — kept in the URL, not local
+// state, so the link is shareable and survives a refresh.
 export const DirectoryPage = () => {
-  const [tab, setTab] = useState<TabValue>('users');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const tab: TabValue = isTabValue(tabParam) ? tabParam : 'users';
+  const setTab = (next: TabValue) => setSearchParams((prev) => {
+    const params = new URLSearchParams(prev);
+    params.set('tab', next);
+    return params;
+  }, { replace: true });
 
   const { data: users } = useUsersQuery();
   const { data: departments } = useDepartmentsQuery();
@@ -40,7 +52,7 @@ export const DirectoryPage = () => {
         </div>
         <div className="space-y-1">
           <div className="flex items-center gap-2.5">
-            <h1 className="text-xl sm:text-2xl font-display font-bold tracking-tight text-text">Directory</h1>
+            <h1 className="text-xl sm:text-2xl font-display font-bold tracking-tight text-text">People &amp; Teams</h1>
             <span className="flex items-center justify-center px-2.5 py-0.5 text-xs font-display font-bold bg-surface-hover text-text-secondary rounded-full border border-border">
               {totalCount}
             </span>

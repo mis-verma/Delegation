@@ -1,5 +1,5 @@
 import { db } from "../../config/db.js"; // Drizzle client — replaces the old Mongoose Project model
-import { projects, projectMembers } from "../../db/schema/core.js"; // Project table + its memberIds junction table
+import { projects, projectMembers, users } from "../../db/schema/core.js"; // Project table + its memberIds junction table
 import { eq, or, inArray, desc } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 import { AppError } from "../../utils/AppError.js" // consistent error helper (404, 403, etc.)
@@ -8,6 +8,18 @@ import type { CreateProjectInput, UpdateProjectInput } from "./project.validatio
 import { auditService } from "../audit/audit.service.js";
 
 type ProjectRow = typeof projects.$inferSelect;
+
+// Pre-checks memberIds against `users` before create/update insert them into ProjectMember —
+// without this, an invalid/nonexistent id wasn't rejected until the insert hit the FK constraint,
+// surfacing only as a generic "Referenced record does not exist" 400 from the global error handler
+// instead of a field-specific validation error naming which id was bad.
+const assertMembersExist = async (memberIds: string[]) => {
+    if (!memberIds.length) return;
+    const found = await db.select({ id: users.id }).from(users).where(inArray(users.id, memberIds));
+    const foundIds = new Set(found.map((u) => u.id));
+    const missing = memberIds.filter((id) => !foundIds.has(id));
+    if (missing.length) throw AppError.badRequest(`Unknown member id(s): ${missing.join(", ")}`);
+};
 
 // NOTE: the conventions doc suggests Drizzle's relational query API (`db.query.x.findMany({
 // with: ... })`) for populate-style reads. That generates LATERAL-join SQL which this
@@ -82,6 +94,7 @@ export const projectService = {
     // create a new project; the creator automatically becomes the owner
     async create(input: CreateProjectInput, user: AccessTokenPayload) {
         const id = createId();
+        if (input.memberIds?.length) await assertMembersExist([...new Set(input.memberIds)]);
         // Wrapped in a transaction (source had none) — the project row and its member junction
         // rows must succeed or fail together.
         await db.transaction(async (tx) => {
@@ -109,14 +122,16 @@ export const projectService = {
     // update an existing project - this is where the Task/Project relationship's "ownership" rules matter:
     // only the project's owner (or an admin) is allowed to change it
     async update(id: string, input: UpdateProjectInput, user: AccessTokenPayload) {
-        const [project] = await db.select({ ownerId: projects.ownerId }).from(projects).where(eq(projects.id, id)).limit(1);
+        const project = await getRawById(id);
         if (!project) throw AppError.notFound("Project not found");
         if (user.role !== "ADMIN" && user.role !== "PC" && project.ownerId !== user.sub) {
             // if you're not an admin/PC and you're not the owner, you're not allowed to update this project
             throw AppError.forbidden("Only the project owner can update this project")
         }
+        const [before] = await attachMemberIds([project]);
 
         const { memberIds, ...rest } = input;
+        if (memberIds?.length) await assertMembersExist([...new Set(memberIds)]);
 
         // Wrapped in a transaction (source had none) — see create() above.
         await db.transaction(async (tx) => {
@@ -137,7 +152,7 @@ export const projectService = {
 
         const updated = await getRawById(id);
         const [mapped] = await attachMemberIds([updated!]);
-        await auditService.record({ entityType: "Project", entityId: id, action: "UPDATE", actorId: user.sub, after: mapped });
+        await auditService.record({ entityType: "Project", entityId: id, action: "UPDATE", actorId: user.sub, before, after: mapped });
         return mapped;
     },
 

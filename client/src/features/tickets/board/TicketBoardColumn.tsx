@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { Inbox } from 'lucide-react';
 import { TicketCard } from '../TicketCard';
@@ -13,7 +14,9 @@ export interface TicketBoardColumnProps {
   departmentNames?: Map<string, string>;
 }
 
-export const TicketBoardColumn = ({ status, tickets, draggable, onOpen, departmentNames }: TicketBoardColumnProps) => {
+// memo: see TicketBoardColumnsRow's comment — this is the piece that actually stops a drag
+// pickup/drop elsewhere on the board from re-rendering every column's cards.
+export const TicketBoardColumn = memo(({ status, tickets, draggable, onOpen, departmentNames }: TicketBoardColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({ id: status, disabled: !draggable });
   const config = STATUS_CONFIG[status];
 
@@ -73,4 +76,4 @@ export const TicketBoardColumn = ({ status, tickets, draggable, onOpen, departme
       </div>
     </div>
   );
-};
+});

@@ -21,6 +21,14 @@ export interface TaskFilters {
   departmentId: string;
   assigneeIds:  string[];
   raisedByIds:  string[];
+  /**
+   * Label ids, matched as OR — a delegation carrying ANY of them passes.
+   *
+   * Unlike every other filter here, this one is applied by the SERVER (it goes into the tasks
+   * query key and the request). A client-side label filter would run over one already-truncated
+   * page, so the stat tiles would report that page's tally rather than the real one.
+   */
+  tagIds:       string[];
 }
 
 /**

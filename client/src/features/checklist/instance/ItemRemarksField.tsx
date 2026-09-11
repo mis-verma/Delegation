@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Clock, MessageSquare, Loader2 } from 'lucide-react';
 import { useSetChecklistInstanceItemDoneMutation } from '../hook';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '../../../components/ui/dialog';
+import { useConfirm } from '@/components/confirmDialog';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 
 interface ItemRemarksFieldProps {
@@ -26,8 +27,23 @@ export const ItemRemarksField = ({ item, instanceId, required }: ItemRemarksFiel
 
   const missing = required && !item.remarks?.trim();
   const hasRemarks = !!item.remarks?.trim();
+  const dirty = value.trim() !== (item.remarks ?? '').trim();
 
-  const handleOpenChange = (next: boolean) => {
+  // Escape/overlay-click and the Cancel button all funnel through this same onOpenChange(false)
+  // path — without this, typing a remark then dismissing either way silently threw it away, no
+  // different from a stray tap outside the popup.
+  const confirm = useConfirm();
+  const handleOpenChange = async (next: boolean) => {
+    if (!next && open && dirty) {
+      const ok = await confirm({
+        title: 'Discard this remark?',
+        description: 'What you\'ve typed hasn\'t been saved.',
+        confirmLabel: 'Discard',
+        cancelLabel: 'Keep editing',
+        variant: 'danger',
+      });
+      if (!ok) return;
+    }
     setOpen(next);
     if (next) setValue(item.remarks ?? '');
   };

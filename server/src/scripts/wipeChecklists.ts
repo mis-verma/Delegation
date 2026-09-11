@@ -7,8 +7,25 @@
 import 'dotenv/config'
 import { connectDB, disconnectDB, db } from '../config/db.js'
 import { checklistDefinitions } from '../db/schema/index.js'
+import { env } from '../config/env.js'
+
+// Unconditional and irreversible (no confirmation, no dry-run) — a mistaken `.env` pointed at the
+// real database, or a copy-pasted command run in the wrong terminal, wipes the entire recurring-
+// checklist feature with no way back. Requires both an explicit --yes flag and, in production,
+// an explicit override on top of that, so it can never fire from muscle-memory alone.
+const confirmed = process.argv.includes('--yes')
+const productionOverride = process.argv.includes('--allow-production')
 
 const run = async () => {
+  if (!confirmed) {
+    console.error('Refusing to run: pass --yes to confirm you want to permanently delete every checklist definition (and all its instances/items/submissions/images).')
+    process.exit(1)
+  }
+  if (env.NODE_ENV === 'production' && !productionOverride) {
+    console.error('Refusing to run against NODE_ENV=production. Pass --allow-production as well if you really mean to wipe the production database.')
+    process.exit(1)
+  }
+
   await connectDB()
 
   const deleted = await db.delete(checklistDefinitions)

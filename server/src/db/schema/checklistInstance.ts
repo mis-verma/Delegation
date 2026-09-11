@@ -64,6 +64,9 @@ export const checklistInstances = mysqlTable(
       table.periodKey,
     ),
     index('ChecklistInstance_periodStart_idx').on(table.periodStart),
+    // listPendingVerification filters on this column on every PC/Admin/HOD queue poll — without
+    // it that query is a full table scan of ChecklistInstance as the table grows.
+    index('ChecklistInstance_verificationStatus_idx').on(table.verificationStatus),
   ],
 );
 
@@ -84,12 +87,32 @@ export const checklistInstanceAssignees = mysqlTable(
 );
 
 
+// Copied from the definition's checklistDefinitionReviewers at generation time (same convention
+// as checklistInstanceAssignees) — an explicit per-instance reviewer list, additive on top of the
+// role-based verify rule.
+export const checklistInstanceReviewers = mysqlTable(
+  'ChecklistInstanceReviewer',
+  {
+    id: varchar('id', { length: 191 }).primaryKey().$defaultFn(() => createId()),
+    instanceId: varchar('instanceId', { length: 191 })
+      .notNull()
+      .references(() => checklistInstances.id, { onDelete: 'cascade' }),
+    userId: varchar('userId', { length: 191 }).notNull().references(() => users.id),
+    createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex('ChecklistInstanceReviewer_instanceId_userId_key').on(table.instanceId, table.userId),
+    index('ChecklistInstanceReviewer_userId_idx').on(table.userId),
+  ],
+);
+
 export const checklistInstanceItems = mysqlTable(
   'ChecklistInstanceItem',
   {
     id: varchar('id', { length: 191 }).primaryKey().$defaultFn(() => createId()),
     label: varchar('label', { length: 191 }).notNull(),
     order: int('order').notNull().default(0),
+    section: varchar('section', { length: 120 }),
     isDone: boolean('isDone').notNull().default(false),
     completedAt: datetime('completedAt', { mode: 'date' }),
     completedBy: varchar('completedBy', { length: 191 }).references(() => users.id),
@@ -119,8 +142,11 @@ export const checklistInstanceItems = mysqlTable(
     secondSignatureValue: text('secondSignatureValue'), 
     qrExpectedValue: varchar('qrExpectedValue', { length: 191 }),
     cashExpectedAmount: float('cashExpectedAmount'),
-    conditionalTrigger: mysqlEnum('conditionalTrigger', YES_NO_VALUES),
-    conditionalActions: json('conditionalActions').$type<(typeof CHECKLIST_CONDITIONAL_ACTIONS)[number][]>(),
+    // Mirrors ChecklistDefinitionItem's two-branch model — copied in at generation time (see
+    // checklistInstanceGenerator.job.ts) so this instance keeps the rule even if the definition
+    // is edited later.
+    yesActions: json('yesActions').$type<(typeof CHECKLIST_CONDITIONAL_ACTIONS)[number][]>(),
+    noActions: json('noActions').$type<(typeof CHECKLIST_CONDITIONAL_ACTIONS)[number][]>(),
     conditionalReasonValue: text('conditionalReasonValue'),
     // Free-text note the assignee can leave on any item — required by the client once the item's
     // parent instance is overdue and this item is still not done, so a genuinely-skipped step

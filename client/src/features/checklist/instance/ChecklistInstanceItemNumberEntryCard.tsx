@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Hash, Loader2, RotateCcw } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useSetChecklistInstanceItemDoneMutation } from '../hook';
+import { ChecklistItemCardHeader } from './ChecklistItemCardHeader';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
-import { formatDate } from '../checklistDisplay';
 
 interface ChecklistInstanceItemNumberEntryCardProps {
   item:       ChecklistInstanceItem;
@@ -34,74 +34,56 @@ export const ChecklistInstanceItemNumberEntryCard = ({ item, instanceId, canWork
 
   return (
     <div className={`flex flex-col gap-3 p-4 rounded-lg border border-border bg-surface ${isLocked ? 'opacity-75' : ''}`}>
-      <div className="flex items-start gap-3">
-        <span className={`flex items-center justify-center size-9 rounded-lg shrink-0 ${
-          item.isDone ? 'bg-primary-500/10 text-primary-600' : 'bg-surface-hover text-text-light'
-        }`}>
-          <Hash size={16} />
-        </span>
-        <div className="flex-1 min-w-0">
-          <p className={`text-sm font-display font-medium leading-snug ${item.isDone ? 'text-text' : 'text-text'}`}>
-            {item.label}
+      <ChecklistItemCardHeader
+        item={item}
+        interactive={interactive}
+        reopenPending={setItemDone.isPending}
+        onReopen={() => setItemDone.mutate({ itemId: item.id, isDone: false, numericValue: parsed ?? undefined })}
+        subtitle={(rangeHint || item.numberEntryUnit) && (
+          <p className="text-[11px] text-text-muted font-display mt-0.5">
+            {[rangeHint, item.numberEntryUnit].filter(Boolean).join(' · ')}
           </p>
-          {(rangeHint || item.numberEntryUnit) && (
-            <p className="text-[11px] text-text-muted font-display mt-0.5">
-              {[rangeHint, item.numberEntryUnit].filter(Boolean).join(' · ')}
-            </p>
-          )}
-          {item.isDone && item.completedAt && (
-            <p className="text-xs text-text-muted font-display mt-0.5">Completed {formatDate(item.completedAt)}</p>
+        )}
+      />
+
+      {/* The reading input itself is NOT gated on `interactive` — it's the only place this
+          evidence is shown (there's no separate read-only display), so it must stay visible,
+          just disabled, after the item (or the whole instance) locks. Only the Save button and
+          the save-error message are for the still-editable case. */}
+      <div className="flex flex-col gap-2">
+        {interactive && setItemDone.isError && (
+          <p className="text-xs text-danger">
+            {setItemDone.error instanceof Error ? setItemDone.error.message : 'Could not save this reading.'}
+          </p>
+        )}
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <input
+            type="number"
+            value={draftValue}
+            onChange={(e) => setDraftValue(e.target.value)}
+            disabled={!interactive || item.isDone}
+            placeholder="Enter value"
+            className="w-32 px-2.5 py-1.5 text-sm font-display bg-surface text-text rounded-md border border-border focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all disabled:opacity-60"
+          />
+          {item.numberEntryUnit && <span className="text-xs font-display text-text-muted">{item.numberEntryUnit}</span>}
+
+          {interactive && !item.isDone && (
+            <button
+              onClick={() => parsed != null && setItemDone.mutate({ itemId: item.id, isDone: true, numericValue: parsed })}
+              disabled={!canSubmit || setItemDone.isPending}
+              className="flex items-center gap-1.5 text-xs font-display font-medium px-2.5 py-1.5 rounded-md border border-primary-500/50 text-primary-600 hover:bg-primary-500/10 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed ml-auto"
+            >
+              {setItemDone.isPending && <Loader2 size={12} className="animate-spin" />}
+              Save reading
+            </button>
           )}
         </div>
-        {interactive && item.isDone && (
-          <button
-            onClick={() => setItemDone.mutate({ itemId: item.id, isDone: false, numericValue: parsed ?? undefined })}
-            disabled={setItemDone.isPending}
-            className="shrink-0 p-2 rounded-md text-text-light hover:text-warning hover:bg-warning/10 transition-colors cursor-pointer disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-warning/50"
-            aria-label="Reopen item"
-            title="Reopen"
-          >
-            <RotateCcw size={14} />
-          </button>
+
+        {interactive && outOfRange && (
+          <p className="text-xs text-warning">Value is outside the allowed range{rangeHint ? ` (${rangeHint})` : ''}.</p>
         )}
       </div>
-
-      {interactive && (
-        <div className="flex flex-col gap-2">
-          {setItemDone.isError && (
-            <p className="text-xs text-danger">
-              {setItemDone.error instanceof Error ? setItemDone.error.message : 'Could not save this reading.'}
-            </p>
-          )}
-
-          <div className="flex items-center gap-2 flex-wrap">
-            <input
-              type="number"
-              value={draftValue}
-              onChange={(e) => setDraftValue(e.target.value)}
-              disabled={item.isDone}
-              placeholder="Enter value"
-              className="w-32 px-2.5 py-1.5 text-sm font-display bg-surface text-text rounded-md border border-border focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all disabled:opacity-60"
-            />
-            {item.numberEntryUnit && <span className="text-xs font-display text-text-muted">{item.numberEntryUnit}</span>}
-
-            {!item.isDone && (
-              <button
-                onClick={() => parsed != null && setItemDone.mutate({ itemId: item.id, isDone: true, numericValue: parsed })}
-                disabled={!canSubmit || setItemDone.isPending}
-                className="flex items-center gap-1.5 text-xs font-display font-medium px-2.5 py-1.5 rounded-md border border-success/50 text-success hover:bg-success/10 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed ml-auto"
-              >
-                {setItemDone.isPending && <Loader2 size={12} className="animate-spin" />}
-                Save reading
-              </button>
-            )}
-          </div>
-
-          {outOfRange && (
-            <p className="text-xs text-warning">Value is outside the allowed range{rangeHint ? ` (${rangeHint})` : ''}.</p>
-          )}
-        </div>
-      )}
     </div>
   );
 };

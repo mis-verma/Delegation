@@ -9,10 +9,12 @@ import {
     checklistDefinitions,
     checklistDefinitionStores,
     checklistDefinitionAssignees,
+    checklistDefinitionReviewers,
     checklistDefinitionItems,
     checklistDefinitionItemAuditUsers,
     checklistInstances,
     checklistInstanceAssignees,
+    checklistInstanceReviewers,
     checklistInstanceItems,
     checklistInstanceItemSubmissions,
     checklistInstanceItemSubmissionAccessories,
@@ -20,6 +22,7 @@ import {
 import type { ChecklistRecurrence } from "../db/schema/checklistDefinition.js"
 import { getCurrentPeriod, type Period } from "../utils/period.js"
 import { env } from "../config/env.js"
+import { emitChecklistEvent } from "../sockets/checklistEvent.js"
 
 // Caps how many due checklist definitions get processed in a single hourly sweep, same rationale
 // as the batch caps in slaSweep.job.ts/taskDeadlineReminder.job.ts. In practice the number of
@@ -36,6 +39,7 @@ type GenerationItem = {
     id: string
     label: string
     order: number
+    section: string | null
     requiredImageCount: number
     maxImageCount: number | null
     requiresLivePhoto: boolean
@@ -52,8 +56,8 @@ type GenerationItem = {
     signatureLabels: string[] | null
     qrExpectedValue: string | null
     cashExpectedAmount: number | null
-    conditionalTrigger: (typeof checklistDefinitionItems.$inferSelect)["conditionalTrigger"]
-    conditionalActions: (typeof checklistDefinitionItems.$inferSelect)["conditionalActions"]
+    yesActions: (typeof checklistDefinitionItems.$inferSelect)["yesActions"]
+    noActions: (typeof checklistDefinitionItems.$inferSelect)["noActions"]
     auditUserIds: string[]
 }
 
@@ -66,6 +70,7 @@ export type GenerationDefinition = {
     cutoffTime: string | null
     storeIds: string[]
     assigneeIds: string[]
+    reviewerIds: string[]
     items: GenerationItem[]
 }
 
@@ -75,19 +80,31 @@ export type GenerationDefinition = {
 // from checklistDefinition.service.ts's own hydrateDefinitions (which also computes completion/
 // quality stats this job has no use for, and importing from that module would create a circular
 // import since that service calls back into this one).
-export const loadDefinitionForGeneration = async (definitionId: string): Promise<GenerationDefinition | null> => {
-    const [row] = await db.select().from(checklistDefinitions).where(eq(checklistDefinitions.id, definitionId)).limit(1)
-    if (!row) return null
+export const loadDefinitionForGeneration = async (definitionId: string): Promise<GenerationDefinition | null> =>
+    (await loadDefinitionsForGeneration([definitionId])).get(definitionId) ?? null
 
-    const storeLinks = await db.select({ storeId: checklistDefinitionStores.storeId })
+// Batched sibling of loadDefinitionForGeneration above: 5 queries total for the whole set instead
+// of 5 per definition. The hourly sweep used to call the singular loader once per due definition —
+// harmless at a handful of definitions, but a batch of GENERATOR_BATCH_SIZE (500) meant up to 2,500
+// sequential round trips per tick. Single-definition call sites (create()/update() in
+// checklistDefinition.service.ts, via loadDefinitionForGeneration) are unaffected.
+export const loadDefinitionsForGeneration = async (definitionIds: string[]): Promise<Map<string, GenerationDefinition>> => {
+    const result = new Map<string, GenerationDefinition>()
+    if (!definitionIds.length) return result
+
+    const rows = await db.select().from(checklistDefinitions).where(inArray(checklistDefinitions.id, definitionIds))
+    const storeLinks = await db.select({ definitionId: checklistDefinitionStores.definitionId, storeId: checklistDefinitionStores.storeId })
         .from(checklistDefinitionStores)
-        .where(eq(checklistDefinitionStores.definitionId, definitionId))
-    const assigneeLinks = await db.select({ userId: checklistDefinitionAssignees.userId })
+        .where(inArray(checklistDefinitionStores.definitionId, definitionIds))
+    const assigneeLinks = await db.select({ definitionId: checklistDefinitionAssignees.definitionId, userId: checklistDefinitionAssignees.userId })
         .from(checklistDefinitionAssignees)
-        .where(eq(checklistDefinitionAssignees.definitionId, definitionId))
+        .where(inArray(checklistDefinitionAssignees.definitionId, definitionIds))
+    const reviewerLinks = await db.select({ definitionId: checklistDefinitionReviewers.definitionId, userId: checklistDefinitionReviewers.userId })
+        .from(checklistDefinitionReviewers)
+        .where(inArray(checklistDefinitionReviewers.definitionId, definitionIds))
 
     const itemRows = await db.select().from(checklistDefinitionItems)
-        .where(eq(checklistDefinitionItems.definitionId, definitionId))
+        .where(inArray(checklistDefinitionItems.definitionId, definitionIds))
         .orderBy(asc(checklistDefinitionItems.order))
     const itemIds = itemRows.map((i) => i.id)
     const auditLinks = itemIds.length
@@ -100,17 +117,35 @@ export const loadDefinitionForGeneration = async (definitionId: string): Promise
         auditUserIdsByItem.set(link.itemId, list)
     }
 
-    return {
-        id: row.id,
-        name: row.name,
-        recurrence: row.recurrence,
-        startDate: row.startDate,
-        opensTime: row.opensTime,
-        cutoffTime: row.cutoffTime,
-        storeIds: storeLinks.map((l) => l.storeId),
-        assigneeIds: assigneeLinks.map((l) => l.userId),
-        items: itemRows.map((item) => ({ ...item, auditUserIds: auditUserIdsByItem.get(item.id) ?? [] })),
+    const groupBy = <T,>(rows: T[], key: (row: T) => string): Map<string, T[]> => {
+        const map = new Map<string, T[]>()
+        for (const row of rows) {
+            const list = map.get(key(row)) ?? []
+            list.push(row)
+            map.set(key(row), list)
+        }
+        return map
     }
+    const storesByDef = groupBy(storeLinks, (l) => l.definitionId)
+    const assigneesByDef = groupBy(assigneeLinks, (l) => l.definitionId)
+    const reviewersByDef = groupBy(reviewerLinks, (l) => l.definitionId)
+    const itemsByDef = groupBy(itemRows, (i) => i.definitionId)
+
+    for (const row of rows) {
+        result.set(row.id, {
+            id: row.id,
+            name: row.name,
+            recurrence: row.recurrence,
+            startDate: row.startDate,
+            opensTime: row.opensTime,
+            cutoffTime: row.cutoffTime,
+            storeIds: (storesByDef.get(row.id) ?? []).map((l) => l.storeId),
+            assigneeIds: (assigneesByDef.get(row.id) ?? []).map((l) => l.userId),
+            reviewerIds: (reviewersByDef.get(row.id) ?? []).map((l) => l.userId),
+            items: (itemsByDef.get(row.id) ?? []).map((item) => ({ ...item, auditUserIds: auditUserIdsByItem.get(item.id) ?? [] })),
+        })
+    }
+    return result
 }
 
 // Stamps out the currently-due ChecklistInstance for one (definition, store) pair. Caller is
@@ -151,6 +186,11 @@ const generateInstanceForStore = async (
                     definition.assigneeIds.map((userId) => ({ instanceId, userId })),
                 )
             }
+            if (definition.reviewerIds.length) {
+                await tx.insert(checklistInstanceReviewers).values(
+                    definition.reviewerIds.map((userId) => ({ instanceId, userId })),
+                )
+            }
 
             if (!definition.items.length) return
 
@@ -160,13 +200,19 @@ const generateInstanceForStore = async (
                     id: itemIds[index],
                     label: item.label,
                     order: item.order,
+                    section: item.section,
                     // Photo requirements are authored once on the definition item and copied onto
                     // every instance it stamps out — an instance item never edits these itself.
                     requiredImageCount: item.requiredImageCount,
                     maxImageCount: item.maxImageCount,
                     requiresLivePhoto: item.requiresLivePhoto,
                     itemType: item.itemType,
-                    accessories: item.accessories,
+                    // Definition items commonly leave this null (only some items use accessory
+                    // checkboxes) — the client's ChecklistInstanceItem type declares this a plain
+                    // string[] (never null), and ChecklistInstanceItemAuditCard.tsx reads
+                    // `.length` on it unconditionally, so a raw null here crashed the whole
+                    // checklist detail page for any AUDIT item with no accessories configured.
+                    accessories: item.accessories ?? [],
                     numberEntryUnit: item.numberEntryUnit,
                     numberEntryMin: item.numberEntryMin,
                     numberEntryMax: item.numberEntryMax,
@@ -178,8 +224,8 @@ const generateInstanceForStore = async (
                     signatureLabels: item.signatureLabels,
                     qrExpectedValue: item.qrExpectedValue,
                     cashExpectedAmount: item.cashExpectedAmount,
-                    conditionalTrigger: item.conditionalTrigger,
-                    conditionalActions: item.conditionalActions,
+                    yesActions: item.yesActions,
+                    noActions: item.noActions,
                     instanceId,
                 })),
             )
@@ -249,7 +295,10 @@ export const generateInstanceForDefinition = async (definition: GenerationDefini
         // their instance this tick.
         try {
             const instance = await generateInstanceForStore(definition, storeId, period, now)
-            if (instance) created.push(instance)
+            if (instance) {
+                created.push(instance)
+                emitChecklistEvent("checklist-instance:created", { storeId }, { instanceId: instance.id, definitionId: definition.id })
+            }
         } catch (err) {
             console.error(`Checklist instance generation failed for definition ${definition.id}, store ${storeId}:`, err)
         }
@@ -279,11 +328,12 @@ const generateDueInstances = async () => {
         console.warn(`Checklist instance generator: hit the ${GENERATOR_BATCH_SIZE}-definition batch cap — there may be more due definitions still waiting; they'll be picked up on the next sweep.`)
     }
 
+    const definitionsById = await loadDefinitionsForGeneration(definitionRows.map((r) => r.id))
     for (const { id } of definitionRows) {
         // Each definition is isolated in its own try/catch — one bad/malformed definition must
         // not abort the sweep for the rest, unlike the single-collection slaSweep job.
         try {
-            const definition = await loadDefinitionForGeneration(id)
+            const definition = definitionsById.get(id)
             if (definition) await generateInstanceForDefinition(definition, now)
         } catch (err) {
             console.error(`Checklist instance generation failed for definition ${id}:`, err)

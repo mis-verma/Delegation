@@ -10,9 +10,20 @@ import { assertCanMutate } from "../tickets/ticket.service.js";
 
 export const ticketAttachmentService = {
     async upload(ticketId: string, files: Express.Multer.File[], user: AccessTokenPayload) {
+        // Multer's already written these to disk by the time this runs — every throw below must
+        // clean them up first, or a caller with no access to the ticket can repeatedly fill disk by
+        // uploading to tickets they'll always get rejected on (same pattern as checklistImage.service).
         const [ticket] = await db.select().from(tickets).where(eq(tickets.id, ticketId)).limit(1);
-        if (!ticket) throw AppError.notFound("Ticket not found");
-        assertCanMutate(user, ticket);
+        if (!ticket) {
+            files.forEach((f) => fs.unlink(f.path, () => {}));
+            throw AppError.notFound("Ticket not found");
+        }
+        try {
+            assertCanMutate(user, ticket);
+        } catch (err) {
+            files.forEach((f) => fs.unlink(f.path, () => {}));
+            throw err;
+        }
 
         if (!files.length) {
             throw AppError.badRequest("No valid image files were received (check file type and size)");

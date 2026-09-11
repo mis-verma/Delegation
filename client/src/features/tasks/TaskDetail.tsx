@@ -6,7 +6,7 @@ import { useTaskQuery, useUpdateTaskMutation, useDeleteTaskMutation, useAssignab
 import { useDepartmentsQuery } from '../tickets/hook';
 import { TaskVerifyActions } from './TaskVerifyActions';
 import { TaskFormDepartmentField } from './TaskFormDepartmentField';
-import { TaskAssigneesField } from './TaskAssigneesField';
+import { AssigneeField } from '../assignees/AssigneeField';
 import { AttachFilesToolbar } from './AttachFilesToolbar';
 import { TaskAttachmentsGrid } from './TaskAttachmentsGrid';
 import { VerificationNoteBanner } from '../../components/verificationBanner';
@@ -15,6 +15,7 @@ import { PRIORITY_SELECTED_CLASS } from './TaskFormPrioritySelector';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { TaskScoreBadge } from './TaskScoreBadge';
 import { TaskStatusRemarkDialog } from './TaskStatusRemarkDialog';
+import { TaskChecklistPanel } from './TaskChecklistPanel';
 import { taskAssigneeIds } from './cardFields';
 import { useAuth } from '../../context/AuthContext';
 import { SECTION_LABEL_CLASS } from './taskFormFieldStyles';
@@ -318,6 +319,7 @@ interface TaskEditLayoutProps {
   isViewOnly: boolean;
   canReassign: boolean;
   canManageAttachments: boolean;
+  currentUserId?: string;
   assignableUsers: ReturnType<typeof useAssignableUsersQuery>['data'];
   isLoadingUsers: boolean;
   departments: ReturnType<typeof useDepartmentsQuery>['data'];
@@ -331,7 +333,7 @@ interface TaskEditLayoutProps {
 }
 
 const TaskEditLayout = ({
-  task, isVerifier, isViewOnly, canReassign, canManageAttachments,
+  task, isVerifier, isViewOnly, canReassign, canManageAttachments, currentUserId,
   assignableUsers, isLoadingUsers, departments, isLoadingDepts,
   onSaveTitle, onSaveDescription, onUpdate, onDelete, isDeleting, uploadMutation,
 }: TaskEditLayoutProps) => (
@@ -370,7 +372,7 @@ const TaskEditLayout = ({
             <Users size={15} className="text-text-light" /> Assigned to
           </span>
           <div className="flex-1 min-w-0">
-            <TaskAssigneesField
+            <AssigneeField
               hideLabel
               selectedIds={taskAssigneeIds(task)}
               onChange={(ids) => onUpdate({ assigneeId: ids[0] ?? null, additionalAssigneeIds: ids.slice(1) })}
@@ -467,6 +469,19 @@ const TaskEditLayout = ({
 
       <hr className="border-border/60" />
 
+      {/* Previously built but never rendered anywhere reachable — the checklist progress bar
+          TaskCard/TaskTable/TaskListView already show (via task.checklists) had nothing that
+          could ever populate or work it, same defect ChecklistPanel had on the Ticket side
+          before it was wired into TicketDetail. */}
+      <TaskChecklistPanel
+        taskId={task.id}
+        checklists={task.checklists ?? []}
+        isAdmin={isVerifier}
+        currentUserId={currentUserId}
+      />
+
+      <hr className="border-border/60" />
+
       {/* The Activity feed (comment box + comment/status history) used to sit below this. It's
           gone by request: the only place to write anything about a delegation is now the dialog
           that opens from "Advance to …", which won't move the status without a remark. The stepper
@@ -560,6 +575,7 @@ export const TaskDetail = ({ task: initialTask, onClose, initialMode = 'view' }:
           isViewOnly={isViewOnly}
           canReassign={canReassign}
           canManageAttachments={canManageAttachments}
+          currentUserId={user?.id}
           assignableUsers={assignableUsers}
           isLoadingUsers={isLoadingUsers}
           departments={departments}

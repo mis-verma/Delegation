@@ -4,8 +4,9 @@ import { parse as parseCsv } from "csv-parse/sync"
 import ExcelJS from "exceljs"
 import { PDFParse } from "pdf-parse"
 import { AppError } from "../../utils/AppError.js"
-import { checklistDefinitionService } from "./checklistDefinition.service.js"
+import { checklistDefinitionService, listAllChecklistDefinitions } from "./checklistDefinition.service.js"
 import type { UpdateChecklistDefinitionInput } from "./checklistDefinition.validation.js"
+import { matchExactOrFuzzy, looksLikeEmail, type MatchConfidence } from "../../utils/fuzzyMatch.js"
 
 export type BulkImportRawRow = {
     rowIndex: number
@@ -14,8 +15,6 @@ export type BulkImportRawRow = {
     personName: string
     department?: string
 }
-
-export type MatchConfidence = "exact" | "fuzzy" | "none"
 
 export type BulkImportMatchedRow = {
     rowIndex: number
@@ -37,7 +36,14 @@ export type BulkImportPreviewResult = {
 
 export type BulkImportApplyRow = { checklistDefinitionId: string; storeId: string; userId: string }
 export type BulkImportSchedule = { startDate?: string; opensTime?: string; cutoffTime?: string }
-export type BulkImportApplySummary = { updatedDefinitions: number; storesAdded: number; assigneesAdded: number }
+export type BulkImportApplySummary = {
+    updatedDefinitions: number
+    storesAdded: number
+    assigneesAdded: number
+    // One entry per definition group that failed — mirrors ticketBulkImport/taskBulkImport's own
+    // {created, failed} shape, adapted to this endpoint's per-definition (not per-row) unit of work.
+    failed: { definitionId: string; message: string }[]
+}
 
 // Accepted column headers, case-insensitive — tolerant of the handful of variants a real-world
 // export is likely to use. "department" rides along for the admin's own reference in the review
@@ -155,26 +161,6 @@ const parsePdfRows = async (buffer: Buffer): Promise<{ rows: BulkImportRawRow[];
     }
 }
 
-const normalize = (s: string) => s.trim().toLowerCase()
-const looksLikeEmail = (s: string) => /\S+@\S+\.\S+/.test(s)
-
-const matchExactOrFuzzy = <T,>(
-    needle: string,
-    candidates: T[],
-    getLabel: (c: T) => string,
-): { match: T | null; confidence: MatchConfidence } => {
-    const n = normalize(needle)
-    if (!n) return { match: null, confidence: "none" }
-    const exact = candidates.find((c) => normalize(getLabel(c)) === n)
-    if (exact) return { match: exact, confidence: "exact" }
-    const fuzzy = candidates.find((c) => {
-        const label = normalize(getLabel(c))
-        return label.length > 0 && (label.includes(n) || n.includes(label))
-    })
-    if (fuzzy) return { match: fuzzy, confidence: "fuzzy" }
-    return { match: null, confidence: "none" }
-}
-
 export const checklistBulkImportService = {
     async parseFile(buffer: Buffer, mimetype: string): Promise<{ rows: BulkImportRawRow[]; warnings: string[] }> {
         // "application/vnd.ms-excel" is also what some browsers/OSes report a .csv as (same
@@ -194,7 +180,7 @@ export const checklistBulkImportService = {
 
     async matchRows(rawRows: BulkImportRawRow[]): Promise<BulkImportPreviewResult> {
         const [definitions, allStores, allUsers] = await Promise.all([
-            checklistDefinitionService.list({}),
+            listAllChecklistDefinitions(),
             db.select({ id: stores.id, name: stores.name }).from(stores),
             db.select({ id: users.id, email: users.email, firstName: users.firstName, lastName: users.lastName }).from(users),
         ])
@@ -238,59 +224,78 @@ export const checklistBulkImportService = {
             groups.set(row.checklistDefinitionId, group)
         }
 
+        let updatedDefinitions = 0
         let storesAdded = 0
         let assigneesAdded = 0
+        const failed: { definitionId: string; message: string }[] = []
 
+        // One bad group (e.g. a store/user referenced in the sheet got deleted between preview
+        // and publish) must not abort groups already processed, and must not vanish silently
+        // either — each group gets its own try/catch, same posture as ticketBulkImport/
+        // taskBulkImport's per-row try/catch, adapted to this endpoint's per-definition unit of
+        // work. Each individual update() is already its own transaction (checklistDefinition
+        // service.ts), so a failed group never leaves that one definition half-written.
         for (const [definitionId, group] of groups) {
-            const existing = await checklistDefinitionService.getById(definitionId)
-            const unionedStoreIds = Array.from(new Set([...existing.storeIds, ...group.storeIds]))
-            const unionedAssigneeIds = Array.from(new Set([...existing.assigneeIds, ...group.userIds]))
-            storesAdded += unionedStoreIds.length - existing.storeIds.length
-            assigneesAdded += unionedAssigneeIds.length - existing.assigneeIds.length
+            try {
+                const existing = await checklistDefinitionService.getById(definitionId)
+                const unionedStoreIds = Array.from(new Set([...existing.storeIds, ...group.storeIds]))
+                const unionedAssigneeIds = Array.from(new Set([...existing.assigneeIds, ...group.userIds]))
 
-            // Reuses the existing, already-transactional, generation-triggering update() rather
-            // than hand-rolling junction-table writes — see checklistDefinition.service.ts:211.
-            const input: UpdateChecklistDefinitionInput = {
-                name: existing.name,
-                description: existing.description ?? undefined,
-                storeIds: unionedStoreIds,
-                recurrence: existing.recurrence,
-                startDate: schedule.startDate ?? new Date(existing.startDate).toISOString(),
-                opensTime: schedule.opensTime ?? existing.opensTime ?? undefined,
-                cutoffTime: schedule.cutoffTime ?? existing.cutoffTime ?? undefined,
-                assigneeIds: unionedAssigneeIds,
-                assigneeRoles: existing.assigneeRoles ?? undefined,
-                proofRequired: existing.proofRequired ?? undefined,
-                icon: existing.icon ?? undefined,
-                items: existing.items.map((item: (typeof existing.items)[number]) => ({
-                    label: item.label,
-                    order: item.order,
-                    requiredImageCount: item.requiredImageCount,
-                    maxImageCount: item.maxImageCount,
-                    requiresLivePhoto: item.requiresLivePhoto,
-                    itemType: item.itemType,
-                    auditUserIds: item.auditUserIds,
-                    accessories: item.accessories ?? undefined,
-                    numberEntryUnit: item.numberEntryUnit ?? undefined,
-                    numberEntryMin: item.numberEntryMin ?? undefined,
-                    numberEntryMax: item.numberEntryMax ?? undefined,
-                    ratingScale: item.ratingScale ?? undefined,
-                    options: item.options ?? undefined,
-                    gpsTargetLat: item.gpsTargetLat ?? undefined,
-                    gpsTargetLng: item.gpsTargetLng ?? undefined,
-                    gpsRadiusMeters: item.gpsRadiusMeters ?? undefined,
-                    signatureLabels: item.signatureLabels ?? undefined,
-                    qrExpectedValue: item.qrExpectedValue ?? undefined,
-                    cashExpectedAmount: item.cashExpectedAmount ?? undefined,
-                    conditionalTrigger: item.conditionalTrigger ?? undefined,
-                    conditionalActions: item.conditionalActions ?? undefined,
-                })),
+                // Reuses the existing, already-transactional, generation-triggering update() rather
+                // than hand-rolling junction-table writes — see checklistDefinition.service.ts:211.
+                const input: UpdateChecklistDefinitionInput = {
+                    // existing was fetched fresh just above (not stale form state like the
+                    // builder's), so its version is a safe echo — this call genuinely is "no one
+                    // else's change in between," not a conflict.
+                    version: existing.version,
+                    name: existing.name,
+                    description: existing.description ?? undefined,
+                    storeIds: unionedStoreIds,
+                    recurrence: existing.recurrence,
+                    startDate: schedule.startDate ?? new Date(existing.startDate).toISOString(),
+                    opensTime: schedule.opensTime ?? existing.opensTime ?? undefined,
+                    cutoffTime: schedule.cutoffTime ?? existing.cutoffTime ?? undefined,
+                    assigneeIds: unionedAssigneeIds,
+                    reviewerIds: existing.reviewerIds.length ? existing.reviewerIds : undefined,
+                    assigneeRoles: existing.assigneeRoles ?? undefined,
+                    icon: existing.icon ?? undefined,
+                    items: existing.items.map((item: (typeof existing.items)[number]) => ({
+                        label: item.label,
+                        order: item.order,
+                        section: item.section ?? undefined,
+                        requiredImageCount: item.requiredImageCount,
+                        maxImageCount: item.maxImageCount,
+                        requiresLivePhoto: item.requiresLivePhoto,
+                        itemType: item.itemType,
+                        auditUserIds: item.auditUserIds,
+                        accessories: item.accessories ?? undefined,
+                        numberEntryUnit: item.numberEntryUnit ?? undefined,
+                        numberEntryMin: item.numberEntryMin ?? undefined,
+                        numberEntryMax: item.numberEntryMax ?? undefined,
+                        ratingScale: item.ratingScale ?? undefined,
+                        options: item.options ?? undefined,
+                        gpsTargetLat: item.gpsTargetLat ?? undefined,
+                        gpsTargetLng: item.gpsTargetLng ?? undefined,
+                        gpsRadiusMeters: item.gpsRadiusMeters ?? undefined,
+                        signatureLabels: item.signatureLabels ?? undefined,
+                        qrExpectedValue: item.qrExpectedValue ?? undefined,
+                        cashExpectedAmount: item.cashExpectedAmount ?? undefined,
+                        yesActions: item.yesActions ?? undefined,
+                        noActions: item.noActions ?? undefined,
+                    })),
+                }
+                // Each definition the import touches gets its own audit row, so a bulk import is
+                // as traceable as the equivalent edits made by hand.
+                await checklistDefinitionService.update(definitionId, input, actorId)
+
+                storesAdded += unionedStoreIds.length - existing.storeIds.length
+                assigneesAdded += unionedAssigneeIds.length - existing.assigneeIds.length
+                updatedDefinitions++
+            } catch (err) {
+                failed.push({ definitionId, message: err instanceof AppError ? err.message : "Failed to update this checklist." })
             }
-            // Each definition the import touches gets its own audit row, so a bulk import is
-            // as traceable as the equivalent edits made by hand.
-            await checklistDefinitionService.update(definitionId, input, actorId)
         }
 
-        return { updatedDefinitions: groups.size, storesAdded, assigneesAdded }
+        return { updatedDefinitions, storesAdded, assigneesAdded, failed }
     },
 }

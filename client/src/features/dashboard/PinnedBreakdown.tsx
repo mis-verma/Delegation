@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { X } from 'lucide-react';
+import { X, ChevronRight } from 'lucide-react';
 
 /**
  * The Dashboard's one "breakdown panel" surface.
@@ -55,17 +55,37 @@ export interface BreakdownRatioRow {
 /**
  * The "3 of 4" row shape shared by the Compliance gauges and Compare Dashboard. A zero-total row
  * reads "No data" rather than "0 of 0", which would imply a real measurement of nothing.
+ *
+ * `onRowClick` is optional and per-row-label — passing it turns every row with data into a button
+ * that opens the real item list behind that number (see ActivityComplianceGauges). Rows with
+ * nothing in them (`total === 0`) never become clickable — there's nothing to drill into.
  */
-export const BreakdownRatioRows = ({ rows }: { rows: readonly BreakdownRatioRow[] }) => (
+export const BreakdownRatioRows = ({ rows, onRowClick }: { rows: readonly BreakdownRatioRow[]; onRowClick?: (label: string) => void }) => (
   <>
-    {rows.map((row) => (
-      <div key={row.label} className="flex items-center justify-between gap-4 text-[13px]">
-        <span className="text-text-secondary">{row.label}</span>
-        <span className="font-display font-bold text-text tabular-nums">
-          {row.total > 0 ? `${row.count} of ${row.total}` : 'No data'}
-        </span>
-      </div>
-    ))}
+    {rows.map((row) => {
+      const clickable = row.total > 0 && !!onRowClick;
+      const RowTag = clickable ? 'button' : 'div';
+      return (
+        <RowTag
+          key={row.label}
+          type={clickable ? 'button' : undefined}
+          onClick={clickable ? () => onRowClick!(row.label) : undefined}
+          // min-h-11 (44px) — these became tap targets when the click-through drill-down was added;
+          // the original py-0.5 row (~24px) was sized for plain text, not a button.
+          className={`flex items-center justify-between gap-4 text-[13px] w-full min-h-11 rounded-lg -mx-2 px-2 transition-colors duration-200 ${
+            clickable ? 'cursor-pointer text-left hover:bg-surface-hover' : ''
+          }`}
+        >
+          <span className="text-text-secondary">{row.label}</span>
+          <span className="flex items-center gap-2.5 shrink-0">
+            <span className="font-display font-bold text-text tabular-nums">
+              {row.total > 0 ? `${row.count} of ${row.total}` : 'No data'}
+            </span>
+            {clickable && <ChevronRight size={14} strokeWidth={2.5} className="text-text-light" />}
+          </span>
+        </RowTag>
+      );
+    })}
   </>
 );
 

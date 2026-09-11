@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckSquare, Square, Camera, ImageUp, X, Loader2, RotateCcw } from 'lucide-react';
+import { Camera, ImageUp, X, Loader2, RotateCcw } from 'lucide-react';
 import {
   useSetChecklistInstanceItemSubmissionDoneMutation,
   useUpdateChecklistInstanceItemSubmissionAccessoriesMutation,
@@ -8,6 +8,8 @@ import {
   useDeleteChecklistInstanceItemSubmissionImageMutation,
   useStoresQuery,
 } from '../hook';
+import { ITEM_TYPE_ICON } from './checklistItemIcon';
+import { ChecklistItemIconTile } from './ChecklistItemIconTile';
 import type { ChecklistInstanceItem, ChecklistInstanceItemSubmission } from '../../../api/checklistInstances';
 import type { CaptureMethod } from '../../../api/ticket';
 
@@ -35,11 +37,7 @@ export const ChecklistInstanceItemAuditCard = ({ item, instanceId, currentUserId
   return (
     <div className={`flex flex-col gap-3 p-4 rounded-lg border border-border bg-surface ${isLocked ? 'opacity-75' : ''}`}>
       <div className="flex items-start gap-3">
-        <span className={`flex items-center justify-center size-9 rounded-lg shrink-0 ${
-          item.isDone ? 'bg-primary-500/10 text-primary-600' : 'bg-surface-hover text-text-light'
-        }`}>
-          {item.isDone ? <CheckSquare size={18} /> : <Square size={18} />}
-        </span>
+        <ChecklistItemIconTile icon={ITEM_TYPE_ICON[item.itemType]} done={item.isDone} />
         <div className="flex-1 min-w-0">
           <p className={`text-sm font-display font-medium leading-snug ${item.isDone ? 'text-text-muted' : 'text-text'}`}>
             {item.label}
@@ -104,6 +102,18 @@ const SubmissionRow = ({ item, submission, instanceId, storeName, interactive }:
 
   const userLabel = `${submission.userId?.firstName ?? ''} ${submission.userId?.lastName ?? ''}`.trim() || 'Unknown user';
 
+  // Remarks live behind their own PATCH endpoint (updateRemarks), separate from the isDone PATCH
+  // (setDone) — Submit used to fire setDone directly, so a note typed into the textarea but never
+  // sent via the small "Save remarks" link was silently lost the moment the item locked. Now
+  // Submit itself saves any dirty remarks first and only marks done once that's settled.
+  const submitting = setDone.isPending || updateRemarks.isPending;
+  const handleSubmit = async () => {
+    if (remarksDirty) {
+      await updateRemarks.mutateAsync({ id: submission.id, remarks: remarksDraft.trim() || null });
+    }
+    setDone.mutate({ id: submission.id, isDone: true });
+  };
+
   return (
     <div className="flex flex-col gap-2.5 p-2.5 rounded-lg border border-border/70 bg-background">
       <div className="flex items-center justify-between gap-2">
@@ -132,7 +142,10 @@ const SubmissionRow = ({ item, submission, instanceId, storeName, interactive }:
         {submission.isDone && !interactive && <span className="text-[10px] font-display text-success shrink-0">Submitted</span>}
       </div>
 
-      {item.accessories.length > 0 && (
+      {/* Defensive null-check: the type says string[], but rows written before the generator job
+          normalized null->[] (or any other write path that skips that step) can still hand back
+          null here — a raw `.length` on that crashed the whole checklist detail page. */}
+      {(item.accessories?.length ?? 0) > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {submission.accessories.map(a => (
             <label
@@ -171,7 +184,7 @@ const SubmissionRow = ({ item, submission, instanceId, storeName, interactive }:
       {images.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {images.map(img => (
-            <div key={img.id} className="relative group/img">
+            <div key={img.id} className="relative">
               <img
                 src={`${UPLOADS_BASE}${img.url}`}
                 alt={img.originalFilename ?? 'evidence'}
@@ -185,10 +198,11 @@ const SubmissionRow = ({ item, submission, instanceId, storeName, interactive }:
               {canSubmit && (
                 <button
                   onClick={() => deleteImage.mutate(img.id)}
-                  className="absolute -top-1.5 -right-1.5 size-4 rounded-full bg-surface border border-border flex items-center justify-center text-text-muted hover:text-danger opacity-0 group-hover/img:opacity-100 transition-opacity cursor-pointer"
+                  disabled={deleteImage.isPending}
+                  className="absolute -top-2 -right-2 size-6 rounded-full bg-surface border border-border flex items-center justify-center text-text-muted hover:text-danger opacity-90 hover:opacity-100 transition-opacity cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"
                   aria-label="Delete image"
                 >
-                  <X size={9} />
+                  <X size={11} />
                 </button>
               )}
             </div>
@@ -202,13 +216,15 @@ const SubmissionRow = ({ item, submission, instanceId, storeName, interactive }:
 
       {canSubmit && (
         <div className="flex flex-col gap-2">
-          {(uploadImages.isError || setDone.isError) && (
+          {(uploadImages.isError || setDone.isError || updateRemarks.isError) && (
             <p className="text-xs text-danger">
               {uploadImages.error instanceof Error
                 ? uploadImages.error.message
                 : setDone.error instanceof Error
                   ? setDone.error.message
-                  : 'Something went wrong.'}
+                  : updateRemarks.error instanceof Error
+                    ? updateRemarks.error.message
+                    : 'Something went wrong.'}
             </p>
           )}
 
@@ -257,11 +273,11 @@ const SubmissionRow = ({ item, submission, instanceId, storeName, interactive }:
             {uploadImages.isPending && <Loader2 size={12} className="animate-spin text-text-muted" />}
 
             <button
-              onClick={() => setDone.mutate({ id: submission.id, isDone: true })}
-              disabled={setDone.isPending}
-              className="flex items-center gap-1.5 text-[11px] font-display font-medium px-2.5 py-1 rounded-md border border-success/50 text-success hover:bg-success/10 cursor-pointer transition-colors disabled:opacity-50 ml-auto"
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="flex items-center gap-1.5 text-[11px] font-display font-medium px-2.5 py-1 rounded-md border border-primary-500/50 text-primary-600 hover:bg-primary-500/10 cursor-pointer transition-colors disabled:opacity-50 ml-auto"
             >
-              {setDone.isPending && <Loader2 size={11} className="animate-spin" />}
+              {submitting && <Loader2 size={11} className="animate-spin" />}
               Submit
             </button>
           </div>

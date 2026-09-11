@@ -27,14 +27,16 @@ export const TASK_REMINDER_CHANNELS = ['notification', 'alarm', 'email', 'sms'] 
 // Reused (imported) by ChecklistImage, ChecklistInstanceImage,
 // ChecklistInstanceItemSubmissionImage, TicketAttachment.
 export const CAPTURE_METHODS = ['LIVE', 'GALLERY'] as const;
-// Bug fix: Mongoose source had `"approved "` (trailing space) vs `"rejected"`.
-export const REVIEW_DECISIONS = ['approved', 'rejected'] as const;
 export const AI_INPUT_MODES = ['voice', 'text'] as const;
 export const AI_CHANNELS = ['whatsapp', 'web'] as const;
 export const TODO_PRIORITIES = ['low', 'medium', 'high'] as const;
 export const SMART_TASK_CONVERSATION_STATUSES = ['in_progress', 'completed', 'abandoned'] as const;
 export const MESSAGE_SENDERS = ['bot', 'user'] as const;
 export const CONVERSATION_CHANNELS = ['whatsapp'] as const;
+// Raw webhook source, for ProcessedInboundMessage's dedupe key below — distinct from
+// CONVERSATION_CHANNELS, which is the conversation model's own channel value (currently only ever
+// "whatsapp" there, whichever provider actually delivered it).
+export const INBOUND_MESSAGE_CHANNELS = ['whatsapp', 'doubletick'] as const;
 export const CONVERSATION_SLOTS = ['assignee', 'department', 'dueDate', 'priority'] as const;
 // PendingTaskConversation.draft.category uses a different value set than
 // Task.category ("delegated_task" vs "delegation") — kept as a distinct enum.
@@ -298,45 +300,24 @@ export const taskCommentAttachments = mysqlTable(
 );
 
 // ---------------------------------------------------------------------------
-// TaskReview — reviewer decision on a submitted Task
+// Todo — personal, owner-only todo item (unrelated to Task workflow)
 // ---------------------------------------------------------------------------
-export const taskReviews = mysqlTable(
-  'TaskReview',
+export const todos = mysqlTable(
+  'Todo',
   {
     id: varchar('id', { length: 191 }).primaryKey().$defaultFn(() => createId()),
-    taskId: varchar('taskId', { length: 191 }).notNull().references(() => tasks.id),
-    reviewerId: varchar('reviewerId', { length: 191 }).notNull().references(() => users.id),
-    decision: mysqlEnum('decision', REVIEW_DECISIONS).notNull(),
-    // Required only when decision === 'approved' — app-layer enforced, not a DB constraint.
-    qualityRating: int('qualityRating'),
-    // Required only when decision === 'rejected' — app-layer enforced, not a DB constraint.
-    remarks: text('remarks'),
-    wasOnTime: boolean('wasOnTime'),
-    // Mongoose source used the misspelled option `timesStamps`, so timestamps
-    // were never actually enabled even though two indexes assumed `createdAt`
-    // existed. Fixed here: real createdAt/updatedAt columns are added.
+    userId: varchar('userId', { length: 191 }).notNull().references(() => users.id),
+    text: varchar('text', { length: 500 }).notNull(),
+    completed: boolean('completed').notNull().default(false),
+    dueDate: datetime('dueDate', { mode: 'date' }),
+    priority: mysqlEnum('priority', TODO_PRIORITIES).notNull().default('medium'),
     createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
     updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
   },
-  (table) => [
-    index('TaskReview_taskId_createdAt_idx').on(table.taskId, table.createdAt),
-    index('TaskReview_reviewerId_createdAt_idx').on(table.reviewerId, table.createdAt),
-  ],
+  // Every read in todo.service.ts (listForUser/update/remove) filters on userId — with no index
+  // at all here, every one of those was a full table scan.
+  (table) => [index('Todo_userId_idx').on(table.userId)],
 );
-
-// ---------------------------------------------------------------------------
-// Todo — personal, owner-only todo item (unrelated to Task workflow)
-// ---------------------------------------------------------------------------
-export const todos = mysqlTable('Todo', {
-  id: varchar('id', { length: 191 }).primaryKey().$defaultFn(() => createId()),
-  userId: varchar('userId', { length: 191 }).notNull().references(() => users.id),
-  text: varchar('text', { length: 500 }).notNull(),
-  completed: boolean('completed').notNull().default(false),
-  dueDate: datetime('dueDate', { mode: 'date' }),
-  priority: mysqlEnum('priority', TODO_PRIORITIES).notNull().default('medium'),
-  createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
-  updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
-});
 
 // ---------------------------------------------------------------------------
 // SmartTaskConversation — AI-assisted chat that may result in a created Task
@@ -418,5 +399,27 @@ export const pendingTaskConversations = mysqlTable(
   (table) => [
     uniqueIndex('PendingTaskConversation_phone_key').on(table.phone),
     index('PendingTaskConversation_expiresAt_idx').on(table.expiresAt),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// ProcessedInboundMessage — dedupe record for WhatsApp/DoubleTick webhook deliveries
+// ---------------------------------------------------------------------------
+// Meta and DoubleTick both retry a webhook delivery on any hiccup on their end (timeout, 5xx,
+// slow ack), and neither guarantees at-most-once delivery. Both controllers ack immediately with
+// res.sendStatus(200) then do all the real work async — with no dedupe, two deliveries of the
+// same message that race each other can both find "no active conversation" and both create a
+// task. Claiming the (channel, messageId) pair here first, before doing anything else, is what
+// makes a duplicate delivery a no-op instead of a duplicate task.
+export const processedInboundMessages = mysqlTable(
+  'ProcessedInboundMessage',
+  {
+    id: varchar('id', { length: 191 }).primaryKey().$defaultFn(() => createId()),
+    channel: mysqlEnum('channel', INBOUND_MESSAGE_CHANNELS).notNull(),
+    messageId: varchar('messageId', { length: 191 }).notNull(),
+    createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex('ProcessedInboundMessage_channel_messageId_key').on(table.channel, table.messageId),
   ],
 );

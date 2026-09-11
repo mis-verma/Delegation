@@ -12,7 +12,7 @@ interface TaskFormAssigneeFieldProps {
 }
 
 export const TaskFormAssigneeField = ({ value, onChange, users, isLoading, disabled = false }: TaskFormAssigneeFieldProps) => (
-  <div className="group/field flex flex-col">
+  <div className="group/field flex flex-col gap-1.5">
     <label className={FIELD_LABEL_CLASS}>
       <User className={FIELD_LABEL_ICON_CLASS} /> Assignee
     </label>
