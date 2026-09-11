@@ -26,6 +26,13 @@ const envSchema = z.object({
     // Days of audit history to keep. 0 disables the retention sweep entirely, which is what
     // anyone with a "retain indefinitely" compliance requirement should set.
     AUDIT_RETENTION_DAYS: z.coerce.number().min(0).default(365),
+    // Days of in-app notifications to keep, read or unread. Unlike AuditLog these have no
+    // compliance reason to retain long-term — 90 days covers "what did I miss last quarter,"
+    // well past what anyone actually scrolls back through in the bell dropdown.
+    NOTIFICATION_RETENTION_DAYS: z.coerce.number().min(0).default(90),
+    // Days to keep a claimed webhook message id around for dedupe purposes. Meta/DoubleTick retry
+    // windows are hours, not weeks, so this only needs to outlast the longest realistic retry.
+    INBOUND_MESSAGE_RETENTION_DAYS: z.coerce.number().min(0).default(7),
 
     JWT_ACCESS_SECRET: z.string().min(10),
     JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
@@ -67,6 +74,13 @@ if (!parsed.success) {
 }
 
 const data = parsed.data;
+
+// COOKIE_SECURE gates the `Secure` flag on the httpOnly refresh-token cookie. Defaulting it to
+// false is right for local dev (no TLS), but the same default silently reaching production means
+// that cookie would be sendable over plain HTTP — refuse to boot rather than ship that quietly.
+if (data.NODE_ENV === 'production' && !data.COOKIE_SECURE) {
+    throw new Error('COOKIE_SECURE must be true when NODE_ENV=production (the refresh-token cookie must be sent over HTTPS only).');
+}
 
 // Build a single connection URL if one wasn't provided directly. mysql2 (and Drizzle's
 // mysql2 driver) accept a plain `mysql://user:pass@host:port/db` URL, so this keeps

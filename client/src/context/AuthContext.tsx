@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import type { Role } from '../api/auth';
+import { authApi, type Role } from '../api/auth';
 import { tokenStore } from '../lib/tokenStore';
 
 type User = { id: string; name: string; email: string; role: Role; departmentId: string | null; storeId: string | null };
@@ -38,6 +38,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const logout = () => {
+    // Fire-and-forget, not awaited — sign-out should stay instant like it always has, and there's
+    // nothing to react to locally either way. This revokes the refresh token server-side so the
+    // still-valid httpOnly cookie can't be replayed (via /auth/refresh) to silently mint a new
+    // session after the user believes they've signed out — clearing only the local token/user
+    // state below never invalidated that cookie.
+    authApi.logout().catch(() => {});
     tokenStore.set(null);
     localStorage.removeItem(USER_KEY);
     setUser(null);

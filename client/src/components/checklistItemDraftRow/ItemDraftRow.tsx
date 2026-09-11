@@ -94,7 +94,7 @@ export const ChecklistItemDraftRow = ({
     // width, not the viewport — it's dropped into modals of very different widths (a narrow
     // template-builder dialog vs. a wider one), and a viewport breakpoint would size the grid for
     // a browser window it isn't actually filling, cramming 3-4 columns into a few hundred pixels.
-    <div className="@container group relative flex flex-col bg-surface rounded-xl border border-border shadow-xs transition-all duration-200 hover:shadow-sm hover:border-border-hover overflow-hidden">
+    <div className="@container group relative flex flex-col bg-surface rounded-xl border border-border shadow-xs transition-colors duration-200 hover:border-border-hover overflow-hidden">
 
       {/* Header: always visible — step number, label, an at-a-glance summary once collapsed, and
           the row's controls (reorder / collapse / remove). */}

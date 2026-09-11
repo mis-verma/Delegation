@@ -14,14 +14,22 @@ import type {
     UpdateTaskChecklistItemPayload,
     CaptureMethod,
 } from "../../api/taskChecklist";
-import { handleQueryRetry, useEntityMutation, patchEntityInCache } from "../../lib/queryHelpers";
+import { handleQueryRetry, useEntityMutation, patchEntityInCache, errorMessage } from "../../lib/queryHelpers";
 import type { ConfirmSmartTaskPayload } from "../../api/task";
+import { taskBulkImportApi } from "../../api/taskBulkImport";
+import type { TaskBulkImportPublishPayload } from "../../api/taskBulkImport";
+import { toast } from "sonner";
 
 const TASK_KEYS = {
     // The cache key includes which user's tasks we're looking at, so "my tasks" and "some other
     // user's tasks" (from the admin page) never collide or overwrite each other in the cache.
     // 'mine' is just a readable placeholder for "no filter".
-    all:    (userId?: string) => ['tasks', userId ?? 'mine'] as const,
+    // The cache key carries every server-side filter, not just the user. Leaving one out is the
+    // exact bug the ticket list had: two callers asking for different slices shared one entry and
+    // whichever mounted first decided what everybody else saw. Tag ids are sorted and joined so
+    // the same selection in a different click order is the same key.
+    all: (userId?: string, tagIds?: string[]) =>
+        ['tasks', userId ?? 'mine', [...(tagIds ?? [])].sort().join(',')] as const,
     detail: (id: string) => ['tasks', 'detail', id] as const,
 };
 
@@ -29,11 +37,29 @@ const TASK_KEYS = {
 // enforced server-side in task.service.ts; a non-admin passing a userId here is just ignored).
 // `enabled` lets a caller (e.g. the header's quick search) defer the fetch until it's actually
 // needed, instead of every mount pulling the full list regardless of whether it's used yet.
-export const useTasksQuery = (userId?: string, enabled = true) => {
+export const useTasksQuery = (userId?: string, enabled = true, tagIds?: string[]) => {
     const { token } = useAuth();
     return useQuery({
-        queryKey: TASK_KEYS.all(userId),
-        queryFn:  () => taskApi.getAll(userId),
+        queryKey: TASK_KEYS.all(userId, tagIds),
+        queryFn:  () => taskApi.getAll(userId, undefined, 1, 200, tagIds),
+        // `select` keeps this hook's `data` a plain Task[], which is what all six call sites
+        // already expect — the paging meta rides along in the cache entry and is read through
+        // useTasksMetaQuery below rather than by widening every consumer's shape.
+        select: (page) => page.data,
+        enabled:  !!token && enabled,
+        retry: handleQueryRetry,
+    });
+};
+
+// Same query key, so this shares the one request/cache entry useTasksQuery already made — it just
+// selects the other half of the response. Lets a list surface "showing 200 of 1,240" instead of
+// presenting a truncated page as the complete set.
+export const useTasksMetaQuery = (userId?: string, enabled = true, tagIds?: string[]) => {
+    const { token } = useAuth();
+    return useQuery({
+        queryKey: TASK_KEYS.all(userId, tagIds),
+        queryFn:  () => taskApi.getAll(userId, undefined, 1, 200, tagIds),
+        select: (page) => page.meta,
         enabled:  !!token && enabled,
         retry: handleQueryRetry,
     });
@@ -131,6 +157,7 @@ export const useTasksByStatusQuery = (status: Task['status']) => {
     return useQuery({
         queryKey: ['tasks', 'by-status', status],
         queryFn: () => taskApi.getAll(undefined, status),
+        select: (page) => page.data,
         enabled: !!token,
         retry: handleQueryRetry,
     });
@@ -164,6 +191,29 @@ export const useAssignableUsersQuery = () => {
         queryFn:  () => userApi.getAssignable().then(r => r.data),
         enabled:  !!token,
         retry: handleQueryRetry,
+    });
+};
+
+// ── Bulk import (CSV/Excel → many delegations) ──────────────────────────
+// Same split as the checklist bulk-importer's two hooks: preview only reads and matches, so it
+// invalidates nothing; publish is the one step that actually creates delegations.
+export const useTaskBulkImportPreviewMutation = () =>
+    useMutation({
+        mutationFn: (file: File) => taskBulkImportApi.preview(file).then(r => r.data),
+        onError: (err) => toast.error(errorMessage(err, 'Failed to read that file')),
+    });
+
+export const useTaskBulkImportPublishMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (payload: TaskBulkImportPublishPayload) => taskBulkImportApi.publish(payload).then(r => r.data),
+        // Same key useCreateTaskWithAttachmentsMutation invalidates — prefix-matches every
+        // list/detail/compliance query under 'tasks'.
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['tasks'] });
+            queryClient.invalidateQueries({ queryKey: ['analytics'] });
+        },
+        onError: (err) => toast.error(errorMessage(err, 'Failed to publish this batch')),
     });
 };
 

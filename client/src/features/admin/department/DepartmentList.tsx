@@ -4,13 +4,12 @@ import { Plus, AlertCircle, Inbox } from "lucide-react";
 import type { Department } from "../../../api/departments";
 import { DepartmentCard } from "./DepartmentCard";
 import {
-  useDepartmentsPageQuery,
   useUsersQuery,
   useUpdateDepartmentMutation,
   useDeleteDepartmentMutation,
 } from "../hook";
-import { useStoresQuery } from "../../tickets/hook";
-import { Loader, FormLoadError, PageNav } from "../../../components";
+import { useDepartmentsQuery, useStoresQuery } from "../../tickets/hook";
+import { Loader, FormLoadError, PageNav, EntityStatusFilter, EntityCardSkeleton, type EntityStatusFilterValue, useConfirm } from "../../../components";
 
 const PAGE_SIZE = 24;
 
@@ -22,24 +21,7 @@ const DepartmentForm = lazy(() =>
 
 const DepartmentGridSkeleton = () => (
   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
-    {Array.from({ length: 6 }).map((_, i) => (
-      <div key={i} className="flex flex-col justify-between p-5 sm:p-6 rounded-2xl border border-border bg-surface shadow-sm h-44 animate-pulse">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-center gap-4 flex-1">
-            <div className="w-12 h-12 rounded-xl bg-surface-hover shrink-0" />
-            <div className="h-5 w-3/4 bg-surface-hover rounded" />
-          </div>
-          <div className="h-6 w-16 bg-surface-hover rounded-full shrink-0" />
-        </div>
-        <div className="flex items-center justify-between pt-4 border-t border-border/60 mt-auto">
-          <div className="h-6 w-24 bg-surface-hover rounded-lg" />
-          <div className="flex gap-1.5">
-            <div className="w-8 h-8 bg-surface-hover rounded-xl" />
-            <div className="w-8 h-8 bg-surface-hover rounded-xl" />
-          </div>
-        </div>
-      </div>
-    ))}
+    {Array.from({ length: 6 }).map((_, i) => <EntityCardSkeleton key={i} />)}
   </div>
 );
 
@@ -48,14 +30,37 @@ export const DepartmentList = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
   const [page, setPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState<EntityStatusFilterValue>('all');
 
-  const { data: departmentsPage, isPending, isError } = useDepartmentsPageQuery(page, PAGE_SIZE);
-  const departments = departmentsPage?.data ?? [];
-  const meta = departmentsPage?.meta;
+  // Filtering/pagination moved client-side (full roster, not a server page) so the Active/
+  // Inactive split can be seen and filtered at all.
+  const { data: allDepartments, isPending, isError, refetch } = useDepartmentsQuery();
+  const departments = useMemo(() => allDepartments ?? [], [allDepartments]);
   const { data: users } = useUsersQuery();
   const { data: stores } = useStoresQuery();
   const updateMut = useUpdateDepartmentMutation();
   const deleteMut = useDeleteDepartmentMutation();
+  const confirm = useConfirm();
+
+  const statusCounts = useMemo(() => ({
+    all: departments.length,
+    active: departments.filter(d => d.isActive).length,
+    inactive: departments.filter(d => !d.isActive).length,
+  }), [departments]);
+
+  const filteredDepartments = useMemo(() => {
+    if (statusFilter === 'all') return departments;
+    return departments.filter(d => d.isActive === (statusFilter === 'active'));
+  }, [departments, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredDepartments.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageDepartments = filteredDepartments.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
+  const changeStatusFilter = (value: EntityStatusFilterValue) => {
+    setStatusFilter(value);
+    setPage(1);
+  };
 
   // Optimized O(N) counter using useMemo
   const memberCounts = useMemo(() => {
@@ -83,6 +88,16 @@ export const DepartmentList = () => {
     setEditingDepartment(null);
   };
 
+  const handleDelete = async (department: Department) => {
+    const ok = await confirm({
+      title: `Delete ${department.name}?`,
+      description: 'This permanently removes the department. This cannot be undone.',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
+    if (ok) deleteMut.mutate(department.id);
+  };
+
   // Pattern matching view renderer
   const renderContent = () => {
     if (isPending) {
@@ -93,37 +108,48 @@ export const DepartmentList = () => {
       return (
         <div className="flex items-center gap-3 p-4 rounded-xl bg-danger/10 border border-danger/20 text-danger text-sm font-display font-medium">
           <AlertCircle className="w-5 h-5 shrink-0" />
-          <p>Failed to load departments. Please check your connection and try again.</p>
+          <p className="flex-1">Failed to load departments. Please check your connection and try again.</p>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="shrink-0 px-3 py-1.5 rounded-md text-xs font-display font-semibold border border-danger/30 hover:bg-danger/10 cursor-pointer transition-colors outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+          >
+            Retry
+          </button>
         </div>
       );
     }
 
-    if (departments.length === 0) {
+    if (filteredDepartments.length === 0) {
       return (
         <section className="flex flex-col items-center justify-center py-20 px-4 rounded-3xl border-2 border-dashed border-border bg-surface-hover/40 text-center">
           <div className="mb-5 text-text-muted">
             <Inbox className="w-8 h-8" />
           </div>
           <h3 className="text-lg font-display font-bold text-text mb-2">
-            No departments yet
+            {statusFilter === 'all' ? 'No departments yet' : `No ${statusFilter} departments`}
           </h3>
           <p className="text-sm text-text-muted max-w-sm mb-8">
-            Departments help you group users and scope checklist assignments. Get started by creating your first one.
+            {statusFilter === 'all'
+              ? 'Departments help you group users and scope checklist assignments. Get started by creating your first one.'
+              : 'Switch to "All" to see everyone, or adjust the filter.'}
           </p>
-          <button
-            onClick={() => setShowForm(true)}
-            className="press-feedback inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-display font-bold rounded-xl shadow-sm bg-surface text-text-secondary border border-border transition-all duration-300 hover:bg-surface-hover hover:text-primary-600 hover:border-primary-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Create department
-          </button>
+          {statusFilter === 'all' && (
+            <button
+              onClick={() => setShowForm(true)}
+              className="press-feedback inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-display font-bold rounded-xl shadow-sm bg-surface text-text-secondary border border-border transition-all duration-300 hover:bg-surface-hover hover:text-primary-600 hover:border-primary-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Create department
+            </button>
+          )}
         </section>
       );
     }
 
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
-        {departments.map(d => (
+        {pageDepartments.map(d => (
           <DepartmentCard
             key={d.id}
             department={d}
@@ -133,7 +159,7 @@ export const DepartmentList = () => {
             isDeleting={deleteMut.isPending && deleteMut.variables === d.id}
             onToggleActive={toggleActive}
             onEdit={setEditingDepartment}
-            onDelete={deleteMut.mutate}
+            onDelete={() => handleDelete(d)}
           />
         ))}
       </div>
@@ -145,9 +171,7 @@ export const DepartmentList = () => {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-xs text-text-muted">
-          {meta?.total ?? departments.length} {(meta?.total ?? departments.length) === 1 ? 'department' : 'departments'} configured
-        </p>
+        <EntityStatusFilter value={statusFilter} onChange={changeStatusFilter} counts={statusCounts} />
 
         <button
           onClick={() => setShowForm(true)}
@@ -160,8 +184,8 @@ export const DepartmentList = () => {
 
       {renderContent()}
 
-      {meta && meta.totalPages > 1 && (
-        <PageNav page={page} totalPages={meta.totalPages} onPageChange={setPage} className="pt-1" />
+      {totalPages > 1 && (
+        <PageNav page={safePage} totalPages={totalPages} onPageChange={setPage} className="pt-1" />
       )}
 
       {activeModal && (

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { apiFetch } from './http';
 import { arrayField, withArrayDefaults, normalizeWith } from './normalize';
+import type { Tag } from './tags';
 
 export type Priority       = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type AssignmentMode = 'AUTO' | 'MANUAL';
@@ -15,6 +16,16 @@ export type TatReportRow = {
   avgTatHours : number | null;
   overdueCount : number;
   completionRate : number | null;
+}
+
+export type OwnerStatsScope = 'department' | 'store' | 'user' | 'org';
+
+export type OwnerStatsRow = {
+  ownerId : string | null;
+  total : number;
+  closed : number;
+  overdueCount : number;
+  avgTatHours : number | null;
 }
 
 export type CaptureMethod = 'LIVE' | 'GALLERY';
@@ -111,6 +122,7 @@ export type Ticket = {
   attachments:    TicketAttachment[];
   comments:       TicketComment[];
   statusUpdates:  TicketStatusUpdate[];
+  tags:           Tag[];
   isOverdue:      boolean;
   verifiedBy:       string | null;
   verifiedAt:       string | null;
@@ -139,6 +151,7 @@ export type CreateTicketPayload = {
   categoryId?:     string;
   departmentId?:   string;
   tatHours?:       number;
+  tagIds?:         string[];
 };
 
 export type UpdateTicketPayload = Partial<Omit<CreateTicketPayload, 'assigneeId'> & { status: TicketStatus; assigneeId: string | null }>;
@@ -178,14 +191,24 @@ const ticketArrayDefaults = withArrayDefaults({
   attachments: arrayField(z.unknown()),
   checklists: arrayField(z.unknown()),
   statusUpdates: arrayField(z.unknown()),
+  // Ticket rows that existed before this feature shipped have no tags at all — guarded the same
+  // way the others are so an old ticket doesn't crash a `.map()` somewhere expecting an array.
+  tags: arrayField(z.unknown()),
 });
 const normalizeTicket = (raw: unknown) => normalizeWith<Ticket>(ticketArrayDefaults, raw);
 
 export const ticketApi = {
-  getAll: (page = 1, limit = 20, status?: TicketStatus, assigneeId?: string) =>
-    apiFetch<PaginatedResponse<Ticket>>(
-      `/tickets?page=${page}&limit=${limit}${status ? `&status=${status}` : ''}${assigneeId ? `&assigneeId=${assigneeId}` : ''}`,
-    ).then(r => ({ ...r, data: r.data.map(normalizeTicket) })),
+  getAll: (page = 1, limit = 20, status?: TicketStatus, assigneeId?: string, overdue?: boolean, from?: string, to?: string, dateField?: 'createdAt' | 'closedAt') => {
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+    if (status) params.set('status', status);
+    if (assigneeId) params.set('assigneeId', assigneeId);
+    if (overdue !== undefined) params.set('overdue', String(overdue));
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    if (dateField) params.set('dateField', dateField);
+    return apiFetch<PaginatedResponse<Ticket>>(`/tickets?${params.toString()}`)
+      .then(r => ({ ...r, data: r.data.map(normalizeTicket) }));
+  },
 
   getOne: (id: string) =>
     apiFetch<ApiResponse<Ticket>>(`/tickets/${id}`).then(r => ({ ...r, data: normalizeTicket(r.data) })),
@@ -273,5 +296,19 @@ export const ticketApi = {
     if (departmentId) params.set('departmentId', departmentId);
     if (storeId) params.set('storeId', storeId);
     return apiFetch<ApiResponse<TatReportRow[]>>(`/tickets/reports/tat?${params.toString()}`);
+  },
+
+  // Real GROUP BY aggregate behind the department/store ranking tables, the team leaderboard, and
+  // the org-wide on-time/overdue stat cards — see ticket.service.ts#ownerStats for why this
+  // replaced reducing over a single newest-100-tickets page client-side.
+  // departmentId/storeId are only honored for ADMIN/PC callers — MANAGER/SENIOR get their own
+  // scope forced server-side regardless of what's passed here (see ticket.controller.ts).
+  getOwnerStats : (scope : OwnerStatsScope, from?: string, to?: string, departmentId?: string, storeId?: string) => {
+    const params = new URLSearchParams({ scope });
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    if (departmentId) params.set('departmentId', departmentId);
+    if (storeId) params.set('storeId', storeId);
+    return apiFetch<ApiResponse<OwnerStatsRow[]>>(`/tickets/reports/by-owner?${params.toString()}`);
   },
 };

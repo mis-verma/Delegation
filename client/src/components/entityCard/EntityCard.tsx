@@ -3,6 +3,7 @@ import { Pencil, Trash2 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { Loader } from '../loaders/Loader';
+import { Skeleton } from '../skeleton';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -11,8 +12,34 @@ function cn(...inputs: ClassValue[]) {
 // Shared visual language for the Users / Departments / Stores cards — one definition so the
 // three entity types read as one design system instead of three hand-drifted lookalikes.
 
-export const ENTITY_CARD_CLASS = 
-  'group relative flex flex-col justify-between p-4 sm:p-5 bg-surface rounded-2xl border border-border shadow-sm transition-all duration-400 ease-out hover:shadow-xl hover:shadow-border/50 hover:-translate-y-1 hover:border-primary-200';
+export const ENTITY_CARD_CLASS =
+  'group relative flex flex-col justify-between p-4 sm:p-5 bg-surface rounded-2xl border border-border/60 transition-colors duration-150 hover:border-primary-300';
+
+// Loading placeholder shaped exactly like a real Users/Departments/Stores card (ENTITY_CARD_CLASS's
+// own padding/radius/border, not a hand-drifted approximation) — the three lists used to each
+// define their own skeleton with a different padding/height that didn't quite match the card that
+// would replace it, causing a visible layout jump the instant real data arrived.
+export const EntityCardSkeleton = () => (
+  <div className={cn(ENTITY_CARD_CLASS, 'gap-2.5')}>
+    <div className="flex items-start justify-between gap-2.5 mb-2.5">
+      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+        <Skeleton className="size-10 rounded-xl shrink-0" />
+        <div className="space-y-1.5 flex-1 min-w-0 max-w-[70%]">
+          <Skeleton className="h-3.5 w-3/4" />
+          <Skeleton className="h-3 w-1/2" />
+        </div>
+      </div>
+      <Skeleton className="h-6 w-16 rounded-full shrink-0" />
+    </div>
+    <div className="flex items-center justify-between pt-2.5 border-t border-border/60 mt-auto">
+      <Skeleton className="h-6 w-20 rounded-lg" />
+      <div className="flex gap-1">
+        <Skeleton className="size-8 rounded-lg" />
+        <Skeleton className="size-8 rounded-lg" />
+      </div>
+    </div>
+  </div>
+);
 
 interface EntityIconTileProps {
   icon: LucideIcon;
@@ -25,7 +52,7 @@ interface EntityIconTileProps {
 export const EntityIconTile = ({ icon: Icon, tone = 'primary', className }: EntityIconTileProps) => (
   <div
     className={cn(
-      'flex items-center justify-center size-10 rounded-xl shrink-0 transition-colors duration-300',
+      'flex items-center justify-center size-10 rounded-xl shrink-0 transition-all duration-300 group-hover:scale-105',
       tone === 'coral'
         ? 'bg-coral-50 text-coral-600 ring-1 ring-coral-100/50 group-hover:bg-coral-100'
         : 'bg-primary-50 text-primary-600 ring-1 ring-primary-100/50 group-hover:bg-primary-100',
@@ -52,7 +79,7 @@ export const StatusPill = ({ active, isUpdating, onToggle, ariaLabel }: StatusPi
     aria-label={ariaLabel}
     className={cn(
       'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider shrink-0 transition-all duration-200 active:scale-95',
-      'focus:outline-none focus:ring-4 focus:ring-primary-50/50',
+      'focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-50/50',
       active
         ? 'bg-success/10 text-success ring-1 ring-success/20 hover:bg-success/15'
         : 'bg-surface-hover text-text-muted ring-1 ring-border hover:bg-surface-active',
@@ -80,6 +107,45 @@ export const MetricPill = ({ icon: Icon, children }: MetricPillProps) => (
   </div>
 );
 
+export type EntityStatusFilterValue = 'all' | 'active' | 'inactive';
+
+interface EntityStatusFilterProps {
+  value: EntityStatusFilterValue;
+  onChange: (value: EntityStatusFilterValue) => void;
+  counts: { all: number; active: number; inactive: number };
+}
+
+// Shared "who's active, who's isn't" segmented filter for the Users/Departments/Stores lists —
+// a plain running count used to say how many rows existed, with no way to see the active/inactive
+// split without opening each card individually.
+export const EntityStatusFilter = ({ value, onChange, counts }: EntityStatusFilterProps) => (
+  <div className="inline-flex items-center gap-1 p-1 rounded-full bg-surface-hover border border-border/60 w-fit">
+    {([
+      { key: 'all' as const, label: 'All' },
+      { key: 'active' as const, label: 'Active' },
+      { key: 'inactive' as const, label: 'Inactive' },
+    ]).map(({ key, label }) => (
+      <button
+        key={key}
+        type="button"
+        onClick={() => onChange(key)}
+        aria-pressed={value === key}
+        className={cn(
+          'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-display font-bold transition-all duration-200 cursor-pointer',
+          value === key
+            ? 'bg-primary-700 text-white shadow-sm'
+            : 'text-text-muted hover:text-text hover:bg-surface-active'
+        )}
+      >
+        {label}
+        <span className={cn('text-[10px] font-semibold tabular-nums', value === key ? 'text-white/70' : 'text-text-light')}>
+          {counts[key]}
+        </span>
+      </button>
+    ))}
+  </div>
+);
+
 interface EntityCardActionsProps {
   onEdit: () => void;
   onDelete: () => void;
@@ -93,7 +159,7 @@ export const EntityCardActions = ({ onEdit, onDelete, isDeleting, editLabel, del
     <button
       type="button"
       onClick={onEdit}
-      className="p-2 rounded-lg text-text-muted transition-all duration-200 hover:bg-primary-50 hover:text-primary-600 focus:outline-none focus:ring-4 focus:ring-primary-50/50 active:scale-90"
+      className="p-2 rounded-lg text-text-muted transition-all duration-200 hover:bg-primary-50 hover:text-primary-600 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-50/50 active:scale-90"
       aria-label={editLabel}
     >
       <Pencil className="size-4" strokeWidth={2.5} />
@@ -104,7 +170,7 @@ export const EntityCardActions = ({ onEdit, onDelete, isDeleting, editLabel, del
       onClick={onDelete}
       disabled={isDeleting}
       className={cn(
-        'p-2 rounded-lg text-text-muted transition-all duration-200 hover:bg-danger/10 hover:text-danger focus:outline-none focus:ring-4 focus:ring-danger/10 active:scale-90',
+        'p-2 rounded-lg text-text-muted transition-all duration-200 hover:bg-danger/10 hover:text-danger focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-danger/10 active:scale-90',
         isDeleting && 'opacity-50 cursor-not-allowed active:scale-100'
       )}
       aria-label={deleteLabel}

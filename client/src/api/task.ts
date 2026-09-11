@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { apiFetch } from './http';
 import { arrayField, withArrayDefaults, normalizeWith } from './normalize';
 import { taskChecklistDefaults, type TaskChecklist } from './taskChecklist';
+import type { Tag } from './tags';
 
 export type TaskAttachment = {
     id:               string;
@@ -58,6 +59,8 @@ export type Task = {
     } | null;
     checklists?:  TaskChecklist[];
     attachments?: TaskAttachment[];
+    /** Labels, alphabetical. Returned by both the list and detail endpoints. */
+    tags?: Tag[];
     /** Newest first. Only the detail endpoint returns these — list responses omit them. */
     statusUpdates?: TaskStatusUpdate[];
 };
@@ -75,6 +78,13 @@ export type CreateTaskPayload = {
     assigneeId?:   string;
     additionalAssigneeIds?: string[];
     departmentId?: string;
+    /**
+     * Label ids to attach. Server caps the array at 12.
+     *
+     * On a PATCH, omitting this leaves the delegation's labels alone; sending `[]` clears them.
+     * That distinction matters — a status move PATCH must not wipe the labels as a side effect.
+     */
+    tagIds?: string[];
 };
 
 
@@ -128,7 +138,18 @@ export type ComplianceReportRow = {
     qualityRate: number | null;
 };
 
+export type TaskOwnerStatsScope = 'department' | 'user' | 'org';
+export type TaskOwnerStatsRow = {
+    ownerId: string | null;
+    total: number;
+    done: number;
+    overdueCount: number;
+};
+
 export type ApiResponse<T> = { success: boolean; data: T };
+
+export type ListMeta = { page: number; limit: number; total: number; totalPages: number; hasNext: boolean };
+export type TaskListPage = { data: Task[]; meta: ListMeta };
 
 // additionalAssigneeIds is the field that actually crashed the dashboard (spread of an undefined
 // value) — checklists/attachments are the same "typed as always-present" shape and just haven't
@@ -141,16 +162,27 @@ const taskArrayDefaults = withArrayDefaults({
     checklists: arrayField(taskChecklistDefaults).optional(),
     attachments: arrayField(z.unknown()).optional(),
     statusUpdates: arrayField(z.unknown()).optional(),
+    // Same guard as the rest: every view maps over this, so a response that omits it (an older
+    // server, or a code path that forgets the join) must yield [] rather than crash the render.
+    tags: arrayField(z.unknown()).optional(),
 });
 const normalizeTask = (raw: unknown) => normalizeWith<Task>(taskArrayDefaults, raw);
 
 export const taskApi = {
-    getAll: (userId?: string, status?: Task['status']) => {
+    // Returns the page AND its meta. `limit` is now sent explicitly rather than relying on the
+    // server's default, and `meta.total` is what lets a caller tell "this is everything" apart
+    // from "this is the first `limit` of N" — the distinction the old bare-array response lost.
+    getAll: (userId?: string, status?: Task['status'], page = 1, limit = 200, tagIds?: string[]): Promise<TaskListPage> => {
         const params = new URLSearchParams();
         if (userId) params.set('userId', userId);
         if (status) params.set('status', status);
-        const qs = params.toString();
-        return apiFetch<ApiResponse<Task[]>>(qs ? `/tasks?${qs}` : '/tasks').then(r => r.data.map(normalizeTask));
+        // Server-side so the page's counts describe the filtered set rather than a client-side
+        // slice of a truncated page. Matched as OR — any of these labels.
+        if (tagIds?.length) params.set('tagIds', tagIds.join(','));
+        params.set('page', String(page));
+        params.set('limit', String(limit));
+        return apiFetch<ApiResponse<Task[]> & { meta: ListMeta }>(`/tasks?${params.toString()}`)
+            .then(r => ({ data: r.data.map(normalizeTask), meta: r.meta }));
     },
 
     parseSmart: (text: string) =>
@@ -186,6 +218,14 @@ export const taskApi = {
         if (departmentId) params.set('departmentId', departmentId);
         if (userId) params.set('userId', userId);
         return apiFetch<ApiResponse<ComplianceReportRow[]>>(`/tasks/reports/compliance?${params.toString()}`);
+    },
+
+    getOwnerStats: (scope: TaskOwnerStatsScope, from?: string, to?: string, departmentId?: string) => {
+        const params = new URLSearchParams({ scope });
+        if (from) params.set('from', from);
+        if (to) params.set('to', to);
+        if (departmentId) params.set('departmentId', departmentId);
+        return apiFetch<ApiResponse<TaskOwnerStatsRow[]>>(`/tasks/reports/by-owner?${params.toString()}`);
     },
 
     uploadAttachments: (taskId: string, files: File[]) => {

@@ -43,8 +43,18 @@ export class ApiError extends Error {
 }
 
 const forceLogout = () => {
+  // Best-effort, not awaited: the refresh token is almost certainly already dead (that's why
+  // refreshAccessToken just failed), but if it's somehow still valid server-side this revokes it
+  // instead of leaving it usable. A raw fetch, not authApi.logout()/apiFetch — this file is what
+  // apiFetch itself lives in, so importing back from api/auth.ts here would be circular.
+  fetch(`${BASE}/auth/logout`, { method: 'POST', credentials: 'include' }).catch(() => {});
   localStorage.removeItem('tm-user');
   tokenStore.set(null);
+  // A hard redirect, not an in-app navigate: this path only runs when the session has already
+  // died out from under an in-flight request, so there's no in-progress UI worth preserving — a
+  // full reload guarantees every bit of stale in-memory state (including the React Query cache
+  // AuthContext.logout otherwise clears by hand) is gone, with no separate cleanup call to keep in
+  // sync with that one.
   window.location.href = '/login';
 };
 
@@ -66,7 +76,15 @@ export const apiFetch = async <T>(path: string, options: RequestInit = {}): Prom
       },
     });
 
-  let res = await doFetch(token);
+  // A genuine network failure (offline, DNS, CORS) throws a raw, browser-worded TypeError here
+  // ("Failed to fetch" and similar) — every other failure path in this function already surfaces a
+  // clean message, so this is the one spot that could still show a user something like that.
+  let res: Response;
+  try {
+    res = await doFetch(token);
+  } catch {
+    throw new Error('Network error — check your connection and try again');
+  }
 
   if (res.status === 401 && token && !isAuthEndpoint) {
     const newToken = await refreshAccessToken(token);

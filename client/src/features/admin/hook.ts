@@ -12,6 +12,7 @@ import {
     type UpdateChecklistTemplateItemPayload,
 } from "../../api/checklistTemplates";
 import { settingApi , type UpdateSettingsPayload } from "../../api/settings";
+import { handleQueryRetry } from "../../lib/queryHelpers";
 import { toast } from "sonner";
 
 const errorMessage = (err: unknown, fallback: string) => (err instanceof Error ? err.message : fallback);
@@ -52,17 +53,7 @@ export const useUsersQuery = (enabled: boolean = true) => {
         queryKey: USER_KEYS.all,
         queryFn: () => adminApi.getAll().then(r => r.data),
         enabled: !!token && enabled,
-    });
-};
-
-// Paginated variant for the admin directory's Users list — keeps useUsersQuery above (the full
-// roster) for every other caller (org structure's tree, etc.) untouched.
-export const useUsersPageQuery = (page = 1, limit = 20) => {
-    const { token } = useAuth();
-    return useQuery({
-        queryKey: [...USER_KEYS.all, 'page', page, limit] as const,
-        queryFn: () => adminApi.getPage(page, limit),
-        enabled: !!token,
+        retry: handleQueryRetry,
     });
 };
 
@@ -164,17 +155,6 @@ const DEPARTMENT_KEY = {
 // two. Re-exported instead so every existing `from '../hook'` import site keeps working unchanged.
 export { useDepartmentsQuery } from '../tickets/hook';
 
-// Paginated variant for the admin directory's Departments list — useDepartmentsQuery above (the
-// full list) stays untouched for every other caller (dropdowns, org structure, etc.).
-export const useDepartmentsPageQuery = (page = 1, limit = 20) => {
-    const { token } = useAuth();
-    return useQuery({
-        queryKey: [...DEPARTMENT_KEY.all, 'page', page, limit] as const,
-        queryFn: () => departmentApi.getPage(page, limit),
-        enabled: !!token,
-    })
-};
-
 export const useCreateDepartmentMutation = () => {
     const queryClient = useQueryClient();
     return useMutation({
@@ -265,6 +245,7 @@ export const useChecklistTemplatesQuery = (appliesTo?: ChecklistTemplateTarget) 
         queryKey: CHECKLIST_TEMPLATE_KEY.all(appliesTo),
         queryFn: () => checklistTemplateApi.getAll(appliesTo).then(r => r.data),
         enabled: !!token,
+        retry: handleQueryRetry,
     })
 };
 

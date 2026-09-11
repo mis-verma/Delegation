@@ -18,9 +18,9 @@ const OrgStructureSkeleton = () => (
 );
 
 export const OrgStructurePage = () => {
-  const { data: stores, isPending: storesPending, isError: storesError } = useStoresQuery();
-  const { data: departments, isPending: deptsPending, isError: deptsError } = useDepartmentsQuery();
-  const { data: users, isPending: usersPending, isError: usersError } = useUsersQuery();
+  const { data: stores, isPending: storesPending, isError: storesError, refetch: refetchStores } = useStoresQuery();
+  const { data: departments, isPending: deptsPending, isError: deptsError, refetch: refetchDepts } = useDepartmentsQuery();
+  const { data: users, isPending: usersPending, isError: usersError, refetch: refetchUsers } = useUsersQuery();
 
   const [query, setQuery] = useState('');
   const [expandedStores, setExpandedStores] = useState<Set<string>>(new Set());
@@ -47,6 +47,11 @@ export const OrgStructurePage = () => {
   // sibling a freshly-created callback prop, which would defeat the memo on every render.
   const toggleStore = useCallback((id: string) => setExpandedStores((prev) => toggleInSet(prev, id)), []);
   const toggleDept = useCallback((id: string) => setExpandedDepts((prev) => toggleInSet(prev, id)), []);
+  // Unlike toggleStore/toggleDept above, this one's identity CAN'T stay stable — it reads
+  // `expandedDepts`, so it has to change whenever that Set does (any department toggle, anywhere
+  // in the tree). StoreSection's own memo() comparator is what stops that from fanning out into a
+  // re-render of every store section instead of just the one whose department actually changed —
+  // see StoreSection.tsx's arePropsEqual.
   const isDeptOpen = useCallback((id: string) => expandedDepts.has(id), [expandedDepts]);
 
   const expandAll = () => {
@@ -147,7 +152,14 @@ export const OrgStructurePage = () => {
       ) : isError ? (
         <div className="flex items-center gap-3 p-4 rounded-xl bg-danger/10 border border-danger/20 text-danger text-sm font-display font-medium">
           <AlertCircle className="w-5 h-5 shrink-0" />
-          <p>Failed to load the organization structure. Please check your connection and try again.</p>
+          <p className="flex-1">Failed to load the organization structure. Please check your connection and try again.</p>
+          <button
+            type="button"
+            onClick={() => { refetchStores(); refetchDepts(); refetchUsers(); }}
+            className="shrink-0 px-3 py-1.5 rounded-md text-xs font-display font-semibold border border-danger/30 hover:bg-danger/10 cursor-pointer transition-colors outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+          >
+            Retry
+          </button>
         </div>
       ) : !hasAnyResults ? (
         <section className="flex flex-col items-center justify-center py-20 px-4 rounded-3xl border-2 border-dashed border-border bg-surface-hover/40 text-center">

@@ -1,14 +1,14 @@
 import type { Request , Response } from "express"
 import { taskService } from "./task.service.js"
-import { createTaskSchema , updateTaskSchema, verifyTaskSchema, complianceReportQuerySchema, listTasksQuerySchema } from "./task.validation.js"
+import { createTaskSchema , updateTaskSchema, verifyTaskSchema, complianceReportQuerySchema, listTasksQuerySchema, taskOwnerStatsQuerySchema } from "./task.validation.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
 import { resolveReportScope, resolveDepartmentIdsForStore } from "../../utils/reportScope.js"
 
 export const taskController = {
     list : asyncHandler(async ( req : Request , res : Response) => {
         const query = listTasksQuerySchema.parse(req.query);
-        const tasks = await taskService.list(req.user!, query.userId, query.status, query.page, query.limit)
-        res.json({ success : true, data : tasks })
+        const { data, meta } = await taskService.list(req.user!, query.userId, query.status, query.page, query.limit, query.tagIds)
+        res.json({ success : true, data, meta })
     }),
 
     getOne : asyncHandler(async (req : Request , res : Response) => {
@@ -52,6 +52,19 @@ export const taskController = {
             ? await resolveDepartmentIdsForStore(req.user!.storeId)
             : undefined;
         const data = await taskService.complianceReport(query.groupBy, departmentId, query.from, query.to, userId, departmentIds);
+        res.json({ success : true, data })
+    }),
+
+    ownerStats : asyncHandler(async (req : Request , res : Response) => {
+        const query = taskOwnerStatsQuerySchema.parse(req.query);
+        const role = req.user!.role;
+        const { departmentId } = resolveReportScope(req.user!, { departmentId: query.departmentId });
+        // Task has no storeId, so a SENIOR resolves through every department that belongs to
+        // their store instead (same as complianceReport above).
+        const departmentIds = role === "SENIOR" && req.user!.storeId
+            ? await resolveDepartmentIdsForStore(req.user!.storeId)
+            : undefined;
+        const data = await taskService.ownerStats(query.scope, query.from, query.to, departmentId, departmentIds);
         res.json({ success : true, data })
     }),
 }

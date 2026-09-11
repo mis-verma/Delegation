@@ -23,9 +23,7 @@ interface StoreSectionProps {
   onToggleDept: (id: string) => void;
 }
 
-// Memoized: without this, toggling any one store (or department, anywhere in the tree) re-renders
-// every other store section too, since they're all siblings in one .map() over shared state.
-export const StoreSection = memo(({ node, isOpen, forceOpen, onToggle, isDeptOpen, onToggleDept }: StoreSectionProps) => {
+const StoreSectionComponent = ({ node, isOpen, forceOpen, onToggle, isDeptOpen, onToggleDept }: StoreSectionProps) => {
   const open = isOpen || forceOpen;
   const allUsers = useMemo(
     () => [...node.directUsers, ...node.departments.flatMap((d) => d.users)],
@@ -38,7 +36,9 @@ export const StoreSection = memo(({ node, isOpen, forceOpen, onToggle, isDeptOpe
   );
 
   return (
-    <div className="group/store rounded-2xl border border-border bg-surface shadow-sm overflow-hidden transition-all duration-300 hover:shadow-lg hover:border-coral-200">
+    // No box-shadow — was shadow-sm at rest, hover:shadow-lg on hover, the one card in the app
+    // that grew a shadow on hover instead of just shifting border color like every other card.
+    <div className="group/store rounded-2xl border border-border bg-surface overflow-hidden transition-all duration-300 hover:border-coral-200">
       <button
         type="button"
         onClick={forceOpen ? undefined : () => onToggle(node.store.id)}
@@ -85,7 +85,7 @@ export const StoreSection = memo(({ node, isOpen, forceOpen, onToggle, isDeptOpe
                   ))}
                   {node.directUsers.length > 0 && (
                     <div className="rounded-xl border border-dashed border-border px-2 py-2 bg-surface-hover/40">
-                      <p className="px-1 pb-1 text-[10px] font-display font-bold text-text-light uppercase tracking-wide">
+                      <p className="px-1 pb-1 text-[10px] font-display font-bold text-text-light tracking-wide">
                         Store-level staff (no department)
                       </p>
                       {node.directUsers.map((u) => (
@@ -101,5 +101,27 @@ export const StoreSection = memo(({ node, isOpen, forceOpen, onToggle, isDeptOpe
       </AnimatePresence>
     </div>
   );
-});
+};
+
+// Custom comparator, not a default shallow-props memo(): `isDeptOpen` is a closure over
+// OrgStructurePage's whole `expandedDepts` Set, so its identity changes on every single
+// department toggle anywhere in the tree — a default shallow compare would see that as "a prop
+// changed" and re-render every StoreSection, not just the one containing the toggled department,
+// defeating the memoization this component exists for. Comparing the actually-resolved open/
+// closed state of this store's own departments instead means an unrelated store's section only
+// re-renders when something about IT changes.
+const arePropsEqual = (prev: StoreSectionProps, next: StoreSectionProps): boolean => {
+  if (
+    prev.node !== next.node ||
+    prev.isOpen !== next.isOpen ||
+    prev.forceOpen !== next.forceOpen ||
+    prev.onToggle !== next.onToggle ||
+    prev.onToggleDept !== next.onToggleDept
+  ) {
+    return false;
+  }
+  return prev.node.departments.every((d) => prev.isDeptOpen(d.department.id) === next.isDeptOpen(d.department.id));
+};
+
+export const StoreSection = memo(StoreSectionComponent, arePropsEqual);
 StoreSection.displayName = 'StoreSection';

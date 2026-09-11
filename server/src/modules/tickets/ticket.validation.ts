@@ -11,7 +11,10 @@ export const createTicketSchema = z.object({
     storeId : objectId.optional(),
     categoryId : objectId.optional(),
     departmentId : objectId.optional(),
-    tatHours : z.number().positive().optional()
+    tatHours : z.number().positive().optional(),
+    // Labels. Capped the same as Task's — a ticket carrying more than a dozen isn't labelled,
+    // it's noise. Reuses Task's own `tags` table (see ticketTags in db/schema/ticket.ts).
+    tagIds : z.array(objectId).max(12).optional()
 })
 export const updateTicketSchema = createTicketSchema.partial().extend({
     status : z.enum(TICKET_STATUSES).optional(),
@@ -29,12 +32,37 @@ export const paginatioinSchema = z.object({
     // drill-down) — ignored for a non-privileged caller, same treatment as task.service.ts's
     // filterUserId.
     assigneeId : objectId.optional(),
+    // Backs the on-time/overdue stat-card drill-downs on OrgOverview (AnalyticsSummaryStrip) —
+    // the exact tickets behind a real ownerStats() count, not a client-side filter over whatever
+    // page happened to already be loaded.
+    overdue : z.coerce.boolean().optional(),
+    from : z.string().datetime().optional(),
+    to : z.string().datetime().optional(),
+    // The "On-time completion" drilldown scopes its from/to by closedAt instead of createdAt, to
+    // match tatReport's own closedAt-scoped bucketing (see ticket.service.ts#tatReport) — the stat
+    // card's percentage and its drilldown's row set now describe the exact same population.
+    dateField : z.enum(["createdAt", "closedAt"]).optional().default("createdAt"),
 })
 
 export const tatReportQuerySchema = z.object({
     groupBy : z.enum(["hour", "day", "week", "month", "year"]).default("day"),
-    from : z.string().optional(),
-    to : z.string().optional(),
+    // Client sends computeRange()'s toISOString() output — matching createTaskSchema's
+    // startDate/dueDate convention here catches a malformed value as a clean 400 instead of
+    // an Invalid Date silently reaching the raw SQL template in tatReport().
+    from : z.string().datetime().optional(),
+    to : z.string().datetime().optional(),
+    // Only honored for ADMIN/PC callers — MANAGER/SENIOR get their own departmentId/storeId
+    // forced by the controller regardless of what's sent here (see ticket.controller.ts).
+    departmentId : objectId.optional(),
+    storeId : objectId.optional(),
+})
+
+// Same from/to convention as tatReportQuerySchema above — a malformed value fails validation as a
+// clean 400 instead of an Invalid Date silently reaching ownerStats()'s raw SQL template.
+export const ownerStatsQuerySchema = z.object({
+    scope : z.enum(["department", "store", "user", "org"]).default("org"),
+    from : z.string().datetime().optional(),
+    to : z.string().datetime().optional(),
     // Only honored for ADMIN/PC callers — MANAGER/SENIOR get their own departmentId/storeId
     // forced by the controller regardless of what's sent here (see ticket.controller.ts).
     departmentId : objectId.optional(),
@@ -66,5 +94,6 @@ export const statusUpdateSchema = z.object({
 export type CreateTicketInput = z.infer<typeof createTicketSchema>;
 export type UpdateTicketInput = z.infer<typeof updateTicketSchema>;
 export type TatReportQuery = z.infer<typeof tatReportQuerySchema>;
+export type OwnerStatsQuery = z.infer<typeof ownerStatsQuerySchema>;
 export type VerifyTicketInput = z.infer<typeof verifyTicketSchema>;
 export type StatusUpdateInput = z.infer<typeof statusUpdateSchema>;

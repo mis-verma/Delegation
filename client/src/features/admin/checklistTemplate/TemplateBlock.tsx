@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Trash2, ChevronDown, ChevronRight, Loader2, Building2, Layers, Sparkles } from 'lucide-react';
-import { Button } from '../../../components';
+import { Button, useConfirm } from '../../../components';
 import {
   useDeleteChecklistTemplateMutation,
   useAddChecklistTemplateItemMutation,
@@ -20,7 +20,11 @@ export const TemplateBlock = ({ template, departmentName }: TemplateBlockProps) 
   const [newLabel, setNewLabel] = useState('');
   const deleteTemplate = useDeleteChecklistTemplateMutation();
   const addItem = useAddChecklistTemplateItemMutation();
-  const { data: assignableUsers } = useAssignableUsersQuery(template.departmentId ?? undefined);
+  const confirm = useConfirm();
+  // Gated on `open` — this list is only ever read by ItemRow's assignee picker inside the
+  // collapsed panel below, so fetching it eagerly for every template on the page fired one
+  // `/users/assignable` request per row on load, almost all of them for templates never expanded.
+  const { data: assignableUsers } = useAssignableUsersQuery(template.departmentId ?? undefined, undefined, undefined, open);
 
   const handleAddItem = () => {
     if (!newLabel.trim()) return;
@@ -30,8 +34,18 @@ export const TemplateBlock = ({ template, departmentName }: TemplateBlockProps) 
     );
   };
 
+  const handleDeleteTemplate = async () => {
+    const ok = await confirm({
+      title: `Delete "${template.name}"?`,
+      description: 'This permanently removes the template and all of its steps. This cannot be undone.',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
+    if (ok) deleteTemplate.mutate(template.id);
+  };
+
   return (
-    <div className="rounded-xl border border-border/80 bg-surface shadow-2xs hover:shadow-xs transition-shadow overflow-hidden">
+    <div className="rounded-xl border border-border/80 bg-surface hover:border-primary-300 transition-colors overflow-hidden">
       <div className="flex items-center justify-between gap-3 px-4 py-3 bg-surface hover:bg-surface-hover/30 transition-colors">
         <button
           onClick={() => setOpen(v => !v)}
@@ -69,7 +83,7 @@ export const TemplateBlock = ({ template, departmentName }: TemplateBlockProps) 
         </button>
 
         <button
-          onClick={() => deleteTemplate.mutate(template.id)}
+          onClick={handleDeleteTemplate}
           disabled={deleteTemplate.isPending}
           className="shrink-0 p-1.5 text-text-muted hover:text-danger hover:bg-danger/10 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
           aria-label="Delete template"

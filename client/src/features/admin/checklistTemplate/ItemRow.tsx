@@ -8,6 +8,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { useUpdateChecklistTemplateItemMutation, useDeleteChecklistTemplateItemMutation } from '../hook';
+import { useConfirm } from '../../../components';
 import type { ChecklistTemplateItem } from '../../../api/checklistTemplates';
 import type { AssignableUser } from '../../../api/users';
 
@@ -23,6 +24,7 @@ interface ItemRowProps {
 export const ItemRow = ({ item, departmentId, assignableUsers, index }: ItemRowProps) => {
   const updateItem = useUpdateChecklistTemplateItemMutation();
   const deleteItem = useDeleteChecklistTemplateItemMutation();
+  const confirm = useConfirm();
 
   const minRef = useRef<HTMLInputElement>(null);
   const maxRef = useRef<HTMLInputElement>(null);
@@ -41,6 +43,16 @@ export const ItemRow = ({ item, departmentId, assignableUsers, index }: ItemRowP
     if (value !== item.maxImageCount) {
       updateItem.mutate({ id: item.id, payload: { maxImageCount: value } });
     }
+  };
+
+  const handleDelete = async () => {
+    const ok = await confirm({
+      title: `Delete "${item.label}"?`,
+      description: 'This permanently removes this step from the template. This cannot be undone.',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
+    if (ok) deleteItem.mutate(item.id);
   };
 
   return (
@@ -65,7 +77,7 @@ export const ItemRow = ({ item, departmentId, assignableUsers, index }: ItemRowP
           </div>
 
           <label className="flex items-center gap-1.5 px-1" title="Minimum photos required">
-            <span className="text-[10px] font-display font-bold text-text-muted uppercase tracking-wider">Min</span>
+            <span className="text-[10px] font-display font-bold text-text-muted tracking-wider">Min</span>
             <input
               ref={minRef}
               type="number"
@@ -79,7 +91,7 @@ export const ItemRow = ({ item, departmentId, assignableUsers, index }: ItemRowP
           <span className="text-border select-none">•</span>
 
           <label className="flex items-center gap-1.5 pr-1.5" title="Maximum photos allowed">
-            <span className="text-[10px] font-display font-bold text-text-muted uppercase tracking-wider">Max</span>
+            <span className="text-[10px] font-display font-bold text-text-muted tracking-wider">Max</span>
             <input
               ref={maxRef}
               type="number"
@@ -96,7 +108,8 @@ export const ItemRow = ({ item, departmentId, assignableUsers, index }: ItemRowP
         <button
           type="button"
           onClick={() => updateItem.mutate({ id: item.id, payload: { requiresLivePhoto: !item.requiresLivePhoto } })}
-          className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-display font-medium transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${
+          disabled={updateItem.isPending}
+          className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-display font-medium transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:opacity-50 disabled:pointer-events-none ${
             item.requiresLivePhoto
               ? 'bg-primary-500/10 border-primary-500/30 text-primary-700 dark:text-primary-400'
               : 'bg-surface border-border text-text-secondary hover:text-text hover:bg-surface-hover'
@@ -143,7 +156,7 @@ export const ItemRow = ({ item, departmentId, assignableUsers, index }: ItemRowP
         {/* Delete Button */}
         <button
           type="button"
-          onClick={() => deleteItem.mutate(item.id)}
+          onClick={handleDelete}
           disabled={deleteItem.isPending}
           className="p-2 rounded-xl transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger text-text-muted hover:text-danger hover:bg-danger/10 disabled:opacity-50 disabled:pointer-events-none"
           aria-label="Delete item"

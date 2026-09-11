@@ -1,25 +1,35 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, lazy, Suspense } from 'react';
 import { Plus, Store as StoreIcon, AlertCircle, Inbox } from 'lucide-react';
-import { Skeleton, PageNav } from '../../../components';
-import { useStoresPageQuery } from '../../tickets/hook';
+import { Loader, FormLoadError, PageNav, EntityStatusFilter, EntityCardSkeleton, type EntityStatusFilterValue, useConfirm } from '../../../components';
+import { useStoresQuery } from '../../tickets/hook';
 import { useUsersQuery, useUpdateStoreMutation, useDeleteStoreMutation } from '../hook';
 import { StoreCard } from './StoreCard';
-import { StoreForm } from './StoreForm';
 import type { Store } from '../../../api/stores';
 
 const PAGE_SIZE = 24;
+
+// Lazy-loaded modal chunk — matches UserForm/DepartmentForm's own code-splitting (and its
+// chunk-load-failure fallback), which this was the one entity form left out of.
+const StoreForm = lazy(() =>
+  import('./StoreForm').then(module => ({ default: module.StoreForm })).catch(() => ({
+    default: FormLoadError,
+  }))
+);
 
 export const StoreList = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingStore, setEditingStore] = useState<Store | null>(null);
   const [page, setPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState<EntityStatusFilterValue>('all');
 
-  const { data: storesPage, isPending, isError } = useStoresPageQuery(page, PAGE_SIZE);
-  const stores = storesPage?.data ?? [];
-  const meta = storesPage?.meta;
+  // Filtering/pagination moved client-side (full roster, not a server page) so the Active/
+  // Inactive split can be seen and filtered at all.
+  const { data: allStores, isPending, isError, refetch } = useStoresQuery();
+  const stores = useMemo(() => allStores ?? [], [allStores]);
   const { data: users } = useUsersQuery();
   const updateMut = useUpdateStoreMutation();
   const deleteMut = useDeleteStoreMutation();
+  const confirm = useConfirm();
 
   const memberCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -28,6 +38,26 @@ export const StoreList = () => {
     });
     return counts;
   }, [users]);
+
+  const statusCounts = useMemo(() => ({
+    all: stores.length,
+    active: stores.filter(s => s.isActive).length,
+    inactive: stores.filter(s => !s.isActive).length,
+  }), [stores]);
+
+  const filteredStores = useMemo(() => {
+    if (statusFilter === 'all') return stores;
+    return stores.filter(s => s.isActive === (statusFilter === 'active'));
+  }, [stores, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredStores.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageStores = filteredStores.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
+  const changeStatusFilter = (value: EntityStatusFilterValue) => {
+    setStatusFilter(value);
+    setPage(1);
+  };
 
   const toggleActive = (id: string, isActive: boolean) => {
     updateMut.mutate({ id, payload: { isActive: !isActive } });
@@ -38,14 +68,91 @@ export const StoreList = () => {
     setEditingStore(null);
   };
 
+  const handleDelete = async (store: Store) => {
+    const ok = await confirm({
+      title: `Delete ${store.name}?`,
+      description: 'This permanently removes the store. This cannot be undone.',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
+    if (ok) deleteMut.mutate(store.id);
+  };
+
   const activeModal = showForm || editingStore;
+
+  // Single-function state renderer — matches UserList/DepartmentList's pattern instead of four
+  // independent top-level conditionals, where it's harder to see at a glance that the branches
+  // are mutually exclusive (and a future edit to one guard's condition without updating the
+  // others could show two panels at once).
+  const renderContent = () => {
+    if (isPending) return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
+        {Array.from({ length: 3 }).map((_, i) => <EntityCardSkeleton key={i} />)}
+      </div>
+    );
+
+    if (isError) return (
+      <div className="flex items-center gap-3 p-4 rounded-xl bg-danger/10 border border-danger/20 text-danger text-sm font-display font-medium">
+        <AlertCircle className="w-5 h-5 shrink-0" />
+        <p className="flex-1">Failed to load stores. Please check your connection and try again.</p>
+        <button
+          type="button"
+          onClick={() => refetch()}
+          className="shrink-0 px-3 py-1.5 rounded-md text-xs font-display font-semibold border border-danger/30 hover:bg-danger/10 cursor-pointer transition-colors outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+        >
+          Retry
+        </button>
+      </div>
+    );
+
+    if (filteredStores.length === 0) return (
+      <section className="flex flex-col items-center justify-center py-20 px-4 rounded-3xl border-2 border-dashed border-border bg-surface-hover/40 text-center">
+        <div className="mb-5 text-text-muted">
+          <Inbox className="w-8 h-8" />
+        </div>
+        <h3 className="text-lg font-display font-bold text-text mb-2">
+          {statusFilter === 'all' ? 'No stores yet' : `No ${statusFilter} stores`}
+        </h3>
+        <p className="text-sm text-text-muted max-w-sm mb-8">
+          {statusFilter === 'all'
+            ? 'Add your first store before creating recurring checklists — every checklist template deploys to one or more stores.'
+            : 'Switch to "All" to see everyone, or adjust the filter.'}
+        </p>
+        {statusFilter === 'all' && (
+          <button
+            type="button"
+            onClick={() => setShowForm(true)}
+            className="press-feedback inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-display font-bold rounded-xl shadow-sm bg-surface text-text-secondary border border-border transition-all duration-300 hover:bg-surface-hover hover:text-primary-600 hover:border-primary-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+          >
+            <StoreIcon className="w-3.5 h-3.5" />
+            Create store
+          </button>
+        )}
+      </section>
+    );
+
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
+        {pageStores.map(s => (
+          <StoreCard
+            key={s.id}
+            store={s}
+            memberCount={memberCounts.get(s.id) ?? 0}
+            isUpdating={updateMut.isPending && updateMut.variables?.id === s.id}
+            isDeleting={deleteMut.isPending && deleteMut.variables === s.id}
+            onToggleActive={toggleActive}
+            onEdit={setEditingStore}
+            onDelete={() => handleDelete(s)}
+          />
+        ))}
+      </div>
+    );
+  };
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-xs text-text-muted">
-          {meta?.total ?? stores.length} store{(meta?.total ?? stores.length) !== 1 ? 's' : ''} configured — checklists deploy to one or more of these.
-        </p>
+        <EntityStatusFilter value={statusFilter} onChange={changeStatusFilter} counts={statusCounts} />
         <button
           type="button"
           onClick={() => setShowForm(true)}
@@ -56,69 +163,21 @@ export const StoreList = () => {
         </button>
       </div>
 
-      {isPending && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="flex flex-col gap-4 p-5 rounded-2xl border border-border bg-surface h-44">
-              <div className="flex items-center justify-between">
-                <Skeleton className="size-12 rounded-xl" />
-                <Skeleton className="h-6 w-16 rounded-full" />
-              </div>
-              <Skeleton className="h-5 w-2/3" />
-            </div>
-          ))}
-        </div>
+      {renderContent()}
+
+      {totalPages > 1 && (
+        <PageNav page={safePage} totalPages={totalPages} onPageChange={setPage} className="pt-1" />
       )}
 
-      {isError && (
-        <div className="flex items-center gap-3 p-4 rounded-xl bg-danger/10 border border-danger/20 text-danger text-sm font-display font-medium">
-          <AlertCircle className="w-5 h-5 shrink-0" />
-          <p>Failed to load stores. Please check your connection and try again.</p>
-        </div>
-      )}
-
-      {!isPending && !isError && stores.length === 0 && (
-        <section className="flex flex-col items-center justify-center py-20 px-4 rounded-3xl border-2 border-dashed border-border bg-surface-hover/40 text-center">
-          <div className="mb-5 text-text-muted">
-            <Inbox className="w-8 h-8" />
+      {activeModal && (
+        <Suspense fallback={
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in">
+            <Loader size="xl" variant="primary" />
           </div>
-          <h3 className="text-lg font-display font-bold text-text mb-2">No stores yet</h3>
-          <p className="text-sm text-text-muted max-w-sm mb-8">
-            Add your first store before creating recurring checklists — every checklist template deploys to one or more stores.
-          </p>
-          <button
-            type="button"
-            onClick={() => setShowForm(true)}
-            className="press-feedback inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-display font-bold rounded-xl shadow-sm bg-surface text-text-secondary border border-border transition-all duration-300 hover:bg-surface-hover hover:text-primary-600 hover:border-primary-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-          >
-            <StoreIcon className="w-3.5 h-3.5" />
-            Create store
-          </button>
-        </section>
+        }>
+          <StoreForm onClose={closeForm} store={editingStore ?? undefined} />
+        </Suspense>
       )}
-
-      {!isPending && !isError && stores.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
-          {stores.map(s => (
-            <StoreCard
-              key={s.id}
-              store={s}
-              memberCount={memberCounts.get(s.id) ?? 0}
-              isUpdating={updateMut.isPending && updateMut.variables?.id === s.id}
-              isDeleting={deleteMut.isPending && deleteMut.variables === s.id}
-              onToggleActive={toggleActive}
-              onEdit={setEditingStore}
-              onDelete={deleteMut.mutate}
-            />
-          ))}
-        </div>
-      )}
-
-      {meta && meta.totalPages > 1 && (
-        <PageNav page={page} totalPages={meta.totalPages} onPageChange={setPage} className="pt-1" />
-      )}
-
-      {activeModal && <StoreForm onClose={closeForm} store={editingStore ?? undefined} />}
     </div>
   );
 };

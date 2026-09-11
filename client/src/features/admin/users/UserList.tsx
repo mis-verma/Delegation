@@ -2,13 +2,13 @@ import { useState, useMemo, lazy, Suspense } from 'react';
 import { Plus, AlertCircle, Inbox } from 'lucide-react';
 import type { AdminUser } from '../../../api/admin';
 import {
-  useUsersPageQuery,
+  useUsersQuery,
   useDepartmentsQuery,
   useUpdateUserMutation,
   useDeleteUserMutation,
 } from '../hook';
 import { UserCard } from './UserCard';
-import { Loader, FormLoadError, PageNav } from '../../../components';
+import { Loader, FormLoadError, PageNav, EntityStatusFilter, EntityCardSkeleton, type EntityStatusFilterValue, useConfirm } from '../../../components';
 
 const PAGE_SIZE = 24;
 
@@ -22,28 +22,7 @@ const UserForm = lazy(() =>
 // --- Subcomponents ---
 const UserGridSkeleton = () => (
   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
-    {Array.from({ length: 6 }).map((_, i) => (
-      <div key={i} className="flex flex-col justify-between p-5 rounded-2xl border border-border bg-surface shadow-sm h-48 animate-pulse">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-center gap-3 w-full">
-            <div className="w-11 h-11 rounded-full bg-surface-hover shrink-0" />
-            <div className="space-y-2 flex-1">
-              <div className="h-4 w-1/2 bg-surface-hover rounded" />
-              <div className="h-3 w-3/4 bg-surface-hover rounded" />
-            </div>
-          </div>
-          <div className="h-6 w-16 bg-surface-hover rounded-full shrink-0" />
-        </div>
-        <div className="h-4 w-1/3 bg-surface-hover rounded-md mt-4" />
-        <div className="flex items-center justify-between pt-4 border-t border-border/60 mt-auto">
-          <div className="h-6 w-16 bg-surface-hover rounded-full" />
-          <div className="flex gap-1.5">
-            <div className="w-8 h-8 bg-surface-hover rounded-xl" />
-            <div className="w-8 h-8 bg-surface-hover rounded-xl" />
-          </div>
-        </div>
-      </div>
-    ))}
+    {Array.from({ length: 6 }).map((_, i) => <EntityCardSkeleton key={i} />)}
   </div>
 );
 
@@ -52,18 +31,42 @@ export const UserList = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
   const [page, setPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState<EntityStatusFilterValue>('all');
 
-  const { data: usersPage, isPending, isError } = useUsersPageQuery(page, PAGE_SIZE);
-  const users = usersPage?.data ?? [];
-  const meta = usersPage?.meta;
+  // Filtering/pagination moved client-side (full roster, not a server page) so the Active/
+  // Inactive split can be seen and filtered at all — the paginated endpoint had no status filter,
+  // so "who's inactive" was only discoverable by scrolling every page and reading each card.
+  const { data: allUsers, isPending, isError, refetch } = useUsersQuery();
+  const users = useMemo(() => allUsers ?? [], [allUsers]);
   const { data: departments } = useDepartmentsQuery();
   const updateMut = useUpdateUserMutation();
   const deleteMut = useDeleteUserMutation();
+  const confirm = useConfirm();
 
   const departmentNames = useMemo(
     () => new Map((departments ?? []).map(d => [d.id, d.name])),
     [departments]
   );
+
+  const statusCounts = useMemo(() => ({
+    all: users.length,
+    active: users.filter(u => u.isActive).length,
+    inactive: users.filter(u => !u.isActive).length,
+  }), [users]);
+
+  const filteredUsers = useMemo(() => {
+    if (statusFilter === 'all') return users;
+    return users.filter(u => u.isActive === (statusFilter === 'active'));
+  }, [users, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageUsers = filteredUsers.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
+  const changeStatusFilter = (value: EntityStatusFilterValue) => {
+    setStatusFilter(value);
+    setPage(1);
+  };
 
   const toggleActive = (id: string, isActive: boolean) => {
     updateMut.mutate({ id, payload: { isActive: !isActive } });
@@ -74,38 +77,61 @@ export const UserList = () => {
     setEditingUser(null);
   };
 
+  const handleDelete = async (user: AdminUser) => {
+    const ok = await confirm({
+      title: `Delete ${user.firstName} ${user.lastName ?? ''}?`,
+      description: 'This permanently removes their account. This cannot be undone.',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
+    if (ok) deleteMut.mutate(user.id);
+  };
+
   const renderContent = () => {
     if (isPending) return <UserGridSkeleton />;
 
     if (isError) return (
       <div className="flex items-center gap-3 p-4 rounded-xl bg-danger/10 border border-danger/20 text-danger text-sm font-display font-medium">
         <AlertCircle className="w-5 h-5 shrink-0" />
-        <p>Failed to load users. Please check your connection and try again.</p>
+        <p className="flex-1">Failed to load users. Please check your connection and try again.</p>
+        <button
+          type="button"
+          onClick={() => refetch()}
+          className="shrink-0 px-3 py-1.5 rounded-md text-xs font-display font-semibold border border-danger/30 hover:bg-danger/10 cursor-pointer transition-colors outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+        >
+          Retry
+        </button>
       </div>
     );
 
-    if (users.length === 0) return (
+    if (filteredUsers.length === 0) return (
       <section className="flex flex-col items-center justify-center py-20 px-4 rounded-3xl border-2 border-dashed border-border bg-surface-hover/40 text-center">
         <div className="mb-5 text-text-muted">
           <Inbox className="w-8 h-8" />
         </div>
-        <h3 className="text-lg font-display font-bold text-text mb-2">No users found</h3>
+        <h3 className="text-lg font-display font-bold text-text mb-2">
+          {statusFilter === 'all' ? 'No users found' : `No ${statusFilter} users`}
+        </h3>
         <p className="text-sm text-text-muted max-w-sm mb-8">
-          You haven't added any users to your organization yet. Create your first user to get started.
+          {statusFilter === 'all'
+            ? "You haven't added any users to your organization yet. Create your first user to get started."
+            : `Switch to "All" to see everyone, or adjust the filter.`}
         </p>
-        <button
-          onClick={() => setShowForm(true)}
-          className="press-feedback inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-display font-bold rounded-xl shadow-sm bg-surface text-text-secondary border border-border transition-all duration-300 hover:bg-surface-hover hover:text-primary-600 hover:border-primary-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          Create user
-        </button>
+        {statusFilter === 'all' && (
+          <button
+            onClick={() => setShowForm(true)}
+            className="press-feedback inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-display font-bold rounded-xl shadow-sm bg-surface text-text-secondary border border-border transition-all duration-300 hover:bg-surface-hover hover:text-primary-600 hover:border-primary-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Create user
+          </button>
+        )}
       </section>
     );
 
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
-        {users.map(u => (
+        {pageUsers.map(u => (
           <UserCard
             key={u.id}
             user={u}
@@ -114,7 +140,7 @@ export const UserList = () => {
             isDeleting={deleteMut.isPending && deleteMut.variables === u.id}
             onToggleActive={toggleActive}
             onEdit={setEditingUser}
-            onDelete={deleteMut.mutate}
+            onDelete={() => handleDelete(u)}
           />
         ))}
       </div>
@@ -126,9 +152,7 @@ export const UserList = () => {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-xs text-text-muted">
-          {meta?.total ?? users.length} {(meta?.total ?? users.length) === 1 ? 'user' : 'users'} in organization
-        </p>
+        <EntityStatusFilter value={statusFilter} onChange={changeStatusFilter} counts={statusCounts} />
 
         <button
           onClick={() => setShowForm(true)}
@@ -141,8 +165,8 @@ export const UserList = () => {
 
       {renderContent()}
 
-      {meta && meta.totalPages > 1 && (
-        <PageNav page={page} totalPages={meta.totalPages} onPageChange={setPage} className="pt-1" />
+      {totalPages > 1 && (
+        <PageNav page={safePage} totalPages={totalPages} onPageChange={setPage} className="pt-1" />
       )}
 
       {activeModal && (

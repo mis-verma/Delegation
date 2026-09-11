@@ -1,17 +1,18 @@
 import { db } from "../../config/db.js"
-import { tasks, taskAdditionalAssignees, taskAttachments, taskChecklists, taskChecklistItems, taskImages, taskComments, taskReviews, taskStatusUpdates, smartTaskConversations, TASK_STATUSES } from "../../db/schema/index.js"
+import { tasks, taskAdditionalAssignees, taskAttachments, taskChecklists, taskChecklistItems, taskImages, taskComments, taskCommentAttachments, taskStatusUpdates, smartTaskConversations, tags, taskTags, TASK_STATUSES } from "../../db/schema/index.js"
 import { users } from "../../db/schema/core.js"
-import { eq, and, or, inArray, desc, sql } from "drizzle-orm"
+import { eq, and, or, inArray, asc, desc, sql } from "drizzle-orm"
 import { DATE_FORMATS } from "../../utils/dateBucket.js"
 import { createId } from "@paralleldrive/cuid2"
 import { AppError } from "../../utils/AppError.js"
 import { assertChecklistsResolved } from "../../utils/checklistGate.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { ConfirmSmartTaskInput, CreateTaskInput, UpdateTaskInput, VerifyTaskInput } from "./task.validation.js"
-import { notificationService } from "../notifications/notification.service.js"
+import { notificationService, notifySafely } from "../notifications/notification.service.js"
 import { auditService } from "../audit/audit.service.js"
 import { emitTaskEvent } from "../../sockets/taskEvent.js"
 import type { DateBucket } from "../../utils/index.js"
+import { unlinkUploadUrls } from "../../utils/uploadCleanup.js"
 
 // NOTE on populate-heavy reads: the conventions doc recommends Drizzle's relational query API
 // (`db.query.tasks.findFirst({ with: {...} })`) for these, but that API compiles every "many"
@@ -31,6 +32,57 @@ const selfAndDepartmentCondition = (user: AccessTokenPayload) =>
 // Fetches the set of task ids where `userId` appears as an additional assignee — used to widen
 // a visibility/mutation filter the same way the old Mongoose `additionalAssigneeIds: user.sub`
 // array-contains filter did.
+// Labels for a set of tasks, as one query instead of one per task. Returns the full tag rows
+// (name + colour), not just ids — every consumer renders the name, so handing back ids would make
+// each of them fetch the tag list and join it themselves.
+const tagsByTask = async (taskIds: string[]) => {
+    const byTask = new Map<string, { id: string; name: string; color: string | null }[]>();
+    if (!taskIds.length) return byTask;
+
+    const rows = await db.select({
+        taskId: taskTags.taskId,
+        id: tags.id,
+        name: tags.name,
+        color: tags.color,
+    })
+        .from(taskTags)
+        .innerJoin(tags, eq(taskTags.tagId, tags.id))
+        .where(inArray(taskTags.taskId, taskIds))
+        .orderBy(asc(tags.name));
+
+    for (const row of rows) {
+        const list = byTask.get(row.taskId) ?? [];
+        list.push({ id: row.id, name: row.name, color: row.color });
+        byTask.set(row.taskId, list);
+    }
+    return byTask;
+};
+
+// Replaces a task's labels with exactly `tagIds`. Delete-then-insert rather than diffing: the set
+// is at most 12 rows (capped in validation), so a diff would be more code for no saved work, and
+// doing it inside the caller's transaction keeps a half-applied label set impossible.
+//
+// `undefined` means "not mentioned in this request" and is handled by the callers, which skip
+// calling this entirely. An empty array means "remove them all", which is a real instruction.
+const syncTaskTags = async (
+    tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+    taskId: string,
+    tagIds: string[],
+) => {
+    await tx.delete(taskTags).where(eq(taskTags.taskId, taskId));
+    if (!tagIds.length) return;
+
+    // Deduped because the unique index on (taskId, tagId) would otherwise reject the whole insert
+    // if a caller sent the same id twice.
+    const unique = [...new Set(tagIds)];
+    // Only ids that actually exist — a stale id from a client whose tag list predates a deletion
+    // would otherwise fail the foreign key and take the entire task update down with it.
+    const existing = await tx.select({ id: tags.id }).from(tags).where(inArray(tags.id, unique));
+    if (!existing.length) return;
+
+    await tx.insert(taskTags).values(existing.map((tag) => ({ taskId, tagId: tag.id })));
+};
+
 const additionalAssigneeTaskIds = async (userId: string): Promise<string[]> => {
     const rows = await db.select({ taskId: taskAdditionalAssignees.taskId })
         .from(taskAdditionalAssignees)
@@ -113,8 +165,47 @@ const loadStatusUpdates = async (taskId: string) => {
     return rows.map((r) => ({ ...r.update, changedByUser: r.changedByUser }));
 };
 
+export type TaskOwnerStatsRow = {
+    ownerId: string | null;
+    total: number;
+    done: number;
+    overdueCount: number;
+};
+
+// One grouped SQL aggregate behind ownerStats below — `column` is what to GROUP BY (a department/
+// assignee/raiser id column, or NULL for one ungrouped org-wide row when `grouped` is false).
+// Mirrors ticket.service.ts#ownerStatsByColumn.
+const taskOwnerStatsByColumn = async (
+    column: ReturnType<typeof sql>,
+    conditions: ReturnType<typeof sql>[],
+    grouped: boolean,
+): Promise<TaskOwnerStatsRow[]> => {
+    const where = conditions.length ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``;
+    const groupBy = grouped ? sql`GROUP BY ownerId` : sql``;
+
+    // db.execute() on the mysql2 driver resolves to the raw mysql2 result tuple [rows, fields],
+    // NOT a plain row array — must destructure element 0 (see complianceReport above).
+    const [rows] = await db.execute(sql`
+        SELECT
+            ${column} AS ownerId,
+            COUNT(*) AS total,
+            SUM(t.status = 'done') AS done,
+            SUM(t.status != 'done' AND t.dueDate IS NOT NULL AND t.dueDate < NOW()) AS overdueCount
+        FROM Task t
+        ${where}
+        ${groupBy}
+    `);
+
+    return (rows as unknown as any[]).map((r) => ({
+        ownerId: r.ownerId != null ? String(r.ownerId) : null,
+        total: Number(r.total),
+        done: Number(r.done),
+        overdueCount: Number(r.overdueCount),
+    }));
+};
+
 export const taskService = {
-    async list(user: AccessTokenPayload, filterUserId?: string, status?: string, page = 1, limit = 200) {
+    async list(user: AccessTokenPayload, filterUserId?: string, status?: string, page = 1, limit = 200, tagIds?: string[]) {
         let condition;
         if ((user.role === "ADMIN" || user.role === "PC") && filterUserId) {
             const additionalIds = await additionalAssigneeTaskIds(filterUserId);
@@ -125,22 +216,43 @@ export const taskService = {
             condition = await buildVisibilityCondition(user);
         }
 
-        const where = status
-            ? (condition ? and(condition, eq(tasks.status, status as any)) : eq(tasks.status, status as any))
-            : condition;
+        const filters = [condition, status ? eq(tasks.status, status as any) : undefined];
 
-        const rows = await db.select().from(tasks)
-            .where(where)
-            .orderBy(desc(tasks.createdAt))
-            .offset((page - 1) * limit)
-            .limit(limit);
-        if (!rows.length) return [];
+        // EXISTS rather than a join: joining TaskTag would multiply a task's row by its matching
+        // label count, breaking both the page size and the count query. Same reason
+        // checklistInstance.service.ts expresses its item predicates as EXISTS subqueries.
+        if (tagIds?.length) {
+            const idList = sql.join(tagIds.map((id) => sql`${id}`), sql`, `);
+            filters.push(sql`EXISTS (SELECT 1 FROM ${taskTags} tt WHERE tt.taskId = ${tasks.id} AND tt.tagId IN (${idList}))`);
+        }
+
+        const active = filters.filter(Boolean);
+        const where = active.length ? and(...active) : undefined;
+
+        // The count runs against the same `where` as the page itself. Without it the response was
+        // indistinguishable from "these are all your tasks" once the row count passed `limit`, and
+        // the client's stat tiles — which count client-side over whatever array they receive —
+        // reported the truncated figure as the real one. Same shape as ticketService.list's meta.
+        const [rows, totalRows] = await Promise.all([
+            db.select().from(tasks)
+                .where(where)
+                .orderBy(desc(tasks.createdAt))
+                .offset((page - 1) * limit)
+                .limit(limit),
+            db.select({ count: sql<number>`count(*)` }).from(tasks).where(where),
+        ]);
+        const total = Number(totalRows[0]?.count ?? 0);
+        const meta = { page, limit, total, totalPages: Math.ceil(total / limit), hasNext: page * limit < total };
+        if (!rows.length) return { data: [], meta };
 
         // Old code only needed `url`/`mimeType` for the attachment thumbnails.
         const taskIds = rows.map((t) => t.id);
-        const attachmentRows = await db.select({ taskId: taskAttachments.taskId, url: taskAttachments.url, mimeType: taskAttachments.mimeType })
-            .from(taskAttachments)
-            .where(inArray(taskAttachments.taskId, taskIds));
+        const [attachmentRows, tagMap] = await Promise.all([
+            db.select({ taskId: taskAttachments.taskId, url: taskAttachments.url, mimeType: taskAttachments.mimeType })
+                .from(taskAttachments)
+                .where(inArray(taskAttachments.taskId, taskIds)),
+            tagsByTask(taskIds),
+        ]);
         const attachmentsByTask = new Map<string, { url: string; mimeType: string }[]>();
         for (const a of attachmentRows) {
             const list = attachmentsByTask.get(a.taskId) ?? [];
@@ -148,7 +260,14 @@ export const taskService = {
             attachmentsByTask.set(a.taskId, list);
         }
 
-        return rows.map((task) => ({ ...task, attachments: attachmentsByTask.get(task.id) ?? [] }));
+        return {
+            data: rows.map((task) => ({
+                ...task,
+                attachments: attachmentsByTask.get(task.id) ?? [],
+                tags: tagMap.get(task.id) ?? [],
+            })),
+            meta,
+        };
     },
 
     async createFromSmartInput(input: ConfirmSmartTaskInput, user: AccessTokenPayload) {
@@ -231,11 +350,17 @@ export const taskService = {
             .where(eq(taskAttachments.taskId, task.id));
         const attachments = attachmentRows.map((r) => ({ ...r.attachment, uploadedByUser: r.uploadedByUser }));
 
-        return { ...task, checklists, attachments, statusUpdates: await loadStatusUpdates(task.id) };
+        return {
+            ...task,
+            checklists,
+            attachments,
+            tags: (await tagsByTask([task.id])).get(task.id) ?? [],
+            statusUpdates: await loadStatusUpdates(task.id),
+        };
     },
 
     async create(input: CreateTaskInput, user: AccessTokenPayload) {
-        const { additionalAssigneeIds, startDate, dueDate, ...rest } = input;
+        const { additionalAssigneeIds, tagIds, startDate, dueDate, ...rest } = input;
         const id = createId();
 
         // wrapped in a transaction (source had none)
@@ -254,18 +379,22 @@ export const taskService = {
                 );
             }
 
+            // Inside the transaction: a label set that half-applied would leave the delegation
+            // filtered under labels it doesn't really carry.
+            if (tagIds) await syncTaskTags(tx, id, tagIds);
+
             const [created] = await tx.select().from(tasks).where(eq(tasks.id, id)).limit(1);
             return created!;
         });
 
         if (task.assigneeId) {
-            await notificationService.notifyTaskAssigned({
+            await notifySafely(() => notificationService.notifyTaskAssigned({
                 _id: task.id,
                 title: task.title,
                 userId: task.userId,
                 assigneeId: task.assigneeId,
                 additionalAssigneeIds,
-            });
+            }));
         }
 
         await auditService.record({ entityType: "Task", entityId: task.id, action: "CREATE", actorId: user.sub, after: task });
@@ -323,7 +452,7 @@ export const taskService = {
             assertChecklistsResolved(checklistsWithItems, "sending this delegation for review")
         }
 
-        const { additionalAssigneeIds, startDate, dueDate, statusRemark, ...rest } = input;
+        const { additionalAssigneeIds, tagIds, startDate, dueDate, statusRemark, ...rest } = input;
 
         // Every status move must say why. Tickets have always worked this way; delegations moved
         // between columns with nothing recorded, so a board that changed under you gave no way to
@@ -360,6 +489,10 @@ export const taskService = {
         const task = await db.transaction(async (tx) => {
             await tx.update(tasks).set(update).where(and(eq(tasks.id, id), mutationCondition ?? eq(tasks.id, id)));
             await replaceAdditionalAssignees(id, additionalAssigneeIds);
+            // `undefined` means the request didn't mention labels, so leave them alone; an empty
+            // array is an explicit "clear them". A PATCH that only moves a status must not wipe
+            // the delegation's labels as a side effect.
+            if (tagIds !== undefined) await syncTaskTags(tx, id, tagIds);
             // Inside the transaction so the move and its justification land together — a status
             // change that committed without its audit row would be exactly the silent change this
             // feature exists to stop.
@@ -397,11 +530,11 @@ export const taskService = {
         }
 
         if (input.status === "pending_verification" && beforeStatus !== "pending_verification") {
-            await notificationService.notifyPendingVerification({
+            await notifySafely(() => notificationService.notifyPendingVerification({
                 _id: task.id,
                 title: task.title,
                 departmentId: task.departmentId ?? undefined,
-            }, 'TASK');
+            }, 'TASK'));
         }
 
         await auditService.record({ entityType: "Task", entityId: id, action: "UPDATE", actorId: user.sub, before: existing, after: task });
@@ -458,13 +591,13 @@ export const taskService = {
             .from(taskAdditionalAssignees)
             .where(eq(taskAdditionalAssignees.taskId, id))).map((r) => r.userId);
 
-        await notificationService.notifyVerificationResult({
+        await notifySafely(() => notificationService.notifyVerificationResult({
             _id: updated!.id,
             title: updated!.title,
             userId: updated!.userId,
             assigneeId: updated!.assigneeId ?? undefined,
             additionalAssigneeIds,
-        }, input.action, input.note, 'TASK')
+        }, input.action, input.note, 'TASK'))
 
         // Approve/reject is how a delegation reaches "done", so it moves between board columns
         // exactly like a drag does and needs the same event.
@@ -491,7 +624,12 @@ export const taskService = {
         if (!task) throw AppError.notFound("Delegation not found");
 
         // wrapped in a transaction — clears every child/junction row that has no cascading FK
-        // before deleting the task itself (mirrors ticketService.remove's approach).
+        // before deleting the task itself (mirrors ticketService.remove's approach). The DB rows
+        // are the only thing this used to clean up — the actual evidence photos/attachments they
+        // pointed at stayed on disk forever, an unbounded leak with no retention sweep to catch it
+        // (unlike audit logs/notifications/inbound messages). File urls are collected here, before
+        // each table is deleted, and unlinked (best-effort) only after the transaction commits.
+        const orphanedUrls: string[] = [];
         await db.transaction(async (tx) => {
             const childChecklists = await tx.select({ id: taskChecklists.id }).from(taskChecklists).where(eq(taskChecklists.taskId, id));
             const checklistIds = childChecklists.map((c) => c.id);
@@ -499,22 +637,36 @@ export const taskService = {
                 const childItems = await tx.select({ id: taskChecklistItems.id }).from(taskChecklistItems).where(inArray(taskChecklistItems.taskChecklistId, checklistIds));
                 const itemIds = childItems.map((i) => i.id);
                 if (itemIds.length) {
+                    const images = await tx.select({ url: taskImages.url }).from(taskImages).where(inArray(taskImages.taskChecklistItemId, itemIds));
+                    orphanedUrls.push(...images.map((i) => i.url));
                     await tx.delete(taskImages).where(inArray(taskImages.taskChecklistItemId, itemIds));
                 }
                 await tx.delete(taskChecklistItems).where(inArray(taskChecklistItems.taskChecklistId, checklistIds));
                 await tx.delete(taskChecklists).where(eq(taskChecklists.taskId, id));
             }
+            const attachments = await tx.select({ url: taskAttachments.url }).from(taskAttachments).where(eq(taskAttachments.taskId, id));
+            orphanedUrls.push(...attachments.map((a) => a.url));
             await tx.delete(taskAttachments).where(eq(taskAttachments.taskId, id));
+
+            // TaskCommentAttachment cascades on TaskComment delete (ON DELETE CASCADE) — the rows
+            // vanish on their own, but only a SELECT taken before that delete can still see their
+            // urls to unlink the underlying files.
+            const commentAttachments = await tx.select({ url: taskCommentAttachments.url })
+                .from(taskCommentAttachments)
+                .innerJoin(taskComments, eq(taskCommentAttachments.commentId, taskComments.id))
+                .where(eq(taskComments.taskId, id));
+            orphanedUrls.push(...commentAttachments.map((a) => a.url));
             await tx.delete(taskComments).where(eq(taskComments.taskId, id));
+
             // TaskStatusUpdate's FK to Task has no ON DELETE CASCADE (matching every other child
             // table here), so leaving these behind would make deleting any delegation that ever
             // changed status fail on a constraint violation.
             await tx.delete(taskStatusUpdates).where(eq(taskStatusUpdates.taskId, id));
-            await tx.delete(taskReviews).where(eq(taskReviews.taskId, id));
             await tx.delete(taskAdditionalAssignees).where(eq(taskAdditionalAssignees.taskId, id));
             await tx.update(smartTaskConversations).set({ resultingTaskId: null }).where(eq(smartTaskConversations.resultingTaskId, id));
             await tx.delete(tasks).where(eq(tasks.id, id));
         });
+        unlinkUploadUrls(orphanedUrls);
 
         // Carries only the id — the row is gone, so there's nothing else meaningful to send, and
         // clients only need to know which card to drop.
@@ -589,6 +741,49 @@ export const taskService = {
             itemsRequiringPhotos: Number(r.itemsRequiringPhotos),
             qualityRate: Number(r.itemsRequiringPhotos) ? Math.round((Number(r.photoCompliantItems) / Number(r.itemsRequiringPhotos)) * 1000) / 10 : null,
         }));
+    },
+
+    // Real GROUP BY aggregate for the admin "Delegations" rankings/leaderboard — replaces a
+    // client-side reduce over `useTasksQuery()`'s newest-200-tasks-org-wide page, which silently
+    // mis-scored (or zeroed out) any department/user whose tasks weren't among those 200, and
+    // ignored the page's own date-range filter entirely. Mirrors ticket.service.ts#ownerStats.
+    async ownerStats(scope: "department" | "user" | "org", from?: string, to?: string, departmentId?: string, departmentIds?: string[]): Promise<TaskOwnerStatsRow[]> {
+        const baseConditions: ReturnType<typeof sql>[] = [];
+        if (from) baseConditions.push(sql`t.createdAt >= ${new Date(from)}`);
+        if (to) baseConditions.push(sql`t.createdAt <= ${new Date(to)}`);
+        // Same store->department resolution as complianceReport above: Task has no storeId, so a
+        // SENIOR's scope arrives as a resolved department id list instead.
+        if (departmentIds !== undefined) {
+            baseConditions.push(departmentIds.length
+                ? sql`t.departmentId IN (${sql.join(departmentIds.map((id) => sql`${id}`), sql`, `)})`
+                : sql`1 = 0`);
+        } else if (departmentId) {
+            baseConditions.push(sql`t.departmentId = ${departmentId}`);
+        }
+
+        if (scope === "department") return taskOwnerStatsByColumn(sql`t.departmentId`, baseConditions, true);
+        if (scope === "org") return taskOwnerStatsByColumn(sql`NULL`, baseConditions, false);
+
+        // user: credit both the primary assignee and the raiser, same dual-credit merge (and same
+        // accepted self-assigned-double-count edge case) as ticketService.ownerStats('user', ...).
+        // Deliberately excludes TaskAdditionalAssignee — matches the simpler "assignee or raiser"
+        // rule the leaderboard used before this fix, not an expansion of scope.
+        const [assigneeRows, raiserRows] = await Promise.all([
+            taskOwnerStatsByColumn(sql`t.assigneeId`, [...baseConditions, sql`t.assigneeId IS NOT NULL`], true),
+            taskOwnerStatsByColumn(sql`t.userId`, baseConditions, true),
+        ]);
+        const merged = new Map<string, TaskOwnerStatsRow>();
+        for (const row of [...assigneeRows, ...raiserRows]) {
+            if (row.ownerId == null) continue;
+            const existing = merged.get(row.ownerId);
+            merged.set(row.ownerId, existing ? {
+                ownerId: row.ownerId,
+                total: existing.total + row.total,
+                done: existing.done + row.done,
+                overdueCount: existing.overdueCount + row.overdueCount,
+            } : row);
+        }
+        return [...merged.values()];
     },
 
 };

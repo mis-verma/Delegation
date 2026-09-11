@@ -90,9 +90,15 @@ export const ChecklistTemplateFormUI = ({ departments, isSaving, saveError, onSu
     onSubmit({ name, appliesTo, departmentId, items: cleanedItems });
   };
 
+  // One derived pair instead of two independently-reasoned-about ternaries both branching on
+  // `step` — the wizard footer is really one 3-way state (first/middle/last step), not two
+  // separate ad-hoc conditions that happen to share a variable and have to be kept in sync by hand.
+  const isFirstStep = step === 0;
+  const isLastStep = step === STEP_LABELS.length - 1;
+
   const footer = (
     <>
-      {step === 0 ? (
+      {isFirstStep ? (
         <button
           type="button"
           onClick={onClose}
@@ -113,16 +119,7 @@ export const ChecklistTemplateFormUI = ({ departments, isSaving, saveError, onSu
         </button>
       )}
 
-      {step < STEP_LABELS.length - 1 ? (
-        <button
-          type="button"
-          onClick={goNext}
-          className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-5 py-2.5 text-sm font-display font-medium text-white rounded-xl shadow-sm bg-primary-700 hover:bg-primary-800 transition-all duration-300 ease-in-out hover:scale-[1.02] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
-        >
-          Next
-          <ArrowRight className="w-3.5 h-3.5" />
-        </button>
-      ) : (
+      {isLastStep ? (
         <button
           type="button"
           disabled={isSaving}
@@ -130,6 +127,15 @@ export const ChecklistTemplateFormUI = ({ departments, isSaving, saveError, onSu
           className="flex-1 sm:flex-none inline-flex items-center justify-center px-5 py-2.5 text-sm font-display font-medium text-white rounded-xl shadow-sm bg-primary-700 hover:bg-primary-800 transition-all duration-300 ease-in-out hover:scale-[1.02] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 disabled:opacity-70 disabled:pointer-events-none disabled:transform-none"
         >
           {isSaving ? 'Creating...' : 'Create Template'}
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={goNext}
+          className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-5 py-2.5 text-sm font-display font-medium text-white rounded-xl shadow-sm bg-primary-700 hover:bg-primary-800 transition-all duration-300 ease-in-out hover:scale-[1.02] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+        >
+          Next
+          <ArrowRight className="w-3.5 h-3.5" />
         </button>
       )}
     </>
@@ -251,15 +257,15 @@ export const ChecklistTemplateFormUI = ({ departments, isSaving, saveError, onSu
         <div className="space-y-4">
           <div className="rounded-xl border border-border bg-surface-hover/40 divide-y divide-border/60">
             <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-xs font-display font-medium text-text-muted uppercase tracking-wider">Name</span>
+              <span className="text-xs font-display font-medium text-text-muted tracking-wider">Name</span>
               <span className="text-sm font-display font-bold text-text truncate max-w-[60%]">{name || '—'}</span>
             </div>
             <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-xs font-display font-medium text-text-muted uppercase tracking-wider">Applies To</span>
+              <span className="text-xs font-display font-medium text-text-muted tracking-wider">Applies To</span>
               <span className="text-sm font-display font-medium text-text">{appliesTo === 'TASK' ? 'Delegations' : 'Tickets'}</span>
             </div>
             <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-xs font-display font-medium text-text-muted uppercase tracking-wider">Department</span>
+              <span className="text-xs font-display font-medium text-text-muted tracking-wider">Department</span>
               <span className="text-sm font-display font-medium text-text truncate max-w-[60%]">{departmentName}</span>
             </div>
           </div>

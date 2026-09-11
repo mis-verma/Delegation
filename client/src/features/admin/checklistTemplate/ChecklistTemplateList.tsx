@@ -9,16 +9,80 @@ import {
 import { useChecklistTemplatesQuery, useDepartmentsQuery } from '../hook';
 import { ChecklistTemplateForm } from './ChecklistTemplateForm';
 import { TemplateBlock } from './TemplateBlock';
-
-const Skeleton = ({ className = '' }: { className?: string }) => (
-  <div className={`animate-pulse bg-surface-hover rounded-md ${className}`} />
-);
+import { Skeleton } from '../../../components';
 
 export const ChecklistTemplateList = () => {
   const [showForm, setShowForm] = useState(false);
-  const { data: templates = [], isPending, isError } = useChecklistTemplatesQuery();
+  const { data: templates = [], isPending, isError, refetch } = useChecklistTemplatesQuery();
   const { data: departments = [] } = useDepartmentsQuery();
   const departmentNames = new Map(departments.map(d => [d.id, d.name]));
+
+  // Single-function state renderer — matches UserList/DepartmentList/StoreList's pattern instead
+  // of four independent top-level conditionals, where a future edit to one guard without updating
+  // the others could render two panels at once.
+  const renderContent = () => {
+    if (isPending) return (
+      <section aria-label="Loading templates" className="space-y-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="flex items-center justify-between gap-4 p-5 rounded-xl border border-border/80 bg-surface">
+            <div className="flex items-center gap-4 flex-1">
+              <Skeleton className="w-10 h-10 rounded-xl shrink-0" />
+              <div className="space-y-2 flex-1 max-w-sm">
+                <Skeleton className="h-5 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
+            </div>
+            <Skeleton className="h-8 w-8 rounded-lg shrink-0 hidden sm:block" />
+          </div>
+        ))}
+      </section>
+    );
+
+    if (isError) return (
+      <div className="flex items-center gap-3 p-4 rounded-xl bg-danger/10 border border-danger/20 text-danger text-sm font-display font-medium">
+        <AlertCircle className="w-5 h-5 shrink-0" />
+        <p className="flex-1">Failed to load checklist templates. Please check your connection and try again.</p>
+        <button
+          type="button"
+          onClick={() => refetch()}
+          className="shrink-0 px-3 py-1.5 rounded-md text-xs font-display font-semibold border border-danger/30 hover:bg-danger/10 cursor-pointer transition-colors outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+        >
+          Retry
+        </button>
+      </div>
+    );
+
+    if (templates.length === 0) return (
+      <section className="flex flex-col items-center justify-center py-20 px-4 rounded-3xl border-2 border-dashed border-border bg-surface-hover/40 text-center">
+        <div className="mb-5 text-text-muted">
+          <Inbox className="w-8 h-8" />
+        </div>
+        <h3 className="text-lg font-display font-bold text-text mb-2">No templates configured</h3>
+        <p className="text-sm text-text-muted max-w-sm mb-8">
+          You haven't created any checklist templates yet. Standardize your team's procedures by adding your first one.
+        </p>
+        <button
+          onClick={() => setShowForm(true)}
+          className="press-feedback inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-display font-bold rounded-xl shadow-sm bg-surface text-text-secondary border border-border transition-all duration-300 hover:bg-surface-hover hover:text-primary-600 hover:border-primary-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          Create Template
+        </button>
+      </section>
+    );
+
+    return (
+      <section aria-label="Template List" className="flex flex-col gap-3">
+        {templates.map(t => (
+          <TemplateBlock
+            key={t.id}
+            template={t}
+            departmentName={t.departmentId ? (departmentNames.get(t.departmentId) ?? null) : null}
+          />
+        ))}
+      </section>
+    );
+  };
 
   return (
     <div className="flex flex-col gap-5 w-full">
@@ -54,60 +118,7 @@ export const ChecklistTemplateList = () => {
         </button>
       </header>
 
-      {isPending && (
-        <section aria-label="Loading templates" className="space-y-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="flex items-center justify-between gap-4 p-5 rounded-2xl border border-border bg-surface shadow-sm">
-              <div className="flex items-center gap-4 flex-1">
-                <Skeleton className="w-10 h-10 rounded-xl shrink-0" />
-                <div className="space-y-2 flex-1 max-w-sm">
-                  <Skeleton className="h-5 w-3/4" />
-                  <Skeleton className="h-4 w-1/2" />
-                </div>
-              </div>
-              <Skeleton className="h-8 w-8 rounded-lg shrink-0 hidden sm:block" />
-            </div>
-          ))}
-        </section>
-      )}
-
-      {isError && (
-        <div className="flex items-center gap-3 p-4 rounded-xl bg-danger/10 border border-danger/20 text-danger text-sm font-display font-medium">
-          <AlertCircle className="w-5 h-5 shrink-0" />
-          <p>Failed to load checklist templates. Please check your connection and try again.</p>
-        </div>
-      )}
-
-      {!isPending && !isError && templates.length === 0 && (
-        <section className="flex flex-col items-center justify-center py-20 px-4 rounded-3xl border-2 border-dashed border-border bg-surface-hover/40 text-center">
-          <div className="mb-5 text-text-muted">
-            <Inbox className="w-8 h-8" />
-          </div>
-          <h3 className="text-lg font-display font-bold text-text mb-2">No templates configured</h3>
-          <p className="text-sm text-text-muted max-w-sm mb-8">
-            You haven't created any checklist templates yet. Standardize your team's procedures by adding your first one.
-          </p>
-          <button
-            onClick={() => setShowForm(true)}
-            className="press-feedback inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-display font-bold rounded-xl shadow-sm bg-surface text-text-secondary border border-border transition-all duration-300 hover:bg-surface-hover hover:text-primary-600 hover:border-primary-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Create Template
-          </button>
-        </section>
-      )}
-
-      {!isPending && !isError && templates.length > 0 && (
-        <section aria-label="Template List" className="flex flex-col gap-3">
-          {templates.map(t => (
-            <TemplateBlock
-              key={t.id}
-              template={t}
-              departmentName={t.departmentId ? (departmentNames.get(t.departmentId) ?? null) : null}
-            />
-          ))}
-        </section>
-      )}
+      {renderContent()}
 
       {showForm && <ChecklistTemplateForm onClose={() => setShowForm(false)} />}
     </div>

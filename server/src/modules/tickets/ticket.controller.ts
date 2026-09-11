@@ -1,13 +1,13 @@
 import { type Request , type Response } from "express"
 import { ticketService } from "./ticket.service.js"
-import { createTicketSchema , paginatioinSchema, updateTicketSchema , tatReportQuerySchema, verifyTicketSchema, statusUpdateSchema } from "./ticket.validation.js"
+import { createTicketSchema , paginatioinSchema, updateTicketSchema , tatReportQuerySchema, ownerStatsQuerySchema, verifyTicketSchema, statusUpdateSchema } from "./ticket.validation.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
 import { resolveReportScope } from "../../utils/reportScope.js"
 
 export const ticketController = {
     list : asyncHandler( async ( req : Request , res : Response) => {
-        const { page , limit, status, assigneeId } = paginatioinSchema.parse(req.query);
-        const result = await ticketService.list(req.user!, page , limit, status, assigneeId)
+        const { page , limit, status, assigneeId, overdue, from, to, dateField } = paginatioinSchema.parse(req.query);
+        const result = await ticketService.list(req.user!, page , limit, status, assigneeId, overdue, from, to, dateField)
         res.json({ success : true , ...result})
     }),
 
@@ -51,6 +51,13 @@ export const ticketController = {
         const { groupBy, from , to, departmentId, storeId } = tatReportQuerySchema.parse(req.query);
         const scope = resolveReportScope(req.user!, { departmentId, storeId });
         const data = await ticketService.tatReport(groupBy, from, to, scope.departmentId, scope.storeId);
+        res.json({ success : true, data})
+    }),
+
+    ownerStats : asyncHandler(async (req : Request , res : Response) => {
+        const { scope: dimension, from , to, departmentId, storeId } = ownerStatsQuerySchema.parse(req.query);
+        const scope = resolveReportScope(req.user!, { departmentId, storeId });
+        const data = await ticketService.ownerStats(dimension, from, to, scope.departmentId, scope.storeId);
         res.json({ success : true, data})
     })
 }

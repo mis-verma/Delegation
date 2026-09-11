@@ -31,11 +31,19 @@ export const forgotPasswordSchema = z.object({
 })
 
 // Schema for actually resetting the password once the user has clicked the emailed link.
-// `token` is the raw reset token from the URL; same minimum-length rule as registration for
-// the new password itself.
+// `token` is the raw reset token from the URL. The password rule mirrors the client's own
+// resetPasswordSchema (features/auth/Schemas.ts) exactly — that complexity check (an uppercase
+// letter + a digit, not just a length floor) used to exist only there, so anyone calling this
+// endpoint directly (script, another client, curl) instead of through the UI form could set a
+// password as weak as "aaaaaaaa", silently undercutting the policy the UI advertises. A reset
+// link is exactly the credential an attacker who intercepted it would use raw, with no browser
+// form in the loop — so this can't be a client-only rule.
 export const resetPasswordSchema = z.object({
     token : z.string().min(1),
-    password : z.string().min(8),
+    password : z.string()
+        .min(8, "Password must be at least 8 characters")
+        .regex(/[A-Z]/, "Password must contain an uppercase letter")
+        .regex(/[0-9]/, "Password must contain a number"),
 })
 
 // TypeScript trick: z.infer<> reads the Zod schema and generates a matching TypeScript type

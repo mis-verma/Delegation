@@ -4,21 +4,33 @@ import { authenticate , requireRole } from "../../middleware/auth/auth.js" // mi
 import { taskChecklistController } from "../taskChecklists/taskChecklist.controller.js" // creating a checklist under a specific task
 import { taskAttachmentController } from "../taskAttachments/taskAttachment.controller.js" // attaching general files (pdf/csv/image/video) directly to a task
 import { taskCommentController } from "../taskComments/taskComment.controller.js" // the task's activity/comment feed
-import { taskAttachmentUpload, taskCommentAttachmentUpload, voiceNoteUpload } from "../../config/upload.js"
+import { taskAttachmentUpload, taskCommentAttachmentUpload, voiceNoteUpload, checklistBulkImportUpload } from "../../config/upload.js"
 import { taskAiController } from "./ai/task.ai.controller.js"
+import { taskBulkImportController } from "./taskBulkImport.controller.js"
 
 export const taskRouter = Router()
 
 taskRouter.use(authenticate)
 
-taskRouter.get("/", taskController.list)       
-taskRouter.get("/reports/compliance", taskController.complianceReport) 
-taskRouter.get("/:id" , taskController.getOne) 
+taskRouter.get("/", taskController.list)
+taskRouter.get("/reports/compliance", taskController.complianceReport)
+taskRouter.get("/reports/by-owner", taskController.ownerStats)
+taskRouter.get("/:id" , taskController.getOne)
 taskRouter.patch("/:id" , taskController.update)
-taskRouter.patch("/:id/verify", requireRole("PC", "ADMIN"), taskController.verify) 
+taskRouter.patch("/:id/verify", requireRole("PC", "ADMIN"), taskController.verify)
 taskRouter.delete("/:id" , requireRole("ADMIN", "PC"),taskController.remove)
 
 taskRouter.post("/", taskController.create)
+
+// Bulk-create delegations from an uploaded CSV/Excel file — see taskBulkImport.service.ts.
+// ADMIN/PC only, matching the equivalent checklist bulk-import router's gate; a plain POST "/"
+// create has no such gate, but bulk-creating many delegations at once for other people is a
+// distinct, more powerful capability. Reuses the checklist feature's own upload middleware
+// (generic CSV/XLSX/PDF file-type + size validation, nothing checklist-specific about it) rather
+// than standing up a near-identical second multer instance. Different HTTP method than the
+// existing GET "/:id" above, so route-ordering relative to it doesn't matter.
+taskRouter.post("/bulk-import/preview", requireRole("ADMIN", "PC"), checklistBulkImportUpload, taskBulkImportController.preview)
+taskRouter.post("/bulk-import/publish", requireRole("ADMIN", "PC"), taskBulkImportController.publish)
 
 
 taskRouter.post("/:taskId/checklists", requireRole("ADMIN", "PC"), taskChecklistController.createForTask) // POST /tasks/:taskId/checklists -> create a checklist under this task

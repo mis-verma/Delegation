@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -6,8 +6,9 @@ import {
   type CreateChecklistDefinitionPayload,
   type UpdateChecklistDefinitionPayload,
   type ListChecklistDefinitionsParams,
+  type ChecklistRecurrence,
 } from '../../api/checklistDefinitions';
-import { checklistInstanceApi, type ChecklistInstance, type ChecklistInstanceStatus, type VerifyChecklistInstancePayload } from '../../api/checklistInstances';
+import { checklistInstanceApi, type ChecklistInstance, type ChecklistInstanceStatus, type ChecklistVerificationStatus, type VerifyChecklistInstancePayload } from '../../api/checklistInstances';
 import { checklistInstanceItemSubmissionApi } from '../../api/checklistInstanceItemSubmissions';
 import type { ChecklistInstanceItemSubmissionAccessory } from '../../api/checklistInstances';
 import type { CaptureMethod } from '../../api/ticket';
@@ -24,11 +25,18 @@ const KEYS = {
     ['checklist-instances', 'board', filter] as const,
 };
 
-export const useChecklistDefinitionsQuery = (filters: ListChecklistDefinitionsParams = {}) => {
+const DEFINITIONS_PAGE_SIZE = 30;
+
+// Infinite, not the old unbounded fetch-everything call — GET /checklist-definitions used to
+// hydrate every matching definition (items, stores, assignees, reviewers) on every load of the
+// templates grid. useInfiniteQuery fetches and caches each page exactly once and appends them.
+export const useChecklistDefinitionsQuery = (filters: Omit<ListChecklistDefinitionsParams, 'page' | 'limit'> = {}) => {
   const { token } = useAuth();
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: KEYS.definitions(filters),
-    queryFn: () => checklistDefinitionApi.getAll(filters).then(r => r.data),
+    queryFn: ({ pageParam }) => checklistDefinitionApi.getAll({ ...filters, page: pageParam, limit: DEFINITIONS_PAGE_SIZE }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => (lastPage.meta?.hasNext ? lastPage.meta.page + 1 : undefined),
     enabled: !!token,
     retry: handleQueryRetry,
   });
@@ -92,6 +100,7 @@ export const useDeleteChecklistDefinitionMutation = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['checklist-definitions'] });
       queryClient.invalidateQueries({ queryKey: ['checklist-instances'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics'] });
       toast.success('Checklist deleted');
     },
     onError: (err) => toast.error(errorMessage(err, 'Failed to delete checklist')),
@@ -113,6 +122,7 @@ export const useChecklistBulkImportPublishMutation = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['checklist-definitions'] });
       queryClient.invalidateQueries({ queryKey: ['checklist-instances'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics'] });
     },
     onError: (err) => toast.error(errorMessage(err, 'Failed to publish this batch')),
   });
@@ -126,7 +136,16 @@ export const useChecklistBulkImportPublishMutation = () => {
  * unbounded; this is what lets them paginate.
  */
 export const useChecklistInstanceSummaryQuery = (
-  filter: { mine?: boolean; storeId?: string; assigneeId?: string; definitionId?: string } = {},
+  filter: {
+    mine?: boolean;
+    storeId?: string;
+    assigneeId?: string;
+    assigneeIds?: string[];
+    definitionId?: string;
+    recurrence?: ChecklistRecurrence;
+    verificationStatus?: ChecklistVerificationStatus;
+    departmentId?: string;
+  } = {},
 ) => {
   const { token } = useAuth();
   return useQuery({
@@ -138,13 +157,20 @@ export const useChecklistInstanceSummaryQuery = (
 };
 
 export const useMyChecklistInstancesQuery = (
-  status?: ChecklistInstanceStatus,
+  filter: {
+    status?: ChecklistInstanceStatus;
+    storeId?: string;
+    recurrence?: ChecklistRecurrence;
+    verificationStatus?: ChecklistVerificationStatus;
+    departmentId?: string;
+    assigneeIds?: string[];
+  } = {},
   paging: { page?: number; limit?: number } = {},
 ) => {
   const { token } = useAuth();
   return useQuery({
-    queryKey: [...KEYS.myInstances(status), paging],
-    queryFn: () => checklistInstanceApi.getMine(status, paging).then(r => r.data),
+    queryKey: [...KEYS.myInstances(filter.status), filter, paging],
+    queryFn: () => checklistInstanceApi.getMine(filter, paging).then(r => r.data),
     enabled: !!token,
     retry: handleQueryRetry,
   });
@@ -206,7 +232,7 @@ export const useSetChecklistInstanceItemDoneMutation = (instanceId: string) => {
   const queryClient = useQueryClient();
   const instanceKey = KEYS.instanceDetail(instanceId);
 
-  return useMutation<unknown, unknown, SetChecklistInstanceItemDoneVars, { previous?: ChecklistInstance }>({
+  return useMutation<unknown, unknown, SetChecklistInstanceItemDoneVars, { previous?: ChecklistInstance; wasComplete: boolean }>({
     mutationFn: ({ itemId, isDone, numericValue, booleanAnswer, textValue, dateValue, gpsLat, gpsLng, gpsAccuracy, signatureValue, secondSignatureValue, conditionalReasonValue, remarks }) =>
       checklistInstanceApi.setItemDone(itemId, isDone, {
         numericValue, booleanAnswer, textValue, dateValue, gpsLat, gpsLng, gpsAccuracy, signatureValue, secondSignatureValue, conditionalReasonValue, remarks,
@@ -217,6 +243,7 @@ export const useSetChecklistInstanceItemDoneMutation = (instanceId: string) => {
     onMutate: async ({ itemId, ...patch }) => {
       await queryClient.cancelQueries({ queryKey: instanceKey });
       const previous = queryClient.getQueryData<ChecklistInstance>(instanceKey);
+      const wasComplete = !!previous && previous.items.length > 0 && previous.items.every((i) => i.isDone);
       if (previous) {
         queryClient.setQueryData<ChecklistInstance>(instanceKey, {
           ...previous,
@@ -227,14 +254,23 @@ export const useSetChecklistInstanceItemDoneMutation = (instanceId: string) => {
           ),
         });
       }
-      return { previous };
+      return { previous, wasComplete };
     },
-    onSuccess: () => {
+    onSuccess: (_data, _vars, context) => {
       // No success toast here — keeps checkbox-toggling snappy, matching
       // useUpdateChecklistItemMutation in tickets/hook.ts.
-      queryClient.invalidateQueries({ queryKey: instanceKey });
-      queryClient.invalidateQueries({ queryKey: ['checklist-instances', 'mine'] });
-      queryClient.invalidateQueries({ queryKey: ['checklist-instances', 'by-definition'] });
+      // The optimistic patch above already keeps this instance's own detail view correct for the
+      // common case (item toggled, instance still incomplete) — no refetch needed there. Only
+      // when this tap actually crossed the completion boundary (finished the instance, or undid
+      // its only remaining item) do the summary card, compliance board, and verification queue
+      // need to hear about it, so the wider invalidation is reserved for that transition instead
+      // of firing on every single tap.
+      const current = queryClient.getQueryData<ChecklistInstance>(instanceKey);
+      const isCompleteNow = !!current && current.items.length > 0 && current.items.every((i) => i.isDone);
+      if (!context || context.wasComplete !== isCompleteNow) {
+        queryClient.invalidateQueries({ queryKey: ['checklist-instances'] });
+        queryClient.invalidateQueries({ queryKey: ['analytics'] });
+      }
     },
     onError: (err, _vars, context) => {
       if (context?.previous) queryClient.setQueryData(instanceKey, context.previous);
@@ -264,11 +300,17 @@ export const useDeleteChecklistInstanceImageMutation = (instanceId: string) =>
 // ChecklistInstanceItemAuditCard.tsx) — all invalidate the same instance-detail key as the
 // STANDARD-item mutations above, since a submission change also flips its parent item's derived
 // isDone (and possibly the instance's verificationStatus) server-side.
-export const useSetChecklistInstanceItemSubmissionDoneMutation = (instanceId: string) =>
+// instanceId kept in the signature (unused) to match its sibling submission mutations below,
+// which all take it for their own narrower invalidateKeys — SubmissionRow calls all of them
+// uniformly with the same instanceId argument.
+export const useSetChecklistInstanceItemSubmissionDoneMutation = (_instanceId: string) =>
   useEntityMutation({
     mutationFn: ({ id, isDone }: { id: string; isDone: boolean }) =>
       checklistInstanceItemSubmissionApi.setDone(id, isDone).then(r => r.data),
-    invalidateKeys: [KEYS.instanceDetail(instanceId)],
+    // Whole prefix, not just this instance's own detail key — same reasoning as
+    // useSetChecklistInstanceItemDoneMutation above: a submission can complete the whole
+    // instance, which the summary/board/verification-queue queries need to reflect too.
+    invalidateKeys: [['checklist-instances']],
     errorFallback: 'Failed to update submission',
   });
 
@@ -308,11 +350,20 @@ export const useDeleteChecklistInstanceItemSubmissionImageMutation = (instanceId
 
 // Powers the PC/Admin verification queue's Checklists section — instances with every item done,
 // awaiting review. Scoped server-side (PC gets their own department, ADMIN gets every department).
-export const usePendingVerificationChecklistInstancesQuery = (paging: { page?: number; limit?: number } = {}) => {
+// Returns `meta` (not just `data`) so the queue's "Load more" button can check `hasNext` instead
+// of guessing from whether the last page came back full.
+// Infinite, not a growing flat `limit` — a "Load more" that just widens `limit` refetches every
+// already-loaded row from offset 0 on each click (5 clicks to reach 100 rows transfers 300
+// row-equivalents). useInfiniteQuery fetches and caches each page exactly once and appends them
+// for free, so callers don't need to hand-roll accumulation (which would mean calling setState
+// from inside a useEffect — an anti-pattern this codebase's lint config flags).
+export const usePendingVerificationChecklistInstancesQuery = (limit: number) => {
   const { token } = useAuth();
-  return useQuery({
-    queryKey: ['checklist-instances', 'pending-verification', paging],
-    queryFn: () => checklistInstanceApi.getPendingVerification(paging).then(r => r.data),
+  return useInfiniteQuery({
+    queryKey: ['checklist-instances', 'pending-verification', limit],
+    queryFn: ({ pageParam }) => checklistInstanceApi.getPendingVerification({ page: pageParam, limit }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => (lastPage.meta?.hasNext ? lastPage.meta.page + 1 : undefined),
     enabled: !!token,
     retry: handleQueryRetry,
   });

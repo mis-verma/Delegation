@@ -1,3 +1,4 @@
+import { Link } from 'react-router';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -67,10 +68,30 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
             <PanelLeft size={19} strokeWidth={2} />
           </button>
 
+          {/* A standalone, always-visible way back to the regular user dashboard — it existed
+              before only inside the account dropdown (still does, kept for muscle memory), which
+              took two clicks to find rather than one. */}
+          <Link
+            to="/"
+            className={`${ICON_BUTTON_DARK} w-auto gap-1.5 px-3 hidden sm:inline-flex`}
+            title="Back to your dashboard"
+          >
+            <LayoutDashboard size={16} strokeWidth={2} />
+            <span className="text-[13px] font-display font-semibold">Dashboard</span>
+          </Link>
+          <Link
+            to="/"
+            className={`${ICON_BUTTON_DARK} sm:hidden`}
+            title="Back to your dashboard"
+            aria-label="Back to your dashboard"
+          >
+            <LayoutDashboard size={18} strokeWidth={2} />
+          </Link>
+
           <span className="hidden sm:block h-8 w-px bg-white/15 shrink-0" aria-hidden="true" />
 
           <div className="flex flex-col min-w-0 leading-tight">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-white/40">Admin</span>
+            <span className="text-[10px] font-bold tracking-widest text-white/40">Admin</span>
             <span className="text-sm sm:text-base font-display font-bold text-white truncate">{pageLabel}</span>
           </div>
         </div>

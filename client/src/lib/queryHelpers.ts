@@ -60,6 +60,16 @@ type EntityMutationConfig<TVars, TResult> = {
   optimisticUpdate?: OptimisticUpdate<TVars>;
 };
 
+// Root query keys whose data an admin analytics report is built from — every stat card, gauge,
+// ranking table and leaderboard on OrgOverview ultimately reads a ticket/task/checklist-instance
+// aggregate. None of those mutations used to touch the `['analytics', ...]` cache at all, so
+// closing a ticket, completing a delegation, or approving a checklist instance while the overview
+// page was open left every number on it stale until the page remounted or regained focus.
+const ANALYTICS_SOURCE_KEYS = ['tickets', 'tasks', 'checklist-instances'];
+
+const invalidatesAnalytics = (invalidateKeys: readonly (readonly unknown[])[]) =>
+  invalidateKeys.some((key) => ANALYTICS_SOURCE_KEYS.includes(key[0] as string));
+
 // The shape behind nearly every ticket/task mutation in this app: run mutationFn, then on
 // success update/invalidate the relevant caches and optionally toast, or toast an error message
 // on failure. Extracted so each feature's hook.ts stops re-implementing the same onSuccess/
@@ -89,6 +99,7 @@ export function useEntityMutation<TVars, TResult>(config: EntityMutationConfig<T
       if (removed) queryClient.removeQueries({ queryKey: removed });
 
       config.invalidateKeys.forEach(key => queryClient.invalidateQueries({ queryKey: key }));
+      if (invalidatesAnalytics(config.invalidateKeys)) queryClient.invalidateQueries({ queryKey: ['analytics'] });
 
       if (config.successMessage != null) {
         const msg = typeof config.successMessage === 'function'

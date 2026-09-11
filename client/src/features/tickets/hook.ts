@@ -1,6 +1,9 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { useAuth } from '../../context/AuthContext';
 import { ticketApi } from '../../api/ticket';
+import { ticketBulkImportApi } from '../../api/ticketBulkImport';
+import type { TicketBulkImportPublishPayload } from '../../api/ticketBulkImport';
 import type {
   Ticket,
   CreateTicketPayload,
@@ -17,10 +20,14 @@ import { userApi } from "../../api/users";
 import { departmentApi } from "../../api/departments";
 import { storeApi } from "../../api/stores";
 import { checklistTemplateApi } from "../../api/checklistTemplates";
-import { handleQueryRetry, useEntityMutation, patchEntityInCache } from '../../lib/queryHelpers';
+import { handleQueryRetry, useEntityMutation, patchEntityInCache, errorMessage } from '../../lib/queryHelpers';
 
 const KEYS = {
-  all: (page: number, assigneeId?: string) => ['tickets', page, assigneeId] as const,
+  // `limit` belongs in the key. Without it `useTicketsQuery(1, 100)` (the dashboard/analytics
+  // callers) and the default `useTicketsQuery(1, 20)` resolved to the same cache entry, so
+  // whichever mounted first decided how many rows every other consumer got back — the second
+  // one read a cached page of the wrong size and never refetched.
+  all: (page: number, limit: number, assigneeId?: string) => ['tickets', page, limit, assigneeId] as const,
   detail: (id: string) => ['tickets', 'detail', id] as const,
 };
 
@@ -29,7 +36,7 @@ const KEYS = {
 export const useTicketsQuery = (page = 1, limit = 20, assigneeId?: string, enabled = true) => {
   const { token } = useAuth();
   return useQuery({
-    queryKey: KEYS.all(page, assigneeId),
+    queryKey: KEYS.all(page, limit, assigneeId),
     queryFn: () => ticketApi.getAll(page, limit, undefined, assigneeId),
     enabled: !!token && enabled,
     retry: handleQueryRetry,
@@ -264,12 +271,12 @@ export const useApplyChecklistTemplateMutation = (ticketId: string) =>
 // stale data after an actual change — it only skips redundant fetches of unchanged data.
 const ORG_STRUCTURE_STALE_TIME = 5 * 60_000;
 
-export const useAssignableUsersQuery = (departmentId?: string, storeId?: string) => {
+export const useAssignableUsersQuery = (departmentId?: string, storeId?: string, storeIds?: string[], enabled = true) => {
   const { token } = useAuth();
   return useQuery({
-    queryKey: ['assignable-users', departmentId ?? 'all', storeId ?? 'all'],
-    queryFn: () => userApi.getAssignable(departmentId, storeId).then(r => r.data),
-    enabled: !!token,
+    queryKey: ['assignable-users', departmentId ?? 'all', storeId ?? 'all', storeIds?.length ? [...storeIds].sort() : 'all'],
+    queryFn: () => userApi.getAssignable(departmentId, storeId, storeIds).then(r => r.data),
+    enabled: !!token && enabled,
     retry: handleQueryRetry,
     staleTime: ORG_STRUCTURE_STALE_TIME,
   });
@@ -311,14 +318,23 @@ export const useStoresQuery = () => {
   });
 };
 
-// Paginated variant for the admin directory's Stores list — useStoresQuery above (the full list)
-// stays untouched for every other caller (dropdowns, org structure, StoresPerformanceSection, etc.).
-export const useStoresPageQuery = (page = 1, limit = 20) => {
-  const { token } = useAuth();
-  return useQuery({
-    queryKey: ['stores', 'page', page, limit] as const,
-    queryFn: () => storeApi.getPage(page, limit),
-    enabled: !!token,
-    retry: handleQueryRetry,
+// ── Bulk import (CSV/Excel → many tickets) ──────────────────────────────
+// Same split as Delegation's own two hooks: preview only reads and matches, so it invalidates
+// nothing; publish is the one step that actually creates tickets.
+export const useTicketBulkImportPreviewMutation = () =>
+  useMutation({
+    mutationFn: (file: File) => ticketBulkImportApi.preview(file).then(r => r.data),
+    onError: (err) => toast.error(errorMessage(err, 'Failed to read that file')),
+  });
+
+export const useTicketBulkImportPublishMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: TicketBulkImportPublishPayload) => ticketBulkImportApi.publish(payload).then(r => r.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tickets'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics'] });
+    },
+    onError: (err) => toast.error(errorMessage(err, 'Failed to publish this batch')),
   });
 };

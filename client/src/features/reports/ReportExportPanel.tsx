@@ -3,14 +3,13 @@ import { Download } from 'lucide-react';
 import { Button, DateRangePicker, type DateRangeValue } from '../../components';
 import { useReportExportMutation } from './useReportExport';
 import { computeRange, PRESET_LABELS, type ReportPreset } from './dateRangePresets';
+import { endOfDay } from '../../lib/dateRange';
 import type { ReportModule, ReportFormat, ReportExportParams } from '../../api/reports';
 
 const PRESETS: ReportPreset[] = ['daily', 'weekly', 'monthly', 'quarterly', 'yearly'];
 const FORMATS: ReportFormat[] = ['csv', 'xlsx'];
 
 type RangeMode = ReportPreset | 'custom';
-
-const endOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
 
 type TaskExportFilters = Pick<ReportExportParams, 'category' | 'status' | 'priority' | 'departmentId' | 'assigneeIds'>;
 

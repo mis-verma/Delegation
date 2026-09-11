@@ -25,7 +25,16 @@ export { TimePicker } from './timePicker';
 export { Modal } from './modal';
 export { Combobox } from './combobox';
 export type { ComboboxOption } from './combobox';
-export { ENTITY_CARD_CLASS, EntityIconTile, StatusPill, MetricPill, EntityCardActions } from './entityCard';
+export {
+  ENTITY_CARD_CLASS,
+  EntityCardSkeleton,
+  EntityIconTile,
+  StatusPill,
+  MetricPill,
+  EntityCardActions,
+  EntityStatusFilter,
+  type EntityStatusFilterValue,
+} from './entityCard';
 export { SignalCard } from './signalCard';
 export { ProductCard } from './productCard';
 export { ActiveRangeBadge } from './activeRangeBadge';
@@ -53,8 +62,10 @@ export type { StatusChipStatus } from './statusChip';
 export { PriorityChip } from './priorityChip';
 export type { PriorityChipMeta } from './priorityChip';
 export { DepartmentChip } from './departmentChip';
+export { TagChip } from './tagChip';
 export { VerificationNoteBanner } from './verificationBanner';
 export { OptionRow, FilterGroup, FilterPill, PersonToggle, SelectFilterRow, MultiSelectFilterRow, PeopleFilterRow, toggleValue } from './filterRow';
 export type { FilterOption, FilterPerson } from './filterRow';
 export { OptionsDialog, SortOptionRow } from './optionsDialog';
 export { StatusRemarkDialog } from './statusRemarkDialog';
+export { ConfirmDialogProvider, useConfirm } from './confirmDialog';

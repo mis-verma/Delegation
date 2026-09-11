@@ -5,6 +5,8 @@ import { ticketApi } from '../../../api/ticket';
 import { checklistInstanceApi } from '../../../api/checklistInstances';
 import { handleQueryRetry } from '../../../lib/queryHelpers';
 import type { Role } from '../../../api/auth';
+import type { OwnerStatsScope } from '../../../api/ticket';
+import type { TaskOwnerStatsScope } from '../../../api/task';
 import type { GroupBy } from './GroupByControl';
 
 // Anyone who can view the merged Overview/Analytics page — org-wide for ADMIN/PC, department-
@@ -38,6 +40,32 @@ export const useChecklistInstanceComplianceReportQuery = (groupBy: GroupBy, from
   return useQuery({
     queryKey: ['analytics', 'checklist-instance-compliance', groupBy, from, to],
     queryFn: () => checklistInstanceApi.getComplianceReport(groupBy, undefined, from, to).then((r) => r.data),
+    enabled: !!token && canViewOrgReports(user?.role),
+    retry: handleQueryRetry,
+  });
+};
+
+// Backs the department/store ranking tables, the team leaderboard, and the org-wide on-time/
+// overdue stat cards — see ticket.service.ts#ownerStats and api/ticket.ts#getOwnerStats for why
+// this replaced reducing over a single newest-100-tickets page client-side.
+export const useTicketOwnerStatsQuery = (scope: OwnerStatsScope, from?: string, to?: string) => {
+  const { token, user } = useAuth();
+  return useQuery({
+    queryKey: ['analytics', 'ticket-owner-stats', scope, from, to],
+    queryFn: () => ticketApi.getOwnerStats(scope, from, to).then((r) => r.data),
+    enabled: !!token && canViewOrgReports(user?.role),
+    retry: handleQueryRetry,
+  });
+};
+
+// Same real GROUP BY aggregate approach as useTicketOwnerStatsQuery above, for delegations — see
+// task.service.ts#ownerStats. Backs the department "Delegations" rate and the team leaderboard's
+// per-user task counts, replacing a client-side reduce over the newest-200-tasks-org-wide page.
+export const useTaskOwnerStatsQuery = (scope: TaskOwnerStatsScope, from?: string, to?: string) => {
+  const { token, user } = useAuth();
+  return useQuery({
+    queryKey: ['analytics', 'task-owner-stats', scope, from, to],
+    queryFn: () => taskApi.getOwnerStats(scope, from, to).then((r) => r.data),
     enabled: !!token && canViewOrgReports(user?.role),
     retry: handleQueryRetry,
   });

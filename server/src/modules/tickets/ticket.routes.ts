@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import { ticketController } from './ticket.controller.js';
+import { ticketBulkImportController } from './ticketBulkImport.controller.js';
 import { checklistController } from '../checklists/checklist.controller.js';
 import { ticketAttachmentController } from '../ticketAttachments/ticketAttachment.controller.js';
-import { ticketAttachmentUpload } from '../../config/upload.js';
+import { ticketAttachmentUpload, checklistBulkImportUpload } from '../../config/upload.js';
 import { ticketCommentController } from '../ticketComments/ticketComment.controller.js';
 import { authenticate, requireRole } from '../../middleware/auth/auth.js';
 
@@ -11,9 +12,17 @@ export const ticketRouter = Router();
 ticketRouter.use(authenticate);
 ticketRouter.get('/', ticketController.list);
 ticketRouter.get('/reports/tat', requireRole('ADMIN', 'PC', 'MANAGER', 'SENIOR'), ticketController.tatReport);
+ticketRouter.get('/reports/by-owner', requireRole('ADMIN', 'PC', 'MANAGER', 'SENIOR'), ticketController.ownerStats);
 ticketRouter.get('/:id', ticketController.getOne);
 
 ticketRouter.post('/', ticketController.create);
+
+// Bulk-create tickets from an uploaded CSV/Excel file — see ticketBulkImport.service.ts. ADMIN/PC
+// only, matching the equivalent Delegation bulk-import route's gate. Reuses the checklist
+// feature's own upload middleware (generic CSV/XLSX/PDF file-type + size validation, nothing
+// checklist-specific about it) rather than standing up a near-identical second multer instance.
+ticketRouter.post('/bulk-import/preview', requireRole('ADMIN', 'PC'), checklistBulkImportUpload, ticketBulkImportController.preview);
+ticketRouter.post('/bulk-import/publish', requireRole('ADMIN', 'PC'), ticketBulkImportController.publish);
 ticketRouter.patch('/:id', ticketController.update);
 ticketRouter.post('/:id/status-updates', ticketAttachmentUpload, ticketController.addStatusUpdate);
 ticketRouter.patch('/:id/verify', requireRole('PC', 'ADMIN'), ticketController.verify);

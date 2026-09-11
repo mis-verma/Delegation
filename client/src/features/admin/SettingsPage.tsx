@@ -111,12 +111,13 @@ export const SettingsPage = () => {
                   const checked = field.value?.includes(opt.value) ?? false;
                   return (
                   <label key={opt.value} className="flex items-center gap-1.5 text-sm text-text font-display cursor-pointer">
-                    <div className={`flex items-center justify-center size-4 rounded border transition-colors ${checked ? 'bg-primary-500 border-primary-500' : 'bg-surface border-border'}`}>
-                      {checked && <CheckSquare size={11} className="text-white" />}
-                    </div>
+                    {/* sr-only, not hidden — `hidden` is display:none, which drops the checkbox out
+                        of the tab order entirely, making this control unreachable by keyboard.
+                        sr-only keeps it focusable/toggleable while the styled box below stands in
+                        visually; `peer` + `peer-focus-visible:` puts the focus ring on that box. */}
                     <input
                       type="checkbox"
-                      className="hidden"
+                      className="sr-only peer"
                       checked={checked}
                       onChange={e => {
                         const next = e.target.checked
@@ -125,6 +126,9 @@ export const SettingsPage = () => {
                         field.onChange(next);
                       }}
                     />
+                    <div className={`flex items-center justify-center size-4 rounded border transition-colors peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-primary-500/50 peer-focus-visible:ring-offset-1 ${checked ? 'bg-primary-500 border-primary-500' : 'bg-surface border-border'}`}>
+                      {checked && <CheckSquare size={11} className="text-white" />}
+                    </div>
                     {opt.label}
                   </label>
                   );

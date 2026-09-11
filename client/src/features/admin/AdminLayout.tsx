@@ -3,12 +3,9 @@ import { NavLink, Outlet, useLocation } from 'react-router';
 import {
   LayoutDashboard,
   Contact,
-  TicketCheck,
   Settings,
-  ClipboardList,
   FileDown,
   Network,
-  CheckSquare,
   LogOut,
   Repeat,
   ChevronDown,
@@ -23,6 +20,7 @@ import { Breadcrumbs } from "../../components/breadcrumbs";
 import { AdminHeader } from "./AdminHeader";
 import { AdminChromeAccents } from "./AdminChromeAccents";
 import { getAdminBreadcrumbs } from "./adminBreadcrumbs";
+import logo from "../../assets/logo.png";
 
 /** Utility for intelligent Tailwind class merging */
 function cn(...inputs: ClassValue[]) {
@@ -58,11 +56,14 @@ const CHECKLIST_CHILDREN: AdminNavChild[] = [
 
 const NAV: AdminNavItem[] = [
   { to: '/admin', icon: LayoutDashboard, label: 'Overview & Analytics', end: true },
-  { to: '/admin/directory', icon: Contact, label: 'Directory', end: false },
+  { to: '/admin/directory', icon: Contact, label: 'People & Teams', end: false },
   { to: '/admin/org-structure', icon: Network, label: 'Org Structure', end: false },
   { to: '/admin/scheduled-checklists', icon: Repeat, label: 'Checklists', end: false, children: CHECKLIST_CHILDREN },
-  { to: '/admin/tickets', icon: TicketCheck, label: 'Tickets', end: false },
-  { to: '/tasks/team', icon: ClipboardList, label: 'Team Delegations', end: false },
+  // Tickets and Team Delegations hidden from the sidebar for now (asked to be temporarily
+  // removed, not deleted) — routes themselves still exist and work if linked to directly.
+  // Re-add `TicketCheck`/`ClipboardList` to the lucide-react import above if restoring these.
+  // { to: '/admin/tickets', icon: TicketCheck, label: 'Tickets', end: false },
+  // { to: '/tasks/team', icon: ClipboardList, label: 'Team Delegations', end: false },
   { to: '/admin/reports', icon: FileDown, label: 'Reports', end: false },
   { to: '/admin/settings', icon: Settings, label: 'Settings', end: false },
 ];
@@ -81,9 +82,22 @@ const CHILD_LINK_BASE =
 const CHILD_LINK_ACTIVE = "bg-white/15 text-white";
 const CHILD_LINK_INACTIVE = "text-white/55 hover:bg-white/10 hover:text-white/90";
 
+const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+
 export const AdminLayout = () => {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const location = useLocation();
+
+  const initials = (user?.name ?? 'U')
+    .split(' ')
+    .map((w) => w[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+
+  // Overview & Analytics is ADMIN-only (see AdminOverviewRoute in App.tsx) — hidden here too so a
+  // PC user's sidebar doesn't offer a link that just bounces them straight back out to Directory.
+  const nav = user?.role === 'ADMIN' ? NAV : NAV.filter((item) => item.to !== '/admin');
 
   const [sidebarOpen, setSidebarOpen] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches
@@ -257,27 +271,39 @@ export const AdminLayout = () => {
           {/* Brand — the header's own user dropdown already shows who's signed in and offers
               sign-out, so the sidebar's top slot is the app brand instead of a duplicate profile. */}
           <div className="flex items-center gap-3 pb-6 mb-4 border-b border-white/10">
-            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-white/15 shrink-0">
-              <CheckSquare size={18} className="text-white" strokeWidth={2.5} />
-            </div>
-            <div className="flex flex-col min-w-0">
-              <span className="text-sm font-bold text-white truncate">
-                TaskMatrix
-              </span>
-              <span className="text-xs font-medium text-white/60 truncate">
-                Admin
-              </span>
-            </div>
+            <img src={logo} alt="Karya" className="h-11 w-auto object-contain rounded-lg shrink-0" />
+            <span className="text-xs font-medium text-white/60 truncate">
+              Admin
+            </span>
           </div>
 
-          <p className="text-[10px] font-bold text-white/40 uppercase tracking-wider mb-3 px-2">
+          <p className="text-[10px] font-bold text-white/40 tracking-wider mb-3 px-2">
             Navigation
           </p>
 
           {/* Navigation Links */}
           <nav className="flex flex-col gap-1 overflow-y-auto custom-scrollbar pr-1 flex-1">
-            {NAV.map((item) => renderNavItem(item, true))}
+            {nav.map((item) => renderNavItem(item, true))}
           </nav>
+
+          {/* Account summary — nav being `flex-1` in a full-height rail meant a short nav list
+              (esp. now that Tickets/Team Delegations are hidden) left a stretch of bare navy
+              between the last link and Log out. Filled with real context instead of empty space:
+              same avatar-initials + name + role treatment AdminHeader's own account trigger uses,
+              so the two read as one consistent identity affordance rather than one being decorated
+              and the other blank. */}
+          {user && (
+            <div className="flex items-center gap-3 px-3 py-3 mt-2 rounded-xl bg-white/5 border border-white/10 shrink-0">
+              <span className="relative flex items-center justify-center size-9 rounded-full bg-white/15 text-white font-display font-bold text-xs shrink-0">
+                {initials}
+                <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-success border-2 border-primary-800" aria-hidden="true" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-display font-bold text-white truncate">{user.name}</p>
+                {user.role && <p className="text-[11px] font-display font-medium text-white/55 truncate">{titleCase(user.role)}</p>}
+              </div>
+            </div>
+          )}
 
           {/* Log Out — pinned below the (scrollable) nav list, separated by its own divider */}
           <div className="pt-4 mt-2 border-t border-white/10 shrink-0">
@@ -305,21 +331,14 @@ export const AdminLayout = () => {
             "flex items-center gap-3 pb-6 mb-4 border-b border-white/10 transition-all duration-300",
             !sidebarOpen && "justify-center"
           )}>
-            <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-white/15 shrink-0 transition-transform hover:scale-105">
-              <CheckSquare size={18} className="text-white" strokeWidth={2.5} />
-            </div>
-            <div className={cn("flex flex-col min-w-0 transition-opacity duration-300", !sidebarOpen && "hidden opacity-0")}>
-              <span className="text-sm font-bold text-white truncate">
-                TaskMatrix
-              </span>
-              <span className="text-xs font-medium text-white/60 truncate">
-                Admin
-              </span>
-            </div>
+            <img src={logo} alt="Karya" className="h-10 w-auto object-contain rounded-lg shrink-0 transition-transform hover:scale-105" />
+            <span className={cn("text-xs font-medium text-white/60 truncate transition-opacity duration-300", !sidebarOpen && "hidden opacity-0")}>
+              Admin
+            </span>
           </div>
 
           <p className={cn(
-            "text-[10px] font-bold text-white/40 uppercase tracking-wider mb-3 px-2 transition-opacity duration-300",
+            "text-[10px] font-bold text-white/40 tracking-wider mb-3 px-2 transition-opacity duration-300",
             !sidebarOpen && "hidden opacity-0"
           )}>
             Navigation
@@ -327,8 +346,26 @@ export const AdminLayout = () => {
 
           {/* Navigation Links */}
           <nav className="flex flex-col gap-1 overflow-y-auto custom-scrollbar pr-1 flex-1">
-            {NAV.map((item) => renderNavItem(item, false))}
+            {nav.map((item) => renderNavItem(item, false))}
           </nav>
+
+          {/* Account summary — same as the mobile drawer's, collapses to just the avatar when the
+              rail itself is collapsed rather than disappearing outright. */}
+          {user && (
+            <div className={cn(
+              "flex items-center gap-3 px-3 py-3 mt-2 rounded-xl bg-white/5 border border-white/10 shrink-0",
+              !sidebarOpen && "justify-center px-0"
+            )}>
+              <span className="relative flex items-center justify-center size-9 rounded-full bg-white/15 text-white font-display font-bold text-xs shrink-0" title={!sidebarOpen ? user.name : undefined}>
+                {initials}
+                <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-success border-2 border-primary-800" aria-hidden="true" />
+              </span>
+              <div className={cn("min-w-0 flex-1 transition-opacity duration-300", !sidebarOpen && "hidden opacity-0")}>
+                <p className="text-[13px] font-display font-bold text-white truncate">{user.name}</p>
+                {user.role && <p className="text-[11px] font-display font-medium text-white/55 truncate">{titleCase(user.role)}</p>}
+              </div>
+            </div>
+          )}
 
           {/* Log Out — pinned below the (scrollable) nav list, separated by its own divider */}
           <div className="pt-4 mt-2 border-t border-white/10 shrink-0">
@@ -348,7 +385,10 @@ export const AdminLayout = () => {
         <main className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 bg-background">
           {/* pb-44 clears BottomNav plus any page's floating Fab (e.g. Tickets' Create FAB),
               which floats ~56px above the nav — see Dashboard.tsx's identical comment. */}
-          <div className="max-w-7xl mx-auto w-full p-3 sm:p-5 lg:p-8 pb-44 md:pb-8">
+          {/* max-w-(--container-width), not max-w-7xl — matches the same token every other page
+              in the app (Dashboard, Tasks, Tickets, Team Overview, Verification Queue) centers on,
+              instead of sitting narrower with bigger side margins than its siblings. */}
+          <div className="max-w-(--container-width) mx-auto w-full p-3 sm:p-5 lg:p-8 pb-44 md:pb-8">
 
             {/* Breadcrumbs — always rooted at "Dashboard" so every admin page has a one-click way
                 back to the regular user dashboard, per the section-level trail in adminBreadcrumbs.ts */}

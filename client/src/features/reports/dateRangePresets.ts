@@ -1,3 +1,5 @@
+import { endOfDay } from '../../lib/dateRange';
+
 export type ReportPreset = 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly';
 
 export const PRESET_LABELS: Record<ReportPreset, string> = {
@@ -9,7 +11,6 @@ export const PRESET_LABELS: Record<ReportPreset, string> = {
 };
 
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-const endOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
 
 // Monday-start week, matching the ISO week convention used elsewhere in this codebase
 // (ticket.service.ts's tatReport groups by "%G-W%V", Mongo's ISO week format).

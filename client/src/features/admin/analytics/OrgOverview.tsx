@@ -1,21 +1,33 @@
-import { useMemo, useState } from 'react';
-import { BarChart3, ClipboardCheck, Repeat, TicketCheck, Building2 } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
+import { BarChart3, ClipboardCheck, Repeat, TicketCheck, Building2, Contact, ListChecks, Network, FileDown } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useAuth } from '../../../context/AuthContext';
 import { useDepartmentsQuery, useStoresQuery, useTicketsQuery } from '../../tickets/hook';
 import { useTasksQuery } from '../../tasks/hook';
+import { useUsersQuery } from '../hook';
 import { GroupByControl, type GroupBy } from './GroupByControl';
 import { TaskChecklistKpiSection } from './TaskChecklistKpiSection';
 import { TicketKpiSection } from './TicketKpiSection';
 import { ChecklistInstanceKpiSection } from './ChecklistInstanceKpiSection';
 import { AnalyticsSummaryStrip } from './AnalyticsSummaryStrip';
+import { OrgSnapshotStrip } from './OrgSnapshotStrip';
+import { PerformanceLeadersCard } from './PerformanceLeadersCard';
 import { StoresPerformanceSection } from './StoresPerformanceSection';
 import { ComplianceGaugeRail } from './ComplianceGaugeRail';
 import { TeamLeaderboardRail } from './TeamLeaderboardRail';
-import { QuickActionsGrid } from '../overview/QuickActionsGrid';
-import { RecentActivity } from '../../dashboard/RecentActivity';
+import { QuickActionsGrid, type QuickAction } from '../overview/QuickActionsGrid';
+import { RecentActivity, RECENT_ACTIVITY_FEED_SIZE } from '../../dashboard/RecentActivity';
 import type { FeedItem } from '../../dashboard/dashboardDisplay';
 import { LightBeams, type DateRangeValue } from '../../../components';
+import { endOfDay } from '../../../lib/dateRange';
+
+const ADMIN_QUICK_ACTIONS: readonly QuickAction[] = [
+  { to: '/admin/directory', icon: Contact, label: 'People & Teams', description: 'Users, departments & stores' },
+  { to: '/admin/org-structure', icon: Network, label: 'Org Structure', description: 'See the reporting ladder' },
+  { to: '/admin/checklist-templates', icon: ListChecks, label: 'Checklist Builder', description: 'Create a template' },
+  { to: '/admin/tickets', icon: TicketCheck, label: 'Tickets', description: 'View open issues' },
+  { to: '/admin/reports', icon: FileDown, label: 'Reports', description: 'Export data' },
+];
 
 const ALL_SECTION_TABS = [
   { value: 'checklists', label: 'Checklists', icon: ClipboardCheck },
@@ -45,12 +57,20 @@ export const OrgOverview = () => {
     [user?.role]
   );
   const [section, setSection] = useState<SectionValue>('checklists');
+  const tabsRef = useRef<HTMLDivElement>(null);
+  const jumpToStores = () => {
+    setSection('stores');
+    tabsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
+  // range.to is a plain calendar date at local midnight (DateRangePicker isn't in showTime mode
+  // here) — wrap it to the end of that day so a "to" bound doesn't silently exclude the whole day.
   const from = range.from ? range.from.toISOString() : undefined;
-  const to = range.to ? range.to.toISOString() : undefined;
+  const to = range.to ? endOfDay(range.to).toISOString() : undefined;
 
-  const { data: departments } = useDepartmentsQuery();
-  const { data: stores } = useStoresQuery();
+  const { data: departments, isPending: departmentsPending } = useDepartmentsQuery();
+  const { data: stores, isPending: storesPending } = useStoresQuery();
+  const { data: orgUsers, isPending: orgUsersPending } = useUsersQuery(canSeeStoresTab(user?.role));
   const scopeLabel = useMemo(() => {
     if (user?.role === 'MANAGER') {
       const dept = departments?.find((d) => d.id === user.departmentId);
@@ -72,10 +92,12 @@ export const OrgOverview = () => {
     ...(tasks ?? []).map((t): FeedItem => ({ kind: 'task', id: t.id, title: t.title, status: t.status, createdAt: t.createdAt })),
   ]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 6);
+    .slice(0, RECENT_ACTIVITY_FEED_SIZE);
 
   return (
-    <div className="flex flex-col gap-8 max-w-7xl mx-auto w-full">
+    // max-w-(--container-width), not max-w-7xl — matches every other page's shared width token
+    // instead of sitting narrower with bigger side margins than its own siblings.
+    <div className="flex flex-col gap-8 w-full max-w-(--container-width) mx-auto">
         <header className="relative isolate overflow-hidden flex flex-col sm:flex-row sm:items-end justify-between gap-6 pb-6 border-b border-border">
           <LightBeams />
           <div className="flex items-start gap-4">
@@ -98,9 +120,28 @@ export const OrgOverview = () => {
           <GroupByControl groupBy={groupBy} onGroupByChange={setGroupBy} range={range} onRangeChange={setRange} />
         </header>
 
+        {/* Owner-level "how big is my org right now" glance — stores, departments, headcount +
+            new hires, department-lead coverage. Comes before the work-performance metrics below
+            since it's the shape of the org itself, not how the org is performing. */}
+        {canSeeStoresTab(user?.role) && (
+          <OrgSnapshotStrip
+            stores={stores ?? []}
+            departments={departments ?? []}
+            users={orgUsers ?? []}
+            isPending={departmentsPending || storesPending || orgUsersPending}
+          />
+        )}
+
         <AnalyticsSummaryStrip groupBy={groupBy} from={from} to={to} />
 
-        {canSeeStoresTab(user?.role) && <QuickActionsGrid />}
+        {/* Real store/department "who's top, who's low" numbers, visible on the dashboard itself —
+            previously the only way to see this combined ranking was to switch into the Stores tab
+            below, so it went unnoticed unless someone clicked in. */}
+        {canSeeStoresTab(user?.role) && (
+          <PerformanceLeadersCard groupBy={groupBy} from={from} to={to} onViewFull={jumpToStores} />
+        )}
+
+        {canSeeStoresTab(user?.role) && <QuickActionsGrid actions={ADMIN_QUICK_ACTIONS} />}
 
         {(() => {
           const tabsBlock = (
@@ -108,7 +149,7 @@ export const OrgOverview = () => {
               {/* Scrolls horizontally instead of clipping on phone-width screens, where four tabs
                   don't fit in one row — AdminLayout's <main> is overflow-x-hidden, so the tab
                   row needs its own scroll container rather than relying on page scroll. */}
-              <div className="overflow-x-auto">
+              <div ref={tabsRef} className="overflow-x-auto">
                 <TabsList className="bg-surface-hover p-1.5 rounded-xl gap-1.5 h-auto w-fit">
                   {sectionTabs.map(({ value, label, icon: Icon }) => (
                     <TabsTrigger
@@ -146,11 +187,15 @@ export const OrgOverview = () => {
           if (!canSeeStoresTab(user?.role)) return tabsBlock;
 
           return (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+            // items-stretch, not items-start — the right rail (two compact cards) is naturally
+            // shorter than the tabs column next to it (KPI cards + a 260px chart), which used to
+            // leave a visible block of empty page background under the rail instead of it running
+            // the full height of its taller sibling.
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
               <div className="lg:col-span-2">{tabsBlock}</div>
               <div className="flex flex-col gap-6">
                 <ComplianceGaugeRail groupBy={groupBy} from={from} to={to} />
-                <TeamLeaderboardRail />
+                <TeamLeaderboardRail from={from} to={to} />
               </div>
             </div>
           );

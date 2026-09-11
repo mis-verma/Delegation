@@ -14,7 +14,10 @@ export const createTaskSchema = z.object({
     projectId : objectId.optional(),
     assigneeId : objectId.optional(),
     additionalAssigneeIds : z.array(objectId).optional(),
-    departmentId : objectId.optional()
+    departmentId : objectId.optional(),
+    // Labels. Capped so one request can't write an unbounded number of join rows; a delegation
+    // carrying more than a dozen labels isn't labelled, it's noise.
+    tagIds : z.array(objectId).max(12).optional()
 });
 
 
@@ -38,6 +41,12 @@ export const confirmSmartTaskSchema = z.object({
 export const listTasksQuerySchema = z.object({
     userId : objectId.optional(),
     status : z.enum(TASK_STATUSES).optional(),
+    // Comma-separated tag ids, matched as OR (a delegation carrying ANY of them). Filtering
+    // server-side rather than in the client means the page's counts stay right — a client-side
+    // tag filter over a truncated page would report the page's tally as the org's.
+    tagIds : z.string().optional().transform((v) =>
+        v ? v.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
+    ),
     page : z.coerce.number().int().min(1).optional().default(1),
     // Capped at 200 (also the default) — high enough that today's usage never notices it, but
     // still a real ceiling so GET /tasks can't be made to return an unbounded result set.
@@ -57,8 +66,18 @@ export const complianceReportQuerySchema = z.object({
     // Overview page) — ignored for a non-privileged caller, who's always scoped to themselves
     // regardless of what's passed here (see task.controller.ts).
     userId : objectId.optional(),
-    from : z.string().optional(),
-    to : z.string().optional()
+    // Client sends computeRange()'s toISOString() output — matching createTaskSchema's
+    // startDate/dueDate convention here catches a malformed value as a clean 400 instead of
+    // an Invalid Date silently reaching the raw SQL template in complianceReport().
+    from : z.string().datetime().optional(),
+    to : z.string().datetime().optional()
+})
+
+export const taskOwnerStatsQuerySchema = z.object({
+    scope : z.enum(["department", "user", "org"]).default("org"),
+    departmentId : objectId.optional(),
+    from : z.string().datetime().optional(),
+    to : z.string().datetime().optional()
 })
 
 export const updateTaskSchema = createTaskSchema.partial().extend({
@@ -84,6 +103,7 @@ export type ListTasksQuery = z.infer<typeof listTasksQuerySchema>;
 export type CreateTaskInput = z.infer<typeof createTaskSchema>;
 export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
 export type ComplianceReportQuery = z.infer<typeof complianceReportQuerySchema>;
+export type TaskOwnerStatsQuery = z.infer<typeof taskOwnerStatsQuerySchema>;
 export type VerifyTaskInput = z.infer<typeof verifyTaskSchema>;
 export type ConfirmSmartTaskInput = z.infer<typeof confirmSmartTaskSchema>;
 export type ParseTaskTextInput = z.infer<typeof parseTaskTextSchema>;

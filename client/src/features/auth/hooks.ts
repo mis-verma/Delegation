@@ -1,9 +1,9 @@
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
-import { authApi } from '../../api/auth';
+import { authApi, ADMIN_AREA_ROLES } from '../../api/auth';
 import { useAuth } from '../../context/AuthContext';
-import type { LoginPayload, SignupPayload, ForgotPasswordPayload, ResetPasswordPayload } from '../../api/auth';
+import type { LoginPayload, ForgotPasswordPayload, ResetPasswordPayload } from '../../api/auth';
 
 const errorMessage = (err: unknown, fallback: string) => (err instanceof Error ? err.message : fallback);
 
@@ -22,27 +22,7 @@ export const useLoginMutation = () => {
         departmentId: user.departmentId,
         storeId:      user.storeId,
       });
-      navigate(user.role === 'ADMIN' || user.role === 'PC' ? '/admin' : '/', { replace: true });
-    },
-  });
-};
-
-export const useSignupMutation = () => {
-  const { login } = useAuth();
-  const navigate  = useNavigate();
-
-  return useMutation({
-    mutationFn: (payload: SignupPayload) => authApi.register(payload),
-    onSuccess: ({ accessToken, user }) => {
-      login(accessToken, {
-        id:           user.id,
-        name:         user.firstName ?? user.email,
-        email:        user.email,
-        role:         user.role,
-        departmentId: user.departmentId,
-        storeId:      user.storeId,
-      });
-      navigate('/', { replace: true });
+      navigate(ADMIN_AREA_ROLES.includes(user.role) ? '/admin' : '/', { replace: true });
     },
   });
 };
