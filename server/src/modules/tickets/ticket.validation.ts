@@ -14,7 +14,10 @@ export const createTicketSchema = z.object({
     tatHours : z.number().positive().optional(),
     // Labels. Capped the same as Task's — a ticket carrying more than a dozen isn't labelled,
     // it's noise. Reuses Task's own `tags` table (see ticketTags in db/schema/ticket.ts).
-    tagIds : z.array(objectId).max(12).optional()
+    tagIds : z.array(objectId).max(12).optional(),
+    // Explicit reviewers — additive on top of the role-based verify rule (ADMIN/PC always,
+    // MANAGER/HOD within the ticket's own department). Same convention as Task's reviewerIds.
+    reviewerIds : z.array(objectId).max(20).optional()
 })
 export const updateTicketSchema = createTicketSchema.partial().extend({
     status : z.enum(TICKET_STATUSES).optional(),
@@ -69,7 +72,7 @@ export const ownerStatsQuerySchema = z.object({
     storeId : objectId.optional(),
 })
 
-// PC/Admin verification action on a ticket that's IN_REVIEW: APPROVE closes it for good,
+// PC/Admin verification action on a ticket that's PENDING_APPROVAL: APPROVE closes it for good,
 // REJECT bounces it back to IN_PROGRESS. A note is required when rejecting so the assignee
 // knows what to fix; optional when approving.
 export const verifyTicketSchema = z.object({

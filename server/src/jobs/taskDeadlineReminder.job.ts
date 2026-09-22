@@ -4,6 +4,7 @@ import { db } from '../config/db.js';
 import { tasks, taskAdditionalAssignees, users } from '../db/schema/index.js';
 import { notificationService } from '../modules/notifications/notification.service.js';
 import { sendMail } from '../config/mailer.js';
+import { settingsService } from '../modules/settings/settings.service.js';
 
 // Caps how many due reminders get processed in a single 5-minute tick, same rationale as
 // slaSweep.job.ts's batch cap. Ordered soonest-due-first so, if the cap is ever hit, the most
@@ -27,6 +28,7 @@ export const startTaskDeadlineReminder = () => {
       console.warn('Task deadline reminder: previous run still in progress, skipping this tick.');
       return;
     }
+    if (!settingsService.getCached().notifyTaskDeadlineReminders) return;
     isRunning = true;
     try {
       const now = new Date();
@@ -37,6 +39,7 @@ export const startTaskDeadlineReminder = () => {
       // fetching every reminder-enabled task in the system and filtering in JS, so a task whose
       // reminder doesn't fire for weeks isn't loaded into memory on every single tick.
       const due = await db.select().from(tasks).where(and(
+        isNull(tasks.deletedAt),
         isNotNull(tasks.dueDate),
         isNotNull(tasks.reminderMinutesBefore),
         isNull(tasks.reminderSentAt),

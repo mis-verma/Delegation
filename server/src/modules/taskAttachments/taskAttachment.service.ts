@@ -2,7 +2,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { db } from "../../config/db.js";
 import { tasks, taskAdditionalAssignees, taskAttachments } from "../../db/schema/index.js";
-import { eq, inArray } from "drizzle-orm";
+import { eq, and, inArray, isNull } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 import { AppError } from "../../utils/AppError.js";
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js";
@@ -28,7 +28,7 @@ export const taskAttachmentService = {
         // Multer's already written these to disk by the time this runs — every throw below must
         // clean them up first, or a caller with no access to the task can repeatedly fill disk by
         // uploading to tasks they'll always get rejected on (same pattern as checklistImage.service).
-        const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
+        const [task] = await db.select().from(tasks).where(and(eq(tasks.id, taskId), isNull(tasks.deletedAt))).limit(1);
         if (!task) {
             files.forEach((f) => fs.unlink(f.path, () => {}));
             throw AppError.notFound("Delegation not found");
@@ -63,7 +63,7 @@ export const taskAttachmentService = {
         const [attachment] = await db.select().from(taskAttachments).where(eq(taskAttachments.id, attachmentId)).limit(1);
         if (!attachment) throw AppError.notFound("Attachment not found");
 
-        const [task] = await db.select().from(tasks).where(eq(tasks.id, attachment.taskId)).limit(1);
+        const [task] = await db.select().from(tasks).where(and(eq(tasks.id, attachment.taskId), isNull(tasks.deletedAt))).limit(1);
         if (task) await assertCanAttach(user, task);
         if (!task && user.role !== "ADMIN" && user.role !== "PC" && attachment.uploadedBy !== user.sub) {
             throw AppError.forbidden("You don't have access to this delegation's attachments");

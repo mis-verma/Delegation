@@ -1,9 +1,12 @@
 // Node's built-in crypto module - used here for generating random tokens and hashing them.
 import crypto from 'node:crypto';
 // jsonwebtoken: library for creating and verifying signed JWTs (JSON Web Tokens).
-import jwt, { type SignOptions } from 'jsonwebtoken';
-// Centralized environment config (secrets, expiry settings, etc).
+import jwt from 'jsonwebtoken';
+// Centralized environment config (secrets, etc).
 import { env } from '../../config/env.js';
+// Token lifetimes live in the admin-configurable Settings row now, not env vars — see its own
+// schema comment (db/schema/core.ts) for why.
+import { settingsService } from '../../modules/settings/settings.service.js';
 // Drizzle client + table/type definitions — replaces the old Mongoose User/RefreshToken/
 // PasswordResetToken models.
 import { db } from '../../config/db.js';
@@ -59,10 +62,10 @@ const issueRefreshToken = async (userId: string): Promise<string> => {
     userId,
     tokenHash,
     // Refresh tokens are long-lived compared to short-lived access tokens. Must stay in sync
-    // with the cookie's maxAge (auth.controller.ts) — both read the same env var so raising or
-    // lowering JWT_REFRESH_EXPIRES_IN_DAYS actually changes the real session lifetime instead of
+    // with the cookie's maxAge (auth.controller.ts) — both read the same Settings field so raising
+    // or lowering refreshTokenExpiresDays actually changes the real session lifetime instead of
     // only changing how long the browser keeps a cookie for a token that's already expired in the DB.
-    expiresAt: new Date(Date.now() + env.JWT_REFRESH_EXPIRES_IN_DAYS * 24 * 60 * 60 * 1000),
+    expiresAt: new Date(Date.now() + settingsService.getCached().refreshTokenExpiresDays * 24 * 60 * 60 * 1000),
   });
 
   // Return the RAW (unhashed) token - this is the only moment it exists outside the DB;
@@ -92,8 +95,10 @@ const signAccessToken = (user: UserRow) =>
     storeId: user.storeId ?? undefined,
 
   }, env.JWT_ACCESS_SECRET, {
-    // How long this access token stays valid before the client must use the refresh token to get a new one.
-    expiresIn: env.JWT_ACCESS_EXPIRES_IN as SignOptions['expiresIn']
+    // How long this access token stays valid before the client must use the refresh token to get a
+    // new one. jsonwebtoken accepts a plain number here as seconds — no need to build a duration
+    // string like "15m" out of the admin-configured minutes value.
+    expiresIn: settingsService.getCached().accessTokenExpiresMinutes * 60
   });
 
 // Strips out any sensitive/internal fields (like the password hash) before sending user data back
@@ -249,10 +254,11 @@ export const authService = {
     // unregistered ones even though the HTTP response body is identical either way. Any send
     // failure is caught and logged here instead of propagating out, so it can never surface as a
     // different response (or a different error) than the "email doesn't exist" case does.
+    const orgName = settingsService.getCached().orgName;
     void sendMail({
       to: user.email,
-      subject: 'Reset your Task Matrix password',
-      html: `<p>Someone requested a password reset for your Task Matrix account.</p>
+      subject: `Reset your ${orgName} password`,
+      html: `<p>Someone requested a password reset for your ${orgName} account.</p>
              <p><a href="${resetLink}">Click here to reset your password</a> (expires in 1 hour).</p>
              <p>If you didn't request this, you can safely ignore this email.</p>`,
     }).catch((err) => console.error('[auth] Failed to send password reset email:', err));

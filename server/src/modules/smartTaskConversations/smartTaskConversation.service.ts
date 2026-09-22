@@ -1,6 +1,6 @@
 import { db } from "../../config/db.js"
 import { smartTaskConversations, smartTaskConversationMessages, tasks } from "../../db/schema/index.js"
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm"
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
 import { AppError } from "../../utils/AppError.js"
 import type { CreateSmartTaskConversationInput, PatchSmartTaskConversationInput } from "./smartTaskConversation.validation.js"
@@ -110,7 +110,7 @@ export const smartTaskConversationService = {
             if (input.resultingTaskId) {
                 const [task] = await tx.select({ id: tasks.id })
                     .from(tasks)
-                    .where(and(eq(tasks.id, input.resultingTaskId), eq(tasks.userId, userId)))
+                    .where(and(eq(tasks.id, input.resultingTaskId), eq(tasks.userId, userId), isNull(tasks.deletedAt)))
                     .limit(1);
                 if (!task) throw AppError.badRequest("resultingTaskId does not refer to a task you created");
             }

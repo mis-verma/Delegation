@@ -20,7 +20,17 @@ import { users, departments, projects } from './core.js';
 // Shared enum value arrays
 // ---------------------------------------------------------------------------
 
-export const TASK_STATUSES = ['todo', 'in_progress', 'pending_verification', 'done'] as const;
+// 'draft' sits before the normal workflow: a delegation saved before it's ready to assign/act on,
+// visible only to whoever created it (see task.service.ts#list's status === 'draft' branch) until
+// it's "published" — an ordinary status-change PATCH to 'todo', the same mechanism every other
+// status move already goes through.
+//
+// 'pending_approval' is the single review stage: a verifier (ADMIN/PC/MANAGER-in-department/named
+// reviewer — task.service.ts's CAN_VERIFY_BY_ROLE) approves straight into done or rejects back to
+// in_progress via verify()/PATCH /tasks/:id/verify. Used to be two stages (a QC pass into
+// pending_verification, then a separate APPROVAL_MANAGER-only sign-off) — collapsed to one brief
+// check by request; see git history if the two-stage version is ever needed again.
+export const TASK_STATUSES = ['draft', 'todo', 'in_progress', 'pending_approval', 'done'] as const;
 export const TASK_CATEGORIES = ['issue', 'delegation'] as const;
 export const TASK_PRIORITIES = ['low', 'medium', 'high'] as const;
 export const TASK_REMINDER_CHANNELS = ['notification', 'alarm', 'email', 'sms'] as const;
@@ -86,6 +96,12 @@ export const tasks = mysqlTable(
     // Renamed from Mongoose `submisssionNote` (triple-s typo, confirmed unused elsewhere).
     submissionNote: text('submissionNote'),
     aiMeta: json('aiMeta').$type<TaskAiMeta>(),
+    // Soft-delete: remove() sets this instead of deleting the row (and its children) outright, so
+    // a delegation and its checklist/attachment/comment history stay recoverable and the audit
+    // trail's DELETE `before` snapshot stops being the only record it ever existed. Every read path
+    // (list/getById/update/verify/reports) must AND in `isNull(tasks.deletedAt)` — see NOT_DELETED
+    // below — or a "deleted" task keeps showing up everywhere.
+    deletedAt: datetime('deletedAt', { mode: 'date' }),
     createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
     updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
   },
@@ -183,6 +199,26 @@ export const taskAttachments = mysqlTable(
     updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
   },
   (table) => [index('TaskAttachment_taskId_idx').on(table.taskId)],
+);
+
+// ---------------------------------------------------------------------------
+// TaskReviewer — explicit reviewer, additive on top of the role-based verify rule (ADMIN/PC
+// always, MANAGER/HOD within the task's own department — see task.service.ts's assertCanVerify).
+// Naming someone here lets them approve/reject this specific task regardless of role or
+// department, same convention as ChecklistDefinitionReviewer/ChecklistInstanceReviewer.
+// ---------------------------------------------------------------------------
+export const taskReviewers = mysqlTable(
+  'TaskReviewer',
+  {
+    id: varchar('id', { length: 191 }).primaryKey().$defaultFn(() => createId()),
+    taskId: varchar('taskId', { length: 191 }).notNull().references(() => tasks.id, { onDelete: 'cascade' }),
+    userId: varchar('userId', { length: 191 }).notNull().references(() => users.id),
+    createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex('TaskReviewer_taskId_userId_key').on(table.taskId, table.userId),
+    index('TaskReviewer_userId_idx').on(table.userId),
+  ],
 );
 
 // ---------------------------------------------------------------------------

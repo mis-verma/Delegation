@@ -7,7 +7,7 @@ import { resolveReportScope, resolveDepartmentIdsForStore } from "../../utils/re
 export const taskController = {
     list : asyncHandler(async ( req : Request , res : Response) => {
         const query = listTasksQuerySchema.parse(req.query);
-        const { data, meta } = await taskService.list(req.user!, query.userId, query.status, query.page, query.limit, query.tagIds)
+        const { data, meta } = await taskService.list(req.user!, query.userId, query.status, query.page, query.limit, query.tagIds, query.archived, query.checklistSummary)
         res.json({ success : true, data, meta })
     }),
 
@@ -39,6 +39,11 @@ export const taskController = {
         res.json({ success : true, data : { deleted : true } })
     }),
 
+    restore : asyncHandler(async (req : Request , res : Response) => {
+        const task = await taskService.restore(req.params.id , req.user!)
+        res.json({ success : true, data : task })
+    }),
+
     complianceReport : asyncHandler(async (req : Request , res : Response) => {
         const query = complianceReportQuerySchema.parse(req.query);
         const role = req.user!.role;
@@ -52,6 +57,16 @@ export const taskController = {
             ? await resolveDepartmentIdsForStore(req.user!.storeId)
             : undefined;
         const data = await taskService.complianceReport(query.groupBy, departmentId, query.from, query.to, userId, departmentIds);
+        res.json({ success : true, data })
+    }),
+
+    summary : asyncHandler(async (req : Request , res : Response) => {
+        const data = await taskService.summary(req.user!);
+        res.json({ success : true, data })
+    }),
+
+    pendingApproval : asyncHandler(async (req : Request , res : Response) => {
+        const data = await taskService.pendingApproval();
         res.json({ success : true, data })
     }),
 

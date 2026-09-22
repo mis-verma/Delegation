@@ -9,6 +9,11 @@ export const todoController = {
         res.json({ success: true, data: todos })
     }),
 
+    summary: asyncHandler(async (req: Request, res: Response) => {
+        const data = await todoService.summary(req.user!.sub)
+        res.json({ success: true, data })
+    }),
+
     create: asyncHandler(async (req: Request, res: Response) => {
         const input = createTodoSchema.parse(req.body)
         const todo = await todoService.create(req.user!.sub, input)

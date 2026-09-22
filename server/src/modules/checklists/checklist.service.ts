@@ -8,7 +8,7 @@ import {
   checklistTemplateItems,
   tickets,
 } from '../../db/schema/index.js';
-import { eq, asc, inArray } from 'drizzle-orm';
+import { eq, and, asc, inArray, isNull } from 'drizzle-orm';
 // A helper for throwing consistent, HTTP-status-aware errors (e.g. 404 "not found").
 import { AppError } from '../../utils/AppError.js';
 // Sends a real-time event (e.g. over websockets) so connected clients update live.
@@ -97,7 +97,7 @@ export const checklistService = {
   // instead of hand-typed input (see taskChecklistService.createFromTemplate for the Task-side
   // equivalent). assigneeId is seeded from the template item's defaultAssigneeId when set.
   async addFromTemplateToTicket(ticketId: string, templateId: string) {
-    const [template] = await db.select().from(checklistTemplates).where(eq(checklistTemplates.id, templateId)).limit(1);
+    const [template] = await db.select().from(checklistTemplates).where(and(eq(checklistTemplates.id, templateId), isNull(checklistTemplates.deletedAt))).limit(1);
     if (!template) throw AppError.notFound('Checklist template not found');
     if (template.appliesTo !== 'TICKET') throw AppError.badRequest('This template applies to tasks, not tickets');
 

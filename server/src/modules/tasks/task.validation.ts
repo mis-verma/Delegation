@@ -17,7 +17,11 @@ export const createTaskSchema = z.object({
     departmentId : objectId.optional(),
     // Labels. Capped so one request can't write an unbounded number of join rows; a delegation
     // carrying more than a dozen labels isn't labelled, it's noise.
-    tagIds : z.array(objectId).max(12).optional()
+    tagIds : z.array(objectId).max(12).optional(),
+    // Explicit reviewers — additive on top of the role-based verify rule (ADMIN/PC always,
+    // MANAGER/HOD within the task's own department). Capped same as tagIds: a hand-picked list,
+    // not the whole org roster.
+    reviewerIds : z.array(objectId).max(20).optional()
 });
 
 
@@ -41,6 +45,14 @@ export const confirmSmartTaskSchema = z.object({
 export const listTasksQuerySchema = z.object({
     userId : objectId.optional(),
     status : z.enum(TASK_STATUSES).optional(),
+    // Archived Delegations view — flips the usual "hide soft-deleted rows" filter to "show only
+    // soft-deleted rows" (see task.service.ts#list). Same visibility scope as the live list.
+    archived : z.coerce.boolean().optional(),
+    // Verification Queue only — attaches a per-task { total, done, missingPhotos } checklist
+    // rollup to each row via one batched aggregate query, so the queue can show completion status
+    // on a collapsed row without opening it. Opt-in because every other caller of this list (Task
+    // List, Admin Task List, Dashboard) has no use for it and shouldn't pay the extra join.
+    checklistSummary : z.coerce.boolean().optional(),
     // Comma-separated tag ids, matched as OR (a delegation carrying ANY of them). Filtering
     // server-side rather than in the client means the page's counts stay right — a client-side
     // tag filter over a truncated page would report the page's tally as the org's.

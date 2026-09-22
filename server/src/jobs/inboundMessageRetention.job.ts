@@ -2,14 +2,15 @@ import cron from 'node-cron';
 import { lt } from 'drizzle-orm';
 import { db } from '../config/db.js';
 import { processedInboundMessages } from '../db/schema/index.js';
-import { env } from '../config/env.js';
+import { settingsService } from '../modules/settings/settings.service.js';
 
 // Same batching rationale as auditRetention.job.ts.
 const BATCH_SIZE = 1000;
 const MAX_BATCHES_PER_RUN = 50;
 
 /**
- * Trims ProcessedInboundMessage to `INBOUND_MESSAGE_RETENTION_DAYS`.
+ * Trims ProcessedInboundMessage to Settings.inboundMessageRetentionDays (admin-configurable,
+ * Admin → Settings).
  *
  * Every claimed WhatsApp/DoubleTick webhook message id lives here forever otherwise — the same
  * unbounded-growth shape as AuditLog/Notification before their own retention sweeps, except this
@@ -19,7 +20,7 @@ export const startInboundMessageRetention = () => {
     // 03:45 daily — after auditRetention (03:15) and notificationRetention (03:30), same quiet
     // window, staggered so the three sweeps don't overlap.
     cron.schedule('45 3 * * *', async () => {
-        const days = env.INBOUND_MESSAGE_RETENTION_DAYS;
+        const days = settingsService.getCached().inboundMessageRetentionDays;
         if (days <= 0) return;
 
         const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);

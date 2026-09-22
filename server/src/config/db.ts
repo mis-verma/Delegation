@@ -38,3 +38,17 @@ export const connectDB = async () => {
 export const disconnectDB = async () => {
     await pool.end();
 }
+
+// Cheap, on-demand connectivity check for the readiness endpoint (app.ts's /health/ready) — reuses
+// the exact same "borrow a connection from the pool, release it" check connectDB() does at boot,
+// rather than opening a dedicated connection just to probe liveness.
+export const pingDB = async (): Promise<{ ok: true; latencyMs: number } | { ok: false; error: string }> => {
+    const start = Date.now();
+    try {
+        const connection = await pool.getConnection();
+        connection.release();
+        return { ok: true, latencyMs: Date.now() - start };
+    } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
+}

@@ -1,7 +1,26 @@
 import { db } from "../../config/db.js";
 import { auditLogs, users } from "../../db/schema/core.js";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, gte, lte, sql, type SQL } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
+
+const DEFAULT_PAGE_SIZE = 50
+
+// Same clamp-and-offset helper as checklistInstance.service.ts's own paginate() — kept local
+// rather than shared since neither module reads the other and there's no third caller yet to
+// justify pulling this into a shared util.
+const paginate = (page?: number, limit?: number) => {
+    const safePage = Math.max(1, Math.trunc(page ?? 1) || 1)
+    const safeLimit = Math.min(200, Math.max(1, Math.trunc(limit ?? DEFAULT_PAGE_SIZE) || DEFAULT_PAGE_SIZE))
+    return { page: safePage, limit: safeLimit, offset: (safePage - 1) * safeLimit }
+}
+
+const buildMeta = (p: { page: number; limit: number }, total: number) => ({
+    page: p.page,
+    limit: p.limit,
+    total,
+    totalPages: Math.max(1, Math.ceil(total / p.limit)),
+    hasNext: p.page * p.limit < total,
+})
 
 // The audit service is the "write it down" part of our compliance trail.
 // Whenever something important happens (a Ticket is created/updated/deleted, a User's role changes, etc.)
@@ -40,34 +59,65 @@ export const auditService = {
         }
     },
 
-    // Fetches the full audit history for one entity, newest first - e.g. "show me everything that ever happened to Ticket #123"
-    async listForEntity(entityType : string , entityId : string){
-        // AuditLog.actorId is intentionally NOT a foreign key to User (see src/db/schema/core.ts
-        // — actor identity here can't be joined to Users directly, e.g. system actors), so there's
-        // no relations() entry to use with the relational query API's `with`. A plain LEFT JOIN
-        // reproduces the old `.populate({ path: "actorId", select: "email firstName role" })`
-        // behavior instead — `actor` comes back null for any actorId that doesn't match a real user.
-        return db
-            .select({
-                id: auditLogs.id,
-                entityType: auditLogs.entityType,
-                entityId: auditLogs.entityId,
-                action: auditLogs.action,
-                actorId: auditLogs.actorId,
-                before: auditLogs.before,
-                after: auditLogs.after,
-                createdAt: auditLogs.createdAt,
-                updatedAt: auditLogs.updatedAt,
-                actor: {
-                    id: users.id,
-                    email: users.email,
-                    firstName: users.firstName,
-                    role: users.role,
-                },
-            })
-            .from(auditLogs)
-            .leftJoin(users, eq(auditLogs.actorId, users.id))
-            .where(and(eq(auditLogs.entityType, entityType), eq(auditLogs.entityId, entityId)))
-            .orderBy(desc(auditLogs.createdAt));
+    // Fetches audit history, newest first, filtered by whichever of these were actually passed —
+    // "show me everything that ever happened to Ticket #123" (entityType+entityId), "everything
+    // Priya did last week" (actorId+from+to), or "every REJECT, anywhere" (action alone). All
+    // optional, so the same method also serves the admin-wide Audit Log browser with no filters
+    // at all — one query builder instead of a narrow single-entity method plus a separate list one.
+    async list(filters: {
+        entityType?: string;
+        entityId?: string;
+        actorId?: string;
+        action?: string;
+        from?: string;
+        to?: string;
+        page?: number;
+        limit?: number;
+    }) {
+        const conditions: SQL[] = [];
+        if (filters.entityType) conditions.push(eq(auditLogs.entityType, filters.entityType));
+        if (filters.entityId) conditions.push(eq(auditLogs.entityId, filters.entityId));
+        if (filters.actorId) conditions.push(eq(auditLogs.actorId, filters.actorId));
+        if (filters.action) conditions.push(eq(auditLogs.action, filters.action));
+        if (filters.from) conditions.push(gte(auditLogs.createdAt, new Date(filters.from)));
+        if (filters.to) conditions.push(lte(auditLogs.createdAt, new Date(filters.to)));
+        const where = conditions.length ? and(...conditions) : undefined;
+
+        const p = paginate(filters.page, filters.limit);
+
+        const [rows, [{ value: total }]] = await Promise.all([
+            // AuditLog.actorId is intentionally NOT a foreign key to User (see
+            // src/db/schema/core.ts — actor identity here can't be joined to Users directly, e.g.
+            // system actors), so there's no relations() entry to use with the relational query
+            // API's `with`. A plain LEFT JOIN reproduces that lookup instead — `actor` comes back
+            // null for any actorId that doesn't match a real user.
+            db
+                .select({
+                    id: auditLogs.id,
+                    entityType: auditLogs.entityType,
+                    entityId: auditLogs.entityId,
+                    action: auditLogs.action,
+                    actorId: auditLogs.actorId,
+                    before: auditLogs.before,
+                    after: auditLogs.after,
+                    createdAt: auditLogs.createdAt,
+                    updatedAt: auditLogs.updatedAt,
+                    actor: {
+                        id: users.id,
+                        email: users.email,
+                        firstName: users.firstName,
+                        role: users.role,
+                    },
+                })
+                .from(auditLogs)
+                .leftJoin(users, eq(auditLogs.actorId, users.id))
+                .where(where)
+                .orderBy(desc(auditLogs.createdAt))
+                .limit(p.limit)
+                .offset(p.offset),
+            db.select({ value: sql<number>`COUNT(*)` }).from(auditLogs).where(where),
+        ]);
+
+        return { data: rows, meta: buildMeta(p, Number(total)) };
     },
 }

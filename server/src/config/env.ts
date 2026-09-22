@@ -23,20 +23,18 @@ const envSchema = z.object({
     CLUSTER_WORKERS: z.coerce.number().optional(),
 
     CHECKLIST_TIMEZONE_OFFSET_MINUTES: z.coerce.number().default(330),
-    // Days of audit history to keep. 0 disables the retention sweep entirely, which is what
-    // anyone with a "retain indefinitely" compliance requirement should set.
-    AUDIT_RETENTION_DAYS: z.coerce.number().min(0).default(365),
-    // Days of in-app notifications to keep, read or unread. Unlike AuditLog these have no
-    // compliance reason to retain long-term — 90 days covers "what did I miss last quarter,"
-    // well past what anyone actually scrolls back through in the bell dropdown.
-    NOTIFICATION_RETENTION_DAYS: z.coerce.number().min(0).default(90),
-    // Days to keep a claimed webhook message id around for dedupe purposes. Meta/DoubleTick retry
-    // windows are hours, not weeks, so this only needs to outlast the longest realistic retry.
-    INBOUND_MESSAGE_RETENTION_DAYS: z.coerce.number().min(0).default(7),
+    // Hours of inactivity after someone starts a checklist (completes at least one item) before
+    // checklistDraftReminder.job.ts nudges them to finish it. 0 disables the sweep entirely.
+    CHECKLIST_DRAFT_REMINDER_HOURS: z.coerce.number().min(0).default(3),
+    // Retention periods (used to be AUDIT_RETENTION_DAYS/NOTIFICATION_RETENTION_DAYS/
+    // INBOUND_MESSAGE_RETENTION_DAYS here) are now admin-configurable at runtime — see the
+    // `settings` table's auditRetentionDays/notificationRetentionDays/inboundMessageRetentionDays
+    // columns and Admin → Settings.
 
     JWT_ACCESS_SECRET: z.string().min(10),
-    JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
-    JWT_REFRESH_EXPIRES_IN_DAYS: z.coerce.number().default(30),
+    // Token lifetimes (used to be JWT_ACCESS_EXPIRES_IN/JWT_REFRESH_EXPIRES_IN_DAYS here) are now
+    // admin-configurable at runtime — see the `settings` table's accessTokenExpiresMinutes/
+    // refreshTokenExpiresDays columns and Admin → Settings.
 
     COOKIE_SECURE: z.coerce.boolean().default(false),
     COOKIE_SAMESITE: z.enum(['lax', 'strict', 'none']).default('lax'),

@@ -54,7 +54,29 @@ export type ChecklistInstanceComplianceReportQuery = z.infer<typeof checklistIns
 // Same page/limit convention as listDepartmentsQuerySchema — the list endpoints here were
 // unbounded, hydrating every matching instance (items, images, submissions, accessories) on every
 // call. `max(200)` mirrors the service-side cap so a caller can't reintroduce that by hand.
+//
+// `status` here is the completion-lifecycle filter (getMine/list — OPEN/DUE/COMPLETED/OVERDUE,
+// matching checklistInstance.service.ts's InstanceStatusFilter), NOT the review-stage one. Those
+// two used to share this one `status` field under the review-stage's narrower PENDING/
+// PENDING_APPROVAL enum, which meant getMine/list's own `status=OVERDUE` etc. (My Checklists'
+// quick-filter tiles, the overdue interstitial's preview query) failed `.parse()` outright — a 400
+// on every request that passed a real completion-status filter, even though those two endpoints
+// never even read `status` from this schema's parsed result (see the controller, which casts
+// `req.query.status` directly) — `.parse()` still validates it since it's a query key with a
+// stricter shape than what was actually being sent. See listPendingVerificationQuerySchema below
+// for the review-stage sibling.
 export const listChecklistInstancesQuerySchema = z.object({
+    page: z.coerce.number().int().min(1).optional(),
+    limit: z.coerce.number().int().min(1).max(200).optional(),
+    from: z.string().optional(),
+    to: z.string().optional(),
+    status: z.enum(["OPEN", "DUE", "COMPLETED", "OVERDUE"]).optional(),
+})
+
+// GET /checklist-instances/pending-verification's own query shape. Used to also take `status`,
+// picking between two review-stage queues (PENDING for QC, PENDING_APPROVAL for a separate
+// org-wide-only final approval) — collapsed to the one PENDING_APPROVAL queue.
+export const listPendingVerificationQuerySchema = z.object({
     page: z.coerce.number().int().min(1).optional(),
     limit: z.coerce.number().int().min(1).max(200).optional(),
 })

@@ -3,7 +3,7 @@ import fs from "node:fs"
 import { db } from "../../config/db.js"
 import { tasks, taskAdditionalAssignees, taskComments, taskCommentAttachments, taskAttachments } from "../../db/schema/index.js"
 import { users } from "../../db/schema/core.js"
-import { eq, asc, inArray, type SQL } from "drizzle-orm"
+import { eq, and, asc, inArray, isNull, type SQL } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
 import { AppError } from "../../utils/AppError.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
@@ -56,7 +56,7 @@ const findCommentsWithDetails = async (where: SQL) => {
 
 export const taskCommentService = {
     async list(taskId: string, user: AccessTokenPayload) {
-        const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
+        const [task] = await db.select().from(tasks).where(and(eq(tasks.id, taskId), isNull(tasks.deletedAt))).limit(1);
         if (!task) throw AppError.notFound("Delegation not found");
         await assertCanComment(user, task);
 
@@ -67,7 +67,7 @@ export const taskCommentService = {
         // Multer's already written these to disk by the time this runs — every throw below must
         // clean them up first, or a caller with no access to the task can repeatedly fill disk by
         // commenting on tasks they'll always get rejected on (same pattern as checklistImage.service).
-        const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
+        const [task] = await db.select().from(tasks).where(and(eq(tasks.id, taskId), isNull(tasks.deletedAt))).limit(1);
         if (!task) {
             files.forEach((f) => fs.unlink(f.path, () => {}));
             throw AppError.notFound("Delegation not found");

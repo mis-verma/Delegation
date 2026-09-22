@@ -14,6 +14,9 @@ export const reportExportQuerySchema = z.object({
     priority: z.string().optional(),
     departmentId: z.string().optional(),
     assigneeIds: z.string().optional(),
+    // Checklists-only: scope the export to one store and/or one or more assignees, same
+    // convention as the compliance board's own store/person filters.
+    storeId: z.string().optional(),
 });
 
 export type ReportExportQuery = z.infer<typeof reportExportQuerySchema>;

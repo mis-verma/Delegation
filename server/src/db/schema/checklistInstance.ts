@@ -24,7 +24,12 @@ import {
   YES_NO_VALUES,
 } from './checklistDefinition.js';
 
-export const CHECKLIST_VERIFICATION_STATUSES = ['NOT_SUBMITTED', 'PENDING', 'APPROVED', 'REJECTED'] as const;
+// PENDING_APPROVAL is the single review stage: a verifier (ADMIN/PC/MANAGER-in-department/named
+// reviewer — checklistInstance.service.ts's CAN_VERIFY_BY_ROLE) approves straight into APPROVED or
+// rejects back to REJECTED via verify()/PATCH /checklist-instances/:id/verify. Used to be two
+// stages (a QC pass into PENDING, then a separate APPROVAL_MANAGER-only sign-off) — collapsed to
+// one brief check by request; see git history if the two-stage version is ever needed again.
+export const CHECKLIST_VERIFICATION_STATUSES = ['NOT_SUBMITTED', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED'] as const;
 
 
 export const checklistInstances = mysqlTable(
@@ -54,6 +59,19 @@ export const checklistInstances = mysqlTable(
     // was never rejected first) and lets the UI distinguish "never rejected" from "fixed and
     // resubmitted."
     rejectionCount: int('rejectionCount').notNull().default(0),
+    // Set once the overdue-notifier sweep has sent its one-time "this is overdue" notification for
+    // this instance (assignees + store PCs) — stays null the whole time an instance is on-track or
+    // already complete. Lets the hourly sweep query `WHERE overdueNotifiedAt IS NULL` instead of
+    // re-notifying every already-flagged instance on every run.
+    overdueNotifiedAt: datetime('overdueNotifiedAt', { mode: 'date' }),
+    // Set once checklistDraftReminder.job.ts has sent its one-time "you started this but didn't
+    // finish" nudge (someone completed at least one item, then stopped, well before the deadline)
+    // — same one-shot convention as overdueNotifiedAt, so the same instance is never re-nudged on
+    // a later sweep. Deliberately separate from overdueNotifiedAt: a "still on time, please
+    // finish" reminder and a "you missed the deadline" alert are different messages that can both
+    // legitimately fire for the same instance (draft reminder first, overdue notice later if it's
+    // still incomplete).
+    draftReminderSentAt: datetime('draftReminderSentAt', { mode: 'date' }),
     createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
     updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
   },
@@ -67,6 +85,10 @@ export const checklistInstances = mysqlTable(
     // listPendingVerification filters on this column on every PC/Admin/HOD queue poll — without
     // it that query is a full table scan of ChecklistInstance as the table grows.
     index('ChecklistInstance_verificationStatus_idx').on(table.verificationStatus),
+    // The overdue-notifier sweep filters on this column every hourly run.
+    index('ChecklistInstance_overdueNotifiedAt_idx').on(table.overdueNotifiedAt),
+    // The draft-reminder sweep filters on this column every run, same reason as the index above.
+    index('ChecklistInstance_draftReminderSentAt_idx').on(table.draftReminderSentAt),
   ],
 );
 

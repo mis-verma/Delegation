@@ -13,12 +13,33 @@ export const taskRouter = Router()
 taskRouter.use(authenticate)
 
 taskRouter.get("/", taskController.list)
-taskRouter.get("/reports/compliance", taskController.complianceReport)
-taskRouter.get("/reports/by-owner", taskController.ownerStats)
+// Registered before "/:id" — same reason /reports/* below has to be, or Express would treat
+// "summary" as an :id value and route this into getOne instead. Open to every authenticated role
+// (no requireRole gate): it's always "mine", so there's no elevated-scope data to protect here the
+// way the /reports/* routes below need to.
+taskRouter.get("/summary", taskController.summary)
+// Dashboard's "Needs your approval" card — org-wide, gated to the roles that can actually verify
+// a delegation (matches CAN_VERIFY_BY_ROLE's own ADMIN/PC check inside the service).
+taskRouter.get("/pending-approval", requireRole("ADMIN", "PC"), taskController.pendingApproval)
+// Matches the equivalent ticket/checklist-instance report routes' gate — by-owner in particular
+// had no role check at all, and its scope resolver (resolveReportScope) returns an *unfiltered*
+// scope for any role it doesn't recognize, so an AGENT/USER hitting this directly (outside the
+// UI, which never requests it for those roles) got real org-wide delegation totals back instead
+// of being scoped down or refused.
+taskRouter.get("/reports/compliance", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), taskController.complianceReport)
+taskRouter.get("/reports/by-owner", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), taskController.ownerStats)
 taskRouter.get("/:id" , taskController.getOne)
 taskRouter.patch("/:id" , taskController.update)
-taskRouter.patch("/:id/verify", requireRole("PC", "ADMIN"), taskController.verify)
+// No role gate here anymore — a named reviewer (task.service.ts's taskReviewers, additive on top
+// of the role-based rule) can be any role at all, so who's actually allowed to verify THIS task
+// has to be checked in the service against the specific row, not generically at the router. See
+// task.service.ts's assertCanVerify, and the identical decision already made for checklist
+// instances (checklistInstance.routes.ts).
+taskRouter.patch("/:id/verify", taskController.verify)
 taskRouter.delete("/:id" , requireRole("ADMIN", "PC"),taskController.remove)
+// Restore from the Archived Delegations view — same role gate as delete, since only ADMIN/PC can
+// ever archive a delegation in the first place (route above).
+taskRouter.patch("/:id/restore", requireRole("ADMIN", "PC"), taskController.restore)
 
 taskRouter.post("/", taskController.create)
 

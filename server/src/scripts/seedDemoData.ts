@@ -132,7 +132,7 @@ const run = async () => {
       await db.insert(taskChecklists).values({ id: checklistId, title: 'Sub-tasks', taskId })
       const itemCount = randomInt(3, 5)
       // Tasks further along their status get a higher chance of each sub-item being checked off.
-      const doneChance = status === 'done' ? 1 : status === 'pending_verification' ? 0.9 : status === 'in_progress' ? 0.5 : 0.1
+      const doneChance = status === 'done' ? 1 : status === 'pending_approval' ? 0.9 : status === 'in_progress' ? 0.5 : 0.1
       for (let j = 0; j < itemCount; j++) {
         const isDone = Math.random() < doneChance
         await db.insert(taskChecklistItems).values({
@@ -298,7 +298,7 @@ const run = async () => {
 
       const allDone = itemDones.length > 0 && itemDones.every(Boolean)
       if (allDone) {
-        const verificationStatus = pick(['PENDING', 'PENDING', 'APPROVED', 'REJECTED'] as const)
+        const verificationStatus = pick(['PENDING_APPROVAL', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED'] as const)
         await db.update(checklistInstances).set({
           verificationStatus,
           ...(verificationStatus === 'APPROVED' || verificationStatus === 'REJECTED'

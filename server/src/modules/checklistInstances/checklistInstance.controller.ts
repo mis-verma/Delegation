@@ -1,6 +1,6 @@
 import type { Request, Response } from "express"
-import { checklistInstanceService, type InstanceStatusFilter, type InstanceRecurrence, type InstanceVerificationStatus } from "./checklistInstance.service.js"
-import { setChecklistInstanceItemDoneSchema, verifyChecklistInstanceSchema, checklistInstanceComplianceReportQuerySchema, listChecklistInstancesQuerySchema } from "./checklistInstance.validation.js"
+import { checklistInstanceService, type InstanceRecurrence, type InstanceVerificationStatus } from "./checklistInstance.service.js"
+import { setChecklistInstanceItemDoneSchema, verifyChecklistInstanceSchema, checklistInstanceComplianceReportQuerySchema, listChecklistInstancesQuerySchema, listPendingVerificationQuerySchema } from "./checklistInstance.validation.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
 import { resolveReportScope, resolveStoreIdForDepartment } from "../../utils/reportScope.js"
 
@@ -19,29 +19,39 @@ export const checklistInstanceController = {
     // Paginated. Responds `{ success, data, meta }` — `data` is the same array shape as before,
     // so a caller that ignores `meta` still works, it just gets the first page.
     getMine: asyncHandler(async (req: Request, res: Response) => {
-        const { page, limit } = listChecklistInstancesQuerySchema.parse(req.query)
+        const { page, limit, status } = listChecklistInstancesQuerySchema.parse(req.query)
+        // ADMIN/PC still see a deleted checklist's history on their own "mine" tab too — see
+        // InstanceListFilter.includeDeleted. Everyone else never sees it, here or anywhere else.
+        const includeDeleted = req.user!.role === "ADMIN" || req.user!.role === "PC"
         const result = await checklistInstanceService.getMine(req.user!.sub, {
-            status: req.query.status as InstanceStatusFilter | undefined,
+            status,
             storeId: req.query.storeId as string | undefined,
             recurrence: req.query.recurrence as InstanceRecurrence | undefined,
             verificationStatus: req.query.verificationStatus as InstanceVerificationStatus | undefined,
             departmentId: req.query.departmentId as string | undefined,
             assigneeIds: parseIdsParam(req.query.assigneeIds),
+            includeDeleted,
             page,
             limit,
         })
         res.json({ success: true, ...result })
     }),
 
-    // GET /checklist-instances?definitionId=&storeId=&status=&assigneeId=  (ADMIN only)
+    // GET /checklist-instances?definitionId=&storeId=&status=&assigneeId=&from=&to=  (ADMIN/PC only —
+    // requireRole gate on the route — so includeDeleted is always true here in practice; still
+    // derived from role rather than hardcoded, in case that gate ever loosens.)
     list: asyncHandler(async (req: Request, res: Response) => {
-        const { definitionId, storeId, status, assigneeId } = req.query
-        const { page, limit } = listChecklistInstancesQuerySchema.parse(req.query)
+        const { definitionId, storeId, assigneeId } = req.query
+        const { page, limit, from, to, status } = listChecklistInstancesQuerySchema.parse(req.query)
+        const includeDeleted = req.user!.role === "ADMIN" || req.user!.role === "PC"
         const result = await checklistInstanceService.listAll({
             definitionId: definitionId as string | undefined,
             storeId: storeId as string | undefined,
-            status: status as InstanceStatusFilter | undefined,
+            status,
             assigneeId: assigneeId as string | undefined,
+            from,
+            to,
+            includeDeleted,
             page,
             limit,
         })
@@ -50,9 +60,14 @@ export const checklistInstanceController = {
 
     // GET /checklist-instances/pending-verification (ADMIN/PC all stores, MANAGER own department)
     listPendingVerification: asyncHandler(async (req: Request, res: Response) => {
-        const { page, limit } = listChecklistInstancesQuerySchema.parse(req.query)
+        const { page, limit } = listPendingVerificationQuerySchema.parse(req.query)
         const result = await checklistInstanceService.listPendingVerification(req.user!, page, limit)
         res.json({ success: true, ...result })
+    }),
+
+    pendingApprovalPreview: asyncHandler(async (req: Request, res: Response) => {
+        const data = await checklistInstanceService.pendingApprovalPreview()
+        res.json({ success: true, data })
     }),
 
     // GET /checklist-instances/summary?mine=1|storeId=&assigneeId=&assigneeIds=&definitionId=
@@ -72,7 +87,12 @@ export const checklistInstanceController = {
             recurrence: req.query.recurrence as InstanceRecurrence | undefined,
             verificationStatus: req.query.verificationStatus as InstanceVerificationStatus | undefined,
             departmentId: req.query.departmentId as string | undefined,
+            from: req.query.from as string | undefined,
+            to: req.query.to as string | undefined,
             userId: scopedToSelf || !isOrgWide ? req.user!.sub : undefined,
+            // Same ADMIN/PC-only visibility as every other list above — a deleted checklist's
+            // instances shouldn't inflate (or appear in) a regular user's own compliance counts.
+            includeDeleted: isOrgWide,
         })
         res.json({ success: true, data })
     }),

@@ -8,5 +8,6 @@ export const auditRouter = Router() // create a mini router just for audit-relat
 // This makes sense because audit logs can contain sensitive before/after data about any record in the system,
 // so only admins should be able to view them.
 auditRouter.use(authenticate , requireRole("ADMIN", "PC"))
-// GET /  -> returns the audit history for one entity (entityType + entityId passed as query params)
-auditRouter.get("/", auditController.listForEntity)
+// GET /  -> paginated audit log list; entityType/entityId/actorId/action/from/to are all
+// optional query-string filters, any combination (or none, for "everything").
+auditRouter.get("/", auditController.list)

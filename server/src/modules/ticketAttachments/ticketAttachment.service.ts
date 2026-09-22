@@ -3,7 +3,7 @@ import fs from "node:fs";
 import { createId } from "@paralleldrive/cuid2";
 import { db } from "../../config/db.js";
 import { tickets, ticketAttachments } from "../../db/schema/index.js";
-import { eq, inArray } from "drizzle-orm";
+import { eq, and, isNull, inArray } from "drizzle-orm";
 import { AppError } from "../../utils/AppError.js";
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js";
 import { assertCanMutate } from "../tickets/ticket.service.js";
@@ -13,7 +13,7 @@ export const ticketAttachmentService = {
         // Multer's already written these to disk by the time this runs — every throw below must
         // clean them up first, or a caller with no access to the ticket can repeatedly fill disk by
         // uploading to tickets they'll always get rejected on (same pattern as checklistImage.service).
-        const [ticket] = await db.select().from(tickets).where(eq(tickets.id, ticketId)).limit(1);
+        const [ticket] = await db.select().from(tickets).where(and(eq(tickets.id, ticketId), isNull(tickets.deletedAt))).limit(1);
         if (!ticket) {
             files.forEach((f) => fs.unlink(f.path, () => {}));
             throw AppError.notFound("Ticket not found");

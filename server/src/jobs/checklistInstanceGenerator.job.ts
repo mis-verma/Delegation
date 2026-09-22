@@ -3,7 +3,7 @@
 // generated yet. See utils/period.ts for the period-math this relies on.
 import cron from "node-cron"
 import { createId } from "@paralleldrive/cuid2"
-import { eq, and, inArray, asc, lte } from "drizzle-orm"
+import { eq, and, inArray, asc, lte, isNull } from "drizzle-orm"
 import { db } from "../config/db.js"
 import {
     checklistDefinitions,
@@ -92,7 +92,10 @@ export const loadDefinitionsForGeneration = async (definitionIds: string[]): Pro
     const result = new Map<string, GenerationDefinition>()
     if (!definitionIds.length) return result
 
-    const rows = await db.select().from(checklistDefinitions).where(inArray(checklistDefinitions.id, definitionIds))
+    // isNull(deletedAt) is defense-in-depth here — every caller (the sweep below, and
+    // create()/update() in checklistDefinition.service.ts) already only passes ids it knows are
+    // live, but a soft-deleted definition must never generate another instance if that ever changes.
+    const rows = await db.select().from(checklistDefinitions).where(and(inArray(checklistDefinitions.id, definitionIds), isNull(checklistDefinitions.deletedAt)))
     const storeLinks = await db.select({ definitionId: checklistDefinitionStores.definitionId, storeId: checklistDefinitionStores.storeId })
         .from(checklistDefinitionStores)
         .where(inArray(checklistDefinitionStores.definitionId, definitionIds))
@@ -320,7 +323,14 @@ const generateDueInstances = async () => {
     // before generateInstanceForDefinition ever gets a chance to evaluate it.
     const localNow = new Date(now.getTime() + env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000)
     const definitionRows = await db.select({ id: checklistDefinitions.id }).from(checklistDefinitions)
-        .where(and(eq(checklistDefinitions.isActive, true), lte(checklistDefinitions.startDate, localNow)))
+        .where(and(
+            eq(checklistDefinitions.isActive, true),
+            lte(checklistDefinitions.startDate, localNow),
+            // A soft-deleted definition must stop generating new instances the moment it's
+            // deleted, independent of isActive (a separate pause/resume switch) — see
+            // checklistDefinition.service.ts's NOT_DELETED.
+            isNull(checklistDefinitions.deletedAt),
+        ))
         .orderBy(asc(checklistDefinitions.startDate))
         .limit(GENERATOR_BATCH_SIZE)
 

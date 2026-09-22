@@ -25,6 +25,8 @@ export type TaskExportFilters = {
     priority?: string[];
     departmentId?: string;
     assigneeIds?: string[];
+    /** Checklists-only: scope to one store. Ignored by tickets/tasks. */
+    storeId?: string;
 };
 
 const fullName = (person: { firstName?: string | null; lastName?: string | null } | null | undefined) =>
@@ -106,6 +108,7 @@ type ChecklistReportRow = {
 export const reportService = {
     async *ticketRows(from?: string, to?: string, _extra?: TaskExportFilters): AsyncGenerator<Record<string, unknown>> {
         const where = and(
+            isNull(tickets.deletedAt),
             from ? gte(tickets.createdAt, new Date(from)) : undefined,
             to ? lte(tickets.createdAt, new Date(to)) : undefined,
         );
@@ -167,6 +170,7 @@ export const reportService = {
 
     async *taskRows(from?: string, to?: string, extra?: TaskExportFilters): AsyncGenerator<Record<string, unknown>> {
         const conditions = [
+            isNull(tasks.deletedAt),
             from ? gte(tasks.createdAt, new Date(from)) : undefined,
             to ? lte(tasks.createdAt, new Date(to)) : undefined,
         ];
@@ -275,11 +279,26 @@ export const reportService = {
         }
     },
 
-    async *checklistRows(from?: string, to?: string, _extra?: TaskExportFilters): AsyncGenerator<Record<string, unknown>> {
-        const where = and(
+    async *checklistRows(from?: string, to?: string, extra?: TaskExportFilters): AsyncGenerator<Record<string, unknown>> {
+        const conditions = [
             from ? gte(checklistInstances.periodStart, new Date(from)) : undefined,
             to ? lte(checklistInstances.periodStart, new Date(to)) : undefined,
-        );
+            extra?.storeId ? eq(checklistInstances.storeId, extra.storeId) : undefined,
+        ];
+
+        // Same "resolve assignee ids to a set of instance ids first" convention as
+        // checklistInstance.service.ts's instanceConditions — assignees live in the junction
+        // table, not on the instance row itself.
+        if (extra?.assigneeIds?.length) {
+            conditions.push(inArray(
+                checklistInstances.id,
+                db.select({ instanceId: checklistInstanceAssignees.instanceId })
+                    .from(checklistInstanceAssignees)
+                    .where(inArray(checklistInstanceAssignees.userId, extra.assigneeIds)),
+            ));
+        }
+
+        const where = and(...conditions);
 
         let cursor: { periodStart: Date; id: string } | null = null;
         for (; ;) {

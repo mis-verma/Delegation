@@ -4,6 +4,8 @@ import { eq } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
 import type { UpdateSettingsInput } from "./settings.validation.js"
 import { auditService } from "../audit/audit.service.js";
+import path from "node:path";
+import fs from "node:fs";
 
 // In-memory cache of the single Settings row. Anything that needs settings synchronously
 // (e.g. building a multer instance per upload request, see config/upload.ts) reads this cache
@@ -70,6 +72,45 @@ export const settingsService = {
         cache = updated!;
         // Worth recording even though it's a single row: these are app-wide switches (maintenance
         // mode, upload limits), so "who turned this on and when" is exactly the audit question.
+        await auditService.record({ entityType: "Settings", entityId: id, action: "UPDATE", actorId, before, after: cache });
+        return cache;
+    },
+
+    // Mirrors user.service.ts's setAvatar/removeAvatar — same one-file-replaces-itself shape,
+    // just for the org's single logo instead of a per-user avatar.
+    async updateLogo(url: string, actorId: string) {
+        if (!cache) await this.init();
+        const id = cache!.id;
+        const before = cache!;
+
+        if (before.logoUrl) {
+            const oldPath = path.resolve(process.cwd(), "uploads", "logos", path.basename(before.logoUrl));
+            fs.unlink(oldPath, (err) => {
+                if (err) console.error("Failed to delete old logo file from disk:", err);
+            });
+        }
+
+        await db.update(settings).set({ logoUrl: url, updatedAt: new Date() }).where(eq(settings.id, id));
+        const [updated] = await db.select().from(settings).where(eq(settings.id, id)).limit(1);
+        cache = updated!;
+        await auditService.record({ entityType: "Settings", entityId: id, action: "UPDATE", actorId, before, after: cache });
+        return cache;
+    },
+
+    async removeLogo(actorId: string) {
+        if (!cache) await this.init();
+        const id = cache!.id;
+        const before = cache!;
+        if (!before.logoUrl) return cache!;
+
+        const oldPath = path.resolve(process.cwd(), "uploads", "logos", path.basename(before.logoUrl));
+        fs.unlink(oldPath, (err) => {
+            if (err) console.error("Failed to delete logo file from disk:", err);
+        });
+
+        await db.update(settings).set({ logoUrl: null, updatedAt: new Date() }).where(eq(settings.id, id));
+        const [updated] = await db.select().from(settings).where(eq(settings.id, id)).limit(1);
+        cache = updated!;
         await auditService.record({ entityType: "Settings", entityId: id, action: "UPDATE", actorId, before, after: cache });
         return cache;
     },

@@ -2,7 +2,7 @@ import cron from 'node-cron';
 import { lt } from 'drizzle-orm';
 import { db } from '../config/db.js';
 import { notifications } from '../db/schema/core.js';
-import { env } from '../config/env.js';
+import { settingsService } from '../modules/settings/settings.service.js';
 
 // Same batching rationale as auditRetention.job.ts: an unbounded DELETE over a table that's been
 // accumulating for months takes a long row lock, stalling every notification write behind it.
@@ -10,20 +10,21 @@ const BATCH_SIZE = 1000;
 const MAX_BATCHES_PER_RUN = 50;
 
 /**
- * Trims the Notification table to `NOTIFICATION_RETENTION_DAYS`.
+ * Trims the Notification table to Settings.notificationRetentionDays (admin-configurable,
+ * Admin → Settings).
  *
  * Written on every assignment/verification/reminder event across tickets, tasks and checklists,
  * with nothing ever removing them — same unbounded-growth shape AuditLog had before its own
  * retention sweep. Read state doesn't matter here: an old read notification is just as much
  * dead weight in the table as an old unread one.
  *
- * Set `NOTIFICATION_RETENTION_DAYS=0` to keep everything forever — the job then does nothing.
+ * A retention of 0 days keeps everything forever — the job then does nothing.
  */
 export const startNotificationRetention = () => {
     // 03:30 daily — same quiet window as auditRetention (03:15) and ahead of the checklist
     // generator's morning run, offset 15 minutes so the two sweeps don't overlap.
     cron.schedule('30 3 * * *', async () => {
-        const days = env.NOTIFICATION_RETENTION_DAYS;
+        const days = settingsService.getCached().notificationRetentionDays;
         if (days <= 0) return;
 
         const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);

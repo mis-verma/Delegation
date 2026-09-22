@@ -4,6 +4,9 @@ import { env } from "../../config/env.js";
 // The service layer holds the actual business logic (checking passwords, issuing tokens, etc).
 // The controller's job is just to translate HTTP requests <-> service calls <-> HTTP responses.
 import { authService } from "./auth.service.js";
+// Cookie maxAge must track the same admin-configurable refresh-token lifetime auth.service.ts
+// signs into the DB row for that token — see settings.service.ts.
+import { settingsService } from "../../modules/settings/settings.service.js";
 // Zod schemas used to validate/parse each request body before we trust it.
 import { loginSchema, registerSchema, forgotPasswordSchema, resetPasswordSchema } from "./auth.validation.js";
 // A wrapper that catches errors thrown inside async route handlers and forwards them to
@@ -16,7 +19,9 @@ const REFRESH_COOKIE = 'refreshToken';
 // Options controlling how the refresh token cookie behaves.
 // note: "cookeiOptions" is a typo of "cookieOptions" in the original code - left as-is since it's
 // just an internal variable name and doesn't affect behavior.
-const cookeiOptions = {
+// A function, not a static object, so `maxAge` reflects the current admin-configured
+// refreshTokenExpiresDays at the moment each cookie is set, not whatever it was at server boot.
+const cookeiOptions = () => ({
     // httpOnly means JavaScript running in the browser (e.g. document.cookie) CANNOT read this cookie.
     // This protects the refresh token from theft via malicious scripts (XSS) - only the browser
     // itself can send it back to the server automatically.
@@ -30,21 +35,30 @@ const cookeiOptions = {
     // limiting how widely the sensitive refresh token gets sent.
     path: '/auth',
     // How long (in milliseconds) the cookie lives before the browser deletes it automatically.
-    // Converts a "days" value from env into milliseconds (days * hours * minutes * seconds * ms).
-    maxAge: env.JWT_REFRESH_EXPIRES_IN_DAYS * 24 * 60 * 60 * 1000,
-} as const;
+    // Converts the admin-configured "days" setting into milliseconds (days * hours * minutes * seconds * ms).
+    maxAge: settingsService.getCached().refreshTokenExpiresDays * 24 * 60 * 60 * 1000,
+} as const);
 
 // Shared helper used by login/refresh: sends the refresh token as a secure cookie, and sends the
 // short-lived access token + user info back in the JSON response body. They're split intentionally:
 // the access token is meant to live in frontend memory and be attached to API calls manually, while
 // the refresh token is never touched by JS at all (it just rides along automatically via the cookie).
+// The refresh token also rides along in the JSON body (`refreshToken`) purely for the React Native
+// client, which has no browser cookie jar and instead stores it itself (SecureStore) — the web
+// client already ignores extra response fields, so this is additive, not a breaking change.
 const sendAuthResponse = (res: Response, result: { accessToken: string; refreshToken: string; user: unknown }) => {
     // Set the refresh token cookie on the response using the options defined above.
-    res.cookie(REFRESH_COOKIE, result.refreshToken, cookeiOptions);
+    res.cookie(REFRESH_COOKIE, result.refreshToken, cookeiOptions());
     // Send the access token and public user info as normal JSON - the frontend stores the access
     // token itself and attaches it later as "Authorization: Bearer <token>" on future requests.
-    res.json({ accessToken: result.accessToken, user: result.user });
+    res.json({ accessToken: result.accessToken, refreshToken: result.refreshToken, user: result.user });
 };
+
+// Mobile clients have no cookie jar, so they send the refresh token back explicitly in the request
+// body instead — this reads whichever transport is present, preferring the cookie (web) since it's
+// the harder-to-tamper-with of the two.
+const readRefreshToken = (req: Request): string | undefined =>
+    req.cookies?.[REFRESH_COOKIE] ?? req.body?.refreshToken;
 
 // The actual route handler functions, grouped into one object for easy importing in auth.routes.ts.
 export const authController = {
@@ -70,8 +84,8 @@ export const authController = {
     // Handles POST /auth/refresh - lets the frontend get a new access token once the old one
     // expires, without forcing the user to log in again.
     refresh: asyncHandler(async (req: Request, res: Response) => {
-        // Read the refresh token out of the httpOnly cookie sent automatically by the browser.
-        const result = await authService.refresh(req.cookies?.[REFRESH_COOKIE]);
+        // Read the refresh token out of the httpOnly cookie (web) or the request body (mobile).
+        const result = await authService.refresh(readRefreshToken(req));
         // Issue a fresh access token (and a rotated refresh token) back to the client.
         sendAuthResponse(res, result);
     }),
@@ -80,7 +94,7 @@ export const authController = {
     logout: asyncHandler(async (req: Request, res: Response) => {
         // Tell the service to invalidate (revoke) this refresh token in the database, so it can't
         // be used again even if someone had captured a copy of it.
-        await authService.logout(req.cookies?.[REFRESH_COOKIE]);
+        await authService.logout(readRefreshToken(req));
         // Remove the refresh token cookie from the browser too (must match the same path used when setting it).
         res.clearCookie(REFRESH_COOKIE, { path: '/auth' });
         // Let the frontend know the logout succeeded.

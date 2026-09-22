@@ -2,7 +2,7 @@ import cron from 'node-cron';
 import { lt } from 'drizzle-orm';
 import { db } from '../config/db.js';
 import { auditLogs } from '../db/schema/core.js';
-import { env } from '../config/env.js';
+import { settingsService } from '../modules/settings/settings.service.js';
 
 // Deleted in batches rather than one big statement. An unbounded `DELETE` over a table that has
 // been accumulating for a year takes a long row lock, and on MySQL that stalls every write to
@@ -13,21 +13,21 @@ const BATCH_SIZE = 1000;
 const MAX_BATCHES_PER_RUN = 50;
 
 /**
- * Trims the audit log to `AUDIT_RETENTION_DAYS`.
+ * Trims the audit log to Settings.auditRetentionDays (admin-configurable, Admin → Settings).
  *
  * Audit rows are written on every create/update/delete across a dozen entities and nothing ever
  * removed them, so the table only ever grew. This is the counterpart to that coverage: the log
  * stays useful for the window people actually investigate, without becoming the largest table in
  * the database.
  *
- * Set `AUDIT_RETENTION_DAYS=0` to keep everything forever — the job then does nothing at all,
- * which is the right default for anyone with a compliance requirement to retain indefinitely.
+ * A retention of 0 days keeps everything forever — the job then does nothing at all, which is the
+ * right setting for anyone with a compliance requirement to retain indefinitely.
  */
 export const startAuditRetention = () => {
     // 03:15 daily — off the hour so it doesn't pile onto every other job that picked midnight,
     // and in the quiet window before the checklist generator's morning run.
     cron.schedule('15 3 * * *', async () => {
-        const days = env.AUDIT_RETENTION_DAYS;
+        const days = settingsService.getCached().auditRetentionDays;
         if (days <= 0) return;
 
         const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);

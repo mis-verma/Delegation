@@ -1,0 +1,2 @@
+ALTER TABLE `Settings` ADD `notifyTaskDeadlineReminders` boolean DEFAULT true NOT NULL;--> statement-breakpoint
+ALTER TABLE `Settings` ADD `notifyChecklistOverdueReminders` boolean DEFAULT true NOT NULL;

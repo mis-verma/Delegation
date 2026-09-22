@@ -25,6 +25,25 @@ let connecting: Promise<void> | null = null
 let disabledUntil = 0
 const DISABLE_MS = 30_000
 
+// A cold connect (fresh TCP handshake + Redis handshake) has been observed taking multiple
+// seconds in this environment — long enough that the very first request to hit a cached lookup
+// (e.g. GET /stores right after a fresh login) was blocking on it, in full, before falling back
+// to `compute()`. `disabledUntil` above only protects against a *failed* connect; a slow-but-
+// eventually-successful one still stalled the request for its entire duration. Capping how long
+// any single request will wait for the connection keeps rule 1 above ("a cache failure must never
+// fail the request") honest for "slow" too, not just "down" — the in-flight `connecting` promise
+// itself is left running in the background either way, so a request that arrives after this one
+// still benefits once it resolves.
+const CONNECT_WAIT_MS = 250
+const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> =>
+    new Promise<T>((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error("query cache connect timed out")), ms)
+        promise.then(
+            (value) => { clearTimeout(timer); resolve(value) },
+            (err) => { clearTimeout(timer); reject(err) },
+        )
+    })
+
 const connect = async () => {
     if (client?.isReady) return
     if (Date.now() < disabledUntil) throw new Error("query cache temporarily disabled")
@@ -54,7 +73,7 @@ const connect = async () => {
  */
 export const cached = async <T>(key: string, ttlSeconds: number, compute: () => Promise<T>): Promise<T> => {
     try {
-        await connect()
+        await withTimeout(connect(), CONNECT_WAIT_MS)
         const hit = await client!.get(key)
         if (hit !== null) return JSON.parse(hit) as T
     } catch {
@@ -93,3 +112,25 @@ export const invalidate = async (prefix: string) => {
 /** Namespaced so `invalidate('lookup:stores')` can't accidentally match another module's keys. */
 export const cacheKey = (...parts: (string | number | undefined)[]) =>
     parts.filter((p) => p !== undefined && p !== "").join(":")
+
+// Fire-and-forget: called once from server.ts right after boot so the (slow) initial TCP+Redis
+// handshake happens in the background before any request needs it, instead of on whichever
+// request happens to be first through the door. Never awaited by the caller — `connect()`'s own
+// `connecting` promise still does the real work, this just kicks it off early. Errors are exactly
+// what `connect()` already handles (sets `disabledUntil`), so nothing more to do here.
+export const warmQueryCache = () => { connect().catch(() => {}) }
+
+// Called from server.ts's shutdown() alongside disconnectRedisClients (config/redis.ts) — this
+// client is created lazily on first cache use and lives in module scope here, so it needs its own
+// cleanup hook rather than being covered by that one.
+export const disconnectQueryCache = async () => {
+    if (client?.isOpen) await client.disconnect().catch((err) => console.error("Failed to close the query-cache Redis client:", err))
+}
+
+// For the readiness endpoint (app.ts's /health/ready) — reports the *current* state of the lazily-
+// created client rather than forcing a fresh connect() attempt, so hitting /health/ready never
+// itself opens a new Redis connection. "unavailable" covers "never used yet", "mid-reconnect", and
+// "in its post-failure backoff window" alike — all three mean the same thing to an operator reading
+// this (the cache isn't currently helping), and per this file's own rule 1 above, none of them are
+// ever allowed to fail an actual request either way.
+export const queryCacheStatus = (): 'ok' | 'unavailable' => (client?.isReady ? 'ok' : 'unavailable')

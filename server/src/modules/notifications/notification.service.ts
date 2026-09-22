@@ -153,8 +153,8 @@ export const notificationService = {
     });
   },
 
-  // Called when a ticket/task is handed off for PC verification (ticket -> IN_REVIEW, task ->
-  // pending_verification) - notifies every PC scoped to that department/store that something's
+  // Called when a ticket/task is handed off for PC verification (ticket -> PENDING_APPROVAL, task
+  // -> pending_approval) - notifies every PC scoped to that department/store that something's
   // waiting on them. Mirrors notifyTicketAssigned's "look up the right people, notifyMany" shape.
   async notifyPendingVerification(entity: VerifiableEntity, kind: 'TICKET' | 'TASK' = 'TICKET') {
     const scopeConditions = [];
@@ -267,6 +267,59 @@ export const notificationService = {
       type: 'CHECKLIST_CONDITIONAL_FLAG',
       title: 'Checklist flagged for review',
       message: `"${item.label}" on "${instance.title}" needs attention.`,
+      checklistInstanceId: instance._id.toString(),
+    });
+  },
+
+  // Fired once per instance by checklistOverdueNotifier.job.ts, the moment it crosses its
+  // deadline still incomplete — notifies every assignee (the people who should have filled it
+  // in) AND the store's PCs (escalation, mirroring notifyChecklistPendingVerification's PC
+  // lookup), so both the person who missed it and whoever oversees that store hear about it.
+  async notifyChecklistOverdue(instance: VerifiableChecklistInstance) {
+    const assigneeIds = (instance.assigneeIds ?? []).map((id) => id.toString());
+    const pcs = instance.storeId
+      ? await db
+          .select({ id: users.id })
+          .from(users)
+          .where(and(eq(users.role, 'PC'), eq(users.storeId, instance.storeId.toString())))
+      : [];
+    const pcIds = pcs.map((p) => p.id);
+
+    const results = [];
+    if (assigneeIds.length) {
+      results.push(
+        ...(await notificationService.notifyMany(assigneeIds, {
+          type: 'CHECKLIST_OVERDUE',
+          title: 'Checklist overdue',
+          message: `"${instance.title}" is overdue — fill it in as soon as you can.`,
+          checklistInstanceId: instance._id.toString(),
+        })),
+      );
+    }
+    if (pcIds.length) {
+      results.push(
+        ...(await notificationService.notifyMany(pcIds, {
+          type: 'CHECKLIST_OVERDUE_ESCALATION',
+          title: 'Checklist overdue',
+          message: `"${instance.title}" is overdue and still hasn't been filled in.`,
+          checklistInstanceId: instance._id.toString(),
+        })),
+      );
+    }
+    return results;
+  },
+
+  // Fired once per instance by checklistDraftReminder.job.ts — someone started filling this in
+  // (completed at least one item) then stopped, well before the deadline. A gentler, earlier
+  // nudge than notifyChecklistOverdue above: assignees only, no PC escalation, since nothing has
+  // actually been missed yet.
+  async notifyChecklistDraftReminder(instance: VerifiableChecklistInstance & { remaining: number }) {
+    const assigneeIds = (instance.assigneeIds ?? []).map((id) => id.toString());
+    if (!assigneeIds.length) return [];
+    return notificationService.notifyMany(assigneeIds, {
+      type: 'CHECKLIST_DRAFT_REMINDER',
+      title: 'Finish your checklist',
+      message: `You started "${instance.title}" but haven't finished it — ${instance.remaining} item${instance.remaining === 1 ? '' : 's'} left.`,
       checklistInstanceId: instance._id.toString(),
     });
   },

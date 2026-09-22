@@ -1,7 +1,8 @@
 import { db } from "../../config/db.js"
-import { tasks, taskAdditionalAssignees, taskAttachments, taskChecklists, taskChecklistItems, taskImages, taskComments, taskCommentAttachments, taskStatusUpdates, smartTaskConversations, tags, taskTags, TASK_STATUSES } from "../../db/schema/index.js"
+import { tasks, taskAdditionalAssignees, taskAttachments, taskChecklists, taskChecklistItems, taskImages, taskStatusUpdates, tags, taskTags, taskReviewers, TASK_STATUSES } from "../../db/schema/index.js"
 import { users } from "../../db/schema/core.js"
-import { eq, and, or, inArray, asc, desc, sql } from "drizzle-orm"
+import { eq, and, or, inArray, asc, desc, sql, isNull, isNotNull, ne } from "drizzle-orm"
+import { cached, cacheKey } from "../../config/queryCache.js"
 import { DATE_FORMATS } from "../../utils/dateBucket.js"
 import { createId } from "@paralleldrive/cuid2"
 import { AppError } from "../../utils/AppError.js"
@@ -12,7 +13,6 @@ import { notificationService, notifySafely } from "../notifications/notification
 import { auditService } from "../audit/audit.service.js"
 import { emitTaskEvent } from "../../sockets/taskEvent.js"
 import type { DateBucket } from "../../utils/index.js"
-import { unlinkUploadUrls } from "../../utils/uploadCleanup.js"
 
 // NOTE on populate-heavy reads: the conventions doc recommends Drizzle's relational query API
 // (`db.query.tasks.findFirst({ with: {...} })`) for these, but that API compiles every "many"
@@ -28,6 +28,12 @@ import { unlinkUploadUrls } from "../../utils/uploadCleanup.js"
 // additional-assignee join is actually needed for a given query).
 const selfAndDepartmentCondition = (user: AccessTokenPayload) =>
     or(eq(tasks.userId, user.sub), eq(tasks.assigneeId, user.sub));
+
+// Soft-deleted rows (see remove() below) must stay invisible everywhere a live task is looked
+// up — every read path below ANDs this in alongside its own visibility/mutation condition rather
+// than relying on buildVisibilityCondition/buildMutationCondition, since both of those return
+// `undefined` (i.e. "no restriction at all") for ADMIN/PC.
+const NOT_DELETED = isNull(tasks.deletedAt);
 
 // Fetches the set of task ids where `userId` appears as an additional assignee — used to widen
 // a visibility/mutation filter the same way the old Mongoose `additionalAssigneeIds: user.sub`
@@ -90,6 +96,54 @@ const additionalAssigneeTaskIds = async (userId: string): Promise<string[]> => {
     return rows.map((r) => r.taskId);
 };
 
+// Task ids where `userId` was explicitly named a reviewer — mirrors additionalAssigneeTaskIds
+// above. Used both to widen buildVisibilityCondition (a reviewer needs to be able to find the
+// task before they can verify it) and by assertCanVerify below.
+const reviewerTaskIds = async (userId: string): Promise<string[]> => {
+    const rows = await db.select({ taskId: taskReviewers.taskId })
+        .from(taskReviewers)
+        .where(eq(taskReviewers.userId, userId));
+    return rows.map((r) => r.taskId);
+};
+
+// Replaces a task's reviewer list with exactly `userIds` — same delete-then-insert convention as
+// syncTaskTags (the set is capped small in validation, so a diff buys nothing).
+const syncTaskReviewers = async (
+    tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+    taskId: string,
+    userIds: string[],
+) => {
+    await tx.delete(taskReviewers).where(eq(taskReviewers.taskId, taskId));
+    if (!userIds.length) return;
+    const unique = [...new Set(userIds)];
+    await tx.insert(taskReviewers).values(unique.map((userId) => ({ taskId, userId })));
+};
+
+// Reviewer rows for a set of tasks, as one query — same batching convention as tagsByTask, used
+// by getById/list to hand the client back who's named on a task instead of just how many.
+const reviewersByTask = async (taskIds: string[]) => {
+    const byTask = new Map<string, { id: string; firstName: string; lastName: string | null; email: string }[]>();
+    if (!taskIds.length) return byTask;
+
+    const rows = await db.select({
+        taskId: taskReviewers.taskId,
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        email: users.email,
+    })
+        .from(taskReviewers)
+        .innerJoin(users, eq(taskReviewers.userId, users.id))
+        .where(inArray(taskReviewers.taskId, taskIds));
+
+    for (const row of rows) {
+        const list = byTask.get(row.taskId) ?? [];
+        list.push({ id: row.id, firstName: row.firstName, lastName: row.lastName, email: row.email });
+        byTask.set(row.taskId, list);
+    }
+    return byTask;
+};
+
 // ADMIN and PC both get full org-wide visibility — PC's whole job is verification, so capping
 // them to their own department made most of the org invisible to them and left the "filter by
 // department/person" view (AdminTaskList) unusable for anyone but an admin. Safe to broaden here:
@@ -97,12 +151,23 @@ const additionalAssigneeTaskIds = async (userId: string): Promise<string[]> => {
 // updates in update() below, so this only actually widens list/getById/verify.
 // Same-department/creator/assignee visibility everyone below ADMIN/PC gets by default.
 const buildVisibilityCondition = async (user: AccessTokenPayload) => {
-    if (user.role === "ADMIN" || user.role === "PC") return undefined;
+    // APPROVAL_MANAGER has the same org-wide reach as ADMIN/PC — the final-approval stage needs
+    // to see every pending_approval delegation across the org, not just one department.
+    if (user.role === "ADMIN" || user.role === "PC" || user.role === "APPROVAL_MANAGER") return undefined;
 
     const additionalIds = await additionalAssigneeTaskIds(user.sub);
     const selfCondition = additionalIds.length
         ? or(selfAndDepartmentCondition(user), inArray(tasks.id, additionalIds))
         : selfAndDepartmentCondition(user);
+
+    // An explicitly named reviewer (taskReviewers, additive on top of the role-based rule — see
+    // assertCanVerify) needs to be able to find the task at all before they can verify it,
+    // regardless of role or department — the same reach ChecklistInstance's reviewer scoping
+    // already grants.
+    const reviewedIds = await reviewerTaskIds(user.sub);
+    const withReviewer = reviewedIds.length
+        ? or(selfCondition, inArray(tasks.id, reviewedIds))
+        : selfCondition;
 
     // MANAGER is this app's "department head" role — they get everything within their own
     // department (not just tasks they created or were assigned), on top of the same
@@ -110,10 +175,35 @@ const buildVisibilityCondition = async (user: AccessTokenPayload) => {
     // read-only reach: update() below deliberately does NOT use this function for that reason —
     // see buildMutationCondition.
     if (user.role === "MANAGER" && user.departmentId) {
-        return or(eq(tasks.departmentId, user.departmentId), selfCondition);
+        return or(eq(tasks.departmentId, user.departmentId), withReviewer);
     }
 
-    return selfCondition;
+    return withReviewer;
+};
+
+// verify()'s authorization — deliberately separate from (and narrower than) the visibility a
+// caller needs merely to find the task. A task's own creator/assignee has visibility via
+// selfAndDepartmentCondition above but must NOT be able to self-approve their own work, so
+// role-based verify rights are their own table rather than falling out of buildVisibilityCondition.
+const CAN_VERIFY_BY_ROLE: Partial<Record<AccessTokenPayload["role"], (task: { departmentId: string | null }, user: AccessTokenPayload) => boolean>> = {
+    ADMIN: () => true,
+    PC: () => true,
+    // MANAGER (HOD) may verify a delegation within their own department only — additive on top
+    // of whatever else could already verify it, never a replacement.
+    MANAGER: (task, user) => !!user.departmentId && task.departmentId === user.departmentId,
+};
+
+// An explicitly named reviewer (taskReviewers) can always verify, on top of whatever
+// CAN_VERIFY_BY_ROLE already grants — additive, never a replacement. This is also why
+// PATCH /tasks/:id/verify no longer role-gates at the router: a reviewer can be any role at all,
+// so the check has to happen here, against this specific task.
+const assertCanVerify = async (task: { id: string; departmentId: string | null }, user: AccessTokenPayload) => {
+    if (CAN_VERIFY_BY_ROLE[user.role]?.(task, user)) return;
+    const [reviewer] = await db.select({ id: taskReviewers.id })
+        .from(taskReviewers)
+        .where(and(eq(taskReviewers.taskId, task.id), eq(taskReviewers.userId, user.sub)))
+        .limit(1);
+    if (!reviewer) throw AppError.forbidden();
 };
 
 // update()'s authorization check — deliberately narrower than buildVisibilityCondition. ADMIN/PC
@@ -131,18 +221,23 @@ const buildMutationCondition = async (user: AccessTokenPayload) => {
         : selfAndDepartmentCondition(user);
 };
 
-// Replaces the whole additionalAssigneeIds set for a task with `userIds` inside a transaction —
-// same delete-all-and-reinsert pattern as the rest of this migration (no other table's foreign
-// key points at these junction rows, so it's safe).
-const replaceAdditionalAssignees = async (taskId: string, userIds: string[] | undefined) => {
+// Replaces the whole additionalAssigneeIds set for a task with `userIds` — same delete-all-and-
+// reinsert pattern as syncTaskTags/syncTaskReviewers above (no other table's foreign key points at
+// these junction rows, so it's safe). Takes the caller's `tx` rather than opening its own
+// transaction: its one call site (update(), below) already runs inside an outer transaction
+// alongside the tags/reviewers sync and the task row update itself — a separate transaction here
+// would commit independently of that one, so a later step failing and rolling back the outer
+// transaction would silently leave this change applied instead of rolled back with everything else.
+const replaceAdditionalAssignees = async (
+    tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+    taskId: string,
+    userIds: string[] | undefined,
+) => {
     if (userIds === undefined) return;
-    // wrapped in a transaction (source had none)
-    await db.transaction(async (tx) => {
-        await tx.delete(taskAdditionalAssignees).where(eq(taskAdditionalAssignees.taskId, taskId));
-        if (userIds.length) {
-            await tx.insert(taskAdditionalAssignees).values(userIds.map((userId) => ({ taskId, userId })));
-        }
-    });
+    await tx.delete(taskAdditionalAssignees).where(eq(taskAdditionalAssignees.taskId, taskId));
+    if (userIds.length) {
+        await tx.insert(taskAdditionalAssignees).values(userIds.map((userId) => ({ taskId, userId })));
+    }
 };
 
 /**
@@ -172,6 +267,26 @@ export type TaskOwnerStatsRow = {
     overdueCount: number;
 };
 
+// Dashboard's "Needs your approval" card — ticket.service.ts's TicketPendingApprovalRow has the
+// identical shape; the client combines both alongside checklistInstance's differently-shaped row.
+export type TaskPendingApprovalRow = {
+    id: string;
+    title: string;
+    submittedBy: string | null;
+    waitingSince: string;
+};
+
+// Shared shape for the sidebar's per-entity count badge — Ticket/Todo mirror this same field set
+// (minus `draft`, which only Tasks genuinely have) in their own summary() methods.
+export type TaskSummaryRow = {
+    total: number;
+    newToday: number;
+    due: number;
+    overdue: number;
+    completed: number;
+    draft: number;
+};
+
 // One grouped SQL aggregate behind ownerStats below — `column` is what to GROUP BY (a department/
 // assignee/raiser id column, or NULL for one ungrouped org-wide row when `grouped` is false).
 // Mirrors ticket.service.ts#ownerStatsByColumn.
@@ -180,7 +295,9 @@ const taskOwnerStatsByColumn = async (
     conditions: ReturnType<typeof sql>[],
     grouped: boolean,
 ): Promise<TaskOwnerStatsRow[]> => {
-    const where = conditions.length ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``;
+    // t.deletedAt IS NULL always applies, not just when a caller happens to pass its own
+    // conditions — a soft-deleted delegation must never contribute to these owner-level stats.
+    const where = sql`WHERE t.deletedAt IS NULL${conditions.length ? sql` AND ${sql.join(conditions, sql` AND `)}` : sql``}`;
     const groupBy = grouped ? sql`GROUP BY ownerId` : sql``;
 
     // db.execute() on the mysql2 driver resolves to the raw mysql2 result tuple [rows, fields],
@@ -205,9 +322,16 @@ const taskOwnerStatsByColumn = async (
 };
 
 export const taskService = {
-    async list(user: AccessTokenPayload, filterUserId?: string, status?: string, page = 1, limit = 200, tagIds?: string[]) {
+    async list(user: AccessTokenPayload, filterUserId?: string, status?: string, page = 1, limit = 200, tagIds?: string[], archived = false, includeChecklistSummary = false) {
         let condition;
-        if ((user.role === "ADMIN" || user.role === "PC") && filterUserId) {
+        // Drafts are private scratch space — visible only to the person who created them, full
+        // stop, overriding the normal creator/assignee/department/org-wide reach every other
+        // status gets (even ADMIN/PC's usual org-wide visibility doesn't apply here). This only
+        // engages when a caller explicitly asks for status === 'draft'; the branches below (which
+        // decide who else's tasks a filterUserId/role can reach) are skipped entirely.
+        if (status === "draft") {
+            condition = eq(tasks.userId, user.sub);
+        } else if ((user.role === "ADMIN" || user.role === "PC") && filterUserId) {
             const additionalIds = await additionalAssigneeTaskIds(filterUserId);
             condition = additionalIds.length
                 ? or(eq(tasks.userId, filterUserId), eq(tasks.assigneeId, filterUserId), inArray(tasks.id, additionalIds))
@@ -216,7 +340,20 @@ export const taskService = {
             condition = await buildVisibilityCondition(user);
         }
 
-        const filters = [condition, status ? eq(tasks.status, status as any) : undefined];
+        // Archived Delegations flips which side of deletedAt IS NULL this query looks at — same
+        // visibility scope, just the soft-deleted set instead of the live one.
+        const deletedFilter = archived ? isNotNull(tasks.deletedAt) : NOT_DELETED;
+        // A caller who didn't ask for a specific status (the ordinary "all statuses" list/board/
+        // table view) must never have drafts silently mixed in — they're pre-publication scratch
+        // items, not part of the normal workflow view. Only reachable by explicitly filtering to
+        // status === 'draft' (handled by the visibility override above). The archived view is the
+        // one exception: a soft-deleted draft should still show up there under "archived",
+        // regardless of status, the same as a soft-deleted task at any other status would.
+        const statusFilter = status
+            ? eq(tasks.status, status as any)
+            : (archived ? undefined : ne(tasks.status, "draft"));
+
+        const filters = [deletedFilter, condition, statusFilter];
 
         // EXISTS rather than a join: joining TaskTag would multiply a task's row by its matching
         // label count, breaking both the page size and the count query. Same reason
@@ -260,11 +397,41 @@ export const taskService = {
             attachmentsByTask.set(a.taskId, list);
         }
 
+        // Verification Queue's collapsed-row summary — done/total items and how many are still
+        // missing a required photo, batched in one aggregate query over this page's taskIds rather
+        // than a full checklist fetch per row (which is what the lazy per-row detail fetch on
+        // expand exists to avoid triggering for every row up front).
+        const checklistSummaryByTask = new Map<string, { total: number; done: number; missingPhotos: number }>();
+        if (includeChecklistSummary) {
+            // db.execute() on the mysql2 driver resolves to the raw mysql2 result tuple [rows, fields].
+            const [summaryRows] = await db.execute(sql`
+                SELECT
+                    tc.taskId AS taskId,
+                    COUNT(*) AS totalItems,
+                    SUM(tci.isDone) AS doneItems,
+                    SUM(CASE WHEN tci.requiredImageCount > 0 AND COALESCE(img.totalCount, 0) < tci.requiredImageCount THEN 1 ELSE 0 END) AS missingPhotoItems
+                FROM TaskChecklistItem tci
+                JOIN TaskChecklist tc ON tc.id = tci.taskChecklistId
+                LEFT JOIN (
+                    SELECT taskChecklistItemId, COUNT(*) AS totalCount FROM TaskImage GROUP BY taskChecklistItemId
+                ) img ON img.taskChecklistItemId = tci.id
+                WHERE tc.taskId IN (${sql.join(taskIds.map((id) => sql`${id}`), sql`, `)})
+                GROUP BY tc.taskId
+            `);
+            // mysql2 rows carry no static shape — same cast complianceReport above uses.
+            for (const r of summaryRows as unknown as any[]) {
+                checklistSummaryByTask.set(r.taskId as string, { total: Number(r.totalItems), done: Number(r.doneItems), missingPhotos: Number(r.missingPhotoItems) });
+            }
+        }
+
         return {
             data: rows.map((task) => ({
                 ...task,
                 attachments: attachmentsByTask.get(task.id) ?? [],
                 tags: tagMap.get(task.id) ?? [],
+                ...(includeChecklistSummary
+                    ? { checklistSummary: checklistSummaryByTask.get(task.id) ?? { total: 0, done: 0, missingPhotos: 0 } }
+                    : {}),
             })),
             meta,
         };
@@ -308,7 +475,7 @@ export const taskService = {
 
     async getById(id: string, user: AccessTokenPayload) {
         const visibility = await buildVisibilityCondition(user);
-        const where = visibility ? and(eq(tasks.id, id), visibility) : eq(tasks.id, id);
+        const where = visibility ? and(eq(tasks.id, id), visibility, NOT_DELETED) : and(eq(tasks.id, id), NOT_DELETED);
 
         const [task] = await db.select().from(tasks).where(where).limit(1);
         if (!task) throw AppError.notFound("Delegation not found")
@@ -355,12 +522,13 @@ export const taskService = {
             checklists,
             attachments,
             tags: (await tagsByTask([task.id])).get(task.id) ?? [],
+            reviewers: (await reviewersByTask([task.id])).get(task.id) ?? [],
             statusUpdates: await loadStatusUpdates(task.id),
         };
     },
 
     async create(input: CreateTaskInput, user: AccessTokenPayload) {
-        const { additionalAssigneeIds, tagIds, startDate, dueDate, ...rest } = input;
+        const { additionalAssigneeIds, tagIds, reviewerIds, startDate, dueDate, ...rest } = input;
         const id = createId();
 
         // wrapped in a transaction (source had none)
@@ -382,6 +550,7 @@ export const taskService = {
             // Inside the transaction: a label set that half-applied would leave the delegation
             // filtered under labels it doesn't really carry.
             if (tagIds) await syncTaskTags(tx, id, tagIds);
+            if (reviewerIds?.length) await syncTaskReviewers(tx, id, reviewerIds);
 
             const [created] = await tx.select().from(tasks).where(eq(tasks.id, id)).limit(1);
             return created!;
@@ -403,12 +572,12 @@ export const taskService = {
     },
 
     async update(id: string, input: UpdateTaskInput, user: AccessTokenPayload) {
-        if (user.role === "PC") {
-            throw AppError.forbidden("PC can only act on a delegation through the verification queue.")
+        if (user.role === "PC" || user.role === "APPROVAL_MANAGER") {
+            throw AppError.forbidden(`${user.role === "PC" ? "PC" : "An approval manager"} can only act on a delegation through the verification queue.`)
         }
 
         const mutationCondition = await buildMutationCondition(user);
-        const where = mutationCondition ? and(eq(tasks.id, id), mutationCondition) : eq(tasks.id, id);
+        const where = mutationCondition ? and(eq(tasks.id, id), mutationCondition, NOT_DELETED) : and(eq(tasks.id, id), NOT_DELETED);
 
         const [existing] = await db.select().from(tasks).where(where).limit(1);
         if (!existing) throw AppError.notFound("Delegation not found");
@@ -436,7 +605,7 @@ export const taskService = {
             if (user.role !== "ADMIN") {
                 throw AppError.forbidden("Only a verifier can reopen a delegation that's already been verified.")
             }
-        } else if (input.status === "pending_verification" && beforeStatus !== "pending_verification") {
+        } else if (input.status === "pending_approval" && beforeStatus !== "pending_approval") {
             const checklistRows = await db.select().from(taskChecklists).where(eq(taskChecklists.taskId, existing.id));
             const checklistIds = checklistRows.map((c) => c.id);
             const itemRows = checklistIds.length
@@ -452,7 +621,7 @@ export const taskService = {
             assertChecklistsResolved(checklistsWithItems, "sending this delegation for review")
         }
 
-        const { additionalAssigneeIds, tagIds, startDate, dueDate, statusRemark, ...rest } = input;
+        const { additionalAssigneeIds, tagIds, reviewerIds, startDate, dueDate, statusRemark, ...rest } = input;
 
         // Every status move must say why. Tickets have always worked this way; delegations moved
         // between columns with nothing recorded, so a board that changed under you gave no way to
@@ -488,11 +657,13 @@ export const taskService = {
         // wrapped in a transaction (source had none)
         const task = await db.transaction(async (tx) => {
             await tx.update(tasks).set(update).where(and(eq(tasks.id, id), mutationCondition ?? eq(tasks.id, id)));
-            await replaceAdditionalAssignees(id, additionalAssigneeIds);
+            await replaceAdditionalAssignees(tx, id, additionalAssigneeIds);
             // `undefined` means the request didn't mention labels, so leave them alone; an empty
             // array is an explicit "clear them". A PATCH that only moves a status must not wipe
             // the delegation's labels as a side effect.
             if (tagIds !== undefined) await syncTaskTags(tx, id, tagIds);
+            // Same "undefined = untouched, [] = clear them" convention as tagIds.
+            if (reviewerIds !== undefined) await syncTaskReviewers(tx, id, reviewerIds);
             // Inside the transaction so the move and its justification land together — a status
             // change that committed without its audit row would be exactly the silent change this
             // feature exists to stop.
@@ -529,7 +700,7 @@ export const taskService = {
             }, task);
         }
 
-        if (input.status === "pending_verification" && beforeStatus !== "pending_verification") {
+        if (input.status === "pending_approval" && beforeStatus !== "pending_approval") {
             await notifySafely(() => notificationService.notifyPendingVerification({
                 _id: task.id,
                 title: task.title,
@@ -541,47 +712,51 @@ export const taskService = {
 
         // Includes the history: the client writes this response straight into its detail cache,
         // so returning the bare row would momentarily blank the Activity feed's status entries.
-        return { ...task, statusUpdates: await loadStatusUpdates(id) };
+        return { ...task, reviewers: (await reviewersByTask([id])).get(id) ?? [], statusUpdates: await loadStatusUpdates(id) };
     },
 
 
     async verify(id: string, input: VerifyTaskInput, user: AccessTokenPayload) {
         const visibility = await buildVisibilityCondition(user);
-        const where = visibility ? and(eq(tasks.id, id), visibility) : eq(tasks.id, id);
+        const where = visibility ? and(eq(tasks.id, id), visibility, NOT_DELETED) : and(eq(tasks.id, id), NOT_DELETED);
         const [task] = await db.select().from(tasks).where(where).limit(1);
         if (!task) throw AppError.notFound("Delegation not found")
 
-        if (task.status !== "pending_verification") {
-            throw AppError.badRequest("This delegation isn't pending verification.")
+        if (task.status !== "pending_approval") {
+            throw AppError.badRequest("This delegation isn't pending approval.")
         }
 
-        const update: Record<string, unknown> = { updatedAt: new Date() };
+        // Single-stage verify: one PC/ADMIN/MANAGER-in-department/named-reviewer check decides the
+        // whole thing (the old two-stage QC-then-approval split — a separate APPROVAL_MANAGER-only
+        // sign-off after QC passed — is gone; approving here is final).
+        await assertCanVerify(task, user);
+
+        const fromStatus = task.status;
+        const update: Record<string, unknown> = { updatedAt: new Date(), verificationNote: input.note ?? null };
         if (input.action === "APPROVE") {
             update.status = "done";
             update.verifiedBy = user.sub;
             update.verifiedAt = new Date();
-            update.verificationNote = input.note ?? null;
         } else {
             update.status = "in_progress";
-            update.verificationNote = input.note ?? null;
         }
-        // Optimistic-concurrency guard: the WHERE clause re-checks status === "pending_verification"
+        // Optimistic-concurrency guard: the WHERE clause re-checks the status this row was read at
         // atomically inside the UPDATE itself (mirrors advanceConversation's pattern), so two
         // concurrent verify calls can't both "win" — only the first write matches and the second
         // gets affectedRows === 0 instead of silently re-applying its own status/verifiedBy on top.
-        const [result] = await db.update(tasks).set(update).where(and(eq(tasks.id, id), eq(tasks.status, "pending_verification")));
+        const [result] = await db.update(tasks).set(update).where(and(eq(tasks.id, id), eq(tasks.status, fromStatus)));
         if (result.affectedRows === 0) {
-            throw AppError.badRequest("This delegation isn't pending verification.")
+            throw AppError.badRequest("This delegation isn't pending approval.")
         }
 
         // Approve/reject is a status move too, so it belongs on the same timeline — otherwise the
-        // history would show a delegation reaching "Pending Verification" and then simply being
-        // done, with the actual decision (and the verifier's reason for it) missing. The note is
-        // optional on APPROVE, so fall back to stating the decision plainly.
+        // history would show a delegation reaching "Pending Approval" and then simply being done,
+        // with the actual decision (and the reviewer's reason for it) missing. The note is optional
+        // on APPROVE, so fall back to stating the decision plainly.
         await db.insert(taskStatusUpdates).values({
             taskId: id,
             changedBy: user.sub,
-            fromStatus: "pending_verification",
+            fromStatus,
             toStatus: update.status as typeof TASK_STATUSES[number],
             remark: input.note?.trim() || (input.action === "APPROVE" ? "Approved." : "Sent back for rework."),
         });
@@ -616,71 +791,60 @@ export const taskService = {
     },
 
 
+    // Soft delete: sets deletedAt instead of removing the row (and used to also hard-delete every
+    // child/junction row + unlink evidence photos/attachments from disk — see git history for that
+    // cascade if it's ever needed again). Nothing else is touched: children stay exactly as they
+    // were so the delegation is fully recoverable, not just its own row. Every read path in this
+    // file (list/getById/update/verify, all via NOT_DELETED above) hides it from here on.
     async remove(id: string, user: AccessTokenPayload) {
         const visibility = await buildVisibilityCondition(user);
-        const where = visibility ? and(eq(tasks.id, id), visibility) : eq(tasks.id, id);
+        const where = visibility ? and(eq(tasks.id, id), visibility, NOT_DELETED) : and(eq(tasks.id, id), NOT_DELETED);
 
         const [task] = await db.select().from(tasks).where(where).limit(1);
         if (!task) throw AppError.notFound("Delegation not found");
 
-        // wrapped in a transaction — clears every child/junction row that has no cascading FK
-        // before deleting the task itself (mirrors ticketService.remove's approach). The DB rows
-        // are the only thing this used to clean up — the actual evidence photos/attachments they
-        // pointed at stayed on disk forever, an unbounded leak with no retention sweep to catch it
-        // (unlike audit logs/notifications/inbound messages). File urls are collected here, before
-        // each table is deleted, and unlinked (best-effort) only after the transaction commits.
-        const orphanedUrls: string[] = [];
-        await db.transaction(async (tx) => {
-            const childChecklists = await tx.select({ id: taskChecklists.id }).from(taskChecklists).where(eq(taskChecklists.taskId, id));
-            const checklistIds = childChecklists.map((c) => c.id);
-            if (checklistIds.length) {
-                const childItems = await tx.select({ id: taskChecklistItems.id }).from(taskChecklistItems).where(inArray(taskChecklistItems.taskChecklistId, checklistIds));
-                const itemIds = childItems.map((i) => i.id);
-                if (itemIds.length) {
-                    const images = await tx.select({ url: taskImages.url }).from(taskImages).where(inArray(taskImages.taskChecklistItemId, itemIds));
-                    orphanedUrls.push(...images.map((i) => i.url));
-                    await tx.delete(taskImages).where(inArray(taskImages.taskChecklistItemId, itemIds));
-                }
-                await tx.delete(taskChecklistItems).where(inArray(taskChecklistItems.taskChecklistId, checklistIds));
-                await tx.delete(taskChecklists).where(eq(taskChecklists.taskId, id));
-            }
-            const attachments = await tx.select({ url: taskAttachments.url }).from(taskAttachments).where(eq(taskAttachments.taskId, id));
-            orphanedUrls.push(...attachments.map((a) => a.url));
-            await tx.delete(taskAttachments).where(eq(taskAttachments.taskId, id));
+        const deletedAt = new Date();
+        await db.update(tasks).set({ deletedAt, updatedAt: deletedAt }).where(eq(tasks.id, id));
 
-            // TaskCommentAttachment cascades on TaskComment delete (ON DELETE CASCADE) — the rows
-            // vanish on their own, but only a SELECT taken before that delete can still see their
-            // urls to unlink the underlying files.
-            const commentAttachments = await tx.select({ url: taskCommentAttachments.url })
-                .from(taskCommentAttachments)
-                .innerJoin(taskComments, eq(taskCommentAttachments.commentId, taskComments.id))
-                .where(eq(taskComments.taskId, id));
-            orphanedUrls.push(...commentAttachments.map((a) => a.url));
-            await tx.delete(taskComments).where(eq(taskComments.taskId, id));
-
-            // TaskStatusUpdate's FK to Task has no ON DELETE CASCADE (matching every other child
-            // table here), so leaving these behind would make deleting any delegation that ever
-            // changed status fail on a constraint violation.
-            await tx.delete(taskStatusUpdates).where(eq(taskStatusUpdates.taskId, id));
-            await tx.delete(taskAdditionalAssignees).where(eq(taskAdditionalAssignees.taskId, id));
-            await tx.update(smartTaskConversations).set({ resultingTaskId: null }).where(eq(smartTaskConversations.resultingTaskId, id));
-            await tx.delete(tasks).where(eq(tasks.id, id));
-        });
-        unlinkUploadUrls(orphanedUrls);
-
-        // Carries only the id — the row is gone, so there's nothing else meaningful to send, and
-        // clients only need to know which card to drop.
+        // Carries only the id — clients only need to know which card to drop from the board.
         emitTaskEvent('task:deleted', {
             userId: task.userId,
             assigneeId: task.assigneeId ?? null,
             departmentId: task.departmentId ?? null,
         }, { id: task.id });
 
-        // `before` is the whole row — after a hard delete this snapshot is the only record that
-        // the delegation ever existed.
+        // `before` is the pre-delete row — same DELETE audit shape as when this was a hard delete,
+        // even though the row itself now lives on with deletedAt set.
         await auditService.record({ entityType: "Task", entityId: id, action: "DELETE", actorId: user.sub, before: task });
 
         return task;
+    },
+
+    // Symmetric with remove() above — clears deletedAt instead of setting it. Same visibility
+    // condition and NOT_DELETED-flipped lookup remove() uses, so "can restore it" always matches
+    // "could see it in the Archived list" in the first place.
+    async restore(id: string, user: AccessTokenPayload) {
+        const visibility = await buildVisibilityCondition(user);
+        const where = visibility
+            ? and(eq(tasks.id, id), visibility, isNotNull(tasks.deletedAt))
+            : and(eq(tasks.id, id), isNotNull(tasks.deletedAt));
+
+        const [task] = await db.select().from(tasks).where(where).limit(1);
+        if (!task) throw AppError.notFound("Archived delegation not found");
+
+        const updatedAt = new Date();
+        await db.update(tasks).set({ deletedAt: null, updatedAt }).where(eq(tasks.id, id));
+        const restored = { ...task, deletedAt: null, updatedAt };
+
+        emitTaskEvent('task:updated', {
+            userId: task.userId,
+            assigneeId: task.assigneeId ?? null,
+            departmentId: task.departmentId ?? null,
+        }, restored);
+
+        await auditService.record({ entityType: "Task", entityId: id, action: "UPDATE", actorId: user.sub, before: task, after: restored });
+
+        return restored;
     },
 
     // Ported from a MongoDB aggregation pipeline (TaskChecklistItem -> TaskChecklist -> Task,
@@ -704,8 +868,10 @@ export const taskService = {
                 : sql`1 = 0`);
         }
         if (userId) conditions.push(sql`(t.userId = ${userId} OR t.assigneeId = ${userId} OR taa.userId IS NOT NULL)`);
+        // A soft-deleted delegation's checklist items must not count toward compliance either.
+        conditions.push(sql`t.deletedAt IS NULL`);
 
-        const whereClause = conditions.length ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``;
+        const whereClause = sql`WHERE ${sql.join(conditions, sql` AND `)}`;
 
         // db.execute() on the mysql2 driver resolves to the raw mysql2 result tuple
         // [rows, fields], NOT a plain row array — must destructure element 0.
@@ -764,26 +930,129 @@ export const taskService = {
         if (scope === "department") return taskOwnerStatsByColumn(sql`t.departmentId`, baseConditions, true);
         if (scope === "org") return taskOwnerStatsByColumn(sql`NULL`, baseConditions, false);
 
-        // user: credit both the primary assignee and the raiser, same dual-credit merge (and same
-        // accepted self-assigned-double-count edge case) as ticketService.ownerStats('user', ...).
-        // Deliberately excludes TaskAdditionalAssignee — matches the simpler "assignee or raiser"
-        // rule the leaderboard used before this fix, not an expansion of scope.
-        const [assigneeRows, raiserRows] = await Promise.all([
+        // user: credit both the primary assignee and the raiser, same dual-credit merge as
+        // ticketService.ownerStats('user', ...) — including the same self-assigned-subtraction
+        // fix: a task where assigneeId === userId is a row in both grouped result sets, so a
+        // third query isolates just those self-assigned tasks and nets them back out to single
+        // credit instead of leaving them double-counted. Deliberately excludes
+        // TaskAdditionalAssignee — matches the simpler "assignee or raiser" rule the leaderboard
+        // used before this fix, not an expansion of scope.
+        const [assigneeRows, raiserRows, selfAssignedRows] = await Promise.all([
             taskOwnerStatsByColumn(sql`t.assigneeId`, [...baseConditions, sql`t.assigneeId IS NOT NULL`], true),
             taskOwnerStatsByColumn(sql`t.userId`, baseConditions, true),
+            taskOwnerStatsByColumn(sql`t.assigneeId`, [...baseConditions, sql`t.assigneeId = t.userId`], true),
         ]);
         const merged = new Map<string, TaskOwnerStatsRow>();
-        for (const row of [...assigneeRows, ...raiserRows]) {
-            if (row.ownerId == null) continue;
-            const existing = merged.get(row.ownerId);
-            merged.set(row.ownerId, existing ? {
-                ownerId: row.ownerId,
-                total: existing.total + row.total,
-                done: existing.done + row.done,
-                overdueCount: existing.overdueCount + row.overdueCount,
-            } : row);
-        }
+        const accumulate = (rows: TaskOwnerStatsRow[], sign: 1 | -1) => {
+            for (const row of rows) {
+                if (row.ownerId == null) continue;
+                const existing = merged.get(row.ownerId) ?? { ownerId: row.ownerId, total: 0, done: 0, overdueCount: 0 };
+                merged.set(row.ownerId, {
+                    ownerId: row.ownerId,
+                    total: existing.total + sign * row.total,
+                    done: existing.done + sign * row.done,
+                    overdueCount: existing.overdueCount + sign * row.overdueCount,
+                });
+            }
+        };
+        accumulate(assigneeRows, 1);
+        accumulate(raiserRows, 1);
+        accumulate(selfAssignedRows, -1);
         return [...merged.values()];
+    },
+
+    // Backs the sidebar's "Delegation" count badge and its hover breakdown — deliberately "mine"
+    // (creator, assignee, or additional assignee, same reach as selfAndDepartmentCondition), not
+    // buildVisibilityCondition's full reach, even for ADMIN/PC/MANAGER. Those roles already get an
+    // org-wide view from the dashboard/admin pages; a personal nav badge that suddenly ballooned to
+    // the whole org's count the moment someone had elevated access would stop meaning "what's on my
+    // plate" and would also be a much heavier query running on literally every page load (the
+    // sidebar renders on every route).
+    async summary(user: AccessTokenPayload): Promise<TaskSummaryRow> {
+        const additionalIds = await additionalAssigneeTaskIds(user.sub);
+        const mineCondition = additionalIds.length
+            ? or(selfAndDepartmentCondition(user), inArray(tasks.id, additionalIds))
+            : selfAndDepartmentCondition(user);
+        const where = and(NOT_DELETED, mineCondition);
+
+        // 30s cache, same short TTL and reasoning as checklistInstance.service.ts#summary — this
+        // moves whenever anyone touches a task anywhere, so there's no single invalidation moment
+        // to hook, and a badge that's up to half a minute stale is a fair trade against a real
+        // aggregate query running on every page load.
+        return cached(cacheKey("task-summary", user.sub), 30, async () => {
+            const [row] = await db.select({
+                total: sql<number>`COUNT(*)`,
+                draft: sql<number>`SUM(CASE WHEN ${tasks.status} = 'draft' THEN 1 ELSE 0 END)`,
+                completed: sql<number>`SUM(CASE WHEN ${tasks.status} = 'done' THEN 1 ELSE 0 END)`,
+                overdue: sql<number>`SUM(CASE WHEN ${tasks.status} NOT IN ('done', 'draft') AND ${tasks.dueDate} IS NOT NULL AND ${tasks.dueDate} < NOW() THEN 1 ELSE 0 END)`,
+                newToday: sql<number>`SUM(CASE WHEN ${tasks.createdAt} >= CURDATE() THEN 1 ELSE 0 END)`,
+            }).from(tasks).where(where);
+
+            const total = Number(row?.total ?? 0);
+            const draft = Number(row?.draft ?? 0);
+            const completed = Number(row?.completed ?? 0);
+            const overdue = Number(row?.overdue ?? 0);
+            // Drafts are excluded from the badge's headline total — a private scratch item isn't
+            // "on my plate" the way a published delegation is, same reasoning list() already
+            // applies by hiding drafts from the default view.
+            const active = total - draft - completed;
+            return {
+                total: total - draft,
+                newToday: Number(row?.newToday ?? 0),
+                due: active - overdue,
+                overdue,
+                completed,
+                draft,
+            };
+        });
+    },
+
+    // "Needs your approval" dashboard card (ADMIN/PC only — gated at the route; both roles
+    // already resolve to org-wide in buildVisibilityCondition, and any ADMIN/PC can verify any
+    // pending_approval task per CAN_VERIFY_BY_ROLE above, so no per-task assignment to filter by).
+    // Oldest-waiting-first — Task has no "entered pending_approval at" column (submittedAt exists
+    // on the schema but nothing ever writes it), so this over-fetches a small pool by createdAt,
+    // looks up each row's real transition time from TaskStatusUpdate, and re-sorts by that. Same
+    // batch-fetch-then-map shape ticket.service.ts#pendingApproval uses, not a derived-table join.
+    async pendingApproval(limit = 8): Promise<TaskPendingApprovalRow[]> {
+        const POOL = 40;
+        const rows = await db.select({
+            id: tasks.id,
+            title: tasks.title,
+            createdAt: tasks.createdAt,
+            firstName: users.firstName,
+            lastName: users.lastName,
+        })
+            .from(tasks)
+            .leftJoin(users, eq(tasks.userId, users.id))
+            .where(and(eq(tasks.status, "pending_approval"), NOT_DELETED))
+            .orderBy(asc(tasks.createdAt))
+            .limit(POOL);
+
+        if (rows.length === 0) return [];
+
+        const ids = rows.map((r) => r.id);
+        const sinceRows = await db.select({
+            taskId: taskStatusUpdates.taskId,
+            // Actually returned as a string by mysql2 for a raw aggregate like this (unlike a
+            // plain schema column select, which goes through Drizzle's date-mode conversion) —
+            // typed honestly here, matching ticket.service.ts#pendingApproval's own fix.
+            since: sql<string>`MAX(${taskStatusUpdates.createdAt})`,
+        })
+            .from(taskStatusUpdates)
+            .where(and(inArray(taskStatusUpdates.taskId, ids), eq(taskStatusUpdates.toStatus, "pending_approval")))
+            .groupBy(taskStatusUpdates.taskId);
+        const sinceById = new Map(sinceRows.map((r) => [r.taskId, r.since]));
+
+        return rows
+            .map((r) => ({
+                id: r.id,
+                title: r.title,
+                submittedBy: r.firstName ? `${r.firstName}${r.lastName ? ` ${r.lastName}` : ""}` : null,
+                waitingSince: new Date(sinceById.get(r.id) ?? r.createdAt).toISOString(),
+            }))
+            .sort((a, b) => new Date(a.waitingSince).getTime() - new Date(b.waitingSince).getTime())
+            .slice(0, limit);
     },
 
 };

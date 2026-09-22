@@ -17,7 +17,12 @@ import { createId } from '@paralleldrive/cuid2';
 // Shared enum value arrays (exported for reuse in Zod validation etc.)
 // ---------------------------------------------------------------------------
 
-export const ROLES = ['ADMIN', 'SENIOR', 'MANAGER', 'AGENT', 'USER', 'PC'] as const;
+// APPROVAL_MANAGER — the final sign-off stage of the two-stage QC → final-approval workflow
+// (see task.service.ts/ticket.service.ts/checklistInstance.service.ts's `assertCanApprove`).
+// Org-wide reach, like ADMIN/PC, deliberately distinct from the existing QC reviewers
+// (ADMIN/PC/MANAGER-in-department/named reviewer) — someone who already did QC on an item can't
+// also be the one who gives it final approval.
+export const ROLES = ['ADMIN', 'APPROVAL_MANAGER', 'SENIOR', 'MANAGER', 'AGENT', 'USER', 'PC'] as const;
 export type Role = (typeof ROLES)[number];
 export const EVENT_TYPES = ['DEADLINE', 'ANNOUNCEMENT', 'BROADCAST'] as const;
 
@@ -25,13 +30,16 @@ export const EVENT_TYPES = ['DEADLINE', 'ANNOUNCEMENT', 'BROADCAST'] as const;
 // departments in it), above a MANAGER/HOD who only heads a single department. Applied to a
 // new user's `rank` column at insert time when not explicitly provided (see
 // src/utils/password.ts#deriveDefaultRank) — mirrors the Mongoose pre('validate') hook.
+// APPROVAL_MANAGER ranks just below ADMIN — org-wide final-approval authority, same tier as
+// ADMIN/PC rather than a department-scoped role like SENIOR/MANAGER.
 export const DEFAULT_RANK_BY_ROLE: Record<Role, number> = {
   ADMIN: 1,
-  SENIOR: 2,
-  MANAGER: 3,
-  PC: 4,
-  AGENT: 5,
-  USER: 6,
+  APPROVAL_MANAGER: 2,
+  SENIOR: 3,
+  MANAGER: 4,
+  PC: 5,
+  AGENT: 6,
+  USER: 7,
 };
 
 // ---------------------------------------------------------------------------
@@ -198,6 +206,37 @@ export const settings = mysqlTable('Settings', {
   // already used the correct spelling, so the old field name was silently broken.
   maxUploadFiles: int('maxUploadFiles').notNull().default(10),
   allowedImageTypes: json('allowedImageTypes').$type<string[]>().notNull().default(['image/jpeg', 'image/png', 'image/webp']),
+  // Runtime counterpart to the client's build-time VITE_MAINTENANCE_MODE (see client's
+  // lib/maintenance.ts) — that env var still hard-kills the app for a deploy; this is the
+  // admin-toggleable version for planned downtime that doesn't need a redeploy to flip.
+  maintenanceMode: boolean('maintenanceMode').notNull().default(false),
+  maintenanceMessage: varchar('maintenanceMessage', { length: 500 }),
+  // Org-wide kill switches for the two reminder cron jobs (see jobs/taskDeadlineReminder.job.ts
+  // and jobs/checklistOverdueNotifier.job.ts) — neither had an off-switch before this. Per-user
+  // notification muting doesn't exist in this app; these are the coarser "does this reminder fire
+  // at all" defaults instead.
+  notifyTaskDeadlineReminders: boolean('notifyTaskDeadlineReminders').notNull().default(true),
+  notifyChecklistOverdueReminders: boolean('notifyChecklistOverdueReminders').notNull().default(true),
+  // Replaces the old JWT_ACCESS_EXPIRES_IN/JWT_REFRESH_EXPIRES_IN_DAYS env vars — read live by
+  // auth.service.ts/auth.controller.ts on every token issuance, so an admin can tighten or relax
+  // session length without a redeploy. Not retroactive: only affects tokens issued after the
+  // change (new logins, or the next refresh-rotation for an already-signed-in session).
+  accessTokenExpiresMinutes: int('accessTokenExpiresMinutes').notNull().default(15),
+  refreshTokenExpiresDays: int('refreshTokenExpiresDays').notNull().default(30),
+  // Org name/logo shown in the header, footer and login screen (see client's lib/maintenance.ts —
+  // usePublicSettingsQuery) and used as the email "from" display name and password-reset copy in
+  // place of the old hardcoded "Task Matrix" strings. logoUrl is null until an admin uploads one —
+  // every renderer falls back to the bundled default logo.png in that case, same as avatarUrl
+  // falling back to initials.
+  orgName: varchar('orgName', { length: 191 }).notNull().default('Karya'),
+  logoUrl: varchar('logoUrl', { length: 500 }),
+  // Replaces AUDIT_RETENTION_DAYS/NOTIFICATION_RETENTION_DAYS/INBOUND_MESSAGE_RETENTION_DAYS env
+  // vars — read live by the matching jobs/*Retention.job.ts nightly sweeps. 0 keeps everything
+  // forever (same semantics the env vars had), for anyone with a "retain indefinitely" compliance
+  // requirement.
+  auditRetentionDays: int('auditRetentionDays').notNull().default(365),
+  notificationRetentionDays: int('notificationRetentionDays').notNull().default(90),
+  inboundMessageRetentionDays: int('inboundMessageRetentionDays').notNull().default(7),
   createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
   updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
 });

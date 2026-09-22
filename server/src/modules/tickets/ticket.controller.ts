@@ -16,6 +16,16 @@ export const ticketController = {
         res.json({ success : true , data : ticket})
     }),
 
+    summary : asyncHandler(async (req : Request , res : Response) => {
+        const data = await ticketService.summary(req.user!);
+        res.json({ success : true , data })
+    }),
+
+    pendingApproval : asyncHandler(async (req : Request , res : Response) => {
+        const data = await ticketService.pendingApproval();
+        res.json({ success : true , data })
+    }),
+
     create : asyncHandler( async (req : Request , res : Response) => {
         const input = createTicketSchema.parse(req.body);
         const ticket = await ticketService.create(input , req.user!)

@@ -14,6 +14,9 @@ checklistInstanceRouter.get("/mine", checklistInstanceController.getMine)
 // all, so listPendingVerification/verify scope access themselves, per-instance, instead of at the
 // router (same "No role gate on setItemDone" convention as the item router below).
 checklistInstanceRouter.get("/pending-verification", checklistInstanceController.listPendingVerification)
+// Dashboard's "Needs your approval" card — a lightweight preview (title/store/waiting-since only,
+// no full hydrateInstances) distinct from the paginated queue above, gated ADMIN/PC to match it.
+checklistInstanceRouter.get("/pending-approval-preview", requireRole("ADMIN", "PC"), checklistInstanceController.pendingApprovalPreview)
 checklistInstanceRouter.get("/", requireRole("ADMIN", "PC"), checklistInstanceController.list)
 checklistInstanceRouter.get("/summary", checklistInstanceController.summary)
 checklistInstanceRouter.get("/reports/compliance", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), checklistInstanceController.complianceReport)

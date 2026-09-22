@@ -18,10 +18,15 @@ import { CAPTURE_METHODS, tags } from './task.js';
 // Shared enum value arrays
 // ---------------------------------------------------------------------------
 
-export const TICKET_STATUSES = ['OPEN', 'IN_PROGRESS', 'IN_REVIEW', 'CLOSED', 'ON_HOLD'] as const;
+// PENDING_APPROVAL is the single review stage: a verifier (ADMIN/PC/MANAGER-in-department/named
+// reviewer — ticket.service.ts's CAN_VERIFY_BY_ROLE) approves straight into CLOSED or rejects back
+// to IN_PROGRESS via verify()/PATCH /tickets/:id/verify. Used to be two stages (a QC pass into
+// IN_REVIEW, then a separate APPROVAL_MANAGER-only sign-off) — collapsed to one brief check by
+// request; see git history if the two-stage version is ever needed again.
+export const TICKET_STATUSES = ['OPEN', 'IN_PROGRESS', 'PENDING_APPROVAL', 'CLOSED', 'ON_HOLD'] as const;
 export const TICKET_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const;
 export const ASSIGNMENT_MODES = ['AUTO', 'MANUAL'] as const;
-export const RESTRICTED_STATUSES = ['IN_PROGRESS', 'ON_HOLD', 'IN_REVIEW'] as const;
+export const RESTRICTED_STATUSES = ['IN_PROGRESS', 'ON_HOLD', 'PENDING_APPROVAL'] as const;
 export const CHECKLIST_TEMPLATE_TARGETS = ['TASK', 'TICKET'] as const;
 
 // ---------------------------------------------------------------------------
@@ -49,6 +54,12 @@ export const tickets = mysqlTable(
     verifiedBy: varchar('verifiedBy', { length: 191 }).references(() => users.id),
     verifiedAt: datetime('verifiedAt', { mode: 'date' }),
     verificationNote: text('verificationNote'),
+    // Soft-delete: remove() sets this instead of deleting the row (and its children) outright, so
+    // a ticket and its checklist/attachment/comment/status-update history stay recoverable —
+    // same convention as Task (see task.ts's own deletedAt). Every read path in ticket.service.ts
+    // (list/getById/update/addStatusUpdate/verify/reports) must AND in `isNull(tickets.deletedAt)`
+    // — see that file's NOT_DELETED constant.
+    deletedAt: datetime('deletedAt', { mode: 'date' }),
     createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
     updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
   },
@@ -61,6 +72,8 @@ export const tickets = mysqlTable(
     // role's sole filter on the main ticket-list endpoint — with no storeId-leading index that's
     // a full table scan on every page load for that role.
     index('Ticket_storeId_createdAt_idx').on(table.storeId, table.createdAt),
+    // Every read path filters on this — see ticket.service.ts's NOT_DELETED.
+    index('Ticket_deletedAt_idx').on(table.deletedAt),
   ],
 );
 
@@ -80,6 +93,25 @@ export const ticketTags = mysqlTable(
   (table) => [
     uniqueIndex('TicketTag_ticketId_tagId_key').on(table.ticketId, table.tagId),
     index('TicketTag_tagId_idx').on(table.tagId),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// TicketReviewer — explicit reviewer, additive on top of the role-based verify rule (ADMIN/PC
+// always, MANAGER/HOD within the ticket's own department — see ticket.service.ts's
+// assertCanVerify). Same convention as TaskReviewer / ChecklistDefinitionReviewer.
+// ---------------------------------------------------------------------------
+export const ticketReviewers = mysqlTable(
+  'TicketReviewer',
+  {
+    id: varchar('id', { length: 191 }).primaryKey().$defaultFn(() => createId()),
+    ticketId: varchar('ticketId', { length: 191 }).notNull().references(() => tickets.id, { onDelete: 'cascade' }),
+    userId: varchar('userId', { length: 191 }).notNull().references(() => users.id),
+    createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex('TicketReviewer_ticketId_userId_key').on(table.ticketId, table.userId),
+    index('TicketReviewer_userId_idx').on(table.userId),
   ],
 );
 
@@ -200,15 +232,23 @@ export const checklistImages = mysqlTable(
 // ---------------------------------------------------------------------------
 // ChecklistTemplate — reusable checklist blueprint for Task or Ticket
 // ---------------------------------------------------------------------------
-export const checklistTemplates = mysqlTable('ChecklistTemplate', {
-  id: varchar('id', { length: 191 }).primaryKey().$defaultFn(() => createId()),
-  name: varchar('name', { length: 191 }).notNull(),
-  appliesTo: mysqlEnum('appliesTo', CHECKLIST_TEMPLATE_TARGETS).notNull(),
-  departmentId: varchar('departmentId', { length: 191 }).references(() => departments.id),
-  createdBy: varchar('createdBy', { length: 191 }).notNull().references(() => users.id),
-  createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
-  updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
-});
+export const checklistTemplates = mysqlTable(
+  'ChecklistTemplate',
+  {
+    id: varchar('id', { length: 191 }).primaryKey().$defaultFn(() => createId()),
+    name: varchar('name', { length: 191 }).notNull(),
+    appliesTo: mysqlEnum('appliesTo', CHECKLIST_TEMPLATE_TARGETS).notNull(),
+    departmentId: varchar('departmentId', { length: 191 }).references(() => departments.id),
+    createdBy: varchar('createdBy', { length: 191 }).notNull().references(() => users.id),
+    // Soft-delete: remove() sets this instead of deleting the row (and its ChecklistTemplateItem
+    // children) outright — same convention as Task/Ticket/ChecklistDefinition. Every read path in
+    // checklistTemplate.service.ts must AND in `isNull(checklistTemplates.deletedAt)`.
+    deletedAt: datetime('deletedAt', { mode: 'date' }),
+    createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
+    updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
+  },
+  (table) => [index('ChecklistTemplate_deletedAt_idx').on(table.deletedAt)],
+);
 
 // ---------------------------------------------------------------------------
 // ChecklistTemplateItem — a line item within a ChecklistTemplate

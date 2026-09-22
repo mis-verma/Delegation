@@ -28,7 +28,8 @@ export const createAuthLimiter = (store?: Store) => rateLimit({
 
 // register/login/forgot-password/reset-password are genuinely brute-force-prone and stay on the
 // tight 20/15min budget above — but refresh/logout aren't attack surfaces in the same way, and
-// every open tab/device calls /auth/refresh roughly every JWT_ACCESS_EXPIRES_IN (15min default).
+// every open tab/device calls /auth/refresh roughly every accessTokenExpiresMinutes (15min default,
+// admin-configurable — see Settings).
 // A handful of staff sharing one store's IP (this app's actual usage pattern — see the store/
 // department modules) can burn through 20 shared requests on ordinary shift-change login/refresh
 // traffic alone, locking everyone out for the rest of the window. Same reasoning as

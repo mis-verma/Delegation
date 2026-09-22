@@ -1,7 +1,7 @@
 // node-cron lets us run a function automatically on a repeating schedule,
 // kind of like a built-in alarm clock for our server code.
 import cron from 'node-cron';
-import { and, asc, eq, lt, ne, inArray } from 'drizzle-orm';
+import { and, asc, eq, lt, ne, inArray, isNull } from 'drizzle-orm';
 import { db } from '../config/db.js';
 import { tickets } from '../db/schema/index.js';
 
@@ -65,6 +65,9 @@ export const startSlaSweep = () => {
         // ne() means "not equal" - skip tickets that are already CLOSED, since
         // a closed ticket doesn't need to be marked overdue anymore.
         ne(tickets.status, 'CLOSED'),
+        // Skip soft-deleted tickets — otherwise a deleted ticket would keep getting flagged
+        // overdue and re-notified forever, since deleting it never touches tatDueAt/isOverdue.
+        isNull(tickets.deletedAt),
       )).orderBy(asc(tickets.tatDueAt)).limit(SLA_SWEEP_BATCH_SIZE);
 
       if (!overdue.length) return;

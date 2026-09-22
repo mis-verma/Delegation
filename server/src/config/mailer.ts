@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer"
 import { env } from "./env.js"
+import { settingsService } from "../modules/settings/settings.service.js"
 
 // Lazily-created transporter, cached after the first send so we don't reconnect/re-create a test
 // account on every email. Real SMTP (when SMTP_HOST is configured) is created synchronously; the
@@ -38,7 +39,7 @@ const getTransporter = () => {
 export const sendMail = async ({ to, subject, html }: { to: string; subject: string; html: string }) => {
     const transporter = await getTransporter();
     const info = await transporter.sendMail({
-        from: env.MAIL_FROM || '"Task Matrix" <no-reply@task-matrix.local>',
+        from: env.MAIL_FROM || `"${settingsService.getCached().orgName}" <no-reply@task-matrix.local>`,
         to,
         subject,
         html,

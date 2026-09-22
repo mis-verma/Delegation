@@ -13,6 +13,7 @@
     "start": "node dist/server.js",
     "test watch": "vitest",
     "seed:admin": "tsx src/scripts/seedAdmin.ts",
+    "reset:password": "tsx src/scripts/resetPassword.ts",
     "seed:demo": "tsx src/scripts/seedDemoData.ts",
     "seed:todos": "tsx src/scripts/seedTodos.ts",
     "wipe:checklists": "tsx src/scripts/wipeChecklists.ts",

@@ -4,6 +4,8 @@ import cookieParser from "cookie-parser"
 import morgan from "morgan"
 import path from "node:path"
 import { env } from "./config/env.js"
+import { pingDB } from "./config/db.js"
+import { queryCacheStatus } from "./config/queryCache.js"
 import { createAuthRouter } from "./middleware/auth/auth.routes.js"
 import { userRouter } from "./modules/users/user.routes.js"
 import { errorHandler } from "./middleware/errorHandler/errorHandler.js"
@@ -40,6 +42,14 @@ import helmet from "helmet"
 import compression from "compression"
 import type { Store } from "express-rate-limit"
 
+const DEV_ORIGIN_PATTERN = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}):\d+$/;
+
+// DoubleTick has no signature-header handshake (see doubletick.routes.ts) — the webhook's own auth
+// secret has to live in its URL path instead, which morgan's default `:url` token would otherwise
+// print verbatim to the access log on every single request (including failed 401s from someone
+// probing the URL). Overriding the token here masks that one path shape everywhere morgan is used,
+// with no effect on any other route's logged URL.
+morgan.token<Request, Response>('url', (req) => (req.originalUrl ?? req.url ?? '').replace(/^(\/doubletick\/webhook\/)[^/?]+/, '$1[redacted]'));
 
 class App {
     public app: Application;
@@ -57,7 +67,19 @@ class App {
             crossOriginResourcePolicy : { policy : "cross-origin"} 
         }))
         this.app.use(compression())
-        this.app.use(cors({ origin: env.CLIENT_URL, credentials: true }))
+        this.app.use(cors({
+            origin: (origin, callback) => {
+                // No Origin header: same-origin requests, curl, and native mobile clients
+                // (React Native's fetch doesn't send/enforce Origin — CORS is a browser thing).
+                if (!origin || origin === env.CLIENT_URL) return callback(null, true);
+                // Outside production, also allow any localhost/LAN-IP origin regardless of port,
+                // so the web-client Vite port and the mobile app's Expo web-preview port (and a
+                // physical device reaching this machine's LAN IP) all work without env changes.
+                if (env.NODE_ENV !== 'production' && DEV_ORIGIN_PATTERN.test(origin)) return callback(null, true);
+                callback(new Error('Not allowed by CORS'));
+            },
+            credentials: true,
+        }))
         this.app.use(express.json({
             verify: (req, _res, buf) => { (req as any).rawBody = buf; },
         }))
@@ -70,7 +92,31 @@ class App {
     }
 
     private initRoutes(rateLimitStore?: Store): void {
+        // Liveness only — "is the process up and responding at all." Deliberately does no I/O
+        // (no DB/Redis round-trip) so a process manager polling this frequently never itself adds
+        // load or turns a slow-but-fine DB query into a false "unhealthy, restart me" signal.
         this.app.get('/health', (_req: Request, res: Response) => res.json({ status: 'ok' }));
+
+        // Readiness — "can this instance actually serve requests right now." Unlike /health above,
+        // this does real I/O on purpose: a load balancer/orchestrator uses this one to decide
+        // whether to route traffic here, which is exactly the question a DB check answers and a
+        // liveness check doesn't. DB failing means real 503 (nothing works without it); Redis
+        // failing is reported but never fails the check — every Redis-backed feature in this app
+        // (query cache, rate limiting) is already built to degrade gracefully without it, so a
+        // readiness probe that failed on a down cache would restart/de-route a perfectly capable
+        // instance over something that isn't actually broken.
+        this.app.get('/health/ready', async (_req: Request, res: Response) => {
+            const db = await pingDB();
+            const redis = queryCacheStatus();
+            const status = db.ok ? 'ok' : 'degraded';
+            res.status(db.ok ? 200 : 503).json({
+                status,
+                checks: {
+                    database: db.ok ? { status: 'ok', latencyMs: db.latencyMs } : { status: 'down', error: db.error },
+                    redis: { status: redis },
+                },
+            });
+        });
         this.app.use('/auth', createAuthRouter(rateLimitStore));
         this.app.use('/users', userRouter);
         this.app.use('/stores', StoreRouter);

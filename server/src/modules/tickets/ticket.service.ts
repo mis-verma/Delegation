@@ -8,12 +8,14 @@ import {
   ticketStatusUpdates,
   ticketAttachments,
   ticketComments,
+  ticketReviewers,
   checklists,
   checklistItems,
   checklistImages,
   users,
 } from "../../db/schema/index.js"
-import { eq, and, or, inArray, desc, asc, sql } from "drizzle-orm"
+import { eq, and, or, inArray, desc, asc, sql, isNull } from "drizzle-orm"
+import { cached, cacheKey } from "../../config/queryCache.js"
 import { AppError } from "../../utils/AppError.js"
 import { assertChecklistsResolved } from "../../utils/checklistGate.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
@@ -24,9 +26,16 @@ import { DATE_FORMATS } from "../../utils/dateBucket.js"
 import type { DateBucket } from "../../utils/index.js"
 import { notificationService, notifySafely } from "../notifications/notification.service.js"
 import { settingsService } from "../settings/settings.service.js"
-import { unlinkUploadUrls } from "../../utils/uploadCleanup.js"
 
 type TicketRow = typeof tickets.$inferSelect
+
+// Soft-delete: remove() sets `deletedAt` instead of removing the row (and used to also
+// hard-delete every child Checklist/ChecklistItem/ChecklistImage/TicketAttachment/TicketComment/
+// TicketStatusUpdate row and unlink their uploaded files from disk). Nothing else is touched —
+// children stay exactly as they were, so a deleted ticket's history is fully recoverable, not
+// just its own row. Same convention as Task (see task.service.ts's own NOT_DELETED) — every read
+// path below (list/getById/update/addStatusUpdate/verify/reports) must AND this in.
+const NOT_DELETED = isNull(tickets.deletedAt)
 
 // Recomputes tatDueAt from tatHours (was a Mongoose pre('save') hook on Ticket — see
 // src/models/Ticket.ts). Call this explicitly everywhere tatHours is set/changed, alongside
@@ -104,6 +113,63 @@ const syncTicketTags = async (executor: typeof db, ticketId: string, tagIds: str
   await executor.insert(ticketTags).values(existing.map((tag) => ({ ticketId, tagId: tag.id })))
 }
 
+// Current tag/reviewer ids for one ticket, sorted for stable before/after comparison — tags and
+// reviewers live in their own junction tables, not columns on `tickets` itself, so a plain
+// before/after snapshot of the `tickets` row (see update() below) never reflected a tags-only or
+// reviewers-only change: the audit UPDATE fired with the row's own columns unchanged, and
+// diffAuditLog (client) correctly reported "0 fields changed" for something that, from the
+// audit trail's perspective, genuinely hadn't changed at all. These two folded into update()'s
+// before/after objects are what actually closes that gap.
+const ticketTagIds = async (ticketId: string): Promise<string[]> =>
+  (await db.select({ tagId: ticketTags.tagId }).from(ticketTags).where(eq(ticketTags.ticketId, ticketId)))
+    .map((r) => r.tagId).sort()
+
+const ticketReviewerIds = async (ticketId: string): Promise<string[]> =>
+  (await db.select({ userId: ticketReviewers.userId }).from(ticketReviewers).where(eq(ticketReviewers.ticketId, ticketId)))
+    .map((r) => r.userId).sort()
+
+// Ticket ids where `userId` was explicitly named a reviewer — mirrors task.service.ts's
+// reviewerTaskIds. Used both to widen visibilityFilter (a reviewer needs to be able to find the
+// ticket before they can verify it) and by assertCanVerify below.
+const reviewerTicketIds = async (userId: string): Promise<string[]> => {
+  const rows = await db.select({ ticketId: ticketReviewers.ticketId }).from(ticketReviewers).where(eq(ticketReviewers.userId, userId))
+  return rows.map((r) => r.ticketId)
+}
+
+// Replaces a ticket's reviewer list with exactly `userIds` — same delete-then-insert convention
+// as syncTicketTags.
+const syncTicketReviewers = async (executor: typeof db, ticketId: string, userIds: string[]) => {
+  await executor.delete(ticketReviewers).where(eq(ticketReviewers.ticketId, ticketId))
+  if (!userIds.length) return
+  const unique = [...new Set(userIds)]
+  await executor.insert(ticketReviewers).values(unique.map((userId) => ({ ticketId, userId })))
+}
+
+// Reviewer rows for a set of tickets, as one query — mirrors tagsByTicket, used by
+// populateTickets to hand the client back who's named on a ticket, not just how many.
+const reviewersByTicket = async (ticketIds: string[]) => {
+  const byTicket = new Map<string, { id: string; firstName: string; lastName: string | null; email: string }[]>()
+  if (!ticketIds.length) return byTicket
+
+  const rows = await db.select({
+    ticketId: ticketReviewers.ticketId,
+    id: users.id,
+    firstName: users.firstName,
+    lastName: users.lastName,
+    email: users.email,
+  })
+    .from(ticketReviewers)
+    .innerJoin(users, eq(ticketReviewers.userId, users.id))
+    .where(inArray(ticketReviewers.ticketId, ticketIds))
+
+  for (const row of rows) {
+    const list = byTicket.get(row.ticketId) ?? []
+    list.push({ id: row.id, firstName: row.firstName, lastName: row.lastName, email: row.email })
+    byTicket.set(row.ticketId, list)
+  }
+  return byTicket
+}
+
 // Batch-populates a set of already-fetched Ticket rows with everything the old
 // `populateTicket` Mongoose populate chain used to attach: assignee/raisedBy/verifier,
 // checklists -> items -> images, attachments -> uploadedByUser, comments -> author (sorted
@@ -117,6 +183,7 @@ const populateTickets = async (ticketRows: TicketRow[]) => {
   const userById = new Map(userRows.map((u) => [u.id, u]))
 
   const tagsByTicketMap = await tagsByTicket(ticketIds)
+  const reviewersByTicketMap = await reviewersByTicket(ticketIds)
 
   const checklistRows = await db.select().from(checklists).where(inArray(checklists.ticketId, ticketIds))
   const checklistIds = checklistRows.map((c) => c.id)
@@ -176,18 +243,19 @@ const populateTickets = async (ticketRows: TicketRow[]) => {
     comments: commentsByTicket.get(t.id) ?? [],
     statusUpdates: statusUpdatesByTicket.get(t.id) ?? [],
     tags: tagsByTicketMap.get(t.id) ?? [],
+    reviewers: reviewersByTicketMap.get(t.id) ?? [],
   }))
 }
 
 const getPopulatedTicket = async (id: string) => {
-  const [row] = await db.select().from(tickets).where(eq(tickets.id, id)).limit(1)
+  const [row] = await db.select().from(tickets).where(and(eq(tickets.id, id), NOT_DELETED)).limit(1)
   if (!row) return undefined
   const [populated] = await populateTickets([row])
   return populated
 }
 
-// checklists -> items only, used by the IN_REVIEW checklist-completeness gate (no images/photos
-// needed there — see assertChecklistsResolved).
+// checklists -> items only, used by the PENDING_APPROVAL checklist-completeness gate (no
+// images/photos needed there — see assertChecklistsResolved).
 const getTicketChecklistsWithItems = async (ticketId: string) => {
   const checklistRows = await db.select().from(checklists).where(eq(checklists.ticketId, ticketId))
   const checklistIds = checklistRows.map((c) => c.id)
@@ -196,32 +264,66 @@ const getTicketChecklistsWithItems = async (ticketId: string) => {
   return checklistRows.map((c) => ({ ...c, items: itemsByChecklist.get(c.id) ?? [] }))
 }
 
-const visibilityFilter = (user: AccessTokenPayload) => {
+const visibilityFilter = async (user: AccessTokenPayload) => {
   // PC has the same org-wide access as ADMIN — same as tasks (see task.service.ts's own
   // visiblityFilter), so a PC user isn't blocked from other departments' tickets.
-  if (user.role === "ADMIN" || user.role === "PC") return undefined
+  // APPROVAL_MANAGER has the same org-wide reach as ADMIN/PC — the final-approval stage needs to
+  // see every PENDING_APPROVAL ticket across the org, not just one department/store.
+  if (user.role === "ADMIN" || user.role === "PC" || user.role === "APPROVAL_MANAGER") return undefined
+
+  let base: ReturnType<typeof or>
 
   if (user.role === "MANAGER") {
     const or_conditions = [eq(tickets.userId, user.sub)]
     if (user.departmentId) or_conditions.push(eq(tickets.departmentId, user.departmentId))
     if (user.storeId) or_conditions.push(eq(tickets.storeId, user.storeId))
-    return or(...or_conditions)
+    base = or(...or_conditions)
+  } else if (user.role === "SENIOR") {
+    // SENIOR is store-only (no department fallback) — an Area Head oversees exactly one store.
+    base = user.storeId ? eq(tickets.storeId, user.storeId) : eq(tickets.userId, user.sub)
+  } else if (user.role === "AGENT" || user.role === "USER") {
+    // A ticket assigned to/raised by this user is always visible to them, regardless of
+    // department — a MANAGER/ADMIN can route a ticket to someone outside its department, and
+    // ANDing department here would make that assignee's own ticket invisible to them.
+    // task.service.ts's equivalent visibility check has no department restriction on "it's mine"
+    // either.
+    base = or(eq(tickets.assigneeId, user.sub), eq(tickets.userId, user.sub))!
+  } else {
+    base = eq(tickets.userId, user.sub)
   }
 
-  // SENIOR is store-only (no department fallback) — an Area Head oversees exactly one store.
-  if (user.role === "SENIOR") {
-    return user.storeId ? eq(tickets.storeId, user.storeId) : eq(tickets.userId, user.sub)
-  }
+  // An explicitly named reviewer (ticketReviewers, additive on top of the role-based rule — see
+  // assertCanVerify) needs to be able to find the ticket at all before they can verify it,
+  // regardless of role/department/store — same reach Task's reviewer scoping already grants.
+  const reviewedIds = await reviewerTicketIds(user.sub)
+  return reviewedIds.length ? or(base!, inArray(tickets.id, reviewedIds)) : base
+}
 
-  // A ticket assigned to/raised by this user is always visible to them, regardless of
-  // department — a MANAGER/ADMIN can route a ticket to someone outside its department, and
-  // ANDing department here would make that assignee's own ticket invisible to them. task.service
-  // ts's equivalent visibility check has no department restriction on "it's mine" either.
-  if (user.role === "AGENT" || user.role === "USER") {
-    return or(eq(tickets.assigneeId, user.sub), eq(tickets.userId, user.sub))!
-  }
+// verify()'s authorization — deliberately separate from (and narrower than) visibilityFilter,
+// which a ticket's own raiser/assignee already satisfies. They must not be able to self-approve
+// their own ticket, so role-based verify rights are their own table (mirrors
+// task.service.ts's CAN_VERIFY_BY_ROLE/assertCanVerify and checklistInstance.service.ts's).
+const CAN_VERIFY_BY_ROLE: Partial<Record<AccessTokenPayload["role"], (ticket: { departmentId: string | null }, user: AccessTokenPayload) => boolean>> = {
+  ADMIN: () => true,
+  PC: () => true,
+  // MANAGER (HOD) may verify a ticket within their own department only — deliberately narrower
+  // than visibilityFilter's MANAGER branch (which also grants store-wide visibility), so "can see
+  // it" and "can approve it" stay separate. Additive on top of whatever else could already verify
+  // it, never a replacement.
+  MANAGER: (ticket, user) => !!user.departmentId && ticket.departmentId === user.departmentId,
+}
 
-  return eq(tickets.userId, user.sub)
+// An explicitly named reviewer (ticketReviewers) can always verify, on top of whatever
+// CAN_VERIFY_BY_ROLE already grants — additive, never a replacement. This is also why
+// PATCH /tickets/:id/verify no longer role-gates at the router: a reviewer can be any role at
+// all, so the check has to happen here, against this specific ticket.
+const assertCanVerify = async (ticket: { id: string; departmentId: string | null }, user: AccessTokenPayload) => {
+  if (CAN_VERIFY_BY_ROLE[user.role]?.(ticket, user)) return
+  const [reviewer] = await db.select({ id: ticketReviewers.id })
+    .from(ticketReviewers)
+    .where(and(eq(ticketReviewers.ticketId, ticket.id), eq(ticketReviewers.userId, user.sub)))
+    .limit(1)
+  if (!reviewer) throw AppError.forbidden()
 }
 
 const isSameDeptOrStore = (user: AccessTokenPayload, ticket: Pick<TicketRow, "departmentId" | "storeId">) => {
@@ -277,6 +379,25 @@ export type OwnerStatsRow = {
   avgTatHours: number | null
 }
 
+// Same shape task.service.ts's own PendingApprovalRow uses — the dashboard's "Needs your
+// approval" card combines both alongside checklistInstance's differently-shaped row client-side.
+export type TicketPendingApprovalRow = {
+  id: string
+  title: string
+  submittedBy: string | null
+  waitingSince: string
+}
+
+// Same shape task.service.ts's TaskSummaryRow uses (minus `draft` — tickets have no draft
+// status), so the sidebar's per-entity badge can treat every summary response uniformly.
+export type TicketSummaryRow = {
+  total: number
+  newToday: number
+  due: number
+  overdue: number
+  completed: number
+}
+
 // One grouped SQL aggregate behind ownerStats below — `column` is what to GROUP BY (a department/
 // store/assignee/user id column, or NULL for one ungrouped org-wide row when `grouped` is false).
 const ownerStatsByColumn = async (
@@ -312,8 +433,8 @@ const ownerStatsByColumn = async (
 
 export const ticketService = {
   async list(user: AccessTokenPayload, page: number, limit: number, status?: string, assigneeId?: string, overdue?: boolean, from?: string, to?: string, dateField: "createdAt" | "closedAt" = "createdAt") {
-    const conditions = []
-    const vis = visibilityFilter(user)
+    const conditions = [NOT_DELETED]
+    const vis = await visibilityFilter(user)
     if (vis) conditions.push(vis)
     if (status) conditions.push(eq(tickets.status, status as TicketRow["status"]))
     if (assigneeId && (user.role === "ADMIN" || user.role === "PC")) {
@@ -342,8 +463,8 @@ export const ticketService = {
 
     if (!ticket) throw AppError.notFound("Ticket not found");
     if (user.role !== "ADMIN" && user.role !== "PC") {
-      const vis = visibilityFilter(user)
-      const conditions = [eq(tickets.id, id)]
+      const vis = await visibilityFilter(user)
+      const conditions = [eq(tickets.id, id), NOT_DELETED]
       if (vis) conditions.push(vis)
       const [visible] = await db.select({ id: tickets.id }).from(tickets).where(and(...conditions)).limit(1)
 
@@ -373,6 +494,7 @@ export const ticketService = {
     })
 
     if (input.tagIds?.length) await syncTicketTags(db, id, input.tagIds)
+    if (input.reviewerIds?.length) await syncTicketReviewers(db, id, input.reviewerIds)
 
     const [afterRow] = await db.select().from(tickets).where(eq(tickets.id, id)).limit(1)
 
@@ -381,7 +503,7 @@ export const ticketService = {
       entityId: id,
       action: "CREATE",
       actorId: user.sub,
-      after: afterRow,
+      after: { ...afterRow, tagIds: [...(input.tagIds ?? [])].sort(), reviewerIds: [...(input.reviewerIds ?? [])].sort() },
     })
 
     const populated = await getPopulatedTicket(id)
@@ -395,7 +517,7 @@ export const ticketService = {
   },
 
   async update(id: string, input: UpdateTicketInput, user: AccessTokenPayload) {
-    const [ticket] = await db.select().from(tickets).where(eq(tickets.id, id)).limit(1)
+    const [ticket] = await db.select().from(tickets).where(and(eq(tickets.id, id), NOT_DELETED)).limit(1)
     if (!ticket) throw AppError.notFound("Ticket not found")
     assertCanMutate(user, ticket)
 
@@ -408,6 +530,8 @@ export const ticketService = {
     }
 
     const before = ticket;
+    const beforeTagIds = await ticketTagIds(id);
+    const beforeReviewerIds = await ticketReviewerIds(id);
 
     const patch: Partial<typeof tickets.$inferInsert> = { updatedAt: new Date() }
     if (input.title !== undefined) patch.title = input.title
@@ -426,7 +550,7 @@ export const ticketService = {
         throw AppError.forbidden("Only a verifier can close a ticket — send it for review instead.")
       }
       patch.closedAt = new Date();
-    } else if (input.status === "IN_REVIEW" && before.status !== "IN_REVIEW") {
+    } else if (input.status === "PENDING_APPROVAL" && before.status !== "PENDING_APPROVAL") {
       // Fresh read with the exact `with` needed for the checklist gate, replacing the old
       // mid-flight `ticket.populate(...)` call on the already-fetched Mongoose document.
       const checklistsWithItems = await getTicketChecklistsWithItems(id)
@@ -457,16 +581,19 @@ export const ticketService = {
 
     // Not a column on `tickets`, so this sits beside the patch rather than inside it.
     if (input.tagIds !== undefined) await syncTicketTags(db, id, input.tagIds)
+    if (input.reviewerIds !== undefined) await syncTicketReviewers(db, id, input.reviewerIds)
 
     const [afterRow] = await db.select().from(tickets).where(eq(tickets.id, id)).limit(1)
+    const afterTagIds = await ticketTagIds(id);
+    const afterReviewerIds = await ticketReviewerIds(id);
 
     await auditService.record({
       entityType: "Ticket",
       entityId: id,
       action: "UPDATE",
       actorId: user.sub,
-      before,
-      after: afterRow,
+      before: { ...before, tagIds: beforeTagIds, reviewerIds: beforeReviewerIds },
+      after: { ...afterRow, tagIds: afterTagIds, reviewerIds: afterReviewerIds },
     });
 
     const populated = await getPopulatedTicket(id)
@@ -479,7 +606,7 @@ export const ticketService = {
       await notifySafely(() => notificationService.notifyTicketAssigned(notificationTarget(afterRow!)));
     }
 
-    if (input.status === "IN_REVIEW" && before.status !== "IN_REVIEW") {
+    if (input.status === "PENDING_APPROVAL" && before.status !== "PENDING_APPROVAL") {
       await notifySafely(() => notificationService.notifyPendingVerification(notificationTarget(afterRow!)));
     }
 
@@ -487,13 +614,13 @@ export const ticketService = {
   },
 
   async addStatusUpdate(id: string, input: StatusUpdateInput, files: Express.Multer.File[], user: AccessTokenPayload) {
-    const [ticket] = await db.select().from(tickets).where(eq(tickets.id, id)).limit(1)
+    const [ticket] = await db.select().from(tickets).where(and(eq(tickets.id, id), NOT_DELETED)).limit(1)
     if (!ticket) throw AppError.notFound("Ticket not found")
     assertCanMutate(user, ticket)
 
     const before = ticket;
 
-    if (input.status === "IN_REVIEW" && before.status !== "IN_REVIEW") {
+    if (input.status === "PENDING_APPROVAL" && before.status !== "PENDING_APPROVAL") {
       const checklistsWithItems = await getTicketChecklistsWithItems(id)
       assertChecklistsResolved(checklistsWithItems, "sending this ticket for review")
     }
@@ -546,7 +673,7 @@ export const ticketService = {
     const target = roomTarget(afterRow!)
     emitTicketEvent("ticket:updated", target, populated);
 
-    if (input.status === "IN_REVIEW" && before.status !== "IN_REVIEW") {
+    if (input.status === "PENDING_APPROVAL" && before.status !== "PENDING_APPROVAL") {
       await notifySafely(() => notificationService.notifyPendingVerification(notificationTarget(afterRow!)));
     }
 
@@ -559,32 +686,37 @@ export const ticketService = {
 
 
   async verify(id: string, input: VerifyTicketInput, user: AccessTokenPayload) {
-    const [ticket] = await db.select().from(tickets).where(eq(tickets.id, id)).limit(1)
+    const [ticket] = await db.select().from(tickets).where(and(eq(tickets.id, id), NOT_DELETED)).limit(1)
     if (!ticket) throw AppError.notFound("Ticket not found")
 
-    if (ticket.status !== "IN_REVIEW") {
-      throw AppError.badRequest("This ticket isn't pending verification.")
+    if (ticket.status !== "PENDING_APPROVAL") {
+      throw AppError.badRequest("This ticket isn't pending approval.")
     }
 
+    // Single-stage verify: one PC/ADMIN/manager/reviewer check decides the whole thing (the old
+    // two-stage QC-then-approval split — a separate APPROVAL_MANAGER-only sign-off after QC passed
+    // — is gone; approving here is final).
+    await assertCanVerify(ticket, user)
+
     const before = ticket;
-    const patch: Partial<typeof tickets.$inferInsert> = { updatedAt: new Date() }
+    const fromStatus = ticket.status
+    const patch: Partial<typeof tickets.$inferInsert> = { updatedAt: new Date(), verificationNote: input.note ?? null }
 
     if (input.action === "APPROVE") {
       patch.status = "CLOSED";
       patch.closedAt = new Date();
       patch.verifiedBy = user.sub;
       patch.verifiedAt = new Date();
-      patch.verificationNote = input.note ?? null;
     } else {
       patch.status = "IN_PROGRESS";
-      patch.verificationNote = input.note ?? null;
     }
-    // Optimistic-concurrency guard: the WHERE clause re-checks status === "IN_REVIEW" atomically
-    // inside the UPDATE itself, so two concurrent verify calls can't both "win" — only the first
-    // write matches and the second gets affectedRows === 0 instead of racing to a bad final state.
-    const [result] = await db.update(tickets).set(patch).where(and(eq(tickets.id, id), eq(tickets.status, "IN_REVIEW")))
+    // Optimistic-concurrency guard: the WHERE clause re-checks the status this row was read at
+    // atomically inside the UPDATE itself, so two concurrent verify calls can't both "win" — only
+    // the first write matches and the second gets affectedRows === 0 instead of racing to a bad
+    // final state.
+    const [result] = await db.update(tickets).set(patch).where(and(eq(tickets.id, id), eq(tickets.status, fromStatus), NOT_DELETED))
     if (result.affectedRows === 0) {
-      throw AppError.badRequest("This ticket isn't pending verification.")
+      throw AppError.badRequest("This ticket isn't pending approval.")
     }
 
     const [afterRow] = await db.select().from(tickets).where(eq(tickets.id, id)).limit(1)
@@ -604,42 +736,20 @@ export const ticketService = {
     return populated;
   },
 
+  // Soft delete: sets deletedAt instead of removing the row (and used to also hard-delete every
+  // child Checklist/ChecklistItem/ChecklistImage/TicketAttachment/TicketComment/TicketStatusUpdate
+  // row in a transaction, plus unlink their uploaded files from disk — see git history for that
+  // cascade if it's ever needed again). Nothing else is touched: children stay exactly as they
+  // were so the ticket is fully recoverable, not just its own row. Every read path in this file
+  // (list/getById/update/addStatusUpdate/verify/reports) hides it from here on via NOT_DELETED.
   async remove(id: string, user: AccessTokenPayload) {
-    const [ticket] = await db.select().from(tickets).where(eq(tickets.id, id)).limit(1)
+    const [ticket] = await db.select().from(tickets).where(and(eq(tickets.id, id), NOT_DELETED)).limit(1)
     if (!ticket) throw AppError.notFound("Ticket not found")
 
-    // wrapped in a transaction (source had none) — the old Mongo `findByIdAndDelete` left every
-    // child Checklist/ChecklistItem/ChecklistImage/TicketAttachment/TicketComment/
-    // TicketStatusUpdate document orphaned with no referential integrity to stop it; MySQL's FK
-    // constraints on those tables (`ON DELETE no action`) would otherwise reject deleting a
-    // Ticket that still has children, so the cascade is now done explicitly here.
-    // File urls are collected before each table is deleted, and unlinked (best-effort) only after
-    // the transaction commits — deleting a ticket used to only remove the DB rows, silently
-    // orphaning the actual evidence photos/attachments on disk forever (no retention sweep catches
-    // this the way it does for audit logs/notifications/inbound messages).
-    const orphanedUrls: string[] = []
-    await db.transaction(async (tx) => {
-      const childChecklists = await tx.select({ id: checklists.id }).from(checklists).where(eq(checklists.ticketId, id))
-      const checklistIds = childChecklists.map((c) => c.id)
-      if (checklistIds.length) {
-        const childItems = await tx.select({ id: checklistItems.id }).from(checklistItems).where(inArray(checklistItems.checklistId, checklistIds))
-        const itemIds = childItems.map((i) => i.id)
-        if (itemIds.length) {
-          const images = await tx.select({ url: checklistImages.url }).from(checklistImages).where(inArray(checklistImages.checklistItemId, itemIds))
-          orphanedUrls.push(...images.map((i) => i.url))
-          await tx.delete(checklistImages).where(inArray(checklistImages.checklistItemId, itemIds))
-        }
-        await tx.delete(checklistItems).where(inArray(checklistItems.checklistId, checklistIds))
-        await tx.delete(checklists).where(eq(checklists.ticketId, id))
-      }
-      const attachments = await tx.select({ url: ticketAttachments.url }).from(ticketAttachments).where(eq(ticketAttachments.ticketId, id))
-      orphanedUrls.push(...attachments.map((a) => a.url))
-      await tx.delete(ticketAttachments).where(eq(ticketAttachments.ticketId, id))
-      await tx.delete(ticketComments).where(eq(ticketComments.ticketId, id))
-      await tx.delete(ticketStatusUpdates).where(eq(ticketStatusUpdates.ticketId, id))
-      await tx.delete(tickets).where(eq(tickets.id, id))
-    })
-    unlinkUploadUrls(orphanedUrls)
+    const deletedAt = new Date()
+    await db.update(tickets).set({ deletedAt, updatedAt: deletedAt }).where(eq(tickets.id, id))
+
+    emitTicketEvent("ticket:deleted", roomTarget(ticket), { id: ticket.id })
 
     await auditService.record({
       entityType: "Ticket",
@@ -656,13 +766,13 @@ export const ticketService = {
   // queries merged in JS — MySQL has no $facet equivalent, and two queries against
   // indexed columns is simpler and just as fast as emulating it in one statement.
   async tatReport(groupBy: DateBucket, from?: string, to?: string, departmentId?: string, storeId?: string) {
-    const closedConditions: ReturnType<typeof sql>[] = [sql`tickets.closedAt IS NOT NULL`];
+    const closedConditions: ReturnType<typeof sql>[] = [sql`tickets.closedAt IS NOT NULL`, sql`tickets.deletedAt IS NULL`];
     if (from) closedConditions.push(sql`tickets.closedAt >= ${new Date(from)}`);
     if (to) closedConditions.push(sql`tickets.closedAt <= ${new Date(to)}`);
     if (departmentId) closedConditions.push(sql`tickets.departmentId = ${departmentId}`);
     if (storeId) closedConditions.push(sql`tickets.storeId = ${storeId}`);
 
-    const createdConditions: ReturnType<typeof sql>[] = [];
+    const createdConditions: ReturnType<typeof sql>[] = [sql`tickets.deletedAt IS NULL`];
     if (from) createdConditions.push(sql`tickets.createdAt >= ${new Date(from)}`);
     if (to) createdConditions.push(sql`tickets.createdAt <= ${new Date(to)}`);
     if (departmentId) createdConditions.push(sql`tickets.departmentId = ${departmentId}`);
@@ -733,7 +843,7 @@ export const ticketService = {
    * different definitions on two different cards.
    */
   async ownerStats(scope: "department" | "store" | "user" | "org", from?: string, to?: string, departmentId?: string, storeId?: string): Promise<OwnerStatsRow[]> {
-    const baseConditions: ReturnType<typeof sql>[] = []
+    const baseConditions: ReturnType<typeof sql>[] = [sql`tickets.deletedAt IS NULL`]
     if (from) baseConditions.push(sql`tickets.createdAt >= ${new Date(from)}`)
     if (to) baseConditions.push(sql`tickets.createdAt <= ${new Date(to)}`)
     if (departmentId) baseConditions.push(sql`tickets.departmentId = ${departmentId}`)
@@ -746,29 +856,124 @@ export const ticketService = {
     // "user": a ticket counts toward BOTH its assignee and its raiser — the same dual-credit rule
     // the old client-side reduce used (`t.assigneeId === u.id || t.userId === u.id`) — which one
     // GROUP BY can't express (a row belongs to exactly one group). Two grouped queries instead,
-    // merged by user id below. Known, accepted gap versus the old exact behavior: a self-assigned
-    // ticket (assigneeId === userId) is credited twice here instead of once, since it's a row in
-    // both result sets — judged not worth a UNION DISTINCT over ticket ids for what both reviews
-    // agreed was a minor leaderboard input, not a correctness-critical number.
-    const [byAssignee, byRaiser] = await Promise.all([
+    // merged by user id below. A third query isolates self-assigned tickets (assigneeId ===
+    // userId) — present in BOTH grouped result sets, so it's subtracted back out once rather than
+    // left double-credited (an earlier version of this method accepted that as a known gap; fixed
+    // since a leaderboard/ranking score is exactly the kind of number self-assigning work
+    // shouldn't be able to inflate).
+    const [byAssignee, byRaiser, bySelfAssigned] = await Promise.all([
       ownerStatsByColumn(sql`tickets.assigneeId`, [...baseConditions, sql`tickets.assigneeId IS NOT NULL`], true),
       ownerStatsByColumn(sql`tickets.userId`, baseConditions, true),
+      ownerStatsByColumn(sql`tickets.assigneeId`, [...baseConditions, sql`tickets.assigneeId = tickets.userId`], true),
     ])
-    const merged = new Map<string, OwnerStatsRow>()
-    for (const row of [...byAssignee, ...byRaiser]) {
-      if (!row.ownerId) continue
-      const existing = merged.get(row.ownerId)
-      if (!existing) { merged.set(row.ownerId, row); continue }
-      const closed = existing.closed + row.closed
-      const totalTatHours = (existing.avgTatHours ?? 0) * existing.closed + (row.avgTatHours ?? 0) * row.closed
-      merged.set(row.ownerId, {
-        ownerId: row.ownerId,
-        total: existing.total + row.total,
-        closed,
-        overdueCount: existing.overdueCount + row.overdueCount,
-        avgTatHours: closed > 0 ? Math.round((totalTatHours / closed) * 10) / 10 : null,
-      })
+    // Accumulate raw sums (not averages) so the self-assigned subtraction can net out cleanly —
+    // averaging avgTatHours values directly (the old approach) would have been wrong even before
+    // this fix, since it weights every source row's *own* average equally regardless of how many
+    // closed tickets it actually represents.
+    const merged = new Map<string, { total: number; closed: number; overdueCount: number; tatHoursSum: number }>()
+    const accumulate = (rows: OwnerStatsRow[], sign: 1 | -1) => {
+      for (const row of rows) {
+        if (!row.ownerId) continue
+        const existing = merged.get(row.ownerId) ?? { total: 0, closed: 0, overdueCount: 0, tatHoursSum: 0 }
+        existing.total += sign * row.total
+        existing.closed += sign * row.closed
+        existing.overdueCount += sign * row.overdueCount
+        existing.tatHoursSum += sign * (row.avgTatHours ?? 0) * row.closed
+        merged.set(row.ownerId, existing)
+      }
     }
-    return [...merged.values()]
+    accumulate(byAssignee, 1)
+    accumulate(byRaiser, 1)
+    accumulate(bySelfAssigned, -1)
+
+    return [...merged.entries()].map(([ownerId, v]) => ({
+      ownerId,
+      total: v.total,
+      closed: v.closed,
+      overdueCount: v.overdueCount,
+      avgTatHours: v.closed > 0 ? Math.round((v.tatHoursSum / v.closed) * 10) / 10 : null,
+    }))
+  },
+
+  // Backs the sidebar's "Tickets" count badge and its hover breakdown — deliberately "mine"
+  // (raiser or assignee), not visibilityFilter's full reach, even for a role that would otherwise
+  // see a whole department/store/org. Same reasoning as task.service.ts#summary: those roles
+  // already get an org-wide view from the dashboard/admin pages, and a personal nav badge that
+  // ballooned the moment someone had elevated access would stop meaning "what's on my plate".
+  async summary(user: AccessTokenPayload): Promise<TicketSummaryRow> {
+    const mine = or(eq(tickets.assigneeId, user.sub), eq(tickets.userId, user.sub))!
+    const where = and(NOT_DELETED, mine)
+
+    // Same 30s cache/reasoning as task.service.ts#summary and checklistInstance.service.ts#summary.
+    return cached(cacheKey("ticket-summary", user.sub), 30, async () => {
+      const [row] = await db.select({
+        total: sql<number>`COUNT(*)`,
+        completed: sql<number>`SUM(CASE WHEN ${tickets.status} = 'CLOSED' THEN 1 ELSE 0 END)`,
+        overdue: sql<number>`SUM(CASE WHEN ${tickets.isOverdue} THEN 1 ELSE 0 END)`,
+        newToday: sql<number>`SUM(CASE WHEN ${tickets.createdAt} >= CURDATE() THEN 1 ELSE 0 END)`,
+      }).from(tickets).where(where)
+
+      const total = Number(row?.total ?? 0)
+      const completed = Number(row?.completed ?? 0)
+      const overdue = Number(row?.overdue ?? 0)
+      return {
+        total,
+        newToday: Number(row?.newToday ?? 0),
+        due: total - completed - overdue,
+        overdue,
+        completed,
+      }
+    })
+  },
+
+  // "Needs your approval" dashboard card (ADMIN/PC only — gated at the route, not here: both
+  // roles already resolve to org-wide in visibilityFilter, so calling it here would just be a
+  // no-op restriction). Oldest-waiting-first, not newest-first like list()'s default — but
+  // Ticket has no "entered PENDING_APPROVAL at" column, so this over-fetches a small pool
+  // ordered by createdAt, looks up each row's real transition time from TicketStatusUpdate, and
+  // re-sorts by that. Same batch-fetch-then-map shape as populateTickets above, not a derived-
+  // table join, since a pending-approval queue is realistically a handful of rows, not thousands.
+  async pendingApproval(limit = 8): Promise<TicketPendingApprovalRow[]> {
+    const POOL = 40
+    const rows = await db.select({
+      id: tickets.id,
+      title: tickets.title,
+      createdAt: tickets.createdAt,
+      firstName: users.firstName,
+      lastName: users.lastName,
+    })
+      .from(tickets)
+      .leftJoin(users, eq(tickets.userId, users.id))
+      .where(and(eq(tickets.status, "PENDING_APPROVAL"), NOT_DELETED))
+      .orderBy(asc(tickets.createdAt))
+      .limit(POOL)
+
+    if (rows.length === 0) return []
+
+    const ids = rows.map((r) => r.id)
+    const sinceRows = await db.select({
+      ticketId: ticketStatusUpdates.ticketId,
+      // Actually returned as a string by mysql2 for a raw aggregate like this (unlike a plain
+      // schema column select, which goes through Drizzle's date-mode conversion) — typed
+      // honestly here so the `new Date(...)` wrap below isn't mistaken for defensive-but-dead code.
+      since: sql<string>`MAX(${ticketStatusUpdates.createdAt})`,
+    })
+      .from(ticketStatusUpdates)
+      .where(and(inArray(ticketStatusUpdates.ticketId, ids), eq(ticketStatusUpdates.toStatus, "PENDING_APPROVAL")))
+      .groupBy(ticketStatusUpdates.ticketId)
+    const sinceById = new Map(sinceRows.map((r) => [r.ticketId, r.since]))
+
+    return rows
+      .map((r) => ({
+        id: r.id,
+        title: r.title,
+        submittedBy: r.firstName ? `${r.firstName}${r.lastName ? ` ${r.lastName}` : ""}` : null,
+        // mysql2 returns a raw sql<Date> aggregate (MAX(...)) as a string, not an actual Date
+        // instance — unlike a plain schema column select, which Drizzle's date-mode mapping does
+        // convert. new Date(...) normalizes both branches before formatting.
+        waitingSince: new Date(sinceById.get(r.id) ?? r.createdAt).toISOString(),
+      }))
+      .sort((a, b) => new Date(a.waitingSince).getTime() - new Date(b.waitingSince).getTime())
+      .slice(0, limit)
   },
 }

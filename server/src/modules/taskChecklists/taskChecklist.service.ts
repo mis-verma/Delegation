@@ -1,6 +1,6 @@
 import { db } from "../../config/db.js"
 import { tasks, taskChecklists, taskChecklistItems, taskImages, checklistTemplates, checklistTemplateItems } from "../../db/schema/index.js"
-import { eq, asc, inArray } from "drizzle-orm"
+import { eq, and, asc, inArray, isNull } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
 import { AppError } from "../../utils/AppError.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
@@ -63,7 +63,7 @@ export const taskChecklistService = {
     // Create a new checklist under a task, optionally seeded with items right away — each item
     // can carry its own assigneeId/dueDate/photo requirements from the moment it's created.
     async createForTask(taskId: string, input: CreateTaskChecklistInput, user: AccessTokenPayload) {
-        const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
+        const [task] = await db.select().from(tasks).where(and(eq(tasks.id, taskId), isNull(tasks.deletedAt))).limit(1);
         if (!task) throw AppError.notFound("Delegation not found");
         assertCanManage(user, task);
 
@@ -95,11 +95,11 @@ export const taskChecklistService = {
     // seeded from the template item's defaultAssigneeId when set — an admin can still change it
     // afterwards through the normal updateItem action.
     async createFromTemplate(taskId: string, templateId: string, user: AccessTokenPayload) {
-        const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId)).limit(1);
+        const [task] = await db.select().from(tasks).where(and(eq(tasks.id, taskId), isNull(tasks.deletedAt))).limit(1);
         if (!task) throw AppError.notFound("Delegation not found");
         assertCanManage(user, task);
 
-        const [template] = await db.select().from(checklistTemplates).where(eq(checklistTemplates.id, templateId)).limit(1);
+        const [template] = await db.select().from(checklistTemplates).where(and(eq(checklistTemplates.id, templateId), isNull(checklistTemplates.deletedAt))).limit(1);
         if (!template) throw AppError.notFound("Checklist template not found");
         if (template.appliesTo !== "TASK") throw AppError.badRequest("This template applies to tickets, not delegations");
 
@@ -134,7 +134,7 @@ export const taskChecklistService = {
         if (!item) throw AppError.notFound("Checklist item not found");
 
         const [checklist] = await db.select().from(taskChecklists).where(eq(taskChecklists.id, item.taskChecklistId)).limit(1);
-        const [task] = checklist ? await db.select().from(tasks).where(eq(tasks.id, checklist.taskId)).limit(1) : [];
+        const [task] = checklist ? await db.select().from(tasks).where(and(eq(tasks.id, checklist.taskId), isNull(tasks.deletedAt))).limit(1) : [];
         if (!task) throw AppError.notFound("Delegation not found");
         assertCanManage(user, task);
 
@@ -206,7 +206,7 @@ export const taskChecklistService = {
     async removeChecklist(checklistId: string, user: AccessTokenPayload) {
         const [checklist] = await db.select().from(taskChecklists).where(eq(taskChecklists.id, checklistId)).limit(1);
         if (!checklist) throw AppError.notFound("Checklist not found");
-        const [task] = await db.select().from(tasks).where(eq(tasks.id, checklist.taskId)).limit(1);
+        const [task] = await db.select().from(tasks).where(and(eq(tasks.id, checklist.taskId), isNull(tasks.deletedAt))).limit(1);
         if (!task) throw AppError.notFound("Delegation not found");
         assertCanManage(user, task);
 
@@ -234,7 +234,7 @@ export const taskChecklistService = {
         const [item] = await db.select().from(taskChecklistItems).where(eq(taskChecklistItems.id, itemId)).limit(1);
         if (!item) throw AppError.notFound("Checklist item not found");
         const [checklist] = await db.select().from(taskChecklists).where(eq(taskChecklists.id, item.taskChecklistId)).limit(1);
-        const [task] = checklist ? await db.select().from(tasks).where(eq(tasks.id, checklist.taskId)).limit(1) : [];
+        const [task] = checklist ? await db.select().from(tasks).where(and(eq(tasks.id, checklist.taskId), isNull(tasks.deletedAt))).limit(1) : [];
         if (!task) throw AppError.notFound("Delegation not found");
         assertCanManage(user, task);
 

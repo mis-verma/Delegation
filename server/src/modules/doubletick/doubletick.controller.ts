@@ -68,8 +68,16 @@ export const doubletickController = {
         if (body.integrationType !== "WHATSAPP" || !body.message) return;
 
         // DoubleTick retries a delivery on any hiccup on their end — claim the message id first
-        // so a retried delivery of the same message is a no-op instead of a second task.
-        if (body.messageId && !(await claimInboundMessage("doubletick", body.messageId))) return;
+        // so a retried delivery of the same message is a no-op instead of a second task. No id at
+        // all means nothing to dedupe against — DoubleTick's real payloads always include one, so
+        // this only fires on a malformed delivery; drop it (fail-closed) rather than silently
+        // processing every retry as a brand new message (the old `body.messageId &&` guard fell
+        // through to that instead of stopping here).
+        if (!body.messageId) {
+            console.error("DoubleTick webhook: payload missing messageId, dropping (can't dedupe)");
+            return;
+        }
+        if (!(await claimInboundMessage("doubletick", body.messageId))) return;
 
         const from = body.from;
         let text: string;

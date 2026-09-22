@@ -25,7 +25,7 @@ const exporters: Record<"csv" | "xlsx", ExportHandler> = {
 
 const exportHandler = (reportModule: ReportModule) =>
     asyncHandler(async (req: Request, res: Response) => {
-        const { from, to, format, category, status, priority, departmentId, assigneeIds } =
+        const { from, to, format, category, status, priority, departmentId, assigneeIds, storeId } =
             reportExportQuerySchema.parse(req.query);
         const rows = REPORT_ROW_STREAMS[reportModule](from, to, {
             category,
@@ -33,6 +33,7 @@ const exportHandler = (reportModule: ReportModule) =>
             priority: priority?.split(",").filter(Boolean),
             departmentId,
             assigneeIds: assigneeIds?.split(",").filter(Boolean),
+            storeId,
         });
         const columns = REPORT_COLUMNS[reportModule];
         const datePart = new Date().toISOString().slice(0, 10);

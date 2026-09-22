@@ -82,7 +82,15 @@ export const whatsappController = {
 
         // Meta retries a webhook delivery on any hiccup on their end — claim the message id first
         // so a retried delivery of the same message is a no-op instead of a second task/reply.
-        if (message.id && !(await claimInboundMessage("whatsapp", message.id as string))) return;
+        // No id at all means we have nothing to dedupe against — Meta's real payloads always
+        // include one, so this only fires on a malformed delivery, and dropping it (fail-closed)
+        // beats silently processing every retry as a brand new message (the old `message.id &&`
+        // guard fell through to that instead of stopping here).
+        if (!message.id) {
+            console.error("WhatsApp webhook: message missing id, dropping (can't dedupe)");
+            return;
+        }
+        if (!(await claimInboundMessage("whatsapp", message.id as string))) return;
 
         const from = message.from as string;
 

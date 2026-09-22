@@ -56,7 +56,7 @@ const definitionItemShape = z.object({
     message: "A target location is required when a radius is set",
     path: ["gpsRadiusMeters"],
 }).refine(item => item.itemType !== "VIDEO_UPLOAD" || (item.requiredImageCount ?? 0) >= 1, {
-    message : "At least on video is required fro video upload item",
+    message : "At least one video is required for a video upload item",
     path : ["requiredImageCount"],
 }).refine(item => (!item.yesActions?.length && !item.noActions?.length) || ["YES_NO", "PASS_FAIL"].includes(item.itemType ?? ""), {
     message: "Conditional rules only apply to Yes/No or Pass/Fail items",

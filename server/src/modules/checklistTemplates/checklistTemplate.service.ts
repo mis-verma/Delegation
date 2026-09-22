@@ -1,7 +1,7 @@
 import { createId } from "@paralleldrive/cuid2"
 import { db } from "../../config/db.js"
 import { checklistTemplates, checklistTemplateItems } from "../../db/schema/index.js"
-import { eq, asc, inArray } from "drizzle-orm"
+import { eq, and, asc, inArray, isNull } from "drizzle-orm"
 import { AppError } from "../../utils/AppError.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type {
@@ -12,13 +12,17 @@ import type {
 } from "./checklistTemplate.validation.js"
 import { auditService } from "../audit/audit.service.js"
 
+// Soft-deleted rows must stay invisible everywhere a live template is looked up — same
+// convention as Task/Ticket/ChecklistDefinition (see task.service.ts's own NOT_DELETED).
+const NOT_DELETED = isNull(checklistTemplates.deletedAt)
+
 // Not using Drizzle's relational query API (`db.query...with:{...}`) here — that API compiles
 // every relation into a `LEFT JOIN LATERAL (...)` subquery, and the actual database this app
 // runs against (MariaDB 10.11) doesn't support LATERAL joins at all (confirmed against the real
 // local instance). Plain selects assembled by hand in JS instead — same pattern as
 // task.service.ts/ticket.service.ts.
 const getTemplateWithItems = async (id: string) => {
-    const [template] = await db.select().from(checklistTemplates).where(eq(checklistTemplates.id, id)).limit(1)
+    const [template] = await db.select().from(checklistTemplates).where(and(eq(checklistTemplates.id, id), NOT_DELETED)).limit(1)
     if (!template) return undefined
     const items = await db.select().from(checklistTemplateItems).where(eq(checklistTemplateItems.templateId, id)).orderBy(asc(checklistTemplateItems.order))
     return { ...template, items }
@@ -29,7 +33,7 @@ export const checklistTemplateService = {
         const templateRows = await db
             .select()
             .from(checklistTemplates)
-            .where(appliesTo ? eq(checklistTemplates.appliesTo, appliesTo) : undefined)
+            .where(appliesTo ? and(NOT_DELETED, eq(checklistTemplates.appliesTo, appliesTo)) : NOT_DELETED)
             .orderBy(asc(checklistTemplates.name))
         const templateIds = templateRows.map((t) => t.id)
         const itemRows = templateIds.length
@@ -81,7 +85,7 @@ export const checklistTemplateService = {
     },
 
     async update(id: string, input: UpdateChecklistTemplateInput, actorId: string) {
-        const [existing] = await db.select().from(checklistTemplates).where(eq(checklistTemplates.id, id)).limit(1)
+        const [existing] = await db.select().from(checklistTemplates).where(and(eq(checklistTemplates.id, id), NOT_DELETED)).limit(1)
         if (!existing) throw AppError.notFound("Checklist template not found")
 
         const patch: Partial<typeof checklistTemplates.$inferInsert> = { updatedAt: new Date() }
@@ -94,20 +98,20 @@ export const checklistTemplateService = {
         return template
     },
 
+    // Soft delete: sets deletedAt instead of removing the row (and its ChecklistTemplateItem
+    // children) outright — same convention as Task/Ticket/ChecklistDefinition. Every read path
+    // above (list/getById/update/addItem) hides it from here on via NOT_DELETED.
     async remove(id: string, actorId: string) {
-        const [template] = await db.select().from(checklistTemplates).where(eq(checklistTemplates.id, id)).limit(1)
+        const [template] = await db.select().from(checklistTemplates).where(and(eq(checklistTemplates.id, id), NOT_DELETED)).limit(1)
         if (!template) throw AppError.notFound("Checklist template not found")
-        // wrapped in a transaction (source had none)
-        await db.transaction(async (tx) => {
-            await tx.delete(checklistTemplateItems).where(eq(checklistTemplateItems.templateId, id))
-            await tx.delete(checklistTemplates).where(eq(checklistTemplates.id, id))
-        })
+        const deletedAt = new Date()
+        await db.update(checklistTemplates).set({ deletedAt, updatedAt: deletedAt }).where(eq(checklistTemplates.id, id))
         await auditService.record({ entityType: "ChecklistTemplate", entityId: id, action: "DELETE", actorId, before: template })
         return template
     },
 
     async addItem(templateId: string, input: CreateChecklistTemplateItemInput) {
-        const [template] = await db.select({ id: checklistTemplates.id }).from(checklistTemplates).where(eq(checklistTemplates.id, templateId)).limit(1)
+        const [template] = await db.select({ id: checklistTemplates.id }).from(checklistTemplates).where(and(eq(checklistTemplates.id, templateId), NOT_DELETED)).limit(1)
         if (!template) throw AppError.notFound("Checklist template not found")
         const id = createId()
         await db.insert(checklistTemplateItems).values({

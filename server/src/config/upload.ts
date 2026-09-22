@@ -36,6 +36,10 @@ const TASK_ATTACHMENT_UPLOAD_DIR = path.resolve("uploads", "task-attachments")
 // confused with task/ticket evidence photos.
 const AVATAR_UPLOAD_DIR = path.resolve("uploads", "avatars")
 
+// The org's uploaded logo (see settings module) — a single file replacing itself on re-upload,
+// same one-file-per-scope shape as avatars, just scoped to the org instead of a user.
+const LOGO_UPLOAD_DIR = path.resolve("uploads", "logos")
+
 // Files attached to a single Task comment/activity message (see taskComments module) — kept in
 // its own folder rather than reusing task-attachments/ so a comment's files are never confused
 // with the task's own top-level attachment list.
@@ -68,6 +72,9 @@ if (!fs.existsSync(TASK_COMMENT_ATTACHMENT_UPLOAD_DIR)) {
 }
 if (!fs.existsSync(AVATAR_UPLOAD_DIR)) {
     fs.mkdirSync(AVATAR_UPLOAD_DIR, { recursive: true })
+}
+if (!fs.existsSync(LOGO_UPLOAD_DIR)) {
+    fs.mkdirSync(LOGO_UPLOAD_DIR, { recursive: true })
 }
 
 // The stored extension used to come from `path.extname(file.originalname)` — but both
@@ -157,6 +164,14 @@ const avatarStorage = multer.diskStorage({
     },
 })
 
+const logoStorage = multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, LOGO_UPLOAD_DIR),
+    filename: (_req, file, cb) => {
+        const randomName = crypto.randomBytes(16).toString("hex");
+        cb(null, `${randomName}${safeExtensionFor(file.mimetype)}`)
+    },
+})
+
 const taskCommentAttachmentStorage = multer.diskStorage({
     destination: (_req, _file, cb) => cb(null, TASK_COMMENT_ATTACHMENT_UPLOAD_DIR),
     filename: (_req, file, cb) => {
@@ -221,6 +236,10 @@ export const checklistInstanceItemSubmissionImageUpload = (req : Request , res :
 // pool. Still image-only/size-limited via the same admin-editable settings as the rest.
 export const avatarUpload = (req : Request , res : Response , next : NextFunction) =>
     buildImageUpload(avatarStorage).single("avatar")(req,res,next)
+
+// One file, org-wide — a re-upload replaces the previous logo rather than adding to a pool.
+export const logoUpload = (req : Request , res : Response , next : NextFunction) =>
+    buildImageUpload(logoStorage).single("logo")(req,res,next)
 
 // Task-level attachments accept documents/spreadsheets/video too, not just images — the
 // admin-editable `allowedImageTypes` setting (and buildImageUpload above) is scoped to the

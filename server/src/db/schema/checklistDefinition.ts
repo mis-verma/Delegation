@@ -67,22 +67,33 @@ export const CHECKLIST_CONDITIONAL_ACTIONS = [
 export const YES_NO_VALUES = ['YES', 'NO'] as const;
 
 
-export const checklistDefinitions = mysqlTable('ChecklistDefinition', {
-  id: varchar('id', { length: 191 }).primaryKey().$defaultFn(() => createId()),
-  name: varchar('name', { length: 191 }).notNull(),
-  description: text('description'),
-  recurrence: mysqlEnum('recurrence', CHECKLIST_RECURRENCES).notNull(),
-  startDate: datetime('startDate', { mode: 'date' }).notNull(),
-  opensTime: varchar('opensTime', { length: 5 }), // HH:mm, validated at app layer
-  cutoffTime: varchar('cutoffTime', { length: 5 }), // HH:mm, validated at app layer
-  isActive: boolean('isActive').notNull().default(true),
-  assigneeRoles: json('assigneeRoles').$type<(typeof CHECKLIST_ASSIGNEE_ROLES)[number][]>(),
-  icon: mysqlEnum('icon', CHECKLIST_ICONS).notNull().default('store'),
-  version: int('version').notNull().default(1),
-  createdBy: varchar('createdBy', { length: 191 }).notNull().references(() => users.id),
-  createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
-  updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
-});
+export const checklistDefinitions = mysqlTable(
+  'ChecklistDefinition',
+  {
+    id: varchar('id', { length: 191 }).primaryKey().$defaultFn(() => createId()),
+    name: varchar('name', { length: 191 }).notNull(),
+    description: text('description'),
+    recurrence: mysqlEnum('recurrence', CHECKLIST_RECURRENCES).notNull(),
+    startDate: datetime('startDate', { mode: 'date' }).notNull(),
+    opensTime: varchar('opensTime', { length: 5 }), // HH:mm, validated at app layer
+    cutoffTime: varchar('cutoffTime', { length: 5 }), // HH:mm, validated at app layer
+    isActive: boolean('isActive').notNull().default(true),
+    assigneeRoles: json('assigneeRoles').$type<(typeof CHECKLIST_ASSIGNEE_ROLES)[number][]>(),
+    icon: mysqlEnum('icon', CHECKLIST_ICONS).notNull().default('store'),
+    version: int('version').notNull().default(1),
+    createdBy: varchar('createdBy', { length: 191 }).notNull().references(() => users.id),
+    // Soft-delete: remove() sets this instead of deleting the row — which used to cascade through
+    // every ChecklistDefinitionItem/Store/Assignee/Reviewer AND every ChecklistInstance ever
+    // generated from it (plus that instance tree's own items/images/submissions). None of that is
+    // touched now: the whole history stays recoverable. Independent of `isActive` above (a
+    // separate pause/resume switch) — every read path in checklistDefinition.service.ts, and the
+    // instance-generation sweep, must AND in `isNull(checklistDefinitions.deletedAt)`.
+    deletedAt: datetime('deletedAt', { mode: 'date' }),
+    createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
+    updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
+  },
+  (table) => [index('ChecklistDefinition_deletedAt_idx').on(table.deletedAt)],
+);
 
 export const checklistDefinitionStores = mysqlTable(
   'ChecklistDefinitionStore',

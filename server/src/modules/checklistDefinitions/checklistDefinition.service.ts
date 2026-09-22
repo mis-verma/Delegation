@@ -9,7 +9,7 @@ import {
     users,
     type CHECKLIST_RECURRENCES,
 } from "../../db/schema/index.js"
-import { eq, and, asc, inArray, notInArray, sql } from "drizzle-orm"
+import { eq, and, asc, inArray, notInArray, isNull, sql } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
 import { cached, cacheKey } from "../../config/queryCache.js"
 import { AppError } from "../../utils/AppError.js"
@@ -25,6 +25,13 @@ import { emitChecklistEvent } from "../../sockets/checklistEvent.js"
 const emitToStores = (event: string, storeIds: string[], payload: unknown) => {
     for (const storeId of storeIds) emitChecklistEvent(event, { storeId }, payload)
 }
+
+// Soft-delete: remove() sets `deletedAt` instead of deleting the row (which used to cascade
+// through the entire items/stores/assignees/reviewers/instances tree — see remove()'s own
+// comment). Independent of `isActive` (a separate pause/resume switch) — every read path below
+// (list/getById/update/setActive/listAllChecklistDefinitions) must AND this in, and so must the
+// instance-generation sweep (checklistInstanceGenerator.job.ts).
+const NOT_DELETED = isNull(checklistDefinitions.deletedAt)
 
 export type ChecklistRecurrence = (typeof CHECKLIST_RECURRENCES)[number]
 
@@ -193,7 +200,7 @@ const assertUsersBelongToStores = async (userIds: string[], storeIds: string[], 
 // for any org with more definitions than one page, which is worse than the query cost this
 // function exists to avoid). The paginated, HTTP-facing list() below is for the templates grid.
 export const listAllChecklistDefinitions = async (filter: Pick<ListChecklistDefinitionsFilter, "storeId" | "recurrence" | "isActive"> = {}) => {
-    const conditions = []
+    const conditions = [NOT_DELETED]
     if (filter.recurrence) conditions.push(eq(checklistDefinitions.recurrence, filter.recurrence))
     if (filter.isActive !== undefined) conditions.push(eq(checklistDefinitions.isActive, filter.isActive))
     if (filter.storeId) {
@@ -214,7 +221,7 @@ export const listAllChecklistDefinitions = async (filter: Pick<ListChecklistDefi
 export const checklistDefinitionService = {
     async list(filter: ListChecklistDefinitionsFilter) {
         const p = paginateDefinitions(filter.page, filter.limit)
-        const conditions = []
+        const conditions = [NOT_DELETED]
         if (filter.recurrence) conditions.push(eq(checklistDefinitions.recurrence, filter.recurrence))
         if (filter.isActive !== undefined) conditions.push(eq(checklistDefinitions.isActive, filter.isActive))
         if (filter.storeId) {
@@ -239,7 +246,7 @@ export const checklistDefinitionService = {
     },
 
     async getById(id: string) {
-        const [definition] = await db.select().from(checklistDefinitions).where(eq(checklistDefinitions.id, id)).limit(1)
+        const [definition] = await db.select().from(checklistDefinitions).where(and(eq(checklistDefinitions.id, id), NOT_DELETED)).limit(1)
         if (!definition) throw AppError.notFound("Checklist not found")
         const [hydrated] = await hydrateDefinitions([definition])
         return hydrated
@@ -353,7 +360,7 @@ export const checklistDefinitionService = {
             const [existing] = await tx
                 .select({ id: checklistDefinitions.id, version: checklistDefinitions.version, isActive: checklistDefinitions.isActive })
                 .from(checklistDefinitions)
-                .where(eq(checklistDefinitions.id, id))
+                .where(and(eq(checklistDefinitions.id, id), NOT_DELETED))
                 .for("update")
                 .limit(1)
             if (!existing) throw AppError.notFound("Checklist not found")
@@ -455,7 +462,7 @@ export const checklistDefinitionService = {
     },
 
     async setActive(id: string, input: SetChecklistDefinitionActiveInput, actorId: string) {
-        const [existing] = await db.select({ id: checklistDefinitions.id }).from(checklistDefinitions).where(eq(checklistDefinitions.id, id)).limit(1)
+        const [existing] = await db.select({ id: checklistDefinitions.id }).from(checklistDefinitions).where(and(eq(checklistDefinitions.id, id), NOT_DELETED)).limit(1)
         if (!existing) throw AppError.notFound("Checklist not found")
         await db.update(checklistDefinitions).set({ isActive: input.isActive, updatedAt: new Date() }).where(eq(checklistDefinitions.id, id))
         const updated = await this.getById(id)
@@ -466,26 +473,21 @@ export const checklistDefinitionService = {
         return updated
     },
 
-    // Replaces the original 5-step manual cascading delete fan-out (definition -> items ->
-    // instances -> instance items -> instance images -> submissions -> submission images, 5
-    // sequential deleteMany calls with NO transaction). The Drizzle schema already wires
-    // `onDelete: 'cascade'` through this entire chain:
-    //   ChecklistDefinition --cascade--> ChecklistDefinitionItem, ChecklistDefinitionStore,
-    //     ChecklistDefinitionAssignee, ChecklistInstance
-    //   ChecklistDefinitionItem --cascade--> ChecklistDefinitionItemAuditUser
-    //   ChecklistInstance --cascade--> ChecklistInstanceAssignee, ChecklistInstanceItem
-    //   ChecklistInstanceItem --cascade--> ChecklistInstanceImage, ChecklistInstanceItemSubmission
-    //   ChecklistInstanceItemSubmission --cascade--> ChecklistInstanceItemSubmissionAccessory,
-    //     ChecklistInstanceItemSubmissionImage
-    // (see checklistDefinition.ts/checklistInstance.ts FK definitions) — a single delete on the
-    // root row is enough; MySQL's cascading FKs handle every descendant table.
-    
+    // Soft delete: sets deletedAt instead of removing the row. Used to be a single `db.delete()`
+    // relying on the Drizzle schema's `onDelete: 'cascade'` chain (definition -> items, stores,
+    // assignees, reviewers, and every generated ChecklistInstance -> that instance's own
+    // assignees/items -> images/submissions -> submission accessories/images) to clean up every
+    // descendant table in one statement. None of that runs now: every item, store, assignee,
+    // reviewer, and — most importantly — every historical instance (with its submitted photos and
+    // answers) stays exactly as it was, so the checklist's full audit trail survives a "delete."
+    // Every read path in this file (list/getById/update/setActive/listAllChecklistDefinitions)
+    // hides it from here on via NOT_DELETED, and the instance-generation sweep
+    // (checklistInstanceGenerator.job.ts) excludes it too so it never generates another run.
     async remove(id: string, actorId: string) {
-        // The whole definition, not just its id — a delete cascades through items, assignees and
-        // every generated instance, so this snapshot is all that survives it.
         const existing = await this.getById(id).catch(() => null)
         if (!existing) throw AppError.notFound("Checklist not found")
-        await db.delete(checklistDefinitions).where(eq(checklistDefinitions.id, id))
+        const deletedAt = new Date()
+        await db.update(checklistDefinitions).set({ deletedAt, updatedAt: deletedAt }).where(eq(checklistDefinitions.id, id))
         await auditService.record({ entityType: "ChecklistDefinition", entityId: id, action: "DELETE", actorId, before: existing })
         emitToStores("checklist-definition:deleted", existing.storeIds, { definitionId: id })
         return existing

@@ -6,9 +6,12 @@ import App from "./src/app.js";
 import { connectDB, disconnectDB } from "./src/config/db.js";
 import { env } from "./src/config/env.js";
 import { initSocket } from "./src/sockets/socket.js";
-import { createRedisRateLimitStore } from "./src/config/redis.js";
+import { createRedisRateLimitStore, disconnectRedisClients } from "./src/config/redis.js";
+import { disconnectQueryCache, warmQueryCache } from "./src/config/queryCache.js";
 import { startSlaSweep } from "./src/jobs/slaSweep.job.js";
 import { startChecklistInstanceGenerator } from "./src/jobs/checklistInstanceGenerator.job.js";
+import { startChecklistOverdueNotifier } from "./src/jobs/checklistOverdueNotifier.job.js";
+import { startChecklistDraftReminder } from "./src/jobs/checklistDraftReminder.job.js";
 import { startTaskDeadlineReminder } from "./src/jobs/taskDeadlineReminder.job.js";
 import { startAuditRetention } from "./src/jobs/auditRetention.job.js";
 import { startNotificationRetention } from "./src/jobs/notificationRetention.job.js";
@@ -23,6 +26,11 @@ class ServerBootstrap {
   public async start(): Promise<void> {
     await connectDB();
     await settingsService.init()
+    // Not awaited — starts the query-cache Redis handshake in the background as early as possible
+    // in boot, so it's likely already connected (or already backed off) by the time the first real
+    // request needs it, instead of that request paying the full connect cost itself (see
+    // queryCache.ts's CONNECT_WAIT_MS comment for the request-time half of this fix).
+    warmQueryCache();
 
     const rateLimitStore = workerCount > 1 ? await createRedisRateLimitStore() : undefined;
     this.appInstance = new App(rateLimitStore);
@@ -34,6 +42,8 @@ class ServerBootstrap {
     if (isCronOwner) {
       startSlaSweep();
       startChecklistInstanceGenerator();
+      startChecklistOverdueNotifier();
+      startChecklistDraftReminder();
       startTaskDeadlineReminder();
       startAuditRetention();
       startNotificationRetention();
@@ -56,9 +66,10 @@ class ServerBootstrap {
     this.httpServer?.close(async () => {
       try {
         await disconnectDB();
-        console.log("Database disconnected.");
+        await Promise.all([disconnectRedisClients(), disconnectQueryCache()]);
+        console.log("Database and Redis disconnected.");
       } catch (error) {
-        console.error("Error while disconnecting database:", error);
+        console.error("Error while disconnecting:", error);
       } finally {
         process.exit(0);
       }
