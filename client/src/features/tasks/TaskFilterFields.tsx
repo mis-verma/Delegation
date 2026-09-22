@@ -19,6 +19,9 @@ interface TaskFilterFieldsProps {
   departmentOptions: { id: string; name: string }[];
   isAdmin?:         boolean;
   onAddUser?:       () => void;
+  /** Omit the Category row entirely — for a page that's already locked to one category (Smart
+   *  Delegations), where there's nothing left to pick between. */
+  hideCategory?:    boolean;
 }
 
 const STATUS_OPTIONS: FilterOption<TaskFilters['status']>[] = [
@@ -43,17 +46,19 @@ const PRIORITY_OPTIONS: FilterOption<Task['priority']>[] = [
 // Assignee/Raised by as ordinary rows inside the Options modal's own list, no separate trigger,
 // header, or Apply/Clear footer of its own. Both now build those rows from the shared
 // components/filterRow set rather than each assembling them out of the primitives.
-export const TaskFilterFields = ({ filters, onChange, assignableUsers, tags, storeOptions, departmentOptions, isAdmin = false, onAddUser }: TaskFilterFieldsProps) => {
+export const TaskFilterFields = ({ filters, onChange, assignableUsers, tags, storeOptions, departmentOptions, isAdmin = false, onAddUser, hideCategory = false }: TaskFilterFieldsProps) => {
   const people = toFilterPeople(assignableUsers);
 
   return (
     <>
-      <SelectFilterRow
-        label="Category"
-        options={CATEGORY_OPTIONS}
-        value={filters.category}
-        onSelect={(category) => onChange({ category })}
-      />
+      {!hideCategory && (
+        <SelectFilterRow
+          label="Category"
+          options={CATEGORY_OPTIONS}
+          value={filters.category}
+          onSelect={(category) => onChange({ category })}
+        />
+      )}
 
       <SelectFilterRow label="Status" options={STATUS_OPTIONS} value={filters.status} onSelect={(status) => onChange({ status })} />
 

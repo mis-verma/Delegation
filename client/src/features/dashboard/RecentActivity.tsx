@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import {
   Ticket as TicketIcon,
   CheckSquare,
   CircleDot,
-  Eye,
+  ShieldCheck,
   PauseCircle,
   CheckCircle2,
   Clock,
@@ -12,11 +12,12 @@ import {
   Search,
   ArrowUpDown,
   ChevronRight,
+  Plus,
   type LucideIcon,
   Sparkles
 } from 'lucide-react';
-import { Skeleton, PageNav } from '../../components';
-import { formatRelativeTime, type FeedItem } from './dashboardDisplay';
+import { Skeleton, PageNav, EntityIconTile, Button } from '../../components';
+import { formatRelativeTime, DASHBOARD_CARD_CLASS, ACTIVITY_CATEGORY_DOT_CLASS, type FeedItem } from './dashboardDisplay';
 import { STATUS_ICON as TASK_STATUS_ICON, STATUS_CONFIG as TASK_STATUS_CONFIG } from '../tasks/taskDisplay';
 import { STATUS_CONFIG as TICKET_STATUS_CONFIG } from '../tickets/ticketDisplay';
 import type { TicketStatus } from '../../api/ticket';
@@ -54,7 +55,7 @@ const CLOCK_REFRESH_MS = 30_000;
 const TICKET_STATUS_ICON: Record<TicketStatus, ReactNode> = {
   OPEN: <CircleDot size={16} className="text-text-muted shrink-0" strokeWidth={2.5} />,
   IN_PROGRESS: <Clock size={16} className="text-warning shrink-0" strokeWidth={2.5} />,
-  IN_REVIEW: <Eye size={16} className="text-primary-600 dark:text-primary-400 shrink-0" strokeWidth={2.5} />,
+  PENDING_APPROVAL: <ShieldCheck size={16} className="text-status-approve shrink-0" strokeWidth={2.5} />,
   CLOSED: <CheckCircle2 size={16} className="text-success shrink-0" strokeWidth={2.5} />,
   ON_HOLD: <PauseCircle size={16} className="text-text-muted shrink-0" strokeWidth={2.5} />,
 };
@@ -62,7 +63,7 @@ const TICKET_STATUS_ICON: Record<TicketStatus, ReactNode> = {
 const TICKET_ICON_TONE: Record<TicketStatus, string> = {
   OPEN: 'bg-surface-hover border-border/50',
   IN_PROGRESS: 'bg-warning/10 border-warning/20',
-  IN_REVIEW: 'bg-primary-500/10 border-primary-500/20',
+  PENDING_APPROVAL: 'bg-status-approve/10 border-status-approve/20',
   CLOSED: 'bg-success/10 border-success/20',
   ON_HOLD: 'bg-surface-hover border-border/40',
 };
@@ -70,9 +71,10 @@ const TICKET_ICON_TONE: Record<TicketStatus, string> = {
 // taskDisplay's STATUS_CONFIG only exposes a translucent `indicator` (meant for board-card dots);
 // the status pill's glow dot below wants the solid tone, matching TICKET_STATUS_CONFIG's `dot`.
 const TASK_DOT: Record<Task['status'], string> = {
+  draft: 'bg-text-light',
   todo: 'bg-status-todo',
   in_progress: 'bg-status-progress',
-  pending_verification: 'bg-status-verify',
+  pending_approval: 'bg-status-approve',
   done: 'bg-status-done',
 };
 
@@ -86,11 +88,13 @@ const ActivityEmptyState = ({
   title,
   detail,
   tinted,
+  action,
 }: {
   icon: LucideIcon;
   title: string;
   detail: ReactNode;
   tinted: boolean;
+  action?: { label: string; onClick: () => void };
 }) => (
   <div className="flex flex-col items-center justify-center flex-1 py-12 text-center gap-4 animate-in fade-in duration-500">
     <div className="relative p-4 rounded-2xl bg-surface-hover border border-border/50">
@@ -101,10 +105,17 @@ const ActivityEmptyState = ({
       <p className="text-sm font-display font-semibold text-text">{title}</p>
       <p className="text-xs font-medium text-text-muted max-w-[220px] mx-auto">{detail}</p>
     </div>
+    {action && (
+      <Button size="sm" className="rounded-full" onClick={action.onClick}>
+        <Plus size={13} strokeWidth={2.75} />
+        {action.label}
+      </Button>
+    )}
   </div>
 );
 
 export const RecentActivity = ({ feed, isPending }: RecentActivityProps) => {
+  const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortOrder>('newest');
   const [page, setPage] = useState(1);
@@ -139,7 +150,7 @@ export const RecentActivity = ({ feed, isPending }: RecentActivityProps) => {
     // none), and one of three cards missing the dark-mode border override, so in dark mode
     // adjacent cards drew visibly different border weights. The ambient glows below are children,
     // so they still read through on top of the opaque surface.
-    <section id="recent-activity" aria-labelledby="recent-activity-heading" className="relative group rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface flex flex-col hover:border-primary-500/30 transition-colors duration-500 overflow-hidden">
+    <section id="recent-activity" aria-labelledby="recent-activity-heading" className={`relative group ${DASHBOARD_CARD_CLASS} flex flex-col hover:border-primary-500/30 transition-colors duration-500 overflow-hidden`}>
       
       {/* Ambient Decorative Glows */}
       <div className="absolute -top-32 -left-32 w-64 h-64 bg-primary-500/10 rounded-full blur-[80px] pointer-events-none transition-opacity duration-700 opacity-40 group-hover:opacity-100" />
@@ -148,10 +159,7 @@ export const RecentActivity = ({ feed, isPending }: RecentActivityProps) => {
       {/* Header */}
       <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-4 sm:px-5 py-4 border-b border-border/40 bg-surface/50 backdrop-blur-xl">
         <div className="flex items-center gap-3.5">
-          <div className="relative flex items-center justify-center size-10 rounded-xl bg-primary-500/10 border border-primary-500/20 text-primary-600 dark:text-primary-400 shadow-inner">
-            <div className="absolute inset-0 rounded-xl bg-primary-500/20 blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-            <Activity size={18} strokeWidth={2.5} className="relative z-10" />
-          </div>
+          <EntityIconTile icon={Activity} />
           <div>
             <h2 id="recent-activity-heading" className="text-base sm:text-lg font-display font-bold text-text tracking-tight flex items-center gap-2">
               Recent Activity
@@ -162,8 +170,13 @@ export const RecentActivity = ({ feed, isPending }: RecentActivityProps) => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="relative group/search">
+        <div className="flex items-center gap-2 sm:shrink-0">
+          {/* flex-1 on mobile, not a fixed w-32 — this row is on its own line below the title on
+              mobile (the header is flex-col there), so it has the full card width to itself with
+              nothing to compete with. The old fixed 128px was narrow enough to clip the
+              placeholder itself ("Search activit…"). Reverts to a fixed width at `sm`, where this
+              row sits beside the title and does need to stay compact. */}
+          <div className="relative group/search flex-1 min-w-0 sm:flex-none">
             <label htmlFor="recent-activity-search" className="sr-only">Search activity</label>
             <Search size={14} aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted transition-colors group-focus-within/search:text-primary-500" />
             <input
@@ -172,7 +185,7 @@ export const RecentActivity = ({ feed, isPending }: RecentActivityProps) => {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search activity..."
-              className="h-9 w-32 sm:w-48 pl-8 pr-3 rounded-xl border border-border/60 bg-surface-hover/50 text-xs font-medium text-text placeholder:text-text-muted/70 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500/50 focus:bg-surface focus:w-40 sm:focus:w-56"
+              className="h-9 w-full sm:w-48 pl-8 pr-3 rounded-xl border border-border/60 bg-surface-hover/50 text-xs font-medium text-text placeholder:text-text-muted/70 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500/50 focus:bg-surface sm:focus:w-56"
             />
           </div>
           <button
@@ -210,7 +223,8 @@ export const RecentActivity = ({ feed, isPending }: RecentActivityProps) => {
             icon={Sparkles}
             tinted
             title="Quiet around here"
-            detail="Create a ticket or delegation to start seeing activity."
+            detail="Nothing's been raised yet"
+            action={{ label: 'New ticket', onClick: () => navigate('/tickets?create=1') }}
           />
         ) : visible.length === 0 ? (
           <ActivityEmptyState
@@ -266,10 +280,18 @@ export const RecentActivity = ({ feed, isPending }: RecentActivityProps) => {
                         {item.title}
                       </span>
                       <div className="flex items-center gap-1.5 text-[11px] font-medium text-text-muted">
-                        <KindIcon size={10} aria-hidden="true" className="shrink-0" />
-                        {/* "Delegation", not "Task" — that's what a task is called everywhere else
-                            in the app (Delegation Score, the activity category filter, the nav). */}
-                        <span>{isTicket ? 'Ticket' : 'Delegation'}</span>
+                        {/* Same chip language as the Calendar's item-type tag (solid icon circle +
+                            bold label in a bordered pill) — that page already solved "Ticket" vs
+                            "Delegation" needing to read as distinct badges, not bare icon+text, so
+                            this reuses it instead of leaving the one remaining plain-text mention. */}
+                        <span className="inline-flex items-center gap-1 pl-0.5 pr-1.5 py-px rounded-full border border-border/50 bg-surface-hover/70">
+                          <span className={`flex items-center justify-center size-3.5 rounded-full shrink-0 text-white ${ACTIVITY_CATEGORY_DOT_CLASS[isTicket ? 'ticket' : 'delegation']}`}>
+                            <KindIcon size={8} strokeWidth={3} aria-hidden="true" />
+                          </span>
+                          {/* "Delegation", not "Task" — that's what a task is called everywhere else
+                              in the app (Delegation Score, the activity category filter, the nav). */}
+                          <span className="font-display font-bold text-text-secondary">{isTicket ? 'Ticket' : 'Delegation'}</span>
+                        </span>
                         <span className="size-1 rounded-full bg-border shrink-0" />
                         <span className="tabular-nums">{formatRelativeTime(item.createdAt)}</span>
                       </div>

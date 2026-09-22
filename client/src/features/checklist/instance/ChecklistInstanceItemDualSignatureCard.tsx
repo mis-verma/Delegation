@@ -50,7 +50,7 @@ export const ChecklistInstanceItemDualSignatureCard = ({ item, instanceId, canWo
         <div className="flex flex-col gap-3">
           {setItemDone.isError && (
             <p className="text-xs text-danger">
-              {setItemDone.error instanceof Error ? setItemDone.error.message : 'Could not save these signatures.'}
+              {setItemDone.error instanceof Error ? setItemDone.error.message : "Couldn't save those signatures."}
             </p>
           )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

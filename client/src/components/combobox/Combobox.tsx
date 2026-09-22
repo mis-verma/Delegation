@@ -28,14 +28,14 @@ interface ComboboxProps {
   createNewLabel?: string;
 }
 
-const highlightMatch = (label: string, query: string, isActive: boolean): ReactNode => {
+const highlightMatch = (label: string, query: string): ReactNode => {
   if (!query) return label;
   const idx = label.toLowerCase().indexOf(query.toLowerCase());
   if (idx === -1) return label;
   return (
     <>
       {label.slice(0, idx)}
-      <mark className={cn('font-bold rounded-sm px-0.5', isActive ? 'bg-white/25 text-white' : 'bg-primary-600 text-white')}>
+      <mark className="font-bold rounded-sm px-0.5 bg-primary-600 text-white">
         {label.slice(idx, idx + query.length)}
       </mark>
       {label.slice(idx + query.length)}
@@ -179,29 +179,39 @@ export const Combobox = ({
               <span className="truncate">{trimmedQuery ? `No matches for "${trimmedQuery}"` : 'No options'}</span>
             </li>
           ) : (
-            filtered.map((option, i) => (
-              <li
-                key={option.value || '__empty__'}
-                id={optionId(option)}
-                role="option"
-                aria-selected={option.value === value}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  commit(option);
-                }}
-                onMouseEnter={() => setHighlightedIndex(i)}
-                className={cn(
-                  'flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-sm font-display font-medium cursor-pointer transition-all duration-200 active:scale-[0.98]',
-                  i === safeHighlightedIndex ? 'bg-primary-600 text-white font-semibold' : 'text-text hover:bg-surface-hover',
-                  !option.value && 'text-text-muted italic'
-                )}
-              >
-                <span className="truncate">{highlightMatch(option.label, trimmedQuery, i === safeHighlightedIndex)}</span>
-                {option.value === value && (
-                  <Check size={14} className={cn('shrink-0', i === safeHighlightedIndex ? 'text-white' : 'text-primary-600 dark:text-primary-400')} />
-                )}
-              </li>
-            ))
+            filtered.map((option, i) => {
+              const isSelected = option.value === value;
+              const isHighlighted = i === safeHighlightedIndex;
+              return (
+                <li
+                  key={option.value || '__empty__'}
+                  id={optionId(option)}
+                  role="option"
+                  aria-selected={isSelected}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    commit(option);
+                  }}
+                  onMouseEnter={() => setHighlightedIndex(i)}
+                  className={cn(
+                    // Same reference as the DatePicker calendar: a soft tint marks "this is the
+                    // pick" and "this is where keyboard focus is", never a solid colour block —
+                    // that read as a heavy, dated highlight next to the rest of this modal's quiet
+                    // surfaces, especially in dark mode where the fill fought the near-black page.
+                    'flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-sm font-display font-medium cursor-pointer transition-colors duration-150',
+                    isSelected
+                      ? 'bg-primary-500/10 text-primary-700 dark:text-primary-400 font-semibold'
+                      : isHighlighted
+                        ? 'bg-surface-hover text-text'
+                        : 'text-text hover:bg-surface-hover',
+                    !option.value && !isSelected && 'text-text-muted italic'
+                  )}
+                >
+                  <span className="truncate">{highlightMatch(option.label, trimmedQuery)}</span>
+                  {isSelected && <Check size={14} className="shrink-0 text-primary-600 dark:text-primary-400" />}
+                </li>
+              );
+            })
           )}
 
           {onCreateNew && !hasExactMatch && (

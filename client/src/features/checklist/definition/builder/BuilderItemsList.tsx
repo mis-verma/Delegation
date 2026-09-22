@@ -161,7 +161,7 @@ const SectionContainer = ({
                   <Check size={13} />
                 </button>
               </div>
-              {isDuplicate && <span className="text-[10px] font-display text-danger">A section with this name already exists</span>}
+              {isDuplicate && <span className="text-[10px] font-display text-danger">You already have a section with that name</span>}
             </div>
           ) : (
             <button
@@ -225,7 +225,7 @@ const SectionContainer = ({
                 isOver ? 'border-primary-400 bg-primary-500/5 text-primary-600' : 'border-border/70 text-text-muted'
               }`}
             >
-              Drop an item here, or select this section then add one from the palette.
+              Drag an item here, or pick this section and add one from the list on the left.
             </div>
           ) : (
             <>

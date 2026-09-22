@@ -1,4 +1,4 @@
-import { Trophy, AlertTriangle, Building2, Store, ArrowRight } from 'lucide-react';
+import { Trophy, AlertTriangle, AlertCircle, Building2, Store, ArrowRight } from 'lucide-react';
 import { Skeleton } from '../../../components';
 import { useOwnerRankings, type RankedRow } from './useOwnerRankings';
 import type { GroupBy } from './GroupByControl';
@@ -26,14 +26,14 @@ const LeaderEntry = ({ icon: Icon, tone, label, row }: {
   row: RankedRow | null;
 }) => (
   <div className="flex items-center gap-2.5 min-w-0">
-    <span className={`flex items-center justify-center size-8 rounded-lg shrink-0 ${tone === 'success' ? 'bg-success/10 text-success' : 'bg-danger/10 text-danger'}`}>
+    <span className={`flex items-center justify-center size-8 rounded-lg border shrink-0 ${tone === 'success' ? 'bg-gradient-to-br from-success/10 to-success/20 border-success/25 text-success' : 'bg-gradient-to-br from-danger/10 to-danger/20 border-danger/25 text-danger'}`}>
       <Icon size={14} />
     </span>
     <div className="min-w-0 flex-1">
-      <p className="text-[10px] font-display font-semibold uppercase tracking-wide text-text-muted">{label}</p>
+      <p className="text-[10px] font-display font-semibold tracking-wide text-text-muted">{label}</p>
       {row ? (
         <p className="text-sm font-display font-bold text-text truncate">
-          {row.name} <span className="font-medium text-text-muted">· {row.overall}%</span>
+          {row.name} <span className="font-medium text-text-muted tabular-nums">· {row.overall}%</span>
         </p>
       ) : (
         <p className="text-sm font-display font-medium text-text-muted">Not enough data yet</p>
@@ -42,11 +42,12 @@ const LeaderEntry = ({ icon: Icon, tone, label, row }: {
   </div>
 );
 
-const DimensionColumn = ({ icon: Icon, title, rows, isPending, className = '' }: {
+const DimensionColumn = ({ icon: Icon, title, rows, isPending, isError, className = '' }: {
   icon: typeof Building2;
   title: string;
   rows: RankedRow[];
   isPending: boolean;
+  isError: boolean;
   className?: string;
 }) => {
   const { top, low } = pick(rows);
@@ -56,7 +57,15 @@ const DimensionColumn = ({ icon: Icon, title, rows, isPending, className = '' }:
         <Icon size={14} className="text-text-muted" />
         <p className="text-xs font-display font-bold text-text">{title}</p>
       </div>
-      {isPending ? (
+      {isError ? (
+        // A failed request used to render identically to "not enough data yet" — both showed the
+        // same plain muted sentence, with no way to tell a real request failure from a genuinely
+        // thin dataset.
+        <div className="flex items-start gap-2 p-2.5 bg-danger/10 border border-danger/30 rounded-lg">
+          <AlertCircle className="w-3.5 h-3.5 text-danger shrink-0 mt-0.5" />
+          <p className="text-xs font-display font-medium text-danger">Couldn&rsquo;t load this. Try refreshing.</p>
+        </div>
+      ) : isPending ? (
         <div className="flex flex-col gap-2">
           <Skeleton className="h-10 rounded-lg" />
           <Skeleton className="h-10 rounded-lg" />
@@ -77,28 +86,28 @@ const DimensionColumn = ({ icon: Icon, title, rows, isPending, className = '' }:
 // data as StoresPerformanceSection's full tables (shared via useOwnerRankings); this is the glance
 // view, "View full ranking" jumps straight to the drill-in table instead of duplicating it.
 export const PerformanceLeadersCard = ({ groupBy, from, to, onViewFull }: PerformanceLeadersCardProps) => {
-  const { departmentRows, storeRows, departmentsPending, storesPending } = useOwnerRankings(groupBy, from, to);
+  const { departmentRows, storeRows, departmentsPending, storesPending, departmentsError, storesError } = useOwnerRankings(groupBy, from, to);
 
   return (
-    <div className="rounded-2xl border border-border bg-surface p-5 flex flex-col gap-4">
+    <div className="rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface p-5 flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-display font-bold text-text">Store &amp; department performance</p>
-          <p className="text-xs font-display font-medium text-text-muted">Ticket + delegation/checklist completion, combined</p>
+          <p className="text-sm font-display font-bold text-text">How stores &amp; departments are doing</p>
+          <p className="text-xs font-display font-medium text-text-muted">Based on ticket and checklist completion — who's ahead, who needs a closer look</p>
         </div>
         <button
           type="button"
           onClick={onViewFull}
           className="inline-flex items-center gap-1 text-xs font-display font-semibold text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors shrink-0 cursor-pointer"
         >
-          View full ranking
+          See full ranking
           <ArrowRight size={13} />
         </button>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 sm:divide-x sm:divide-border">
-        <DimensionColumn icon={Building2} title="Departments" rows={departmentRows} isPending={departmentsPending} />
-        <DimensionColumn icon={Store} title="Stores" rows={storeRows} isPending={storesPending} className="sm:pl-6" />
+        <DimensionColumn icon={Building2} title="Departments" rows={departmentRows} isPending={departmentsPending} isError={departmentsError} />
+        <DimensionColumn icon={Store} title="Stores" rows={storeRows} isPending={storesPending} isError={storesError} className="sm:pl-6" />
       </div>
     </div>
   );

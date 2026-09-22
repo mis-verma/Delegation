@@ -2,8 +2,8 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { PageNav } from '../../../components';
 import { Link } from 'react-router';
-import { Store, AlertCircle, SearchX } from 'lucide-react';
-import { Skeleton, SelectDropdown, StatusChip } from '../../../components';
+import { Store, AlertCircle, SearchX, SlidersHorizontal } from 'lucide-react';
+import { Skeleton, SelectDropdown, StatusChip, EmptyState, type DateRangeValue } from '../../../components';
 import { Badge } from '@/components/ui/badge';
 import { useStoresQuery, useAssignableUsersQuery, useChecklistInstancesBoardQuery, useChecklistInstanceSummaryQuery } from '../hook';
 import {
@@ -11,6 +11,9 @@ import {
   instanceProgressToneClass, instanceProgressBarClass, isInstanceOverdue,
 } from '../checklistDisplay';
 import { ChecklistComplianceQuickStats, type ComplianceQuickFilterKey } from './ChecklistComplianceQuickStats';
+import { GroupByControl, type GroupBy } from '../../admin/analytics/GroupByControl';
+import { ChecklistInstanceKpiSection } from '../../admin/analytics/ChecklistInstanceKpiSection';
+import { endOfDay } from '../../../lib/dateRange';
 import type { ChecklistInstance, ChecklistInstanceStatus } from '../../../api/checklistInstances';
 
 const STATUS_OPTIONS: { value: '' | ChecklistInstanceStatus; label: string }[] = [
@@ -76,18 +79,13 @@ const ComplianceRow = ({ instance, storeName, nameById }: ComplianceRowProps) =>
             const allDone = total > 0 && completedByThem === total;
             const started = completedByThem > 0;
             return (
-              <span
+              <Badge
                 key={id}
-                className={`flex items-center gap-1 text-[11px] font-display font-medium px-2 py-0.5 rounded-full border ${
-                  allDone
-                    ? 'bg-success/10 text-success border-success/20'
-                    : started
-                    ? 'bg-warning/10 text-warning border-warning/20'
-                    : 'bg-surface-hover text-text-muted border-border'
-                }`}
+                variant={allDone ? 'success' : started ? 'warning' : 'neutral'}
+                className={`text-[11px] ${allDone ? 'bg-success/10' : started ? 'bg-warning/10' : 'bg-surface-hover'}`}
               >
                 {nameById.get(id) ?? 'Unknown'} · {completedByThem}/{total}
-              </span>
+              </Badge>
             );
           })}
         </div>
@@ -104,6 +102,15 @@ const ComplianceRow = ({ instance, storeName, nameById }: ComplianceRowProps) =>
 const PAGE_SIZE = 50;
 
 export const ChecklistComplianceBoard = () => {
+  // Trend + rate-tile report, same component the Overview page's own Audits tab uses — reused
+  // (not rebuilt) so this page reads as a report at a glance instead of opening straight onto the
+  // per-instance/per-person list below, which on its own just looks like a roster of checklists
+  // and people rather than anything you'd call "compliance reporting."
+  const [groupBy, setGroupBy] = useState<GroupBy>('month');
+  const [range, setRangeState] = useState<DateRangeValue>({ from: null, to: null });
+  const reportFrom = range.from ? range.from.toISOString() : undefined;
+  const reportTo = range.to ? endOfDay(range.to).toISOString() : undefined;
+
   const [storeId, setStoreIdState] = useState('');
   const [assigneeId, setAssigneeIdState] = useState('');
   const [status, setStatusState] = useState<'' | ChecklistInstanceStatus>('');
@@ -118,6 +125,14 @@ export const ChecklistComplianceBoard = () => {
   const setStoreId = (value: string) => { setStoreIdState(value); setPage(1); };
   const setAssigneeId = (value: string) => { setAssigneeIdState(value); setPage(1); };
   const setStatus = (value: '' | ChecklistInstanceStatus) => { setStatusState(value); setPage(1); };
+  const setRange = (value: DateRangeValue) => { setRangeState(value); setPage(1); };
+  const setLastMonth = () => {
+    const now = new Date();
+    setRange({
+      from: new Date(now.getFullYear(), now.getMonth() - 1, 1),
+      to: new Date(now.getFullYear(), now.getMonth(), 0),
+    });
+  };
   const toggleQuickFilter = (key: ComplianceQuickFilterKey) => {
     setQuickFilter((prev) => (key === 'all' || prev === key ? 'all' : key));
     setPage(1);
@@ -150,6 +165,8 @@ export const ChecklistComplianceBoard = () => {
     storeId: storeId || undefined,
     assigneeId: assigneeId || undefined,
     status: effectiveStatus,
+    from: reportFrom,
+    to: reportTo,
     page,
     limit: PAGE_SIZE,
   });
@@ -163,6 +180,8 @@ export const ChecklistComplianceBoard = () => {
   const { data: counts } = useChecklistInstanceSummaryQuery({
     storeId: storeId || undefined,
     assigneeId: assigneeId || undefined,
+    from: reportFrom,
+    to: reportTo,
   });
   const summary: Record<ComplianceQuickFilterKey, number> = {
     all: counts?.total ?? 0,
@@ -196,50 +215,81 @@ export const ChecklistComplianceBoard = () => {
       <div>
         <h1 className="font-display text-2xl font-bold text-text">Checklist Compliance</h1>
         <p className="text-sm text-text-muted mt-0.5">
-          Who's filled their checklist and who hasn't — filter by store and person.
+          Completion and quality trends, plus who's filled their checklist and who hasn't.
         </p>
       </div>
 
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="flex flex-col gap-1.5 w-full sm:w-48">
-          <label className="text-xs font-display font-medium text-text-secondary">Store</label>
-          <SelectDropdown
-            value={storeId}
-            onChange={setStoreId}
-            options={[{ value: '', label: 'All stores' }, ...stores.map(s => ({ value: s.id, label: s.name }))]}
-            aria-label="Filter by store"
-          />
+      {/* One filter panel for the whole page — date range/grouping used to float in the page
+          header while store/person/status sat unboxed further down, two disconnected-looking
+          control clusters even though both now scope the same data. Everything that narrows
+          what's shown below lives here now. */}
+      <div className="flex flex-col gap-4 p-4 sm:p-5 rounded-xl border border-border bg-surface">
+        <div className="flex items-center gap-2">
+          <span className="flex items-center justify-center p-1 rounded-md bg-primary-100 dark:bg-primary-900/60 text-primary-700 dark:text-primary-300 shrink-0">
+            <SlidersHorizontal size={13} />
+          </span>
+          <span className="text-xs font-display font-bold text-text">Filters</span>
         </div>
-        <div className="flex flex-col gap-1.5 w-full sm:w-48">
-          <label className="text-xs font-display font-medium text-text-secondary">Person</label>
-          <SelectDropdown
-            value={assigneeId}
-            onChange={setAssigneeId}
-            options={[
-              { value: '', label: 'All people' },
-              ...people.map(p => ({ value: p.id, label: `${p.firstName} ${p.lastName ?? ''}`.trim() })),
-            ]}
-            aria-label="Filter by person"
-          />
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={setLastMonth}
+            className="h-9 px-3 rounded-lg text-xs font-display font-semibold border border-border bg-surface text-text-secondary hover:bg-surface-hover hover:text-primary-600 hover:border-primary-200 transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+          >
+            Last month
+          </button>
+          <GroupByControl groupBy={groupBy} onGroupByChange={setGroupBy} range={range} onRangeChange={setRange} />
         </div>
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-display font-medium text-text-secondary">Status</label>
-          <div className="flex items-center gap-1 h-11 p-1 rounded-full border border-border bg-surface">
-            {STATUS_OPTIONS.map(opt => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setStatus(opt.value)}
-                aria-pressed={status === opt.value}
-                className={`px-3 py-1.5 rounded-full text-xs font-display font-medium transition-all duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
-                  status === opt.value ? 'bg-primary-700 text-white shadow-sm' : 'text-text-secondary hover:bg-surface-hover'
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
+
+        <div className="flex flex-wrap items-end gap-3 pt-3 border-t border-dashed border-border/60">
+          <div className="flex flex-col gap-1.5 w-full sm:w-48">
+            <label className="text-xs font-display font-medium text-text-secondary">Store</label>
+            <SelectDropdown
+              value={storeId}
+              onChange={setStoreId}
+              options={[{ value: '', label: 'All stores' }, ...stores.map(s => ({ value: s.id, label: s.name }))]}
+              aria-label="Filter by store"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5 w-full sm:w-48">
+            <label className="text-xs font-display font-medium text-text-secondary">Person</label>
+            <SelectDropdown
+              value={assigneeId}
+              onChange={setAssigneeId}
+              options={[
+                { value: '', label: 'All people' },
+                ...people.map(p => ({ value: p.id, label: `${p.firstName} ${p.lastName ?? ''}`.trim() })),
+              ]}
+              aria-label="Filter by person"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-display font-medium text-text-secondary">Status</label>
+            <div className="flex items-center gap-1 h-11 p-1 rounded-full border border-border bg-surface">
+              {STATUS_OPTIONS.map(opt => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setStatus(opt.value)}
+                  aria-pressed={status === opt.value}
+                  className={`px-3 py-1.5 rounded-full text-xs font-display font-medium transition-all duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
+                    status === opt.value ? 'bg-primary-700 text-white shadow-sm' : 'text-text-secondary hover:bg-surface-hover'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
+      </div>
+
+      <ChecklistInstanceKpiSection groupBy={groupBy} from={reportFrom} to={reportTo} />
+
+      <div className="flex items-center gap-3 pt-2 border-t border-border/60">
+        <h2 className="text-sm font-display font-bold text-text shrink-0">Who's done what</h2>
+        <p className="text-xs font-display text-text-muted">Reflects the filters above.</p>
       </div>
 
       <ChecklistComplianceQuickStats counts={summary} active={quickFilter} onToggle={toggleQuickFilter} isLoading={isPending} />
@@ -253,7 +303,7 @@ export const ChecklistComplianceBoard = () => {
       {isError && (
         <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-danger/10 text-danger text-sm font-display">
           <AlertCircle size={15} />
-          <span className="flex-1">Failed to load checklist compliance data.</span>
+          <span className="flex-1">We couldn't load this data. Try again.</span>
           <button
             type="button"
             onClick={() => refetch()}
@@ -265,10 +315,7 @@ export const ChecklistComplianceBoard = () => {
       )}
 
       {!isPending && !isError && visibleInstances.length === 0 && (
-        <div className="flex flex-col items-center gap-2 p-10 text-center text-sm text-text-muted bg-surface rounded-xl border border-dashed border-border">
-          <SearchX size={20} className="text-text-light" />
-          No checklist instances match these filters.
-        </div>
+        <EmptyState size="compact" icon={SearchX} title="Nothing matches these filters." />
       )}
 
       {visibleInstances.length > 0 && (

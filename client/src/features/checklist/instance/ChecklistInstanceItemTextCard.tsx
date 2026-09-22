@@ -30,7 +30,7 @@ export const ChecklistInstanceItemTextCard = ({ item, instanceId, canWork, isLoc
         <div className="flex flex-col gap-2">
           {setItemDone.isError && (
             <p className="text-xs text-danger">
-              {setItemDone.error instanceof Error ? setItemDone.error.message : 'Could not save this answer.'}
+              {setItemDone.error instanceof Error ? setItemDone.error.message : "Couldn't save that answer."}
             </p>
           )}
 

@@ -61,7 +61,7 @@ export const useCreateChecklistDefinitionMutation = () => {
       queryClient.invalidateQueries({ queryKey: ['checklist-definitions'] });
       toast.success('Checklist created');
     },
-    onError: (err) => toast.error(errorMessage(err, 'Failed to create checklist')),
+    onError: (err) => toast.error(errorMessage(err, "Couldn't create checklist")),
   });
 };
 
@@ -75,7 +75,7 @@ export const useUpdateChecklistDefinitionMutation = () => {
       queryClient.invalidateQueries({ queryKey: ['checklist-definitions'] });
       toast.success('Checklist updated');
     },
-    onError: (err) => toast.error(errorMessage(err, 'Failed to update checklist')),
+    onError: (err) => toast.error(errorMessage(err, "Couldn't update checklist")),
   });
 };
 
@@ -89,7 +89,7 @@ export const useSetChecklistDefinitionActiveMutation = () => {
       queryClient.invalidateQueries({ queryKey: ['checklist-definitions'] });
       toast.success(updated.isActive ? 'Checklist resumed' : 'Checklist paused');
     },
-    onError: (err) => toast.error(errorMessage(err, 'Failed to update checklist')),
+    onError: (err) => toast.error(errorMessage(err, "Couldn't update checklist")),
   });
 };
 
@@ -103,7 +103,7 @@ export const useDeleteChecklistDefinitionMutation = () => {
       queryClient.invalidateQueries({ queryKey: ['analytics'] });
       toast.success('Checklist deleted');
     },
-    onError: (err) => toast.error(errorMessage(err, 'Failed to delete checklist')),
+    onError: (err) => toast.error(errorMessage(err, "Couldn't delete checklist")),
   });
 };
 
@@ -112,7 +112,7 @@ export const useDeleteChecklistDefinitionMutation = () => {
 export const useChecklistBulkImportPreviewMutation = () =>
   useMutation({
     mutationFn: (file: File) => checklistBulkImportApi.preview(file).then(r => r.data),
-    onError: (err) => toast.error(errorMessage(err, 'Failed to read that file')),
+    onError: (err) => toast.error(errorMessage(err, "Couldn't read that file")),
   });
 
 export const useChecklistBulkImportPublishMutation = () => {
@@ -124,7 +124,7 @@ export const useChecklistBulkImportPublishMutation = () => {
       queryClient.invalidateQueries({ queryKey: ['checklist-instances'] });
       queryClient.invalidateQueries({ queryKey: ['analytics'] });
     },
-    onError: (err) => toast.error(errorMessage(err, 'Failed to publish this batch')),
+    onError: (err) => toast.error(errorMessage(err, "Couldn't publish this batch")),
   });
 };
 
@@ -145,6 +145,8 @@ export const useChecklistInstanceSummaryQuery = (
     recurrence?: ChecklistRecurrence;
     verificationStatus?: ChecklistVerificationStatus;
     departmentId?: string;
+    from?: string;
+    to?: string;
   } = {},
 ) => {
   const { token } = useAuth();
@@ -152,6 +154,18 @@ export const useChecklistInstanceSummaryQuery = (
     queryKey: ['checklist-instances', 'summary', filter],
     queryFn: () => checklistInstanceApi.getSummary(filter).then(r => r.data),
     enabled: !!token,
+    retry: handleQueryRetry,
+  });
+};
+
+// Dashboard's "Needs your approval" card — `enabled` is the caller's own role check (ADMIN/PC
+// only), same convention as the task/ticket summary hooks' `enabled` param.
+export const useChecklistPendingApprovalQuery = (enabled = true) => {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: ['checklist-instances', 'pending-approval-preview'] as const,
+    queryFn: () => checklistInstanceApi.getPendingApprovalPreview(),
+    enabled: !!token && enabled,
     retry: handleQueryRetry,
   });
 };
@@ -201,7 +215,7 @@ export const useInstancesForDefinitionQuery = (definitionId: string, paging: { p
 // useInstancesForDefinitionQuery above).
 /** Returns the whole `{ data, meta }` page — the board needs `meta.totalPages` for its pager. */
 export const useChecklistInstancesBoardQuery = (
-  filter: { storeId?: string; assigneeId?: string; status?: ChecklistInstanceStatus; page?: number; limit?: number } = {},
+  filter: { storeId?: string; assigneeId?: string; status?: ChecklistInstanceStatus; from?: string; to?: string; page?: number; limit?: number } = {},
 ) => {
   const { token } = useAuth();
   return useQuery({
@@ -274,7 +288,7 @@ export const useSetChecklistInstanceItemDoneMutation = (instanceId: string) => {
     },
     onError: (err, _vars, context) => {
       if (context?.previous) queryClient.setQueryData(instanceKey, context.previous);
-      toast.error(errorMessage(err, 'Failed to update item'));
+      toast.error(errorMessage(err, "Couldn't update item"));
     },
   });
 };
@@ -285,7 +299,7 @@ export const useUploadChecklistInstanceImagesMutation = (instanceId: string) =>
       checklistInstanceApi.uploadImages(itemId, files, captureMethod).then(r => r.data),
     invalidateKeys: [KEYS.instanceDetail(instanceId)],
     successMessage: 'Photos uploaded',
-    errorFallback: 'Failed to upload photos',
+    errorFallback: "Couldn't upload photos",
   });
 
 export const useDeleteChecklistInstanceImageMutation = (instanceId: string) =>
@@ -293,7 +307,7 @@ export const useDeleteChecklistInstanceImageMutation = (instanceId: string) =>
     mutationFn: (id: string) => checklistInstanceApi.deleteImage(id),
     invalidateKeys: [KEYS.instanceDetail(instanceId)],
     successMessage: 'Photo deleted',
-    errorFallback: 'Failed to delete photo',
+    errorFallback: "Couldn't delete photo",
   });
 
 // Mutations below act on one AUDIT item's per-auditor ChecklistInstanceItemSubmission (see
@@ -311,7 +325,7 @@ export const useSetChecklistInstanceItemSubmissionDoneMutation = (_instanceId: s
     // useSetChecklistInstanceItemDoneMutation above: a submission can complete the whole
     // instance, which the summary/board/verification-queue queries need to reflect too.
     invalidateKeys: [['checklist-instances']],
-    errorFallback: 'Failed to update submission',
+    errorFallback: "Couldn't update submission",
   });
 
 export const useUpdateChecklistInstanceItemSubmissionAccessoriesMutation = (instanceId: string) =>
@@ -319,7 +333,7 @@ export const useUpdateChecklistInstanceItemSubmissionAccessoriesMutation = (inst
     mutationFn: ({ id, accessories }: { id: string; accessories: ChecklistInstanceItemSubmissionAccessory[] }) =>
       checklistInstanceItemSubmissionApi.updateAccessories(id, accessories).then(r => r.data),
     invalidateKeys: [KEYS.instanceDetail(instanceId)],
-    errorFallback: 'Failed to update accessories',
+    errorFallback: "Couldn't update accessories",
   });
 
 export const useUpdateChecklistInstanceItemSubmissionRemarksMutation = (instanceId: string) =>
@@ -328,7 +342,7 @@ export const useUpdateChecklistInstanceItemSubmissionRemarksMutation = (instance
       checklistInstanceItemSubmissionApi.updateRemarks(id, remarks).then(r => r.data),
     invalidateKeys: [KEYS.instanceDetail(instanceId)],
     successMessage: 'Remarks saved',
-    errorFallback: 'Failed to save remarks',
+    errorFallback: "Couldn't save remarks",
   });
 
 export const useUploadChecklistInstanceItemSubmissionImagesMutation = (instanceId: string) =>
@@ -337,7 +351,7 @@ export const useUploadChecklistInstanceItemSubmissionImagesMutation = (instanceI
       checklistInstanceItemSubmissionApi.uploadImages(submissionId, files, captureMethod).then(r => r.data),
     invalidateKeys: [KEYS.instanceDetail(instanceId)],
     successMessage: 'Photos uploaded',
-    errorFallback: 'Failed to upload photos',
+    errorFallback: "Couldn't upload photos",
   });
 
 export const useDeleteChecklistInstanceItemSubmissionImageMutation = (instanceId: string) =>
@@ -345,7 +359,7 @@ export const useDeleteChecklistInstanceItemSubmissionImageMutation = (instanceId
     mutationFn: (id: string) => checklistInstanceItemSubmissionApi.deleteImage(id),
     invalidateKeys: [KEYS.instanceDetail(instanceId)],
     successMessage: 'Photo deleted',
-    errorFallback: 'Failed to delete photo',
+    errorFallback: "Couldn't delete photo",
   });
 
 // Powers the PC/Admin verification queue's Checklists section — instances with every item done,
@@ -357,14 +371,14 @@ export const useDeleteChecklistInstanceItemSubmissionImageMutation = (instanceId
 // row-equivalents). useInfiniteQuery fetches and caches each page exactly once and appends them
 // for free, so callers don't need to hand-roll accumulation (which would mean calling setState
 // from inside a useEffect — an anti-pattern this codebase's lint config flags).
-export const usePendingVerificationChecklistInstancesQuery = (limit: number) => {
+export const usePendingVerificationChecklistInstancesQuery = (limit: number, enabled = true) => {
   const { token } = useAuth();
   return useInfiniteQuery({
     queryKey: ['checklist-instances', 'pending-verification', limit],
     queryFn: ({ pageParam }) => checklistInstanceApi.getPendingVerification({ page: pageParam, limit }),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => (lastPage.meta?.hasNext ? lastPage.meta.page + 1 : undefined),
-    enabled: !!token,
+    enabled: !!token && enabled,
     retry: handleQueryRetry,
   });
 };
@@ -376,7 +390,7 @@ export const useVerifyChecklistInstanceMutation = () =>
     setDetailData: (updated) => ({ key: KEYS.instanceDetail(updated.id), data: updated }),
     invalidateKeys: [['checklist-instances']],
     successMessage: (updated) => (updated.verificationStatus === 'APPROVED' ? 'Checklist verified' : 'Checklist sent back'),
-    errorFallback: 'Failed to verify checklist',
+    errorFallback: "Couldn't verify checklist",
   });
 
 export { useDepartmentsQuery, useStoresQuery, useAssignableUsersQuery } from '../tickets/hook';

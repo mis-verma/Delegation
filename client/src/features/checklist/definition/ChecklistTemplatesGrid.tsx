@@ -1,17 +1,25 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Plus, AlertCircle, ClipboardList, FileDown, Upload } from 'lucide-react';
-import { Button, Skeleton } from '../../../components';
+import { Button, Skeleton, EmptyState } from '../../../components';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '../../../context/AuthContext';
 import { useChecklistDefinitionsQuery } from '../hook';
 import { ChecklistDefinitionCard } from './ChecklistDefinitionCard';
 import { ChecklistBulkImportModal } from './bulkImport/ChecklistBulkImportModal';
 import { ExportDialog } from '../../reports';
+import { RECURRENCE_LABEL } from '../checklistDisplay';
+import type { ChecklistRecurrence } from '../../../api/checklistDefinitions';
 
 interface ChecklistTemplatesGridProps {
   className?: string;
 }
+
+// 'all' first, then every real recurrence in the same order the builder's own RECURRENCE_OPTIONS
+// offers them (Daily -> Weekly -> Monthly -> Quarterly -> Yearly -> One-time) — so "how often does
+// this repeat" reads in the same order everywhere it shows up, not a re-shuffled one here.
+const RECURRENCE_TABS: Array<ChecklistRecurrence | 'all'> = ['all', 'DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY', 'ONE_TIME'];
 
 export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGridProps) => {
   const navigate = useNavigate();
@@ -23,7 +31,10 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
   const isAdmin = user?.role === 'ADMIN';
   const [showExport, setShowExport] = useState(false);
   const [showBulkImport, setShowBulkImport] = useState(false);
-  const { data, isPending, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } = useChecklistDefinitionsQuery();
+  const [recurrence, setRecurrence] = useState<ChecklistRecurrence | 'all'>('all');
+  const { data, isPending, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } = useChecklistDefinitionsQuery(
+    recurrence === 'all' ? {} : { recurrence },
+  );
   const definitions = useMemo(() => data?.pages.flatMap((p) => p.data) ?? [], [data]);
   const total = data?.pages[0]?.meta?.total ?? definitions.length;
 
@@ -43,7 +54,7 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
             )}
           </div>
           <p className="text-xs sm:text-sm font-display text-text-muted leading-relaxed max-w-2xl">
-            Question sets, proof rules and versions — recurring checklists deployed across your stores.
+            Build recurring checklists your stores run on a schedule — questions, proof requirements, and all.
           </p>
         </div>
 
@@ -83,6 +94,21 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
         )}
       </div>
 
+      {/* Recurrence tabs — Daily/Weekly/Monthly/Quarterly/Yearly/One-time templates used to be one
+          undifferentiated grid with recurrence buried as a line of text on each card; the server
+          already supported filtering by it (ListChecklistDefinitionsParams' `recurrence`), it just
+          wasn't wired to anything here. Same controlled Tabs primitive as EntityStatusFilter, not a
+          hand-rolled control. */}
+      <Tabs value={recurrence} onValueChange={(v) => setRecurrence(v as ChecklistRecurrence | 'all')}>
+        <TabsList className="w-fit">
+          {RECURRENCE_TABS.map((r) => (
+            <TabsTrigger key={r} value={r} className="font-display font-semibold">
+              {r === 'all' ? 'All' : RECURRENCE_LABEL[r]}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
+
       {/* Loading Skeleton */}
       {isPending && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
@@ -113,7 +139,7 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
           className="flex items-center gap-3 px-4 py-3.5 rounded-xl bg-danger/10 border border-danger/20 text-danger text-sm font-display shadow-xs"
         >
           <AlertCircle size={18} className="shrink-0" />
-          <span className="flex-1">Failed to load checklist templates. Please check your connection and try again.</span>
+          <span className="flex-1">We couldn't load your checklists. Check your connection and try again.</span>
           <button
             type="button"
             onClick={() => refetch()}
@@ -124,32 +150,44 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
         </div>
       )}
 
-      {/* Empty State */}
+      {/* Empty State — a filtered-to-nothing tab ("no Yearly checklists yet") reads very differently
+          from a genuinely empty org, so this only offers "Create new checklist" when there's no
+          recurrence filter narrowing the view; with one active it offers to clear the tab instead,
+          since a brand-new checklist wouldn't even match whatever recurrence is currently selected. */}
       {!isPending && !isError && definitions.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-16 px-6 border border-dashed border-border/70 rounded-xl bg-surface/30 text-center">
-          <span className="flex items-center justify-center size-12 rounded-lg border border-border/60 bg-muted/60 text-text-muted mb-4">
-            <ClipboardList className="size-6" strokeWidth={2.25} />
-          </span>
-          <h2 className="text-base sm:text-lg font-display font-bold text-text mb-1.5">
-            No checklist templates yet
-          </h2>
-          <p className="text-xs sm:text-sm font-display text-text-muted max-w-sm mb-6 leading-relaxed">
-            {isAdmin
-              ? 'Create your first recurring checklist to standardize procedures, quality audits, and safety checks across your store fleet.'
-              : 'An admin hasn’t created any recurring checklists yet.'}
-          </p>
-          {isAdmin && (
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => navigate('/admin/scheduled-checklists/builder')}
-              className="gap-1.5 text-xs sm:text-sm font-display font-medium"
-            >
-              <Plus size={15} />
-              <span>Create new checklist</span>
-            </Button>
-          )}
-        </div>
+        recurrence !== 'all' ? (
+          <EmptyState
+            icon={ClipboardList}
+            title={`No ${RECURRENCE_LABEL[recurrence].toLowerCase()} checklists`}
+            description="No templates on this schedule yet — try another tab, or switch to All."
+            action={{ label: 'Show all', onClick: () => setRecurrence('all') }}
+          />
+        ) : (
+          <div className="flex flex-col items-center justify-center py-16 px-6 border border-dashed border-border/70 rounded-xl bg-surface/30 text-center">
+            <span className="flex items-center justify-center size-12 rounded-lg border border-border/60 bg-muted/60 text-text-muted mb-4">
+              <ClipboardList className="size-6" strokeWidth={2.25} />
+            </span>
+            <h2 className="text-base sm:text-lg font-display font-bold text-text mb-1.5">
+              No checklist templates yet
+            </h2>
+            <p className="text-xs sm:text-sm font-display text-text-muted max-w-sm mb-6 leading-relaxed">
+              {isAdmin
+                ? 'Set up your first recurring checklist — for opening procedures, safety walkthroughs, audits, whatever your stores need to do on repeat.'
+                : 'No recurring checklists yet — check back once an admin sets one up.'}
+            </p>
+            {isAdmin && (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => navigate('/admin/scheduled-checklists/builder')}
+                className="gap-1.5 text-xs sm:text-sm font-display font-medium"
+              >
+                <Plus size={15} />
+                <span>Create new checklist</span>
+              </Button>
+            )}
+          </div>
+        )
       )}
 
       {/* Templates Grid */}

@@ -7,10 +7,19 @@ const TAG_PALETTE = [
   'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border-indigo-500/30',
 ];
 
-export const departmentTagClass = (name: string) => {
+// Same hue order as TAG_PALETTE above, as a solid fill — for DepartmentChip's icon circle
+// (see IconChip), which needs full-strength color for a white icon to read against, not the pale
+// tint TAG_PALETTE carries for the rest of the pill.
+const TAG_DOT_PALETTE = ['bg-blue-500', 'bg-purple-500', 'bg-orange-500', 'bg-teal-500', 'bg-pink-500', 'bg-indigo-500'];
+
+const departmentHashIndex = (name: string, length: number) => {
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
     hash = (hash * 31 + name.charCodeAt(i)) | 0;
   }
-  return TAG_PALETTE[Math.abs(hash) % TAG_PALETTE.length];
+  return Math.abs(hash) % length;
 };
+
+export const departmentTagClass = (name: string) => TAG_PALETTE[departmentHashIndex(name, TAG_PALETTE.length)];
+
+export const departmentDotClass = (name: string) => TAG_DOT_PALETTE[departmentHashIndex(name, TAG_DOT_PALETTE.length)];

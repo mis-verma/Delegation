@@ -52,7 +52,8 @@ function DropdownMenuContent({
           // portalled to document.body as a sibling of the dialog, needs a higher z-index of its
           // own to actually render on top of it rather than invisibly underneath.
           "z-[80] max-h-(--radix-dropdown-menu-content-available-height) min-w-[12rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto",
-          "bg-surface rounded-xl border border-border p-1.5 shadow-xl shadow-border/50",
+          // No shadow — border-only, matching Modal/Popover's own elevation-free convention.
+          "bg-surface rounded-xl border border-border p-1.5",
           "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-200",
           className,
         )}
@@ -175,7 +176,7 @@ function DropdownMenuLabel({
       data-slot="dropdown-menu-label"
       data-inset={inset}
       className={cn(
-        "px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-text-muted data-[inset]:pl-9",
+        "px-3 py-2 text-[11px] font-bold tracking-wide text-text-muted data-[inset]:pl-9",
         className,
       )}
       {...props}
@@ -253,7 +254,7 @@ function DropdownMenuSubContent({
       data-slot="dropdown-menu-sub-content"
       className={cn(
         "z-[80] min-w-[12rem] origin-(--radix-dropdown-menu-content-transform-origin) overflow-hidden",
-        "bg-surface rounded-xl border border-border p-1.5 shadow-xl",
+        "bg-surface rounded-xl border border-border p-1.5",
         "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-200",
         className,
       )}

@@ -1,4 +1,5 @@
 import { Sparkles, ArrowDownToLine, Info } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { SELECT_TRIGGER_CLASS } from './formConstants';
 import type { ChecklistTemplate } from '../../../../api/checklistTemplates';
@@ -36,9 +37,9 @@ export const ImportFromTemplateField = ({
             Start From a Template
           </span>
         </div>
-        <span className="text-[11px] font-display font-normal text-text-muted">
-          Optional
-        </span>
+        {/* Same header+status-badge convention as BuilderSchedulePanel's own title row, instead of
+            a plain unstyled word floating in the corner. */}
+        <Badge variant="outline" className="text-[11px] py-0.5">Optional</Badge>
       </div>
 
       {/* Select Dropdown */}
@@ -48,7 +49,7 @@ export const ImportFromTemplateField = ({
         >
           <div className="flex items-center gap-2 text-text-secondary truncate">
             <ArrowDownToLine size={13} className="text-text-muted shrink-0" />
-            <SelectValue placeholder="Import pre-configured steps from an existing template…" />
+            <SelectValue placeholder="Copy steps from one of your templates…" />
           </div>
         </SelectTrigger>
 
@@ -74,7 +75,7 @@ export const ImportFromTemplateField = ({
       <p className="text-[11px] font-display text-text-muted leading-relaxed flex items-start gap-1.5 pl-0.5">
         <Info size={13} className="shrink-0 mt-0.5 text-text-muted" />
         <span>
-          Copies the template's question steps into this checklist. You can freely edit, reorder, or remove steps afterward.
+          Copies the template's steps into this checklist — edit, reorder, or remove any of them afterward.
         </span>
       </p>
     </div>

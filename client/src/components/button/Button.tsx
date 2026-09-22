@@ -13,17 +13,23 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   isLoading?: boolean;
 }
 
+// Option B from the reference (see conversation) — the one actually picked, implemented faithfully
+// rather than softened back toward Option A. No shadow anywhere. Primary starts as a quiet neutral
+// pill (bg-surface-active) and only resolves to the app's own navy the moment it's touched —
+// that's still "beautify with theme colors", just spent on the hover state instead of permanently,
+// so a screen with several buttons doesn't read as several equally-loud navy blocks. Secondary
+// stays borderless until hovered, danger stays flat with no shadow.
 const variantMap: Record<NonNullable<ButtonProps['variant']>, string> = {
   primary:
-    'bg-primary-700 text-white border border-transparent hover:bg-primary-800 shadow-sm focus-visible:ring-primary-500',
+    'bg-surface-active text-text border border-transparent hover:bg-primary-900 hover:text-white focus-visible:ring-primary-500',
   secondary:
-    'bg-surface text-text-secondary border border-border hover:border-border-hover hover:text-text shadow-sm focus-visible:ring-primary-500',
+    'bg-transparent text-text-secondary border border-transparent hover:bg-surface-hover hover:border-border hover:text-text focus-visible:ring-primary-500',
   outline:
     'bg-transparent text-text-secondary border border-border hover:border-border-hover hover:bg-surface-hover focus-visible:ring-primary-500',
   ghost:
     'bg-transparent text-text-muted border border-transparent hover:bg-surface-hover hover:text-text focus-visible:ring-primary-500',
   danger:
-    'bg-danger text-white border border-transparent hover:bg-danger/90 shadow-sm focus-visible:ring-danger',
+    'bg-danger text-white border border-transparent hover:bg-danger/90 focus-visible:ring-danger',
 };
 
 const sizeMap: Record<NonNullable<ButtonProps['size']>, string> = {
@@ -61,7 +67,7 @@ export function Button({
         // default white) so the offset gap reads correctly in dark mode too.
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
         // Rock-solid disabled states based on your color scheme
-        'disabled:opacity-60 disabled:cursor-not-allowed disabled:pointer-events-none disabled:active:scale-100 disabled:shadow-none',
+        'disabled:opacity-60 disabled:cursor-not-allowed disabled:pointer-events-none disabled:active:scale-100',
         sizeMap[size],
         variantMap[variant],
         className
@@ -71,7 +77,11 @@ export function Button({
       {isLoading && (
         <Loader
           size={size === 'lg' ? 'md' : 'sm'}
-          variant={variant === 'primary' || variant === 'danger' ? 'white' : 'slate'}
+          // `disabled:pointer-events-none` means a loading (disabled) button never actually shows
+          // its hover state, so primary reads in its neutral resting look while loading — a white
+          // spinner on that light neutral fill would nearly disappear, same reason `secondary`/
+          // `ghost`/`outline` already get the dark `slate` spinner instead of `white`.
+          variant={variant === 'danger' ? 'white' : 'slate'}
         />
       )}
       <span className={cn('inline-flex items-center gap-inherit', isLoading && 'opacity-90')}>

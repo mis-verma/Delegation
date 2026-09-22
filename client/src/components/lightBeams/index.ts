@@ -1,1 +1,0 @@
-export { LightBeams } from './LightBeams';

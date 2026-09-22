@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "bounce-easing",
+        "value": "animate-bounce",
+        "createdAt": "2026-09-21T12:45:54.572Z",
+        "reason": "domain-appropriate: three-dot chat typing indicator (SmartTaskModal.tsx), the standard bouncing-dots idiom used by iMessage/Slack/ChatGPT — not a stray bounce on a static UI element"
+      }
+    ]
+  }
+}

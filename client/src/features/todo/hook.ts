@@ -32,6 +32,18 @@ export const useTodosQuery = (enabled = true) => {
     });
 };
 
+// The sidebar's "To-Do" count badge and its hover breakdown — a real server-side aggregate
+// (todo.service.ts#summary) rather than a client-side reduce over useTodosQuery, so the sidebar
+// doesn't need the whole list just to count it on every route (it renders everywhere).
+export const useTodoSummaryQuery = (enabled = true) => {
+    const { token } = useAuth();
+    return useQuery({
+        queryKey: ["todos", "summary"] as const,
+        queryFn: () => todoApi.getSummary(),
+        enabled: !!token && enabled,
+    });
+};
+
 export const useCreateTodoMutation = () => {
     const queryClient = useQueryClient();
     return useMutation({

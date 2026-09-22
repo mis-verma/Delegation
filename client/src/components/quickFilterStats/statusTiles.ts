@@ -15,13 +15,17 @@ import type { QuickFilterTile } from './QuickFilterStats';
  * here, once.
  */
 
-/** Semantic tone shared by any bucket that means the same thing, whatever a module calls it. */
+/** Semantic tone shared by any bucket that means the same thing, whatever a module calls it.
+ *  `ring` is the tile's one decorative flourish (see QuickFilterStats' plain-tile render) — same
+ *  "quiet card, one theme-colored ring" treatment StatCard's own plain variant now uses, instead
+ *  of these tiles having no accent beyond the left bar. /30, not the /15-/20 this started at — at
+ *  that opacity the ring read as a dull smudge rather than an actual accent. */
 const TONE = {
-  neutral: { bgTint: 'bg-primary-500/15', accentBar: 'bg-primary-600', accentBorder: 'border-primary-500/40' },
-  todo: { bgTint: 'bg-status-todo/15', accentBar: 'bg-status-todo', accentBorder: 'border-status-todo/40' },
-  warning: { bgTint: 'bg-warning/15', accentBar: 'bg-warning', accentBorder: 'border-warning/40' },
-  success: { bgTint: 'bg-success/15', accentBar: 'bg-success', accentBorder: 'border-success/40' },
-  danger: { bgTint: 'bg-danger/15', accentBar: 'bg-danger', accentBorder: 'border-danger/40' },
+  neutral: { bgTint: 'bg-primary-500/15', accentBar: 'bg-primary-600', accentBorder: 'border-primary-500/40', ring: 'border-primary-500/30' },
+  todo: { bgTint: 'bg-status-todo/15', accentBar: 'bg-status-todo', accentBorder: 'border-status-todo/40', ring: 'border-status-todo/30' },
+  warning: { bgTint: 'bg-warning/15', accentBar: 'bg-warning', accentBorder: 'border-warning/40', ring: 'border-warning/30' },
+  success: { bgTint: 'bg-success/15', accentBar: 'bg-success', accentBorder: 'border-success/40', ring: 'border-success/30' },
+  danger: { bgTint: 'bg-danger/15', accentBar: 'bg-danger', accentBorder: 'border-danger/40', ring: 'border-danger/30' },
 } as const;
 
 export type StatusTileKey = 'all' | 'pending' | 'due' | 'completed' | 'delayed' | 'overdue';

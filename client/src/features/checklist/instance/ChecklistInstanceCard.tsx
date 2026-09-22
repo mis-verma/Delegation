@@ -38,7 +38,7 @@ export const ChecklistInstanceCard = ({ instance }: ChecklistInstanceCardProps) 
           <p className="text-sm font-display font-medium text-text truncate">{instance.title}</p>
         </div>
         <Badge variant={isComplete ? 'success' : 'warning'} className="shrink-0">
-          {isComplete ? 'Done' : `Mark ${progress}%`}
+          {isComplete ? 'Done' : `${progress}% done`}
         </Badge>
       </div>
 

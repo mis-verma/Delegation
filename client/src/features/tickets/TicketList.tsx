@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { Plus, ChevronDown, Upload, AlertCircle, Inbox, RotateCcw, LayoutList, Kanban, Table2, GanttChartSquare } from 'lucide-react';
-import { Button, PageNav, Fab, ViewToggle, type ViewTab } from '../../components';
+import { Plus, ChevronDown, Upload, AlertCircle, Inbox, LayoutList, Kanban, Table2, GanttChartSquare } from 'lucide-react';
+import { Button, PageNav, Fab, ViewToggle, EmptyState, type ViewTab } from '../../components';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/context/AuthContext';
 import { useDepartmentsQuery, useStoresQuery, useAssignableUsersQuery, useTicketsBoardQuery } from './hook';
@@ -98,6 +98,25 @@ export const TicketList = () => {
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, allTicketsData]);
+
+  // Same one-shot-param pattern as `open` above — the sidebar's "+" quick-create link has no
+  // route of its own to land on (TicketForm opens from local state, not a route), so it deep-
+  // links here instead and this effect is what actually opens the form on arrival.
+  useEffect(() => {
+    if (!searchParams.get('create')) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setShowForm(true);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('create');
+        return next;
+      },
+      { replace: true },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   const isVerifier = user?.role === 'PC' || user?.role === 'ADMIN';
   const canExport = user?.role === 'ADMIN' || user?.role === 'PC';
 
@@ -188,18 +207,14 @@ export const TicketList = () => {
       )}
 
       {!isPending && !isError && organizer.sorted.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-16 border border-dashed rounded-xl text-center">
-          <Inbox size={26} className="text-text-muted mb-3" />
-          <h3 className="text-sm font-medium">No tickets found</h3>
-          <p className="text-xs text-text-muted mt-1 max-w-xs">
-            {organizer.hasActiveFilters ? 'No tickets matched your search or filters.' : 'No tickets registered.'}
-          </p>
-          {organizer.hasActiveFilters && (
-            <Button size="sm" variant="outline" onClick={organizer.handleResetFilters} className="mt-4 gap-1.5">
-              <RotateCcw size={13} /> Reset Filters
-            </Button>
-          )}
-        </div>
+        <EmptyState
+          icon={Inbox}
+          title="No tickets found"
+          description={organizer.hasActiveFilters
+            ? "No tickets match the current filters. Try adjusting or clearing them to see more."
+            : "You're all caught up! There are no tickets assigned to this view."}
+          action={organizer.hasActiveFilters ? { label: 'Clear all filters', onClick: organizer.handleResetFilters } : undefined}
+        />
       )}
 
       {organizer.view === 'list' && !isPending && organizer.sorted.length > 0 && (

@@ -47,12 +47,15 @@ export const TicketSettingsMenu = ({
         <div className="flex items-center gap-1 p-1 rounded-lg bg-surface-hover/50 border border-border/40 w-fit flex-wrap">
           {SCOPE_FILTERS.map((f) => {
             const Icon = SCOPE_ICON[f.key];
+            const isActive = organizer.scopeFilter === f.key;
             return (
               <button
                 key={f.key}
+                type="button"
                 onClick={() => { organizer.setScopeFilter(f.key); organizer.setPage(1); }}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium ${
-                  organizer.scopeFilter === f.key ? 'bg-background text-text shadow-sm ring-1 ring-border/50' : 'text-text-muted hover:bg-surface-active/50'
+                aria-pressed={isActive}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-display font-medium transition-all duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-95 ${
+                  isActive ? 'bg-background text-text shadow-sm ring-1 ring-border/50' : 'text-text-muted hover:text-text-secondary hover:bg-surface-active/50'
                 }`}
               >
                 <Icon size={14} /> {f.label}
@@ -65,12 +68,25 @@ export const TicketSettingsMenu = ({
       {organizer.view === 'list' && (
         <OptionRow label="Group by">
           <div className="flex items-center gap-1 p-1 rounded-lg bg-surface-hover/50 border border-border/40 w-fit">
-            <button onClick={() => organizer.setGroupBy('department')} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium ${organizer.groupBy === 'department' ? 'bg-background shadow-sm' : 'text-text-muted'}`}>
-              <Building2 size={14} /> Department
-            </button>
-            <button onClick={() => organizer.setGroupBy('assignee')} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium ${organizer.groupBy === 'assignee' ? 'bg-background shadow-sm' : 'text-text-muted'}`}>
-              <User size={14} /> Person
-            </button>
+            {([
+              { key: 'department' as const, label: 'Department', icon: Building2 },
+              { key: 'assignee' as const, label: 'Person', icon: User },
+            ]).map(({ key, label, icon: Icon }) => {
+              const isActive = organizer.groupBy === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => organizer.setGroupBy(key)}
+                  aria-pressed={isActive}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-display font-medium transition-all duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-95 ${
+                    isActive ? 'bg-background text-text shadow-sm ring-1 ring-border/50' : 'text-text-muted hover:text-text-secondary hover:bg-surface-active/50'
+                  }`}
+                >
+                  <Icon size={14} /> {label}
+                </button>
+              );
+            })}
           </div>
         </OptionRow>
       )}

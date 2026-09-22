@@ -10,7 +10,8 @@ export const FormLoadError = ({ onClose }: FormLoadErrorProps) => (
   <Modal
     open
     onClose={onClose}
-    icon={<AlertCircle className="size-6 text-danger" strokeWidth={2.5} />}
+    icon={<AlertCircle className="size-5" strokeWidth={2.5} />}
+    iconTone="danger"
     title={<span className="text-xl font-bold text-text tracking-tight">Couldn't load this form</span>}
     description={<span className="text-sm font-medium text-text-muted">Check your connection and try again.</span>}
     footer={

@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { Calendar, Sparkles, Send, Bot, UserPlus, User as UserIcon, History as HistoryIcon, ArrowLeft, Inbox, Trash2 } from "lucide-react";
 import { formatShortDateTime } from "./cardFields";
 import { Button, Input, Modal, Textarea } from "@/components";
+import { Badge } from "@/components/ui/badge";
 import { useConfirm } from "@/components/confirmDialog";
 import { useAuth } from "../../context/AuthContext";
 import { UserForm } from "../admin/users/UserForm";
@@ -96,10 +97,16 @@ const CONVERSATION_STATUS_LABEL: Record<SmartTaskConversationStatus, string> = {
     abandoned: "Abandoned",
 };
 
-const CONVERSATION_STATUS_CLASS: Record<SmartTaskConversationStatus, string> = {
-    in_progress: "bg-warning/10 text-warning",
-    completed: "bg-success/10 text-success",
-    abandoned: "bg-surface-hover text-text-muted",
+const CONVERSATION_STATUS_VARIANT: Record<SmartTaskConversationStatus, "warning" | "success" | "neutral"> = {
+    in_progress: "warning",
+    completed: "success",
+    abandoned: "neutral",
+};
+
+const CONVERSATION_STATUS_TINT: Record<SmartTaskConversationStatus, string> = {
+    in_progress: "bg-warning/10",
+    completed: "bg-success/10",
+    abandoned: "bg-surface-hover",
 };
 
 // Chat input is typed quickly and typo-prone ("tommorow", "tomorow", "devyash" for "devyansh") —
@@ -903,9 +910,12 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
                                         className="flex flex-col gap-1 items-start text-left rounded-lg border border-border/50 bg-surface hover:border-primary-400 transition-colors cursor-pointer px-3 py-2.5"
                                     >
                                         <div className="flex items-center justify-between gap-2 w-full">
-                                            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${CONVERSATION_STATUS_CLASS[c.status]}`}>
+                                            <Badge
+                                                variant={CONVERSATION_STATUS_VARIANT[c.status]}
+                                                className={`text-[10px] ${CONVERSATION_STATUS_TINT[c.status]}`}
+                                            >
                                                 {CONVERSATION_STATUS_LABEL[c.status]}
-                                            </span>
+                                            </Badge>
                                             <span className="text-[10px] text-text-light shrink-0">{formatShortDateTime(c.createdAt)}</span>
                                         </div>
                                         <p className="text-sm font-medium text-text truncate w-full">{c.title || "New conversation"}</p>

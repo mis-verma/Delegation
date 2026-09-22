@@ -4,7 +4,6 @@ import {
   MoveRight,
   User,
   UserCog,
-  CheckCircle2,
   ShieldQuestion,
   CalendarPlus,
   History,
@@ -21,6 +20,7 @@ import { avatarColorClass } from "../../lib/avatarColors";
 import { StatusChip } from "../../components/statusChip";
 import { PriorityChip } from "../../components/priorityChip";
 import { DepartmentChip } from "../../components/departmentChip";
+import { IconChip } from "../../components/iconChip";
 import { getInitials } from "../../lib/getInitials";
 import { getChecklistProgress } from "../../lib/checklistProgress";
 import { ChecklistProgressBar, DueProgressBar } from "../../components/progress";
@@ -80,8 +80,8 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
   const { doneItems, totalItems, progress } = getChecklistProgress(task.checklists ?? []);
 
   const showDoneBadge = fields.status && task.status === 'done';
-  const showReviewBadge = fields.status && task.status === 'pending_verification' && !isVerifier;
-  const showVerifyActions = task.status === 'pending_verification' && isVerifier;
+  const showReviewBadge = fields.status && task.status === 'pending_approval' && !isVerifier;
+  const showVerifyActions = task.status === 'pending_approval' && isVerifier;
 
   // The card has two places that can report the deadline, and they were both firing at once:
   // DueProgressBar (mid-card) renders a red "Overdue" pill once the date has passed, while the
@@ -97,9 +97,9 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
   const showDueBar = !showChecklistBar && fields.dueDate && !!task.dueDate && task.status !== 'done';
   // The footer shows Done / In review / verify actions for these states, so the score pill would
   // just be a second reading of the same status.
-  const showScoreBadge = fields.status && task.status !== 'done' && task.status !== 'pending_verification';
+  const showScoreBadge = fields.status && task.status !== 'done' && task.status !== 'pending_approval';
   const showDuePill =
-    !showDueBar && fields.dueDate && !!task.dueDate && task.status !== 'done' && task.status !== 'pending_verification';
+    !showDueBar && fields.dueDate && !!task.dueDate && task.status !== 'done' && task.status !== 'pending_approval';
 
   return (
     <div
@@ -245,15 +245,10 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
 
           {fields.category && (() => {
             const cat = CATEGORY_CONFIG[task.category];
-            return (
-              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${cat.className}`}>
-                <cat.icon size={12} strokeWidth={2.5} />
-                {cat.label}
-              </span>
-            );
+            return <IconChip icon={cat.icon} tone={cat.solid} label={cat.label} />;
           })()}
 
-          {showScoreBadge && <TaskScoreBadge status={task.status} variant="sm" />}
+          {showScoreBadge && <TaskScoreBadge status={task.status} />}
         </div>
       )}
 
@@ -339,15 +334,9 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
           {showVerifyActions ? (
             <TaskVerifyActions task={task} compact />
           ) : showDoneBadge ? (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-success/10 text-success">
-              <CheckCircle2 size={15} strokeWidth={2.5} />
-              Done
-            </span>
+            <StatusChip status="completed" label="Done" />
           ) : showReviewBadge ? (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-warning/10 text-warning">
-              <ShieldQuestion size={15} strokeWidth={2.5} />
-              In review
-            </span>
+            <StatusChip status="in_review" label="In review" icon={ShieldQuestion} />
           ) : showDuePill ? (
             <StatusChip status={isOverdue ? 'overdue' : 'due'} label={daysLeftLabel(task.dueDate!)} />
           ) : null}

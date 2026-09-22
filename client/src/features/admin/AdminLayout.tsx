@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import {
   LayoutDashboard,
@@ -9,6 +9,7 @@ import {
   LogOut,
   Repeat,
   ChevronDown,
+  History,
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -17,10 +18,10 @@ import { useAuth } from "../../context/AuthContext";
 import { BottomNav } from "../../components/layout";
 import { RouteFallback } from "../../components/skeleton";
 import { Breadcrumbs } from "../../components/breadcrumbs";
+import { Popover, PopoverAnchor, PopoverContent } from "../../components/ui/popover";
+import { Tooltip, TooltipTrigger, TooltipContent } from "../../components/ui/tooltip";
 import { AdminHeader } from "./AdminHeader";
-import { AdminChromeAccents } from "./AdminChromeAccents";
 import { getAdminBreadcrumbs } from "./adminBreadcrumbs";
-import logo from "../../assets/logo.png";
 
 /** Utility for intelligent Tailwind class merging */
 function cn(...inputs: ClassValue[]) {
@@ -65,22 +66,25 @@ const NAV: AdminNavItem[] = [
   // { to: '/admin/tickets', icon: TicketCheck, label: 'Tickets', end: false },
   // { to: '/tasks/team', icon: ClipboardList, label: 'Team Delegations', end: false },
   { to: '/admin/reports', icon: FileDown, label: 'Reports', end: false },
+  // Separate from Reports on purpose — that's an export tool, this is a browsable "who changed
+  // what, when" trail over the generic AuditLog table every module already writes to.
+  { to: '/admin/audit-log', icon: History, label: 'Audit Log', end: false },
   { to: '/admin/settings', icon: Settings, label: 'Settings', end: false },
 ];
 
-// The sidebar is intentionally a fixed navy "chrome" — like the reference layout's colored rail —
-// rather than a theme-reactive surface, so these classes have no dark: variants of their own.
+// Light, token-based "chrome" (bg-surface + border), matching the header — not the navy gradient
+// this used to be. A soft tinted pill marks the current page instead of a solid white-on-navy one,
+// which reads calmer/more professional than a loud fill against a light rail.
 const NAV_LINK_BASE =
-  "group relative flex flex-1 min-w-0 items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-300 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50 active:scale-[0.98]";
-const NAV_LINK_ACTIVE = "bg-white text-primary-700 shadow-sm";
-const NAV_LINK_INACTIVE = "text-white/65 hover:bg-white/10 hover:text-white";
-const NAV_ICON_ACTIVE = "text-primary-700";
-const NAV_ICON_INACTIVE = "text-white/50 group-hover:text-white/80";
-const LOGOUT_BUTTON = "flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-[13px] font-medium text-white/65 hover:bg-white/10 hover:text-white transition-all duration-200 cursor-pointer";
+  "group relative flex flex-1 min-w-0 items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-300 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 active:scale-[0.98]";
+const NAV_LINK_ACTIVE = "bg-primary-50 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300 font-semibold";
+const NAV_LINK_INACTIVE = "text-text-secondary hover:bg-surface-hover hover:text-text";
+const NAV_ICON_ACTIVE = "text-primary-600 dark:text-primary-300";
+const NAV_ICON_INACTIVE = "text-text-light group-hover:text-text-muted";
 const CHILD_LINK_BASE =
-  "relative flex items-center min-w-0 rounded-lg px-3 py-2 text-[12.5px] font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40";
-const CHILD_LINK_ACTIVE = "bg-white/15 text-white";
-const CHILD_LINK_INACTIVE = "text-white/55 hover:bg-white/10 hover:text-white/90";
+  "relative flex items-center min-w-0 rounded-lg px-3 py-2 text-[12.5px] font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500";
+const CHILD_LINK_ACTIVE = "bg-primary-50 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300 font-semibold";
+const CHILD_LINK_INACTIVE = "text-text-muted hover:bg-surface-hover hover:text-text";
 
 const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
 
@@ -102,6 +106,16 @@ export const AdminLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(
     () => typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches
   );
+  // `sidebarOpen` means two different things depending on viewport (see the comment on the resize
+  // effect below) — this tracks which one so the mobile-drawer-only accessibility behavior further
+  // down (Escape to close, focus trap, inerting the rest of the page) never fires for the desktop
+  // rail's default "expanded" state, which would otherwise lock keyboard users out of the page.
+  const [isMobileViewport, setIsMobileViewport] = useState(
+    () => typeof window !== 'undefined' && !window.matchMedia('(min-width: 768px)').matches
+  );
+  const mobileDrawerOpen = isMobileViewport && sidebarOpen;
+  const mobileDrawerRef = useRef<HTMLElement>(null);
+  const wasMobileDrawerOpenRef = useRef(false);
 
   // Sections with children start expanded so their sub-pages are visible in the sidebar right
   // away, without an extra click to discover what's inside.
@@ -123,10 +137,33 @@ export const AdminLayout = () => {
   // render already open (with its backdrop) just because it was "open" as a desktop sidebar.
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 768px)');
-    const handleChange = (e: MediaQueryListEvent) => setSidebarOpen(e.matches);
+    const handleChange = (e: MediaQueryListEvent) => {
+      setSidebarOpen(e.matches);
+      setIsMobileViewport(!e.matches);
+    };
     mq.addEventListener('change', handleChange);
     return () => mq.removeEventListener('change', handleChange);
   }, []);
+
+  // Mobile-drawer-only: Escape closes it, opening moves focus into the drawer, and closing returns
+  // focus to the header's toggle button (id="admin-sidebar-toggle") — none of that ran before, so
+  // a keyboard user opening the drawer had focus left behind on a now-hidden-under-backdrop button,
+  // and closing it (Escape didn't even work) dropped focus back to the browser chrome.
+  useEffect(() => {
+    if (mobileDrawerOpen) {
+      mobileDrawerRef.current?.focus();
+      wasMobileDrawerOpenRef.current = true;
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') setSidebarOpen(false);
+      };
+      document.addEventListener('keydown', handleKeyDown);
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }
+    if (wasMobileDrawerOpenRef.current) {
+      document.getElementById('admin-sidebar-toggle')?.focus();
+    }
+    wasMobileDrawerOpenRef.current = false;
+  }, [mobileDrawerOpen]);
 
   // Flattened so a child route (e.g. Checklist Compliance) resolves to its own specific label
   // rather than the parent group's generic one; longest matching `to` wins.
@@ -147,50 +184,198 @@ export const AdminLayout = () => {
     }
   };
 
+  // Which collapsed-rail item (by `to`) currently shows its hover/focus flyout — see
+  // renderNavItem's collapsed-desktop branch below. One shared key instead of per-item state since
+  // only one flyout is ever open at a time.
+  const [flyoutKey, setFlyoutKey] = useState<string | null>(null);
+  // Set for the duration of a programmatic "close the flyout and return focus to its trigger"
+  // call (Escape / ArrowUp-from-first-item). Without it, refocusing the trigger synchronously
+  // re-fires its own onFocus handler — which is what opened the flyout in the first place — and
+  // reopens the very thing that focus move was meant to close, all within the same tick.
+  const suppressFlyoutReopenRef = useRef(false);
+
   // Shared by both the mobile drawer and desktop rail so the expand/collapse behavior only needs
   // to be implemented once. `isDrawer` controls label visibility: the mobile drawer always shows
   // full labels, the desktop rail only when expanded (`sidebarOpen`).
-  const renderNavItem = ({ to, icon: Icon, label, end, children }: AdminNavItem, isDrawer: boolean) => {
+  const renderNavItem = ({ to, icon: Icon, label, end, children }: AdminNavItem, isDrawer: boolean, index = 0) => {
     const hasChildren = !!children?.length;
     const showLabel = isDrawer || sidebarOpen;
     const isExpanded = expandedKeys.has(to);
     const hasActiveChild = children?.some((child) => location.pathname.startsWith(child.to)) ?? false;
+    // Same active-match rule NavLink applies internally for its `end` prop — computed here instead
+    // of read from NavLink's own render-prop, because that render-prop path (and NavLink's
+    // function-form `className`) doesn't survive being passed through Radix's `asChild`/Slot below
+    // (the collapsed rail's Tooltip/Popover wrappers): Slot's prop-merge does a plain
+    // `[a, b].join(' ')` on `className`, which is only ever written for two *strings* — handed a
+    // *function* (react-router's supported form) it silently stringifies the function's own source
+    // instead of calling it, so every collapsed rail item rendered with 0 padding, no flex layout,
+    // and a giant runaway "active" indicator (percentage heights resolving against a far-off
+    // ancestor once the link's own box collapsed to just its icon). Same isActive value either way
+    // — this form just also survives Slot.
+    const isItemActive = end ? location.pathname === to : location.pathname.startsWith(to);
+    const isActiveOrChild = isItemActive || hasActiveChild;
+    // Collapsed desktop rail: labels are gone entirely (`hidden` removes them from the a11y tree
+    // too), so a link's only remaining accessible name was its `title` attribute — which browsers
+    // don't show on keyboard focus. And a group's children lost their toggle button in this state,
+    // so they became completely unreachable without first re-expanding the rail. Both are fixed by
+    // the flyout below instead of just leaving `title` as the sole affordance.
+    const collapsedRail = !isDrawer && !sidebarOpen;
+
+    const link = (
+      <NavLink
+        to={to}
+        end={end}
+        onClick={() => { handleNavClick(); setFlyoutKey(null); }}
+        className={cn(
+          NAV_LINK_BASE,
+          !isDrawer && "focus-visible:ring-offset-1 focus-visible:ring-offset-surface",
+          collapsedRail && "justify-center px-0",
+          isActiveOrChild ? NAV_LINK_ACTIVE : NAV_LINK_INACTIVE
+        )}
+        title={collapsedRail ? label : undefined}
+      >
+        <Icon
+          className={cn(
+            "w-[17px] h-[17px] shrink-0 transition-all duration-300 group-hover:scale-110",
+            isActiveOrChild ? NAV_ICON_ACTIVE : NAV_ICON_INACTIVE
+          )}
+          strokeWidth={isActiveOrChild ? 2 : 1.75}
+        />
+        <span className={cn("truncate transition-opacity duration-300", !showLabel && "hidden opacity-0")}>
+          {label}
+        </span>
+
+        {/* Active Indicator Pip (desktop rail, collapsed only) */}
+        {collapsedRail && isActiveOrChild && (
+          <span className="absolute left-1 w-1 h-1/2 bg-primary-600 dark:bg-primary-400 rounded-full" />
+        )}
+      </NavLink>
+    );
 
     return (
-      <div key={to}>
+      // Same one-authored-moment entrance stagger TodoList.tsx already uses — plays once when the
+      // rail first mounts (login / full page load), not on every route change, since this list
+      // doesn't remount between admin pages. `motion-reduce:animate-none` keeps it out of the way
+      // for anyone who asked for less motion.
+      <div
+        key={to}
+        className="animate-in fade-in slide-in-from-left-1 duration-300 ease-out motion-reduce:animate-none"
+        style={{ animationFillMode: 'backwards', animationDelay: `${Math.min(index, 8) * 40}ms` }}
+      >
         <div className="flex items-center gap-1">
-          <NavLink
-            to={to}
-            end={end}
-            onClick={handleNavClick}
-            className={({ isActive }) => cn(
-              NAV_LINK_BASE,
-              !isDrawer && "focus-visible:ring-offset-1 focus-visible:ring-offset-primary-700",
-              !isDrawer && !sidebarOpen && "justify-center px-0",
-              (isActive || hasActiveChild) ? NAV_LINK_ACTIVE : NAV_LINK_INACTIVE
-            )}
-            title={!showLabel ? label : undefined}
-          >
-            {({ isActive }) => (
-              <>
-                <Icon
-                  className={cn(
-                    "w-[17px] h-[17px] shrink-0 transition-all duration-300 group-hover:scale-110",
-                    (isActive || hasActiveChild) ? NAV_ICON_ACTIVE : NAV_ICON_INACTIVE
-                  )}
-                  strokeWidth={(isActive || hasActiveChild) ? 2 : 1.75}
-                />
-                <span className={cn("truncate transition-opacity duration-300", !showLabel && "hidden opacity-0")}>
-                  {label}
-                </span>
-
-                {/* Active Indicator Pip (desktop rail, collapsed only) */}
-                {!isDrawer && !sidebarOpen && (isActive || hasActiveChild) && (
-                  <span className="hidden md:block absolute left-1 w-1 h-1/2 bg-white rounded-full" />
-                )}
-              </>
-            )}
-          </NavLink>
+          {collapsedRail && !hasChildren ? (
+            <Tooltip>
+              <TooltipTrigger asChild>{link}</TooltipTrigger>
+              <TooltipContent side="right">{label}</TooltipContent>
+            </Tooltip>
+          ) : collapsedRail && hasChildren ? (
+            // Controlled via hover/focus on the anchor + content (not a click-toggling
+            // PopoverTrigger) so the icon itself still navigates normally on click — this is a
+            // hover flyout menu, not a click-to-open one. PopoverAnchor only affects positioning.
+            <Popover open={flyoutKey === to} onOpenChange={(open) => setFlyoutKey(open ? to : null)}>
+              <PopoverAnchor asChild>
+                <div
+                  className="flex-1 min-w-0"
+                  data-nav-flyout-anchor={to}
+                  onMouseEnter={() => setFlyoutKey(to)}
+                  onMouseLeave={() => setFlyoutKey((k) => (k === to ? null : k))}
+                  onFocus={() => { if (!suppressFlyoutReopenRef.current) setFlyoutKey(to); }}
+                  // The popover's content is portaled to the end of <body> — NOT a DOM descendant
+                  // of this anchor div — so moving focus into it (via the ArrowDown handler below)
+                  // makes `e.currentTarget.contains(relatedTarget)` false even though the focus
+                  // move is completely intentional. Without also checking the portaled content,
+                  // this closed the flyout the instant focus entered it, unmounting the
+                  // just-focused link and dropping focus to <body>.
+                  onBlur={(e) => {
+                    const next = e.relatedTarget as Node | null;
+                    const movedIntoFlyout = document.querySelector(`[data-nav-flyout-content="${to}"]`)?.contains(next);
+                    if (!e.currentTarget.contains(next) && !movedIntoFlyout) {
+                      setFlyoutKey((k) => (k === to ? null : k));
+                    }
+                  }}
+                  // ArrowDown is the discoverable way into the flyout's own links — matches the
+                  // standard menu-button keyboard pattern (Tab is left alone for normal document
+                  // order; it can't reach the flyout's links anyway, since Radix portals its
+                  // content to the end of <body>, well outside this item's natural tab position).
+                  onKeyDown={(e) => {
+                    if (e.key === 'ArrowDown') {
+                      e.preventDefault();
+                      (document.querySelector(`[data-nav-flyout-content="${to}"] a`) as HTMLAnchorElement | null)?.focus();
+                    }
+                  }}
+                >
+                  {link}
+                </div>
+              </PopoverAnchor>
+              <PopoverContent
+                side="right"
+                align="start"
+                sideOffset={10}
+                className="w-52 p-1.5"
+                onOpenAutoFocus={(e) => e.preventDefault()}
+                // Radix's Popover auto-dismisses on any focus/pointerdown it considers "outside"
+                // the content — including our own PopoverAnchor, since Anchor only affects
+                // positioning and isn't treated as part of the interactive boundary the way a real
+                // PopoverTrigger is. Without this, Tab-focusing the anchor opens the flyout (via
+                // onFocus below) and Radix immediately closes it again in the same tick, so a
+                // keyboard-only user never actually sees it. Our own hover/focus state above is
+                // already the real open/close authority, so any interaction with the anchor itself
+                // is a no-op here, not a dismissal.
+                onFocusOutside={(e) => {
+                  if ((e.target as HTMLElement | null)?.closest('[data-nav-flyout-anchor]')) e.preventDefault();
+                }}
+                onPointerDownOutside={(e) => {
+                  if ((e.target as HTMLElement | null)?.closest('[data-nav-flyout-anchor]')) e.preventDefault();
+                }}
+                onMouseEnter={() => setFlyoutKey(to)}
+                onMouseLeave={() => setFlyoutKey(null)}
+                data-nav-flyout-content={to}
+              >
+                <p className="px-2.5 py-1.5 text-xs font-display font-bold text-text-muted">{label}</p>
+                {children!.map((child, childIndex) => {
+                  const isChildActive = location.pathname === child.to;
+                  return (
+                    <NavLink
+                      key={child.to}
+                      to={child.to}
+                      onClick={() => { handleNavClick(); setFlyoutKey(null); }}
+                      // Up/Down roves between the flyout's own links; Up from the first one (or
+                      // Escape from anywhere) closes the flyout and returns focus to its trigger —
+                      // the standard menu-button keyboard pattern.
+                      onKeyDown={(e) => {
+                        const links = Array.from(
+                          e.currentTarget.closest(`[data-nav-flyout-content="${to}"]`)?.querySelectorAll('a') ?? [],
+                        );
+                        const focusAnchor = () => {
+                          suppressFlyoutReopenRef.current = true;
+                          setFlyoutKey(null);
+                          (document.querySelector(`[data-nav-flyout-anchor="${to}"] a`) as HTMLAnchorElement | null)?.focus();
+                          suppressFlyoutReopenRef.current = false;
+                        };
+                        if (e.key === 'ArrowDown') {
+                          e.preventDefault();
+                          (links[childIndex + 1] as HTMLAnchorElement | undefined)?.focus();
+                        } else if (e.key === 'ArrowUp') {
+                          e.preventDefault();
+                          if (childIndex === 0) focusAnchor();
+                          else (links[childIndex - 1] as HTMLAnchorElement | undefined)?.focus();
+                        } else if (e.key === 'Escape') {
+                          e.preventDefault();
+                          focusAnchor();
+                        }
+                      }}
+                      className={({ isActive: _isActive }) => cn(
+                        "flex items-center min-w-0 rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500",
+                        isChildActive ? "bg-surface-hover text-text" : "text-text-secondary hover:bg-surface-hover hover:text-text"
+                      )}
+                    >
+                      <span className="truncate">{child.label}</span>
+                    </NavLink>
+                  );
+                })}
+              </PopoverContent>
+            </Popover>
+          ) : link}
 
           {hasChildren && showLabel && (
             <button
@@ -198,12 +383,12 @@ export const AdminLayout = () => {
               onClick={() => toggleExpanded(to)}
               aria-label={isExpanded ? `Collapse ${label}` : `Expand ${label}`}
               aria-expanded={isExpanded}
-              className="shrink-0 p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+              className="shrink-0 p-1.5 rounded-lg text-text-light hover:text-text hover:bg-surface-hover transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
             >
               <ChevronDown
                 size={15}
                 strokeWidth={2.5}
-                className={cn("transition-transform duration-300 ease-out", isExpanded ? "rotate-180 text-white" : "rotate-0 text-white/60")}
+                className={cn("transition-transform duration-300 ease-out", isExpanded ? "rotate-180 text-text" : "rotate-0 text-text-light")}
               />
             </button>
           )}
@@ -222,7 +407,7 @@ export const AdminLayout = () => {
             )}
           >
             <div className="min-h-0">
-              <div className="flex flex-col gap-0.5 mt-1 mb-1.5 ml-[19px] pl-3 border-l border-white/10">
+              <div className="flex flex-col gap-0.5 mt-1 mb-1.5 ml-[19px] pl-3 border-l border-border">
                 {children!.map((child) => {
                   const isChildActive = location.pathname === child.to;
                   return (
@@ -246,7 +431,13 @@ export const AdminLayout = () => {
 
   return (
     <div className="flex flex-col h-svh overflow-hidden bg-background text-text transition-colors duration-300 font-sans">
-      <AdminHeader onToggleSidebar={() => setSidebarOpen(v => !v)} pageLabel={currentNav?.label ?? 'Overview'} />
+      {/* Visually the backdrop below covers the header too (it's `fixed inset-0` above everything
+          in normal flow), so it's inert-ed along with main/BottomNav while the drawer is open —
+          otherwise a keyboard user could still tab into header buttons sitting under the dimmed
+          overlay. */}
+      <div inert={mobileDrawerOpen}>
+        <AdminHeader onToggleSidebar={() => setSidebarOpen(v => !v)} pageLabel={currentNav?.label ?? 'Overview'} />
+      </div>
 
       <div className="flex flex-1 min-h-0 relative">
         {/* Mobile Backdrop Overlay */}
@@ -261,128 +452,112 @@ export const AdminLayout = () => {
 
         {/* 1. Mobile Drawer */}
         <aside
+          ref={mobileDrawerRef}
+          tabIndex={-1}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Navigation menu"
           className={cn(
-            "md:hidden fixed top-0 bottom-0 left-0 z-50 w-72 max-w-[80vw] h-full flex flex-col rounded-r-3xl bg-gradient-to-b from-primary-900 via-primary-800 to-primary-600 px-4 pt-8 pb-6 shadow-2xl transition-transform duration-300 ease-in-out",
+            "md:hidden fixed top-0 bottom-0 left-0 z-50 w-72 max-w-[80vw] h-full flex flex-col rounded-r-3xl bg-surface border-r border-border px-4 pt-8 pb-6 shadow-xl transition-transform duration-300 ease-in-out focus:outline-none",
             sidebarOpen ? "translate-x-0" : "-translate-x-full pointer-events-none"
           )}
         >
-          <AdminChromeAccents scale="tall" />
-
-          {/* Brand — the header's own user dropdown already shows who's signed in and offers
-              sign-out, so the sidebar's top slot is the app brand instead of a duplicate profile. */}
-          <div className="flex items-center gap-3 pb-6 mb-4 border-b border-white/10">
-            <img src={logo} alt="Karya" className="h-11 w-auto object-contain rounded-lg shrink-0" />
-            <span className="text-xs font-medium text-white/60 truncate">
-              Admin
-            </span>
-          </div>
-
-          <p className="text-[10px] font-bold text-white/40 tracking-wider mb-3 px-2">
+          {/* No brand mark here anymore — the header already carries the "Admin" context (its
+              left slot reads "Admin / <page>"), so repeating a logo here was pure duplication.
+              Just the section label remains. */}
+          <p className="text-[10px] font-bold text-text-light tracking-wider pb-4 mb-3 border-b border-border px-2">
             Navigation
           </p>
 
           {/* Navigation Links */}
           <nav className="flex flex-col gap-1 overflow-y-auto custom-scrollbar pr-1 flex-1">
-            {nav.map((item) => renderNavItem(item, true))}
+            {nav.map((item, i) => renderNavItem(item, true, i))}
           </nav>
 
-          {/* Account summary — nav being `flex-1` in a full-height rail meant a short nav list
-              (esp. now that Tickets/Team Delegations are hidden) left a stretch of bare navy
-              between the last link and Log out. Filled with real context instead of empty space:
-              same avatar-initials + name + role treatment AdminHeader's own account trigger uses,
-              so the two read as one consistent identity affordance rather than one being decorated
-              and the other blank. */}
+          {/* Account summary + Log out — one bordered card instead of two stacked sections (a
+              profile block, then a divider, then a full-width "Log out" row): sign-out is the
+              one action this identity card exists to offer, so it lives inside the card as a
+              trailing icon button rather than repeating the same avatar-card chrome a second
+              time right below it. */}
           {user && (
-            <div className="flex items-center gap-3 px-3 py-3 mt-2 rounded-xl bg-white/5 border border-white/10 shrink-0">
-              <span className="relative flex items-center justify-center size-9 rounded-full bg-white/15 text-white font-display font-bold text-xs shrink-0">
+            <div className="flex items-center gap-3 px-3 py-3 mt-2 rounded-xl bg-surface-hover border border-border shrink-0">
+              <span className="relative flex items-center justify-center size-9 rounded-full bg-primary-100 dark:bg-primary-500/20 text-primary-700 dark:text-primary-300 font-display font-bold text-xs shrink-0">
                 {initials}
-                <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-success border-2 border-primary-800" aria-hidden="true" />
+                <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-success border-2 border-surface-hover" aria-hidden="true" />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-display font-bold text-white truncate">{user.name}</p>
-                {user.role && <p className="text-[11px] font-display font-medium text-white/55 truncate">{titleCase(user.role)}</p>}
+                <p className="text-[13px] font-display font-bold text-text truncate">{user.name}</p>
+                {user.role && <p className="text-[11px] font-display font-medium text-text-muted truncate">{titleCase(user.role)}</p>}
               </div>
+              <button
+                type="button"
+                onClick={logout}
+                aria-label="Log out"
+                title="Log out"
+                className="shrink-0 inline-flex items-center justify-center size-9 rounded-lg text-text-muted hover:bg-danger/10 hover:text-danger transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+              >
+                <LogOut className="w-[17px] h-[17px]" strokeWidth={1.75} />
+              </button>
             </div>
           )}
-
-          {/* Log Out — pinned below the (scrollable) nav list, separated by its own divider */}
-          <div className="pt-4 mt-2 border-t border-white/10 shrink-0">
-            <button type="button" onClick={logout} className={LOGOUT_BUTTON}>
-              <LogOut className="w-[17px] h-[17px] shrink-0" strokeWidth={1.75} />
-              <span className="truncate">Log out</span>
-            </button>
-          </div>
         </aside>
 
-        {/* 2. Desktop Sidebar — a floating rounded card set off from the page background, filled
-            with the app's primary color per the reference layout's dark rail concept. */}
+        {/* 2. Desktop Sidebar — a light, token-based floating card (bg-surface + border), matching
+            the header. Used to be a bold navy gradient rail; two saturated bars stacked on top of
+            each other read as busier and less professional than one calm surface. */}
         <aside
           className={cn(
-            "hidden md:flex relative flex-col shrink-0 m-3 rounded-2xl bg-gradient-to-b from-primary-900 via-primary-800 to-primary-600 shadow-lg shadow-primary-900/20",
+            "hidden md:flex relative flex-col shrink-0 m-3 rounded-2xl bg-surface border border-border shadow-xs",
             "transition-all duration-300 ease-in-out overflow-hidden py-6",
             sidebarOpen ? "w-64 px-4" : "w-[84px] px-3"
           )}
         >
-          <AdminChromeAccents scale="tall" />
-
-          {/* Brand — the header's own user dropdown already shows who's signed in and offers
-              sign-out, so the sidebar's top slot is the app brand instead of a duplicate profile. */}
-          <div className={cn(
-            "flex items-center gap-3 pb-6 mb-4 border-b border-white/10 transition-all duration-300",
-            !sidebarOpen && "justify-center"
-          )}>
-            <img src={logo} alt="Karya" className="h-10 w-auto object-contain rounded-lg shrink-0 transition-transform hover:scale-105" />
-            <span className={cn("text-xs font-medium text-white/60 truncate transition-opacity duration-300", !sidebarOpen && "hidden opacity-0")}>
-              Admin
-            </span>
-          </div>
-
+          {/* No brand mark here anymore — the header already carries the "Admin" context (its
+              left slot reads "Admin / <page>"), so repeating a logo here was pure duplication.
+              Just the section label remains. */}
           <p className={cn(
-            "text-[10px] font-bold text-white/40 tracking-wider mb-3 px-2 transition-opacity duration-300",
-            !sidebarOpen && "hidden opacity-0"
+            "text-[10px] font-bold text-text-light tracking-wider pb-4 mb-3 border-b border-border px-2 transition-opacity duration-300",
+            !sidebarOpen && "opacity-0 h-0 !p-0 !m-0 !border-0 overflow-hidden"
           )}>
             Navigation
           </p>
 
           {/* Navigation Links */}
           <nav className="flex flex-col gap-1 overflow-y-auto custom-scrollbar pr-1 flex-1">
-            {nav.map((item) => renderNavItem(item, false))}
+            {nav.map((item, i) => renderNavItem(item, false, i))}
           </nav>
 
-          {/* Account summary — same as the mobile drawer's, collapses to just the avatar when the
-              rail itself is collapsed rather than disappearing outright. */}
+          {/* Account summary + Log out — one bordered card, not two stacked sections. Collapses
+              to a vertical avatar-over-logout-icon stack rather than disappearing outright when
+              the rail itself is collapsed. */}
           {user && (
             <div className={cn(
-              "flex items-center gap-3 px-3 py-3 mt-2 rounded-xl bg-white/5 border border-white/10 shrink-0",
-              !sidebarOpen && "justify-center px-0"
+              "flex items-center gap-3 px-3 py-3 mt-2 rounded-xl bg-surface-hover border border-border shrink-0",
+              !sidebarOpen && "flex-col gap-2 px-2"
             )}>
-              <span className="relative flex items-center justify-center size-9 rounded-full bg-white/15 text-white font-display font-bold text-xs shrink-0" title={!sidebarOpen ? user.name : undefined}>
+              <span className="relative flex items-center justify-center size-9 rounded-full bg-primary-100 dark:bg-primary-500/20 text-primary-700 dark:text-primary-300 font-display font-bold text-xs shrink-0" title={!sidebarOpen ? user.name : undefined}>
                 {initials}
-                <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-success border-2 border-primary-800" aria-hidden="true" />
+                <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-success border-2 border-surface-hover" aria-hidden="true" />
               </span>
               <div className={cn("min-w-0 flex-1 transition-opacity duration-300", !sidebarOpen && "hidden opacity-0")}>
-                <p className="text-[13px] font-display font-bold text-white truncate">{user.name}</p>
-                {user.role && <p className="text-[11px] font-display font-medium text-white/55 truncate">{titleCase(user.role)}</p>}
+                <p className="text-[13px] font-display font-bold text-text truncate">{user.name}</p>
+                {user.role && <p className="text-[11px] font-display font-medium text-text-muted truncate">{titleCase(user.role)}</p>}
               </div>
+              <button
+                type="button"
+                onClick={logout}
+                aria-label="Log out"
+                title="Log out"
+                className="shrink-0 inline-flex items-center justify-center size-9 rounded-lg text-text-muted hover:bg-danger/10 hover:text-danger transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+              >
+                <LogOut className="w-[17px] h-[17px]" strokeWidth={1.75} />
+              </button>
             </div>
           )}
-
-          {/* Log Out — pinned below the (scrollable) nav list, separated by its own divider */}
-          <div className="pt-4 mt-2 border-t border-white/10 shrink-0">
-            <button
-              type="button"
-              onClick={logout}
-              title={!sidebarOpen ? "Log out" : undefined}
-              className={cn(LOGOUT_BUTTON, !sidebarOpen && "justify-center px-0")}
-            >
-              <LogOut className="w-[17px] h-[17px] shrink-0" strokeWidth={1.75} />
-              <span className={cn("truncate", !sidebarOpen && "hidden opacity-0")}>Log out</span>
-            </button>
-          </div>
         </aside>
 
         {/* Main Content Area */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 bg-background">
+        <main inert={mobileDrawerOpen} className="flex-1 overflow-y-auto overflow-x-hidden min-w-0 bg-background">
           {/* pb-44 clears BottomNav plus any page's floating Fab (e.g. Tickets' Create FAB),
               which floats ~56px above the nav — see Dashboard.tsx's identical comment. */}
           {/* max-w-(--container-width), not max-w-7xl — matches the same token every other page
@@ -414,7 +589,9 @@ export const AdminLayout = () => {
       </div>
 
       {/* Mobile Bottom Navigation */}
-      <BottomNav />
+      <div inert={mobileDrawerOpen}>
+        <BottomNav />
+      </div>
     </div>
   );
 };

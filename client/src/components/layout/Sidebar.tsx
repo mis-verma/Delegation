@@ -1,6 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router';
 import { useIsMobile } from '../../lib/useMediaQuery';
+import { useTaskSummaryQuery } from '../../features/tasks/hook';
+import { useTicketSummaryQuery } from '../../features/tickets/hook';
+import { useTodoSummaryQuery } from '../../features/todo/hook';
+import { useChecklistInstanceSummaryQuery } from '../../features/checklist/hook';
+import { SidebarSummaryBadge, type SidebarSummaryData } from './SidebarSummaryBadge';
 import {
   LayoutDashboard,
   CheckSquare,
@@ -39,12 +44,12 @@ interface NavItem {
 }
 
 const TASK_CHILDREN: NavChild[] = [
-  { to: '/tasks/draft', label: 'Draft Delegations', soon: true },
-  { to: '/tasks/archived', label: 'Archived', soon: true },
+  { to: '/tasks/draft', label: 'Draft Delegations' },
+  { to: '/tasks/archived', label: 'Archived' },
 ];
 
-const PENDING_APPROVALS_CHILD: NavChild = { to: '/tasks?status=pending_verification', label: 'Pending Approvals' };
-const SMART_DELEGATIONS_CHILD: NavChild = { to: '/tasks?category=delegation', label: 'Smart Delegations' };
+const PENDING_APPROVALS_CHILD: NavChild = { to: '/tasks?status=pending_approval', label: 'Pending Approvals' };
+const SMART_DELEGATIONS_CHILD: NavChild = { to: '/tasks/smart', label: 'Smart Delegations' };
 const TASK_ADMIN_CHILDREN: NavChild[] = [
   { to: '/tasks/team', label: 'Team Delegations' },
 ];
@@ -85,8 +90,16 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
   const isManager = user?.role === 'MANAGER';
   const isSenior = user?.role === 'SENIOR';
   const seesSmartDelegations = isAdmin || isPC || isManager;
+  // Used to auto-expand every section with children, always — so an admin landing on /tickets
+  // still had Delegation's 3 sub-links pre-opened, eating enough height that the nav overflowed
+  // and pushed the Admin-only section (Verification Queue, Team Overview, Admin) below the fold —
+  // invisible, since this list hides its own scrollbar. Only auto-expanding the section the
+  // current route is actually inside keeps that "already open where you are" convenience without
+  // silently hiding the sections below it everywhere else.
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(
-    () => new Set(NAV.filter((item) => item.children?.length).map((item) => item.to)),
+    () => new Set(
+      NAV.filter((item) => item.children?.length && location.pathname.startsWith(item.to)).map((item) => item.to),
+    ),
   );
 
   const toggleExpanded = (key: string) => {
@@ -105,6 +118,53 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
     .join('')
     .toUpperCase();
 
+  // Each item's count badge + hover breakdown (see SidebarSummaryBadge) — every query here is
+  // "mine" regardless of role, matching the sidebar's own "what's on my plate" purpose rather than
+  // the org-wide totals the dashboard/admin pages already show. `enabled: !!user` (implicitly, via
+  // each hook's own `!!token` check) keeps these from firing before login.
+  const { data: taskSummary } = useTaskSummaryQuery();
+  const { data: ticketSummary } = useTicketSummaryQuery();
+  const { data: todoSummary } = useTodoSummaryQuery();
+  const { data: checklistSummary } = useChecklistInstanceSummaryQuery({ mine: true });
+  const SUMMARY_BY_LABEL: Partial<Record<string, SidebarSummaryData>> = {
+    Delegation: taskSummary,
+    Tickets: ticketSummary,
+    'To-Do': todoSummary,
+    // Checklists' summary shape predates this feature (KpiStrip/ComplianceBoard/CompareDashboard
+    // already depend on it) and carries a couple of extra fields (pending/totalItems/doneItems)
+    // this badge doesn't need — narrowed to just the five it reads.
+    Checklists: checklistSummary && {
+      total: checklistSummary.total,
+      newToday: checklistSummary.newToday,
+      due: checklistSummary.due,
+      overdue: checklistSummary.overdue,
+      completed: checklistSummary.completed,
+    },
+  };
+
+  // On a shorter viewport, a role with several nav sections (e.g. ADMIN, with its own Admin-only
+  // block below the main list) can still outgrow the nav's available height even collapsed. The
+  // list hides its own scrollbar for a cleaner look, which then hides the fact that it scrolls at
+  // all — this fade is the only remaining sign there's more below, so it doesn't just cut off.
+  const navRef = useRef<HTMLElement>(null);
+  const [navOverflowsBelow, setNavOverflowsBelow] = useState(false);
+
+  useEffect(() => {
+    const el = navRef.current;
+    if (!el) return;
+
+    const checkOverflow = () => setNavOverflowsBelow(el.scrollHeight - el.scrollTop - el.clientHeight > 4);
+    checkOverflow();
+
+    el.addEventListener('scroll', checkOverflow);
+    const resizeObserver = new ResizeObserver(checkOverflow);
+    resizeObserver.observe(el);
+    return () => {
+      el.removeEventListener('scroll', checkOverflow);
+      resizeObserver.disconnect();
+    };
+  }, [expandedKeys, isOpen]);
+
   const navItems: NavItem[] = NAV.map((item) => {
     if (item.label === 'Checklists') {
       return {
@@ -116,6 +176,10 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
     if (item.label === 'Delegation') {
       return {
         ...item,
+        // The create flow is a modal opened from state on TaskList itself (SmartTaskModal), not a
+        // route — `?create=1` is a signal TaskList reads on mount to open it immediately, the same
+        // deep-link-into-a-modal pattern Tickets/To-Do below use for the same reason.
+        quickCreateTo: '/tasks?create=1',
         children: [
           ...(seesSmartDelegations ? [SMART_DELEGATIONS_CHILD] : []),
           ...(isPC ? [PENDING_APPROVALS_CHILD] : []),
@@ -124,12 +188,18 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
         ],
       };
     }
+    if (item.label === 'Tickets') {
+      return { ...item, quickCreateTo: '/tickets?create=1' };
+    }
+    if (item.label === 'To-Do') {
+      return { ...item, quickCreateTo: '/todo?create=1' };
+    }
     return item;
   });
 
   const adminNavItems: NavItem[] = [
     ...(isManager || isSenior ? [{ to: '/analytics', icon: BarChart3, label: 'Analytics' }] : []),
-    ...(user?.role === 'PC' || user?.role === 'ADMIN'
+    ...(user?.role === 'PC' || user?.role === 'ADMIN' || user?.role === 'APPROVAL_MANAGER'
       ? [{ to: '/verify', icon: ShieldQuestion, label: 'Verification Queue' }]
       : []),
     ...(isAdmin || isPC ? [{ to: '/team', icon: Building2, label: 'Team Overview' }] : []),
@@ -142,11 +212,19 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
     }
   };
 
-  const renderNavItem = ({ to, icon: Icon, label, children, soon, quickCreateTo }: NavItem, isDrawer: boolean) => {
+  const renderNavItem = ({ to, icon: Icon, label, children, soon, quickCreateTo }: NavItem, isDrawer: boolean, index = 0) => {
     const hasActiveChild = children?.some((child) => !child.soon && isChildActive(child, location)) ?? false;
     const hasChildren = !!children?.length;
     const isExpanded = expandedKeys.has(to);
     const showLabel = isDrawer || isOpen;
+    // Same one-authored-moment entrance stagger as AdminLayout's nav rail — plays once when the
+    // sidebar first mounts (login / full page load), not on every route change, since this list
+    // doesn't remount between pages. `motion-reduce:animate-none` keeps it out of the way for
+    // anyone who asked for less motion.
+    const entranceProps = {
+      className: 'animate-in fade-in slide-in-from-left-1 duration-300 ease-out motion-reduce:animate-none',
+      style: { animationFillMode: 'backwards' as const, animationDelay: `${Math.min(index, 8) * 40}ms` },
+    };
 
     if (soon) {
       return (
@@ -157,7 +235,9 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
             'flex items-center rounded-xl text-[13px] font-semibold text-text-muted/60 cursor-not-allowed select-none',
             isDrawer ? 'px-3 py-3' : 'px-3 py-2.5',
             showLabel ? 'justify-between' : 'md:justify-center md:px-0',
+            entranceProps.className,
           ].join(' ')}
+          style={entranceProps.style}
         >
           <span className="flex items-center min-w-0">
             <span
@@ -187,7 +267,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
     }
 
     return (
-      <div key={to}>
+      <div key={to} className={entranceProps.className} style={entranceProps.style}>
         <div className="flex items-center gap-1.5">
           <NavLink
             to={to}
@@ -200,32 +280,26 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
                 isDrawer ? 'px-3 py-3' : 'px-3 py-2.5',
                 showLabel ? 'justify-start' : 'md:justify-center md:px-0',
                 isActive || hasActiveChild
-                  ? 'text-primary-700 font-bold dark:text-primary-300'
+                  ? 'text-white font-bold'
                   : 'text-text-secondary font-semibold hover:bg-surface-hover hover:text-text',
               ].join(' ')
             }
           >
             {({ isActive }) => (
               <>
-                {/* Gentle tint + left-accent bar (not a solid fill) — the accent bar lives inside
-                    this same layoutId'd span so it slides together with the tint between items. */}
+                {/* Solid fill, not a tint + accent bar — a full navy row is the one unmistakable-
+                    even-collapsed signal, and it's the same "solid, not tinted" treatment the
+                    view toggle's active tab already uses elsewhere in the app. */}
                 {(isActive || hasActiveChild) && (
-                  // Was a framer-motion `layoutId` span that physically slid from the previously
-                  // active item to this one. CSS can't move an element between two separate DOM
-                  // nodes, so the tint now appears in place and fades up instead of travelling.
-                  // That shared-element slide is the one thing lost in dropping framer-motion from
-                  // the shell; everything else here is a like-for-like CSS transition.
-                  <span className="absolute inset-0 rounded-xl bg-primary-500/10 dark:bg-primary-400/10 animate-in fade-in duration-200 motion-reduce:animate-none">
-                    <span className="absolute left-0 top-1/2 -translate-y-1/2 h-[60%] w-[3px] rounded-r-full bg-primary-600 dark:bg-primary-400" />
-                  </span>
+                  <span className="absolute inset-0 rounded-xl bg-primary-700 dark:bg-primary-600 animate-in fade-in duration-200 motion-reduce:animate-none" />
                 )}
                 <span
                   className={[
                     'relative z-10 flex items-center justify-center shrink-0 rounded-lg transition-all duration-300',
                     isDrawer ? 'size-8' : 'size-7',
                     isActive || hasActiveChild
-                      ? 'bg-primary-600 text-white dark:bg-primary-500'
-                      : 'bg-surface-hover/60 text-text-muted  group-hover/link:bg-surface-active group-hover/link:text-text-secondary',
+                      ? 'text-white'
+                      : 'bg-surface-hover/60 text-text-muted group-hover/link:bg-surface-active group-hover/link:text-text-secondary',
                   ].join(' ')}
                 >
                   <Icon
@@ -245,6 +319,14 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
               </>
             )}
           </NavLink>
+
+          {showLabel && (
+            <SidebarSummaryBadge
+              label={label}
+              data={SUMMARY_BY_LABEL[label]}
+              completedLabel={label === 'Tickets' ? 'Closed' : 'Completed'}
+            />
+          )}
 
           {hasChildren && showLabel && (
             <button
@@ -336,7 +418,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
 
   const renderContent = (isDrawer: boolean) => (
     <div className="flex flex-col h-full w-full justify-between">
-      <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+      <div className="relative flex flex-col flex-1 min-h-0 overflow-hidden">
         <div className="flex items-center justify-between px-3 mb-4 shrink-0">
           <p
             className={[
@@ -360,10 +442,11 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
         </div>
 
         <nav
+          ref={isDrawer ? undefined : navRef}
           className="flex flex-col gap-1 flex-1 min-h-0 overflow-y-auto pr-1.5 -mr-1.5 [&::-webkit-scrollbar]:hidden"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
-          {navItems.map((item) => renderNavItem(item, isDrawer))}
+          {navItems.map((item, i) => renderNavItem(item, isDrawer, i))}
 
           {adminNavItems.length > 0 && (
             <>
@@ -376,17 +459,25 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
               />
               <p
                 className={[
-                  'text-[11px] font-bold text-text-muted capitalize tracking-wide px-3',
+                  'flex items-center gap-1.5 text-[11px] font-bold text-text-muted capitalize tracking-wide px-3',
                   'overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out',
                   (isDrawer || isOpen) ? 'max-h-5 opacity-100 mb-3' : 'max-h-0 opacity-0 mb-0',
                 ].join(' ')}
               >
+                <span className="size-1.5 rounded-full bg-coral-500 shrink-0" aria-hidden="true" />
                 Admin
               </p>
-              {adminNavItems.map((item) => renderNavItem(item, isDrawer))}
+              {adminNavItems.map((item, i) => renderNavItem(item, isDrawer, navItems.length + i))}
             </>
           )}
         </nav>
+
+        {!isDrawer && navOverflowsBelow && (
+          <div
+            aria-hidden="true"
+            className="absolute bottom-0 left-0 right-1.5 h-6 bg-gradient-to-t from-surface to-transparent pointer-events-none"
+          />
+        )}
       </div>
 
       <div className="shrink-0 pt-3 border-t border-border">
@@ -410,10 +501,11 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
           ].join(' ')}
         >
           <div
-            className="size-9 rounded-full bg-primary-600 border border-border flex items-center justify-center text-white text-xs font-bold shrink-0"
+            className="relative size-9 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 ring-1 ring-inset ring-white/15 flex items-center justify-center text-white text-xs font-bold shrink-0"
             title={user?.name}
           >
             {initials}
+            <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-success border-2 border-surface" aria-hidden="true" />
           </div>
 
           <div
@@ -461,7 +553,13 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
 
       <aside
         inert={!isOpen}
-        className={`md:hidden fixed top-0 left-0 z-50 w-[280px] max-w-[85vw] h-dvh flex flex-col px-4 pt-8 pb-5 transition-transform duration-300 ease-out motion-reduce:transition-none ${
+        // bg-surface was missing entirely — the drawer panel had no background of its own, so its
+        // nav list sat directly over the blurred, dimmed page behind the scrim: icons and labels
+        // floating over a smeared ghost of the page underneath, not a real panel. shadow-2xl (not
+        // the app's usual borderless card treatment) is deliberate here — this is a slide-in sheet
+        // over the rest of the app, the one case the app's own "cards use borders, not shadows"
+        // rule doesn't cover; real elevation is what says "this is above everything else."
+        className={`md:hidden fixed top-0 left-0 z-50 w-[280px] max-w-[85vw] h-dvh flex flex-col px-4 pt-8 pb-5 bg-surface border-r border-border shadow-2xl transition-transform duration-300 ease-out motion-reduce:transition-none ${
           isOpen ? 'translate-x-0' : '-translate-x-full pointer-events-none'
         }`}
       >

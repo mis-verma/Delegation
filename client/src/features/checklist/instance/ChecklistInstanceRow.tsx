@@ -53,7 +53,7 @@ export const ChecklistInstanceRow = ({ instance }: ChecklistInstanceRowProps) =>
             <ClipboardList size={11} /> {done}/{total}
           </span>
           <Badge variant={status === 'COMPLETED' ? 'success' : 'warning'}>
-            {status === 'COMPLETED' ? 'Done' : `Mark ${progress}%`}
+            {status === 'COMPLETED' ? 'Done' : `${progress}% done`}
           </Badge>
           <Badge variant={VERIFICATION_BADGE_VARIANT[instance.verificationStatus]}>
             {VERIFICATION_STATUS_LABEL[instance.verificationStatus]}

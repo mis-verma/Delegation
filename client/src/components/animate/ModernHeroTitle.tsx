@@ -36,28 +36,18 @@ export const ModernHeroTitle = () => {
   return (
     <header className="flex flex-col items-center lg:items-start justify-center text-center lg:text-left px-2 py-2 sm:py-4 font-sans selection:bg-primary-500/30">
 
-      <div
-        className={cn(
-          "inline-flex items-center gap-1.5 px-2.5 py-0.5 mb-3 sm:mb-4 rounded-full",
-          "bg-primary-500/10 border border-primary-500/20",
-          "text-[11px] font-bold uppercase tracking-widest text-primary-600 dark:text-primary-400",
-          "animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out"
-        )}
-      >
-        Platform Overview
-      </div>
-
-      <h1 
+      <h1
         aria-label={PHRASES.join(", ")}
         className={cn(
           "flex items-center justify-center lg:justify-start flex-wrap gap-1",
           "text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight",
-          "min-h-[2rem] sm:min-h-[2.5rem] lg:min-h-[3.25rem]"
+          "min-h-[2rem] sm:min-h-[2.5rem] lg:min-h-[3.25rem]",
+          "animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out"
         )}
       >
-        <span 
+        <span
           aria-hidden="true"
-          className="bg-clip-text text-transparent bg-gradient-to-r from-text to-text-muted transition-colors"
+          className="text-text"
         >
           {displayedText}
         </span>

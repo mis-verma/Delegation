@@ -100,7 +100,7 @@ export const UserMultiSelect = ({ departmentId, storeId, storeIds, selected, onC
       {!isLoading && groups
         ? groups.map(([deptName, deptUsers]) => (
             <div key={deptName} className="flex flex-col gap-0.5">
-              <p className="px-2 pt-2 pb-1 text-[10px] font-display font-bold uppercase tracking-wider text-text-light first:pt-1">
+              <p className="px-2 pt-2 pb-1 text-[10px] font-display font-bold tracking-wider text-text-light first:pt-1">
                 {deptName}
               </p>
               {deptUsers.map(renderUserRow)}

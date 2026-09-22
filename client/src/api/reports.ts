@@ -16,6 +16,8 @@ export type ReportExportParams = {
   priority?: string[];
   departmentId?: string;
   assigneeIds?: string[];
+  /** Checklists-only: scope the export to one store. */
+  storeId?: string;
 };
 
 const parseFilename = (contentDisposition: string | null, fallback: string) => {
@@ -37,6 +39,7 @@ export const reportApi = {
     if (params.priority?.length) query.set('priority', params.priority.join(','));
     if (params.departmentId) query.set('departmentId', params.departmentId);
     if (params.assigneeIds?.length) query.set('assigneeIds', params.assigneeIds.join(','));
+    if (params.storeId) query.set('storeId', params.storeId);
 
     const res = await fetch(`${BASE}/reports/${reportModule}/export?${query.toString()}`, {
       credentials: 'include',

@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useMemo, type DragEvent, type KeyboardEvent } from 'react';
+import { useRef, useState, useEffect, type DragEvent, type KeyboardEvent } from 'react';
 import { UploadCloud, X, ImageOff, Eye, Plus } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -19,8 +19,16 @@ interface ImageUploaderProps {
 }
 
 function ImagePreview({ file, onRemove, onPreview }: { file: File; onRemove: () => void; onPreview: (url: string) => void }) {
-  const url = useMemo(() => URL.createObjectURL(file), [file]);
-  useEffect(() => () => URL.revokeObjectURL(url), [url]);
+  // Created inside the effect, not a useMemo — under StrictMode's dev-only mount/cleanup/remount,
+  // a useMemo'd URL gets revoked by the first cleanup and never recreated (memo deps unchanged),
+  // leaving the <img> pointed at a dead blob: URL that fails to decode (silently caught below by
+  // the onError -> ImageOff fallback, which was masking this rather than fixing it).
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    const objectUrl = URL.createObjectURL(file);
+    setUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [file]);
   // A failed/broken <img> falls back to browser-native alt-text rendering, which doesn't reliably
   // respect this container's own sizing/overflow-hidden — swapping to a fully custom, correctly
   // contained fallback avoids that instead of fighting the browser's own broken-image layout.
@@ -138,7 +146,10 @@ export function ImageUploader({
           }}
           className={cn(
             'group relative flex flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed px-6 py-10 text-center cursor-pointer transition-all duration-300 ease-out',
-            'focus:outline-none focus:ring-4 focus:ring-primary-50/50 active:scale-[0.99]',
+            // Was focus:ring-primary-50/50 — a near-white tint that's effectively invisible on this
+            // card's own white background (the same bug already caught and fixed in
+            // QuickFilterStats.tsx). focus-visible, not focus, so a mouse click doesn't ring it too.
+            'focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-500/30 active:scale-[0.99]',
             isDragging
               ? 'border-primary-400 bg-primary-50/50 shadow-inner'
               : 'border-border bg-surface-hover hover:bg-surface-active/50 hover:border-border-hover'
@@ -204,7 +215,7 @@ export function ImageUploader({
               }}
               className={cn(
                 'aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-1 cursor-pointer transition-all duration-200',
-                'focus:outline-none focus:ring-4 focus:ring-primary-50/50',
+                'focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-500/30',
                 isDragging
                   ? 'border-primary-400 bg-primary-50/50'
                   : 'border-border text-text-light hover:border-primary-400 hover:text-primary-600 hover:bg-surface-hover'

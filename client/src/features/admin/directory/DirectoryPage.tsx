@@ -6,6 +6,7 @@ import { DepartmentList } from '../department';
 import { StoreList } from '../store';
 import { useUsersQuery, useDepartmentsQuery } from '../hook';
 import { useStoresQuery } from '../../tickets/hook';
+import { StatCard } from '../../dashboard';
 
 const TABS = [
   { value: 'users', label: 'Users', icon: Users },
@@ -44,6 +45,12 @@ export const DirectoryPage = () => {
   };
   const totalCount = (users?.length ?? 0) + (departments?.length ?? 0) + (stores?.length ?? 0);
 
+  const activeCaption = (rows: { isActive: boolean }[] | undefined) => {
+    if (!rows) return undefined;
+    const inactive = rows.filter((r) => !r.isActive).length;
+    return inactive > 0 ? `${rows.length - inactive} active, ${inactive} inactive` : 'All active';
+  };
+
   return (
     <div className="flex flex-col gap-5 w-full">
       <header className="flex items-start gap-4 pb-5 border-b border-border">
@@ -63,16 +70,43 @@ export const DirectoryPage = () => {
         </div>
       </header>
 
+      {/* At-a-glance counts for the three entities behind the tabs below — each tile jumps
+          straight to its tab, same "stat tile as a shortcut" convention as the Overview page's
+          own summary strip, instead of the numbers only being visible after clicking in. */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <StatCard
+          icon={Users}
+          label="People"
+          value={counts.users ?? '—'}
+          caption={activeCaption(users)}
+          onClick={() => setTab('users')}
+        />
+        <StatCard
+          icon={Building2}
+          label="Departments"
+          value={counts.departments ?? '—'}
+          caption={activeCaption(departments)}
+          onClick={() => setTab('departments')}
+        />
+        <StatCard
+          icon={Store}
+          label="Stores"
+          value={counts.stores ?? '—'}
+          caption={activeCaption(stores)}
+          onClick={() => setTab('stores')}
+        />
+      </div>
+
       <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)}>
         {/* Scrolls horizontally instead of clipping the last tab on narrow phones — AdminLayout's
             <main> is overflow-x-hidden, so this row needs its own scroll container. */}
         <div className="overflow-x-auto">
-          <TabsList className="bg-surface-hover p-1 rounded-full gap-1 h-auto w-fit">
+          <TabsList className="rounded-full gap-1 h-auto w-fit">
             {TABS.map(({ value, label, icon: Icon }) => (
               <TabsTrigger
                 key={value}
                 value={value}
-                className="gap-1.5 px-3.5 py-1.5 text-sm rounded-full font-display transition-all duration-300 data-[state=active]:bg-primary-700 data-[state=active]:text-white data-[state=active]:shadow-md"
+                className="gap-1.5 px-3.5 py-1.5 text-sm rounded-full font-display"
               >
                 <Icon className="w-3.5 h-3.5" />
                 {label}

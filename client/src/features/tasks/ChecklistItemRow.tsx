@@ -13,6 +13,7 @@ import {
 import type { TaskChecklistItem, CaptureMethod } from '../../api/taskChecklist';
 import { UPLOADS_BASE } from '../../lib/uploadsBase';
 import { errorMessage } from '../../lib/queryHelpers';
+import { Badge } from '../../components/ui/badge';
 
 export const ChecklistItemRow = ({
   item, taskId, isAdmin, canWork,
@@ -71,23 +72,22 @@ export const ChecklistItemRow = ({
           </p>
 
           <div className="flex items-center gap-2 mt-2 flex-wrap">
-            <span className="inline-flex text-xs font-medium text-text-secondary bg-surface-hover px-2 py-0.5 rounded-md border border-border/60">
+            <Badge variant="neutral" className="text-xs bg-surface-hover">
               {item.isDone && item.completedAt
                 ? `Completed ${new Date(item.completedAt).toLocaleDateString()}`
                 : item.dueAt
                   ? `Due ${new Date(item.dueAt).toLocaleDateString()}`
                   : 'No due date'}
-            </span>
+            </Badge>
 
             {item.requiredImageCount > 0 && (
-              <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-2 py-0.5 rounded-md border ${
-                photosSatisfied
-                  ? 'bg-primary-50 text-primary-700 border-primary-200'
-                  : 'bg-warning/10 text-warning border-warning/30'
-              }`}>
+              <Badge
+                variant={photosSatisfied ? 'default' : 'warning'}
+                className={`text-xs ${photosSatisfied ? 'bg-primary-50 dark:bg-primary-500/10' : 'bg-warning/10'}`}
+              >
                 <Camera size={12} strokeWidth={2.5} />
                 {qualifying}/{item.requiredImageCount} {item.requiresLivePhoto ? 'Live' : 'Photos'}
-              </span>
+              </Badge>
             )}
           </div>
         </div>

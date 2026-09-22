@@ -4,6 +4,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { Loader } from '../loaders/Loader';
 import { Skeleton } from '../skeleton';
+import { Tabs, TabsList, TabsTrigger } from '../ui/tabs';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -48,18 +49,23 @@ interface EntityIconTileProps {
   className?: string;
 }
 
-// The leading visual for Departments/Stores — exactly 40px to match User avatars.
+// The leading visual for Departments/Stores — exactly 40px to match User avatars. A solid
+// gradient fill with a white icon, not the pale tint-on-white this used to be — one shared, bolder
+// recipe used everywhere an icon tile appears (this, the Dashboard's section headers, Quick
+// Actions) so "the app feels dull/flat" gets fixed once, consistently, rather than per screen.
+// Still just a border for edge definition, no box-shadow — the app's own "cards use borders, not
+// shadows" convention extends to this tile too.
 export const EntityIconTile = ({ icon: Icon, tone = 'primary', className }: EntityIconTileProps) => (
   <div
     className={cn(
-      'flex items-center justify-center size-10 rounded-xl shrink-0 transition-all duration-300 group-hover:scale-105',
+      'flex items-center justify-center size-10 rounded-xl shrink-0 text-white transition-all duration-300 group-hover:scale-105',
       tone === 'coral'
-        ? 'bg-coral-50 text-coral-600 ring-1 ring-coral-100/50 group-hover:bg-coral-100'
-        : 'bg-primary-50 text-primary-600 ring-1 ring-primary-100/50 group-hover:bg-primary-100',
+        ? 'bg-gradient-to-br from-coral-400 to-coral-600 border border-coral-700/20 dark:from-coral-500 dark:to-coral-700'
+        : 'bg-gradient-to-br from-primary-500 to-primary-700 border border-primary-800/20 dark:from-primary-600 dark:to-primary-900',
       className
     )}
   >
-    <Icon className="size-5" strokeWidth={2.5} />
+    <Icon className="size-5" strokeWidth={2.25} />
   </div>
 );
 
@@ -118,32 +124,30 @@ interface EntityStatusFilterProps {
 // Shared "who's active, who's isn't" segmented filter for the Users/Departments/Stores lists —
 // a plain running count used to say how many rows existed, with no way to see the active/inactive
 // split without opening each card individually.
+//
+// Built on the same Tabs primitive as the Users/Departments/Stores entity-type switcher above it
+// (DirectoryPage.tsx) rather than a hand-rolled lookalike — this used to fill its selected pill
+// solid navy, the exact same treatment DirectoryPage gives its own (primary-level) tabs, so two
+// unrelated controls stacked directly on top of each other read as one repeated widget with no
+// hierarchy between "which entity type" and "which status". Tabs' own default selected style (a
+// light bg-surface chip) reads as clearly secondary next to that bolder navy row.
 export const EntityStatusFilter = ({ value, onChange, counts }: EntityStatusFilterProps) => (
-  <div className="inline-flex items-center gap-1 p-1 rounded-full bg-surface-hover border border-border/60 w-fit">
-    {([
-      { key: 'all' as const, label: 'All' },
-      { key: 'active' as const, label: 'Active' },
-      { key: 'inactive' as const, label: 'Inactive' },
-    ]).map(({ key, label }) => (
-      <button
-        key={key}
-        type="button"
-        onClick={() => onChange(key)}
-        aria-pressed={value === key}
-        className={cn(
-          'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-display font-bold transition-all duration-200 cursor-pointer',
-          value === key
-            ? 'bg-primary-700 text-white shadow-sm'
-            : 'text-text-muted hover:text-text hover:bg-surface-active'
-        )}
-      >
-        {label}
-        <span className={cn('text-[10px] font-semibold tabular-nums', value === key ? 'text-white/70' : 'text-text-light')}>
-          {counts[key]}
-        </span>
-      </button>
-    ))}
-  </div>
+  <Tabs value={value} onValueChange={(v) => onChange(v as EntityStatusFilterValue)}>
+    <TabsList className="rounded-full p-1 gap-1 h-auto w-fit">
+      {([
+        { key: 'all' as const, label: 'All' },
+        { key: 'active' as const, label: 'Active' },
+        { key: 'inactive' as const, label: 'Inactive' },
+      ]).map(({ key, label }) => (
+        <TabsTrigger key={key} value={key} className="gap-1.5 px-3 py-1.5 rounded-full font-display font-bold">
+          {label}
+          <span className={cn('text-[10px] font-semibold tabular-nums', value === key ? 'text-text-secondary' : 'text-text-light')}>
+            {counts[key]}
+          </span>
+        </TabsTrigger>
+      ))}
+    </TabsList>
+  </Tabs>
 );
 
 interface EntityCardActionsProps {

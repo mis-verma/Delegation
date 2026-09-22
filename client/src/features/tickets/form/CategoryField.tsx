@@ -21,6 +21,10 @@ export const CategoryField = ({ categoryId, onChange, categories }: CategoryFiel
       placeholder="Search categories..."
       emptyOptionLabel="No category"
       options={(categories ?? []).map(c => ({ value: c.id, label: c.name }))}
+      // Quiet, borderless-until-interaction fill instead of a visible box outline at rest — matches
+      // the flatter treatment the rest of this form just got, without touching Combobox's own
+      // default (every other combobox in the app keeps its usual bordered look).
+      className="border-transparent bg-surface-hover/50 hover:bg-surface-hover"
     />
   </div>
 );

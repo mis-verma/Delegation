@@ -1,8 +1,9 @@
 import type { ReactElement } from 'react';
 import { useParams, useNavigate, Link } from 'react-router';
-import { ArrowLeft, AlertCircle, ShieldCheck, ShieldAlert, ShieldQuestion, History, Check, Pencil, Clock, ClipboardCheck, Layers } from 'lucide-react';
+import { ArrowLeft, AlertCircle, ShieldCheck, ShieldAlert, ShieldQuestion, Pencil, Clock, ClipboardCheck, Layers } from 'lucide-react';
 import { Skeleton, StatusChip, EntityIconTile } from '../../../components';
-import { useChecklistInstanceQuery, useAssignableUsersQuery } from '../hook';
+import { Badge } from '../../../components/ui/badge';
+import { useChecklistInstanceQuery } from '../hook';
 import { ChecklistInstanceItemCard } from './ChecklistInstanceItemCard';
 import { ChecklistInstanceItemAuditCard } from './ChecklistInstanceItemAuditCard';
 import { ChecklistInstanceItemNumberEntryCard } from './ChecklistInstanceItemNumberEntryCard';
@@ -17,7 +18,7 @@ import { ChecklistInstanceItemDualSignatureCard } from './ChecklistInstanceItemD
 import { ChecklistInstanceItemQrScanCard } from './ChecklistInstanceItemQrScanCard';
 import { ChecklistInstanceItemCashTallyCard } from './ChecklistInstanceItemCashTallyCard';
 import { ItemRemarksField } from './ItemRemarksField';
-import { formatDate, formatDateTime, instanceProgressToneClass, instanceProgressBarClass, isInstanceOverdue, isInstanceNotYetOpen } from '../checklistDisplay';
+import { formatDate, formatDateTime, instanceProgressBarClass, isInstanceOverdue, isInstanceNotYetOpen } from '../checklistDisplay';
 import { useAuth } from '../../../context/AuthContext';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 
@@ -87,11 +88,6 @@ export const ChecklistInstanceDetail = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data: instance, isPending, isError, refetch } = useChecklistInstanceQuery(instanceId);
-  // Scoped to the instance's own store once it's loaded — resolves completedBy user ids to real
-  // names for the Activity timeline below. Gated on `instance` so this doesn't fire an unscoped,
-  // org-wide roster fetch on the first render (before instance?.storeId is known) that then gets
-  // immediately superseded by the scoped one once the instance loads.
-  const { data: people = [] } = useAssignableUsersQuery(undefined, instance?.storeId, undefined, !!instance);
 
   if (isPending) {
     return (
@@ -106,7 +102,7 @@ export const ChecklistInstanceDetail = () => {
     return (
       <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-danger/10 text-danger text-sm font-display max-w-4xl">
         <AlertCircle size={15} />
-        <span className="flex-1">Failed to load checklist.</span>
+        <span className="flex-1">We couldn't load this checklist.</span>
         <button
           type="button"
           onClick={() => refetch()}
@@ -128,13 +124,9 @@ export const ChecklistInstanceDetail = () => {
   const isComplete = total > 0 && done === total;
   const overdue = isInstanceOverdue(instance, isComplete);
   const notYetOpen = isInstanceNotYetOpen(instance);
-  const nameById = new Map(people.map(p => [p.id, `${p.firstName} ${p.lastName ?? ''}`.trim() || p.email]));
   // Only show section headers when the checklist actually has any — most checklists were built
   // before this feature (or never use it) and should keep rendering as one plain flat list.
   const hasSections = instance.items.some(i => i.section);
-  const timeline = instance.items
-    .filter((i): i is typeof i & { completedAt: string } => i.isDone && !!i.completedAt)
-    .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime());
 
   return (
     <div className="flex flex-col gap-6 max-w-4xl">
@@ -168,9 +160,16 @@ export const ChecklistInstanceDetail = () => {
             <EntityIconTile icon={ClipboardCheck} tone="coral" />
             <h1 className="text-lg sm:text-xl font-display font-bold text-text tracking-tight leading-snug pt-1.5">{instance.title}</h1>
           </div>
-          <span className={`shrink-0 text-xs font-display font-medium px-2.5 py-1 rounded-full bg-surface-hover ${instanceProgressToneClass(overdue, isComplete)}`}>
-            Mark {progress}%
-          </span>
+          {/* Same fact ChecklistInstanceCard already renders through Badge (success when
+              complete) — this detail header used its own older hand-rolled span, plus a third,
+              overdue/destructive state the card doesn't need since an overdue instance already
+              shows its own StatusChip just below. */}
+          <Badge
+            variant={isComplete ? 'success' : overdue ? 'destructive' : 'default'}
+            className="shrink-0 bg-surface-hover"
+          >
+            {isComplete ? 'Done' : `${progress}% done`}
+          </Badge>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
@@ -198,10 +197,10 @@ export const ChecklistInstanceDetail = () => {
         </div>
       )}
 
-      {instance.verificationStatus === 'PENDING' && (
+      {instance.verificationStatus === 'PENDING_APPROVAL' && (
         <div className="flex items-center gap-2.5 p-3.5 rounded-lg bg-primary-500/10 border border-primary-500/25 text-primary-600 dark:text-primary-300 text-xs font-display">
           <ShieldQuestion size={16} className="shrink-0" />
-          Every item is checked off — awaiting PC/Admin verification.
+          Everything's checked off — just waiting on approval.
         </div>
       )}
 
@@ -217,8 +216,8 @@ export const ChecklistInstanceDetail = () => {
         <div className="flex items-start gap-2.5 p-3.5 rounded-lg bg-danger/10 border border-danger/25 text-danger text-xs font-display">
           <ShieldAlert size={16} className="shrink-0 mt-0.5" />
           <span>
-            Sent back for changes{instance.verificationNote ? `: "${instance.verificationNote}"` : '.'} Fix the
-            flagged items and re-check everything to resubmit.
+            Sent back for changes{instance.verificationNote ? `: "${instance.verificationNote}"` : '.'} Fix
+            what's flagged and check everything off again to resubmit.
           </span>
         </div>
       )}
@@ -247,30 +246,6 @@ export const ChecklistInstanceDetail = () => {
           );
         })}
       </div>
-
-      {timeline.length > 0 && (
-        <div className="flex flex-col gap-3 p-5 rounded-lg border border-border bg-surface">
-          <h2 className="flex items-center gap-1.5 text-xs font-display font-bold text-text-light">
-            <History size={13} /> Activity
-          </h2>
-          <div className="flex flex-col gap-2.5">
-            {timeline.map(item => (
-              <div key={item.id} className="flex items-start gap-2.5">
-                <span className="flex items-center justify-center size-5 rounded-full bg-success/10 text-success shrink-0 mt-0.5">
-                  <Check size={11} strokeWidth={3} />
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-display text-text truncate">{item.label}</p>
-                  <p className="text-xs font-display text-text-muted mt-0.5">
-                    {formatDateTime(item.completedAt)}
-                    {item.completedBy && ` · ${nameById.get(item.completedBy) ?? 'Unknown'}`}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 };

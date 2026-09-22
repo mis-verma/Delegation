@@ -4,13 +4,26 @@ import type { Todo } from '../../api/todos';
 import type { ChecklistInstance } from '../../api/checklistInstances';
 import { instanceDeadline } from '../checklist/checklistDisplay';
 
+// The shared surface every Dashboard card sits on — one definition instead of the same substring
+// retyped in eight different files, so a future change to the card's own look (like the richer
+// icon-tile pass this landed alongside) only has one place to start from. Each card appends its
+// own padding/flex/hover suffix on top of this, since those genuinely vary card to card.
+//
+// h-full: the grid these sit in stretches every row to its tallest card (see HomePage's grid
+// comment) — without this, a card's own border/background stayed at its natural content height
+// while the grid cell around it silently grew, so two cards sharing a row could still end at
+// different lines. Harmless on a card that isn't in that grid (nothing else reads a shared class
+// as "must fill its parent" unless the parent actually gives it a height to fill).
+export const DASHBOARD_CARD_CLASS = 'rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface h-full';
+
 // Mirrors taskDisplay.tsx's STATUS_CONFIG badge classes exactly — the feed sits on the same
 // dashboard as the KPI modal that already uses those tokens, so the same task's status color
 // shouldn't disagree depending on which widget is showing it.
 export const TASK_STATUS_COLORS: Record<Task['status'], string> = {
+  draft: 'bg-surface-hover text-text-muted',
   todo: 'bg-status-todo/10 text-status-todo',
   in_progress: 'bg-status-progress/10 text-status-progress',
-  pending_verification: 'bg-status-verify/10 text-status-verify',
+  pending_approval: 'bg-status-approve/10 text-status-approve',
   done: 'bg-status-done/10 text-status-done',
 };
 
@@ -252,15 +265,18 @@ export const ACTIVITY_CATEGORY_LABEL: Record<ActivityCategory, string> = {
 };
 // One navy family, not four unrelated hues — darkest for Checklist, stepping lighter through
 // Ticket and Delegation down to Todo, so the stacked bar reads as one coherent brand palette
-// instead of a mixed success/warning/info set.
+// instead of a mixed success/warning/info set. Checklist goes through its own
+// `--color-activity-checklist` token (index.css) rather than a bare primary-900 — that's the
+// family's near-black end, which disappears against the dark theme's own near-black surface; the
+// token swaps to a light shade in dark mode so Checklist stays visible in both themes.
 export const ACTIVITY_CATEGORY_COLOR: Record<ActivityCategory, string> = {
-  checklist: 'var(--color-primary-900)',
+  checklist: 'var(--color-activity-checklist)',
   ticket: 'var(--color-primary-700)',
   delegation: 'var(--color-primary-500)',
   todo: 'var(--color-primary-300)',
 };
 export const ACTIVITY_CATEGORY_DOT_CLASS: Record<ActivityCategory, string> = {
-  checklist: 'bg-primary-900',
+  checklist: 'bg-activity-checklist',
   ticket: 'bg-primary-700',
   delegation: 'bg-primary-500',
   todo: 'bg-primary-300',

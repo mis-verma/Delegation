@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Trophy, AlertTriangle } from 'lucide-react';
+import { Trophy, AlertTriangle, AlertCircle } from 'lucide-react';
 import { Skeleton } from '../../../components';
 import { useOwnerRankings, type RankedRow } from './useOwnerRankings';
 import { useChecklistInstanceComplianceReportQuery } from './useAnalyticsQueries';
@@ -21,14 +21,14 @@ const rankBadges = (rows: RankedRow[]) => {
 const RankBadge = ({ isTop, isLow }: { isTop: boolean; isLow: boolean }) => {
   if (isTop) {
     return (
-      <span className="inline-flex items-center gap-1 text-[10px] font-display font-bold px-1.5 py-0.5 rounded bg-success/10 text-success">
+      <span className="inline-flex items-center gap-1 text-[10px] font-display font-bold px-1.5 py-0.5 rounded bg-gradient-to-br from-success/10 to-success/20 border border-success/25 text-success">
         <Trophy size={10} /> Top
       </span>
     );
   }
   if (isLow) {
     return (
-      <span className="inline-flex items-center gap-1 text-[10px] font-display font-bold px-1.5 py-0.5 rounded bg-danger/10 text-danger">
+      <span className="inline-flex items-center gap-1 text-[10px] font-display font-bold px-1.5 py-0.5 rounded bg-gradient-to-br from-danger/10 to-danger/20 border border-danger/25 text-danger">
         <AlertTriangle size={10} /> Needs attention
       </span>
     );
@@ -36,11 +36,12 @@ const RankBadge = ({ isTop, isLow }: { isTop: boolean; isLow: boolean }) => {
   return null;
 };
 
-const RankedTable = ({ title, subtitle, rows, isPending, emptyLabel, nameColumnLabel, secondaryLabel }: {
+const RankedTable = ({ title, subtitle, rows, isPending, isError, emptyLabel, nameColumnLabel, secondaryLabel }: {
   title: string;
   subtitle: string;
   rows: RankedRow[];
   isPending: boolean;
+  isError: boolean;
   emptyLabel: string;
   nameColumnLabel: string;
   secondaryLabel: string;
@@ -57,8 +58,16 @@ const RankedTable = ({ title, subtitle, rows, isPending, emptyLabel, nameColumnL
         <p className="text-xs font-display font-medium text-text-muted">{subtitle}</p>
       </div>
 
-      <div className="rounded-2xl border border-border bg-surface overflow-hidden">
-        {isPending ? (
+      <div className="rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface overflow-hidden">
+        {isError ? (
+          // Used to fall straight through to the empty-table state ("No department/store data
+          // yet.") on a failed request — identical to a genuinely empty org, with no way to tell
+          // the two apart.
+          <div className="flex items-start gap-3 p-5">
+            <AlertCircle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
+            <p className="text-sm font-display font-medium text-danger">Couldn&rsquo;t load this table. Try refreshing.</p>
+          </div>
+        ) : isPending ? (
           <div className="flex flex-col gap-3 p-5">
             {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-10 rounded-lg" />)}
           </div>
@@ -67,7 +76,7 @@ const RankedTable = ({ title, subtitle, rows, isPending, emptyLabel, nameColumnL
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-primary-700 text-white">
+                  <tr className="bg-gradient-to-r from-primary-800 to-primary-600 text-white">
                     <th className="text-left font-display font-medium px-5 py-3 whitespace-nowrap">{nameColumnLabel}</th>
                     <th className="text-right font-display font-medium px-5 py-3 whitespace-nowrap">Overall</th>
                     <th className="text-right font-display font-medium px-5 py-3 whitespace-nowrap">Tickets</th>
@@ -182,14 +191,14 @@ const RankedTable = ({ title, subtitle, rows, isPending, emptyLabel, nameColumnL
 // The same ranking (useOwnerRankings) also backs a compact glance card directly on the Overview
 // dashboard itself (PerformanceLeadersCard) — this tab is the drill-in for the full ranked table.
 export const StoresPerformanceSection = ({ groupBy, from, to }: StoresPerformanceSectionProps) => {
-  const { departmentRows, storeRows, departmentsPending, storesPending } = useOwnerRankings(groupBy, from, to);
+  const { departmentRows, storeRows, departmentsPending, storesPending, departmentsError, storesError } = useOwnerRankings(groupBy, from, to);
 
   // Org-wide audit score, kept as page-level context — see the per-store real figures below for
   // the actual per-row breakdown; this is just "how's checklist compliance doing overall." Same
   // hook (and so the same cache key/request) the org-wide audit KPI elsewhere on this page already
   // uses — this used to be its own inline useQuery with a different key ('org-wide' literal vs.
   // the shared key), so the two fired as two independent requests for the exact same data.
-  const { data: auditRows, isPending: auditPending } = useChecklistInstanceComplianceReportQuery(groupBy, from, to);
+  const { data: auditRows, isPending: auditPending, isError: auditError } = useChecklistInstanceComplianceReportQuery(groupBy, from, to);
   const latestAudit = auditRows?.[auditRows.length - 1];
   const auditScore = latestAudit?.completionRate != null ? Math.round(latestAudit.completionRate) : null;
 
@@ -197,18 +206,22 @@ export const StoresPerformanceSection = ({ groupBy, from, to }: StoresPerformanc
     <div className="flex flex-col gap-5">
       <div className="flex items-center justify-between gap-3 px-1">
         <p className="text-xs font-display font-medium text-text-muted">
-          "Overall" combines ticket + delegation completion (Departments) or ticket + checklist completion (Stores) — ranked, best first
+          "Overall" blends ticket and delegation completion for departments, or ticket and checklist completion for stores — best performers first
         </p>
         <p className="text-xs font-display font-semibold text-text-secondary shrink-0">
-          Org-wide audit score: <span className="text-text tabular-nums">{auditPending ? '…' : auditScore != null ? `${auditScore}%` : '—'}</span>
+          Org-wide audit score:{' '}
+          <span className={auditError ? 'text-danger' : 'text-text tabular-nums'}>
+            {auditError ? "couldn't load" : auditPending ? '…' : auditScore != null ? `${auditScore}%` : '—'}
+          </span>
         </p>
       </div>
 
       <RankedTable
         title="Departments"
-        subtitle="Ticket + delegation completion, combined"
+        subtitle="Blends ticket and delegation completion"
         rows={departmentRows}
         isPending={departmentsPending}
+        isError={departmentsError}
         emptyLabel="No department data yet."
         nameColumnLabel="Department"
         secondaryLabel="Delegations"
@@ -216,9 +229,10 @@ export const StoresPerformanceSection = ({ groupBy, from, to }: StoresPerformanc
 
       <RankedTable
         title="Stores"
-        subtitle="Ticket + checklist completion, combined"
+        subtitle="Blends ticket and checklist completion"
         rows={storeRows}
         isPending={storesPending}
+        isError={storesError}
         emptyLabel="No store data yet."
         nameColumnLabel="Store"
         secondaryLabel="Checklist"

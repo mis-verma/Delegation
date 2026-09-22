@@ -24,16 +24,23 @@ interface TicketFilterFieldsProps {
   tags?:            Tag[];
 }
 
+// Same `dot` colour StatusChip/RecentActivity already use for each status, so a status reads as
+// the same colour here as everywhere else it's shown — this row used to be the one place in the
+// dialog with no colour or icon of any kind, plain text next to Priority's (now) real icons and
+// Labels' own dots.
 const STATUS_OPTIONS: FilterOption<TicketFilters['status']>[] = [
   { value: 'all', label: 'All' },
-  ...(Object.entries(STATUS_CONFIG) as [Ticket['status'], { label: string }][]).map(([value, { label }]) => ({ value, label })),
+  ...(Object.entries(STATUS_CONFIG) as [Ticket['status'], { label: string; dot: string }][])
+    .map(([value, { label, dot }]) => ({ value, label, dotClassName: dot })),
 ];
 
+// Same arrow/triangle icons PriorityChip already renders for each level (PRIORITY_CONFIG.icon) —
+// this row used to be plain text with no visual distinction between Critical and Low at all.
 const PRIORITY_OPTIONS: FilterOption<Ticket['priority']>[] = [
-  { value: 'CRITICAL', label: PRIORITY_CONFIG.CRITICAL.label },
-  { value: 'HIGH', label: PRIORITY_CONFIG.HIGH.label },
-  { value: 'MEDIUM', label: PRIORITY_CONFIG.MEDIUM.label },
-  { value: 'LOW', label: PRIORITY_CONFIG.LOW.label },
+  { value: 'CRITICAL', label: PRIORITY_CONFIG.CRITICAL.label, icon: PRIORITY_CONFIG.CRITICAL.icon },
+  { value: 'HIGH', label: PRIORITY_CONFIG.HIGH.label, icon: PRIORITY_CONFIG.HIGH.icon },
+  { value: 'MEDIUM', label: PRIORITY_CONFIG.MEDIUM.label, icon: PRIORITY_CONFIG.MEDIUM.icon },
+  { value: 'LOW', label: PRIORITY_CONFIG.LOW.label, icon: PRIORITY_CONFIG.LOW.icon },
 ];
 
 // Renders Status/Priority/Department/Assignee/Raised By as ordinary rows inside the Options

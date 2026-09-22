@@ -16,6 +16,16 @@ interface AnalyticsSummaryStripProps {
   groupBy: GroupBy;
   from?: string;
   to?: string;
+  /** Jumps to the Checklists tab further down this same page — the section that actually explains
+   *  this card's number, and (unlike a route navigation) reachable by every role that can see this
+   *  page at all, not just ADMIN/PC. */
+  onViewChecklists: () => void;
+  /** ADMIN/PC only — the "Proof compliance" card and the drill-down modal's "View all tickets"
+   *  footer button both point at /admin/* pages gated to those two roles. This page itself is also
+   *  reachable by MANAGER/SENIOR (via /analytics), who used to hit those links and get silently
+   *  redirected to '/' with no explanation. Gates those two specific actions off instead of guessing
+   *  at a MANAGER/SENIOR-reachable equivalent that doesn't exist yet. */
+  isOrgWideRole: boolean;
 }
 
 const DRILLDOWN_FETCH_LIMIT = 25;
@@ -31,17 +41,29 @@ const ticketRow = (t: Ticket): DrilldownRow => ({
 
 type DrilldownKind = 'on-time' | 'overdue';
 
-export const AnalyticsSummaryStrip = ({ groupBy, from, to }: AnalyticsSummaryStripProps) => {
+// Every value below already fell back to the same '—' whether its query was still loading, had
+// no rows for the selected period, or genuinely failed — three states a user can't tell apart or
+// act on differently. This gives each its own caption instead: "Loading…" says wait, a specific
+// "No … this period" says the number is really zero-ish data (not broken), and "Couldn't load"
+// (unchanged) is the one that means try again / check your connection.
+const statCaption = (isPending: boolean, isError: boolean, hasValue: boolean, noDataLabel: string) => {
+  if (isError) return "Couldn't load";
+  if (isPending) return 'Loading…';
+  if (!hasValue) return noDataLabel;
+  return undefined;
+};
+
+export const AnalyticsSummaryStrip = ({ groupBy, from, to, onViewChecklists, isOrgWideRole }: AnalyticsSummaryStripProps) => {
   const navigate = useNavigate();
   const { token } = useAuth();
   const [drilldownKind, setDrilldownKind] = useState<DrilldownKind | null>(null);
-  const { data: taskRows } = useTaskComplianceReportQuery(groupBy, from, to);
-  const { data: ticketRows } = useTicketTatReportQuery(groupBy, from, to);
-  const { data: instanceRows } = useChecklistInstanceComplianceReportQuery(groupBy, from, to);
+  const { data: taskRows, isError: taskError, isPending: taskPending } = useTaskComplianceReportQuery(groupBy, from, to);
+  const { data: ticketRows, isError: ticketError, isPending: ticketPending } = useTicketTatReportQuery(groupBy, from, to);
+  const { data: instanceRows, isError: instanceError, isPending: instancePending } = useChecklistInstanceComplianceReportQuery(groupBy, from, to);
   // Real org-wide totals (see ticket.service.ts#ownerStats) — the Overdue count used to be a
   // client-side count over a single newest-100-tickets page, silently undercounting for any org
   // past that size.
-  const { data: orgRows } = useTicketOwnerStatsQuery('org', from, to);
+  const { data: orgRows, isError: orgStatsError, isPending: orgStatsPending } = useTicketOwnerStatsQuery('org', from, to);
   const orgStats = orgRows?.[0];
 
   // A real previous-period comparison for the Overdue count above — only well-defined when an
@@ -107,21 +129,28 @@ export const AnalyticsSummaryStrip = ({ groupBy, from, to }: AnalyticsSummaryStr
     retry: handleQueryRetry,
   });
 
+  // href is ADMIN/PC-only (/admin/tickets) — omitted for MANAGER/SENIOR so the modal's "View all
+  // tickets" footer button doesn't render for them; the row-level links inside the modal
+  // (/tickets?open=id) work for every role regardless, so the modal itself stays fully useful.
   const drilldownMeta = drilldownKind === 'on-time'
-    ? { title: 'On-time tickets', href: '/admin/tickets' }
+    ? { title: 'On-time tickets', href: isOrgWideRole ? '/admin/tickets' : undefined }
     : drilldownKind === 'overdue'
-      ? { title: 'Overdue tickets', href: '/admin/tickets' }
+      ? { title: 'Overdue tickets', href: isOrgWideRole ? '/admin/tickets' : undefined }
       : null;
   const drilldownRows = drilldownPage?.data.map(ticketRow) ?? [];
   const drilldownTotal = drilldownPage?.meta?.total ?? drilldownRows.length;
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+      {/* Every value/trend below degrades to '—' while its query is pending, has no data for the
+          selected period, or genuinely failed — statCaption (above) gives each of those three
+          states its own caption instead of one blank/ambiguous dash. */}
       <StatCard
         icon={ShieldCheck}
         label="On-time completion"
         value={currentBucketSlaMet != null ? `${currentBucketSlaMet}%` : '—'}
         trend={slaMetTrend}
+        caption={statCaption(ticketPending, ticketError, currentBucketSlaMet != null, 'No closed tickets this period')}
         highlight
         decorative
         onClick={() => setDrilldownKind('on-time')}
@@ -132,10 +161,12 @@ export const AnalyticsSummaryStrip = ({ groupBy, from, to }: AnalyticsSummaryStr
         label="Checklist completion"
         value={checklistCompletion.value != null ? `${checklistCompletion.value}%` : '—'}
         trend={checklistCompletion.trend}
+        caption={statCaption(taskPending, taskError, checklistCompletion.value != null, 'No delegations this period')}
         // No raw item list available here (this is an averaged completion rate across every
-        // delegation's own sub-checklist items, not a list of records) — clicking goes straight
-        // to the page that explains it instead of a fabricated drill-down.
-        onClick={() => navigate('/admin/scheduled-checklists')}
+        // delegation's own sub-checklist items, not a list of records) — jumps to the Checklists
+        // tab below, which is what actually explains this number, instead of a fabricated
+        // drill-down or (as before) an unrelated, ADMIN/PC-only template-management page.
+        onClick={onViewChecklists}
       />
       <StatCard
         icon={AlertTriangle}
@@ -143,6 +174,7 @@ export const AnalyticsSummaryStrip = ({ groupBy, from, to }: AnalyticsSummaryStr
         label="Overdue"
         value={orgStats ? orgStats.overdueCount : '—'}
         trend={overdueTrend}
+        caption={statCaption(orgStatsPending, orgStatsError, !!orgStats, 'No ticket data this period')}
         // A rising overdue count is bad news — without this the trend badge coloured a growing
         // backlog green and pointed the arrow up as if it were an improvement.
         lowerIsBetter
@@ -154,8 +186,12 @@ export const AnalyticsSummaryStrip = ({ groupBy, from, to }: AnalyticsSummaryStr
         label="Proof compliance"
         value={proofCompliance != null ? `${proofCompliance}%` : '—'}
         trend={proofTrend}
-        // Same as Checklist completion above — an averaged rate, not a literal item list.
-        onClick={() => navigate('/admin/checklist-compliance')}
+        caption={statCaption(taskPending || instancePending, taskError || instanceError, proofCompliance != null, 'No proof data this period')}
+        // Same as Checklist completion above — an averaged rate, not a literal item list. The
+        // destination is ADMIN/PC-only, unlike the Checklist completion card above (fixed to jump
+        // to an in-page tab instead) — no MANAGER/SENIOR-reachable equivalent page exists for this
+        // one yet, so it's a plain, non-interactive stat for those roles rather than a dead-end.
+        onClick={isOrgWideRole ? () => navigate('/admin/checklist-compliance') : undefined}
       />
 
       {drilldownMeta && (

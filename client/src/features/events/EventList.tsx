@@ -1,9 +1,9 @@
 import { useState, lazy, Suspense } from 'react';
-import { Plus, Trash2, Pencil, CalendarClock, Loader2 } from 'lucide-react';
-import { Button, Skeleton, GradientIconTile } from '../../components';
+import { Plus, Trash2, Pencil, CalendarClock, Clock3, Loader2 } from 'lucide-react';
+import { Button, Skeleton, GradientIconTile, IconChip } from '../../components';
 import { useAuth } from '@/context/AuthContext';
 import { useEventsQuery, useDeleteEventMutation } from './hook';
-import { EVENT_TYPE_LABELS, EVENT_TYPE_COLORS, EVENT_TYPE_ICON_TINTS, EVENT_TYPE_ICONS } from './eventDisplay';
+import { EVENT_TYPE_LABELS, EVENT_TYPE_SOLID, EVENT_TYPE_GRADIENT, EVENT_TYPE_ICONS } from './eventDisplay';
 import { ErrorMessage, EmptyState } from '../admin/adminDisplay';
 import type { Event } from '@/api/events';
 
@@ -42,35 +42,36 @@ export const EventList = () => {
           return (
             <div
               key={e.id}
-              className={`flex items-center gap-3 p-4 rounded-xl border border-border bg-surface hover:border-border-hover transition-all ${
+              className={`flex items-center gap-3.5 p-4 rounded-xl border border-border bg-surface hover:border-border-hover transition-all duration-200 ${
                 isDeleting ? 'opacity-40 pointer-events-none' : ''
               }`}
             >
-              <div className={`flex items-center justify-center shrink-0 ${EVENT_TYPE_ICON_TINTS[e.type]}`}>
-                <Icon size={18} />
+              <div
+                className="flex items-center justify-center size-10 rounded-xl shrink-0 text-white ring-1 ring-inset ring-white/20"
+                style={{ background: EVENT_TYPE_GRADIENT[e.type] }}
+              >
+                <Icon size={18} strokeWidth={2.25} />
               </div>
 
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-display font-medium text-text truncate">{e.title}</p>
-                  <span className={`text-[11px] font-display font-medium px-2 py-0.5 rounded-full shrink-0 ${EVENT_TYPE_COLORS[e.type]}`}>
-                    {EVENT_TYPE_LABELS[e.type]}
+              <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+                <p className="text-sm font-display font-semibold text-text truncate">{e.title}</p>
+                {e.description && (
+                  <p className="text-xs text-text-muted font-display truncate">{e.description}</p>
+                )}
+                <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                  <IconChip icon={Icon} tone={EVENT_TYPE_SOLID[e.type]} label={EVENT_TYPE_LABELS[e.type]} />
+                  <span className="inline-flex items-center gap-1 text-[11px] font-display font-medium text-text-muted">
+                    <Clock3 size={11} className="shrink-0" />
+                    {new Date(e.eventDate).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
-                {e.description && (
-                  <p className="text-xs text-text-muted font-display mt-0.5 truncate">{e.description}</p>
-                )}
               </div>
-
-              <span className="text-xs text-text-light font-display shrink-0">
-                {new Date(e.eventDate).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-              </span>
 
               {canManage && (
                 <div className="flex items-center gap-1 shrink-0">
                   <button
                     onClick={() => setEditingEvent(e)}
-                    className="p-1.5 text-text-light hover:text-primary-500 hover:bg-primary-500/10 rounded-md transition-colors cursor-pointer"
+                    className="p-2 text-text-light hover:text-primary-600 hover:bg-primary-500/10 rounded-lg transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
                     aria-label="Edit event"
                   >
                     <Pencil size={14} />
@@ -78,7 +79,7 @@ export const EventList = () => {
                   <button
                     onClick={() => deleteMut.mutate(e.id)}
                     disabled={isDeleting}
-                    className="p-1.5 text-text-light hover:text-danger hover:bg-danger/10 rounded-md transition-colors cursor-pointer disabled:opacity-50"
+                    className="p-2 text-text-light hover:text-danger hover:bg-danger/10 rounded-lg transition-colors duration-200 cursor-pointer disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
                     aria-label="Delete event"
                   >
                     {isDeleting ? <Loader2 size={14} className="animate-spin text-danger" /> : <Trash2 size={14} />}
@@ -128,10 +129,12 @@ export const EventList = () => {
 const EventListSkeleton = () => (
   <div className="flex flex-col gap-2">
     {Array.from({ length: 4 }).map((_, i) => (
-      <div key={i} className="flex items-center gap-3 p-4 rounded-xl border border-border bg-surface">
-        <Skeleton className="size-10 rounded-lg shrink-0" />
-        <Skeleton className="h-4 flex-1 max-w-56" />
-        <Skeleton className="h-5 w-20 rounded-full shrink-0" />
+      <div key={i} className="flex items-center gap-3.5 p-4 rounded-xl border border-border bg-surface">
+        <Skeleton className="size-10 rounded-xl shrink-0" />
+        <div className="flex-1 min-w-0 flex flex-col gap-2">
+          <Skeleton className="h-4 max-w-56" />
+          <Skeleton className="h-5 w-24 rounded-full" />
+        </div>
       </div>
     ))}
   </div>

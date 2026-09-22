@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import { Trophy } from 'lucide-react';
-import { PersonRow, Skeleton } from '../../../components';
+import { Trophy, AlertCircle } from 'lucide-react';
+import { PersonRow, EntityIconTile, Skeleton } from '../../../components';
 import { useDepartmentsQuery } from '../../tickets/hook';
 import { useUsersQuery } from '../hook';
 import { useTicketOwnerStatsQuery, useTaskOwnerStatsQuery } from './useAnalyticsQueries';
@@ -29,10 +29,11 @@ export const TeamLeaderboardRail = ({ from, to }: TeamLeaderboardRailProps) => {
   // silently mis-scored (or zeroed out) anyone whose tickets/tasks weren't among the org's
   // newest 100/200 (see ticket.service.ts#ownerStats and task.service.ts#ownerStats). Also moves
   // the date-range scoping server-side instead of the client's own `inRange` filter.
-  const { data: ticketRows = [], isPending: ticketsPending } = useTicketOwnerStatsQuery('user', from, to);
-  const { data: taskRows = [], isPending: tasksPending } = useTaskOwnerStatsQuery('user', from, to);
-  const { data: users = [], isPending: usersPending } = useUsersQuery(true);
+  const { data: ticketRows = [], isPending: ticketsPending, isError: ticketsError } = useTicketOwnerStatsQuery('user', from, to);
+  const { data: taskRows = [], isPending: tasksPending, isError: tasksError } = useTaskOwnerStatsQuery('user', from, to);
+  const { data: users = [], isPending: usersPending, isError: usersError } = useUsersQuery(true);
   const isPending = ticketsPending || tasksPending || usersPending;
+  const isError = ticketsError || tasksError || usersError;
 
   const ticketsByUser = useMemo(() => new Map(ticketRows.map((r) => [r.ownerId, r])), [ticketRows]);
   const tasksByUser = useMemo(() => new Map(taskRows.map((r) => [r.ownerId, r])), [taskRows]);
@@ -71,13 +72,20 @@ export const TeamLeaderboardRail = ({ from, to }: TeamLeaderboardRailProps) => {
     // column (Compliance gauges above it, tabs+chart column beside it); growing to fill the
     // stretched row height means its own content centers in real space instead of the card
     // stopping short and leaving a block of bare page background beneath it.
-    <div className="rounded-2xl border border-border bg-surface p-5 flex flex-col gap-1 flex-1">
-      <div className="flex items-center gap-2 mb-2">
-        <Trophy size={16} className="text-coral-500" />
+    <div className="rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface p-5 flex flex-col gap-1 flex-1">
+      <div className="flex items-center gap-2.5 mb-2">
+        <EntityIconTile icon={Trophy} tone="coral" className="size-8 rounded-lg" />
         <h3 className="text-sm font-display font-bold tracking-wide text-text">Leaderboard</h3>
       </div>
 
-      {isPending ? (
+      {isError ? (
+        // Used to fall through to the same "No activity yet." empty state as a genuinely quiet
+        // org — indistinguishable from a failed request.
+        <div className="flex-1 flex items-start gap-2.5 p-3 bg-danger/10 border border-danger/30 rounded-lg">
+          <AlertCircle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
+          <p className="text-xs font-display font-medium text-danger">Couldn&rsquo;t load the leaderboard. Try refreshing.</p>
+        </div>
+      ) : isPending ? (
         <div className="flex flex-col gap-2 py-1">
           {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-11 rounded-lg" />)}
         </div>
@@ -86,7 +94,7 @@ export const TeamLeaderboardRail = ({ from, to }: TeamLeaderboardRailProps) => {
       ) : (
         <div className="flex-1 flex flex-col justify-center gap-1">
           {leaderboard.map((row, index) => (
-            <PersonRow key={row.id} index={index} name={row.name} subtitle={row.departmentName} metric={row.score} />
+            <PersonRow key={row.id} index={index} name={row.name} subtitle={row.departmentName} metric={`${row.score}%`} />
           ))}
         </div>
       )}

@@ -1,6 +1,6 @@
 import { useState, useMemo, lazy, Suspense } from 'react';
 import { Plus, Store as StoreIcon, AlertCircle, Inbox } from 'lucide-react';
-import { Loader, FormLoadError, PageNav, EntityStatusFilter, EntityCardSkeleton, type EntityStatusFilterValue, useConfirm } from '../../../components';
+import { Button, Loader, FormLoadError, PageNav, EntityStatusFilter, EntityCardSkeleton, type EntityStatusFilterValue, useConfirm } from '../../../components';
 import { useStoresQuery } from '../../tickets/hook';
 import { useUsersQuery, useUpdateStoreMutation, useDeleteStoreMutation } from '../hook';
 import { StoreCard } from './StoreCard';
@@ -107,8 +107,8 @@ export const StoreList = () => {
 
     if (filteredStores.length === 0) return (
       <section className="flex flex-col items-center justify-center py-20 px-4 rounded-3xl border-2 border-dashed border-border bg-surface-hover/40 text-center">
-        <div className="mb-5 text-text-muted">
-          <Inbox className="w-8 h-8" />
+        <div className="flex items-center justify-center mb-5 size-14 rounded-full bg-surface border border-border text-text-muted">
+          <Inbox className="w-6 h-6" strokeWidth={1.5} />
         </div>
         <h3 className="text-lg font-display font-bold text-text mb-2">
           {statusFilter === 'all' ? 'No stores yet' : `No ${statusFilter} stores`}
@@ -153,14 +153,10 @@ export const StoreList = () => {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <EntityStatusFilter value={statusFilter} onChange={changeStatusFilter} counts={statusCounts} />
-        <button
-          type="button"
-          onClick={() => setShowForm(true)}
-          className="press-feedback inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-display font-bold text-white rounded-xl shadow-sm bg-primary-700 hover:bg-primary-800 transition-all duration-300 ease-in-out hover:scale-[1.02] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
-        >
+        <Button variant="primary" size="sm" onClick={() => setShowForm(true)}>
           <Plus className="w-3.5 h-3.5" />
           New store
-        </button>
+        </Button>
       </div>
 
       {renderContent()}

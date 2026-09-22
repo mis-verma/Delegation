@@ -81,7 +81,7 @@ export const BuilderSchedulePanel = ({
 
   return (
     <div
-      className={`flex flex-col gap-6 p-5 rounded-xl border border-border bg-surface shadow-xs transition-all duration-200 ${className}`}
+      className={`flex flex-col gap-5 p-5 rounded-xl border border-border bg-surface shadow-xs transition-all duration-200 ${className}`}
     >
       {/* Panel Header */}
       <div className="flex items-center justify-between gap-2 pb-3 border-b border-border/60">
@@ -94,7 +94,7 @@ export const BuilderSchedulePanel = ({
               Schedule & Location
             </h3>
             <p className="text-[11px] font-display text-text-muted">
-              Specify participating stores, recurrence, and execution times
+              Pick which stores run this, how often, and when it's open each day
             </p>
           </div>
         </div>
@@ -110,13 +110,13 @@ export const BuilderSchedulePanel = ({
       <div className="flex flex-col gap-2">
         <label className="text-xs font-display font-semibold text-text flex items-center gap-1.5">
           <Store size={13} className="text-text-muted" />
-          Target Stores <span className="text-danger">*</span>
+          Stores <span className="text-danger">*</span>
         </label>
         <StoreMultiSelect selected={storeIds} onChange={onStoreIdsChange} />
         {storeIds.length === 0 && (
           <p className="text-[11px] font-display text-warning flex items-center gap-1">
             <Info size={12} className="shrink-0" />
-            Please select at least one store location for this checklist.
+            Pick at least one store for this checklist.
           </p>
         )}
       </div>
@@ -125,7 +125,7 @@ export const BuilderSchedulePanel = ({
       <div className="flex flex-col gap-2.5 pt-2 border-t border-dashed border-border/60">
         <label className="text-xs font-display font-semibold text-text flex items-center gap-1.5">
           <Repeat size={13} className="text-text-muted" />
-          Recurrence Frequency <span className="text-danger">*</span>
+          How often does this repeat? <span className="text-danger">*</span>
         </label>
 
         <div
@@ -163,7 +163,7 @@ export const BuilderSchedulePanel = ({
         <div className="flex flex-col gap-1.5">
           <label className="flex items-center gap-1.5 text-xs font-display font-semibold text-text px-1">
             <Calendar size={13} className="text-text-muted" />
-            {recurrence === 'ONE_TIME' ? 'Due Date' : 'Effective Start Date'} <span className="text-danger">*</span>
+            {recurrence === 'ONE_TIME' ? 'Due Date' : 'Starts on'} <span className="text-danger">*</span>
           </label>
           <DatePicker
             value={parseDateStr(startDate)}
@@ -174,7 +174,7 @@ export const BuilderSchedulePanel = ({
           <p className="text-[11px] font-display text-text-muted px-1">
             {recurrence === 'ONE_TIME'
               ? 'Date when this single checklist must be completed.'
-              : 'The checklist will activate and begin repeating from this date onwards.'}
+              : 'The checklist starts repeating from this date.'}
           </p>
         </div>
 
@@ -182,13 +182,13 @@ export const BuilderSchedulePanel = ({
         <div className="space-y-1.5">
           <label className="text-xs font-display font-semibold text-text flex items-center gap-1.5">
             <Clock size={13} className="text-text-muted" />
-            Daily Active Hours (Optional)
+            Hours it's open each day (optional)
           </label>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <label className="text-[11px] font-display font-semibold text-text-muted px-1">
-                Available From (Opens)
+                Opens at
               </label>
               <TimePicker
                 value={opensTime}
@@ -199,7 +199,7 @@ export const BuilderSchedulePanel = ({
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-[11px] font-display font-semibold text-text-muted px-1">
-                Cut-off By (Closes)
+                Closes at
               </label>
               <TimePicker
                 value={cutoffTime}
@@ -222,7 +222,7 @@ export const BuilderSchedulePanel = ({
             </p>
           ) : (
             <p className="text-[11px] font-display text-text-muted">
-              Leave blank if the checklist can be completed at any hour of the day.
+              Leave blank if there's no time limit — staff can complete it any time of day.
             </p>
           )}
         </div>

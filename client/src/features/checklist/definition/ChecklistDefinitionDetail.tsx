@@ -111,7 +111,7 @@ export const ChecklistDefinitionDetail = () => {
       <div className="w-full max-w-4xl mx-auto py-6">
         <div className="flex items-center gap-3 px-4 py-3.5 rounded-xl bg-danger/10 border border-danger/20 text-danger text-sm font-display">
           <AlertCircle size={18} className="shrink-0" />
-          <span className="flex-1">Failed to load checklist details. Please check your network and try again.</span>
+          <span className="flex-1">We couldn't load this checklist. Check your connection and try again.</span>
           <button
             type="button"
             onClick={() => refetch()}
@@ -172,7 +172,7 @@ export const ChecklistDefinitionDetail = () => {
                 </p>
               ) : (
                 <p className="text-xs font-display text-text-muted/70 italic mt-0.5">
-                  No description provided.
+                  No description yet.
                 </p>
               )}
             </div>
@@ -202,9 +202,9 @@ export const ChecklistDefinitionDetail = () => {
             <Calendar size={14} className="text-text-muted shrink-0" />
             <span>Starts {formatDate(definition.startDate)}</span>
           </div>
-          <span className="sm:ml-auto font-mono text-[11px] px-2 py-0.5 rounded-md bg-muted/60 text-text-muted border border-border/60">
+          <Badge variant="neutral" className="sm:ml-auto font-mono bg-muted/60">
             v{definition.version}
-          </span>
+          </Badge>
         </div>
       </div>
 
@@ -214,21 +214,21 @@ export const ChecklistDefinitionDetail = () => {
           icon={Gauge}
           label="Completion rate"
           rate={definition.completionRate}
-          emptyLabel="No completed checklist runs recorded yet"
+          emptyLabel="Nothing's been completed yet"
         />
         <RateTile
           icon={Camera}
           label="Photo compliance"
           rate={definition.qualityRate}
-          emptyLabel="No photo-verification items attached"
+          emptyLabel="No photo checks on this checklist"
         />
       </div>
 
-      {/* Generated Instances Section */}
+      {/* Past Runs Section */}
       <div className="flex flex-col gap-4 pt-2">
         <div className="flex items-center justify-between pb-1">
           <h2 className="text-sm font-display font-bold text-text">
-            Generated Instances ({instances.length}{instances.length === 100 ? '+' : ''})
+            Past runs ({instances.length}{instances.length === 100 ? '+' : ''})
           </h2>
         </div>
 
@@ -237,9 +237,9 @@ export const ChecklistDefinitionDetail = () => {
             <span className="flex size-10 items-center justify-center rounded-full bg-muted/60 text-text-muted">
               <ListTodo size={18} />
             </span>
-            <p className="text-xs font-display font-medium text-text">No active instances yet</p>
+            <p className="text-xs font-display font-medium text-text">No runs yet</p>
             <p className="text-[11px] font-display text-text-muted max-w-xs">
-              Runs will automatically generate according to the recurrence schedule ({RECURRENCE_LABEL[definition.recurrence] ?? definition.recurrence}).
+              New runs will show up here automatically, based on how often this checklist repeats ({RECURRENCE_LABEL[definition.recurrence] ?? definition.recurrence}).
             </p>
           </div>
         ) : (
@@ -262,13 +262,13 @@ export const ChecklistDefinitionDetail = () => {
                     >
                       {INSTANCE_STATUS_LABEL[group.status]}
                     </Badge>
-                    <span className="text-[11px] font-mono font-medium px-1.5 py-0.5 rounded-full bg-muted/70 text-text-muted border border-border/60">
+                    <Badge variant="neutral" className="font-mono bg-muted/70">
                       {group.instances.length}
-                    </span>
+                    </Badge>
                     {overdueCount > 0 && (
-                      <span className="text-[11px] font-display font-semibold px-1.5 py-0.5 rounded-full bg-danger/10 text-danger border border-danger/20">
+                      <Badge variant="destructive" className="bg-danger/10">
                         {overdueCount} overdue
-                      </span>
+                      </Badge>
                     )}
                   </div>
 

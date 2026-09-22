@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { CheckSquare, CalendarClock, Check } from 'lucide-react';
-import { Input, Modal, DateRangePicker, Loader } from '../../components';
+import { CheckSquare, CalendarClock, Check, ClipboardList, UserCheck, FileEdit } from 'lucide-react';
+import { Input, Modal, DateRangePicker, Button } from '../../components';
 import type { DateRangeValue } from '../../components';
 import { useCreateTaskWithAttachmentsMutation, useAssignableUsersQuery } from './hook';
 import { useTagsQuery } from '../tags/hook';
@@ -18,7 +18,8 @@ import { TaskFormDepartmentField } from './TaskFormDepartmentField';
 import { AssigneeField } from '../assignees/AssigneeField';
 import { TaskFormPrioritySelector } from './TaskFormPrioritySelector';
 import { TaskFormErrorBanner } from './TaskFormErrorBanner';
-import { FIELD_LABEL_CLASS, FIELD_LABEL_ICON_CLASS, FIELD_CARD_CLASS, SECTION_LABEL_CLASS } from './taskFormFieldStyles';
+import { ReviewersField } from '../reviewers/ReviewersField';
+import { FIELD_LABEL_CLASS, FIELD_LABEL_ICON_CLASS, FIELD_CARD_CLASS, SECTION_TITLE_CLASS } from './taskFormFieldStyles';
 
 const taskSchema = z.object({
   title:        z.string().trim().min(1, 'Title is required'),
@@ -28,6 +29,11 @@ const taskSchema = z.object({
 });
 
 type TaskFields = z.infer<typeof taskSchema>;
+
+// Quiet, borderless-until-interaction fill instead of a visible box outline at rest — same
+// reference as the Create Ticket modal. Only applied while a field has no error: Input's own
+// danger border+tint has to win the moment validation fails.
+const QUIET_FIELD_CLASS = 'font-display border-transparent bg-surface-hover/50 hover:bg-surface-hover focus:bg-surface';
 
 interface TaskFormProps {
   onClose: () => void;
@@ -47,8 +53,13 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
   // Local state rather than a form field: the label set is a list of ids toggled by pills, with
   // nothing for zod to validate beyond what the server already enforces (existing ids, max 12).
   const [tagIds, setTagIds] = useState<string[]>([]);
+  const [reviewerIds, setReviewerIds] = useState<string[]>([]);
   const [dateRange, setDateRange] = useState<DateRangeValue>({ from: null, to: null });
   const [files, setFiles] = useState<File[]>([]);
+  // Which footer button triggered the submit — both are type="submit" for the same form, so this
+  // is the only way onSubmit (one handler, native form submission) can tell "Create" apart from
+  // "Save as Draft" once react-hook-form's validation passes.
+  const [saveAsDraft, setSaveAsDraft] = useState(false);
 
   const {
     register,
@@ -64,7 +75,18 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
     },
   });
 
+  // Scopes the reviewer picker to whichever department is currently selected — re-evaluates live
+  // as that field changes, same as any other value derived from a watched field.
+  const selectedDepartmentId = useWatch({ control, name: 'departmentId' });
+
   const isBusy = mutation.isPending || isSubmitting;
+  // Both footer buttons submit the same form/mutation, so a single shared `isBusy` flipped BOTH
+  // buttons into their own busy label/spinner at once — clicking "Save as draft" made "Create"
+  // show a spinner too, which read as two operations running (or the wrong one). Only the button
+  // that was actually clicked (tracked via `saveAsDraft`, set on click before submit) should show
+  // its busy state; the other one just disables, label and icon unchanged.
+  const isCreateBusy = isBusy && !saveAsDraft;
+  const isDraftBusy = isBusy && saveAsDraft;
 
   const onSubmit = (data: TaskFields) => {
     mutation.mutate(
@@ -72,6 +94,7 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
         payload: {
           title:                 data.title,
           description:           data.description,
+          status:                saveAsDraft ? 'draft' : undefined,
           priority:              data.priority,
           startDate:             dateRange.from ? dateRange.from.toISOString() : undefined,
           dueDate:               dateRange.to ? dateRange.to.toISOString() : undefined,
@@ -82,6 +105,7 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
           // explicit "clear them" — harmless on create, but it keeps the payload honest and
           // matches how the update path reads the same field.
           tagIds:                tagIds.length ? tagIds : undefined,
+          reviewerIds:           reviewerIds.length ? reviewerIds : undefined,
         },
         files,
       },
@@ -102,12 +126,13 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
       // the title input becomes a 900px-wide line for a one-line sentence, which is both harder
       // to read and further from the label than it should be.
       size="xl"
-      icon={
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-100">
-          <CheckSquare className="w-5 h-5 text-primary-600" />
-        </div>
-      }
-      title={<span className="text-xl font-semibold text-text">Add new delegation</span>}
+      // Was a fully pre-built rounded-full circle in a hardcoded, dark-mode-unaware bg-primary-100
+      // — Modal.tsx already wraps `icon` in its own size-10 rounded-xl tinted tile (see
+      // ICON_TONE_CLASS), so this was two tinted boxes nested inside each other, of two different
+      // shapes. Every other form (Ticket/Event/Category/Store/User/Department) just passes the
+      // bare icon and lets Modal's own tile do the work — matching that here instead.
+      icon={<CheckSquare className="w-5 h-5" />}
+      title="Add new delegation"
       // Says what the two panes are, in the order they're read: what the work is, then who and
       // when. The old copy ("Define objectives, set priorities…") described the act of filling
       // a form rather than telling anyone anything.
@@ -133,28 +158,49 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
             <span className="text-danger">*</span> Title is required — everything else can be added later.
           </p>
 
+          {/* Three hand-rolled <button>s with their own duplicated Tailwind soup — missing the
+              font-display class every other form's footer buttons carry, missing the press-feedback
+              (active:scale) the shared Button already gives every other button in the app, and
+              "Cancel"/"Save as draft" looked identical (nothing set them apart in emphasis).
+              Button's own outline/secondary/primary variants already express exactly that
+              hierarchy, and isLoading already swaps in the spinner — no need to hand-roll either. */}
           <div className="flex items-center justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={isBusy}
-              className="px-4 py-2.5 text-sm font-medium text-text-secondary bg-surface border border-border rounded-lg hover:bg-surface-hover hover:border-border-hover focus-visible:ring-2 focus-visible:ring-primary-500/40 outline-none transition-all duration-200 ease-in-out cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
-            >
+            <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={isBusy} className="font-display">
               Cancel
-            </button>
+            </Button>
+            {/* Same form, same validation (still needs a title) — just tags the submission as a
+                draft before onSubmit reads the flag, so a half-filled-out delegation has somewhere
+                to go besides "finish it now or lose it". */}
+            <Button
+              type="submit"
+              form="task-form"
+              variant="secondary"
+              size="sm"
+              onClick={() => setSaveAsDraft(true)}
+              disabled={isBusy}
+              isLoading={isDraftBusy}
+              className="font-display"
+            >
+              {!isDraftBusy && <FileEdit size={14} strokeWidth={2.5} />}
+              {isDraftBusy ? 'Saving…' : 'Save as draft'}
+            </Button>
             {/* "Create", not "Create delegation" — the narrower modal wrapped the longer label
                 onto two lines, which made the button taller than Cancel beside it. The icon
                 carries the rest of the meaning, and the dialog title already says what's being
-                created. `whitespace-nowrap` so it can never wrap again. */}
-            <button
+                created. */}
+            <Button
               type="submit"
               form="task-form"
+              variant="primary"
+              size="sm"
+              onClick={() => setSaveAsDraft(false)}
               disabled={isBusy}
-              className="px-6 py-2.5 text-sm font-semibold text-white bg-primary-700 hover:bg-primary-800 rounded-lg transition-all duration-200 ease-in-out inline-flex items-center justify-center gap-2 whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+              isLoading={isCreateBusy}
+              className="font-display"
             >
-              {isBusy ? <Loader size="sm" variant="white" /> : <Check size={16} strokeWidth={2.5} />}
-              {isBusy ? 'Creating…' : 'Create'}
-            </button>
+              {!isCreateBusy && <Check size={16} strokeWidth={2.5} />}
+              {isCreateBusy ? 'Creating…' : 'Create'}
+            </Button>
           </div>
         </div>
       }
@@ -170,16 +216,19 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
         noValidate
         aria-busy={isBusy}
       >
-        <div className="flex flex-col gap-5 p-5">
-          <section className="flex flex-col gap-4">
-            <h3 className={SECTION_LABEL_CLASS}>The work</h3>
+        <div className="flex flex-col gap-7 p-5">
+          <section className="flex flex-col gap-5">
+            <h3 className={SECTION_TITLE_CLASS}>
+              <ClipboardList size={14} />
+              The work
+            </h3>
 
             <Input
               id="title"
               label={<>Delegation title <span className="text-danger">*</span></>}
               placeholder="e.g. Complete the hallmarking audit for the Karol Bagh showroom"
               error={errors.title?.message}
-              className="text-base font-medium py-2.5 border-border focus:border-primary-500 focus:ring-primary-500/20 rounded-lg transition-all duration-200 ease-in-out"
+              className={errors.title ? 'font-display' : QUIET_FIELD_CLASS}
               labelClassName={FIELD_LABEL_CLASS}
               containerClassName={FIELD_CARD_CLASS}
               {...register('title')}
@@ -201,9 +250,13 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
                   value={field.value ?? ''}
                   onChange={field.onChange}
                   rows={4}
-                  label="Details"
+                  // Same word TaskDetail's own "Description" section heading uses for this exact
+                  // field — was "Details" here, so the one field had two different names depending
+                  // on whether you were creating or editing.
+                  label="Description"
                   placeholder="Context, constraints, acceptance criteria, links…"
                   toolbar={<AttachFilesToolbar onFiles={(list) => setFiles((prev) => [...prev, ...Array.from(list)])} />}
+                  containerClassName="border-transparent bg-surface-hover/50 focus-within:bg-surface"
                 >
                   {files.length > 0 && (
                     <StagedFileChips files={files} onRemove={(i) => setFiles((prev) => prev.filter((_, idx) => idx !== i))} />
@@ -213,14 +266,17 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
             />
           </section>
 
-          <section className="flex flex-col gap-4">
-            <h3 className={SECTION_LABEL_CLASS}>Assignment</h3>
+          <section className="flex flex-col gap-5">
+            <h3 className={SECTION_TITLE_CLASS}>
+              <UserCheck size={14} />
+              Assignment
+            </h3>
 
             {/* Two-up from sm. These five are all short controls; stacked one per row they made a
                 long ribbon of half-empty lines, and the modal taller than it needs to be. Pairing
                 them also puts each label at the same height as its neighbour, which is the "equal
                 alignment" the two-pane version could never give. */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-6">
               <AssigneeField
                 selectedIds={assigneeIds}
                 onChange={setAssigneeIds}
@@ -249,7 +305,7 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
                   value={dateRange}
                   onChange={setDateRange}
                   placeholder="Start → deadline"
-                  triggerClassName="w-full py-2.5 bg-surface border border-border rounded-lg hover:border-border-hover focus:ring-2 focus:ring-primary-500/20 transition-all duration-200 ease-in-out"
+                  triggerClassName="w-full py-2.5 border-transparent bg-surface-hover/50 hover:bg-surface-hover rounded-lg focus:ring-2 focus:ring-primary-500/20 transition-colors duration-200 ease-in-out"
                 />
               </div>
 
@@ -262,6 +318,7 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
                     onChange={field.onChange}
                     departments={departments}
                     isLoading={isLoadingDepts}
+                    triggerClassName="border-transparent bg-surface-hover/50 hover:bg-surface-hover"
                   />
                 )}
               />
@@ -275,6 +332,17 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
                   onChange={setTagIds}
                   canCreate={isVerifier}
                   disabled={isBusy}
+                />
+              </div>
+
+              {/* Full width too, same reason — a checkbox list of names needs room to breathe.
+                  Scoped to whichever department is currently selected; picking a specific person
+                  to review this on top of the usual PC/Admin/department-head reach. */}
+              <div className="sm:col-span-2">
+                <ReviewersField
+                  departmentId={selectedDepartmentId || undefined}
+                  selected={reviewerIds}
+                  onChange={setReviewerIds}
                 />
               </div>
             </div>

@@ -228,15 +228,15 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-surface-hover/30">
-                  <th className="text-left font-display font-semibold text-text-muted text-[11px] uppercase tracking-wider px-3 py-2">Title</th>
-                  <th className="text-left font-display font-semibold text-text-muted text-[11px] uppercase tracking-wider px-3 py-2">Description</th>
-                  <th className="text-left font-display font-semibold text-text-muted text-[11px] uppercase tracking-wider px-3 py-2">Assignee</th>
-                  <th className="text-left font-display font-semibold text-text-muted text-[11px] uppercase tracking-wider px-3 py-2">Department</th>
-                  <th className="text-left font-display font-semibold text-text-muted text-[11px] uppercase tracking-wider px-3 py-2">Store</th>
-                  <th className="text-left font-display font-semibold text-text-muted text-[11px] uppercase tracking-wider px-3 py-2">Category</th>
-                  <th className="text-left font-display font-semibold text-text-muted text-[11px] uppercase tracking-wider px-3 py-2">Priority</th>
-                  <th className="text-left font-display font-semibold text-text-muted text-[11px] uppercase tracking-wider px-3 py-2">TAT (hrs)</th>
-                  <th className="text-left font-display font-semibold text-text-muted text-[11px] uppercase tracking-wider px-3 py-2">Labels</th>
+                  <th className="text-left font-display font-semibold text-text-muted text-[11px] tracking-wide px-3 py-2">Title</th>
+                  <th className="text-left font-display font-semibold text-text-muted text-[11px] tracking-wide px-3 py-2">Description</th>
+                  <th className="text-left font-display font-semibold text-text-muted text-[11px] tracking-wide px-3 py-2">Assignee</th>
+                  <th className="text-left font-display font-semibold text-text-muted text-[11px] tracking-wide px-3 py-2">Department</th>
+                  <th className="text-left font-display font-semibold text-text-muted text-[11px] tracking-wide px-3 py-2">Store</th>
+                  <th className="text-left font-display font-semibold text-text-muted text-[11px] tracking-wide px-3 py-2">Category</th>
+                  <th className="text-left font-display font-semibold text-text-muted text-[11px] tracking-wide px-3 py-2">Priority</th>
+                  <th className="text-left font-display font-semibold text-text-muted text-[11px] tracking-wide px-3 py-2">TAT (hrs)</th>
+                  <th className="text-left font-display font-semibold text-text-muted text-[11px] tracking-wide px-3 py-2">Labels</th>
                   <th className="w-10" />
                 </tr>
               </thead>

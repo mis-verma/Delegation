@@ -81,9 +81,12 @@ export const useCardFieldVisibility = () => {
   return { visibility, toggle };
 };
 
-export const CATEGORY_CONFIG: Record<Task['category'], { label: string; icon: LucideIcon; className: string }> = {
-  issue: { label: 'Issue', icon: Bug, className: 'bg-danger/10 text-danger' },
-  delegation: { label: 'Delegation', icon: UserCheck, className: 'bg-info/10 text-info' },
+// `solid` feeds the shared IconChip's icon circle (see components/iconChip) everywhere this
+// renders as a chip (TaskCard, TaskTable) — a full-strength color, not a translucent tint, since a
+// white icon needs real contrast to read against it.
+export const CATEGORY_CONFIG: Record<Task['category'], { label: string; icon: LucideIcon; solid: string }> = {
+  issue: { label: 'Issue', icon: Bug, solid: 'bg-danger' },
+  delegation: { label: 'Delegation', icon: UserCheck, solid: 'bg-info' },
 };
 
 export const subtaskProgress = (task: { checklists?: { items: { isDone: boolean }[] }[] }) => {

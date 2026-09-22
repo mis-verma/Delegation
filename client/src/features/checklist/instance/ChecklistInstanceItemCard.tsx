@@ -154,12 +154,12 @@ export const ChecklistInstanceItemCard = ({ item, instanceId, canWork, isLocked 
         <div className="flex flex-col gap-2">
           {uploadImages.isError && (
             <p className="text-xs text-danger">
-              {uploadImages.error instanceof Error ? uploadImages.error.message : 'Upload failed.'}
+              {uploadImages.error instanceof Error ? uploadImages.error.message : "Couldn't upload that."}
             </p>
           )}
           {setItemDone.isError && (
             <p className="text-xs text-danger">
-              {setItemDone.error instanceof Error ? setItemDone.error.message : 'Could not complete item.'}
+              {setItemDone.error instanceof Error ? setItemDone.error.message : "Couldn't mark this done."}
             </p>
           )}
 

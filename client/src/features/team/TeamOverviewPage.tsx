@@ -128,7 +128,9 @@ export const TeamOverviewPage = () => {
         </div>
       </div>
 
-      <Breadcrumbs items={breadcrumbs} />
+      {/* Only shown once there's an actual trail — at the top level it would be a single,
+          unclickable crumb that just repeats the h1 above it with no navigational value. */}
+      {departmentId && <Breadcrumbs items={breadcrumbs} />}
 
       {isPending ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">

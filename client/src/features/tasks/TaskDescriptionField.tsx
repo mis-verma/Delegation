@@ -1,5 +1,11 @@
 import type { ReactNode } from 'react';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 import { FIELD_LABEL_CLASS } from './taskFormFieldStyles';
+
+function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
 
 interface TaskDescriptionFieldProps {
   id?: string;
@@ -19,6 +25,10 @@ interface TaskDescriptionFieldProps {
   toolbar?: ReactNode;
 
   children?: ReactNode;
+
+  /** Extra classes merged onto the bordered wrapper — for a caller that wants a quieter fill
+   *  instead of the default visible border (e.g. TaskForm's Notion-style treatment). */
+  containerClassName?: string;
 }
 
 export const TaskDescriptionField = ({
@@ -32,6 +42,7 @@ export const TaskDescriptionField = ({
   label,
   toolbar,
   children,
+  containerClassName,
 }: TaskDescriptionFieldProps) => (
   // Sizes to its `rows`, rather than stretching to fill its parent. It used to carry
   // `flex-1 min-h-0`, which inside TaskForm's flex column meant the textarea absorbed every
@@ -44,7 +55,7 @@ export const TaskDescriptionField = ({
       </label>
     )}
 
-    <div className="flex flex-col rounded-lg border border-border bg-surface transition-colors focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-500/20 overflow-hidden">
+    <div className={cn('flex flex-col rounded-lg border border-border bg-surface transition-colors focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-500/20 overflow-hidden', containerClassName)}>
       <textarea
         id={id}
         value={value}
@@ -53,7 +64,7 @@ export const TaskDescriptionField = ({
         disabled={disabled}
         placeholder={placeholder}
         rows={rows}
-        className="w-full px-3 py-2.5 text-sm text-text bg-transparent outline-none resize-y placeholder:text-text-light disabled:text-text-light disabled:cursor-not-allowed" 
+        className="w-full px-3 py-2.5 text-sm font-display text-text bg-transparent outline-none resize-y placeholder:text-text-light disabled:text-text-light disabled:cursor-not-allowed"
       />
 
       {toolbar && (

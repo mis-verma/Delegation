@@ -11,5 +11,15 @@ export const FIELD_LABEL_ICON_CLASS =
 export const FIELD_CARD_CLASS = '';
 
 /** Capitalized (not uppercase) group heading (e.g. "Title", "Properties") — a level above
- *  FIELD_LABEL_CLASS, used to introduce a whole section rather than label one field. */
-export const SECTION_LABEL_CLASS = 'text-xs font-bold text-text-light';
+ *  FIELD_LABEL_CLASS, used to introduce a whole section rather than label one field. `flex items-
+ *  center gap-1.5` (added alongside its first icon) lines up an icon the same way every per-field
+ *  label here already does via FIELD_LABEL_CLASS — plain text with no `gap` cost these headings
+ *  nothing when they had no icon, so this is a no-op for spacing until one is added. */
+export const SECTION_LABEL_CLASS = 'text-xs font-bold text-text-light flex items-center gap-1.5';
+
+/** TaskForm's own top-level section dividers ("The work", "Assignment"). Quiet, Notion-style group
+ *  label — no bold weight, no icon tint, no rule underneath; same reference as the Create Ticket
+ *  modal's identical heading, which a bold+bordered treatment read as too heavy for a label above a
+ *  cluster of fields inside one modal. Kept separate from SECTION_LABEL_CLASS above (still used by
+ *  TaskDetail.tsx as-is) rather than changing it in place. */
+export const SECTION_TITLE_CLASS = 'flex items-center gap-2 text-xs font-display font-semibold text-text-light';

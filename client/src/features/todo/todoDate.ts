@@ -1,8 +1,5 @@
-export const isSameDay = (a: Date, b: Date) =>
+const isSameDay = (a: Date, b: Date) =>
   a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-
-export const dateKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-
 
 export const relativeDayLabel = (date: Date, now: Date = new Date()) => {
   if (isSameDay(date, now)) return 'Today';

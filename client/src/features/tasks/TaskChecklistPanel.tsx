@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, CheckSquare } from 'lucide-react';
+import { Plus, CheckSquare, ListChecks } from 'lucide-react';
 import { Button } from '../../components';
 import type { TaskChecklist } from '../../api/taskChecklist';
 import { NewChecklistForm } from './NewChecklistForm';
@@ -21,7 +21,10 @@ export const TaskChecklistPanel = ({ taskId, checklists, isAdmin, currentUserId 
       {/* Header Section */}
       <div className="flex items-center justify-between gap-4 flex-wrap pb-4 border-b border-border">
         <div>
-          <h3 className="text-lg font-bold text-text tracking-tight">Checklists</h3>
+          <h3 className="flex items-center gap-2 text-lg font-bold text-text tracking-tight">
+            <ListChecks size={18} className="text-primary-600 dark:text-primary-400" strokeWidth={2.25} />
+            Checklists
+          </h3>
           <p className="text-sm text-text-muted mt-0.5">Track sub-tasks and required evidence</p>
         </div>
         {isAdmin && !adding && (

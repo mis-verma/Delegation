@@ -51,8 +51,8 @@ export const EmptyState = ({ label, description, Icon, className }: EmptyStatePr
       className
     )}
   >
-    <div className="mb-4 text-text-light">
-      <Icon className="w-8 h-8" strokeWidth={1.5} />
+    <div className="flex items-center justify-center mb-4 size-14 rounded-full bg-surface border border-border text-text-muted">
+      <Icon className="w-6 h-6" strokeWidth={1.5} />
     </div>
 
     <h3 className="text-base sm:text-lg font-bold text-text">

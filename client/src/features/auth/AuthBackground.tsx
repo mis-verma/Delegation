@@ -1,4 +1,5 @@
 import { ModernHeroTitle } from "../../components";
+import { usePublicSettingsQuery } from "../../lib/maintenance";
 
 interface AuthBackgroundProps {
     tagline?: string;
@@ -7,6 +8,9 @@ interface AuthBackgroundProps {
 export const AuthBackground = ({
     tagline = 'Built for teams that move fast and never miss what matters.',
 }: AuthBackgroundProps) => {
+    const { data: publicSettings } = usePublicSettingsQuery();
+    const orgName = publicSettings?.orgName ?? 'Karya';
+
     return (
         <div className="flex flex-col justify-between h-full w-full relative z-10 py-1">
             {/* Ambient background decoration shapes */}
@@ -23,7 +27,7 @@ export const AuthBackground = ({
                     {tagline}
                 </p>
                 <p className="text-white/25 text-[10px] font-mono tracking-widest uppercase">
-                    &copy; {new Date().getFullYear()} Karya
+                    &copy; {new Date().getFullYear()} {orgName}
                 </p>
             </div>
         </div>

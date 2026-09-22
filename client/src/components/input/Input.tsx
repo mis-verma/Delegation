@@ -41,7 +41,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           <label
             htmlFor={id}
             className={cn(
-              "flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-text-muted transition-colors duration-150 group-focus-within/input:text-primary-600 px-1",
+              "flex items-center gap-1.5 text-[11px] font-bold tracking-wide text-text-muted transition-colors duration-150 group-focus-within/input:text-primary-600 px-1",
               labelClassName
             )}
           >

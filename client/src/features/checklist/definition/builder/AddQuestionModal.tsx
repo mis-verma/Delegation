@@ -95,7 +95,7 @@ export const AddQuestionModal = ({
               htmlFor="quick-add-label"
               className="text-xs font-display font-semibold text-text"
             >
-              Task prompt or question <span className="text-danger">*</span>
+              What should staff do or answer? <span className="text-danger">*</span>
             </label>
             <span className="text-[11px] text-text-muted">
               What store staff will see
@@ -116,7 +116,7 @@ export const AddQuestionModal = ({
 
           {!hasLabel && (
             <p className="text-[11px] font-display text-text-muted">
-              Enter a clear, actionable title for this task.
+              Make it specific enough that anyone on shift knows exactly what to do.
             </p>
           )}
         </div>

@@ -1,7 +1,11 @@
+import type { LucideIcon } from 'lucide-react';
+import { IconChip } from '../iconChip';
+
 export interface PriorityChipMeta {
   label: string;
-  className: string;
-  accent: string;
+  /** Solid bg-* class for the chip's icon circle — see IconChip. */
+  solid: string;
+  icon: LucideIcon;
 }
 
 interface PriorityChipProps {
@@ -9,14 +13,10 @@ interface PriorityChipProps {
   className?: string;
 }
 
-const DEFAULT_CLASS = 'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium';
-
-// A colored dot + label chip driven by a domain's own priority map (Task's PRIORITY_MAP, Ticket's
-// PRIORITY_CONFIG — same {label, className, accent} shape) — shared here so tasks and tickets
-// render priority identically instead of each hand-rolling the same dot+label markup.
-export const PriorityChip = ({ meta, className = DEFAULT_CLASS }: PriorityChipProps) => (
-  <span className={`${className} ${meta.className}`}>
-    <span className={`size-1.5 rounded-full shrink-0 ${meta.accent}`} />
-    {meta.label}
-  </span>
+// A colored icon circle + label chip driven by a domain's own priority map (Task's PRIORITY_MAP,
+// Ticket's PRIORITY_CONFIG — both carry this {label, solid, icon} shape alongside their other,
+// non-chip fields like `bar`/`stripe` for the Gantt views) — shared here so tasks and tickets
+// render priority identically instead of each hand-rolling the same markup.
+export const PriorityChip = ({ meta, className }: PriorityChipProps) => (
+  <IconChip icon={meta.icon} tone={meta.solid} label={meta.label} className={className} />
 );

@@ -5,7 +5,7 @@ import type { Tag } from './tags';
 
 export type Priority       = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type AssignmentMode = 'AUTO' | 'MANUAL';
-export type TicketStatus   = 'OPEN' | 'IN_PROGRESS' | 'IN_REVIEW' | 'CLOSED' | 'ON_HOLD';
+export type TicketStatus   = 'OPEN' | 'IN_PROGRESS' | 'PENDING_APPROVAL' | 'CLOSED' | 'ON_HOLD';
 
 export type TatReportGroupBy = "hour" | "day" | "week" | "month" | "year"
 
@@ -32,7 +32,7 @@ export type CaptureMethod = 'LIVE' | 'GALLERY';
 
 // The restricted set of statuses a non-verifier (assignee/creator/manager) can move a ticket to
 // via the status-update flow — see ticket.validation.ts on the server for the matching schema.
-export const RESTRICTED_STATUSES = ['IN_PROGRESS', 'ON_HOLD', 'IN_REVIEW'] as const;
+export const RESTRICTED_STATUSES = ['IN_PROGRESS', 'ON_HOLD', 'PENDING_APPROVAL'] as const;
 export type RestrictedStatus = typeof RESTRICTED_STATUSES[number];
 
 export type ChecklistImage = {
@@ -128,6 +128,10 @@ export type Ticket = {
   verifiedAt:       string | null;
   verificationNote: string | null;
   verifier:         { id: string; email: string; firstName: string; role: string } | null;
+  /** Explicit reviewers — additive on top of the role-based verify rule (ADMIN/PC always,
+   *  MANAGER/HOD within the ticket's own department). Anyone named here can approve/reject this
+   *  ticket regardless of role or department. */
+  reviewers:        { id: string; firstName: string; lastName: string | null; email: string }[];
 };
 
 export type PaginatedResponse<T> = {
@@ -152,11 +156,33 @@ export type CreateTicketPayload = {
   departmentId?:   string;
   tatHours?:       number;
   tagIds?:         string[];
+  /** User ids to name as explicit reviewers — see Ticket['reviewers']. */
+  reviewerIds?:    string[];
 };
 
 export type UpdateTicketPayload = Partial<Omit<CreateTicketPayload, 'assigneeId'> & { status: TicketStatus; assigneeId: string | null }>;
 
 export type VerifyTicketPayload = { action: 'APPROVE' | 'REJECT'; note?: string };
+
+/** Mirrors the server's TicketSummaryRow (ticket.service.ts) — powers the sidebar's "Tickets"
+ *  count badge and its hover breakdown. Always "mine" (raiser/assignee), not org-wide, regardless
+ *  of role — see the summary() doc comment server-side for why. */
+export type TicketSummary = {
+  total:     number;
+  newToday:  number;
+  due:       number;
+  overdue:   number;
+  completed: number;
+};
+
+/** Dashboard's "Needs your approval" card — one row per ticket currently awaiting an ADMIN/PC's
+ *  sign-off. Org-wide (not "mine" like TicketSummary above), matching who can act on it. */
+export type TicketPendingApproval = {
+  id: string;
+  title: string;
+  submittedBy: string | null;
+  waitingSince: string;
+};
 
 export type CreateChecklistItemPayload = {
   label:               string;
@@ -194,6 +220,7 @@ const ticketArrayDefaults = withArrayDefaults({
   // Ticket rows that existed before this feature shipped have no tags at all — guarded the same
   // way the others are so an old ticket doesn't crash a `.map()` somewhere expecting an array.
   tags: arrayField(z.unknown()),
+  reviewers: arrayField(z.unknown()),
 });
 const normalizeTicket = (raw: unknown) => normalizeWith<Ticket>(ticketArrayDefaults, raw);
 
@@ -212,6 +239,12 @@ export const ticketApi = {
 
   getOne: (id: string) =>
     apiFetch<ApiResponse<Ticket>>(`/tickets/${id}`).then(r => ({ ...r, data: normalizeTicket(r.data) })),
+
+  getSummary: (): Promise<TicketSummary> =>
+    apiFetch<ApiResponse<TicketSummary>>('/tickets/summary').then(r => r.data),
+
+  getPendingApproval: (): Promise<TicketPendingApproval[]> =>
+    apiFetch<ApiResponse<TicketPendingApproval[]>>('/tickets/pending-approval').then(r => r.data),
 
   create: (payload: CreateTicketPayload) =>
     apiFetch<ApiResponse<Ticket>>('/tickets', { method: 'POST', body: JSON.stringify(payload) }).then(r => ({ ...r, data: normalizeTicket(r.data) })),

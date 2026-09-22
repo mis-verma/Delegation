@@ -43,6 +43,32 @@ export const useTicketsQuery = (page = 1, limit = 20, assigneeId?: string, enabl
   });
 };
 
+// The sidebar's "Tickets" count badge and its hover breakdown — a real server-side aggregate
+// (ticket.service.ts#summary), not a client-side reduce over useTicketsQuery's own capped page,
+// and one that doesn't require pulling the whole list just to count it on every route (the
+// sidebar renders everywhere).
+export const useTicketSummaryQuery = (enabled = true) => {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: ['tickets', 'summary'] as const,
+    queryFn: () => ticketApi.getSummary(),
+    enabled: !!token && enabled,
+    retry: handleQueryRetry,
+  });
+};
+
+// Dashboard's "Needs your approval" card — `enabled` is the caller's own role check (ADMIN/PC
+// only), same convention as useTicketSummaryQuery's own `enabled` param.
+export const useTicketPendingApprovalQuery = (enabled = true) => {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: ['tickets', 'pending-approval'] as const,
+    queryFn: () => ticketApi.getPendingApproval(),
+    enabled: !!token && enabled,
+    retry: handleQueryRetry,
+  });
+};
+
 export const useTicketQuery = (id: string) => {
   const { token } = useAuth();
   return useQuery({
@@ -103,14 +129,14 @@ export const useTicketStatusMoveMutation = () =>
     errorFallback: 'Failed to update status',
   });
 
-// Powers the PC verification queue — tickets waiting on a given status (IN_REVIEW), scoped
+// Powers the PC verification queue — tickets waiting on a given status (PENDING_APPROVAL), scoped
 // server-side to whatever the requester is allowed to see (PC/ADMIN get their whole department).
-export const useTicketsByStatusQuery = (status: TicketStatus, limit = 100) => {
+export const useTicketsByStatusQuery = (status: TicketStatus, limit = 100, enabled = true) => {
   const { token } = useAuth();
   return useQuery({
     queryKey: ['tickets', 'by-status', status],
     queryFn: () => ticketApi.getAll(1, limit, status).then(r => r.data),
-    enabled: !!token,
+    enabled: !!token && enabled,
     retry: handleQueryRetry,
   });
 };
@@ -296,23 +322,23 @@ const DEPARTMENT_KEY = {
   all: ["departments"] as const,
 };
 
-export const useDepartmentsQuery = () => {
+export const useDepartmentsQuery = (enabled: boolean = true) => {
   const { token } = useAuth();
   return useQuery({
     queryKey: DEPARTMENT_KEY.all,
     queryFn: () => departmentApi.getAll().then(r => r.data),
-    enabled: !!token,
+    enabled: !!token && enabled,
     retry: handleQueryRetry,
     staleTime: ORG_STRUCTURE_STALE_TIME,
   });
 };
 
-export const useStoresQuery = () => {
+export const useStoresQuery = (enabled: boolean = true) => {
   const { token } = useAuth();
   return useQuery({
     queryKey: ['stores'] as const,
     queryFn: () => storeApi.getAll().then(r => r.data),
-    enabled: !!token,
+    enabled: !!token && enabled,
     retry: handleQueryRetry,
     staleTime: ORG_STRUCTURE_STALE_TIME,
   });

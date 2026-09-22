@@ -27,7 +27,7 @@ export const SortOptionRow = <K extends string>({ labels, icons, value, onChange
         <DropdownMenuTrigger asChild>
           <Button variant="secondary" size="sm" className="h-9 px-3 gap-1.5 border border-border/60 rounded-lg w-fit">
             <ActiveIcon size={14} className="text-text-muted" />
-            <span className="text-xs font-medium">{labels[value]}</span>
+            <span className="text-xs font-display font-medium">{labels[value]}</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-44 rounded-xl">
@@ -36,7 +36,7 @@ export const SortOptionRow = <K extends string>({ labels, icons, value, onChange
             return (
               <DropdownMenuItem key={key} onClick={() => onChange(key)} className="gap-2.5 py-2 cursor-pointer">
                 <Icon size={14} className="text-text-muted" />
-                <span className="font-medium text-sm">{labels[key]}</span>
+                <span className="font-display font-medium text-sm">{labels[key]}</span>
                 {value === key && <Check size={14} className="ml-auto text-primary-600" />}
               </DropdownMenuItem>
             );

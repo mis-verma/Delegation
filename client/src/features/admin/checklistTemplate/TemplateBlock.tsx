@@ -104,7 +104,7 @@ export const TemplateBlock = ({ template, departmentName }: TemplateBlockProps) 
             {template.items.length === 0 && (
               <div className="px-6 py-6 text-center text-xs text-text-muted font-display flex flex-col items-center gap-1">
                 <Sparkles size={16} className="text-text-muted/60" />
-                <span>No checklist steps added yet. Add your first step below!</span>
+                <span>No steps added yet. Add your first step below!</span>
               </div>
             )}
 

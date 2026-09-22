@@ -1,5 +1,6 @@
 import { History, Camera, User, ArrowRight, Eye } from 'lucide-react';
-import { SECTION_HEADER, STATUS_UPDATE_OPTIONS, UPLOADS_BASE } from './detailConstants';
+import { SECTION_HEADER, UPLOADS_BASE } from './detailConstants';
+import { StatusChip, getStatusChipLabel, type StatusChipStatus } from '../../../components/statusChip';
 import type { TicketStatusUpdate } from '../../../api/ticket';
 
 interface TicketStatusHistoryProps {
@@ -37,9 +38,7 @@ export const TicketStatusHistory = ({ statusUpdates, onPreview }: TicketStatusHi
       {/* Vertical Timeline Wrapper */}
       <div className="relative pl-5 space-y-5 before:absolute before:left-[9px] before:top-2 before:bottom-2 before:w-0.5 before:bg-border">
         {statusUpdates.map((su, index) => {
-          const statusOption = STATUS_UPDATE_OPTIONS.find((o) => o.value === su.toStatus);
-          const statusLabel = statusOption?.label ?? su.toStatus;
-          
+          const statusChipStatus = su.toStatus.toLowerCase() as StatusChipStatus;
           const userDisplayName = su.changedBy?.firstName || 'Unknown';
           const isLatest = index === 0;
 
@@ -59,17 +58,15 @@ export const TicketStatusHistory = ({ statusUpdates, onPreview }: TicketStatusHi
                       {userDisplayName}
                     </span>
 
-                    <span className="text-text-muted flex items-center gap-1 text-[11px] font-medium uppercase tracking-wider">
+                    <span className="text-text-muted flex items-center gap-1 text-[11px] font-medium tracking-wide">
                       <ArrowRight size={12} className="text-text-light" />
                       <span>moved to</span>
                     </span>
 
-                    <span className="px-2.5 py-1 rounded-lg bg-primary-500/10 text-primary-700 dark:text-primary-400 font-bold text-xs border border-primary-500/20 shadow-sm">
-                      {statusLabel}
-                    </span>
+                    <StatusChip status={statusChipStatus} label={getStatusChipLabel(statusChipStatus)} />
                   </div>
 
-                  <span className="text-[11px] text-text-muted font-bold uppercase tracking-wide">
+                  <span className="text-[11px] text-text-muted font-bold tracking-wide">
                     {formatDateTime(su.createdAt)}
                   </span>
                 </div>
@@ -84,7 +81,7 @@ export const TicketStatusHistory = ({ statusUpdates, onPreview }: TicketStatusHi
 
                 {su.photos && su.photos.length > 0 && (
                   <div className="flex flex-col gap-3 pt-3 mt-1 border-t border-border">
-                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-text-muted uppercase tracking-wider">
+                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-text-muted tracking-wide">
                       <Camera size={14} className="text-text-light" />
                       <span>Evidence ({su.photos.length})</span>
                     </div>

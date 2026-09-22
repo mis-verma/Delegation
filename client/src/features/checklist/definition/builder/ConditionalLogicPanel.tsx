@@ -108,7 +108,7 @@ const RuleRow = ({
       ) : (
         <div className="flex items-center gap-1 text-[11px] font-display text-text-muted px-1">
           <AlertCircle size={11} className="shrink-0" />
-          <span>Select at least one action above to activate this rule.</span>
+          <span>Pick at least one action above to turn this rule on.</span>
         </div>
       )}
     </div>

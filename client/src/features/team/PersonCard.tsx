@@ -27,7 +27,7 @@ export const PersonCard = ({ row, onClick }: { row: PersonCardRow; onClick: () =
       <button
         type="button"
         onClick={onClick}
-        className="group/info flex items-center gap-2.5 min-w-0 text-left cursor-pointer outline-none rounded-lg focus-visible:ring-2 focus-visible:ring-primary-500/30"
+        className="group/info flex flex-1 items-center gap-2.5 min-w-0 text-left cursor-pointer outline-none rounded-lg focus-visible:ring-2 focus-visible:ring-primary-500/30"
       >
         <div className={`flex items-center justify-center size-9 rounded-full text-white text-xs font-bold shrink-0 ${avatarColorClass(row.name)}`}>
           {getInitials(row.name)}

@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Clock, MessageSquare, Loader2 } from 'lucide-react';
+import { Clock, MessageSquare } from 'lucide-react';
 import { useSetChecklistInstanceItemDoneMutation } from '../hook';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '../../../components/ui/dialog';
+import { Button } from '../../../components';
 import { useConfirm } from '@/components/confirmDialog';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 
@@ -93,22 +94,13 @@ export const ItemRemarksField = ({ item, instanceId, required }: ItemRemarksFiel
 
         <DialogFooter>
           <DialogClose asChild>
-            <button
-              type="button"
-              className="px-4 py-2 text-sm font-display font-medium text-text-secondary rounded-lg border border-border hover:bg-surface-hover transition-colors cursor-pointer"
-            >
+            <Button type="button" variant="outline" size="sm">
               Cancel
-            </button>
+            </Button>
           </DialogClose>
-          <button
-            type="button"
-            onClick={save}
-            disabled={mutation.isPending || !value.trim()}
-            className="flex items-center justify-center gap-1.5 px-4 py-2 text-sm font-display font-medium text-white bg-primary-700 hover:bg-primary-800 rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {mutation.isPending && <Loader2 size={14} className="animate-spin" />}
+          <Button type="button" variant="primary" size="sm" onClick={save} disabled={!value.trim()} isLoading={mutation.isPending}>
             Save
-          </button>
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

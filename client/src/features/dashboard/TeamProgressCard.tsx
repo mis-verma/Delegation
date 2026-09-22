@@ -1,15 +1,17 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Users, Info, ChevronDown, ArrowUpRight, ArrowDownRight, Clock, AlertTriangle } from 'lucide-react';
-import { RadialGauge } from '../../components';
+import { RadialGauge, EntityIconTile } from '../../components';
 import { Popover, PopoverTrigger, PopoverContent } from '../../components/ui/popover';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '../../components/ui/dropdown-menu';
+import { Badge } from '../../components/ui/badge';
+import { Separator } from '../../components/ui/separator';
 import { DrilldownModal, type DrilldownRow } from './DrilldownModal';
+import { DASHBOARD_CARD_CLASS } from './dashboardDisplay';
 import type { Task } from '../../api/task';
 
 interface TeamProgressCardProps {
-  /** Same workflow-scoped list KpiStrip's Process & Workflow card uses — org-wide for ADMIN/PC,
-   *  "mine" otherwise — so this card's counts always agree with that one. */
+
   tasks: Task[];
   isOrgWideRole: boolean;
 }
@@ -43,12 +45,7 @@ const taskRow = (t: Task): DrilldownRow => ({
   overdue: t.status !== 'done' && !!t.dueDate && new Date(t.dueDate).getTime() < Date.now(),
 });
 
-/**
- * The "Your team's progress" card from the design brief, adapted to this app's own vocabulary —
- * there's no sprint or scheduled meeting concept here, so those two detail rows became "Overdue"
- * and "Due today" instead, and the ApexCharts radial chart is the same RadialGauge every other
- * compliance-style chart on this dashboard already uses rather than a second charting library.
- */
+
 export const TeamProgressCard = ({ tasks, isOrgWideRole }: TeamProgressCardProps) => {
   const navigate = useNavigate();
   const [period, setPeriod] = useState<ProgressPeriod>('7d');
@@ -66,7 +63,7 @@ export const TeamProgressCard = ({ tasks, isOrgWideRole }: TeamProgressCardProps
   const inPeriod = tasks.filter((t) => { const c = new Date(t.createdAt).getTime(); return c >= start.getTime() && c < end.getTime(); });
 
   const todo = inPeriod.filter((t) => t.status === 'todo');
-  const inProgress = inPeriod.filter((t) => t.status === 'in_progress' || t.status === 'pending_verification');
+  const inProgress = inPeriod.filter((t) => t.status === 'in_progress' || t.status === 'pending_approval');
   const done = inPeriod.filter((t) => t.status === 'done');
   const total = inPeriod.length;
   const completionRate = total > 0 ? Math.round((done.length / total) * 100) : 0;
@@ -80,20 +77,18 @@ export const TeamProgressCard = ({ tasks, isOrgWideRole }: TeamProgressCardProps
   });
 
   const TILES = [
-    { key: 'todo', label: 'To do', count: todo.length, rows: todo, tone: 'bg-primary-50 dark:bg-primary-500/10 border-primary-100 dark:border-primary-800/50 text-primary-700 dark:text-primary-400', badge: 'bg-primary-100 dark:bg-primary-500/20 text-primary-700 dark:text-primary-300' },
-    { key: 'in_progress', label: 'In progress', count: inProgress.length, rows: inProgress, tone: 'bg-warning/5 border-warning/20 text-warning', badge: 'bg-warning/15 text-warning' },
-    { key: 'done', label: 'Done', count: done.length, rows: done, tone: 'bg-success/5 border-success/20 text-success', badge: 'bg-success/15 text-success' },
+    { key: 'todo', label: 'To do', count: todo.length, rows: todo, dot: 'bg-text-muted' },
+    { key: 'in_progress', label: 'In progress', count: inProgress.length, rows: inProgress, dot: 'bg-warning' },
+    { key: 'done', label: 'Done', count: done.length, rows: done, dot: 'bg-success' },
   ] as const;
 
   const reportHref = isOrgWideRole ? '/admin/reports' : '/tasks';
 
   return (
-    <section aria-labelledby="team-progress-heading" className="rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface p-4 sm:p-6 lg:p-7 flex flex-col gap-4">
+    <section aria-labelledby="team-progress-heading" className={`${DASHBOARD_CARD_CLASS} p-4 sm:p-6 lg:p-7 flex flex-col gap-4`}>
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-primary-50 dark:bg-primary-500/10 border border-primary-100 dark:border-primary-800/50 text-primary-600 dark:text-primary-400 shadow-sm">
-            <Users size={20} strokeWidth={2.5} />
-          </div>
+          <EntityIconTile icon={Users} />
           <div className="flex items-center gap-1.5">
             <h2 id="team-progress-heading" className="text-base sm:text-lg font-display font-bold text-text tracking-tight leading-tight">
               Team&rsquo;s progress
@@ -126,12 +121,13 @@ export const TeamProgressCard = ({ tasks, isOrgWideRole }: TeamProgressCardProps
             key={tile.key}
             type="button"
             onClick={() => setDrilldown({ title: `${tile.label} delegations`, rows: tile.rows.map(taskRow), href: '/tasks' })}
-            className={`flex flex-col items-center justify-center gap-1.5 h-[72px] sm:h-20 rounded-xl border transition-colors duration-200 cursor-pointer hover:brightness-95 dark:hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${tile.tone}`}
+            className="flex flex-col justify-center gap-1.5 h-[72px] sm:h-20 px-3 rounded-xl border border-border/60 bg-surface-hover/30 transition-colors duration-200 cursor-pointer hover:bg-surface-hover hover:border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
           >
-            <span className={`flex items-center justify-center size-8 rounded-full text-sm font-display font-bold tabular-nums ${tile.badge}`}>
-              {tile.count}
+            <span className="flex items-center gap-1.5 text-[11px] font-display font-semibold text-text-muted">
+              <span className={`size-1.5 rounded-full shrink-0 ${tile.dot}`} />
+              {tile.label}
             </span>
-            <span className="text-[13px] font-display font-semibold">{tile.label}</span>
+            <span className="text-xl font-display font-bold tabular-nums text-text">{tile.count}</span>
           </button>
         ))}
       </div>
@@ -153,10 +149,13 @@ export const TeamProgressCard = ({ tasks, isOrgWideRole }: TeamProgressCardProps
           <div className="flex flex-col gap-2 pt-1.5 border-t border-border/50 animate-in fade-in slide-in-from-top-1 duration-200">
             <div className="flex items-center justify-between gap-3 text-[13px]">
               <span className="text-text-secondary">Average completion rate</span>
-              <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-xs font-bold tabular-nums ${completionRate >= 50 ? 'bg-success/10 border-success/20 text-success' : 'bg-danger/10 border-danger/20 text-danger'}`}>
+              <Badge
+                variant={completionRate >= 50 ? 'success' : 'destructive'}
+                className={`text-xs tabular-nums ${completionRate >= 50 ? 'bg-success/10' : 'bg-danger/10'}`}
+              >
                 {completionRate >= 50 ? <ArrowUpRight size={12} strokeWidth={3} /> : <ArrowDownRight size={12} strokeWidth={3} />}
                 {completionRate}%
-              </span>
+              </Badge>
             </div>
             <button
               type="button"
@@ -179,22 +178,38 @@ export const TeamProgressCard = ({ tasks, isOrgWideRole }: TeamProgressCardProps
       </div>
 
       {/* Radial chart — the same RadialGauge every other compliance-style chart on this dashboard
-          uses, not a second charting library pulled in for one card. */}
-      <div className="flex flex-col items-center gap-1 py-1">
-        <RadialGauge percent={completionRate} size={128} variant="circle" gradientFrom="var(--color-primary-700, #213e6a)" gradientTo="var(--color-primary-700, #213e6a)">
-          <div className="flex flex-col items-center justify-center">
-            <span className="text-xl font-display font-black tracking-tighter text-text">{completionRate}%</span>
-          </div>
-        </RadialGauge>
-        <p className="text-[11px] font-medium text-text-light">{done.length} of {total || 0} completed &middot; {PERIOD_LABEL[period].toLowerCase()}</p>
-      </div>
+          uses, not a second charting library pulled in for one card. Clickable, same "tap for the
+          per-category breakdown" affordance the Compliance gauges use, so this gauge isn't the one
+          chart on the page that looks interactive (hover lift) but does nothing on tap. */}
+      <button
+        type="button"
+        onClick={() => setDrilldown({ title: 'Done delegations', rows: done.map(taskRow), href: '/tasks' })}
+        aria-label={`${completionRate}% completed, ${done.length} of ${total || 0}. Tap for the completed records.`}
+        disabled={done.length === 0}
+        className="group/gauge flex flex-col items-center gap-1 py-1 rounded-2xl outline-none disabled:cursor-default cursor-pointer focus-visible:ring-2 focus-visible:ring-primary-500/40"
+      >
+        <div className="transition-transform duration-300 group-hover/gauge:-translate-y-0.5 group-hover/gauge:scale-[1.03]">
+          <RadialGauge percent={completionRate} size={128} variant="circle" gradientFrom="var(--color-primary-700, #213e6a)" gradientTo="var(--color-primary-700, #213e6a)">
+            <div className="flex flex-col items-center justify-center">
+              <span className="text-xl font-display font-black tracking-tighter text-text">{completionRate}%</span>
+            </div>
+          </RadialGauge>
+        </div>
+        <span className="block text-[11px] font-medium text-text-light">{done.length} of {total || 0} completed &middot; {PERIOD_LABEL[period].toLowerCase()}</span>
+      </button>
 
-      <div className="flex items-center justify-between gap-3 border-t border-border/50 pt-3.5">
+      <Separator />
+
+      <div className="flex items-center justify-between gap-3">
         <DropdownMenu>
+          {/* Quiet Notion-style property trigger — borderless at rest, a hairline border and fill
+              only appear on hover/open, same "raised card on a gray track" idea as the segmented
+              controls elsewhere in this app's forms, rather than a bare text link with no affordance
+              that it's a control at all. */}
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="inline-flex items-center gap-1.5 text-sm font-display font-medium text-text-secondary hover:text-text transition-colors duration-200 cursor-pointer"
+              className="inline-flex items-center gap-1.5 -mx-2 -my-1 px-2 py-1 rounded-lg text-sm font-display font-medium text-text-secondary border border-transparent hover:text-text hover:bg-surface-hover hover:border-border/60 transition-all duration-200 cursor-pointer"
             >
               {PERIOD_LABEL[period]}
               <ChevronDown size={14} strokeWidth={2.5} />

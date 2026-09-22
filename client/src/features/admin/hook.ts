@@ -41,10 +41,39 @@ export const useUpdateSettingsMutation = () => {
         mutationFn : (payload : UpdateSettingsPayload) => settingApi.update(payload).then(r => r.data),
         onSuccess : (updated ) => {
             queryClient.setQueryData(SETTINGS_KEY.all, updated)
+            // orgName can change here too — keep Header/Footer/login-screen's public query in sync
+            // instead of leaving them to catch up on their own 30s poll.
+            queryClient.invalidateQueries({ queryKey: ["public-settings"] })
             toast.success("Settings updated")
         },
 
         onError: (err) => toast.error(errorMessage(err, "Failed to update settings")),
+    })
+}
+
+export const useUploadLogoMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn : (file : File) => settingApi.uploadLogo(file).then(r => r.data),
+        onSuccess : (updated) => {
+            queryClient.setQueryData(SETTINGS_KEY.all, updated)
+            queryClient.invalidateQueries({ queryKey: ["public-settings"] })
+            toast.success("Logo updated")
+        },
+        onError: (err) => toast.error(errorMessage(err, "Failed to upload logo")),
+    })
+}
+
+export const useRemoveLogoMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn : () => settingApi.removeLogo().then(r => r.data),
+        onSuccess : (updated) => {
+            queryClient.setQueryData(SETTINGS_KEY.all, updated)
+            queryClient.invalidateQueries({ queryKey: ["public-settings"] })
+            toast.success("Logo removed")
+        },
+        onError: (err) => toast.error(errorMessage(err, "Failed to remove logo")),
     })
 }
 export const useUsersQuery = (enabled: boolean = true) => {

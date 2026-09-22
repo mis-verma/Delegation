@@ -1,7 +1,18 @@
 import type { LucideIcon } from 'lucide-react';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { StatCard, type Trend } from '../../dashboard';
-import { ActiveRangeBadge } from '../../../components';
+import { ActiveRangeBadge, EntityIconTile, Skeleton } from '../../../components';
+
+// Chart-shaped, not a spinner — every sibling card on this page (gauges, leader rows, store
+// tables) already loads in with a placeholder shaped like its real content; the chart was the one
+// slot that fell back to a generic "Loading…" spinner instead.
+const ChartSkeleton = () => (
+  <div className="h-[260px] flex items-end gap-2 px-2">
+    {[45, 70, 55, 85, 40, 65, 50, 75, 60, 35, 80, 55].map((h, i) => (
+      <Skeleton key={i} className="flex-1 rounded-t-md rounded-b-none" style={{ height: `${h}%` }} />
+    ))}
+  </div>
+);
 
 interface KpiCardConfig {
   icon: LucideIcon;
@@ -12,6 +23,9 @@ interface KpiCardConfig {
   trend: Trend;
   /** For metrics where rising is bad news (Overdue, Avg TAT) — colours the trend badge correctly. */
   lowerIsBetter?: boolean;
+  /** Small qualifier text under the trend badge — e.g. distinguishing a bucketed/scoped count from
+   *  a same-labelled but differently-scoped number shown elsewhere on the same page. */
+  caption?: string;
 }
 
 interface KpiSectionShellProps {
@@ -34,9 +48,7 @@ export const KpiSectionShell = ({ icon: Icon, title, description, isPending, isE
   <section className="flex flex-col gap-6">
     <header className="flex items-start justify-between gap-4 flex-wrap">
       <div className="flex items-center gap-4">
-        <div className="flex items-center justify-center text-primary-600 dark:text-primary-400 shrink-0">
-          <Icon className="w-6 h-6" />
-        </div>
+        <EntityIconTile icon={Icon} tone="primary" />
         <div>
           <h2 className="text-xl font-display font-bold text-text">{title}</h2>
           <p className="text-sm font-display text-text-muted leading-relaxed">{description}</p>
@@ -64,15 +76,17 @@ export const KpiSectionShell = ({ icon: Icon, title, description, isPending, isE
           ))}
         </div>
 
-        <div className="rounded-2xl border border-border bg-surface p-6">
-          {isPending ? (
-            <div className="h-[260px] flex flex-col items-center justify-center gap-3 text-text-muted">
-              <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
-              <span className="text-sm font-display">Loading…</span>
-            </div>
-          ) : (
-            chart
-          )}
+        {/* border/60 + a faint white hairline in dark mode — matches DASHBOARD_CARD_CLASS so this
+            chart card and the ones on the Dashboard page don't visibly use two different card
+            treatments. The radial wash is the same "give a flat surface a little life" move as
+            StatCard's decorative hero variant, just far subtler here since this card holds real
+            data, not a KPI headline. */}
+        <div className="relative overflow-hidden rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface p-6">
+          <div
+            className="absolute -top-16 -right-16 size-48 rounded-full bg-primary-500/[0.06] dark:bg-primary-400/[0.08] blur-2xl pointer-events-none"
+            aria-hidden="true"
+          />
+          <div className="relative">{isPending ? <ChartSkeleton /> : chart}</div>
         </div>
       </div>
     )}

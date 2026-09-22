@@ -4,7 +4,9 @@ import {
   type CollisionDetection, type DropAnimation, type DragStartEvent, type DragEndEvent,
 } from '@dnd-kit/core';
 import { memo, useMemo, useRef, useState } from 'react';
-import { Sparkles, Plus, AlertTriangle, ChevronDown } from "lucide-react";
+import { Inbox, Plus, AlertTriangle, ChevronDown } from "lucide-react";
+import { EmptyState } from "../../components";
+import { Badge } from "../../components/ui/badge";
 import { TaskCard } from "./TaskCard";
 import { useTaskStatusMove } from "./useTaskStatusMove";
 import { DRAG_SLOP_PX } from "../../lib/dragSlop";
@@ -199,19 +201,20 @@ const Column = memo(({ columnKey, label, tasks, isDropTarget, fillsRow, assignee
           <h3 className="text-xs font-bold text-text-secondary truncate">
             {label}
           </h3>
-          <span className="flex items-center justify-center min-w-6 h-5 px-2 text-xs font-bold rounded-full border bg-primary-500/10 text-primary-600 border-primary-500/20 tabular-nums">
+          <Badge variant="default" className="min-w-6 justify-center bg-primary-500/10 tabular-nums">
             {tasks.length}
-          </span>
+          </Badge>
         </div>
 
         {overdueCount > 0 && (
-          <span
+          <Badge
+            variant="destructive"
             title={`${overdueCount} of these ${overdueCount === 1 ? 'is' : 'are'} past its due date`}
-            className="flex items-center gap-1 h-5 px-2 text-[11px] font-bold rounded-full border bg-danger/10 text-danger border-danger/20 tabular-nums shrink-0"
+            className="bg-danger/10 tabular-nums shrink-0"
           >
             <AlertTriangle size={11} strokeWidth={2.5} />
             {overdueCount}
-          </span>
+          </Badge>
         )}
       </div>
 
@@ -219,16 +222,9 @@ const Column = memo(({ columnKey, label, tasks, isDropTarget, fillsRow, assignee
           collapsing — that empty space is the easiest part of a column to aim at. */}
       <div className="flex flex-col gap-2.5 flex-1 min-h-36">
         {tasks.length === 0 ? (
-          // Vertical padding rather than a fixed h-24, so the placeholder can't clip its own
-          // label at larger text sizes.
-          <div className="flex flex-col items-center justify-center gap-1.5 px-3 py-7 text-center border border-dashed border-border rounded-lg bg-surface">
-            <Sparkles size={14} className="text-text-light" />
-            {/* "No delegations" was a lie whenever a filter was on — the column may be full, just
-                not of anything matching. Different fact, different next move. */}
-            <span className="text-[11px] font-medium text-text-light">
-              {isFiltered ? 'None match your filters' : 'No delegations'}
-            </span>
-          </div>
+          // "No delegations" was a lie whenever a filter was on — the column may be full, just
+          // not of anything matching. Different fact, different next move.
+          <EmptyState size="compact" icon={Inbox} title={isFiltered ? 'None match your filters' : 'No delegations here'} />
         ) : (
           visible.map(task => (
             <DraggableCard

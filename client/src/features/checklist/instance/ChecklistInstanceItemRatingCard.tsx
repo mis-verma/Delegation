@@ -37,7 +37,7 @@ export const ChecklistInstanceItemRatingCard = ({ item, instanceId, canWork, isL
 
       {setItemDone.isError && (
         <p className="text-xs text-danger">
-          {setItemDone.error instanceof Error ? setItemDone.error.message : 'Could not save this rating.'}
+          {setItemDone.error instanceof Error ? setItemDone.error.message : "Couldn't save that rating."}
         </p>
       )}
 

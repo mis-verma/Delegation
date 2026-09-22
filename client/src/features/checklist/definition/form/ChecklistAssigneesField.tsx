@@ -115,7 +115,7 @@ export const ChecklistAssigneesField = ({
 
       {/* Helper Subtext */}
       <p className="text-[11px] font-display text-text-muted">
-        Select specific store team members responsible for completing this checklist, or use the buttons above to check everyone at the store — or everyone in one department — at once.
+        Pick specific people to do this checklist, or use the buttons above to add everyone at the store — or a whole department — at once.
       </p>
     </div>
   );

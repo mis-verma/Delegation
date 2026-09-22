@@ -39,7 +39,7 @@ export const ChecklistInstanceItemGpsCard = ({ item, instanceId, canWork, isLock
 
   const capture = () => {
     if (!interactive || !navigator.geolocation) {
-      setCaptureError('This device/browser can\'t provide location.');
+      setCaptureError("This device can't share its location.");
       return;
     }
     setIsCapturing(true);
@@ -57,7 +57,7 @@ export const ChecklistInstanceItemGpsCard = ({ item, instanceId, canWork, isLock
         setIsCapturing(false);
         setCaptureError(error.code === error.PERMISSION_DENIED
           ? 'Location permission denied — allow it in your browser settings and try again.'
-          : 'Could not get your location. Try again.');
+          : "Couldn't get your location — try again.");
       },
       { enableHighAccuracy: true, timeout: 15000 },
     );
@@ -93,7 +93,7 @@ export const ChecklistInstanceItemGpsCard = ({ item, instanceId, canWork, isLock
         <div className="flex flex-col gap-2">
           {setItemDone.isError && (
             <p className="text-xs text-danger">
-              {setItemDone.error instanceof Error ? setItemDone.error.message : 'Could not save this location.'}
+              {setItemDone.error instanceof Error ? setItemDone.error.message : "Couldn't save that location."}
             </p>
           )}
           {!item.isDone && captureError && (

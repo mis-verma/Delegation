@@ -10,12 +10,12 @@ import { handleQueryRetry, useEntityMutation } from "../../lib/queryHelpers";
 //
 // Labels change a few times a month and every surface (Delegation's filter row/form/card, and
 // now Tickets' equivalents) reads them, so this is one query shared by all of them.
-export const useTagsQuery = () => {
+export const useTagsQuery = (enabled: boolean = true) => {
     const { token } = useAuth();
     return useQuery({
         queryKey: ['tags'],
         queryFn: () => tagApi.getAll().then(r => r.data),
-        enabled: !!token,
+        enabled: !!token && enabled,
         retry: handleQueryRetry,
     });
 };

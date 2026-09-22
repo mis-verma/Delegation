@@ -51,7 +51,7 @@ export const DueDateField = ({ mode, control, setValue, errors, categoryTatHours
             showTime
             minDate={new Date()}
             placeholder="Select a due date"
-            className="font-display"
+            className="font-display border-transparent bg-surface-hover/50 hover:bg-surface-hover"
           />
           {(errors.dueDate?.message || errors.dueTime?.message) && (
             <p className="text-xs text-danger font-display" role="alert">
@@ -66,10 +66,10 @@ export const DueDateField = ({ mode, control, setValue, errors, categoryTatHours
           animate={{ opacity: 1, height: 'auto' }}
           exit={{ opacity: 0, height: 0 }}
           transition={{ duration: 0.15 }}
-          className="p-3 rounded-md bg-primary-500/5 border border-primary-500/20 text-xs text-primary-400 font-display flex items-center gap-2.5 overflow-hidden"
+          className="p-3 rounded-md bg-primary-500/5 border border-primary-500/20 text-xs text-primary-700 dark:text-primary-400 font-display flex items-center gap-2.5 overflow-hidden"
           role="status"
         >
-          <Sparkles className="w-4 h-4 shrink-0 text-primary-400" />
+          <Sparkles className="w-4 h-4 shrink-0 text-primary-600 dark:text-primary-400" />
           <span>
             Auto-assigned tickets are given a default TAT of{' '}
             <strong>{categoryTatHours ?? 24} hours</strong>

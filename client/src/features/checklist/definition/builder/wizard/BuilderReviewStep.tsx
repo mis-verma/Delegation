@@ -200,7 +200,7 @@ export const BuilderReviewStep = ({
           Review Checklist Details
         </h2>
         <p className="text-xs font-display text-text-muted mt-0.5">
-          Please review all sections before finalizing and {isEditing ? 'saving' : 'publishing'} your checklist.
+          Take a look through everything below before you {isEditing ? 'save' : 'publish'}.
         </p>
       </div>
 
@@ -306,7 +306,7 @@ export const BuilderReviewStep = ({
           {namedItems.length === 0 ? (
             <div className="py-4 text-center">
               <p className="text-xs font-display text-text-muted italic">
-                No items added to this checklist yet.
+                You haven't added any items yet.
               </p>
             </div>
           ) : (
@@ -341,9 +341,9 @@ export const BuilderReviewStep = ({
           )}
         </SectionCard>
 
-        {/* 4. Assign & Proof */}
+        {/* 4. Assign */}
         <SectionCard
-          title="Assign & Proof"
+          title="Assign"
           icon={<Users size={14} />}
           valid={sectionValidity[3]}
           onEdit={() => onEditSection(3)}
@@ -378,16 +378,30 @@ export const BuilderReviewStep = ({
                 )}
               </p>
             </div>
+          </div>
+        </SectionCard>
 
-            {/* Reviewers */}
-            {reviewers.length > 0 && (
-              <div className="space-y-1">
-                <span className="text-[11px] font-medium text-text-muted flex items-center gap-1">
-                  <ShieldCheck size={11} /> Reviewers
+        {/* 5. Reviewers — its own card now that it's its own step; always "valid" (no minimum
+            required, see BuilderReviewersPanel) so this never shows the warning treatment. */}
+        <SectionCard
+          title="Reviewers"
+          icon={<ShieldCheck size={14} />}
+          valid
+          onEdit={() => onEditSection(4)}
+        >
+          <div className="space-y-1">
+            <span className="text-[11px] font-medium text-text-muted flex items-center gap-1">
+              <ShieldCheck size={11} /> Approves or sends back a filled-in run
+            </span>
+            <p className="text-xs font-display text-text-secondary">
+              {reviewers.length ? (
+                reviewers.join(', ')
+              ) : (
+                <span className="italic text-text-muted">
+                  No one extra picked — PC/Admin and each assignee's department head can still review.
                 </span>
-                <p className="text-xs font-display text-text-secondary">{reviewers.join(', ')}</p>
-              </div>
-            )}
+              )}
+            </p>
           </div>
         </SectionCard>
       </div>
@@ -426,7 +440,7 @@ export const BuilderReviewStep = ({
             </div>
           ) : (
             <p className="flex items-center gap-1.5 text-xs font-display text-success">
-              <CheckCircle2 size={14} className="shrink-0" /> All sections look complete and ready.
+              <CheckCircle2 size={14} className="shrink-0" /> Everything looks good to go.
             </p>
           )}
         </div>

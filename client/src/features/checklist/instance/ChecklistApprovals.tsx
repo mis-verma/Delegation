@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { ShieldCheck, Check, X, Loader2, Repeat, CheckCircle2 } from 'lucide-react';
-import { Button, GradientIconTile } from '../../../components';
+import { Button, GradientIconTile, EmptyState } from '../../../components';
 import { usePendingVerificationChecklistInstancesQuery, useVerifyChecklistInstanceMutation } from '../hook';
 import { formatDate } from '../checklistDisplay';
 import type { ChecklistInstance } from '../../../api/checklistInstances';
@@ -72,7 +72,7 @@ const ApprovalRow = ({ instance }: { instance: ChecklistInstance }) => {
             autoFocus
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="Please detail what needs to be fixed before approval..."
+            placeholder="What needs fixing before this can be approved?"
             rows={2}
             className="w-full px-3.5 py-2.5 text-sm bg-surface/50 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-danger/20 focus:border-danger/50 resize-none transition-all placeholder:text-text-muted/50"
           />
@@ -93,7 +93,7 @@ const ApprovalRow = ({ instance }: { instance: ChecklistInstance }) => {
               disabled={verifyMut.isPending || !note.trim()}
               onClick={() => verifyMut.mutate({ id: instance.id, payload: { action: 'REJECT', note: note.trim() } })}
             >
-              {verifyMut.isPending ? <Loader2 size={14} className="animate-spin" /> : 'Send Back for Revision'}
+              {verifyMut.isPending ? <Loader2 size={14} className="animate-spin" /> : 'Send back for changes'}
             </Button>
           </div>
         </div>
@@ -138,13 +138,7 @@ export const ChecklistApprovals = () => {
       <div className="flex flex-col gap-3">
         {isPending && (<><SkeletonRow /><SkeletonRow /></>)}
         {!isPending && instances.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-8 px-4 rounded-2xl border border-dashed border-border/70 bg-surface/30 text-center">
-            <div className="flex items-center justify-center mb-3 text-success">
-              <CheckCircle2 size={20} />
-            </div>
-            <p className="text-sm font-display font-medium text-text">All caught up</p>
-            <p className="text-xs font-display text-text-muted mt-1">No checklists waiting for verification in your department.</p>
-          </div>
+          <EmptyState icon={CheckCircle2} tone="success" title="All caught up" description="Nothing waiting on you right now." />
         )}
         {instances.map((instance) => <ApprovalRow key={instance.id} instance={instance} />)}
       </div>

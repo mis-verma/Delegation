@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { Wand2, AlertCircle, Save, Inbox, X, Plus, ChevronDown, Upload } from "lucide-react";
-import { Button, Skeleton, Fab, ViewToggle, type ViewTab } from "../../components";
+import { Button, Skeleton, Fab, ViewToggle, EmptyState, type ViewTab } from "../../components";
 import { ExportDialog } from "../reports";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { useTasksQuery, useTasksMetaQuery, useAssignableUsersQuery } from "./hook";
@@ -43,6 +43,17 @@ const VIEW_TABS: ViewTab<TaskViewKey>[] = TASK_VIEWS.map((key) => ({
 interface TaskListProps {
   userId?: string;
   hideHeader?: boolean;
+  /** Locks the page to exactly one category bucket (Smart Delegations' AI-only view uses
+   *  'delegation', which CATEGORY_PREDICATES already defines as "delegation category + aiMeta
+   *  present" — i.e. actually created through the AI, not just typed into the New Task form).
+   *  With this set: the Category row disappears from Options (nothing left to pick), the URL
+   *  never carries `category=`, "Clear all filters" can't wipe it back to All, and it isn't
+   *  listed as an active-filter chip since it was never a filter the viewer applied. */
+  lockCategory?: CategoryFilterKey;
+  /** Overrides the sr-only page title and empty-state copy for a locked page. */
+  title?: string;
+  emptyTitle?: string;
+  emptyDescription?: string;
 }
 
 
@@ -78,10 +89,16 @@ const filtersFromUrl = (searchParams: URLSearchParams): Partial<TaskFilters> => 
   return fromUrl;
 };
 
-const filtersStorageKey = (userId?: string) => `task-filters:${userId ?? 'anon'}`;
+// `lockCategory` scopes the key too — otherwise Smart Delegations (locked to `category:
+// 'delegation'`) and the main Delegation page would read and write the exact same
+// `task-filters:<userId>` entry. Category gets forced back regardless (see `withLock` below), but
+// "Save view" on the locked page would otherwise silently overwrite the main page's saved status/
+// priority/etc. the next time it loads there too.
+const filtersStorageKey = (userId?: string, lockCategory?: CategoryFilterKey) =>
+  `task-filters:${userId ?? 'anon'}${lockCategory ? `:${lockCategory}` : ''}`;
 
 
-export const TaskList = ({ userId, hideHeader = false }: TaskListProps = {}) => {
+export const TaskList = ({ userId, hideHeader = false, lockCategory, title, emptyTitle, emptyDescription }: TaskListProps = {}) => {
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const isVerifier = user?.role === "PC" || user?.role === "ADMIN";
@@ -93,26 +110,33 @@ export const TaskList = ({ userId, hideHeader = false }: TaskListProps = {}) => 
   const [showOptions, setShowOptions] = useState(false);
   const [selected, setSelected] = useState<{ task: Task; mode: 'view' | 'edit' } | null>(null);
 
+  // Pins `category` to `lockCategory` no matter what the URL, localStorage, or a stray
+  // `updateFilters` patch says — the one thing that makes a locked page locked.
+  const withLock = useCallback(
+    (f: TaskFilters): TaskFilters => (lockCategory ? { ...f, category: lockCategory } : f),
+    [lockCategory],
+  );
+
   // Declared before the queries below because one of these filters — tagIds — is applied by the
   // server, so it feeds the tasks request and its cache key rather than filtering the result.
   const [filters, setFilters] = useState<TaskFilters>(() => {
     const fromUrl = filtersFromUrl(searchParams);
-    if (Object.keys(fromUrl).length) return { ...DEFAULT_FILTERS, ...fromUrl };
+    if (Object.keys(fromUrl).length) return withLock({ ...DEFAULT_FILTERS, ...fromUrl });
 
     try {
-      const raw = localStorage.getItem(filtersStorageKey(user?.id));
+      const raw = localStorage.getItem(filtersStorageKey(user?.id, lockCategory));
       if (raw) {
         const saved = JSON.parse(raw);
         if (!Array.isArray(saved.priority)) delete saved.priority;
         if (!Array.isArray(saved.assigneeIds)) delete saved.assigneeIds;
         if (!Array.isArray(saved.raisedByIds)) delete saved.raisedByIds;
         if (!Array.isArray(saved.tagIds)) delete saved.tagIds;
-        return { ...DEFAULT_FILTERS, ...saved };
+        return withLock({ ...DEFAULT_FILTERS, ...saved });
       }
     } catch {
       // Corrupt/unavailable localStorage
     }
-    return DEFAULT_FILTERS;
+    return withLock(DEFAULT_FILTERS);
   });
 
   const { data: tasks, isPending, isError } = useTasksQuery(userId, true, filters.tagIds);
@@ -169,13 +193,29 @@ export const TaskList = ({ userId, hideHeader = false }: TaskListProps = {}) => 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, tasks]);
 
+  // Same one-shot-param pattern as `open` above — the sidebar's "+" quick-create link has no
+  // route of its own to land on (SmartTaskModal opens from local state, not a route), so it deep-
+  // links here instead and this effect is what actually opens the modal on arrival.
+  useEffect(() => {
+    if (!searchParams.get('create')) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setShowSmartModal(true);
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.delete('create');
+      return next;
+    }, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   const isFirstFiltersRun = useRef(true);
   useEffect(() => {
     if (isFirstFiltersRun.current) {
       isFirstFiltersRun.current = false;
       return;
     }
-    setFilters(prev => ({ ...prev, ...URL_TRACKED_DEFAULTS, ...filtersFromUrl(searchParams) }));
+    setFilters(prev => withLock({ ...prev, ...URL_TRACKED_DEFAULTS, ...filtersFromUrl(searchParams) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   const [sort, setSort] = useState<TaskSortKey>('dueDate');
@@ -209,7 +249,11 @@ export const TaskList = ({ userId, hideHeader = false }: TaskListProps = {}) => 
   const syncFiltersToUrl = (next: TaskFilters) => {
     setSearchParams(prev => {
       const params = new URLSearchParams(prev);
-      if (next.category !== 'all') params.set('category', next.category); else params.delete('category');
+      // A locked page never carries `category=` in its URL at all — there's nothing to bookmark
+      // or share differently, since every visit to this route is already scoped to it.
+      if (lockCategory) {
+        params.delete('category');
+      } else if (next.category !== 'all') params.set('category', next.category); else params.delete('category');
       if (next.status !== 'all') params.set('status', next.status); else params.delete('status');
       if (next.storeId) params.set('storeId', next.storeId); else params.delete('storeId');
       if (next.departmentId) params.set('departmentId', next.departmentId); else params.delete('departmentId');
@@ -222,7 +266,7 @@ export const TaskList = ({ userId, hideHeader = false }: TaskListProps = {}) => 
 
   const persistFiltersIfSaved = (next: TaskFilters) => {
     try {
-      const key = filtersStorageKey(user?.id);
+      const key = filtersStorageKey(user?.id, lockCategory);
       if (localStorage.getItem(key) !== null) {
         localStorage.setItem(key, JSON.stringify(next));
       }
@@ -238,7 +282,7 @@ export const TaskList = ({ userId, hideHeader = false }: TaskListProps = {}) => 
     [departments],
   );
   const updateFilters = (patch: Partial<TaskFilters>) => {
-    const next = { ...filters, ...patch };
+    const next = withLock({ ...filters, ...patch });
     // Switching store while a department belonging to the OLD store is still selected leaves a
     // filter pair that can never match anything. This lived in the store box's own onSelect while
     // Store was a toolbar control; it belongs here now that the Store row inside Options sets the
@@ -253,9 +297,10 @@ export const TaskList = ({ userId, hideHeader = false }: TaskListProps = {}) => 
   };
 
   const clearFilters = () => {
-    setFilters(DEFAULT_FILTERS);
-    syncFiltersToUrl(DEFAULT_FILTERS);
-    persistFiltersIfSaved(DEFAULT_FILTERS);
+    const next = withLock(DEFAULT_FILTERS);
+    setFilters(next);
+    syncFiltersToUrl(next);
+    persistFiltersIfSaved(next);
     setQuickFilter(null);
   };
 
@@ -278,7 +323,7 @@ export const TaskList = ({ userId, hideHeader = false }: TaskListProps = {}) => 
 
   const saveFilters = () => {
     try {
-      localStorage.setItem(filtersStorageKey(user?.id), JSON.stringify(filters));
+      localStorage.setItem(filtersStorageKey(user?.id, lockCategory), JSON.stringify(filters));
       toast.success('Filter saved');
     } catch {
       toast.error('Could not save filter');
@@ -371,7 +416,9 @@ export const TaskList = ({ userId, hideHeader = false }: TaskListProps = {}) => 
   const activeChips: { key: string; label: string; onClear: () => void }[] = [
     ...(quickFilter ? [{ key: 'quickFilter', label: `Showing: ${QUICK_FILTER_LABEL[quickFilter]}`, onClear: () => setQuickFilter(null) }] : []),
     ...(filters.status !== 'all' ? [{ key: 'status', label: `Status: ${STATUS_LABEL[filters.status]}`, onClear: () => updateFilters({ status: 'all' }) }] : []),
-    ...(filters.category !== 'all' ? [{ key: 'category', label: `Category: ${filters.category === 'task' ? 'Direct Task' : filters.category === 'issue' ? 'Issues' : 'Delegations'}`, onClear: () => updateFilters({ category: 'all' }) }] : []),
+    // Never shown on a locked page — the category there isn't something the viewer chose and
+    // can clear, it's what the page is.
+    ...(!lockCategory && filters.category !== 'all' ? [{ key: 'category', label: `Category: ${filters.category === 'task' ? 'Direct Task' : filters.category === 'issue' ? 'Issues' : 'Delegations'}`, onClear: () => updateFilters({ category: 'all' }) }] : []),
     ...(filters.priority.length > 0 ? [{
       key: 'priority',
       label: `Priority: ${filters.priority.map(p => PRIORITY_MAP[p].label).join(', ')}`,
@@ -514,6 +561,7 @@ export const TaskList = ({ userId, hideHeader = false }: TaskListProps = {}) => 
               isAdmin={isVerifier}
               canExport={isVerifier}
               onExport={() => setShowExport(true)}
+              hideCategory={!!lockCategory}
               scope={!userId && user ? {
                 assignedToMe: isAssignedToMe,
                 raisedByMe: isAssignedByMe,
@@ -531,7 +579,7 @@ export const TaskList = ({ userId, hideHeader = false }: TaskListProps = {}) => 
         {!hideHeader && (
           <>
         
-            <h1 className="sr-only">Delegation</h1>
+            <h1 className="sr-only">{title ?? 'Delegation'}</h1>
 
             <TaskQuickStats
               counts={quickCounts}
@@ -636,22 +684,14 @@ export const TaskList = ({ userId, hideHeader = false }: TaskListProps = {}) => 
       )}
 
       {!isPending && !isError && isEmpty && (
-        <div className="flex flex-col items-center justify-center py-24 px-6 text-center bg-surface/30 rounded-2xl border border-dashed border-border/80">
-          <div className="flex items-center justify-center mb-5 w-14 h-14 bg-surface rounded-full border border-border text-text-muted">
-            <Inbox size={26} strokeWidth={1.5} />
-          </div>
-          <h3 className="text-lg font-bold text-text tracking-tight">No delegations found</h3>
-          <p className="text-sm text-text-muted mt-2 max-w-sm leading-relaxed">
-            {activeCount > 0
-              ? "No delegations match the current filters. Try adjusting or clearing them to see more."
-              : "You're all caught up! There are no delegations assigned to this view."}
-          </p>
-          {activeCount > 0 && (
-            <Button variant="secondary" size="sm" onClick={clearFilters} className="mt-6 rounded-full font-medium">
-              Clear all filters
-            </Button>
-          )}
-        </div>
+        <EmptyState
+          icon={Inbox}
+          title={emptyTitle ?? 'No delegations found'}
+          description={activeCount > 0
+            ? "No delegations match the current filters. Try adjusting or clearing them to see more."
+            : (emptyDescription ?? "You're all caught up! There are no delegations assigned to this view.")}
+          action={activeCount > 0 ? { label: 'Clear all filters', onClick: clearFilters } : undefined}
+        />
       )}
 
     

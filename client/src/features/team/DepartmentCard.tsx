@@ -55,7 +55,7 @@ export const OverdueBadge = ({ count, items }: { count: number; items: OverdueIt
       <PopoverContent align="end" className="w-64 p-0" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-1.5 px-3.5 py-2.5 border-b border-border/50">
           <AlertTriangle size={13} className="text-danger" />
-          <p className="text-[11px] font-display font-bold text-text-muted uppercase tracking-wider">Overdue</p>
+          <p className="text-[11px] font-display font-bold text-text-muted tracking-wider">Overdue</p>
         </div>
         <div className="flex flex-col max-h-64 overflow-y-auto">
           {items.map((item) => (
@@ -84,15 +84,20 @@ export const DepartmentCard = ({ row, onClick }: { row: DepartmentCardRow; onCli
       <button
         type="button"
         onClick={onClick}
-        className="group/info flex items-center gap-2.5 min-w-0 text-left cursor-pointer outline-none rounded-lg focus-visible:ring-2 focus-visible:ring-primary-500/30"
+        className="group/info flex flex-1 items-center gap-2.5 min-w-0 text-left cursor-pointer outline-none rounded-lg focus-visible:ring-2 focus-visible:ring-primary-500/30"
       >
         <div className="flex items-center justify-center size-9 rounded-lg bg-primary-500/10 text-primary-600 dark:text-primary-400 shrink-0">
           <Building2 size={16} />
         </div>
         <div className="min-w-0">
-          <div className="flex items-center gap-1">
-            <h3 className="text-sm font-display font-bold text-text truncate group-hover/info:text-primary-600 dark:group-hover/info:text-primary-400 transition-colors">{row.name}</h3>
-            <ChevronRight size={13} className="shrink-0 text-text-light opacity-0 group-hover/info:opacity-100 group-hover/info:translate-x-0.5 transition-all duration-150" />
+          <div className="flex items-start gap-1">
+            {/* line-clamp-2, not truncate — on a narrow card the fixed-width completion ring next
+                to this leaves too little room for a single line to hold a real department name
+                ("Inventory & Procurement" was truncating to "Inventory & P..."). `title` still
+                covers the rare 3rd line for a pointer/hover, but wrapping means almost every real
+                name is now fully readable without one. */}
+            <h3 title={row.name} className="text-sm font-display font-bold text-text line-clamp-2 break-words group-hover/info:text-primary-600 dark:group-hover/info:text-primary-400 transition-colors">{row.name}</h3>
+            <ChevronRight size={13} className="shrink-0 mt-0.5 text-text-light opacity-0 group-hover/info:opacity-100 group-hover/info:translate-x-0.5 transition-all duration-150" />
           </div>
           <div className="flex items-center gap-1.5 text-[11px] font-display font-medium text-text-muted">
             <Users size={11} />

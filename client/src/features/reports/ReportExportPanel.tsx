@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Download } from 'lucide-react';
-import { Button, DateRangePicker, type DateRangeValue } from '../../components';
+import { Button, DateRangePicker, SelectDropdown, type DateRangeValue } from '../../components';
 import { useReportExportMutation } from './useReportExport';
 import { computeRange, PRESET_LABELS, type ReportPreset } from './dateRangePresets';
 import { endOfDay } from '../../lib/dateRange';
+import { useStoresQuery, useAssignableUsersQuery } from '../checklist/hook';
 import type { ReportModule, ReportFormat, ReportExportParams } from '../../api/reports';
 
-const PRESETS: ReportPreset[] = ['daily', 'weekly', 'monthly', 'quarterly', 'yearly'];
+const PRESETS: ReportPreset[] = ['daily', 'weekly', 'monthly', 'lastMonth', 'quarterly', 'yearly'];
 const FORMATS: ReportFormat[] = ['csv', 'xlsx'];
 
 type RangeMode = ReportPreset | 'custom';
@@ -21,10 +22,20 @@ interface ReportExportPanelProps {
   filters?: TaskExportFilters;
 }
 
+const NO_STORE_FILTER = 'all-stores';
+const NO_PERSON_FILTER = 'all-people';
+
 export const ReportExportPanel = ({ reportModule, description, filters }: ReportExportPanelProps) => {
   const [mode, setMode] = useState<RangeMode>('monthly');
   const [format, setFormat] = useState<ReportFormat>('csv');
   const [customRange, setCustomRange] = useState<DateRangeValue>({ from: null, to: null });
+  // Checklists-only: name-wise scoping by store and by person, mirroring the compliance board's
+  // own Store/Person filters — this export used to only ever take a date range.
+  const [storeId, setStoreId] = useState(NO_STORE_FILTER);
+  const [assigneeId, setAssigneeId] = useState(NO_PERSON_FILTER);
+  const isChecklists = reportModule === 'checklists';
+  const { data: stores = [] } = useStoresQuery();
+  const { data: people = [] } = useAssignableUsersQuery(undefined, storeId === NO_STORE_FILTER ? undefined : storeId);
   const exportMutation = useReportExportMutation(reportModule);
 
   const isCustom = mode === 'custom';
@@ -37,7 +48,14 @@ export const ReportExportPanel = ({ reportModule, description, filters }: Report
       ? { from: customRange.from!.toISOString(), to: endOfDay(customRange.to!).toISOString() }
       : computeRange(mode, new Date());
 
-    exportMutation.mutate({ from, to, format, ...filters });
+    exportMutation.mutate({
+      from,
+      to,
+      format,
+      ...filters,
+      ...(isChecklists && storeId !== NO_STORE_FILTER ? { storeId } : {}),
+      ...(isChecklists && assigneeId !== NO_PERSON_FILTER ? { assigneeIds: [assigneeId] } : {}),
+    });
   };
 
   return (
@@ -45,7 +63,7 @@ export const ReportExportPanel = ({ reportModule, description, filters }: Report
       <p className="text-xs text-text-muted font-display">{description}</p>
 
       <div className="flex flex-col gap-2">
-        <span className="text-[11px] font-display font-medium text-text-secondary uppercase tracking-wider">
+        <span className="text-[11px] font-display font-medium text-text-secondary tracking-wide">
           Period
         </span>
         <div className="flex flex-wrap gap-1.5">
@@ -83,9 +101,40 @@ export const ReportExportPanel = ({ reportModule, description, filters }: Report
         )}
       </div>
 
+      {isChecklists && (
+        <div className="flex flex-col gap-2">
+          <span className="text-[11px] font-display font-medium text-text-secondary tracking-wide">
+            Scope
+          </span>
+          <div className="flex flex-wrap gap-3">
+            <div className="flex flex-col gap-1.5 w-full sm:w-48">
+              <label className="text-xs font-display font-medium text-text-secondary">Store</label>
+              <SelectDropdown
+                value={storeId}
+                onChange={setStoreId}
+                options={[{ value: NO_STORE_FILTER, label: 'All stores' }, ...stores.map(s => ({ value: s.id, label: s.name }))]}
+                aria-label="Scope export to a store"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5 w-full sm:w-48">
+              <label className="text-xs font-display font-medium text-text-secondary">Person</label>
+              <SelectDropdown
+                value={assigneeId}
+                onChange={setAssigneeId}
+                options={[
+                  { value: NO_PERSON_FILTER, label: 'All people' },
+                  ...people.map(p => ({ value: p.id, label: `${p.firstName} ${p.lastName ?? ''}`.trim() })),
+                ]}
+                aria-label="Scope export to a person"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Format Toggle */}
       <div className="flex flex-col gap-2">
-        <span className="text-[11px] font-display font-medium text-text-secondary uppercase tracking-wider">
+        <span className="text-[11px] font-display font-medium text-text-secondary tracking-wide">
           Format
         </span>
         <div className="flex gap-1 p-1 bg-surface-hover rounded-lg w-fit">

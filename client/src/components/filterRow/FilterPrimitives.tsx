@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Check } from 'lucide-react';
+import { Check, type LucideIcon } from 'lucide-react';
 import { avatarColorClass } from '../../lib/avatarColors';
 import { getInitials } from '../../lib/getInitials';
 
@@ -13,7 +13,7 @@ import { getInitials } from '../../lib/getInitials';
 
 export const OptionRow = ({ label, children }: { label: string; children: ReactNode }) => (
   <div className="flex flex-col gap-2">
-    <span className="text-[11px] font-bold text-text-light tracking-widest">{label}</span>
+    <span className="text-[11px] font-display font-bold text-text-light tracking-widest">{label}</span>
     {children}
   </div>
 );
@@ -29,6 +29,7 @@ export const FilterPill = ({
   onClick,
   children,
   dotClassName,
+  icon: Icon,
 }: {
   active: boolean;
   onClick: () => void;
@@ -37,17 +38,25 @@ export const FilterPill = ({
    *  opt-in, so Priority/Category/Status/etc. pills are unaffected. Used by Delegation's Labels
    *  filter so a label reads as the same colour here as everywhere else it's shown. */
   dotClassName?: string;
+  /** A leading Lucide icon instead of (not combined with) the dot above — opt-in the same way, for
+   *  rows where each option already has a real icon elsewhere (e.g. Priority's arrow icons) rather
+   *  than just a colour. */
+  icon?: LucideIcon;
 }) => (
   <button
     type="button"
     onClick={onClick}
     aria-pressed={active}
-    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all duration-200 cursor-pointer ${
+    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-display font-medium transition-all duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-95 ${
+      // Flat fill + hairline border, no shadow/ring — same "raised card on a gray track" language
+      // AssignmentModeToggle's segmented control already uses, instead of this being the one
+      // filter pill in the app still marking its active state with elevation.
       active
-        ? 'bg-background text-text shadow-sm ring-1 ring-border/50'
-        : 'text-text-muted hover:text-text-secondary hover:bg-surface-active/50'
+        ? 'bg-surface-active text-text border border-border'
+        : 'text-text-muted hover:text-text-secondary hover:bg-surface-active/50 border border-transparent'
     }`}
   >
+    {Icon && <Icon size={12} strokeWidth={2.5} className="shrink-0" />}
     {dotClassName && <span aria-hidden className={`size-2 rounded-full shrink-0 ${dotClassName}`} />}
     {children}
   </button>

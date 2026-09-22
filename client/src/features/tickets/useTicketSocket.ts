@@ -29,6 +29,7 @@ export const useTicketSocket = () => {
             "ticket:updated",
             "ticket:assigned",
             "ticket:overdue",
+            "ticket:deleted",
             "checklistItem:updated",
         ] as const;
 

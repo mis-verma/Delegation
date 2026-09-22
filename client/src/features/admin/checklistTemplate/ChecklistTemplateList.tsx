@@ -9,7 +9,7 @@ import {
 import { useChecklistTemplatesQuery, useDepartmentsQuery } from '../hook';
 import { ChecklistTemplateForm } from './ChecklistTemplateForm';
 import { TemplateBlock } from './TemplateBlock';
-import { Skeleton } from '../../../components';
+import { Button, Skeleton } from '../../../components';
 
 export const ChecklistTemplateList = () => {
   const [showForm, setShowForm] = useState(false);
@@ -41,7 +41,7 @@ export const ChecklistTemplateList = () => {
     if (isError) return (
       <div className="flex items-center gap-3 p-4 rounded-xl bg-danger/10 border border-danger/20 text-danger text-sm font-display font-medium">
         <AlertCircle className="w-5 h-5 shrink-0" />
-        <p className="flex-1">Failed to load checklist templates. Please check your connection and try again.</p>
+        <p className="flex-1">Failed to load task templates. Please check your connection and try again.</p>
         <button
           type="button"
           onClick={() => refetch()}
@@ -59,14 +59,14 @@ export const ChecklistTemplateList = () => {
         </div>
         <h3 className="text-lg font-display font-bold text-text mb-2">No templates configured</h3>
         <p className="text-sm text-text-muted max-w-sm mb-8">
-          You haven't created any checklist templates yet. Standardize your team's procedures by adding your first one.
+          You haven't created any task templates yet. Standardize your team's procedures by adding your first one.
         </p>
         <button
           onClick={() => setShowForm(true)}
           className="press-feedback inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-display font-bold rounded-xl shadow-sm bg-surface text-text-secondary border border-border transition-all duration-300 hover:bg-surface-hover hover:text-primary-600 hover:border-primary-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
         >
           <Plus className="w-3.5 h-3.5" />
-          Create Template
+          Create Task Template
         </button>
       </section>
     );
@@ -93,7 +93,7 @@ export const ChecklistTemplateList = () => {
           </div>
           <div className="space-y-1">
             <div className="flex items-center gap-2.5">
-              <h1 className="text-xl sm:text-2xl font-display font-bold tracking-tight text-text">Checklist Templates</h1>
+              <h1 className="text-xl sm:text-2xl font-display font-bold tracking-tight text-text">Task Templates</h1>
               <span className="flex items-center justify-center px-2.5 py-0.5 text-xs font-display font-bold bg-surface-hover text-text-secondary rounded-full border border-border">
                 {templates.length}
               </span>
@@ -109,13 +109,10 @@ export const ChecklistTemplateList = () => {
           </div>
         </div>
 
-        <button
-          onClick={() => setShowForm(true)}
-          className="press-feedback group inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-display font-bold text-white rounded-xl shadow-sm bg-primary-700 hover:bg-primary-800 transition-all duration-300 ease-in-out hover:scale-[1.02] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 active:scale-[0.98] shrink-0"
-        >
+        <Button variant="primary" size="sm" onClick={() => setShowForm(true)} className="group shrink-0">
           <Plus className="w-3.5 h-3.5 transition-transform duration-300 group-hover:rotate-90" />
-          New Template
-        </button>
+          New Task Template
+        </Button>
       </header>
 
       {renderContent()}

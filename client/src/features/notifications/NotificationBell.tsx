@@ -29,9 +29,21 @@ interface NotificationBellProps {
   // button to white/opacity variants for use on a fixed-navy chrome (e.g. AdminHeader) — the
   // popover panel itself is unaffected since it's a portal, not a child of that chrome's background.
   tone?: 'light' | 'dark';
+  // The unread badge's `ring-surface` was meant to punch a clean gap between the red dot and
+  // whatever sits behind it — on AdminHeader's neutral bg-surface bar the badge and its "gap" ring
+  // are effectively the same color, so it just reads as a slightly fuzzy outline around the dot
+  // instead of a clean edge. Off by default there; still on for the app-wide Header, which hasn't
+  // asked to drop it.
+  badgeRing?: boolean;
+  /** `tone: 'light'` only — tints the bell itself warning-amber instead of plain gray, the one
+   *  spot in the app-wide Header that gets its own color rather than the neutral icon-button
+   *  treatment (a resting bell is otherwise indistinguishable from any other gray icon button).
+   *  Scoped to a prop rather than changing 'light''s default so AdminHeader's own bell — same
+   *  tone value, different chrome — isn't affected by a change made for the other header. */
+  accent?: boolean;
 }
 
-export const NotificationBell = ({ tone = 'light' }: NotificationBellProps) => {
+export const NotificationBell = ({ tone = 'light', badgeRing = true, accent = false }: NotificationBellProps) => {
   const [open, setOpen] = useState(false);
 
   const { data: notifications = [], isError } = useNotificationsQuery();
@@ -59,10 +71,12 @@ export const NotificationBell = ({ tone = 'light' }: NotificationBellProps) => {
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500",
             tone === 'dark'
               ? cn("text-white/70 hover:text-white hover:bg-white/10", open && "bg-white/10 text-white")
-              : cn(
-                  "text-text-light hover:text-text hover:bg-surface-hover",
-                  open && "bg-surface-hover text-text"
-                )
+              : accent
+                ? cn("text-warning hover:bg-warning/10", open && "bg-warning/10")
+                : cn(
+                    "text-text-light hover:text-text hover:bg-surface-hover",
+                    open && "bg-surface-hover text-text"
+                  )
           )}
           aria-label={`Notifications ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}`}
         >
@@ -72,7 +86,8 @@ export const NotificationBell = ({ tone = 'light' }: NotificationBellProps) => {
             <span className={cn(
               "absolute top-1.5 right-1.5 flex items-center justify-center min-w-[18px] h-[18px] px-1",
               "rounded-full bg-danger text-white text-[10px] font-bold leading-none",
-              "ring-2 ring-surface transform translate-x-1/2 -translate-y-1/2",
+              badgeRing && "ring-2 ring-surface",
+              "transform translate-x-1/2 -translate-y-1/2",
               "animate-in zoom-in duration-300"
             )}>
               {unreadCount > 9 ? '9+' : unreadCount}
@@ -91,7 +106,7 @@ export const NotificationBell = ({ tone = 'light' }: NotificationBellProps) => {
       <PopoverContent
         align="end"
         sideOffset={10}
-        className="w-[calc(100vw-2rem)] sm:w-80 p-0 rounded-2xl border border-border bg-surface shadow-2xl overflow-hidden flex flex-col max-h-[32rem]"
+        className="w-[calc(100vw-2rem)] sm:w-80 p-0 rounded-2xl border border-border bg-surface overflow-hidden flex flex-col max-h-[32rem]"
       >
         <header className="flex items-center justify-between px-5 py-4 border-b border-border/60 bg-surface-hover/50 shrink-0">
           <div className="flex items-center gap-2">

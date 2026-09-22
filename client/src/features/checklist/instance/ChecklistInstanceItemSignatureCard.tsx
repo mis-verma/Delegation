@@ -38,7 +38,7 @@ export const ChecklistInstanceItemSignatureCard = ({ item, instanceId, canWork, 
         <div className="flex flex-col gap-2">
           {setItemDone.isError && (
             <p className="text-xs text-danger">
-              {setItemDone.error instanceof Error ? setItemDone.error.message : 'Could not save this signature.'}
+              {setItemDone.error instanceof Error ? setItemDone.error.message : "Couldn't save that signature."}
             </p>
           )}
           <SignaturePadCanvas label={label} disabled={item.isDone} onChange={setDraft} />

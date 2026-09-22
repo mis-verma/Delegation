@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { BarChart3, ClipboardCheck, Repeat, TicketCheck, Building2, Contact, ListChecks, Network, FileDown } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useAuth } from '../../../context/AuthContext';
+import { EntityIconTile } from '../../../components';
 import { useDepartmentsQuery, useStoresQuery, useTicketsQuery } from '../../tickets/hook';
 import { useTasksQuery } from '../../tasks/hook';
 import { useUsersQuery } from '../hook';
@@ -18,13 +19,13 @@ import { TeamLeaderboardRail } from './TeamLeaderboardRail';
 import { QuickActionsGrid, type QuickAction } from '../overview/QuickActionsGrid';
 import { RecentActivity, RECENT_ACTIVITY_FEED_SIZE } from '../../dashboard/RecentActivity';
 import type { FeedItem } from '../../dashboard/dashboardDisplay';
-import { LightBeams, type DateRangeValue } from '../../../components';
+import type { DateRangeValue } from '../../../components';
 import { endOfDay } from '../../../lib/dateRange';
 
 const ADMIN_QUICK_ACTIONS: readonly QuickAction[] = [
   { to: '/admin/directory', icon: Contact, label: 'People & Teams', description: 'Users, departments & stores' },
   { to: '/admin/org-structure', icon: Network, label: 'Org Structure', description: 'See the reporting ladder' },
-  { to: '/admin/checklist-templates', icon: ListChecks, label: 'Checklist Builder', description: 'Create a template' },
+  { to: '/admin/checklist-templates', icon: ListChecks, label: 'Task Templates', description: 'Create a template' },
   { to: '/admin/tickets', icon: TicketCheck, label: 'Tickets', description: 'View open issues' },
   { to: '/admin/reports', icon: FileDown, label: 'Reports', description: 'Export data' },
 ];
@@ -58,19 +59,27 @@ export const OrgOverview = () => {
   );
   const [section, setSection] = useState<SectionValue>('checklists');
   const tabsRef = useRef<HTMLDivElement>(null);
-  const jumpToStores = () => {
-    setSection('stores');
+  const jumpToSection = (target: SectionValue) => {
+    setSection(target);
     tabsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
+  const jumpToStores = () => jumpToSection('stores');
+  // AnalyticsSummaryStrip's "Checklist completion" tile used to navigate to
+  // /admin/scheduled-checklists (Checklist Templates management — unrelated to the delegation
+  // completion rate it shows, and ADMIN/PC-only) instead of the Checklists tab right below it on
+  // this same page, which is the actual section that explains this number. Jumping to a tab here
+  // also sidesteps the role gate entirely: MANAGER/SENIOR can reach this page via /analytics but
+  // not /admin/*, so this is the only version of the fix that works for every role that sees it.
+  const jumpToChecklists = () => jumpToSection('checklists');
 
   // range.to is a plain calendar date at local midnight (DateRangePicker isn't in showTime mode
   // here) — wrap it to the end of that day so a "to" bound doesn't silently exclude the whole day.
   const from = range.from ? range.from.toISOString() : undefined;
   const to = range.to ? endOfDay(range.to).toISOString() : undefined;
 
-  const { data: departments, isPending: departmentsPending } = useDepartmentsQuery();
-  const { data: stores, isPending: storesPending } = useStoresQuery();
-  const { data: orgUsers, isPending: orgUsersPending } = useUsersQuery(canSeeStoresTab(user?.role));
+  const { data: departments, isPending: departmentsPending, isError: departmentsError } = useDepartmentsQuery();
+  const { data: stores, isPending: storesPending, isError: storesError } = useStoresQuery();
+  const { data: orgUsers, isPending: orgUsersPending, isError: orgUsersError } = useUsersQuery(canSeeStoresTab(user?.role));
   const scopeLabel = useMemo(() => {
     if (user?.role === 'MANAGER') {
       const dept = departments?.find((d) => d.id === user.departmentId);
@@ -98,12 +107,18 @@ export const OrgOverview = () => {
     // max-w-(--container-width), not max-w-7xl — matches every other page's shared width token
     // instead of sitting narrower with bigger side margins than its own siblings.
     <div className="flex flex-col gap-8 w-full max-w-(--container-width) mx-auto">
-        <header className="relative isolate overflow-hidden flex flex-col sm:flex-row sm:items-end justify-between gap-6 pb-6 border-b border-border">
-          <LightBeams />
+        {/* lg:flex-row (was sm:), plus flex-wrap as a safety net — the title block (icon + heading
+            + description) and GroupByControl (4 tabs + a 256px date picker) together need roughly
+            1150px to sit on one line. From sm (640px) up to that point the row had nowhere to
+            actually shrink into (GroupByControl's date picker has a fixed width, so all the give
+            came from squeezing the title text) and the Custom range button rendered past the
+            visible edge with no scrollbar to reach it — flex-wrap alone still let the flex algorithm
+            find just enough slack in the title to avoid triggering a real line break. Staying
+            stacked until lg (1024px) — the width the row realistically needs to just work — instead
+            of trying to time a wrap exactly at the edge case. */}
+        <header className="flex flex-col lg:flex-row lg:flex-wrap lg:items-end justify-between gap-x-6 gap-y-4 pb-6 border-b border-border">
           <div className="flex items-start gap-4">
-            <div className="flex items-center justify-center text-primary-600 dark:text-primary-400 shrink-0">
-              <BarChart3 className="w-6 h-6" />
-            </div>
+            <EntityIconTile icon={BarChart3} tone="primary" className="size-11" />
             <div className="space-y-1">
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-2xl font-display font-bold tracking-tight text-text">Overview</h1>
@@ -129,10 +144,11 @@ export const OrgOverview = () => {
             departments={departments ?? []}
             users={orgUsers ?? []}
             isPending={departmentsPending || storesPending || orgUsersPending}
+            isError={departmentsError || storesError || orgUsersError}
           />
         )}
 
-        <AnalyticsSummaryStrip groupBy={groupBy} from={from} to={to} />
+        <AnalyticsSummaryStrip groupBy={groupBy} from={from} to={to} onViewChecklists={jumpToChecklists} isOrgWideRole={canSeeStoresTab(user?.role)} />
 
         {/* Real store/department "who's top, who's low" numbers, visible on the dashboard itself —
             previously the only way to see this combined ranking was to switch into the Stores tab
@@ -149,14 +165,14 @@ export const OrgOverview = () => {
               {/* Scrolls horizontally instead of clipping on phone-width screens, where four tabs
                   don't fit in one row — AdminLayout's <main> is overflow-x-hidden, so the tab
                   row needs its own scroll container rather than relying on page scroll. */}
+              {/* Same quiet segmented-control look GroupByControl's Day/Week/Month/Year toggle
+                  uses right above it — this used to repaint the active state bold-primary-filled,
+                  the one place on the page where the shared Tabs component read as a different,
+                  unrelated control instead of the same one twice. */}
               <div ref={tabsRef} className="overflow-x-auto">
-                <TabsList className="bg-surface-hover p-1.5 rounded-xl gap-1.5 h-auto w-fit">
+                <TabsList className="h-auto w-fit">
                   {sectionTabs.map(({ value, label, icon: Icon }) => (
-                    <TabsTrigger
-                      key={value}
-                      value={value}
-                      className="gap-2 px-4 py-2 rounded-lg font-display data-[state=active]:bg-primary-700 data-[state=active]:text-white data-[state=active]:shadow-md"
-                    >
+                    <TabsTrigger key={value} value={value} className="gap-2 px-4 py-2 font-display">
                       <Icon className="w-4 h-4" />
                       {label}
                     </TabsTrigger>

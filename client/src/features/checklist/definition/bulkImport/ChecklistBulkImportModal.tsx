@@ -126,7 +126,7 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
       open={open}
       onClose={handleClose}
       title="Bulk import checklist assignments"
-      description="Upload a file to assign an existing checklist to many stores/people at once."
+      description="Upload a spreadsheet to assign a checklist to a bunch of stores or people in one go."
       icon={<UploadCloud size={18} className="text-primary-600" />}
       size="3xl"
       footer={
@@ -140,8 +140,8 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
                 <p className="text-[11px] font-display text-warning flex items-center gap-1">
                   <AlertCircle size={12} className="shrink-0" />
                   {includedRows.length === 0
-                    ? 'Every row is excluded — include at least one to continue.'
-                    : `Resolve checklist/store/person for ${unresolvedCount} row${unresolvedCount === 1 ? '' : 's'} to continue.`}
+                    ? "You've excluded every row — include at least one to continue."
+                    : `Match a checklist, store, and person for ${unresolvedCount} more row${unresolvedCount === 1 ? '' : 's'} to continue.`}
                 </p>
               )}
               <Button onClick={() => setStep('schedule')} disabled={!canContinueFromReview}>
@@ -168,7 +168,7 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
         {previewMutation.isError && (
           <div role="alert" className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-danger/10 text-danger text-xs font-display">
             <AlertCircle size={14} className="shrink-0" />
-            {previewMutation.error instanceof Error ? previewMutation.error.message : 'Could not read that file — check it matches the expected columns and try again.'}
+            {previewMutation.error instanceof Error ? previewMutation.error.message : "We couldn't read that file — make sure it has the right columns and try again."}
           </div>
         )}
         <label
@@ -194,10 +194,10 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
               {previewMutation.isPending ? 'Reading file…' : 'Drop a file here, or click to browse'}
             </p>
             <p className="text-xs font-display text-text-muted mt-1">
-              CSV or Excel (.xlsx) recommended · PDF accepted as best-effort
+              CSV or Excel works best · PDFs are okay too, but less reliable
             </p>
             <p className="text-[11px] font-display text-text-light mt-2">
-              Columns: Checklist Name, Store, Person (email or name) — Department optional, for reference only.
+              Your file should have columns for Checklist Name, Store, and Person (email or name). Department is optional and just for reference.
             </p>
           </div>
         </label>
@@ -286,7 +286,7 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
           {publishMutation.isError && (
             <div role="alert" className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-danger/10 text-danger text-xs font-display">
               <AlertCircle size={14} className="shrink-0" />
-              {publishMutation.error instanceof Error ? publishMutation.error.message : 'Could not publish this batch. Try again.'}
+              {publishMutation.error instanceof Error ? publishMutation.error.message : "Couldn't publish this batch — try again."}
             </div>
           )}
 
@@ -317,11 +317,11 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
           <span className="flex items-center justify-center size-12 rounded-2xl bg-success/10 text-success border border-success/20">
             <PartyPopper className="size-6" />
           </span>
-          <p className="text-sm font-display font-semibold text-text">Batch published</p>
+          <p className="text-sm font-display font-semibold text-text">All set!</p>
           <p className="text-xs font-display text-text-muted max-w-sm">
-            Updated {summary.updatedDefinitions} checklist{summary.updatedDefinitions === 1 ? '' : 's'} —{' '}
-            {summary.storesAdded} store assignment{summary.storesAdded === 1 ? '' : 's'} and{' '}
-            {summary.assigneesAdded} people added.
+            Updated {summary.updatedDefinitions} checklist{summary.updatedDefinitions === 1 ? '' : 's'}, added{' '}
+            {summary.storesAdded} store{summary.storesAdded === 1 ? '' : 's'} and{' '}
+            {summary.assigneesAdded} people.
           </p>
 
           {summary.failed.length > 0 && (

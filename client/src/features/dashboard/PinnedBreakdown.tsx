@@ -6,8 +6,8 @@ import { X, ChevronRight } from 'lucide-react';
  *
  * Four separate copies of this shell existed — the bar chart's hover tooltip and tap-to-pin panel,
  * the Compliance gauges' panel, and Compare Dashboard's — all with the same border/radius/padding,
- * the same 11px uppercase header rule, and the same close button. They had already drifted apart
- * on spacing (one carried an extra `mb-4`), which is exactly the failure this consolidates away.
+ * the same 11px header rule, and the same close button. They had already drifted apart on spacing
+ * (one carried an extra `mb-4`), which is exactly the failure this consolidates away.
  *
  * `variant` is the one real difference: the pinned panels animate in when the user taps something,
  * while the chart tooltip is positioned by Recharts and would visibly jump if it re-animated on
@@ -29,8 +29,7 @@ export const PinnedBreakdown = ({ title, onClose, variant = 'pinned', className 
     } ${className}`}
   >
     <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-1.5">
-      {/* Uppercase is deliberate at this size — an 11px eyebrow label, not a section heading. */}
-      <p className="text-[11px] font-display font-semibold text-text-muted uppercase tracking-wider">{title}</p>
+      <p className="text-[11px] font-display font-semibold text-text-muted tracking-wide">{title}</p>
       {onClose && (
         <button
           type="button"

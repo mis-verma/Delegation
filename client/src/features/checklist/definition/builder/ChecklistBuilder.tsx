@@ -17,6 +17,7 @@ import { QuestionTypePalette } from './QuestionTypePalette';
 import { isItemDraftComplete } from './ItemTypeConfigFields';
 import { BuilderSchedulePanel, hasScheduleTimeMismatch } from './BuilderSchedulePanel';
 import  {BuilderAssignPanel}  from './BuilderAssignPanel';
+import { BuilderReviewersPanel } from './BuilderReviewersPanel';
 import { BuilderStepper } from './wizard/BuilderStepper';
 import { BuilderStepFrame } from './wizard/BuilderStepFrame';
 import { BuilderReviewStep } from './wizard/BuilderReviewStep';
@@ -94,15 +95,16 @@ const STEPS = [
   { key: 'schedule', label: 'Schedule' },
   { key: 'items', label: 'Items' },
   { key: 'assign', label: 'Assign' },
+  { key: 'reviewers', label: 'Reviewers' },
   { key: 'review', label: 'Review' },
 ] as const;
 
 // Shown next to the disabled Next button so it's clear *why* it's blocked, not just that it is.
 const STEP_BLOCK_REASON: Record<number, string> = {
-  0: 'Enter a checklist name to continue.',
-  1: 'Select at least one store and a start date, and make sure the open time is before the cut-off time, to continue.',
-  2: 'Add at least one complete checklist item to continue.',
-  3: 'Assign at least one team member to continue.',
+  0: 'Give this checklist a name to continue.',
+  1: "Pick a store and a start date, and make sure it opens before it cuts off — then you're good.",
+  2: 'Add at least one finished item to continue.',
+  3: 'Add at least one person to continue.',
 };
 
 export const ChecklistBuilder = () => {
@@ -365,7 +367,7 @@ export const ChecklistBuilder = () => {
       <div className="w-full max-w-5xl mx-auto p-4 sm:p-6">
         <div className="flex items-center gap-3 px-4 py-3.5 rounded-xl bg-danger/10 border border-danger/20 text-danger text-sm font-display shadow-xs">
           <AlertCircle size={18} className="shrink-0" />
-          <span className="flex-1">Failed to load this checklist. Please refresh or try again later.</span>
+          <span className="flex-1">We couldn't load this checklist. Try refreshing, or come back in a bit.</span>
           <button
             type="button"
             onClick={() => refetchExisting()}
@@ -380,7 +382,11 @@ export const ChecklistBuilder = () => {
 
   const stepContent = [
     <BuilderStepFrame key="basics" stepIndex={step} title="Basics" description="Give this checklist a name your team will recognize.">
-      <div className="max-w-3xl">
+      {/* Same card treatment (rounded-xl border bg-surface shadow-xs p-5) as every other simple-
+          form step below (Schedule/Assign/Reviewers) — this used to be the only step rendering its
+          fields bare with no box at all, at its own one-off max-w-3xl besides. */}
+      <div className="flex flex-col gap-5 p-5 rounded-xl border border-border bg-surface shadow-xs transition-all duration-200">
+        <h2 className="text-xs font-display font-bold text-text-muted">Checklist Details</h2>
         <ChecklistDetailsFields
           name={name}
           onNameChange={setName}
@@ -393,20 +399,18 @@ export const ChecklistBuilder = () => {
     </BuilderStepFrame>,
 
     <BuilderStepFrame key="schedule" stepIndex={step} title="Schedule" description="Choose which stores run this checklist and how often.">
-      <div className="max-w-xl">
-        <BuilderSchedulePanel
-          storeIds={storeIds}
-          onStoreIdsChange={setStoreIds}
-          recurrence={recurrence}
-          onRecurrenceChange={setRecurrence}
-          startDate={startDate}
-          onStartDateChange={setStartDate}
-          opensTime={opensTime}
-          onOpensTimeChange={setOpensTime}
-          cutoffTime={cutoffTime}
-          onCutoffTimeChange={setCutoffTime}
-        />
-      </div>
+      <BuilderSchedulePanel
+        storeIds={storeIds}
+        onStoreIdsChange={setStoreIds}
+        recurrence={recurrence}
+        onRecurrenceChange={setRecurrence}
+        startDate={startDate}
+        onStartDateChange={setStartDate}
+        opensTime={opensTime}
+        onOpensTimeChange={setOpensTime}
+        cutoffTime={cutoffTime}
+        onCutoffTimeChange={setCutoffTime}
+      />
     </BuilderStepFrame>,
 
     <BuilderStepFrame key="items" stepIndex={step} title="Checklist Items" description="Add the steps your team needs to complete, in order.">
@@ -450,6 +454,12 @@ export const ChecklistBuilder = () => {
         onAssigneeIdsChange={setAssigneeIds}
         assigneeRoles={assigneeRoles}
         onAssigneeRolesChange={setAssigneeRoles}
+      />
+    </BuilderStepFrame>,
+
+    <BuilderStepFrame key="reviewers" stepIndex={step} title="Reviewers" description="Pick who reviews a filled-in run and approves or sends it back — usually the department head or a PC.">
+      <BuilderReviewersPanel
+        storeIds={storeIds}
         reviewerIds={reviewerIds}
         onReviewerIdsChange={setReviewerIds}
       />
@@ -474,7 +484,7 @@ export const ChecklistBuilder = () => {
         isSubmitting={mutation.isPending}
         isEditing={isEditing}
         onSubmit={handleSubmit}
-        submitError={mutation.isError ? (mutation.error instanceof Error ? mutation.error.message : 'Failed to save checklist.') : undefined}
+        submitError={mutation.isError ? (mutation.error instanceof Error ? mutation.error.message : "Couldn't save this checklist. Try again.") : undefined}
       />
     </BuilderStepFrame>,
   ];
@@ -572,7 +582,10 @@ export const ChecklistBuilder = () => {
 
             {step < STEPS.length - 1 && (
               <div className="flex flex-col items-end gap-1.5">
-                {!sectionValidity[step] && (
+                {/* isStepValid, not a raw sectionValidity[step] index — sectionValidity only
+                    covers the first 4 (required) steps; a step past that (Reviewers) has nothing
+                    to validate and reads as undefined/always-valid rather than blocked. */}
+                {!isStepValid(step) && (
                   <p className="text-[11px] font-display text-warning flex items-center gap-1">
                     <AlertCircle size={12} className="shrink-0" />
                     {STEP_BLOCK_REASON[step]}
@@ -583,7 +596,7 @@ export const ChecklistBuilder = () => {
                   variant="primary"
                   size="md"
                   onClick={() => goToStep(step + 1)}
-                  disabled={!sectionValidity[step]}
+                  disabled={!isStepValid(step)}
                   className="font-display"
                 >
                   <span>Next</span>

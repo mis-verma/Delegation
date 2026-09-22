@@ -224,7 +224,7 @@ const SubmissionRow = ({ item, submission, instanceId, storeName, interactive }:
                   ? setDone.error.message
                   : updateRemarks.error instanceof Error
                     ? updateRemarks.error.message
-                    : 'Something went wrong.'}
+                    : "Couldn't save that — try again."}
             </p>
           )}
 

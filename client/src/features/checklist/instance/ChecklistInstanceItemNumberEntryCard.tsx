@@ -53,7 +53,7 @@ export const ChecklistInstanceItemNumberEntryCard = ({ item, instanceId, canWork
       <div className="flex flex-col gap-2">
         {interactive && setItemDone.isError && (
           <p className="text-xs text-danger">
-            {setItemDone.error instanceof Error ? setItemDone.error.message : 'Could not save this reading.'}
+            {setItemDone.error instanceof Error ? setItemDone.error.message : "Couldn't save that reading."}
           </p>
         )}
 
@@ -81,7 +81,7 @@ export const ChecklistInstanceItemNumberEntryCard = ({ item, instanceId, canWork
         </div>
 
         {interactive && outOfRange && (
-          <p className="text-xs text-warning">Value is outside the allowed range{rangeHint ? ` (${rangeHint})` : ''}.</p>
+          <p className="text-xs text-warning">That's outside the allowed range{rangeHint ? ` (${rangeHint})` : ''}.</p>
         )}
       </div>
     </div>

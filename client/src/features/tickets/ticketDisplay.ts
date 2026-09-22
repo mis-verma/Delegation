@@ -1,3 +1,5 @@
+import { ArrowDown, Minus, ArrowUp, AlertTriangle } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import type { Ticket, TicketStatus } from '../../api/ticket';
 
 export const formatShortDate = (iso: string) =>
@@ -22,10 +24,12 @@ export const STATUS_CONFIG: Record<TicketStatus, { label: string; className: str
     className: 'bg-warning/10 text-warning ring-warning/20',
     dot: 'bg-warning',
   },
-  IN_REVIEW: {
-    label: 'In Review',
-    className: 'bg-primary-500/10 text-primary-700 dark:text-primary-300 ring-primary-500/20',
-    dot: 'bg-primary-500',
+  // Same status-approve token Task's pending_approval uses, so the review stage reads
+  // consistently across entities.
+  PENDING_APPROVAL: {
+    label: 'Pending Approval',
+    className: 'bg-status-approve/10 text-status-approve ring-status-approve/20',
+    dot: 'bg-status-approve',
   },
   CLOSED: {
     label: 'Closed',
@@ -40,14 +44,19 @@ export const STATUS_CONFIG: Record<TicketStatus, { label: string; className: str
 };
 
 // `bar` is priority at full strength for a shape that IS the data rather than an accent on it —
-// the Timeline view's Gantt bars — same convention as Task's PRIORITY_MAP.bar.
-export const PRIORITY_CONFIG: Record<Ticket['priority'], { label: string; className: string; accent: string; stripe: string; bar: string }> = {
+// the Timeline view's Gantt bars — same convention as Task's PRIORITY_MAP.bar. `solid`/`icon` feed
+// PriorityChip's icon circle (see IconChip) — a dedicated field rather than reusing `accent`,
+// since CRITICAL's `accent` is `bg-white` (meant for a dot sitting on its own solid-danger badge
+// background), which would be an invisible white-on-white icon circle.
+export const PRIORITY_CONFIG: Record<Ticket['priority'], { label: string; className: string; accent: string; stripe: string; bar: string; solid: string; icon: LucideIcon }> = {
   LOW: {
     label: 'Low',
     className: 'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-border/50 bg-surface-hover/30 px-2.5 py-0.5 text-xs font-medium text-text-muted transition-all',
     accent: 'bg-text-muted',
     stripe: 'bg-border',
     bar: 'bg-info',
+    solid: 'bg-text-light',
+    icon: ArrowDown,
   },
   MEDIUM: {
     label: 'Medium',
@@ -55,6 +64,8 @@ export const PRIORITY_CONFIG: Record<Ticket['priority'], { label: string; classN
     accent: 'bg-warning',
     stripe: 'bg-warning/50',
     bar: 'bg-warning',
+    solid: 'bg-warning',
+    icon: Minus,
   },
   HIGH: {
     label: 'High',
@@ -62,6 +73,8 @@ export const PRIORITY_CONFIG: Record<Ticket['priority'], { label: string; classN
     accent: 'bg-danger',
     stripe: 'bg-danger/50',
     bar: 'bg-danger',
+    solid: 'bg-danger',
+    icon: ArrowUp,
   },
   CRITICAL: {
     label: 'Critical',
@@ -69,5 +82,7 @@ export const PRIORITY_CONFIG: Record<Ticket['priority'], { label: string; classN
     accent: 'bg-white',
     stripe: 'bg-danger/80',
     bar: 'bg-danger',
+    solid: 'bg-danger',
+    icon: AlertTriangle,
   },
 };

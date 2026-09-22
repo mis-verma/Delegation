@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { ClipboardCheck, ShieldCheck, Sparkles, TrendingUp, TrendingDown, Minus, Download, FileSpreadsheet, FileText, type LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
-import { RadialGauge } from '../../components';
+import { RadialGauge, EntityIconTile } from '../../components';
 import { Modal } from '../../components/modal';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { BreakdownRatioRows } from './PinnedBreakdown';
-import { DrilldownModal } from './DrilldownModal';
+import { DrilldownList, DrilldownViewAllButton } from './DrilldownModal';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../../components/ui/select';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '../../components/ui/dropdown-menu';
 import { csvBlob, xlsxBlob, downloadBlob, stampedFilename, type TableRows } from '../../lib/exportTable';
@@ -18,6 +19,7 @@ import {
   ACTIVITY_GROUP_RANGE_LABEL,
   ACTIVITY_CATEGORY_ORDER,
   ACTIVITY_CATEGORY_LABEL,
+  DASHBOARD_CARD_CLASS,
   type ActivityGroupBy,
   type ActivityCategory,
   type ActivityWorkItem,
@@ -155,6 +157,7 @@ const Gauge = ({ icon: Icon, label, percent, count, total, trend, isSelected, on
 };
 
 export const ActivityComplianceGauges = ({ items, activeCategories, groupBy }: ActivityComplianceGaugesProps) => {
+  const navigate = useNavigate();
   const [selected, setSelected] = useState<GaugeKey | null>(null);
   const [drilldownCategory, setDrilldownCategory] = useState<ActivityCategory | null>(null);
 
@@ -308,7 +311,7 @@ export const ActivityComplianceGauges = ({ items, activeCategories, groupBy }: A
   return (
     // `@container` drives the wide-width split below off this card's own measured width rather
     // than the viewport, so it behaves correctly regardless of the sidebar's state.
-    <section aria-labelledby="compliance-heading" className="@container rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface p-4 sm:p-6 lg:p-7 flex flex-col gap-5">
+    <section aria-labelledby="compliance-heading" className={`@container ${DASHBOARD_CARD_CLASS} p-4 sm:p-6 lg:p-7 flex flex-col gap-5`}>
       {/* Same icon-tile + title + subtitle header every other Dashboard card (Activity Overview,
           Compare Dashboard, Delegation Score) uses — this used to be a small badge meant to read
           as a side-panel of the bar chart's own card; now that it's a standalone card in its own
@@ -316,9 +319,7 @@ export const ActivityComplianceGauges = ({ items, activeCategories, groupBy }: A
           fragment. */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-primary-50 dark:bg-primary-500/10 border border-primary-100 dark:border-primary-800/50 text-primary-600 dark:text-primary-400 shadow-sm">
-            <Sparkles size={20} strokeWidth={2.5} />
-          </div>
+          <EntityIconTile icon={Sparkles} tone="coral" />
           <div>
             <h2 id="compliance-heading" className="text-base sm:text-lg font-display font-bold text-text tracking-tight leading-tight">Compliance</h2>
             <p className="text-xs font-medium text-text-muted mt-0.5 capitalize">
@@ -418,7 +419,11 @@ export const ActivityComplianceGauges = ({ items, activeCategories, groupBy }: A
           (see below) instead of an always-reserved panel under the gauges, which is what let this
           whole card shrink down to just its header + filter row + rings when nothing is selected. */}
       <div className="flex justify-center">
-        <div className="grid grid-cols-2 gap-3 sm:gap-6 w-full max-w-xl">
+        {/* Single column below sm — at 2-up on a narrow phone, the gauge is sized to nearly fill
+            the whole card width, leaving no clearance for the absolutely-positioned trend badge in
+            the card's own top-right corner, which ends up sitting on top of the ring instead of
+            beside it. */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6 w-full max-w-xl">
           <Gauge
             icon={ClipboardCheck}
             label="Completion"
@@ -442,46 +447,69 @@ export const ActivityComplianceGauges = ({ items, activeCategories, groupBy }: A
         </div>
       </div>
 
-      {/* Tapping a ring opens its full breakdown here — a real modal, not an inline panel — so it
-          reads as "this expands to show everything" rather than a small addendum tucked under the
-          card. Picking a category inside hands off to the item-level DrilldownModal below. */}
+      {/* Tapping a ring opens its full breakdown, then picking a category inside drills one level
+          further into the item list — both views live in this ONE Modal (never two stacked
+          Dialogs) so that second step is an instant content swap, not a close-one/open-another
+          animation pair that reads as a double delay. `drilldownCategory` layers on top of
+          `selected` rather than replacing it, so the gauge context (`activeLabel`) stays valid
+          across the swap and the modal only fully closes when the viewer actually dismisses it. */}
       {activeBreakdown && activeLabel && (
         <Modal
           open={selected !== null}
-          onClose={() => setSelected(null)}
-          title={`${activeLabel} breakdown`}
+          onClose={() => { setSelected(null); setDrilldownCategory(null); }}
+          title={drilldownCategory ? `${ACTIVITY_CATEGORY_LABEL[drilldownCategory]} — ${activeLabel}` : `${activeLabel} breakdown`}
           description={`Trailing ${ACTIVITY_GROUP_RANGE_LABEL[groupBy]}`}
-          size="sm"
+          // One fixed size/spacing across both views (was sm→md with a gap-5→gap-3 spacing swap on
+          // drill-in) — the modal was visibly resizing and re-padding itself under the user between
+          // the two steps of what's supposed to be one instant content swap. 'md' is also what
+          // DrilldownModal (the KPI cards' equivalent "explain this stat" modal) already uses, and
+          // is wide enough that the title never clips — at 'sm' "On-time Compliance breakdown"
+          // ellipsized mid-word.
+          size="md"
+          bodyClassName="gap-3"
+          // Same reasoning as DrilldownModal: this sits on top of the exact gauge it's explaining,
+          // so being able to drag it aside to compare against the chart underneath is worth having
+          // here too — it was the one dashboard "explain this stat" modal without it.
+          draggable
+          footer={
+            drilldownCategory && (
+              <DrilldownViewAllButton
+                href={CATEGORY_VIEW_ALL_HREF[drilldownCategory]}
+                label={`View all ${ACTIVITY_CATEGORY_LABEL[drilldownCategory].toLowerCase()}s`}
+                onSelect={(link) => { setSelected(null); setDrilldownCategory(null); navigate(link); }}
+              />
+            )
+          }
         >
-          <div className="flex items-center gap-4 pb-1">
-            <div className="flex items-center justify-center size-16 rounded-full border-4 border-primary-700/90 shrink-0">
-              <span className="text-lg font-display font-black text-text tabular-nums">
-                {selected === 'completion' ? completionRate : onTimeRate}%
-              </span>
-            </div>
-            <div className="flex flex-col gap-0.5">
-              <p className="text-sm font-display font-bold text-text">
-                {selected === 'completion' ? completed : onTime} of {total}
-              </p>
-              <p className="text-[11px] font-medium text-text-light">Across every active category below</p>
-            </div>
-          </div>
-          <div className="flex flex-col gap-1 border-t border-border/50 pt-3">
-            <BreakdownRatioRows rows={activeBreakdown} onRowClick={(label) => { setSelected(null); setDrilldownCategory(LABEL_TO_CATEGORY[label]); }} />
-          </div>
+          {drilldownCategory ? (
+            <DrilldownList
+              rows={scoped.filter((i) => i.category === drilldownCategory)}
+              onSelect={(link) => { setSelected(null); setDrilldownCategory(null); navigate(link); }}
+            />
+          ) : (
+            <>
+              <div className="flex items-center gap-4 pb-1">
+                <div className="flex items-center justify-center size-16 rounded-full border-4 border-primary-700/90 shrink-0">
+                  <span className="text-lg font-display font-black text-text tabular-nums">
+                    {selected === 'completion' ? completionRate : onTimeRate}%
+                  </span>
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <p className="text-sm font-display font-bold text-text">
+                    {selected === 'completion' ? completed : onTime} of {total}
+                  </p>
+                  <p className="text-[11px] font-medium text-text-light">Across every active category below</p>
+                </div>
+              </div>
+              <div className="flex flex-col gap-1 border-t border-border/50 pt-3">
+                <BreakdownRatioRows
+                  rows={activeBreakdown}
+                  onRowClick={(label) => setDrilldownCategory(LABEL_TO_CATEGORY[label])}
+                />
+              </div>
+            </>
+          )}
         </Modal>
-      )}
-
-      {drilldownCategory && activeLabel && (
-        <DrilldownModal
-          open
-          onClose={() => setDrilldownCategory(null)}
-          title={`${ACTIVITY_CATEGORY_LABEL[drilldownCategory]} — ${activeLabel}`}
-          description={`Trailing ${ACTIVITY_GROUP_RANGE_LABEL[groupBy]}`}
-          rows={scoped.filter((i) => i.category === drilldownCategory)}
-          viewAllHref={CATEGORY_VIEW_ALL_HREF[drilldownCategory]}
-          viewAllLabel={`View all ${ACTIVITY_CATEGORY_LABEL[drilldownCategory].toLowerCase()}s`}
-        />
       )}
     </section>
   );

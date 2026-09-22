@@ -35,7 +35,7 @@ export interface BoardColumn {
   tasks: Task[];
 }
 
-const STATUS_ORDER: Task['status'][] = ['todo', 'in_progress', 'pending_verification', 'done'];
+const STATUS_ORDER: Task['status'][] = ['todo', 'in_progress', 'pending_approval', 'done'];
 const PRIORITY_ORDER: Task['priority'][] = ['high', 'medium', 'low'];
 
 /**

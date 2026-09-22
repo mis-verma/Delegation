@@ -1,10 +1,10 @@
 import { useState, type ReactNode } from 'react';
-import { Trash2, Check, Pencil, ListTodo, CalendarClock, CalendarX2, FilterX, ChevronDown } from 'lucide-react';
+import { Trash2, Check, Pencil, ListTodo, CalendarClock, FilterX, ChevronDown } from 'lucide-react';
 import { Skeleton } from '../../components';
 import { ErrorMessage, EmptyState } from '../admin/adminDisplay';
 import { PRIORITY_MAP } from '../tasks/taskDisplay';
 import { useTodosQuery, useUpdateTodoMutation, useDeleteTodoMutation } from './hook';
-import { isSameDay, relativeDayLabel } from './todoDate';
+import { relativeDayLabel } from './todoDate';
 import { TODO_QUICK_FILTER_PREDICATES } from './todoQuickFilters';
 import { sortTodos, type TodoPriorityFilter, type TodoSortKey } from './todoSort';
 import { EditTodoModal } from './EditTodoModal';
@@ -12,7 +12,6 @@ import type { TodoQuickFilterKey } from './TodoQuickStats';
 import type { Todo } from '../../api/todos';
 
 interface TodoListProps {
-  selectedDate?: Date | null;
   quickFilter?: TodoQuickFilterKey | null;
   priority?: TodoPriorityFilter;
   /** Omit to keep the server's own order — the drawer renders this list with no props. */
@@ -20,7 +19,6 @@ interface TodoListProps {
 }
 
 export const TodoList = ({
-  selectedDate = null,
   quickFilter = null,
   priority = 'all',
   sort,
@@ -30,10 +28,7 @@ export const TodoList = ({
   const deleteMut = useDeleteTodoMutation();
   const [editing, setEditing] = useState<Todo | null>(null);
 
-  const dateFiltered = selectedDate
-    ? allTodos.filter((t) => !!t.dueDate && isSameDay(new Date(t.dueDate), selectedDate))
-    : allTodos;
-  const quickFiltered = quickFilter ? dateFiltered.filter(TODO_QUICK_FILTER_PREDICATES[quickFilter]) : dateFiltered;
+  const quickFiltered = quickFilter ? allTodos.filter(TODO_QUICK_FILTER_PREDICATES[quickFilter]) : allTodos;
   const priorityFiltered = priority === 'all' ? quickFiltered : quickFiltered.filter((t) => t.priority === priority);
   const todos = sort ? sortTodos(priorityFiltered, sort) : priorityFiltered;
 
@@ -159,13 +154,7 @@ export const TodoList = ({
         />
       );
     }
-    return selectedDate ? (
-      <EmptyState
-        label="Nothing due on this day"
-        description="Pick another day on the strip above, or add a task due here."
-        Icon={CalendarX2}
-      />
-    ) : (
+    return (
       <EmptyState
         label="Nothing on your list yet"
         description="Add a to-do task for yourself and check it off once it's done."

@@ -1,3 +1,4 @@
+import type { DragEvent } from 'react';
 import type { AdminUser } from '../../../api/admin';
 import type { Department } from '../../../api/departments';
 import type { Store } from '../../../api/stores';
@@ -108,3 +109,24 @@ export const countUsersInTree = (tree: OrgTree): number =>
   tree.stores.reduce((sum, s) => sum + s.directUsers.length + s.departments.reduce((dSum, d) => dSum + d.users.length, 0), 0) +
   tree.unassignedDepartments.reduce((sum, d) => sum + d.users.length, 0) +
   tree.unassignedUsers.length;
+
+/** What a UserRow puts on the wire when a drag starts — just enough for a drop target to tell
+ *  whether the drop would actually change anything, without needing the whole AdminUser object
+ *  threaded down through every section. */
+export interface DraggedUser {
+  id: string;
+  departmentId: string | null;
+  storeId: string | null;
+}
+
+const DRAG_MIME = 'application/json';
+
+export const readDraggedUser = (e: DragEvent): DraggedUser | null => {
+  const raw = e.dataTransfer.getData(DRAG_MIME);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as DraggedUser;
+  } catch {
+    return null;
+  }
+};

@@ -1,5 +1,5 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
-import { ArrowRight, MessageSquareText } from 'lucide-react';
+import { ArrowRight, ArrowRightLeft, MessageSquareText, PenLine } from 'lucide-react';
 import { Modal } from '../modal';
 import { Button } from '../button';
 
@@ -23,8 +23,23 @@ interface StatusRemarkDialogProps {
    * Pass `true` when this opens on top of another Modal (a detail sheet does; a board drag
    * doesn't). Modal.tsx documents why: two Radix Dialogs in modal mode both try to own the body
    * scroll-lock, and dismissing the inner one first can leave the outer sheet unclickable.
+   *
+   * NOT safe on top of a shadcn/ui Sheet (as opposed to this module's own Modal) — the Sheet's
+   * Radix Dialog portals outside the Sheet's own DOM subtree, so with `nested` (modal={false})
+   * the Sheet's dismissable-layer reads a click inside this dialog as an outside click and closes
+   * the Sheet before the click reaches the submit button. See tickets/TicketDetail.tsx's own
+   * comment on its TicketStatusRemarkDialog for the concrete case this bit.
    */
   nested?: boolean;
+  /** Optional compact history list, rendered below the remark field — a caller-built block (this
+   *  component doesn't know what a "status" looks like for any particular module) so whoever's
+   *  about to explain a change can see recent ones without leaving the dialog. */
+  history?: ReactNode;
+  /** Optional caller-built attachments block (e.g. a photo picker + thumbnails), rendered inside
+   *  the form below the remark field. Kept as a plain node for the same reason as `history` — this
+   *  component doesn't know what a module's evidence/proof capture looks like, only that there's
+   *  room for one next to the remark that explains it. */
+  attachments?: ReactNode;
 }
 
 /**
@@ -38,7 +53,7 @@ interface StatusRemarkDialogProps {
  */
 export const StatusRemarkDialog = ({
   itemTitle, from, to, confirmLabel, description, placeholder,
-  onCancel, onConfirm, isSubmitting = false, nested = false,
+  onCancel, onConfirm, isSubmitting = false, nested = false, history, attachments,
 }: StatusRemarkDialogProps) => {
   const [remark, setRemark] = useState('');
   const [touched, setTouched] = useState(false);
@@ -82,18 +97,25 @@ export const StatusRemarkDialog = ({
       }
     >
       <form id="status-remark-form" onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
-        {/* States the exact move being made, so the remark is written about the right thing —
-            especially from a board drag, where the columns may already have scrolled away. */}
-        <div className="flex items-center gap-2 flex-wrap px-3 py-2.5 rounded-lg border border-border bg-surface-hover/40">
-          {from}
-          <ArrowRight size={13} strokeWidth={3} className="text-text-light shrink-0" />
-          {to}
-          <span className="text-[11px] font-medium text-text-muted truncate min-w-0">{itemTitle}</span>
+        <div className="flex flex-col gap-1.5">
+          <span className="flex items-center gap-1.5 text-xs font-bold text-text-secondary tracking-tight">
+            <ArrowRightLeft size={13} className="text-primary-500" /> Status change
+          </span>
+          {/* States the exact move being made, so the remark is written about the right thing —
+              especially from a board drag, where the columns may already have scrolled away. A
+              stronger border + tint than a plain neutral box, so this reads as the one thing the
+              whole dialog is about rather than a quiet caption line. */}
+          <div className="flex items-center gap-2 flex-wrap px-3 py-2.5 rounded-xl border border-primary-200/60 dark:border-primary-800/40 bg-primary-50/40 dark:bg-primary-950/20">
+            {from}
+            <ArrowRight size={13} strokeWidth={3} className="text-text-light shrink-0" />
+            {to}
+            <span className="text-[11px] font-medium text-text-muted truncate min-w-0">{itemTitle}</span>
+          </div>
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="status-remark" className="text-xs font-bold text-text-secondary tracking-tight">
-            What changed?
+          <label htmlFor="status-remark" className="flex items-center gap-1.5 text-xs font-bold text-text-secondary tracking-tight">
+            <PenLine size={13} className="text-primary-500" /> What changed?
           </label>
           <textarea
             id="status-remark"
@@ -125,7 +147,15 @@ export const StatusRemarkDialog = ({
             </span>
           </div>
         </div>
+
+        {attachments}
       </form>
+
+      {history && (
+        <div className="flex flex-col gap-2 border-t border-border/60 pt-4">
+          {history}
+        </div>
+      )}
     </Modal>
   );
 };

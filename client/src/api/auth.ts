@@ -1,6 +1,6 @@
 import { apiFetch } from './http';
 
-export type Role = 'ADMIN' | 'SENIOR' | 'MANAGER' | 'AGENT' | 'USER' | 'PC';
+export type Role = 'ADMIN' | 'APPROVAL_MANAGER' | 'SENIOR' | 'MANAGER' | 'AGENT' | 'USER' | 'PC';
 
 // Which roles land in the /admin section at all — shared by both the post-login redirect
 // (features/auth/hooks.ts) and the AdminRoute/PCRoute route guards (App.tsx) so they can't

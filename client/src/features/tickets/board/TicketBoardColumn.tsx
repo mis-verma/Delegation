@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { Inbox } from 'lucide-react';
+import { EmptyState } from '../../../components';
 import { TicketCard } from '../TicketCard';
 import { STATUS_CONFIG } from '../ticketDisplay';
 import type { Ticket } from '../../../api/ticket';
@@ -47,12 +48,7 @@ export const TicketBoardColumn = memo(({ status, tickets, draggable, onOpen, dep
 
       <div className="flex flex-col gap-3 min-h-40">
         {tickets.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-28 px-4 text-center border-2 border-dashed border-border/40 rounded-xl bg-surface/30 text-text-muted/70 transition-all duration-300">
-            <div className="p-2 rounded-full bg-surface-hover/60 mb-2 shadow-inner">
-              <Inbox size={14} className="text-text-muted/50" />
-            </div>
-            <span className="text-[11px] font-medium text-text-muted/70">No tickets here</span>
-          </div>
+          <EmptyState size="compact" icon={Inbox} title="No tickets here" />
         ) : draggable ? (
           tickets.map((ticket) => (
             <DraggableTicketCard

@@ -144,18 +144,31 @@ export const KpiStrip = ({ tickets, tasks, todos, isPending, workflowStats }: Kp
 
   // --- Derived Metrics ---
 
-  // Tickets: OPEN/IN_PROGRESS/IN_REVIEW/ON_HOLD map to 'Due'. CLOSED maps to 'Completed'.
+  // "New today" — same local calendar day as right now, not a rolling 24h window, so the count
+  // resets at midnight the way a person reading "today" would expect rather than slowly draining
+  // as the day goes on.
+  const today = new Date();
+  const isToday = (dateString: string) => {
+    const d = new Date(dateString);
+    return d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
+  };
+
+  // Tickets: OPEN/IN_PROGRESS/PENDING_APPROVAL/ON_HOLD map to 'Due'. CLOSED maps to 'Completed'.
   const dueTickets = tickets.filter(t => t.status !== 'CLOSED');
   const completedTickets = tickets.filter(t => t.status === 'CLOSED');
+  const newTicketsToday = tickets.filter(t => isToday(t.createdAt));
 
-  const dueTasks = tasks.filter(t => t.status === 'todo' || t.status === 'in_progress' || t.status === 'pending_verification');
+  const dueTasks = tasks.filter(t => t.status === 'todo' || t.status === 'in_progress' || t.status === 'pending_approval');
   const completedTasks = tasks.filter(t => t.status === 'done');
+  const newTasksToday = tasks.filter(t => isToday(t.createdAt));
 
   const dueTodos = todos.filter(t => !t.completed);
   const completedTodos = todos.filter(t => t.completed);
+  const newTodosToday = todos.filter(t => isToday(t.createdAt));
 
   const dueChecklists = checklistInstances.filter(c => c.items.length === 0 || c.items.some(i => !i.isDone));
   const completedChecklists = checklistInstances.filter(c => c.items.length > 0 && c.items.every(i => i.isDone));
+  const newChecklistsToday = checklistInstances.filter(c => isToday(c.generatedAt));
   const checklistRow = (c: (typeof checklistInstances)[number]): DrilldownRow => {
     const total = c.items.length;
     const done = c.items.filter(i => i.isDone).length;
@@ -186,7 +199,6 @@ export const KpiStrip = ({ tickets, tasks, todos, isPending, workflowStats }: Kp
           {
             label: 'Due',
             value: workflowStats.pending + workflowStats.approvals,
-            tone: 'warning',
             onClick: () => setDrilldown({
               title: 'Due delegations',
               icon: ClipboardList,
@@ -198,12 +210,22 @@ export const KpiStrip = ({ tickets, tasks, todos, isPending, workflowStats }: Kp
           {
             label: 'Completed',
             value: workflowStats.completed,
-            tone: 'success',
             onClick: () => setDrilldown({
               title: 'Completed delegations',
               icon: ClipboardList,
               rows: completedTasks.map(taskRow),
               viewAllHref: '/tasks?status=done',
+              viewAllLabel: 'View all in Delegations',
+            }),
+          },
+          {
+            label: 'New today',
+            value: newTasksToday.length,
+            onClick: () => setDrilldown({
+              title: 'New delegations today',
+              icon: ClipboardList,
+              rows: newTasksToday.map(taskRow),
+              viewAllHref: '/tasks',
               viewAllLabel: 'View all in Delegations',
             }),
           },
@@ -221,7 +243,6 @@ export const KpiStrip = ({ tickets, tasks, todos, isPending, workflowStats }: Kp
           {
             label: 'Due',
             value: dueTickets.length,
-            tone: 'warning',
             onClick: () => setDrilldown({
               title: 'Due tickets',
               icon: TicketCheck,
@@ -233,12 +254,22 @@ export const KpiStrip = ({ tickets, tasks, todos, isPending, workflowStats }: Kp
           {
             label: 'Completed',
             value: completedTickets.length,
-            tone: 'success',
             onClick: () => setDrilldown({
               title: 'Completed tickets',
               icon: TicketCheck,
               rows: completedTickets.map(ticketRow),
               viewAllHref: '/tickets?quickFilter=completed',
+              viewAllLabel: 'View all in Tickets',
+            }),
+          },
+          {
+            label: 'New today',
+            value: newTicketsToday.length,
+            onClick: () => setDrilldown({
+              title: 'New tickets today',
+              icon: TicketCheck,
+              rows: newTicketsToday.map(ticketRow),
+              viewAllHref: '/tickets',
               viewAllLabel: 'View all in Tickets',
             }),
           },
@@ -256,7 +287,6 @@ export const KpiStrip = ({ tickets, tasks, todos, isPending, workflowStats }: Kp
           {
             label: 'Due',
             value: checklistSummary?.pending ?? 0,
-            tone: 'warning',
             onClick: () => setDrilldown({
               title: 'Due checklists',
               icon: ListChecks,
@@ -271,7 +301,6 @@ export const KpiStrip = ({ tickets, tasks, todos, isPending, workflowStats }: Kp
           {
             label: 'Completed',
             value: checklistSummary?.completed ?? 0,
-            tone: 'success',
             onClick: () => setDrilldown({
               title: 'Completed checklists',
               icon: ListChecks,
@@ -281,6 +310,17 @@ export const KpiStrip = ({ tickets, tasks, todos, isPending, workflowStats }: Kp
               cappedNote: (checklistSummary?.completed ?? 0) > completedChecklists.length
                 ? `Showing your ${completedChecklists.length} most recent — ${checklistSummary!.completed} total are completed.`
                 : undefined,
+            }),
+          },
+          {
+            label: 'New today',
+            value: newChecklistsToday.length,
+            onClick: () => setDrilldown({
+              title: 'New checklists today',
+              icon: ListChecks,
+              rows: newChecklistsToday.map(checklistRow),
+              viewAllHref: '/checklists',
+              viewAllLabel: 'View all in Checklist',
             }),
           },
         ]}
@@ -298,7 +338,6 @@ export const KpiStrip = ({ tickets, tasks, todos, isPending, workflowStats }: Kp
           {
             label: 'Due',
             value: dueTodos.length,
-            tone: 'warning',
             onClick: () => setDrilldown({
               title: 'Due todos',
               icon: ListTodo,
@@ -310,12 +349,22 @@ export const KpiStrip = ({ tickets, tasks, todos, isPending, workflowStats }: Kp
           {
             label: 'Completed',
             value: completedTodos.length,
-            tone: 'success',
             onClick: () => setDrilldown({
               title: 'Completed todos',
               icon: ListTodo,
               rows: completedTodos.map(todoRow),
               viewAllHref: '/todo?quickFilter=completed',
+              viewAllLabel: 'View all in Todo',
+            }),
+          },
+          {
+            label: 'New today',
+            value: newTodosToday.length,
+            onClick: () => setDrilldown({
+              title: 'New todos today',
+              icon: ListTodo,
+              rows: newTodosToday.map(todoRow),
+              viewAllHref: '/todo',
               viewAllLabel: 'View all in Todo',
             }),
           },

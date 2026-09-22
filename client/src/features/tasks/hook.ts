@@ -31,6 +31,8 @@ const TASK_KEYS = {
     all: (userId?: string, tagIds?: string[]) =>
         ['tasks', userId ?? 'mine', [...(tagIds ?? [])].sort().join(',')] as const,
     detail: (id: string) => ['tasks', 'detail', id] as const,
+    drafts: ['tasks', 'draft'] as const,
+    archived: ['tasks', 'archived'] as const,
 };
 
 // List tasks — optionally scoped to one specific user's tasks (that scoping is admin-only,
@@ -51,6 +53,33 @@ export const useTasksQuery = (userId?: string, enabled = true, tagIds?: string[]
     });
 };
 
+// The sidebar's "Delegation" count badge and its hover breakdown — a real server-side aggregate
+// (task.service.ts#summary), not a client-side reduce over useTasksQuery's own 200-row page,
+// which would silently undercount past that cap and would also pull the whole list just to count
+// it on every route (the sidebar renders everywhere).
+export const useTaskSummaryQuery = (enabled = true) => {
+    const { token } = useAuth();
+    return useQuery({
+        queryKey: ['tasks', 'summary'] as const,
+        queryFn: () => taskApi.getSummary(),
+        enabled: !!token && enabled,
+        retry: handleQueryRetry,
+    });
+};
+
+// Dashboard's "Needs your approval" card — `enabled` is the caller's own role check (ADMIN/PC
+// only), same convention as useTaskSummaryQuery's own `enabled` param, so a USER/MANAGER never
+// fires a request the route would 403 anyway.
+export const useTaskPendingApprovalQuery = (enabled = true) => {
+    const { token } = useAuth();
+    return useQuery({
+        queryKey: ['tasks', 'pending-approval'] as const,
+        queryFn: () => taskApi.getPendingApproval(),
+        enabled: !!token && enabled,
+        retry: handleQueryRetry,
+    });
+};
+
 // Same query key, so this shares the one request/cache entry useTasksQuery already made — it just
 // selects the other half of the response. Lets a list surface "showing 200 of 1,240" instead of
 // presenting a truncated page as the complete set.
@@ -65,6 +94,57 @@ export const useTasksMetaQuery = (userId?: string, enabled = true, tagIds?: stri
     });
 };
 
+// Draft Delegations — pre-publication scratch items, only ever the caller's own (see
+// task.service.ts#list's status === 'draft' branch, which ignores role/department reach
+// entirely). Its own cache key/query, not a filtered view of useTasksQuery's data, since the
+// server excludes drafts from that default fetch by design.
+export const useDraftTasksQuery = () => {
+    const { token } = useAuth();
+    return useQuery({
+        queryKey: TASK_KEYS.drafts,
+        queryFn: () => taskApi.getAll(undefined, 'draft'),
+        select: (page) => page.data,
+        enabled: !!token,
+        retry: handleQueryRetry,
+    });
+};
+
+// Archived Delegations — soft-deleted tasks, same creator/assignee/department/org-wide
+// visibility scope the live list uses, just the other side of deletedAt.
+export const useArchivedTasksQuery = () => {
+    const { token } = useAuth();
+    return useQuery({
+        queryKey: TASK_KEYS.archived,
+        queryFn: () => taskApi.getAll(undefined, undefined, 1, 200, undefined, true),
+        select: (page) => page.data,
+        enabled: !!token,
+        retry: handleQueryRetry,
+    });
+};
+
+export const useRestoreTaskMutation = () =>
+    useEntityMutation({
+        mutationFn: (id: string) => taskApi.restore(id),
+        // Leaves the Archived list (row is no longer archived) and needs to show up in the
+        // ordinary task list/board/table again.
+        invalidateKeys: [['tasks']],
+        successMessage: 'Delegation restored',
+        errorFallback: 'Failed to restore delegation',
+    });
+
+// "Publish" is just an ordinary status-change PATCH (draft -> todo) through the same mechanism
+// every other status move already goes through — the server's generic status-change path (no
+// special-cased guard for this transition) handles it as-is. The remark is fixed rather than
+// prompted for: requiring someone to type a "reason" for a delegation's very first activation,
+// the same way a later todo -> in_progress move would, is friction with nothing real behind it.
+export const usePublishDraftTaskMutation = () =>
+    useEntityMutation({
+        mutationFn: (id: string) => taskApi.update(id, { status: 'todo', statusRemark: 'Published from draft.' }),
+        invalidateKeys: [['tasks']],
+        successMessage: 'Delegation published',
+        errorFallback: 'Failed to publish delegation',
+    });
+
 // Checklist completion rate over time — role-scoped server-side (ADMIN/PC get the org-wide
 // or department view, everyone else only ever sees their own tasks). Powers the dashboard's
 // Monthly Target gauge, and (via departmentId/userId) the Team Overview drill-down.
@@ -78,13 +158,16 @@ export const useComplianceReportQuery = (groupBy: 'hour' | 'day' | 'week' | 'mon
     });
 };
 
-// Single task by id
-export const useTaskQuery = (id: string) => {
+// Single task by id. `enabled` (default true) lets a caller defer the fetch until it's actually
+// needed — e.g. the Verification Queue's inline checklist preview, which only wants a task's full
+// checklist tree (absent from the list response) once its row is actually expanded, not for every
+// row in the queue up front.
+export const useTaskQuery = (id: string, enabled = true) => {
     const { token } = useAuth();
     return useQuery({
         queryKey: TASK_KEYS.detail(id),
         queryFn:  () => taskApi.getOne(id),
-        enabled:  !!token && !!id,
+        enabled:  !!token && !!id && enabled,
         retry: handleQueryRetry,
     });
 };
@@ -109,7 +192,7 @@ export const useCreateTaskWithAttachmentsMutation = () =>
             return created;
         },
         invalidateKeys: [['tasks']],
-        successMessage: 'Task created',
+        successMessage: (created) => (created.status === 'draft' ? 'Saved as draft' : 'Task created'),
         errorFallback: 'Failed to create task',
     });
 
@@ -150,15 +233,17 @@ export const useUpdateTaskMutation = (options?: { silent?: boolean }) =>
         errorFallback: 'Failed to update task',
     });
 
-// Powers the PC verification queue — tasks waiting on a given status (pending_verification),
+// Powers the PC verification queue — tasks waiting on a given status (pending_approval),
 // scoped server-side to whatever the requester is allowed to see (PC/ADMIN get their department).
-export const useTasksByStatusQuery = (status: Task['status']) => {
+export const useTasksByStatusQuery = (status: Task['status'], enabled = true) => {
     const { token } = useAuth();
     return useQuery({
         queryKey: ['tasks', 'by-status', status],
-        queryFn: () => taskApi.getAll(undefined, status),
+        // checklistSummary=true — the only caller of this hook is the Verification Queue, which
+        // shows each row's done/total/missing-photo rollup before it's even expanded.
+        queryFn: () => taskApi.getAll(undefined, status, 1, 200, undefined, undefined, true),
         select: (page) => page.data,
-        enabled: !!token,
+        enabled: !!token && enabled,
         retry: handleQueryRetry,
     });
 };

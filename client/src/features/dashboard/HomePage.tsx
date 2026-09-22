@@ -1,5 +1,18 @@
-import { useMemo, useState } from 'react';
-import { BarChart3, AlertTriangle, RotateCw, ClipboardList, TicketCheck, ListTodo, ListChecks, CalendarDays } from 'lucide-react';
+import { useMemo, useState, type ReactNode } from 'react';
+import { AlertTriangle, RotateCw, ClipboardList, TicketCheck, ListTodo, ListChecks, CalendarDays } from 'lucide-react';
+import {
+  DndContext,
+  DragOverlay,
+  MouseSensor,
+  TouchSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  type DragStartEvent,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import { SortableContext, rectSortingStrategy, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { QuickActionsGrid, type QuickAction } from '../admin/overview/QuickActionsGrid';
 import { Skeleton } from '../../components/skeleton';
 import { useAuth } from '../../context/AuthContext';
@@ -9,29 +22,32 @@ import { useUpcomingEventsQuery } from '../events/hook';
 import { useTodosQuery } from '../todo/hook';
 import { useMyChecklistInstancesQuery } from '../checklist/hook';
 import { TASK_SCORE } from '../tasks/taskDisplay';
-import { DashboardHeader } from './DashboardHeader';
+import { DRAG_SLOP_PX } from '../../lib/dragSlop';
 import { DashboardOverview } from './DashboardOverview';
 import { MonthlyTargetCard, type FooterStat } from './MonthlyTargetCard';
-import { ActivityTrendChart, ACTIVITY_CHART_HEIGHT } from './ActivityTrendChart';
+import { ActivityOverviewCard } from './ActivityOverviewCard';
 import { ActivityComplianceGauges } from './ActivityComplianceGauges';
-import { ActivityGroupByControl } from './ActivityGroupByControl';
-import { ActivityCategoryFilter } from './ActivityCategoryFilter';
+import { NeedsApprovalCard } from './NeedsApprovalCard';
 import { CompareDashboard } from './CompareDashboard';
 import { TeamProgressCard } from './TeamProgressCard';
 import { RecentActivity, RECENT_ACTIVITY_FEED_SIZE } from './RecentActivity';
 import { UpcomingEvents } from './UpcomingEvents';
+import { DashboardCardFrame } from './DashboardCardFrame';
+import { DashboardLayoutToolbar } from './DashboardLayoutToolbar';
+import { useDashboardLayout } from './useDashboardLayout';
+import { CARD_LABEL, type DashboardCardId } from './dashboardLayout';
 import {
   type FeedItem,
   type CompliancePeriod,
   type ActivityGroupBy,
   type ActivityCategory,
   PERIOD_LABEL,
-  ACTIVITY_GROUP_RANGE_LABEL,
   ACTIVITY_CATEGORY_ORDER,
   buildActivityItems,
   periodStartDate,
   shiftPeriod,
   pointDelta,
+  DASHBOARD_CARD_CLASS,
 } from './dashboardDisplay';
 import type { Task } from '../../api/task';
 
@@ -47,6 +63,30 @@ const USER_QUICK_ACTIONS: readonly QuickAction[] = [
 
 export const HomePage = () => {
   const { user } = useAuth();
+  const isOrgWideRole = user?.role === 'ADMIN' || user?.role === 'PC';
+
+  const {
+    order: cardOrder,
+    sizes: cardSizes,
+    isCustomizing,
+    setIsCustomizing,
+    moveCard,
+    setCardSize,
+    reset: resetLayout,
+  } = useDashboardLayout(isOrgWideRole);
+  const [activeDragId, setActiveDragId] = useState<DashboardCardId | null>(null);
+  const dragSensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: DRAG_SLOP_PX } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+  const handleDragStart = (event: DragStartEvent) => setActiveDragId(event.active.id as DashboardCardId);
+  const handleDragEnd = (event: DragEndEvent) => {
+    setActiveDragId(null);
+    const { active, over } = event;
+    if (over && active.id !== over.id) moveCard(active.id as DashboardCardId, over.id as DashboardCardId);
+  };
+
   // Defaulting to "month" made every completion-scoped widget open on a near-empty bucket for
   // anyone early in the calendar month — "week" is far more likely to have something in it on
   // first paint, without changing what any of the tabs themselves compute.
@@ -95,7 +135,6 @@ export const HomePage = () => {
     (t) => t.userId === user?.id || t.assigneeId === user?.id || t.additionalAssigneeIds?.includes(user?.id ?? ''),
   );
 
-  const isOrgWideRole = user?.role === 'ADMIN' || user?.role === 'PC';
   const workflowTasks = isOrgWideRole ? (allTasks ?? []) : tasks;
   // Same org-wide-for-admin/PC treatment as workflowTasks above — the Tickets card in the KPI
   // strip and Compare Dashboard were still being fed `tickets` (always "mine", unconditionally),
@@ -103,7 +142,7 @@ export const HomePage = () => {
   const workflowTickets = isOrgWideRole ? (ticketPage?.data ?? []) : tickets;
   const workflowStats = {
     pending: workflowTasks.filter((t) => t.status === 'todo' || t.status === 'in_progress').length,
-    approvals: workflowTasks.filter((t) => t.status === 'pending_verification').length,
+    approvals: workflowTasks.filter((t) => t.status === 'pending_approval').length,
     completed: workflowTasks.filter((t) => t.status === 'done').length,
     assigned: workflowTasks.length,
   };
@@ -185,13 +224,79 @@ export const HomePage = () => {
     { label: 'Pending', value: String(pendingItems), ...movement(pendingItems, prevPending, true) },
   ];
 
+  // One switch instead of duplicating each card's JSX between the real grid and DragOverlay's
+  // floating copy below — `cardOrder` already excludes compliance/compareDashboard for anyone
+  // who isn't ADMIN/PC (see useDashboardLayout), so no role check is needed here.
+  const renderCard = (id: DashboardCardId): ReactNode => {
+    switch (id) {
+      case 'quickActions':
+        return <QuickActionsGrid actions={USER_QUICK_ACTIONS} />;
+      case 'activityOverview':
+        return (
+          <ActivityOverviewCard
+            isPending={isPending}
+            activityItems={activityItems}
+            activeCategories={activeCategories}
+            onToggleCategory={toggleCategory}
+            activityGroupBy={activityGroupBy}
+            onGroupByChange={setActivityGroupBy}
+          />
+        );
+      case 'needsApproval':
+        return <NeedsApprovalCard />;
+      case 'compliance':
+        return isPending ? (
+          <div className={`relative ${DASHBOARD_CARD_CLASS} p-4 sm:p-6 lg:p-7 overflow-hidden`}>
+            <div className="absolute -top-20 -left-16 w-56 h-56 bg-primary-500/10 dark:bg-primary-400/5 rounded-full blur-[90px] pointer-events-none" />
+            <div className="relative flex items-center gap-3 mb-5">
+              <Skeleton className="size-10 rounded-xl shrink-0" />
+              <div className="flex flex-col gap-2">
+                <Skeleton className="h-4 w-28 rounded" />
+                <Skeleton className="h-3 w-48 rounded" />
+              </div>
+            </div>
+            {/* Two circles, matching the two-gauge grid this replaces — same rough footprint as
+                the real 176px-diameter charts so the card doesn't visibly resize once data lands. */}
+            <div className="relative grid grid-cols-2 gap-3 sm:gap-6" role="status" aria-label="Loading compliance">
+              {[0, 1].map((i) => (
+                <div key={i} className="flex flex-col items-center gap-4 p-3 sm:p-6">
+                  <Skeleton className="rounded-full" style={{ width: 176, height: 176, maxWidth: '100%' }} />
+                  <Skeleton className="h-3 w-20 rounded" />
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <ActivityComplianceGauges items={orgActivityItems} activeCategories={activeCategories} groupBy={activityGroupBy} />
+        );
+      case 'delegationScore':
+        return (
+          <MonthlyTargetCard
+            percent={targetPercent}
+            total={totalItems}
+            change={targetChange}
+            description={targetDescription}
+            stats={targetStats}
+            period={period}
+            onPeriodChange={setPeriod}
+          />
+        );
+      case 'compareDashboard':
+        return <CompareDashboard tasks={workflowTasks} tickets={workflowTickets} period={comparePeriod} onPeriodChange={setComparePeriod} />;
+      case 'teamProgress':
+        return <TeamProgressCard tasks={workflowTasks} isOrgWideRole={isOrgWideRole} />;
+      case 'recentActivity':
+        return <RecentActivity feed={feed} isPending={isPending} />;
+      case 'upcomingEvents':
+        return <UpcomingEvents events={upcomingEvents ?? []} isPending={eventsPending} />;
+    }
+  };
+
   return (
     // Sections breathe wider than the cards inside them (gap-6/8 out here vs. gap-4/6 within each
     // row) — the two were inverted before, which grouped a row's own siblings less tightly than
     // the unrelated sections above and below it.
     <div className="flex flex-col gap-6 lg:gap-8 w-full animate-in fade-in duration-500 ease-out">
-      <DashboardHeader userName={user?.name} />
-
       {failedSources.length > 0 && (
         <div
           role="alert"
@@ -223,129 +328,59 @@ export const HomePage = () => {
           records than the number it explains. */}
       <DashboardOverview isPending={isPending} tickets={workflowTickets} tasks={workflowTasks} todos={todos} workflowStats={workflowStats} />
 
-      <QuickActionsGrid actions={USER_QUICK_ACTIONS} />
+      <DashboardLayoutToolbar
+        isCustomizing={isCustomizing}
+        onStart={() => setIsCustomizing(true)}
+        onReset={resetLayout}
+        onDone={() => setIsCustomizing(false)}
+      />
 
-      {/* No overflow-hidden here — nothing inside needs clipping, and it was cutting off the bar
-          chart's hover tooltip whenever it popped out past this card's own rounded border. The
-          ambient corner glow matches the treatment every other Dashboard card (RecentActivity,
-          UpcomingEvents, MonthlyTargetCard) already has. `bg-surface` is what actually made this
-          card read as a peer of its siblings rather than a flat outline — it was the only padded
-          card on the page with a border but no surface behind it, so it sat directly on the page's
-          ambient background gradient. */}
-      <section
-        aria-labelledby="activity-overview-heading"
-        className="relative rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface p-4 sm:p-6 lg:p-7 overflow-hidden"
+      {/* Every card below the KPI strip — reorderable and independently sized once Customize is
+          on. `cardOrder` already carries the org-wide/personal split that used to live here as
+          three separately-gated grid blocks (Compliance and Compare Dashboard simply aren't in
+          the array for anyone who isn't ADMIN/PC), so one grid replaces what were three. */}
+      <DndContext
+        sensors={dragSensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragCancel={() => setActiveDragId(null)}
       >
-        <div className="absolute -top-24 -right-16 w-56 h-56 bg-primary-500/10 dark:bg-primary-400/5 rounded-full blur-[90px] pointer-events-none" />
-
-        <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-primary-50 dark:bg-primary-500/10 border border-primary-100 dark:border-primary-800/50 text-primary-600 dark:text-primary-400 shadow-sm">
-              <BarChart3 size={20} strokeWidth={2.5} />
-            </div>
-            <div>
-              {/* h2, like every other card title on the page — these are all siblings under the
-                  greeting's h1, so the old mix of h2s and h3s across the six cards left a level
-                  gap for anyone navigating by heading. */}
-              <h2 id="activity-overview-heading" className="text-base sm:text-lg font-display font-bold text-text tracking-tight leading-tight">Activity Overview</h2>
-              {/* Names what the groupBy tabs on the right actually scope — previously static text
-                  that never changed no matter which tab (Day/Month/Quarter/Year) was selected. */}
-              <p className="text-xs font-medium text-text-muted mt-0.5 tracking-wide">Delegations, tickets, checklists, and todos, over the {ACTIVITY_GROUP_RANGE_LABEL[activityGroupBy]}</p>
-            </div>
+        <SortableContext items={cardOrder} strategy={rectSortingStrategy}>
+          {/* items-stretch (the grid default) — was items-start, which let two cards sharing a row
+              end at different heights, leaving a ragged gap under whichever one had less content
+              (Quick actions next to Activity Overview's chart, Upcoming Events next to Recent
+              Activity's row list). Every card's own root now carries h-full (DASHBOARD_CARD_CLASS)
+              so its border/background actually reaches the row's real height instead of just the
+              grid cell doing so invisibly around it. */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 pb-8">
+            {cardOrder.map((id) => (
+              <DashboardCardFrame
+                key={id}
+                id={id}
+                label={CARD_LABEL[id]}
+                size={cardSizes[id]}
+                isCustomizing={isCustomizing}
+                onSizeChange={(size) => setCardSize(id, size)}
+              >
+                {renderCard(id)}
+              </DashboardCardFrame>
+            ))}
           </div>
-          <ActivityGroupByControl value={activityGroupBy} onChange={setActivityGroupBy} />
-        </div>
+        </SortableContext>
 
-        {/* Also scopes the Compliance card's gauges below — toggling a category here narrows
-            both, not independently. */}
-        <div className="relative">
-          <ActivityCategoryFilter active={activeCategories} onToggle={toggleCategory} />
-        </div>
-
-        {isPending ? (
-          // Shaped like the real chart (a row of bars rising off a baseline, plus axis labels)
-          // instead of a generic spinner box — holds the chart's exact height (shared constant, so
-          // the two can't drift) so nothing jumps when the real data swaps in, and reads as "this
-          // specific thing is loading" rather than a placeholder that could be anything.
-          <div className="mt-4 flex flex-col justify-end gap-3" style={{ height: ACTIVITY_CHART_HEIGHT }} role="status" aria-label="Loading activity overview">
-            <div className="flex items-end justify-between gap-2 sm:gap-4 h-[190px] px-1">
-              {[55, 80, 40, 95, 60, 75, 45].map((h, i) => (
-                <Skeleton key={i} className="flex-1 max-w-11 rounded-t-md rounded-b-none" style={{ height: `${h}%` }} />
-              ))}
+        {/* A floating copy of whatever's being dragged, lifted with real depth (the one place on
+            this page a shadow like this is warranted — everything else stays flat-with-a-border on
+            purpose) — the card left behind in the grid is what DashboardCardFrame's own opacity
+            drop shows, not a second placeholder drawn here. */}
+        <DragOverlay>
+          {activeDragId && (
+            <div className="rotate-1 shadow-2xl shadow-primary-900/20 rounded-2xl cursor-grabbing">
+              {renderCard(activeDragId)}
             </div>
-            <div className="flex items-center justify-between px-1">
-              {Array.from({ length: 7 }).map((_, i) => (
-                <Skeleton key={i} className="h-2.5 w-6 rounded" />
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="relative mt-4">
-            <ActivityTrendChart items={activityItems} activeCategories={activeCategories} groupBy={activityGroupBy} />
-          </div>
-        )}
-      </section>
-
-      {/* Compliance + Delegation Score, one row — both are "how are we scoring" cards, so they
-          read as a pair rather than Compliance sitting alone above an unrelated 3-up row.
-          isOrgWideRole gates Compliance (Admin/PC-only, org-wide scope) — for everyone else this
-          row is just Delegation Score on its own, not a half-empty grid with one dead column, so
-          the grid itself only turns on when there's a second card to pair it with. */}
-      <div className={isOrgWideRole ? 'grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6' : 'flex flex-col'}>
-        {isOrgWideRole && (
-          isPending ? (
-            <div className="relative rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface p-4 sm:p-6 lg:p-7 overflow-hidden">
-              <div className="absolute -top-20 -left-16 w-56 h-56 bg-primary-500/10 dark:bg-primary-400/5 rounded-full blur-[90px] pointer-events-none" />
-              <div className="relative flex items-center gap-3 mb-5">
-                <Skeleton className="size-10 rounded-xl shrink-0" />
-                <div className="flex flex-col gap-2">
-                  <Skeleton className="h-4 w-28 rounded" />
-                  <Skeleton className="h-3 w-48 rounded" />
-                </div>
-              </div>
-              {/* Two circles, matching the two-gauge grid this replaces — same rough footprint as
-                  the real 176px-diameter charts so the card doesn't visibly resize once data lands. */}
-              <div className="relative grid grid-cols-2 gap-3 sm:gap-6" role="status" aria-label="Loading compliance">
-                {[0, 1].map((i) => (
-                  <div key={i} className="flex flex-col items-center gap-4 p-3 sm:p-6">
-                    <Skeleton className="rounded-full" style={{ width: 176, height: 176, maxWidth: '100%' }} />
-                    <Skeleton className="h-3 w-20 rounded" />
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <ActivityComplianceGauges items={orgActivityItems} activeCategories={activeCategories} groupBy={activityGroupBy} />
-          )
-        )}
-
-        <MonthlyTargetCard
-          percent={targetPercent}
-          change={targetChange}
-          description={targetDescription}
-          stats={targetStats}
-          period={period}
-          onPeriodChange={setPeriod}
-        />
-      </div>
-
-      {/* Everything else — 2x2 on desktop, one column below that. Same gap scale as the row
-          above so the whole page keeps one rhythm instead of drifting between values depending on
-          when a section was last touched. */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 pb-8">
-        {/* Compare Dashboard, like Compliance above, is an oversight widget — Admin/PC-only, same
-            as the request. A regular user's dashboard shows only cards scoped to their own work.
-            `workflowTasks`/`workflowTickets` (org-wide here, since this only ever renders for
-            ADMIN/PC), not `tasks`/`tickets` — this is the one widget explicitly gated to org-wide
-            roles specifically so it can compare across the whole org, so feeding it the "mine"-only
-            lists defeated its own purpose. */}
-        {isOrgWideRole && (
-          <CompareDashboard tasks={workflowTasks} tickets={workflowTickets} period={comparePeriod} onPeriodChange={setComparePeriod} />
-        )}
-        <TeamProgressCard tasks={workflowTasks} isOrgWideRole={isOrgWideRole} />
-        <RecentActivity feed={feed} isPending={isPending} />
-        <UpcomingEvents events={upcomingEvents ?? []} isPending={eventsPending} />
-      </div>
+          )}
+        </DragOverlay>
+      </DndContext>
     </div>
   );
 };

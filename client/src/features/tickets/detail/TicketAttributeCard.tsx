@@ -7,9 +7,12 @@ interface TicketAttributeCardProps {
   children: ReactNode;
 }
 
+// Quiet, borderless-at-rest cell — same reference as the Create Ticket modal's own fields: a
+// property row doesn't need its own permanent box, just a soft tint on hover/focus to show it's
+// interactive. This used to nest a bordered mini-card inside the grid's own bordered wrapper,
+// which is exactly the "box inside a box" heaviness the rest of the ticket UI moved away from.
 const CARD_CLASS =
-  'flex flex-col gap-1 p-2 rounded bg-surface/60 border border-border/40 transition-colors duration-200 ' +
-  'hover:bg-primary-500/5 hover:border-primary-500/30 focus-within:bg-primary-500/5 focus-within:border-primary-500/40';
+  'flex flex-col gap-1 p-2.5 rounded-lg transition-colors duration-150 hover:bg-surface-hover focus-within:bg-surface-hover';
 
 const LABEL_CLASS = 'text-[10px] capitalize text-text-secondary font-semibold flex items-center gap-1';
 

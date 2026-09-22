@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { StatusChip, DepartmentChip, TagChip } from '../../components';
+import { StatusChip, DepartmentChip, TagChip, type StatusChipStatus } from '../../components';
 import { PRIORITY_MAP } from './taskDisplay';
 import { isOverdueTask } from './taskFilters';
 import {
@@ -20,11 +20,15 @@ interface TaskListViewProps {
 }
 
 const STATUS_CHIP_KEY = {
+  // draft never actually reaches this view (the normal Task List excludes it — see
+  // task.service.ts#list), but Task['status'] includes it structurally so this map still needs
+  // an entry; 'open' is the closest neutral reading if one ever did.
+  draft: 'open',
   todo: 'open',
   in_progress: 'in_progress',
-  pending_verification: 'pending',
+  pending_approval: 'pending',
   done: 'completed',
-} as const;
+} as const satisfies Record<Task['status'], StatusChipStatus>;
 
 // "Today" and "Tomorrow" beat a date the reader has to compare against today's, which is the whole
 // job of a due value. Anything further out is the plain short date.

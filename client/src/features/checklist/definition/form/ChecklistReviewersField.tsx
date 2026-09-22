@@ -49,8 +49,8 @@ export const ChecklistReviewersField = ({
       />
 
       <p className="text-[11px] font-display text-text-muted">
-        Anyone picked here can approve or reject this checklist's runs, on top of whoever already
-        can (PC/Admin always, or the HOD of an assigned team member's department).
+        Anyone you add here can approve or reject this checklist's runs — on top of PC/Admin,
+        and the department head of anyone assigned.
       </p>
     </div>
   );

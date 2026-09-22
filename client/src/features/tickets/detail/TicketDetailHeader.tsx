@@ -39,7 +39,7 @@ export const TicketDetailHeader = ({ ticket }: TicketDetailHeaderProps) => {
   };
 
   return (
-    <SheetHeader className="p-6 pb-5 border-b border-border bg-surface/95 backdrop-blur-xl text-left shadow-sm z-20">
+    <SheetHeader className="p-6 pb-5 border-b border-border bg-surface/95 backdrop-blur-xl text-left z-20">
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">

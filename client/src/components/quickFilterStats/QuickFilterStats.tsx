@@ -22,6 +22,7 @@ export interface QuickFilterTile<K extends string> {
   bgTint: string;
   accentBar: string;
   accentBorder: string;
+  ring: string;
 }
 
 interface QuickFilterStatsProps<K extends string> {
@@ -113,7 +114,7 @@ export function QuickFilterStats<K extends string>({
   return (
     <div className={gridClass(shownTiles.length)}>
       {shownTiles.map((tile, index) => {
-        const { key, label, bgTint, accentBar, accentBorder } = tile;
+        const { key, label, bgTint, accentBar, accentBorder, ring } = tile;
         const isTotalTile = hasTotal && key === 'all';
         // The Total tile is the resting state, so it reads as selected exactly when no bucket is.
         const isActive = isTotalTile ? active === null : active === key;
@@ -147,8 +148,15 @@ export function QuickFilterStats<K extends string>({
                 // missed in that same sweep and is now on the palette too.
                 "bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
+                // Was `ring-2 ring-white/60` — since this tile is "active" by default (it's the
+                // resting state whenever no bucket is picked, per the comment above), a stark
+                // 60%-opacity white ring was the tile's normal, permanent appearance, not just an
+                // occasional selected-state accent. Against the app's own dark theme, with nothing
+                // light nearby to blend into, that read exactly like a stray white border/box
+                // around the card rather than a deliberate highlight. A thin, much softer ring
+                // still marks it as the lead tile without looking like a mistake.
                 isActive
-                  ? "ring-2 ring-white/60 -translate-y-1 shadow-xl shadow-primary-900/20"
+                  ? "ring-1 ring-white/15 -translate-y-1 shadow-xl shadow-primary-900/20"
                   : "hover:-translate-y-1 hover:shadow-xl hover:shadow-primary-900/20 active:scale-[0.98]"
               )}
             >
@@ -202,6 +210,11 @@ export function QuickFilterStats<K extends string>({
                 isActive ? "opacity-100" : "opacity-0 group-hover:opacity-40"
               )}
             />
+
+            {/* One quiet, theme-tinted ring — same "quiet card, one ring in the tile's own tone"
+                treatment StatCard's plain variant uses, instead of this tile having no accent
+                beyond the left bar and the tiny corner glyph. */}
+            <span aria-hidden="true" className={cn("absolute -top-6 -right-6 size-16 rounded-full border pointer-events-none", ring)} />
 
             <div className="min-w-0 flex-1">
               <p className={cn("text-2xl font-bold tracking-tight leading-none tabular-nums transition-colors", isActive ? "text-text" : "text-text-secondary group-hover:text-text")}>

@@ -1,5 +1,6 @@
 import { Clock, AlarmClock, CheckCircle2, Inbox } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { EmptyState } from '../../../components';
 import { ChecklistInstanceCard } from './ChecklistInstanceCard';
 import { isInstanceOverdue } from '../checklistDisplay';
 import type { ChecklistInstance } from '../../../api/checklistInstances';
@@ -13,15 +14,20 @@ interface ColumnConfig {
   dot: string;
   containerClass: string;
   headerText: string;
+  // Mobile-only reorder (see the grid's own comment below) — Overdue is the one column someone
+  // actually needs to act on, so it goes first when everything is stacked full-width instead of
+  // laid out left-to-right. Desktop keeps the untouched Due/Overdue/Completed reading order via
+  // its own `lg:order-none`.
+  mobileOrder: string;
 }
 
 // Same tone convention as statusTiles.ts (warning=Due, danger=Overdue, success=Completed) — the
 // board's columns read as the same three buckets the Table view's Status column and the quick-stat
 // tiles already use, just laid out spatially instead of as a list.
 const COLUMNS: ColumnConfig[] = [
-  { key: 'due', label: 'Due', icon: Clock, dot: 'bg-warning', containerClass: 'border-warning/20 bg-warning/[0.04]', headerText: 'text-warning' },
-  { key: 'overdue', label: 'Overdue', icon: AlarmClock, dot: 'bg-danger', containerClass: 'border-danger/20 bg-danger/[0.04]', headerText: 'text-danger' },
-  { key: 'completed', label: 'Completed', icon: CheckCircle2, dot: 'bg-success', containerClass: 'border-success/20 bg-success/[0.04]', headerText: 'text-success' },
+  { key: 'due', label: 'Due', icon: Clock, dot: 'bg-warning', containerClass: 'border-warning/20 bg-warning/[0.04]', headerText: 'text-warning', mobileOrder: 'order-2' },
+  { key: 'overdue', label: 'Overdue', icon: AlarmClock, dot: 'bg-danger', containerClass: 'border-danger/20 bg-danger/[0.04]', headerText: 'text-danger', mobileOrder: 'order-1' },
+  { key: 'completed', label: 'Completed', icon: CheckCircle2, dot: 'bg-success', containerClass: 'border-success/20 bg-success/[0.04]', headerText: 'text-success', mobileOrder: 'order-3' },
 ];
 
 interface ChecklistInstanceBoardProps {
@@ -45,13 +51,18 @@ export const ChecklistInstanceBoard = ({ instances }: ChecklistInstanceBoardProp
   }
 
   return (
-    <div className="flex lg:grid lg:grid-cols-3 gap-4 items-start overflow-x-auto lg:overflow-visible snap-x snap-mandatory lg:snap-none pb-2 lg:pb-0 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out">
+    // Full-width stacked columns below `lg`, Overdue first (via each column's mobileOrder) — a
+    // sideways-scrolling row of columns made someone swipe past "Due" just to reach the one column
+    // that actually needs attention, and horizontal swiping over the page's main content competes
+    // with plain vertical scrolling on a phone. Side-by-side columns only kick in at `lg`, where
+    // there's room to see all three without scrolling either way.
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out">
       {COLUMNS.map((col) => {
         const items = byStatus.get(col.key) ?? [];
         return (
           <div
             key={col.key}
-            className={`flex-1 min-w-[280px] sm:min-w-[320px] lg:min-w-0 snap-start flex flex-col gap-3 rounded-2xl border p-2.5 transition-colors duration-300 ${col.containerClass}`}
+            className={`${col.mobileOrder} lg:order-none flex flex-col gap-3 rounded-2xl border p-2.5 transition-colors duration-300 ${col.containerClass}`}
           >
             <div className="flex items-center justify-between px-2 py-1.5">
               <div className="flex items-center gap-2.5 min-w-0">
@@ -72,12 +83,7 @@ export const ChecklistInstanceBoard = ({ instances }: ChecklistInstanceBoardProp
 
             <div className="flex flex-col gap-3 min-h-40">
               {items.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-28 px-4 text-center border-2 border-dashed border-border/40 rounded-xl bg-surface/30 text-text-muted/70 transition-all duration-300">
-                  <div className="p-2 rounded-full bg-surface-hover/60 mb-2 shadow-inner">
-                    <Inbox size={14} className="text-text-muted/50" />
-                  </div>
-                  <span className="text-[11px] font-medium text-text-muted/70">Nothing here</span>
-                </div>
+                <EmptyState size="compact" icon={Inbox} title="Nothing here" />
               ) : (
                 // The card handles its own hover treatment (border-color change, no shadow/lift —
                 // this app's house rule against shadow-as-elevation on card/row containers), so

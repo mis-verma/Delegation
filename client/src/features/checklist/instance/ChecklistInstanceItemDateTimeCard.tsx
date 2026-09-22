@@ -37,7 +37,7 @@ export const ChecklistInstanceItemDateTimeCard = ({ item, instanceId, canWork, i
       <div className="flex flex-col gap-2">
         {interactive && setItemDone.isError && (
           <p className="text-xs text-danger">
-            {setItemDone.error instanceof Error ? setItemDone.error.message : 'Could not save this answer.'}
+            {setItemDone.error instanceof Error ? setItemDone.error.message : "Couldn't save that answer."}
           </p>
         )}
 

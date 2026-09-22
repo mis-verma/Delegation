@@ -1,5 +1,7 @@
 import { NavLink } from "react-router";
-import logo from "../../assets/logo.png";
+import defaultLogo from "../../assets/logo.png";
+import { usePublicSettingsQuery } from "../../lib/maintenance";
+import { resolveLogoUrl } from "../../lib/uploadsBase";
 
 const LINKS = [
   { to: '/tasks', label: 'Delegation' },
@@ -10,6 +12,9 @@ const LINKS = [
 
 export const Footer = () => {
   const currentYear = new Date().getFullYear();
+  const { data: publicSettings } = usePublicSettingsQuery();
+  const orgName = publicSettings?.orgName ?? 'Karya';
+  const logoSrc = resolveLogoUrl(publicSettings?.logoUrl) ?? defaultLogo;
 
   return (
     <footer
@@ -26,7 +31,7 @@ export const Footer = () => {
           to="/"
           className="flex items-center shrink-0 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 rounded-lg p-0.5"
         >
-          <img src={logo} alt="Karya" className="h-6 w-auto object-contain group-hover:scale-105 transition-transform" />
+          <img src={logoSrc} alt={orgName} className="h-6 w-auto object-contain group-hover:scale-105 transition-transform" />
         </NavLink>
 
         <nav className="flex flex-wrap items-center justify-center gap-x-1 gap-y-1">
@@ -49,7 +54,7 @@ export const Footer = () => {
           ))}
         </nav>
         <p className="text-xs text-text-muted font-mono shrink-0">
-          © {currentYear} Karya. All rights reserved.
+          © {currentYear} {orgName}. All rights reserved.
         </p>
       </div>
     </footer>

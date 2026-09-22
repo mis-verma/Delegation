@@ -1,6 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
-import { ClipboardCheck, ShieldCheck } from 'lucide-react';
-import { RadialGauge, Skeleton } from '../../../components';
+import { AlertCircle, ClipboardCheck, Gauge as GaugeIcon, ShieldCheck } from 'lucide-react';
+import { RadialGauge, EntityIconTile, Skeleton } from '../../../components';
 import { useTaskComplianceReportQuery, useTicketTatReportQuery } from './useAnalyticsQueries';
 import { latestWithTrend, slaMetRate } from './analyticsDisplay';
 import type { GroupBy } from './GroupByControl';
@@ -15,12 +15,18 @@ interface GaugeProps {
   icon: LucideIcon;
   label: string;
   percent: number | null;
+  gradientFrom: string;
+  gradientTo: string;
 }
 
-const Gauge = ({ icon: Icon, label, percent }: GaugeProps) => (
+// Navy for the checklist ring, gold for the on-time ring — two rings the same flat color read as
+// one metric split in half rather than two distinct measures, and a real two-stop gradient (not
+// just a solid fill) is what makes each ring itself look like a finished chart rather than a
+// thick outline.
+const Gauge = ({ icon: Icon, label, percent, gradientFrom, gradientTo }: GaugeProps) => (
   <div className="flex flex-col items-center gap-2 flex-1">
-    <RadialGauge percent={percent ?? 0} size={128}>
-      <span className="text-xl font-display font-bold text-text tracking-tight">
+    <RadialGauge percent={percent ?? 0} size={128} gradientFrom={gradientFrom} gradientTo={gradientTo}>
+      <span className="text-xl font-display font-bold text-text tracking-tight tabular-nums">
         {percent != null ? `${percent}%` : '—'}
       </span>
     </RadialGauge>
@@ -41,33 +47,59 @@ const GaugeSkeleton = () => (
 // Same real numbers AnalyticsSummaryStrip's KPI tiles already show, just surfaced as a compact
 // pair of gauges in the overview's right rail instead of only living in a text-based stat tile.
 export const ComplianceGaugeRail = ({ groupBy, from, to }: ComplianceGaugeRailProps) => {
-  const { data: taskRows, isPending: taskPending } = useTaskComplianceReportQuery(groupBy, from, to);
-  const { data: ticketRows, isPending: ticketPending } = useTicketTatReportQuery(groupBy, from, to);
+  const { data: taskRows, isPending: taskPending, isError: taskError } = useTaskComplianceReportQuery(groupBy, from, to);
+  const { data: ticketRows, isPending: ticketPending, isError: ticketError } = useTicketTatReportQuery(groupBy, from, to);
   const isPending = taskPending || ticketPending;
+  const isError = taskError || ticketError;
 
   const checklistCompletion = latestWithTrend(taskRows, 'completionRate', 'rate').value;
   const latestTicket = ticketRows?.[ticketRows.length - 1];
   const slaMet = slaMetRate(latestTicket);
 
   return (
-    <div className="rounded-2xl border border-border bg-surface p-5">
-      <h3 className="text-sm font-display font-bold tracking-wide text-text mb-4">Compliance</h3>
-      <div className="flex items-center justify-center gap-4">
-        {/* Skeleton rings while loading, not a real gauge stuck at 0% — a genuine 0% reading and
-            "still fetching" used to look identical (an empty arc), the difference only visible in
-            the center label ('—' vs '0%'). */}
-        {isPending ? (
-          <>
-            <GaugeSkeleton />
-            <GaugeSkeleton />
-          </>
-        ) : (
-          <>
-            <Gauge icon={ClipboardCheck} label="Checklist" percent={checklistCompletion} />
-            <Gauge icon={ShieldCheck} label="On-time" percent={slaMet} />
-          </>
-        )}
+    <div className="rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface p-5">
+      <div className="flex items-center gap-2.5 mb-4">
+        <EntityIconTile icon={GaugeIcon} tone="primary" className="size-8 rounded-lg" />
+        <h3 className="text-sm font-display font-bold tracking-wide text-text">Compliance</h3>
       </div>
+      {isError ? (
+        // A failed request used to fall through to the same '—' center label as "not enough
+        // data yet" — indistinguishable from a genuine zero/empty reading. This is the one
+        // real signal on the page that the request itself failed, not just came back empty.
+        <div className="flex items-start gap-3 p-3 bg-danger/10 border border-danger/30 rounded-xl">
+          <AlertCircle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
+          <p className="text-xs font-display font-medium text-danger">Couldn&rsquo;t load compliance data. Try refreshing.</p>
+        </div>
+      ) : (
+        <div className="flex items-center justify-center gap-4">
+          {/* Skeleton rings while loading, not a real gauge stuck at 0% — a genuine 0% reading and
+              "still fetching" used to look identical (an empty arc), the difference only visible in
+              the center label ('—' vs '0%'). */}
+          {isPending ? (
+            <>
+              <GaugeSkeleton />
+              <GaugeSkeleton />
+            </>
+          ) : (
+            <>
+              <Gauge
+                icon={ClipboardCheck}
+                label="Checklist"
+                percent={checklistCompletion}
+                gradientFrom="var(--color-primary-700)"
+                gradientTo="var(--color-primary-400)"
+              />
+              <Gauge
+                icon={ShieldCheck}
+                label="On-time"
+                percent={slaMet}
+                gradientFrom="var(--color-coral-600)"
+                gradientTo="var(--color-coral-400)"
+              />
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 };

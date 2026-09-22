@@ -9,7 +9,7 @@ import type { CaptureMethod } from './ticket';
 // 'OPEN' is every incomplete instance (overdue included) — the broad "Pending" bucket. 'DUE' is
 // the on-track subset: incomplete but not yet past its period end.
 export type ChecklistInstanceStatus = 'OPEN' | 'DUE' | 'COMPLETED' | 'OVERDUE';
-export type ChecklistVerificationStatus = 'NOT_SUBMITTED' | 'PENDING' | 'APPROVED' | 'REJECTED';
+export type ChecklistVerificationStatus = 'NOT_SUBMITTED' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED';
 
 export type ChecklistInstanceImage = {
   id:                      string;
@@ -196,6 +196,18 @@ export type ChecklistInstanceSummary = {
   /** Across every item of every matching instance — powers completion-ratio gauges. */
   totalItems: number;
   doneItems: number;
+  /** Generated today — powers the sidebar's per-entity badge breakdown. */
+  newToday: number;
+};
+
+/** Dashboard's "Needs your approval" card — one row per checklist run currently awaiting an
+ *  ADMIN/PC's sign-off. No single submitter field here (assignment is many-to-many), so this
+ *  carries the store instead — see the server-side ChecklistPendingApprovalRow doc comment. */
+export type ChecklistPendingApproval = {
+  id: string;
+  title: string;
+  storeName: string | null;
+  waitingSince: string;
 };
 
 export const checklistInstanceApi = {
@@ -226,6 +238,9 @@ export const checklistInstanceApi = {
     recurrence?: ChecklistRecurrence;
     verificationStatus?: ChecklistVerificationStatus;
     departmentId?: string;
+    /** Restricts to instances whose period falls in [from, to] — ISO strings. */
+    from?: string;
+    to?: string;
   } = {}) =>
     apiFetch<ApiResponse<ChecklistInstanceSummary>>(
       `/checklist-instances/summary${buildQuery({
@@ -237,8 +252,13 @@ export const checklistInstanceApi = {
         recurrence: filter.recurrence,
         verificationStatus: filter.verificationStatus,
         departmentId: filter.departmentId,
+        from: filter.from,
+        to: filter.to,
       })}`,
     ),
+
+  getPendingApprovalPreview: (): Promise<ChecklistPendingApproval[]> =>
+    apiFetch<ApiResponse<ChecklistPendingApproval[]>>('/checklist-instances/pending-approval-preview').then(r => r.data),
 
   getOne: (id: string) =>
     apiFetch<ApiResponse<ChecklistInstance>>(`/checklist-instances/${id}`)
@@ -251,7 +271,7 @@ export const checklistInstanceApi = {
 
   // Powers the compliance board — same endpoint as getForDefinition, generalized to whichever
   // combination of filters the admin has picked (store and/or person, plus status).
-  list: (filter: { storeId?: string; assigneeId?: string; status?: ChecklistInstanceStatus } & PageParams = {}) =>
+  list: (filter: { storeId?: string; assigneeId?: string; status?: ChecklistInstanceStatus; from?: string; to?: string } & PageParams = {}) =>
     apiFetch<ApiResponse<ChecklistInstance[]> & { meta: ChecklistInstancePage }>(
       `/checklist-instances${buildQuery(filter)}`,
     ).then(r => ({ ...r, data: normalizeInstances(r.data) })),

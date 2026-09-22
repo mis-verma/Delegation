@@ -37,6 +37,8 @@ interface TaskOptionsDialogProps {
   isAdmin?:         boolean;
   canExport:        boolean;
   onExport:         () => void;
+  /** Passed straight through to TaskFilterFields — see its own doc comment. */
+  hideCategory?:    boolean;
   /** Omitted when there's no signed-in user to scope by — the row is then not rendered at all. */
   scope?: {
     assignedToMe: boolean;
@@ -57,6 +59,7 @@ export const TaskOptionsDialog = ({
   isOpen, setIsOpen, filters, onChange, onClearAll, activeCount,
   sort, onSortChange, view, groupBy, onGroupByChange, fieldVisibility, onToggleField,
   assignableUsers, tags, storeOptions, departmentOptions, isAdmin = false, canExport, onExport, scope,
+  hideCategory = false,
 }: TaskOptionsDialogProps) => {
   const [showAddUser, setShowAddUser] = useState(false);
   // `Button` isn't a forwardRef component, so it can't carry the ref DropdownMenuTrigger's
@@ -186,6 +189,7 @@ export const TaskOptionsDialog = ({
           departmentOptions={departmentOptions}
           isAdmin={isAdmin}
           onAddUser={() => { setShowAddUser(true); setIsOpen(false); }}
+          hideCategory={hideCategory}
         />
       </OptionsDialog>
 

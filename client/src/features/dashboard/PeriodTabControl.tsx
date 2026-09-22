@@ -21,7 +21,7 @@ export function PeriodTabControl<T extends string>({ value, options, labels, onC
           <TabsTrigger
             key={option}
             value={option}
-            className="rounded-full px-3.5 text-[11px] font-display font-bold uppercase tracking-wide data-[state=active]:shadow-none data-[state=active]:ring-1 data-[state=active]:ring-border/60 data-[state=active]:text-primary-600 dark:data-[state=active]:text-primary-400"
+            className="rounded-full px-3.5 text-[11px] font-display font-bold tracking-wide data-[state=active]:shadow-none data-[state=active]:ring-1 data-[state=active]:ring-border/60 data-[state=active]:text-primary-600 dark:data-[state=active]:text-primary-400"
           >
             {labels[option]}
           </TabsTrigger>

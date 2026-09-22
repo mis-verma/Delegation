@@ -1,4 +1,5 @@
 import { StatusRemarkDialog } from '../../components/statusRemarkDialog';
+import { Badge } from '../../components/ui/badge';
 import { STATUS_LABEL, STATUS_CONFIG } from './taskDisplay';
 import type { Task } from '../../api/task';
 
@@ -15,9 +16,9 @@ interface TaskStatusRemarkDialogProps {
 }
 
 const StatusPill = ({ status }: { status: Task['status'] }) => (
-  <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[10px] font-bold ${STATUS_CONFIG[status].badge}`}>
+  <Badge variant="outline" className={`text-[10px] ${STATUS_CONFIG[status].badge}`}>
     {STATUS_LABEL[status]}
-  </span>
+  </Badge>
 );
 
 /**

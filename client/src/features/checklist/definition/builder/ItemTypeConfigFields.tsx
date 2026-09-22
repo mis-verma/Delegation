@@ -57,7 +57,7 @@ const PhotoFields = ({ draft, onChange }: ItemTypeFieldsProps) => (
         onChange={(e) => onChange({ requiresLivePhoto: e.target.checked })}
         className="size-4 rounded-sm border-border text-primary-700 focus:ring-primary-500/30 cursor-pointer"
       />
-      <span>Live photo only (blocks gallery uploads)</span>
+      <span>Live photo only — no uploading from the gallery</span>
     </label>
   </div>
 );
@@ -75,7 +75,7 @@ const VideoFields = (props: ItemTypeFieldsProps) => (
 const AuditFields = ({ draft, onChange, storeIds }: ItemTypeFieldsProps) => (
   <div className="flex flex-col gap-4">
     <div className="flex flex-col gap-1.5">
-      <span className="text-xs font-display font-semibold text-text">Who audits this?</span>
+      <span className={FIELD_LABEL}>Who audits this?</span>
       <UserMultiSelect
         storeIds={storeIds}
         selected={draft.auditUserIds}
@@ -224,7 +224,7 @@ const GpsFields = ({ draft, onChange }: ItemTypeFieldsProps) => (
 const QrFields = ({ draft, onChange }: ItemTypeFieldsProps) => (
   <div className="flex flex-col gap-1.5 pt-0.5">
     <label htmlFor="qr-expected-code" className={FIELD_LABEL}>
-      Expected Barcode / QR Code (Optional)
+      Expected Barcode / QR Code <span className="text-text-muted/70 font-medium">(Optional)</span>
     </label>
     <div className="relative">
       <input
@@ -292,7 +292,7 @@ export const ItemTypeConfigFields = (props: ItemTypeFieldsProps) => {
   if (!Renderer) {
     return (
       <p className="text-xs font-display text-text-muted italic py-1">
-        No extra configuration needed for this type.
+        Nothing else to set up for this type.
       </p>
     );
   }

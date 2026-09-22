@@ -1,8 +1,10 @@
 import { ArrowDown, ArrowUp, Minus, Target } from 'lucide-react';
 import { RadialGauge } from '../../components/radialGauge';
+import { EntityIconTile } from '../../components';
+import { Badge } from '../../components/ui/badge';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { PeriodTabControl } from './PeriodTabControl';
-import { PERIOD_LABEL, COMPLIANCE_PERIOD_OPTIONS, PERIOD_TAB_LABEL, type CompliancePeriod, type Trend } from './dashboardDisplay';
+import { PERIOD_LABEL, COMPLIANCE_PERIOD_OPTIONS, PERIOD_TAB_LABEL, DASHBOARD_CARD_CLASS, rateTone, type CompliancePeriod, type RateTone, type Trend } from './dashboardDisplay';
 
 export interface FooterStat {
   label: string;
@@ -20,6 +22,9 @@ export interface FooterStat {
 
 interface MonthlyTargetCardProps {
   percent: number;
+  /** How many delegations the percent was computed from — feeds `rateTone` so a handful of items
+   *  doesn't paint a false-confidence red/green (see RATE_VOLUME_FLOOR in dashboardDisplay.ts). */
+  total: number;
   change: Trend;
   description: string;
   stats: [FooterStat, FooterStat, FooterStat];
@@ -33,22 +38,49 @@ const STAT_SENTIMENT: Record<FooterStat['sentiment'], string> = {
   neutral: 'text-text-muted',
 };
 
-export const MonthlyTargetCard = ({ percent, change, description, stats, period, onPeriodChange }: MonthlyTargetCardProps) => {
+// The headline number now carries real performance meaning (weak/on-track/strong), same three-tier
+// language `rateTone` already drives on the Compliance gauges — `neutral` (not enough volume yet to
+// mean anything, or genuinely no data) keeps the original solid `text-text`, it doesn't get its own
+// muted treatment, since that's still the one number on this card that has to read at a glance.
+const TONE_TEXT: Record<RateTone, string> = {
+  success: 'text-success',
+  warning: 'text-warning',
+  danger: 'text-danger',
+  neutral: 'text-text',
+};
+
+// A soft tone-tinted halo glowing behind the ring — the ring's own stroke deliberately stays brand
+// navy (matching the Compliance gauges' own "fill is always navy, tone only touches accents"
+// decision, so the chart palette doesn't disagree card to card), but this card's whole point is a
+// performance score, so the score's tone still needs to be visible at a glance, not just legible
+// once you read the number. The halo is that signal without repainting the ring itself.
+const TONE_HALO: Record<RateTone, string> = {
+  success: 'bg-success/25',
+  warning: 'bg-warning/25',
+  danger: 'bg-danger/25',
+  neutral: 'bg-primary-500/20',
+};
+
+export const MonthlyTargetCard = ({ percent, total, change, description, stats, period, onPeriodChange }: MonthlyTargetCardProps) => {
   // 220px was hardcoded, which is a lot of gauge for a card that sits in a half-width column.
   // Scales down on phones the way the Compliance gauges already do.
   const isMobile = useIsMobile();
   const gaugeSize = isMobile ? 180 : 220;
+  const tone = rateTone(percent, total);
 
   // pointDelta always signs its label ("+0.0%"), so an unchanged score has to be detected
   // numerically — it was previously rendering as a green upward arrow, i.e. claiming an
   // improvement that hadn't happened. Same fix already applied to the Compliance gauges.
   const isFlatChange = Number.parseFloat(change.label) === 0;
   const ChangeIcon = isFlatChange ? Minus : change.direction === 'up' ? ArrowUp : ArrowDown;
+  const changeVariant = isFlatChange ? 'neutral' : change.direction === 'up' ? 'success' : 'destructive';
+  // Badge is transparent-at-rest by design (a hover affordance for a clickable pill); this pill is
+  // a static readout, not a control, so it keeps its own permanent tint layered on top via className.
   const changeClassName = isFlatChange
-    ? 'bg-surface-hover text-text-muted border-border/60'
+    ? 'bg-surface-hover'
     : change.direction === 'up'
-      ? 'bg-success/10 text-success border-success/20'
-      : 'bg-danger/10 text-danger border-danger/20';
+      ? 'bg-success/10'
+      : 'bg-danger/10';
 
   return (
     // `@container` + `@lg:`/`@sm:` below size this card's internal layout off its own rendered
@@ -58,7 +90,7 @@ export const MonthlyTargetCard = ({ percent, change, description, stats, period,
     // `hover:border-primary-500/40` matches every other card on the page — `primary-300` was a
     // one-off with no dark-mode variant, so in dark mode this card's hover barely registered.
     // `gap-6` replaces the body block's own `mt-6`, so the card owns its spacing in one place.
-    <section aria-labelledby="delegation-score-heading" className="@container relative group rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface p-4 sm:p-6 lg:p-7 flex flex-col gap-6 hover:border-primary-500/40 transition-all duration-300 overflow-hidden">
+    <section aria-labelledby="delegation-score-heading" className={`@container relative group ${DASHBOARD_CARD_CLASS} p-4 sm:p-6 lg:p-7 flex flex-col gap-6 hover:border-primary-500/40 transition-all duration-300 overflow-hidden`}>
 
       {/* Decorative Background Glow - Adjusted for Light/Dark modes */}
       <div className="absolute -top-24 -right-24 w-48 h-48 bg-primary-500/15 dark:bg-primary-500/10 rounded-full blur-[60px] pointer-events-none transition-opacity duration-500 group-hover:opacity-100 opacity-60" />
@@ -66,9 +98,7 @@ export const MonthlyTargetCard = ({ percent, change, description, stats, period,
       {/* Header */}
       <div className="relative flex flex-col sm:flex-row sm:items-start justify-between gap-4 z-10">
         <div className="flex gap-3 items-center">
-          <div className="p-2.5 rounded-xl bg-primary-50 dark:bg-primary-500/10 border border-primary-100 dark:border-primary-800/50 text-primary-600 dark:text-primary-400 shadow-sm">
-            <Target size={20} strokeWidth={2.5} />
-          </div>
+          <EntityIconTile icon={Target} />
           <div>
             {/* Was "Target" / "Checklist completion" — but `percent` here is a weighted delegation
                 score (see HomePage's weightedScorePercent), not checklist data at all. Naming it
@@ -91,19 +121,26 @@ export const MonthlyTargetCard = ({ percent, change, description, stats, period,
       {/* Body Layout Split */}
       <div className="relative z-10 flex flex-col @lg:flex-row items-center gap-6 @lg:gap-10">
 
-        {/* Gauge */}
-        <RadialGauge percent={percent} size={gaugeSize}>
-          {/* Solid `text-text`, not the gradient-to-`text-muted` clip this had — a decorative fade
-              on the card's headline number dropped its lower half to muted contrast, which is the
-              one figure here that has to be legible at a glance. */}
-          <span className="text-5xl font-display font-bold text-text tracking-tight tabular-nums">
-            {percent}<span className="text-3xl">%</span>
-          </span>
-          <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold border ${changeClassName}`}>
-            <ChangeIcon size={12} strokeWidth={3} />
-            {change.label}
-          </span>
-        </RadialGauge>
+        {/* Gauge — the halo behind it is the tone signal (see TONE_HALO's comment); the ring
+            stroke itself stays brand navy. */}
+        <div className="relative shrink-0">
+          <div
+            aria-hidden="true"
+            className={`absolute inset-8 rounded-full blur-2xl transition-colors duration-500 ${TONE_HALO[tone]}`}
+          />
+          <RadialGauge percent={percent} size={gaugeSize} className="relative">
+            {/* Tone-colored, not a flat `text-text` — the headline number now reads as weak/
+                on-track/strong at a glance, the same three-tier language the Compliance gauges'
+                accents already use, instead of only the small trend badge below it carrying color. */}
+            <span className={`text-5xl font-display font-bold tracking-tight tabular-nums transition-colors duration-500 ${TONE_TEXT[tone]}`}>
+              {percent}<span className="text-3xl">%</span>
+            </span>
+            <Badge variant={changeVariant} className={`text-[11px] ${changeClassName}`}>
+              <ChangeIcon size={12} strokeWidth={3} />
+              {change.label}
+            </Badge>
+          </RadialGauge>
+        </div>
 
         {/* Right Details Column */}
         <div className="flex-1 w-full flex flex-col gap-5">

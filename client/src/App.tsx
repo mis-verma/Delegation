@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { createBrowserRouter, RouterProvider, Navigate, Outlet } from 'react-router';
-import { FolderKanban, Calendar, ClipboardCheck } from 'lucide-react';
+import { FolderKanban, ClipboardCheck } from 'lucide-react';
 import { ComingSoon } from './components/comingSoon';
 import { useAuth } from './context/AuthContext';
 import { ADMIN_AREA_ROLES, type Role } from './api/auth';
@@ -9,13 +9,18 @@ import { PublicLayout } from './components/layout';
 import { useTicketSocket } from './features/tickets/useTicketSocket';
 import { useTaskSocket } from './features/tasks/useTaskSocket';
 import { useChecklistSocket } from './features/checklist/useChecklistSocket';
+// Imported directly (not via features/checklist's barrel) so mounting it here doesn't drag the
+// whole checklist feature — Builder, Compliance Board, etc — into the main entry chunk; those stay
+// behind their own lazy() route imports below.
+import { OverdueChecklistInterstitial } from './features/checklist/instance/OverdueChecklistInterstitial';
 import { useNotificationSocket } from './features/notifications/useNotificationSocket';
 import { MyErrorBoundary, NotFoundPage, MaintenancePage } from './components/error';
 import { RouteFallback } from './components/skeleton';
 
-// Both maintenance flags now live in lib/maintenance.ts — this whole-app one, and the per-page
-// list the Dashboard shell checks. Reading the env var in two places would let them drift.
-import { MAINTENANCE_ALL } from './lib/maintenance';
+// Maintenance flags/queries now live in lib/maintenance.ts — this whole-app build-time one, the
+// per-page list the Dashboard shell checks, and the runtime admin-toggled one below. Reading the
+// env var in two places would let them drift.
+import { MAINTENANCE_ALL, usePublicSettingsQuery } from './lib/maintenance';
 
 // Lazy like every other route. It was the one eager import among them, so its whole admin shell
 // — nav tree, header, breadcrumbs — was downloaded by every user on first paint, including the
@@ -31,8 +36,11 @@ const ResetPasswordForm = lazy(() => import('./features/auth/ResetPasswordForm')
 const HomePage = lazy(() => import('./features/dashboard/HomePage').then(m => ({ default: m.HomePage })));
 const TicketList = lazy(() => import('./features/tickets/TicketList').then(m => ({ default: m.TicketList})));
 const TaskList = lazy(() => import('./features/tasks/TaskList').then(m => ({ default: m.TaskList })));
+const DraftDelegationsPage = lazy(() => import('./features/tasks/DraftAndArchivedTasks').then(m => ({ default: m.DraftDelegationsPage })));
+const ArchivedDelegationsPage = lazy(() => import('./features/tasks/DraftAndArchivedTasks').then(m => ({ default: m.ArchivedDelegationsPage })));
 const TodoPage = lazy(() => import('./features/todo/TodoPage').then(m => ({ default: m.TodoPage })));
 const EventList = lazy(() => import('./features/events/EventList').then(m => ({ default: m.EventList })));
+const CalendarPage = lazy(() => import('./features/calendar/CalendarPage').then(m => ({ default: m.CalendarPage })));
 const OrgOverview = lazy(() => import('./features/admin/analytics').then(m => ({ default: m.OrgOverview })));
 const VerificationQueue = lazy(() => import('./features/verification').then(m => ({ default: m.VerificationQueue })));
 const AdminTaskList = lazy(() => import('./features/admin/AdminTaskList').then(m => ({ default: m.AdminTaskList })));
@@ -42,6 +50,7 @@ const CategoryList = lazy(() => import('./features/settings/CategoryList').then(
 const DirectoryPage = lazy(() => import('./features/admin/directory').then(m => ({ default: m.DirectoryPage })));
 const OrgStructurePage = lazy(() => import('./features/admin/orgStructure').then(m => ({ default: m.OrgStructurePage })));
 const ReportsPage = lazy(() => import('./features/reports').then(m => ({ default: m.ReportsPage })));
+const AuditLogPage = lazy(() => import('./features/admin/auditLog').then(m => ({ default: m.AuditLogPage })));
 const SettingsPage = lazy(() => import('./features/admin/SettingsPage').then(m => ({ default: m.SettingsPage })));
 const ChecklistTemplateList = lazy(() => import('./features/admin/checklistTemplate').then(m => ({ default: m.ChecklistTemplateList })));
 const MyChecklists = lazy(() => import('./features/checklist').then(m => ({ default: m.MyChecklists })));
@@ -53,8 +62,23 @@ const ChecklistComplianceBoard = lazy(() => import('./features/checklist').then(
 const ChecklistApprovals = lazy(() => import('./features/checklist').then(m => ({ default: m.ChecklistApprovals })));
 
 const ProtectedRoute = () => {
-  const { token } = useAuth();
-  return token ? <Outlet /> : <Navigate to="/login" replace />;
+  const { token, user } = useAuth();
+  // Same admin exemption as the per-page maintenance check in Dashboard.tsx: whoever flipped this
+  // on is the person who needs to get back in to flip it off again.
+  const { data: maintenance } = usePublicSettingsQuery();
+  if (!token) return <Navigate to="/login" replace />;
+  if (maintenance?.maintenanceMode && user?.role !== 'ADMIN') {
+    return <MaintenancePage message={maintenance.maintenanceMessage ?? undefined} />;
+  }
+  return (
+    <>
+      {/* Mounted above every authenticated route (main app + /admin alike) so it can surface
+          regardless of where someone lands after logging in — see its own file for the full
+          "escalating overdue" design this is one piece of. */}
+      <OverdueChecklistInterstitial />
+      <Outlet />
+    </>
+  );
 };
 
 // Same destination logic as useLoginMutation's own onSuccess redirect (features/auth/hooks.ts) —
@@ -94,14 +118,24 @@ const PCRoute = createRoleGuard(...ADMIN_AREA_ROLES);
 // ADMIN alone.
 const AdminOnlyRoute = createRoleGuard('ADMIN');
 
-// The Admin section's landing page specifically is ADMIN-only, while the rest of /admin/* (
-// Directory, Org Structure, Checklists, Reports, Settings, etc.) stays open to PC under the outer
-// AdminRoute — same "one page inside a looser-gated section needs its own stricter check" pattern
-// ChecklistTemplatesRoute already uses below. A PC landing on /admin gets sent to the first page
-// they actually have, not a dead end.
+// Verification Queue specifically (not Team Overview, which stays under AdminOnlyRoute above).
+// PC is the primary audience — verification is their whole job (see task/ticket/checklist
+// service.ts's CAN_VERIFY_BY_ROLE) — and the sidebar has always linked PC here (Sidebar.tsx's
+// adminNavItems), so excluding the role from the route itself was a dead link, not a deliberate
+// narrowing. APPROVAL_MANAGER stays too: harmless now that the old separate final-approval stage
+// is gone, but not worth stripping their access as a side effect of an unrelated workflow change.
+const VerifyQueueRoute = createRoleGuard('ADMIN', 'PC', 'APPROVAL_MANAGER');
+
+// The Admin section's landing page: ADMIN or PC, same as the rest of /admin/* under the outer
+// AdminRoute — PC has the same org-wide server-side rights as ADMIN everywhere else in this
+// section, and this page's own `canSeeStoresTab` gate (OrgOverview.tsx) has always treated PC as
+// eligible; the route just hadn't been opened to match. Was ADMIN-only with PC redirected to
+// /admin/directory instead — kept here as the one still-relevant fallback: any *other* role
+// reaching this route (shouldn't normally happen, AdminRoute already screens for ADMIN/PC) lands
+// on a real page rather than a dead end.
 const AdminOverviewRoute = () => {
   const { user } = useAuth();
-  return user?.role === 'ADMIN' ? <OrgOverview /> : <Navigate to="/admin/directory" replace />;
+  return user && ADMIN_AREA_ROLES.includes(user.role) ? <OrgOverview /> : <Navigate to="/admin/directory" replace />;
 };
 
 const AnalyticsRoute = createRoleGuard('MANAGER', 'SENIOR');
@@ -167,17 +201,7 @@ const router = createBrowserRouter([
               />
             ),
           },
-          {
-            path: '/calendar',
-            element: (
-              <ComingSoon
-                icon={Calendar}
-                title="Calendar"
-                description="A unified calendar view of every delegation, ticket, and checklist due date across your team."
-                features={['Day, week & month views', 'Drag-to-reschedule due dates', 'Team availability at a glance']}
-              />
-            ),
-          },
+          { path: '/calendar', element: <CalendarPage /> },
           { 
             path: '/settings', 
             element: <SettingsLayout/>, 
@@ -188,6 +212,23 @@ const router = createBrowserRouter([
           ] },
           { path: '/tickets', element: <TicketList /> },
           { path: '/tasks', element: <TaskList /> },
+          {
+            path: '/tasks/smart',
+            // Locked to the "delegation" bucket — CATEGORY_PREDICATES already defines that as
+            // "delegation category AND aiMeta present" (i.e. actually created through the AI:
+            // Smart Add on the web, or the WhatsApp bot), not just every delegation. Same
+            // TaskQuickStats/board/table/timeline views as the main Delegation page, just scoped.
+            element: (
+              <TaskList
+                lockCategory="delegation"
+                title="Smart Delegations"
+                emptyTitle="No smart delegations yet"
+                emptyDescription="Delegations created through the AI — Smart Add on the web, or the WhatsApp bot — will show up here."
+              />
+            ),
+          },
+          { path: '/tasks/draft', element: <DraftDelegationsPage /> },
+          { path: '/tasks/archived', element: <ArchivedDelegationsPage /> },
           { path: '/todo', element: <TodoPage /> },
           { path: '/events', element: <EventList /> },
           { path: '/checklists', element: <MyChecklists /> },
@@ -215,12 +256,17 @@ const router = createBrowserRouter([
             ],
           },
           {
-            // ADMIN-only — see AdminOnlyRoute's comment above for why these two were narrowed
-            // from PC-or-ADMIN.
+            // ADMIN-only — see AdminOnlyRoute's comment above for why this was narrowed from
+            // PC-or-ADMIN.
             element: <AdminOnlyRoute />,
             children: [
-              { path: '/verify', element: <VerificationQueue /> },
               { path: '/team', element: <TeamOverviewPage /> },
+            ],
+          },
+          {
+            element: <VerifyQueueRoute />,
+            children: [
+              { path: '/verify', element: <VerificationQueue /> },
             ],
           },
         ],
@@ -253,6 +299,7 @@ const router = createBrowserRouter([
               { path: '/admin/scheduled-checklists/:definitionId', element: <ChecklistDefinitionDetail /> },
               { path: '/admin/tickets', element: <TicketList /> },
               { path: '/admin/reports', element: <ReportsPage /> },
+              { path: '/admin/audit-log', element: <AuditLogPage /> },
               { path: '/admin/settings', element: <SettingsPage /> },
             ],
           },

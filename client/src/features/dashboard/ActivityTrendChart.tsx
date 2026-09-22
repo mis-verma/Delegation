@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Cell } from 'recharts';
-import { BarChart3, ChevronRight } from 'lucide-react';
+import { BarChart3, ChevronRight, Plus } from 'lucide-react';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { PinnedBreakdown, BreakdownHint } from './PinnedBreakdown';
 import { DrilldownModal } from './DrilldownModal';
+import { Button } from '../../components';
 import {
   lastActivityBuckets,
   countItemsInRange,
@@ -107,6 +109,40 @@ const BreakdownRows = ({
   </>
 );
 
+interface TotalLabelProps {
+  x?: string | number;
+  y?: string | number;
+  width?: string | number;
+  index?: number;
+}
+
+// The four category colors are deliberately one navy family, not four distinct hues (see
+// ACTIVITY_CATEGORY_COLOR's own comment) — which reads as "on-brand" but makes adjacent segments
+// within one stacked bar genuinely hard to tell apart by color alone. A small bold total above
+// each bar gives the one number most worth reading (how much happened that day) without needing
+// to hover or tap every bar to add its segments up by eye.
+const makeTotalLabel = (data: readonly ActivityDatum[], activeOrder: readonly ActivityCategory[]) =>
+  function TotalLabel({ x, y, width, index }: TotalLabelProps) {
+    const nx = Number(x), ny = Number(y), nw = Number(width);
+    if (!Number.isFinite(nx) || !Number.isFinite(ny) || !Number.isFinite(nw) || index == null) return null;
+    const total = activeOrder.reduce((sum, c) => sum + data[index][c], 0);
+    if (total === 0) return null;
+    return (
+      <text
+        x={nx + nw / 2}
+        y={ny - 8}
+        textAnchor="middle"
+        fontSize={12}
+        fontWeight={700}
+        fontFamily="var(--font-display)"
+        fill="var(--color-text-secondary)"
+        className="tabular-nums"
+      >
+        {total}
+      </text>
+    );
+  };
+
 const ChartTooltip = ({ active, payload, activeCategories }: ChartTooltipProps) => {
   const datum = payload?.[0]?.payload;
   if (!active || !datum) return null;
@@ -119,23 +155,47 @@ const ChartTooltip = ({ active, payload, activeCategories }: ChartTooltipProps) 
 };
 
 /**
- * Both "nothing to plot" cases — no category selected, and no activity in the window — were two
- * near-identical blocks differing only in their copy and one decorative glow.
+ * Both "nothing to plot" cases — no category selected, and no activity in the window — share this
+ * shell, but only the second is a genuine empty state worth a way out: "no category selected" is a
+ * filter the viewer just set two seconds ago (the toggle is right above), not something to create
+ * your way out of, so it keeps the plain icon + line. "No activity yet" gets the CTA.
  */
-const ChartEmptyState = ({ message, tinted }: { message: string; tinted: boolean }) => (
+const ChartEmptyState = ({
+  message,
+  tinted,
+  action,
+}: {
+  message: string;
+  tinted: boolean;
+  action?: { label: string; onClick: () => void };
+}) => (
   <div
-    className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/60 bg-surface/30 gap-3 animate-in fade-in duration-500"
+    className={`flex flex-col items-center justify-center rounded-2xl border border-dashed gap-3 px-5 animate-in fade-in duration-500 ${
+      tinted ? 'border-border-hover bg-primary-500/[0.03]' : 'border-border/60 bg-surface/30'
+    }`}
     style={{ height: ACTIVITY_CHART_HEIGHT }}
   >
-    <div className="relative p-3 rounded-full bg-surface border border-border/40">
-      {tinted && <div className="absolute inset-0 bg-primary-500/10 blur-md rounded-full" />}
-      <BarChart3 size={20} className={`relative z-10 ${tinted ? 'text-primary-500/70' : 'text-text-light'}`} />
-    </div>
-    <p className="text-sm font-medium text-text-muted text-center px-4">{message}</p>
+    {tinted ? (
+      <div className="flex items-center justify-center size-11 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 text-white shadow-sm shadow-primary-900/20">
+        <BarChart3 size={19} />
+      </div>
+    ) : (
+      <div className="p-3 rounded-full bg-surface border border-border/40">
+        <BarChart3 size={20} className="text-text-light" />
+      </div>
+    )}
+    <p className={`text-sm text-center max-w-[26rem] ${tinted ? 'font-display font-bold text-text' : 'font-medium text-text-muted'}`}>{message}</p>
+    {action && (
+      <Button size="sm" className="rounded-full mt-1" onClick={action.onClick}>
+        <Plus size={13} strokeWidth={2.75} />
+        {action.label}
+      </Button>
+    )}
   </div>
 );
 
 export const ActivityTrendChart = ({ items, activeCategories, groupBy }: ActivityTrendChartProps) => {
+  const navigate = useNavigate();
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [drilldownCategory, setDrilldownCategory] = useState<ActivityCategory | null>(null);
   const isMobile = useIsMobile();
@@ -175,7 +235,13 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
   }
 
   if (!hasData) {
-    return <ChartEmptyState tinted message="No activity in this period yet" />;
+    return (
+      <ChartEmptyState
+        tinted
+        message="No activity in this period yet"
+        action={{ label: 'New delegation', onClick: () => navigate('/tasks?create=1') }}
+      />
+    );
   }
 
   const selectedDatum = selectedIndex !== null ? data[selectedIndex] : null;
@@ -203,7 +269,9 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
             // The right/left gutters stay at 0 — the axis below reserves its own width when it's
             // shown, and an extra `left` offset (this once carried `left: -20`) shifts the plot
             // area far enough on a narrow mobile card to clip the first bar against the edge.
-            margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+            // `top` grew from 10 to 24 to leave room for the new total-count label sitting just
+            // above the tallest bar, which the old margin clipped against the card's own edge.
+            margin={{ top: 24, right: 10, left: 0, bottom: 0 }}
             barCategoryGap="40%"
             onClick={(state) => {
               const index = state?.activeTooltipIndex;
@@ -217,6 +285,19 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
               strokeDasharray="4 4"
               strokeOpacity={0.4}
             />
+
+            {/* Each category bar fills with a two-stop vertical gradient of its own flat token
+                color rather than one solid fill — the same "flat reads as dull" fix applied to the
+                gauges and KPI tiles, here as a lighter highlight along the top of each segment
+                fading into its real tone, which is what gives a stacked bar actual depth. */}
+            <defs>
+              {ACTIVITY_CATEGORY_ORDER.map((category) => (
+                <linearGradient key={category} id={`activity-bar-${category}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={ACTIVITY_CATEGORY_COLOR[category]} stopOpacity={0.75} />
+                  <stop offset="100%" stopColor={ACTIVITY_CATEGORY_COLOR[category]} stopOpacity={1} />
+                </linearGradient>
+              ))}
+            </defs>
 
             <XAxis
               dataKey="label"
@@ -251,7 +332,11 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
 
             {/* Stacked Bars — one per active category, in a fixed order, so the stack doesn't
                 reshuffle as categories are toggled. Opacity reflects the tapped/selected bar once
-                one is picked, so selection reads clearly against the rest of the chart. */}
+                one is picked, so selection reads clearly against the rest of the chart. A
+                surface-colored stroke outlines every segment — with all four categories sharing
+                one navy family (see ACTIVITY_CATEGORY_COLOR), adjacent segments were otherwise
+                nearly impossible to tell apart inside one stacked bar; the stroke gives each one a
+                crisp edge regardless of how close its neighbor's tone is. */}
             {activeOrder.map((category, idx) => {
               const isTopOfStack = idx === activeOrder.length - 1;
               return (
@@ -261,9 +346,12 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
                   stackId="stack"
                   radius={isTopOfStack ? [6, 6, 0, 0] : [0, 0, 0, 0]}
                   maxBarSize={BAR_WIDTH}
+                  stroke="var(--color-surface)"
+                  strokeWidth={2}
+                  label={isTopOfStack ? makeTotalLabel(data, activeOrder) : undefined}
                 >
                   {data.map((d, i) => (
-                    <Cell key={d.label} fill={ACTIVITY_CATEGORY_COLOR[category]} fillOpacity={cellOpacity(i)} className="transition-all duration-300" />
+                    <Cell key={d.label} fill={`url(#activity-bar-${category})`} fillOpacity={cellOpacity(i)} className="transition-all duration-300" />
                   ))}
                 </Bar>
               );

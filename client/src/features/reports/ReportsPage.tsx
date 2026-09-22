@@ -31,7 +31,7 @@ export const ReportsPage = () => {
   return (
     <div className="flex flex-col gap-6 max-w-2xl">
       <div className="flex items-center gap-2.5">
-        <div className="flex items-center justify-center text-primary-500">
+        <div className="flex items-center justify-center size-10 rounded-xl bg-gradient-to-br from-primary-500/10 to-primary-700/10 dark:from-primary-500/20 dark:to-primary-700/20 text-primary-600 dark:text-primary-400 ring-1 ring-primary-500/20 shrink-0">
           <FileDown className="w-5 h-5" />
         </div>
         <div>

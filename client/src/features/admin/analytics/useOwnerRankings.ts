@@ -54,16 +54,16 @@ const delegationRateOf = (row: TaskOwnerStatsRow | undefined): number | null =>
  *  full table buried a tab-click away. */
 export const useOwnerRankings = (groupBy: GroupBy, from?: string, to?: string) => {
   const { token } = useAuth();
-  const { data: departments = [], isPending: departmentsPending } = useDepartmentsQuery();
-  const { data: stores = [], isPending: storesPending } = useStoresQuery();
+  const { data: departments = [], isPending: departmentsPending, isError: departmentsError } = useDepartmentsQuery();
+  const { data: stores = [], isPending: storesPending, isError: storesError } = useStoresQuery();
   // Real GROUP BY aggregates, one row per department/store — not a client-side reduce over a
   // capped ticket page, which silently mis-scored any department/store whose tickets weren't
   // among the org's newest 100 (see ticket.service.ts#ownerStats).
-  const { data: deptTicketRows = [], isPending: deptTicketsPending } = useTicketOwnerStatsQuery('department', from, to);
-  const { data: storeTicketRows = [], isPending: storeTicketsPending } = useTicketOwnerStatsQuery('store', from, to);
+  const { data: deptTicketRows = [], isPending: deptTicketsPending, isError: deptTicketsError } = useTicketOwnerStatsQuery('department', from, to);
+  const { data: storeTicketRows = [], isPending: storeTicketsPending, isError: storeTicketsError } = useTicketOwnerStatsQuery('store', from, to);
   // Same fix, applied to delegations — was a client-side reduce over the newest 200 tasks
   // org-wide with no date-range filtering at all (see task.service.ts#ownerStats).
-  const { data: deptTaskRows = [], isPending: deptTasksPending } = useTaskOwnerStatsQuery('department', from, to);
+  const { data: deptTaskRows = [], isPending: deptTasksPending, isError: deptTasksError } = useTaskOwnerStatsQuery('department', from, to);
 
   const deptTicketsById = useMemo(() => new Map(deptTicketRows.map((r) => [r.ownerId, r])), [deptTicketRows]);
   const storeTicketsById = useMemo(() => new Map(storeTicketRows.map((r) => [r.ownerId, r])), [storeTicketRows]);
@@ -81,6 +81,7 @@ export const useOwnerRankings = (groupBy: GroupBy, from?: string, to?: string) =
     })),
   });
   const storeChecklistPending = storeChecklistQueries.some((q) => q.isPending);
+  const storeChecklistError = storeChecklistQueries.some((q) => q.isError);
   const storeChecklistRate = useMemo(() => {
     const map = new Map<string, number | null>();
     stores.forEach((store, i) => {
@@ -132,5 +133,7 @@ export const useOwnerRankings = (groupBy: GroupBy, from?: string, to?: string) =
     storeRows,
     departmentsPending: departmentsPending || deptTicketsPending || deptTasksPending,
     storesPending: storesPending || storeTicketsPending || storeChecklistPending,
+    departmentsError: departmentsError || deptTicketsError || deptTasksError,
+    storesError: storesError || storeTicketsError || storeChecklistError,
   };
 };

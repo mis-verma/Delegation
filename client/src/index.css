@@ -1,4 +1,4 @@
-/* The Poppins <link> lives in index.html, NOT here. A CSS `@import` of the Google Fonts URL is
+/* The Inter <link> lives in index.html, NOT here. A CSS `@import` of the Google Fonts URL is
    only discoverable after this stylesheet has been downloaded and parsed, so the font request
    chains behind it: HTML -> index.css -> fonts CSS -> woff2, three serial round trips before any
    text can paint. From <head> the browser starts the font CSS in parallel with this file. */
@@ -23,6 +23,15 @@
   --color-primary-800: #1d3558;
   --color-primary-900: #0f2240; /* Midnight Navy */
 
+  /* Activity Overview's stacked bar/legend uses one navy-family color per category (Checklist
+     darkest through Todo lightest) so the chart reads as one coherent palette instead of a mixed
+     set. Checklist's own color needs its own token, not a bare `var(--color-primary-900)` inline:
+     primary-900 is near-black, which is legible against the light theme's white card but nearly
+     identical to the dark theme's own near-black surface (--color-surface: #121a2c below) — the
+     dark-mode override further down swaps it to a light shade so it survives that background flip
+     the same way the status colors already do. */
+  --color-activity-checklist: var(--color-primary-900);
+
   /* --- Coral Accent (decorative: OrbitDecoration, SidebarNavButton, dashboard blobs) --- */
   --color-coral-50: #fdf8ec;
   --color-coral-100: #faf3dd;
@@ -41,6 +50,7 @@
   --color-status-todo: #94a3b8;
   --color-status-progress: #f59e0b;
   --color-status-verify: #6366f1;
+  --color-status-approve: #0891b2;
   --color-status-done: #10b981;
 
   /* --- Light Theme Surface & Text (Cool, Crisp) --- */
@@ -57,8 +67,8 @@
   --color-white: #ffffff;
 
   /* --- Typography --- */
-  --font-sans: "Poppins", "Helvetica Neue", Arial, sans-serif;
-  --font-display: "Poppins", "Segoe UI", sans-serif;
+  --font-sans: "Inter", "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Inter", "Segoe UI", sans-serif;
 
   /* --- Layout (Using rem) --- */
   --container-width: min(96rem, 100% - 3rem);
@@ -66,12 +76,19 @@
   --sidebar-width-collapsed: 4.5rem;
   --header-height: 4rem;
 
-  /* --- Borders & Radius --- */
-  --radius-sm: 0.25rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
-  --radius-xl: 1rem;
-  --radius-2xl: 1.5rem;
+  /* --- Borders & Radius ---
+     Tightened one full step down from where these sat before (sm 4px->3px, md 8px->6px,
+     lg 12px->8px, xl 16px->12px, 2xl 24px->16px) — the old scale ran a step above Tailwind's own
+     stock radii at every size, which is what made every card/tile in the app read as noticeably
+     rounder/softer than a typical professional SaaS product. `--radius-3xl` is new: Modal's
+     desktop corner (`sm:rounded-3xl`) had no override here and was falling back to Tailwind's
+     stock 24px, which no longer matches this tightened scale's own proportions. */
+  --radius-sm: 0.1875rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --radius-3xl: 1.25rem;
 
   /* --- Shadows --- */
   --shadow-sm: 0 1px 2px 0 rgb(15 34 64 / 0.06);
@@ -80,25 +97,13 @@
   /* --- Transitions --- */
   --transition-fast: 150ms ease;
 
-  /* --- Animations (only ones actually rendered: OrbitDecoration, LightBeams) --- */
+  /* --- Animations (only one actually rendered: OrbitDecoration) --- */
   --animate-orbit-slow: orbitSpin 22s linear infinite;
-  --animate-light-beam: lightBeamSweep 7s linear infinite;
 }
 
 @keyframes orbitSpin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
-}
-
-/* A thin streak sweeping across its container at a shallow angle, fading in/out at each end so
-   the loop reads as a passing beam rather than a hard reset — used for the "scanning light /
-   comet trail" ambient effect. Distance is in vw so it clears any container width. */
-@keyframes lightBeamSweep {
-  0%   { transform: translateX(-60vw) rotate(-8deg); opacity: 0; }
-  12%  { opacity: 1; }
-  45%  { opacity: 1; }
-  60%  { opacity: 0; }
-  100% { transform: translateX(60vw) rotate(-8deg); opacity: 0; }
 }
 
 /* Chromium forces its own light autofill background (yellow/blue) on remembered email & password
@@ -154,13 +159,13 @@ html, body {
   overscroll-behavior-y: none;
 }
 
-/* Poppins everywhere by default. Until now it only reached the page via scattered `font-sans`/
+/* Inter everywhere by default. Until now it only reached the page via scattered `font-sans`/
    `font-display` utility classes on individual elements — anything without one of those (plenty of
    spans/divs/inputs across the app) silently fell back to the browser's default sans-serif. Setting
    it once on body means every element inherits it, including content Radix portals straight onto
    body (dialogs, dropdowns, tooltips) that live outside the app's own component tree. The
    `font-sans`/`font-display` utility classes still work exactly as before — they already point at
-   the same Poppins-first stack, so this doesn't change anything already using them. */
+   the same Inter-first stack, so this doesn't change anything already using them. */
 body {
   font-family: var(--font-sans);
 }
@@ -186,7 +191,20 @@ body {
   --color-warning: #d3a24e;
   --color-danger: #d17272;
   --color-info: #6699cc;
+  /* primary-900 (light mode's Checklist accent) is near-black — on this near-black surface it's
+     effectively invisible (both the legend dot and that category's stacked-bar segment vanish).
+     primary-200 keeps it in the same navy family while guaranteeing contrast against this surface,
+     same reasoning as the status-color lightening above. */
+  --color-activity-checklist: var(--color-primary-200);
   color-scheme: dark;
+}
+
+/* Every other browser-drawn surface here (scrollbar, focus ring, autofill) is tinted from the
+   palette — text selection was the one left on the OS/browser default blue, which clashes with
+   the navy theme (worse in dark mode, where default selection barely reads at all). */
+::selection {
+  background-color: var(--color-primary-500);
+  color: white;
 }
 
 /* Applied globally (not just .custom-scrollbar) so every scrollable area — modals, tables,
@@ -223,6 +241,20 @@ body {
 @media (prefers-reduced-motion: no-preference) {
   html {
     scroll-behavior: smooth;
+  }
+}
+
+/* A *permanent* global color transition (the previous version of this rule) made every element's
+   background/border/text fade on every change, not just a theme switch — including the frequent,
+   unrelated re-renders every live-updating count/badge/hover state causes. Instead of settling
+   into its resting color, a lot of the UI was almost always mid-fade, which read as washed-out/
+   pale rather than smooth. Scoped to `.theme-switching` instead — ThemeContext stamps that class
+   on <html> for ~250ms only around an actual theme flip (see its own comment), so the fade exists
+   exactly when a border/background token really does change color, and is completely absent the
+   rest of the time. */
+@media (prefers-reduced-motion: no-preference) {
+  .theme-switching, .theme-switching *, .theme-switching *::before, .theme-switching *::after {
+    transition: background-color 200ms ease, border-color 200ms ease, color 200ms ease, fill 200ms ease, stroke 200ms ease !important;
   }
 }
 

@@ -43,7 +43,7 @@ export const OptionsDialog = ({
       <Button
         variant="secondary"
         size="sm"
-        className="group gap-2 font-semibold tracking-tight rounded-full text-xs sm:text-sm px-4 py-2 border border-border hover:border-primary-400 transition-all duration-200 ease-in-out"
+        className="group gap-2 font-display font-semibold tracking-tight rounded-full text-xs sm:text-sm px-4 py-2 border border-border hover:border-primary-400 transition-all duration-200 ease-in-out"
       >
         <SlidersHorizontal
           size={15}
@@ -88,7 +88,11 @@ export const OptionsDialog = ({
 
       <DialogFooter className="sm:justify-between">
         {activeCount > 0 ? (
-          <button onClick={onClearAll} className="text-xs font-bold text-text-muted hover:text-danger px-2 py-2 rounded-lg">
+          <button
+            type="button"
+            onClick={onClearAll}
+            className="text-xs font-display font-bold text-text-muted hover:text-danger transition-colors cursor-pointer px-2 py-2 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-danger/30"
+          >
             Clear filters
           </button>
         ) : (

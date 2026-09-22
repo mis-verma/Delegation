@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 
 type Theme = 'light' | 'dark';
 
@@ -28,6 +28,11 @@ const getInitialTheme = (): Theme => {
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setTheme] = useState<Theme>(getInitialTheme);
 
+  // Skips the very first run — the initial theme is applied before paint (see index.html's inline
+  // script, or this being the mount value), so there's no color change to smooth there, only on a
+  // real switch afterward.
+  const isFirstRun = useRef(true);
+
   useEffect(() => {
     const root = document.documentElement;
 
@@ -41,6 +46,20 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     // Support for custom CSS variables or DaisyUI
     root.setAttribute('data-theme', theme);
     localStorage.setItem(THEME_STORAGE_KEY, theme);
+
+    if (isFirstRun.current) {
+      isFirstRun.current = false;
+      return;
+    }
+
+    // Every --color-* token flips the instant the attribute above changes. `.theme-switching`
+    // (index.css) is what makes that a 200ms fade instead of a hard snap — scoped to just this
+    // window around a real switch, not left on permanently, so it can't leave frequently
+    // re-rendering elements (a live count, a hover state) stuck perpetually mid-fade instead of
+    // settling into their resting color.
+    root.classList.add('theme-switching');
+    const timeout = window.setTimeout(() => root.classList.remove('theme-switching'), 260);
+    return () => window.clearTimeout(timeout);
   }, [theme]);
 
   // Memoized toggle function to prevent unnecessary re-renders in consumer components

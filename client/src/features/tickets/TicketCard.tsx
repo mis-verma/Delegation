@@ -13,6 +13,7 @@ import { PriorityChip } from '../../components/priorityChip';
 import { DepartmentChip } from '../../components/departmentChip';
 import { TagChip } from '../../components/tagChip';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import { Badge } from '@/components/ui/badge';
 
 interface TicketCardProps {
   ticket: Ticket;
@@ -70,7 +71,13 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, index = 0 }: Tic
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-2 pt-2">
+      {/* Was one big flex-wrap row holding the chips *and* the w-full progress bar *and* the due
+          pill — a full-width item inside a wrapping chip row forces a line break before itself
+          and strands whatever comes after it alone on the next line too, so the due pill ended up
+          orphaned on its own row for no reason tied to its own size. Three explicit rows (chips,
+          then the bar — which is meant to be full-width — then due date + assignee together)
+          instead of one container relying on wrap behavior to land in the right place. */}
+      <div className="flex flex-col gap-2 pt-2">
         <div className="flex items-center gap-1.5 flex-wrap">
           {onHoldRemark ? (
             // StatusChip has a fixed prop signature (doesn't spread/forward arbitrary props), so
@@ -80,7 +87,7 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, index = 0 }: Tic
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="inline-flex cursor-help">
-                  <StatusChip status={statusChipStatus} label={statusLabel} icon={false} />
+                  <StatusChip status={statusChipStatus} label={statusLabel} />
                 </span>
               </TooltipTrigger>
               <TooltipContent side="top" className="max-w-[220px] text-left whitespace-normal">
@@ -88,33 +95,36 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, index = 0 }: Tic
               </TooltipContent>
             </Tooltip>
           ) : (
-            <StatusChip status={statusChipStatus} label={statusLabel} icon={false} />
+            // Was `icon={false}` — the only thing that actually carries a status's colour on this
+            // chip (see IconChip) — so every status rendered as the same flat, colourless pill
+            // regardless of what it was, right beside Priority/Department chips that were already
+            // in full colour.
+            <StatusChip status={statusChipStatus} label={statusLabel} />
           )}
-
 
           <PriorityChip meta={priorityInfo} />
 
-          <DepartmentChip name={departmentName ?? 'Ticket'} className="inline-flex items-center shrink-0 max-w-[140px] truncate text-[10px] font-medium px-1.5 py-0.5 rounded" />
+          <DepartmentChip name={departmentName ?? 'Ticket'} className="shrink-0 max-w-[140px]" />
+        </div>
 
-          {progress !== null ? (
-            <ChecklistProgressBar done={doneItems} total={totalItems} />
-          ) : (
-            // `!isOverdue`: past the deadline DueProgressBar renders its own red "Overdue" pill,
-            // which sat immediately beside the red due pill below — two alert pills, same icon,
-            // same colour, one of them carrying no information the other didn't. The bar is for
-            // time *remaining*; once there is none, the pill below says so on its own.
-            ticket.tatDueAt && ticket.status !== 'CLOSED' && !isOverdue && (
-              <DueProgressBar createdAt={ticket.createdAt} dueDate={ticket.tatDueAt} overdue={false} />
-            )
-          )}
+        {progress !== null ? (
+          <ChecklistProgressBar done={doneItems} total={totalItems} />
+        ) : (
+          // `!isOverdue`: past the deadline DueProgressBar renders its own red "Overdue" pill,
+          // which sat immediately beside the red due pill below — two alert pills, same icon,
+          // same colour, one of them carrying no information the other didn't. The bar is for
+          // time *remaining*; once there is none, the pill below says so on its own.
+          ticket.tatDueAt && ticket.status !== 'CLOSED' && !isOverdue && (
+            <DueProgressBar createdAt={ticket.createdAt} dueDate={ticket.tatDueAt} overdue={false} />
+          )
+        )}
 
-          {ticket.tatDueAt && (
-            <span
+        <div className="flex items-center justify-between gap-2">
+          {ticket.tatDueAt ? (
+            <Badge
+              variant={isOverdue ? 'destructive' : 'secondary'}
               title={isOverdue ? "This ticket is past its target resolution time" : "Target resolution date"}
-              className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold transition-all duration-300 border ${isOverdue
-                  ? 'bg-danger/10 text-danger border-danger/20'
-                  : 'bg-surface border-border/50 text-text-secondary hover:text-text hover:bg-surface-hover'
-                }`}
+              className={isOverdue ? 'bg-danger/10' : 'bg-surface'}
             >
               {isOverdue ? (
                 <AlertCircle size={12} strokeWidth={2.5} className="shrink-0 animate-pulse" />
@@ -123,27 +133,22 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, index = 0 }: Tic
               )}
               {isOverdue && 'Overdue · '}
               {new Date(ticket.tatDueAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-            </span>
+            </Badge>
+          ) : <span />}
+
+          {assigneeName ? (
+            <div
+              className={`flex items-center justify-center size-6 rounded-full text-white text-[10px] font-bold shrink-0 ${avatarColorClass(assigneeName)}`}
+              title={`Assigned to ${assigneeName}`}
+            >
+              {getInitials(assigneeName)}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center size-6 rounded-full bg-surface-hover text-text-light shrink-0" title="Unassigned">
+              <User size={12} />
+            </div>
           )}
-
-
         </div>
-
-        {assigneeName ? (
-          <div
-            className={`flex items-center justify-center size-6 rounded-full text-white text-[10px] font-bold shrink-0 ${avatarColorClass(assigneeName)}`}
-            title={`Assigned to ${assigneeName}`}
-          >
-            {getInitials(assigneeName)}
-          </div>
-        ) : (
-          <div className="flex items-center justify-center size-6 rounded-full bg-surface-hover text-text-light shrink-0" title="Unassigned">
-            <User size={12} />
-          </div>
-        )}
-
-
-
       </div>
     </button>
   );

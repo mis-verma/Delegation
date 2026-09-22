@@ -14,7 +14,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-import { Input, Modal, ChecklistItemDraftRow, emptyChecklistItemDraft, moveDraftItem, type ChecklistItemDraft } from '../../../components';
+import { Button, Input, Modal, ChecklistItemDraftRow, emptyChecklistItemDraft, moveDraftItem, type ChecklistItemDraft } from '../../../components';
 import { useAssignableUsersQuery } from '../../tickets/hook';
 import type { ChecklistTemplateTarget, CreateChecklistTemplateItemPayload } from '../../../api/checklistTemplates';
 import { Stepper } from './Stepper';
@@ -99,44 +99,25 @@ export const ChecklistTemplateFormUI = ({ departments, isSaving, saveError, onSu
   const footer = (
     <>
       {isFirstStep ? (
-        <button
-          type="button"
-          onClick={onClose}
-          disabled={isSaving}
-          className="flex-1 sm:flex-none px-5 py-2.5 text-sm font-display font-medium text-text-secondary bg-surface border border-border rounded-xl hover:bg-surface-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:opacity-60 disabled:cursor-not-allowed"
-        >
+        <Button type="button" variant="outline" onClick={onClose} disabled={isSaving} className="flex-1 sm:flex-none">
           Cancel
-        </button>
+        </Button>
       ) : (
-        <button
-          type="button"
-          onClick={goBack}
-          disabled={isSaving}
-          className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-5 py-2.5 text-sm font-display font-medium text-text-secondary bg-surface border border-border rounded-xl hover:bg-surface-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:opacity-60 disabled:cursor-not-allowed"
-        >
+        <Button type="button" variant="outline" onClick={goBack} disabled={isSaving} className="flex-1 sm:flex-none">
           <ArrowLeft className="w-3.5 h-3.5" />
           Back
-        </button>
+        </Button>
       )}
 
       {isLastStep ? (
-        <button
-          type="button"
-          disabled={isSaving}
-          onClick={handleSave}
-          className="flex-1 sm:flex-none inline-flex items-center justify-center px-5 py-2.5 text-sm font-display font-medium text-white rounded-xl shadow-sm bg-primary-700 hover:bg-primary-800 transition-all duration-300 ease-in-out hover:scale-[1.02] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 disabled:opacity-70 disabled:pointer-events-none disabled:transform-none"
-        >
-          {isSaving ? 'Creating...' : 'Create Template'}
-        </button>
+        <Button type="button" variant="primary" disabled={isSaving} isLoading={isSaving} onClick={handleSave} className="flex-1 sm:flex-none">
+          {isSaving ? 'Creating...' : 'Create Task Template'}
+        </Button>
       ) : (
-        <button
-          type="button"
-          onClick={goNext}
-          className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-5 py-2.5 text-sm font-display font-medium text-white rounded-xl shadow-sm bg-primary-700 hover:bg-primary-800 transition-all duration-300 ease-in-out hover:scale-[1.02] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
-        >
+        <Button type="button" variant="primary" onClick={goNext} className="flex-1 sm:flex-none">
           Next
           <ArrowRight className="w-3.5 h-3.5" />
-        </button>
+        </Button>
       )}
     </>
   );
@@ -146,7 +127,7 @@ export const ChecklistTemplateFormUI = ({ departments, isSaving, saveError, onSu
       open
       onClose={() => !isSaving && onClose()}
       icon={<ListChecks className="w-5 h-5" />}
-      title="Create Standard Procedure"
+      title="New Task Template"
       description="A reusable set of steps you attach to one task or ticket at a time. For automated scheduling, use Recurring Checklists instead."
       footer={footer}
       size="2xl"

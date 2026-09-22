@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { AlertCircle, ClipboardCheck, X, Store, ChevronDown, Check, Clock, AlarmClock, ArrowDownAZ, Repeat, User, LayoutList, Table2, Kanban } from 'lucide-react';
 import { useSearchParams } from 'react-router';
-import { Skeleton, PageNav, OptionsDialog, SortOptionRow, OptionRow, FilterGroup, FilterPill, SelectFilterRow, PeopleFilterRow, ViewToggle, type FilterOption, type ViewTab } from '../../../components';
+import { Skeleton, PageNav, OptionsDialog, SortOptionRow, OptionRow, FilterGroup, FilterPill, SelectFilterRow, PeopleFilterRow, ViewToggle, EmptyState, type FilterOption, type ViewTab } from '../../../components';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { useMyChecklistInstancesQuery, useChecklistInstanceSummaryQuery, useAssignableUsersQuery, useDepartmentsQuery } from '../hook';
@@ -160,7 +160,31 @@ export const MyChecklists = () => {
 
   // assigneeIds narrowing now happens server-side (both here and in the summary query above), so
   // this only needs to re-sort the page the server already scoped.
-  const instances = useMemo(() => [...allInstances].sort(SORT_COMPARATORS[sort]), [allInstances, sort]);
+  const sortedInstances = useMemo(() => [...allInstances].sort(SORT_COMPARATORS[sort]), [allInstances, sort]);
+
+  // A missed daily/weekly checklist used to pile up as one card per missed period — miss three
+  // days and you got three separate "Store Opening Walkthrough" cards, all still overdue. Only the
+  // newest period per (definition, store) actually needs to be *worked on*; the older ones are the
+  // exact same task that's still open, not a distinct piece of work. This only trims what's
+  // rendered here — the summary counts above (and the overdue banner/notifications) still come
+  // from `useChecklistInstanceSummaryQuery`, which counts every real instance untouched, so a
+  // three-days-overdue checklist still reads as overdue everywhere else, it just isn't shown as
+  // three redundant cards on this one page.
+  const instances = useMemo(() => {
+    const latestByChecklist = new Map<string, ChecklistInstance>();
+    for (const instance of sortedInstances) {
+      const key = `${instance.definitionId}:${instance.storeId ?? ''}`;
+      const current = latestByChecklist.get(key);
+      if (!current || new Date(instance.periodStart).getTime() > new Date(current.periodStart).getTime()) {
+        latestByChecklist.set(key, instance);
+      }
+    }
+    // Order follows sortedInstances' own order (recent/dueSoonest/titleAsc), not insertion order —
+    // Map preserves insertion order, which is whatever order the first-seen instance of each
+    // checklist happened to appear in, not the sort the viewer picked.
+    const kept = new Set(latestByChecklist.values());
+    return sortedInstances.filter((instance) => kept.has(instance));
+  }, [sortedInstances]);
 
   // How many rows the active filter matches — taken from the summary counts already fetched
   // above rather than a second request, since they're the same four numbers the tiles show.
@@ -201,6 +225,26 @@ export const MyChecklists = () => {
           item that got you here already says My Checklists, and the lead "Assigned to you" tile
           carries the count. The heading stays as the page's one accessibility landmark. */}
       <h1 className="sr-only">My Checklists</h1>
+
+      {/* Persistent (not a dismissable toast) for as long as anything is overdue — the "banner"
+          rung of the app's escalating overdue design, one step down from the full-screen
+          interstitial (OverdueChecklistInterstitial, mounted app-wide) and one step up from the
+          quiet red "Overdue" tile below, which was easy to miss among three other same-sized tiles. */}
+      {counts.overdue > 0 && quickFilter !== 'overdue' && (
+        <button
+          type="button"
+          onClick={() => { setQuickFilter('overdue'); setPage(1); setSearchParams((prev) => { const p = new URLSearchParams(prev); p.delete('status'); return p; }); }}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-danger/30 bg-danger/10 text-left transition-colors duration-150 cursor-pointer hover:bg-danger/15 outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+        >
+          <AlertCircle size={18} className="text-danger shrink-0" />
+          <span className="flex-1 text-sm font-display font-semibold text-danger">
+            {counts.overdue} checklist{counts.overdue === 1 ? '' : 's'} overdue — fill {counts.overdue === 1 ? 'it' : 'them'} in now
+          </span>
+          <span className="text-xs font-display font-semibold text-danger underline underline-offset-2 shrink-0">
+            View
+          </span>
+        </button>
+      )}
 
       <MyChecklistsQuickStats
         counts={counts}
@@ -344,7 +388,7 @@ export const MyChecklists = () => {
       {isError && (
         <div role="alert" className="flex items-center gap-3 px-4 py-3.5 rounded-xl border border-danger/20 bg-danger/10 text-danger text-sm font-display">
           <AlertCircle size={18} className="shrink-0" />
-          <span className="flex-1">Failed to load your checklists. Please check your connection and try again.</span>
+          <span className="flex-1">We couldn't load your checklists. Check your connection and try again.</span>
           <button
             type="button"
             onClick={() => refetch()}
@@ -356,23 +400,15 @@ export const MyChecklists = () => {
       )}
 
       {!isPending && !isError && instances.length === 0 && (
-        <div className="flex flex-col items-center justify-center gap-3 py-14 px-6 rounded-xl border border-dashed border-border/70 bg-surface/30 text-center">
-          <span className="flex items-center justify-center size-12 rounded-lg bg-surface-hover text-text-muted border border-border">
-            <ClipboardCheck size={20} strokeWidth={2.25} />
-          </span>
-          <div className="flex flex-col gap-1">
-            <p className="text-sm font-display font-bold text-text">
-              {quickFilter ? `No checklists match "${QUICK_FILTER_LABEL[quickFilter]}"`
-                : storeId ? 'No checklists for this store'
-                : departmentId ? 'No checklists shared with this department'
-                : assigneeIds.length ? 'No checklists shared with them'
-                : 'No checklists assigned to you yet'}
-            </p>
-            <p className="text-xs font-display text-text-muted max-w-xs">
-              {quickFilter || storeId || departmentId || assigneeIds.length ? 'Try clearing the filter to see all your checklists.' : "Once you're assigned a recurring checklist, it will show up here."}
-            </p>
-          </div>
-        </div>
+        <EmptyState
+          icon={ClipboardCheck}
+          title={quickFilter ? `No checklists match "${QUICK_FILTER_LABEL[quickFilter]}"`
+            : storeId ? 'No checklists for this store'
+            : departmentId ? 'No checklists shared with this department'
+            : assigneeIds.length ? 'No checklists shared with this person'
+            : 'No checklists assigned to you yet'}
+          description={quickFilter || storeId || departmentId || assigneeIds.length ? 'Try clearing the filter to see all your checklists.' : "Once you're assigned a recurring checklist, it will show up here."}
+        />
       )}
 
       {!isPending && !isError && instances.length > 0 && view === 'list' && (

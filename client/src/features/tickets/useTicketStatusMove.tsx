@@ -26,9 +26,9 @@ export const useTicketStatusMove = () => {
   const requestMove = (ticket: Ticket, toStatus: Ticket['status']) => {
     if (ticket.status === toStatus) return;
 
-    // `TicketStatusUpdate.toStatus` is a MySQL enum of exactly IN_PROGRESS/ON_HOLD/IN_REVIEW, so
-    // a move back to Open literally cannot be recorded. Rather than let it through unlogged — the
-    // bug this whole flow exists to close — it's refused with the reason.
+    // `TicketStatusUpdate.toStatus` is a MySQL enum of exactly IN_PROGRESS/ON_HOLD/PENDING_APPROVAL,
+    // so a move back to Open literally cannot be recorded. Rather than let it through unlogged —
+    // the bug this whole flow exists to close — it's refused with the reason.
     if (!canMoveTo(toStatus)) {
       toast.error(`A ticket can't be moved back to ${toStatus === 'OPEN' ? 'Open' : 'Closed'} from the board.`, {
         description: toStatus === 'OPEN'

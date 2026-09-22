@@ -19,9 +19,9 @@ const iconButtonClass = (tone: 'success' | 'danger') =>
       : 'bg-danger/10 text-danger hover:bg-danger hover:text-white focus-visible:ring-danger/40'
   }`;
 
-// Shared by TaskBoard's card footer and TaskDetail's sheet footer — PC/Admin-only approve/reject
-// controls shown once a task is pending_verification. Reject requires a short note (enforced
-// server-side), so it expands into a small textarea instead of firing immediately.
+// Shared by TaskBoard's card footer and TaskDetail's sheet footer — PC/Admin/manager/reviewer
+// approve/reject controls shown once a task is pending_approval. Reject requires a short note
+// (enforced server-side), so it expands into a small textarea instead of firing immediately.
 export const TaskVerifyActions = ({ task, compact = false }: TaskVerifyActionsProps) => {
   const verifyMut = useVerifyTaskMutation();
   // Shared with TicketVerificationActions — same two-phase flow and same "a reason is required"
@@ -31,16 +31,20 @@ export const TaskVerifyActions = ({ task, compact = false }: TaskVerifyActionsPr
   if (isRejecting) {
     return (
       <div
-        className="flex flex-col gap-2.5 p-3 bg-danger/10 border border-danger/20 rounded-lg animate-in fade-in zoom-in-95 duration-200"
+        className={compact
+          ? 'flex flex-col gap-2.5 p-3 bg-danger/10 border border-danger/20 rounded-lg animate-in fade-in zoom-in-95 duration-200'
+          : 'flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-2 duration-200'}
         onClick={e => e.stopPropagation()}
       >
         <textarea
           autoFocus
           value={note}
           onChange={e => setNote(e.target.value)}
-          placeholder="Reason for rejection..."
-          rows={2}
-          className="w-full px-3 py-2 text-sm text-text bg-surface border border-danger/30 rounded-md placeholder:text-text-light focus:outline-none focus:ring-2 focus:ring-danger/20 focus:border-danger transition-all resize-none shadow-sm"
+          placeholder={compact ? 'Reason for rejection...' : 'What needs to be fixed before this can be approved?'}
+          rows={compact ? 2 : 3}
+          className={compact
+            ? 'w-full px-3 py-2 text-sm text-text bg-surface border border-danger/30 rounded-md placeholder:text-text-light focus:outline-none focus:ring-2 focus:ring-danger/20 focus:border-danger transition-all resize-none shadow-sm'
+            : 'w-full px-4 py-3 text-sm font-medium text-text bg-surface border border-border rounded-xl shadow-inner focus:outline-none focus:ring-2 focus:ring-danger/40 focus:border-danger placeholder:text-text-light transition-all resize-none'}
         />
         <div className="flex items-center gap-2 justify-end">
           {compact ? (
@@ -69,22 +73,20 @@ export const TaskVerifyActions = ({ task, compact = false }: TaskVerifyActionsPr
           ) : (
             <>
               <Button
-                size="sm"
+                variant="primary"
+                className="flex-1 bg-danger hover:bg-danger/90 text-white font-bold shadow-md shadow-danger/20 py-2.5 rounded-xl transition-all outline-none focus-visible:ring-2 focus-visible:ring-danger focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={verifyMut.isPending || !canSubmitReject}
+                onClick={() => verifyMut.mutate({ id: task.id, payload: { action: 'REJECT', note: trimmedNote } })}
+              >
+                {verifyMut.isPending ? <Loader2 size={18} className="animate-spin" /> : 'Send back'}
+              </Button>
+              <Button
                 variant="outline"
-                className="text-xs h-7 px-3 font-medium border-border text-text-secondary hover:bg-surface-hover bg-surface"
+                className="flex-1 py-2.5 rounded-xl font-bold border-border text-text-secondary bg-surface hover:bg-surface-hover shadow-sm transition-all outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-95"
                 disabled={verifyMut.isPending}
                 onClick={cancelReject}
               >
                 Cancel
-              </Button>
-              <Button
-                size="sm"
-                variant="primary"
-                className="text-xs h-7 px-3 font-medium bg-danger hover:bg-danger/90 text-white shadow-sm"
-                disabled={verifyMut.isPending || !canSubmitReject}
-                onClick={() => verifyMut.mutate({ id: task.id, payload: { action: 'REJECT', note: trimmedNote } })}
-              >
-                {verifyMut.isPending ? <Loader2 size={14} className="animate-spin" /> : 'Send back'}
               </Button>
             </>
           )}
@@ -98,8 +100,8 @@ export const TaskVerifyActions = ({ task, compact = false }: TaskVerifyActionsPr
       <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
         <button
           type="button"
-          aria-label="Verify delegation"
-          title="Verify delegation"
+          aria-label="Approve"
+          title="Approve"
           disabled={verifyMut.isPending}
           onClick={() => verifyMut.mutate({ id: task.id, payload: { action: 'APPROVE' } })}
           className={iconButtonClass('success')}
@@ -121,29 +123,27 @@ export const TaskVerifyActions = ({ task, compact = false }: TaskVerifyActionsPr
   }
 
   return (
-    <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+    <div className="flex items-center gap-3" onClick={e => e.stopPropagation()}>
       <Button
-        size="sm"
         variant="primary"
-        className="flex-1 gap-1.5 bg-success hover:bg-success/90 text-white font-medium text-xs h-8 px-3 shadow-sm border-0"
+        className="flex-1 gap-2 bg-success hover:bg-success/90 text-white font-bold shadow-md shadow-success/20 py-2.5 rounded-xl transition-all outline-none focus-visible:ring-2 focus-visible:ring-success focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-95"
         disabled={verifyMut.isPending}
         onClick={() => verifyMut.mutate({ id: task.id, payload: { action: 'APPROVE' } })}
       >
         {verifyMut.isPending ? (
-          <Loader2 size={14} className="animate-spin" />
+          <Loader2 size={18} className="animate-spin" />
         ) : (
-          <ShieldCheck size={14} strokeWidth={2.5} />
+          <ShieldCheck size={18} strokeWidth={2.5} />
         )}
-        Verify Task
+        Approve
       </Button>
       <Button
-        size="sm"
         variant="outline"
-        className="flex-1 gap-1.5 border-border bg-surface text-danger hover:bg-danger/10 hover:border-danger/30 font-medium text-xs h-8 px-3 shadow-sm transition-all"
+        className="flex-1 gap-2 border-danger/30 text-danger bg-surface hover:bg-danger/10 font-bold shadow-sm py-2.5 rounded-xl transition-all outline-none focus-visible:ring-2 focus-visible:ring-danger focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-95"
         disabled={verifyMut.isPending}
         onClick={startReject}
       >
-        <ShieldX size={14} strokeWidth={2.5} />
+        <ShieldX size={18} strokeWidth={2.5} />
         Reject
       </Button>
     </div>

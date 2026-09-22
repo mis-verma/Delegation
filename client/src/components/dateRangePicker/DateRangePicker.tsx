@@ -25,6 +25,11 @@ interface DateRangePickerProps {
    *  trigger's own shape/height rather than just its width. */
   triggerClassName?: string;
   disabled?: boolean;
+  /** Styles the placeholder like a real selected value (solid text, not muted) — for callers
+   *  where the placeholder itself is a meaningful default (e.g. "All time" in a filter bar next
+   *  to Combobox filters whose own "All X" option renders the same way), not a true empty
+   *  "nothing chosen yet" state like a form's "Select a date range". Off by default. */
+  placeholderIsValue?: boolean;
 }
 
 const WEEKDAY_LABELS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
@@ -64,6 +69,7 @@ export function DateRangePicker({
   className = '',
   triggerClassName = '',
   disabled = false,
+  placeholderIsValue = false,
 }: DateRangePickerProps) {
   const [open, setOpen] = useState(false);
   const [viewMonth, setViewMonth] = useState(() => startOfDay(value.from ?? new Date()));
@@ -129,7 +135,7 @@ export function DateRangePicker({
         )}
       >
         <CalendarIcon size={18} className="text-text-light shrink-0" />
-        <span className={cn("truncate", hasValue ? 'text-text font-medium' : 'text-text-muted font-medium')}>
+        <span className={cn("truncate", (hasValue || placeholderIsValue) ? 'text-text font-medium' : 'text-text-muted font-medium')}>
           {label}
         </span>
         {hasValue && (

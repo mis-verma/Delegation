@@ -31,7 +31,7 @@ export const TicketQuickAttributes = ({
   );
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-5 rounded-2xl bg-surface border border-border shadow-sm font-sans">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 font-sans">
       
       <TicketAttributeCard icon={Tag} label="Status">
         <StatusChip status={statusChipStatus} label={statusLabel}>
@@ -40,7 +40,7 @@ export const TicketQuickAttributes = ({
       </TicketAttributeCard>
 
       <TicketAttributeCard icon={Sparkles} label="Priority">
-        <PriorityChip meta={priorityInfo} className="inline-flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-lg w-fit uppercase tracking-wider" />
+        <PriorityChip meta={priorityInfo} />
       </TicketAttributeCard>
 
       <TicketAttributeCard icon={UserCheck} label="Assignee">
@@ -51,7 +51,7 @@ export const TicketQuickAttributes = ({
             trigger={
               <button
                 type="button"
-                className="inline-flex items-center gap-2.5 text-xs font-bold px-2.5 py-1.5 rounded-xl border border-border bg-surface-hover text-text hover:bg-surface-active transition-all shadow-sm cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 focus-visible:ring-offset-background active:scale-95 w-fit"
+                className="inline-flex items-center gap-2.5 text-xs font-bold px-2.5 py-1.5 rounded-xl bg-surface-hover text-text hover:bg-surface-active transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1 focus-visible:ring-offset-background active:scale-95 w-fit"
               >
                 {ticket.assignee ? (
                   <span className="flex items-center justify-center h-5 w-5 rounded-full bg-primary-600 text-white text-[9px] font-black shrink-0 shadow-sm ring-1 ring-primary-700/50">

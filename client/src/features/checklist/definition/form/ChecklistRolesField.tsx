@@ -116,7 +116,7 @@ export const ChecklistRolesField = ({
 
       {/* Helper Subtext */}
       <p className="text-[11px] font-display text-text-muted">
-        Tag for reference only — shown on the checklist card, doesn't assign or grant access to anyone. Use Assigned Users below for that.
+        This is just a label for the card — it doesn't actually assign the checklist to anyone. Use Assigned Users below to do that.
       </p>
     </div>
   );

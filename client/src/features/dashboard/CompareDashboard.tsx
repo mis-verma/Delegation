@@ -1,9 +1,10 @@
-import { useId, useMemo, useState } from 'react';
-import { TrendingUp, ArrowUpRight, ArrowDownRight, Minus, Sparkles } from 'lucide-react';
+import { useEffect, useId, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router';
+import { TrendingUp, ArrowUpRight, ArrowDownRight, Minus, Sparkles, Plus } from 'lucide-react';
 import { AreaChart, Area, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { PeriodTabControl } from './PeriodTabControl';
 import { PinnedBreakdown, BreakdownRatioRows, BreakdownHint } from './PinnedBreakdown';
-import { useIsMobile } from '../../lib/useMediaQuery';
+import { EntityIconTile, Button } from '../../components';
 import {
   type CompliancePeriod,
   MONTH_LABELS,
@@ -13,6 +14,7 @@ import {
   periodStartDate,
   shiftPeriod,
   pointDelta,
+  DASHBOARD_CARD_CLASS,
 } from './dashboardDisplay';
 import { useChecklistInstanceSummaryQuery } from '../checklist/hook';
 import type { Task } from '../../api/task';
@@ -109,17 +111,22 @@ const SummaryChip = ({ label, value, previous, dotClassName, count, total, isSel
       <div className="flex flex-col gap-0.5 min-w-0">
         <span className="text-[11px] font-display font-medium text-text-muted whitespace-nowrap">{label}</span>
         {value != null ? (
-          <div className="flex items-center gap-1.5">
+          // flex-wrap, not a rigid single row — at 2-up on a narrow phone this chip's own width can
+          // be under 150px, too tight for a bold percent plus a count plus a trend badge to share
+          // one line. Without it the count span wrapped word-by-word ("(2" / "of" / "3)" on three
+          // separate lines) and the trend badge ran past the card's own right edge. whitespace-nowrap
+          // on the count keeps it wrapping as one unit instead of breaking mid-phrase.
+          <div className="flex items-center flex-wrap gap-x-1.5 gap-y-0.5">
             <span className="text-base font-display font-bold text-text tabular-nums">{value}%</span>
             {/* Raw count next to the percent — "3 of 4" reads very differently from "300 of 400"
                 even at the same value, so the count is what makes the percent trustworthy. */}
             {total != null && total > 0 && (
-              <span className="text-[10px] font-display font-medium text-text-light tabular-nums">
+              <span className="text-[10px] font-display font-medium text-text-light tabular-nums whitespace-nowrap">
                 ({count} of {total})
               </span>
             )}
             {delta && (
-              <span className={`inline-flex items-center gap-0.5 text-[10px] font-bold ${isFlat ? 'text-text-muted' : delta.direction === 'up' ? 'text-success' : 'text-danger'}`}>
+              <span className={`inline-flex items-center gap-0.5 text-[10px] font-bold whitespace-nowrap ${isFlat ? 'text-text-muted' : delta.direction === 'up' ? 'text-success' : 'text-danger'}`}>
                 <TrendIcon size={10} strokeWidth={3} />
                 {delta.label}
               </span>
@@ -187,7 +194,25 @@ type SummaryKey = 'completion' | 'onTime' | 'checklist';
 
 export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: CompareDashboardProps) => {
   const gradientId = useId();
-  const isMobile = useIsMobile();
+  const navigate = useNavigate();
+
+  // Measured off the chart's own rendered box, not the viewport — this card sits in a 2-up grid
+  // from `sm` up, so at a "desktop" viewport width it can still render narrower than a full-width
+  // mobile card would. A viewport-based mobile check picked "show every label" right at that
+  // crossover (e.g. this card halved into a 768px-wide tablet's 2-column layout), which is exactly
+  // what crammed 8 "week" labels into ~300px and smeared them into an unreadable overlap.
+  // A plain `useRef` + `useEffect(fn, [])` doesn't work here: this box only mounts once `hasData`
+  // is true, which flips well after the tasks/tickets queries resolve — by the time it exists, the
+  // mount-only effect has already run once (against a still-null ref) and never runs again. A
+  // state-backed callback ref re-fires whenever the node itself actually changes, mount included.
+  const [chartBoxEl, setChartBoxEl] = useState<HTMLDivElement | null>(null);
+  const [chartBoxWidth, setChartBoxWidth] = useState(0);
+  useEffect(() => {
+    if (!chartBoxEl) return;
+    const observer = new ResizeObserver(([entry]) => setChartBoxWidth(entry.contentRect.width));
+    observer.observe(chartBoxEl);
+    return () => observer.disconnect();
+  }, [chartBoxEl]);
   // Counted server-side rather than by reducing over every hydrated instance — see
   // useChecklistInstanceSummaryQuery for why that mattered.
   const { data: checklistSummary } = useChecklistInstanceSummaryQuery({ mine: true });
@@ -283,12 +308,18 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
     // different inner padding from `lg` up, which read as a misalignment between the pair.
     // `flex flex-col gap-4` replaces the five `mb-*`/`mt-*` offsets its children each carried —
     // one owner for the vertical rhythm instead of every block declaring its own.
-    <section aria-labelledby="compare-dashboard-heading" className="@container flex flex-col gap-4 rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface p-4 sm:p-6 lg:p-7">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <section aria-labelledby="compare-dashboard-heading" className={`@container flex flex-col gap-4 ${DASHBOARD_CARD_CLASS} p-4 sm:p-6 lg:p-7`}>
+      {/* `@sm:flex-row`, not `sm:flex-row` — this card sits in a 2-up grid from the viewport's own
+          `sm` up, so at exactly that crossover the card is already halved (narrower than a full-
+          width mobile card), and a viewport-based breakpoint switched to a row layout before the
+          card actually had the width for it: the title/subtitle wrapped to two lines fighting the
+          period tabs for space, and the tabs themselves got squeezed enough to silently overflow
+          past the card (the app shell clips horizontal overflow with no scrollbar, so "Month" and
+          "Year" just vanished with no visible sign why). Keying off the card's own measured width
+          instead keeps this row stacked until it actually fits. */}
+      <div className="flex flex-col @sm:flex-row @sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-primary-50 dark:bg-primary-500/10 border border-primary-100 dark:border-primary-800/50 text-primary-600 dark:text-primary-400 shadow-sm">
-            <TrendingUp size={20} strokeWidth={2.5} />
-          </div>
+          <EntityIconTile icon={TrendingUp} />
           <div>
             <h2 id="compare-dashboard-heading" className="text-base sm:text-lg font-display font-bold text-text tracking-tight leading-tight">Compare Dashboard</h2>
             {/* The chips below are a snapshot of the CURRENT bucket vs. the one before it, not an
@@ -367,7 +398,7 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
       </div>
 
       {hasData ? (
-        <div className="w-full" style={{ height: COMPARE_CHART_HEIGHT }}>
+        <div ref={setChartBoxEl} className="w-full" style={{ height: COMPARE_CHART_HEIGHT }}>
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <defs>
@@ -384,12 +415,17 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
                 dataKey="label"
                 tickLine={false}
                 axisLine={false}
-                // interval={0} forced every bucket's label onto the axis — fine for the 4-bucket
-                // "year" view, but "week" (8 buckets of "15 Aug"-style labels) crammed onto a
-                // ~300px-wide phone screen just overlapped into an unreadable smear. Thinning to
-                // ~4 evenly-spaced labels on mobile keeps every period readable regardless of
-                // bucket count; desktop has the width to show them all.
-                interval={isMobile ? Math.max(0, Math.ceil(chartData.length / 4) - 1) : 0}
+                // interval={0} forces every bucket's label onto the axis — fine once the chart has
+                // room for them, but "week" (8 buckets of "15 Aug"-style labels) on a narrow render
+                // just overlaps into an unreadable smear. Thinning to roughly one label per 50px of
+                // this chart's own measured width keeps every period readable at whatever width it
+                // actually renders at — a 2-up grid card at a "desktop" viewport can be narrower
+                // than a full-width card at a "mobile" one, so a viewport-based check isn't enough.
+                interval={
+                  chartBoxWidth > 0 && chartData.length > Math.max(2, Math.floor(chartBoxWidth / 50))
+                    ? Math.ceil(chartData.length / Math.max(2, Math.floor(chartBoxWidth / 50))) - 1
+                    : 0
+                }
                 padding={{ left: 16, right: 16 }}
                 tick={{ fill: 'var(--color-text-muted)', fontSize: 12, fontWeight: 500 }}
                 dy={10}
@@ -400,8 +436,9 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
                   mountain range, making a 4-point difference look like a collapse. Pinning 0-100
                   is the honest scale for a percentage, and the axis labels (previously absent
                   entirely, so no value was readable without hovering) now say what the height
-                  means. Hidden on mobile, where the gutter costs more than the reading is worth. */}
-              {!isMobile && (
+                  means. Hidden on a narrow render, where the gutter costs more than the reading is
+                  worth — measured the same way as the XAxis thinning above, not by viewport. */}
+              {chartBoxWidth === 0 || chartBoxWidth >= 300 ? (
                 <YAxis
                   tickLine={false}
                   axisLine={false}
@@ -411,10 +448,11 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
                   tickFormatter={(value: number) => `${value}%`}
                   tick={{ fill: 'var(--color-text-muted)', fontSize: 11, fontWeight: 600 }}
                 />
+              ) : (
+                // Still needs the domain even with the axis hidden, or the plot rescales to the
+                // data range the moment the labels disappear.
+                <YAxis hide domain={[0, 100]} />
               )}
-              {/* Still needs the domain on mobile even with the axis hidden, or the plot rescales
-                  to the data range the moment the labels disappear. */}
-              {isMobile && <YAxis hide domain={[0, 100]} />}
 
               <CartesianGrid vertical={false} stroke="var(--color-border)" strokeDasharray="4 4" strokeOpacity={0.4} />
 
@@ -423,11 +461,14 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
                   line to — with only a bucket or two of real data (the common case for a fresh
                   week/month), that point had no line AND no dot, i.e. rendered as nothing at all.
                   A small persistent dot keeps sparse/isolated points visible. */}
+              {/* Same soft color-matched glow ReportTrendChart's lines use — one shared "how a
+                  trend line looks" language across every area chart on the dashboard. */}
               <Area
                 type="monotone"
                 dataKey="completion"
                 stroke="var(--color-primary-500)"
                 strokeWidth={2.5}
+                style={{ filter: 'drop-shadow(0 2px 3px color-mix(in srgb, var(--color-primary-500) 35%, transparent))' }}
                 fill={`url(#compFill-${gradientId})`}
                 connectNulls
                 dot={{ r: 3, strokeWidth: 0, fill: 'var(--color-primary-500)' }}
@@ -438,6 +479,7 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
                 dataKey="onTime"
                 stroke="var(--color-info)"
                 strokeWidth={2.5}
+                style={{ filter: 'drop-shadow(0 2px 3px color-mix(in srgb, var(--color-info) 35%, transparent))' }}
                 fill={`url(#onTimeFill-${gradientId})`}
                 connectNulls
                 dot={{ r: 3, strokeWidth: 0, fill: 'var(--color-info)' }}
@@ -447,17 +489,25 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
           </ResponsiveContainer>
         </div>
       ) : (
-        // Was a bare line of muted text in an empty box. Every other "nothing to plot" state on
-        // the Dashboard (the bar chart's two, Recent Activity's two) is a dashed-border panel with
-        // an icon, so this one read as a rendering failure rather than a deliberate empty state.
+        // The reserved height still matches the loaded chart's own — removing that would just
+        // trade "empty and static" for "the card resizes under you once data arrives". What
+        // changed is the inside: was a bare icon + one idle line floating in the box with nothing
+        // to do; now it's a real way out of the empty state, not just a description of it.
         <div
-          className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/60 bg-surface/30 gap-3 animate-in fade-in duration-500"
+          className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border-hover bg-primary-500/[0.03] gap-3 px-5 animate-in fade-in duration-500"
           style={{ height: COMPARE_CHART_HEIGHT }}
         >
-          <div className="p-3 rounded-full bg-surface border border-border/40">
-            <TrendingUp size={20} className="text-text-light" />
+          <div className="flex items-center justify-center size-11 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 text-white shadow-sm shadow-primary-900/20">
+            <TrendingUp size={19} />
           </div>
-          <p className="text-sm font-medium text-text-muted text-center px-4">No activity in this range yet</p>
+          <div className="flex flex-col items-center gap-0.5">
+            <p className="text-sm font-display font-bold text-text text-center">Nothing to compare yet</p>
+            <p className="text-xs font-medium text-text-muted text-center max-w-[26rem]">This fills in once your team logs its first delegation or ticket.</p>
+          </div>
+          <Button size="sm" className="rounded-full mt-1" onClick={() => navigate('/tasks?create=1')}>
+            <Plus size={13} strokeWidth={2.75} />
+            New delegation
+          </Button>
         </div>
       )}
 

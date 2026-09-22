@@ -113,29 +113,37 @@ export const ChecklistDefinitionItemDraftRow = ({
       } ${className}`}
     >
       {/* Item Index + Main Description Input */}
-      <div className="flex items-center gap-2.5">
-        <span className="flex items-center justify-center size-7 rounded-md bg-muted/60 text-text-secondary text-xs font-mono font-bold shrink-0 tabular-nums select-none border border-border/40">
-          {String(index + 1).padStart(2, '0')}
-        </span>
+      <div className="flex flex-col gap-1.5">
+        <label
+          htmlFor={`item-label-${draft.key}`}
+          className="text-xs font-display font-semibold text-text"
+        >
+          What should staff do or answer? <span className="text-danger">*</span>
+        </label>
+        <div className="flex items-center gap-2.5">
+          <span className="flex items-center justify-center size-7 rounded-md bg-muted/60 text-text-secondary text-xs font-mono font-bold shrink-0 tabular-nums select-none border border-border/40">
+            {String(index + 1).padStart(2, '0')}
+          </span>
 
-        <input
-          type="text"
-          value={draft.label}
-          onChange={(e) => patch({ label: e.target.value })}
-          placeholder={`Task ${index + 1} prompt (e.g. Inspect refrigeration temperature)...`}
-          aria-label={`Task ${index + 1} title`}
-          aria-invalid={isLabelBlank}
-          className={`flex-1 min-w-0 px-3.5 py-2 text-sm font-display bg-surface text-text rounded-lg border placeholder:text-text-muted/60 transition-all duration-150 focus:outline-none focus:ring-2 ${
-            isLabelBlank
-              ? 'border-danger/60 focus:border-danger focus:ring-danger/20'
-              : 'border-border hover:border-border/80 focus:border-primary-500 focus:ring-primary-500/20'
-          }`}
-        />
+          <input
+            id={`item-label-${draft.key}`}
+            type="text"
+            value={draft.label}
+            onChange={(e) => patch({ label: e.target.value })}
+            placeholder="e.g. Inspect refrigeration temperature"
+            aria-invalid={isLabelBlank}
+            className={`flex-1 min-w-0 px-3.5 py-2 text-sm font-display bg-surface text-text rounded-lg border placeholder:text-text-muted/60 transition-all duration-150 focus:outline-none focus:ring-2 ${
+              isLabelBlank
+                ? 'border-danger/60 focus:border-danger focus:ring-danger/20'
+                : 'border-border hover:border-border/80 focus:border-primary-500 focus:ring-primary-500/20'
+            }`}
+          />
+        </div>
       </div>
 
       {isLabelBlank && (
         <p className="text-[11px] font-display text-danger -mt-2">
-          This item has no title, so it won't be saved — enter one or remove this item.
+          Give this item a title, or remove it — it won't be saved without one.
         </p>
       )}
 

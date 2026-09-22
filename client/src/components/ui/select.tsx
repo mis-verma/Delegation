@@ -71,7 +71,8 @@ function SelectContent({
           // (e.g. Applies / Department in the checklist template form) needs its own higher
           // z-index to actually render on top of it instead of invisibly underneath.
           "relative z-[80] max-h-(--radix-select-content-available-height) min-w-[12rem] origin-(--radix-select-content-transform-origin) overflow-x-hidden overflow-y-auto",
-          "bg-surface rounded-2xl border border-border p-1.5 shadow-xl shadow-black/10",
+          // No shadow — border-only, matching Modal/Popover/DropdownMenu's own convention.
+          "bg-surface rounded-2xl border border-border p-1.5",
           "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 duration-200",
           position === "popper" &&
             "data-[side=bottom]:translate-y-1.5 data-[side=left]:-translate-x-1.5 data-[side=right]:translate-x-1.5 data-[side=top]:-translate-y-1.5",
@@ -101,7 +102,7 @@ function SelectLabel({
   return (
     <SelectPrimitive.Label
       data-slot="select-label"
-      className={cn("px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-text-muted", className)}
+      className={cn("px-3 py-2 text-[11px] font-bold tracking-wide text-text-muted", className)}
       {...props}
     />
   )

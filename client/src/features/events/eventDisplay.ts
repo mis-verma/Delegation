@@ -7,21 +7,45 @@ export const EVENT_TYPE_LABELS: Record<EventType, string> = {
   BROADCAST: 'Broadcast',
 };
 
+// `danger`/`warning` here, not raw `rose-500`/`amber-500` (what this used to read) — those two
+// colors aren't in the project's palette (index.css defines `coral`, not `rose` or `amber`), so
+// they were silently falling back to Tailwind's stock defaults: colors that don't move with the
+// app's own light/dark tokens and don't match anything else "urgent"/"heads up" uses elsewhere
+// (TaskCard's high-priority red, the checklist overdue interstitial's amber-adjacent warning tone).
+// `--color-danger`/`--color-warning` are that same red/amber, but as real theme tokens.
 export const EVENT_TYPE_COLORS: Record<EventType, string> = {
-  DEADLINE: 'bg-rose-500/10 text-rose-600 dark:text-rose-400',
+  DEADLINE: 'bg-danger/10 text-danger',
   ANNOUNCEMENT: 'bg-primary-500/10 text-primary-600 dark:text-primary-300',
-  BROADCAST: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+  BROADCAST: 'bg-warning/10 text-warning',
 };
 
 // Text-only variant of EVENT_TYPE_COLORS for icon-only slots (no tinted box behind a lone icon).
 export const EVENT_TYPE_ICON_TINTS: Record<EventType, string> = {
-  DEADLINE: 'text-rose-600 dark:text-rose-400',
+  DEADLINE: 'text-danger',
   ANNOUNCEMENT: 'text-primary-600 dark:text-primary-300',
-  BROADCAST: 'text-amber-600 dark:text-amber-400',
+  BROADCAST: 'text-warning',
+};
+
+// Solid bg-* class per type, for IconChip's icon circle (see components/iconChip) — the same
+// {label, tone, icon} shape Task/Ticket priority and Status chips already carry.
+export const EVENT_TYPE_SOLID: Record<EventType, string> = {
+  DEADLINE: 'bg-danger',
+  ANNOUNCEMENT: 'bg-primary-600',
+  BROADCAST: 'bg-warning',
 };
 
 export const EVENT_TYPE_ICONS: Record<EventType, typeof CalendarClock> = {
   DEADLINE: CalendarClock,
   ANNOUNCEMENT: Megaphone,
   BROADCAST: Radio,
+};
+
+// Per-type gradient for EventList's leading icon tile — the same `color-mix(...black)` recipe the
+// overdue checklist interstitial uses for its single-color danger tile, extended to all three event
+// colors here since a flat `bg-danger` tile reads noticeably flatter next to the rest of the app's
+// gradient icon tiles (EntityIconTile, GradientIconTile).
+export const EVENT_TYPE_GRADIENT: Record<EventType, string> = {
+  DEADLINE: 'linear-gradient(135deg, var(--color-danger) 0%, color-mix(in srgb, var(--color-danger) 70%, black) 100%)',
+  ANNOUNCEMENT: 'linear-gradient(135deg, var(--color-primary-500) 0%, var(--color-primary-700) 100%)',
+  BROADCAST: 'linear-gradient(135deg, var(--color-warning) 0%, color-mix(in srgb, var(--color-warning) 70%, black) 100%)',
 };

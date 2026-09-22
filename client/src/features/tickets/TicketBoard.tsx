@@ -120,8 +120,8 @@ export const TicketBoard = ({ tickets, departmentNames, isVerifier = false, onOp
         toast.error('Only a verifier can close a ticket — send it for review instead.');
         return;
       }
-      if (ticket.status !== 'IN_REVIEW') {
-        toast.error('Move to In Review before closing a ticket.', {
+      if (ticket.status !== 'PENDING_APPROVAL') {
+        toast.error('Move to Pending Approval before closing a ticket.', {
           description: 'Only fully reviewed tickets can be closed.',
         });
         return; // The dropAnimationConfig will smoothly snap it back to its original column

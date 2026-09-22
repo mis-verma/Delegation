@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronDown, Store as StoreIcon, Users as UsersIcon } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
@@ -6,6 +6,7 @@ import { twMerge } from 'tailwind-merge';
 import { EntityIconTile, MetricPill, AvatarStack } from '../../../components';
 import { resolveAvatarUrl } from '../../../lib/uploadsBase';
 import type { StoreNode } from './orgStructureDisplay';
+import { readDraggedUser } from './orgStructureDisplay';
 import { DepartmentSection } from './DepartmentSection';
 import { UserRow } from './UserRow';
 
@@ -21,10 +22,26 @@ interface StoreSectionProps {
   onToggle: (id: string) => void;
   isDeptOpen: (id: string) => boolean;
   onToggleDept: (id: string) => void;
+  /** Reassigns a dragged person — into a department inside this store, or (dropped on the store's
+   *  own header) directly onto the store with no department. Omit to render read-only. */
+  onDropUser?: (userId: string, patch: { departmentId: string | null; storeId?: string | null }) => void;
+  onUserDragStart?: (user: StoreNode['directUsers'][number]) => void;
+  onUserDragEnd?: () => void;
 }
 
-const StoreSectionComponent = ({ node, isOpen, forceOpen, onToggle, isDeptOpen, onToggleDept }: StoreSectionProps) => {
+const StoreSectionComponent = ({
+  node,
+  isOpen,
+  forceOpen,
+  onToggle,
+  isDeptOpen,
+  onToggleDept,
+  onDropUser,
+  onUserDragStart,
+  onUserDragEnd,
+}: StoreSectionProps) => {
   const open = isOpen || forceOpen;
+  const [isDropTarget, setIsDropTarget] = useState(false);
   const allUsers = useMemo(
     () => [...node.directUsers, ...node.departments.flatMap((d) => d.users)],
     [node.directUsers, node.departments]
@@ -38,7 +55,31 @@ const StoreSectionComponent = ({ node, isOpen, forceOpen, onToggle, isDeptOpen, 
   return (
     // No box-shadow — was shadow-sm at rest, hover:shadow-lg on hover, the one card in the app
     // that grew a shadow on hover instead of just shifting border color like every other card.
-    <div className="group/store rounded-2xl border border-border bg-surface overflow-hidden transition-all duration-300 hover:border-coral-200">
+    // Drop target for "assign directly to this store, no department" — a nested DepartmentSection
+    // stops propagation on its own drag events, so a drop that lands there never reaches here.
+    <div
+      onDragOver={(e) => {
+        if (!onDropUser) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+      }}
+      onDragEnter={() => onDropUser && setIsDropTarget(true)}
+      onDragLeave={() => onDropUser && setIsDropTarget(false)}
+      onDrop={(e) => {
+        if (!onDropUser) return;
+        e.preventDefault();
+        setIsDropTarget(false);
+        const dragged = readDraggedUser(e);
+        if (!dragged || (dragged.departmentId === null && dragged.storeId === node.store.id)) return;
+        onDropUser(dragged.id, { departmentId: null, storeId: node.store.id });
+      }}
+      className={cn(
+        'group/store rounded-2xl border overflow-hidden transition-all duration-300',
+        isDropTarget
+          ? 'border-coral-400 bg-coral-50/50 dark:bg-coral-950/20 ring-2 ring-coral-500/30'
+          : 'border-border bg-surface hover:border-coral-200'
+      )}
+    >
       <button
         type="button"
         onClick={forceOpen ? undefined : () => onToggle(node.store.id)}
@@ -49,8 +90,9 @@ const StoreSectionComponent = ({ node, isOpen, forceOpen, onToggle, isDeptOpen, 
         <div className="min-w-0 flex-1">
           <h3 className="text-base font-display font-bold text-text truncate">{node.store.name}</h3>
           <p className="text-xs font-display text-text-muted truncate">
-            {node.departments.length} {node.departments.length === 1 ? 'department' : 'departments'}
-            {node.store.code ? ` · ${node.store.code}` : ''}
+            {isDropTarget
+              ? 'Drop to assign here, no department'
+              : `${node.departments.length} ${node.departments.length === 1 ? 'department' : 'departments'}${node.store.code ? ` · ${node.store.code}` : ''}`}
           </p>
         </div>
         <div className="hidden md:flex items-center gap-2.5 shrink-0">
@@ -81,6 +123,9 @@ const StoreSectionComponent = ({ node, isOpen, forceOpen, onToggle, isDeptOpen, 
                       isOpen={isDeptOpen(d.department.id)}
                       forceOpen={forceOpen}
                       onToggle={onToggleDept}
+                      onDropUser={onDropUser}
+                      onUserDragStart={onUserDragStart}
+                      onUserDragEnd={onUserDragEnd}
                     />
                   ))}
                   {node.directUsers.length > 0 && (
@@ -89,7 +134,7 @@ const StoreSectionComponent = ({ node, isOpen, forceOpen, onToggle, isDeptOpen, 
                         Store-level staff (no department)
                       </p>
                       {node.directUsers.map((u) => (
-                        <UserRow key={u.id} user={u} />
+                        <UserRow key={u.id} user={u} onDragStart={onUserDragStart} onDragEnd={onUserDragEnd} />
                       ))}
                     </div>
                   )}
@@ -116,7 +161,10 @@ const arePropsEqual = (prev: StoreSectionProps, next: StoreSectionProps): boolea
     prev.isOpen !== next.isOpen ||
     prev.forceOpen !== next.forceOpen ||
     prev.onToggle !== next.onToggle ||
-    prev.onToggleDept !== next.onToggleDept
+    prev.onToggleDept !== next.onToggleDept ||
+    prev.onDropUser !== next.onDropUser ||
+    prev.onUserDragStart !== next.onUserDragStart ||
+    prev.onUserDragEnd !== next.onUserDragEnd
   ) {
     return false;
   }

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import type { LucideIcon } from 'lucide-react';
 import { OptionRow, FilterGroup, FilterPill, PersonToggle } from './FilterPrimitives';
 import { toggleValue } from '../../lib/toggleValue';
 
@@ -17,6 +18,8 @@ export interface FilterOption<T> {
   label: string;
   /** Passed straight through to FilterPill's optional leading dot — see its own comment. */
   dotClassName?: string;
+  /** Passed straight through to FilterPill's optional leading icon — see its own comment. */
+  icon?: LucideIcon;
 }
 
 /**
@@ -37,7 +40,13 @@ export const SelectFilterRow = <T extends string>({
   <OptionRow label={label}>
     <FilterGroup>
       {options.map((option) => (
-        <FilterPill key={option.value} active={value === option.value} onClick={() => onSelect(option.value)}>
+        <FilterPill
+          key={option.value}
+          active={value === option.value}
+          onClick={() => onSelect(option.value)}
+          dotClassName={option.dotClassName}
+          icon={option.icon}
+        >
           {option.label}
         </FilterPill>
       ))}
@@ -65,6 +74,7 @@ export const MultiSelectFilterRow = <T extends string>({
           active={selected.includes(option.value)}
           onClick={() => onChange(toggleValue(selected, option.value))}
           dotClassName={option.dotClassName}
+          icon={option.icon}
         >
           {option.label}
         </FilterPill>

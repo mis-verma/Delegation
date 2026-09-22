@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useCallback, useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Ticket, AlertCircle, UserCheck } from 'lucide-react';
+import { Ticket, AlertCircle, UserCheck, ClipboardList, UsersRound } from 'lucide-react';
 
 import { Button, Modal } from '../../components';
 import { useCreateTicketMutation, useAssignableUsersQuery, useDepartmentsQuery } from './hook';
@@ -20,8 +20,8 @@ import { PhotoUploadField } from './form/PhotoUploadField';
 import { PriorityField } from './form/PriorityField';
 import { DepartmentField } from './form/DepartmentField';
 import { DueDateField } from './form/DueDateField';
-import { LABEL_CLASS } from './form/formConstants';
-import { SECTION_LABEL_CLASS } from '../tasks/taskFormFieldStyles';
+import { ReviewersField } from '../reviewers/ReviewersField';
+import { LABEL_CLASS, SECTION_TITLE_CLASS } from './form/formConstants';
 import { useAuth } from '../../context/AuthContext';
 
 interface TicketFormProps {
@@ -40,6 +40,7 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
   const queryClient = useQueryClient();
 
   const [photos, setPhotos] = useState<File[]>([]);
+  const [reviewerIds, setReviewerIds] = useState<string[]>([]);
   const addPhotos = (files: FileList | null) => {
     if (!files || !files.length) return;
     setPhotos(prev => [...prev, ...Array.from(files)]);
@@ -102,6 +103,7 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
         assigneeId: data.assigneeId !== '' ? data.assigneeId : undefined,
         tatHours: tatHours ?? (data.assignmentMode === 'AUTO' ? (selectedCategory?.tatHours ?? 24) : undefined),
         tagIds: data.tagIds?.length ? data.tagIds : undefined,
+        reviewerIds: reviewerIds.length ? reviewerIds : undefined,
       },
       {
         onSuccess: async (created) => {
@@ -117,7 +119,7 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
         },
       },
     );
-  }, [mutation, photos, queryClient, onClose, selectedCategory]);
+  }, [mutation, photos, queryClient, onClose, selectedCategory, reviewerIds]);
 
   const footer = (
     <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between w-full gap-3">
@@ -143,11 +145,7 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
       open
       onClose={onClose}
       size="xl"
-      icon={
-        <div className="flex items-center justify-center size-9 rounded-xl bg-primary-500/10 text-primary-600">
-          <Ticket className="w-4.5 h-4.5" />
-        </div>
-      }
+      icon={<Ticket className="w-5 h-5" />}
       title="Create New Ticket"
       description="Fill in the parameters to dispatch a task."
       footer={footer}
@@ -175,21 +173,25 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
         <div className="h-1.5 w-10 rounded-full bg-border/70" />
       </div>
 
-      <form id="ticket-form" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-6" noValidate>
+      <form id="ticket-form" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-8" noValidate>
         {/* Decides how everything below behaves (Auto hides Department/Assignee/Due Date once a
             category is picked), so it comes first — before Title/Description — not buried inside
             the Assignment section beneath fields it already controls. */}
         <AssignmentModeToggle mode={assignmentMode} onChange={m => setValue('assignmentMode', m)} />
 
-        <section className="flex flex-col gap-4">
-          <h3 className={SECTION_LABEL_CLASS}>The work</h3>
+        <section className="flex flex-col gap-5">
+          <h3 className={SECTION_TITLE_CLASS}>
+            <ClipboardList size={14} /> The work
+          </h3>
 
           <TicketDetailsFields register={register} errors={errors} />
           <PhotoUploadField photos={photos} onAddPhotos={addPhotos} onRemovePhoto={removePhoto} />
         </section>
 
-        <section className="flex flex-col gap-4">
-          <h3 className={SECTION_LABEL_CLASS}>Assignment</h3>
+        <section className="flex flex-col gap-5">
+          <h3 className={SECTION_TITLE_CLASS}>
+            <UsersRound size={14} /> Assignment
+          </h3>
 
           <CategoryField
             categoryId={categoryId}
@@ -201,7 +203,7 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
               one grid cell so labels line up across the row. Assignee and Labels are placed as
               their own pair (both pickers that add chips) so they sit next to each other, and Due
               Date closes the section full-width since it's the most important field here. */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-6">
             <DepartmentField
               value={departmentId}
               onChange={v => setValue('departmentId', v)}
@@ -240,6 +242,16 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
                 setValue={setValue}
                 errors={errors}
                 categoryTatHours={selectedCategory?.tatHours}
+              />
+            </div>
+
+            {/* Full width, same as Delegation's own reviewer picker — a checkbox list of names
+                needs room. Scoped to whichever department is currently selected. */}
+            <div className="sm:col-span-2">
+              <ReviewersField
+                departmentId={departmentId || undefined}
+                selected={reviewerIds}
+                onChange={setReviewerIds}
               />
             </div>
           </div>

@@ -63,7 +63,7 @@ export const INSTANCE_STATUS_STYLE: Record<InstanceProgressStatus, string> = {
 
 export const VERIFICATION_STATUS_LABEL: Record<ChecklistVerificationStatus, string> = {
   NOT_SUBMITTED: 'Not submitted',
-  PENDING: 'Pending review',
+  PENDING_APPROVAL: 'Pending approval',
   APPROVED: 'Verified',
   REJECTED: 'Rejected',
 };
@@ -73,7 +73,7 @@ export const VERIFICATION_STATUS_LABEL: Record<ChecklistVerificationStatus, stri
 // should render the same variant for the same status, not each hand-roll its own colors.
 export const VERIFICATION_BADGE_VARIANT: Record<ChecklistVerificationStatus, 'neutral' | 'warning' | 'success' | 'destructive'> = {
   NOT_SUBMITTED: 'neutral',
-  PENDING: 'warning',
+  PENDING_APPROVAL: 'warning',
   APPROVED: 'success',
   REJECTED: 'destructive',
 };

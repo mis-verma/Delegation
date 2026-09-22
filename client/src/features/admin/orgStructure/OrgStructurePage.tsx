@@ -2,12 +2,13 @@ import { useCallback, useMemo, useState } from 'react';
 import { Network, Search, Maximize2, Minimize2, AlertCircle, Inbox, Store, Layers, Users, TriangleAlert } from 'lucide-react';
 import { Input, OrbitDecoration } from '../../../components';
 import { StatCard } from '../../dashboard';
-import { useDepartmentsQuery, useUsersQuery } from '../hook';
+import { useDepartmentsQuery, useUsersQuery, useUpdateUserMutation } from '../hook';
 import { useStoresQuery } from '../../tickets/hook';
+import type { AdminUser } from '../../../api/admin';
 import { StoreSection } from './StoreSection';
 import { DepartmentSection } from './DepartmentSection';
 import { UserRow } from './UserRow';
-import { buildOrgTree, filterOrgTree, countUsersInTree } from './orgStructureDisplay';
+import { buildOrgTree, filterOrgTree, countUsersInTree, readDraggedUser } from './orgStructureDisplay';
 
 const OrgStructureSkeleton = () => (
   <div className="flex flex-col gap-3">
@@ -25,6 +26,7 @@ export const OrgStructurePage = () => {
   const [query, setQuery] = useState('');
   const [expandedStores, setExpandedStores] = useState<Set<string>>(new Set());
   const [expandedDepts, setExpandedDepts] = useState<Set<string>>(new Set());
+  const [isUnassignDropTarget, setIsUnassignDropTarget] = useState(false);
 
   const isPending = storesPending || deptsPending || usersPending;
   const isError = storesError || deptsError || usersError;
@@ -53,6 +55,20 @@ export const OrgStructurePage = () => {
   // re-render of every store section instead of just the one whose department actually changed —
   // see StoreSection.tsx's arePropsEqual.
   const isDeptOpen = useCallback((id: string) => expandedDepts.has(id), [expandedDepts]);
+
+  const updateUserMutation = useUpdateUserMutation();
+  // Stable across renders (both wrap only setState/mutate calls with no other deps) — required
+  // so passing them down doesn't defeat StoreSection/DepartmentSection's memoization, same as
+  // toggleStore/toggleDept above.
+  const updateUser = updateUserMutation.mutate;
+  const handleDropUser = useCallback(
+    (userId: string, patch: { departmentId: string | null; storeId?: string | null }) => {
+      updateUser({ id: userId, payload: patch });
+    },
+    [updateUser]
+  );
+  const handleUserDragStart = useCallback((_user: AdminUser) => {}, []);
+  const handleUserDragEnd = useCallback(() => {}, []);
 
   const expandAll = () => {
     setExpandedStores(new Set(tree.stores.map((s) => s.store.id)));
@@ -87,7 +103,8 @@ export const OrgStructurePage = () => {
           <div className="space-y-0.5">
             <h1 className="text-lg font-display font-bold tracking-tight text-text">Organization structure</h1>
             <p className="text-xs font-display text-text-muted">
-              The ladder, laid out — every store, its departments, and who sits where.
+              The ladder, laid out — every store, its departments, and who sits where. Drag a person onto a
+              department or store to reassign them.
             </p>
           </div>
         </div>
@@ -186,6 +203,9 @@ export const OrgStructurePage = () => {
               onToggle={toggleStore}
               isDeptOpen={isDeptOpen}
               onToggleDept={toggleDept}
+              onDropUser={handleDropUser}
+              onUserDragStart={handleUserDragStart}
+              onUserDragEnd={handleUserDragEnd}
             />
           ))}
 
@@ -202,19 +222,36 @@ export const OrgStructurePage = () => {
                   forceOpen={forceOpen}
                   onToggle={toggleDept}
                   showUnassignedStoreHint
+                  onDropUser={handleDropUser}
+                  onUserDragStart={handleUserDragStart}
+                  onUserDragEnd={handleUserDragEnd}
                 />
               ))}
             </div>
           )}
 
           {visibleTree.unassignedUsers.length > 0 && (
-            <div className="rounded-2xl border border-dashed border-border bg-surface-hover/60 p-4 sm:p-5">
+            <div
+              onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+              onDragEnter={() => setIsUnassignDropTarget(true)}
+              onDragLeave={() => setIsUnassignDropTarget(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setIsUnassignDropTarget(false);
+                const dragged = readDraggedUser(e);
+                if (!dragged || (dragged.departmentId === null && dragged.storeId === null)) return;
+                handleDropUser(dragged.id, { departmentId: null, storeId: null });
+              }}
+              className={`rounded-2xl border border-dashed p-4 sm:p-5 transition-colors duration-200 ${
+                isUnassignDropTarget ? 'border-text-muted bg-surface-hover ring-2 ring-text-muted/20' : 'border-border bg-surface-hover/60'
+              }`}
+            >
               <p className="text-xs font-display font-bold text-text-muted mb-1">
-                People without a department or store
+                {isUnassignDropTarget ? 'Drop to unassign' : 'People without a department or store'}
               </p>
               <div className="flex flex-col gap-0.5">
                 {visibleTree.unassignedUsers.map((u) => (
-                  <UserRow key={u.id} user={u} />
+                  <UserRow key={u.id} user={u} onDragStart={handleUserDragStart} onDragEnd={handleUserDragEnd} />
                 ))}
               </div>
             </div>

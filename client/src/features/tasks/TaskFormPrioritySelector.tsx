@@ -7,24 +7,24 @@ const PRIORITIES: { value: Task['priority']; label: string; short: string }[] = 
   { value: 'high', label: 'High', short: 'H' },
 ];
 
-// Every chip's border/text always carries its own priority color (not just when selected) — same
-// outline-chip language as the Todo list's priority badge, so the two read as one consistent
-// system. Built from theme tokens only (no manual `dark:` overrides) so it adapts automatically
-// with the app's data-theme toggle.
+// Flat tag-pill treatment, same reference as the Create Ticket modal's identical selector: a soft
+// tint fill communicates the pick, not a 2px outlined circle. Unselected stays plain muted text
+// with no fill, so the one that's actually chosen is the only thing that visually pops.
 const PRIORITY_OUTLINE_CLASS: Record<Task['priority'], string> = {
-  low: 'border-border text-text-secondary',
-  medium: 'border-warning/50 text-warning',
-  high: 'border-danger/50 text-danger',
+  low: 'text-text-muted hover:bg-surface-hover',
+  medium: 'text-warning/70 hover:bg-warning/5',
+  high: 'text-danger/70 hover:bg-danger/5',
 };
 
 // Exported so TaskDetail.tsx's PriorityValuePicker (a differently-shaped "value pill" rather than
 // this selector's chip row) can use the exact same colors — one source of truth for what each
-// priority's "selected/active" look is, everywhere it appears.
+// priority's "selected/active" look is, everywhere it appears. Changing it here also changes that
+// picker's fill to the same flat tint.
 // eslint-disable-next-line react-refresh/only-export-components
 export const PRIORITY_SELECTED_CLASS: Record<Task['priority'], string> = {
-  low: 'bg-surface-hover border-border-hover text-text',
-  medium: 'bg-warning/10 border-warning text-warning',
-  high: 'bg-danger/10 border-danger text-danger',
+  low: 'bg-surface-active text-text-secondary',
+  medium: 'bg-warning/15 text-warning',
+  high: 'bg-danger/15 text-danger',
 };
 
 interface TaskFormPrioritySelectorProps {
@@ -56,8 +56,8 @@ export const TaskFormPrioritySelector = ({ value, onChange, disabled = false, hi
             aria-pressed={isSelected}
             onClick={() => onChange(p.value)}
             disabled={disabled}
-            className={`relative flex items-center justify-center gap-1.5 h-8 px-3.5 text-xs font-semibold rounded-full border bg-surface transition-all duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:cursor-not-allowed disabled:opacity-60 ${
-              isSelected ? PRIORITY_SELECTED_CLASS[p.value] : `${PRIORITY_OUTLINE_CLASS[p.value]} hover:border-border-hover`
+            className={`flex items-center justify-center h-8 px-3.5 text-xs font-display font-semibold rounded-md transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:cursor-not-allowed disabled:opacity-60 ${
+              isSelected ? PRIORITY_SELECTED_CLASS[p.value] : PRIORITY_OUTLINE_CLASS[p.value]
             }`}
           >
             <span className="@sm:hidden">{p.short}</span>

@@ -1,4 +1,5 @@
 import { Building2, User } from 'lucide-react';
+import { EntityIconTile } from '../../../components';
 
 interface TicketGroupHeaderProps {
   label: string;
@@ -13,9 +14,7 @@ export const TicketGroupHeader = ({ label, groupBy, ticketCount, stats }: Ticket
   return (
     <div className="flex items-center justify-between px-1 pb-3 border-b-2 border-border/50 mb-1">
       <div className="flex items-center gap-2.5">
-        <div className="flex items-center justify-center p-1.5 rounded bg-surface-hover border border-border/60 shadow-sm">
-          <Icon size={14} strokeWidth={2.5} className="text-text" />
-        </div>
+        <EntityIconTile icon={Icon} tone={groupBy === 'department' ? 'coral' : 'primary'} className="size-7 rounded-md" />
         <h3 className="text-sm font-display font-bold text-text tracking-wider">
           {label}
         </h3>

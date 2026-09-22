@@ -182,7 +182,7 @@ export const ChecklistItemDraftRow = ({
           {/* Assignment — who's responsible, and by when (when relevant) */}
           <div className={`grid grid-cols-1 ${showDueDate ? '@sm:grid-cols-2' : ''} gap-4`}>
             <div className="flex flex-col gap-1.5">
-              <label className="flex items-center gap-1.5 text-xs font-medium text-text-muted uppercase tracking-wider">
+              <label className="flex items-center gap-1.5 text-xs font-medium text-text-muted tracking-wide">
                 <User size={14} /> Assignee
               </label>
               <select
@@ -201,7 +201,7 @@ export const ChecklistItemDraftRow = ({
             {/* Due Date — only meaningful when this draft belongs to a real delegation, not a template */}
             {showDueDate && (
               <div className="flex flex-col gap-1.5">
-                <label className="flex items-center gap-1.5 text-xs font-medium text-text-muted uppercase tracking-wider">
+                <label className="flex items-center gap-1.5 text-xs font-medium text-text-muted tracking-wide">
                   <Calendar size={14} /> Due Date
                 </label>
                 <input
@@ -219,10 +219,10 @@ export const ChecklistItemDraftRow = ({
               rather than reading as three unrelated fields. */}
           <div className="flex flex-col gap-3 p-3.5 rounded-lg bg-surface-hover/50 border border-border/60">
             <div className="flex items-baseline gap-1.5 flex-wrap">
-              <span className="flex items-center gap-1.5 text-xs font-medium text-text-secondary uppercase tracking-wider">
+              <span className="flex items-center gap-1.5 text-xs font-medium text-text-secondary tracking-wide">
                 <Camera size={14} className="text-text-light" /> Photo proof
               </span>
-              <span className="text-[11px] font-medium text-text-muted normal-case">
+              <span className="text-[11px] font-medium text-text-muted">
                 — evidence required to mark this step complete
               </span>
             </div>

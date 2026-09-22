@@ -66,7 +66,7 @@ export const ChecklistInstanceItemQrScanCard = ({ item, instanceId, canWork, isL
   const startScan = async () => {
     setError(null);
     if (!navigator.mediaDevices?.getUserMedia) {
-      setError('This device/browser can\'t access the camera — enter the code manually instead.');
+      setError("Can't access the camera on this device — enter the code by hand instead.");
       setManualEntry(true);
       return;
     }
@@ -107,7 +107,7 @@ export const ChecklistInstanceItemQrScanCard = ({ item, instanceId, canWork, isL
         <div className="flex flex-col gap-2">
           {setItemDone.isError && (
             <p className="text-xs text-danger">
-              {setItemDone.error instanceof Error ? setItemDone.error.message : 'Could not save this code.'}
+              {setItemDone.error instanceof Error ? setItemDone.error.message : "Couldn't save that code."}
             </p>
           )}
           {error && <p className="flex items-center gap-1.5 text-xs text-danger"><AlertCircle size={12} /> {error}</p>}

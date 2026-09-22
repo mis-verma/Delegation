@@ -24,6 +24,7 @@ const ROLE_OPTIONS: { value: Role; label: string }[] = [
   { value: 'MANAGER', label: 'Manager' },
   { value: 'SENIOR', label: 'Senior (Store Head)' },
   { value: 'PC', label: 'Process coordinator (PC)' },
+  { value: 'APPROVAL_MANAGER', label: 'Approval Manager' },
   { value: 'ADMIN', label: 'Admin' },
 ];
 
@@ -42,7 +43,7 @@ const buildUserSchema = (isEditing: boolean) =>
       lastName: z.string().trim().optional(),
       email: z.string().trim().email('Enter a valid email address'),
       password: z.string().optional(),
-      role: z.enum(['ADMIN', 'SENIOR', 'MANAGER', 'AGENT', 'USER', 'PC'] as const),
+      role: z.enum(['ADMIN', 'APPROVAL_MANAGER', 'SENIOR', 'MANAGER', 'AGENT', 'USER', 'PC'] as const),
       departmentId: z.string().optional(),
       storeId: z.string().optional(),
     })

@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 
 export const StatusPhotoThumbnail = ({
@@ -10,11 +10,17 @@ export const StatusPhotoThumbnail = ({
   index: number;
   onRemove: (index: number) => void;
 }) => {
-  const previewUrl = useMemo(() => URL.createObjectURL(file), [file]);
-  
+  // Created inside the effect, not a useMemo — under StrictMode's dev-only mount/cleanup/remount,
+  // a useMemo'd URL gets revoked by the first cleanup and never recreated (memo deps unchanged),
+  // leaving the <img> pointed at a dead blob: URL that decodes as a 0x0 broken image. Creating it
+  // per effect run means the remount gets its own fresh URL instead of the revoked one.
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
   useEffect(() => {
-    return () => URL.revokeObjectURL(previewUrl);
-  }, [previewUrl]);
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
 
   return (
     <div className="group relative h-16 w-16 rounded-xl border border-border bg-surface-hover shrink-0 overflow-hidden transition-all hover:border-border-hover">

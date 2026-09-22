@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { StatusChip, PriorityChip, DepartmentChip, TagChip } from '../../components';
+import { StatusChip, PriorityChip, DepartmentChip, TagChip, IconChip, type StatusChipStatus } from '../../components';
 import { TaskMoveMenu } from './TaskMoveMenu';
 import { useTaskStatusMove } from './useTaskStatusMove';
 import { PRIORITY_MAP, STATUS_LABEL } from './taskDisplay';
@@ -28,11 +28,15 @@ interface TaskTableProps {
 // The status values Task uses aren't StatusChip's vocabulary (StatusChip is shared with tickets
 // and checklists), so map rather than casting.
 const STATUS_CHIP_KEY = {
+  // draft never actually reaches this view (the normal Task List excludes it — see
+  // task.service.ts#list), but Task['status'] includes it structurally so this map still needs
+  // an entry; 'open' is the closest neutral reading if one ever did.
+  draft: 'open',
   todo: 'open',
   in_progress: 'in_progress',
-  pending_verification: 'pending',
+  pending_approval: 'pending',
   done: 'completed',
-} as const;
+} as const satisfies Record<Task['status'], StatusChipStatus>;
 
 // Solid navy header rather than a tinted surface row: it anchors the top of a dense grid and
 // reads as a header at a glance even when the table is scrolled horizontally away from the
@@ -146,9 +150,7 @@ const TaskTableComponent = ({
 
                   {fields.category && (
                     <td className={CELL_CLASS}>
-                      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${CATEGORY_CONFIG[task.category].className}`}>
-                        {CATEGORY_CONFIG[task.category].label}
-                      </span>
+                      <IconChip icon={CATEGORY_CONFIG[task.category].icon} tone={CATEGORY_CONFIG[task.category].solid} label={CATEGORY_CONFIG[task.category].label} />
                     </td>
                   )}
 

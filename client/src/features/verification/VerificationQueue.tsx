@@ -10,18 +10,24 @@ import {
   CheckCircle2,
   Repeat,
   ChevronRight,
+  ChevronDown,
   Building2,
   Users,
+  AlertTriangle,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button, GradientIconTile } from '../../components';
+import { Button, GradientIconTile, EmptyState } from '../../components';
 import { StatCard } from '../dashboard/StatCard';
 import { Breadcrumbs, type BreadcrumbTrailItem } from '../../components/breadcrumbs';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../../components/ui/select';
 import { useTicketsByStatusQuery, useVerifyTicketMutation, useDepartmentsQuery, useStoresQuery, useAssignableUsersQuery } from '../tickets/hook';
-import { useTasksByStatusQuery, useVerifyTaskMutation } from '../tasks/hook';
+import { useTasksByStatusQuery, useVerifyTaskMutation, useTaskQuery } from '../tasks/hook';
 import { usePendingVerificationChecklistInstancesQuery, useVerifyChecklistInstanceMutation } from '../checklist/hook';
 import { formatDate } from '../checklist/checklistDisplay';
+import { ChecklistCompletionPreview } from './ChecklistCompletionPreview';
+import { summarizeChecklists } from './checklistSummary';
+import { TicketDetail } from '../tickets/TicketDetail';
+import { TaskDetail } from '../tasks/TaskDetail';
 import type { Ticket } from '../../api/ticket';
 import type { Task } from '../../api/task';
 import type { ChecklistInstance } from '../../api/checklistInstances';
@@ -64,11 +70,37 @@ interface QueueRowProps {
   /** Bulk-select checkbox — only present inside a department's ticket/task list, never on the
    *  ungrouped Checklists section (checklists carry no department to bulk-approve by). */
   selection?: { checked: boolean; onToggle: () => void };
+  /** Checklist completion (done/not-done, photo evidence) — the thing a verifier actually needs
+   *  to check before approving, which used to mean leaving the queue for the full detail page.
+   *  Controlled by the parent (TicketRow/TaskRow) rather than owned here, since a Task row's
+   *  checklist data has to be lazily fetched the first time it's expanded (see TaskRow) — that
+   *  fetch is keyed off the same `expanded` boolean this drives. */
+  expanded: boolean;
+  onToggleExpanded: () => void;
+  /** Render-prop instead of a plain node — lets the preview's per-item flag button reach back into
+   *  this row's own correction-note textarea (via the `flagForCorrection` it's handed) without the
+   *  note/rejecting state having to live any higher up than it already does. */
+  preview: (flagForCorrection: (label: string) => void) => React.ReactNode;
+  /** Done/total/missing-photo rollup, shown as a compact badge even before the row is expanded —
+   *  the thing a verifier used to have to open the row (or leave the queue) to find out. */
+  summary?: { total: number; done: number; missingPhotos: number };
 }
 
-const QueueRow = ({ icon, title, subtitle, onOpen, onApprove, onReject, isPending, selection }: QueueRowProps) => {
+const QueueRow = ({ icon, title, subtitle, onOpen, onApprove, onReject, isPending, selection, expanded, onToggleExpanded, preview, summary }: QueueRowProps) => {
   const [rejecting, setRejecting] = useState(false);
   const [note, setNote] = useState('');
+
+  // A flagged item both opens the correction panel and appends a reference to it into the note,
+  // rather than making the verifier retype what they just read in the preview above. Re-flagging
+  // the same item twice doesn't duplicate the line.
+  const flagForCorrection = (label: string) => {
+    setRejecting(true);
+    const line = `• ${label}: needs attention`;
+    setNote((prev) => (prev.includes(line) ? prev : prev ? `${prev}\n${line}` : line));
+  };
+
+  const complete = summary && summary.total > 0 && summary.done === summary.total && summary.missingPhotos === 0;
+  const attentionNeeded = summary && summary.total > 0 && (summary.done < summary.total || summary.missingPhotos > 0);
 
   return (
     // rounded-2xl + border-color-only hover — was rounded-xl with hover:shadow-sm, the one card
@@ -96,7 +128,20 @@ const QueueRow = ({ icon, title, subtitle, onOpen, onApprove, onReject, isPendin
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-display font-medium text-text truncate group-hover/info:text-primary-600 dark:group-hover/info:text-primary-400 transition-colors">{title}</p>
-              <p className="text-xs font-display text-text-muted truncate mt-0.5">{subtitle}</p>
+              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                <p className="text-xs font-display text-text-muted truncate">{subtitle}</p>
+                {/* Completion at a glance, no click required — same "how much is actually done"
+                    read the expanded preview below gives, just visible before opening it. */}
+                {summary && summary.total > 0 && (
+                  <span className={`inline-flex items-center gap-1 shrink-0 text-[10px] font-display font-bold px-1.5 py-0.5 rounded ${
+                    complete ? 'bg-success/10 text-success' : attentionNeeded ? 'bg-danger/10 text-danger' : 'bg-border/40 text-text-muted'
+                  }`}>
+                    {attentionNeeded && <AlertTriangle size={10} strokeWidth={2.5} />}
+                    {summary.done}/{summary.total} done
+                    {summary.missingPhotos > 0 && ` · ${summary.missingPhotos} photo${summary.missingPhotos === 1 ? '' : 's'} missing`}
+                  </span>
+                )}
+              </div>
             </div>
             <ChevronRight size={15} strokeWidth={2.5} className="shrink-0 text-text-light opacity-0 group-hover/info:opacity-100 transition-opacity duration-200 sm:hidden group-hover/info:sm:inline" />
           </button>
@@ -105,6 +150,18 @@ const QueueRow = ({ icon, title, subtitle, onOpen, onApprove, onReject, isPendin
         {/* Action Buttons */}
         {!rejecting && (
           <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+            {/* What was actually done, and is the photo proof there — the thing a verifier needs
+                to check before deciding Approve/Reject, previously only visible by leaving the
+                queue for the full detail page. */}
+            <button
+              type="button"
+              onClick={onToggleExpanded}
+              aria-expanded={expanded}
+              className="inline-flex items-center gap-1 h-9 px-2.5 rounded-lg text-xs font-display font-semibold text-text-secondary hover:bg-surface-hover hover:text-text transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+            >
+              <ChevronDown size={14} strokeWidth={2.5} className={`transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} />
+              <span className="hidden sm:inline">{expanded ? 'Hide' : 'Checklist'}</span>
+            </button>
             <Button
               size="sm"
               variant="outline"
@@ -113,7 +170,10 @@ const QueueRow = ({ icon, title, subtitle, onOpen, onApprove, onReject, isPendin
               onClick={() => setRejecting(true)}
             >
               <X size={14} />
-              <span className="hidden sm:inline">Reject</span>
+              {/* Not a hard reject — this sends the item back to its assignee to fix and resubmit
+                  (see task.service.ts#verify / ticket.service.ts#verify), so it's labeled for what
+                  it actually does rather than reading as a terminal rejection. */}
+              <span className="hidden sm:inline">Request Correction</span>
             </Button>
             <Button
               size="sm"
@@ -128,6 +188,13 @@ const QueueRow = ({ icon, title, subtitle, onOpen, onApprove, onReject, isPendin
           </div>
         )}
       </div>
+
+      {/* Checklist completion preview — what the row-level toggle above reveals. */}
+      {expanded && (
+        <div className="pt-4 mt-4 border-t border-border/50 animate-in fade-in slide-in-from-top-2 duration-200">
+          {preview(flagForCorrection)}
+        </div>
+      )}
 
       {/* Rejecting Expansion State */}
       {rejecting && (
@@ -167,48 +234,85 @@ const QueueRow = ({ icon, title, subtitle, onOpen, onApprove, onReject, isPendin
 };
 
 const TicketRow = ({ ticket, selection }: { ticket: Ticket; selection?: QueueRowProps['selection'] }) => {
-  const navigate = useNavigate();
   const verifyMut = useVerifyTicketMutation();
+  // Ticket's own list endpoint already returns full checklist/item/image data (see
+  // ticket.service.ts#populateTickets, shared by list() and getById()) — no extra fetch needed.
+  const [expanded, setExpanded] = useState(false);
+  // Opens TicketDetail in place — a side sheet layered over this same page — instead of navigating
+  // to /tickets. Leaving the queue to look at one item used to lose the department/filter/scroll
+  // position you were mid-review in; this keeps all of it underneath.
+  const [showDetail, setShowDetail] = useState(false);
   return (
-    <QueueRow
-      icon={<TicketIcon size={18} />}
-      title={ticket.title}
-      subtitle={ticket.assignee ? `Handled by ${ticket.assignee.firstName}` : 'Unassigned'}
-      isPending={verifyMut.isPending}
-      selection={selection}
-      onOpen={() => navigate(`/tickets?open=${ticket.id}`)}
-      onApprove={(note) => verifyMut.mutate({ id: ticket.id, payload: { action: 'APPROVE', note } })}
-      onReject={(note) => verifyMut.mutate({ id: ticket.id, payload: { action: 'REJECT', note } })}
-    />
+    <>
+      <QueueRow
+        icon={<TicketIcon size={18} />}
+        title={ticket.title}
+        subtitle={ticket.assignee ? `Handled by ${ticket.assignee.firstName}` : 'Unassigned'}
+        isPending={verifyMut.isPending}
+        selection={selection}
+        expanded={expanded}
+        onToggleExpanded={() => setExpanded((v) => !v)}
+        summary={summarizeChecklists(ticket.checklists)}
+        preview={(flag) => <ChecklistCompletionPreview checklists={ticket.checklists} isLoading={false} onFlagItem={(item) => flag(item.label)} />}
+        onOpen={() => setShowDetail(true)}
+        onApprove={(note) => verifyMut.mutate({ id: ticket.id, payload: { action: 'APPROVE', note } })}
+        onReject={(note) => verifyMut.mutate({ id: ticket.id, payload: { action: 'REJECT', note } })}
+      />
+      {showDetail && <TicketDetail ticket={ticket} onClose={() => setShowDetail(false)} />}
+    </>
   );
 };
 
 const TaskRow = ({ task, selection }: { task: Task; selection?: QueueRowProps['selection'] }) => {
-  const navigate = useNavigate();
   const verifyMut = useVerifyTaskMutation();
+  // Unlike Ticket, a Task's LIST response never carries checklist data (see task.service.ts#list)
+  // — only getById does. Fetched lazily, gated on `expanded`, so opening the queue doesn't fire a
+  // full-detail request for every pending delegation up front.
+  const [expanded, setExpanded] = useState(false);
+  const { data: fullTask, isPending: isDetailPending } = useTaskQuery(task.id, expanded);
+  // Same in-place pattern as TicketRow — TaskDetail is its own overlay (a centered modal, matching
+  // how a delegation's detail looks everywhere else in the app) and re-fetches full detail by id
+  // itself, so handing it this row's own `task` as a starting point is enough.
+  const [showDetail, setShowDetail] = useState(false);
   return (
-    <QueueRow
-      icon={<CheckSquare size={18} />}
-      title={task.title}
-      subtitle={task.dueDate ? `Due ${new Date(task.dueDate).toLocaleDateString()}` : 'No due date'}
-      isPending={verifyMut.isPending}
-      selection={selection}
-      onOpen={() => navigate(`/tasks?open=${task.id}`)}
-      onApprove={(note) => verifyMut.mutate({ id: task.id, payload: { action: 'APPROVE', note } })}
-      onReject={(note) => verifyMut.mutate({ id: task.id, payload: { action: 'REJECT', note } })}
-    />
+    <>
+      <QueueRow
+        icon={<CheckSquare size={18} />}
+        title={task.title}
+        subtitle={task.dueDate ? `Due ${new Date(task.dueDate).toLocaleDateString()}` : 'No due date'}
+        isPending={verifyMut.isPending}
+        selection={selection}
+        expanded={expanded}
+        onToggleExpanded={() => setExpanded((v) => !v)}
+        // Once expanded, fullTask?.checklists is the fresher source (it's what the preview itself
+        // renders); until then this falls back to the list endpoint's batched rollup so the badge
+        // still shows without waiting on the per-row detail fetch.
+        summary={expanded && fullTask ? summarizeChecklists(fullTask.checklists) : task.checklistSummary}
+        preview={(flag) => <ChecklistCompletionPreview checklists={fullTask?.checklists} isLoading={isDetailPending} onFlagItem={(item) => flag(item.label)} />}
+        onOpen={() => setShowDetail(true)}
+        onApprove={(note) => verifyMut.mutate({ id: task.id, payload: { action: 'APPROVE', note } })}
+        onReject={(note) => verifyMut.mutate({ id: task.id, payload: { action: 'REJECT', note } })}
+      />
+      {showDetail && <TaskDetail task={fullTask ?? task} onClose={() => setShowDetail(false)} />}
+    </>
   );
 };
 
 const ChecklistRow = ({ instance }: { instance: ChecklistInstance }) => {
   const navigate = useNavigate();
   const verifyMut = useVerifyChecklistInstanceMutation();
+  const [expanded, setExpanded] = useState(false);
+  const previewChecklists = instance.items ? [{ id: instance.id, title: instance.title, items: instance.items }] : [];
   return (
     <QueueRow
       icon={<Repeat size={18} />}
       title={instance.title}
       subtitle={`${formatDate(instance.periodStart)} – ${formatDate(instance.periodEnd)} · every item checked off`}
       isPending={verifyMut.isPending}
+      expanded={expanded}
+      onToggleExpanded={() => setExpanded((v) => !v)}
+      summary={summarizeChecklists(previewChecklists)}
+      preview={(flag) => <ChecklistCompletionPreview checklists={previewChecklists} isLoading={false} onFlagItem={(item) => flag(item.label)} />}
       onOpen={() => navigate(`/checklists/${instance.id}`)}
       onApprove={(note) => verifyMut.mutate({ id: instance.id, payload: { action: 'APPROVE', note } })}
       onReject={(note) => verifyMut.mutate({ id: instance.id, payload: { action: 'REJECT', note } })}
@@ -230,14 +334,10 @@ const SkeletonRow = () => (
   </div>
 );
 
-const EmptyState = ({ label }: { label: string }) => (
-  <div className="flex flex-col items-center justify-center py-8 px-4 rounded-2xl border border-dashed border-border/70 bg-surface/30 text-center">
-    <div className="flex items-center justify-center mb-3 text-success">
-      <CheckCircle2 size={20} />
-    </div>
-    <p className="text-sm font-display font-medium text-text">All caught up</p>
-    <p className="text-xs font-display text-text-muted mt-1">No {label} waiting for verification.</p>
-  </div>
+/** Thin wrapper around the shared EmptyState — every call site here is the same "queue actually
+ *  cleared" read, just a different noun. */
+const QueueEmptyState = ({ label }: { label: string }) => (
+  <EmptyState icon={CheckCircle2} tone="success" title="All caught up" description={`No ${label} waiting for verification.`} />
 );
 
 interface DepartmentGroup {
@@ -282,8 +382,11 @@ export const VerificationQueue = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const departmentId = searchParams.get('dept');
 
-  const { data: tickets = [], isPending: ticketsPending } = useTicketsByStatusQuery('IN_REVIEW');
-  const { data: tasks = [], isPending: tasksPending } = useTasksByStatusQuery('pending_verification');
+  // Single-stage verify: one PC/ADMIN/manager/reviewer check decides the whole thing — the old
+  // two-stage QC-then-approval split (a separate, org-wide APPROVAL_MANAGER-only queue below this
+  // one) is gone.
+  const { data: tickets = [], isPending: ticketsPending } = useTicketsByStatusQuery('PENDING_APPROVAL');
+  const { data: tasks = [], isPending: tasksPending } = useTasksByStatusQuery('pending_approval');
 
   // Paged, not the old flat `limit: 200` — a queue that's actually 200+ deep is exactly the case
   // "Load more" exists for; fetching all 200 up front on every visit was the thing standing in
@@ -446,14 +549,14 @@ export const VerificationQueue = () => {
               its items, individually or as a bulk approve. */}
           <section className="flex flex-col gap-3">
             <div className="flex items-center gap-2 mb-1">
-              <h2 className="text-xs font-display font-bold text-text-muted tracking-wide uppercase">By department</h2>
+              <h2 className="text-xs font-display font-bold text-text-muted tracking-wide">By department</h2>
             </div>
             {ticketsPending || tasksPending ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                 {Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-[104px] rounded-2xl border border-border/40 bg-surface/30 animate-pulse" />)}
               </div>
             ) : departmentGroups.length === 0 ? (
-              <EmptyState label="tickets or delegations" />
+              <QueueEmptyState label="tickets or delegations" />
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                 {departmentGroups.map((group) => (
@@ -506,7 +609,7 @@ export const VerificationQueue = () => {
           {/* Checklists — ungrouped, always here, always one-by-one (no department to bulk by). */}
           <section className="flex flex-col gap-3">
             <div className="flex items-center gap-2 mb-1">
-              <h2 className="text-xs font-display font-bold text-text-muted tracking-wide uppercase">Checklists</h2>
+              <h2 className="text-xs font-display font-bold text-text-muted tracking-wide">Checklists</h2>
               {!checklistsPending && filteredChecklists.length > 0 && (
                 <span className="px-2 py-0.5 rounded-full bg-border/50 text-[10px] font-display font-medium text-text-muted">
                   {filteredChecklists.length}
@@ -516,7 +619,7 @@ export const VerificationQueue = () => {
 
             <div className="flex flex-col gap-3">
               {checklistsPending && (<><SkeletonRow /><SkeletonRow /></>)}
-              {!checklistsPending && filteredChecklists.length === 0 && <EmptyState label="checklists" />}
+              {!checklistsPending && filteredChecklists.length === 0 && <QueueEmptyState label="checklists" />}
               {filteredChecklists.map(c => <ChecklistRow key={c.id} instance={c} />)}
             </div>
 
@@ -582,13 +685,13 @@ export const VerificationQueue = () => {
               {(section === 'all' || section === 'tickets') && (
                 <section className="flex flex-col gap-3">
                   <div className="flex items-center gap-2 mb-1">
-                    <h2 className="text-xs font-display font-bold text-text-muted tracking-wide uppercase">Tickets</h2>
+                    <h2 className="text-xs font-display font-bold text-text-muted tracking-wide">Tickets</h2>
                     {visibleTickets.length > 0 && (
                       <span className="px-2 py-0.5 rounded-full bg-border/50 text-[10px] font-display font-medium text-text-muted">{visibleTickets.length}</span>
                     )}
                   </div>
                   <div className="flex flex-col gap-3">
-                    {visibleTickets.length === 0 && <EmptyState label="tickets" />}
+                    {visibleTickets.length === 0 && <QueueEmptyState label="tickets" />}
                     {visibleTickets.map(t => (
                       <TicketRow key={t.id} ticket={t} selection={{ checked: selectedIds.has(t.id), onToggle: () => toggleSelect(t.id) }} />
                     ))}
@@ -599,13 +702,13 @@ export const VerificationQueue = () => {
               {(section === 'all' || section === 'delegations') && (
                 <section className="flex flex-col gap-3">
                   <div className="flex items-center gap-2 mb-1">
-                    <h2 className="text-xs font-display font-bold text-text-muted tracking-wide uppercase">Delegations</h2>
+                    <h2 className="text-xs font-display font-bold text-text-muted tracking-wide">Delegations</h2>
                     {visibleTasks.length > 0 && (
                       <span className="px-2 py-0.5 rounded-full bg-border/50 text-[10px] font-display font-medium text-text-muted">{visibleTasks.length}</span>
                     )}
                   </div>
                   <div className="flex flex-col gap-3">
-                    {visibleTasks.length === 0 && <EmptyState label="delegations" />}
+                    {visibleTasks.length === 0 && <QueueEmptyState label="delegations" />}
                     {visibleTasks.map(t => (
                       <TaskRow key={t.id} task={t} selection={{ checked: selectedIds.has(t.id), onToggle: () => toggleSelect(t.id) }} />
                     ))}
@@ -619,7 +722,7 @@ export const VerificationQueue = () => {
           // approved, or the store/person/age filters changed) — back out cleanly instead of
           // showing a dead empty screen with no way forward.
           <div className="flex flex-col items-center gap-3 py-10">
-            <EmptyState label="items in this department" />
+            <QueueEmptyState label="items in this department" />
             <button
               type="button"
               onClick={backToDepartments}

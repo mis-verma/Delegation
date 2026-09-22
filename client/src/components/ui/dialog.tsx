@@ -43,7 +43,11 @@ function DialogOverlay({
         // competing full-screen surface, and being portalled to document.body as siblings of the
         // dialog, they need a higher z-index of their own to render on top of it, not beneath it.
         "fixed inset-0 z-[70] bg-black/40 backdrop-blur-sm",
-        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=open]:duration-200 data-[state=closed]:duration-150",
+        // 150ms/100ms, not 200ms/150ms — every dialog in the app already carries a real, un-
+        // removable ~90-100ms of framework overhead before this animation even starts (Radix's own
+        // Presence machinery probes computed style to time exit/enter correctly), so the visible
+        // entrance/exit is the one part of the total "click to settled" time actually left to trim.
+        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=open]:duration-150 data-[state=closed]:duration-100",
         className,
       )}
       {...props}
@@ -56,6 +60,7 @@ function DialogContent({
   children,
   showCloseButton = true,
   overlayClassName,
+  ref,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
@@ -64,17 +69,26 @@ function DialogContent({
    *  default dimming makes the rest of the page go dark every time. Optional and additive: every
    *  other dialog keeps the default backdrop untouched. */
   overlayClassName?: string
+  /** React 19 lets a function component accept `ref` as a plain prop — forwarded straight to the
+   *  underlying Radix content node so a caller (e.g. Modal's drag-to-reposition) can read its
+   *  live bounding box, without needing a forwardRef wrapper this component never had. */
+  ref?: React.Ref<HTMLDivElement>
 }) {
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay className={overlayClassName} />
       <DialogPrimitive.Content
+        ref={ref}
         data-slot="dialog-content"
         className={cn(
-          "fixed z-[70] grid w-full gap-5 bg-surface text-text p-6 sm:p-7 shadow-2xl border border-border outline-none max-h-[90vh] overflow-y-auto no-scrollbar",
+          // shadow-2xl alone is the untinted browser default depth every design-system shadow in
+          // this app tints from the palette (see TicketForm.tsx's own dialog-shaped card) — this is
+          // the one dialog every modal in the app renders through, so it was the widest-reaching
+          // instance of that gap.
+          "fixed z-[70] grid w-full gap-5 bg-surface text-text p-6 sm:p-7 shadow-2xl shadow-primary-900/10 border border-border outline-none max-h-[90vh] overflow-y-auto no-scrollbar",
           
-          // Buttery smooth entry/exit physics
-          "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=open]:duration-200 data-[state=closed]:duration-150 data-[state=open]:ease-[cubic-bezier(0.32,0.72,0,1)]",
+          // Buttery smooth entry/exit physics — tightened alongside the overlay above.
+          "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=open]:duration-150 data-[state=closed]:duration-100 data-[state=open]:ease-[cubic-bezier(0.32,0.72,0,1)]",
           
           // Mobile: bottom sheet, pinned edge-to-edge
           "bottom-0 left-0 right-0 top-auto max-w-full translate-x-0 translate-y-0 rounded-t-[2rem] rounded-b-none pb-[max(1.5rem,env(safe-area-inset-bottom))]",

@@ -24,7 +24,7 @@ export const TicketVerificationActions = ({ isPending, onApprove, onReject }: Ti
             onClick={onApprove}
           >
             <ShieldCheck size={18} strokeWidth={2.5} />
-            Verify & Close
+            Approve
           </Button>
           
           <Button

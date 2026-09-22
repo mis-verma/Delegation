@@ -54,6 +54,12 @@ export const TicketKpiSection = ({ groupBy, from, to }: TicketKpiSectionProps) =
           value: overdue.value ?? '—',
           trend: overdue.trend,
           lowerIsBetter: true,
+          // Distinguishes this from the "Overdue" card in the summary strip above, which is a
+          // different measurement despite the identical label: that one is a live, org-wide count
+          // across every ticket (open or closed) in range; this one is scoped to tickets that were
+          // both closed AND overdue-at-close, within only the latest bucket of the selected
+          // grouping — the same population `tatReport` buckets everything else in this section by.
+          caption: 'Closed overdue, latest period',
         },
       ]}
       chart={

@@ -9,12 +9,12 @@ const CATEGORY_KEY = {
     all : ["categories"] as const,
 };
 
-export const useCategoriesQuery = () => {
+export const useCategoriesQuery = (enabled: boolean = true) => {
     const { token } = useAuth();
     return useQuery({
         queryKey : CATEGORY_KEY.all,
         queryFn : () => categoryApi.getAll().then(r => r.data),
-        enabled : !!token,
+        enabled : !!token && enabled,
     })
 };
 

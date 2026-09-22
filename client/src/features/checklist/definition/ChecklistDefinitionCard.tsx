@@ -74,9 +74,13 @@ export const ChecklistDefinitionCard = ({ definition }: ChecklistDefinitionCardP
   const openDetail = () => navigate(`/admin/scheduled-checklists/${definition.id}`);
 
   const handleDelete = async () => {
+    // This used to claim runs/submissions/photos are erased "for good" — they aren't (it's a soft
+    // delete, kept for audit history) — but they do now disappear from every view (My Checklists,
+    // Compliance, Dashboard, the Verification queue) the moment this happens, which is what this
+    // copy actually promises.
     const ok = await confirm({
       title: `Delete "${definition.name}"?`,
-      description: 'This permanently removes the checklist and every instance, submission, and photo ever generated under it. This can\'t be undone.',
+      description: 'This checklist and every run tied to it will disappear from the app — My Checklists, Compliance, the Dashboard, everywhere.',
       confirmLabel: 'Yes, delete it',
       cancelLabel: 'Cancel',
       variant: 'danger',
@@ -133,13 +137,10 @@ export const ChecklistDefinitionCard = ({ definition }: ChecklistDefinitionCardP
           {tags.map(tag => {
             const TagIcon = TAG_ICON_BY_LABEL[tag];
             return (
-              <span
-                key={tag}
-                className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-surface-hover text-text-secondary text-[11px] font-display font-medium"
-              >
+              <Badge key={tag} variant="secondary" className="bg-surface-hover">
                 {TagIcon && <TagIcon size={11} />}
                 {tag}
-              </span>
+              </Badge>
             );
           })}
         </div>
@@ -165,7 +166,7 @@ export const ChecklistDefinitionCard = ({ definition }: ChecklistDefinitionCardP
           )}
         </div>
       ) : (
-        <p className="text-[11px] font-display text-text-light">No runs generated yet</p>
+        <p className="text-[11px] font-display text-text-light">No runs yet</p>
       )}
 
       <div className="flex items-center justify-between text-xs font-display text-text-muted pt-3 border-t border-border/60 mt-auto">

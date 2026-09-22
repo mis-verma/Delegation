@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from 'react';
-import { CheckSquare, Loader2, ChevronRight, CheckCircle2, ShieldQuestion, Trash2, SquarePen, Users, CalendarDays, Flag, Building2, Check } from 'lucide-react';
-import { Modal, Button, DateRangePicker, Input } from '../../components';
+import { CheckSquare, Loader2, ChevronRight, CheckCircle2, ShieldCheck, Trash2, SquarePen, Users, CalendarDays, Flag, Building2, Check, Milestone, AlignLeft } from 'lucide-react';
+import { Modal, Button, DateRangePicker, Input, ActivityTimeline } from '../../components';
 import type { DateRangeValue } from '../../components';
+import { Badge } from '../../components/ui/badge';
 import { useTaskQuery, useUpdateTaskMutation, useDeleteTaskMutation, useAssignableUsersQuery, useUploadTaskAttachmentsMutation } from './hook';
 import { useDepartmentsQuery } from '../tickets/hook';
 import { TaskVerifyActions } from './TaskVerifyActions';
@@ -9,16 +10,17 @@ import { TaskFormDepartmentField } from './TaskFormDepartmentField';
 import { AssigneeField } from '../assignees/AssigneeField';
 import { AttachFilesToolbar } from './AttachFilesToolbar';
 import { TaskAttachmentsGrid } from './TaskAttachmentsGrid';
+import { TaskDescriptionField } from './TaskDescriptionField';
 import { VerificationNoteBanner } from '../../components/verificationBanner';
-import { STATUS_LABEL, PRIORITY_MAP, NEXT_STATUS } from './taskDisplay';
+import { STATUS_LABEL, STATUS_CONFIG, STATUS_ICON, PRIORITY_MAP, NEXT_STATUS } from './taskDisplay';
 import { PRIORITY_SELECTED_CLASS } from './TaskFormPrioritySelector';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { TaskScoreBadge } from './TaskScoreBadge';
 import { TaskStatusRemarkDialog } from './TaskStatusRemarkDialog';
-import { TaskChecklistPanel } from './TaskChecklistPanel';
 import { taskAssigneeIds } from './cardFields';
+import { ReviewersField } from '../reviewers/ReviewersField';
 import { useAuth } from '../../context/AuthContext';
-import { SECTION_LABEL_CLASS } from './taskFormFieldStyles';
+import { SECTION_LABEL_CLASS, SECTION_TITLE_CLASS } from './taskFormFieldStyles';
 import type { Task, UpdateTaskPayload } from '../../api/task';
 
 
@@ -55,6 +57,15 @@ interface DescriptionEditorProps {
   children?: ReactNode;
 }
 
+// Used to be its own bare, borderless textarea (no box, no focus ring, toolbar floating with no
+// separating line) — a second, hand-duplicated description editor next to TaskForm's own bordered
+// TaskDescriptionField, so the same field looked and felt like two different products depending on
+// whether you were creating or editing a delegation. This keeps the local-state/auto-save-on-blur
+// behavior (unchanged) but renders through the one shared TaskDescriptionField component instead,
+// so the bordered card, focus ring, and toolbar/attachments sub-row styling live in exactly one
+// place and both forms get it for free. No `label` passed here — this section already has its own
+// heading above it (see the "Description" <h3> at its call site) rather than TaskForm's inline
+// per-field label, which is what TaskDescriptionField's own `label` prop was built for.
 const PlainDescriptionEditor = ({ value, disabled, onSave, toolbar, children }: DescriptionEditorProps) => {
   const [desc, setDesc] = useState(value);
   const [prevValue, setPrevValue] = useState(value);
@@ -65,19 +76,17 @@ const PlainDescriptionEditor = ({ value, disabled, onSave, toolbar, children }: 
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <textarea
-        value={desc}
-        onChange={(e) => setDesc(e.target.value)}
-        onBlur={() => onSave(desc)}
-        disabled={disabled}
-        placeholder="Add more detail…"
-        rows={3}
-        className="w-full resize-none text-sm text-text bg-transparent border-0 p-0 outline-none placeholder:text-text-light disabled:opacity-70 disabled:cursor-not-allowed"
-      />
-      {toolbar && <div className="flex items-center gap-0.5">{toolbar}</div>}
+    <TaskDescriptionField
+      value={desc}
+      onChange={setDesc}
+      onBlur={() => onSave(desc)}
+      disabled={disabled}
+      rows={4}
+      placeholder="Add more detail…"
+      toolbar={toolbar}
+    >
       {children}
-    </div>
+    </TaskDescriptionField>
   );
 };
 
@@ -95,72 +104,85 @@ interface TaskFooterProps {
   onClose: () => void;
 }
 
-const TaskFooter = ({ task, mode, isPC, isVerifier, nextStatus, onEdit, onAdvance, isAdvancing, onClose }: TaskFooterProps) => (
-  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-4 pt-1">
-    <div className="flex items-center gap-3 flex-wrap">
-      <TaskScoreBadge status={task.status} />
-      {task.status === 'done' && (
-        <span className="flex items-center gap-1.5 text-xs font-semibold text-success px-2 py-1 rounded-md">
-          <CheckCircle2 size={15} /> Completed
-        </span>
-      )}
-      {task.status === 'pending_verification' && !isVerifier && (
-        <span className="flex items-center gap-1.5 text-xs font-semibold text-info bg-info/10 px-2 py-1 rounded-md">
-          <ShieldQuestion size={15} /> Awaiting verification
-        </span>
-      )}
-    </div>
-    <div className="flex items-center gap-2 flex-wrap">
-      {mode === 'view' && !isPC && (
-        <Button variant="outline" size="sm" onClick={onEdit} className="text-text-secondary hover:text-text border-border">
-          <SquarePen size={14} className="mr-1" /> Edit Delegation
-        </Button>
-      )}
-      {nextStatus && !isPC && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="border-primary-200 text-primary-700 hover:bg-primary-50"
-          disabled={isAdvancing}
-          onClick={onAdvance}
-        >
-          {isAdvancing ? <Loader2 size={14} className="animate-spin mr-1" /> : <ChevronRight size={14} className="mr-1" />}
-          Advance to {STATUS_LABEL[nextStatus as keyof typeof STATUS_LABEL]}
-        </Button>
-      )}
-      <Button variant="primary" size="sm" onClick={onClose} className="px-6">
-        Done
-      </Button>
-    </div>
-  </div>
-);
-
-const STATUS_ORDER: Task['status'][] = ['todo', 'in_progress', 'pending_verification', 'done'];
-
-// One consistent accent color for every filled segment (not a different hue per status) —
-// it's a single progress indicator, not a status badge, so it shouldn't read as multicolored.
-const TaskStatusProgressBar = ({ status }: { status: Task['status'] }) => {
-  const currentIndex = STATUS_ORDER.indexOf(status);
+const TaskFooter = ({ task, mode, isPC, isVerifier, nextStatus, onEdit, onAdvance, isAdvancing, onClose }: TaskFooterProps) => {
+  // Single-stage verify: one PC/ADMIN/manager/reviewer check decides the whole thing (see
+  // task.service.ts's CAN_VERIFY_BY_ROLE) — the old two-stage QC-then-approval split is gone.
+  const needsDecision = isVerifier && task.status === 'pending_approval';
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-center gap-1.5">
-        {STATUS_ORDER.map((s, i) => (
-          <span
-            key={s}
-            className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${i <= currentIndex ? 'bg-primary-500' : 'bg-surface-hover'}`}
-          />
-        ))}
+    <div className="flex flex-col w-full">
+      {/* The actual decision a verifier opened this for — its own full-width band, separated from
+          the housekeeping row below (Edit/Done), instead of two small buttons buried mid-scroll
+          under a progress bar where they read as just another form control. Matches the weight
+          TicketDetail already gives the same decision (TicketVerificationActions). */}
+      {needsDecision && (
+        <div className="pb-4 mb-4 border-b border-border/60">
+          <TaskVerifyActions task={task} />
+        </div>
+      )}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-4">
+        <div className="flex items-center gap-3 flex-wrap">
+          <TaskScoreBadge status={task.status} />
+          {task.status === 'done' && (
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-success px-2 py-1 rounded-md">
+              <CheckCircle2 size={15} /> Completed
+            </span>
+          )}
+          {task.status === 'pending_approval' && !needsDecision && (
+            <span className="flex items-center gap-1.5 text-xs font-semibold text-status-approve bg-status-approve/10 px-2 py-1 rounded-md">
+              <ShieldCheck size={15} /> Awaiting approval
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {mode === 'view' && !isPC && (
+            <Button variant="outline" size="sm" onClick={onEdit} className="text-text-secondary hover:text-text border-border">
+              <SquarePen size={14} className="mr-1" /> Edit Delegation
+            </Button>
+          )}
+          {nextStatus && !isPC && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-primary-200 text-primary-700 hover:bg-primary-50"
+              disabled={isAdvancing}
+              onClick={onAdvance}
+            >
+              {isAdvancing ? <Loader2 size={14} className="animate-spin mr-1" /> : <ChevronRight size={14} className="mr-1" />}
+              Advance to {STATUS_LABEL[nextStatus as keyof typeof STATUS_LABEL]}
+            </Button>
+          )}
+          <Button variant="primary" size="sm" onClick={onClose} className="px-6">
+            Done
+          </Button>
+        </div>
       </div>
-      <div className="flex items-center gap-1.5">
-        {STATUS_ORDER.map((s, i) => (
-          <span
-            key={s}
-            className={`flex-1 text-center text-[11px] font-medium truncate transition-colors duration-300 ${i <= currentIndex ? 'text-text-secondary' : 'text-text-light'}`}
-          >
-            {STATUS_LABEL[s]}
-          </span>
-        ))}
-      </div>
+    </div>
+  );
+};
+
+const STATUS_ORDER: Task['status'][] = ['todo', 'in_progress', 'pending_approval', 'done'];
+
+// A single status readout — icon, label, and "step 2 of 4" — using the same semantic
+// STATUS_CONFIG tone every other status pill in the app already wears, through the shared Badge
+// component (outline variant, fully re-tinted via className since STATUS_CONFIG's own
+// status-todo/progress/approve/done tokens don't map onto Badge's built-in success/warning/danger
+// variants), instead of a bespoke 4-segment bar with a label crammed under each sliver. The full
+// arrival-by-arrival history (with remarks) already lives in TaskStatusStepper further down — this
+// is only the at-a-glance answer to "where is this right now."
+const TaskStatusSummary = ({ status }: { status: Task['status'] }) => {
+  const config = STATUS_CONFIG[status];
+  const stepIndex = STATUS_ORDER.indexOf(status);
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <Badge variant="outline" className={`pl-2 pr-3 py-1 text-xs ${config.badge}`}>
+        {STATUS_ICON[status]}
+        {STATUS_LABEL[status]}
+      </Badge>
+      {stepIndex >= 0 && (
+        <span className="text-[11px] font-semibold text-text-light tabular-nums shrink-0">
+          Step {stepIndex + 1} of {STATUS_ORDER.length}
+        </span>
+      )}
     </div>
   );
 };
@@ -172,7 +194,9 @@ const PRIORITY_ORDER: Task['priority'][] = ['low', 'medium', 'high'];
 // change priority via a small menu, same as picking any other value rather than filling in a form.
 const PriorityValuePicker = ({ value, onChange, disabled }: { value: Task['priority']; onChange: (v: Task['priority']) => void; disabled: boolean }) => {
   const current = PRIORITY_MAP[value];
-  const outlineChipClass = `inline-flex items-center px-2.5 py-1 rounded-full border bg-surface text-xs font-semibold ${PRIORITY_SELECTED_CLASS[value]}`;
+  // No border — matches the flat tag-pill style TaskFormPrioritySelector uses for the same value
+  // everywhere else, a soft tint fill is the whole signal.
+  const outlineChipClass = `inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold ${PRIORITY_SELECTED_CLASS[value]}`;
 
   if (disabled) {
     return (
@@ -205,9 +229,10 @@ const PriorityValuePicker = ({ value, onChange, disabled }: { value: Task['prior
 };
 
 const TIMELINE_STEP_DESCRIPTION: Record<Task['status'], string> = {
+  draft: 'Delegation drafted, not yet published.',
   todo: 'Delegation created and assigned.',
   in_progress: 'Work is underway.',
-  pending_verification: 'Submitted for verification.',
+  pending_approval: 'Submitted for review.',
   done: 'Delegation completed and closed.',
 };
 
@@ -240,7 +265,10 @@ const TaskStatusStepper = ({ task }: { task: Task }) => {
 
   return (
     <section className="flex flex-col gap-3">
-      <h3 className={SECTION_LABEL_CLASS}>Progress</h3>
+      <h3 className={SECTION_LABEL_CLASS}>
+        <Milestone size={13} className="text-text-light" />
+        Progress
+      </h3>
 
       <div className="flex flex-col">
         {STATUS_ORDER.map((s, i) => {
@@ -319,7 +347,6 @@ interface TaskEditLayoutProps {
   isViewOnly: boolean;
   canReassign: boolean;
   canManageAttachments: boolean;
-  currentUserId?: string;
   assignableUsers: ReturnType<typeof useAssignableUsersQuery>['data'];
   isLoadingUsers: boolean;
   departments: ReturnType<typeof useDepartmentsQuery>['data'];
@@ -333,10 +360,12 @@ interface TaskEditLayoutProps {
 }
 
 const TaskEditLayout = ({
-  task, isVerifier, isViewOnly, canReassign, canManageAttachments, currentUserId,
+  task, isVerifier, isViewOnly, canReassign, canManageAttachments,
   assignableUsers, isLoadingUsers, departments, isLoadingDepts,
   onSaveTitle, onSaveDescription, onUpdate, onDelete, isDeleting, uploadMutation,
-}: TaskEditLayoutProps) => (
+}: TaskEditLayoutProps) => {
+  const { user } = useAuth();
+  return (
   <div className="relative flex-1 min-h-0">
     <div className="h-full overflow-y-auto no-scrollbar flex flex-col gap-5 p-6 max-w-2xl mx-auto w-full">
       <div className="flex items-start justify-between gap-3">
@@ -358,13 +387,9 @@ const TaskEditLayout = ({
         )}
       </div>
 
-      <TaskStatusProgressBar status={task.status} />
+      <TaskStatusSummary status={task.status} />
 
       <VerificationNoteBanner note={task.verificationNote} approved={task.status === 'done'} verifiedBy={task.verifiedBy} />
-
-      {isVerifier && task.status === 'pending_verification' && (
-        <TaskVerifyActions task={task} />
-      )}
 
       <div className="flex flex-col gap-3">
         <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
@@ -430,12 +455,35 @@ const TaskEditLayout = ({
             )}
           </div>
         </div>
+
+        {/* Reviewer assignment is the same "routing authority" decision as reassigning who owns
+            this delegation — gated behind canReassign for the same reason. Someone without that
+            authority still sees who's named, just not an editable picker. */}
+        {!isViewOnly && canReassign ? (
+          <ReviewersField
+            departmentId={task.departmentId ?? undefined}
+            selected={(task.reviewers ?? []).map((r) => r.id)}
+            onChange={(ids) => onUpdate({ reviewerIds: ids })}
+          />
+        ) : (task.reviewers?.length ?? 0) > 0 && (
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
+            <span className={PROPERTY_ROW_LABEL_CLASS}>
+              <ShieldCheck size={15} className="text-text-light" /> Reviewers
+            </span>
+            <span className="text-sm text-text-secondary">
+              {task.reviewers!.map((r) => `${r.firstName}${r.lastName ? ` ${r.lastName}` : ''}`).join(', ')}
+            </span>
+          </div>
+        )}
       </div>
 
       <hr className="border-border/60" />
 
       <div className="flex flex-col gap-2">
-        <h3 className={SECTION_LABEL_CLASS}>Description</h3>
+        <h3 className={SECTION_TITLE_CLASS}>
+          <AlignLeft size={14} />
+          Description
+        </h3>
         <PlainDescriptionEditor
           value={task.description ?? ''}
           disabled={isViewOnly}
@@ -449,8 +497,12 @@ const TaskEditLayout = ({
             )
           }
         >
+          {/* TaskDescriptionField already wraps children in its own bordered, padded sub-row (see
+              TaskForm's identical StagedFileChips usage) — the old mt-4 pt-4 here was compensating
+              for PlainDescriptionEditor rendering children with no wrapper at all; keeping it now
+              would double up the spacing on top of that shared wrapper's own padding. */}
           {(uploadMutation.isPending || uploadMutation.isError || (task.attachments?.length ?? 0) > 0) && (
-            <div className="flex flex-col gap-3 mt-4 pt-4">
+            <div className="flex flex-col gap-3">
               {uploadMutation.isPending && (
                 <p className="flex items-center gap-2 text-sm font-medium text-text-muted">
                   <Loader2 size={16} className="animate-spin text-primary-500" /> Uploading files…
@@ -469,30 +521,28 @@ const TaskEditLayout = ({
 
       <hr className="border-border/60" />
 
-      {/* Previously built but never rendered anywhere reachable — the checklist progress bar
-          TaskCard/TaskTable/TaskListView already show (via task.checklists) had nothing that
-          could ever populate or work it, same defect ChecklistPanel had on the Ticket side
-          before it was wired into TicketDetail. */}
-      <TaskChecklistPanel
-        taskId={task.id}
-        checklists={task.checklists ?? []}
-        isAdmin={isVerifier}
-        currentUserId={currentUserId}
-      />
-
-      <hr className="border-border/60" />
-
-      {/* The Activity feed (comment box + comment/status history) used to sit below this. It's
-          gone by request: the only place to write anything about a delegation is now the dialog
-          that opens from "Advance to …", which won't move the status without a remark. The stepper
-          is what's left here, answering "where is this now" at a glance. */}
+      {/* The old Activity feed (a comment box + comment/status history, visible to anyone) used to
+          sit below this. It's gone by request: the only place to write anything about a delegation
+          is now the dialog that opens from "Advance to …", which won't move the status without a
+          remark. The stepper is what answers "where is this now" at a glance for everyone.
+          ActivityTimeline below is a different, unrelated thing added later: an ADMIN/PC-only
+          read-only audit trail (who changed which fields, sourced from AuditLog) — not a
+          reintroduction of the removed comment feed, and invisible to every other role. */}
       <TaskStatusStepper task={task} />
+
+      {(user?.role === 'ADMIN' || user?.role === 'PC') && (
+        <>
+          <hr className="border-border/60" />
+          <ActivityTimeline entityType="Task" entityId={task.id} />
+        </>
+      )}
     </div>
 
     <div className="pointer-events-none absolute inset-x-0 top-0 h-6 bg-gradient-to-b from-card to-transparent" />
     <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-card to-transparent" />
   </div>
-);
+  );
+};
 
 interface TaskDetailProps {
   task: Task;
@@ -512,7 +562,7 @@ export const TaskDetail = ({ task: initialTask, onClose, initialMode = 'view' }:
 
   const isPC = user?.role === 'PC';
   const isRestrictedUser = user?.role === 'USER';
-  const isViewOnly = mode === 'view' || isPC || isRestrictedUser;
+  const isViewOnly = mode === 'view' || isPC || isRestrictedUser || user?.role === 'APPROVAL_MANAGER';
   const isVerifier = isPC || user?.role === 'ADMIN';
   const canReassign = user?.role !== 'AGENT' && user?.role !== 'USER';
   const canManageAttachments = isVerifier || task.userId === user?.id || taskAssigneeIds(task).includes(user?.id ?? '');
@@ -575,7 +625,6 @@ export const TaskDetail = ({ task: initialTask, onClose, initialMode = 'view' }:
           isViewOnly={isViewOnly}
           canReassign={canReassign}
           canManageAttachments={canManageAttachments}
-          currentUserId={user?.id}
           assignableUsers={assignableUsers}
           isLoadingUsers={isLoadingUsers}
           departments={departments}
