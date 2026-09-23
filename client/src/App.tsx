@@ -47,10 +47,13 @@ const AdminTaskList = lazy(() => import('./features/admin/AdminTaskList').then(m
 const TeamOverviewPage = lazy(() => import('./features/team/TeamOverviewPage').then(m => ({ default: m.TeamOverviewPage })));
 const SettingsLayout = lazy(() => import('./features/settings/SettingsLayout').then(m => ({ default: m.SettingsLayout })));
 const CategoryList = lazy(() => import('./features/settings/CategoryList').then(m => ({ default: m.CategoryList })));
+const AccountSettings = lazy(() => import('./features/settings/AccountSettings').then(m => ({ default: m.AccountSettings })));
+const AppearanceSettings = lazy(() => import('./features/settings/AppearanceSettings').then(m => ({ default: m.AppearanceSettings })));
 const DirectoryPage = lazy(() => import('./features/admin/directory').then(m => ({ default: m.DirectoryPage })));
 const OrgStructurePage = lazy(() => import('./features/admin/orgStructure').then(m => ({ default: m.OrgStructurePage })));
 const ReportsPage = lazy(() => import('./features/reports').then(m => ({ default: m.ReportsPage })));
 const AuditLogPage = lazy(() => import('./features/admin/auditLog').then(m => ({ default: m.AuditLogPage })));
+const PresenceOverview = lazy(() => import('./features/admin/presence').then(m => ({ default: m.PresenceOverview })));
 const SettingsPage = lazy(() => import('./features/admin/SettingsPage').then(m => ({ default: m.SettingsPage })));
 const ChecklistTemplateList = lazy(() => import('./features/admin/checklistTemplate').then(m => ({ default: m.ChecklistTemplateList })));
 const MyChecklists = lazy(() => import('./features/checklist').then(m => ({ default: m.MyChecklists })));
@@ -202,11 +205,13 @@ const router = createBrowserRouter([
             ),
           },
           { path: '/calendar', element: <CalendarPage /> },
-          { 
-            path: '/settings', 
-            element: <SettingsLayout/>, 
+          {
+            path: '/settings',
+            element: <SettingsLayout/>,
             children : [
-              { index : true, element : <Navigate to="/settings/categories" replace />},
+              { index : true, element : <Navigate to="/settings/account" replace />},
+              { path : "account", element : <AccountSettings/>},
+              { path : "appearance", element : <AppearanceSettings/>},
               { path : "categories", element : <CategoryList/>}
 
           ] },
@@ -300,6 +305,7 @@ const router = createBrowserRouter([
               { path: '/admin/tickets', element: <TicketList /> },
               { path: '/admin/reports', element: <ReportsPage /> },
               { path: '/admin/audit-log', element: <AuditLogPage /> },
+              { path: '/admin/presence', element: <PresenceOverview /> },
               { path: '/admin/settings', element: <SettingsPage /> },
             ],
           },

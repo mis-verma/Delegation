@@ -79,7 +79,10 @@ const EditButton = ({
     type="button"
     onClick={onClick}
     aria-label={`Edit ${sectionName} section`}
-    className="inline-flex items-center gap-1.5 text-xs font-display font-medium px-2.5 py-1 rounded-md text-primary-700 bg-primary-50/60 hover:bg-primary-100 hover:text-primary-800 border border-primary-200/60 transition-colors duration-150 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+    // No dark: variant on any of these used to mean this button (repeated once per Review
+    // section) kept its light-mode colors — pale bg, dark-navy-on-white border — in dark theme
+    // too, instead of the rest of the app's opacity-tinted "adapts to either theme" convention.
+    className="inline-flex items-center gap-1.5 text-xs font-display font-medium px-2.5 py-1 rounded-md text-primary-700 dark:text-primary-300 bg-primary-500/10 dark:bg-primary-500/15 hover:bg-primary-500/15 dark:hover:bg-primary-500/20 hover:text-primary-800 dark:hover:text-primary-200 border border-primary-200/60 dark:border-primary-800/40 transition-colors duration-150 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
   >
     <Pencil size={11} className="shrink-0" />
     <span>Edit</span>

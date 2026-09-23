@@ -22,6 +22,10 @@ const USER_KEYS = {
     detail: (id: string) => ["admin-users", id] as const,
 };
 
+const PRESENCE_KEY = {
+    all: ["users-presence"] as const,
+};
+
 const SETTINGS_KEY = {
     all : ["settings"] as const,
 };
@@ -82,6 +86,21 @@ export const useUsersQuery = (enabled: boolean = true) => {
         queryKey: USER_KEYS.all,
         queryFn: () => adminApi.getAll().then(r => r.data),
         enabled: !!token && enabled,
+        retry: handleQueryRetry,
+    });
+};
+
+// Polled rather than pushed over the socket — presence changing a few seconds late is fine for
+// "who's around right now," and it's one query instead of a 5th always-on socket subscription
+// (App.tsx already runs one each for tickets/tasks/checklists/notifications). Only used by
+// admin/PC-visible screens, so it's never running for the vast majority of logged-in sessions.
+export const usePresenceQuery = (enabled: boolean = true) => {
+    const { token } = useAuth();
+    return useQuery({
+        queryKey: PRESENCE_KEY.all,
+        queryFn: () => adminApi.getPresence().then(r => r.data),
+        enabled: !!token && enabled,
+        refetchInterval: 20_000,
         retry: handleQueryRetry,
     });
 };

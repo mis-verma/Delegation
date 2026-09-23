@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { UserPlus, AlertCircle, ShieldCheck, Building2, Store, KeyRound } from 'lucide-react';
+import { UserPlus, AlertCircle, ShieldCheck, Building2, Store, KeyRound, User, Mail, Eye, EyeOff } from 'lucide-react';
 import { Input, Button, Modal, Combobox, AvatarUpload } from '../../../components';
 import {
   useCreateUserMutation,
@@ -137,6 +137,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
   // rather than re-read from `user` on every render — `user` is a snapshot captured when this
   // modal was opened, so it won't reflect a photo change made a moment ago in this same session.
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user?.avatarUrl ?? null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const createMutation = useCreateUserMutation();
   const updateMutation = useUpdateUserMutation();
@@ -252,6 +253,8 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
           : 'Create a new user account and set initial permissions.'
       }
       footer={footer}
+      showCloseButton={false}
+      draggable
     >
       <form id="user-form" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
         <fieldset disabled={isPending} className="flex flex-col gap-4 disabled:opacity-60">
@@ -279,12 +282,14 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
             <Input
               id="firstName"
               label="First name"
+              icon={User}
               error={errors.firstName?.message}
               {...register('firstName')}
             />
             <Input
               id="lastName"
               label="Last name (optional)"
+              icon={User}
               error={errors.lastName?.message}
               {...register('lastName')}
             />
@@ -294,6 +299,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
             id="email"
             label="Email address"
             type="email"
+            icon={Mail}
             error={errors.email?.message}
             {...register('email')}
           />
@@ -302,9 +308,20 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
             <Input
               id="password"
               label="Password"
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               placeholder="Min. 8 characters"
+              icon={KeyRound}
               error={errors.password?.message}
+              suffix={
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(v => !v)}
+                  className="text-text-light hover:text-text transition-colors cursor-pointer"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
+              }
               {...register('password')}
             />
           )}

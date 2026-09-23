@@ -1,7 +1,7 @@
 import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Tag } from 'lucide-react';
+import { Tag, Building2, Users } from 'lucide-react';
 import { Input, Button, UserMultiSelect, Modal, Combobox } from '../../components';
 import { useCreateCategoryMutation, useUpdateCategoryMutation, useDepartmentsQuery } from './hook';
 import type { Category } from '@/api/categories';
@@ -80,6 +80,8 @@ export const CategoryForm = ({ onClose, category }: CategoryFormProps) => {
       title={isEditing ? "Edit category" : "New category"}
       description="Selecting this category on a ticket will auto-fill its department, default assignees, and TAT."
       footer={footer}
+      showCloseButton={false}
+      draggable
     >
       <form id="category-form" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
         <Input
@@ -91,7 +93,8 @@ export const CategoryForm = ({ onClose, category }: CategoryFormProps) => {
         />
 
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="departmentId" className="text-sm font-display font-medium text-text-secondary">
+          <label htmlFor="departmentId" className="flex items-center gap-1.5 text-sm font-display font-medium text-text-secondary">
+            <Building2 className="w-3.5 h-3.5 text-text-light" strokeWidth={2.5} />
             Department
           </label>
           <Controller
@@ -114,7 +117,8 @@ export const CategoryForm = ({ onClose, category }: CategoryFormProps) => {
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-display font-medium text-text-secondary">
+          <label className="flex items-center gap-1.5 text-sm font-display font-medium text-text-secondary">
+            <Users className="w-3.5 h-3.5 text-text-light" strokeWidth={2.5} />
             Default assignees
           </label>
           <Controller

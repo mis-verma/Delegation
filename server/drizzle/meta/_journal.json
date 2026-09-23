@@ -148,6 +148,13 @@
       "when": 1789991512269,
       "tag": "0020_yielding_white_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "5",
+      "when": 1790166471032,
+      "tag": "0021_productive_squirrel_girl",
+      "breakpoints": true
     }
   ]
 }

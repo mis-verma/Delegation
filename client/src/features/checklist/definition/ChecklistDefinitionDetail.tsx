@@ -148,7 +148,9 @@ export const ChecklistDefinitionDetail = () => {
 
         <Link
           to={`/admin/scheduled-checklists/builder/${definition.id}`}
-          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-display font-medium text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-950/40 border border-primary-200 dark:border-primary-800 hover:bg-primary-100 dark:hover:bg-primary-900/60 shadow-2xs transition-all duration-150 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+          // dark:bg-primary-500/15, not dark:bg-primary-950/40 — see ChecklistInstanceDetail.tsx's
+          // own comment on this exact same button; primary-950 isn't a defined token here.
+          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-display font-medium text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-500/15 border border-primary-200 dark:border-primary-800 hover:bg-primary-100 dark:hover:bg-primary-900/60 shadow-2xs transition-all duration-150 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
         >
           <Pencil size={12} />
           <span>Edit in Builder</span>
@@ -159,7 +161,7 @@ export const ChecklistDefinitionDetail = () => {
       <div className="flex flex-col gap-4 p-5 sm:p-6 rounded-lg border border-border bg-surface">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3.5 min-w-0">
-            <span className="flex size-10 items-center justify-center rounded-lg bg-primary-50 dark:bg-primary-950/50 text-primary-700 dark:text-primary-300 border border-primary-100 dark:border-primary-900/40 shrink-0 mt-0.5">
+            <span className="flex size-10 items-center justify-center rounded-lg bg-primary-50 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300 border border-primary-100 dark:border-primary-900/40 shrink-0 mt-0.5">
               <Repeat size={20} strokeWidth={2.25} />
             </span>
             <div className="min-w-0">

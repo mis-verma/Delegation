@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { AlertCircle, ClipboardCheck, X, Store, ChevronDown, Check, Clock, AlarmClock, ArrowDownAZ, Repeat, User, LayoutList, Table2, Kanban } from 'lucide-react';
 import { useSearchParams } from 'react-router';
-import { Skeleton, PageNav, OptionsDialog, SortOptionRow, OptionRow, FilterGroup, FilterPill, SelectFilterRow, PeopleFilterRow, ViewToggle, EmptyState, type FilterOption, type ViewTab } from '../../../components';
+import { Skeleton, PageNav, OptionsDialog, SortOptionRow, OptionRow, OptionRowGroup, FilterGroup, FilterPill, SelectFilterRow, PeopleFilterRow, ViewToggle, EmptyState, type FilterOption, type ViewTab } from '../../../components';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { useMyChecklistInstancesQuery, useChecklistInstanceSummaryQuery, useAssignableUsersQuery, useDepartmentsQuery } from '../hook';
@@ -265,13 +265,15 @@ export const MyChecklists = () => {
         <ViewToggle tabs={VIEW_TABS} value={view} onChange={setView} />
 
         {quickFilter && (
-          <span className="flex items-center gap-1.5 pl-3 pr-1.5 py-1 text-xs font-display font-medium rounded-full bg-primary-50 text-primary-700 border border-primary-200">
+          // Opacity-tinted, not the raw `-50`/`-200` swatches this used to be, with no dark:
+          // variant at all — this pill rendered as a stark white-on-white box in dark theme.
+          <span className="flex items-center gap-1.5 pl-3 pr-1.5 py-1 text-xs font-display font-medium rounded-full bg-primary-500/10 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300 border border-primary-500/30">
             Showing: {QUICK_FILTER_LABEL[quickFilter]}
             <button
               type="button"
               onClick={() => setQuickFilter(null)}
               aria-label="Clear status filter"
-              className="p-1.5 rounded-full hover:bg-primary-100 transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+              className="p-1.5 rounded-full hover:bg-primary-500/15 dark:hover:bg-primary-500/25 transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
             >
               <X size={12} />
             </button>
@@ -319,21 +321,26 @@ export const MyChecklists = () => {
             canExport={false}
             onExport={() => {}}
           >
-            <OptionRow label="Group by">
-              <FilterGroup>
-                {(Object.keys(GROUP_BY_LABEL) as GroupByKey[]).map((key) => {
-                  const Icon = GROUP_BY_ICON[key];
-                  return (
-                    <FilterPill key={key} active={groupBy === key} onClick={() => setGroupBy(key)}>
-                      <Icon size={14} />
-                      {GROUP_BY_LABEL[key]}
-                    </FilterPill>
-                  );
-                })}
-              </FilterGroup>
-            </OptionRow>
+            {/* Group by + Sort by are both a single `w-fit` control — side by side instead of each
+                claiming its own full-width row, so the dialog doesn't spend its whole first
+                screenful on two small pickers. */}
+            <OptionRowGroup>
+              <OptionRow label="Group by">
+                <FilterGroup>
+                  {(Object.keys(GROUP_BY_LABEL) as GroupByKey[]).map((key) => {
+                    const Icon = GROUP_BY_ICON[key];
+                    return (
+                      <FilterPill key={key} active={groupBy === key} onClick={() => setGroupBy(key)}>
+                        <Icon size={14} />
+                        {GROUP_BY_LABEL[key]}
+                      </FilterPill>
+                    );
+                  })}
+                </FilterGroup>
+              </OptionRow>
 
-            <SortOptionRow labels={SORT_LABEL} icons={SORT_ICON} value={sort} onChange={setSort} />
+              <SortOptionRow labels={SORT_LABEL} icons={SORT_ICON} value={sort} onChange={setSort} />
+            </OptionRowGroup>
 
             <SelectFilterRow
               label="Recurrence"

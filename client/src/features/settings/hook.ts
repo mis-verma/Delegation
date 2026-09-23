@@ -1,12 +1,75 @@
 import { useMutation , useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/context/AuthContext";
 import { categoryApi , type CreateCategoryPayload, type UpdateCategoryPayload } from "@/api/categories";
+import { meApi, type UpdateMyProfilePayload, type ChangeMyPasswordPayload } from "@/api/me";
 import { toast } from "sonner";
 
 const errorMessage = (err : unknown , fallback : string) => (err instanceof Error ? err.message : fallback)
 
 const CATEGORY_KEY = {
     all : ["categories"] as const,
+};
+
+const ME_KEY = {
+    profile : ["me", "profile"] as const,
+};
+
+export const useMyProfileQuery = () => {
+    const { token } = useAuth();
+    return useQuery({
+        queryKey : ME_KEY.profile,
+        queryFn : () => meApi.get().then(r => r.data),
+        enabled : !!token,
+    });
+};
+
+export const useUpdateMyProfileMutation = () => {
+    const queryClient = useQueryClient();
+    const { updateUser } = useAuth();
+    return useMutation({
+        mutationFn : (payload : UpdateMyProfilePayload) => meApi.update(payload).then(r => r.data),
+        onSuccess : (updated) => {
+            queryClient.setQueryData(ME_KEY.profile, updated);
+            // Keeps the header/sidebar initials in sync right away — same "firstName only" name
+            // convention useLoginMutation uses when it first builds the cached user.
+            updateUser({ name: updated.firstName });
+            toast.success("Profile updated");
+        },
+        onError : (err) => toast.error(errorMessage(err, "Failed to update profile")),
+    });
+};
+
+export const useChangeMyPasswordMutation = () => {
+    const { logout } = useAuth();
+    return useMutation({
+        mutationFn : (payload : ChangeMyPasswordPayload) => meApi.changePassword(payload),
+        onSuccess : () => {
+            // Changing the password revokes every existing session server-side (this one
+            // included) — sign out locally too and send them to sign back in, same flow as
+            // ResetPasswordForm's own "Password reset, please sign in again" pattern.
+            toast.success("Password changed — please sign in again.");
+            logout();
+        },
+        onError : (err) => toast.error(errorMessage(err, "Failed to change password")),
+    });
+};
+
+export const useUploadMyAvatarMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn : (file : File) => meApi.uploadAvatar(file).then(r => r.data),
+        onSuccess : (updated) => queryClient.setQueryData(ME_KEY.profile, updated),
+        onError : (err) => toast.error(errorMessage(err, "Failed to upload photo")),
+    });
+};
+
+export const useRemoveMyAvatarMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn : () => meApi.removeAvatar().then(r => r.data),
+        onSuccess : (updated) => queryClient.setQueryData(ME_KEY.profile, updated),
+        onError : (err) => toast.error(errorMessage(err, "Failed to remove photo")),
+    });
 };
 
 export const useCategoriesQuery = (enabled: boolean = true) => {

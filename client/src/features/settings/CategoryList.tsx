@@ -40,14 +40,14 @@ export const CategoryList = () => {
           return (
             <div
               key={c.id}
-              className={`group flex flex-col justify-between p-4 rounded-xl border border-border bg-surface shadow-sm hover:shadow-md hover:border-border-hover transition-all ${
+              className={`group flex flex-col justify-between p-4 rounded-xl border border-border bg-surface hover:border-primary-300 transition-all ${
                 isDeleting ? 'opacity-40 pointer-events-none' : ''
               }`}
             >
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="flex items-center justify-center text-primary-600 dark:text-primary-300 shrink-0">
-                    <Tag size={18} />
+                  <div className="flex items-center justify-center size-9 rounded-lg shrink-0 bg-gradient-to-br from-primary-500 to-primary-700 border border-primary-800/20 dark:from-primary-600 dark:to-primary-900 text-white">
+                    <Tag size={16} />
                   </div>
                   <div className="min-w-0">
                     <p className="text-sm font-display font-medium text-text truncate" title={c.name}>
@@ -112,7 +112,10 @@ export const CategoryList = () => {
   const activeModal = showForm || editingCategory;
 
   return (
-    <div className="flex flex-col gap-6 w-full max-w-7xl mx-auto">
+    // No max-w wrapper of its own — SettingsLayout (the parent route) already constrains width
+    // to the shared --container-width token; adding a second, narrower max-w-7xl here just
+    // double-nested the constraint for no reason.
+    <div className="flex flex-col gap-6 w-full">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">
           <GradientIconTile icon={Tag} />

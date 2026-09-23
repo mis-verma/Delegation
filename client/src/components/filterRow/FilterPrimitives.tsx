@@ -18,6 +18,22 @@ export const OptionRow = ({ label, children }: { label: string; children: ReactN
   </div>
 );
 
+/**
+ * Sits several `OptionRow`s side by side instead of each claiming a full stacked row of its own.
+ *
+ * Every Options dialog (Tickets/Delegation/Checklists) opens with a run of short rows — Scope,
+ * Group by, Sort by, Fields — each one a `w-fit` pill group or single dropdown, but each still
+ * took a whole-width row purely because `OptionsDialog`'s body stacks its children in one flex
+ * column. That's most of a tall dialog spent on rows with nothing to wrap. Wrapping that leading
+ * run in this instead lets them flow left-to-right and only drop to the next line when the dialog
+ * is actually too narrow for them (mobile) — every row this doesn't wrap (Department, Recurrence,
+ * the wide multi-pill filter rows) stays exactly as it was, full width and stacked, since those
+ * genuinely need the room to wrap their own pills.
+ */
+export const OptionRowGroup = ({ children }: { children: ReactNode }) => (
+  <div className="flex flex-wrap gap-x-8 gap-y-4">{children}</div>
+);
+
 export const FilterGroup = ({ children }: { children: ReactNode }) => (
   <div className="flex items-center gap-1 p-1 rounded-lg bg-surface-hover/50 border border-border/40 w-fit flex-wrap">
     {children}

@@ -6,9 +6,10 @@ import { eq, and, or, desc, asc, sql, isNull, inArray } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 import { AppError } from "../../utils/AppError.js";
 import { auditService } from "../audit/audit.service.js";
-import { hashPassword, deriveDefaultRank } from "../../utils/password.js";
+import { hashPassword, comparePassword, deriveDefaultRank } from "../../utils/password.js";
 import { AccessTokenPayload } from "../../middleware/auth/auth.js";
-import type { CreateUserInput, UpdateUserInput } from "./user.validation.js";
+import { presenceService } from "../presence/presence.service.js";
+import type { CreateUserInput, UpdateUserInput, UpdateOwnProfileInput } from "./user.validation.js";
 
 // An assertion function narrowing `T | undefined` (a plain row is now `undefined` when missing,
 // not Mongoose's `null`) to `T`, throwing AppError.notFound otherwise.
@@ -143,6 +144,58 @@ export const userService = {
         });
 
         return user;
+    },
+
+    // A user editing their own profile — same shape of update as `update` above, just scoped to
+    // the narrower set of fields updateOwnProfileSchema allows and always self-attributed (the
+    // actor editing this record IS this record).
+    async updateOwnProfile(id: string, input: UpdateOwnProfileInput) {
+        const before = await getSafeById(id);
+        assertFound(before);
+
+        await db.update(users).set({ ...input, updatedAt: new Date() }).where(eq(users.id, id));
+
+        const user = await getSafeById(id);
+        assertFound(user);
+
+        await auditService.record({
+            entityType: "User",
+            entityId: id,
+            action: "UPDATE",
+            actorId: id,
+            before: { firstName: before.firstName, lastName: before.lastName, phone: before.phone },
+            after: { firstName: user.firstName, lastName: user.lastName, phone: user.phone },
+        });
+
+        return user;
+    },
+
+    // A user changing their own password — has to prove they know the current one first, unlike
+    // resetPassword above (an admin setting someone else's password directly with no such check).
+    async changeOwnPassword(id: string, currentPassword: string, newPassword: string) {
+        const [user] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+        assertFound(user, 'User not found');
+
+        const valid = await comparePassword(currentPassword, user.passwordHash);
+        if (!valid) throw AppError.badRequest('Current password is incorrect');
+
+        const passwordHash = await hashPassword(newPassword);
+        await db.update(users).set({ passwordHash, updatedAt: new Date() }).where(eq(users.id, id));
+
+        // Same reasoning as the admin-initiated reset above: changing a password is exactly the
+        // moment a stolen refresh token should stop working, so every existing session — this
+        // one's included — is revoked. The client signs back in with the new password right after.
+        await db.update(refreshTokens)
+            .set({ revokedAt: new Date(), updatedAt: new Date() })
+            .where(and(eq(refreshTokens.userId, id), isNull(refreshTokens.revokedAt)));
+
+        await auditService.record({
+            entityType: "User",
+            entityId: id,
+            action: "PASSWORD_RESET",
+            actorId: id,
+            before: { email: user.email },
+        });
     },
 
     async remove(id: string, actorId: string) {
@@ -280,5 +333,21 @@ export const userService = {
             .from(users)
             .where(and(...conditions))
             .orderBy(asc(users.firstName));
-    }
+    },
+
+    // Who's online right now (Redis, live) plus when everyone was last seen (DB, durable) — the
+    // two questions "who's active" actually needs, in one call so the client isn't stitching two
+    // responses together itself.
+    async presence() {
+        const [rows, onlineIds] = await Promise.all([
+            db.select({ id: users.id, lastActiveAt: users.lastActiveAt }).from(users),
+            presenceService.getOnlineUserIds(),
+        ]);
+
+        return rows.map((r) => ({
+            id: r.id,
+            online: onlineIds.has(r.id),
+            lastActiveAt: r.lastActiveAt,
+        }));
+    },
 };

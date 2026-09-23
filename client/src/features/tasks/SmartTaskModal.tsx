@@ -430,15 +430,18 @@ const MessageBubbles = ({ messages }: { messages: { from: "bot" | "user"; text: 
                     key={i}
                     className={`flex items-end gap-2 animate-in fade-in slide-in-from-bottom-1 duration-200 ${isBot ? "" : "flex-row-reverse"}`}
                 >
-                    <div className={`flex items-center justify-center size-8 rounded-full shrink-0 shadow-sm ${isBot ? "bg-primary-600 text-white" : "bg-surface border border-border text-text-secondary"}`}>
+                    <div className={`flex items-center justify-center size-8 rounded-full shrink-0 shadow-sm ${isBot ? "bg-gradient-to-br from-primary-500 to-primary-700 text-white" : "bg-surface border border-border text-text-secondary"}`}>
                         {isBot ? <Bot size={16} /> : <UserIcon size={14} />}
                     </div>
                     <div className={`flex flex-col gap-1 max-w-[75%] ${isBot ? "items-start" : "items-end"}`}>
                         <div
                             className={`text-sm leading-relaxed px-3.5 py-2.5 shadow-sm ${
                                 isBot
-                                    ? "bg-primary-50 text-primary-900 rounded-2xl rounded-bl-sm"
-                                    : "bg-primary-700 text-white rounded-2xl rounded-br-sm"
+                                    // Opacity-tinted, not a solid `-50` swatch — the primary scale's raw hex
+                                    // values don't change in dark mode (see index.css), so a solid light
+                                    // swatch here would render as a stark white card on a navy modal.
+                                    ? "bg-primary-500/10 dark:bg-primary-500/15 text-primary-900 dark:text-primary-200 rounded-2xl rounded-bl-sm"
+                                    : "bg-gradient-to-br from-primary-600 to-primary-800 text-white rounded-2xl rounded-br-sm"
                             }`}
                         >
                             {m.text}
@@ -735,6 +738,7 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
             open
             onClose={handleModalClose}
             size="xl"
+            draggable
             contentClassName="accent-blue"
             icon={
                 <span className="relative inline-flex">
@@ -769,7 +773,7 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
                             <button
                                 type="button"
                                 onClick={() => setView(view === "transcript" ? "history" : "chat")}
-                                className="flex items-center gap-1.5 text-xs font-medium text-text-secondary hover:text-primary-600 transition-colors cursor-pointer"
+                                className="flex items-center gap-1.5 h-7 pl-2 pr-2.5 rounded-full border border-border/60 bg-surface text-xs font-medium text-text-secondary hover:text-text hover:bg-surface-hover hover:border-border-hover transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
                             >
                                 <ArrowLeft size={13} />
                                 {view === "transcript" ? "Back to history" : "Back to chat"}
@@ -779,7 +783,7 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
                             <button
                                 type="button"
                                 onClick={() => setView("history")}
-                                className="flex items-center gap-1.5 text-xs font-medium text-text-secondary hover:text-primary-600 transition-colors cursor-pointer"
+                                className="flex items-center gap-1.5 h-7 pl-2 pr-2.5 rounded-full border border-border/60 bg-surface text-xs font-medium text-text-secondary hover:text-text hover:bg-surface-hover hover:border-border-hover transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
                             >
                                 <HistoryIcon size={13} />
                                 History
@@ -790,7 +794,7 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
                                 type="button"
                                 onClick={handleClearHistory}
                                 disabled={deleteAllConversationsMutation.isPending}
-                                className="flex items-center gap-1.5 text-xs font-medium text-danger hover:text-danger/80 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                                className="flex items-center gap-1.5 h-7 pl-2 pr-2.5 rounded-full border border-danger/25 bg-danger/5 text-xs font-medium text-danger hover:bg-danger/10 transition-all duration-200 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
                             >
                                 <Trash2 size={13} />
                                 Clear all
@@ -808,10 +812,10 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
 
                                 {(parseMutation.isPending || isBotThinking) && (
                                     <div className="flex items-end gap-2 animate-in fade-in duration-200">
-                                        <div className="flex items-center justify-center size-8 rounded-full shrink-0 bg-primary-600 text-white shadow-sm">
+                                        <div className="flex items-center justify-center size-8 rounded-full shrink-0 bg-gradient-to-br from-primary-500 to-primary-700 text-white shadow-sm">
                                             <Bot size={16} />
                                         </div>
-                                        <div className="flex items-center gap-1 bg-primary-50 rounded-2xl rounded-bl-sm px-4 py-3.5">
+                                        <div className="flex items-center gap-1 bg-primary-500/10 dark:bg-primary-500/15 rounded-2xl rounded-bl-sm px-4 py-3.5">
                                             <span className="size-1.5 rounded-full bg-primary-400 animate-bounce [animation-delay:-0.3s]" />
                                             <span className="size-1.5 rounded-full bg-primary-400 animate-bounce [animation-delay:-0.15s]" />
                                             <span className="size-1.5 rounded-full bg-primary-400 animate-bounce" />
@@ -822,8 +826,11 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
                         </div>
 
                         {unmatchedAssigneeName && isAdmin && (
-                            <div className="flex items-center justify-between gap-2 rounded-lg border border-dashed border-primary-300 bg-primary-50 px-3 py-2 animate-in fade-in duration-200">
-                                <span className="text-xs text-primary-800">
+                            // Opacity-tinted, not the raw `-50`/`-300`/`-800` swatches this used to be —
+                            // those hex values are identical in dark mode (see index.css), so this
+                            // banner used to render as a pale card on a navy modal in dark theme.
+                            <div className="flex items-center justify-between gap-2 rounded-lg border border-dashed border-primary-500/30 bg-primary-500/10 dark:bg-primary-500/15 px-3 py-2 animate-in fade-in duration-200">
+                                <span className="text-xs text-primary-800 dark:text-primary-200">
                                     No user found for &quot;{unmatchedAssigneeName}&quot;.
                                 </span>
                                 <Button
@@ -857,7 +864,7 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
                         <div className="flex items-center gap-2 pt-3 border-t border-border/60">
                             <input
                                 type="text"
-                                className="flex-1 h-10 px-3 text-sm rounded border border-border bg-surface text-text focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-400 disabled:bg-surface-hover disabled:cursor-not-allowed"
+                                className="flex-1 h-11 px-3.5 text-sm rounded-xl border border-border bg-surface text-text transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 focus-visible:border-primary-400 disabled:bg-surface-hover disabled:cursor-not-allowed"
                                 placeholder={pendingSlot ? `Provide ${pendingSlot}...` : "Type in English or Hinglish, or record a voice note..."}
                                 value={input}
                                 disabled={parseMutation.isPending || isBotThinking || voiceRecorderBusy}

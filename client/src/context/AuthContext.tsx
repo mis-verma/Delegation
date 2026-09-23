@@ -6,10 +6,13 @@ import { tokenStore } from '../lib/tokenStore';
 type User = { id: string; name: string; email: string; role: Role; departmentId: string | null; storeId: string | null };
 
 type AuthContextType = {
-  user:   User | null;
-  token:  string | null;
-  login:  (token: string, user: User) => void;
-  logout: () => void;
+  user:       User | null;
+  token:      string | null;
+  login:      (token: string, user: User) => void;
+  logout:     () => void;
+  /** Patches the cached user (e.g. after an Account Settings name change) so the header/sidebar
+   *  initials reflect it immediately, without waiting for the next full login. */
+  updateUser: (patch: Partial<User>) => void;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -37,6 +40,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setUser(u);
   };
 
+  const updateUser = (patch: Partial<User>) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, ...patch };
+      localStorage.setItem(USER_KEY, JSON.stringify(next));
+      return next;
+    });
+  };
+
   const logout = () => {
     // Fire-and-forget, not awaited — sign-out should stay instant like it always has, and there's
     // nothing to react to locally either way. This revokes the refresh token server-side so the
@@ -54,7 +66,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout }}>
+    <AuthContext.Provider value={{ user, token, login, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

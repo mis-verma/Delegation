@@ -32,6 +32,24 @@ export const resetUserPasswordSchema = z.object({
     password: z.string().min(8, 'Password must be at least 8 characters'),
 });
 
+// A user editing their own profile — deliberately narrower than updateUserSchema: no role,
+// department, store, isActive, or email. Email is left out of self-service entirely (it's the
+// login identifier, so changing it needs its own verification flow, not a plain profile field).
+export const updateOwnProfileSchema = z.object({
+    firstName: z.string().trim().min(1, 'First name is required').optional(),
+    lastName: z.string().trim().optional(),
+    phone: z.string().trim().optional(),
+});
+export type UpdateOwnProfileInput = z.infer<typeof updateOwnProfileSchema>;
+
+// A user changing their own password — unlike resetUserPasswordSchema (an admin setting someone
+// else's password directly), this one has to prove they know the current one first.
+export const changeOwnPasswordSchema = z.object({
+    currentPassword: z.string().min(1, 'Current password is required'),
+    newPassword: z.string().min(8, 'Password must be at least 8 characters'),
+});
+export type ChangeOwnPasswordInput = z.infer<typeof changeOwnPasswordSchema>;
+
 // Both optional (unlike ticket.validation.ts's paginatioinSchema): the admin directory list page
 // passes page+limit to get a paginated slice, but every other caller of GET /users (OrgStructure's
 // tree, assignable-user pickers relying on the full roster, etc.) calls it with neither and must

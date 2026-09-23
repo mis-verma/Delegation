@@ -73,7 +73,6 @@ export const Dashboard = () => {
               </div>
             </div>
           </PullToRefresh>
-
         </main>
       </div>
       <div className="relative z-20 hidden md:block">

@@ -143,7 +143,15 @@ export const StatCard = ({
           </span>
           
           <p
-            className={`font-display text-3xl sm:text-4xl font-bold tracking-tight leading-none tabular-nums ${highlight ? 'text-white' : 'text-text'}`}
+            // The "—" placeholder (no data yet) at this size/weight rendered as a solid black bar —
+            // technically correct, but it reads like a broken/glitched element rather than an
+            // intentional empty state. Muting its color (not its size/weight, so nothing reflows
+            // once real data arrives) keeps the placeholder legible as a placeholder.
+            className={`font-display text-3xl sm:text-4xl font-bold tracking-tight leading-none tabular-nums ${
+              value === '—'
+                ? highlight ? 'text-white/35' : 'text-text-light/60'
+                : highlight ? 'text-white' : 'text-text'
+            }`}
             title={typeof value === 'number' && Math.abs(value) >= COMPACT_THRESHOLD ? value.toLocaleString() : undefined}
           >
             {formatValue(value)}

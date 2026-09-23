@@ -18,11 +18,23 @@ userRouter.use(authenticate)
 // otherwise a regular manager/agent couldn't assign tickets to teammates.
 userRouter.get("/assignable", userController.listAssignable)
 
+// Self-service routes — any authenticated user can read/edit their OWN record this way, same as
+// /assignable above (still only `authenticate`-gated, not `requireRole` below). Registered before
+// the `/:id` routes further down so "/me" is matched as this literal path, never as `:id = "me"`.
+userRouter.get("/me", userController.getMe)
+userRouter.patch("/me", userController.updateMe)
+userRouter.post("/me/password", userController.changeOwnPassword)
+userRouter.post("/me/avatar", avatarUpload, userController.uploadMyAvatar)
+userRouter.delete("/me/avatar", userController.removeMyAvatar)
+
 // From this point on, every route ALSO requires the logged-in user to have the 'ADMIN' or 'PC'
 // role — PC has full parity with ADMIN throughout this app, including user management.
 userRouter.use(requireRole('ADMIN', 'PC'))
 // GET /  -> list every user in the system (admin/PC only)
 userRouter.get("/", userController.list)
+// GET /presence -> who's online right now + everyone's last-active time (admin/PC only).
+// Registered before /:id so "presence" is matched as this literal path, never as :id = "presence".
+userRouter.get("/presence", userController.presence)
 // GET /:id -> look up a single user by their Mongo _id (admin/PC only)
 userRouter.get("/:id", userController.getOne)
 // POST / -> create a brand new user account (admin/PC only)

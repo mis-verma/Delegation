@@ -1,7 +1,8 @@
 import { Building2, ChevronRight, Users, AlertTriangle, Ticket as TicketIcon, CheckSquare } from 'lucide-react';
 import { useNavigate } from 'react-router';
-import { RadialGauge } from '../../components';
+import { RadialGauge, EntityIconTile } from '../../components';
 import { Popover, PopoverTrigger, PopoverContent } from '../../components/ui/popover';
+import { completionGaugeColor } from './teamDisplay';
 
 /** One overdue ticket or task — enough to list it and jump straight to it. */
 export interface OverdueItem {
@@ -76,42 +77,61 @@ export const OverdueBadge = ({ count, items }: { count: number; items: OverdueIt
   );
 };
 
-export const DepartmentCard = ({ row, onClick }: { row: DepartmentCardRow; onClick: () => void }) => (
-  <div className="group flex flex-col gap-3 p-4 rounded-2xl border border-border/60 bg-surface hover:border-primary-300 transition-colors duration-150">
+export const DepartmentCard = ({ row, onClick, index = 0 }: { row: DepartmentCardRow; onClick: () => void; index?: number }) => (
+  // The whole card is the click target now, not just the name — a `div` with a button role, not a
+  // real `<button>`, because the overdue badge below is still its own independently-clickable
+  // popover trigger and a `<button>` can't contain another `<button>`. Its own `onClick` calls
+  // `e.stopPropagation()`, so it still opens the popover instead of also navigating the card.
+  <div
+    role="button"
+    tabIndex={0}
+    onClick={onClick}
+    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
+    // Lift on hover (translate, not a box-shadow — this app's cards signal "interactive" with
+    // border color + motion, never elevation) plus a staggered entrance so the grid doesn't just
+    // snap into place — the same working pattern TodoList.tsx's rows use, capped at 8 steps so a
+    // long roster's last card isn't left waiting noticeably longer than the rest.
+    className="group flex flex-col gap-3 p-4 rounded-2xl border border-border/60 bg-surface hover:border-primary-300 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 animate-in fade-in slide-in-from-bottom-1 motion-reduce:animate-none"
+    style={{ animationFillMode: 'backwards', animationDelay: `${Math.min(index, 8) * 40}ms` }}
+  >
     <div className="flex items-center justify-between gap-2">
-      {/* Its own button, not the whole card — the overdue badge below needs to be independently
-          clickable (a popover trigger), and a button can't nest inside another button. */}
-      <button
-        type="button"
-        onClick={onClick}
-        className="group/info flex flex-1 items-center gap-2.5 min-w-0 text-left cursor-pointer outline-none rounded-lg focus-visible:ring-2 focus-visible:ring-primary-500/30"
-      >
-        <div className="flex items-center justify-center size-9 rounded-lg bg-primary-500/10 text-primary-600 dark:text-primary-400 shrink-0">
-          <Building2 size={16} />
-        </div>
+      <div className="flex flex-1 items-center gap-2.5 min-w-0">
+        {/* Same bold gradient tile as the page header and every other EntityIconTile in the app —
+            size-9/rounded-lg to match this card's own smaller scale (EntityIconTile defaults to
+            size-10/rounded-xl for the bigger Directory/Org Structure cards). Its own
+            group-hover:scale-105 now fires from anywhere on the card, not just the tile itself. */}
+        <EntityIconTile icon={Building2} className="size-9 rounded-lg" />
         <div className="min-w-0">
           <div className="flex items-start gap-1">
-            {/* line-clamp-2, not truncate — on a narrow card the fixed-width completion ring next
-                to this leaves too little room for a single line to hold a real department name
-                ("Inventory & Procurement" was truncating to "Inventory & P..."). `title` still
-                covers the rare 3rd line for a pointer/hover, but wrapping means almost every real
-                name is now fully readable without one. */}
-            <h3 title={row.name} className="text-sm font-display font-bold text-text line-clamp-2 break-words group-hover/info:text-primary-600 dark:group-hover/info:text-primary-400 transition-colors">{row.name}</h3>
-            <ChevronRight size={13} className="shrink-0 mt-0.5 text-text-light opacity-0 group-hover/info:opacity-100 group-hover/info:translate-x-0.5 transition-all duration-150" />
+            {/* line-clamp-3, not -2 — on a narrow card the fixed-width completion ring next to
+                this leaves too little room per line for a real department name, and 2 lines still
+                wasn't enough room for the longest real one ("Inventory & Procurement" truncated
+                to "Inventory & Procure…" even wrapped across 2 lines). `title` still covers the
+                rare 4th-line overflow for a pointer/hover. */}
+            <h3 title={row.name} className="text-sm font-display font-bold text-text line-clamp-3 break-words group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">{row.name}</h3>
+            <ChevronRight size={13} className="shrink-0 mt-0.5 text-text-light opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-150" />
           </div>
           <div className="flex items-center gap-1.5 text-[11px] font-display font-medium text-text-muted">
             <Users size={11} />
             {row.headcount} {row.headcount === 1 ? 'person' : 'people'}
           </div>
         </div>
-      </button>
+      </div>
 
       {/* Completion ring — the "chart on the card" a plain number list didn't have. Small enough
           to sit in the header without crowding the name, but a real RadialGauge (same component
           the Dashboard's Compliance card uses), not a decorative icon. Decorative here (no click
-          of its own) — the name button above is this card's one navigation trigger. */}
+          of its own) — the whole card is this card's one navigation trigger. Red→amber→green by
+          value (completionGaugeColor), matching every other performance-vs-target gauge in the
+          app, instead of staying the same flat navy whether the number is 12% or 96%. */}
       <div className="flex flex-col items-center gap-0.5 shrink-0">
-        <RadialGauge percent={row.completionRate ?? 0} size={48} variant="circle" gradientFrom="var(--color-primary-600)" gradientTo="var(--color-primary-600)">
+        <RadialGauge
+          percent={row.completionRate ?? 0}
+          size={48}
+          variant="circle"
+          gradientFrom={completionGaugeColor(row.completionRate)}
+          gradientTo={completionGaugeColor(row.completionRate)}
+        >
           <span className={`text-[10px] font-display font-black ${row.completionRate == null ? 'text-text-muted/50' : 'text-text'}`}>
             {row.completionRate == null ? '—' : `${row.completionRate}%`}
           </span>
@@ -123,8 +143,15 @@ export const DepartmentCard = ({ row, onClick }: { row: DepartmentCardRow; onCli
     </div>
 
     <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/60">
-      <span className="text-xs font-display font-medium text-text-muted">
-        <strong className="font-display font-bold text-text">{row.openTickets}</strong> tickets · <strong className="font-display font-bold text-text">{row.openTasks}</strong> delegations
+      <span className="flex items-center gap-2.5 text-xs font-display font-medium text-text-muted">
+        <span className="inline-flex items-center gap-1">
+          <TicketIcon size={12} className="text-text-light" />
+          <strong className="font-display font-bold text-text">{row.openTickets}</strong> tickets
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <CheckSquare size={12} className="text-text-light" />
+          <strong className="font-display font-bold text-text">{row.openTasks}</strong> delegations
+        </span>
       </span>
       <OverdueBadge count={row.overdue} items={row.overdueItems} />
     </div>

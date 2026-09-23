@@ -4,7 +4,7 @@ import { Building2 } from 'lucide-react';
 import { useTicketsQuery, useDepartmentsQuery } from '../tickets/hook';
 import { useTasksQuery } from '../tasks/hook';
 import { useUsersQuery } from '../admin/hook';
-import { Skeleton } from '../../components';
+import { Skeleton, EntityIconTile } from '../../components';
 import { Breadcrumbs, type BreadcrumbTrailItem } from '../../components/breadcrumbs';
 import { DepartmentCard, type DepartmentCardRow, type OverdueItem } from './DepartmentCard';
 import { PersonCard, type PersonCardRow } from './PersonCard';
@@ -115,9 +115,10 @@ export const TeamOverviewPage = () => {
       {/* Compact header — icon tile + title + count badge, breadcrumb trail directly below
           doubling as both "where am I" and every level's back-navigation. */}
       <div className="flex items-center gap-3">
-        <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500/10 to-primary-700/10 dark:from-primary-500/20 dark:to-primary-700/20 text-primary-600 dark:text-primary-400 ring-1 ring-primary-500/20 shrink-0">
-          <Building2 className="w-4.5 h-4.5" />
-        </div>
+        {/* Same bold gradient tile every other section header uses (Dashboard, Directory, Org
+            Structure) — this was still the older pale-tint treatment, the one visible gap on
+            this page relative to the rest of the app. */}
+        <EntityIconTile icon={Building2} />
         <div className="flex items-center gap-2.5 flex-wrap min-w-0">
           <h1 className="text-lg sm:text-xl font-display font-bold tracking-tight text-text">Team Overview</h1>
           {!departmentsPending && (
@@ -138,8 +139,8 @@ export const TeamOverviewPage = () => {
         </div>
       ) : !departmentId ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-          {departmentRows.map(row => (
-            <DepartmentCard key={row.id} row={row} onClick={() => openDepartment(row.id)} />
+          {departmentRows.map((row, index) => (
+            <DepartmentCard key={row.id} row={row} index={index} onClick={() => openDepartment(row.id)} />
           ))}
         </div>
       ) : !personId ? (
@@ -149,8 +150,8 @@ export const TeamOverviewPage = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-            {personRows.map(row => (
-              <PersonCard key={row.id} row={row} onClick={() => openPerson(row.id)} />
+            {personRows.map((row, index) => (
+              <PersonCard key={row.id} row={row} index={index} onClick={() => openPerson(row.id)} />
             ))}
           </div>
         )

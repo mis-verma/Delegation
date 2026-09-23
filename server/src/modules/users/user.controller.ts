@@ -2,7 +2,7 @@ import type { Request , Response} from 'express'
 import { userService } from './user.service.js'
 import { asyncHandler } from '../../utils/asyncHandler.js'
 import { AppError } from '../../utils/AppError.js'
-import { createUserSchema, updateUserSchema, listUsersQuerySchema, resetUserPasswordSchema } from './user.validation.js'
+import { createUserSchema, updateUserSchema, listUsersQuerySchema, resetUserPasswordSchema, updateOwnProfileSchema, changeOwnPasswordSchema } from './user.validation.js'
 
 // Controllers are the layer that talks directly to Express (reads the request, sends the
 // response). They don't contain business logic themselves - they just call into the
@@ -22,10 +22,46 @@ export const userController = {
         res.json({ success : true , ...result})
     }),
 
+    // The logged-in user's own profile — separate from getOne (which takes an :id param and is
+    // admin/PC-only) so any authenticated role can read and edit their own record.
+    getMe : asyncHandler(async (req : Request , res : Response) => {
+        const user = await userService.getById(req.user!.sub);
+        res.json({ success : true , data : user})
+    }),
+
+    updateMe : asyncHandler(async (req : Request , res : Response) => {
+        const input = updateOwnProfileSchema.parse(req.body);
+        const user = await userService.updateOwnProfile(req.user!.sub, input);
+        res.json({ success : true , data : user})
+    }),
+
+    changeOwnPassword : asyncHandler(async (req : Request , res : Response) => {
+        const { currentPassword, newPassword } = changeOwnPasswordSchema.parse(req.body);
+        await userService.changeOwnPassword(req.user!.sub, currentPassword, newPassword);
+        res.json({ success : true , data : { changed : true } })
+    }),
+
+    uploadMyAvatar : asyncHandler(async (req : Request , res : Response) => {
+        if (!req.file) throw AppError.badRequest('No image file provided');
+        const url = `/uploads/avatars/${req.file.filename}`;
+        const user = await userService.setAvatar(req.user!.sub, url, req.user!.sub);
+        res.json({ success : true , data : user})
+    }),
+
+    removeMyAvatar : asyncHandler(async (req : Request , res : Response) => {
+        const user = await userService.removeAvatar(req.user!.sub, req.user!.sub);
+        res.json({ success : true , data : user})
+    }),
+
     getOne : asyncHandler(async (req : Request , res : Response) => {
         // `req.params.id` comes from the `:id` part of the route path (e.g. /users/12345 -> id = "12345").
         const user = await userService.getById(req.params.id);
         res.json({ success : true , data : user})
+    }),
+
+    presence : asyncHandler(async (req : Request , res : Response) => {
+        const data = await userService.presence();
+        res.json({ success : true , data })
     }),
 
     create : asyncHandler(async (req : Request , res : Response) => {

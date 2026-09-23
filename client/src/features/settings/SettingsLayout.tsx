@@ -1,19 +1,21 @@
 import { NavLink, Outlet } from 'react-router';
-import { Settings as SettingsIcon, Tag } from 'lucide-react';
+import { Settings as SettingsIcon, Tag, UserCircle, Monitor } from 'lucide-react';
 import { GradientIconTile } from '../../components';
 
 const NAV = [
+  { to: '/settings/account', icon: UserCircle, label: 'Account' },
+  { to: '/settings/appearance', icon: Monitor, label: 'Appearance' },
   { to: '/settings/categories', icon: Tag, label: 'Categories' },
 ];
 
 export const SettingsLayout = () => {
   return (
-    <div className="flex flex-col gap-6 w-full max-w-7xl mx-auto">
+    <div className="flex flex-col gap-6 w-full max-w-(--container-width) mx-auto">
       <div className="flex items-center gap-3">
         <GradientIconTile icon={SettingsIcon} />
         <div>
           <h1 className="text-xl font-display font-bold text-text">Settings</h1>
-          <p className="text-sm text-text-muted mt-0.5">Manage system configuration.</p>
+          <p className="text-sm text-text-muted mt-0.5">Your account and workspace preferences.</p>
         </div>
       </div>
 

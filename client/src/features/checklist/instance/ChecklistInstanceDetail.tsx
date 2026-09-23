@@ -145,7 +145,11 @@ export const ChecklistInstanceDetail = () => {
         {isAdminOrPC && (
           <Link
             to={`/admin/scheduled-checklists/builder/${instance.definitionId}`}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-display font-medium text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-950/40 border border-primary-200 dark:border-primary-800 hover:bg-primary-100 dark:hover:bg-primary-900/60 shadow-2xs transition-all duration-150 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+            // dark:bg-primary-500/15, not dark:bg-primary-950/40 — primary-950 isn't a defined
+            // token in this app's palette (index.css only goes to primary-900), so that dark:
+            // class never generated and this button fell back to its light-mode bg-primary-50 in
+            // dark theme, rendering as a stray near-white patch.
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-display font-medium text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-500/15 border border-primary-200 dark:border-primary-800 hover:bg-primary-100 dark:hover:bg-primary-900/60 shadow-2xs transition-all duration-150 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
             title="Edit this checklist's template — affects future runs, not this one"
           >
             <Pencil size={12} />

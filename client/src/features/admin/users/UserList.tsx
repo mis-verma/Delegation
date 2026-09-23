@@ -6,6 +6,7 @@ import {
   useDepartmentsQuery,
   useUpdateUserMutation,
   useDeleteUserMutation,
+  usePresenceQuery,
 } from '../hook';
 import { UserCard } from './UserCard';
 import { Button, Loader, FormLoadError, PageNav, EntityStatusFilter, EntityCardSkeleton, type EntityStatusFilterValue, useConfirm } from '../../../components';
@@ -39,6 +40,7 @@ export const UserList = () => {
   const { data: allUsers, isPending, isError, refetch } = useUsersQuery();
   const users = useMemo(() => allUsers ?? [], [allUsers]);
   const { data: departments } = useDepartmentsQuery();
+  const { data: presenceRows } = usePresenceQuery();
   const updateMut = useUpdateUserMutation();
   const deleteMut = useDeleteUserMutation();
   const confirm = useConfirm();
@@ -46,6 +48,11 @@ export const UserList = () => {
   const departmentNames = useMemo(
     () => new Map((departments ?? []).map(d => [d.id, d.name])),
     [departments]
+  );
+
+  const presenceByUserId = useMemo(
+    () => new Map((presenceRows ?? []).map(p => [p.id, p])),
+    [presenceRows]
   );
 
   const statusCounts = useMemo(() => ({
@@ -136,6 +143,7 @@ export const UserList = () => {
             key={u.id}
             user={u}
             departmentName={u.departmentId ? (departmentNames.get(u.departmentId) ?? 'Unknown Dept') : undefined}
+            presence={presenceByUserId.get(u.id)}
             isUpdating={updateMut.isPending && updateMut.variables?.id === u.id}
             isDeleting={deleteMut.isPending && deleteMut.variables === u.id}
             onToggleActive={toggleActive}

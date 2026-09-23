@@ -78,13 +78,17 @@ export const QuestionTypePalette = ({ onAdd, storeIds }: QuestionTypePaletteProp
                   key={entry.label}
                   type="button"
                   onClick={() => setActiveEntry(entry)}
-                  className="group relative flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-display font-medium text-text-secondary transition-all duration-200 hover:bg-primary-50 hover:text-primary-700 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
+                  // Opacity-tinted hovers, not the raw `-50`/`-100`/`-700` swatches this used to be
+                  // — this app's primary-* scale isn't redefined for dark mode (see index.css), so
+                  // a literal `bg-primary-50` hover here rendered as a stark near-white smudge on
+                  // this list in dark theme instead of a subtle tint.
+                  className="group relative flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-display font-medium text-text-secondary transition-all duration-200 hover:bg-primary-500/10 hover:text-primary-700 dark:hover:text-primary-300 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
                 >
-                  <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-surface-hover text-text-muted transition-colors duration-200 group-hover:bg-primary-100 group-hover:text-primary-700">
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-surface-hover text-text-muted transition-colors duration-200 group-hover:bg-primary-500/15 group-hover:text-primary-700 dark:group-hover:text-primary-300">
                     <Icon size={16} strokeWidth={2.25} />
                   </span>
                   <span className="min-w-0 flex-1 truncate">{entry.label}</span>
-                  <span className="flex size-6 shrink-0 scale-75 items-center justify-center rounded-full border border-border text-text-light opacity-0 transition-all duration-200 group-hover:scale-100 group-hover:border-primary-400 group-hover:bg-primary-50 group-hover:text-primary-600 group-hover:opacity-100">
+                  <span className="flex size-6 shrink-0 scale-75 items-center justify-center rounded-full border border-border text-text-light opacity-0 transition-all duration-200 group-hover:scale-100 group-hover:border-primary-400 group-hover:bg-primary-500/10 group-hover:text-primary-600 dark:group-hover:text-primary-400 group-hover:opacity-100">
                     <Plus size={12} />
                   </span>
                 </button>

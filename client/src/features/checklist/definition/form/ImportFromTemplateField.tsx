@@ -24,8 +24,10 @@ export const ImportFromTemplateField = ({
   if (usable.length === 0) return null;
 
   return (
+    // dark:bg-primary-500/10, not dark:bg-primary-950/20 — primary-950 isn't a defined token in
+    // this app's palette, so that dark: class never generated.
     <div
-      className={`flex flex-col gap-3 p-4 rounded-xl border border-primary-200/80 dark:border-primary-800/40 bg-primary-50/40 dark:bg-primary-950/20 shadow-2xs transition-all ${className}`}
+      className={`flex flex-col gap-3 p-4 rounded-xl border border-primary-200/80 dark:border-primary-800/40 bg-primary-50/40 dark:bg-primary-500/10 shadow-2xs transition-all ${className}`}
     >
       {/* Header */}
       <div className="flex items-center justify-between gap-2">
@@ -58,7 +60,7 @@ export const ImportFromTemplateField = ({
             <SelectItem
               key={t.id}
               value={t.id}
-              className="font-display text-xs py-2 px-3 focus:bg-primary-50 dark:focus:bg-primary-950/40 cursor-pointer"
+              className="font-display text-xs py-2 px-3 focus:bg-primary-50 dark:focus:bg-primary-500/15 cursor-pointer"
             >
               <div className="flex items-center justify-between gap-3 w-full">
                 <span className="font-medium text-text truncate">{t.name}</span>

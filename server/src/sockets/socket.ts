@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken"
 import { env } from "../config/env.js"
 import type { AccessTokenPayload } from "../middleware/auth/auth.js"
 import { createRedisPubSubClients } from "../config/redis.js"
+import { presenceService } from "../modules/presence/presence.service.js"
 
 let io: SocketIOServer | undefined;
 
@@ -38,6 +39,9 @@ export const initSocket = async (httpServer: HttpServer, useRedisAdapter: boolea
         socket.join(`role:${user.role}`);
         if (user.departmentId) socket.join(`department:${user.departmentId}`);
         if (user.storeId) socket.join(`store:${user.storeId}`)
+
+        presenceService.markConnected(user.sub, socket.id);
+        socket.on("disconnect", () => presenceService.markDisconnected(user.sub, socket.id));
     })
 
     return io;

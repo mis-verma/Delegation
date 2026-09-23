@@ -1,5 +1,5 @@
 import { Building2, User, LayoutGrid, UserPen, UserCheck } from 'lucide-react';
-import { OptionsDialog, SortOptionRow, OptionRow } from '../../components';
+import { OptionsDialog, SortOptionRow, OptionRow, OptionRowGroup } from '../../components';
 import { TicketFilterFields } from './list/TicketFilterFields';
 import { SORT_LABEL, SORT_ICON } from './list/ticketSort';
 import { SCOPE_FILTERS, type ScopeFilter } from './list/ticketFilters';
@@ -43,55 +43,60 @@ export const TicketSettingsMenu = ({
       canExport={canExport}
       onExport={onExport}
     >
-      <OptionRow label="Scope">
-        <div className="flex items-center gap-1 p-1 rounded-lg bg-surface-hover/50 border border-border/40 w-fit flex-wrap">
-          {SCOPE_FILTERS.map((f) => {
-            const Icon = SCOPE_ICON[f.key];
-            const isActive = organizer.scopeFilter === f.key;
-            return (
-              <button
-                key={f.key}
-                type="button"
-                onClick={() => { organizer.setScopeFilter(f.key); organizer.setPage(1); }}
-                aria-pressed={isActive}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-display font-medium transition-all duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-95 ${
-                  isActive ? 'bg-background text-text shadow-sm ring-1 ring-border/50' : 'text-text-muted hover:text-text-secondary hover:bg-surface-active/50'
-                }`}
-              >
-                <Icon size={14} /> {f.label}
-              </button>
-            );
-          })}
-        </div>
-      </OptionRow>
-
-      {organizer.view === 'list' && (
-        <OptionRow label="Group by">
-          <div className="flex items-center gap-1 p-1 rounded-lg bg-surface-hover/50 border border-border/40 w-fit">
-            {([
-              { key: 'department' as const, label: 'Department', icon: Building2 },
-              { key: 'assignee' as const, label: 'Person', icon: User },
-            ]).map(({ key, label, icon: Icon }) => {
-              const isActive = organizer.groupBy === key;
+      {/* Scope + Group by (+ Sort by) are each a single `w-fit` control — side by side instead of
+          each claiming its own full-width row, so the dialog doesn't spend its whole first
+          screenful on three small pickers. */}
+      <OptionRowGroup>
+        <OptionRow label="Scope">
+          <div className="flex items-center gap-1 p-1 rounded-lg bg-surface-hover/50 border border-border/40 w-fit flex-wrap">
+            {SCOPE_FILTERS.map((f) => {
+              const Icon = SCOPE_ICON[f.key];
+              const isActive = organizer.scopeFilter === f.key;
               return (
                 <button
-                  key={key}
+                  key={f.key}
                   type="button"
-                  onClick={() => organizer.setGroupBy(key)}
+                  onClick={() => { organizer.setScopeFilter(f.key); organizer.setPage(1); }}
                   aria-pressed={isActive}
                   className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-display font-medium transition-all duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-95 ${
                     isActive ? 'bg-background text-text shadow-sm ring-1 ring-border/50' : 'text-text-muted hover:text-text-secondary hover:bg-surface-active/50'
                   }`}
                 >
-                  <Icon size={14} /> {label}
+                  <Icon size={14} /> {f.label}
                 </button>
               );
             })}
           </div>
         </OptionRow>
-      )}
 
-      <SortOptionRow labels={SORT_LABEL} icons={SORT_ICON} value={organizer.sort} onChange={organizer.setSort} />
+        {organizer.view === 'list' && (
+          <OptionRow label="Group by">
+            <div className="flex items-center gap-1 p-1 rounded-lg bg-surface-hover/50 border border-border/40 w-fit">
+              {([
+                { key: 'department' as const, label: 'Department', icon: Building2 },
+                { key: 'assignee' as const, label: 'Person', icon: User },
+              ]).map(({ key, label, icon: Icon }) => {
+                const isActive = organizer.groupBy === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => organizer.setGroupBy(key)}
+                    aria-pressed={isActive}
+                    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-display font-medium transition-all duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-95 ${
+                      isActive ? 'bg-background text-text shadow-sm ring-1 ring-border/50' : 'text-text-muted hover:text-text-secondary hover:bg-surface-active/50'
+                    }`}
+                  >
+                    <Icon size={14} /> {label}
+                  </button>
+                );
+              })}
+            </div>
+          </OptionRow>
+        )}
+
+        <SortOptionRow labels={SORT_LABEL} icons={SORT_ICON} value={organizer.sort} onChange={organizer.setSort} />
+      </OptionRowGroup>
 
       <TicketFilterFields
         filters={organizer.filters}

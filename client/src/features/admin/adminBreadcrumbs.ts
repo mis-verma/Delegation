@@ -36,6 +36,9 @@ export function getAdminBreadcrumbs(pathname: string): BreadcrumbTrailItem[] | n
   if (pathname.startsWith('/admin/directory')) {
     return [DASHBOARD, ADMIN_ROOT, { label: 'People & Teams' }];
   }
+  if (pathname.startsWith('/admin/presence')) {
+    return [DASHBOARD, ADMIN_ROOT, { label: "Who's Online" }];
+  }
   if (pathname.startsWith('/admin/org-structure')) {
     return [DASHBOARD, ADMIN_ROOT, { label: 'Org Structure' }];
   }

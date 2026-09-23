@@ -38,6 +38,13 @@ export type PaginatedResponse<T> = {
     meta:    { page: number; limit: number; total: number; totalPages: number; hasNext: boolean };
 };
 
+export type UserPresence = {
+    id: string;
+    online: boolean;
+    /** Null for an account that's never had a socket connect (never logged in on the web app). */
+    lastActiveAt: string | null;
+};
+
 export const adminApi = {
     // No page/limit -> the full roster (org structure's tree, assignable-user pickers, etc. all
     // rely on getting everyone back). Use getPage for the admin directory's paginated list view.
@@ -71,4 +78,6 @@ export const adminApi = {
 
     removeAvatar: (id: string) =>
         apiFetch<ApiResponse<AdminUser>>(`/users/${id}/avatar`, { method: "DELETE" }),
+
+    getPresence: () => apiFetch<ApiResponse<UserPresence[]>>("/users/presence"),
 };

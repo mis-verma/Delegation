@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { FileDown, SlidersHorizontal } from 'lucide-react';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Button } from '../button';
+import { useDraggableDialog } from '../modal/useDraggableDialog';
 
 /**
  * The "one Options button" dialog shell used by the Delegation and Tickets list pages.
@@ -34,7 +35,13 @@ export const OptionsDialog = ({
   canExport,
   onExport,
   children,
-}: OptionsDialogProps) => (
+}: OptionsDialogProps) => {
+  // Draggable by its header, same as Modal.tsx's own `draggable` opt-in — this panel gets flipped
+  // open constantly while working the list behind it, so being able to drag it aside instead of it
+  // permanently covering the middle of the page is worth more here than on a one-shot form dialog.
+  const { contentRef, isDragging, style: dragStyle, handleProps: dragHandleProps } = useDraggableDialog(isOpen, true);
+
+  return (
   <Dialog open={isOpen} onOpenChange={setIsOpen}>
     <DialogTrigger asChild>
       {/* Sits directly beside the page's primary create button, so it matches its pill shape and
@@ -60,6 +67,11 @@ export const OptionsDialog = ({
     </DialogTrigger>
 
     <DialogContent
+      ref={contentRef}
+      style={dragStyle}
+      // No separate top-right X — the footer's "Done" button is already a dedicated close action
+      // (DialogClose below), so a second close control was pure redundancy, not a second affordance.
+      showCloseButton={false}
       // Half the default dimming (bg-black/40 -> /20) — this dialog is a filter panel you flip
       // open and shut constantly, not a document you read, so the rest of the page going dark
       // every time reads as heavier than the moment warrants. Blur stays as-is; brightness is an
@@ -77,14 +89,21 @@ export const OptionsDialog = ({
         // decelerate, instead of reading like a different, mushier animation.
         'will-change-transform ' +
         'data-[state=open]:duration-150 data-[state=closed]:duration-100 ' +
-        'data-[state=open]:ease-[cubic-bezier(0.16,1,0.3,1)] data-[state=closed]:ease-[cubic-bezier(0.7,0,0.84,0)]'
+        'data-[state=open]:ease-[cubic-bezier(0.16,1,0.3,1)] data-[state=closed]:ease-[cubic-bezier(0.7,0,0.84,0)]' +
+        (isDragging ? ' select-none' : '')
       }
     >
-      <DialogHeader>
+      {/* Grip bar — same "this panel moves" cue Modal.tsx uses, sitting above the title rather
+          than replacing its hit area. Desktop-only, matching drag itself. */}
+      <span aria-hidden="true" className="hidden sm:block absolute top-2 left-1/2 -translate-x-1/2 w-8 h-1 rounded-full bg-border-hover" />
+      <DialogHeader
+        {...dragHandleProps}
+        className={isDragging ? 'sm:cursor-grabbing sm:touch-none' : 'sm:cursor-grab sm:touch-none'}
+      >
         <DialogTitle className="text-base">{title}</DialogTitle>
       </DialogHeader>
 
-      <div className="flex flex-col gap-5">{children}</div>
+      <div className="flex flex-col gap-4">{children}</div>
 
       <DialogFooter className="sm:justify-between">
         {activeCount > 0 ? (
@@ -114,4 +133,5 @@ export const OptionsDialog = ({
       </DialogFooter>
     </DialogContent>
   </Dialog>
-);
+  );
+};

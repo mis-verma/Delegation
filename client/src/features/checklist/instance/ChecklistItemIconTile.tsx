@@ -11,10 +11,17 @@ interface ChecklistItemIconTileProps {
 // nesting) and only half the cards visually signaled completion via this tile at all. One
 // definition fixes both: rounded-md steps down correctly from the card's rounded-lg, and every
 // item type now dims/fills the same way once done.
+//
+// Done state reuses EntityIconTile's own gradient recipe (border only, no shadow — see its own
+// comment) instead of a pale flat tint: a page whose whole point is showing progress deserves its
+// "this one's done" signal to actually read as a small win, not the same washed-out blue every
+// other "selected" chip in the app already moved away from.
 export const ChecklistItemIconTile = ({ icon: Icon, done }: ChecklistItemIconTileProps) => (
-  <span className={`flex items-center justify-center size-9 rounded-md shrink-0 ${
-    done ? 'bg-primary-500/10 text-primary-600' : 'bg-surface-hover text-text-light'
+  <span className={`flex items-center justify-center size-9 rounded-md shrink-0 border transition-colors duration-200 ${
+    done
+      ? 'bg-gradient-to-br from-primary-500 to-primary-700 border-primary-800/20 dark:from-primary-600 dark:to-primary-900 text-white'
+      : 'bg-surface-hover border-transparent text-text-light'
   }`}>
-    <Icon size={16} />
+    <Icon size={16} strokeWidth={done ? 2.5 : 2} />
   </span>
 );

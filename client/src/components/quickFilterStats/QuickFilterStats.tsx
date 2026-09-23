@@ -1,4 +1,4 @@
-import { Check, ListFilter } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { AdminChromeAccents } from '../../features/admin/AdminChromeAccents';
 import { Skeleton } from '../skeleton';
 import { statusTiles } from './statusTiles';
@@ -15,14 +15,20 @@ function cn(...inputs: ClassValue[]) {
  * only ever destructured `key`, `label`, `bgTint`, `accentBar` and `accentBorder`. None of it
  * reached the DOM. Removed so the type states what actually renders; build tiles with
  * `statusTiles()` rather than by hand.
+ *
+ * `icon`/`iconTint` came back deliberately (see statusTiles.ts) to close the one visible gap
+ * between this component and StatCard: every StatCard-style stat on the Dashboard, Calendar and
+ * admin analytics pages shows its icon in a tinted tile, and these tiles didn't.
  */
 export interface QuickFilterTile<K extends string> {
   key: K;
   label: string;
+  icon: LucideIcon;
   bgTint: string;
   accentBar: string;
   accentBorder: string;
   ring: string;
+  iconTint: string;
 }
 
 interface QuickFilterStatsProps<K extends string> {
@@ -62,15 +68,18 @@ const QuickFilterStatsSkeleton = ({ count, variant }: { count: number; variant: 
         <div
           key={i}
           className={cn(
-            'flex flex-col justify-center gap-1.5 rounded-lg p-3.5 md:p-4',
+            'flex items-center justify-between gap-3 rounded-lg p-3.5 md:p-4',
             i === 0 && leadSpanClass(count),
             isHero
               ? 'bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700'
               : 'bg-surface border border-border',
           )}
         >
-          <Skeleton className={cn('h-7 w-12', isHero && 'bg-white/20')} />
-          <Skeleton className={cn('h-3.5 w-20', isHero && 'bg-white/20')} />
+          <div className="flex flex-col gap-1.5 min-w-0">
+            <Skeleton className={cn('h-7 w-12', isHero && 'bg-white/20')} />
+            <Skeleton className={cn('h-3.5 w-20', isHero && 'bg-white/20')} />
+          </div>
+          <Skeleton className={cn('size-10 rounded-xl shrink-0', isHero && 'bg-white/20')} />
         </div>
       );
     })}
@@ -114,7 +123,7 @@ export function QuickFilterStats<K extends string>({
   return (
     <div className={gridClass(shownTiles.length)}>
       {shownTiles.map((tile, index) => {
-        const { key, label, bgTint, accentBar, accentBorder, ring } = tile;
+        const { key, label, icon: Icon, bgTint, accentBar, accentBorder, ring, iconTint } = tile;
         const isTotalTile = hasTotal && key === 'all';
         // The Total tile is the resting state, so it reads as selected exactly when no bucket is.
         const isActive = isTotalTile ? active === null : active === key;
@@ -123,9 +132,9 @@ export function QuickFilterStats<K extends string>({
         const isHero = variant === 'navy' && index === 0;
         // `title` alone never appears on touch, where it was the only thing saying these tiles
         // filter at all. It stays for pointer users, but the same sentence is now also the
-        // accessible name, and a resting filter glyph makes the affordance visible on any device.
-        // `all` is the shared "clear the filter" key (see statusTiles), so it needs the opposite
-        // sentence — "Show only all delegations" would have been nonsense.
+        // accessible name (aria-label) so the affordance survives on any device without needing a
+        // dedicated resting glyph. `all` is the shared "clear the filter" key (see statusTiles), so
+        // it needs the opposite sentence — "Show only all delegations" would have been nonsense.
         const purpose = key === 'all'
           ? `Show all ${itemLabel}`
           : isActive ? `Clear "${label}" filter` : `Show only ${label.toLowerCase()} ${itemLabel}`;
@@ -140,7 +149,7 @@ export function QuickFilterStats<K extends string>({
               aria-label={purpose}
               title={purpose}
               className={cn(
-                "group relative flex flex-col justify-center gap-1 overflow-hidden rounded-lg p-3.5 md:p-4 text-left transition-all duration-400 ease-out cursor-pointer",
+                "group relative flex items-center justify-between gap-3 overflow-hidden rounded-lg p-3.5 md:p-4 text-left transition-all duration-400 ease-out cursor-pointer",
                 index === 0 && leadSpanClass(shownTiles.length),
                 // All-token navy ramp (was `from-slate-900`, a raw Tailwind default in a project
                 // that mandates its own palette). Kept identical to StatusBreakdownCard's shell —
@@ -171,15 +180,14 @@ export function QuickFilterStats<K extends string>({
                 </p>
               </div>
 
-              <span aria-hidden="true" className="absolute top-3 right-3 z-10 flex items-center justify-center size-5">
-                {isActive ? (
-                  <span className="flex items-center justify-center size-5 rounded-full bg-white/25 text-white animate-in zoom-in-95 duration-200 motion-reduce:animate-none">
-                    <Check size={12} strokeWidth={3} />
-                  </span>
-                ) : (
-                  <ListFilter size={13} className="text-white/40 group-hover:text-white/70 transition-colors duration-200" />
-                )}
-              </span>
+              {/* Icon tile, same StatCard-style treatment as the plain tiles below (and every
+                  StatCard on Dashboard/Calendar/admin analytics) — white-on-glass here since this
+                  tile is already the bold navy surface. No extra badge/ring on top of it — the
+                  tile's own border/shadow/lift above already say "selected", and a corner glyph on
+                  a tile this small just read as clutter. */}
+              <div className="relative z-10 shrink-0 flex items-center justify-center size-10 rounded-xl border border-white/20 bg-white/15 transition-transform duration-300 group-hover:scale-105">
+                <Icon size={18} strokeWidth={2.5} className="text-white" />
+              </div>
             </button>
           );
         }
@@ -211,11 +219,6 @@ export function QuickFilterStats<K extends string>({
               )}
             />
 
-            {/* One quiet, theme-tinted ring — same "quiet card, one ring in the tile's own tone"
-                treatment StatCard's plain variant uses, instead of this tile having no accent
-                beyond the left bar and the tiny corner glyph. */}
-            <span aria-hidden="true" className={cn("absolute -top-6 -right-6 size-16 rounded-full border pointer-events-none", ring)} />
-
             <div className="min-w-0 flex-1">
               <p className={cn("text-2xl font-bold tracking-tight leading-none tabular-nums transition-colors", isActive ? "text-text" : "text-text-secondary group-hover:text-text")}>
                 {count}
@@ -225,21 +228,15 @@ export function QuickFilterStats<K extends string>({
               </p>
             </div>
 
-            {/* Filter affordance at rest, confirmation when active — same slot either way. */}
-            <span aria-hidden="true" className="absolute top-3 right-3 flex items-center justify-center size-5">
-              {isActive ? (
-                <span
-                  className={cn(
-                    "flex items-center justify-center size-5 rounded-full text-white animate-in zoom-in-95 duration-200 motion-reduce:animate-none",
-                    accentBar
-                  )}
-                >
-                  <Check size={12} strokeWidth={3} />
-                </span>
-              ) : (
-                <ListFilter size={13} className="text-text-light/60 group-hover:text-text-muted transition-colors duration-200" />
-              )}
-            </span>
+            {/* Icon tile — the StatCard-style treatment this row was missing. No decorative ring
+                behind it and no corner badge on top of it: at this tile's compact size (roughly a
+                third of a Dashboard StatCard) StatCard's own oversized background ring read as a
+                circle wrapped around the icon rather than a subtle flourish, and a badge stacked
+                on top of that made it worse. The border/fill/left-bar changes above already say
+                "selected" on their own. */}
+            <div className={cn("flex items-center justify-center size-10 rounded-xl border transition-all duration-300 shrink-0 group-hover:scale-105", bgTint, ring)}>
+              <Icon size={18} strokeWidth={2.5} className={iconTint} />
+            </div>
           </button>
         );
       })}

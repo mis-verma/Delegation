@@ -182,7 +182,10 @@ export const PersonChecklistView = ({ personName, departmentName, departmentId, 
           <div className="grid grid-cols-2 gap-3">
             <div className="flex flex-col gap-1 p-4 rounded-lg bg-surface-hover/50">
               <span className="text-xs font-display text-text-muted font-medium">Completion Rate</span>
-              <span className="text-2xl font-display font-bold text-text tabular-nums">
+              {/* Muted, not full-strength text, when this is the "—" placeholder — at this size/
+                  weight a full-color em dash rendered as a solid black bar, reading as a broken
+                  element rather than an empty state (same fix as StatCard.tsx's own placeholder). */}
+              <span className={`text-2xl font-display font-bold tabular-nums ${completionRate === null ? 'text-text-light/60' : 'text-text'}`}>
                 {completionRate === null ? '—' : `${completionRate}%`}
               </span>
               <span className="text-[11px] font-display font-medium text-text-muted">
@@ -191,7 +194,7 @@ export const PersonChecklistView = ({ personName, departmentName, departmentId, 
             </div>
             <div className="flex flex-col gap-1 p-4 rounded-lg bg-surface-hover/50">
               <span className="text-xs font-display text-text-muted font-medium">Compliance Rate</span>
-              <span className="text-2xl font-display font-bold text-text tabular-nums">
+              <span className={`text-2xl font-display font-bold tabular-nums ${complianceRate === null ? 'text-text-light/60' : 'text-text'}`}>
                 {complianceRate === null ? '—' : `${complianceRate}%`}
               </span>
               <span className="text-[11px] font-display font-medium text-text-muted">

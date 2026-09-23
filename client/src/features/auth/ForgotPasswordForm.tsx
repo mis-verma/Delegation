@@ -29,9 +29,10 @@ export const ForgotPasswordForm = () => {
         <div
           className="relative z-10 w-full border rounded-2xl shadow-xl flex flex-col gap-4 p-5 sm:p-6"
           style={{
-            background:     "var(--glass-bg)",
-            borderColor:    "var(--glass-border)",
-            backdropFilter: "var(--glass-blur)",
+            background:           "var(--glass-bg)",
+            borderColor:          "var(--glass-border)",
+            backdropFilter:       "var(--glass-blur)",
+            WebkitBackdropFilter: "var(--glass-blur)",
           }}
         >
           <div className="flex flex-col gap-1 pb-2.5 border-b border-primary-500/30">

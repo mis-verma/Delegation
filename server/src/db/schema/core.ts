@@ -101,6 +101,10 @@ export const users = mysqlTable(
     // "/uploads/avatars/<hex>.jpg". Null until the user (or an admin) uploads one; the client
     // falls back to an initials avatar.
     avatarUrl: varchar('avatarUrl', { length: 2048 }),
+    // Set on every socket connect/disconnect (see modules/presence/presence.service.ts) — "when
+    // were they last seen", independent of the Redis-backed "are they online right now" set,
+    // which never persists and self-heals but can't answer "how long ago" once someone's gone.
+    lastActiveAt: datetime('lastActiveAt', { mode: 'date' }),
     createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
     updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
   },

@@ -87,8 +87,10 @@ export const ChecklistRolesField = ({
               className={[
                 'group flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-display font-medium cursor-pointer select-none transition-all duration-150',
                 'focus-within:ring-2 focus-within:ring-primary-500/50',
+                // dark:bg-primary-500/15, not dark:bg-primary-950/40 — primary-950 isn't a
+                // defined token in this app's palette, so that dark: class never generated.
                 checked
-                  ? 'border-primary-500/60 bg-primary-50 dark:bg-primary-950/40 text-primary-800 dark:text-primary-300 shadow-2xs font-semibold'
+                  ? 'border-primary-500/60 bg-primary-50 dark:bg-primary-500/15 text-primary-800 dark:text-primary-300 shadow-2xs font-semibold'
                   : 'border-border bg-surface text-text-secondary hover:bg-surface-hover hover:border-border/80 hover:text-text',
               ].join(' ')}
             >
