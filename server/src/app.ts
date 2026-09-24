@@ -54,14 +54,17 @@ morgan.token<Request, Response>('url', (req) => (req.originalUrl ?? req.url ?? '
 class App {
     public app: Application;
 
-    constructor(rateLimitStore? : Store) {
+    // Takes the store *factory*, not a single Store — six different limiters below each need
+    // their own Store instance (express-rate-limit rejects two limiters sharing one), so every
+    // call site below invokes this with its own unique prefix. See config/redis.ts's own comment.
+    constructor(rateLimitStoreFactory? : (prefix: string) => Store) {
         this.app = express()
-        this.initMiddlewares(rateLimitStore)
-        this.initRoutes(rateLimitStore)
+        this.initMiddlewares(rateLimitStoreFactory)
+        this.initRoutes(rateLimitStoreFactory)
         this.initErrorHandling()
     }
 
-    private initMiddlewares(rateLimitStore?:Store): void {
+    private initMiddlewares(rateLimitStoreFactory?: (prefix: string) => Store): void {
         this.app.set("trust proxy", 1);
         this.app.use(helmet({
             crossOriginResourcePolicy : { policy : "cross-origin"} 
@@ -87,11 +90,11 @@ class App {
         this.app.use(cookieParser())
         this.app.set("etag", false)
         if (env.NODE_ENV != 'test') this.app.use(morgan('dev'))
-        this.app.use(createApiLimiter(rateLimitStore))
+        this.app.use(createApiLimiter(rateLimitStoreFactory?.('api')))
         this.app.use('/uploads', express.static(path.resolve('uploads')))
     }
 
-    private initRoutes(rateLimitStore?: Store): void {
+    private initRoutes(rateLimitStoreFactory?: (prefix: string) => Store): void {
         // Liveness only — "is the process up and responding at all." Deliberately does no I/O
         // (no DB/Redis round-trip) so a process manager polling this frequently never itself adds
         // load or turns a slow-but-fine DB query into a false "unhealthy, restart me" signal.
@@ -117,13 +120,13 @@ class App {
                 },
             });
         });
-        this.app.use('/auth', createAuthRouter(rateLimitStore));
+        this.app.use('/auth', createAuthRouter(rateLimitStoreFactory));
         this.app.use('/users', userRouter);
         this.app.use('/stores', StoreRouter);
         this.app.use('/departments', departmentRouter);
         this.app.use('/categories', categoryRouter);
 
-        this.app.use('/tasks/ai', createAiLimiter(rateLimitStore));
+        this.app.use('/tasks/ai', createAiLimiter(rateLimitStoreFactory?.('ai')));
         this.app.use('/tasks', taskRouter);
         this.app.use('/tags', tagRouter);
         this.app.use('/projects', projectRouter)
@@ -151,9 +154,9 @@ class App {
 
         this.app.use("/settings" , settingsRouter)
 
-        this.app.use('/whatsapp/webhook', createWebhookLimiter(rateLimitStore));
+        this.app.use('/whatsapp/webhook', createWebhookLimiter(rateLimitStoreFactory?.('webhook-whatsapp')));
         this.app.use('/whatsapp', whatsappRouter);
-        this.app.use('/doubletick/webhook', createWebhookLimiter(rateLimitStore));
+        this.app.use('/doubletick/webhook', createWebhookLimiter(rateLimitStoreFactory?.('webhook-doubletick')));
         this.app.use('/doubletick', doubletickRouter);
 
 

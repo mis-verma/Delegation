@@ -6,7 +6,7 @@ import App from "./src/app.js";
 import { connectDB, disconnectDB } from "./src/config/db.js";
 import { env } from "./src/config/env.js";
 import { initSocket } from "./src/sockets/socket.js";
-import { createRedisRateLimitStore, disconnectRedisClients } from "./src/config/redis.js";
+import { createRedisRateLimitStoreFactory, disconnectRedisClients } from "./src/config/redis.js";
 import { disconnectQueryCache, warmQueryCache } from "./src/config/queryCache.js";
 import { startSlaSweep } from "./src/jobs/slaSweep.job.js";
 import { startChecklistInstanceGenerator } from "./src/jobs/checklistInstanceGenerator.job.js";
@@ -32,8 +32,8 @@ class ServerBootstrap {
     // queryCache.ts's CONNECT_WAIT_MS comment for the request-time half of this fix).
     warmQueryCache();
 
-    const rateLimitStore = workerCount > 1 ? await createRedisRateLimitStore() : undefined;
-    this.appInstance = new App(rateLimitStore);
+    const rateLimitStoreFactory = workerCount > 1 ? await createRedisRateLimitStoreFactory() : undefined;
+    this.appInstance = new App(rateLimitStoreFactory);
 
     this.httpServer = http.createServer(this.appInstance.app);
     await initSocket(this.httpServer, workerCount > 1);

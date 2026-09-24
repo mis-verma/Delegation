@@ -24,13 +24,21 @@ export const createRedisPubSubClients = async () => {
     return { pubClient, subClient}
 }
 
-export const createRedisRateLimitStore = async () => {
+// One shared connection, handed out as a *factory* rather than a single Store instance — app.ts
+// wires up six separate rate limiters (api/auth/auth-refresh/ai/whatsapp-webhook/doubletick-webhook)
+// off this same client, and express-rate-limit's RedisStore validates at construction time that a
+// Store instance is never reused across more than one limiter (each limiter needs its own, or they'd
+// silently share Redis keys and count against each other's budget). `prefix` is what actually keeps
+// each limiter's keys apart in Redis; the distinct RedisStore *object* per call is what satisfies
+// express-rate-limit's own reuse check.
+export const createRedisRateLimitStoreFactory = async () => {
     const client = createClient({ url : env.REDIS_URL , socket : { reconnectStrategy}}) as RedisClientType
     client.on("error" , (err) => console.error("Redis rate-limit client error:", err.message ))
     await client.connect();
     trackedClients.push(client);
 
-    return new RedisStore({
+    return (prefix: string) => new RedisStore({
+        prefix: `rl:${prefix}:`,
         sendCommand : (...args : string[]) => client.sendCommand(args)
     })
 }

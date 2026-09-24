@@ -9,10 +9,12 @@ import { createAuthLimiter, createAuthRefreshLimiter } from "../rateLimiter/rate
 // A factory (not a static Router) so app.ts can thread the shared rate-limit store through, same
 // as every other limited route — register/login/forgot-password/reset-password stay on the tight
 // brute-force budget, refresh/logout get their own looser one (see rateLimiter.ts's comment).
-export const createAuthRouter = (rateLimitStore?: Store): RouterType => {
+// Takes the *store factory*, not a single store — these two limiters each need their own Store
+// instance (see config/redis.ts's own comment on createRedisRateLimitStoreFactory).
+export const createAuthRouter = (rateLimitStoreFactory?: (prefix: string) => Store): RouterType => {
     const authRouter = Router()
-    const tight = createAuthLimiter(rateLimitStore)
-    const loose = createAuthRefreshLimiter(rateLimitStore)
+    const tight = createAuthLimiter(rateLimitStoreFactory?.('auth'))
+    const loose = createAuthRefreshLimiter(rateLimitStoreFactory?.('auth-refresh'))
 
     // POST /auth/register - creates a new account and logs it in immediately.
     authRouter.post('/register', tight, authController.register)
