@@ -18,6 +18,10 @@ export const StatusPhotoThumbnail = ({
 
   useEffect(() => {
     const url = URL.createObjectURL(file);
+    // Same StrictMode reasoning as the comment above rules out a lazy useState initializer here
+    // too: it only runs on true mount, so the dev-only cleanup-then-remount would revoke the one
+    // and only URL with nothing left to recreate it.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPreviewUrl(url);
     return () => URL.revokeObjectURL(url);
   }, [file]);

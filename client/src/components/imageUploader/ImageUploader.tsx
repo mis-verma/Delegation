@@ -26,6 +26,12 @@ function ImagePreview({ file, onRemove, onPreview }: { file: File; onRemove: () 
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     const objectUrl = URL.createObjectURL(file);
+    // This IS the fix for the StrictMode bug explained above — moving creation to a lazy
+    // useState initializer (the usual way to avoid a setState-in-effect lint flag) reintroduces
+    // it: the initializer only runs on true mount, so StrictMode's dev-only cleanup-then-remount
+    // revokes the one and only URL with nothing left to recreate it. Effect + setState is the
+    // correct shape for "synchronize with an external resource keyed to a changing prop."
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setUrl(objectUrl);
     return () => URL.revokeObjectURL(objectUrl);
   }, [file]);
