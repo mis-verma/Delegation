@@ -1,0 +1,78 @@
+name: CI
+
+# Runs on every push and every PR — this is the "does it still build" gate, separate from
+# deploy.yml (which only runs on main and actually ships to the VPS). Keeping them as two
+# workflows means a PR from a branch gets full validation without ever touching production.
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [main]
+
+# Cancels a still-running run for the same branch when a new commit lands, so pushing twice in a
+# row doesn't burn two full runs back to back.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  client:
+    name: Client (lint + typecheck + build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      # tsc -b (project references) + vite build — this is the real typecheck. Plain
+      # `tsc --noEmit` is a near no-op here since client/tsconfig.json is a references-only file
+      # with no `files`/`include` of its own (see the project's own CLAUDE.md note on this).
+      - run: npm run build
+
+  server:
+    name: Server (typecheck + build + test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    # env.ts (server/src/config/env.ts) throws at import time if CLIENT_URL/JWT_ACCESS_SECRET
+    # are missing — these are throwaway placeholder values for the CI run only, not real
+    # secrets, just enough for the module to import cleanly for typecheck/test/build.
+    env:
+      NODE_ENV: test
+      CLIENT_URL: http://localhost:5173
+      JWT_ACCESS_SECRET: ci-placeholder-secret-not-real
+      COOKIE_SECURE: 'false'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - run: npm ci
+
+      - run: npx tsc --noEmit
+
+      - run: npm run build
+
+      # Only server/src/modules/tasks/ai/slotFilling.test.ts exists today (pure logic, no DB
+      # needed) — see the project's own "no automated tests" note. Safe to run in CI as-is; add a
+      # MySQL/Redis service container here if integration tests are added later.
+      - run: npm test

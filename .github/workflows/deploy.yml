@@ -1,0 +1,132 @@
+name: Deploy
+
+# Auto-deploys on every push to main. workflow_dispatch is there too so a failed/stuck deploy can
+# be re-run by hand from the Actions tab without needing an empty commit.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  # Reuses the exact same lint/typecheck/build gate as ci.yml — a push to main that would have
+  # failed CI never gets the chance to fail deploy instead.
+  build:
+    name: Build client + server
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Build client
+        working-directory: client
+        env:
+          # Baked into the static bundle at build time (Vite env vars are compile-time, not
+          # runtime) — the API's own subdomain, not the app domain. Set this repo variable once
+          # under Settings → Secrets and variables → Actions → Variables.
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build server
+        working-directory: server
+        run: |
+          npm ci
+          npm run build
+
+      # Production node_modules are installed fresh ON the VPS (below), not shipped over SSH —
+      # smaller/faster transfer and avoids native-module platform mismatches between the GitHub
+      # runner and the VPS.
+      - name: Stage deploy artifact
+        run: |
+          mkdir -p artifact/client artifact/server
+          cp -r client/dist artifact/client/dist
+          cp -r server/dist artifact/server/dist
+          cp server/package.json server/package-lock.json artifact/server/
+          cp -r server/drizzle artifact/server/drizzle
+          cp deploy/ecosystem.config.cjs artifact/server/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deploy-artifact
+          path: artifact
+          retention-days: 3
+
+  deploy:
+    name: Ship to CloudPanel VPS
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: deploy-artifact
+          path: artifact
+
+      - name: Add VPS to known_hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p "${{ secrets.VPS_PORT || 22 }}" -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+
+      # CloudPanel gives each site its own unprivileged SSH user (auto-named at site-creation
+      # time — e.g. karyaos-in / api-karyaos-in, whatever CloudPanel actually calls them; see
+      # docs/CICD_DEPLOYMENT.md). Two sites, two users, so two rsync targets. `~/` resolves to
+      # each user's own home on the remote side — no need to know/hardcode the generated
+      # username here, only the two secrets below.
+      - name: Rsync client build to the static site
+        env:
+          SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          install -m 600 /dev/null ~/.ssh/deploy_key
+          echo "$SSH_KEY" > ~/.ssh/deploy_key
+          rsync -az --delete -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.VPS_PORT || 22 }}" \
+            artifact/client/dist/ "${{ secrets.VPS_CLIENT_USER }}@${{ secrets.VPS_HOST }}:~/htdocs/karyaos.in/"
+
+      - name: Rsync server build to the Node.js site
+        env:
+          SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          install -m 600 /dev/null ~/.ssh/deploy_key
+          echo "$SSH_KEY" > ~/.ssh/deploy_key
+          # --delete only on dist/ — never on the site root, so the real .env (DATABASE_URL, JWT
+          # secret, ...) and anything the app writes locally (server/uploads-equivalent, if any)
+          # survive every deploy untouched.
+          rsync -az --delete -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.VPS_PORT || 22 }}" \
+            artifact/server/dist/ "${{ secrets.VPS_API_USER }}@${{ secrets.VPS_HOST }}:~/htdocs/api.karyaos.in/dist/"
+          rsync -az --delete -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.VPS_PORT || 22 }}" \
+            artifact/server/drizzle/ "${{ secrets.VPS_API_USER }}@${{ secrets.VPS_HOST }}:~/htdocs/api.karyaos.in/drizzle/"
+          rsync -az -e "ssh -i ~/.ssh/deploy_key -p ${{ secrets.VPS_PORT || 22 }}" \
+            artifact/server/package.json artifact/server/package-lock.json artifact/server/ecosystem.config.cjs \
+            "${{ secrets.VPS_API_USER }}@${{ secrets.VPS_HOST }}:~/htdocs/api.karyaos.in/"
+
+      - name: Install prod deps, migrate, reload PM2
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_API_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script: |
+            set -euo pipefail
+            cd ~/htdocs/api.karyaos.in
+            npm ci --omit=dev
+            # .env lives here permanently (created once by hand, never touched by CI) — this
+            # reads it the same way the app itself does. Runs the *compiled* migrator
+            # (dist/src/db/migrate.js), not `npm run db:migrate` (tsx src/db/migrate.ts) — tsx is
+            # a devDependency, and --omit=dev above means it isn't installed here.
+            node dist/src/db/migrate.js
+            # `pm2 reload` fails outright if the process doesn't exist yet — true on the very
+            # first deploy, before anyone's run `pm2 start` by hand. Falling back to `pm2 start`
+            # makes this workflow correct on deploy #1 too, not just every one after it.
+            pm2 reload ecosystem.config.cjs --update-env || pm2 start ecosystem.config.cjs
+            pm2 save

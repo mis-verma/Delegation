@@ -1,0 +1,5 @@
+# Shell scripts and CI configs run on Linux (the VPS, GitHub's runners) regardless of what OS
+# committed them — force LF so a Windows checkout's core.autocrlf never turns deploy/setup-vps.sh
+# into something bash chokes on.
+*.sh text eol=lf
+.github/workflows/*.yml text eol=lf
