@@ -118,6 +118,11 @@ jobs:
           port: ${{ secrets.VPS_PORT || 22 }}
           script: |
             set -euo pipefail
+            # CloudPanel's Node.js sites run under per-user nvm — a plain non-interactive SSH
+            # command doesn't source ~/.bashrc/~/.profile the way an interactive login does, so
+            # `npm`/`pm2` aren't on PATH here unless nvm.sh is sourced explicitly first.
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
             cd ~/htdocs/api.karyaos.in
             npm ci --omit=dev
             # .env lives here permanently (created once by hand, never touched by CI) — this
