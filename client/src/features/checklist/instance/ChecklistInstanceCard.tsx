@@ -35,7 +35,10 @@ export const ChecklistInstanceCard = ({ instance }: ChecklistInstanceCardProps) 
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
           <EntityIconTile icon={ClipboardCheck} tone="coral" />
-          <p className="text-sm font-display font-medium text-text truncate">{instance.title}</p>
+          {/* No `truncate` — the "% done" badge on the other end of this row already claims a
+              good chunk of width, and clipping to one line left titles cut down to "Store O..."
+              with a dead gap before the badge. Two-line wrap uses that space instead. */}
+          <p className="text-sm font-display font-medium text-text leading-snug">{instance.title}</p>
         </div>
         <Badge variant={isComplete ? 'success' : 'warning'} className="shrink-0">
           {isComplete ? 'Done' : `${progress}% done`}

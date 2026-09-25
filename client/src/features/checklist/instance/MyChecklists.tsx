@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, ClipboardCheck, X, Store, ChevronDown, Check, Clock, AlarmClock, ArrowDownAZ, Repeat, User, LayoutList, Table2, Kanban } from 'lucide-react';
 import { useSearchParams } from 'react-router';
 import { Skeleton, PageNav, OptionsDialog, SortOptionRow, OptionRow, OptionRowGroup, FilterGroup, FilterPill, SelectFilterRow, PeopleFilterRow, ViewToggle, EmptyState, type FilterOption, type ViewTab } from '../../../components';
@@ -89,6 +89,17 @@ export const MyChecklists = () => {
   // matters day to day — List's default grouping (Recurrence) says nothing about urgency, and
   // Table is denser but built for scanning many rows, not spotting what's overdue right now.
   const [view, setView] = useState<View>('board');
+  // The toggle that would switch this back is hidden below `sm` (see its own comment) — if
+  // someone picked List/Table on a wider screen and then narrows the window/rotates a tablet
+  // past that breakpoint, this falls back to Board rather than stranding them on a view they can
+  // no longer reach the control for.
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 639px)');
+    const fallToBoard = () => { if (mq.matches) setView('board'); };
+    fallToBoard();
+    mq.addEventListener('change', fallToBoard);
+    return () => mq.removeEventListener('change', fallToBoard);
+  }, []);
   const [sort, setSort] = useState<SortKey>('recent');
   const [groupBy, setGroupBy] = useState<GroupByKey>('recurrence');
   const [recurrence, setRecurrence] = useState<ChecklistRecurrence | ''>('');
@@ -261,8 +272,14 @@ export const MyChecklists = () => {
           a narrowing filter. */}
       <div className="flex items-center gap-3 flex-wrap">
         {/* View lives in the toolbar, not inside Options — same as Delegation/Tickets: it changes
-            what the whole page looks like, so it reads as a place you are, not a setting. */}
-        <ViewToggle tabs={VIEW_TABS} value={view} onChange={setView} />
+            what the whole page looks like, so it reads as a place you are, not a setting. Hidden
+            below `sm` entirely, not just Table — Board (the default) already reorders to
+            Overdue-first stacked cards on a phone (see ChecklistInstanceBoard's own comment),
+            which is exactly the "just show me the cards, overdue on top" view a mobile user
+            wants, so there's nothing worth switching away from there to offer a toggle for. */}
+        <div className="hidden sm:block">
+          <ViewToggle tabs={VIEW_TABS} value={view} onChange={setView} />
+        </div>
 
         {quickFilter && (
           // Opacity-tinted, not the raw `-50`/`-200` swatches this used to be, with no dark:
