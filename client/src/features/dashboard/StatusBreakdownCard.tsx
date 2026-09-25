@@ -84,9 +84,15 @@ export const StatusBreakdownCard = ({
       } ${comingSoon ? 'opacity-70' : ''}`}
     >
       
-      {variant === 'navy' && <AdminChromeAccents scale="compact" />}
-
-      <div className={`relative z-10 flex items-start justify-between gap-2.5 px-4 py-3.5 border-b ${shell.divider}`}>
+      {/* Clipped to this header strip's own box (not the whole card, which is where this used to
+          live) — the ring is sized to flourish behind the icon/title, but at this card's actual
+          height (header + a content row below it, unlike the shorter surfaces this same "compact"
+          ring is also used on) its bottom arc reached past the header and crossed straight through
+          the Total box in the row below, showing as a stray curved line cutting across it. Giving
+          the header its own `overflow-hidden` boundary confines the ring to the strip it's meant
+          to decorate regardless of how tall the rest of the card is. */}
+      <div className={`relative z-10 flex items-start justify-between gap-2.5 px-4 py-3.5 border-b overflow-hidden ${shell.divider}`}>
+        {variant === 'navy' && <AdminChromeAccents scale="compact" />}
         <div className="flex items-center gap-2 min-w-0 flex-1">
           {Icon && <Icon size={16} className={`${shell.icon} shrink-0 mt-0.5`} />}
           <span className={`text-sm font-display font-bold break-words ${shell.title}`}>

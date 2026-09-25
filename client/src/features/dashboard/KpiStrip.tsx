@@ -90,9 +90,10 @@ const KpiCardSkeleton = ({ variant }: { variant: StatusBreakdownVariant }) => {
           : 'border-border/60 dark:border-white/[0.06] bg-surface'
       }`}
     >
-      {isNavy && <AdminChromeAccents scale="compact" />}
-
-      <div className={`relative z-10 flex items-center gap-2 px-4 py-3.5 border-b ${isNavy ? 'border-white/10' : 'border-border/60'}`}>
+      {/* Clipped to the header strip itself, same fix as the real StatusBreakdownCard — otherwise
+          the ring's bottom arc reaches past the header and crosses the Total placeholder below. */}
+      <div className={`relative z-10 flex items-center gap-2 px-4 py-3.5 border-b overflow-hidden ${isNavy ? 'border-white/10' : 'border-border/60'}`}>
+        {isNavy && <AdminChromeAccents scale="compact" />}
         <Skeleton className={`size-4 rounded shrink-0 ${block}`} />
         <Skeleton className={`h-4 w-28 rounded-md ${block}`} />
       </div>
