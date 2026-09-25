@@ -175,7 +175,10 @@ export function QuickFilterStats<K extends string>({
                 <p className="text-2xl font-bold tracking-tight text-white leading-none tabular-nums">
                   {count}
                 </p>
-                <p className="text-[11px] md:text-xs font-semibold text-white/80 mt-1.5 truncate tracking-tight">
+                {/* No `truncate` — these labels are short (1-3 words), but a 2-up mobile grid still
+                    isn't wide enough for some of them ("Due Soon", "Assigned to you") at this font
+                    size, and an ellipsis mid-word ("Due S...") reads worse than just wrapping. */}
+                <p className="text-[11px] md:text-xs font-semibold text-white/80 mt-1.5 leading-snug tracking-tight">
                   {label}
                 </p>
               </div>
@@ -223,7 +226,8 @@ export function QuickFilterStats<K extends string>({
               <p className={cn("text-2xl font-bold tracking-tight leading-none tabular-nums transition-colors", isActive ? "text-text" : "text-text-secondary group-hover:text-text")}>
                 {count}
               </p>
-              <p className="text-[11px] md:text-xs font-semibold text-text-muted mt-1.5 truncate tracking-tight">
+              {/* See the hero tile's identical comment above — same wrap-not-truncate fix. */}
+              <p className="text-[11px] md:text-xs font-semibold text-text-muted mt-1.5 leading-snug tracking-tight">
                 {label}
               </p>
             </div>

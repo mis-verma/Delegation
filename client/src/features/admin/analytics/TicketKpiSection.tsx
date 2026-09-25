@@ -1,4 +1,5 @@
 import { TicketCheck, Timer, AlertTriangle } from 'lucide-react';
+import { useNavigate } from 'react-router';
 import { KpiSectionShell } from './KpiSectionShell';
 import { ReportTrendChart } from './ReportTrendChart';
 import { useTicketTatReportQuery } from './useAnalyticsQueries';
@@ -9,13 +10,22 @@ interface TicketKpiSectionProps {
   groupBy: GroupBy;
   from?: string;
   to?: string;
+  /** /admin/tickets (this card's click destination) is PC/ADMIN-gated. */
+  isOrgWideRole: boolean;
 }
 
-export const TicketKpiSection = ({ groupBy, from, to }: TicketKpiSectionProps) => {
+export const TicketKpiSection = ({ groupBy, from, to, isOrgWideRole }: TicketKpiSectionProps) => {
+  const navigate = useNavigate();
   const { data: rows, isPending, isError } = useTicketTatReportQuery(groupBy, from, to);
   const closeRate = latestWithTrend(rows, 'completionRate', 'rate');
   const avgTat = latestWithTrend(rows, 'avgTatHours', 'count');
   const overdue = latestWithTrend(rows, 'overdueCount', 'count');
+  // Each bucket here only carries a formatted label (e.g. "2026-09"), not real start/end
+  // timestamps, so there's no safe way to reconstruct the exact date window a DrilldownModal
+  // fetch would need to match "closed AND overdue-at-close, this specific bucket" without risking
+  // a subtly wrong result — a plain navigate to the real ticket list is the honest destination
+  // for all three cards here, same call as the KPI sections above.
+  const onClick = isOrgWideRole ? () => navigate('/admin/tickets') : undefined;
 
   return (
     <KpiSectionShell
@@ -34,6 +44,7 @@ export const TicketKpiSection = ({ groupBy, from, to }: TicketKpiSectionProps) =
           label: 'Close rate',
           value: closeRate.value != null ? `${closeRate.value}%` : '—',
           trend: closeRate.trend,
+          onClick,
         },
         {
           icon: Timer,
@@ -44,6 +55,7 @@ export const TicketKpiSection = ({ groupBy, from, to }: TicketKpiSectionProps) =
           // A rising turnaround time means tickets are taking longer — the arrow follows the
           // number, but green belongs on the downward move here.
           lowerIsBetter: true,
+          onClick,
         },
         {
           icon: AlertTriangle,
@@ -60,6 +72,7 @@ export const TicketKpiSection = ({ groupBy, from, to }: TicketKpiSectionProps) =
           // both closed AND overdue-at-close, within only the latest bucket of the selected
           // grouping — the same population `tatReport` buckets everything else in this section by.
           caption: 'Closed overdue, latest period',
+          onClick,
         },
       ]}
       chart={

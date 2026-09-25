@@ -1,5 +1,5 @@
 import { NavLink } from "react-router";
-import defaultLogo from "../../assets/logo.png";
+import { BrandLogo } from "../brandLogo";
 import { usePublicSettingsQuery } from "../../lib/maintenance";
 import { resolveLogoUrl } from "../../lib/uploadsBase";
 
@@ -14,7 +14,7 @@ export const Footer = () => {
   const currentYear = new Date().getFullYear();
   const { data: publicSettings } = usePublicSettingsQuery();
   const orgName = publicSettings?.orgName ?? 'Karya';
-  const logoSrc = resolveLogoUrl(publicSettings?.logoUrl) ?? defaultLogo;
+  const customLogoSrc = resolveLogoUrl(publicSettings?.logoUrl);
 
   return (
     <footer
@@ -31,7 +31,13 @@ export const Footer = () => {
           to="/"
           className="flex items-center shrink-0 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 rounded-lg p-0.5"
         >
-          <img src={logoSrc} alt={orgName} className="h-6 w-auto object-contain group-hover:scale-105 transition-transform" />
+          {customLogoSrc ? (
+            <img src={customLogoSrc} alt={orgName} className="h-6 w-auto object-contain group-hover:scale-105 transition-transform" />
+          ) : (
+            <span className="inline-flex group-hover:scale-105 transition-transform">
+              <BrandLogo className="size-6" textClassName="text-sm" />
+            </span>
+          )}
         </NavLink>
 
         <nav className="flex flex-wrap items-center justify-center gap-x-1 gap-y-1">

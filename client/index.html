@@ -22,9 +22,13 @@
        sizes, which this font-family swap is really about. Same weight coverage as before: 400/500/
        600/700/900 plus italic 400 (every italic in the app is muted placeholder text at regular
        weight; 900 is what `font-black` uses). -->
+  <!-- Noto Sans Devanagari rides along on the same request — used only by the brand mark's
+       "आर्य" (the bilingual K+Devanagari wordmark, see components/brandLogo), which is the one
+       place in the app that needs to render Devanagari script at all. 700/800 to match the
+       wordmark's bold/extrabold Latin half. -->
   <link
     rel="stylesheet"
-    href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;0,900;1,400&display=swap" />
+    href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,400;0,500;0,600;0,700;0,900;1,400&family=Noto+Sans+Devanagari:wght@700;800&display=swap" />
 
   <!-- No preconnect for the API: VITE_API_URL is `/api`, i.e. same-origin behind a reverse proxy,
        so there is no separate DNS/TLS handshake to warm. Add one here only if the API ever moves

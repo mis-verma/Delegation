@@ -139,11 +139,18 @@ const PresenceRow = ({ user, presence, departmentName }: { user: AdminUser; pres
       </div>
     )}
 
-    <span className={cn('shrink-0 text-[11px] font-display font-bold px-1.5 py-0.5 rounded-md border', ROLE_STYLES[user.role])}>
+    {/* Role badge joins department below `sm` — on a phone this row was down to ~2 visible
+        characters of name/email (avatar + fixed-width timestamp + this badge left almost nothing
+        for the name/email column, which is the actually-identifying part of the row). Both are
+        still one tap away on the person's own detail/directory entry. */}
+    <span className={cn('hidden sm:inline-flex shrink-0 text-[11px] font-display font-bold px-1.5 py-0.5 rounded-md border', ROLE_STYLES[user.role])}>
       {ROLE_LABEL[user.role]}
     </span>
 
-    <span className={cn('shrink-0 w-24 text-right text-[11px] font-display font-medium', presence?.online ? 'text-success' : 'text-text-light')}>
+    {/* No more fixed `w-24` — that reserved a full column's width for every row's timestamp even
+        though most are short ("now", "5m ago"), which is exactly the width the name/email column
+        needed back on mobile. */}
+    <span className={cn('shrink-0 text-[11px] font-display font-medium whitespace-nowrap', presence?.online ? 'text-success' : 'text-text-light')}>
       {presence ? presenceLabel(presence) : ''}
     </span>
   </div>

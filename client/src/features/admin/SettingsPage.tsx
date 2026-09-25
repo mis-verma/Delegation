@@ -3,11 +3,10 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Loader2, Settings as SettingsIcon, CheckSquare, Construction, Bell, Clock, ListChecks, KeyRound, Camera, Building2, Database, type LucideIcon } from 'lucide-react';
-import { Input, Button, Form, Skeleton, GradientIconTile, Textarea, Switch } from '../../components';
+import { Input, Button, Form, Skeleton, GradientIconTile, Textarea, Switch, BrandLogo } from '../../components';
 import { Loader } from '../../components/loaders';
 import { useSettingsQuery, useUpdateSettingsMutation, useUploadLogoMutation, useRemoveLogoMutation } from './hook';
 import { resolveLogoUrl } from '../../lib/uploadsBase';
-import defaultLogo from '../../assets/logo.png';
 
 const IMAGE_TYPE_OPTIONS = [
   { value: 'image/jpeg', label: 'JPEG' },
@@ -80,7 +79,11 @@ const LogoUpload = ({ src, onUpload, onRemove, isUploading, isRemoving }: LogoUp
   return (
     <div className="flex items-center gap-4">
       <div className="relative group/logo shrink-0 flex items-center justify-center size-16 rounded-xl border border-border bg-surface overflow-hidden">
-        <img src={src ?? defaultLogo} alt="Organization logo" className="max-w-full max-h-full object-contain p-2" />
+        {src ? (
+          <img src={src} alt="Organization logo" className="max-w-full max-h-full object-contain p-2" />
+        ) : (
+          <BrandLogo className="size-10" showWordmark={false} />
+        )}
         <button
           type="button"
           onClick={pickFile}

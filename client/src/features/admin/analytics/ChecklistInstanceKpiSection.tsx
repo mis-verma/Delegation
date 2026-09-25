@@ -1,4 +1,5 @@
 import { Repeat, Camera, ShieldCheck } from 'lucide-react';
+import { useNavigate } from 'react-router';
 import { KpiSectionShell } from './KpiSectionShell';
 import { ReportTrendChart } from './ReportTrendChart';
 import { useChecklistInstanceComplianceReportQuery } from './useAnalyticsQueries';
@@ -9,13 +10,20 @@ interface ChecklistInstanceKpiSectionProps {
   groupBy: GroupBy;
   from?: string;
   to?: string;
+  /** /admin/checklist-compliance (this card's click destination) is PC/ADMIN-gated. */
+  isOrgWideRole: boolean;
 }
 
-export const ChecklistInstanceKpiSection = ({ groupBy, from, to }: ChecklistInstanceKpiSectionProps) => {
+export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole }: ChecklistInstanceKpiSectionProps) => {
+  const navigate = useNavigate();
   const { data: rows, isPending, isError } = useChecklistInstanceComplianceReportQuery(groupBy, from, to);
   const completion = latestWithTrend(rows, 'completionRate', 'rate');
   const quality = latestWithTrend(rows, 'qualityRate', 'rate');
   const approval = latestWithTrend(rows, 'approvalRate', 'rate');
+  // All three are rates bucketed across every instance, not a literal record list — the real
+  // per-instance rows these are computed from live on the Checklist Compliance board, the same
+  // destination AnalyticsSummaryStrip's own "Proof compliance" card already points at.
+  const onClick = isOrgWideRole ? () => navigate('/admin/checklist-compliance') : undefined;
 
   return (
     <KpiSectionShell
@@ -34,6 +42,7 @@ export const ChecklistInstanceKpiSection = ({ groupBy, from, to }: ChecklistInst
           label: 'Completion rate',
           value: completion.value != null ? `${completion.value}%` : '—',
           trend: completion.trend,
+          onClick,
         },
         {
           icon: Camera,
@@ -41,6 +50,7 @@ export const ChecklistInstanceKpiSection = ({ groupBy, from, to }: ChecklistInst
           label: 'Photo quality rate',
           value: quality.value != null ? `${quality.value}%` : '—',
           trend: quality.trend,
+          onClick,
         },
         {
           icon: ShieldCheck,
@@ -50,6 +60,7 @@ export const ChecklistInstanceKpiSection = ({ groupBy, from, to }: ChecklistInst
           label: 'PC approval rate (first attempt)',
           value: approval.value != null ? `${approval.value}%` : '—',
           trend: approval.trend,
+          onClick,
         },
       ]}
       chart={

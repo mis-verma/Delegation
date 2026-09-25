@@ -13,16 +13,48 @@ export const Dashboard = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const queryClient = useQueryClient();
+  // Two different breakpoints doing two different jobs. `isMobileViewport` (768px, `md`) decides
+  // structure — is the sidebar an overlay drawer at all, same threshold every other `md:` class in
+  // this shell (BottomNav, Footer) already keys off. `sidebarOpen`'s own *default* — once it IS an
+  // in-flow rail — keys off 1024px (`lg`) instead: a tablet in the 768-1023px gap used to get the
+  // same full ~260px expanded rail as a desktop, which on an ~820px-wide screen left barely more
+  // room for content than the phone drawer did. Below `lg`, the rail now starts collapsed to icons
+  // (still one tap to expand); a real desktop still opens expanded as before.
   const [sidebarOpen, setSidebarOpen] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches,
+    () => typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches,
   );
+  // `sidebarOpen` means two different things depending on viewport — desktop expanded/collapsed,
+  // or mobile drawer open/closed — so this tracks which one, same as AdminLayout's identical
+  // split, letting the Escape-to-close effect below only ever apply to the mobile drawer.
+  const [isMobileViewport, setIsMobileViewport] = useState(
+    () => typeof window !== 'undefined' && !window.matchMedia('(min-width: 768px)').matches,
+  );
+  const mobileDrawerOpen = isMobileViewport && sidebarOpen;
 
   useEffect(() => {
-    const mq = window.matchMedia('(min-width: 768px)');
-    const handleChange = (e: MediaQueryListEvent) => setSidebarOpen(e.matches);
-    mq.addEventListener('change', handleChange);
-    return () => mq.removeEventListener('change', handleChange);
+    const mobileMq = window.matchMedia('(min-width: 768px)');
+    const railMq = window.matchMedia('(min-width: 1024px)');
+    const handleMobileChange = (e: MediaQueryListEvent) => setIsMobileViewport(!e.matches);
+    const handleRailChange = (e: MediaQueryListEvent) => setSidebarOpen(e.matches);
+    mobileMq.addEventListener('change', handleMobileChange);
+    railMq.addEventListener('change', handleRailChange);
+    return () => {
+      mobileMq.removeEventListener('change', handleMobileChange);
+      railMq.removeEventListener('change', handleRailChange);
+    };
   }, []);
+
+  // Mobile-drawer-only: Escape closes it, same fix already applied to AdminLayout's own drawer
+  // (see its comment — this one was never mirrored here, so the app's main sidebar was still stuck
+  // with the bug the admin one already fixed).
+  useEffect(() => {
+    if (!mobileDrawerOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSidebarOpen(false);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [mobileDrawerOpen]);
 
   const isAdmin = user?.role === 'ADMIN';
   const maintenanceMatch = isPathUnderMaintenance(location.pathname);

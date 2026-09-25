@@ -25,7 +25,11 @@ export const QuickActionButton = ({ to, icon: Icon, label, description }: QuickA
     <EntityIconTile icon={Icon} className="size-10" />
 
     <div className="min-w-0 flex-1">
-      <p className="truncate text-sm font-display font-semibold text-text">
+      {/* No `truncate` on the label — at a 2-up grid on a tablet-width sidebar-collapsed layout,
+          even short labels like "Delegations"/"Checklists" were clipping to "Delegati...". Letting
+          it wrap (still just one line almost everywhere) reads far better than an ellipsis on a
+          five-letter difference. */}
+      <p className="text-sm font-display font-semibold text-text leading-snug">
         {label}
       </p>
       <p className="truncate text-xs font-display text-text-muted">{description}</p>

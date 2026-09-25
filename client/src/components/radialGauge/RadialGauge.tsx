@@ -175,7 +175,14 @@ export const RadialGauge = ({
             strokeWidth={ringThickness}
             strokeLinecap="round"
             strokeDasharray={`${trackLength} ${circumference}`}
-            transform="rotate(150 50 50)"
+            // Rotation goes through the CSS `transform` style, not the SVG `transform` XML
+            // attribute — the attribute form left this circle (and the fill circle below) stuck
+            // permanently unpainted in Chromium once React had re-rendered it even once (e.g. the
+            // very first render with placeholder/loading data, then a second real-data render);
+            // every attribute and computed style still looked correct, only removing the
+            // *attribute*-based transform brought the paint back. `transform-origin` in raw user-
+            // space units (not %) matches what the attribute form's `rotate(150 50 50)` did.
+            style={{ transform: 'rotate(150deg)', transformOrigin: '50px 50px' }}
           />
 
           {/* Active Fill Track — the glow used to be an SVG <filter>/<feDropShadow>, but a filter
@@ -192,8 +199,11 @@ export const RadialGauge = ({
               strokeWidth={ringThickness}
               strokeLinecap="round"
               strokeDasharray={`${fillLength} ${circumference}`}
-              transform="rotate(150 50 50)"
               style={{
+                // See the track circle's own comment above — same attribute-vs-style transform
+                // fix, load-bearing here too.
+                transform: 'rotate(150deg)',
+                transformOrigin: '50px 50px',
                 // `stroke` (unlike the SVG-only `stop-color`) is a real, universally-supported CSS
                 // property, so setting it via style is the most reliable way to get a var()-backed
                 // color painted here — no id/url() resolution involved at all for the common

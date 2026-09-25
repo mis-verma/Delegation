@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { RadialGauge, EntityIconTile } from '../../components';
 import { Modal } from '../../components/modal';
 import { useIsMobile } from '../../lib/useMediaQuery';
+import { MobileCollapsible } from './MobileCollapsible';
 import { BreakdownRatioRows } from './PinnedBreakdown';
 import { DrilldownList, DrilldownViewAllButton } from './DrilldownModal';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../../components/ui/select';
@@ -360,59 +361,63 @@ export const ActivityComplianceGauges = ({ items, activeCategories, groupBy }: A
           of three selects next to a taller gauges+breakdown column left a block of dead space under
           the selects on every screen wide enough to split them apart. Wrapping in a single row
           scales with however many filters are active instead of reserving a fixed-width column
-          for them. */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Select value={departmentId ?? ALL} onValueChange={(v) => setDepartmentId(v === ALL ? null : v)}>
-          {/* aria-label, not just the placeholder — once a department is picked, SelectValue shows
-              its name ("Engineering"), which on its own gives a screen reader no indication this
-              trigger is the *department* filter rather than the store or person one. */}
-          <SelectTrigger size="sm" className="w-auto min-w-[8.5rem]" aria-label="Filter by department">
-            <SelectValue placeholder="All departments" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>All departments</SelectItem>
-            {departments.map((d) => (
-              <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          for them. Collapsed by default below `sm` (MobileCollapsible) — three selects plus the
+          scope note is the single biggest chunk of this card's height on a phone, for filters most
+          viewers leave on "All" anyway. */}
+      <MobileCollapsible label="filters">
+        <div className="flex flex-wrap items-center gap-2 mt-3 sm:mt-0">
+          <Select value={departmentId ?? ALL} onValueChange={(v) => setDepartmentId(v === ALL ? null : v)}>
+            {/* aria-label, not just the placeholder — once a department is picked, SelectValue shows
+                its name ("Engineering"), which on its own gives a screen reader no indication this
+                trigger is the *department* filter rather than the store or person one. */}
+            <SelectTrigger size="sm" className="w-auto min-w-[8.5rem]" aria-label="Filter by department">
+              <SelectValue placeholder="All departments" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>All departments</SelectItem>
+              {departments.map((d) => (
+                <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-        <Select value={storeId ?? ALL} onValueChange={(v) => setStoreId(v === ALL ? null : v)}>
-          <SelectTrigger size="sm" className="w-auto min-w-[8.5rem]" aria-label="Filter by store">
-            <SelectValue placeholder="All stores" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>All stores</SelectItem>
-            {stores.map((s) => (
-              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          <Select value={storeId ?? ALL} onValueChange={(v) => setStoreId(v === ALL ? null : v)}>
+            <SelectTrigger size="sm" className="w-auto min-w-[8.5rem]" aria-label="Filter by store">
+              <SelectValue placeholder="All stores" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>All stores</SelectItem>
+              {stores.map((s) => (
+                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-        <Select value={personId ?? ALL} onValueChange={(v) => setPersonId(v === ALL ? null : v)}>
-          <SelectTrigger size="sm" className="w-auto min-w-[8.5rem]" aria-label="Filter by person">
-            <SelectValue placeholder="All people" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>All people</SelectItem>
-            {people.map((p) => (
-              <SelectItem key={p.id} value={p.id}>{p.firstName}{p.lastName ? ` ${p.lastName}` : ''}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          <Select value={personId ?? ALL} onValueChange={(v) => setPersonId(v === ALL ? null : v)}>
+            <SelectTrigger size="sm" className="w-auto min-w-[8.5rem]" aria-label="Filter by person">
+              <SelectValue placeholder="All people" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>All people</SelectItem>
+              {people.map((p) => (
+                <SelectItem key={p.id} value={p.id}>{p.firstName}{p.lastName ? ` ${p.lastName}` : ''}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-        {/* Only Ticket carries all three scope dimensions — narrowing by any of them silently drops
-            categories that don't have it (Task has no store, Todo/checklist have no department,
-            Todo has no owner at all) rather than matching them against the wrong thing. Surfaced
-            here so a shrunk total reads as "expected" rather than "is this broken". Inline now
-            instead of its own paragraph below the selects — one more thing the concise row folds
-            in rather than stacking. */}
-        {(departmentId || storeId || personId) && (
-          <p className="text-[11px] font-medium text-text-light basis-full sm:basis-auto">
-            Scoped — excludes items with no matching {[departmentId && 'department', storeId && 'store', personId && 'assignee'].filter(Boolean).join('/')}.
-          </p>
-        )}
-      </div>
+          {/* Only Ticket carries all three scope dimensions — narrowing by any of them silently drops
+              categories that don't have it (Task has no store, Todo/checklist have no department,
+              Todo has no owner at all) rather than matching them against the wrong thing. Surfaced
+              here so a shrunk total reads as "expected" rather than "is this broken". Inline now
+              instead of its own paragraph below the selects — one more thing the concise row folds
+              in rather than stacking. */}
+          {(departmentId || storeId || personId) && (
+            <p className="text-[11px] font-medium text-text-light basis-full sm:basis-auto">
+              Scoped — excludes items with no matching {[departmentId && 'department', storeId && 'store', personId && 'assignee'].filter(Boolean).join('/')}.
+            </p>
+          )}
+        </div>
+      </MobileCollapsible>
 
       {/* Gauges — a centered pair, capped so they read as a cluster of circles rather than
           drifting apart on a wide monitor. Tapping one now opens the breakdown straight in a modal

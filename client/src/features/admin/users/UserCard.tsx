@@ -64,7 +64,9 @@ export const UserCard = ({ user, departmentName, presence, isUpdating, isDeletin
       <div className="flex flex-wrap items-center gap-1.5">
         <div className="flex items-center gap-1 text-[11px] font-display font-medium text-text-muted bg-surface-hover px-1.5 py-1 rounded-md border border-border/50 w-fit">
           <Building2 className="w-3 h-3 text-text-light shrink-0" />
-          <span className={cn('truncate max-w-[150px]', !departmentName && 'italic text-text-light')}>
+          {/* No max-w cap — the row already wraps (`flex-wrap` above), and at 150px even the
+              placeholder text ("No department assigned") was clipping to an ellipsis. */}
+          <span className={cn(!departmentName && 'italic text-text-light')}>
             {departmentName ?? 'No department assigned'}
           </span>
         </div>

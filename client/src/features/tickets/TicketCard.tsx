@@ -104,7 +104,10 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, index = 0 }: Tic
 
           <PriorityChip meta={priorityInfo} />
 
-          <DepartmentChip name={departmentName ?? 'Ticket'} className="shrink-0 max-w-[140px]" />
+          {/* No max-w cap — this row already wraps (`flex-wrap` above), so a long department name
+              just takes its own line instead of losing half its word to an ellipsis
+              ("Inventory & Pro...") for no reason tied to actually running out of room. */}
+          <DepartmentChip name={departmentName ?? 'Ticket'} className="shrink-0" />
         </div>
 
         {progress !== null ? (

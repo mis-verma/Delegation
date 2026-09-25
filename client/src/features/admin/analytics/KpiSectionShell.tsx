@@ -26,6 +26,12 @@ interface KpiCardConfig {
   /** Small qualifier text under the trend badge — e.g. distinguishing a bucketed/scoped count from
    *  a same-labelled but differently-scoped number shown elsewhere on the same page. */
   caption?: string;
+  /** These cards are bucketed/averaged rates, not a literal record list (see each section's own
+   *  comment for why that rules out a `DrilldownModal` here) — `onClick` is a plain navigate to
+   *  the real records the rate is computed from, same "give every stat *somewhere* to go" rule
+   *  `AnalyticsSummaryStrip`'s cards already follow. Omitted entirely (not just falsy) when no
+   *  role-reachable destination exists for the current viewer. */
+  onClick?: () => void;
 }
 
 interface KpiSectionShellProps {

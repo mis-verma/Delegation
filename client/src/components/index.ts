@@ -62,6 +62,7 @@ export { RadialGauge } from './radialGauge';
 export { PersonRow } from './personRow';
 export { FormLoadError } from './formLoadError';
 export { Avatar, AvatarUpload, AvatarStack } from './avatar';
+export { BrandLogo } from './brandLogo';
 export { StatusChip, getStatusChipLabel } from './statusChip';
 export type { StatusChipStatus } from './statusChip';
 export { PriorityChip } from './priorityChip';

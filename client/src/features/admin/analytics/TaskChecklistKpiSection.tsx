@@ -1,4 +1,5 @@
 import { ClipboardCheck, Camera } from 'lucide-react';
+import { useNavigate } from 'react-router';
 import { KpiSectionShell } from './KpiSectionShell';
 import { ReportTrendChart } from './ReportTrendChart';
 import { useTaskComplianceReportQuery } from './useAnalyticsQueries';
@@ -9,12 +10,22 @@ interface TaskChecklistKpiSectionProps {
   groupBy: GroupBy;
   from?: string;
   to?: string;
+  /** /tasks/team (this card's click destination) is PC/ADMIN-gated — see the onClick comment
+   *  below for why a plain navigate is the right destination here at all. */
+  isOrgWideRole: boolean;
 }
 
-export const TaskChecklistKpiSection = ({ groupBy, from, to }: TaskChecklistKpiSectionProps) => {
+export const TaskChecklistKpiSection = ({ groupBy, from, to, isOrgWideRole }: TaskChecklistKpiSectionProps) => {
+  const navigate = useNavigate();
   const { data: rows, isPending, isError } = useTaskComplianceReportQuery(groupBy, from, to);
   const completion = latestWithTrend(rows, 'completionRate', 'rate');
   const quality = latestWithTrend(rows, 'qualityRate', 'rate');
+  // Both cards are rates averaged across every delegation's own checklist items — no literal
+  // per-item record list exists to open in a DrilldownModal without fabricating one (same call
+  // AnalyticsSummaryStrip's own "Checklist completion"/"Proof compliance" cards already made).
+  // /tasks/team is the real record list these rates are computed from, so that's the honest
+  // destination — gated to ADMIN/PC since that's the only role that can reach it.
+  const onClick = isOrgWideRole ? () => navigate('/tasks/team') : undefined;
 
   return (
     <KpiSectionShell
@@ -33,6 +44,7 @@ export const TaskChecklistKpiSection = ({ groupBy, from, to }: TaskChecklistKpiS
           label: 'Completion rate',
           value: completion.value != null ? `${completion.value}%` : '—',
           trend: completion.trend,
+          onClick,
         },
         {
           icon: Camera,
@@ -40,6 +52,7 @@ export const TaskChecklistKpiSection = ({ groupBy, from, to }: TaskChecklistKpiS
           label: 'Photo quality rate',
           value: quality.value != null ? `${quality.value}%` : '—',
           trend: quality.trend,
+          onClick,
         },
       ]}
       chart={

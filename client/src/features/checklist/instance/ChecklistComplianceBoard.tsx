@@ -285,7 +285,10 @@ export const ChecklistComplianceBoard = () => {
         </div>
       </div>
 
-      <ChecklistInstanceKpiSection groupBy={groupBy} from={reportFrom} to={reportTo} />
+      {/* isOrgWideRole=false here on purpose — these cards' click destination on the Overview page
+          is this exact page, so on this page itself there's nowhere further to send a click; the
+          real per-instance rows they'd otherwise link to already render directly below. */}
+      <ChecklistInstanceKpiSection groupBy={groupBy} from={reportFrom} to={reportTo} isOrgWideRole={false} />
 
       <div className="flex items-center gap-3 pt-2 border-t border-border/60">
         <h2 className="text-sm font-display font-bold text-text shrink-0">Who's done what</h2>

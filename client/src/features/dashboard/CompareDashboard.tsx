@@ -1,9 +1,13 @@
 import { useEffect, useId, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { TrendingUp, ArrowUpRight, ArrowDownRight, Minus, Sparkles, Plus } from 'lucide-react';
+import {
+  TrendingUp, ArrowUpRight, ArrowDownRight, Minus, Sparkles, Plus,
+  CheckCircle2, Clock, ShieldCheck, ListChecks, type LucideIcon,
+} from 'lucide-react';
 import { AreaChart, Area, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { PeriodTabControl } from './PeriodTabControl';
-import { PinnedBreakdown, BreakdownRatioRows, BreakdownHint } from './PinnedBreakdown';
+import { DrilldownModal, type DrilldownRow } from './DrilldownModal';
+import { MobileCollapsible } from './MobileCollapsible';
 import { EntityIconTile, Button } from '../../components';
 import {
   type CompliancePeriod,
@@ -16,9 +20,36 @@ import {
   pointDelta,
   DASHBOARD_CARD_CLASS,
 } from './dashboardDisplay';
-import { useChecklistInstanceSummaryQuery } from '../checklist/hook';
+import { useChecklistInstanceSummaryQuery, useMyChecklistInstancesQuery } from '../checklist/hook';
+import { isInstanceOverdue } from '../checklist/checklistDisplay';
 import type { Task } from '../../api/task';
 import type { Ticket } from '../../api/ticket';
+
+// Same row shape/mapping KpiStrip and TeamProgressCard already use for their own drilldowns —
+// duplicated locally rather than shared, matching how each of those two already keeps its own
+// copy instead of importing one another's.
+const taskRow = (t: Task): DrilldownRow => ({
+  id: t.id,
+  title: t.title,
+  link: `/tasks?open=${t.id}`,
+  createdAt: t.createdAt,
+  completed: t.status === 'done',
+  overdue: t.status !== 'done' && !!t.dueDate && new Date(t.dueDate).getTime() < Date.now(),
+});
+
+const ticketRow = (t: Ticket): DrilldownRow => ({
+  id: t.id,
+  title: t.title,
+  link: `/tickets?open=${t.id}`,
+  createdAt: t.createdAt,
+  completed: t.status === 'CLOSED',
+  overdue: t.isOverdue,
+});
+
+// Newest-first so a mixed delegations+tickets list interleaves both kinds within the modal's
+// 8-row preview instead of one kind burying the other (tasks first, tickets never visible).
+const byNewest = (rows: DrilldownRow[]) =>
+  [...rows].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
 interface CompareDashboardProps {
   tasks: Task[];
@@ -36,24 +67,36 @@ interface WorkItem {
   createdAt: string;
   completed: boolean;
   overdue: boolean;
+  // `verifiedBy` only gets set by the actual approve step (task.service.ts's verify()/
+  // ticket.service.ts's verify()) — a delegation or ticket someone just self-closed without going
+  // through review never has it. That's a real, already-tracked "did this pass a quality check"
+  // signal, not a fabricated one.
+  verified: boolean;
 }
 
 interface PeriodRates {
   completion: number | null;
   onTime: number | null;
+  // Share of *completed* work that was actually verified rather than self-closed — null (not 0)
+  // when nothing completed yet in this bucket, same "no activity" convention as completion/onTime.
+  quality: number | null;
   completedCount: number;
   onTimeCount: number;
+  qualityCount: number;
   total: number;
 }
 
 const rateFor = (items: WorkItem[]): PeriodRates => {
   const completedCount = items.filter((i) => i.completed).length;
   const overdueCount = items.filter((i) => i.overdue).length;
+  const qualityCount = items.filter((i) => i.completed && i.verified).length;
   return {
     completion: items.length ? Math.round((completedCount / items.length) * 100) : null,
     onTime: items.length ? Math.round(((items.length - overdueCount) / items.length) * 100) : null,
+    quality: completedCount ? Math.round((qualityCount / completedCount) * 100) : null,
     completedCount,
     onTimeCount: items.length - overdueCount,
+    qualityCount,
     total: items.length,
   };
 };
@@ -83,11 +126,10 @@ interface SummaryChipProps {
   dotClassName: string;
   count?: number;
   total?: number;
-  isSelected: boolean;
-  onToggle: () => void;
+  onClick: () => void;
 }
 
-const SummaryChip = ({ label, value, previous, dotClassName, count, total, isSelected, onToggle }: SummaryChipProps) => {
+const SummaryChip = ({ label, value, previous, dotClassName, count, total, onClick }: SummaryChipProps) => {
   const delta = value != null && previous != null ? pointDelta(value, previous) : null;
   // pointDelta always signs its label ("+0.0%", never a bare "0%"), so an unchanged metric has to
   // be detected by parsing the number back out — otherwise "no change" rendered as a green upward
@@ -99,13 +141,10 @@ const SummaryChip = ({ label, value, previous, dotClassName, count, total, isSel
     <div
       role="button"
       tabIndex={0}
-      onClick={onToggle}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(); } }}
-      aria-pressed={isSelected}
-      aria-label={`${label}, ${value != null ? `${value}%` : 'no activity yet'}. Tap for the breakdown.`}
-      className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border transition-colors duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
-        isSelected ? 'bg-surface-hover border-primary-500/50 ring-2 ring-primary-500/20' : 'bg-surface-hover/60 border-border/50 hover:border-border-hover hover:bg-surface-hover'
-      }`}
+      onClick={onClick}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
+      aria-label={`${label}, ${value != null ? `${value}%` : 'no activity yet'}. Tap to see the records.`}
+      className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border border-border/50 bg-surface-hover/60 transition-colors duration-200 cursor-pointer outline-none hover:border-border-hover hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
     >
       <span className={`size-2.5 rounded-full shrink-0 ${dotClassName}`} />
       <div className="flex flex-col gap-0.5 min-w-0">
@@ -143,15 +182,6 @@ const SummaryChip = ({ label, value, previous, dotClassName, count, total, isSel
   );
 };
 
-const SoonChip = ({ label }: { label: string }) => (
-  <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl bg-surface-hover/30 border border-dashed border-border/60">
-    <span className="text-[11px] font-display font-medium text-text-light whitespace-nowrap">{label}</span>
-    <span className="ml-auto inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-display font-bold uppercase tracking-wide bg-surface-hover text-text-light border border-border">
-      Soon
-    </span>
-  </div>
-);
-
 interface ChartDatum {
   label: string;
   completion: number | null;
@@ -184,13 +214,13 @@ const ChartTooltip = ({ active, payload }: ChartTooltipProps) => {
 };
 
 
-interface MetricBreakdownRow {
-  label: string;
-  count: number;
-  total: number;
+interface Drilldown {
+  title: string;
+  icon: LucideIcon;
+  rows: DrilldownRow[];
+  viewAllHref?: string;
+  viewAllLabel?: string;
 }
-
-type SummaryKey = 'completion' | 'onTime' | 'checklist';
 
 export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: CompareDashboardProps) => {
   const gradientId = useId();
@@ -219,18 +249,28 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
   const checklistTotalItems = checklistSummary?.totalItems ?? 0;
   const checklistDoneItems = checklistSummary?.doneItems ?? 0;
   const checklistCompliance = checklistTotalItems > 0 ? Math.round((checklistDoneItems / checklistTotalItems) * 100) : null;
-  const checklistsCompleted = checklistSummary?.completed ?? 0;
+  // Only fetched for the Checklist chip's own drilldown rows — the headline % above still comes
+  // from the cheaper server-side summary, same "recent preview, not a second unbounded list"
+  // capped window KpiStrip's own checklist card already uses.
+  const { data: checklistInstances = [] } = useMyChecklistInstancesQuery({}, { limit: 25 });
+  const completedChecklists = checklistInstances.filter((c) => c.items.length > 0 && c.items.every((i) => i.isDone));
+  const checklistRow = (c: (typeof checklistInstances)[number]): DrilldownRow => {
+    const total = c.items.length;
+    const done = c.items.filter((i) => i.isDone).length;
+    const completed = total > 0 && done === total;
+    return {
+      id: c.id,
+      title: c.title,
+      link: `/checklists/${c.id}`,
+      createdAt: c.generatedAt,
+      completed,
+      overdue: isInstanceOverdue(c, completed),
+    };
+  };
 
-  const [selected, setSelected] = useState<SummaryKey | null>(null);
-  // Same render-time reset pattern as the bar chart/gauges — a pinned breakdown from "this week"
-  // shouldn't linger once the tabs switch to "this month".
-  const [prevPeriod, setPrevPeriod] = useState(period);
-  if (period !== prevPeriod) {
-    setPrevPeriod(period);
-    setSelected(null);
-  }
+  const [drilldown, setDrilldown] = useState<Drilldown | null>(null);
 
-  const { chartData, current, previous, projection, completionBreakdown, onTimeBreakdown } = useMemo(() => {
+  const { chartData, current, previous, projection, completionRows, onTimeRows, qualityRows } = useMemo(() => {
     const now = new Date().getTime();
     const nowDate = new Date(now);
     const isOverdueTask = (t: Task) => t.status !== 'done' && !!t.dueDate && new Date(t.dueDate).getTime() < now;
@@ -240,8 +280,14 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
         createdAt: t.createdAt,
         completed: t.status === 'done',
         overdue: isOverdueTask(t),
+        verified: t.verifiedBy != null,
       })),
-      ...tickets.map((t) => ({ createdAt: t.createdAt, completed: t.status === 'CLOSED', overdue: t.isOverdue })),
+      ...tickets.map((t) => ({
+        createdAt: t.createdAt,
+        completed: t.status === 'CLOSED',
+        overdue: t.isOverdue,
+        verified: t.verifiedBy != null,
+      })),
     ];
 
     const inRange = (start: Date, end: Date) =>
@@ -277,29 +323,27 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
     const currentTasks = tasks.filter((t) => inCurrentBucket(t.createdAt));
     const currentTickets = tickets.filter((t) => inCurrentBucket(t.createdAt));
 
-    const completionBreakdown: [MetricBreakdownRow, MetricBreakdownRow] = [
-      { label: 'Delegations', count: currentTasks.filter((t) => t.status === 'done').length, total: currentTasks.length },
-      { label: 'Tickets', count: currentTickets.filter((t) => t.status === 'CLOSED').length, total: currentTickets.length },
-    ];
-    const onTimeBreakdown: [MetricBreakdownRow, MetricBreakdownRow] = [
-      { label: 'Delegations', count: currentTasks.length - currentTasks.filter(isOverdueTask).length, total: currentTasks.length },
-      { label: 'Tickets', count: currentTickets.length - currentTickets.filter((t) => t.isOverdue).length, total: currentTickets.length },
-    ];
+    // Real record lists behind each chip's percent — same "tap for the exact records" modal
+    // KpiStrip/TeamProgressCard already use, not just an aggregate count.
+    const completionRows = byNewest([
+      ...currentTasks.filter((t) => t.status === 'done').map(taskRow),
+      ...currentTickets.filter((t) => t.status === 'CLOSED').map(ticketRow),
+    ]);
+    const onTimeRows = byNewest([
+      ...currentTasks.filter((t) => !isOverdueTask(t)).map(taskRow),
+      ...currentTickets.filter((t) => !t.isOverdue).map(ticketRow),
+    ]);
+    // Denominator is completed items, not all items — "how much of what's done actually passed
+    // review", matching how `rateFor`'s own `quality` is scoped.
+    const doneTasks = currentTasks.filter((t) => t.status === 'done');
+    const closedTickets = currentTickets.filter((t) => t.status === 'CLOSED');
+    const qualityRows = byNewest([
+      ...doneTasks.filter((t) => t.verifiedBy != null).map(taskRow),
+      ...closedTickets.filter((t) => t.verifiedBy != null).map(ticketRow),
+    ]);
 
-    return { chartData: data, current: currentRates, previous: previousRates, projection: projectedCompleted, completionBreakdown, onTimeBreakdown };
+    return { chartData: data, current: currentRates, previous: previousRates, projection: projectedCompleted, completionRows, onTimeRows, qualityRows };
   }, [tasks, tickets, period]);
-
-  const checklistBreakdown: [MetricBreakdownRow, MetricBreakdownRow] = [
-    { label: 'Checklists completed', count: checklistsCompleted, total: checklistSummary?.total ?? 0 },
-    { label: 'Items checked off', count: checklistDoneItems, total: checklistTotalItems },
-  ];
-
-  const BREAKDOWNS: Record<SummaryKey, { title: string; rows: [MetricBreakdownRow, MetricBreakdownRow] }> = {
-    completion: { title: 'Completion breakdown', rows: completionBreakdown },
-    onTime: { title: 'On-time breakdown', rows: onTimeBreakdown },
-    checklist: { title: 'Checklist breakdown', rows: checklistBreakdown },
-  };
-  const activeBreakdown = selected ? BREAKDOWNS[selected] : null;
 
   const hasData = chartData.some((d) => d.completion != null || d.onTime != null);
 
@@ -345,8 +389,7 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
           dotClassName="bg-primary-500"
           count={current.completedCount}
           total={current.total}
-          isSelected={selected === 'completion'}
-          onToggle={() => setSelected((prev) => (prev === 'completion' ? null : 'completion'))}
+          onClick={() => setDrilldown({ title: `Completed this ${period}`, icon: CheckCircle2, rows: completionRows })}
         />
         <SummaryChip
           label="On-time"
@@ -355,10 +398,17 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
           dotClassName="bg-info"
           count={current.onTimeCount}
           total={current.total}
-          isSelected={selected === 'onTime'}
-          onToggle={() => setSelected((prev) => (prev === 'onTime' ? null : 'onTime'))}
+          onClick={() => setDrilldown({ title: `On-time this ${period}`, icon: Clock, rows: onTimeRows })}
         />
-        <SoonChip label="Quality Rate" />
+        <SummaryChip
+          label="Quality Rate"
+          value={current.quality}
+          previous={previous.quality}
+          dotClassName="bg-warning"
+          count={current.qualityCount}
+          total={current.completedCount}
+          onClick={() => setDrilldown({ title: `Quality-verified this ${period}`, icon: ShieldCheck, rows: qualityRows })}
+        />
         <SummaryChip
           label="Checklist"
           value={checklistCompliance}
@@ -366,26 +416,25 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
           dotClassName="bg-success"
           count={checklistDoneItems}
           total={checklistTotalItems}
-          isSelected={selected === 'checklist'}
-          onToggle={() => setSelected((prev) => (prev === 'checklist' ? null : 'checklist'))}
+          onClick={() => setDrilldown({
+            title: 'Completed checklists',
+            icon: ListChecks,
+            rows: byNewest(completedChecklists.map(checklistRow)),
+            viewAllHref: '/checklists?status=completed',
+            viewAllLabel: 'View all in Checklist',
+          })}
         />
       </div>
 
-      {/* Tap-to-pin breakdown — same interaction language as the bar chart and compliance gauges
-          above it on this page, so every clickable box on the Dashboard behaves the same way. */}
-      {activeBreakdown ? (
-        <PinnedBreakdown title={activeBreakdown.title} onClose={() => setSelected(null)}>
-          <BreakdownRatioRows rows={activeBreakdown.rows} />
-        </PinnedBreakdown>
-      ) : (
-        <BreakdownHint>Tap a box above to see its breakdown</BreakdownHint>
-      )}
-
+      {/* Trend line collapsed by default below `sm` — the four chips above already carry the
+          actionable numbers (each opens its own drilldown), so the line chart itself is the one
+          part of this card worth tucking behind a tap on a phone rather than opening by default. */}
+      <MobileCollapsible label="trend chart">
       {/* The two series' colours had no key anywhere. The chips above look like one — they carry
           matching dots — but the third chip (Checklist, green) isn't plotted at all, so reading
           them as a legend actively misleads. An explicit two-item key next to the chart is the
           only thing that says which line is which. */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 mt-3 sm:mt-0">
         {[
           { label: 'Completion', className: 'bg-primary-500' },
           { label: 'On-time', className: 'bg-info' },
@@ -510,6 +559,7 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
           </Button>
         </div>
       )}
+      </MobileCollapsible>
 
       {projection != null && (
         <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-primary-500/5 border border-primary-500/10 text-xs font-display font-medium text-text-secondary">
@@ -518,6 +568,21 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
             At this pace, you're on track for <span className="font-bold text-text">~{projection}</span> completed by {PERIOD_END_LABEL[period]}.
           </span>
         </div>
+      )}
+
+      {/* Same "tap a stat, see the exact records" modal as the KPI strip and Team's progress card
+          above it on this page — one interaction language for every stat on the Dashboard instead
+          of this card being the one that only ever showed a pair of aggregate counts. */}
+      {drilldown && (
+        <DrilldownModal
+          open
+          onClose={() => setDrilldown(null)}
+          title={drilldown.title}
+          icon={drilldown.icon}
+          rows={drilldown.rows}
+          viewAllHref={drilldown.viewAllHref}
+          viewAllLabel={drilldown.viewAllLabel}
+        />
       )}
     </section>
   );

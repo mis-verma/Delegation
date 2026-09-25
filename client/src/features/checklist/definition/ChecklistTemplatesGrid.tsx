@@ -100,13 +100,18 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
           wasn't wired to anything here. Same controlled Tabs primitive as EntityStatusFilter, not a
           hand-rolled control. */}
       <Tabs value={recurrence} onValueChange={(v) => setRecurrence(v as ChecklistRecurrence | 'all')}>
-        <TabsList className="w-fit">
-          {RECURRENCE_TABS.map((r) => (
-            <TabsTrigger key={r} value={r} className="font-display font-semibold">
-              {r === 'all' ? 'All' : RECURRENCE_LABEL[r]}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        {/* Scrolls horizontally instead of clipping on phone-width screens — seven tabs (All
+            through One-time) don't fit in one row below ~500px, same fix/reasoning as
+            OrgOverview's own section TabsList. */}
+        <div className="overflow-x-auto no-scrollbar">
+          <TabsList className="w-fit">
+            {RECURRENCE_TABS.map((r) => (
+              <TabsTrigger key={r} value={r} className="font-display font-semibold">
+                {r === 'all' ? 'All' : RECURRENCE_LABEL[r]}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
       </Tabs>
 
       {/* Loading Skeleton */}

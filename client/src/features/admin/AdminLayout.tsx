@@ -105,8 +105,13 @@ export const AdminLayout = () => {
   // PC user's sidebar doesn't offer a link that just bounces them straight back out to Directory.
   const nav = user?.role === 'ADMIN' ? NAV : NAV.filter((item) => item.to !== '/admin');
 
+  // Two different breakpoints, two different jobs — see the resize effect below for the full
+  // reasoning (same split as the main app's Dashboard.tsx shell). `isMobileViewport` stays at
+  // 768px (`md`, same as every other `md:` class in this shell); the rail's own default expanded
+  // state now keys off 1024px (`lg`) instead, so a tablet in the 768-1023px gap gets the collapsed
+  // icon rail (still one tap to expand) rather than the same ~260px rail a desktop gets.
   const [sidebarOpen, setSidebarOpen] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches
+    () => typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches
   );
   // `sidebarOpen` means two different things depending on viewport (see the comment on the resize
   // effect below) — this tracks which one so the mobile-drawer-only accessibility behavior further
@@ -134,17 +139,21 @@ export const AdminLayout = () => {
   };
 
   // `sidebarOpen` doubles as "desktop expanded/collapsed" and "mobile drawer open/closed" — it's
-  // only seeded from viewport width once, above, so resizing across the 768px breakpoint without
-  // a reload (e.g. desktop -> mobile) would otherwise leave a stale value: the mobile drawer could
-  // render already open (with its backdrop) just because it was "open" as a desktop sidebar.
+  // only seeded from viewport width once, above, so resizing across a breakpoint without a reload
+  // (e.g. desktop -> mobile) would otherwise leave a stale value: the mobile drawer could render
+  // already open (with its backdrop) just because it was "open" as a desktop sidebar. Two separate
+  // queries now, matching the two separate breakpoints the initial state above uses.
   useEffect(() => {
-    const mq = window.matchMedia('(min-width: 768px)');
-    const handleChange = (e: MediaQueryListEvent) => {
-      setSidebarOpen(e.matches);
-      setIsMobileViewport(!e.matches);
+    const mobileMq = window.matchMedia('(min-width: 768px)');
+    const railMq = window.matchMedia('(min-width: 1024px)');
+    const handleMobileChange = (e: MediaQueryListEvent) => setIsMobileViewport(!e.matches);
+    const handleRailChange = (e: MediaQueryListEvent) => setSidebarOpen(e.matches);
+    mobileMq.addEventListener('change', handleMobileChange);
+    railMq.addEventListener('change', handleRailChange);
+    return () => {
+      mobileMq.removeEventListener('change', handleMobileChange);
+      railMq.removeEventListener('change', handleRailChange);
     };
-    mq.addEventListener('change', handleChange);
-    return () => mq.removeEventListener('change', handleChange);
   }, []);
 
   // Mobile-drawer-only: Escape closes it, opening moves focus into the drawer, and closing returns

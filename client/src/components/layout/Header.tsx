@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { NotificationBell } from '../../features/notifications/NotificationBell';
 import { Dropdown, type DropdownAction } from '../dropdown';
-import defaultLogo from '../../assets/logo.png';
+import { BrandLogo } from '../brandLogo';
 import { usePublicSettingsQuery } from '../../lib/maintenance';
 import { resolveLogoUrl } from '../../lib/uploadsBase';
 
@@ -65,7 +65,7 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
 
   const { data: publicSettings } = usePublicSettingsQuery();
   const orgName = publicSettings?.orgName ?? 'Karya';
-  const logoSrc = resolveLogoUrl(publicSettings?.logoUrl) ?? defaultLogo;
+  const customLogoSrc = resolveLogoUrl(publicSettings?.logoUrl);
 
   const initials = (user?.name ?? 'U')
     .split(' ')
@@ -96,12 +96,22 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
 
   return (
     <header
-      className="sticky top-0 z-50 w-full bg-surface/80 dark:bg-background/80 backdrop-blur-md transition-colors border-b border-border dark:border-border/50"
+      // `sticky` alone already gives the gradient accent line below a containing block to
+      // position against, same as `relative` would — no need for both (and no risk of the two
+      // position utilities racing each other in the compiled stylesheet).
+      className="sticky top-0 z-50 w-full bg-surface/80 dark:bg-background/80 backdrop-blur-md transition-colors shadow-[0_1px_24px_-6px_rgba(15,34,64,0.18)] dark:shadow-[0_1px_24px_-4px_rgba(0,0,0,0.55)]"
       style={{
         backdropFilter: 'var(--glass-blur, blur(12px))',
         WebkitBackdropFilter: 'var(--glass-blur, blur(12px))'
       }}
     >
+      {/* Signature accent line instead of a flat border — the same navy-to-gold pairing as the
+          brand mark, so the one persistent element on every screen carries the brand's own colors
+          rather than a neutral gray rule. */}
+      <span
+        aria-hidden="true"
+        className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-primary-600/0 via-primary-500 to-coral-500 dark:from-primary-400/0 dark:via-primary-400 dark:to-coral-400"
+      />
       {/* No max-width cap here on purpose — a top bar spans the full width of its own container
           (viewport minus the sidebar), same as any nav bar. The page CONTENT below still caps at
           --container-width for readability on an ultra-wide monitor; the header isn't reading
@@ -123,17 +133,22 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
               </button>
             )}
 
-            {/* Framed mark — a quiet navy/gold-tinted tile instead of the logo floating bare, same
-                "beautify with theme colors" a stat card's icon tile already gets, just at a
-                fraction of the size. Gives the mark some weight of its own without boxing it in a
-                hard card. */}
             <NavLink
               to="/"
               className="group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 rounded-xl shrink-0"
             >
-              <span className="flex items-center justify-center size-11 rounded-xl bg-gradient-to-br from-primary-50 to-coral-500/10 dark:from-primary-500/15 dark:to-coral-500/10 border border-primary-100 dark:border-primary-500/30 transition-transform duration-300 group-hover:scale-105">
-                <img src={logoSrc} alt={orgName} className="h-6 w-auto object-contain" />
-              </span>
+              {customLogoSrc ? (
+                // An org's own uploaded logo has no guaranteed visual weight of its own (unlike
+                // BrandLogo's self-contained tile below), so it still gets the same quiet
+                // navy/gold-tinted frame the default mark used to lean on.
+                <span className="flex items-center justify-center size-11 rounded-xl bg-gradient-to-br from-primary-50 to-coral-500/10 dark:from-primary-500/15 dark:to-coral-500/10 border border-primary-100 dark:border-primary-500/30 transition-transform duration-300 group-hover:scale-105">
+                  <img src={customLogoSrc} alt={orgName} className="h-6 w-auto object-contain" />
+                </span>
+              ) : (
+                <span className="inline-flex rounded-xl transition-all duration-300 group-hover:scale-105 group-hover:shadow-[0_0_0_6px_rgba(66,106,159,0.16)] dark:group-hover:shadow-[0_0_0_6px_rgba(97,138,189,0.22)]">
+                  <BrandLogo className="size-11" showWordmark={false} />
+                </span>
+              )}
             </NavLink>
 
             {pageLabel && (
@@ -164,6 +179,13 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
                 clock; hidden below `lg` so it doesn't compete with the page-label pill on narrower
                 screens. */}
             <div className="hidden lg:inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-hover border border-border text-xs font-medium text-text-secondary shrink-0">
+              {/* A live-clock pill telling the time is itself the "this is ticking right now"
+                  signal — a small pulsing dot makes that legible at a glance instead of only on
+                  close reading, the same "live" cue a status/monitoring dashboard would use. */}
+              <span className="relative flex size-1.5 shrink-0" aria-hidden="true">
+                <span className="absolute inline-flex h-full w-full rounded-full bg-success/60 animate-ping" />
+                <span className="relative inline-flex size-1.5 rounded-full bg-success" />
+              </span>
               <CalendarDays size={13} className="text-primary-600 dark:text-primary-400 shrink-0" strokeWidth={2.25} />
               <span className="whitespace-nowrap">{currentDate}</span>
               <span className="size-1 rounded-full bg-border shrink-0" aria-hidden="true" />

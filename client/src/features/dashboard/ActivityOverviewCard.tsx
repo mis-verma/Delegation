@@ -4,6 +4,7 @@ import { Skeleton } from '../../components/skeleton';
 import { ActivityTrendChart, ACTIVITY_CHART_HEIGHT } from './ActivityTrendChart';
 import { ActivityGroupByControl } from './ActivityGroupByControl';
 import { ActivityCategoryFilter } from './ActivityCategoryFilter';
+import { MobileCollapsible } from './MobileCollapsible';
 import { ACTIVITY_GROUP_RANGE_LABEL, DASHBOARD_CARD_CLASS, type ActivityGroupBy, type ActivityCategory, type ActivityWorkItem } from './dashboardDisplay';
 
 interface ActivityOverviewCardProps {
@@ -48,29 +49,33 @@ export const ActivityOverviewCard = ({
       <ActivityGroupByControl value={activityGroupBy} onChange={onGroupByChange} />
     </div>
 
-    {/* Also scopes the Compliance card's gauges — toggling a category here narrows both, not
-        independently. */}
-    <div className="relative">
-      <ActivityCategoryFilter active={activeCategories} onToggle={onToggleCategory} />
-    </div>
+    {/* Below `sm`, the filter chips + chart start collapsed — a phone doesn't need every card's
+        full chart open at once (see MobileCollapsible's own comment); `sm:` and up is unchanged. */}
+    <MobileCollapsible label="chart & filters">
+      {/* Also scopes the Compliance card's gauges — toggling a category here narrows both, not
+          independently. */}
+      <div className="relative mt-3 sm:mt-0">
+        <ActivityCategoryFilter active={activeCategories} onToggle={onToggleCategory} />
+      </div>
 
-    {isPending ? (
-      <div className="mt-4 flex flex-col justify-end gap-3" style={{ height: ACTIVITY_CHART_HEIGHT }} role="status" aria-label="Loading activity overview">
-        <div className="flex items-end justify-between gap-2 sm:gap-4 h-[190px] px-1">
-          {[55, 80, 40, 95, 60, 75, 45].map((h, i) => (
-            <Skeleton key={i} className="flex-1 max-w-11 rounded-t-md rounded-b-none" style={{ height: `${h}%` }} />
-          ))}
+      {isPending ? (
+        <div className="mt-4 flex flex-col justify-end gap-3" style={{ height: ACTIVITY_CHART_HEIGHT }} role="status" aria-label="Loading activity overview">
+          <div className="flex items-end justify-between gap-2 sm:gap-4 h-[190px] px-1">
+            {[55, 80, 40, 95, 60, 75, 45].map((h, i) => (
+              <Skeleton key={i} className="flex-1 max-w-11 rounded-t-md rounded-b-none" style={{ height: `${h}%` }} />
+            ))}
+          </div>
+          <div className="flex items-center justify-between px-1">
+            {Array.from({ length: 7 }).map((_, i) => (
+              <Skeleton key={i} className="h-2.5 w-6 rounded" />
+            ))}
+          </div>
         </div>
-        <div className="flex items-center justify-between px-1">
-          {Array.from({ length: 7 }).map((_, i) => (
-            <Skeleton key={i} className="h-2.5 w-6 rounded" />
-          ))}
+      ) : (
+        <div className="relative mt-4">
+          <ActivityTrendChart items={activityItems} activeCategories={activeCategories} groupBy={activityGroupBy} />
         </div>
-      </div>
-    ) : (
-      <div className="relative mt-4">
-        <ActivityTrendChart items={activityItems} activeCategories={activeCategories} groupBy={activityGroupBy} />
-      </div>
-    )}
+      )}
+    </MobileCollapsible>
   </section>
 );

@@ -38,7 +38,13 @@ export const paginatioinSchema = z.object({
     // Backs the on-time/overdue stat-card drill-downs on OrgOverview (AnalyticsSummaryStrip) —
     // the exact tickets behind a real ownerStats() count, not a client-side filter over whatever
     // page happened to already be loaded.
-    overdue : z.coerce.boolean().optional(),
+    // z.coerce.boolean() is a footgun for a query STRING specifically: it coerces via JS's
+    // Boolean(value), and Boolean("false") is true (any non-empty string is truthy) — so
+    // `?overdue=false` silently coerced to `true`, making every "on-time" (overdue=false)
+    // drilldown request the *overdue* tickets instead and come back empty. Map the two real
+    // string values explicitly instead; anything else still falls through to z.boolean()'s own
+    // validation.
+    overdue : z.preprocess((v) => (v === "true" ? true : v === "false" ? false : v), z.boolean()).optional(),
     from : z.string().datetime().optional(),
     to : z.string().datetime().optional(),
     // The "On-time completion" drilldown scopes its from/to by closedAt instead of createdAt, to

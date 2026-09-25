@@ -19,14 +19,18 @@ export const SettingsLayout = () => {
         </div>
       </div>
 
-      <nav className="flex items-center gap-1 border-b border-border">
+      {/* overflow-x-auto + no-scrollbar (not flex-wrap) — on a narrow phone these three tabs ran
+          past the viewport with no way to reach the last one at all (no scroll, no wrap, nothing
+          clipped-but-reachable). A horizontal scroll strip keeps every tab reachable regardless of
+          label count/length, same pattern FiltersPopover's own chip row already uses. */}
+      <nav className="flex items-center gap-1 border-b border-border overflow-x-auto no-scrollbar">
         {NAV.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
             to={to}
             className={({ isActive }) =>
               [
-                'flex items-center gap-2 px-3.5 py-2.5 text-sm font-display font-medium border-b-2 -mb-px transition-colors',
+                'flex items-center gap-2 px-3.5 py-2.5 text-sm font-display font-medium border-b-2 -mb-px transition-colors shrink-0 whitespace-nowrap',
                 isActive
                   ? 'border-primary-500 text-primary-600 dark:text-primary-300'
                   : 'border-transparent text-text-secondary hover:text-text hover:border-border-hover',

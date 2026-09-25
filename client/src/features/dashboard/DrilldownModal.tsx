@@ -59,7 +59,7 @@ export const DrilldownList = ({ rows, cappedNote, isLoading = false, viewAllHref
 
   if (rows.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-3 py-8 text-center">
+      <div className="flex flex-col items-center gap-3 py-5 text-center">
         <div className="flex items-center justify-center size-11 rounded-full bg-surface-hover border border-border/50">
           <Inbox size={18} className="text-text-light" />
         </div>
@@ -78,7 +78,7 @@ export const DrilldownList = ({ rows, cappedNote, isLoading = false, viewAllHref
               key={row.id}
               type="button"
               onClick={() => onSelect(row.link)}
-              className="group flex items-center gap-3 rounded-xl border border-border/60 dark:border-white/[0.06] bg-surface px-3.5 py-3 text-left transition-colors duration-200 hover:border-primary-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 cursor-pointer"
+              className="group flex items-center gap-3 rounded-xl border border-border/60 dark:border-white/[0.06] bg-surface px-3 py-2.5 text-left transition-colors duration-200 hover:border-primary-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 cursor-pointer"
             >
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-display font-semibold text-text truncate">{row.title}</p>
@@ -175,7 +175,14 @@ export const DrilldownModal = ({
         )
       }
       size="md"
-      bodyClassName="gap-3"
+      // Tighter than Modal's own default px-5/py-4 (20px/16px) — a plain list of rows doesn't
+      // need as much breathing room as a form does, and the rows below already carry their own
+      // padding, so the modal's own on top of that was compounding into a lot of dead space
+      // around a short list. Scoped to just this modal, not the shared Modal default every form
+      // dialog in the app still uses.
+      headerClassName="px-4 py-3"
+      bodyClassName="gap-3 px-4 py-3"
+      footerClassName="px-4 py-3"
       footer={viewAllHref && <DrilldownViewAllButton href={viewAllHref} label={viewAllLabel} onSelect={go} />}
       // The one modal every KPI card, chart bucket, and gauge on the dashboard opens through — it
       // sits on top of the exact number it's explaining, so being able to drag it a little aside

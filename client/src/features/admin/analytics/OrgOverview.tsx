@@ -181,13 +181,13 @@ export const OrgOverview = () => {
               </div>
 
               <TabsContent value="checklists" className="pt-6">
-                <TaskChecklistKpiSection groupBy={groupBy} from={from} to={to} />
+                <TaskChecklistKpiSection groupBy={groupBy} from={from} to={to} isOrgWideRole={canSeeStoresTab(user?.role)} />
               </TabsContent>
               <TabsContent value="audits" className="pt-6">
-                <ChecklistInstanceKpiSection groupBy={groupBy} from={from} to={to} />
+                <ChecklistInstanceKpiSection groupBy={groupBy} from={from} to={to} isOrgWideRole={canSeeStoresTab(user?.role)} />
               </TabsContent>
               <TabsContent value="issues" className="pt-6">
-                <TicketKpiSection groupBy={groupBy} from={from} to={to} />
+                <TicketKpiSection groupBy={groupBy} from={from} to={to} isOrgWideRole={canSeeStoresTab(user?.role)} />
               </TabsContent>
               {canSeeStoresTab(user?.role) && (
                 <TabsContent value="stores" className="pt-6">
