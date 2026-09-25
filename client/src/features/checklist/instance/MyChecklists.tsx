@@ -280,7 +280,10 @@ export const MyChecklists = () => {
           </span>
         )}
 
-        <div className="flex items-center gap-2.5 flex-wrap shrink-0 ml-auto">
+          {/* `sm:ml-auto`, not a bare `ml-auto` — same fix as Tickets/Tasks: the auto-margin was
+              shifting this Store+Options cluster off the left edge on mobile for no benefit,
+              since there's no primary action to balance against on this page. */}
+        <div className="flex items-center gap-2.5 flex-wrap shrink-0 sm:ml-auto">
           {storeOptions.length > 1 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

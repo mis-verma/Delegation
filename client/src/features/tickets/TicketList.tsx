@@ -149,7 +149,11 @@ export const TicketList = () => {
 
           <TicketActiveTags organizer={organizer} allTickets={allTicketsData ?? []} />
 
-          <div className="flex items-center gap-2.5 flex-wrap shrink-0 ml-auto">
+          {/* `sm:ml-auto`, not a bare `ml-auto` — on mobile the Create button below is hidden and
+              only Options is left, so an unconditional auto-margin pushed a single pill hard right
+              and left a ~220px dead gap in front of it. Desktop still gets the intentional
+              controls-left / actions-right split. */}
+          <div className="flex items-center gap-2.5 flex-wrap shrink-0 sm:ml-auto">
             <div className="hidden md:block">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

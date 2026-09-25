@@ -1,6 +1,6 @@
 import { useMemo, useState, lazy, Suspense } from 'react';
-import { Trash2, Pencil, CalendarClock, Clock3, Loader2, AlertCircle } from 'lucide-react';
-import { Button, Skeleton, GradientIconTile, IconChip, QuickFilterStats, EmptyState } from '../../components';
+import { Trash2, Pencil, CalendarClock, Clock3, Loader2, AlertCircle, Plus } from 'lucide-react';
+import { Button, Fab, Skeleton, GradientIconTile, IconChip, QuickFilterStats, EmptyState } from '../../components';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/context/AuthContext';
 import { useEventsQuery, useDeleteEventMutation } from './hook';
@@ -179,10 +179,11 @@ export const EventList = () => {
         isLoading={isPending}
       />
 
-      {/* Moved below the stat row, same "toolbar row right after the stats" placement Tickets'
-          own Create button uses — plain text, no leading icon. */}
+      {/* Desktop: inline button in its own toolbar row, right-aligned. Mobile: that row was just
+          this one pill floating alone with the rest of the row empty, so it hides below `md` in
+          favor of the Fab below — same split every other list page (Tickets/Tasks/To-Do) uses. */}
       {canManage && (
-        <div className="flex items-center justify-end">
+        <div className="hidden md:flex items-center justify-end">
           <Button
             size="sm"
             variant="primary"
@@ -192,6 +193,10 @@ export const EventList = () => {
             New event
           </Button>
         </div>
+      )}
+
+      {canManage && (
+        <Fab actions={[{ key: 'create', label: 'New event', icon: Plus, onClick: () => setShowForm(true) }]} />
       )}
 
       {renderContent()}

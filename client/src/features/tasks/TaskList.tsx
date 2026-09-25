@@ -645,8 +645,11 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
 
         
           {/* Sort, Store and Department all live inside Options now, so the toolbar's right side
-              is just the primary actions. */}
-          <div className="flex items-center gap-2.5 flex-wrap shrink-0 ml-auto">
+              is just the primary actions. `sm:ml-auto`, not a bare `ml-auto` — the Create button
+              inside `headerActions` is `hidden md:block`, so on mobile this only ever holds
+              Options, and an unconditional auto-margin pushed that one pill hard right, leaving a
+              dead gap in front of it. */}
+          <div className="flex items-center gap-2.5 flex-wrap shrink-0 sm:ml-auto">
             {headerActions}
           </div>
         </div>
