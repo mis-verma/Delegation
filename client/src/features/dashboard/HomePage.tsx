@@ -16,6 +16,7 @@ import { SortableContext, rectSortingStrategy, sortableKeyboardCoordinates } fro
 import { QuickActionsGrid, type QuickAction } from '../admin/overview/QuickActionsGrid';
 import { Skeleton } from '../../components/skeleton';
 import { useAuth } from '../../context/AuthContext';
+import { useIsMobile } from '../../lib/useMediaQuery';
 import { useTicketsQuery } from '../tickets/hook';
 import { useTasksQuery } from '../tasks/hook';
 import { useUpcomingEventsQuery } from '../events/hook';
@@ -64,6 +65,7 @@ const USER_QUICK_ACTIONS: readonly QuickAction[] = [
 export const HomePage = () => {
   const { user } = useAuth();
   const isOrgWideRole = user?.role === 'ADMIN' || user?.role === 'PC';
+  const isMobile = useIsMobile();
 
   const {
     order: cardOrder,
@@ -292,6 +294,8 @@ export const HomePage = () => {
     }
   };
 
+  const visibleCardOrder = isMobile ? cardOrder.filter((id) => id !== 'quickActions') : cardOrder;
+
   return (
     // Sections breathe wider than the cards inside them (gap-6/8 out here vs. gap-4/6 within each
     // row) — the two were inverted before, which grouped a row's own siblings less tightly than
@@ -338,7 +342,13 @@ export const HomePage = () => {
       {/* Every card below the KPI strip — reorderable and independently sized once Customize is
           on. `cardOrder` already carries the org-wide/personal split that used to live here as
           three separately-gated grid blocks (Compliance and Compare Dashboard simply aren't in
-          the array for anyone who isn't ADMIN/PC), so one grid replaces what were three. */}
+          the array for anyone who isn't ADMIN/PC), so one grid replaces what were three.
+
+          `visibleCardOrder` additionally drops Quick actions on mobile — it's a grid of links to
+          pages already one tap away in the sidebar/bottom nav, and on a phone it pushed the
+          Activity Overview chart (the thing actually worth seeing at a glance) below the fold.
+          Desktop keeps it; `cardOrder` itself (what Customize/drag actually operates on and what
+          persists) is untouched, so this is purely what gets rendered on a narrow screen. */}
       <DndContext
         sensors={dragSensors}
         collisionDetection={closestCenter}
@@ -346,7 +356,7 @@ export const HomePage = () => {
         onDragEnd={handleDragEnd}
         onDragCancel={() => setActiveDragId(null)}
       >
-        <SortableContext items={cardOrder} strategy={rectSortingStrategy}>
+        <SortableContext items={visibleCardOrder} strategy={rectSortingStrategy}>
           {/* items-stretch (the grid default) — was items-start, which let two cards sharing a row
               end at different heights, leaving a ragged gap under whichever one had less content
               (Quick actions next to Activity Overview's chart, Upcoming Events next to Recent
@@ -354,7 +364,7 @@ export const HomePage = () => {
               so its border/background actually reaches the row's real height instead of just the
               grid cell doing so invisibly around it. */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 pb-8">
-            {cardOrder.map((id) => (
+            {visibleCardOrder.map((id) => (
               <DashboardCardFrame
                 key={id}
                 id={id}

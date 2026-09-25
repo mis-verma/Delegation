@@ -137,7 +137,10 @@ export const NeedsApprovalCard = () => {
                     <Icon size={15} strokeWidth={2.25} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-display font-semibold text-text truncate">{row.title}</p>
+                    {/* line-clamp-2, not truncate — this row's icon+chevron chrome left barely
+                        any width for the title on a phone, cutting "Damaged flooring near..."
+                        down to a fragment. Two lines still bounds each row's height. */}
+                    <p className="text-sm font-display font-semibold text-text line-clamp-2 leading-snug">{row.title}</p>
                     <p className="text-[11px] font-medium text-text-light mt-0.5 flex items-center gap-1.5">
                       {row.meta && (
                         <>
