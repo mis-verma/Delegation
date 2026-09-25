@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { ClipboardList, TicketCheck, ListChecks, ListTodo, type LucideIcon } from 'lucide-react';
 import { StatusBreakdownCard, type StatusBreakdownVariant } from './StatusBreakdownCard';
 import { DrilldownModal, type DrilldownRow } from './DrilldownModal';
+import { MobileCollapsible } from './MobileCollapsible';
 import { AdminChromeAccents } from '../admin/AdminChromeAccents';
 import { Skeleton } from '../../components/skeleton';
 import { useChecklistInstanceSummaryQuery, useMyChecklistInstancesQuery } from '../checklist/hook';
@@ -135,10 +136,17 @@ export const KpiStrip = ({ tickets, tasks, todos, isPending, workflowStats }: Kp
 
   if (isPending) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 md:gap-5">
-        {CARD_VARIANTS.map((variant, i) => (
-          <KpiCardSkeleton key={i} variant={variant} />
-        ))}
+      <div className="flex flex-col gap-3">
+        <div className="flex sm:hidden items-center gap-2 overflow-x-auto no-scrollbar -mx-4 px-4">
+          {CARD_VARIANTS.map((_, i) => (
+            <Skeleton key={i} className="h-11 w-28 rounded-full shrink-0" />
+          ))}
+        </div>
+        <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-3.5 md:gap-5">
+          {CARD_VARIANTS.map((variant, i) => (
+            <KpiCardSkeleton key={i} variant={variant} />
+          ))}
+        </div>
       </div>
     );
   }
@@ -186,7 +194,37 @@ export const KpiStrip = ({ tickets, tasks, todos, isPending, workflowStats }: Kp
     };
   };
 
+  // Mobile-only summary strip — same total each full card already reports, just the number
+  // someone actually wants at a glance without scrolling past four full Due/Completed/New-today
+  // cards first. Tapping one goes straight to that section, same destination as the full card's
+  // own `onOpen`; the full breakdown is still one tap away via the "Show breakdown" toggle below.
+  const chipSummary: { key: string; icon: LucideIcon; title: string; total: number; href: string }[] = [
+    { key: 'delegation', icon: ClipboardList, title: 'Delegation', total: workflowStats.assigned, href: '/tasks' },
+    { key: 'tickets', icon: TicketCheck, title: 'Tickets', total: tickets.length, href: '/tickets' },
+    { key: 'checklist', icon: ListChecks, title: 'Checklist', total: checklistSummary?.total ?? 0, href: '/checklists' },
+    { key: 'todo', icon: ListTodo, title: 'Todo', total: todos.length, href: '/todo' },
+  ];
+
   return (
+    <div className="flex flex-col gap-3">
+      <div className="flex sm:hidden items-center gap-2 overflow-x-auto no-scrollbar -mx-4 px-4">
+        {chipSummary.map((chip) => (
+          <button
+            key={chip.key}
+            type="button"
+            onClick={() => navigate(chip.href)}
+            className="shrink-0 flex items-center gap-2 h-11 pl-2.5 pr-3.5 rounded-full bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700 text-white cursor-pointer transition-transform active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
+            <span className="flex items-center justify-center size-6 rounded-full bg-white/15 shrink-0">
+              <chip.icon size={13} strokeWidth={2.5} />
+            </span>
+            <span className="tabular-nums font-bold text-sm">{chip.total}</span>
+            <span className="text-xs text-white/80 whitespace-nowrap">{chip.title}</span>
+          </button>
+        ))}
+      </div>
+
+      <MobileCollapsible label="breakdown">
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 md:gap-5">
 
       {/* Delegation Card */}
@@ -371,6 +409,8 @@ export const KpiStrip = ({ tickets, tasks, todos, isPending, workflowStats }: Kp
           },
         ]}
       />
+    </div>
+      </MobileCollapsible>
 
       {drilldown && (
         <DrilldownModal
@@ -384,7 +424,6 @@ export const KpiStrip = ({ tickets, tasks, todos, isPending, workflowStats }: Kp
           cappedNote={drilldown.cappedNote}
         />
       )}
-
     </div>
   );
 };
