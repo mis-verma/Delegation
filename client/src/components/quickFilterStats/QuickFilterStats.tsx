@@ -59,31 +59,39 @@ interface QuickFilterStatsProps<K extends string> {
   onClearFilter?: () => void;
 }
 
-/** Same grid, same tile boxes — so nothing reflows when the counts arrive. */
+/** Same grid, same tile boxes — so nothing reflows when the counts arrive. Desktop/tablet only;
+ * see QuickFilterStatsSkeleton's own comment for the mobile strip's matching placeholder. */
 const QuickFilterStatsSkeleton = ({ count, variant }: { count: number; variant: 'default' | 'navy' }) => (
-  <div className={gridClass(count)}>
-    {Array.from({ length: count }).map((_, i) => {
-      const isHero = variant === 'navy' && i === 0;
-      return (
-        <div
-          key={i}
-          className={cn(
-            'flex items-center justify-between gap-3 rounded-lg p-3.5 md:p-4',
-            i === 0 && leadSpanClass(count),
-            isHero
-              ? 'bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700'
-              : 'bg-surface border border-border',
-          )}
-        >
-          <div className="flex flex-col gap-1.5 min-w-0">
-            <Skeleton className={cn('h-7 w-12', isHero && 'bg-white/20')} />
-            <Skeleton className={cn('h-3.5 w-20', isHero && 'bg-white/20')} />
+  <>
+    <div className="flex sm:hidden items-center gap-2 overflow-x-auto no-scrollbar -mx-4 px-4">
+      {Array.from({ length: count }).map((_, i) => (
+        <Skeleton key={i} className="h-9 w-24 rounded-full shrink-0" />
+      ))}
+    </div>
+    <div className={cn(gridClass(count), 'hidden sm:grid')}>
+      {Array.from({ length: count }).map((_, i) => {
+        const isHero = variant === 'navy' && i === 0;
+        return (
+          <div
+            key={i}
+            className={cn(
+              'flex items-center justify-between gap-3 rounded-lg p-3.5 md:p-4',
+              i === 0 && leadSpanClass(count),
+              isHero
+                ? 'bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700'
+                : 'bg-surface border border-border',
+            )}
+          >
+            <div className="flex flex-col gap-1.5 min-w-0">
+              <Skeleton className={cn('h-7 w-12', isHero && 'bg-white/20')} />
+              <Skeleton className={cn('h-3.5 w-20', isHero && 'bg-white/20')} />
+            </div>
+            <Skeleton className={cn('size-10 rounded-xl shrink-0', isHero && 'bg-white/20')} />
           </div>
-          <Skeleton className={cn('size-10 rounded-xl shrink-0', isHero && 'bg-white/20')} />
-        </div>
-      );
-    })}
-  </div>
+        );
+      })}
+    </div>
+  </>
 );
 
 // The row was a fixed 4-up. Delegation now leads with a "Total" tile, so the column count follows
@@ -121,7 +129,49 @@ export function QuickFilterStats<K extends string>({
   if (isLoading) return <QuickFilterStatsSkeleton count={shownTiles.length} variant={variant} />;
 
   return (
-    <div className={gridClass(shownTiles.length)}>
+    <>
+      {/* Combined mobile strip — below `sm` this row replaces the full card grid below it, not
+          just a smaller version of it. Four-plus full cards (each with its own icon tile, label,
+          and count) ran two-plus rows deep before a phone ever reached the actual list, so this
+          collapses every tile into one line of small pill chips instead — same filter behavior,
+          same colors, a fraction of the height. Desktop/tablet keep the full card grid untouched. */}
+      <div className="flex sm:hidden items-center gap-2 overflow-x-auto no-scrollbar -mx-4 px-4">
+        {shownTiles.map((tile, index) => {
+          const { key, label, bgTint, accentBorder } = tile;
+          const isTotalTile = hasTotal && key === 'all';
+          const isActive = isTotalTile ? active === null : active === key;
+          const count = isTotalTile ? total : counts[key as K];
+          const handleClick = () => (isTotalTile ? onClearFilter?.() : onToggle(key as K));
+          const isHero = variant === 'navy' && index === 0;
+          const purpose = key === 'all'
+            ? `Show all ${itemLabel}`
+            : isActive ? `Clear "${label}" filter` : `Show only ${label.toLowerCase()} ${itemLabel}`;
+
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={handleClick}
+              aria-pressed={isActive}
+              aria-label={purpose}
+              className={cn(
+                'shrink-0 flex items-center gap-1.5 h-9 pl-3 pr-3.5 rounded-full border text-xs font-display font-semibold whitespace-nowrap transition-colors duration-200 cursor-pointer',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
+                isHero
+                  ? 'border-transparent bg-primary-800 text-white'
+                  : isActive
+                    ? `${accentBorder} ${bgTint} text-text`
+                    : 'border-border text-text-secondary hover:border-border-hover hover:text-text',
+              )}
+            >
+              <span className={cn('tabular-nums font-bold', isHero && 'text-white')}>{count}</span>
+              <span className={cn(isHero ? 'text-white/80' : isActive ? 'text-text' : 'text-text-muted')}>{label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className={cn(gridClass(shownTiles.length), 'hidden sm:grid')}>
       {shownTiles.map((tile, index) => {
         const { key, label, icon: Icon, bgTint, accentBar, accentBorder, ring, iconTint } = tile;
         const isTotalTile = hasTotal && key === 'all';
@@ -244,6 +294,7 @@ export function QuickFilterStats<K extends string>({
           </button>
         );
       })}
-    </div>
+      </div>
+    </>
   );
 }

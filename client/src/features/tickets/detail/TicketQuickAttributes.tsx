@@ -31,8 +31,12 @@ export const TicketQuickAttributes = ({
   );
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 font-sans">
-      
+    // Two-up at every size, not just `sm:` — Status/Priority/Assignee/SLA are each a short label
+    // plus a compact chip, and stacking all four one-per-row on a phone meant scrolling past this
+    // whole block before reaching the description. Halving it to a 2x2 grid fits comfortably even
+    // at 375px, same as the attribute cards' own compact padding already assumes.
+    <div className="grid grid-cols-2 gap-1 font-sans">
+
       <TicketAttributeCard icon={Tag} label="Status">
         <StatusChip status={statusChipStatus} label={statusLabel}>
           <Lock size={12} className="opacity-60" strokeWidth={2.5} />

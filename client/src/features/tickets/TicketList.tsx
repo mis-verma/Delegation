@@ -26,8 +26,8 @@ import type { Ticket } from '../../api/ticket';
 const VIEW_TABS: ViewTab<TicketView>[] = [
   { key: 'list', label: 'List', icon: LayoutList },
   { key: 'board', label: 'Board', icon: Kanban },
-  { key: 'table', label: 'Table', icon: Table2 },
-  { key: 'timeline', label: 'Timeline', icon: GanttChartSquare },
+  { key: 'table', label: 'Table', icon: Table2, mobileHidden: true },
+  { key: 'timeline', label: 'Timeline', icon: GanttChartSquare, mobileHidden: true },
 ];
 
 export const TicketList = () => {

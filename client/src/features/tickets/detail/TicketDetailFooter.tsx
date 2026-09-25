@@ -39,7 +39,12 @@ export const TicketDetailFooter = ({
     <SheetFooter className="px-6 py-4 border-t border-border bg-surface/50 backdrop-blur-xl flex-col sm:flex-col items-stretch gap-2 pb-safe font-sans shadow-[0_-10px_30px_rgba(0,0,0,0.02)]">
       <div className="w-full flex items-center justify-between gap-3 flex-wrap">
         {isAdmin && (
-          <Button variant="danger" size="sm" onClick={onDelete} isLoading={isDeleting}>
+          // Ghost, not the solid `danger` fill — this sat at equal visual weight to the status
+          // button on the other end of the same bar, so a thumb reaching for "change status" and
+          // a thumb reaching for "delete this ticket forever" looked like two equally-weighted
+          // choices. A destructive, rarely-used action should read quieter than the primary one,
+          // not the same size and just a different color.
+          <Button variant="ghost" size="sm" className="text-danger hover:bg-danger/10 hover:text-danger" onClick={onDelete} isLoading={isDeleting}>
             <Trash2 size={16} strokeWidth={2.5} />
             Delete Ticket
           </Button>

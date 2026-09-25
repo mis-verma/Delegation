@@ -221,10 +221,35 @@ export const CalendarPage = () => {
         </div>
       )}
 
-      {/* Single column on phones — same fix as OrgSnapshotStrip: at 2-up, a long label
-          ("September 2026", "Overdue") has no room to wrap at a word boundary and breaks
-          mid-word. Two-up only once there's width for it (sm), four-up on desktop. */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+      {/* Combined mobile strip — same fix as QuickFilterStats' own mobile row: four full
+          StatCards stacked one-per-line (see the grid below) meant a phone scrolled past this
+          whole block before ever reaching the calendar grid it's summarizing. One line of small
+          pill chips carries the same four numbers in a fraction of the height. Desktop/tablet
+          keep the full StatCard grid untouched. */}
+      <div className="flex sm:hidden items-center gap-2 overflow-x-auto no-scrollbar -mx-4 px-4">
+        <div className="shrink-0 flex items-center gap-1.5 h-9 pl-2.5 pr-3.5 rounded-full bg-primary-800 text-white">
+          <CalendarIcon size={13} strokeWidth={2.5} />
+          <span className="tabular-nums font-bold text-xs">{isPending ? '—' : stats.inMonth}</span>
+          <span className="text-xs text-white/80">This month</span>
+        </div>
+        <div className="shrink-0 flex items-center gap-1.5 h-9 pl-2.5 pr-3.5 rounded-full border border-danger/25 bg-danger/10 text-danger">
+          <AlertTriangle size={13} strokeWidth={2.5} />
+          <span className="tabular-nums font-bold text-xs">{isPending ? '—' : stats.overdueInMonth}</span>
+          <span className="text-xs">Overdue</span>
+        </div>
+        <div className="shrink-0 flex items-center gap-1.5 h-9 pl-2.5 pr-3.5 rounded-full border border-coral-500/25 bg-coral-50 dark:bg-coral-500/10 text-coral-600 dark:text-coral-400">
+          <CalendarClock size={13} strokeWidth={2.5} />
+          <span className="tabular-nums font-bold text-xs">{isPending ? '—' : stats.dueToday}</span>
+          <span className="text-xs">Due today</span>
+        </div>
+        <div className="shrink-0 flex items-center gap-1.5 h-9 pl-2.5 pr-3.5 rounded-full border border-primary-500/25 bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400">
+          <CalendarDays size={13} strokeWidth={2.5} />
+          <span className="tabular-nums font-bold text-xs">{isPending ? '—' : stats.dueThisWeek}</span>
+          <span className="text-xs">Due this week</span>
+        </div>
+      </div>
+
+      <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         <StatCard
           icon={CalendarIcon}
           label="This month"

@@ -38,6 +38,9 @@ const VIEW_TABS: ViewTab<TaskViewKey>[] = TASK_VIEWS.map((key) => ({
   key,
   label: TASK_VIEW_LABEL[key],
   icon: TASK_VIEW_ICON[key],
+  // Table/Timeline are dense, many-column layouts that need real width — hidden below `sm`,
+  // same as Tickets' own view toggle. Board and List stay available at every size.
+  mobileHidden: key === 'table' || key === 'timeline',
 }));
 
 interface TaskListProps {

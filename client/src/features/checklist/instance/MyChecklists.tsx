@@ -19,7 +19,7 @@ type View = 'list' | 'board' | 'table';
 const VIEW_TABS: ViewTab<View>[] = [
   { key: 'list', label: 'List', icon: LayoutList },
   { key: 'board', label: 'Board', icon: Kanban },
-  { key: 'table', label: 'Table', icon: Table2 },
+  { key: 'table', label: 'Table', icon: Table2, mobileHidden: true },
 ];
 
 // Same "Options" dialog shell Delegation and Tickets both use, plus a permanent Store scope box —
