@@ -2,6 +2,7 @@ import cluster from "node:cluster";
 import os from "node:os";
 import http from "node:http";
 import type { Server } from "node:http";
+import { setupMaster, setupWorker } from "@socket.io/sticky";
 import App from "./src/app.js";
 import { connectDB, disconnectDB } from "./src/config/db.js";
 import { env } from "./src/config/env.js";
@@ -36,7 +37,7 @@ class ServerBootstrap {
     this.appInstance = new App(rateLimitStoreFactory);
 
     this.httpServer = http.createServer(this.appInstance.app);
-    await initSocket(this.httpServer, workerCount > 1);
+    const io = await initSocket(this.httpServer, workerCount > 1);
 
     const isCronOwner = !cluster.isWorker || cluster.worker?.id === 1;
     if (isCronOwner) {
@@ -51,10 +52,16 @@ class ServerBootstrap {
       startPendingConversationRetention();
     }
 
-    this.httpServer.listen(env.PORT, () => {
-      const label = cluster.isWorker ? `worker ${cluster.worker?.id}` : "single process";
-      console.log(`Server listening on http://localhost:${env.PORT} (${label})`);
-    });
+    if (cluster.isWorker) {
+      // The primary owns PORT and sticky-routes each connection to a worker over IPC (see
+      // forkWorkerPool) — this process must not bind PORT itself, only accept what's forwarded.
+      setupWorker(io);
+      console.log(`Server ready (worker ${cluster.worker?.id})`);
+    } else {
+      this.httpServer.listen(env.PORT, () => {
+        console.log(`Server listening on http://localhost:${env.PORT} (single process)`);
+      });
+    }
 
     process.on("SIGINT", () => this.shutdown());
     process.on("SIGTERM", () => this.shutdown());
@@ -88,6 +95,22 @@ const bootstrap = () => {
 
 const forkWorkerPool = (workerCount: number) => {
   console.log(`Primary ${process.pid} forking ${workerCount} workers...`);
+
+  // Socket.io's polling transport needs every request from one client to land on the same
+  // worker — Node's cluster module round-robins raw connections across workers with no such
+  // affinity, which is what produced "Session ID unknown" 400s in the browser once this ran
+  // with more than one worker. The Redis adapter (see socket.ts) only fans *events* out across
+  // workers; it doesn't make polling sticky. @socket.io/sticky fixes the actual routing: the
+  // primary itself binds PORT, reads each connection's `sid` off the wire, and forwards it over
+  // IPC to the worker that already owns that session (falling back to least-connection for a
+  // brand-new session) — nginx and CloudPanel are untouched, they still just proxy to PORT.
+  const httpServer = http.createServer();
+  setupMaster(httpServer, { loadBalancingMethod: "least-connection" });
+  cluster.setupPrimary({ serialization: "advanced" });
+  httpServer.listen(env.PORT, () => {
+    console.log(`Sticky primary listening on http://localhost:${env.PORT}`);
+  });
+
   for (let i = 0; i < workerCount; i++) cluster.fork();
 
   cluster.on("exit", (worker, code, signal) => {
