@@ -104,15 +104,40 @@ export const TodoList = ({
             ) : (
               <span className="text-[11px] font-display font-medium text-text-light">No due date</span>
             )}
+
+            {/* Mobile-only copy of the actions below, living in this wrapping chip row instead of
+                its own fixed-width lane on the far right — on touch these two 44px buttons are
+                always visible (see the desktop copy's own comment), and reserving their width
+                alongside the checkbox left almost nothing for the title, which is why a 31-
+                character to-do was clamping down to "Pick up...". Wrapping here lets the title use
+                the row's full width and pushes these onto their own line only when needed. */}
+            <div className="sm:hidden flex items-center gap-0.5 ml-auto shrink-0">
+              <button
+                type="button"
+                onClick={() => setEditing(todo)}
+                aria-label={`Edit "${todo.text}"`}
+                className="flex items-center justify-center size-9 rounded-lg text-text-light hover:text-primary-600 hover:bg-primary-500/10 transition-colors duration-200 ease-in-out cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+              >
+                <Pencil size={15} />
+              </button>
+              <button
+                type="button"
+                onClick={() => deleteMut.mutate(todo.id)}
+                aria-label={`Delete "${todo.text}"`}
+                className="flex items-center justify-center size-9 rounded-lg text-text-light hover:text-danger hover:bg-danger/10 transition-colors duration-200 ease-in-out cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+              >
+                <Trash2 size={15} />
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Quick actions — always visible at a full 44px on touch, fading in as a hover reveal only
-            where a real pointer exists so the resting row stays clean. Gating this on `sm:` (as it
-            was) keyed off viewport width, so on any touch tablet ≥640px the actions were hidden
-            with no hover to bring them back; `pointer-fine:` asks about the input device instead.
-            `motion-reduce` drops the slide so the reveal is a plain fade. */}
-        <div className="flex items-center gap-0.5 shrink-0 pointer-fine:opacity-0 pointer-fine:-translate-x-1 pointer-fine:group-hover:opacity-100 pointer-fine:group-hover:translate-x-0 pointer-fine:group-focus-within:opacity-100 pointer-fine:group-focus-within:translate-x-0 motion-reduce:translate-x-0 transition-all duration-200 ease-in-out">
+        {/* Desktop/tablet only now (see the mobile copy above) — fading in as a hover reveal only
+            where a real pointer exists so the resting row stays clean. `pointer-fine:` asks about
+            the input device, not the viewport, so a touch tablet still gets the mobile copy above
+            even at a wide `sm:` viewport. `motion-reduce` drops the slide so the reveal is a plain
+            fade. */}
+        <div className="hidden sm:flex items-center gap-0.5 shrink-0 pointer-fine:opacity-0 pointer-fine:-translate-x-1 pointer-fine:group-hover:opacity-100 pointer-fine:group-hover:translate-x-0 pointer-fine:group-focus-within:opacity-100 pointer-fine:group-focus-within:translate-x-0 motion-reduce:translate-x-0 transition-all duration-200 ease-in-out">
           <button
             type="button"
             onClick={() => setEditing(todo)}

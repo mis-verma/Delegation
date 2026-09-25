@@ -101,7 +101,9 @@ const TaskListViewComponent = ({
                     title="Newly assigned to you"
                   />
                 )}
-                <span className="text-sm font-bold text-text-secondary tracking-tight truncate">
+                {/* No truncate — this was cutting titles down to a handful of words ("Security
+                    camera offline since ...") on a narrow phone card. Wraps instead. */}
+                <span className="text-sm font-bold text-text-secondary tracking-tight leading-snug">
                   {task.title}
                 </span>
               </div>

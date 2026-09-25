@@ -47,7 +47,11 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, index = 0 }: Tic
     >
 
       <div className="flex flex-col justify-between gap-1">
-        <h3 className="w-full min-w-0 text-sm font-bold text-text-secondary truncate leading-tight">
+        {/* line-clamp-2, not truncate — this card is also the board's kanban card, narrow enough
+            that a single truncated line was cutting titles down to a handful of words ("Security
+            camera offline sinc..."). Two lines still bounds card height predictably in the board
+            columns while actually showing the title. */}
+        <h3 className="w-full min-w-0 text-sm font-bold text-text-secondary line-clamp-2 leading-snug">
           {ticket.title}
         </h3>
         {ticket.description && (
