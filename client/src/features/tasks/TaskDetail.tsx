@@ -1,20 +1,17 @@
 import { useState, type ReactNode } from 'react';
-import { CheckSquare, Loader2, ChevronRight, CheckCircle2, ShieldCheck, Trash2, Users, CalendarDays, Flag, Building2, Check, Milestone, AlignLeft } from 'lucide-react';
-import { Modal, Button, DateRangePicker, ActivityTimeline, DepartmentChip } from '../../components';
+import { CheckSquare, Loader2, ChevronRight, ChevronDown, CheckCircle2, ShieldCheck, Trash2, CalendarDays, Check, Milestone, AlignLeft } from 'lucide-react';
+import { Modal, Button, DateRangePicker, ActivityTimeline, DepartmentChip, StatusChip, type StatusChipStatus } from '../../components';
 import { IconChip } from '../../components/iconChip';
 import type { DateRangeValue } from '../../components';
-import { Badge } from '../../components/ui/badge';
 import { useTaskQuery, useUpdateTaskMutation, useDeleteTaskMutation, useAssignableUsersQuery, useUploadTaskAttachmentsMutation } from './hook';
 import { useDepartmentsQuery } from '../tickets/hook';
 import { TaskVerifyActions } from './TaskVerifyActions';
 import { TaskFormDepartmentField } from './TaskFormDepartmentField';
 import { AssigneeField } from '../assignees/AssigneeField';
-import { AttachFilesToolbar } from './AttachFilesToolbar';
 import { TaskAttachmentsGrid } from './TaskAttachmentsGrid';
 import { TaskDescriptionField } from './TaskDescriptionField';
 import { VerificationNoteBanner } from '../../components/verificationBanner';
-import { STATUS_LABEL, STATUS_CONFIG, STATUS_ICON, PRIORITY_MAP, NEXT_STATUS } from './taskDisplay';
-import { PRIORITY_SELECTED_CLASS } from './TaskFormPrioritySelector';
+import { STATUS_LABEL, PRIORITY_MAP, NEXT_STATUS } from './taskDisplay';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { TaskScoreBadge } from './TaskScoreBadge';
 import { TaskStatusRemarkDialog } from './TaskStatusRemarkDialog';
@@ -187,23 +184,25 @@ const TaskFooter = ({ task, isPC, isVerifier, nextStatus, onAdvance, isAdvancing
 
 const STATUS_ORDER: Task['status'][] = ['todo', 'in_progress', 'pending_approval', 'done'];
 
-// A single status readout — icon, label, and "step 2 of 4" — using the same semantic
-// STATUS_CONFIG tone every other status pill in the app already wears, through the shared Badge
-// component (outline variant, fully re-tinted via className since STATUS_CONFIG's own
-// status-todo/progress/approve/done tokens don't map onto Badge's built-in success/warning/danger
-// variants), instead of a bespoke 4-segment bar with a label crammed under each sliver. The full
-// arrival-by-arrival history (with remarks) already lives in TaskStatusStepper further down — this
-// is only the at-a-glance answer to "where is this right now."
+// A single status readout — the StatusChip, the score, and "step 2 of 4". The full arrival-by-
+// arrival history (with remarks) lives in TaskStatusStepper further down — this is only the
+// at-a-glance answer to "where is this right now."
+const DETAIL_STATUS_CHIP_KEY: Record<Task['status'], StatusChipStatus> = {
+  draft: 'open',
+  todo: 'open',
+  in_progress: 'in_progress',
+  pending_approval: 'pending_approval',
+  done: 'completed',
+};
+
 const TaskStatusSummary = ({ status }: { status: Task['status'] }) => {
-  const config = STATUS_CONFIG[status];
   const stepIndex = STATUS_ORDER.indexOf(status);
   return (
     <div className="flex items-center justify-between gap-3">
       <div className="flex items-center gap-2 min-w-0">
-        <Badge variant="outline" className={`pl-2 pr-3 py-1 text-xs ${config.badge}`}>
-          {STATUS_ICON[status]}
-          {STATUS_LABEL[status]}
-        </Badge>
+        {/* Same icon-circle StatusChip as the list cards and the remark popup — was a flat
+            outline Badge, the old chip style. */}
+        <StatusChip status={DETAIL_STATUS_CHIP_KEY[status]} label={STATUS_LABEL[status]} />
         {/* Phones: the score sits beside the status here instead of taking a footer row of its own. */}
         <span className="sm:hidden">
           <TaskScoreBadge status={status} />
@@ -225,40 +224,39 @@ const PRIORITY_ORDER: Task['priority'][] = ['low', 'medium', 'high'];
 // change priority via a small menu, same as picking any other value rather than filling in a form.
 const PriorityValuePicker = ({ value, onChange, disabled }: { value: Task['priority']; onChange: (v: Task['priority']) => void; disabled: boolean }) => {
   const current = PRIORITY_MAP[value];
-  // No border — matches the flat tag-pill style TaskFormPrioritySelector uses for the same value
-  // everywhere else, a soft tint fill is the whole signal.
-  // w-fit + self-start: in the phone property grid a stretched cell turned this into a full-width
-  // red bar. Now a chip sized to its label, with the same color dot the priority menu uses.
-  const outlineChipClass = `inline-flex items-center gap-1.5 w-fit self-start px-2.5 py-1 rounded-full text-xs font-semibold ${PRIORITY_SELECTED_CLASS[value]}`;
-  const dot = <span aria-hidden="true" className={`size-1.5 rounded-full shrink-0 ${current.accent}`} />;
+  // Same icon-circle IconChip the list cards use for priority (arrow icon on a solid tone) — was a
+  // flat tinted pill with a dot, the one old-style chip left on this sheet.
+  const chip = (withChevron: boolean) => (
+    <IconChip icon={current.icon} tone={current.solid} label={current.label}>
+      {withChevron && <ChevronDown size={12} strokeWidth={2.5} className="text-text-light -mr-0.5" />}
+    </IconChip>
+  );
 
-  if (disabled) {
-    return (
-      <span className={outlineChipClass}>
-        {dot}
-        {current.label}
-      </span>
-    );
-  }
+  if (disabled) return chip(false);
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className={`${outlineChipClass} transition-opacity hover:opacity-80 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40`}
+          aria-label={`Priority: ${current.label}. Change priority`}
+          className="flex rounded-full cursor-pointer outline-none transition-opacity hover:opacity-85 focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]"
         >
-          {dot}
-          {current.label}
+          {chip(true)}
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-36">
-        {PRIORITY_ORDER.map((p) => (
-          <DropdownMenuItem key={p} onClick={() => onChange(p)} className="gap-2">
-            <span className={`size-2 rounded-full ${PRIORITY_MAP[p].accent}`} />
-            {PRIORITY_MAP[p].label}
-          </DropdownMenuItem>
-        ))}
+      <DropdownMenuContent align="start" className="w-40">
+        {PRIORITY_ORDER.map((p) => {
+          const Icon = PRIORITY_MAP[p].icon;
+          return (
+            <DropdownMenuItem key={p} onClick={() => onChange(p)} className="gap-2">
+              <span className={`flex items-center justify-center size-5 rounded-full text-white shrink-0 ${PRIORITY_MAP[p].solid}`}>
+                <Icon size={10} strokeWidth={2.75} />
+              </span>
+              {PRIORITY_MAP[p].label}
+            </DropdownMenuItem>
+          );
+        })}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -375,19 +373,13 @@ const TaskStatusStepper = ({ task }: { task: Task }) => {
   );
 };
 
-const PROPERTY_ROW_LABEL_CLASS = 'flex items-center gap-1.5 sm:gap-2 w-full sm:w-28 shrink-0 text-xs sm:text-sm font-medium text-text-muted sm:text-text-secondary';
+// Timeline / Department pickers rendered as chips in the property row (see TaskEditLayout) — same
+// pill shape, border and text size as IconChip, so editable and read-only values look alike.
+const CHIP_TRIGGER_CLASS =
+  'w-auto h-8 pl-2.5 pr-3 gap-1.5 rounded-full border border-border/60 bg-surface hover:border-primary-400 text-xs font-semibold shadow-none focus:ring-2 focus:ring-primary-500/30';
 
-// Label above value on phones (a cell in a 2-column grid), label beside value from `sm` up.
-const PROPERTY_ROW_CLASS = 'flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 min-w-0';
-
-// Description / Progress headings — same size, weight and color as the property labels above them,
-// so every label in the sheet reads as one system (they were three different styles).
+// Description / Progress headings — one quiet label style for every section heading in the sheet.
 const DETAIL_HEADING_CLASS = 'flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium text-text-muted sm:text-text-secondary';
-
-// Edit-mode pickers on phones look like fields (tinted, padded) — bare borderless text there didn't
-// read as tappable. From `sm` up they stay the inline, borderless value the desktop list uses.
-const EDIT_PICKER_TRIGGER_CLASS =
-  'w-full sm:w-auto h-10 sm:h-auto px-3 sm:p-0 rounded-lg border-0 shadow-none bg-surface-hover/50 sm:bg-transparent justify-start text-sm focus:ring-0';
 
 const formatRangeDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 
@@ -415,6 +407,7 @@ const TaskEditLayout = ({
   onSaveTitle, onSaveDescription, onUpdate, onDelete, isDeleting, uploadMutation,
 }: TaskEditLayoutProps) => {
   const { user } = useAuth();
+  const departmentName = task.departmentId ? departments?.find((d) => d.id === task.departmentId)?.name : undefined;
   return (
   // flex-col + flex-1 on the scroller, not `h-full`: on phones the percentage height didn't resolve
   // against this flex item, so the scroller grew to its full content height and the sheet's
@@ -444,17 +437,13 @@ const TaskEditLayout = ({
 
       <VerificationNoteBanner note={task.verificationNote} approved={task.status === 'done'} verifiedBy={task.verifiedBy} />
 
-      {/* Phones: one 2-column grid (label above value) — Assigned to + Priority share a row,
-          Timeline takes the full width, then Department. It used to be a full-width row per field,
-          which ran the four properties down most of the screen. Read-only values render as the
-          same chips the list cards use, instead of disabled controls that looked faded/broken.
-          From `sm` up it's the original label-beside-value list. */}
-      <div className="grid grid-cols-2 gap-x-3 gap-y-4 sm:flex sm:flex-col sm:gap-3">
-        <div className={PROPERTY_ROW_CLASS}>
-          <span className={PROPERTY_ROW_LABEL_CLASS}>
-            <Users size={14} className="text-text-light" /> Assigned to
-          </span>
-          <div className="flex-1 min-w-0">
+      {/* Assigned to · Priority · Timeline · Department as one wrapping row of chips, the same
+          chip language the list cards use — they used to be four labelled rows. Each chip is its
+          own control for anyone who can edit (tap it to change that one value); read-only roles
+          get plain chips. The field name is on each chip's title/aria-label instead of a label. */}
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <div title="Assigned to" aria-label="Assigned to" className="flex items-center">
             <AssigneeField
               hideLabel
               selectedIds={taskAssigneeIds(task)}
@@ -463,83 +452,70 @@ const TaskEditLayout = ({
               isLoading={isLoadingUsers}
               disabled={isViewOnly || !canReassign}
             />
-            {!isViewOnly && !canReassign && (
-              <p className="text-[11px] font-medium text-text-light mt-1">Only a manager or above can reassign.</p>
-            )}
           </div>
-        </div>
 
-        <div className={`${PROPERTY_ROW_CLASS} sm:order-2`}>
-          <span className={PROPERTY_ROW_LABEL_CLASS}>
-            <Flag size={14} className="text-text-light" /> Priority
+          <span title="Priority" className="flex">
+            <PriorityValuePicker value={task.priority} onChange={(v) => onUpdate({ priority: v })} disabled={isViewOnly} />
           </span>
-          <PriorityValuePicker value={task.priority} onChange={(v) => onUpdate({ priority: v })} disabled={isViewOnly} />
-        </div>
 
-        <div className={`${PROPERTY_ROW_CLASS} col-span-2 sm:order-1`}>
-          <span className={PROPERTY_ROW_LABEL_CLASS}>
-            <CalendarDays size={14} className="text-text-light" /> Timeline
-          </span>
           {isViewOnly ? (
-            task.startDate || task.dueDate ? (
+            (task.startDate || task.dueDate) && (
               <IconChip
                 icon={CalendarDays}
                 tone="bg-primary-700"
+                title="Timeline"
                 label={[task.startDate && formatRangeDate(task.startDate), task.dueDate && formatRangeDate(task.dueDate)].filter(Boolean).join(' → ')}
-                className="w-fit self-start"
               />
-            ) : (
-              <span className="text-sm text-text-light">No dates set</span>
             )
           ) : (
-            <DateRangePicker
-              value={{
-                from: task.startDate ? new Date(task.startDate) : null,
-                to: task.dueDate ? new Date(task.dueDate) : null,
-              }}
-              onChange={(range: DateRangeValue) => onUpdate({
-                startDate: range.from ? range.from.toISOString() : undefined,
-                dueDate: range.to ? range.to.toISOString() : undefined,
-              })}
-              triggerClassName={EDIT_PICKER_TRIGGER_CLASS}
-            />
+            <div title="Timeline">
+              <DateRangePicker
+                value={{
+                  from: task.startDate ? new Date(task.startDate) : null,
+                  to: task.dueDate ? new Date(task.dueDate) : null,
+                }}
+                onChange={(range: DateRangeValue) => onUpdate({
+                  startDate: range.from ? range.from.toISOString() : undefined,
+                  dueDate: range.to ? range.to.toISOString() : undefined,
+                })}
+                placeholder="Add dates"
+                triggerClassName={CHIP_TRIGGER_CLASS}
+              />
+            </div>
           )}
-        </div>
 
-        <div className={`${PROPERTY_ROW_CLASS} col-span-2 sm:order-3`}>
-          <span className={PROPERTY_ROW_LABEL_CLASS}>
-            <Building2 size={14} className="text-text-light" /> Department
-          </span>
-          <div className="flex-1 min-w-0">
-            {isViewOnly || !canReassign ? (
-              task.departmentId && departments?.find((d) => d.id === task.departmentId) ? (
-                <DepartmentChip name={departments.find((d) => d.id === task.departmentId)!.name} className="w-fit" />
-              ) : (
-                <span className="text-sm text-text-light">No department</span>
-              )
-            ) : (
+          {isViewOnly || !canReassign ? (
+            departmentName && (
+              <span title="Department" className="flex">
+                <DepartmentChip name={departmentName} />
+              </span>
+            )
+          ) : (
+            <div title="Department">
               <TaskFormDepartmentField
                 hideLabel
                 value={task.departmentId ?? ''}
                 onChange={(v) => onUpdate({ departmentId: v || null })}
                 departments={departments}
                 isLoading={isLoadingDepts}
-                triggerClassName={EDIT_PICKER_TRIGGER_CLASS}
+                triggerClassName={`${CHIP_TRIGGER_CLASS} max-w-[13rem]`}
               />
-            )}
-            {!isViewOnly && !canReassign && (
-              <p className="text-[11px] font-medium text-text-light mt-1">Only a manager or above can move departments.</p>
-            )}
-          </div>
+            </div>
+          )}
         </div>
+
+        {!isViewOnly && !canReassign && (
+          <p className="text-[11px] font-medium text-text-light">Only a manager or above can reassign or move departments.</p>
+        )}
 
         {/* Reviewer assignment is the same "routing authority" decision as reassigning who owns
             this delegation — gated behind canReassign for the same reason. Someone without that
-            authority still sees who's named, just not an editable picker. */}
+            authority still sees who's named, just not an editable picker. Its own line: it's a
+            list of names, not one short value. */}
         {!isViewOnly && canReassign ? (
           // empty:hidden — ReviewersField renders nothing when the department has no assignable
-          // reviewers, and the empty cell still added a grid gap under Department.
-          <div className="col-span-2 sm:order-4 empty:hidden">
+          // reviewers; the empty wrapper would still add a gap.
+          <div className="empty:hidden pt-1">
             <ReviewersField
               departmentId={task.departmentId ?? undefined}
               selected={(task.reviewers ?? []).map((r) => r.id)}
@@ -547,13 +523,9 @@ const TaskEditLayout = ({
             />
           </div>
         ) : (task.reviewers?.length ?? 0) > 0 && (
-          <div className={`${PROPERTY_ROW_CLASS} col-span-2 sm:order-4`}>
-            <span className={PROPERTY_ROW_LABEL_CLASS}>
-              <ShieldCheck size={14} className="text-text-light" /> Reviewers
-            </span>
-            <span className="text-sm text-text-secondary">
-              {task.reviewers!.map((r) => `${r.firstName}${r.lastName ? ` ${r.lastName}` : ''}`).join(', ')}
-            </span>
+          <div className="flex items-center gap-2 text-xs text-text-secondary">
+            <ShieldCheck size={14} className="text-text-light shrink-0" />
+            <span>Reviewers: {task.reviewers!.map((r) => `${r.firstName}${r.lastName ? ` ${r.lastName}` : ''}`).join(', ')}</span>
           </div>
         )}
       </div>
@@ -561,33 +533,16 @@ const TaskEditLayout = ({
       <hr className="border-border/60" />
 
       <div className="flex flex-col gap-2">
-        {/* In view mode the attach buttons ride on the heading row (read-only roles like USER can
-            still add files, and this is their only way to) — beside the text they squeezed the
-            description into a narrow column. In edit mode they stay in the editor's own toolbar. */}
-        <div className="flex items-center justify-between gap-3 min-h-8">
-          <h3 className={DETAIL_HEADING_CLASS}>
-            <AlignLeft size={14} className="text-text-light" />
-            Description
-          </h3>
-          {isViewOnly && canManageAttachments && (
-            <AttachFilesToolbar
-              disabled={uploadMutation.isPending}
-              onFiles={(files) => uploadMutation.mutate(Array.from(files))}
-            />
-          )}
-        </div>
+        {/* No upload buttons on the detail sheet (hidden by request) — files already attached
+            still show below the description. */}
+        <h3 className={DETAIL_HEADING_CLASS}>
+          <AlignLeft size={14} className="text-text-light" />
+          Description
+        </h3>
         <PlainDescriptionEditor
           value={task.description ?? ''}
           disabled={isViewOnly}
           onSave={onSaveDescription}
-          toolbar={
-            !isViewOnly && canManageAttachments && (
-              <AttachFilesToolbar
-                disabled={uploadMutation.isPending}
-                onFiles={(files) => uploadMutation.mutate(Array.from(files))}
-              />
-            )
-          }
         >
           {/* TaskDescriptionField already wraps children in its own bordered, padded sub-row (see
               TaskForm's identical StagedFileChips usage) — the old mt-4 pt-4 here was compensating
