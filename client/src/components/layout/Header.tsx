@@ -81,6 +81,16 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
   }, []);
   const currentDate = now.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
   const currentTime = now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  // Phones: the header carries the page's name (or a greeting on Home) with today's date under it,
+  // since the desktop page-label pill and clock don't fit there.
+  const hour = now.getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const firstName = (user?.name ?? '').split(' ')[0];
+  const isHome = location.pathname === '/';
+  const phoneTitle = isHome ? greeting : pageLabel;
+  const phoneDateOnly = now.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+  // Home: the name rides on the second line so "Good afternoon" fits a 360px bar uncut.
+  const phoneDate = isHome && firstName ? `${firstName} · ${phoneDateOnly}` : phoneDateOnly;
 
   const accountActions: DropdownAction[] = [
     { label: 'Dashboard', to: '/', icon: LayoutDashboard },
@@ -118,9 +128,9 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
           material, so capping it too just left two big matching empty gutters on a wide screen
           for no reason. */}
       <div className="px-3 sm:px-5">
-        <div className="h-(--header-height) flex items-center gap-3 sm:gap-4">
+        <div className="h-(--header-height) flex items-center gap-2 sm:gap-4">
 
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1 sm:flex-none sm:shrink-0">
 
             {onToggleSidebar && (
               <button
@@ -141,15 +151,22 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
                 // An org's own uploaded logo has no guaranteed visual weight of its own (unlike
                 // BrandLogo's self-contained tile below), so it still gets the same quiet
                 // navy/gold-tinted frame the default mark used to lean on.
-                <span className="flex items-center justify-center size-11 rounded-xl bg-gradient-to-br from-primary-50 to-coral-500/10 dark:from-primary-500/15 dark:to-coral-500/10 border border-primary-100 dark:border-primary-500/30 transition-transform duration-300 group-hover:scale-105">
+                <span className="flex items-center justify-center size-9 sm:size-11 rounded-xl bg-gradient-to-br from-primary-50 to-coral-500/10 dark:from-primary-500/15 dark:to-coral-500/10 border border-primary-100 dark:border-primary-500/30 transition-transform duration-300 group-hover:scale-105">
                   <img src={customLogoSrc} alt={orgName} className="h-6 w-auto object-contain" />
                 </span>
               ) : (
                 <span className="inline-flex rounded-xl transition-all duration-300 group-hover:scale-105 group-hover:shadow-[0_0_0_6px_rgba(66,106,159,0.16)] dark:group-hover:shadow-[0_0_0_6px_rgba(97,138,189,0.22)]">
-                  <BrandLogo className="size-11" showWordmark={false} />
+                  <BrandLogo className="size-9 sm:size-11" showWordmark={false} />
                 </span>
               )}
             </NavLink>
+
+            {phoneTitle && (
+              <div className="sm:hidden flex flex-col min-w-0 pl-0.5">
+                <span className="text-[15px] font-display font-bold text-text tracking-tight leading-tight truncate">{phoneTitle}</span>
+                <span className="text-[11px] font-medium text-text-muted leading-tight truncate">{phoneDate}</span>
+              </div>
+            )}
 
             {pageLabel && (
               <>
@@ -171,7 +188,7 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
             )}
           </div>
 
-          <div className="flex items-center gap-3 sm:gap-4 ml-auto">
+          <div className="flex items-center gap-3 sm:gap-4 ml-auto shrink-0">
 
             {/* Live date/time — every other page besides the Dashboard itself had no ambient sense
                 of "when" in the persistent chrome (the greeting+clock on DashboardHeader only
@@ -202,7 +219,9 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
                 read as a fuzzy yellow smudge, not a considered accent, and a resting bell doesn't
                 need its own color at all; the red unread badge already says "there's something
                 here" when it matters. */}
-            <div className="flex items-center gap-1 p-1 rounded-full border border-border bg-surface-hover/30">
+            {/* Phones: the three controls sit bare in the bar (the boxed pill ate width the page title
+                now needs); the pill comes back from sm up. */}
+            <div className="flex items-center gap-0.5 sm:gap-1 sm:p-1 rounded-full sm:border sm:border-border sm:bg-surface-hover/30">
               {user && <NotificationBell />}
 
               <button
@@ -222,14 +241,14 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
 
               {user && (
                 <>
-                  <span className="w-px h-5 bg-border shrink-0" aria-hidden="true" />
+                  <span className="hidden sm:block w-px h-5 bg-border shrink-0" aria-hidden="true" />
                   <Dropdown
                     items={accountActions}
                     trigger={
                       <button
                         title={user.name}
                         aria-label={`Account menu — ${user.name}${user.role ? `, ${titleCase(user.role)}` : ''}`}
-                        className="flex items-center gap-1 h-11 pl-1 pr-2 rounded-full text-text-secondary cursor-pointer transition-all duration-200 hover:bg-surface-hover active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 group"
+                        className="flex items-center gap-1 h-11 px-1.5 sm:pl-1 sm:pr-2 rounded-full text-text-secondary cursor-pointer transition-all duration-200 hover:bg-surface-hover active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 group"
                       >
                         <span className="relative flex items-center justify-center size-8 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 ring-1 ring-inset ring-white/15 text-white font-bold text-[11px] shrink-0 group-hover:scale-105 transition-transform">
                           {initials || <User size={14} strokeWidth={2.5} />}
