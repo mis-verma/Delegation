@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { FileDown, SlidersHorizontal } from 'lucide-react';
+import { FileDown, SlidersHorizontal, X } from 'lucide-react';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Button } from '../button';
 import { useDraggableDialog } from '../modal/useDraggableDialog';
@@ -98,14 +98,27 @@ export const OptionsDialog = ({
       <span aria-hidden="true" className="hidden sm:block absolute top-2 left-1/2 -translate-x-1/2 w-8 h-1 rounded-full bg-border-hover" />
       <DialogHeader
         {...dragHandleProps}
-        className={isDragging ? 'sm:cursor-grabbing sm:touch-none' : 'sm:cursor-grab sm:touch-none'}
+        className={`flex-row items-center justify-between sm:block ${isDragging ? 'sm:cursor-grabbing sm:touch-none' : 'sm:cursor-grab sm:touch-none'}`}
       >
-        <DialogTitle className="text-base">{title}</DialogTitle>
+        <DialogTitle className="text-base text-left">{title}</DialogTitle>
+        {/* Phones get a top-right close: the sheet scrolls, and Done is at its bottom. */}
+        <DialogClose asChild>
+          <button
+            type="button"
+            aria-label="Close"
+            className="sm:hidden flex items-center justify-center size-9 -mr-2 rounded-full text-text-muted active:bg-surface-hover cursor-pointer [-webkit-tap-highlight-color:transparent]"
+          >
+            <X size={18} strokeWidth={2.5} />
+          </button>
+        </DialogClose>
       </DialogHeader>
 
       <div className="flex flex-col gap-4">{children}</div>
 
-      <DialogFooter className="sm:justify-between">
+      {/* Phones: pinned to the bottom of the scrolling sheet so Clear/Export/Done are always in
+          reach — before, they sat below every option group and only appeared after scrolling to
+          the very end (the sheet's scrollbar is hidden, so nothing said there was more). */}
+      <DialogFooter className="flex-row items-center justify-between sticky bottom-0 -mx-6 -mb-6 px-6 py-3 bg-surface border-t border-border/60 sm:static sm:m-0 sm:p-0 sm:border-0 sm:bg-transparent">
         {activeCount > 0 ? (
           <button
             type="button"
@@ -118,7 +131,7 @@ export const OptionsDialog = ({
           <div />
         )}
 
-        <div className="flex flex-col-reverse gap-3 sm:flex-row">
+        <div className="flex flex-row gap-2 sm:gap-3">
           {canExport && (
             // Closes the dialog before opening the export modal — two stacked overlays would
             // otherwise fight for focus.

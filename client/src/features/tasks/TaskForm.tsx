@@ -147,10 +147,9 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
       // adding a line here.
       headerClassName="border-b-0"
       footerClassName="border-t-0"
-      // No X in the corner: the footer's Cancel is the dismiss action, and two of them in one
-      // small dialog is one too many. Escape and the backdrop still close it, so nothing is
-      // trapped by removing it.
-      showCloseButton={false}
+      // X on phones only: there the footer is just Draft + Create, so the X is the one dismiss
+      // action. Desktop keeps Cancel instead — two dismiss controls in one dialog is one too many.
+      closeButtonClassName="sm:hidden"
       footer={
         <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between w-full gap-3">
           {/* Only the title is mandatory, so say so once here instead of leaving people to
@@ -166,10 +165,10 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
               "Cancel"/"Save as draft" looked identical (nothing set them apart in emphasis).
               Button's own outline/secondary/primary variants already express exactly that
               hierarchy, and isLoading already swaps in the spinner — no need to hand-roll either. */}
-          {/* Phones: three equal-width buttons across the sheet (thumb-sized, nothing floating off to
-              one side); desktop keeps them right-aligned at natural width. */}
-          <div className="grid grid-cols-3 sm:flex sm:items-center sm:justify-end gap-2 sm:gap-3">
-            <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={isBusy} className="font-display">
+          {/* Phones: Draft + Create split the full width; Cancel is desktop-only there, the ✕ in the
+              header dismisses instead. Desktop keeps all three right-aligned at natural width. */}
+          <div className="grid grid-cols-2 sm:flex sm:items-center sm:justify-end gap-2 sm:gap-3">
+            <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={isBusy} className="hidden sm:inline-flex font-display">
               Cancel
             </Button>
             {/* Same form, same validation (still needs a title) — just tags the submission as a
@@ -285,7 +284,9 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
                 long ribbon of half-empty lines, and the modal taller than it needs to be. Pairing
                 them also puts each label at the same height as its neighbour, which is the "equal
                 alignment" the two-pane version could never give. */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-4 sm:gap-y-6">
+            {/* grid-cols-2 at every width: on phones only Assignees + Priority share a row (both
+                short controls); every field after them spans the full width there. */}
+            <div className="grid grid-cols-2 gap-x-3 sm:gap-x-5 gap-y-4 sm:gap-y-6">
               <AssigneeField
                 selectedIds={assigneeIds}
                 onChange={setAssigneeIds}
@@ -305,7 +306,7 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
                 )}
               />
 
-              <div className={`group/field flex flex-col gap-1.5 ${FIELD_CARD_CLASS}`}>
+              <div className={`group/field col-span-2 sm:col-span-1 flex flex-col gap-1.5 ${FIELD_CARD_CLASS}`}>
                 <label className={FIELD_LABEL_CLASS}>
                   <CalendarClock className={FIELD_LABEL_ICON_CLASS} />
                   Timeline
@@ -318,23 +319,25 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
                 />
               </div>
 
-              <Controller
-                control={control}
-                name="departmentId"
-                render={({ field }) => (
-                  <TaskFormDepartmentField
-                    value={field.value ?? ''}
-                    onChange={field.onChange}
-                    departments={departments}
-                    isLoading={isLoadingDepts}
-                    triggerClassName="border-transparent bg-surface-hover/50 hover:bg-surface-hover"
-                  />
-                )}
-              />
+              <div className="col-span-2 sm:col-span-1">
+                <Controller
+                  control={control}
+                  name="departmentId"
+                  render={({ field }) => (
+                    <TaskFormDepartmentField
+                      value={field.value ?? ''}
+                      onChange={field.onChange}
+                      departments={departments}
+                      isLoading={isLoadingDepts}
+                      triggerClassName="border-transparent bg-surface-hover/50 hover:bg-surface-hover"
+                    />
+                  )}
+                />
+              </div>
 
               {/* Full width: the label chips and the suggestion dropdown both need the room, and
                   this is the field most likely to hold several values. */}
-              <div className="sm:col-span-2">
+              <div className="col-span-2">
                 <LabelsField
                   tags={tags ?? []}
                   selectedIds={tagIds}
@@ -347,7 +350,7 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
               {/* Full width too, same reason — a checkbox list of names needs room to breathe.
                   Scoped to whichever department is currently selected; picking a specific person
                   to review this on top of the usual PC/Admin/department-head reach. */}
-              <div className="sm:col-span-2">
+              <div className="col-span-2">
                 <ReviewersField
                   departmentId={selectedDepartmentId || undefined}
                   selected={reviewerIds}

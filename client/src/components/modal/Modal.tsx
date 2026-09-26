@@ -47,6 +47,8 @@ interface ModalProps {
   size?: keyof typeof SIZE_CLASS;
   footer?: ReactNode;
   showCloseButton?: boolean;
+  /** Extra classes on the header X, e.g. `sm:hidden` to show it on phones only. */
+  closeButtonClassName?: string;
   contentClassName?: string;
   headerClassName?: string;
   bodyClassName?: string;
@@ -75,6 +77,7 @@ export const Modal = ({
   size = 'md',
   footer,
   showCloseButton = true,
+  closeButtonClassName = '',
   contentClassName = '',
   headerClassName = '',
   bodyClassName = '',
@@ -137,7 +140,10 @@ export const Modal = ({
 
           {showCloseButton && (
             <DialogClose
-              className="shrink-0 flex items-center justify-center size-9 -m-1 rounded-full text-text-muted hover:text-text hover:bg-surface-hover transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 cursor-pointer active:scale-90"
+              className={cn(
+                'shrink-0 flex items-center justify-center size-9 -m-1 rounded-full text-text-muted hover:text-text hover:bg-surface-hover transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 cursor-pointer active:scale-90',
+                closeButtonClassName,
+              )}
               aria-label="Close modal"
             >
               <X size={17} />

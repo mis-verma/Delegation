@@ -2,8 +2,10 @@
 // every field wrapper (and the Input component itself) already sets — so the space under a label
 // was 1.5 + the wrapper's own gap, and since wrappers disagreed (gap-1.5 vs gap-2) no two fields
 // were spaced the same. Spacing belongs to the wrapper's `gap`, per client/CLAUDE.md.
+// text-xs on phones — labels are the one piece of form text that can shrink there. Inputs stay at
+// 16px: iOS zooms the whole page in on focus for anything smaller.
 export const FIELD_LABEL_CLASS =
-  'text-sm font-medium text-text-secondary normal-case tracking-normal leading-none flex items-center gap-1.5 select-none transition-colors duration-200 ease-in-out';
+  'text-xs sm:text-sm font-medium text-text-secondary normal-case tracking-normal leading-none flex items-center gap-1.5 select-none transition-colors duration-200 ease-in-out';
 
 export const FIELD_LABEL_ICON_CLASS =
   'w-3.5 h-3.5 shrink-0 text-text-light group-focus-within/field:text-primary-500 transition-colors duration-200 ease-in-out';
