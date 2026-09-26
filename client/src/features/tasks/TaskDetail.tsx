@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { CheckSquare, Loader2, ChevronRight, ChevronDown, CheckCircle2, ShieldCheck, Trash2, CalendarDays, Check, Milestone, AlignLeft } from 'lucide-react';
+import { CheckSquare, Loader2, ChevronRight, ChevronDown, CircleDot, Clock, Eye, Type, CheckCircle2, ShieldCheck, Trash2, CalendarDays, Check, Milestone, AlignLeft } from 'lucide-react';
 import { Modal, Button, DateRangePicker, ActivityTimeline, DepartmentChip, StatusChip, type StatusChipStatus } from '../../components';
 import { IconChip } from '../../components/iconChip';
 import type { DateRangeValue } from '../../components';
@@ -82,11 +82,15 @@ const PlainDescriptionEditor = ({ value, disabled, onSave, toolbar, children }: 
   if (disabled) {
     return (
       <div className="flex flex-col gap-3">
-        {value.trim() ? (
-          <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap break-words">{value}</p>
-        ) : (
-          <p className="text-sm text-text-light">No description</p>
-        )}
+        {/* A soft card, not bare text: reads as the body of the delegation rather than a stray
+            line floating between two dividers. */}
+        <div className="rounded-xl border border-border/50 dark:border-white/[0.06] bg-surface-hover/40 px-3.5 py-3">
+          {value.trim() ? (
+            <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap break-words">{value}</p>
+          ) : (
+            <p className="text-sm text-text-light italic">No description added.</p>
+          )}
+        </div>
         {children}
       </div>
     );
@@ -270,6 +274,14 @@ const TIMELINE_STEP_DESCRIPTION: Record<Task['status'], string> = {
   done: 'Delegation completed and closed.',
 };
 
+const STEP_ICON: Record<Task['status'], typeof Check> = {
+  draft: CircleDot,
+  todo: CircleDot,
+  in_progress: Clock,
+  pending_approval: Eye,
+  done: CheckCircle2,
+};
+
 const formatStepDate = (date: Date) => date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 const formatStepTime = (date: Date) => date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 
@@ -304,12 +316,17 @@ const TaskStatusStepper = ({ task }: { task: Task }) => {
         Progress
       </h3>
 
-      <div className="flex flex-col">
+      {/* Done steps: solid green circle + check on a green rail. Current: solid navy circle with
+          the stage's own icon and a soft ring, its content in a tinted card marked "Current".
+          Upcoming: muted outline circle with the stage icon. Opacity tints throughout; the old
+          current circle used a raw bg-primary-50, which glowed near-white in dark mode. */}
+      <ol className="flex flex-col">
         {STATUS_ORDER.map((s, i) => {
           const isDone = i < currentIndex;
           const isCurrent = i === currentIndex;
           const isLast = i === STATUS_ORDER.length - 1;
           const reached = i <= currentIndex;
+          const StepIcon = STEP_ICON[s];
 
           const arrival = reached ? arrivalAt(s) : null;
           // 'todo' is where every delegation starts, so it has no status-change entry of its own.
@@ -319,56 +336,60 @@ const TaskStatusStepper = ({ task }: { task: Task }) => {
           const author = arrival?.changedByUser?.firstName;
 
           return (
-            <div key={s} className="flex gap-3">
+            <li key={s} className="flex gap-3" aria-current={isCurrent ? 'step' : undefined}>
               <div className="flex flex-col items-center">
                 <span
-                  className={`flex items-center justify-center size-6 rounded-full shrink-0 transition-colors duration-200 ${
+                  className={`flex items-center justify-center size-7 rounded-full shrink-0 transition-colors duration-200 ${
                     isDone
-                      ? 'bg-primary-500/20 text-primary-700'
+                      ? 'bg-success text-white'
                       : isCurrent
-                        ? 'border-2 border-primary-500 bg-primary-50'
-                        : 'border-2 border-border bg-surface'
+                        ? 'bg-primary-700 text-white ring-4 ring-primary-500/15'
+                        : 'border-2 border-border bg-surface text-text-light'
                   }`}
                 >
-                  {isDone && <Check size={12} strokeWidth={3} />}
-                  {isCurrent && <span className="size-2 rounded-full bg-primary-500" />}
+                  {isDone ? <Check size={13} strokeWidth={3} /> : <StepIcon size={13} strokeWidth={2.5} />}
                 </span>
-                {!isLast && <span className={`w-px flex-1 min-h-5 ${isDone ? 'bg-primary-500/20' : 'bg-border'}`} />}
-              </div>
-
-              <div className={`flex-1 min-w-0 flex flex-col gap-1.5 ${isLast ? '' : 'pb-5'}`}>
-                <div className="flex items-start justify-between gap-3">
-                  <p className={`text-sm font-bold tracking-tight leading-tight ${reached ? 'text-text' : 'text-text-light'}`}>
-                    {STATUS_LABEL[s]}
-                  </p>
-                  {stamp && (
-                    <div className="text-right shrink-0">
-                      <p className="text-[11px] font-semibold text-text-secondary tabular-nums leading-tight">{formatStepDate(stamp)}</p>
-                      <p className="text-[11px] font-medium text-text-light tabular-nums leading-tight">{formatStepTime(stamp)}</p>
-                    </div>
-                  )}
-                </div>
-
-                {arrival?.remark ? (
-                  // Quoted with a rule rather than boxed in a filled card — it sits inside a
-                  // timeline that already has a rail, and a second filled block per stage would
-                  // make the column read as a stack of cards instead of one continuous track.
-                  <div className="flex flex-col gap-1 pl-2.5 border-l-2 border-primary-500/25">
-                    <p className="text-xs text-text-secondary leading-relaxed whitespace-pre-wrap break-words">
-                      {arrival.remark}
-                    </p>
-                    {author && (
-                      <p className="text-[11px] font-semibold text-text-light tracking-tight">— {author}</p>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-xs font-medium text-text-muted leading-snug">{TIMELINE_STEP_DESCRIPTION[s]}</p>
+                {!isLast && (
+                  <span className={`w-0.5 flex-1 min-h-5 my-1 rounded-full ${isDone ? 'bg-success/50' : 'bg-border'}`} />
                 )}
               </div>
-            </div>
+
+              <div className={`flex-1 min-w-0 ${isLast ? '' : 'pb-4'}`}>
+                <div
+                  className={`flex flex-col gap-1.5 ${
+                    isCurrent
+                      ? 'rounded-xl border border-primary-500/20 dark:border-primary-400/20 bg-primary-500/5 dark:bg-primary-500/10 px-3 py-2.5 -mt-1'
+                      : 'pt-1'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className={`text-sm font-display font-semibold tracking-tight leading-tight ${reached ? 'text-text' : 'text-text-light'}`}>
+                      {STATUS_LABEL[s]}
+                    </p>
+                    {isCurrent && (
+                      <span className="px-2 py-0.5 rounded-full bg-primary-700 text-white text-[10px] font-bold leading-none">Current</span>
+                    )}
+                  </div>
+
+                  {stamp && (
+                    <p className="text-[11px] font-medium text-text-muted tabular-nums leading-tight">
+                      {author ? `${author} · ` : ''}{formatStepDate(stamp)}, {formatStepTime(stamp)}
+                    </p>
+                  )}
+
+                  {arrival?.remark ? (
+                    <p className="text-xs text-text-secondary leading-relaxed whitespace-pre-wrap break-words pl-2.5 border-l-2 border-primary-500/30">
+                      {arrival.remark}
+                    </p>
+                  ) : (
+                    <p className={`text-xs leading-snug ${reached ? 'text-text-muted' : 'text-text-light'}`}>{TIMELINE_STEP_DESCRIPTION[s]}</p>
+                  )}
+                </div>
+              </div>
+            </li>
           );
         })}
-      </div>
+      </ol>
     </section>
   );
 };
@@ -414,23 +435,28 @@ const TaskEditLayout = ({
   // overflow-hidden clipped it — Progress/Activity below the description couldn't be reached.
   <div className="relative flex-1 min-h-0 flex flex-col">
     <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain no-scrollbar flex flex-col gap-4 sm:gap-5 p-4 sm:p-6 max-w-2xl mx-auto w-full">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <TitleEditor value={task.title} isViewMode={isViewOnly} disabled={isViewOnly} onSave={onSaveTitle} />
+      {/* Title with its own label, like Description and Progress below it. The delete button
+          sits on the label row now, so the title itself gets the sheet's full width to wrap in. */}
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-center justify-between gap-3 min-h-8">
+          <span className={DETAIL_HEADING_CLASS}>
+            <Type size={14} className="text-text-light" />
+            Title
+          </span>
+          {isVerifier && (
+            <button
+              type="button"
+              disabled={isDeleting}
+              onClick={() => onDelete(task.id)}
+              aria-label="Delete delegation"
+              title="Delete delegation"
+              className="flex items-center justify-center size-8 rounded-full text-text-light hover:text-danger hover:bg-danger/10 active:bg-danger/10 disabled:opacity-50 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-danger/40 [-webkit-tap-highlight-color:transparent]"
+            >
+              {isDeleting ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
+            </button>
+          )}
         </div>
-        {isVerifier && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="shrink-0 text-danger border-danger/30 hover:bg-danger/10"
-            disabled={isDeleting}
-            onClick={() => onDelete(task.id)}
-            aria-label="Delete delegation"
-            title="Delete delegation"
-          >
-            {isDeleting ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
-          </Button>
-        )}
+        <TitleEditor value={task.title} isViewMode={isViewOnly} disabled={isViewOnly} onSave={onSaveTitle} />
       </div>
 
       <TaskStatusSummary status={task.status} />
