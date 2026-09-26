@@ -48,11 +48,15 @@ export const UpcomingEvents = ({ events, isPending }: UpcomingEventsProps) => (
         // No fixed-height match to preserve here (unlike the chart cards) — this was just loose
         // padding around a single line, so it tightens freely. No CTA either: events, announcements
         // and broadcasts are admin-authored, not something a viewer here has a way to create.
-        <div className="flex flex-col items-center justify-center py-7 text-center gap-2.5">
-          <div className="p-2.5 rounded-full bg-surface-hover border border-border/50">
-            <CalendarClock size={18} className="text-text-muted" />
+        // One quiet line on phones; the centred icon + sentence only where there's room for it.
+        <div className="flex sm:flex-col items-center justify-center py-5 sm:py-7 text-center gap-2 sm:gap-2.5">
+          <div className="p-2 sm:p-2.5 rounded-full bg-surface-hover border border-border/50">
+            <CalendarClock size={16} className="text-text-muted sm:size-[18px]" />
           </div>
-          <p className="text-sm font-display text-text-muted font-medium">No upcoming deadlines, announcements, or broadcasts.</p>
+          <p className="text-xs sm:text-sm font-display text-text-muted font-medium">
+            <span className="sm:hidden">Nothing coming up.</span>
+            <span className="hidden sm:inline">No upcoming deadlines, announcements or broadcasts.</span>
+          </p>
         </div>
       ) : (
         <div className="flex flex-col gap-1">

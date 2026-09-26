@@ -360,8 +360,8 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
           past the card (the app shell clips horizontal overflow with no scrollbar, so "Month" and
           "Year" just vanished with no visible sign why). Keying off the card's own measured width
           instead keeps this row stacked until it actually fits. */}
-      <div className="flex flex-col @sm:flex-row @sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col @xl:flex-row @xl:items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           <EntityIconTile icon={TrendingUp} />
           <div>
             <h2 id="compare-dashboard-heading" className="text-base sm:text-lg font-display font-bold text-text tracking-tight leading-tight">Compare Dashboard</h2>

@@ -95,7 +95,9 @@ export const MonthlyTargetCard = ({ percent, total, change, description, stats, 
       <div className="absolute -top-24 -right-24 w-48 h-48 bg-primary-500/15 dark:bg-primary-500/10 rounded-full blur-[60px] pointer-events-none transition-opacity duration-500 group-hover:opacity-100 opacity-60" />
 
       {/* Header */}
-      <div className="relative flex items-center sm:items-start justify-between gap-2 sm:gap-4 z-10">
+      {/* Title and period tabs share a row only once the card is wide enough (@xl); in the
+          half-width slot the tabs sit under the title instead of squeezing its subtitle. */}
+      <div className="relative flex flex-col @xl:flex-row @xl:items-start justify-between gap-3 @xl:gap-4 z-10">
         <div className="flex gap-2.5 sm:gap-3 items-center min-w-0">
           <EntityIconTile icon={Target} />
           <div>

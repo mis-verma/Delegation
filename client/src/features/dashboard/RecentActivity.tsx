@@ -16,7 +16,7 @@ import {
   type LucideIcon,
   Sparkles
 } from 'lucide-react';
-import { Skeleton, PageNav, EntityIconTile, Button } from '../../components';
+import { Skeleton, PageNav, EntityIconTile, Button, StatusChip, IconChip, type StatusChipStatus } from '../../components';
 import { formatRelativeTime, DASHBOARD_CARD_CLASS, ACTIVITY_CATEGORY_DOT_CLASS, type FeedItem } from './dashboardDisplay';
 import { STATUS_ICON as TASK_STATUS_ICON, STATUS_CONFIG as TASK_STATUS_CONFIG } from '../tasks/taskDisplay';
 import { STATUS_CONFIG as TICKET_STATUS_CONFIG } from '../tickets/ticketDisplay';
@@ -68,15 +68,16 @@ const TICKET_ICON_TONE: Record<TicketStatus, string> = {
   ON_HOLD: 'bg-surface-hover border-border/40',
 };
 
-// taskDisplay's STATUS_CONFIG only exposes a translucent `indicator` (meant for board-card dots);
-// the status pill's glow dot below wants the solid tone, matching TICKET_STATUS_CONFIG's `dot`.
-const TASK_DOT: Record<Task['status'], string> = {
-  draft: 'bg-text-light',
-  todo: 'bg-status-todo',
-  in_progress: 'bg-status-progress',
-  pending_approval: 'bg-status-approve',
-  done: 'bg-status-done',
+// Status as the app's icon chip (solid icon circle + label), same chip the list pages use, in
+// place of the old tinted dot pill.
+const TASK_CHIP_KEY: Record<Task['status'], StatusChipStatus> = {
+  draft: 'open',
+  todo: 'open',
+  in_progress: 'in_progress',
+  pending_approval: 'pending_approval',
+  done: 'completed',
 };
+
 
 /**
  * "Nothing here at all" and "nothing matched your search" were two near-identical blocks differing
@@ -150,15 +151,18 @@ export const RecentActivity = ({ feed, isPending }: RecentActivityProps) => {
     // none), and one of three cards missing the dark-mode border override, so in dark mode
     // adjacent cards drew visibly different border weights. The ambient glows below are children,
     // so they still read through on top of the opaque surface.
-    <section id="recent-activity" aria-labelledby="recent-activity-heading" className={`relative group ${DASHBOARD_CARD_CLASS} flex flex-col hover:border-primary-500/30 transition-colors duration-500 overflow-hidden`}>
+    <section id="recent-activity" aria-labelledby="recent-activity-heading" className={`@container relative group ${DASHBOARD_CARD_CLASS} flex flex-col hover:border-primary-500/30 transition-colors duration-500 overflow-hidden`}>
       
       {/* Ambient Decorative Glows */}
       <div className="absolute -top-32 -left-32 w-64 h-64 bg-primary-500/10 rounded-full blur-[80px] pointer-events-none transition-opacity duration-700 opacity-40 group-hover:opacity-100" />
       <div className="absolute -bottom-32 -right-32 w-64 h-64 bg-primary-400/5 rounded-full blur-[80px] pointer-events-none transition-opacity duration-700 opacity-40 group-hover:opacity-100" />
 
       {/* Header */}
-      <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 px-4 sm:px-5 py-3 sm:py-4 border-b border-border/40 bg-surface/50 backdrop-blur-xl">
-        <div className="flex items-center gap-3.5">
+      {/* Title and search share a row only when the card itself is wide (@2xl); in the half-width
+          desktop slot the search drops under the title instead of squeezing "Recent Activity"
+          onto two lines. */}
+      <div className="relative z-10 flex flex-col @2xl:flex-row @2xl:items-center justify-between gap-3 @2xl:gap-4 px-4 sm:px-5 py-3 sm:py-4 border-b border-border/40 bg-surface/50 backdrop-blur-xl">
+        <div className="flex items-center gap-3 sm:gap-3.5 min-w-0">
           <EntityIconTile icon={Activity} />
           <div>
             <h2 id="recent-activity-heading" className="text-base sm:text-lg font-display font-bold text-text tracking-tight flex items-center gap-2">
@@ -178,7 +182,7 @@ export const RecentActivity = ({ feed, isPending }: RecentActivityProps) => {
               nothing to compete with. The old fixed 128px was narrow enough to clip the
               placeholder itself ("Search activit…"). Reverts to a fixed width at `sm`, where this
               row sits beside the title and does need to stay compact. */}
-          <div className="relative group/search flex-1 min-w-0 sm:flex-none">
+          <div className="relative group/search flex-1 min-w-0 @2xl:flex-none">
             <label htmlFor="recent-activity-search" className="sr-only">Search activity</label>
             <Search size={14} aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted transition-colors group-focus-within/search:text-primary-500" />
             <input
@@ -187,7 +191,7 @@ export const RecentActivity = ({ feed, isPending }: RecentActivityProps) => {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search activity..."
-              className="h-9 w-full sm:w-48 pl-8 pr-3 rounded-xl border border-border/60 bg-surface-hover/50 text-xs font-medium text-text placeholder:text-text-muted/70 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500/50 focus:bg-surface sm:focus:w-56"
+              className="h-9 w-full @2xl:w-48 pl-8 pr-3 rounded-xl border border-border/60 bg-surface-hover/50 text-xs font-medium text-text placeholder:text-text-muted/70 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500/50 focus:bg-surface @2xl:focus:w-56"
             />
           </div>
           <button
@@ -248,12 +252,11 @@ export const RecentActivity = ({ feed, isPending }: RecentActivityProps) => {
               const KindIcon = isTicket ? TicketIcon : CheckSquare;
               const statusIcon = isTicket ? TICKET_STATUS_ICON[item.status as TicketStatus] : TASK_STATUS_ICON[item.status as Task['status']];
               const iconToneClass = isTicket ? TICKET_ICON_TONE[item.status as TicketStatus] : TASK_STATUS_CONFIG[item.status as Task['status']].badge;
-              const pillClassName = isTicket ? TICKET_STATUS_CONFIG[item.status as TicketStatus].className : TASK_STATUS_CONFIG[item.status as Task['status']].badge;
-              const pillLabel = isTicket ? TICKET_STATUS_CONFIG[item.status as TicketStatus].label : TASK_STATUS_CONFIG[item.status as Task['status']].label;
+                          const pillLabel = isTicket ? TICKET_STATUS_CONFIG[item.status as TicketStatus].label : TASK_STATUS_CONFIG[item.status as Task['status']].label;
               // Same glowing-dot treatment already used for ticket board column headers — a soft
               // blurred halo behind a solid dot reads as a deliberate status indicator instead of
               // a flat tinted pill, which is what made "Pending Verification" look washed out.
-              const dotClassName = isTicket ? TICKET_STATUS_CONFIG[item.status as TicketStatus].dot : TASK_DOT[item.status as Task['status']];
+              const chipKey: StatusChipStatus = isTicket ? (item.status.toLowerCase() as StatusChipStatus) : TASK_CHIP_KEY[item.status as Task['status']];
 
               return (
                 <Link
@@ -271,7 +274,7 @@ export const RecentActivity = ({ feed, isPending }: RecentActivityProps) => {
                   <div className="flex flex-1 items-center gap-3 sm:gap-4 min-w-0">
                     {/* Icon reflects the item's actual status, not just its kind, so color carries real meaning.
                         Decorative: the status pill on the right already states the same status as text. */}
-                    <div aria-hidden="true" className={`relative flex items-center justify-center size-9 sm:size-10 rounded-xl shrink-0 border transition-colors duration-300 ${iconToneClass}`}>
+                    <div aria-hidden="true" className={`relative hidden sm:flex items-center justify-center size-10 rounded-xl shrink-0 border transition-colors duration-300 ${iconToneClass}`}>
                       {statusIcon}
                       {isFresh && (
                         <span className="absolute -top-1 -right-1 flex size-2.5">
@@ -299,18 +302,12 @@ export const RecentActivity = ({ feed, isPending }: RecentActivityProps) => {
                             bold label in a bordered pill) — that page already solved "Ticket" vs
                             "Delegation" needing to read as distinct badges, not bare icon+text, so
                             this reuses it instead of leaving the one remaining plain-text mention. */}
-                        <span className="inline-flex items-center gap-1 pl-0.5 pr-1.5 py-px rounded-full border border-border/50 bg-surface-hover/70">
-                          <span className={`flex items-center justify-center size-3.5 rounded-full shrink-0 text-white ${ACTIVITY_CATEGORY_DOT_CLASS[isTicket ? 'ticket' : 'delegation']}`}>
-                            <KindIcon size={8} strokeWidth={3} aria-hidden="true" />
-                          </span>
-                          {/* "Delegation", not "Task" — that's what a task is called everywhere else
-                              in the app (Delegation Score, the activity category filter, the nav). */}
-                          <span className="font-display font-bold text-text-secondary">{isTicket ? 'Ticket' : 'Delegation'}</span>
-                        </span>
-                        <span className={`sm:hidden inline-flex items-center gap-1 px-1.5 py-px rounded-full text-[10px] font-display font-bold whitespace-nowrap ring-1 ring-inset ${pillClassName}`}>
-                          <span aria-hidden="true" className={`size-1.5 rounded-full shrink-0 ${dotClassName}`} />
-                          {pillLabel}
-                        </span>
+                        <IconChip
+                          icon={KindIcon}
+                          tone={ACTIVITY_CATEGORY_DOT_CLASS[isTicket ? 'ticket' : 'delegation']}
+                          label={isTicket ? 'Ticket' : 'Delegation'}
+                        />
+                        <StatusChip status={chipKey} label={pillLabel} className="sm:hidden" />
                         <span className="hidden sm:block size-1 rounded-full bg-border shrink-0" />
                         <span className="hidden sm:inline tabular-nums">{formatRelativeTime(item.createdAt)}</span>
                       </div>
@@ -325,15 +322,7 @@ export const RecentActivity = ({ feed, isPending }: RecentActivityProps) => {
 
                   {/* Status Badge & Chevron (sm and up) */}
                   <div className="hidden sm:flex items-center gap-4 shrink-0 ml-4">
-                    <span
-                      className={`inline-flex items-center gap-1.5 justify-center text-[10px] sm:text-[11px] font-display font-bold px-2.5 py-1 rounded-full whitespace-nowrap ring-1 ring-inset ${pillClassName}`}
-                    >
-                      <span className="relative flex items-center justify-center size-1.5 shrink-0">
-                        <span className={`absolute inset-0 rounded-full blur-[3px] opacity-70 ${dotClassName}`} />
-                        <span className={`relative size-1.5 rounded-full ${dotClassName}`} />
-                      </span>
-                      {pillLabel}
-                    </span>
+                    <StatusChip status={chipKey} label={pillLabel} />
 
                     {/* Sliding Chevron (Desktop only to prevent mobile clutter) */}
                     <ChevronRight
@@ -351,11 +340,11 @@ export const RecentActivity = ({ feed, isPending }: RecentActivityProps) => {
 
       {/* Pagination Footer */}
       {!isPending && visible.length > 0 && totalPages > 1 && (
-        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 sm:px-5 py-3 border-t border-border/50 bg-surface/50 backdrop-blur-sm">
-          <span className="text-[11px] font-medium text-text-muted tabular-nums order-2 sm:order-1">
+        <div className="relative z-10 flex flex-col @2xl:flex-row @2xl:items-center @2xl:justify-between gap-2 px-4 sm:px-5 py-3 border-t border-border/50 bg-surface/50 backdrop-blur-sm">
+          <span className="text-[11px] font-medium text-text-muted tabular-nums whitespace-nowrap order-2 @2xl:order-1 @max-2xl:self-center">
             Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, visible.length)} of {visible.length}
           </span>
-          <div className="order-1 sm:order-2">
+          <div className="order-1 @2xl:order-2 flex justify-center">
             <PageNav page={page} totalPages={totalPages} onPageChange={setPage} />
           </div>
         </div>

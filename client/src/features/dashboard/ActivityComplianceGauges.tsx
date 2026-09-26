@@ -110,7 +110,7 @@ const Gauge = ({ icon: Icon, label, percent, count, total, trend, isSelected, on
           top of the ring. */}
       {TrendIcon && trend && (
         <div
-          className={`order-last sm:order-none sm:absolute sm:top-4 sm:right-4 flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-display font-bold tabular-nums ${
+          className={`order-last flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-display font-bold tabular-nums ${
             isFlatTrend
               ? 'bg-surface text-text-muted border border-border/50'
               : trend.direction === 'up'
