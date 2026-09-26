@@ -14,12 +14,12 @@ export const TicketVerificationActions = ({ isPending, onApprove, onReject }: Ti
   const { isRejecting, note, setNote, startReject, cancelReject, trimmedNote, canSubmitReject } = useVerifyDecision();
 
   return (
-    <div className="px-6 py-5 border-t border-border bg-surface-hover/80 backdrop-blur-md flex flex-col gap-3 font-sans">
+    <div className="flex flex-col gap-3">
       {!isRejecting ? (
         <div className="flex items-center gap-3">
           <Button
             variant="primary"
-            className="flex-1 gap-2 bg-success hover:bg-success/90 text-white font-bold shadow-md shadow-success/20 py-2.5 rounded-xl transition-all outline-none focus-visible:ring-2 focus-visible:ring-success focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-95"
+            className="flex-1 gap-2 bg-success hover:bg-success/90 text-white font-bold py-2.5 rounded-xl transition-all outline-none focus-visible:ring-2 focus-visible:ring-success focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-95"
             isLoading={isPending}
             onClick={onApprove}
           >
@@ -29,7 +29,7 @@ export const TicketVerificationActions = ({ isPending, onApprove, onReject }: Ti
           
           <Button
             variant="outline"
-            className="flex-1 gap-2 border-danger/30 text-danger bg-surface hover:bg-danger/10 font-bold shadow-sm py-2.5 rounded-xl transition-all outline-none focus-visible:ring-2 focus-visible:ring-danger focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-95"
+            className="flex-1 gap-2 border-danger/30 text-danger bg-surface hover:bg-danger/10 font-bold py-2.5 rounded-xl transition-all outline-none focus-visible:ring-2 focus-visible:ring-danger focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-95"
             disabled={isPending}
             onClick={startReject}
           >
@@ -45,12 +45,12 @@ export const TicketVerificationActions = ({ isPending, onApprove, onReject }: Ti
             onChange={e => setNote(e.target.value)}
             placeholder="What needs to be fixed before this can be approved?"
             rows={3}
-            className="w-full px-4 py-3 text-sm font-medium text-text bg-surface border border-border rounded-xl shadow-inner focus:outline-none focus:ring-2 focus:ring-danger/40 focus:border-danger placeholder:text-text-light transition-all resize-none"
+            className="w-full px-4 py-3 text-sm font-medium text-text bg-surface border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-danger/40 focus:border-danger placeholder:text-text-light transition-all resize-none"
           />
           <div className="flex items-center gap-3">
             <Button
               variant="primary"
-              className="flex-1 bg-danger hover:bg-danger/90 text-white font-bold shadow-md shadow-danger/20 py-2.5 rounded-xl transition-all outline-none focus-visible:ring-2 focus-visible:ring-danger focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 bg-danger hover:bg-danger/90 text-white font-bold py-2.5 rounded-xl transition-all outline-none focus-visible:ring-2 focus-visible:ring-danger focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isPending || !canSubmitReject}
               onClick={() => onReject(trimmedNote)}
             >

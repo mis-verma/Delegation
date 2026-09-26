@@ -5,6 +5,9 @@ import type { Ticket, TicketStatus } from '../../api/ticket';
 export const formatShortDate = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
+/** Short human reference for a ticket ("TICK-YBHT1A"), shown on cards and the detail header. */
+export const ticketCode = (id: string) => `TICK-${id ? id.slice(0, 6).toUpperCase() : '------'}`;
+
 export const formatShortDateTime = (iso: string) => {
   const d = new Date(iso);
   return `${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, ${d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;

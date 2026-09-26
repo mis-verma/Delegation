@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, ShieldCheck } from 'lucide-react';
+import { ShieldCheck, Type, SlidersHorizontal, CalendarDays, User, Trash2, Loader2 } from 'lucide-react';
 import {
   useTicketQuery,
   useUpdateTicketMutation,
@@ -7,23 +7,29 @@ import {
   useAssignableUsersQuery,
   useVerifyTicketMutation,
   useAddTicketStatusUpdateMutation,
+  useDepartmentsQuery,
 } from './hook';
-import { ImageLightbox, ActivityTimeline, type DropdownAction } from '../../components';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { ImageLightbox, ActivityTimeline, IconChip, StatusChip, PriorityChip, DepartmentChip, type StatusChipStatus } from '../../components';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { useAuth } from '../../context/AuthContext';
 import { getTicketStatusLabel } from '../../lib/ticketStatusLabel';
-import { STATUS_OPTIONS, STATUS_CONFIG } from './detail/detailConstants';
+import { getInitials } from '../../lib/getInitials';
+import { avatarColorClass } from '../../lib/avatarColors';
+import { STATUS_OPTIONS, STATUS_UPDATE_OPTIONS } from './detail/detailConstants';
+import { PRIORITY_CONFIG } from './ticketDisplay';
 import { TicketDetailHeader } from './detail/TicketDetailHeader';
-import { TicketQuickAttributes } from './detail/TicketQuickAttributes';
 import { VerificationNoteBanner } from '../../components/verificationBanner';
 import { TicketDescription } from './detail/TicketDescription';
 import { TicketStatusHistory } from './detail/TicketStatusHistory';
-import { TicketStatusUpdatePanel } from './detail/TicketStatusUpdatePanel';
 import { TicketVerificationActions } from './detail/TicketVerificationActions';
-import { TicketDetailFooter } from './detail/TicketDetailFooter';
+import { TicketStatusMenu } from './detail/TicketStatusMenu';
 import { TicketStatusRemarkDialog } from './TicketStatusRemarkDialog';
 import { ReviewersField } from '../reviewers/ReviewersField';
-import { RESTRICTED_STATUSES, type Ticket, type RestrictedStatus, type CaptureMethod } from '../../api/ticket';
+import type { AssignableUser } from '../../api/users';
+import type { Role } from '../../api/auth';
+import { AssigneeField } from '../assignees/AssigneeField';
+import { DETAIL_HEADING_CLASS } from '../tasks/taskFormFieldStyles';
+import { RESTRICTED_STATUSES, type Ticket, type TicketStatus, type RestrictedStatus, type CaptureMethod } from '../../api/ticket';
 
 interface TicketDetailProps {
   ticket: Ticket;
@@ -50,36 +56,17 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
     ((currentUser?.role === "AGENT" || currentUser?.role === "USER") &&
       (ticket.assigneeId === currentUser?.id || ticket.userId === currentUser?.id));
       
-  const selectableStatuses = isVerifier ? STATUS_OPTIONS : STATUS_OPTIONS.filter(s => s.value !== 'CLOSED');
-
   const { data: assignableUsers } = useAssignableUsersQuery(ticket.departmentId ?? undefined);
+  const { data: departments } = useDepartmentsQuery();
+  // The current assignee may sit outside this department's assignable roster (moved, or picked
+  // before a department change). Without them in the list the picker showed "Unassigned".
+  const assigneeOptions: AssignableUser[] | undefined = ticket.assignee && assignableUsers && !assignableUsers.some(u => u.id === ticket.assignee!.id)
+    ? [...assignableUsers, { id: ticket.assignee.id, firstName: ticket.assignee.firstName, lastName: null, email: ticket.assignee.email, role: ticket.assignee.role as Role, departmentId: null }]
+    : assignableUsers;
+  const departmentName = ticket.departmentId ? departments?.find(d => d.id === ticket.departmentId)?.name : undefined;
 
   const [previewImage, setPreviewImage] = useState<string | null>(null);
-
-  const [statusPick, setStatusPick] = useState<RestrictedStatus | null>(null);
-  const [statusRemark, setStatusRemark] = useState('');
-  const [statusPhotos, setStatusPhotos] = useState<File[]>([]);
-  const [statusCaptureMethod, setStatusCaptureMethod] = useState<CaptureMethod>('GALLERY');
   const statusUpdateMut = useAddTicketStatusUpdateMutation(ticket.id);
-
-  const addStatusPhotos = (files: FileList | null, method: CaptureMethod) => {
-    if (!files || !files.length) return;
-    setStatusPhotos(prev => [...prev, ...Array.from(files)]);
-    setStatusCaptureMethod(method);
-  };
-
-  const handleSubmitStatusUpdate = () => {
-    if (!statusPick || !statusRemark.trim()) return;
-    statusUpdateMut.mutate(
-      {
-        status: statusPick,
-        remark: statusRemark.trim(),
-        captureMethod: statusPhotos.length ? statusCaptureMethod : undefined,
-        files: statusPhotos,
-      },
-      { onSuccess: () => { setStatusPick(null); setStatusRemark(''); setStatusPhotos([]); } },
-    );
-  };
 
   const handleDelete = () => {
     deleteMut.mutate(ticket.id, { onSuccess: onClose });
@@ -87,15 +74,11 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
 
   const isOverdue = ticket.isOverdue && ticket.status !== 'CLOSED';
 
-  // This quick dropdown is the verifier-only path to change status (the remark-required "Update
-  // Status" panel above only renders for non-verifiers). It used to fire every status instantly
-  // except On Hold — so a verifier moving straight to In Progress or In Review from here left no
-  // remark at all, while the exact same move made by dragging a board card (useTicketStatusMove)
-  // or from the non-verifier panel both require one. Every RESTRICTED_STATUSES target now goes
-  // through the same TicketStatusRemarkDialog those two already use, via the richer
-  // statusUpdateMut (remark + optional photos) the non-verifier panel already posts through —
-  // one gate, everywhere a ticket's status can change, not just the one status someone remembered
-  // to special-case.
+  // One status control for everyone who can change status. Verifiers get every status; everyone
+  // else gets the three work moves (In Progress / On Hold / Completed) until the ticket is waiting
+  // on review or closed. Every restricted target opens the same remark popup (remark required,
+  // optional proof photos), the same gate a board drag goes through. This replaces the old
+  // always-open "Update Status" panel, which pinned a textarea and six buttons over half the sheet.
   const [quickStatusPick, setQuickStatusPick] = useState<RestrictedStatus | null>(null);
   const [quickStatusPhotos, setQuickStatusPhotos] = useState<File[]>([]);
   const [quickStatusCaptureMethod, setQuickStatusCaptureMethod] = useState<CaptureMethod>('GALLERY');
@@ -106,29 +89,24 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
     setQuickStatusCaptureMethod(method);
   };
 
-  const statusActions: DropdownAction[] = selectableStatuses.map(s => ({
-    label: s.label,
-    onClick: () =>
-      (RESTRICTED_STATUSES as readonly string[]).includes(s.value)
-        ? setQuickStatusPick(s.value as RestrictedStatus)
-        : updateMut.mutate({ id: ticket.id, payload: { status: s.value } }),
-  }));
-  
-  const statusStyle = STATUS_CONFIG[ticket.status];
+  const workerCanMove = canChangeStatus && ticket.status !== 'CLOSED' && ticket.status !== 'PENDING_APPROVAL';
+  const statusOptions = (isVerifier ? STATUS_OPTIONS : workerCanMove ? STATUS_UPDATE_OPTIONS : [])
+    .filter(s => s.value !== ticket.status);
+
+  const handlePickStatus = (next: TicketStatus) => {
+    if ((RESTRICTED_STATUSES as readonly string[]).includes(next)) setQuickStatusPick(next as RestrictedStatus);
+    else updateMut.mutate({ id: ticket.id, payload: { status: next } });
+  };
+
+  const statusChipStatus = ticket.status.toLowerCase() as StatusChipStatus;
   const statusLabel = getTicketStatusLabel(
     ticket.status,
     currentUser?.role,
     STATUS_OPTIONS.find(s => s.value === ticket.status)?.label ?? ticket.status,
   );
-  const statusBadgeClass = `${statusStyle.bg} ${statusStyle.text} ${statusStyle.border}`;
-  const assigneeActions: DropdownAction[] = [
-    { label: 'Unassigned', onClick: () => updateMut.mutate({ id: ticket.id, payload: { assigneeId: null } }), icon: User },
-    ...(assignableUsers ?? []).map(u => ({
-      label: `${u.firstName} ${u.lastName ?? ''}`.trim(),
-      onClick: () => updateMut.mutate({ id: ticket.id, payload: { assigneeId: u.id } }),
-      icon: User,
-    })),
-  ];
+  const assigneeName = ticket.assignee?.firstName ?? null;
+  const showVerify = isVerifier && ticket.status === 'PENDING_APPROVAL';
+  const showFooter = showVerify || statusOptions.length > 0;
 
   return (
     <Sheet open onOpenChange={v => { if (!v) onClose(); }}>
@@ -137,120 +115,145 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
       >
         {/* Indeterminate loading bar */}
         {isPending && (
-          <div className="absolute top-0 left-0 right-0 z-50 h-[3px] w-full bg-primary-50 overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 z-50 h-[3px] w-full bg-primary-500/15 overflow-hidden">
             <div className="h-full bg-primary-500 w-1/2 rounded-r-full animate-[slide_1.5s_ease-in-out_infinite]" />
           </div>
         )}
 
-        {/* Sticky Header */}
-        <div className="z-10 bg-surface border-b border-border shrink-0">
-          <TicketDetailHeader ticket={ticket} />
-        </div>
+        <TicketDetailHeader ticket={ticket} />
 
-        {/* Scrollable Content Body */}
-        <div className="flex-1 overflow-y-auto px-5 py-6 sm:px-8 sm:py-8 flex flex-col gap-8 custom-scrollbar">
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 sm:px-8 sm:py-6 flex flex-col gap-5 sm:gap-6 custom-scrollbar">
+          {/* Title under its own label, with a small round delete button on the label row, same
+              layout as the delegation detail sheet. */}
+          <section className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between gap-3 min-h-8">
+              <span className={DETAIL_HEADING_CLASS}>
+                <Type size={14} className="text-text-light" />
+                Title
+              </span>
+              {isAdmin && (
+                <button
+                  type="button"
+                  disabled={deleteMut.isPending}
+                  onClick={handleDelete}
+                  aria-label="Delete ticket"
+                  title="Delete ticket"
+                  className="flex items-center justify-center size-8 rounded-full text-text-light hover:text-danger hover:bg-danger/10 active:bg-danger/10 disabled:opacity-50 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-danger/40 [-webkit-tap-highlight-color:transparent]"
+                >
+                  {deleteMut.isPending ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
+                </button>
+              )}
+            </div>
+            <SheetTitle className="pr-0 text-lg sm:text-xl font-display font-semibold text-text tracking-tight leading-snug break-words select-text">
+              {ticket.title}
+            </SheetTitle>
+          </section>
 
-          <div className="flex flex-col gap-5">
-            <TicketQuickAttributes
-              ticket={ticket}
-              currentUserRole={currentUser?.role}
-              canAssign={canAssign}
-              assigneeActions={assigneeActions}
-              isOverdue={isOverdue}
-            />
-            <VerificationNoteBanner note={ticket.verificationNote} approved={ticket.status === 'CLOSED'} verifiedBy={ticket.verifiedBy} />
+          {/* Every property as one wrapping row of icon chips: status, priority, owner, deadline,
+              department. Was a 2x2 grid of labelled cells where a long date wrapped onto three
+              lines next to its own "Overdue" chip. */}
+          <section className="flex flex-col gap-2">
+            <span className={DETAIL_HEADING_CLASS}>
+              <SlidersHorizontal size={14} className="text-text-light" />
+              Details
+            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusChip status={statusChipStatus} label={statusLabel} />
+              <PriorityChip meta={PRIORITY_CONFIG[ticket.priority]} />
 
-            {/* Reviewer assignment is the same routing-authority decision as reassigning who owns
-                this ticket, so it's gated behind the same canAssign check. Someone without that
-                authority still sees who's named, just not an editable picker. */}
-            {canAssign ? (
-              <ReviewersField
-                departmentId={ticket.departmentId ?? undefined}
-                storeId={ticket.storeId ?? undefined}
-                selected={ticket.reviewers.map((r) => r.id)}
-                onChange={(ids) => updateMut.mutate({ id: ticket.id, payload: { reviewerIds: ids } })}
-              />
-            ) : ticket.reviewers.length > 0 && (
-              <div className="flex items-center gap-2.5 text-sm font-display">
-                <ShieldCheck size={15} className="text-text-light shrink-0" />
-                <span className="text-text-secondary">
-                  Reviewers: {ticket.reviewers.map((r) => `${r.firstName}${r.lastName ? ` ${r.lastName}` : ''}`).join(', ')}
+              {canAssign ? (
+                <div title="Assignee" className="flex items-center">
+                  <AssigneeField
+                    single
+                    hideLabel
+                    selectedIds={ticket.assigneeId ? [ticket.assigneeId] : []}
+                    onChange={ids => updateMut.mutate({ id: ticket.id, payload: { assigneeId: ids[0] ?? null } })}
+                    users={assigneeOptions}
+                  />
+                </div>
+              ) : (
+                <span title="Assignee" className="inline-flex items-center gap-1.5 pl-1 pr-2.5 py-1 rounded-full border border-border/60 bg-surface text-xs font-semibold text-text">
+                  {assigneeName ? (
+                    <span className={`flex items-center justify-center size-5 rounded-full text-white text-[9px] font-bold ${avatarColorClass(assigneeName)}`}>
+                      {getInitials(assigneeName)}
+                    </span>
+                  ) : (
+                    <span className="flex items-center justify-center size-5 rounded-full bg-surface-hover text-text-light">
+                      <User size={11} />
+                    </span>
+                  )}
+                  {assigneeName ?? 'Unassigned'}
                 </span>
-              </div>
-            )}
-          </div>
+              )}
 
-          {/* Each divider is paired with the section right after it, not rendered on its own —
-              Description and Status History both go blank on a fresh ticket (no description yet,
-              no status changes yet), and a static divider with nothing below it read as a stray
-              line dividing the page from empty space rather than separating two real sections. */}
-          {!!ticket.description?.trim() && (
-            <>
-              <div className="h-px w-full bg-border" />
-              <TicketDescription description={ticket.description} />
-            </>
-          )}
+              {ticket.tatDueAt && (
+                <IconChip
+                  icon={CalendarDays}
+                  tone={isOverdue ? 'bg-danger' : 'bg-primary-700'}
+                  label={`${isOverdue ? 'Overdue · ' : 'Due '}${new Date(ticket.tatDueAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`}
+                  title="SLA deadline"
+                  className={isOverdue ? 'border-danger/30 text-danger' : undefined}
+                />
+              )}
 
-          {(ticket.statusUpdates?.length ?? 0) > 0 && (
-            <>
-              <div className="h-px w-full bg-border" />
-              <TicketStatusHistory statusUpdates={ticket.statusUpdates} onPreview={setPreviewImage} />
-            </>
-          )}
+              {departmentName && (
+                <span title="Department" className="inline-flex">
+                  <DepartmentChip name={departmentName} />
+                </span>
+              )}
+            </div>
+          </section>
 
-          {(currentUser?.role === 'ADMIN' || currentUser?.role === 'PC') && (
-            <>
-              <div className="h-px w-full bg-border" />
-              <ActivityTimeline entityType="Ticket" entityId={ticket.id} />
-            </>
-          )}
-        </div>
-
-        {/* Pinned Action Panels & Footer */}
-        <div className="relative z-20 flex flex-col shrink-0 border-t border-border bg-surface pb-safe">
-          {canChangeStatus && !isVerifier && ticket.status !== 'CLOSED' && ticket.status !== 'PENDING_APPROVAL' && (
-            <div className="px-5 sm:px-8 py-4 border-b border-border/60">
-              <TicketStatusUpdatePanel
-                statusPick={statusPick}
-                onPickStatus={setStatusPick}
-                statusRemark={statusRemark}
-                onRemarkChange={setStatusRemark}
-                statusPhotos={statusPhotos}
-                onRemovePhoto={i => setStatusPhotos(prev => prev.filter((_, idx) => idx !== i))}
-                onAddPhotos={addStatusPhotos}
-                onSubmit={handleSubmitStatusUpdate}
-                isSubmitting={statusUpdateMut.isPending}
-                submitErrorMessage={statusUpdateMut.isError
-                  ? (statusUpdateMut.error instanceof Error ? statusUpdateMut.error.message : 'Failed to update status.')
-                  : null}
-              />
+          {/* Reviewer assignment is the same routing decision as reassigning the owner, so it's
+              behind the same canAssign check. Others just see who's named. */}
+          {canAssign ? (
+            <ReviewersField
+              departmentId={ticket.departmentId ?? undefined}
+              storeId={ticket.storeId ?? undefined}
+              selected={ticket.reviewers.map((r) => r.id)}
+              onChange={(ids) => updateMut.mutate({ id: ticket.id, payload: { reviewerIds: ids } })}
+            />
+          ) : ticket.reviewers.length > 0 && (
+            <div className="flex items-center gap-2 text-sm">
+              <ShieldCheck size={15} className="text-text-light shrink-0" />
+              <span className="text-text-secondary">
+                Reviewers: {ticket.reviewers.map((r) => `${r.firstName}${r.lastName ? ` ${r.lastName}` : ''}`).join(', ')}
+              </span>
             </div>
           )}
 
-          {/* Single-stage verify: one PC/ADMIN/manager/reviewer check decides the whole thing —
-              the old two-stage QC-then-approval split is gone. */}
-          {isVerifier && ticket.status === 'PENDING_APPROVAL' && (
-            <div className="px-5 sm:px-8 py-4 border-b border-border/60 bg-status-approve/10">
+          <VerificationNoteBanner note={ticket.verificationNote} approved={ticket.status === 'CLOSED'} verifiedBy={ticket.verifiedBy} />
+
+          <TicketDescription description={ticket.description} />
+
+          {(ticket.statusUpdates?.length ?? 0) > 0 && (
+            <TicketStatusHistory statusUpdates={ticket.statusUpdates} onPreview={setPreviewImage} />
+          )}
+
+          {isAdmin && <ActivityTimeline entityType="Ticket" entityId={ticket.id} />}
+        </div>
+
+        {showFooter && (
+          <div className="shrink-0 flex flex-col gap-3 border-t border-border/60 bg-surface px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-8 sm:py-4">
+            {/* Single-stage verify: one PC/Admin check decides it. */}
+            {showVerify && (
               <TicketVerificationActions
                 isPending={verifyMut.isPending}
                 onApprove={() => verifyMut.mutate({ id: ticket.id, payload: { action: 'APPROVE' } })}
                 onReject={note => verifyMut.mutate({ id: ticket.id, payload: { action: 'REJECT', note } })}
               />
-            </div>
-          )}
-
-          <div className="px-5 sm:px-8 py-4">
-            <TicketDetailFooter
-              isAdmin={isAdmin}
-              onDelete={handleDelete}
-              isDeleting={deleteMut.isPending}
-              isVerifier={isVerifier}
-              statusActions={statusActions}
-              statusLabel={statusLabel}
-              statusBadgeClass={statusBadgeClass}
-            />
+            )}
+            {statusOptions.length > 0 && (
+              <div className="flex items-center justify-end">
+                <TicketStatusMenu
+                  options={statusOptions}
+                  onPick={handlePickStatus}
+                  isBusy={updateMut.isPending || statusUpdateMut.isPending}
+                />
+              </div>
+            )}
           </div>
-        </div>
+        )}
 
         <ImageLightbox src={previewImage} onClose={() => setPreviewImage(null)} />
 

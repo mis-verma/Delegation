@@ -325,3 +325,9 @@ body {
   --color-input: var(--color-border);
   --color-ring: var(--color-primary-500);
 }
+
+/* Button.tsx wraps its label in a span that takes the button's own gap (gap-1.5 / gap-2 per size).
+   This utility was referenced but never defined, so icon and text sat touching in every button. */
+@utility gap-inherit {
+  gap: inherit;
+}

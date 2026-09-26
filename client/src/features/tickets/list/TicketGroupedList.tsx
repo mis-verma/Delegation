@@ -32,13 +32,13 @@ const TicketGroupedListComponent = ({
   ), [groups]);
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6 sm:gap-8">
       {groups.map((group, groupIdx) => {
         const stats = groupChecklistStats(group.tickets);
         const groupOffset = groupOffsets[groupIdx];
 
         return (
-          <div key={group.key} className="flex flex-col gap-4">
+          <div key={group.key} className="flex flex-col gap-3 sm:gap-4">
             <TicketGroupHeader
               label={group.label}
               groupBy={groupBy}
@@ -46,7 +46,7 @@ const TicketGroupedListComponent = ({
               stats={stats}
             />
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
               {group.tickets.map((ticket, ticketIdx) => (
                 <TicketCard
                   key={ticket.id}

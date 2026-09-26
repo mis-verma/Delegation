@@ -1,11 +1,11 @@
-import { useForm, useWatch } from 'react-hook-form';
+import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Ticket, AlertCircle, UserCheck, ClipboardList, UsersRound } from 'lucide-react';
+import { Ticket as TicketIcon, AlertCircle, Check, Type, AlignLeft, SlidersHorizontal, Camera, Image as ImageIcon } from 'lucide-react';
 
-import { Button, Modal } from '../../components';
+import { Button, Modal, Input, Combobox } from '../../components';
 import { useCreateTicketMutation, useAssignableUsersQuery, useDepartmentsQuery } from './hook';
 import { useCategoriesQuery } from '../settings/hook';
 import { useTagsQuery } from '../tags/hook';
@@ -14,15 +14,16 @@ import { AssigneeField } from '../assignees/AssigneeField';
 import { ticketApi } from '../../api/ticket';
 import { ticketSchema, type TicketFields } from './form/ticketFormSchema';
 import { AssignmentModeToggle } from './form/AssignmentModeToggle';
-import { CategoryField } from './form/CategoryField';
-import { TicketDetailsFields } from './form/TicketDetailsFields';
-import { PhotoUploadField } from './form/PhotoUploadField';
-import { PriorityField } from './form/PriorityField';
-import { DepartmentField } from './form/DepartmentField';
 import { DueDateField } from './form/DueDateField';
 import { ReviewersField } from '../reviewers/ReviewersField';
-import { LABEL_CLASS, SECTION_TITLE_CLASS } from './form/formConstants';
+import { TicketPriorityChipPicker } from './form/TicketPriorityChipPicker';
+import { TaskDescriptionField } from '../tasks/TaskDescriptionField';
+import { StagedFileChips } from '../tasks/StagedFileChips';
+import { DETAIL_HEADING_CLASS, CHIP_TRIGGER_CLASS } from '../tasks/taskFormFieldStyles';
 import { useAuth } from '../../context/AuthContext';
+
+// Quiet fill until focused; Input's own danger styling takes over once validation fails.
+const QUIET_FIELD_CLASS = 'font-display border-transparent bg-surface-hover/50 hover:bg-surface-hover focus:bg-surface';
 
 interface TicketFormProps {
   onClose: () => void;
@@ -122,19 +123,20 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
   }, [mutation, photos, queryClient, onClose, selectedCategory, reviewerIds]);
 
   const footer = (
-    <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between w-full gap-3">
-      {/* Only Title and Description are mandatory, so say so once here instead of leaving people
-          to discover it by submitting — same treatment as Delegation's own footer hint. */}
-      <p className="text-xs font-medium text-text-light font-display">
-        <span className="text-danger">*</span> Title and Description are required — everything else can be added later.
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-3">
+      {/* Desktop-only: on a phone the red * on the two labels already says it. */}
+      <p className="hidden sm:block text-xs font-medium text-text-light font-display">
+        <span className="text-danger">*</span> Title and description are required. Everything else can be added later.
       </p>
 
-      <div className="flex items-center justify-end gap-3">
-        <Button type="button" variant="outline" size="sm" onClick={onClose} className="font-display">
+      {/* Phones: one full-width Create; the X in the header dismisses. Desktop keeps Cancel. */}
+      <div className="flex items-center justify-end gap-2 sm:gap-3">
+        <Button type="button" variant="outline" size="sm" onClick={onClose} className="hidden sm:inline-flex font-display">
           Cancel
         </Button>
-        <Button type="submit" form="ticket-form" variant="primary" size="sm" isLoading={mutation.isPending} className="font-display">
-          Create Ticket
+        <Button type="submit" form="ticket-form" variant="primary" size="sm" isLoading={mutation.isPending} className="max-sm:flex-1 max-sm:h-11 font-display">
+          {!mutation.isPending && <Check size={16} strokeWidth={2.5} />}
+          {mutation.isPending ? 'Creating…' : 'Create ticket'}
         </Button>
       </div>
     </div>
@@ -145,78 +147,98 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
       open
       onClose={onClose}
       size="xl"
-      icon={<Ticket className="w-5 h-5" />}
-      title="Create New Ticket"
-      description="Fill in the parameters to dispatch a task."
+      icon={<TicketIcon className="w-5 h-5" />}
+      title="New ticket"
+      description={<span className="hidden sm:inline">Say what's wrong, then choose who picks it up.</span>}
       footer={footer}
-      // No rules under the title or above the buttons — matches Delegation's own modal: the
-      // dialog's own edge already separates it from the page. And no X in the corner: the
-      // footer's Cancel is the dismiss action, so two of them in one small dialog is one too many
-      // — Escape and the backdrop still close it.
+      bodyClassName="p-0 sm:p-0 overflow-y-auto"
       headerClassName="border-b-0"
       footerClassName="border-t-0"
-      showCloseButton={false}
-      contentClassName="
-        left-0 right-0 top-auto bottom-0 translate-x-0 translate-y-0 w-full max-w-full
-        sm:left-[50%] sm:right-auto sm:top-[50%] sm:bottom-auto sm:translate-x-[-50%] sm:translate-y-[-50%]
-        rounded-t-2xl rounded-b-none sm:rounded-2xl
-        max-h-[92dvh] sm:max-h-[90vh]
-        shadow-2xl shadow-primary-900/10
-        data-[state=open]:slide-in-from-bottom-8 data-[state=closed]:slide-out-to-bottom-8
-        sm:data-[state=open]:slide-in-from-bottom-0 sm:data-[state=closed]:slide-out-to-bottom-0
-        data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100
-        sm:data-[state=open]:zoom-in-95 sm:data-[state=closed]:zoom-out-95
-      "
+      // X on phones only, where the footer has just the Create button. Desktop keeps Cancel.
+      closeButtonClassName="sm:hidden"
     >
-      {/* Sheet drag handle — mobile only, signals "this is a bottom sheet" */}
-      <div className="sm:hidden flex justify-center -mt-4 mb-1 shrink-0">
-        <div className="h-1.5 w-10 rounded-full bg-border/70" />
-      </div>
-
-      <form id="ticket-form" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-8" noValidate>
-        {/* Decides how everything below behaves (Auto hides Department/Assignee/Due Date once a
-            category is picked), so it comes first — before Title/Description — not buried inside
-            the Assignment section beneath fields it already controls. */}
+      {/* Same layout as the New delegation form: icon labels over Title and Description, then
+          one Details row of chips (category, department, priority, assignee, due date). */}
+      <form id="ticket-form" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5 px-4 pb-4 pt-0 sm:p-5" noValidate>
+        {/* First, because it decides what the Details row below offers. */}
         <AssignmentModeToggle mode={assignmentMode} onChange={m => setValue('assignmentMode', m)} />
 
-        <section className="flex flex-col gap-5">
-          <h3 className={SECTION_TITLE_CLASS}>
-            <ClipboardList size={14} /> The work
-          </h3>
-
-          <TicketDetailsFields register={register} errors={errors} />
-          <PhotoUploadField photos={photos} onAddPhotos={addPhotos} onRemovePhoto={removePhoto} />
-        </section>
-
-        <section className="flex flex-col gap-5">
-          <h3 className={SECTION_TITLE_CLASS}>
-            <UsersRound size={14} /> Assignment
-          </h3>
-
-          <CategoryField
-            categoryId={categoryId}
-            onChange={v => setValue('categoryId', v)}
-            categories={categories}
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="title" className={DETAIL_HEADING_CLASS}>
+            <Type size={14} className="text-text-light" />
+            Title <span className="text-danger">*</span>
+          </label>
+          <Input
+            id="title"
+            placeholder="e.g. Card machine at counter 2 not printing"
+            error={errors.title?.message}
+            className={errors.title ? 'font-display' : QUIET_FIELD_CLASS}
+            {...register('title')}
+            autoFocus
           />
+        </div>
 
-          {/* Two-up from sm, same pairing Delegation's own Assignment section uses — each field is
-              one grid cell so labels line up across the row. Assignee and Labels are placed as
-              their own pair (both pickers that add chips) so they sit next to each other, and Due
-              Date closes the section full-width since it's the most important field here. */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-6">
-            <DepartmentField
-              value={departmentId}
-              onChange={v => setValue('departmentId', v)}
-              departments={departments}
-              disabled={!!selectedCategory}
-            />
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="description" className={DETAIL_HEADING_CLASS}>
+            <AlignLeft size={14} className="text-text-light" />
+            Description <span className="text-danger">*</span>
+          </label>
+          <Controller
+            control={control}
+            name="description"
+            render={({ field }) => (
+              <TaskDescriptionField
+                id="description"
+                value={field.value ?? ''}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                rows={3}
+                placeholder="What happened, where, and since when…"
+                toolbar={<PhotoToolbar onAdd={addPhotos} />}
+                containerClassName={errors.description ? 'border-danger' : 'border-transparent bg-surface-hover/50 focus-within:bg-surface'}
+              >
+                {photos.length > 0 && <StagedFileChips files={photos} onRemove={removePhoto} />}
+              </TaskDescriptionField>
+            )}
+          />
+          {errors.description?.message && (
+            <p className="text-xs text-danger font-display" role="alert">{errors.description.message}</p>
+          )}
+        </div>
 
-            <PriorityField value={priority} onChange={v => setValue('priority', v)} />
+        <div className="flex flex-col gap-2">
+          <span className={DETAIL_HEADING_CLASS}>
+            <SlidersHorizontal size={14} className="text-text-light" />
+            Details
+          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Picking a category fills in department, assignee and the due date. */}
+            <div title="Category">
+              <Combobox
+                value={categoryId ?? ''}
+                onChange={v => setValue('categoryId', v)}
+                placeholder="Search categories..."
+                emptyOptionLabel="No category"
+                options={(categories ?? []).map(c => ({ value: c.id, label: c.name }))}
+                className={`${CHIP_TRIGGER_CLASS} max-w-[13rem]`}
+              />
+            </div>
 
-            <div className="flex flex-col gap-2">
-              <label className={LABEL_CLASS}>
-                <UserCheck className="w-3.5 h-3.5" /> Assignee
-              </label>
+            <div title="Department">
+              <Combobox
+                value={departmentId ?? ''}
+                onChange={v => setValue('departmentId', v)}
+                disabled={!!selectedCategory}
+                placeholder="Search departments..."
+                emptyOptionLabel="Any department"
+                options={(departments ?? []).map(d => ({ value: d.id, label: d.name }))}
+                className={`${CHIP_TRIGGER_CLASS} max-w-[13rem]`}
+              />
+            </div>
+
+            <TicketPriorityChipPicker value={priority} onChange={v => setValue('priority', v)} />
+
+            <div title="Assignee" className="flex items-center">
               <AssigneeField
                 single
                 hideLabel
@@ -228,43 +250,79 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
               />
             </div>
 
-            <LabelsField
-              tags={tags ?? []}
-              selectedIds={tagIds ?? []}
-              onChange={v => setValue('tagIds', v)}
-              canCreate={isVerifier}
-            />
-
-            <div className="sm:col-span-2">
-              <DueDateField
-                mode={assignmentMode}
-                control={control}
-                setValue={setValue}
-                errors={errors}
-                categoryTatHours={selectedCategory?.tatHours}
-              />
-            </div>
-
-            {/* Full width, same as Delegation's own reviewer picker — a checkbox list of names
-                needs room. Scoped to whichever department is currently selected. */}
-            <div className="sm:col-span-2">
-              <ReviewersField
-                departmentId={departmentId || undefined}
-                selected={reviewerIds}
-                onChange={setReviewerIds}
-              />
-            </div>
+            {assignmentMode === 'MANUAL' && (
+              <div title="Due date">
+                <DueDateField
+                  mode="MANUAL"
+                  hideLabel
+                  triggerClassName={CHIP_TRIGGER_CLASS}
+                  control={control}
+                  setValue={setValue}
+                  errors={errors}
+                  categoryTatHours={selectedCategory?.tatHours}
+                />
+              </div>
+            )}
           </div>
-        </section>
 
-        {/* Global Mutation Error */}
+          {assignmentMode === 'AUTO' && (
+            <DueDateField
+              mode="AUTO"
+              control={control}
+              setValue={setValue}
+              errors={errors}
+              categoryTatHours={selectedCategory?.tatHours}
+            />
+          )}
+        </div>
+
+        {/* Labels and Reviewers are desktop-only, same as the delegation form: optional extras that
+            doubled the form's length on a phone. Reviewers can still be set from the ticket sheet. */}
+        <div className="hidden sm:flex flex-col gap-5">
+          <LabelsField
+            tags={tags ?? []}
+            selectedIds={tagIds ?? []}
+            onChange={v => setValue('tagIds', v)}
+            canCreate={isVerifier}
+          />
+          <ReviewersField
+            departmentId={departmentId || undefined}
+            selected={reviewerIds}
+            onChange={setReviewerIds}
+          />
+        </div>
+
         {mutation.isError && (
-          <div className="p-3 rounded-md bg-danger/10 border border-danger/20 text-xs text-danger font-display flex items-center gap-2.5">
+          <div className="p-3 rounded-lg bg-danger/10 border border-danger/20 text-xs text-danger font-display flex items-center gap-2.5">
             <AlertCircle className="w-4 h-4 shrink-0" />
-            {mutation.error instanceof Error ? mutation.error.message : 'Failed to create ticket.'}
+            {mutation.error instanceof Error ? mutation.error.message : "Couldn't create the ticket. Check the fields and try again."}
           </div>
         )}
       </form>
     </Modal>
+  );
+};
+
+// Camera and gallery buttons in the description box's toolbar, same spot the delegation form
+// puts its attach buttons. Tickets only take photos, so no file/document buttons.
+const PhotoToolbar = ({ onAdd }: { onAdd: (files: FileList | null) => void }) => {
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const galleryRef = useRef<HTMLInputElement>(null);
+  const handle = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onAdd(e.target.files);
+    e.target.value = '';
+  };
+  const btn = 'flex items-center justify-center size-8 rounded-lg text-text-light hover:text-primary-600 hover:bg-surface-hover transition-colors cursor-pointer shrink-0';
+  return (
+    <div className="flex items-center gap-0.5">
+      <input ref={cameraRef} type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={handle} />
+      <input ref={galleryRef} type="file" accept="image/*" multiple className="hidden" onChange={handle} />
+      <button type="button" title="Take photo" aria-label="Take photo" className={btn} onClick={() => cameraRef.current?.click()}>
+        <Camera size={15} />
+      </button>
+      <button type="button" title="Add photo from gallery" aria-label="Add photo from gallery" className={btn} onClick={() => galleryRef.current?.click()}>
+        <ImageIcon size={15} />
+      </button>
+    </div>
   );
 };

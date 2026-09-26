@@ -21,17 +21,20 @@ import { useTicketOrganizer, type TicketView } from './useTicketOrganizer';
 import { TicketSettingsMenu } from './TicketSettingsMenu';
 import { TicketActiveTags } from './TicketActiveTags';
 import type { Ticket } from '../../api/ticket';
+import { useIsMobile } from '../../lib/useMediaQuery';
 
 // Module scope so the array is referentially stable, same convention as TaskList's own VIEW_TABS.
 const VIEW_TABS: ViewTab<TicketView>[] = [
   { key: 'list', label: 'List', icon: LayoutList },
-  { key: 'board', label: 'Board', icon: Kanban },
+  // Phones get cards only, same as Delegation: a kanban board needs width a phone doesn't have.
+  { key: 'board', label: 'Board', icon: Kanban, mobileHidden: true },
   { key: 'table', label: 'Table', icon: Table2, mobileHidden: true },
   { key: 'timeline', label: 'Timeline', icon: GanttChartSquare, mobileHidden: true },
 ];
 
 export const TicketList = () => {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const [showForm, setShowForm] = useState(false);
   const [showBulkImport, setShowBulkImport] = useState(false);
   const [showExport, setShowExport] = useState(false);
@@ -145,7 +148,11 @@ export const TicketList = () => {
           {/* View lives in the toolbar, not inside Options — same as Delegation. It changes what
               the whole page looks like, so it reads as a place you are rather than a setting you
               went and configured. */}
-          <ViewToggle tabs={VIEW_TABS} value={organizer.view} onChange={organizer.setView} />
+          {/* Hidden on phones (only List is available there), but still mounted: ViewToggle's own
+              effect is what switches a saved Board/Table view back to List on a small screen. */}
+          <div className="hidden sm:block">
+            <ViewToggle tabs={VIEW_TABS} value={organizer.view} onChange={organizer.setView} />
+          </div>
 
           <TicketActiveTags organizer={organizer} allTickets={allTicketsData ?? []} />
 
@@ -213,8 +220,10 @@ export const TicketList = () => {
       {!isPending && !isError && organizer.sorted.length === 0 && (
         <EmptyState
           icon={Inbox}
-          title="No tickets found"
-          description={organizer.hasActiveFilters
+          // Short and compact on phones, same as Delegation's empty state.
+          size={isMobile ? 'compact' : undefined}
+          title={isMobile ? 'Nothing here' : 'No tickets found'}
+          description={isMobile ? undefined : organizer.hasActiveFilters
             ? "No tickets match the current filters. Try adjusting or clearing them to see more."
             : "You're all caught up! There are no tickets assigned to this view."}
           action={organizer.hasActiveFilters ? { label: 'Clear all filters', onClick: organizer.handleResetFilters } : undefined}

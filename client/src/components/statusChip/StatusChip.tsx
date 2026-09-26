@@ -67,6 +67,11 @@ export interface StatusChipProps {
 // eslint-disable-next-line react-refresh/only-export-components
 export const getStatusChipLabel = (status: StatusChipStatus) => STATUS_CHIP_CONFIG[status].label;
 
+/** Icon + solid tone for a status, for menus that draw the chip's icon circle next to a plain
+ *  label instead of a whole chip (e.g. the ticket sheet's status menu). */
+// eslint-disable-next-line react-refresh/only-export-components
+export const getStatusChipMeta = (status: StatusChipStatus) => STATUS_CHIP_CONFIG[status];
+
 export const StatusChip = ({ status, label, icon, className, children }: StatusChipProps) => {
   const config = STATUS_CHIP_CONFIG[status];
   const Icon = icon === false ? false : icon ?? config.icon;

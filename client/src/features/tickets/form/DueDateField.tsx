@@ -10,6 +10,10 @@ interface DueDateFieldProps {
   setValue: UseFormSetValue<TicketFields>;
   errors: FieldErrors<TicketFields>;
   categoryTatHours: number | null | undefined;
+  /** Drop the visible label, for a caller that shows this as a chip in a row of other chips. */
+  hideLabel?: boolean;
+  /** Extra classes for the date trigger (e.g. the shared chip trigger style). */
+  triggerClassName?: string;
 }
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
@@ -17,7 +21,7 @@ const toDateStr = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${p
 const toTimeStr = (d: Date) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 
 
-export const DueDateField = ({ mode, control, setValue, errors, categoryTatHours }: DueDateFieldProps) => {
+export const DueDateField = ({ mode, control, setValue, errors, categoryTatHours, hideLabel = false, triggerClassName }: DueDateFieldProps) => {
   const dueDate = useWatch({ control, name: 'dueDate' });
   const dueTime = useWatch({ control, name: 'dueTime' });
 
@@ -44,14 +48,14 @@ export const DueDateField = ({ mode, control, setValue, errors, categoryTatHours
           transition={{ duration: 0.15 }}
           className="flex flex-col gap-1.5 overflow-hidden"
         >
-          <label className="text-xs font-medium text-text-secondary">Due date & time</label>
+          {!hideLabel && <label className="text-xs font-medium text-text-secondary">Due date & time</label>}
           <DatePicker
             value={combined}
             onChange={handleChange}
             showTime
             minDate={new Date()}
-            placeholder="Select a due date"
-            className="font-display border-transparent bg-surface-hover/50 hover:bg-surface-hover"
+            placeholder={hideLabel ? "Add due date" : "Select a due date"}
+            className={triggerClassName ?? "font-display border-transparent bg-surface-hover/50 hover:bg-surface-hover"}
           />
           {(errors.dueDate?.message || errors.dueTime?.message) && (
             <p className="text-xs text-danger font-display" role="alert">
