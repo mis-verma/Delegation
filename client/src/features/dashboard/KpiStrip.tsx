@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router';
 import { ClipboardList, TicketCheck, ListChecks, ListTodo, type LucideIcon } from 'lucide-react';
 import { StatusBreakdownCard, type StatusBreakdownVariant } from './StatusBreakdownCard';
@@ -30,10 +30,6 @@ interface KpiStripProps {
   todos: Todo[];
   isPending: boolean;
   workflowStats: WorkflowStats;
-  /** Page-level control (the dashboard's "Customize layout" trigger) that has nowhere else to sit
-   *  on a phone without wasting its own near-empty row — passed through to the "Show breakdown"
-   *  toggle's row instead. Desktop ignores this entirely (rendered separately there). */
-  toolbar?: ReactNode;
 }
 
 interface Drilldown {
@@ -130,7 +126,7 @@ const KpiCardSkeleton = ({ variant }: { variant: StatusBreakdownVariant }) => {
 // against three quiet ones.
 const CARD_VARIANTS: readonly StatusBreakdownVariant[] = ['navy', 'navy', 'navy', 'navy'];
 
-export const KpiStrip = ({ tickets, tasks, todos, isPending, workflowStats, toolbar }: KpiStripProps) => {
+export const KpiStrip = ({ tickets, tasks, todos, isPending, workflowStats }: KpiStripProps) => {
   const navigate = useNavigate();
   const { data: checklistSummary } = useChecklistInstanceSummaryQuery({ mine: true });
   // Same capped "recent" window RecentActivity uses on this page — enough for a preview modal's
@@ -235,7 +231,7 @@ export const KpiStrip = ({ tickets, tasks, todos, isPending, workflowStats, tool
         <div aria-hidden="true" className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-background to-transparent pointer-events-none" />
       </div>
 
-      <MobileCollapsible label="breakdown" trailing={toolbar}>
+      <MobileCollapsible label="breakdown">
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 md:gap-5">
 
       {/* Delegation Card */}

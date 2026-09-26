@@ -43,7 +43,11 @@ export const ActivityOverviewCard = ({
         <EntityIconTile icon={BarChart3} />
         <div>
           <h2 id="activity-overview-heading" className="text-base sm:text-lg font-display font-bold text-text tracking-tight leading-tight">Activity Overview</h2>
-          <p className="text-xs font-medium text-text-muted mt-0.5 tracking-wide">Delegations, tickets, checklists, and todos, over the {ACTIVITY_GROUP_RANGE_LABEL[activityGroupBy]}</p>
+          {/* Hidden below `sm` — this card already opens collapsed there (see MobileCollapsible
+              below); the full descriptive line is redundant weight on a header that's otherwise
+              just an icon and a title, and the Day/Month/Quarter/Year tabs beside it already say
+              what window it's showing. */}
+          <p className="hidden sm:block text-xs font-medium text-text-muted mt-0.5 tracking-wide">Delegations, tickets, checklists, and todos, over the {ACTIVITY_GROUP_RANGE_LABEL[activityGroupBy]}</p>
         </div>
       </div>
       <ActivityGroupByControl value={activityGroupBy} onChange={onGroupByChange} />

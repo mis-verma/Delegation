@@ -63,9 +63,11 @@ const TONE_HALO: Record<RateTone, string> = {
 
 export const MonthlyTargetCard = ({ percent, total, change, description, stats, period, onPeriodChange }: MonthlyTargetCardProps) => {
   // 220px was hardcoded, which is a lot of gauge for a card that sits in a half-width column.
-  // Scales down on phones the way the Compliance gauges already do.
+  // Scales down further on phones than the 180px first try — the gauge now shares a row with the
+  // description text (see below) instead of sitting centered above it, so it also has to leave
+  // that text a usable column width, not just look reasonably sized on its own.
   const isMobile = useIsMobile();
-  const gaugeSize = isMobile ? 180 : 220;
+  const gaugeSize = isMobile ? 150 : 220;
   const tone = rateTone(percent, total);
 
   // pointDelta always signs its label ("+0.0%"), so an unchanged score has to be detected
@@ -118,57 +120,62 @@ export const MonthlyTargetCard = ({ percent, total, change, description, stats, 
         />
       </div>
 
-      {/* Body Layout Split */}
-      <div className="relative z-10 flex flex-col @lg:flex-row items-center gap-6 @lg:gap-10">
+      {/* Body Layout Split. Gauge + description share one row at every width now — stacking them
+          centered on a phone left the circle floating with a wide blank gutter either side of it
+          (the card is the full viewport width; the gauge isn't). Pairing it with the description
+          like every icon+text row elsewhere on this dashboard fills that width instead of leaving
+          it empty — the mobile gauge size shrank too, so that text column has real room to wrap
+          in. Stats grid drops to its own full-width row below, which also means it isn't squeezed
+          into the leftover column next to the gauge on wide screens anymore — each tile gets the
+          card's whole width to spread across. */}
+      <div className="relative z-10 flex flex-col gap-5">
+        <div className="flex items-center gap-4 @lg:gap-6">
+          {/* Gauge — the halo behind it is the tone signal (see TONE_HALO's comment); the ring
+              stroke itself stays brand navy. */}
+          <div className="relative shrink-0">
+            <div
+              aria-hidden="true"
+              className={`absolute inset-8 rounded-full blur-2xl transition-colors duration-500 ${TONE_HALO[tone]}`}
+            />
+            <RadialGauge percent={percent} size={gaugeSize} className="relative">
+              {/* Tone-colored, not a flat `text-text` — the headline number now reads as weak/
+                  on-track/strong at a glance, the same three-tier language the Compliance gauges'
+                  accents already use, instead of only the small trend badge below it carrying color. */}
+              <span className={`text-3xl sm:text-5xl font-display font-bold tracking-tight tabular-nums transition-colors duration-500 ${TONE_TEXT[tone]}`}>
+                {percent}<span className="text-xl sm:text-3xl">%</span>
+              </span>
+              <Badge variant={changeVariant} className={`text-[11px] ${changeClassName}`}>
+                <ChangeIcon size={12} strokeWidth={3} />
+                {change.label}
+              </Badge>
+            </RadialGauge>
+          </div>
 
-        {/* Gauge — the halo behind it is the tone signal (see TONE_HALO's comment); the ring
-            stroke itself stays brand navy. */}
-        <div className="relative shrink-0">
-          <div
-            aria-hidden="true"
-            className={`absolute inset-8 rounded-full blur-2xl transition-colors duration-500 ${TONE_HALO[tone]}`}
-          />
-          <RadialGauge percent={percent} size={gaugeSize} className="relative">
-            {/* Tone-colored, not a flat `text-text` — the headline number now reads as weak/
-                on-track/strong at a glance, the same three-tier language the Compliance gauges'
-                accents already use, instead of only the small trend badge below it carrying color. */}
-            <span className={`text-5xl font-display font-bold tracking-tight tabular-nums transition-colors duration-500 ${TONE_TEXT[tone]}`}>
-              {percent}<span className="text-3xl">%</span>
-            </span>
-            <Badge variant={changeVariant} className={`text-[11px] ${changeClassName}`}>
-              <ChangeIcon size={12} strokeWidth={3} />
-              {change.label}
-            </Badge>
-          </RadialGauge>
-        </div>
-
-        {/* Right Details Column */}
-        <div className="flex-1 w-full flex flex-col gap-5">
-          <p className="text-sm font-medium text-text-muted text-center @lg:text-left leading-relaxed max-w-lg mx-auto @lg:mx-0">
+          <p className="flex-1 min-w-0 text-sm font-medium text-text-muted leading-relaxed">
             {description}
           </p>
+        </div>
 
-          <div className="grid grid-cols-1 @sm:grid-cols-3 gap-3">
-            {stats.map(stat => {
-              // Arrow = which way the number moved; colour = whether that's good. Separating the
-              // two is what lets "Pending: 3 ↓" be green.
-              const TrendIcon = stat.direction === 'flat' ? Minus : stat.direction === 'up' ? ArrowUp : ArrowDown;
-              const trendClassName = STAT_SENTIMENT[stat.sentiment];
+        <div className="grid grid-cols-1 @sm:grid-cols-3 gap-3">
+          {stats.map(stat => {
+            // Arrow = which way the number moved; colour = whether that's good. Separating the
+            // two is what lets "Pending: 3 ↓" be green.
+            const TrendIcon = stat.direction === 'flat' ? Minus : stat.direction === 'up' ? ArrowUp : ArrowDown;
+            const trendClassName = STAT_SENTIMENT[stat.sentiment];
 
-              return (
-                <div
-                  key={stat.label}
-                  className="flex flex-row @sm:flex-col items-center justify-between @sm:justify-center gap-1.5 p-4 rounded-xl bg-surface-hover/30 border border-border/40 hover:bg-surface-hover/70 hover:border-border/80 transition-all duration-200"
-                >
-                  <span className="text-xs font-medium text-text-muted capitalize tracking-wide">{stat.label}</span>
-                  <span className="inline-flex items-center gap-1.5 text-xl font-bold text-text">
-                    {stat.value}
-                    <TrendIcon size={16} strokeWidth={3} className={trendClassName} />
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+            return (
+              <div
+                key={stat.label}
+                className="flex flex-row @sm:flex-col items-center justify-between @sm:justify-center gap-1.5 p-4 rounded-xl bg-surface-hover/30 border border-border/40 hover:bg-surface-hover/70 hover:border-border/80 transition-all duration-200"
+              >
+                <span className="text-xs font-medium text-text-muted capitalize tracking-wide">{stat.label}</span>
+                <span className="inline-flex items-center gap-1.5 text-xl font-bold text-text">
+                  {stat.value}
+                  <TrendIcon size={16} strokeWidth={3} className={trendClassName} />
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
     </section>

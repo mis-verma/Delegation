@@ -14,7 +14,7 @@ export const UpcomingEvents = ({ events, isPending }: UpcomingEventsProps) => (
   <section id="upcoming-events" aria-labelledby="upcoming-events-heading" className={`relative group ${DASHBOARD_CARD_CLASS} flex flex-col hover:border-primary-500/30 transition-colors duration-500 overflow-hidden`}>
 
 
-    <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-4 sm:px-5 py-4 border-b border-border/40 bg-surface/50 backdrop-blur-xl">
+    <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 px-4 sm:px-5 py-3 sm:py-4 border-b border-border/40 bg-surface/50 backdrop-blur-xl">
       <div className="flex items-center gap-3">
         <EntityIconTile icon={CalendarClock} />
         <div>
@@ -62,7 +62,7 @@ export const UpcomingEvents = ({ events, isPending }: UpcomingEventsProps) => (
               <Link
                 key={e.id}
                 to="/events"
-                className="group/item flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 px-4 py-3 rounded-lg hover:bg-surface-hover/60 active:bg-surface-hover active:scale-[0.98] transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40"
+                className="group/item flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg hover:bg-surface-hover/60 active:bg-surface-hover active:scale-[0.98] transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40"
               >
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   <div aria-hidden="true" className={`flex items-center justify-center shrink-0 ${EVENT_TYPE_ICON_TINTS[e.type]}`}>

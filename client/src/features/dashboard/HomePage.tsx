@@ -330,30 +330,12 @@ export const HomePage = () => {
           drill-down modals have to list the exact records `workflowStats` counted (org-wide for
           ADMIN/PC), not the user-scoped lists, or a stat's popup would show a different set of
           records than the number it explains. */}
-      {/* Two copies of the same layout toolbar, CSS-toggled rather than duplicated logic: at rest,
-          the mobile one rides inside the KPI strip's "Show breakdown" row (nothing else on a phone
-          would otherwise share that row with it) while desktop keeps its own row below; once
-          Customize actually starts, both breakpoints fall back to the one full-width bar — a mode
-          worth its own row regardless of screen size. */}
-      <DashboardOverview
-        isPending={isPending}
-        tickets={workflowTickets}
-        tasks={workflowTasks}
-        todos={todos}
-        workflowStats={workflowStats}
-        toolbar={
-          isCustomizing ? undefined : (
-            <DashboardLayoutToolbar
-              isCustomizing={false}
-              onStart={() => setIsCustomizing(true)}
-              onReset={resetLayout}
-              onDone={() => setIsCustomizing(false)}
-            />
-          )
-        }
-      />
+      <DashboardOverview isPending={isPending} tickets={workflowTickets} tasks={workflowTasks} todos={todos} workflowStats={workflowStats} />
 
-      <div className={isCustomizing ? undefined : 'hidden sm:block'}>
+      {/* Desktop only — dragging/resizing cards by a small grip handle isn't a touch-friendly
+          interaction, and the trigger has nowhere to sit on a phone without pushing something
+          else out anyway (see MobileCollapsible's own "Show breakdown" row right above this). */}
+      <div className="hidden sm:block">
         <DashboardLayoutToolbar
           isCustomizing={isCustomizing}
           onStart={() => setIsCustomizing(true)}

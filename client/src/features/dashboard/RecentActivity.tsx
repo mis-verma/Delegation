@@ -157,7 +157,7 @@ export const RecentActivity = ({ feed, isPending }: RecentActivityProps) => {
       <div className="absolute -bottom-32 -right-32 w-64 h-64 bg-primary-400/5 rounded-full blur-[80px] pointer-events-none transition-opacity duration-700 opacity-40 group-hover:opacity-100" />
 
       {/* Header */}
-      <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-4 sm:px-5 py-4 border-b border-border/40 bg-surface/50 backdrop-blur-xl">
+      <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 px-4 sm:px-5 py-3 sm:py-4 border-b border-border/40 bg-surface/50 backdrop-blur-xl">
         <div className="flex items-center gap-3.5">
           <EntityIconTile icon={Activity} />
           <div>
@@ -261,7 +261,7 @@ export const RecentActivity = ({ feed, isPending }: RecentActivityProps) => {
                   // ("Pending Approval") left so little width for title+meta that the meta row
                   // (icon-chip + timestamp) had nowhere to go but overflow under the badge. Full
                   // width for the badge on its own line removes the squeeze instead of clipping it.
-                  className="group/row flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 px-4 sm:px-5 py-3.5 hover:bg-surface-hover/80 transition-all duration-300 relative overflow-hidden focus:outline-none focus-visible:bg-surface-hover focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40"
+                  className="group/row flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 px-4 sm:px-5 py-2.5 sm:py-3.5 hover:bg-surface-hover/80 transition-all duration-300 relative overflow-hidden focus:outline-none focus-visible:bg-surface-hover focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40"
                 >
                   {/* Animated Left Accent Line */}
                   <div aria-hidden="true" className="absolute left-0 top-0 bottom-0 w-1 bg-primary-500 transform -translate-x-full group-hover/row:translate-x-0 transition-transform duration-300 ease-out" />
@@ -269,7 +269,7 @@ export const RecentActivity = ({ feed, isPending }: RecentActivityProps) => {
                   <div className="flex items-center gap-4 min-w-0">
                     {/* Icon reflects the item's actual status, not just its kind, so color carries real meaning.
                         Decorative: the status pill on the right already states the same status as text. */}
-                    <div aria-hidden="true" className={`relative flex items-center justify-center size-10 rounded-xl shrink-0 border transition-colors duration-300 ${iconToneClass}`}>
+                    <div aria-hidden="true" className={`relative flex items-center justify-center size-9 sm:size-10 rounded-xl shrink-0 border transition-colors duration-300 ${iconToneClass}`}>
                       {statusIcon}
                       {isFresh && (
                         <span className="absolute -top-1 -right-1 flex size-2.5">

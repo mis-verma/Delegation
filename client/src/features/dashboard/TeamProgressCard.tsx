@@ -133,8 +133,11 @@ export const TeamProgressCard = ({ tasks, isOrgWideRole }: TeamProgressCardProps
       </div>
 
       {/* Progressive disclosure — Overdue/Due today are useful but not everyone needs them open
-          by default, and keeping this collapsed is most of why the whole card stays short. */}
-      <div className="flex flex-col gap-2 rounded-xl border border-border/60 bg-surface-hover/30 px-3.5 py-2.5">
+          by default, and keeping this collapsed is most of why the whole card stays short.
+          Dropped entirely below `sm` (not just collapsed) — even closed, its toggle + border box
+          was the single biggest remaining chunk of this card's mobile height for a section most
+          viewers never open; the Overdue/Due today counts are one tap away via Tasks either way. */}
+      <div className="hidden sm:flex flex-col gap-2 rounded-xl border border-border/60 bg-surface-hover/30 px-3.5 py-2.5">
         <button
           type="button"
           onClick={() => setDetailsOpen((v) => !v)}
