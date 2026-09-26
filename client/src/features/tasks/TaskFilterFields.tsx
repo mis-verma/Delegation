@@ -120,7 +120,7 @@ export const TaskFilterFields = ({ filters, onChange, assignableUsers, tags, sto
                 onClick={onAddUser}
                 title="Add a new user"
                 aria-label="Add a new user"
-                className="flex items-center justify-center size-7 rounded-full border border-dashed border-border-hover text-text-light hover:text-primary-600 hover:border-primary-400 hover:bg-primary-50/50 transition-all cursor-pointer bg-surface"
+                className="flex items-center justify-center size-9 sm:size-7 rounded-full border border-dashed border-border-hover text-text-light hover:text-primary-600 hover:border-primary-400 hover:bg-primary-50/50 transition-all cursor-pointer bg-surface"
               >
                 <Plus size={13} strokeWidth={2.5} />
               </button>

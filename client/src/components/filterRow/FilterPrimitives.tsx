@@ -11,9 +11,11 @@ import { getInitials } from '../../lib/getInitials';
  * it owned controls that four files share. Moved verbatim; the markup is unchanged.
  */
 
+// Phones get a plain readable label (12px, secondary text, normal tracking) — the desktop's tiny
+// letter-spaced light-grey caps style read as faint noise on a small screen, especially in dark mode.
 export const OptionRow = ({ label, children }: { label: string; children: ReactNode }) => (
-  <div className="flex flex-col gap-2">
-    <span className="text-[11px] font-display font-bold text-text-light tracking-widest">{label}</span>
+  <div className="flex flex-col gap-2 min-w-0">
+    <span className="text-xs font-display font-semibold text-text-secondary sm:text-[11px] sm:font-bold sm:text-text-light sm:tracking-widest">{label}</span>
     {children}
   </div>
 );
@@ -31,11 +33,13 @@ export const OptionRow = ({ label, children }: { label: string; children: ReactN
  * genuinely need the room to wrap their own pills.
  */
 export const OptionRowGroup = ({ children }: { children: ReactNode }) => (
-  <div className="flex flex-wrap gap-x-8 gap-y-4">{children}</div>
+  <div className="flex flex-wrap gap-x-6 sm:gap-x-8 gap-y-4">{children}</div>
 );
 
+// Full width on phones so every group in the sheet shares one right edge (w-fit left each group a
+// different ragged width); desktop keeps w-fit.
 export const FilterGroup = ({ children }: { children: ReactNode }) => (
-  <div className="flex items-center gap-1 p-1 rounded-lg bg-surface-hover/50 border border-border/40 w-fit flex-wrap">
+  <div className="flex items-center gap-1 p-1 rounded-xl sm:rounded-lg bg-surface-hover/50 border border-border/40 w-full sm:w-fit flex-wrap">
     {children}
   </div>
 );
@@ -63,7 +67,7 @@ export const FilterPill = ({
     type="button"
     onClick={onClick}
     aria-pressed={active}
-    className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-display font-medium transition-all duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-95 ${
+    className={`flex items-center gap-1.5 px-3 sm:px-2.5 py-2 sm:py-1.5 rounded-lg sm:rounded-md text-xs font-display font-medium transition-all duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-95 [-webkit-tap-highlight-color:transparent] ${
       // Flat fill + hairline border, no shadow/ring — same "raised card on a gray track" language
       // AssignmentModeToggle's segmented control already uses, instead of this being the one
       // filter pill in the app still marking its active state with elevation.
@@ -85,7 +89,7 @@ export const PersonToggle = ({ name, selected, onClick }: { name: string; select
     title={name}
     aria-label={name}
     aria-pressed={selected}
-    className={`relative flex items-center justify-center size-7 rounded-full text-[10px] font-bold text-white transition-all duration-200 cursor-pointer ${avatarColorClass(name)} ${
+    className={`relative flex items-center justify-center size-9 sm:size-7 rounded-full text-[11px] sm:text-[10px] font-bold text-white transition-all duration-200 cursor-pointer ${avatarColorClass(name)} ${
       selected ? 'opacity-100 scale-105 ring-2 ring-offset-2 ring-offset-surface ring-primary-400' : 'opacity-60 hover:opacity-100'
     }`}
   >
