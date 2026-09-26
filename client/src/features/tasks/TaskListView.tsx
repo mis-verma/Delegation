@@ -1,5 +1,6 @@
 import { memo } from 'react';
-import { StatusChip, DepartmentChip, TagChip, type StatusChipStatus } from '../../components';
+import { CalendarDays } from 'lucide-react';
+import { StatusChip, DepartmentChip, TagChip, PriorityChip, IconChip, type StatusChipStatus } from '../../components';
 import { PRIORITY_MAP } from './taskDisplay';
 import { isOverdueTask } from './taskFilters';
 import {
@@ -84,39 +85,24 @@ const TaskListViewComponent = ({
                 onOpen(task);
               }
             }}
-            className="relative h-full flex flex-col gap-2 pl-4 pr-3 py-2.5 rounded-lg border border-border/60 bg-surface hover:border-primary-500/50 focus-visible:border-primary-500/50 focus-visible:outline-none transition-all duration-200 ease-in-out cursor-pointer overflow-hidden"
+            // No colored side stripe and no date pinned to the right edge any more: priority and
+            // due date are chips in the row below, in the same icon-chip language as status and
+            // department — one place to read every property instead of three.
+            className="h-full flex flex-col gap-2.5 p-3.5 rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface hover:border-primary-500/50 focus-visible:border-primary-500/50 focus-visible:outline-none active:bg-surface-hover/50 transition-all duration-200 ease-in-out cursor-pointer [-webkit-tap-highlight-color:transparent]"
           >
-            {/* Priority rail. aria-hidden because priority has no slot of its own on the tile —
-                the sr-only line below carries it for a screen reader instead. */}
-            <span
-              aria-hidden
-              className={`absolute left-0 top-0 bottom-0 w-1 ${priority.stripe}`}
-            />
-
-            <div className="flex flex-col gap-0.5 min-w-0">
-              <div className="flex items-center gap-2 min-w-0">
+            <div className="flex flex-col gap-1 min-w-0">
+              <div className="flex items-start gap-2 min-w-0">
                 {isNew && (
                   <span
-                    className="size-1.5 rounded-full bg-primary-500 shrink-0"
+                    className="mt-1.5 size-2 rounded-full bg-primary-500 shrink-0"
                     title="Newly assigned to you"
                   />
                 )}
                 {/* No truncate — this was cutting titles down to a handful of words ("Security
                     camera offline since ...") on a narrow phone card. Wraps instead. */}
-                <span className="flex-1 min-w-0 text-sm font-bold text-text-secondary tracking-tight leading-snug">
+                <span className="flex-1 min-w-0 text-[15px] font-display font-semibold text-text tracking-tight leading-snug">
                   {task.title}
                 </span>
-                {/* Phones: due date top-right beside the title, mail-app style — in the chip row
-                    below it wrapped onto a line of its own whenever the department name was long. */}
-                {fields.dueDate && task.dueDate && (
-                  <span
-                    className={`sm:hidden self-start shrink-0 pt-px text-[11px] font-semibold tabular-nums ${
-                      overdue ? 'text-danger' : 'text-text-muted'
-                    }`}
-                  >
-                    {dueLabel(task.dueDate)}
-                  </span>
-                )}
               </div>
               {/* The reference layout also puts a task code and a comment count on this line.
                   Neither exists yet: ids are cuids with no short human code, and the list payload
@@ -131,16 +117,27 @@ const TaskListViewComponent = ({
                     </span>
                   </>
                 )}
-                <span className="sr-only">{`. Priority ${priority.label}.`}</span>
               </div>
             </div>
 
             {/* mt-auto so tiles of differing title length still align their footers to the bottom
                 of the row — a two-up grid stretches its cells to equal height. */}
-            <div className="flex items-center gap-2 flex-wrap mt-auto">
+            <div className="flex items-center gap-1.5 flex-wrap mt-auto">
               {fields.status && <StatusChip status={STATUS_CHIP_KEY[task.status]} />}
 
+              <PriorityChip meta={priority} />
+
               {fields.department && department && <DepartmentChip name={department} />}
+
+              {fields.dueDate && task.dueDate && (
+                <IconChip
+                  icon={CalendarDays}
+                  tone={overdue ? 'bg-danger' : 'bg-primary-700'}
+                  label={dueLabel(task.dueDate)}
+                  title={overdue ? 'Overdue' : 'Due date'}
+                  className={overdue ? 'border-danger/30 text-danger' : undefined}
+                />
+              )}
 
               {/* Capped at two with a +n overflow: a delegation carrying six labels would
                   otherwise push status and due date off the tile entirely. */}
@@ -151,16 +148,6 @@ const TaskListViewComponent = ({
                   title={task.tags!.map((t) => t.name).join(', ')}
                 >
                   +{task.tags!.length - 2}
-                </span>
-              )}
-
-              {fields.dueDate && task.dueDate && (
-                <span
-                  className={`hidden sm:inline text-[11px] font-semibold tabular-nums ${
-                    overdue ? 'text-danger' : 'text-text-muted'
-                  }`}
-                >
-                  {dueLabel(task.dueDate)}
                 </span>
               )}
 
