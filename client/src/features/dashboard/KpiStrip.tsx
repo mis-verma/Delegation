@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router';
 import { ClipboardList, TicketCheck, ListChecks, ListTodo, type LucideIcon } from 'lucide-react';
 import { StatusBreakdownCard, type StatusBreakdownVariant } from './StatusBreakdownCard';
 import { DrilldownModal, type DrilldownRow } from './DrilldownModal';
-import { MobileCollapsible } from './MobileCollapsible';
 import { AdminChromeAccents } from '../admin/AdminChromeAccents';
 import { Skeleton } from '../../components/skeleton';
 import { useChecklistInstanceSummaryQuery, useMyChecklistInstancesQuery } from '../checklist/hook';
@@ -137,9 +136,9 @@ export const KpiStrip = ({ tickets, tasks, todos, isPending, workflowStats }: Kp
   if (isPending) {
     return (
       <div className="flex flex-col gap-3">
-        <div className="flex sm:hidden items-center gap-2 overflow-x-auto no-scrollbar -mx-4 px-4">
+        <div className="grid sm:hidden grid-cols-2 gap-2.5">
           {CARD_VARIANTS.map((_, i) => (
-            <Skeleton key={i} className="h-11 w-28 rounded-full shrink-0" />
+            <Skeleton key={i} className="h-[84px] rounded-2xl" />
           ))}
         </div>
         <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-3.5 md:gap-5">
@@ -194,48 +193,43 @@ export const KpiStrip = ({ tickets, tasks, todos, isPending, workflowStats }: Kp
     };
   };
 
-  // Mobile-only summary strip — same total each full card already reports, just the number
-  // someone actually wants at a glance without scrolling past four full Due/Completed/New-today
-  // cards first. Tapping one goes straight to that section, same destination as the full card's
-  // own `onOpen`; the full breakdown is still one tap away via the "Show breakdown" toggle below.
-  const chipSummary: { key: string; icon: LucideIcon; title: string; total: number; href: string }[] = [
-    { key: 'delegation', icon: ClipboardList, title: 'Delegation', total: workflowStats.assigned, href: '/tasks' },
-    { key: 'tickets', icon: TicketCheck, title: 'Tickets', total: tickets.length, href: '/tickets' },
-    { key: 'checklist', icon: ListChecks, title: 'Checklist', total: checklistSummary?.total ?? 0, href: '/checklists' },
-    { key: 'todo', icon: ListTodo, title: 'Todo', total: todos.length, href: '/todo' },
+  // Mobile summary: the two numbers that matter at a glance (how many, how many still due) for all
+  // four modules at once, in a 2x2 grid that fits a phone without scrolling. Replaces a horizontal
+  // chip strip that always sliced its last chip off at the screen edge, plus a "Show breakdown"
+  // toggle hiding the full cards — the Completed/New today breakdown lives on each module's own page.
+  const mobileTiles: { key: string; icon: LucideIcon; title: string; total: number; due: number; href: string }[] = [
+    { key: 'delegation', icon: ClipboardList, title: 'Delegation', total: workflowStats.assigned, due: workflowStats.pending + workflowStats.approvals, href: '/tasks' },
+    { key: 'tickets', icon: TicketCheck, title: 'Tickets', total: tickets.length, due: dueTickets.length, href: '/tickets' },
+    { key: 'checklist', icon: ListChecks, title: 'Checklist', total: checklistSummary?.total ?? 0, due: checklistSummary?.pending ?? 0, href: '/checklists' },
+    { key: 'todo', icon: ListTodo, title: 'Todo', total: todos.length, due: dueTodos.length, href: '/todo' },
   ];
 
   return (
     <div className="flex flex-col gap-3">
-      {/* relative + the two edge masks below signal "more to scroll" — without them the strip's
-          last chip just gets sliced off flush against the viewport edge, which reads as a broken
-          layout rather than a horizontally-scrollable row. */}
-      <div className="relative sm:hidden -mx-4">
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar px-4">
-          {chipSummary.map((chip) => (
-            <button
-              key={chip.key}
-              type="button"
-              onClick={() => navigate(chip.href)}
-              className="shrink-0 flex items-center gap-2 h-11 pl-2.5 pr-3.5 rounded-full bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700 text-white cursor-pointer transition-transform active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-            >
-              <span className="flex items-center justify-center size-6 rounded-full bg-white/15 shrink-0">
-                <chip.icon size={13} strokeWidth={2.5} />
+      <div className="grid sm:hidden grid-cols-2 gap-2.5">
+        {mobileTiles.map((tile) => (
+          <button
+            key={tile.key}
+            type="button"
+            onClick={() => navigate(tile.href)}
+            aria-label={`${tile.title}: ${tile.total} total, ${tile.due} due`}
+            className="flex flex-col gap-2 p-3 rounded-2xl bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700 text-white text-left cursor-pointer transition-transform duration-150 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
+            <span className="flex items-center gap-2 min-w-0">
+              <span className="flex items-center justify-center size-6 rounded-lg bg-white/15 shrink-0">
+                <tile.icon size={13} strokeWidth={2.5} />
               </span>
-              <span className="tabular-nums font-bold text-sm">{chip.total}</span>
-              <span className="text-xs text-white/80 whitespace-nowrap">{chip.title}</span>
-            </button>
-          ))}
-        </div>
-        {/* w-5, not the original w-8 — on a narrower real phone the sliver of the next chip
-            peeking past the edge is only a handful of px wide, and an 8-wide mask covered nearly
-            all of that sliver in fade, reading as a washed-out/disabled chip rather than a hint
-            that there's more to scroll to. */}
-        <div aria-hidden="true" className="absolute inset-y-0 left-0 w-4 bg-gradient-to-r from-background to-transparent pointer-events-none" />
-        <div aria-hidden="true" className="absolute inset-y-0 right-0 w-5 bg-gradient-to-l from-background to-transparent pointer-events-none" />
+              <span className="text-xs font-display font-semibold text-white/85 truncate">{tile.title}</span>
+            </span>
+            <span className="flex items-baseline justify-between gap-2">
+              <span className="text-2xl font-display font-bold tabular-nums leading-none">{tile.total}</span>
+              <span className="text-[11px] font-display font-medium text-white/70 tabular-nums whitespace-nowrap">{tile.due} due</span>
+            </span>
+          </button>
+        ))}
       </div>
 
-      <MobileCollapsible label="breakdown">
+      <div className="hidden sm:contents">
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 md:gap-5">
 
       {/* Delegation Card */}
@@ -421,7 +415,7 @@ export const KpiStrip = ({ tickets, tasks, todos, isPending, workflowStats }: Kp
         ]}
       />
     </div>
-      </MobileCollapsible>
+      </div>
 
       {drilldown && (
         <DrilldownModal

@@ -153,6 +153,17 @@ input:-webkit-autofill:active {
   color-scheme: light;
 }
 
+/* Phones: no extra gutter in the width cap. `100% - 3rem` exists to keep content off the edges of
+   an ultra-wide monitor, but below `sm` every wrapper already has its own p-3/p-4 padding, so the
+   token stacked a further 24px per side on top of it — and pages that nest a second
+   `max-w-(--container-width)` inside the shell (Tickets, Tasks, To-Do, Checklists, Events) paid it
+   twice. On a 375px phone that left cards 40-64px from each edge. */
+@media (max-width: 639px) {
+  :root {
+    --container-width: 100%;
+  }
+}
+
 /* Stops the browser's own rubber-band/bounce and pull-to-refresh gesture at the page level, so it
    doesn't fight PullToRefresh's own gesture handling on the scroll containers that opt into it. */
 html, body {

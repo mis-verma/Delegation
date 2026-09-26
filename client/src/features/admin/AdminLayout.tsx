@@ -469,8 +469,10 @@ export const AdminLayout = () => {
           aria-modal="true"
           aria-label="Navigation menu"
           className={cn(
-            "md:hidden fixed top-0 bottom-0 left-0 z-50 w-72 max-w-[80vw] h-full flex flex-col rounded-r-3xl bg-surface border-r border-border px-4 pt-8 pb-6 shadow-xl transition-transform duration-300 ease-in-out focus:outline-none",
-            sidebarOpen ? "translate-x-0" : "-translate-x-full pointer-events-none"
+            "md:hidden fixed top-0 bottom-0 left-0 z-50 w-72 max-w-[80vw] h-full flex flex-col rounded-r-3xl bg-surface border-r border-border px-4 pt-8 pb-6 transition-[translate,box-shadow] duration-300 ease-in-out focus:outline-none",
+            // Shadow only while open, same as the main Sidebar's drawer — parked off-screen, its
+            // blur still bled a grey band onto the left edge of the visible page.
+            sidebarOpen ? "translate-x-0 shadow-xl" : "-translate-x-full shadow-none pointer-events-none"
           )}
         >
           {/* No brand mark here anymore — the header already carries the "Admin" context (its

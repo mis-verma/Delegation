@@ -333,8 +333,7 @@ export const HomePage = () => {
       <DashboardOverview isPending={isPending} tickets={workflowTickets} tasks={workflowTasks} todos={todos} workflowStats={workflowStats} />
 
       {/* Desktop only — dragging/resizing cards by a small grip handle isn't a touch-friendly
-          interaction, and the trigger has nowhere to sit on a phone without pushing something
-          else out anyway (see MobileCollapsible's own "Show breakdown" row right above this). */}
+          interaction. */}
       <div className="hidden sm:block">
         <DashboardLayoutToolbar
           isCustomizing={isCustomizing}

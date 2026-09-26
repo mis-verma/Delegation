@@ -559,8 +559,11 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
         // the app's usual borderless card treatment) is deliberate here — this is a slide-in sheet
         // over the rest of the app, the one case the app's own "cards use borders, not shadows"
         // rule doesn't cover; real elevation is what says "this is above everything else."
-        className={`md:hidden fixed top-0 left-0 z-50 w-[280px] max-w-[85vw] h-dvh flex flex-col px-4 pt-8 pb-5 bg-surface border-r border-border shadow-2xl transition-transform duration-300 ease-out motion-reduce:transition-none ${
-          isOpen ? 'translate-x-0' : '-translate-x-full pointer-events-none'
+        // Shadow only while open — parked off-screen at -translate-x-full, the shadow-2xl blur still
+        // reached ~20px onto the visible page and drew a grey band down the left edge of every
+        // mobile screen.
+        className={`md:hidden fixed top-0 left-0 z-50 w-[280px] max-w-[85vw] h-dvh flex flex-col px-4 pt-8 pb-5 bg-surface border-r border-border transition-[translate,box-shadow] duration-300 ease-out motion-reduce:transition-none ${
+          isOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full shadow-none pointer-events-none'
         }`}
       >
         {renderContent(true)}

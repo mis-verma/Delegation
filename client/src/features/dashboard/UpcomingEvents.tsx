@@ -14,12 +14,12 @@ export const UpcomingEvents = ({ events, isPending }: UpcomingEventsProps) => (
   <section id="upcoming-events" aria-labelledby="upcoming-events-heading" className={`relative group ${DASHBOARD_CARD_CLASS} flex flex-col hover:border-primary-500/30 transition-colors duration-500 overflow-hidden`}>
 
 
-    <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 px-4 sm:px-5 py-3 sm:py-4 border-b border-border/40 bg-surface/50 backdrop-blur-xl">
+    <div className="relative z-10 flex items-center justify-between gap-3 sm:gap-4 px-4 sm:px-5 py-3 sm:py-4 border-b border-border/40 bg-surface/50 backdrop-blur-xl">
       <div className="flex items-center gap-3">
         <EntityIconTile icon={CalendarClock} />
         <div>
           <h2 id="upcoming-events-heading" className="text-base sm:text-lg font-display font-bold text-text tracking-tight">Upcoming Events</h2>
-          <p className="text-[11px] sm:text-xs font-medium text-text-muted mt-0.5">Deadlines, announcements, and broadcasts</p>
+          <p className="hidden sm:block text-xs font-medium text-text-muted mt-0.5">Deadlines, announcements, and broadcasts</p>
         </div>
       </div>
 

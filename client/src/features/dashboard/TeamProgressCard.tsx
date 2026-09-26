@@ -121,9 +121,9 @@ export const TeamProgressCard = ({ tasks, isOrgWideRole }: TeamProgressCardProps
             key={tile.key}
             type="button"
             onClick={() => setDrilldown({ title: `${tile.label} delegations`, rows: tile.rows.map(taskRow), href: '/tasks' })}
-            className="flex flex-col justify-center gap-1.5 h-[72px] sm:h-20 px-3 rounded-xl border border-border/60 bg-surface-hover/30 transition-colors duration-200 cursor-pointer hover:bg-surface-hover hover:border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+            className="flex flex-col justify-center gap-1.5 h-16 sm:h-20 px-2.5 sm:px-3 rounded-xl border border-border/60 bg-surface-hover/30 transition-colors duration-200 cursor-pointer hover:bg-surface-hover hover:border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
           >
-            <span className="flex items-center gap-1.5 text-[11px] font-display font-semibold text-text-muted">
+            <span className="flex items-center gap-1.5 text-[11px] font-display font-semibold text-text-muted whitespace-nowrap">
               <span className={`size-1.5 rounded-full shrink-0 ${tile.dot}`} />
               {tile.label}
             </span>
@@ -184,12 +184,32 @@ export const TeamProgressCard = ({ tasks, isOrgWideRole }: TeamProgressCardProps
           uses, not a second charting library pulled in for one card. Clickable, same "tap for the
           per-category breakdown" affordance the Compliance gauges use, so this gauge isn't the one
           chart on the page that looks interactive (hover lift) but does nothing on tap. */}
+      {/* Phones: a slim progress bar instead of the ring — the same completion rate in one line of
+          height, since the three tiles above already carry the split. */}
       <button
         type="button"
         onClick={() => setDrilldown({ title: 'Done delegations', rows: done.map(taskRow), href: '/tasks' })}
         aria-label={`${completionRate}% completed, ${done.length} of ${total || 0}. Tap for the completed records.`}
         disabled={done.length === 0}
-        className="group/gauge flex flex-col items-center gap-1 py-1 rounded-2xl outline-none disabled:cursor-default cursor-pointer focus-visible:ring-2 focus-visible:ring-primary-500/40"
+        className="sm:hidden flex flex-col gap-2 text-left rounded-lg outline-none disabled:cursor-default cursor-pointer focus-visible:ring-2 focus-visible:ring-primary-500/40"
+      >
+        <span className="flex items-baseline justify-between gap-2">
+          <span className="text-xs font-display font-semibold text-text-secondary">Completed</span>
+          <span className="text-xs font-medium text-text-muted tabular-nums">
+            <span className="text-base font-display font-bold text-text">{completionRate}%</span> &middot; {done.length} of {total || 0}
+          </span>
+        </span>
+        <span className="block h-2 w-full rounded-full bg-border/70 overflow-hidden" aria-hidden="true">
+          <span className="block h-full rounded-full bg-primary-700 transition-[width] duration-500 ease-out" style={{ width: `${completionRate}%` }} />
+        </span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setDrilldown({ title: 'Done delegations', rows: done.map(taskRow), href: '/tasks' })}
+        aria-label={`${completionRate}% completed, ${done.length} of ${total || 0}. Tap for the completed records.`}
+        disabled={done.length === 0}
+        className="hidden sm:flex group/gauge flex-col items-center gap-1 py-1 rounded-2xl outline-none disabled:cursor-default cursor-pointer focus-visible:ring-2 focus-visible:ring-primary-500/40"
       >
         <div className="transition-transform duration-300 group-hover/gauge:-translate-y-0.5 group-hover/gauge:scale-[1.03]">
           <RadialGauge percent={completionRate} size={128} variant="circle" gradientFrom="var(--color-primary-700, #213e6a)" gradientTo="var(--color-primary-700, #213e6a)">

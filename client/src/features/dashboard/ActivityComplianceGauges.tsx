@@ -5,7 +5,6 @@ import { toast } from 'sonner';
 import { RadialGauge, EntityIconTile } from '../../components';
 import { Modal } from '../../components/modal';
 import { useIsMobile } from '../../lib/useMediaQuery';
-import { MobileCollapsible } from './MobileCollapsible';
 import { BreakdownRatioRows } from './PinnedBreakdown';
 import { DrilldownList, DrilldownViewAllButton } from './DrilldownModal';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../../components/ui/select';
@@ -89,9 +88,9 @@ const Gauge = ({ icon: Icon, label, percent, count, total, trend, isSelected, on
   const isFlatTrend = trend != null && Number.parseFloat(trend.label) === 0;
   const TrendIcon = trend == null ? null : isFlatTrend ? Minus : trend.direction === 'up' ? TrendingUp : TrendingDown;
   const isMobile = useIsMobile();
-  // Bigger than the old 108 — two full circles side by side, each taking half the card's width,
-  // have the room to read as genuinely large charts instead of the compact gauges these replaced.
-  const gaugeSize = isMobile ? 132 : 176;
+  // 176 on desktop, two full circles side by side. Phones get a compact 96 so the pair still fits
+  // 2-up — stacked one per row they took most of a screen's height for two numbers.
+  const gaugeSize = isMobile ? 96 : 176;
 
   return (
     <div
@@ -106,10 +105,12 @@ const Gauge = ({ icon: Icon, label, percent, count, total, trend, isSelected, on
       }`}
     >
       {/* Trend badge — how this rate moved against the equivalent prior window, so the number
-          reads as "getting better/worse" at a glance instead of a static snapshot. */}
+          reads as "getting better/worse" at a glance instead of a static snapshot. In normal flow
+          below the label on phones (order-last) — pinned to the corner of a 2-up tile, it sat on
+          top of the ring. */}
       {TrendIcon && trend && (
         <div
-          className={`absolute top-3 right-3 sm:top-4 sm:right-4 flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-display font-bold tabular-nums ${
+          className={`order-last sm:order-none sm:absolute sm:top-4 sm:right-4 flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-display font-bold tabular-nums ${
             isFlatTrend
               ? 'bg-surface text-text-muted border border-border/50'
               : trend.direction === 'up'
@@ -129,7 +130,7 @@ const Gauge = ({ icon: Icon, label, percent, count, total, trend, isSelected, on
             same navy palette the rest of the dashboard (bar chart, sidebar) uses. */}
         <RadialGauge percent={percent ?? 0} size={gaugeSize} variant="circle" gradientFrom="var(--color-primary-700, #213e6a)" gradientTo="var(--color-primary-700, #213e6a)">
           <div className="flex flex-col items-center justify-center animate-in zoom-in duration-500">
-            <span className={`text-2xl font-display font-black tracking-tighter ${isNull ? 'text-text-muted/50' : 'text-text'}`}>
+            <span className={`text-lg sm:text-2xl font-display font-black tracking-tighter ${isNull ? 'text-text-muted/50' : 'text-text'}`}>
               {isNull ? '—' : `${percent}%`}
             </span>
           </div>
@@ -138,12 +139,12 @@ const Gauge = ({ icon: Icon, label, percent, count, total, trend, isSelected, on
 
       {/* Label, Icon & raw count — the count is what makes the percentage trustworthy at a
           glance ("3 of 4" reads very differently from "300 of 400" even at the same 75%). */}
-      <div className="relative z-10 flex flex-col items-center gap-1 mt-1">
+      <div className="relative z-10 flex flex-col items-center gap-1 sm:mt-1 text-center">
         <div className="flex items-center gap-2">
-          <div className={`flex items-center justify-center size-7 rounded-lg bg-surface shadow-sm border border-border/50 transition-colors ${accentColor} group-hover:border-current/30`}>
+          <div className={`hidden sm:flex items-center justify-center size-7 rounded-lg bg-surface shadow-sm border border-border/50 transition-colors ${accentColor} group-hover:border-current/30`}>
             <Icon size={14} strokeWidth={2.5} />
           </div>
-          <span className="text-[13px] font-display font-bold text-text-secondary group-hover:text-text transition-colors">
+          <span className="text-xs sm:text-[13px] font-display font-bold text-text-secondary group-hover:text-text transition-colors leading-tight">
             {label}
           </span>
         </div>
@@ -323,7 +324,7 @@ export const ActivityComplianceGauges = ({ items, activeCategories, groupBy }: A
           <EntityIconTile icon={Sparkles} tone="coral" />
           <div>
             <h2 id="compliance-heading" className="text-base sm:text-lg font-display font-bold text-text tracking-tight leading-tight">Compliance</h2>
-            <p className="text-xs font-medium text-text-muted mt-0.5">
+            <p className="hidden sm:block text-xs font-medium text-text-muted mt-0.5">
               Completion and on-time compliance rate, trailing {ACTIVITY_GROUP_RANGE_LABEL[groupBy]}
             </p>
           </div>
@@ -338,7 +339,7 @@ export const ActivityComplianceGauges = ({ items, activeCategories, groupBy }: A
             <button
               type="button"
               aria-label="Export compliance data"
-              className="inline-flex items-center justify-center gap-1.5 shrink-0 self-start sm:self-auto h-9 px-3 rounded-xl border border-border/60 bg-surface-hover/50 text-xs font-display font-semibold text-text-secondary hover:bg-surface-hover hover:border-border hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ease-in-out cursor-pointer"
+              className="hidden sm:inline-flex items-center justify-center gap-1.5 shrink-0 self-start sm:self-auto h-9 px-3 rounded-xl border border-border/60 bg-surface-hover/50 text-xs font-display font-semibold text-text-secondary hover:bg-surface-hover hover:border-border hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ease-in-out cursor-pointer"
             >
               <Download size={14} strokeWidth={2.5} />
               Export
@@ -361,11 +362,10 @@ export const ActivityComplianceGauges = ({ items, activeCategories, groupBy }: A
           of three selects next to a taller gauges+breakdown column left a block of dead space under
           the selects on every screen wide enough to split them apart. Wrapping in a single row
           scales with however many filters are active instead of reserving a fixed-width column
-          for them. Collapsed by default below `sm` (MobileCollapsible) — three selects plus the
-          scope note is the single biggest chunk of this card's height on a phone, for filters most
-          viewers leave on "All" anyway. */}
-      <MobileCollapsible label="filters">
-        <div className="flex flex-wrap items-center gap-2 mt-3 sm:mt-0">
+          for them. Desktop-only — three selects plus the scope note were the single biggest chunk of
+          this card's height on a phone, for filters most viewers leave on "All" anyway. */}
+      <div className="hidden sm:contents">
+        <div className="flex flex-wrap items-center gap-2">
           <Select value={departmentId ?? ALL} onValueChange={(v) => setDepartmentId(v === ALL ? null : v)}>
             {/* aria-label, not just the placeholder — once a department is picked, SelectValue shows
                 its name ("Engineering"), which on its own gives a screen reader no indication this
@@ -417,18 +417,16 @@ export const ActivityComplianceGauges = ({ items, activeCategories, groupBy }: A
             </p>
           )}
         </div>
-      </MobileCollapsible>
+      </div>
 
       {/* Gauges — a centered pair, capped so they read as a cluster of circles rather than
           drifting apart on a wide monitor. Tapping one now opens the breakdown straight in a modal
           (see below) instead of an always-reserved panel under the gauges, which is what let this
           whole card shrink down to just its header + filter row + rings when nothing is selected. */}
       <div className="flex justify-center">
-        {/* Single column below sm — at 2-up on a narrow phone, the gauge is sized to nearly fill
-            the whole card width, leaving no clearance for the absolutely-positioned trend badge in
-            the card's own top-right corner, which ends up sitting on top of the ring instead of
-            beside it. */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6 w-full max-w-xl">
+        {/* 2-up at every width — the mobile gauge is small enough now, and the trend badge flows
+            below the label there instead of pinning to the tile's corner, so there's no overlap. */}
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-6 w-full max-w-xl">
           <Gauge
             icon={ClipboardCheck}
             label="Completion"

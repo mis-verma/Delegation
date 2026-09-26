@@ -164,13 +164,15 @@ export const RecentActivity = ({ feed, isPending }: RecentActivityProps) => {
             <h2 id="recent-activity-heading" className="text-base sm:text-lg font-display font-bold text-text tracking-tight flex items-center gap-2">
               Recent Activity
             </h2>
-            <p className="text-[11px] sm:text-xs font-medium text-text-muted mt-0.5">
+            <p className="hidden sm:block text-xs font-medium text-text-muted mt-0.5">
               Latest updates on tickets and delegations
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 sm:shrink-0">
+        {/* Search + sort are desktop-only — a five-row "what just happened" feed on a phone is
+            read top to bottom, not queried; each module's own page has real search. */}
+        <div className="hidden sm:flex items-center gap-2 sm:shrink-0">
           {/* flex-1 on mobile, not a fixed w-32 — this row is on its own line below the title on
               mobile (the header is flex-col there), so it has the full card width to itself with
               nothing to compete with. The old fixed 128px was narrow enough to clip the

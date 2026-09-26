@@ -7,7 +7,6 @@ import {
 import { AreaChart, Area, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { PeriodTabControl } from './PeriodTabControl';
 import { DrilldownModal, type DrilldownRow } from './DrilldownModal';
-import { MobileCollapsible } from './MobileCollapsible';
 import { EntityIconTile, Button } from '../../components';
 import {
   type CompliancePeriod,
@@ -370,7 +369,7 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
                 average across the whole trend line — spelling that out here is what stops
                 "Completion" from reading as the same number as the gauges or Delegation Score,
                 which are scoped to different windows entirely. */}
-            <p className="text-xs font-medium text-text-muted mt-0.5 capitalize">this {period} vs. last</p>
+            <p className="hidden sm:block text-xs font-medium text-text-muted mt-0.5 capitalize">this {period} vs. last</p>
           </div>
         </div>
 
@@ -426,15 +425,14 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
         />
       </div>
 
-      {/* Trend line collapsed by default below `sm` — the four chips above already carry the
-          actionable numbers (each opens its own drilldown), so the line chart itself is the one
-          part of this card worth tucking behind a tap on a phone rather than opening by default. */}
-      <MobileCollapsible label="trend chart">
+      {/* Trend line is desktop-only — the four chips above already carry the actionable numbers
+          (each opens its own drilldown), so on a phone the chart was extra height behind a toggle. */}
+      <div className="hidden sm:contents">
       {/* The two series' colours had no key anywhere. The chips above look like one — they carry
           matching dots — but the third chip (Checklist, green) isn't plotted at all, so reading
           them as a legend actively misleads. An explicit two-item key next to the chart is the
           only thing that says which line is which. */}
-      <div className="flex items-center gap-4 mt-3 sm:mt-0">
+      <div className="flex items-center gap-4">
         {[
           { label: 'Completion', className: 'bg-primary-500' },
           { label: 'On-time', className: 'bg-info' },
@@ -559,10 +557,10 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
           </Button>
         </div>
       )}
-      </MobileCollapsible>
+      </div>
 
       {projection != null && (
-        <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-primary-500/5 border border-primary-500/10 text-xs font-display font-medium text-text-secondary">
+        <div className="hidden sm:flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-primary-500/5 border border-primary-500/10 text-xs font-display font-medium text-text-secondary">
           <Sparkles size={14} className="text-primary-500 shrink-0" />
           <span>
             At this pace, you're on track for <span className="font-bold text-text">~{projection}</span> completed by {PERIOD_END_LABEL[period]}.

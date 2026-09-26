@@ -62,12 +62,10 @@ const TONE_HALO: Record<RateTone, string> = {
 };
 
 export const MonthlyTargetCard = ({ percent, total, change, description, stats, period, onPeriodChange }: MonthlyTargetCardProps) => {
-  // 220px was hardcoded, which is a lot of gauge for a card that sits in a half-width column.
-  // Scales down further on phones than the 180px first try — the gauge now shares a row with the
-  // description text (see below) instead of sitting centered above it, so it also has to leave
-  // that text a usable column width, not just look reasonably sized on its own.
+  // 220px on desktop. On phones the gauge shares its row with the Target/Resolved/Pending list, so
+  // it's sized to leave that list a usable column.
   const isMobile = useIsMobile();
-  const gaugeSize = isMobile ? 150 : 220;
+  const gaugeSize = isMobile ? 132 : 220;
   const tone = rateTone(percent, total);
 
   // pointDelta always signs its label ("+0.0%"), so an unchanged score has to be detected
@@ -92,7 +90,7 @@ export const MonthlyTargetCard = ({ percent, total, change, description, stats, 
     // `hover:border-primary-500/40` matches every other card on the page — `primary-300` was a
     // one-off with no dark-mode variant, so in dark mode this card's hover barely registered.
     // `gap-6` replaces the body block's own `mt-6`, so the card owns its spacing in one place.
-    <section aria-labelledby="delegation-score-heading" className={`@container relative group ${DASHBOARD_CARD_CLASS} p-4 sm:p-6 lg:p-7 flex flex-col gap-6 hover:border-primary-500/40 transition-all duration-300 overflow-hidden`}>
+    <section aria-labelledby="delegation-score-heading" className={`@container relative group ${DASHBOARD_CARD_CLASS} p-4 sm:p-6 lg:p-7 flex flex-col gap-4 sm:gap-6 hover:border-primary-500/40 transition-all duration-300 overflow-hidden`}>
 
       {/* Decorative Background Glow - Adjusted for Light/Dark modes */}
       <div className="absolute -top-24 -right-24 w-48 h-48 bg-primary-500/15 dark:bg-primary-500/10 rounded-full blur-[60px] pointer-events-none transition-opacity duration-500 group-hover:opacity-100 opacity-60" />
@@ -107,7 +105,7 @@ export const MonthlyTargetCard = ({ percent, total, change, description, stats, 
                 accurately also keeps it from reading as the same number as the Compliance gauges
                 or Compare Dashboard's own "Completion", which are scoped differently. */}
             <h2 id="delegation-score-heading" className="text-base sm:text-lg font-display font-bold text-text tracking-tight leading-tight">Delegation Score</h2>
-            <p className="text-xs font-medium text-text-muted mt-0.5 tracking-wide">Weighted completion, {PERIOD_LABEL[period]}</p>
+            <p className="hidden sm:block text-xs font-medium text-text-muted mt-0.5 tracking-wide">Weighted completion, {PERIOD_LABEL[period]}</p>
           </div>
         </div>
 
@@ -151,12 +149,29 @@ export const MonthlyTargetCard = ({ percent, total, change, description, stats, 
             </RadialGauge>
           </div>
 
-          <p className="flex-1 min-w-0 text-sm font-medium text-text-muted leading-relaxed">
+          <p className="hidden sm:block flex-1 min-w-0 text-sm font-medium text-text-muted leading-relaxed">
             {description}
           </p>
+
+          {/* Phones: the three stats sit beside the gauge as a plain list instead of three
+              full-width boxes stacked under it — same numbers, a third of the height. */}
+          <dl className="sm:hidden flex-1 min-w-0 flex flex-col divide-y divide-border/50">
+            {stats.map((stat) => {
+              const TrendIcon = stat.direction === 'flat' ? Minus : stat.direction === 'up' ? ArrowUp : ArrowDown;
+              return (
+                <div key={stat.label} className="flex items-center justify-between gap-2 py-2 first:pt-0 last:pb-0">
+                  <dt className="text-xs font-medium text-text-muted">{stat.label}</dt>
+                  <dd className="inline-flex items-center gap-1 text-base font-display font-bold text-text tabular-nums">
+                    {stat.value}
+                    <TrendIcon size={13} strokeWidth={3} className={STAT_SENTIMENT[stat.sentiment]} />
+                  </dd>
+                </div>
+              );
+            })}
+          </dl>
         </div>
 
-        <div className="grid grid-cols-1 @sm:grid-cols-3 gap-3">
+        <div className="hidden sm:grid grid-cols-1 @sm:grid-cols-3 gap-3">
           {stats.map(stat => {
             // Arrow = which way the number moved; colour = whether that's good. Separating the
             // two is what lets "Pending: 3 ↓" be green.

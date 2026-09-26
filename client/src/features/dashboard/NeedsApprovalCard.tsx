@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Link } from 'react-router';
 import { ShieldAlert, TicketCheck, CheckSquare, ClipboardCheck, ChevronRight, Check, type LucideIcon } from 'lucide-react';
 import { IconChip } from '../../components/iconChip';
+import { useIsMobile } from '../../lib/useMediaQuery';
 import { useTaskPendingApprovalQuery } from '../tasks/hook';
 import { useTicketPendingApprovalQuery } from '../tickets/hook';
 import { useChecklistPendingApprovalQuery } from '../checklist/hook';
@@ -30,6 +31,8 @@ const CATEGORY_ICON: Record<ApprovalCategory, LucideIcon> = {
 // a way in, not a second queue-management page (that's each module's own pending-verification
 // view).
 const PREVIEW_LIMIT = 6;
+// Phones get the three oldest — six full rows was a screen and a half of scrolling on its own.
+const MOBILE_PREVIEW_LIMIT = 3;
 
 /**
  * The one dashboard card built from other people's submissions rather than the viewer's own
@@ -42,6 +45,7 @@ export const NeedsApprovalCard = () => {
   const { data: ticketItems, isPending: ticketPending } = useTicketPendingApprovalQuery();
   const { data: checklistItems, isPending: checklistPending } = useChecklistPendingApprovalQuery();
   const isPending = taskPending || ticketPending || checklistPending;
+  const isMobile = useIsMobile();
 
   const rows = useMemo<ApprovalRow[]>(() => {
     const combined: ApprovalRow[] = [
@@ -58,7 +62,7 @@ export const NeedsApprovalCard = () => {
     return combined.sort((a, b) => new Date(a.waitingSince).getTime() - new Date(b.waitingSince).getTime());
   }, [ticketItems, taskItems, checklistItems]);
 
-  const visible = rows.slice(0, PREVIEW_LIMIT);
+  const visible = rows.slice(0, isMobile ? MOBILE_PREVIEW_LIMIT : PREVIEW_LIMIT);
   const remaining = rows.length - visible.length;
   const counts = visible.reduce<Partial<Record<ApprovalCategory, number>>>((acc, r) => {
     acc[r.category] = (acc[r.category] ?? 0) + 1;
@@ -79,7 +83,7 @@ export const NeedsApprovalCard = () => {
             <h2 id="needs-approval-heading" className="text-base sm:text-lg font-display font-bold text-text tracking-tight truncate">
               Needs your approval
             </h2>
-            <p className="text-[11px] sm:text-xs font-medium text-text-muted mt-0.5">
+            <p className="hidden sm:block text-xs font-medium text-text-muted mt-0.5">
               Tickets, delegations, and checklists waiting on your sign-off
             </p>
           </div>
@@ -111,7 +115,9 @@ export const NeedsApprovalCard = () => {
         </div>
       ) : (
         <div className="flex flex-col gap-3 p-3 sm:p-4">
-          <div className="flex flex-wrap gap-2 px-1">
+          {/* Desktop-only — with three preview rows on a phone these chips just restate the rows
+              right below them; the header badge already carries the real total. */}
+          <div className="hidden sm:flex flex-wrap gap-2 px-1">
             {(['ticket', 'delegation', 'checklist'] as const)
               .filter((c) => counts[c])
               .map((c) => (

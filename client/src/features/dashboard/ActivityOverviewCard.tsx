@@ -4,7 +4,6 @@ import { Skeleton } from '../../components/skeleton';
 import { ActivityTrendChart, ACTIVITY_CHART_HEIGHT } from './ActivityTrendChart';
 import { ActivityGroupByControl } from './ActivityGroupByControl';
 import { ActivityCategoryFilter } from './ActivityCategoryFilter';
-import { MobileCollapsible } from './MobileCollapsible';
 import { ACTIVITY_GROUP_RANGE_LABEL, DASHBOARD_CARD_CLASS, type ActivityGroupBy, type ActivityCategory, type ActivityWorkItem } from './dashboardDisplay';
 
 interface ActivityOverviewCardProps {
@@ -43,24 +42,20 @@ export const ActivityOverviewCard = ({
         <EntityIconTile icon={BarChart3} />
         <div>
           <h2 id="activity-overview-heading" className="text-base sm:text-lg font-display font-bold text-text tracking-tight leading-tight">Activity Overview</h2>
-          {/* Hidden below `sm` — this card already opens collapsed there (see MobileCollapsible
-              below); the full descriptive line is redundant weight on a header that's otherwise
-              just an icon and a title, and the Day/Month/Quarter/Year tabs beside it already say
-              what window it's showing. */}
+          {/* Hidden below `sm` — the Day/Month/Quarter/Year tabs beside it already say what window
+              it's showing; on a phone the full sentence is just extra header height. */}
           <p className="hidden sm:block text-xs font-medium text-text-muted mt-0.5 tracking-wide">Delegations, tickets, checklists, and todos, over the {ACTIVITY_GROUP_RANGE_LABEL[activityGroupBy]}</p>
         </div>
       </div>
       <ActivityGroupByControl value={activityGroupBy} onChange={onGroupByChange} />
     </div>
 
-    {/* Below `sm`, the filter chips + chart start collapsed — a phone doesn't need every card's
-        full chart open at once (see MobileCollapsible's own comment); `sm:` and up is unchanged. */}
-    <MobileCollapsible label="chart & filters">
-      {/* Also scopes the Compliance card's gauges — toggling a category here narrows both, not
-          independently. */}
-      <div className="relative mt-3 sm:mt-0">
-        <ActivityCategoryFilter active={activeCategories} onToggle={onToggleCategory} />
-      </div>
+    {/* Category filter is desktop-only — every category starts on, and on a phone the chart itself
+        is the thing worth seeing, not four toggle chips stacked above it. Also scopes the
+        Compliance card's gauges — toggling a category here narrows both, not independently. */}
+    <div className="relative hidden sm:block">
+      <ActivityCategoryFilter active={activeCategories} onToggle={onToggleCategory} />
+    </div>
 
       {isPending ? (
         <div className="mt-4 flex flex-col justify-end gap-3" style={{ height: ACTIVITY_CHART_HEIGHT }} role="status" aria-label="Loading activity overview">
@@ -76,10 +71,9 @@ export const ActivityOverviewCard = ({
           </div>
         </div>
       ) : (
-        <div className="relative mt-4">
+        <div className="relative mt-1 sm:mt-4">
           <ActivityTrendChart items={activityItems} activeCategories={activeCategories} groupBy={activityGroupBy} />
         </div>
       )}
-    </MobileCollapsible>
   </section>
 );
