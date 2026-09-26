@@ -34,21 +34,6 @@ type TaskFields = z.infer<typeof taskSchema>;
 // reference as the Create Ticket modal. Only applied while a field has no error: Input's own
 // danger border+tint has to win the moment validation fails.
 const QUIET_FIELD_CLASS = 'font-display border-transparent bg-surface-hover/50 hover:bg-surface-hover focus:bg-surface';
-
-// Native date inputs on phones (see the Timeline field). text-base keeps iOS from zooming on focus.
-const MOBILE_DATE_INPUT_CLASS =
-  'w-full min-w-0 h-11 px-3 rounded-lg border border-transparent bg-surface-hover/50 text-base text-text focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary-500/20 transition-colors duration-200';
-
-const pad2 = (n: number) => String(n).padStart(2, '0');
-// Local-time yyyy-mm-dd — toISOString() would shift the day for anyone east/west of UTC.
-const toDateInputValue = (d: Date | null) =>
-  d ? `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}` : '';
-const fromDateInputValue = (s: string): Date | null => {
-  if (!s) return null;
-  const [y, m, d] = s.split('-').map(Number);
-  return new Date(y, m - 1, d);
-};
-
 interface TaskFormProps {
   onClose: () => void;
   onCreated?: (task: Task) => void;
@@ -325,39 +310,12 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
                   <CalendarClock className={FIELD_LABEL_ICON_CLASS} />
                   Timeline
                 </label>
-                <div className="hidden sm:block">
-                  <DateRangePicker
-                    value={dateRange}
-                    onChange={setDateRange}
-                    placeholder="Start → deadline"
-                    triggerClassName="w-full py-2.5 border-transparent bg-surface-hover/50 hover:bg-surface-hover rounded-lg focus:ring-2 focus:ring-primary-500/20 transition-colors duration-200 ease-in-out"
-                  />
-                </div>
-                {/* Phones: two native date fields, which open the phone's own date picker. The range
-                    calendar opened as a second full sheet stacked on this one, needed two taps with
-                    nothing saying so, and kept Apply disabled until both were picked. */}
-                <div className="sm:hidden grid grid-cols-2 gap-2">
-                  <label className="flex flex-col gap-1 min-w-0">
-                    <span className="text-[11px] font-medium text-text-muted">Start</span>
-                    <input
-                      type="date"
-                      value={toDateInputValue(dateRange.from)}
-                      max={toDateInputValue(dateRange.to) || undefined}
-                      onChange={(e) => setDateRange((prev) => ({ ...prev, from: fromDateInputValue(e.target.value) }))}
-                      className={MOBILE_DATE_INPUT_CLASS}
-                    />
-                  </label>
-                  <label className="flex flex-col gap-1 min-w-0">
-                    <span className="text-[11px] font-medium text-text-muted">Due</span>
-                    <input
-                      type="date"
-                      value={toDateInputValue(dateRange.to)}
-                      min={toDateInputValue(dateRange.from) || undefined}
-                      onChange={(e) => setDateRange((prev) => ({ ...prev, to: fromDateInputValue(e.target.value) }))}
-                      className={MOBILE_DATE_INPUT_CLASS}
-                    />
-                  </label>
-                </div>
+                <DateRangePicker
+                  value={dateRange}
+                  onChange={setDateRange}
+                  placeholder="Start → deadline"
+                  triggerClassName="w-full py-2.5 border-transparent bg-surface-hover/50 hover:bg-surface-hover rounded-lg focus:ring-2 focus:ring-primary-500/20 transition-colors duration-200 ease-in-out"
+                />
               </div>
 
               <div className="col-span-2 sm:col-span-1">

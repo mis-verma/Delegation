@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { Button } from '../button';
 import { Modal } from '../modal';
+import { useMediaQuery } from '../../lib/useMediaQuery';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -72,6 +73,10 @@ export function DateRangePicker({
   placeholderIsValue = false,
 }: DateRangePickerProps) {
   const [open, setOpen] = useState(false);
+  // Phones: the sheet closes itself on the second (end) tap instead of waiting on Apply — unless
+  // there are times to set, which still need a Done. Same `sm` breakpoint the sheet layout uses.
+  const isPhone = useMediaQuery('(max-width: 639px)');
+  const autoClose = isPhone && !showTime;
   const [viewMonth, setViewMonth] = useState(() => startOfDay(value.from ?? new Date()));
   const [hoverDate, setHoverDate] = useState<Date | null>(null);
 
@@ -99,7 +104,11 @@ export function DateRangePicker({
     } else {
       onChange({ from: value.from, to: withTime(value.to, day) });
     }
+    if (autoClose) setOpen(false);
   };
+
+  // Which tap comes next — drives the Start/End readout at the top of the sheet.
+  const pickingEnd = !!value.from && !value.to;
 
   const setTime = (which: 'from' | 'to', hhmm: string) => {
     const base = value[which];
@@ -171,16 +180,43 @@ export function DateRangePicker({
         title="Select date range"
         size="sm"
         footer={
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => setOpen(false)}
-            disabled={!value.from || !value.to}
-          >
-            Apply Selection
-          </Button>
+          autoClose ? undefined : (
+            <Button
+              variant="primary"
+              size="sm"
+              className="w-full sm:w-auto"
+              onClick={() => setOpen(false)}
+              disabled={!value.from || !value.to}
+            >
+              Apply Selection
+            </Button>
+          )
         }
       >
+        {/* Start → End readout: says what's been picked and which tap comes next. Without it,
+            nothing said a range takes two taps, so a single tap looked like it had done nothing. */}
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+          {([
+            { key: 'from', label: 'Start', date: value.from, active: !pickingEnd },
+            { key: 'to', label: 'End', date: value.to, active: pickingEnd },
+          ] as const).map((slot, i) => (
+            <Fragment key={slot.key}>
+              {i === 1 && <ChevronRight size={14} className="text-text-light" aria-hidden="true" />}
+              <div
+                className={cn(
+                  'flex flex-col gap-0.5 px-3 py-2 rounded-xl border',
+                  slot.active ? 'border-primary-500/60 bg-primary-500/5' : 'border-border/60 bg-surface-hover/40',
+                )}
+              >
+                <span className="text-[10px] font-semibold text-text-muted leading-none">{slot.label}</span>
+                <span className={cn('text-sm font-display font-bold leading-tight', slot.date ? 'text-text' : 'text-text-light')}>
+                  {slot.date ? formatDate(slot.date) : slot.active ? 'Pick a day' : '—'}
+                </span>
+              </div>
+            </Fragment>
+          ))}
+        </div>
+
         {/* Header */}
         <div className="flex items-center justify-between">
           <button
@@ -229,7 +265,8 @@ export function DateRangePicker({
                 onMouseEnter={() => setHoverDate(day)}
                 disabled={!inMonth}
                 className={cn(
-                  'h-9 text-xs rounded-lg transition-colors font-medium outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40',
+                  // h-10 text-sm on phones — thumb-sized; desktop keeps the denser h-9 text-xs.
+                  'h-10 sm:h-9 text-sm sm:text-xs rounded-lg transition-colors font-medium outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]',
                   !inMonth ? 'text-text-light/40 cursor-default' : 'text-text-secondary cursor-pointer',
                   (isFrom || isTo) && 'bg-primary-700 text-white shadow-sm hover:bg-primary-800',
                   inRange && 'bg-primary-500/15 text-primary-700',
