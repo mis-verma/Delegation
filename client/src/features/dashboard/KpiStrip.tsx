@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { ClipboardList, TicketCheck, ListChecks, ListTodo, type LucideIcon } from 'lucide-react';
 import { StatusBreakdownCard, type StatusBreakdownVariant } from './StatusBreakdownCard';
@@ -30,6 +30,10 @@ interface KpiStripProps {
   todos: Todo[];
   isPending: boolean;
   workflowStats: WorkflowStats;
+  /** Page-level control (the dashboard's "Customize layout" trigger) that has nowhere else to sit
+   *  on a phone without wasting its own near-empty row — passed through to the "Show breakdown"
+   *  toggle's row instead. Desktop ignores this entirely (rendered separately there). */
+  toolbar?: ReactNode;
 }
 
 interface Drilldown {
@@ -126,7 +130,7 @@ const KpiCardSkeleton = ({ variant }: { variant: StatusBreakdownVariant }) => {
 // against three quiet ones.
 const CARD_VARIANTS: readonly StatusBreakdownVariant[] = ['navy', 'navy', 'navy', 'navy'];
 
-export const KpiStrip = ({ tickets, tasks, todos, isPending, workflowStats }: KpiStripProps) => {
+export const KpiStrip = ({ tickets, tasks, todos, isPending, workflowStats, toolbar }: KpiStripProps) => {
   const navigate = useNavigate();
   const { data: checklistSummary } = useChecklistInstanceSummaryQuery({ mine: true });
   // Same capped "recent" window RecentActivity uses on this page — enough for a preview modal's
@@ -207,24 +211,31 @@ export const KpiStrip = ({ tickets, tasks, todos, isPending, workflowStats }: Kp
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex sm:hidden items-center gap-2 overflow-x-auto no-scrollbar -mx-4 px-4">
-        {chipSummary.map((chip) => (
-          <button
-            key={chip.key}
-            type="button"
-            onClick={() => navigate(chip.href)}
-            className="shrink-0 flex items-center gap-2 h-11 pl-2.5 pr-3.5 rounded-full bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700 text-white cursor-pointer transition-transform active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-          >
-            <span className="flex items-center justify-center size-6 rounded-full bg-white/15 shrink-0">
-              <chip.icon size={13} strokeWidth={2.5} />
-            </span>
-            <span className="tabular-nums font-bold text-sm">{chip.total}</span>
-            <span className="text-xs text-white/80 whitespace-nowrap">{chip.title}</span>
-          </button>
-        ))}
+      {/* relative + the two edge masks below signal "more to scroll" — without them the strip's
+          last chip just gets sliced off flush against the viewport edge, which reads as a broken
+          layout rather than a horizontally-scrollable row. */}
+      <div className="relative sm:hidden -mx-4">
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar px-4">
+          {chipSummary.map((chip) => (
+            <button
+              key={chip.key}
+              type="button"
+              onClick={() => navigate(chip.href)}
+              className="shrink-0 flex items-center gap-2 h-11 pl-2.5 pr-3.5 rounded-full bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700 text-white cursor-pointer transition-transform active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            >
+              <span className="flex items-center justify-center size-6 rounded-full bg-white/15 shrink-0">
+                <chip.icon size={13} strokeWidth={2.5} />
+              </span>
+              <span className="tabular-nums font-bold text-sm">{chip.total}</span>
+              <span className="text-xs text-white/80 whitespace-nowrap">{chip.title}</span>
+            </button>
+          ))}
+        </div>
+        <div aria-hidden="true" className="absolute inset-y-0 left-0 w-4 bg-gradient-to-r from-background to-transparent pointer-events-none" />
+        <div aria-hidden="true" className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-background to-transparent pointer-events-none" />
       </div>
 
-      <MobileCollapsible label="breakdown">
+      <MobileCollapsible label="breakdown" trailing={toolbar}>
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 md:gap-5">
 
       {/* Delegation Card */}

@@ -256,7 +256,12 @@ export const RecentActivity = ({ feed, isPending }: RecentActivityProps) => {
                   // table to go find the thing you'd just clicked.
                   to={isTicket ? `/tickets?open=${item.id}` : `/tasks?open=${item.id}`}
                   aria-label={`${item.title} — ${isTicket ? 'ticket' : 'delegation'}, ${pillLabel}, ${formatRelativeTime(item.createdAt)}`}
-                  className="group/row flex items-center justify-between px-4 sm:px-5 py-3.5 hover:bg-surface-hover/80 transition-all duration-300 relative overflow-hidden focus:outline-none focus-visible:bg-surface-hover focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40"
+                  // flex-col below `sm` — side-by-side (icon+title left, status badge right) only
+                  // works once the badge has room to spare; on a phone the longest pill label
+                  // ("Pending Approval") left so little width for title+meta that the meta row
+                  // (icon-chip + timestamp) had nowhere to go but overflow under the badge. Full
+                  // width for the badge on its own line removes the squeeze instead of clipping it.
+                  className="group/row flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 px-4 sm:px-5 py-3.5 hover:bg-surface-hover/80 transition-all duration-300 relative overflow-hidden focus:outline-none focus-visible:bg-surface-hover focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40"
                 >
                   {/* Animated Left Accent Line */}
                   <div aria-hidden="true" className="absolute left-0 top-0 bottom-0 w-1 bg-primary-500 transform -translate-x-full group-hover/row:translate-x-0 transition-transform duration-300 ease-out" />
@@ -274,9 +279,14 @@ export const RecentActivity = ({ feed, isPending }: RecentActivityProps) => {
                       )}
                     </div>
 
-                    {/* Title & Metadata */}
-                    <div className="flex flex-col gap-1 min-w-0">
-                      <span className="text-[13px] font-display font-bold text-text truncate group-hover/row:text-primary-600 dark:group-hover/row:text-primary-400 transition-colors duration-200">
+                    {/* Title & Metadata. overflow-hidden on the column (not just min-w-0 on it) —
+                        min-w-0 lets the column shrink but doesn't stop its own children from
+                        rendering wider than it and bleeding into the status badge's space, which
+                        is exactly what the meta row below did whenever the badge text was long
+                        ("Pending Approval") and the title short: the meta row overflowed sideways
+                        and the badge — painted after it in DOM order — sat visually on top of it. */}
+                    <div className="flex flex-col gap-1 min-w-0 overflow-hidden">
+                      <span className="text-[13px] font-display font-bold text-text line-clamp-2 leading-snug group-hover/row:text-primary-600 dark:group-hover/row:text-primary-400 transition-colors duration-200">
                         {item.title}
                       </span>
                       <div className="flex items-center gap-1.5 text-[11px] font-medium text-text-muted">
@@ -298,8 +308,9 @@ export const RecentActivity = ({ feed, isPending }: RecentActivityProps) => {
                     </div>
                   </div>
 
-                  {/* Status Badge & Chevron */}
-                  <div className="flex items-center gap-4 shrink-0 ml-4">
+                  {/* Status Badge & Chevron. ml-14 on mobile lines the badge up under the title
+                      text rather than under the icon, once it's dropped to its own row below. */}
+                  <div className="flex items-center gap-4 shrink-0 ml-14 sm:ml-4">
                     <span
                       className={`inline-flex items-center gap-1.5 justify-center text-[10px] sm:text-[11px] font-display font-bold px-2.5 py-1 rounded-full whitespace-nowrap ring-1 ring-inset ${pillClassName}`}
                     >

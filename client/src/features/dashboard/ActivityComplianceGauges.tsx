@@ -323,7 +323,7 @@ export const ActivityComplianceGauges = ({ items, activeCategories, groupBy }: A
           <EntityIconTile icon={Sparkles} tone="coral" />
           <div>
             <h2 id="compliance-heading" className="text-base sm:text-lg font-display font-bold text-text tracking-tight leading-tight">Compliance</h2>
-            <p className="text-xs font-medium text-text-muted mt-0.5 capitalize">
+            <p className="text-xs font-medium text-text-muted mt-0.5">
               Completion and on-time compliance rate, trailing {ACTIVITY_GROUP_RANGE_LABEL[groupBy]}
             </p>
           </div>

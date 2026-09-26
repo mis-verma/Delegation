@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { KpiStrip, type WorkflowStats } from './KpiStrip';
 import type { Task } from '../../api/task';
 import type { Ticket } from '../../api/ticket';
@@ -9,6 +10,8 @@ interface DashboardOverviewProps {
   tasks: Task[];
   todos: Todo[];
   workflowStats: WorkflowStats;
+  /** Passed straight through to KpiStrip's "Show breakdown" row — see its own prop doc. */
+  toolbar?: ReactNode;
 }
 
 export const DashboardOverview = ({
@@ -16,7 +19,8 @@ export const DashboardOverview = ({
   tickets,
   tasks,
   todos,
-  workflowStats
+  workflowStats,
+  toolbar,
 }: DashboardOverviewProps) => {
   return (
     <section
@@ -29,6 +33,7 @@ export const DashboardOverview = ({
         todos={todos}
         isPending={isPending}
         workflowStats={workflowStats}
+        toolbar={toolbar}
       />
     </section>
   );
