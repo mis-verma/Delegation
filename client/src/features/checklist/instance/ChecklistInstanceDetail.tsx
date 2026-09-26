@@ -1,8 +1,7 @@
 import type { ReactElement } from 'react';
 import { useParams, useNavigate, Link } from 'react-router';
-import { ArrowLeft, AlertCircle, ShieldCheck, ShieldAlert, ShieldQuestion, Pencil, Clock, ClipboardCheck, Layers } from 'lucide-react';
-import { Skeleton, StatusChip, EntityIconTile } from '../../../components';
-import { Badge } from '../../../components/ui/badge';
+import { ArrowLeft, AlertCircle, ShieldCheck, ShieldAlert, ShieldQuestion, Pencil, Clock, Layers } from 'lucide-react';
+import { Skeleton, StatusChip, IconChip } from '../../../components';
 import { useChecklistInstanceQuery } from '../hook';
 import { ChecklistInstanceItemCard } from './ChecklistInstanceItemCard';
 import { ChecklistInstanceItemAuditCard } from './ChecklistInstanceItemAuditCard';
@@ -18,7 +17,7 @@ import { ChecklistInstanceItemDualSignatureCard } from './ChecklistInstanceItemD
 import { ChecklistInstanceItemQrScanCard } from './ChecklistInstanceItemQrScanCard';
 import { ChecklistInstanceItemCashTallyCard } from './ChecklistInstanceItemCashTallyCard';
 import { ItemRemarksField } from './ItemRemarksField';
-import { formatDate, formatDateTime, instanceProgressBarClass, isInstanceOverdue, isInstanceNotYetOpen } from '../checklistDisplay';
+import { formatDate, formatDateTime, instanceProgressBarClass, isInstanceOverdue, isInstanceNotYetOpen, RECURRENCE_LABEL, VERIFICATION_STATUS_LABEL, VERIFICATION_CHIP } from '../checklistDisplay';
 import { useAuth } from '../../../context/AuthContext';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 
@@ -130,86 +129,81 @@ export const ChecklistInstanceDetail = () => {
 
   return (
     <div className="flex flex-col gap-6 max-w-4xl">
-      {/* Top bar — same shape as ChecklistDefinitionDetail's own nav row (plain-text back button,
-          pill-styled secondary action), instead of the two bare gray text links this used to be. */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+      {/* Back on the left, Edit template (admins) on the right. */}
+      <div className="flex items-center justify-between gap-3">
         <button
           type="button"
           onClick={() => navigate(-1)}
-          className="inline-flex items-center gap-1.5 text-xs font-display font-medium text-text-secondary hover:text-text transition-colors duration-150 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 rounded-md py-1 px-1.5"
+          aria-label="Back"
+          className="inline-flex items-center gap-1.5 h-9 pl-2 pr-3 -ml-2 rounded-full text-sm font-display font-medium text-text-secondary hover:text-text hover:bg-surface-hover transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]"
         >
-          <ArrowLeft size={14} />
+          <ArrowLeft size={17} />
           <span>Back</span>
         </button>
 
         {isAdminOrPC && (
           <Link
             to={`/admin/scheduled-checklists/builder/${instance.definitionId}`}
-            // dark:bg-primary-500/15, not dark:bg-primary-950/40 — primary-950 isn't a defined
-            // token in this app's palette (index.css only goes to primary-900), so that dark:
-            // class never generated and this button fell back to its light-mode bg-primary-50 in
-            // dark theme, rendering as a stray near-white patch.
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-display font-medium text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-500/15 border border-primary-200 dark:border-primary-800 hover:bg-primary-100 dark:hover:bg-primary-900/60 shadow-2xs transition-all duration-150 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
-            title="Edit this checklist's template — affects future runs, not this one"
+            className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-xs font-display font-semibold text-text-secondary border border-border/60 dark:border-white/[0.08] bg-surface hover:border-primary-400 hover:text-text transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+            title="Edit this checklist's template. Changes apply to future runs, not this one."
           >
-            <Pencil size={12} />
+            <Pencil size={13} />
             <span>Edit template</span>
           </Link>
         )}
       </div>
 
-      <div className="flex flex-col gap-4 p-5 sm:p-6 rounded-lg border border-border bg-surface">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-3.5 min-w-0">
-            <EntityIconTile icon={ClipboardCheck} tone="coral" />
-            <h1 className="text-lg sm:text-xl font-display font-bold text-text tracking-tight leading-snug pt-1.5">{instance.title}</h1>
-          </div>
-          {/* Same fact ChecklistInstanceCard already renders through Badge (success when
-              complete) — this detail header used its own older hand-rolled span, plus a third,
-              overdue/destructive state the card doesn't need since an overdue instance already
-              shows its own StatusChip just below. */}
-          <Badge
-            variant={isComplete ? 'success' : overdue ? 'destructive' : 'default'}
-            className="shrink-0 bg-surface-hover"
-          >
-            {isComplete ? 'Done' : `${progress}% done`}
-          </Badge>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          <p className="text-xs text-text-muted font-display">
-            {formatDate(instance.periodStart)} – {formatDate(instance.periodEnd)}
+      {/* Header: title, how often and the period, status + approval chips, then progress. Same
+          chip language as the list cards; the gold tile and the "% done" badge are gone. */}
+      <div className="flex flex-col gap-3 p-4 sm:p-5 rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-lg sm:text-xl font-display font-semibold text-text tracking-tight leading-snug">{instance.title}</h1>
+          <p className="text-xs font-medium text-text-muted">
+            {RECURRENCE_LABEL[instance.recurrence]} · {formatDate(instance.periodStart)} – {formatDate(instance.periodEnd)}
           </p>
-          {overdue && <StatusChip status="overdue" />}
         </div>
 
-        <div className="flex items-center gap-2 mt-1">
-          <div className="h-1.5 flex-1 bg-surface-hover rounded-full overflow-hidden border border-border/50">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <StatusChip status={isComplete ? 'completed' : overdue ? 'overdue' : 'due'} />
+          {(isComplete || instance.verificationStatus !== 'NOT_SUBMITTED') && (
+            <IconChip
+              icon={VERIFICATION_CHIP[instance.verificationStatus].icon}
+              tone={VERIFICATION_CHIP[instance.verificationStatus].tone}
+              label={VERIFICATION_STATUS_LABEL[instance.verificationStatus]}
+            />
+          )}
+        </div>
+
+        <div className="flex flex-col gap-1.5 pt-1">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="text-xs font-medium text-text-muted">Progress</span>
+            <span className="text-xs font-semibold text-text tabular-nums">{done} of {total} done</span>
+          </div>
+          <div className="h-2 bg-surface-hover rounded-full overflow-hidden">
             <div
               className={`h-full rounded-full transition-all duration-500 ${instanceProgressBarClass(overdue, isComplete)}`}
               style={{ width: `${progress}%` }}
             />
           </div>
-          <span className="text-xs font-display text-text-muted shrink-0">{done}/{total} done</span>
         </div>
       </div>
 
       {notYetOpen && (
-        <div className="flex items-center gap-2.5 p-3.5 rounded-lg bg-muted/40 border border-border text-text-secondary text-xs font-display">
+        <div className="flex items-center gap-2.5 p-3.5 rounded-2xl bg-surface-hover/60 border border-border/60 text-text-secondary text-xs font-display">
           <Clock size={16} className="shrink-0" />
-          This checklist opens at {instance.opensTime} — items can't be marked done before then.
+          This checklist opens at {instance.opensTime}. Items can't be ticked off before then.
         </div>
       )}
 
       {instance.verificationStatus === 'PENDING_APPROVAL' && (
-        <div className="flex items-center gap-2.5 p-3.5 rounded-lg bg-primary-500/10 border border-primary-500/25 text-primary-600 dark:text-primary-300 text-xs font-display">
+        <div className="flex items-center gap-2.5 p-3.5 rounded-2xl bg-primary-500/10 border border-primary-500/25 text-primary-600 dark:text-primary-300 text-xs font-display">
           <ShieldQuestion size={16} className="shrink-0" />
-          Everything's checked off — just waiting on approval.
+          Everything's ticked off. Waiting for approval.
         </div>
       )}
 
       {instance.verificationStatus === 'APPROVED' && (
-        <div className="flex items-center gap-2.5 p-3.5 rounded-lg bg-success/10 border border-success/25 text-success text-xs font-display">
+        <div className="flex items-center gap-2.5 p-3.5 rounded-2xl bg-success/10 border border-success/25 text-success text-xs font-display">
           <ShieldCheck size={16} className="shrink-0" />
           Verified{instance.verifiedAt ? ` on ${formatDateTime(instance.verifiedAt)}` : ''}.
           {instance.verificationNote ? ` "${instance.verificationNote}"` : ''}
@@ -217,7 +211,7 @@ export const ChecklistInstanceDetail = () => {
       )}
 
       {instance.verificationStatus === 'REJECTED' && (
-        <div className="flex items-start gap-2.5 p-3.5 rounded-lg bg-danger/10 border border-danger/25 text-danger text-xs font-display">
+        <div className="flex items-start gap-2.5 p-3.5 rounded-2xl bg-danger/10 border border-danger/25 text-danger text-xs font-display">
           <ShieldAlert size={16} className="shrink-0 mt-0.5" />
           <span>
             Sent back for changes{instance.verificationNote ? `: "${instance.verificationNote}"` : '.'} Fix

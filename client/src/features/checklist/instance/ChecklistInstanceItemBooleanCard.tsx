@@ -96,7 +96,7 @@ export const ChecklistInstanceItemBooleanCard = ({ item, instanceId, canWork, is
   const showFollowUp = pendingAnswer != null || (item.isDone && isTriggering((item.booleanAnswer ?? '') as 'YES' | 'NO'));
 
   return (
-    <div className={`flex flex-col gap-3 p-4 rounded-lg border border-border bg-surface ${isLocked ? 'opacity-75' : ''}`}>
+    <div className={`flex flex-col gap-3 p-3.5 sm:p-4 rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface ${isLocked ? 'opacity-75' : ''}`}>
       <ChecklistItemCardHeader
         item={item}
         interactive={interactive}

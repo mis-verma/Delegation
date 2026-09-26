@@ -1,15 +1,14 @@
 import { Link } from 'react-router';
-import { ClipboardCheck } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import { StatusChip } from '@/components/statusChip';
-import { EntityIconTile } from '../../../components';
+import { IconChip } from '../../../components';
 import {
   formatDateShort,
   formatDeadlineTime,
   instanceProgressBarClass,
   isInstanceOverdue,
+  RECURRENCE_LABEL,
   VERIFICATION_STATUS_LABEL,
-  VERIFICATION_BADGE_VARIANT,
+  VERIFICATION_CHIP,
 } from '../checklistDisplay';
 import type { ChecklistInstance } from '../../../api/checklistInstances';
 
@@ -17,8 +16,12 @@ interface ChecklistInstanceCardProps {
   instance: ChecklistInstance;
 }
 
-// One card in MyChecklists' grid — the card-view sibling of ChecklistInstanceRow (used by
-// ChecklistDefinitionDetail's list instead).
+/**
+ * One checklist run as a tile, same design as the delegation and ticket cards: title, a quiet meta
+ * line (how often, the period, today's deadline), one chip row (status, and approval once it's
+ * been sent), then a slim progress bar with the item count. The old gold icon tile and the
+ * "0% done" badge are gone; the bar already says both.
+ */
 export const ChecklistInstanceCard = ({ instance }: ChecklistInstanceCardProps) => {
   const total = instance.items.length;
   const done = instance.items.filter(i => i.isDone).length;
@@ -26,44 +29,38 @@ export const ChecklistInstanceCard = ({ instance }: ChecklistInstanceCardProps) 
   const isComplete = total > 0 && done === total;
   const overdue = isInstanceOverdue(instance, isComplete);
   const deadlineTime = formatDeadlineTime(instance);
+  const verification = VERIFICATION_CHIP[instance.verificationStatus];
+  // "Not submitted" on a half-done run says nothing; show approval once it's finished or sent.
+  const showVerification = isComplete || instance.verificationStatus !== 'NOT_SUBMITTED';
 
   return (
     <Link
       to={`/checklists/${instance.id}`}
-      className="flex flex-col gap-3 p-4 rounded-lg border border-border bg-surface hover:border-primary-500/40 transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+      className="flex flex-col gap-2.5 p-3.5 rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface hover:border-primary-500/50 active:bg-surface-hover/50 transition-all duration-200 ease-in-out outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 [-webkit-tap-highlight-color:transparent]"
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <EntityIconTile icon={ClipboardCheck} tone="coral" />
-          {/* No `truncate` — the "% done" badge on the other end of this row already claims a
-              good chunk of width, and clipping to one line left titles cut down to "Store O..."
-              with a dead gap before the badge. Two-line wrap uses that space instead. */}
-          <p className="text-sm font-display font-medium text-text leading-snug">{instance.title}</p>
-        </div>
-        <Badge variant={isComplete ? 'success' : 'warning'} className="shrink-0">
-          {isComplete ? 'Done' : `${progress}% done`}
-        </Badge>
-      </div>
-
-      <div className="flex items-center gap-2 flex-wrap">
-        <p className="text-xs text-text-muted font-display">
-          {formatDateShort(instance.periodStart)} – {formatDateShort(instance.periodEnd)}
+      <div className="flex flex-col gap-1 min-w-0">
+        <p className="text-[15px] font-display font-semibold text-text tracking-tight leading-snug line-clamp-2">{instance.title}</p>
+        <p className="text-[11px] font-medium text-text-muted">
+          {RECURRENCE_LABEL[instance.recurrence]} · {formatDateShort(instance.periodStart)} – {formatDateShort(instance.periodEnd)}
           {!isComplete && deadlineTime && <> · Due {deadlineTime}</>}
         </p>
-        <Badge variant={VERIFICATION_BADGE_VARIANT[instance.verificationStatus]}>
-          {VERIFICATION_STATUS_LABEL[instance.verificationStatus]}
-        </Badge>
-        {overdue && <StatusChip status="overdue" />}
       </div>
 
-      <div className="flex items-center gap-2">
-        <div className="h-1.5 flex-1 bg-surface-hover rounded-full overflow-hidden border border-border/50">
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <StatusChip status={isComplete ? 'completed' : overdue ? 'overdue' : 'due'} />
+        {showVerification && (
+          <IconChip icon={verification.icon} tone={verification.tone} label={VERIFICATION_STATUS_LABEL[instance.verificationStatus]} />
+        )}
+      </div>
+
+      <div className="flex items-center gap-2.5">
+        <div className="h-1.5 flex-1 bg-surface-hover rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full transition-all duration-500 ${instanceProgressBarClass(overdue, isComplete)}`}
             style={{ width: `${progress}%` }}
           />
         </div>
-        <span className="text-[10px] text-text-muted font-display font-medium w-8 text-right">{done}/{total}</span>
+        <span className="text-[11px] text-text-muted font-semibold tabular-nums shrink-0">{done}/{total}</span>
       </div>
     </Link>
   );

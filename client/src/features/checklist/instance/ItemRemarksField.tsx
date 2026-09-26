@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Clock, MessageSquare } from 'lucide-react';
+import { MessageSquare, MessageSquareWarning } from 'lucide-react';
 import { useSetChecklistInstanceItemDoneMutation } from '../hook';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '../../../components/ui/dialog';
 import { Button } from '../../../components';
@@ -58,17 +58,19 @@ export const ItemRemarksField = ({ item, instanceId, required }: ItemRemarksFiel
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
+      {/* Overdue and not done: a reason is needed, so the chip says that (it used to just say
+          "Overdue", which read like a second status rather than something to do). */}
       <button
         type="button"
         onClick={() => handleOpenChange(true)}
-        className={`flex items-center gap-1 self-start text-xs font-display font-medium px-2 py-0.5 rounded-full transition-colors cursor-pointer ml-2 ${
+        className={`flex items-center gap-1.5 self-start h-7 px-2.5 rounded-full text-xs font-display font-semibold transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent] ${
           missing
-            ? 'bg-danger/10 text-danger hover:bg-danger/15'
-            : 'bg-surface-hover text-text-muted hover:text-text hover:bg-surface-active'
+            ? 'bg-danger/10 text-danger hover:bg-danger/15 border border-danger/25'
+            : 'bg-surface-hover/70 text-text-muted hover:text-text hover:bg-surface-hover border border-transparent'
         }`}
       >
-        {missing ? <Clock size={11} /> : <MessageSquare size={11} />}
-        {missing ? 'Overdue' : hasRemarks ? 'Remarks added' : 'Add remarks'}
+        {missing ? <MessageSquareWarning size={13} /> : <MessageSquare size={13} />}
+        {missing ? 'Add reason (overdue)' : hasRemarks ? 'Remark added' : 'Add remark'}
       </button>
 
       <DialogContent className="sm:max-w-sm">
@@ -78,7 +80,7 @@ export const ItemRemarksField = ({ item, instanceId, required }: ItemRemarksFiel
 
         <div className="flex flex-col gap-1.5">
           <label className={`text-[11px] font-display font-medium ${missing ? 'text-danger' : 'text-text-muted'}`}>
-            {required ? 'Remarks required — this item is overdue' : 'Remarks (optional)'}
+            {required ? 'This item is overdue. Say why it isn\'t done yet.' : 'Remark (optional)'}
           </label>
           <textarea
             autoFocus

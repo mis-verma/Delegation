@@ -1,8 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, ClipboardCheck, X, Store, ChevronDown, Check, Clock, AlarmClock, ArrowDownAZ, Repeat, User, LayoutList, Table2, Kanban } from 'lucide-react';
+import { AlertCircle, ClipboardCheck, X, Store, ChevronRight, Clock, AlarmClock, ArrowDownAZ, Repeat, User, LayoutList, Table2, Kanban, Rows3, ArrowUpDown, Building2, ShieldCheck, Users } from 'lucide-react';
 import { useSearchParams } from 'react-router';
-import { Skeleton, PageNav, OptionsDialog, SortOptionRow, OptionRow, OptionRowGroup, FilterGroup, FilterPill, SelectFilterRow, PeopleFilterRow, ViewToggle, EmptyState, type FilterOption, type ViewTab } from '../../../components';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { Skeleton, PageNav, ViewToggle, EmptyState, type ViewTab } from '../../../components';
+import {
+  OptionsSheet, OptionSection, OptionSegmented, OptionSelect, ChoiceChip, ChoiceIcon, ChoiceWrap, ChoiceClear,
+} from '../../../components/optionsSheet';
+import { avatarColorClass } from '../../../lib/avatarColors';
+import { getInitials } from '../../../lib/getInitials';
+import { toggleValue } from '../../../lib/toggleValue';
 import { Badge } from '@/components/ui/badge';
 import { useMyChecklistInstancesQuery, useChecklistInstanceSummaryQuery, useAssignableUsersQuery, useDepartmentsQuery } from '../hook';
 import { useStoresQuery } from '../../tickets/hook';
@@ -11,7 +16,7 @@ import { ChecklistInstanceCard } from './ChecklistInstanceCard';
 import { ChecklistInstanceTable } from './ChecklistInstanceTable';
 import { ChecklistInstanceBoard } from './ChecklistInstanceBoard';
 import { MyChecklistsQuickStats, type MyChecklistsQuickFilterKey } from './MyChecklistsQuickStats';
-import { RECURRENCE_LABEL, VERIFICATION_STATUS_LABEL } from '../checklistDisplay';
+import { RECURRENCE_LABEL, VERIFICATION_STATUS_LABEL, VERIFICATION_CHIP } from '../checklistDisplay';
 import type { ChecklistInstance, ChecklistInstanceStatus, ChecklistVerificationStatus } from '../../../api/checklistInstances';
 import type { ChecklistRecurrence } from '../../../api/checklistDefinitions';
 
@@ -37,15 +42,8 @@ type GroupByKey = 'recurrence' | 'store' | 'person';
 const GROUP_BY_LABEL: Record<GroupByKey, string> = { recurrence: 'Recurrence', store: 'Store', person: 'Person' };
 const GROUP_BY_ICON: Record<GroupByKey, typeof Repeat> = { recurrence: Repeat, store: Store, person: User };
 
-const RECURRENCE_OPTIONS: FilterOption<ChecklistRecurrence | ''>[] = [
-  { value: '', label: 'All recurrences' },
-  ...(Object.entries(RECURRENCE_LABEL) as [ChecklistRecurrence, string][]).map(([value, label]) => ({ value, label })),
-];
-
-const VERIFICATION_OPTIONS: FilterOption<ChecklistVerificationStatus | ''>[] = [
-  { value: '', label: 'All' },
-  ...(Object.entries(VERIFICATION_STATUS_LABEL) as [ChecklistVerificationStatus, string][]).map(([value, label]) => ({ value, label })),
-];
+const RECURRENCES = Object.keys(RECURRENCE_LABEL) as ChecklistRecurrence[];
+const VERIFICATIONS = Object.keys(VERIFICATION_STATUS_LABEL) as ChecklistVerificationStatus[];
 
 // Same Pending/Due/Completed/Overdue split Delegation and Tickets both use. "Pending" is every
 // not-every-item-done instance (overdue included) — mirrors the Dashboard's own KPI strip. "Due"
@@ -108,10 +106,7 @@ export const MyChecklists = () => {
   // this department" server-side (see checklistInstance.service.ts's instanceIdsForDepartment).
   const [departmentId, setDepartmentId] = useState('');
   const { data: allDepartments } = useDepartmentsQuery();
-  const departmentOptions: FilterOption<string>[] = useMemo(() => [
-    { value: '', label: 'All departments' },
-    ...(allDepartments ?? []).filter((d) => d.isActive).map((d) => ({ value: d.id, label: d.name })),
-  ], [allDepartments]);
+  const departmentOptions = useMemo(() => (allDepartments ?? []).filter((d) => d.isActive), [allDepartments]);
   // Who else an instance is shared with — checklist instances can carry more than one assignee
   // (e.g. "Store Opening Walkthrough"), so among *your* checklists this narrows to the ones a
   // specific co-assignee is also on. Resolved server-side (getMine/summary's own `assigneeIds`
@@ -134,8 +129,8 @@ export const MyChecklists = () => {
   };
   const { data: allInstances = [], isPending, isError, refetch } = useMyChecklistInstancesQuery(instanceFilter, { page, limit: PAGE_SIZE });
 
-  const activeOptionsCount = (sort !== 'recent' ? 1 : 0) + (recurrence ? 1 : 0) + (verificationStatus ? 1 : 0) + (departmentId ? 1 : 0) + (assigneeIds.length > 0 ? 1 : 0);
-  const clearOptions = () => { setSort('recent'); setRecurrence(''); setVerificationStatus(''); setDepartmentId(''); setAssigneeIds([]); setPage(1); };
+  const activeOptionsCount = (storeId ? 1 : 0) + (recurrence ? 1 : 0) + (verificationStatus ? 1 : 0) + (departmentId ? 1 : 0) + (assigneeIds.length > 0 ? 1 : 0);
+  const clearOptions = () => { setSort('recent'); setRecurrence(''); setVerificationStatus(''); setDepartmentId(''); setAssigneeIds([]); changeStore(''); };
 
   const toggleQuickFilter = (key: MyChecklistsQuickFilterKey) => {
     setQuickFilter((prev) => (prev === key ? null : key));
@@ -241,18 +236,23 @@ export const MyChecklists = () => {
           rung of the app's escalating overdue design, one step down from the full-screen
           interstitial (OverdueChecklistInterstitial, mounted app-wide) and one step up from the
           quiet red "Overdue" tile below, which was easy to miss among three other same-sized tiles. */}
+      {/* Stays up while anything is overdue: one step up from the red Overdue tile, one step down
+          from the full-screen overdue interstitial. One short line, tap to see them. */}
       {counts.overdue > 0 && quickFilter !== 'overdue' && (
         <button
           type="button"
           onClick={() => { setQuickFilter('overdue'); setPage(1); setSearchParams((prev) => { const p = new URLSearchParams(prev); p.delete('status'); return p; }); }}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-danger/30 bg-danger/10 text-left transition-colors duration-150 cursor-pointer hover:bg-danger/15 outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+          className="w-full flex items-center gap-2.5 pl-2 pr-3 py-2 rounded-2xl border border-danger/25 bg-danger/10 text-left transition-colors duration-150 cursor-pointer hover:bg-danger/15 active:bg-danger/15 outline-none focus-visible:ring-2 focus-visible:ring-danger/40 [-webkit-tap-highlight-color:transparent]"
         >
-          <AlertCircle size={18} className="text-danger shrink-0" />
-          <span className="flex-1 text-sm font-display font-semibold text-danger">
-            {counts.overdue} checklist{counts.overdue === 1 ? '' : 's'} overdue — fill {counts.overdue === 1 ? 'it' : 'them'} in now
+          <span className="flex items-center justify-center size-8 rounded-full bg-danger text-white shrink-0">
+            <AlertCircle size={16} strokeWidth={2.5} />
           </span>
-          <span className="text-xs font-display font-semibold text-danger underline underline-offset-2 shrink-0">
+          <span className="flex-1 min-w-0 text-sm font-display font-semibold text-danger">
+            {counts.overdue} {counts.overdue === 1 ? 'checklist is' : 'checklists are'} overdue
+          </span>
+          <span className="flex items-center gap-0.5 text-xs font-display font-semibold text-danger shrink-0">
             View
+            <ChevronRight size={15} strokeWidth={2.5} />
           </span>
         </button>
       )}
@@ -300,107 +300,122 @@ export const MyChecklists = () => {
           {/* `sm:ml-auto`, not a bare `ml-auto` — same fix as Tickets/Tasks: the auto-margin was
               shifting this Store+Options cluster off the left edge on mobile for no benefit,
               since there's no primary action to balance against on this page. */}
-        <div className="flex items-center gap-2.5 flex-wrap shrink-0 sm:ml-auto">
-          {storeOptions.length > 1 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  aria-label={`Store scope: ${storeId ? (storeOptions.find((o) => o.id === storeId)?.name ?? 'Unknown') : 'All stores'}`}
-                  className="group flex items-center gap-2 h-9 pl-3 pr-2.5 rounded-full border border-border bg-surface text-left transition-all duration-200 ease-in-out cursor-pointer hover:border-primary-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                >
-                  <Store size={15} strokeWidth={2.5} className="text-primary-600 shrink-0" />
-                  <span className="text-xs font-medium text-text-muted hidden sm:inline">Store</span>
-                  <span className="text-xs font-bold tracking-tight text-text truncate max-w-40">
-                    {storeId ? (storeOptions.find((o) => o.id === storeId)?.name ?? 'Unknown') : 'All stores'}
-                  </span>
-                  <ChevronDown size={14} className="text-text-light group-hover:text-text-muted transition-colors shrink-0" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-56 rounded-xl max-h-80 overflow-y-auto">
-                {[{ id: '', name: 'All stores' }, ...storeOptions].map((option) => (
-                  <DropdownMenuItem
-                    key={option.id || 'all'}
-                    onClick={() => changeStore(option.id)}
-                    className="gap-2.5 py-2 cursor-pointer justify-between"
-                  >
-                    <span className="font-medium text-sm truncate">{option.name}</span>
-                    {storeId === option.id && <Check size={14} className="text-primary-600 shrink-0" />}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-
-          <OptionsDialog
+        {/* Store used to be its own dropdown beside Options; it's a filter like the rest, so it
+            lives in the sheet now and the toolbar is just Options, same as the other list pages. */}
+        <div className="flex items-center gap-2.5 shrink-0 sm:ml-auto">
+          <OptionsSheet
             isOpen={showOptions}
             setIsOpen={setShowOptions}
-            title="Checklist options"
             activeCount={activeOptionsCount}
-            onClearAll={clearOptions}
-            canExport={false}
-            onExport={() => {}}
+            subtitle={`${instances.length} of ${summary?.total ?? 0} checklists`}
+            onReset={clearOptions}
+            canReset={activeOptionsCount > 0 || sort !== 'recent'}
+            showLabel={`Show ${instances.length} ${instances.length === 1 ? 'checklist' : 'checklists'}`}
           >
-            {/* Group by + Sort by are both a single `w-fit` control — side by side instead of each
-                claiming its own full-width row, so the dialog doesn't spend its whole first
-                screenful on two small pickers. */}
-            <OptionRowGroup>
-              <OptionRow label="Group by">
-                <FilterGroup>
-                  {(Object.keys(GROUP_BY_LABEL) as GroupByKey[]).map((key) => {
-                    const Icon = GROUP_BY_ICON[key];
-                    return (
-                      <FilterPill key={key} active={groupBy === key} onClick={() => setGroupBy(key)}>
-                        <Icon size={14} />
-                        {GROUP_BY_LABEL[key]}
-                      </FilterPill>
-                    );
-                  })}
-                </FilterGroup>
-              </OptionRow>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {view === 'list' && (
+                <OptionSection icon={Rows3} label="Group by">
+                  <OptionSegmented
+                    options={(Object.keys(GROUP_BY_LABEL) as GroupByKey[]).map((k) => ({ value: k, label: GROUP_BY_LABEL[k], icon: GROUP_BY_ICON[k] }))}
+                    value={groupBy}
+                    onChange={setGroupBy}
+                  />
+                </OptionSection>
+              )}
+              <OptionSection icon={ArrowUpDown} label="Sort by">
+                <OptionSelect labels={SORT_LABEL} icons={SORT_ICON} value={sort} onChange={setSort} />
+              </OptionSection>
+            </div>
 
-              <SortOptionRow labels={SORT_LABEL} icons={SORT_ICON} value={sort} onChange={setSort} />
-            </OptionRowGroup>
-
-            <SelectFilterRow
-              label="Recurrence"
-              options={RECURRENCE_OPTIONS}
-              value={recurrence}
-              onSelect={(value) => { setRecurrence(value); setPage(1); }}
-            />
-
-            {/* Instances carry no department of their own — matches "at least one assignee is in
-                this department" server-side, same derivation the MANAGER approval scope uses. */}
-            {departmentOptions.length > 1 && (
-              <SelectFilterRow
-                label="Department"
-                options={departmentOptions}
-                value={departmentId}
-                onSelect={(value) => { setDepartmentId(value); setPage(1); }}
-              />
+            {storeOptions.length > 1 && (
+              <OptionSection icon={Store} label="Store" aside={!!storeId && <ChoiceClear onClick={() => changeStore('')} />}>
+                <ChoiceWrap>
+                  {storeOptions.map((o) => (
+                    <ChoiceChip
+                      key={o.id}
+                      active={storeId === o.id}
+                      onClick={() => changeStore(storeId === o.id ? '' : o.id)}
+                      lead={<ChoiceIcon icon={Store} tone="bg-primary-600" />}
+                    >
+                      {o.name}
+                    </ChoiceChip>
+                  ))}
+                </ChoiceWrap>
+              </OptionSection>
             )}
 
-            {/* Verification only applies once every item in an instance is done — the quick-stat
-                tiles above already cover completion itself, so this is the one facet they don't:
-                whether a completed run has been approved yet. */}
-            <SelectFilterRow
-              label="Verification"
-              options={VERIFICATION_OPTIONS}
-              value={verificationStatus}
-              onSelect={(value) => { setVerificationStatus(value); setPage(1); }}
-            />
+            <OptionSection icon={Repeat} label="How often" aside={!!recurrence && <ChoiceClear onClick={() => { setRecurrence(''); setPage(1); }} />}>
+              <ChoiceWrap>
+                {RECURRENCES.map((r) => (
+                  <ChoiceChip
+                    key={r}
+                    active={recurrence === r}
+                    onClick={() => { setRecurrence(recurrence === r ? '' : r); setPage(1); }}
+                    lead={<ChoiceIcon icon={Repeat} tone="bg-primary-700" />}
+                  >
+                    {RECURRENCE_LABEL[r]}
+                  </ChoiceChip>
+                ))}
+              </ChoiceWrap>
+            </OptionSection>
 
-            {/* Who this shares each checklist with, not who's assigned it — every row here is
-                already yours. Narrows to instances a specific co-assignee is also on. */}
+            {/* Approval only applies once every item is done; the tiles above already cover
+                completion itself. */}
+            <OptionSection icon={ShieldCheck} label="Approval" aside={!!verificationStatus && <ChoiceClear onClick={() => { setVerificationStatus(''); setPage(1); }} />}>
+              <ChoiceWrap>
+                {VERIFICATIONS.map((v) => (
+                  <ChoiceChip
+                    key={v}
+                    active={verificationStatus === v}
+                    onClick={() => { setVerificationStatus(verificationStatus === v ? '' : v); setPage(1); }}
+                    lead={<ChoiceIcon icon={VERIFICATION_CHIP[v].icon} tone={VERIFICATION_CHIP[v].tone} />}
+                  >
+                    {VERIFICATION_STATUS_LABEL[v]}
+                  </ChoiceChip>
+                ))}
+              </ChoiceWrap>
+            </OptionSection>
+
+            {/* Instances carry no department of their own: this matches "at least one assignee is
+                in this department" server-side. */}
+            {departmentOptions.length > 0 && (
+              <OptionSection icon={Building2} label="Department" aside={!!departmentId && <ChoiceClear onClick={() => { setDepartmentId(''); setPage(1); }} />}>
+                <ChoiceWrap>
+                  {departmentOptions.map((d) => (
+                    <ChoiceChip
+                      key={d.id}
+                      active={departmentId === d.id}
+                      onClick={() => { setDepartmentId(departmentId === d.id ? '' : d.id); setPage(1); }}
+                      lead={<ChoiceIcon icon={Building2} tone="bg-primary-600" />}
+                    >
+                      {d.name}
+                    </ChoiceChip>
+                  ))}
+                </ChoiceWrap>
+              </OptionSection>
+            )}
+
             {!!people.length && (
-              <PeopleFilterRow
-                label="Assigned with"
-                people={people}
-                selected={assigneeIds}
-                onChange={setAssigneeIds}
-              />
+              <OptionSection icon={Users} label="Shared with" aside={assigneeIds.length > 0 && <ChoiceClear onClick={() => { setAssigneeIds([]); setPage(1); }} />}>
+                <ChoiceWrap>
+                  {people.map((p) => (
+                    <ChoiceChip
+                      key={p.id}
+                      active={assigneeIds.includes(p.id)}
+                      onClick={() => { setAssigneeIds(toggleValue(assigneeIds, p.id)); setPage(1); }}
+                      lead={
+                        <span className={`flex items-center justify-center size-6 rounded-full text-white text-[9px] font-bold shrink-0 ${avatarColorClass(p.name)}`}>
+                          {getInitials(p.name)}
+                        </span>
+                      }
+                    >
+                      {p.name.split(' ')[0]}
+                    </ChoiceChip>
+                  ))}
+                </ChoiceWrap>
+              </OptionSection>
             )}
-          </OptionsDialog>
+          </OptionsSheet>
         </div>
       </div>
 

@@ -56,18 +56,21 @@ export const ChecklistInstanceBoard = ({ instances }: ChecklistInstanceBoardProp
     // that actually needs attention, and horizontal swiping over the page's main content competes
     // with plain vertical scrolling on a phone. Side-by-side columns only kick in at `lg`, where
     // there's room to see all three without scrolling either way.
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-4 items-start animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out">
       {COLUMNS.map((col) => {
         const items = byStatus.get(col.key) ?? [];
         return (
           <div
             key={col.key}
-            className={`${col.mobileOrder} lg:order-none flex flex-col gap-3 rounded-2xl border p-2.5 transition-colors duration-300 ${col.containerClass}`}
+            // Phones: no tinted box around each group (three stacked coloured panels read as a
+            // wall), just a heading and the cards; an empty group is skipped. Desktop keeps the
+            // tinted swimlanes side by side.
+            className={`${col.mobileOrder} lg:order-none flex-col gap-2.5 lg:gap-3 lg:rounded-2xl lg:border lg:p-2.5 transition-colors duration-300 ${col.containerClass} max-lg:border-0 max-lg:bg-transparent ${items.length === 0 ? 'hidden lg:flex' : 'flex'}`}
           >
-            <div className="flex items-center justify-between px-2 py-1.5">
+            <div className="flex items-center justify-between px-0.5 lg:px-2 lg:py-1.5">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="relative flex items-center justify-center size-2.5 shrink-0">
-                  <span className={`absolute inset-0 rounded-full blur-sm opacity-60 ${col.dot}`} />
+                  <span className={`absolute inset-0 rounded-full blur-sm opacity-60 max-lg:hidden ${col.dot}`} />
                   <span className={`relative size-2 rounded-full shrink-0 ${col.dot}`} aria-hidden="true" />
                 </div>
                 <col.icon size={13} className={`shrink-0 ${col.headerText}`} />
@@ -81,7 +84,7 @@ export const ChecklistInstanceBoard = ({ instances }: ChecklistInstanceBoardProp
               </span>
             </div>
 
-            <div className="flex flex-col gap-3 min-h-40">
+            <div className="flex flex-col gap-2.5 lg:gap-3 lg:min-h-40">
               {items.length === 0 ? (
                 <EmptyState size="compact" icon={Inbox} title="Nothing here" />
               ) : (

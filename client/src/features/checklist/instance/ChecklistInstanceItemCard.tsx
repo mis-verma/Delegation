@@ -1,4 +1,4 @@
-import { CheckSquare, Square, Camera, ImageUp, Video, X, Loader2, RotateCcw } from 'lucide-react';
+import { Check, Camera, ImageUp, Video, X, Loader2, RotateCcw } from 'lucide-react';
 import {
   useSetChecklistInstanceItemDoneMutation,
   useUploadChecklistInstanceImagesMutation,
@@ -48,29 +48,34 @@ export const ChecklistInstanceItemCard = ({ item, instanceId, canWork, isLocked 
         type="button"
         disabled={!interactive || setItemDone.isPending}
         onClick={() => setItemDone.mutate({ itemId: item.id, isDone: !item.isDone })}
-        className={`flex items-center gap-3 p-4 rounded-lg border text-left transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-1 ${
-          interactive ? 'cursor-pointer hover:border-primary-500/40' : 'cursor-not-allowed opacity-75'
-        } ${item.isDone ? 'border-border/50 bg-surface' : 'border-border bg-surface'}`}
+        aria-pressed={item.isDone}
+        className={`group flex items-center gap-3 p-3.5 sm:p-4 rounded-2xl border text-left transition-all duration-200 ease-in-out outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 [-webkit-tap-highlight-color:transparent] ${
+          interactive ? 'cursor-pointer hover:border-primary-500/50 active:bg-surface-hover/50' : 'cursor-not-allowed opacity-75'
+        } ${item.isDone ? 'border-border/40 dark:border-white/[0.04] bg-surface/60' : 'border-border/60 dark:border-white/[0.06] bg-surface'}`}
       >
-        <span className={`flex items-center justify-center size-8 rounded-lg shrink-0 transition-colors ${
-          item.isDone ? 'bg-success/10 text-success' : 'bg-surface-hover text-text-light border border-border'
-        }`}>
-          {item.isDone ? <CheckSquare size={16} /> : <Square size={16} />}
+        {/* Round check, same as the To-Do list: empty ring, green with a tick when done. */}
+        <span
+          className={`flex items-center justify-center size-6 rounded-full border-2 shrink-0 transition-all duration-200 ${
+            item.isDone ? 'bg-success border-success text-white' : 'border-text-light text-transparent group-hover:text-text-light/70'
+          }`}
+        >
+          <Check size={13} strokeWidth={3.25} />
         </span>
-        <div className="flex-1 min-w-0">
-          <p className={`text-sm font-display ${item.isDone ? 'line-through text-text-muted' : 'text-text'}`}>
+        <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+          <p className={`text-sm sm:text-[15px] font-display font-medium leading-snug ${item.isDone ? 'line-through text-text-light' : 'text-text'}`}>
             {item.label}
           </p>
           {item.isDone && item.completedAt && (
-            <p className="text-xs text-text-muted font-display mt-1">Completed {formatDateTime(item.completedAt)}</p>
+            <p className="text-[11px] text-text-muted font-medium">Done {formatDateTime(item.completedAt)}</p>
           )}
         </div>
+        {setItemDone.isPending && <Loader2 size={14} className="animate-spin text-text-muted shrink-0" />}
       </button>
     );
   }
 
   return (
-    <div className={`flex flex-col gap-3 p-4 rounded-lg border border-border bg-surface ${isLocked ? 'opacity-75' : ''}`}>
+    <div className={`flex flex-col gap-3 p-3.5 sm:p-4 rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface ${isLocked ? 'opacity-75' : ''}`}>
       {/* Evidence requirement badge */}
       <div className="flex items-center gap-1.5">
         <span className={`flex items-center justify-center size-4 rounded shrink-0 ${photosSatisfied ? 'bg-success' : 'bg-warning'}`}>

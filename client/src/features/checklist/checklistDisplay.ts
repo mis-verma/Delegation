@@ -1,3 +1,4 @@
+import { CircleDashed, Eye, ShieldCheck, ShieldX, type LucideIcon } from 'lucide-react';
 import type { ChecklistRecurrence } from '../../api/checklistDefinitions';
 import type { ChecklistVerificationStatus } from '../../api/checklistInstances';
 
@@ -66,6 +67,15 @@ export const VERIFICATION_STATUS_LABEL: Record<ChecklistVerificationStatus, stri
   PENDING_APPROVAL: 'Pending approval',
   APPROVED: 'Verified',
   REJECTED: 'Rejected',
+};
+
+// Icon-chip look for each verification status (solid icon circle + label), for cards and the
+// filter sheet — same chip language as status and priority everywhere else.
+export const VERIFICATION_CHIP: Record<ChecklistVerificationStatus, { icon: LucideIcon; tone: string }> = {
+  NOT_SUBMITTED: { icon: CircleDashed, tone: 'bg-text-light' },
+  PENDING_APPROVAL: { icon: Eye, tone: 'bg-primary-600' },
+  APPROVED: { icon: ShieldCheck, tone: 'bg-success' },
+  REJECTED: { icon: ShieldX, tone: 'bg-danger' },
 };
 
 // Shared mapping from the verification workflow status to a `Badge` tone — every place that
