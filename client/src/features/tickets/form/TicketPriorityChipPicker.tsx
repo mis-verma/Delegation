@@ -35,7 +35,7 @@ export const TicketPriorityChipPicker = ({
           return (
             <DropdownMenuItem key={p} onClick={() => onChange(p)} className="gap-2">
               <span className={`flex items-center justify-center size-5 rounded-full text-white shrink-0 ${PRIORITY_CONFIG[p].solid}`}>
-                <Icon size={10} strokeWidth={2.75} />
+                <Icon strokeWidth={2.75} className="size-2.5 text-white!" />
               </span>
               {PRIORITY_CONFIG[p].label}
             </DropdownMenuItem>

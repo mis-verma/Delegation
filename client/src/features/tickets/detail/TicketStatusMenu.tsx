@@ -49,7 +49,7 @@ export const TicketStatusMenu = ({ options, onPick, isBusy = false }: TicketStat
             className="gap-2.5 py-2 text-sm font-medium cursor-pointer"
           >
             <span className={`flex items-center justify-center size-6 rounded-full text-white shrink-0 ${meta.tone}`}>
-              <Icon size={12} strokeWidth={2.75} />
+              <Icon strokeWidth={2.75} className="size-3 text-white!" />
             </span>
             {opt.label}
           </DropdownMenuItem>
