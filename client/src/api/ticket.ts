@@ -75,7 +75,9 @@ export type TicketStatusUpdate = {
   fromStatus: TicketStatus;
   toStatus:   RestrictedStatus;
   remark:     string;
-  changedBy:  { id: string; email: string; firstName: string; role: string } | null;
+  /** Id of the person who made the change. The server sends their details as `changedByUser`. */
+  changedBy:  string | null;
+  changedByUser: { id: string; email: string; firstName: string; role: string } | null;
   photos:     TicketAttachment[];
   createdAt:  string;
 };
