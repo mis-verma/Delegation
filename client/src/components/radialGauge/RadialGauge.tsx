@@ -22,6 +22,12 @@ interface RadialGaugeProps {
    * is a full 360° donut that fills clockwise from the top — used where a complete circular chart
    * reads better than a gauge with a gap at the bottom. */
   variant?: 'arc' | 'circle';
+  /** Arc only: stroke width in viewBox units (the box is 100 wide). Default 8. */
+  thickness?: number;
+  /** Arc only: small tick marks just inside the track, speedometer style. 0 = none. */
+  ticks?: number;
+  /** Arc only: a round knob at the end of the fill. */
+  showKnob?: boolean;
 }
 
 export const RadialGauge = ({
@@ -36,6 +42,9 @@ export const RadialGauge = ({
   children,
   className,
   variant = 'arc',
+  thickness = 8,
+  ticks = 0,
+  showKnob = false,
 }: RadialGaugeProps) => {
   // useId() ids contain colons (":r4a:") — safe as an `id` attribute, but referencing them via
   // url(#:r4a:-gradient) in `stroke`/`filter` fails to resolve in some browsers, which silently
@@ -115,7 +124,7 @@ export const RadialGauge = ({
 
   // Thicker than the gauge's stroke — a full circle reads as a genuinely "filled" chart at this
   // weight instead of a thin outline, without going so thick it swallows the centered label.
-  const ringThickness = isCircle ? Math.round(size * 0.11) : 8;
+  const ringThickness = isCircle ? Math.round(size * 0.11) : thickness;
 
   return (
     <div
@@ -214,6 +223,41 @@ export const RadialGauge = ({
               className="transition-all duration-1000 ease-[cubic-bezier(0.32,0.72,0,1)] origin-center"
             />
           )}
+
+          {/* Tick marks inside the track: the arc starts at 150deg and sweeps 240deg clockwise. */}
+          {ticks > 0 && Array.from({ length: ticks + 1 }).map((_, i) => {
+            const angle = ((150 + (240 * i) / ticks) * Math.PI) / 180;
+            const r1 = 40 - ringThickness / 2 - 2.5;
+            const r2 = r1 - (i % (ticks / 4) === 0 ? 4 : 2.2);
+            return (
+              <line
+                key={i}
+                x1={50 + r1 * Math.cos(angle)}
+                y1={50 + r1 * Math.sin(angle)}
+                x2={50 + r2 * Math.cos(angle)}
+                y2={50 + r2 * Math.sin(angle)}
+                stroke="currentColor"
+                className={i % (ticks / 4) === 0 ? 'text-text-light' : 'text-border'}
+                strokeWidth={i % (ticks / 4) === 0 ? 1.1 : 0.8}
+                strokeLinecap="round"
+              />
+            );
+          })}
+
+          {/* Knob riding the end of the fill, so the reading point is obvious at a glance. */}
+          {showKnob && percent > 0 && (() => {
+            const angle = ((150 + 240 * (displayPercent / 100)) * Math.PI) / 180;
+            return (
+              <circle
+                cx={50 + 40 * Math.cos(angle)}
+                cy={50 + 40 * Math.sin(angle)}
+                r={ringThickness * 0.42}
+                strokeWidth={ringThickness * 0.22}
+                className="fill-surface transition-all duration-1000"
+                style={{ stroke: gradientTo }}
+              />
+            );
+          })()}
         </svg>
       )}
 

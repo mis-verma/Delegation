@@ -25,7 +25,7 @@ interface ActivityTrendChartProps {
   groupBy: ActivityGroupBy;
 }
 
-type ActivityDatum = { label: string } & Record<ActivityCategory, number>;
+type ActivityDatum = { label: string; track?: number } & Record<ActivityCategory, number>;
 
 interface ChartTooltipProps {
   active?: boolean;
@@ -288,6 +288,18 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
   }, [items, activeCategories, buckets]);
 
   const hasData = data.some((d) => ACTIVITY_CATEGORY_ORDER.some((category) => d[category] > 0));
+  // Every bucket gets a soft full-height track (the tallest bar's height) drawn behind its bar,
+  // empty days included, so a short day reads against the period's scale instead of as a sliver.
+  const chartData = useMemo(() => {
+    const max = Math.max(1, ...data.map((d) => ACTIVITY_CATEGORY_ORDER.reduce((sum, c) => sum + d[c], 0)));
+    return data.map((d) => ({ ...d, track: max }));
+  }, [data]);
+  const categoryTotals = useMemo(() => {
+    const totals = {} as Record<ActivityCategory, number>;
+    for (const category of ACTIVITY_CATEGORY_ORDER) totals[category] = data.reduce((sum, d) => sum + d[category], 0);
+    return totals;
+  }, [data]);
+  const windowTotal = activeOrder.reduce((sum, c) => sum + categoryTotals[c], 0);
 
   if (activeOrder.length === 0) {
     return <ChartEmptyState tinted={false} message="No categories selected — pick one above to see its trend" />;
@@ -306,7 +318,8 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
   // Phones get an explicit bar width — left to barCategoryGap alone, bars rendered as thin slivers
   // on a narrow card. ~70% of each bucket's share of a ~300px plot, capped at 30px, so a 12-bucket
   // view still leaves a gap between bars instead of running them together.
-  const mobileBarSize = isMobile ? Math.min(30, Math.floor((300 / data.length) * 0.7)) : undefined;
+  // Desktop gets a fixed, chunky width too; left to Recharts it drew ~12px sticks.
+  const mobileBarSize = isMobile ? Math.min(28, Math.floor((300 / data.length) * 0.66)) : data.length <= 8 ? 30 : 20;
 
   const selectedDatum = selectedIndex !== null ? data[selectedIndex] : null;
   // Bars read at full, real color until the user actually taps one to isolate it — no ambient
@@ -325,10 +338,33 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
           already give keyboard users the same tap-to-pin breakdown, so the built-in layer (whose
           own per-bar keyboard handling we don't use) is turned off at the source instead of
           fighting its focus outline with CSS. */}
+      {/* Phones: the headline first (how much happened in this window), then one cell per category
+          with its colour, count and name, which doubles as the chart's legend. Desktop has the
+          category filter chips above the chart for that. */}
+      {isMobile && (
+        <div className="flex flex-col gap-2.5">
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-3xl font-display font-bold text-text tabular-nums leading-none">{windowTotal}</span>
+            <span className="text-xs font-medium text-text-muted">items in this period</span>
+          </div>
+          <div className="grid grid-cols-2 gap-1.5">
+            {activeOrder.map((category) => (
+              <div key={category} className="flex items-center justify-between gap-2 h-9 px-2.5 rounded-xl bg-surface-hover/60 border border-border/40 min-w-0">
+                <span className="flex items-center gap-1.5 min-w-0">
+                  <span aria-hidden="true" className="size-2.5 rounded-full shrink-0" style={{ backgroundColor: ACTIVITY_CATEGORY_COLOR[category] }} />
+                  <span className="text-xs font-medium text-text-secondary truncate">{ACTIVITY_CATEGORY_LABEL[category]}</span>
+                </span>
+                <span className="text-sm font-display font-bold text-text tabular-nums">{categoryTotals[category]}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="w-full cursor-pointer" style={{ height: ACTIVITY_CHART_HEIGHT }}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
-            data={data}
+            data={chartData}
             accessibilityLayer={false}
             // The right/left gutters stay at 0 — the axis below reserves its own width when it's
             // shown, and an extra `left` offset (this once carried `left: -20`) shifts the plot
@@ -408,6 +444,18 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
                 one navy family (see ACTIVITY_CATEGORY_COLOR), adjacent segments were otherwise
                 nearly impossible to tell apart inside one stacked bar; the stroke gives each one a
                 crisp edge regardless of how close its neighbor's tone is. */}
+            <XAxis xAxisId="track" dataKey="label" hide />
+            <Bar
+              xAxisId="track"
+              dataKey="track"
+              fill="var(--color-surface-hover)"
+              radius={8}
+              maxBarSize={BAR_WIDTH}
+              barSize={mobileBarSize}
+              isAnimationActive={false}
+              activeBar={false}
+            />
+
             {activeOrder.map((category, idx) => {
               const isTopOfStack = idx === activeOrder.length - 1;
               return (
@@ -415,7 +463,7 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
                   key={category}
                   dataKey={category}
                   stackId="stack"
-                  radius={isTopOfStack ? [6, 6, 0, 0] : [0, 0, 0, 0]}
+                  radius={isTopOfStack ? [8, 8, 0, 0] : [0, 0, 0, 0]}
                   maxBarSize={BAR_WIDTH}
                   barSize={mobileBarSize}
                   stroke="var(--color-surface)"

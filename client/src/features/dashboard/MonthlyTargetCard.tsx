@@ -135,7 +135,18 @@ export const MonthlyTargetCard = ({ percent, total, change, description, stats, 
               aria-hidden="true"
               className={`absolute inset-8 rounded-full blur-2xl transition-colors duration-500 ${TONE_HALO[tone]}`}
             />
-            <RadialGauge percent={percent} size={gaugeSize} className="relative">
+            {/* Broad arc (thickness 11) in a navy gradient, with tick marks and a knob at the reading
+                point: reads as a real score dial rather than a thin outline. */}
+            <RadialGauge
+              percent={percent}
+              size={gaugeSize}
+              thickness={11}
+              ticks={24}
+              showKnob
+              gradientFrom="var(--color-primary-400)"
+              gradientTo="var(--color-primary-800)"
+              className="relative"
+            >
               {/* Tone-colored, not a flat `text-text` — the headline number now reads as weak/
                   on-track/strong at a glance, the same three-tier language the Compliance gauges'
                   accents already use, instead of only the small trend badge below it carrying color. */}
@@ -176,7 +187,8 @@ export const MonthlyTargetCard = ({ percent, total, change, description, stats, 
           })}
         </div>
 
-        <div className="hidden sm:grid grid-cols-1 @sm:grid-cols-3 gap-3">
+        {/* Phones get the same three numbers as a compact 3-up row under the period switch. */}
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
           {stats.map(stat => {
             // Arrow = which way the number moved; colour = whether that's good. Separating the
             // two is what lets "Pending: 3 ↓" be green.
@@ -186,12 +198,12 @@ export const MonthlyTargetCard = ({ percent, total, change, description, stats, 
             return (
               <div
                 key={stat.label}
-                className="flex flex-row @sm:flex-col items-center justify-between @sm:justify-center gap-1.5 p-4 rounded-xl bg-surface-hover/30 border border-border/40 hover:bg-surface-hover/70 hover:border-border/80 transition-all duration-200"
+                className="flex flex-col items-center justify-center gap-1 sm:gap-1.5 px-2 py-2.5 sm:p-4 rounded-xl bg-surface-hover/30 border border-border/40 hover:bg-surface-hover/70 hover:border-border/80 transition-all duration-200"
               >
-                <span className="text-xs font-medium text-text-muted capitalize tracking-wide">{stat.label}</span>
-                <span className="inline-flex items-center gap-1.5 text-xl font-bold text-text">
+                <span className="text-[11px] sm:text-xs font-medium text-text-muted capitalize tracking-wide">{stat.label}</span>
+                <span className="inline-flex items-center gap-1 sm:gap-1.5 text-lg sm:text-xl font-display font-bold text-text tabular-nums">
                   {stat.value}
-                  <TrendIcon size={16} strokeWidth={3} className={trendClassName} />
+                  <TrendIcon size={14} strokeWidth={3} className={trendClassName} />
                 </span>
               </div>
             );

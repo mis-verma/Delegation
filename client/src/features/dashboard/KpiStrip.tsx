@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { ClipboardList, TicketCheck, ListChecks, ListTodo, type LucideIcon } from 'lucide-react';
 import { StatusBreakdownCard, type StatusBreakdownVariant } from './StatusBreakdownCard';
@@ -120,6 +120,48 @@ const KpiCardSkeleton = ({ variant }: { variant: StatusBreakdownVariant }) => {
   );
 };
 
+// Items created per day over the last 7 days (oldest first), for a tile's sparkline.
+const lastSevenDays = (dates: string[]) => {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - 6);
+  const counts = Array<number>(7).fill(0);
+  for (const iso of dates) {
+    const day = Math.floor((new Date(iso).getTime() - start.getTime()) / 86_400_000);
+    if (day >= 0 && day < 7) counts[day] += 1;
+  }
+  return counts;
+};
+
+/**
+ * Tiny 7-day line with a soft fill under it, drawn in gold on the navy tile. Plain SVG, no chart
+ * library: it's 64x28 and never needs axes or tooltips. A flat week draws a flat line near the
+ * bottom rather than nothing, so every tile keeps the same shape.
+ */
+const Sparkline = ({ values }: { values: number[] }) => {
+  const id = useId().replace(/:/g, '');
+  const w = 64;
+  const h = 28;
+  const max = Math.max(1, ...values);
+  const pts = values.map((v, i) => [(i / (values.length - 1)) * w, h - 3 - (v / max) * (h - 7)] as const);
+  const line = pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
+  const area = `${line} L${w},${h} L0,${h} Z`;
+  const [lx, ly] = pts[pts.length - 1];
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h} aria-hidden="true" className="shrink-0 overflow-visible text-coral-300">
+      <defs>
+        <linearGradient id={`${id}-fill`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="currentColor" stopOpacity={0.35} />
+          <stop offset="100%" stopColor="currentColor" stopOpacity={0} />
+        </linearGradient>
+      </defs>
+      <path d={area} fill={`url(#${id}-fill)`} />
+      <path d={line} fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={lx} cy={ly} r={2.4} fill="currentColor" stroke="white" strokeWidth={1} />
+    </svg>
+  );
+};
+
 // All four KPI cards share the navy hero treatment, at the user's explicit request — Delegation,
 // Tickets, Checklist and Todo read as one uniform row instead of one dark card standing out
 // against three quiet ones.
@@ -197,11 +239,11 @@ export const KpiStrip = ({ tickets, tasks, todos, isPending, workflowStats }: Kp
   // four modules at once, in a 2x2 grid that fits a phone without scrolling. Replaces a horizontal
   // chip strip that always sliced its last chip off at the screen edge, plus a "Show breakdown"
   // toggle hiding the full cards — the Completed/New today breakdown lives on each module's own page.
-  const mobileTiles: { key: string; icon: LucideIcon; title: string; total: number; due: number; href: string }[] = [
-    { key: 'delegation', icon: ClipboardList, title: 'Delegation', total: workflowStats.assigned, due: workflowStats.pending + workflowStats.approvals, href: '/tasks' },
-    { key: 'tickets', icon: TicketCheck, title: 'Tickets', total: tickets.length, due: dueTickets.length, href: '/tickets' },
-    { key: 'checklist', icon: ListChecks, title: 'Checklist', total: checklistSummary?.total ?? 0, due: checklistSummary?.pending ?? 0, href: '/checklists' },
-    { key: 'todo', icon: ListTodo, title: 'Todo', total: todos.length, due: dueTodos.length, href: '/todo' },
+  const mobileTiles: { key: string; icon: LucideIcon; title: string; total: number; due: number; href: string; trend: number[] }[] = [
+    { key: 'delegation', icon: ClipboardList, title: 'Delegation', total: workflowStats.assigned, due: workflowStats.pending + workflowStats.approvals, href: '/tasks', trend: lastSevenDays(tasks.map((t) => t.createdAt)) },
+    { key: 'tickets', icon: TicketCheck, title: 'Tickets', total: tickets.length, due: dueTickets.length, href: '/tickets', trend: lastSevenDays(tickets.map((t) => t.createdAt)) },
+    { key: 'checklist', icon: ListChecks, title: 'Checklist', total: checklistSummary?.total ?? 0, due: checklistSummary?.pending ?? 0, href: '/checklists', trend: lastSevenDays(checklistInstances.map((c) => c.generatedAt)) },
+    { key: 'todo', icon: ListTodo, title: 'Todo', total: todos.length, due: dueTodos.length, href: '/todo', trend: lastSevenDays(todos.map((t) => t.createdAt)) },
   ];
 
   return (
@@ -213,17 +255,25 @@ export const KpiStrip = ({ tickets, tasks, todos, isPending, workflowStats }: Kp
             type="button"
             onClick={() => navigate(tile.href)}
             aria-label={`${tile.title}: ${tile.total} total, ${tile.due} due`}
-            className="flex flex-col gap-2 p-3 rounded-2xl bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700 text-white text-left cursor-pointer transition-transform duration-150 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="relative overflow-hidden flex flex-col gap-2.5 p-3 rounded-2xl bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700 text-white text-left cursor-pointer transition-transform duration-150 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
-            <span className="flex items-center gap-2 min-w-0">
-              <span className="flex items-center justify-center size-6 rounded-lg bg-white/15 shrink-0">
-                <tile.icon size={13} strokeWidth={2.5} />
+            {/* Soft gold glow in the corner, same accent family as the sparkline. */}
+            <span aria-hidden="true" className="absolute -top-8 -right-8 size-20 rounded-full bg-coral-400/15 blur-2xl pointer-events-none" />
+            <span className="relative flex items-center gap-2 min-w-0">
+              <span className="flex items-center justify-center size-7 rounded-lg bg-white/15 ring-1 ring-white/10 shrink-0">
+                <tile.icon size={14} strokeWidth={2.5} />
               </span>
-              <span className="text-xs font-display font-semibold text-white/85 truncate">{tile.title}</span>
+              <span className="text-xs font-display font-semibold text-white/90 truncate">{tile.title}</span>
             </span>
-            <span className="flex items-baseline justify-between gap-2">
-              <span className="text-2xl font-display font-bold tabular-nums leading-none">{tile.total}</span>
-              <span className="text-[11px] font-display font-medium text-white/70 tabular-nums whitespace-nowrap">{tile.due} due</span>
+            <span className="relative flex items-end justify-between gap-2">
+              <span className="flex flex-col gap-1.5 min-w-0">
+                <span className="text-2xl font-display font-bold tabular-nums leading-none">{tile.total}</span>
+                <span className="self-start inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-white/12 text-[10px] font-display font-semibold text-white/85 tabular-nums whitespace-nowrap">
+                  <span aria-hidden="true" className="size-1.5 rounded-full bg-coral-300" />
+                  {tile.due} due
+                </span>
+              </span>
+              <Sparkline values={tile.trend} />
             </span>
           </button>
         ))}
