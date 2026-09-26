@@ -147,7 +147,7 @@ export function DateRangePicker({
         <span className={cn("truncate", (hasValue || placeholderIsValue) ? 'text-text font-medium' : 'text-text-muted font-medium')}>
           {label}
         </span>
-        {hasValue && (
+        {hasValue && !disabled && (
           <span
             role="button"
             tabIndex={0}

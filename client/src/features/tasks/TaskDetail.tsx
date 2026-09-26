@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { CheckSquare, Loader2, ChevronRight, CheckCircle2, ShieldCheck, Trash2, SquarePen, Users, CalendarDays, Flag, Building2, Check, Milestone, AlignLeft } from 'lucide-react';
-import { Modal, Button, DateRangePicker, Input, ActivityTimeline } from '../../components';
+import { Modal, Button, DateRangePicker, Input, ActivityTimeline, DepartmentChip } from '../../components';
+import { IconChip } from '../../components/iconChip';
 import type { DateRangeValue } from '../../components';
 import { Badge } from '../../components/ui/badge';
 import { useTaskQuery, useUpdateTaskMutation, useDeleteTaskMutation, useAssignableUsersQuery, useUploadTaskAttachmentsMutation } from './hook';
@@ -120,7 +121,9 @@ const TaskFooter = ({ task, mode, isPC, isVerifier, nextStatus, onEdit, onAdvanc
         </div>
       )}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-4">
-        <div className="flex items-center gap-3 flex-wrap">
+        {/* Score/status readout is desktop-only here — phones show the score beside the status chip
+            at the top of the sheet (TaskStatusSummary) instead of spending a footer row on it. */}
+        <div className="hidden sm:flex items-center gap-3 flex-wrap">
           <TaskScoreBadge status={task.status} />
           {task.status === 'done' && (
             <span className="flex items-center gap-1.5 text-xs font-semibold text-success px-2 py-1 rounded-md">
@@ -133,25 +136,37 @@ const TaskFooter = ({ task, mode, isPC, isVerifier, nextStatus, onEdit, onAdvanc
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+        {/* Phones: one row — Edit (compact) + Advance filling the rest as the filled primary action,
+            since moving the delegation forward is what this sheet is usually opened for. It used to
+            be an outline button that read as disabled, stacked over a separate Done row; the ✕ in
+            the header closes the sheet there. Desktop keeps Edit / Advance / Done as before. */}
+        <div className="flex items-center gap-2 sm:flex-wrap">
           {mode === 'view' && !isPC && (
-            <Button variant="outline" size="sm" onClick={onEdit} className="text-text-secondary hover:text-text border-border">
-              <SquarePen size={14} className="mr-1" /> Edit Delegation
+            <Button variant="outline" size="sm" onClick={onEdit} className="shrink-0 text-text-secondary hover:text-text border-border">
+              <SquarePen size={14} className="sm:mr-1" />
+              <span className="sm:hidden">Edit</span>
+              <span className="hidden sm:inline">Edit Delegation</span>
             </Button>
           )}
           {nextStatus && !isPC && (
             <Button
               variant="outline"
               size="sm"
-              className="border-primary-200 text-primary-700 hover:bg-primary-50"
+              className="max-sm:flex-1 max-sm:min-w-0 max-sm:bg-primary-700 max-sm:text-white max-sm:border-transparent max-sm:hover:bg-primary-800 sm:border-primary-200 sm:text-primary-700 sm:hover:bg-primary-50"
               disabled={isAdvancing}
               onClick={onAdvance}
             >
-              {isAdvancing ? <Loader2 size={14} className="animate-spin mr-1" /> : <ChevronRight size={14} className="mr-1" />}
-              Advance to {STATUS_LABEL[nextStatus as keyof typeof STATUS_LABEL]}
+              {isAdvancing ? <Loader2 size={14} className="animate-spin mr-1 shrink-0" /> : <ChevronRight size={14} className="mr-1 shrink-0" />}
+              <span className="truncate">Advance to {STATUS_LABEL[nextStatus as keyof typeof STATUS_LABEL]}</span>
             </Button>
           )}
-          <Button variant="primary" size="sm" onClick={onClose} className="px-6">
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={onClose}
+            // Phones: only when there's nothing else in the row — otherwise the header ✕ closes.
+            className={`px-6 ${nextStatus && !isPC ? 'max-sm:hidden' : 'max-sm:flex-1'}`}
+          >
             Done
           </Button>
         </div>
@@ -174,10 +189,16 @@ const TaskStatusSummary = ({ status }: { status: Task['status'] }) => {
   const stepIndex = STATUS_ORDER.indexOf(status);
   return (
     <div className="flex items-center justify-between gap-3">
-      <Badge variant="outline" className={`pl-2 pr-3 py-1 text-xs ${config.badge}`}>
-        {STATUS_ICON[status]}
-        {STATUS_LABEL[status]}
-      </Badge>
+      <div className="flex items-center gap-2 min-w-0">
+        <Badge variant="outline" className={`pl-2 pr-3 py-1 text-xs ${config.badge}`}>
+          {STATUS_ICON[status]}
+          {STATUS_LABEL[status]}
+        </Badge>
+        {/* Phones: the score sits beside the status here instead of taking a footer row of its own. */}
+        <span className="sm:hidden">
+          <TaskScoreBadge status={status} />
+        </span>
+      </div>
       {stepIndex >= 0 && (
         <span className="text-[11px] font-semibold text-text-light tabular-nums shrink-0">
           Step {stepIndex + 1} of {STATUS_ORDER.length}
@@ -196,11 +217,15 @@ const PriorityValuePicker = ({ value, onChange, disabled }: { value: Task['prior
   const current = PRIORITY_MAP[value];
   // No border — matches the flat tag-pill style TaskFormPrioritySelector uses for the same value
   // everywhere else, a soft tint fill is the whole signal.
-  const outlineChipClass = `inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold ${PRIORITY_SELECTED_CLASS[value]}`;
+  // w-fit + self-start: in the phone property grid a stretched cell turned this into a full-width
+  // red bar. Now a chip sized to its label, with the same color dot the priority menu uses.
+  const outlineChipClass = `inline-flex items-center gap-1.5 w-fit self-start px-2.5 py-1 rounded-full text-xs font-semibold ${PRIORITY_SELECTED_CLASS[value]}`;
+  const dot = <span aria-hidden="true" className={`size-1.5 rounded-full shrink-0 ${current.accent}`} />;
 
   if (disabled) {
     return (
       <span className={outlineChipClass}>
+        {dot}
         {current.label}
       </span>
     );
@@ -211,8 +236,9 @@ const PriorityValuePicker = ({ value, onChange, disabled }: { value: Task['prior
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className={`${outlineChipClass} gap-1.5 transition-opacity hover:opacity-80 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40`}
+          className={`${outlineChipClass} transition-opacity hover:opacity-80 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40`}
         >
+          {dot}
           {current.label}
         </button>
       </DropdownMenuTrigger>
@@ -339,7 +365,12 @@ const TaskStatusStepper = ({ task }: { task: Task }) => {
   );
 };
 
-const PROPERTY_ROW_LABEL_CLASS = 'flex items-center gap-2 w-full sm:w-28 shrink-0 text-sm font-medium text-text-secondary';
+const PROPERTY_ROW_LABEL_CLASS = 'flex items-center gap-1.5 sm:gap-2 w-full sm:w-28 shrink-0 text-xs sm:text-sm font-medium text-text-muted sm:text-text-secondary';
+
+// Label above value on phones (a cell in a 2-column grid), label beside value from `sm` up.
+const PROPERTY_ROW_CLASS = 'flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 min-w-0';
+
+const formatRangeDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 
 interface TaskEditLayoutProps {
   task: Task;
@@ -367,7 +398,7 @@ const TaskEditLayout = ({
   const { user } = useAuth();
   return (
   <div className="relative flex-1 min-h-0">
-    <div className="h-full overflow-y-auto no-scrollbar flex flex-col gap-5 p-6 max-w-2xl mx-auto w-full">
+    <div className="h-full overflow-y-auto no-scrollbar flex flex-col gap-4 sm:gap-5 p-4 sm:p-6 max-w-2xl mx-auto w-full">
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <TitleEditor value={task.title} isViewMode={isViewOnly} disabled={isViewOnly} onSave={onSaveTitle} />
@@ -391,10 +422,15 @@ const TaskEditLayout = ({
 
       <VerificationNoteBanner note={task.verificationNote} approved={task.status === 'done'} verifiedBy={task.verifiedBy} />
 
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
+      {/* Phones: one 2-column grid (label above value) — Assigned to + Priority share a row,
+          Timeline takes the full width, then Department. It used to be a full-width row per field,
+          which ran the four properties down most of the screen. Read-only values render as the
+          same chips the list cards use, instead of disabled controls that looked faded/broken.
+          From `sm` up it's the original label-beside-value list. */}
+      <div className="grid grid-cols-2 gap-x-3 gap-y-4 sm:flex sm:flex-col sm:gap-3">
+        <div className={PROPERTY_ROW_CLASS}>
           <span className={PROPERTY_ROW_LABEL_CLASS}>
-            <Users size={15} className="text-text-light" /> Assigned to
+            <Users size={14} className="text-text-light" /> Assigned to
           </span>
           <div className="flex-1 min-w-0">
             <AssigneeField
@@ -411,45 +447,64 @@ const TaskEditLayout = ({
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
+        <div className={`${PROPERTY_ROW_CLASS} sm:order-2`}>
           <span className={PROPERTY_ROW_LABEL_CLASS}>
-            <CalendarDays size={15} className="text-text-light" /> Timeline
-          </span>
-          <DateRangePicker
-            value={{
-              from: task.startDate ? new Date(task.startDate) : null,
-              to: task.dueDate ? new Date(task.dueDate) : null,
-            }}
-            disabled={isViewOnly}
-            onChange={(range: DateRangeValue) => onUpdate({
-              startDate: range.from ? range.from.toISOString() : undefined,
-              dueDate: range.to ? range.to.toISOString() : undefined,
-            })}
-            triggerClassName="w-auto h-auto p-0 border-0 shadow-none bg-transparent justify-start text-sm focus:ring-0"
-          />
-        </div>
-
-        <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
-          <span className={PROPERTY_ROW_LABEL_CLASS}>
-            <Flag size={15} className="text-text-light" /> Priority
+            <Flag size={14} className="text-text-light" /> Priority
           </span>
           <PriorityValuePicker value={task.priority} onChange={(v) => onUpdate({ priority: v })} disabled={isViewOnly} />
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
+        <div className={`${PROPERTY_ROW_CLASS} col-span-2 sm:order-1`}>
           <span className={PROPERTY_ROW_LABEL_CLASS}>
-            <Building2 size={15} className="text-text-light" /> Department
+            <CalendarDays size={14} className="text-text-light" /> Timeline
           </span>
-          <div className="flex-1 min-w-0">
-            <TaskFormDepartmentField
-              hideLabel
-              value={task.departmentId ?? ''}
-              onChange={(v) => onUpdate({ departmentId: v || null })}
-              departments={departments}
-              isLoading={isLoadingDepts}
-              disabled={isViewOnly || !canReassign}
+          {isViewOnly ? (
+            task.startDate || task.dueDate ? (
+              <IconChip
+                icon={CalendarDays}
+                tone="bg-primary-700"
+                label={[task.startDate && formatRangeDate(task.startDate), task.dueDate && formatRangeDate(task.dueDate)].filter(Boolean).join(' → ')}
+                className="w-fit self-start"
+              />
+            ) : (
+              <span className="text-sm text-text-light">No dates set</span>
+            )
+          ) : (
+            <DateRangePicker
+              value={{
+                from: task.startDate ? new Date(task.startDate) : null,
+                to: task.dueDate ? new Date(task.dueDate) : null,
+              }}
+              onChange={(range: DateRangeValue) => onUpdate({
+                startDate: range.from ? range.from.toISOString() : undefined,
+                dueDate: range.to ? range.to.toISOString() : undefined,
+              })}
               triggerClassName="w-auto h-auto p-0 border-0 shadow-none bg-transparent justify-start text-sm focus:ring-0"
             />
+          )}
+        </div>
+
+        <div className={`${PROPERTY_ROW_CLASS} col-span-2 sm:order-3`}>
+          <span className={PROPERTY_ROW_LABEL_CLASS}>
+            <Building2 size={14} className="text-text-light" /> Department
+          </span>
+          <div className="flex-1 min-w-0">
+            {isViewOnly || !canReassign ? (
+              task.departmentId && departments?.find((d) => d.id === task.departmentId) ? (
+                <DepartmentChip name={departments.find((d) => d.id === task.departmentId)!.name} className="w-fit" />
+              ) : (
+                <span className="text-sm text-text-light">No department</span>
+              )
+            ) : (
+              <TaskFormDepartmentField
+                hideLabel
+                value={task.departmentId ?? ''}
+                onChange={(v) => onUpdate({ departmentId: v || null })}
+                departments={departments}
+                isLoading={isLoadingDepts}
+                triggerClassName="w-auto h-auto p-0 border-0 shadow-none bg-transparent justify-start text-sm focus:ring-0"
+              />
+            )}
             {!isViewOnly && !canReassign && (
               <p className="text-[11px] font-medium text-text-light mt-1">Only a manager or above can move departments.</p>
             )}
@@ -460,15 +515,17 @@ const TaskEditLayout = ({
             this delegation — gated behind canReassign for the same reason. Someone without that
             authority still sees who's named, just not an editable picker. */}
         {!isViewOnly && canReassign ? (
-          <ReviewersField
-            departmentId={task.departmentId ?? undefined}
-            selected={(task.reviewers ?? []).map((r) => r.id)}
-            onChange={(ids) => onUpdate({ reviewerIds: ids })}
-          />
+          <div className="col-span-2 sm:order-4">
+            <ReviewersField
+              departmentId={task.departmentId ?? undefined}
+              selected={(task.reviewers ?? []).map((r) => r.id)}
+              onChange={(ids) => onUpdate({ reviewerIds: ids })}
+            />
+          </div>
         ) : (task.reviewers?.length ?? 0) > 0 && (
-          <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3">
+          <div className={`${PROPERTY_ROW_CLASS} col-span-2 sm:order-4`}>
             <span className={PROPERTY_ROW_LABEL_CLASS}>
-              <ShieldCheck size={15} className="text-text-light" /> Reviewers
+              <ShieldCheck size={14} className="text-text-light" /> Reviewers
             </span>
             <span className="text-sm text-text-secondary">
               {task.reviewers!.map((r) => `${r.firstName}${r.lastName ? ` ${r.lastName}` : ''}`).join(', ')}
@@ -598,7 +655,12 @@ export const TaskDetail = ({ task: initialTask, onClose, initialMode = 'view' }:
       size="xl"
       icon={<CheckSquare className="w-5 h-5 text-primary-600" />}
       title={mode === 'edit' ? 'Edit delegation' : 'Delegation details'}
-      description={mode === 'edit' ? 'Changes save automatically as you edit each field.' : 'Review this delegation’s details.'}
+      // Desktop-only: on a phone this line cost header height and said nothing the title doesn't.
+      description={
+        <span className="hidden sm:inline">
+          {mode === 'edit' ? 'Changes save automatically as you edit each field.' : 'Review this delegation’s details.'}
+        </span>
+      }
       bodyClassName="p-0 overflow-hidden rounded-b-xl"
       footer={
         <TaskFooter
