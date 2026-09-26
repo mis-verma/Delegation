@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { CheckSquare, Loader2, ChevronRight, ChevronDown, CircleDot, Clock, Eye, Type, CheckCircle2, ShieldCheck, Trash2, CalendarDays, Check, Milestone, AlignLeft } from 'lucide-react';
+import { CheckSquare, Loader2, ChevronRight, CircleDot, Clock, Eye, Type, CheckCircle2, ShieldCheck, Trash2, CalendarDays, Check, Milestone, AlignLeft } from 'lucide-react';
 import { Modal, Button, DateRangePicker, ActivityTimeline, DepartmentChip, StatusChip, type StatusChipStatus } from '../../components';
 import { IconChip } from '../../components/iconChip';
 import type { DateRangeValue } from '../../components';
@@ -11,9 +11,10 @@ import { AssigneeField } from '../assignees/AssigneeField';
 import { TaskAttachmentsGrid } from './TaskAttachmentsGrid';
 import { TaskDescriptionField } from './TaskDescriptionField';
 import { VerificationNoteBanner } from '../../components/verificationBanner';
-import { STATUS_LABEL, PRIORITY_MAP, NEXT_STATUS } from './taskDisplay';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { STATUS_LABEL, NEXT_STATUS } from './taskDisplay';
 import { TaskScoreBadge } from './TaskScoreBadge';
+import { TaskPriorityChipPicker } from './TaskPriorityChipPicker';
+import { DETAIL_HEADING_CLASS, CHIP_TRIGGER_CLASS } from './taskFormFieldStyles';
 import { TaskStatusRemarkDialog } from './TaskStatusRemarkDialog';
 import { taskAssigneeIds } from './cardFields';
 import { ReviewersField } from '../reviewers/ReviewersField';
@@ -221,50 +222,10 @@ const TaskStatusSummary = ({ status }: { status: Task['status'] }) => {
   );
 };
 
-const PRIORITY_ORDER: Task['priority'][] = ['low', 'medium', 'high'];
 
 // A plain colored "value" pill (matching PRIORITY_MAP's existing badge tint) instead of the
 // always-visible three-button grid TaskFormPrioritySelector renders elsewhere — click it to
 // change priority via a small menu, same as picking any other value rather than filling in a form.
-const PriorityValuePicker = ({ value, onChange, disabled }: { value: Task['priority']; onChange: (v: Task['priority']) => void; disabled: boolean }) => {
-  const current = PRIORITY_MAP[value];
-  // Same icon-circle IconChip the list cards use for priority (arrow icon on a solid tone) — was a
-  // flat tinted pill with a dot, the one old-style chip left on this sheet.
-  const chip = (withChevron: boolean) => (
-    <IconChip icon={current.icon} tone={current.solid} label={current.label}>
-      {withChevron && <ChevronDown size={12} strokeWidth={2.5} className="text-text-light -mr-0.5" />}
-    </IconChip>
-  );
-
-  if (disabled) return chip(false);
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label={`Priority: ${current.label}. Change priority`}
-          className="flex rounded-full cursor-pointer outline-none transition-opacity hover:opacity-85 focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]"
-        >
-          {chip(true)}
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-40">
-        {PRIORITY_ORDER.map((p) => {
-          const Icon = PRIORITY_MAP[p].icon;
-          return (
-            <DropdownMenuItem key={p} onClick={() => onChange(p)} className="gap-2">
-              <span className={`flex items-center justify-center size-5 rounded-full text-white shrink-0 ${PRIORITY_MAP[p].solid}`}>
-                <Icon size={10} strokeWidth={2.75} />
-              </span>
-              {PRIORITY_MAP[p].label}
-            </DropdownMenuItem>
-          );
-        })}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-};
 
 const TIMELINE_STEP_DESCRIPTION: Record<Task['status'], string> = {
   draft: 'Delegation drafted, not yet published.',
@@ -394,13 +355,7 @@ const TaskStatusStepper = ({ task }: { task: Task }) => {
   );
 };
 
-// Timeline / Department pickers rendered as chips in the property row (see TaskEditLayout) — same
-// pill shape, border and text size as IconChip, so editable and read-only values look alike.
-const CHIP_TRIGGER_CLASS =
-  'w-auto h-8 pl-2.5 pr-3 gap-1.5 rounded-full border border-border/60 bg-surface hover:border-primary-400 text-xs font-semibold shadow-none focus:ring-2 focus:ring-primary-500/30';
 
-// Description / Progress headings — one quiet label style for every section heading in the sheet.
-const DETAIL_HEADING_CLASS = 'flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium text-text-muted sm:text-text-secondary';
 
 const formatRangeDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 
@@ -481,7 +436,7 @@ const TaskEditLayout = ({
           </div>
 
           <span title="Priority" className="flex">
-            <PriorityValuePicker value={task.priority} onChange={(v) => onUpdate({ priority: v })} disabled={isViewOnly} />
+            <TaskPriorityChipPicker value={task.priority} onChange={(v) => onUpdate({ priority: v })} disabled={isViewOnly} />
           </span>
 
           {isViewOnly ? (

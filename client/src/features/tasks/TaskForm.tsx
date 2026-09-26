@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { CheckSquare, CalendarClock, Check, ClipboardList, UserCheck, FileEdit } from 'lucide-react';
+import { CheckSquare, Check, FileEdit, Type, AlignLeft, SlidersHorizontal } from 'lucide-react';
 import { Input, Modal, DateRangePicker, Button } from '../../components';
 import type { DateRangeValue } from '../../components';
 import { useCreateTaskWithAttachmentsMutation, useAssignableUsersQuery } from './hook';
@@ -16,10 +16,10 @@ import { useAuth } from '../../context/AuthContext';
 import type { Task } from '../../api/task';
 import { TaskFormDepartmentField } from './TaskFormDepartmentField';
 import { AssigneeField } from '../assignees/AssigneeField';
-import { TaskFormPrioritySelector } from './TaskFormPrioritySelector';
+import { TaskPriorityChipPicker } from './TaskPriorityChipPicker';
 import { TaskFormErrorBanner } from './TaskFormErrorBanner';
 import { ReviewersField } from '../reviewers/ReviewersField';
-import { FIELD_LABEL_CLASS, FIELD_LABEL_ICON_CLASS, FIELD_CARD_CLASS, SECTION_TITLE_CLASS } from './taskFormFieldStyles';
+import { FIELD_CARD_CLASS, DETAIL_HEADING_CLASS, CHIP_TRIGGER_CLASS } from './taskFormFieldStyles';
 
 const taskSchema = z.object({
   title:        z.string().trim().min(1, 'Title is required'),
@@ -176,7 +176,7 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
             <Button
               type="submit"
               form="task-form"
-              variant="secondary"
+              variant="outline"
               size="sm"
               onClick={() => setSaveAsDraft(true)}
               disabled={isBusy}
@@ -218,35 +218,35 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
         noValidate
         aria-busy={isBusy}
       >
-        <div className="flex flex-col gap-5 sm:gap-7 p-4 sm:p-5">
-          <section className="flex flex-col gap-4 sm:gap-5">
-            {/* Section headings are desktop-only — on a phone every field already has its own label. */}
-            <div className="hidden sm:block">
-              <h3 className={SECTION_TITLE_CLASS}>
-                <ClipboardList size={14} />
-                The work
-              </h3>
-            </div>
-
+        {/* Same layout and design language as the delegation detail sheet: Title and Description
+            with the shared icon labels, then one Details row of chips (assignee, priority, dates,
+            department) using the same chip pickers the detail sheet uses. It was a grid of boxed
+            fields with mixed label styles and an "L / M / H" priority toggle. */}
+        {/* No top padding on phones: the dialog already puts a 20px gap between header and body,
+            and adding 16px on top of it left a hole under the title. */}
+        <div className="flex flex-col gap-5 px-4 pb-4 pt-0 sm:p-5">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="title" className={DETAIL_HEADING_CLASS}>
+              <Type size={14} className="text-text-light" />
+              Title <span className="text-danger">*</span>
+            </label>
             <Input
               id="title"
-              label={<>Delegation title <span className="text-danger">*</span></>}
               placeholder="e.g. Complete the hallmarking audit for the Karol Bagh showroom"
               error={errors.title?.message}
               className={errors.title ? 'font-display' : QUIET_FIELD_CLASS}
-              labelClassName={FIELD_LABEL_CLASS}
               containerClassName={FIELD_CARD_CLASS}
               {...register('title')}
               autoFocus
             />
+          </div>
 
-            {/* Edge-to-edge is gone. Bleeding this to the modal's edges produced two full-width
-                rules cutting across the dialog and an unlabelled grey toolbar band under them —
-                it read as a seam in the layout, not as a field. It's a normal bordered box again,
-                matching the title input above it, and it has a visible label like every other
-                field instead of relying on its placeholder to say what it is.
-
-                Controller, so a keystroke re-renders this field and not the whole form. */}
+          {/* Controller, so a keystroke re-renders this field and not the whole form. */}
+          <div className="flex flex-col gap-1.5">
+            <span className={DETAIL_HEADING_CLASS}>
+              <AlignLeft size={14} className="text-text-light" />
+              Description
+            </span>
             <Controller
               control={control}
               name="description"
@@ -255,10 +255,6 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
                   value={field.value ?? ''}
                   onChange={field.onChange}
                   rows={4}
-                  // Same word TaskDetail's own "Description" section heading uses for this exact
-                  // field — was "Details" here, so the one field had two different names depending
-                  // on whether you were creating or editing.
-                  label="Description"
                   placeholder="Context, constraints, acceptance criteria, links…"
                   toolbar={<AttachFilesToolbar onFiles={(list) => setFiles((prev) => [...prev, ...Array.from(list)])} />}
                   containerClassName="border-transparent bg-surface-hover/50 focus-within:bg-surface"
@@ -269,98 +265,78 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
                 </TaskDescriptionField>
               )}
             />
-          </section>
+          </div>
 
-          <section className="flex flex-col gap-4 sm:gap-5">
-            <div className="hidden sm:block">
-              <h3 className={SECTION_TITLE_CLASS}>
-                <UserCheck size={14} />
-                Assignment
-              </h3>
-            </div>
-
-            {/* Two-up from sm. These five are all short controls; stacked one per row they made a
-                long ribbon of half-empty lines, and the modal taller than it needs to be. Pairing
-                them also puts each label at the same height as its neighbour, which is the "equal
-                alignment" the two-pane version could never give. */}
-            {/* grid-cols-2 at every width: on phones only Assignees + Priority share a row (both
-                short controls); every field after them spans the full width there. */}
-            <div className="grid grid-cols-2 gap-x-3 sm:gap-x-5 gap-y-4 sm:gap-y-6">
-              <AssigneeField
-                selectedIds={assigneeIds}
-                onChange={setAssigneeIds}
-                users={assignableUsers}
-                isLoading={isLoadingUsers}
-              />
+          <div className="flex flex-col gap-2">
+            <span className={DETAIL_HEADING_CLASS}>
+              <SlidersHorizontal size={14} className="text-text-light" />
+              Details
+            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <div title="Assignees" className="flex items-center">
+                <AssigneeField
+                  hideLabel
+                  selectedIds={assigneeIds}
+                  onChange={setAssigneeIds}
+                  users={assignableUsers}
+                  isLoading={isLoadingUsers}
+                />
+              </div>
 
               <Controller
                 control={control}
                 name="priority"
                 render={({ field }) => (
-                  <TaskFormPrioritySelector
-                    value={field.value}
-                    onChange={field.onChange}
-                    disabled={isBusy}
-                  />
+                  <TaskPriorityChipPicker value={field.value} onChange={field.onChange} disabled={isBusy} />
                 )}
               />
 
-              <div className={`group/field col-span-2 sm:col-span-1 flex flex-col gap-1.5 ${FIELD_CARD_CLASS}`}>
-                <label className={FIELD_LABEL_CLASS}>
-                  <CalendarClock className={FIELD_LABEL_ICON_CLASS} />
-                  Timeline
-                </label>
+              <div title="Timeline">
                 <DateRangePicker
                   value={dateRange}
                   onChange={setDateRange}
-                  placeholder="Start → deadline"
-                  triggerClassName="w-full py-2.5 border-transparent bg-surface-hover/50 hover:bg-surface-hover rounded-lg focus:ring-2 focus:ring-primary-500/20 transition-colors duration-200 ease-in-out"
+                  placeholder="Add dates"
+                  triggerClassName={CHIP_TRIGGER_CLASS}
                 />
               </div>
 
-              <div className="col-span-2 sm:col-span-1">
+              <div title="Department">
                 <Controller
                   control={control}
                   name="departmentId"
                   render={({ field }) => (
                     <TaskFormDepartmentField
+                      hideLabel
                       value={field.value ?? ''}
                       onChange={field.onChange}
                       departments={departments}
                       isLoading={isLoadingDepts}
-                      triggerClassName="border-transparent bg-surface-hover/50 hover:bg-surface-hover"
+                      triggerClassName={`${CHIP_TRIGGER_CLASS} max-w-[13rem]`}
                     />
                   )}
                 />
               </div>
-
-              {/* Full width: the label chips and the suggestion dropdown both need the room, and
-                  this is the field most likely to hold several values. Labels and Reviewers are
-                  desktop-only — optional extras that doubled the form's length on a phone.
-                  Reviewers can still be set from the delegation's detail view; labels currently
-                  only here, so phone users can't add them. */}
-              <div className="hidden sm:block col-span-2">
-                <LabelsField
-                  tags={tags ?? []}
-                  selectedIds={tagIds}
-                  onChange={setTagIds}
-                  canCreate={isVerifier}
-                  disabled={isBusy}
-                />
-              </div>
-
-              {/* Full width too, same reason — a checkbox list of names needs room to breathe.
-                  Scoped to whichever department is currently selected; picking a specific person
-                  to review this on top of the usual PC/Admin/department-head reach. */}
-              <div className="hidden sm:block col-span-2">
-                <ReviewersField
-                  departmentId={selectedDepartmentId || undefined}
-                  selected={reviewerIds}
-                  onChange={setReviewerIds}
-                />
-              </div>
             </div>
-          </section>
+          </div>
+
+          {/* Labels and Reviewers are desktop-only — optional extras that doubled the form's length
+              on a phone. Reviewers can still be set from the delegation's detail view; labels
+              currently only here, so phone users can't add them. Full width: the label chips, the
+              suggestion dropdown and the reviewer checkbox list all need the room. */}
+          <div className="hidden sm:flex flex-col gap-5">
+            <LabelsField
+              tags={tags ?? []}
+              selectedIds={tagIds}
+              onChange={setTagIds}
+              canCreate={isVerifier}
+              disabled={isBusy}
+            />
+            <ReviewersField
+              departmentId={selectedDepartmentId || undefined}
+              selected={reviewerIds}
+              onChange={setReviewerIds}
+            />
+          </div>
 
           {mutation.isError && (
             <TaskFormErrorBanner error={mutation.error} fallback="Failed to create task. Please verify your inputs and try again." />

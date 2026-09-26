@@ -25,3 +25,12 @@ export const SECTION_LABEL_CLASS = 'text-xs font-bold text-text-light flex items
  *  cluster of fields inside one modal. Kept separate from SECTION_LABEL_CLASS above (still used by
  *  TaskDetail.tsx as-is) rather than changing it in place. */
 export const SECTION_TITLE_CLASS = 'flex items-center gap-2 text-xs font-display font-semibold text-text-light';
+/** Section label used across the delegation detail sheet and the New Delegation form (Title,
+ *  Description, Details, Progress) — one quiet style for every heading in both. */
+export const DETAIL_HEADING_CLASS =
+  'flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium text-text-muted sm:text-text-secondary';
+
+/** Date-range / department pickers rendered as chips in the Details row — same pill shape, border
+ *  and text size as IconChip, so editable and read-only values look alike. */
+export const CHIP_TRIGGER_CLASS =
+  'w-auto h-8 pl-2.5 pr-3 gap-1.5 rounded-full border border-border/60 bg-surface hover:border-primary-400 text-xs font-semibold shadow-none focus:ring-2 focus:ring-primary-500/30';
