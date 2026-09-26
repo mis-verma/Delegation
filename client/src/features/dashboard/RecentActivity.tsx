@@ -201,8 +201,11 @@ export const RecentActivity = ({ feed, isPending }: RecentActivityProps) => {
         </div>
       </div>
 
-      {/* List Content */}
-      <div className="relative z-10 flex flex-col min-h-[280px]">
+      {/* List Content. min-h only from `sm:` up — that height exists so this card doesn't look
+          visibly shorter than whatever shares its row in the 2-column desktop grid; stacked
+          full-width on mobile it has no neighbor to match, so with only a handful of real rows
+          (or one) it was just reserving a large blank gap below them for nothing. */}
+      <div className="relative z-10 flex flex-col sm:min-h-[280px]">
         {isPending ? (
           <div className="flex flex-col divide-y divide-border/30">
             {Array.from({ length: 4 }).map((_, i) => (

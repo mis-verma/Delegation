@@ -227,8 +227,12 @@ export const KpiStrip = ({ tickets, tasks, todos, isPending, workflowStats }: Kp
             </button>
           ))}
         </div>
+        {/* w-5, not the original w-8 — on a narrower real phone the sliver of the next chip
+            peeking past the edge is only a handful of px wide, and an 8-wide mask covered nearly
+            all of that sliver in fade, reading as a washed-out/disabled chip rather than a hint
+            that there's more to scroll to. */}
         <div aria-hidden="true" className="absolute inset-y-0 left-0 w-4 bg-gradient-to-r from-background to-transparent pointer-events-none" />
-        <div aria-hidden="true" className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-background to-transparent pointer-events-none" />
+        <div aria-hidden="true" className="absolute inset-y-0 right-0 w-5 bg-gradient-to-l from-background to-transparent pointer-events-none" />
       </div>
 
       <MobileCollapsible label="breakdown">
