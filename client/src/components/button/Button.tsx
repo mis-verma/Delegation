@@ -32,6 +32,16 @@ const variantMap: Record<NonNullable<ButtonProps['variant']>, string> = {
     'bg-danger text-white border border-transparent hover:bg-danger/90 focus-visible:ring-danger',
 };
 
+// Touch screens (pointer-coarse) get the primary navy at rest: they never hover, so there the quiet
+// neutral above was the button's permanent look and an enabled primary action (Create, Move to…)
+// read as disabled. Disabled stays neutral there, so ready vs not-ready is distinguishable. Skipped
+// when the caller sets its own background (green Approve, red Reject, the login gradient) — those
+// already carry their meaning in color and must not all turn navy on a phone.
+const PRIMARY_TOUCH_CLASS =
+  'pointer-coarse:bg-primary-800 pointer-coarse:text-white pointer-coarse:disabled:bg-surface-active pointer-coarse:disabled:text-text';
+const hasOwnBackground = (className: unknown) =>
+  typeof className === 'string' && /(^|\s)(bg-|from-)/.test(className);
+
 const sizeMap: Record<NonNullable<ButtonProps['size']>, string> = {
   sm: 'h-8 px-3 text-xs gap-1.5 rounded-md',
   md: 'h-10 px-5 text-sm gap-2 rounded-md',
@@ -70,6 +80,7 @@ export function Button({
         'disabled:opacity-60 disabled:cursor-not-allowed disabled:pointer-events-none disabled:active:scale-100',
         sizeMap[size],
         variantMap[variant],
+        variant === 'primary' && !hasOwnBackground(className) && PRIMARY_TOUCH_CLASS,
         className
       )}
       {...props}

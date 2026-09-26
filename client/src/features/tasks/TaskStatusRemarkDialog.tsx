@@ -1,6 +1,6 @@
 import { StatusRemarkDialog } from '../../components/statusRemarkDialog';
-import { Badge } from '../../components/ui/badge';
-import { STATUS_LABEL, STATUS_CONFIG } from './taskDisplay';
+import { StatusChip, type StatusChipStatus } from '../../components';
+import { STATUS_LABEL } from './taskDisplay';
 import type { Task } from '../../api/task';
 
 interface TaskStatusRemarkDialogProps {
@@ -15,11 +15,29 @@ interface TaskStatusRemarkDialogProps {
   nested?: boolean;
 }
 
+// Same StatusChip (icon circle + bold label) the delegation list cards use, so the from → to in
+// this dialog reads as the exact chips the person just tapped past — was a flat outline Badge.
+const STATUS_CHIP_KEY: Record<Task['status'], StatusChipStatus> = {
+  draft: 'open',
+  todo: 'open',
+  in_progress: 'in_progress',
+  pending_approval: 'pending_approval',
+  done: 'completed',
+};
+
 const StatusPill = ({ status }: { status: Task['status'] }) => (
-  <Badge variant="outline" className={`text-[10px] ${STATUS_CONFIG[status].badge}`}>
-    {STATUS_LABEL[status]}
-  </Badge>
+  <StatusChip status={STATUS_CHIP_KEY[status]} label={STATUS_LABEL[status]} />
 );
+
+// One-tap remark starters per destination — the common sentences people type when moving a
+// delegation to that stage. They fill the box and stay editable.
+const REMARK_SUGGESTIONS: Record<Task['status'], string[]> = {
+  draft: ['Saving as a draft for now'],
+  todo: ['Moving back — needs more detail', 'Not started yet'],
+  in_progress: ['Started working on it', 'Picked this up today', 'Waiting on another team'],
+  pending_approval: ['Done — ready for review', 'Completed as requested'],
+  done: ['Reviewed and approved', 'All good, closing this'],
+};
 
 /**
  * Delegation's wording and status chips over the shared StatusRemarkDialog.
@@ -36,6 +54,7 @@ export const TaskStatusRemarkDialog = ({
     to={<StatusPill status={toStatus} />}
     confirmLabel={`Move to ${STATUS_LABEL[toStatus]}`}
     description="Status changes are recorded on this delegation's timeline for everyone working on it."
+    suggestions={REMARK_SUGGESTIONS[toStatus]}
     onCancel={onCancel}
     onConfirm={onConfirm}
     isSubmitting={isSubmitting}

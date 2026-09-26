@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { CheckSquare, Loader2, ChevronRight, CheckCircle2, ShieldCheck, Trash2, SquarePen, Users, CalendarDays, Flag, Building2, Check, Milestone, AlignLeft } from 'lucide-react';
+import { CheckSquare, Loader2, ChevronRight, CheckCircle2, ShieldCheck, Trash2, Users, CalendarDays, Flag, Building2, Check, Milestone, AlignLeft } from 'lucide-react';
 import { Modal, Button, DateRangePicker, ActivityTimeline, DepartmentChip } from '../../components';
 import { IconChip } from '../../components/iconChip';
 import type { DateRangeValue } from '../../components';
@@ -113,18 +113,16 @@ const PlainDescriptionEditor = ({ value, disabled, onSave, toolbar, children }: 
 
 interface TaskFooterProps {
   task: Task;
-  mode: 'view' | 'edit';
   isPC: boolean;
   isVerifier: boolean;
   nextStatus: Task['status'] | null;
-  onEdit: () => void;
   /** Opens the remark dialog — the status change itself can't be fired without one. */
   onAdvance: () => void;
   isAdvancing: boolean;
   onClose: () => void;
 }
 
-const TaskFooter = ({ task, mode, isPC, isVerifier, nextStatus, onEdit, onAdvance, isAdvancing, onClose }: TaskFooterProps) => {
+const TaskFooter = ({ task, isPC, isVerifier, nextStatus, onAdvance, isAdvancing, onClose }: TaskFooterProps) => {
   // Single-stage verify: one PC/ADMIN/manager/reviewer check decides the whole thing (see
   // task.service.ts's CAN_VERIFY_BY_ROLE) — the old two-stage QC-then-approval split is gone.
   const needsDecision = isVerifier && task.status === 'pending_approval';
@@ -155,18 +153,11 @@ const TaskFooter = ({ task, mode, isPC, isVerifier, nextStatus, onEdit, onAdvanc
             </span>
           )}
         </div>
-        {/* Phones: one row — Edit (compact) + Advance filling the rest as the filled primary action,
-            since moving the delegation forward is what this sheet is usually opened for. It used to
-            be an outline button that read as disabled, stacked over a separate Done row; the ✕ in
-            the header closes the sheet there. Desktop keeps Edit / Advance / Done as before. */}
+        {/* Phones: Advance fills the row as the filled primary action — moving the delegation
+            forward is what this sheet is usually opened for, and it opens the remark popup. The ✕
+            in the header closes the sheet there. Desktop keeps Advance / Done. No Edit button:
+            fields are editable directly for anyone allowed to edit. */}
         <div className="flex items-center gap-2 sm:flex-wrap">
-          {mode === 'view' && !isPC && (
-            <Button variant="outline" size="sm" onClick={onEdit} className="shrink-0 text-text-secondary hover:text-text border-border">
-              <SquarePen size={14} className="sm:mr-1" />
-              <span className="sm:hidden">Edit</span>
-              <span className="hidden sm:inline">Edit Delegation</span>
-            </Button>
-          )}
           {nextStatus && !isPC && (
             <Button
               variant="outline"
@@ -648,22 +639,25 @@ const TaskEditLayout = ({
 interface TaskDetailProps {
   task: Task;
   onClose: () => void;
+  /** Accepted for existing callers; there's no separate edit mode any more (see TaskDetail). */
   initialMode?: 'view' | 'edit';
 }
 
-export const TaskDetail = ({ task: initialTask, onClose, initialMode = 'view' }: TaskDetailProps) => {
+export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
   const { data: fresh } = useTaskQuery(initialTask.id);
   const task = fresh ?? initialTask;
   const { user } = useAuth();
 
-  const [mode, setMode] = useState<'view' | 'edit'>(initialMode);
   // The status the footer's "Advance" button is proposing. Held here rather than fired straight
   // at the API because the server requires a remark with every status change.
   const [advanceTo, setAdvanceTo] = useState<Task['status'] | null>(null);
 
   const isPC = user?.role === 'PC';
   const isRestrictedUser = user?.role === 'USER';
-  const isViewOnly = mode === 'view' || isPC || isRestrictedUser || user?.role === 'APPROVAL_MANAGER';
+  // No separate Edit mode: anyone allowed to edit gets editable fields as soon as the sheet opens
+  // (they auto-save per field), instead of a read-only view behind an extra "Edit" tap. Roles that
+  // can't edit still get the read-only chips.
+  const isViewOnly = isPC || isRestrictedUser || user?.role === 'APPROVAL_MANAGER';
   const isVerifier = isPC || user?.role === 'ADMIN';
   const canReassign = user?.role !== 'AGENT' && user?.role !== 'USER';
   const canManageAttachments = isVerifier || task.userId === user?.id || taskAssigneeIds(task).includes(user?.id ?? '');
@@ -698,22 +692,20 @@ export const TaskDetail = ({ task: initialTask, onClose, initialMode = 'view' }:
       onClose={onClose}
       size="xl"
       icon={<CheckSquare className="w-5 h-5 text-primary-600" />}
-      title={mode === 'edit' ? 'Edit delegation' : 'Delegation details'}
+      title="Delegation details"
       // Desktop-only: on a phone this line cost header height and said nothing the title doesn't.
       description={
         <span className="hidden sm:inline">
-          {mode === 'edit' ? 'Changes save automatically as you edit each field.' : 'Review this delegation’s details.'}
+          {isViewOnly ? 'Review this delegation’s details.' : 'Changes save automatically as you edit each field.'}
         </span>
       }
       bodyClassName="p-0 overflow-hidden rounded-b-xl"
       footer={
         <TaskFooter
           task={task}
-          mode={mode}
           isPC={isPC}
           isVerifier={isVerifier}
           nextStatus={nextStatus}
-          onEdit={() => setMode('edit')}
           onAdvance={() => nextStatus && setAdvanceTo(nextStatus)}
           isAdvancing={updateMutation.isPending}
           onClose={onClose}

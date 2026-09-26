@@ -1,5 +1,5 @@
-import { useState, type FormEvent, type ReactNode } from 'react';
-import { ArrowRight, ArrowRightLeft, MessageSquareText, PenLine } from 'lucide-react';
+import { useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { ArrowRight, MessageSquareText, PenLine } from 'lucide-react';
 import { Modal } from '../modal';
 import { Button } from '../button';
 
@@ -40,6 +40,8 @@ interface StatusRemarkDialogProps {
    *  component doesn't know what a module's evidence/proof capture looks like, only that there's
    *  room for one next to the remark that explains it. */
   attachments?: ReactNode;
+  /** Optional one-tap remark starters shown above the text box (tap fills it, still editable). */
+  suggestions?: string[];
 }
 
 /**
@@ -53,9 +55,10 @@ interface StatusRemarkDialogProps {
  */
 export const StatusRemarkDialog = ({
   itemTitle, from, to, confirmLabel, description, placeholder,
-  onCancel, onConfirm, isSubmitting = false, nested = false, history, attachments,
+  onCancel, onConfirm, isSubmitting = false, nested = false, history, attachments, suggestions,
 }: StatusRemarkDialogProps) => {
   const [remark, setRemark] = useState('');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [touched, setTouched] = useState(false);
 
   const trimmed = remark.trim();
@@ -101,32 +104,55 @@ export const StatusRemarkDialog = ({
         </div>
       }
     >
-      <form id="status-remark-form" onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
-        <div className="flex flex-col gap-1.5">
-          <span className="flex items-center gap-1.5 text-xs font-bold text-text-secondary tracking-tight">
-            <ArrowRightLeft size={13} className="text-primary-500" /> Status change
-          </span>
-          {/* States the exact move being made, so the remark is written about the right thing —
-              especially from a board drag, where the columns may already have scrolled away. A
-              stronger border + tint than a plain neutral box, so this reads as the one thing the
-              whole dialog is about rather than a quiet caption line. */}
-          {/* Opacity tints, not raw swatches: `dark:bg-primary-950/20` named a shade the palette
-              doesn't have (it stops at 900), so dark mode fell back to the light `bg-primary-50/40`
-              — a near-white wash over a dark sheet that made the chips on it unreadable. The title
-              gets its own line on phones instead of truncating beside the chips. */}
-          <div className="flex items-center gap-2 flex-wrap px-3 py-2.5 rounded-xl border border-primary-500/20 dark:border-primary-400/20 bg-primary-500/5 dark:bg-primary-500/10">
+      <form id="status-remark-form" onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
+        {/* The move itself, as one card: what's moving (title) and from → to, in the same status
+            chips the list cards use. States the exact change so the remark is written about the
+            right thing — especially from a board drag, where the columns may have scrolled away.
+            Opacity tints so it reads in both themes (see git history: a raw primary-950 swatch
+            here silently fell back to a near-white wash in dark mode). */}
+        <section
+          aria-label="Status change"
+          className="flex flex-col gap-3 p-3.5 rounded-2xl border border-primary-500/20 dark:border-primary-400/20 bg-primary-500/5 dark:bg-primary-500/10"
+        >
+          <p className="text-sm font-display font-semibold text-text leading-snug line-clamp-2">{itemTitle}</p>
+          <div className="flex items-center gap-2 flex-wrap">
             {from}
-            <ArrowRight size={13} strokeWidth={3} className="text-text-light shrink-0" />
+            <span aria-hidden="true" className="flex items-center justify-center size-6 rounded-full bg-surface border border-border/60 text-primary-600 dark:text-primary-300 shrink-0">
+              <ArrowRight size={12} strokeWidth={3} />
+            </span>
             {to}
-            <span className="basis-full sm:basis-auto text-[11px] font-medium text-text-muted truncate min-w-0">{itemTitle}</span>
           </div>
-        </div>
+        </section>
 
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="status-remark" className="flex items-center gap-1.5 text-xs font-bold text-text-secondary tracking-tight">
-            <PenLine size={13} className="text-primary-500" /> What changed?
+        <div className="flex flex-col gap-2">
+          <label htmlFor="status-remark" className="flex items-center gap-1.5 text-xs font-semibold text-text-secondary">
+            <PenLine size={13} className="text-text-light" /> What changed?
           </label>
+
+          {/* One-tap starting points for the common remarks — typing a sentence on a phone keyboard
+              is the slowest part of moving a delegation forward. Fills the box; still editable. */}
+          {suggestions && suggestions.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {suggestions.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => { setRemark(s); textareaRef.current?.focus(); }}
+                  aria-pressed={remark === s}
+                  className={`h-8 px-3 rounded-full border text-xs font-medium transition-colors duration-150 cursor-pointer [-webkit-tap-highlight-color:transparent] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
+                    remark === s
+                      ? 'border-transparent bg-primary-700 text-white'
+                      : 'border-border/60 bg-surface text-text-secondary hover:border-primary-400 active:bg-surface-hover'
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
+
           <textarea
+            ref={textareaRef}
             id="status-remark"
             autoFocus
             value={remark}
@@ -151,7 +177,7 @@ export const StatusRemarkDialog = ({
                 Whoever picks this up next sees this on the timeline.
               </p>
             )}
-            <span className="shrink-0 ml-auto text-[11px] font-semibold text-text-light tabular-nums">
+            <span className="shrink-0 ml-auto px-2 py-0.5 rounded-full bg-surface-hover text-[10px] font-semibold text-text-muted tabular-nums">
               {trimmed.length}/{MAX_REMARK}
             </span>
           </div>
