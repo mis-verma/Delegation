@@ -55,7 +55,7 @@ export const DueDateField = ({ mode, control, setValue, errors, categoryTatHours
             showTime
             minDate={new Date()}
             placeholder={hideLabel ? "Add due date" : "Select a due date"}
-            className={triggerClassName ?? "font-display border-transparent bg-surface-hover/50 hover:bg-surface-hover"}
+            className={triggerClassName ? `${triggerClassName} ${combined ? 'pr-10' : ''}` : "font-display border-transparent bg-surface-hover/50 hover:bg-surface-hover"}
           />
           {(errors.dueDate?.message || errors.dueTime?.message) && (
             <p className="text-xs text-danger font-display" role="alert">

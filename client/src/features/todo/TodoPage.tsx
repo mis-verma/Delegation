@@ -1,41 +1,39 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { Plus, ListChecks } from 'lucide-react';
+import { Plus, Flag, ArrowUpDown } from 'lucide-react';
 import { Button, Fab } from '../../components';
+import {
+  OptionsSheet, OptionSection, OptionSegmented, ChoiceChip, ChoiceIcon, ChoiceWrap, ChoiceClear,
+} from '../../components/optionsSheet';
+import { PRIORITY_MAP } from '../tasks/taskDisplay';
 import { TodoList } from './TodoList';
 import { TodoQuickStats, type TodoQuickFilterKey } from './TodoQuickStats';
-import { TodoToolbar } from './TodoToolbar';
-import type { TodoPriorityFilter, TodoSortKey } from './todoSort';
+import { TODO_SORT_LABEL, TODO_SORT_ICON, type TodoPriorityFilter, type TodoSortKey } from './todoSort';
 import { TODO_QUICK_FILTER_PREDICATES } from './todoQuickFilters';
-import { TODO_BUTTON_CLASS } from './todoFormStyles';
 import { CreateTodoModal } from './CreateTodoModal';
 import { useTodosQuery } from './hook';
 import { readQuickFilterParam } from '../../lib/readQuickFilterParam';
+import type { TodoPriority } from '../../api/todos';
 
 const QUICK_FILTER_VALUES = ['pending', 'completed', 'due', 'delayed'] as const;
+const PRIORITIES: TodoPriority[] = ['high', 'medium', 'low'];
+const SORT_KEYS = Object.keys(TODO_SORT_LABEL) as TodoSortKey[];
 
 export const TodoPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [showForm, setShowForm] = useState(false);
-  // Seeded from `?quickFilter=` when present (e.g. the Dashboard's "Due"/"Completed" rows
-  // deep-linking in as `/todo?quickFilter=pending` or `?quickFilter=completed`) — TodoPage had no
-  // URL-tracked state before this, so this is the minimal read-once-on-mount addition.
+  const [showOptions, setShowOptions] = useState(false);
+  // Seeded from `?quickFilter=` (the Dashboard's rows deep-link in with it).
   const [quickFilter, setQuickFilter] = useState<TodoQuickFilterKey | null>(
     () => readQuickFilterParam(searchParams, QUICK_FILTER_VALUES),
   );
   const [priority, setPriority] = useState<TodoPriorityFilter>('all');
-  // Defaults to 'created' — newest first — which is exactly what the server already returns
-  // (`orderBy(desc(createdAt))`), so adding the sort control didn't silently reorder anyone's
-  // list. Due-date order is one click away for whoever wants it.
+  // Newest first by default: the order the server already returns.
   const [sort, setSort] = useState<TodoSortKey>('created');
-  // Same query key as TodoList, so this is served from cache, not a second network round-trip —
-  // needed here to feed the quick-stat tile counts.
+  // Same query key as TodoList, so this is served from cache.
   const { data: todos = [], isPending } = useTodosQuery();
 
-  // The sidebar's "+" quick-create link has no route of its own to land on (CreateTodoModal opens
-  // from local state, not a route), so it deep-links here as `/todo?create=1` instead — same
-  // one-shot-param pattern TaskList/TicketList use for their own `?create=1` handling, the param
-  // stripped right after so it doesn't reopen on every render.
+  // `/todo?create=1` (the sidebar's "+") opens the form once, then drops the param.
   useEffect(() => {
     if (!searchParams.get('create')) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -48,9 +46,7 @@ export const TodoPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  const toggleQuickFilter = (key: TodoQuickFilterKey) => {
-    setQuickFilter((prev) => (prev === key ? null : key));
-  };
+  const toggleQuickFilter = (key: TodoQuickFilterKey) => setQuickFilter((prev) => (prev === key ? null : key));
 
   const quickCounts = {
     pending: todos.filter(TODO_QUICK_FILTER_PREDICATES.pending).length,
@@ -59,59 +55,76 @@ export const TodoPage = () => {
     delayed: todos.filter(TODO_QUICK_FILTER_PREDICATES.delayed).length,
   };
 
-  // Mirrors TodoList's own quick-filter narrowing so the header count always matches what's
-  // actually rendered below it. Same cached `todos` array, so no extra request.
+  // Mirrors TodoList's own narrowing so the sheet's count matches what's rendered.
   const quickFiltered = quickFilter ? todos.filter(TODO_QUICK_FILTER_PREDICATES[quickFilter]) : todos;
-  const shownCount =
-    priority === 'all' ? quickFiltered.length : quickFiltered.filter((t) => t.priority === priority).length;
+  const shownCount = priority === 'all' ? quickFiltered.length : quickFiltered.filter((t) => t.priority === priority).length;
+
+  const clearFilters = () => {
+    setPriority('all');
+    setQuickFilter(null);
+  };
 
   return (
-    // gap-6, matching the other three top-level pages — this was the only one on gap-5.
     <div className="flex flex-col gap-6 mx-auto w-full max-w-(--container-width) transition-all duration-300">
-      {/* Same header treatment as Delegation and Tickets: no visible title block — the sidebar
-          item that got you here already says To-Do, and the lead "Total" tile carries the count.
-          The heading stays in the accessibility tree as the page's one landmark. */}
+      {/* No visible title block, same as Delegation and Tickets: the nav item already says To-Do. */}
       <h1 className="sr-only">To-Do</h1>
 
       <Fab actions={[{ key: 'add', label: 'Add todo', icon: Plus, onClick: () => setShowForm(true) }]} />
 
-      <TodoQuickStats
-        counts={quickCounts}
-        total={todos.length}
-        active={quickFilter}
-        onToggle={toggleQuickFilter}
-        onClear={() => setQuickFilter(null)}
-        isLoading={isPending}
-      />
+      <div className="flex flex-col gap-4">
+        <TodoQuickStats
+          counts={quickCounts}
+          total={todos.length}
+          active={quickFilter}
+          onToggle={toggleQuickFilter}
+          onClear={() => setQuickFilter(null)}
+          isLoading={isPending}
+        />
 
-      {/* Controls band below the stats, matching the other two pages. Desktop: inline button.
-          Mobile: the Fab above instead — same single "Add todo" action. */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <Button size="sm" variant="primary" className={`hidden md:inline-flex gap-1.5 ml-auto ${TODO_BUTTON_CLASS}`} onClick={() => setShowForm(true)}>
-          <Plus size={14} />
-          Todo Task
-        </Button>
+        {/* One controls row, same as the other list pages: Options on the left, the add button on
+            the right on desktop (phones use the + button instead). */}
+        <div className="flex items-center gap-3">
+          <OptionsSheet
+            isOpen={showOptions}
+            setIsOpen={setShowOptions}
+            activeCount={priority === 'all' ? 0 : 1}
+            subtitle={`${shownCount} of ${todos.length} to-dos`}
+            onReset={() => { setPriority('all'); setSort('created'); }}
+            canReset={priority !== 'all' || sort !== 'created'}
+            showLabel={`Show ${shownCount} ${shownCount === 1 ? 'to-do' : 'to-dos'}`}
+          >
+            <OptionSection icon={Flag} label="Priority" aside={priority !== 'all' && <ChoiceClear onClick={() => setPriority('all')} />}>
+              <ChoiceWrap>
+                {PRIORITIES.map((p) => (
+                  <ChoiceChip
+                    key={p}
+                    active={priority === p}
+                    onClick={() => setPriority(priority === p ? 'all' : p)}
+                    lead={<ChoiceIcon icon={PRIORITY_MAP[p].icon} tone={PRIORITY_MAP[p].solid} />}
+                  >
+                    {PRIORITY_MAP[p].label}
+                  </ChoiceChip>
+                ))}
+              </ChoiceWrap>
+            </OptionSection>
+
+            <OptionSection icon={ArrowUpDown} label="Sort by">
+              <OptionSegmented
+                options={SORT_KEYS.map((k) => ({ value: k, label: TODO_SORT_LABEL[k], icon: TODO_SORT_ICON[k] }))}
+                value={sort}
+                onChange={setSort}
+              />
+            </OptionSection>
+          </OptionsSheet>
+
+          <Button size="sm" variant="primary" className="hidden md:inline-flex gap-1.5 ml-auto rounded-full font-display" onClick={() => setShowForm(true)}>
+            <Plus size={15} strokeWidth={2.5} />
+            New to-do
+          </Button>
+        </div>
       </div>
 
-      <section aria-label="Your to-dos" className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-3 sm:p-4">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="flex items-center justify-center size-6 rounded-md bg-primary-700/10 text-primary-700 dark:text-primary-300 shrink-0">
-            <ListChecks size={13} strokeWidth={2.25} />
-          </span>
-          <div className="flex items-baseline gap-2 min-w-0">
-            <p className="text-sm font-display font-semibold text-text tracking-tight truncate">All tasks</p>
-            <span className="text-xs font-display font-medium text-text-muted tabular-nums shrink-0">
-              {shownCount === 1 ? '1 task' : `${shownCount} tasks`}
-            </span>
-          </div>
-        </div>
-
-        <div className="pt-3 border-t border-border/60">
-          <TodoToolbar priority={priority} onPriorityChange={setPriority} sort={sort} onSortChange={setSort} />
-        </div>
-      </section>
-
-      <TodoList quickFilter={quickFilter} priority={priority} sort={sort} />
+      <TodoList quickFilter={quickFilter} priority={priority} sort={sort} onClearFilters={clearFilters} />
 
       <CreateTodoModal open={showForm} onClose={() => setShowForm(false)} />
     </div>

@@ -19,13 +19,6 @@ export const TODO_SORT_ICON: Record<TodoSortKey, LucideIcon> = {
 
 export type TodoPriorityFilter = 'all' | TodoPriority;
 
-export const TODO_PRIORITY_FILTERS: { key: TodoPriorityFilter; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'high', label: 'High' },
-  { key: 'medium', label: 'Medium' },
-  { key: 'low', label: 'Low' },
-];
-
 const PRIORITY_RANK: Record<TodoPriority, number> = { high: 0, medium: 1, low: 2 };
 
 const time = (iso: string | null) => (iso ? new Date(iso).getTime() : null);
