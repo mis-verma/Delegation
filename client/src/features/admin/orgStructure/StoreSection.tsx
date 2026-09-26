@@ -76,7 +76,7 @@ const StoreSectionComponent = ({
       className={cn(
         'group/store rounded-2xl border overflow-hidden transition-all duration-300',
         isDropTarget
-          ? 'border-coral-400 bg-coral-50/50 dark:bg-coral-950/20 ring-2 ring-coral-500/30'
+          ? 'border-coral-400 bg-coral-50/50 dark:bg-coral-500/15 ring-2 ring-coral-500/30'
           : 'border-border bg-surface hover:border-coral-200'
       )}
     >

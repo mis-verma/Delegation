@@ -77,10 +77,14 @@ export const StatusRemarkDialog = ({
       size="lg"
       icon={<MessageSquareText className="w-5 h-5 text-primary-600" />}
       title="Add a remark"
-      description={description}
+      // Desktop-only: three lines of header on a phone for something the form itself makes clear.
+      description={<span className="hidden sm:inline">{description}</span>}
+      // Phones: header X instead of the footer Cancel, and the confirm button spans the sheet —
+      // same pattern as the New Delegation form.
+      closeButtonClassName="sm:hidden"
       footer={
         <div className="flex w-full justify-end gap-3">
-          <Button type="button" variant="outline" size="sm" onClick={onCancel}>
+          <Button type="button" variant="outline" size="sm" onClick={onCancel} className="hidden sm:inline-flex">
             Cancel
           </Button>
           <Button
@@ -90,6 +94,7 @@ export const StatusRemarkDialog = ({
             size="sm"
             isLoading={isSubmitting}
             disabled={isEmpty}
+            className="max-sm:w-full"
           >
             {confirmLabel}
           </Button>
@@ -105,11 +110,15 @@ export const StatusRemarkDialog = ({
               especially from a board drag, where the columns may already have scrolled away. A
               stronger border + tint than a plain neutral box, so this reads as the one thing the
               whole dialog is about rather than a quiet caption line. */}
-          <div className="flex items-center gap-2 flex-wrap px-3 py-2.5 rounded-xl border border-primary-200/60 dark:border-primary-800/40 bg-primary-50/40 dark:bg-primary-950/20">
+          {/* Opacity tints, not raw swatches: `dark:bg-primary-950/20` named a shade the palette
+              doesn't have (it stops at 900), so dark mode fell back to the light `bg-primary-50/40`
+              — a near-white wash over a dark sheet that made the chips on it unreadable. The title
+              gets its own line on phones instead of truncating beside the chips. */}
+          <div className="flex items-center gap-2 flex-wrap px-3 py-2.5 rounded-xl border border-primary-500/20 dark:border-primary-400/20 bg-primary-500/5 dark:bg-primary-500/10">
             {from}
             <ArrowRight size={13} strokeWidth={3} className="text-text-light shrink-0" />
             {to}
-            <span className="text-[11px] font-medium text-text-muted truncate min-w-0">{itemTitle}</span>
+            <span className="basis-full sm:basis-auto text-[11px] font-medium text-text-muted truncate min-w-0">{itemTitle}</span>
           </div>
         </div>
 
@@ -138,11 +147,11 @@ export const StatusRemarkDialog = ({
                 A remark is required to change the status.
               </p>
             ) : (
-              <p id="status-remark-hint" className="text-[11px] font-medium text-text-muted">
+              <p id="status-remark-hint" className="hidden sm:block text-[11px] font-medium text-text-muted">
                 Whoever picks this up next sees this on the timeline.
               </p>
             )}
-            <span className="shrink-0 text-[11px] font-semibold text-text-light tabular-nums">
+            <span className="shrink-0 ml-auto text-[11px] font-semibold text-text-light tabular-nums">
               {trimmed.length}/{MAX_REMARK}
             </span>
           </div>

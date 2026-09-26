@@ -47,7 +47,7 @@ export const StoreMultiSelect = ({ selected, onChange }: StoreMultiSelectProps) 
             className={cn(
               "group flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium cursor-pointer transition-colors duration-150",
               checked
-                ? "bg-primary-50 dark:bg-primary-950/40 text-primary-900 dark:text-primary-300"
+                ? "bg-primary-50 dark:bg-primary-500/15 text-primary-900 dark:text-primary-300"
                 : "text-text-secondary hover:bg-surface-hover hover:text-text"
             )}
           >

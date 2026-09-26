@@ -72,7 +72,7 @@ export const DepartmentSection = memo(({ node, isOpen, forceOpen, onToggle, show
       className={cn(
         'rounded-xl border overflow-hidden transition-colors duration-200',
         isDropTarget
-          ? 'border-primary-400 bg-primary-50/60 dark:bg-primary-950/30 ring-2 ring-primary-500/30'
+          ? 'border-primary-400 bg-primary-50/60 dark:bg-primary-500/15 ring-2 ring-primary-500/30'
           : 'border-border/70 bg-surface-hover/30 hover:border-primary-200 hover:bg-surface'
       )}
     >
