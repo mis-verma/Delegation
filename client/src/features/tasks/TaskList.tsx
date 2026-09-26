@@ -40,7 +40,9 @@ const VIEW_TABS: ViewTab<TaskViewKey>[] = TASK_VIEWS.map((key) => ({
   icon: TASK_VIEW_ICON[key],
   // Table/Timeline are dense, many-column layouts that need real width — hidden below `sm`,
   // same as Tickets' own view toggle. Board and List stay available at every size.
-  mobileHidden: key === 'table' || key === 'timeline',
+  // Phones get the card list only — Board's columns run off the screen edge, and Table/Timeline
+  // need width a phone doesn't have. ViewToggle falls back to List if one of these is active.
+  mobileHidden: key !== 'list',
 }));
 
 interface TaskListProps {
@@ -528,15 +530,12 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
                 <Fab
                   actions={[
                     { key: 'new', label: 'New Delegation', icon: Plus, onClick: () => setShowForm(true) },
-                    {
-                      key: 'smart',
-                      label: 'Smart Task',
-                      icon: Wand2,
-                      onClick: () => setShowSmartModal(true),
-                      disabled: !isVerifier,
-                      badge: !isVerifier ? 'Soon' : undefined,
-                    },
-                    ...(isVerifier ? [{ key: 'bulk-import', label: 'Bulk Import', icon: Upload, onClick: () => setShowBulkImport(true) }] : []),
+                    // Verifier-only, like Bulk Import — a disabled entry with a "Soon" badge was a
+                    // dead button in every regular user's menu.
+                    ...(isVerifier ? [
+                      { key: 'smart', label: 'Smart Task', icon: Wand2, onClick: () => setShowSmartModal(true) },
+                      { key: 'bulk-import', label: 'Bulk Import', icon: Upload, onClick: () => setShowBulkImport(true) },
+                    ] : []),
                   ]}
                 />
               </>
@@ -600,7 +599,11 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
           {/* View lives in the toolbar, not inside Options. It changes what the whole page looks
               like, so it reads as a place you are rather than a setting you went and configured —
               and unlike every other control here it isn't a way of narrowing the list. */}
-          <ViewToggle tabs={VIEW_TABS} value={view} onChange={changeView} />
+          {/* Hidden on phones (only List is available there), but still mounted: ViewToggle's own
+              effect is what switches a Board/Table/Timeline view back to List on a narrow screen. */}
+          <div className="hidden sm:block">
+            <ViewToggle tabs={VIEW_TABS} value={view} onChange={changeView} />
+          </div>
 
           {activeChips.length > 0 && (
             <div className="flex items-center gap-2 flex-wrap min-w-0">
@@ -690,10 +693,13 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
       )}
 
       {!isPending && !isError && isEmpty && (
+        // Phones get the compact one-line version: the full icon + heading + paragraph block took
+        // most of the screen to say "nothing here".
         <EmptyState
           icon={Inbox}
-          title={emptyTitle ?? 'No delegations found'}
-          description={activeCount > 0
+          size={isMobile ? 'compact' : undefined}
+          title={emptyTitle ?? (isMobile ? 'Nothing here' : 'No delegations found')}
+          description={isMobile ? undefined : activeCount > 0
             ? "No delegations match the current filters. Try adjusting or clearing them to see more."
             : (emptyDescription ?? "You're all caught up! There are no delegations assigned to this view.")}
           action={activeCount > 0 ? { label: 'Clear all filters', onClick: clearFilters } : undefined}

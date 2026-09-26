@@ -59,16 +59,12 @@ interface QuickFilterStatsProps<K extends string> {
   onClearFilter?: () => void;
 }
 
-// Phone row: equal-width cells, one per tile, never scrolls. Up to five fit one row at 360px;
-// six or more wrap to rows of three rather than shrinking cells below a readable width.
-const mobileColumns = (count: number) => (count <= 5 ? count : 3);
-
 /** Same grid, same tile boxes — so nothing reflows when the counts arrive. */
 const QuickFilterStatsSkeleton = ({ count, variant }: { count: number; variant: 'default' | 'navy' }) => (
   <>
-    <div className="grid sm:hidden gap-1" style={{ gridTemplateColumns: `repeat(${mobileColumns(count)}, minmax(0, 1fr))` }}>
+    <div className="grid sm:hidden grid-cols-2 gap-2.5">
       {Array.from({ length: count }).map((_, i) => (
-        <Skeleton key={i} className="h-[52px] rounded-xl" />
+        <Skeleton key={i} className={cn('h-[76px] rounded-2xl', i === 0 && count % 2 === 1 && 'col-span-2')} />
       ))}
     </div>
     <div className={cn(gridClass(count), 'hidden sm:grid')}>
@@ -133,13 +129,14 @@ export function QuickFilterStats<K extends string>({
 
   return (
     <>
-      {/* Mobile row — below `sm` this replaces the full card grid. Equal-width cells (count over
-          label) instead of a horizontally-scrolling pill strip: the strip always sliced its last
-          chip at the screen edge ("22 Du…"), which read as broken. Same filter behavior and colors.
-          Desktop/tablet keep the full card grid untouched. */}
-      <div className="grid sm:hidden gap-1" style={{ gridTemplateColumns: `repeat(${mobileColumns(shownTiles.length)}, minmax(0, 1fr))` }}>
+      {/* Mobile grid — below `sm` this replaces the full card grid. Same tile language as the
+          Dashboard's KPI tiles: two across, icon + label on top, the count big underneath. With an
+          odd tile count the lead (Total) tile takes the full row so the rest pair up evenly.
+          Replaced a horizontally-scrolling pill strip that always sliced its last chip at the
+          screen edge. Same filter behavior and colors. Desktop/tablet keep the full cards. */}
+      <div className="grid sm:hidden grid-cols-2 gap-2.5">
         {shownTiles.map((tile, index) => {
-          const { key, label, bgTint, accentBorder } = tile;
+          const { key, label, icon: Icon, bgTint, accentBorder, ring, iconTint } = tile;
           const isTotalTile = hasTotal && key === 'all';
           const isActive = isTotalTile ? active === null : active === key;
           const count = isTotalTile ? total : counts[key as K];
@@ -157,8 +154,9 @@ export function QuickFilterStats<K extends string>({
               aria-pressed={isActive}
               aria-label={purpose}
               className={cn(
-                'flex flex-col items-center justify-center gap-1 min-h-[52px] px-0.5 rounded-xl border font-display transition-colors duration-200 cursor-pointer active:scale-[0.97]',
+                'flex flex-col gap-2 p-3 rounded-2xl border text-left font-display transition-colors duration-200 cursor-pointer active:scale-[0.97]',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
+                index === 0 && shownTiles.length % 2 === 1 && 'col-span-2',
                 isHero
                   ? 'border-transparent bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700 text-white'
                   : isActive
@@ -166,8 +164,18 @@ export function QuickFilterStats<K extends string>({
                     : 'border-border bg-surface text-text-secondary',
               )}
             >
-              <span className={cn('text-base font-bold tabular-nums leading-none', isHero ? 'text-white' : 'text-text')}>{count}</span>
-              <span className={cn('max-w-full line-clamp-2 text-center text-[10px] font-semibold tracking-tight leading-tight', isHero ? 'text-white/80' : isActive ? 'text-text' : 'text-text-muted')}>{label}</span>
+              <span className="flex items-center gap-2 min-w-0">
+                <span
+                  className={cn(
+                    'flex items-center justify-center size-6 rounded-lg shrink-0',
+                    isHero ? 'bg-white/15' : cn('border', bgTint, ring),
+                  )}
+                >
+                  <Icon size={13} strokeWidth={2.5} className={isHero ? 'text-white' : iconTint} />
+                </span>
+                <span className={cn('text-xs font-semibold truncate', isHero ? 'text-white/85' : isActive ? 'text-text' : 'text-text-muted')}>{label}</span>
+              </span>
+              <span className={cn('text-2xl font-bold tabular-nums leading-none', isHero ? 'text-white' : 'text-text')}>{count}</span>
             </button>
           );
         })}

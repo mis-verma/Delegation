@@ -136,7 +136,8 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
       // Says what the two panes are, in the order they're read: what the work is, then who and
       // when. The old copy ("Define objectives, set priorities…") described the act of filling
       // a form rather than telling anyone anything.
-      description="Describe the work, then set who owns it and by when."
+      // Desktop-only: on a phone this sentence cost two lines of an already-tight sheet.
+      description={<span className="hidden sm:inline">Describe the work, then set who owns it and by when.</span>}
       // One scrollbar for the whole body instead of a separate one per pane. Two nested scroll
       // areas meant fields below the fold in the sidebar (Department, Labels) were reachable only
       // by scrolling inside a region with no visible affordance — so they read as missing.
@@ -154,7 +155,8 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
         <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between w-full gap-3">
           {/* Only the title is mandatory, so say so once here instead of leaving people to
               discover it by submitting. */}
-          <p className="text-xs font-medium text-text-light">
+          {/* Desktop-only — the red * on the title label already says it on a phone. */}
+          <p className="hidden sm:block text-xs font-medium text-text-light">
             <span className="text-danger">*</span> Title is required — everything else can be added later.
           </p>
 
@@ -164,7 +166,9 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
               "Cancel"/"Save as draft" looked identical (nothing set them apart in emphasis).
               Button's own outline/secondary/primary variants already express exactly that
               hierarchy, and isLoading already swaps in the spinner — no need to hand-roll either. */}
-          <div className="flex items-center justify-end gap-3">
+          {/* Phones: three equal-width buttons across the sheet (thumb-sized, nothing floating off to
+              one side); desktop keeps them right-aligned at natural width. */}
+          <div className="grid grid-cols-3 sm:flex sm:items-center sm:justify-end gap-2 sm:gap-3">
             <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={isBusy} className="font-display">
               Cancel
             </Button>
@@ -182,7 +186,7 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
               className="font-display"
             >
               {!isDraftBusy && <FileEdit size={14} strokeWidth={2.5} />}
-              {isDraftBusy ? 'Saving…' : 'Save as draft'}
+              {isDraftBusy ? 'Saving…' : <><span className="sm:hidden">Draft</span><span className="hidden sm:inline">Save as draft</span></>}
             </Button>
             {/* "Create", not "Create delegation" — the narrower modal wrapped the longer label
                 onto two lines, which made the button taller than Cancel beside it. The icon
@@ -216,12 +220,15 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
         noValidate
         aria-busy={isBusy}
       >
-        <div className="flex flex-col gap-7 p-5">
-          <section className="flex flex-col gap-5">
-            <h3 className={SECTION_TITLE_CLASS}>
-              <ClipboardList size={14} />
-              The work
-            </h3>
+        <div className="flex flex-col gap-5 sm:gap-7 p-4 sm:p-5">
+          <section className="flex flex-col gap-4 sm:gap-5">
+            {/* Section headings are desktop-only — on a phone every field already has its own label. */}
+            <div className="hidden sm:block">
+              <h3 className={SECTION_TITLE_CLASS}>
+                <ClipboardList size={14} />
+                The work
+              </h3>
+            </div>
 
             <Input
               id="title"
@@ -266,17 +273,19 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
             />
           </section>
 
-          <section className="flex flex-col gap-5">
-            <h3 className={SECTION_TITLE_CLASS}>
-              <UserCheck size={14} />
-              Assignment
-            </h3>
+          <section className="flex flex-col gap-4 sm:gap-5">
+            <div className="hidden sm:block">
+              <h3 className={SECTION_TITLE_CLASS}>
+                <UserCheck size={14} />
+                Assignment
+              </h3>
+            </div>
 
             {/* Two-up from sm. These five are all short controls; stacked one per row they made a
                 long ribbon of half-empty lines, and the modal taller than it needs to be. Pairing
                 them also puts each label at the same height as its neighbour, which is the "equal
                 alignment" the two-pane version could never give. */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-4 sm:gap-y-6">
               <AssigneeField
                 selectedIds={assigneeIds}
                 onChange={setAssigneeIds}
