@@ -59,13 +59,16 @@ interface QuickFilterStatsProps<K extends string> {
   onClearFilter?: () => void;
 }
 
-/** Same grid, same tile boxes — so nothing reflows when the counts arrive. Desktop/tablet only;
- * see QuickFilterStatsSkeleton's own comment for the mobile strip's matching placeholder. */
+// Phone row: equal-width cells, one per tile, never scrolls. Up to five fit one row at 360px;
+// six or more wrap to rows of three rather than shrinking cells below a readable width.
+const mobileColumns = (count: number) => (count <= 5 ? count : 3);
+
+/** Same grid, same tile boxes — so nothing reflows when the counts arrive. */
 const QuickFilterStatsSkeleton = ({ count, variant }: { count: number; variant: 'default' | 'navy' }) => (
   <>
-    <div className="flex sm:hidden items-center gap-2 overflow-x-auto no-scrollbar -mx-4 px-4">
+    <div className="grid sm:hidden gap-1" style={{ gridTemplateColumns: `repeat(${mobileColumns(count)}, minmax(0, 1fr))` }}>
       {Array.from({ length: count }).map((_, i) => (
-        <Skeleton key={i} className="h-9 w-24 rounded-full shrink-0" />
+        <Skeleton key={i} className="h-[52px] rounded-xl" />
       ))}
     </div>
     <div className={cn(gridClass(count), 'hidden sm:grid')}>
@@ -130,12 +133,11 @@ export function QuickFilterStats<K extends string>({
 
   return (
     <>
-      {/* Combined mobile strip — below `sm` this row replaces the full card grid below it, not
-          just a smaller version of it. Four-plus full cards (each with its own icon tile, label,
-          and count) ran two-plus rows deep before a phone ever reached the actual list, so this
-          collapses every tile into one line of small pill chips instead — same filter behavior,
-          same colors, a fraction of the height. Desktop/tablet keep the full card grid untouched. */}
-      <div className="flex sm:hidden items-center gap-2 overflow-x-auto no-scrollbar -mx-4 px-4">
+      {/* Mobile row — below `sm` this replaces the full card grid. Equal-width cells (count over
+          label) instead of a horizontally-scrolling pill strip: the strip always sliced its last
+          chip at the screen edge ("22 Du…"), which read as broken. Same filter behavior and colors.
+          Desktop/tablet keep the full card grid untouched. */}
+      <div className="grid sm:hidden gap-1" style={{ gridTemplateColumns: `repeat(${mobileColumns(shownTiles.length)}, minmax(0, 1fr))` }}>
         {shownTiles.map((tile, index) => {
           const { key, label, bgTint, accentBorder } = tile;
           const isTotalTile = hasTotal && key === 'all';
@@ -155,17 +157,17 @@ export function QuickFilterStats<K extends string>({
               aria-pressed={isActive}
               aria-label={purpose}
               className={cn(
-                'shrink-0 flex items-center gap-1.5 h-9 pl-3 pr-3.5 rounded-full border text-xs font-display font-semibold whitespace-nowrap transition-colors duration-200 cursor-pointer',
+                'flex flex-col items-center justify-center gap-1 min-h-[52px] px-0.5 rounded-xl border font-display transition-colors duration-200 cursor-pointer active:scale-[0.97]',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
                 isHero
-                  ? 'border-transparent bg-primary-800 text-white'
+                  ? 'border-transparent bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700 text-white'
                   : isActive
                     ? `${accentBorder} ${bgTint} text-text`
-                    : 'border-border text-text-secondary hover:border-border-hover hover:text-text',
+                    : 'border-border bg-surface text-text-secondary',
               )}
             >
-              <span className={cn('tabular-nums font-bold', isHero && 'text-white')}>{count}</span>
-              <span className={cn(isHero ? 'text-white/80' : isActive ? 'text-text' : 'text-text-muted')}>{label}</span>
+              <span className={cn('text-base font-bold tabular-nums leading-none', isHero ? 'text-white' : 'text-text')}>{count}</span>
+              <span className={cn('max-w-full line-clamp-2 text-center text-[10px] font-semibold tracking-tight leading-tight', isHero ? 'text-white/80' : isActive ? 'text-text' : 'text-text-muted')}>{label}</span>
             </button>
           );
         })}

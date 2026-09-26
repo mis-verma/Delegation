@@ -103,9 +103,20 @@ const TaskListViewComponent = ({
                 )}
                 {/* No truncate — this was cutting titles down to a handful of words ("Security
                     camera offline since ...") on a narrow phone card. Wraps instead. */}
-                <span className="text-sm font-bold text-text-secondary tracking-tight leading-snug">
+                <span className="flex-1 min-w-0 text-sm font-bold text-text-secondary tracking-tight leading-snug">
                   {task.title}
                 </span>
+                {/* Phones: due date top-right beside the title, mail-app style — in the chip row
+                    below it wrapped onto a line of its own whenever the department name was long. */}
+                {fields.dueDate && task.dueDate && (
+                  <span
+                    className={`sm:hidden self-start shrink-0 pt-px text-[11px] font-semibold tabular-nums ${
+                      overdue ? 'text-danger' : 'text-text-muted'
+                    }`}
+                  >
+                    {dueLabel(task.dueDate)}
+                  </span>
+                )}
               </div>
               {/* The reference layout also puts a task code and a comment count on this line.
                   Neither exists yet: ids are cuids with no short human code, and the list payload
@@ -145,7 +156,7 @@ const TaskListViewComponent = ({
 
               {fields.dueDate && task.dueDate && (
                 <span
-                  className={`text-[11px] font-semibold tabular-nums ${
+                  className={`hidden sm:inline text-[11px] font-semibold tabular-nums ${
                     overdue ? 'text-danger' : 'text-text-muted'
                   }`}
                 >
