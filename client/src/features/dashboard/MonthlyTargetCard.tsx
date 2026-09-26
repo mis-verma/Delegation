@@ -62,10 +62,9 @@ const TONE_HALO: Record<RateTone, string> = {
 };
 
 export const MonthlyTargetCard = ({ percent, total, change, description, stats, period, onPeriodChange }: MonthlyTargetCardProps) => {
-  // 220px on desktop. On phones the gauge shares its row with the Target/Resolved/Pending list, so
-  // it's sized to leave that list a usable column.
+  // 220px on desktop; 180 on phones, where the gauge is the card's only content.
   const isMobile = useIsMobile();
-  const gaugeSize = isMobile ? 132 : 220;
+  const gaugeSize = isMobile ? 180 : 220;
   const tone = rateTone(percent, total);
 
   // pointDelta always signs its label ("+0.0%"), so an unchanged score has to be detected
@@ -96,7 +95,7 @@ export const MonthlyTargetCard = ({ percent, total, change, description, stats, 
       <div className="absolute -top-24 -right-24 w-48 h-48 bg-primary-500/15 dark:bg-primary-500/10 rounded-full blur-[60px] pointer-events-none transition-opacity duration-500 group-hover:opacity-100 opacity-60" />
 
       {/* Header */}
-      <div className="relative flex flex-col sm:flex-row sm:items-start justify-between gap-4 z-10">
+      <div className="relative flex items-center sm:items-start justify-between gap-3 sm:gap-4 z-10">
         <div className="flex gap-3 items-center">
           <EntityIconTile icon={Target} />
           <div>
@@ -109,25 +108,47 @@ export const MonthlyTargetCard = ({ percent, total, change, description, stats, 
           </div>
         </div>
 
-        <PeriodTabControl
-          value={period}
-          options={COMPLIANCE_PERIOD_OPTIONS}
-          labels={PERIOD_TAB_LABEL}
-          onChange={onPeriodChange}
-          className="w-full sm:w-auto"
-        />
+        <div className="hidden sm:block">
+          <PeriodTabControl
+            value={period}
+            options={COMPLIANCE_PERIOD_OPTIONS}
+            labels={PERIOD_TAB_LABEL}
+            onChange={onPeriodChange}
+            className="w-auto"
+          />
+        </div>
+
+        {/* Phones: a compact D/W/M/Y switch beside the title instead of a full-width tab bar on a
+            row of its own. Full names stay on aria-label/title. */}
+        <div role="radiogroup" aria-label="Period" className="sm:hidden flex items-center gap-0.5 p-0.5 rounded-lg border border-border/60 bg-surface-hover/50 shrink-0">
+          {COMPLIANCE_PERIOD_OPTIONS.map((option) => {
+            const active = option === period;
+            return (
+              <button
+                key={option}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                aria-label={PERIOD_TAB_LABEL[option]}
+                title={PERIOD_TAB_LABEL[option]}
+                onClick={() => onPeriodChange(option)}
+                className={`flex items-center justify-center size-8 rounded-md text-xs font-display font-bold transition-colors duration-150 cursor-pointer ${
+                  active ? 'bg-surface text-primary-700 dark:text-primary-300 border border-border/60' : 'text-text-muted active:bg-surface'
+                }`}
+              >
+                {PERIOD_TAB_LABEL[option][0]}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Body Layout Split. Gauge + description share one row at every width now — stacking them
-          centered on a phone left the circle floating with a wide blank gutter either side of it
-          (the card is the full viewport width; the gauge isn't). Pairing it with the description
-          like every icon+text row elsewhere on this dashboard fills that width instead of leaving
-          it empty — the mobile gauge size shrank too, so that text column has real room to wrap
-          in. Stats grid drops to its own full-width row below, which also means it isn't squeezed
-          into the leftover column next to the gauge on wide screens anymore — each tile gets the
-          card's whole width to spread across. */}
+      {/* Body: gauge + description in one row on desktop, stats grid on its own full-width row
+          below so each tile gets the card's whole width. Phones show the gauge alone. */}
       <div className="relative z-10 flex flex-col gap-5">
-        <div className="flex items-center gap-4 @lg:gap-6">
+        {/* Phones: just the gauge, centered — the score and its trend badge are the whole point
+            of this card at a glance; Target/Resolved/Pending and the sentence stay on desktop. */}
+        <div className="flex items-center justify-center sm:justify-start gap-4 @lg:gap-6">
           {/* Gauge — the halo behind it is the tone signal (see TONE_HALO's comment); the ring
               stroke itself stays brand navy. */}
           <div className="relative shrink-0">
@@ -139,8 +160,8 @@ export const MonthlyTargetCard = ({ percent, total, change, description, stats, 
               {/* Tone-colored, not a flat `text-text` — the headline number now reads as weak/
                   on-track/strong at a glance, the same three-tier language the Compliance gauges'
                   accents already use, instead of only the small trend badge below it carrying color. */}
-              <span className={`text-3xl sm:text-5xl font-display font-bold tracking-tight tabular-nums transition-colors duration-500 ${TONE_TEXT[tone]}`}>
-                {percent}<span className="text-xl sm:text-3xl">%</span>
+              <span className={`text-4xl sm:text-5xl font-display font-bold tracking-tight tabular-nums transition-colors duration-500 ${TONE_TEXT[tone]}`}>
+                {percent}<span className="text-2xl sm:text-3xl">%</span>
               </span>
               <Badge variant={changeVariant} className={`text-[11px] ${changeClassName}`}>
                 <ChangeIcon size={12} strokeWidth={3} />
@@ -152,23 +173,6 @@ export const MonthlyTargetCard = ({ percent, total, change, description, stats, 
           <p className="hidden sm:block flex-1 min-w-0 text-sm font-medium text-text-muted leading-relaxed">
             {description}
           </p>
-
-          {/* Phones: the three stats sit beside the gauge as a plain list instead of three
-              full-width boxes stacked under it — same numbers, a third of the height. */}
-          <dl className="sm:hidden flex-1 min-w-0 flex flex-col divide-y divide-border/50">
-            {stats.map((stat) => {
-              const TrendIcon = stat.direction === 'flat' ? Minus : stat.direction === 'up' ? ArrowUp : ArrowDown;
-              return (
-                <div key={stat.label} className="flex items-center justify-between gap-2 py-2 first:pt-0 last:pb-0">
-                  <dt className="text-xs font-medium text-text-muted">{stat.label}</dt>
-                  <dd className="inline-flex items-center gap-1 text-base font-display font-bold text-text tabular-nums">
-                    {stat.value}
-                    <TrendIcon size={13} strokeWidth={3} className={STAT_SENTIMENT[stat.sentiment]} />
-                  </dd>
-                </div>
-              );
-            })}
-          </dl>
         </div>
 
         <div className="hidden sm:grid grid-cols-1 @sm:grid-cols-3 gap-3">

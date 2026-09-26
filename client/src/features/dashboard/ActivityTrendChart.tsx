@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Cell } from 'recharts';
-import { BarChart3, ChevronRight, Plus } from 'lucide-react';
+import { BarChart3, ChevronRight, Plus, X } from 'lucide-react';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { PinnedBreakdown, BreakdownHint } from './PinnedBreakdown';
 import { DrilldownModal } from './DrilldownModal';
@@ -143,6 +143,54 @@ const makeTotalLabel = (data: readonly ActivityDatum[], activeOrder: readonly Ac
     );
   };
 
+// Phone version of the tap-to-pin breakdown: one line of chips (only non-zero categories), not a
+// titled panel of 44px rows — that panel plus the touch tooltip took more height than the chart.
+const CompactBreakdown = ({
+  datum,
+  activeCategories,
+  onCategoryClick,
+  onClose,
+}: {
+  datum: ActivityDatum;
+  activeCategories: ReadonlySet<ActivityCategory>;
+  onCategoryClick: (category: ActivityCategory) => void;
+  onClose: () => void;
+}) => {
+  const shown = ACTIVITY_CATEGORY_ORDER.filter((c) => activeCategories.has(c) && datum[c] > 0);
+  const total = shown.reduce((sum, c) => sum + datum[c], 0);
+  return (
+    <div role="status" className="flex items-center gap-2 animate-in fade-in slide-in-from-top-1 duration-150">
+      <span className="shrink-0 text-xs font-display font-bold text-text tabular-nums">
+        {datum.label} <span className="text-text-muted font-medium">· {total}</span>
+      </span>
+      <div className="flex flex-1 min-w-0 flex-wrap gap-1.5">
+        {shown.length === 0 ? (
+          <span className="text-xs font-medium text-text-muted">Nothing logged</span>
+        ) : shown.map((category) => (
+          <button
+            key={category}
+            type="button"
+            onClick={() => onCategoryClick(category)}
+            className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-full border border-border/60 bg-surface text-[11px] font-display font-semibold text-text-secondary active:bg-surface-hover transition-colors duration-150 cursor-pointer"
+          >
+            <span aria-hidden="true" className="size-1.5 rounded-full shrink-0" style={{ backgroundColor: ACTIVITY_CATEGORY_COLOR[category] }} />
+            {ACTIVITY_CATEGORY_LABEL[category]}
+            <span className="font-bold text-text tabular-nums">{datum[category]}</span>
+          </button>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close breakdown"
+        className="shrink-0 flex items-center justify-center size-8 rounded-full text-text-muted active:bg-surface-hover cursor-pointer"
+      >
+        <X size={14} strokeWidth={2.5} />
+      </button>
+    </div>
+  );
+};
+
 const ChartTooltip = ({ active, payload, activeCategories }: ChartTooltipProps) => {
   const datum = payload?.[0]?.payload;
   if (!active || !datum) return null;
@@ -199,6 +247,19 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [drilldownCategory, setDrilldownCategory] = useState<ActivityCategory | null>(null);
   const isMobile = useIsMobile();
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // Phones: a tap anywhere outside the chart dismisses the pinned breakdown straight away, instead
+  // of it staying up until the same bar is tapped again. Skipped while the drill-down modal is open
+  // — it renders in a portal outside rootRef and needs `selectedIndex` to stay set.
+  useEffect(() => {
+    if (!isMobile || selectedIndex === null || drilldownCategory) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setSelectedIndex(null);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [isMobile, selectedIndex, drilldownCategory]);
 
   // Bucket indices mean something different per granularity (e.g. index 3 of 7 days vs. index 3
   // of 4 quarters) — clear any pinned selection rather than let it silently point at the wrong
@@ -255,7 +316,7 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
   const cellOpacity = (i: number) => (selectedIndex === null || i === selectedIndex ? 1 : 0.25);
 
   return (
-    <div className="flex flex-col gap-4 w-full">
+    <div ref={rootRef} className="flex flex-col gap-3 sm:gap-4 w-full">
       {/* The inline "Completion" bar that used to live here is gone — that number now has its own
           proper home in the Compliance card's ring gauge, so it doesn't need a second, redundant
           restatement squeezed above the chart. */}
@@ -279,8 +340,11 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
             margin={{ top: 24, right: 10, left: 0, bottom: 0 }}
             barCategoryGap="40%"
             onClick={(state) => {
-              const index = state?.activeTooltipIndex;
-              if (typeof index === 'number') setSelectedIndex((prev) => (prev === index ? null : index));
+              // Recharts 3 reports this as a string ("3"), not a number — the old
+              // `typeof === 'number'` check never passed, so tapping a bar pinned nothing.
+              const raw = state?.activeTooltipIndex;
+              const index = raw == null ? NaN : Number(raw);
+              if (Number.isInteger(index)) setSelectedIndex((prev) => (prev === index ? null : index));
             }}
           >
             {/* Added a subtle grid to anchor the data visually */}
@@ -329,9 +393,13 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
               />
             )}
 
+            {/* Stays mounted on phones but renders nothing there — the chart's onClick reads
+                `activeTooltipIndex`, which Recharts only tracks while a Tooltip exists. On touch the
+                visible tooltip popped up on tap and lingered on top of the chart, duplicating the
+                pinned breakdown below. */}
             <Tooltip
-              cursor={<NarrowCursor />}
-              content={(props) => <ChartTooltip {...props} activeCategories={activeCategories} />}
+              cursor={isMobile ? false : <NarrowCursor />}
+              content={(props) => (isMobile ? null : <ChartTooltip {...props} activeCategories={activeCategories} />)}
               isAnimationActive={false} // Prevents jitter on fast hovering
             />
 
@@ -391,7 +459,14 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
           it works on touch devices (no hover) and doesn't disappear the moment a finger lifts.
           Its rows are clickable here (never on the hover tooltip — see BreakdownRows) since a
           pinned panel actually stays put long enough to be clicked. */}
-      {selectedDatum ? (
+      {selectedDatum && isMobile ? (
+        <CompactBreakdown
+          datum={selectedDatum}
+          activeCategories={activeCategories}
+          onCategoryClick={setDrilldownCategory}
+          onClose={() => setSelectedIndex(null)}
+        />
+      ) : selectedDatum ? (
         <PinnedBreakdown title={selectedDatum.label} onClose={() => setSelectedIndex(null)}>
           <BreakdownRows datum={selectedDatum} activeCategories={activeCategories} onCategoryClick={setDrilldownCategory} />
         </PinnedBreakdown>

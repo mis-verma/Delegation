@@ -239,7 +239,9 @@ export const RecentActivity = ({ feed, isPending }: RecentActivityProps) => {
             detail={<>Nothing here matches &ldquo;{query}&rdquo;.</>}
           />
         ) : (
-          <div className="flex flex-col divide-y divide-border/40">
+          // Phones: separate bordered list cards with a gap (same row language as Needs your
+          // approval above it); from `sm` up, the original flush divided list.
+          <div className="flex flex-col gap-2 p-3 sm:p-0 sm:gap-0 sm:divide-y divide-border/40">
             {paged.map((item) => {
               const isTicket = item.kind === 'ticket';
               const isFresh = now - new Date(item.createdAt).getTime() < FRESH_WINDOW_MS;
@@ -261,7 +263,7 @@ export const RecentActivity = ({ feed, isPending }: RecentActivityProps) => {
                   // table to go find the thing you'd just clicked.
                   to={isTicket ? `/tickets?open=${item.id}` : `/tasks?open=${item.id}`}
                   aria-label={`${item.title} — ${isTicket ? 'ticket' : 'delegation'}, ${pillLabel}, ${formatRelativeTime(item.createdAt)}`}
-                  className="group/row flex items-center justify-between gap-3 sm:gap-0 px-4 sm:px-5 py-2.5 sm:py-3.5 hover:bg-surface-hover/80 active:bg-surface-hover transition-all duration-300 relative overflow-hidden focus:outline-none focus-visible:bg-surface-hover focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40"
+                  className="group/row flex items-center justify-between gap-3 sm:gap-0 px-3 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-none border border-border/60 dark:border-white/[0.06] sm:border-0 bg-surface sm:bg-transparent hover:bg-surface-hover/80 active:bg-surface-hover transition-all duration-300 relative overflow-hidden focus:outline-none focus-visible:bg-surface-hover focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40"
                 >
                   {/* Animated Left Accent Line */}
                   <div aria-hidden="true" className="absolute left-0 top-0 bottom-0 w-1 bg-primary-500 transform -translate-x-full group-hover/row:translate-x-0 transition-transform duration-300 ease-out" />

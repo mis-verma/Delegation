@@ -62,6 +62,10 @@ const USER_QUICK_ACTIONS: readonly QuickAction[] = [
   { to: '/events', icon: CalendarDays, label: 'Events', description: 'Upcoming deadlines' },
 ];
 
+// Phones drop Quick actions (links already one tap away in the bottom nav) and Team's progress
+// (its To do/In progress/Done split repeats the Delegation tile and Delegation Score above it).
+const MOBILE_HIDDEN_CARDS: ReadonlySet<DashboardCardId> = new Set(['quickActions', 'teamProgress']);
+
 export const HomePage = () => {
   const { user } = useAuth();
   const isOrgWideRole = user?.role === 'ADMIN' || user?.role === 'PC';
@@ -92,7 +96,11 @@ export const HomePage = () => {
   // Defaulting to "month" made every completion-scoped widget open on a near-empty bucket for
   // anyone early in the calendar month — "week" is far more likely to have something in it on
   // first paint, without changing what any of the tabs themselves compute.
-  const [period, setPeriod] = useState<CompliancePeriod>('week');
+  // Phones open on "day" instead — Delegation Score is just its gauge there, and "how am I doing
+  // today" is the glance question; the D/W/M/Y switch beside it reaches the wider windows.
+  const [period, setPeriod] = useState<CompliancePeriod>(() =>
+    window.matchMedia('(max-width: 767px)').matches ? 'day' : 'week',
+  );
   const [comparePeriod, setComparePeriod] = useState<CompliancePeriod>('week');
   const [activityGroupBy, setActivityGroupBy] = useState<ActivityGroupBy>('day');
   // All four kinds on by default — toggling one off in the Activity Overview filter narrows both
@@ -294,7 +302,7 @@ export const HomePage = () => {
     }
   };
 
-  const visibleCardOrder = isMobile ? cardOrder.filter((id) => id !== 'quickActions') : cardOrder;
+  const visibleCardOrder = isMobile ? cardOrder.filter((id) => !MOBILE_HIDDEN_CARDS.has(id)) : cardOrder;
 
   return (
     // Sections breathe wider than the cards inside them (gap-6/8 out here vs. gap-4/6 within each
@@ -348,11 +356,9 @@ export const HomePage = () => {
           three separately-gated grid blocks (Compliance and Compare Dashboard simply aren't in
           the array for anyone who isn't ADMIN/PC), so one grid replaces what were three.
 
-          `visibleCardOrder` additionally drops Quick actions on mobile — it's a grid of links to
-          pages already one tap away in the sidebar/bottom nav, and on a phone it pushed the
-          Activity Overview chart (the thing actually worth seeing at a glance) below the fold.
-          Desktop keeps it; `cardOrder` itself (what Customize/drag actually operates on and what
-          persists) is untouched, so this is purely what gets rendered on a narrow screen. */}
+          `visibleCardOrder` additionally drops MOBILE_HIDDEN_CARDS on a phone. `cardOrder` itself
+          (what Customize/drag actually operates on and what persists) is untouched, so this is
+          purely what gets rendered on a narrow screen. */}
       <DndContext
         sensors={dragSensors}
         collisionDetection={closestCenter}
