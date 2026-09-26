@@ -50,8 +50,10 @@ export const ActivityTimeline = ({ entityType, entityId, limit = 20 }: ActivityT
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="flex items-center gap-2 text-sm font-display font-bold text-text">
-          <History size={16} className="text-primary-600 dark:text-primary-400" strokeWidth={2.5} />
+        {/* Phones: same quiet label as the detail sheets' other section headings (Description,
+            Progress) — the bold dark heading with a colored icon was the one that didn't match. */}
+        <h3 className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-display font-medium sm:font-bold text-text-muted sm:text-text">
+          <History size={14} className="text-text-light sm:text-primary-600 sm:dark:text-primary-400 sm:size-4" strokeWidth={2.5} />
           <span>Activity</span>
         </h3>
         {!isPending && !isError && rows.length > 0 && (

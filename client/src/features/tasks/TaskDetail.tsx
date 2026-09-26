@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { CheckSquare, Loader2, ChevronRight, CheckCircle2, ShieldCheck, Trash2, SquarePen, Users, CalendarDays, Flag, Building2, Check, Milestone, AlignLeft } from 'lucide-react';
-import { Modal, Button, DateRangePicker, Input, ActivityTimeline, DepartmentChip } from '../../components';
+import { Modal, Button, DateRangePicker, ActivityTimeline, DepartmentChip } from '../../components';
 import { IconChip } from '../../components/iconChip';
 import type { DateRangeValue } from '../../components';
 import { Badge } from '../../components/ui/badge';
@@ -21,7 +21,6 @@ import { TaskStatusRemarkDialog } from './TaskStatusRemarkDialog';
 import { taskAssigneeIds } from './cardFields';
 import { ReviewersField } from '../reviewers/ReviewersField';
 import { useAuth } from '../../context/AuthContext';
-import { SECTION_LABEL_CLASS, SECTION_TITLE_CLASS } from './taskFormFieldStyles';
 import type { Task, UpdateTaskPayload } from '../../api/task';
 
 
@@ -35,17 +34,22 @@ const TitleEditor = ({ value, disabled, onSave, isViewMode }: { value: string, d
   }
 
   if (isViewMode) {
-    return <h2 className="text-lg md:text-xl font-semibold text-text px-3 py-2 -ml-3">{value}</h2>;
+    return <h2 className="text-lg md:text-xl font-semibold text-text leading-snug px-3 py-1 -ml-3">{value}</h2>;
   }
 
+  // A textarea that grows with its content (field-sizing), not a one-line Input — on a phone a
+  // longer title was cut off at the input's edge. Enter still saves rather than adding a newline.
   return (
-    <Input
+    <textarea
       value={title}
+      rows={1}
       onChange={(e) => setTitle(e.target.value)}
       onBlur={() => onSave(title)}
+      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); } }}
       disabled={disabled}
       placeholder="Delegation title"
-      className="text-lg md:text-xl font-semibold w-full h-auto px-3 py-2 -ml-3 rounded-md border-0 bg-transparent text-text outline-none transition-all focus:ring-2 focus:ring-primary-500/30 disabled:opacity-70"
+      aria-label="Delegation title"
+      className="block text-lg md:text-xl font-semibold leading-snug w-full px-3 py-1 -ml-3 rounded-md border-0 bg-transparent text-text resize-none [field-sizing:content] outline-none transition-all focus:bg-surface-hover/50 focus:ring-2 focus:ring-primary-500/30 disabled:opacity-70"
     />
   );
 };
@@ -74,6 +78,21 @@ const PlainDescriptionEditor = ({ value, disabled, onSave, toolbar, children }: 
   if (value !== prevValue) {
     setPrevValue(value);
     setDesc(value);
+  }
+
+  // Read-only: plain text, not a disabled textarea — the empty box with a resize handle read as a
+  // broken form field in view mode. (TaskDetail puts the attach buttons on the heading row then.)
+  if (disabled) {
+    return (
+      <div className="flex flex-col gap-3">
+        {value.trim() ? (
+          <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap break-words">{value}</p>
+        ) : (
+          <p className="text-sm text-text-light">No description</p>
+        )}
+        {children}
+      </div>
+    );
   }
 
   return (
@@ -291,8 +310,8 @@ const TaskStatusStepper = ({ task }: { task: Task }) => {
 
   return (
     <section className="flex flex-col gap-3">
-      <h3 className={SECTION_LABEL_CLASS}>
-        <Milestone size={13} className="text-text-light" />
+      <h3 className={DETAIL_HEADING_CLASS}>
+        <Milestone size={14} className="text-text-light" />
         Progress
       </h3>
 
@@ -370,6 +389,15 @@ const PROPERTY_ROW_LABEL_CLASS = 'flex items-center gap-1.5 sm:gap-2 w-full sm:w
 // Label above value on phones (a cell in a 2-column grid), label beside value from `sm` up.
 const PROPERTY_ROW_CLASS = 'flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 min-w-0';
 
+// Description / Progress headings — same size, weight and color as the property labels above them,
+// so every label in the sheet reads as one system (they were three different styles).
+const DETAIL_HEADING_CLASS = 'flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium text-text-muted sm:text-text-secondary';
+
+// Edit-mode pickers on phones look like fields (tinted, padded) — bare borderless text there didn't
+// read as tappable. From `sm` up they stay the inline, borderless value the desktop list uses.
+const EDIT_PICKER_TRIGGER_CLASS =
+  'w-full sm:w-auto h-10 sm:h-auto px-3 sm:p-0 rounded-lg border-0 shadow-none bg-surface-hover/50 sm:bg-transparent justify-start text-sm focus:ring-0';
+
 const formatRangeDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 
 interface TaskEditLayoutProps {
@@ -397,8 +425,11 @@ const TaskEditLayout = ({
 }: TaskEditLayoutProps) => {
   const { user } = useAuth();
   return (
-  <div className="relative flex-1 min-h-0">
-    <div className="h-full overflow-y-auto no-scrollbar flex flex-col gap-4 sm:gap-5 p-4 sm:p-6 max-w-2xl mx-auto w-full">
+  // flex-col + flex-1 on the scroller, not `h-full`: on phones the percentage height didn't resolve
+  // against this flex item, so the scroller grew to its full content height and the sheet's
+  // overflow-hidden clipped it — Progress/Activity below the description couldn't be reached.
+  <div className="relative flex-1 min-h-0 flex flex-col">
+    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain no-scrollbar flex flex-col gap-4 sm:gap-5 p-4 sm:p-6 max-w-2xl mx-auto w-full">
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <TitleEditor value={task.title} isViewMode={isViewOnly} disabled={isViewOnly} onSave={onSaveTitle} />
@@ -479,7 +510,7 @@ const TaskEditLayout = ({
                 startDate: range.from ? range.from.toISOString() : undefined,
                 dueDate: range.to ? range.to.toISOString() : undefined,
               })}
-              triggerClassName="w-auto h-auto p-0 border-0 shadow-none bg-transparent justify-start text-sm focus:ring-0"
+              triggerClassName={EDIT_PICKER_TRIGGER_CLASS}
             />
           )}
         </div>
@@ -502,7 +533,7 @@ const TaskEditLayout = ({
                 onChange={(v) => onUpdate({ departmentId: v || null })}
                 departments={departments}
                 isLoading={isLoadingDepts}
-                triggerClassName="w-auto h-auto p-0 border-0 shadow-none bg-transparent justify-start text-sm focus:ring-0"
+                triggerClassName={EDIT_PICKER_TRIGGER_CLASS}
               />
             )}
             {!isViewOnly && !canReassign && (
@@ -515,7 +546,9 @@ const TaskEditLayout = ({
             this delegation — gated behind canReassign for the same reason. Someone without that
             authority still sees who's named, just not an editable picker. */}
         {!isViewOnly && canReassign ? (
-          <div className="col-span-2 sm:order-4">
+          // empty:hidden — ReviewersField renders nothing when the department has no assignable
+          // reviewers, and the empty cell still added a grid gap under Department.
+          <div className="col-span-2 sm:order-4 empty:hidden">
             <ReviewersField
               departmentId={task.departmentId ?? undefined}
               selected={(task.reviewers ?? []).map((r) => r.id)}
@@ -537,16 +570,27 @@ const TaskEditLayout = ({
       <hr className="border-border/60" />
 
       <div className="flex flex-col gap-2">
-        <h3 className={SECTION_TITLE_CLASS}>
-          <AlignLeft size={14} />
-          Description
-        </h3>
+        {/* In view mode the attach buttons ride on the heading row (read-only roles like USER can
+            still add files, and this is their only way to) — beside the text they squeezed the
+            description into a narrow column. In edit mode they stay in the editor's own toolbar. */}
+        <div className="flex items-center justify-between gap-3 min-h-8">
+          <h3 className={DETAIL_HEADING_CLASS}>
+            <AlignLeft size={14} className="text-text-light" />
+            Description
+          </h3>
+          {isViewOnly && canManageAttachments && (
+            <AttachFilesToolbar
+              disabled={uploadMutation.isPending}
+              onFiles={(files) => uploadMutation.mutate(Array.from(files))}
+            />
+          )}
+        </div>
         <PlainDescriptionEditor
           value={task.description ?? ''}
           disabled={isViewOnly}
           onSave={onSaveDescription}
           toolbar={
-            canManageAttachments && (
+            !isViewOnly && canManageAttachments && (
               <AttachFilesToolbar
                 disabled={uploadMutation.isPending}
                 onFiles={(files) => uploadMutation.mutate(Array.from(files))}
