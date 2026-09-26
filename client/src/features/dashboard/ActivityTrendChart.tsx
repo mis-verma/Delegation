@@ -244,6 +244,11 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
     );
   }
 
+  // Phones get an explicit bar width — left to barCategoryGap alone, bars rendered as thin slivers
+  // on a narrow card. ~70% of each bucket's share of a ~300px plot, capped at 30px, so a 12-bucket
+  // view still leaves a gap between bars instead of running them together.
+  const mobileBarSize = isMobile ? Math.min(30, Math.floor((300 / data.length) * 0.7)) : undefined;
+
   const selectedDatum = selectedIndex !== null ? data[selectedIndex] : null;
   // Bars read at full, real color until the user actually taps one to isolate it — no ambient
   // dimming of "not today" bars, which used to make legitimate data look washed-out for no reason.
@@ -346,6 +351,7 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
                   stackId="stack"
                   radius={isTopOfStack ? [6, 6, 0, 0] : [0, 0, 0, 0]}
                   maxBarSize={BAR_WIDTH}
+                  barSize={mobileBarSize}
                   stroke="var(--color-surface)"
                   strokeWidth={2}
                   label={isTopOfStack ? makeTotalLabel(data, activeOrder) : undefined}

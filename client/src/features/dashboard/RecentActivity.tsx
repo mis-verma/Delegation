@@ -261,17 +261,12 @@ export const RecentActivity = ({ feed, isPending }: RecentActivityProps) => {
                   // table to go find the thing you'd just clicked.
                   to={isTicket ? `/tickets?open=${item.id}` : `/tasks?open=${item.id}`}
                   aria-label={`${item.title} — ${isTicket ? 'ticket' : 'delegation'}, ${pillLabel}, ${formatRelativeTime(item.createdAt)}`}
-                  // flex-col below `sm` — side-by-side (icon+title left, status badge right) only
-                  // works once the badge has room to spare; on a phone the longest pill label
-                  // ("Pending Approval") left so little width for title+meta that the meta row
-                  // (icon-chip + timestamp) had nowhere to go but overflow under the badge. Full
-                  // width for the badge on its own line removes the squeeze instead of clipping it.
-                  className="group/row flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0 px-4 sm:px-5 py-2.5 sm:py-3.5 hover:bg-surface-hover/80 transition-all duration-300 relative overflow-hidden focus:outline-none focus-visible:bg-surface-hover focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40"
+                  className="group/row flex items-center justify-between gap-3 sm:gap-0 px-4 sm:px-5 py-2.5 sm:py-3.5 hover:bg-surface-hover/80 active:bg-surface-hover transition-all duration-300 relative overflow-hidden focus:outline-none focus-visible:bg-surface-hover focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40"
                 >
                   {/* Animated Left Accent Line */}
                   <div aria-hidden="true" className="absolute left-0 top-0 bottom-0 w-1 bg-primary-500 transform -translate-x-full group-hover/row:translate-x-0 transition-transform duration-300 ease-out" />
 
-                  <div className="flex items-center gap-4 min-w-0">
+                  <div className="flex flex-1 items-center gap-3 sm:gap-4 min-w-0">
                     {/* Icon reflects the item's actual status, not just its kind, so color carries real meaning.
                         Decorative: the status pill on the right already states the same status as text. */}
                     <div aria-hidden="true" className={`relative flex items-center justify-center size-9 sm:size-10 rounded-xl shrink-0 border transition-colors duration-300 ${iconToneClass}`}>
@@ -294,7 +289,10 @@ export const RecentActivity = ({ feed, isPending }: RecentActivityProps) => {
                       <span className="text-[13px] font-display font-bold text-text line-clamp-2 leading-snug group-hover/row:text-primary-600 dark:group-hover/row:text-primary-400 transition-colors duration-200">
                         {item.title}
                       </span>
-                      <div className="flex items-center gap-1.5 text-[11px] font-medium text-text-muted">
+                      {/* On phones the status rides in this row as a chip beside the kind chip
+                          (flex-wrap for the long labels) — a pill on the right had no room next to
+                          the title, and on a line of its own it made every row three lines tall. */}
+                      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] font-medium text-text-muted">
                         {/* Same chip language as the Calendar's item-type tag (solid icon circle +
                             bold label in a bordered pill) — that page already solved "Ticket" vs
                             "Delegation" needing to read as distinct badges, not bare icon+text, so
@@ -307,15 +305,24 @@ export const RecentActivity = ({ feed, isPending }: RecentActivityProps) => {
                               in the app (Delegation Score, the activity category filter, the nav). */}
                           <span className="font-display font-bold text-text-secondary">{isTicket ? 'Ticket' : 'Delegation'}</span>
                         </span>
-                        <span className="size-1 rounded-full bg-border shrink-0" />
-                        <span className="tabular-nums">{formatRelativeTime(item.createdAt)}</span>
+                        <span className={`sm:hidden inline-flex items-center gap-1 px-1.5 py-px rounded-full text-[10px] font-display font-bold whitespace-nowrap ring-1 ring-inset ${pillClassName}`}>
+                          <span aria-hidden="true" className={`size-1.5 rounded-full shrink-0 ${dotClassName}`} />
+                          {pillLabel}
+                        </span>
+                        <span className="hidden sm:block size-1 rounded-full bg-border shrink-0" />
+                        <span className="hidden sm:inline tabular-nums">{formatRelativeTime(item.createdAt)}</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Status Badge & Chevron. ml-14 on mobile lines the badge up under the title
-                      text rather than under the icon, once it's dropped to its own row below. */}
-                  <div className="flex items-center gap-4 shrink-0 ml-14 sm:ml-4">
+                  {/* Phones: the time sits top-right, mail-app style — inline after two chips it
+                      wrapped onto a line of its own whenever the status label was long. */}
+                  <span className="sm:hidden self-start shrink-0 pt-0.5 text-[11px] font-medium text-text-muted tabular-nums">
+                    {formatRelativeTime(item.createdAt)}
+                  </span>
+
+                  {/* Status Badge & Chevron (sm and up) */}
+                  <div className="hidden sm:flex items-center gap-4 shrink-0 ml-4">
                     <span
                       className={`inline-flex items-center gap-1.5 justify-center text-[10px] sm:text-[11px] font-display font-bold px-2.5 py-1 rounded-full whitespace-nowrap ring-1 ring-inset ${pillClassName}`}
                     >
