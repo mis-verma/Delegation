@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Cell } from 'recharts';
-import { BarChart3, ChevronRight, Plus, X } from 'lucide-react';
+import { BarChart3, ChevronRight, Plus } from 'lucide-react';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { PinnedBreakdown, BreakdownHint } from './PinnedBreakdown';
 import { DrilldownModal } from './DrilldownModal';
@@ -143,50 +143,48 @@ const makeTotalLabel = (data: readonly ActivityDatum[], activeOrder: readonly Ac
     );
   };
 
-// Phone version of the tap-to-pin breakdown: one line of chips (only non-zero categories), not a
-// titled panel of 44px rows — that panel plus the touch tooltip took more height than the chart.
+// Phone version of the tap-to-pin breakdown: one fixed row of equal cells — the day and its total,
+// then one per non-zero category (count over label) — instead of a titled panel of 44px rows. Equal
+// grid columns mean it never wraps, however many categories there are. Closes on a tap outside
+// the chart or on the same bar again (see ActivityTrendChart).
 const CompactBreakdown = ({
   datum,
   activeCategories,
   onCategoryClick,
-  onClose,
 }: {
   datum: ActivityDatum;
   activeCategories: ReadonlySet<ActivityCategory>;
   onCategoryClick: (category: ActivityCategory) => void;
-  onClose: () => void;
 }) => {
   const shown = ACTIVITY_CATEGORY_ORDER.filter((c) => activeCategories.has(c) && datum[c] > 0);
   const total = shown.reduce((sum, c) => sum + datum[c], 0);
   return (
-    <div role="status" className="flex items-center gap-2 animate-in fade-in slide-in-from-top-1 duration-150">
-      <span className="shrink-0 text-xs font-display font-bold text-text tabular-nums">
-        {datum.label} <span className="text-text-muted font-medium">· {total}</span>
-      </span>
-      <div className="flex flex-1 min-w-0 flex-wrap gap-1.5">
-        {shown.length === 0 ? (
-          <span className="text-xs font-medium text-text-muted">Nothing logged</span>
-        ) : shown.map((category) => (
-          <button
-            key={category}
-            type="button"
-            onClick={() => onCategoryClick(category)}
-            className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-full border border-border/60 bg-surface text-[11px] font-display font-semibold text-text-secondary active:bg-surface-hover transition-colors duration-150 cursor-pointer"
-          >
-            <span aria-hidden="true" className="size-1.5 rounded-full shrink-0" style={{ backgroundColor: ACTIVITY_CATEGORY_COLOR[category] }} />
-            {ACTIVITY_CATEGORY_LABEL[category]}
-            <span className="font-bold text-text tabular-nums">{datum[category]}</span>
-          </button>
-        ))}
+    <div
+      role="status"
+      className="grid gap-1.5 animate-in fade-in slide-in-from-top-1 duration-150"
+      style={{ gridTemplateColumns: `repeat(${shown.length + 1}, minmax(0, 1fr))` }}
+    >
+      <div className="flex flex-col items-center justify-center gap-0.5 min-h-12 px-1 rounded-xl bg-primary-700 text-white">
+        <span className="text-sm font-display font-bold tabular-nums leading-none">{total}</span>
+        <span className="text-[10px] font-medium text-white/75 leading-none">{datum.label}</span>
       </div>
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label="Close breakdown"
-        className="shrink-0 flex items-center justify-center size-8 rounded-full text-text-muted active:bg-surface-hover cursor-pointer"
-      >
-        <X size={14} strokeWidth={2.5} />
-      </button>
+      {shown.map((category) => (
+        <button
+          key={category}
+          type="button"
+          onClick={() => onCategoryClick(category)}
+          aria-label={`${ACTIVITY_CATEGORY_LABEL[category]}: ${datum[category]}. Tap for the items.`}
+          className="flex flex-col items-center justify-center gap-0.5 min-h-12 px-1 rounded-xl border border-border/60 bg-surface active:bg-surface-hover transition-colors duration-150 cursor-pointer"
+        >
+          {/* Dot beside the number, not the label — the label needs the cell's full width to fit
+              "Delegation" at 360px. */}
+          <span className="flex items-center gap-1 text-sm font-display font-bold text-text tabular-nums leading-none">
+            <span aria-hidden="true" className="size-1.5 rounded-full shrink-0" style={{ backgroundColor: ACTIVITY_CATEGORY_COLOR[category] }} />
+            {datum[category]}
+          </span>
+          <span className="max-w-full truncate text-[10px] font-medium text-text-muted leading-none">{ACTIVITY_CATEGORY_LABEL[category]}</span>
+        </button>
+      ))}
     </div>
   );
 };
@@ -464,7 +462,6 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
           datum={selectedDatum}
           activeCategories={activeCategories}
           onCategoryClick={setDrilldownCategory}
-          onClose={() => setSelectedIndex(null)}
         />
       ) : selectedDatum ? (
         <PinnedBreakdown title={selectedDatum.label} onClose={() => setSelectedIndex(null)}>

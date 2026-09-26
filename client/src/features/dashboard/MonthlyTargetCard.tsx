@@ -95,8 +95,8 @@ export const MonthlyTargetCard = ({ percent, total, change, description, stats, 
       <div className="absolute -top-24 -right-24 w-48 h-48 bg-primary-500/15 dark:bg-primary-500/10 rounded-full blur-[60px] pointer-events-none transition-opacity duration-500 group-hover:opacity-100 opacity-60" />
 
       {/* Header */}
-      <div className="relative flex items-center sm:items-start justify-between gap-3 sm:gap-4 z-10">
-        <div className="flex gap-3 items-center">
+      <div className="relative flex items-center sm:items-start justify-between gap-2 sm:gap-4 z-10">
+        <div className="flex gap-2.5 sm:gap-3 items-center min-w-0">
           <EntityIconTile icon={Target} />
           <div>
             {/* Was "Target" / "Checklist completion" — but `percent` here is a weighted delegation
@@ -118,29 +118,6 @@ export const MonthlyTargetCard = ({ percent, total, change, description, stats, 
           />
         </div>
 
-        {/* Phones: a compact D/W/M/Y switch beside the title instead of a full-width tab bar on a
-            row of its own. Full names stay on aria-label/title. */}
-        <div role="radiogroup" aria-label="Period" className="sm:hidden flex items-center gap-0.5 p-0.5 rounded-lg border border-border/60 bg-surface-hover/50 shrink-0">
-          {COMPLIANCE_PERIOD_OPTIONS.map((option) => {
-            const active = option === period;
-            return (
-              <button
-                key={option}
-                type="button"
-                role="radio"
-                aria-checked={active}
-                aria-label={PERIOD_TAB_LABEL[option]}
-                title={PERIOD_TAB_LABEL[option]}
-                onClick={() => onPeriodChange(option)}
-                className={`flex items-center justify-center size-8 rounded-md text-xs font-display font-bold transition-colors duration-150 cursor-pointer ${
-                  active ? 'bg-surface text-primary-700 dark:text-primary-300 border border-border/60' : 'text-text-muted active:bg-surface'
-                }`}
-              >
-                {PERIOD_TAB_LABEL[option][0]}
-              </button>
-            );
-          })}
-        </div>
       </div>
 
       {/* Body: gauge + description in one row on desktop, stats grid on its own full-width row
@@ -173,6 +150,28 @@ export const MonthlyTargetCard = ({ percent, total, change, description, stats, 
           <p className="hidden sm:block flex-1 min-w-0 text-sm font-medium text-text-muted leading-relaxed">
             {description}
           </p>
+        </div>
+
+        {/* Phones: a compact period switch centered under the gauge — beside the title it pushed
+            "Delegation Score" underneath itself on a 360px screen. */}
+        <div role="radiogroup" aria-label="Period" className="sm:hidden self-center flex items-center gap-0.5 p-0.5 rounded-lg border border-border/60 bg-surface-hover/50">
+          {COMPLIANCE_PERIOD_OPTIONS.map((option) => {
+            const active = option === period;
+            return (
+              <button
+                key={option}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                onClick={() => onPeriodChange(option)}
+                className={`flex items-center justify-center h-8 px-3 rounded-md text-xs font-display font-semibold transition-colors duration-150 cursor-pointer ${
+                  active ? 'bg-surface text-primary-700 dark:text-primary-300 border border-border/60' : 'text-text-muted active:bg-surface'
+                }`}
+              >
+                {option === 'day' ? 'Today' : PERIOD_TAB_LABEL[option]}
+              </button>
+            );
+          })}
         </div>
 
         <div className="hidden sm:grid grid-cols-1 @sm:grid-cols-3 gap-3">
