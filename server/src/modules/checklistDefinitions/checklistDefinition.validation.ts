@@ -19,7 +19,8 @@ const dedupedIdArray = z.array(z.string().min(1)).max(500, "Too many ids").trans
 const uniqueIdArray = (message: string) => dedupedIdArray.pipe(z.array(z.string()).min(1, message))
 
 const definitionItemShape = z.object({
-    label: z.string().min(1),
+    // 191 = the varchar length of every one of these columns; longer used to reach the DB and 500.
+    label: z.string().trim().min(1).max(191),
     order: z.number().int().min(0).optional(),
     // An empty string is treated the same as "no section" (null) rather than rejected — a bulk
     // import or future plain-text section input could plausibly send '' for "cleared".
@@ -29,8 +30,10 @@ const definitionItemShape = z.object({
     requiresLivePhoto: z.boolean().optional(),
     itemType: z.enum(CHECKLIST_ITEM_TYPES).optional(),
     auditUserIds: dedupedIdArray.optional(),
-    accessories: z.array(z.string().min(1)).optional(),
-    numberEntryUnit: z.string().trim().min(1).nullable().optional(),
+    // Nullable: a stored AUDIT item with no accessories comes back as null, and the builder sends
+    // it straight back on save — rejecting null made every such checklist impossible to re-save.
+    accessories: z.array(z.string().min(1)).nullable().optional().transform((v) => v ?? undefined),
+    numberEntryUnit: z.string().trim().min(1).max(191).nullable().optional(),
     numberEntryMin: z.number().nullable().optional(),
     numberEntryMax: z.number().nullable().optional(),
     ratingScale: z.number().int().min(2).max(10).nullable().optional(),
@@ -39,13 +42,18 @@ const definitionItemShape = z.object({
     gpsTargetLng: z.number().min(-180).max(180).nullable().optional(),
     gpsRadiusMeters: z.number().min(1).nullable().optional(),
     signatureLabels: z.array(z.string().min(1)).optional(),
-    qrExpectedValue: z.string().trim().min(1).nullable().optional(),
-    cashExpectedAmount: z.number().nullable().optional(),
+    qrExpectedValue: z.string().trim().min(1).max(191).nullable().optional(),
+    cashExpectedAmount: z.number().min(0).nullable().optional(),
     yesActions: z.array(z.enum(CHECKLIST_CONDITIONAL_ACTIONS)).optional(),
     noActions: z.array(z.enum(CHECKLIST_CONDITIONAL_ACTIONS)).optional(),
 }).refine(item => item.itemType !== "AUDIT" || (item.auditUserIds?.length ?? 0) >= 1, {
     message: "At least one auditor is required for an audit item",
     path: ["auditUserIds"],
+}).refine(item => item.maxImageCount == null || (item.requiredImageCount ?? 0) <= item.maxImageCount, {
+    // A minimum above the maximum can never be met (uploads stop at the max), so the item could
+    // never be completed.
+    message: "Minimum photos can't be more than the maximum",
+    path: ["maxImageCount"],
 }).refine(item => item.numberEntryMin == null || item.numberEntryMax == null || item.numberEntryMin <= item.numberEntryMax, {
     message: "Minimum must be less than or equal to maximum",
     path: ["numberEntryMax"],
@@ -78,6 +86,9 @@ const checklistDefinitionFields = {
     reviewerIds: dedupedIdArray.optional(),
     assigneeRoles: z.array(z.enum(CHECKLIST_ASSIGNEE_ROLES)).optional(),
     icon: z.enum(CHECKLIST_ICONS).optional(),
+    // DAILY only (ignored otherwise): 0 = Sunday … 6 = Saturday. Null/omitted = every day.
+    activeWeekdays: z.array(z.number().int().min(0).max(6)).min(1, "Pick at least one working day").max(7)
+        .transform((d) => [...new Set(d)].sort()).nullable().optional(),
     // Each item is its own insert inside one all-or-nothing transaction — capped so a runaway
     // payload can't turn an admin-reachable endpoint into an expensive, slow write.
     items: z.array(definitionItemShape).min(1, "At least one checklist item is required").max(200, "A checklist can have at most 200 items"),

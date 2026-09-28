@@ -299,13 +299,65 @@ export const ItemTypeConfigFields = (props: ItemTypeFieldsProps) => {
   return <>{Renderer(props)}</>;
 };
 
-// Colocated with the component like ui/badge.tsx's own badgeVariants export — only affects Fast
-// Refresh granularity (a full reload instead of a hot-swap when this file changes), not runtime
-// correctness.
+// The exports below are colocated with the component like ui/badge.tsx's own badgeVariants export —
+// only affects Fast Refresh granularity (a full reload instead of a hot-swap when this file
+// changes), not runtime correctness.
+const PHOTO_TYPES: ItemDraft['itemType'][] = ['STANDARD', 'VIDEO_UPLOAD', 'AUDIT'];
+const num = (v: string) => (v.trim() === '' ? null : Number(v));
+
+// What's wrong with this question, in words an admin can act on — or null when it's ready. Mirrors
+// the server's zod rules (checklistDefinition.validation.ts) so a bad setting is caught on the
+// question itself instead of as a generic error at the final Save.
 // eslint-disable-next-line react-refresh/only-export-components
-export const isItemDraftComplete = (draft: ItemDraft): boolean => {
-  if (draft.itemType === 'AUDIT' && draft.auditUserIds.length === 0) return false;
-  if ((draft.itemType === 'MULTIPLE_CHOICE' || draft.itemType === 'DROPDOWN') && draft.options.length < 2) return false;
-  if (draft.itemType === 'GPS' && draft.gpsRadiusMeters.trim() && (!draft.gpsTargetLat.trim() || !draft.gpsTargetLng.trim())) return false;
-  return true;
+export const itemDraftProblem = (draft: ItemDraft): string | null => {
+  if (draft.label.trim().length > 191) return 'Keep the question under 191 characters.';
+  if (draft.itemType === 'AUDIT' && draft.auditUserIds.length === 0) return 'Pick at least one auditor.';
+  if ((draft.itemType === 'MULTIPLE_CHOICE' || draft.itemType === 'DROPDOWN') && draft.options.length < 2) return 'Add at least two options.';
+  if (PHOTO_TYPES.includes(draft.itemType)) {
+    const min = num(draft.requiredImageCount) ?? 0;
+    const max = num(draft.maxImageCount);
+    if (draft.itemType === 'VIDEO_UPLOAD' && min < 1) return 'A video question needs at least 1 video.';
+    if (max != null && min > max) return "Minimum can't be more than the maximum — staff could never finish it.";
+  }
+  if (draft.itemType === 'NUMBER_ENTRY' || draft.itemType === 'CASH_TALLY') {
+    const min = num(draft.numberEntryMin);
+    const max = num(draft.numberEntryMax);
+    if (min != null && max != null && min > max) return "Minimum can't be more than the maximum.";
+  }
+  if (draft.itemType === 'CASH_TALLY' && (num(draft.cashExpectedAmount) ?? 0) < 0) return "Expected amount can't be negative.";
+  if (draft.itemType === 'GPS') {
+    const lat = num(draft.gpsTargetLat);
+    const lng = num(draft.gpsTargetLng);
+    const radius = num(draft.gpsRadiusMeters);
+    if ((lat == null) !== (lng == null)) return 'Enter both latitude and longitude, or neither.';
+    if (lat != null && (lat < -90 || lat > 90)) return 'Latitude must be between -90 and 90.';
+    if (lng != null && (lng < -180 || lng > 180)) return 'Longitude must be between -180 and 180.';
+    if (radius != null && radius < 1) return 'Radius must be at least 1 metre.';
+    if (radius != null && lat == null) return 'Set the target location for this radius.';
+    if (lat != null && radius == null) return 'Set a radius, or the location is never checked.';
+  }
+  return null;
+};
+
+// eslint-disable-next-line react-refresh/only-export-components
+export const isItemDraftComplete = (draft: ItemDraft): boolean => itemDraftProblem(draft) === null;
+
+// Switching an item's type used to change only `itemType`, carrying every other setting along —
+// e.g. a Photo item switched to Text box still required 1 photo, with no upload button shown to
+// staff, so it could never be completed. This resets whatever the new type can't use.
+// eslint-disable-next-line react-refresh/only-export-components
+export const patchForTypeSwitch = (draft: ItemDraft, itemType: ItemDraft['itemType']): Partial<ItemDraft> => {
+  const patch: Partial<ItemDraft> = { itemType };
+  if (!PHOTO_TYPES.includes(itemType)) {
+    patch.requiredImageCount = '0';
+    patch.maxImageCount = '';
+    patch.requiresLivePhoto = false;
+  } else if (itemType === 'VIDEO_UPLOAD' && (num(draft.requiredImageCount) ?? 0) < 1) {
+    patch.requiredImageCount = '1';
+  }
+  if (itemType !== 'YES_NO' && itemType !== 'PASS_FAIL') {
+    patch.yesActions = [];
+    patch.noActions = [];
+  }
+  return patch;
 };

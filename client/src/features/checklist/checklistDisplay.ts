@@ -136,11 +136,17 @@ type InstanceWindow = {
 // When the instance actually becomes fillable — opensTime anchored to periodStart's calendar
 // date, same convention as instanceDeadline below. Null means no opening gate (always open since
 // generation) rather than "opens at midnight".
+// opensTime/cutoffTime are org-local wall-clock times (India), and periodStart is that local day
+// written as UTC midnight — so the real instant is "day + HH:mm" minus the org's UTC offset. Same
+// value as the server's CHECKLIST_TIMEZONE_OFFSET_MINUTES default. Without this every opening
+// gate and deadline landed 5½ hours late ("opens 09:00" really opened at 14:30).
+const ORG_TZ_OFFSET_MS = 330 * 60_000;
+
 export const instanceOpensAt = (instance: Pick<InstanceWindow, 'periodStart' | 'opensTime'>): number | null => {
   if (!instance.opensTime) return null;
   const [hours, minutes] = instance.opensTime.split(':').map(Number);
   const start = new Date(instance.periodStart);
-  return Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate(), hours, minutes, 0, 0);
+  return Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate(), hours, minutes, 0, 0) - ORG_TZ_OFFSET_MS;
 };
 
 // The instance's real deadline: cutoffTime (a same-day time-of-window anchored to periodStart's
@@ -151,14 +157,14 @@ export const instanceOpensAt = (instance: Pick<InstanceWindow, 'periodStart' | '
 // periodStart is a UTC-midnight calendar-day label (see formatDate's comment above), so the
 // cutoff time-of-day is anchored to it in UTC too, not the viewer's local time zone.
 export const instanceDeadline = (instance: InstanceWindow): number => {
-  if (!instance.cutoffTime) return new Date(instance.periodEnd).getTime();
+  if (!instance.cutoffTime) return new Date(instance.periodEnd).getTime() - ORG_TZ_OFFSET_MS;
   const [hours, minutes] = instance.cutoffTime.split(':').map(Number);
   const start = new Date(instance.periodStart);
   const deadline = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate(), hours, minutes, 0, 0));
   if (instance.opensTime && instance.cutoffTime < instance.opensTime) {
     deadline.setUTCDate(deadline.getUTCDate() + 1);
   }
-  return deadline.getTime();
+  return deadline.getTime() - ORG_TZ_OFFSET_MS;
 };
 
 // Displays the real deadline instanceDeadline() computes — null when there's no cutoffTime (the
@@ -172,7 +178,9 @@ export const instanceDeadline = (instance: InstanceWindow): number => {
 // the NEXT calendar day here, instead of just being silently computed that way internally.
 export const formatDeadlineTime = (instance: InstanceWindow): string | null => {
   if (!instance.cutoffTime) return null;
-  return new Date(instanceDeadline(instance)).toLocaleString(undefined, {
+  // Shifted back to the local wall clock and printed in UTC, so it reads exactly what the admin
+  // typed ("7:00 AM") for every viewer.
+  return new Date(instanceDeadline(instance) + ORG_TZ_OFFSET_MS).toLocaleString(undefined, {
     month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'UTC',
   });
 };

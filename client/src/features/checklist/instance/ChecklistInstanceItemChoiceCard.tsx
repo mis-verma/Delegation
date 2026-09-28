@@ -16,10 +16,13 @@ interface ChecklistInstanceItemChoiceCardProps {
 export const ChecklistInstanceItemChoiceCard = ({ item, instanceId, canWork, isLocked }: ChecklistInstanceItemChoiceCardProps) => {
   const setItemDone = useSetChecklistInstanceItemDoneMutation(instanceId);
   const interactive = canWork && !isLocked;
+  // A saved answer used to stay clickable and silently overwrite itself (even while waiting for
+  // approval). Changing it now goes through Reopen, like every other item type.
+  const editable = interactive && !item.isDone;
   const options = item.options ?? [];
 
   const choose = (value: string) => {
-    if (!interactive || setItemDone.isPending || !value) return;
+    if (!editable || setItemDone.isPending || !value) return;
     setItemDone.mutate({ itemId: item.id, isDone: true, textValue: value });
   };
 
@@ -41,7 +44,7 @@ export const ChecklistInstanceItemChoiceCard = ({ item, instanceId, canWork, isL
       {item.itemType === 'DROPDOWN' ? (
         <select
           value={item.textValue ?? ''}
-          disabled={!interactive}
+          disabled={!editable}
           onChange={(e) => choose(e.target.value)}
           className="w-full px-2.5 py-1.5 text-sm font-display bg-surface text-text rounded-md border border-border focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all disabled:opacity-60"
         >
@@ -56,13 +59,13 @@ export const ChecklistInstanceItemChoiceCard = ({ item, instanceId, canWork, isL
             <button
               key={opt}
               type="button"
-              disabled={!interactive}
+              disabled={!editable}
               onClick={() => choose(opt)}
               className={`px-3 py-1.5 rounded-md border text-xs font-display font-medium transition-colors ${
                 item.textValue === opt
                   ? 'border-primary-500/60 bg-primary-500/10 text-primary-600 dark:text-primary-400'
                   : 'border-border text-text-secondary hover:bg-surface-hover'
-              } ${!interactive ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
+              } ${!editable ? 'cursor-not-allowed' : 'cursor-pointer'} ${!interactive ? 'opacity-60' : ''}`}
             >
               {opt}
             </button>

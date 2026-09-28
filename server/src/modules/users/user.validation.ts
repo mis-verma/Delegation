@@ -17,10 +17,16 @@ export const createUserSchema = z.object({
 // departmentId/storeId are overridden to also accept `null` (unlike create) so an admin can
 // explicitly clear a user's department/store, not just set a new one — mirrors
 // ticket.validation.ts's assigneeId.
+// Weekly day(s) off, 0 = Sunday … 6 = Saturday — the daily checklist generator leaves the person
+// off that day's runs. Up to 6 (a whole week off isn't a week-off). Empty array clears it.
+const weekOffDays = z.array(z.number().int().min(0).max(6)).max(6, "Leave at least one working day")
+    .transform((d) => [...new Set(d)].sort());
+
 export const updateUserSchema = createUserSchema.omit({ password: true, departmentId: true, storeId: true }).partial().extend({
     isActive: z.boolean().optional(),
     departmentId: objectId.nullable().optional(),
     storeId: objectId.nullable().optional(),
+    weekOffDays: weekOffDays.optional(),
 });
 
 export type CreateUserInput = z.infer<typeof createUserSchema>;
@@ -39,6 +45,8 @@ export const updateOwnProfileSchema = z.object({
     firstName: z.string().trim().min(1, 'First name is required').optional(),
     lastName: z.string().trim().optional(),
     phone: z.string().trim().optional(),
+    // Self-service on purpose: staff set their own weekly off so they don't get checklists that day.
+    weekOffDays: weekOffDays.optional(),
 });
 export type UpdateOwnProfileInput = z.infer<typeof updateOwnProfileSchema>;
 

@@ -2,8 +2,8 @@ import { useState, useMemo } from 'react';
 import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { UserPlus, AlertCircle, ShieldCheck, Building2, Store, KeyRound, User, Mail, Eye, EyeOff } from 'lucide-react';
-import { Input, Button, Modal, Combobox, AvatarUpload } from '../../../components';
+import { UserPlus, AlertCircle, ShieldCheck, Building2, Store, KeyRound, User, Mail, Eye, EyeOff, CalendarOff } from 'lucide-react';
+import { Input, Button, Modal, Combobox, AvatarUpload, WeekdayPicker } from '../../../components';
 import {
   useCreateUserMutation,
   useUpdateUserMutation,
@@ -138,6 +138,9 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
   // modal was opened, so it won't reflect a photo change made a moment ago in this same session.
   const [avatarUrl, setAvatarUrl] = useState<string | null>(user?.avatarUrl ?? null);
   const [showPassword, setShowPassword] = useState(false);
+  // Weekly day(s) off — no daily checklists for this person on these days. Edit mode only (a new
+  // user sets their own from My account, or an admin sets it here afterwards).
+  const [weekOffDays, setWeekOffDays] = useState<number[]>(user?.weekOffDays ?? []);
 
   const createMutation = useCreateUserMutation();
   const updateMutation = useUpdateUserMutation();
@@ -194,6 +197,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
             role: data.role,
             departmentId: departmentPayload ?? null,
             storeId: storePayload ?? null,
+            weekOffDays,
           },
         },
         { onSuccess: onClose }
@@ -400,6 +404,17 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
               </div>
             )}
           </div>
+
+          {isEditing && (
+            <div className="flex flex-col gap-1.5">
+              <span className="flex items-center gap-1.5 text-xs font-medium text-text-secondary">
+                <CalendarOff className="w-3.5 h-3.5 text-text-light" strokeWidth={2.5} />
+                Week off
+                <span className="font-normal text-text-muted">· no daily checklists on these days</span>
+              </span>
+              <WeekdayPicker value={weekOffDays} onChange={setWeekOffDays} tone="off" maxSelected={6} aria-label="Weekly days off" />
+            </div>
+          )}
 
           {isEditing && user && <ResetPasswordSection userId={user.id} />}
         </fieldset>

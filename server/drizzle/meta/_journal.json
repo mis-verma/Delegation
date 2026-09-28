@@ -155,6 +155,20 @@
       "when": 1790166471032,
       "tag": "0021_productive_squirrel_girl",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "5",
+      "when": 1790575281056,
+      "tag": "0022_checklist_weekdays_weekoff",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "5",
+      "when": 1790575298745,
+      "tag": "0023_daily_checklists_skip_sunday",
+      "breakpoints": true
     }
   ]
 }

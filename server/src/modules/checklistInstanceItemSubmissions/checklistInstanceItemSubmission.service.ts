@@ -8,7 +8,7 @@ import {
 } from "../../db/schema/index.js"
 import { eq, sql } from "drizzle-orm"
 import { AppError } from "../../utils/AppError.js"
-import { syncVerificationStatus, assertInstanceOpen } from "../checklistInstances/checklistInstance.service.js"
+import { syncVerificationStatus, assertInstanceOpen, assertInstanceEditable } from "../checklistInstances/checklistInstance.service.js"
 import { emitChecklistEvent } from "../../sockets/checklistEvent.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { UpdateChecklistInstanceItemSubmissionAccessoriesInput, UpdateChecklistInstanceItemSubmissionRemarksInput } from "./checklistInstanceItemSubmission.validation.js"
@@ -24,6 +24,14 @@ export const assertCanAccess = (submission: { userId: string }, user: AccessToke
 
 const assertNotLocked = (submission: { isDone: boolean }) => {
     if (submission.isDone) throw AppError.badRequest("Reopen this submission before editing it")
+}
+
+// The run-level approval lock (see assertInstanceEditable) applied to an auditor's submission —
+// exported for the submission-image service, which acts on the same submission.
+export const assertSubmissionRunEditable = async (instanceId: string, user: AccessTokenPayload) => {
+    const [instance] = await db.select({ verificationStatus: checklistInstances.verificationStatus })
+        .from(checklistInstances).where(eq(checklistInstances.id, instanceId)).limit(1)
+    if (instance) assertInstanceEditable(instance, user)
 }
 
 // Never trust the client's isDone — recount qualifying evidence photos from the DB first, same
@@ -72,9 +80,10 @@ const recomputeItemAndVerification = async (item: { id: string; isDone: boolean;
 
 export const checklistInstanceItemSubmissionService = {
     async updateAccessories(id: string, accessories: UpdateChecklistInstanceItemSubmissionAccessoriesInput["accessories"], user: AccessTokenPayload) {
-        const { submission } = await loadSubmissionAndItem(id)
+        const { submission, item } = await loadSubmissionAndItem(id)
         assertCanAccess(submission, user)
         assertNotLocked(submission)
+        await assertSubmissionRunEditable(item.instanceId, user)
 
         // Accessories are now a real child table (one row per accessory, copied from the
         // definition item's `accessories: string[]` at stamp-out) rather than an embedded array
@@ -96,9 +105,10 @@ export const checklistInstanceItemSubmissionService = {
     },
 
     async updateRemarks(id: string, remarks: UpdateChecklistInstanceItemSubmissionRemarksInput["remarks"], user: AccessTokenPayload) {
-        const { submission } = await loadSubmissionAndItem(id)
+        const { submission, item } = await loadSubmissionAndItem(id)
         assertCanAccess(submission, user)
         assertNotLocked(submission)
+        await assertSubmissionRunEditable(item.instanceId, user)
 
         await db.update(checklistInstanceItemSubmissions).set({ remarks, updatedAt: new Date() }).where(eq(checklistInstanceItemSubmissions.id, id))
         return { ...submission, remarks }
@@ -107,6 +117,7 @@ export const checklistInstanceItemSubmissionService = {
     async setDone(id: string, isDone: boolean, user: AccessTokenPayload) {
         const { submission, item } = await loadSubmissionAndItem(id)
         assertCanAccess(submission, user)
+        await assertSubmissionRunEditable(item.instanceId, user)
 
         // Fetched once, used both for the opens-time gate below and to know which store's room to
         // broadcast the live update to afterward.

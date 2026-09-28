@@ -12,6 +12,8 @@ export type MyProfile = {
   storeId: string | null;
   phone: string | null;
   avatarUrl: string | null;
+  /** Weekly day(s) off, 0 = Sunday … 6 = Saturday — no daily checklists on these days. */
+  weekOffDays: number[] | null;
   createdAt: string;
 };
 
@@ -19,6 +21,7 @@ export type UpdateMyProfilePayload = {
   firstName?: string;
   lastName?: string;
   phone?: string;
+  weekOffDays?: number[];
 };
 
 export type ChangeMyPasswordPayload = {

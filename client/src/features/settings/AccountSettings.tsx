@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { User as UserIcon, Phone, Mail, KeyRound, Eye, EyeOff } from 'lucide-react';
-import { Input, Button, Skeleton, AvatarUpload } from '../../components';
+import { User as UserIcon, Phone, Mail, KeyRound, Eye, EyeOff, CalendarOff } from 'lucide-react';
+import { Input, Button, Skeleton, AvatarUpload, WeekdayPicker, weekdayShortName } from '../../components';
 import { resolveAvatarUrl } from '../../lib/uploadsBase';
 import { ROLE_STYLES, ROLE_LABEL } from '../admin/roleBadge';
 import {
@@ -43,6 +43,30 @@ const PasswordToggle = ({ shown, onToggle }: { shown: boolean; onToggle: () => v
     {shown ? <EyeOff size={15} /> : <Eye size={15} />}
   </button>
 );
+
+// Your weekly day(s) off — the daily checklist generator leaves you off those days' runs, so a
+// week-off never turns into an "overdue" checklist. Keyed on the saved value by the parent so it
+// re-baselines after a save.
+const WeekOffCard = ({ initial, isSaving, onSave }: { initial: number[]; isSaving: boolean; onSave: (days: number[]) => void }) => {
+  const [days, setDays] = useState<number[]>(initial);
+  const dirty = days.join(',') !== initial.join(',');
+  return (
+    <div className="flex flex-col gap-3 p-4 rounded-xl border border-border">
+      <div className="flex items-center gap-2">
+        <CalendarOff size={14} className="text-text-muted" />
+        <span className="text-xs font-display font-bold text-text-muted">Week off</span>
+        <span className="text-[11px] font-display text-text-muted">· {days.length ? days.map(weekdayShortName).join(', ') : 'None'}</span>
+      </div>
+      <WeekdayPicker value={days} onChange={setDays} tone="off" maxSelected={6} aria-label="Your weekly days off" />
+      <p className="text-xs text-text-muted">You won't get daily checklists on these days.</p>
+      <div className="flex justify-end">
+        <Button type="button" variant="primary" size="sm" isLoading={isSaving} disabled={!dirty} onClick={() => onSave(days)}>
+          Save week off
+        </Button>
+      </div>
+    </div>
+  );
+};
 
 // Every logged-in user's own "who am I" page — separate from Admin > Settings (system-wide
 // defaults an ADMIN/PC configures for everyone) and from the admin User form (an admin editing
@@ -148,6 +172,13 @@ export const AccountSettings = () => {
           </Button>
         </div>
       </form>
+
+      <WeekOffCard
+        key={(profile.weekOffDays ?? []).join(',')}
+        initial={profile.weekOffDays ?? []}
+        isSaving={updateProfileMut.isPending}
+        onSave={(weekOffDays) => updateProfileMut.mutate({ weekOffDays })}
+      />
 
       <form onSubmit={handlePasswordSubmit(onPasswordSubmit)} className="flex flex-col gap-4 p-4 rounded-xl border border-border" noValidate>
         <div className="flex items-center gap-2">

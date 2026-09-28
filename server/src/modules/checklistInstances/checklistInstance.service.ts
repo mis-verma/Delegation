@@ -26,6 +26,7 @@ import type { Role } from "../../db/schema/core.js"
 import { DATE_FORMATS } from "../../utils/dateBucket.js"
 import type { DateBucket } from "../../utils/index.js"
 import { emitChecklistEvent } from "../../sockets/checklistEvent.js"
+import { env } from "../../config/env.js"
 
 // OVERDUE is a subset of OPEN (unfinished *and* past its period end), not a third
 // independent state — the compliance board and MyChecklists both offer it as a filter, and
@@ -57,6 +58,11 @@ export type ChecklistPendingApprovalRow = {
 // into a flat assigneeIds array and a submission's `userId` ref into the populated {id,
 // firstName, lastName, storeId} object the old Mongoose `.populate({ path: "userId", select:
 // "firstName lastName storeId" })` produced in place.
+// The QR code staff must scan is checked server-side (assertQrSatisfied) — sending it down with
+// the item let anyone read it from the network response and type it in by hand instead of
+// scanning. Nothing on the client reads it.
+const stripSecretItemFields = <T extends { qrExpectedValue?: string | null }>(item: T): T => ({ ...item, qrExpectedValue: null })
+
 const hydrateInstances = async (instanceRows: (typeof checklistInstances.$inferSelect)[]) => {
     if (!instanceRows.length) return []
     const instanceIds = instanceRows.map((i) => i.id)
@@ -131,7 +137,7 @@ const hydrateInstances = async (instanceRows: (typeof checklistInstances.$inferS
     const itemsByInstance = new Map<string, any[]>()
     for (const item of items) {
         const mapped = {
-            ...item,
+            ...stripSecretItemFields(item),
             images: imagesByItem.get(item.id) ?? [],
             submissions: submissionsByItem.get(item.id) ?? [],
         }
@@ -173,10 +179,33 @@ export const assertInstanceOpen = (instance: { opensTime: string | null; periodS
     const [hours, minutes] = instance.opensTime.split(":").map(Number)
     const opensAt = new Date(instance.periodStart)
     opensAt.setUTCHours(hours, minutes, 0, 0)
+    // periodStart is the org-LOCAL calendar day written as UTC midnight (see utils/period.ts), and
+    // opensTime is a local clock time — so the real instant is that wall-clock time minus the org's
+    // UTC offset. Without this, "opens 09:00" in India only opened at 14:30.
+    opensAt.setTime(opensAt.getTime() - env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000)
     if (Date.now() < opensAt.getTime()) {
         throw AppError.badRequest(`This checklist doesn't open until ${instance.opensTime} — come back then.`)
     }
 }
+
+// An APPROVED run is the record a reviewer signed off on — the lock used to exist only in the UI,
+// so any assignee could still reopen items, change answers or delete photos through the API and
+// the run stayed "Approved" over data nobody approved. Only an ADMIN may change it now; that
+// change is audit-logged (setItemDone) and knocks the run back to NOT_SUBMITTED for re-approval
+// (syncVerificationStatus). Shared with the image and AUDIT-submission services.
+export const assertInstanceEditable = (instance: { verificationStatus: string }, user: AccessTokenPayload) => {
+    if (instance.verificationStatus === "APPROVED" && user.role !== "ADMIN") {
+        throw AppError.forbidden("This checklist is approved and locked. Ask an admin to reopen it if something needs to change.")
+    }
+}
+
+// Signatures are base64 PNGs (tens of KB each) — the audit row only needs to know one was there.
+const auditItemSnapshot = (item: Record<string, unknown>) => ({
+    ...item,
+    signatureValue: item.signatureValue ? "[signature]" : null,
+    secondSignatureValue: item.secondSignatureValue ? "[signature]" : null,
+    qrExpectedValue: undefined,
+})
 
 // Deleting a checklist template is a soft delete (see checklistDefinition.service.ts's `remove` —
 // only `deletedAt` gets set, every generated instance is left alone on purpose, for audit
@@ -191,8 +220,14 @@ const parentNotDeletedExpr = sql`NOT EXISTS (
     WHERE d.id = ${checklistInstances.definitionId} AND d.deletedAt IS NOT NULL
 )`
 
+// Every branch is an org-LOCAL wall-clock time (a calendar date + an HH:mm the admin typed), so
+// it's compared against the org's local "now" — UTC_TIMESTAMP() shifted by the org offset — not
+// NOW(), which is the DB session's zone (UTC on the server). That mismatch flagged a 09:00 cutoff
+// overdue only at 14:30 India time. periodEnd goes through DATE() for the same reason.
+const localNowExpr = sql`DATE_ADD(UTC_TIMESTAMP(), INTERVAL ${env.CHECKLIST_TIMEZONE_OFFSET_MINUTES} MINUTE)`
+
 const deadlineExpr = sql`CASE
-    WHEN ${checklistInstances.cutoffTime} IS NULL THEN ${checklistInstances.periodEnd}
+    WHEN ${checklistInstances.cutoffTime} IS NULL THEN TIMESTAMP(DATE(${checklistInstances.periodEnd}))
     WHEN ${checklistInstances.opensTime} IS NOT NULL AND ${checklistInstances.cutoffTime} < ${checklistInstances.opensTime}
         THEN TIMESTAMP(DATE_ADD(DATE(${checklistInstances.periodStart}), INTERVAL 1 DAY), CONCAT(${checklistInstances.cutoffTime}, ':00'))
     ELSE TIMESTAMP(DATE(${checklistInstances.periodStart}), CONCAT(${checklistInstances.cutoffTime}, ':00'))
@@ -216,8 +251,8 @@ const completionCondition = (status: InstanceStatusFilter) => {
     if (status === "COMPLETED") return complete
     // Deadline is cutoffTime (same-day, or next-day for an overnight window) when set, else
     // periodEnd — same rule the summary's `overdue` count uses, and the client's isInstanceOverdue.
-    if (status === "OVERDUE") return sql`(${incomplete}) AND ${deadlineExpr} < NOW()`
-    if (status === "DUE") return sql`(${incomplete}) AND ${deadlineExpr} >= NOW()`
+    if (status === "OVERDUE") return sql`(${incomplete}) AND ${deadlineExpr} < ${localNowExpr}`
+    if (status === "DUE") return sql`(${incomplete}) AND ${deadlineExpr} >= ${localNowExpr}`
     return incomplete // "OPEN" — every incomplete instance, overdue or not ("Pending")
 }
 
@@ -277,8 +312,12 @@ const getDepartmentIdsForUserIds = async (userIds: string[]): Promise<Set<string
 // reviewer (checklistInstanceReviewers, additive on top of the role-based rule — see
 // CAN_VERIFY_BY_ROLE) can always view too, regardless of role or department, since they need to
 // see it before they can approve/reject it.
-const assertCanView = async (instance: { assigneeIds: string[]; reviewerIds: string[] }, user: AccessTokenPayload) => {
+const assertCanView = async (instance: { assigneeIds: string[]; reviewerIds: string[]; items?: { submissions?: { userId: { id: string } | null }[] }[] }, user: AccessTokenPayload) => {
     const isAssignee = instance.assigneeIds.some((id) => id === user.sub)
+    // A named AUDIT auditor has their own submission on the item but needn't be an assignee —
+    // without this they got a 403 on the very checklist they were asked to audit.
+    const isAuditor = (instance.items ?? []).some((i) => (i.submissions ?? []).some((s) => s.userId?.id === user.sub))
+    if (isAuditor) return
     // APPROVAL_MANAGER has the same org-wide reach as ADMIN/PC here — the final-approval stage
     // needs to be able to open any instance to review it before giving final sign-off.
     if (user.role === "ADMIN" || user.role === "PC" || user.role === "APPROVAL_MANAGER" || isAssignee || instance.reviewerIds.includes(user.sub)) return
@@ -443,7 +482,16 @@ const VALUE_VALIDATORS_BY_ITEM_TYPE: Record<string, (item: any, values: ItemValu
     DATE_TIME: (_item, v) => assertDateSatisfied(v.dateValue),
     GPS: (item, v) => assertGpsSatisfied(item, v.gpsLat, v.gpsLng),
     QR_SCAN: (item, v) => assertQrSatisfied(item, v.textValue),
-    CASH_TALLY: (item, v) => assertNumberEntrySatisfied(item, v.numericValue),
+    CASH_TALLY: (item, v) => {
+        assertNumberEntrySatisfied(item, v.numericValue)
+        // The expected amount used to be display-only: a short drawer completed exactly like a
+        // matching one. A mismatch now needs a reason, stored in conditionalReasonValue (the
+        // same "why" slot Yes/No's ASK_REASON uses) so reviewers see it next to the count.
+        if (item.cashExpectedAmount != null && v.numericValue !== item.cashExpectedAmount && !v.conditionalReasonValue?.trim()) {
+            const diff = (v.numericValue ?? 0) - item.cashExpectedAmount
+            throw AppError.badRequest(`Count is ${diff < 0 ? "short" : "over"} by ${Math.abs(diff)} — add a reason before saving`)
+        }
+    },
     SIGNATURE: (_item, v) => assertSignatureSatisfied(v.signatureValue),
     DUAL_SIGNATURE: (_item, v) => assertDualSignatureSatisfied(v.signatureValue, v.secondSignatureValue),
 }
@@ -555,7 +603,10 @@ export const syncVerificationStatus = async (instanceId: string) => {
         notificationService
             .notifyChecklistPendingVerification({ _id: instance.id, title: instance.title, storeId: instance.storeId, assigneeIds: assigneeLinks.map(l => l.userId) })
             .catch((err) => console.error("Failed to notify PC of pending checklist:", err))
-    } else if (!allDone && instance.verificationStatus === "PENDING_APPROVAL") {
+    } else if (!allDone && (instance.verificationStatus === "PENDING_APPROVAL" || instance.verificationStatus === "APPROVED")) {
+        // APPROVED only reaches here via an ADMIN reopening an item (assertInstanceEditable blocks
+        // everyone else) — the approval no longer covers what's on the run, so it goes back for
+        // a fresh review instead of staying "Approved" over changed answers.
         await db.update(checklistInstances).set({ verificationStatus: "NOT_SUBMITTED", updatedAt: new Date() }).where(eq(checklistInstances.id, instanceId))
     }
 }
@@ -660,8 +711,18 @@ const instanceConditions = async (filter: InstanceListFilter) => {
         const links = await db.select({ instanceId: checklistInstanceAssignees.instanceId })
             .from(checklistInstanceAssignees)
             .where(eq(checklistInstanceAssignees.userId, assigneeFilter))
-        if (!links.length) return NO_MATCHES
-        conditions.push(inArray(checklistInstances.id, links.map((l) => l.instanceId)))
+        const ids = new Set(links.map((l) => l.instanceId))
+        // "Mine" also covers runs where I'm a named AUDIT auditor (they aren't copied in as
+        // assignees, so these runs never showed up in the auditor's My Checklists at all).
+        if (filter.userId && !filter.assigneeId) {
+            const auditLinks = await db.select({ instanceId: checklistInstanceItems.instanceId })
+                .from(checklistInstanceItemSubmissions)
+                .innerJoin(checklistInstanceItems, eq(checklistInstanceItems.id, checklistInstanceItemSubmissions.itemId))
+                .where(eq(checklistInstanceItemSubmissions.userId, filter.userId))
+            for (const l of auditLinks) ids.add(l.instanceId)
+        }
+        if (!ids.size) return NO_MATCHES
+        conditions.push(inArray(checklistInstances.id, [...ids]))
     }
 
     // Separate condition from assigneeFilter above (not merged into it) so "mine, AND also
@@ -823,6 +884,7 @@ export const checklistInstanceService = {
         const assigneeLinkRows = await db.select({ userId: checklistInstanceAssignees.userId }).from(checklistInstanceAssignees).where(eq(checklistInstanceAssignees.instanceId, instanceRow.id))
         const assigneeIds = assigneeLinkRows.map((l) => l.userId)
         assertCanAccess({ assigneeIds }, user)
+        assertInstanceEditable(instanceRow, user)
 
         // AUDIT items only complete through checklistInstanceItemSubmission.service.ts's
         // per-named-auditor flow (recomputeItemAndVerification flips this once every auditor has
@@ -892,8 +954,21 @@ export const checklistInstanceService = {
         // Re-select so the response reflects exactly what's in the DB (e.g. if applyConditionalSideEffects's
         // issueId update above landed).
         const [finalItem] = await db.select().from(checklistInstanceItems).where(eq(checklistInstanceItems.id, itemId)).limit(1)
+        if (!finalItem) throw AppError.notFound("Checklist item not found.")
+
+        // Answers are overwritten in place, so without this there was no way to tell what a
+        // record said before someone changed it. One row per save/reopen, before + after.
+        await auditService.record({
+            entityType: "ChecklistInstanceItem",
+            entityId: itemId,
+            action: isDone ? (item.isDone ? "UPDATE" : "COMPLETE") : "REOPEN",
+            actorId: user.sub,
+            before: auditItemSnapshot(item),
+            after: auditItemSnapshot(finalItem),
+        })
+
         emitChecklistEvent("checklist-instance:updated", { storeId: instanceRow.storeId }, { instanceId: instanceRow.id })
-        return finalItem
+        return stripSecretItemFields(finalItem)
     },
 
     // GET /checklist-instances/pending-verification — PC sees every store's queue, same as ADMIN.
@@ -1025,6 +1100,10 @@ export const checklistInstanceService = {
                     completedBy: null,
                     updatedAt: now,
                 }).where(eq(checklistInstanceItems.instanceId, id))
+                // AUDIT items derive isDone from their auditors' submissions — reopening only the
+                // item left every submission saying "Submitted" with nothing for the auditor to redo.
+                await tx.update(checklistInstanceItemSubmissions).set({ isDone: false, completedAt: null, updatedAt: now })
+                    .where(sql`${checklistInstanceItemSubmissions.itemId} IN (SELECT id FROM ${checklistInstanceItems} WHERE ${checklistInstanceItems.instanceId} = ${id})`)
             })
         }
 

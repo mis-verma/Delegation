@@ -140,7 +140,8 @@ export const ChecklistInstanceItemCard = ({ item, instanceId, canWork, isLocked 
               <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[9px] font-display font-medium px-1 rounded-full bg-black/70 text-white whitespace-nowrap">
                 {formatTimeOnly(img.createdAt)}
               </span>
-              {interactive && (
+              {/* Evidence on a finished item stays put (the server refuses too) — Reopen to swap it. */}
+              {interactive && !item.isDone && (
                 <button
                   onClick={() => deleteImage.mutate(img.id)}
                   disabled={deleteImage.isPending}

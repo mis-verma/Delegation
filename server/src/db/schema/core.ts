@@ -105,6 +105,9 @@ export const users = mysqlTable(
     // were they last seen", independent of the Redis-backed "are they online right now" set,
     // which never persists and self-heals but can't answer "how long ago" once someone's gone.
     lastActiveAt: datetime('lastActiveAt', { mode: 'date' }),
+    // Weekly day(s) off, 0 = Sunday … 6 = Saturday. On those days the daily checklist generator
+    // leaves this person off that day's run (and skips the run if nobody's left). Null = none.
+    weekOffDays: json('weekOffDays').$type<number[]>(),
     createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
     updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
   },

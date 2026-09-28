@@ -14,7 +14,9 @@ interface ChecklistInstanceItemSignatureCardProps {
 
 export const ChecklistInstanceItemSignatureCard = ({ item, instanceId, canWork, isLocked }: ChecklistInstanceItemSignatureCardProps) => {
   const setItemDone = useSetChecklistInstanceItemDoneMutation(instanceId);
-  const [draft, setDraft] = useState<string | null>(item.signatureValue);
+  // Starts empty (the pad always does) — seeding it with the saved signature meant that after a
+  // Reopen, Save was enabled on a blank pad and quietly resubmitted the old signature.
+  const [draft, setDraft] = useState<string | null>(null);
   const interactive = canWork && !isLocked;
   const label = item.signatureLabels?.[0] || 'Signature';
 

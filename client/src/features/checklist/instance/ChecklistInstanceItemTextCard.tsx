@@ -26,6 +26,14 @@ export const ChecklistInstanceItemTextCard = ({ item, instanceId, canWork, isLoc
         onReopen={() => setItemDone.mutate({ itemId: item.id, isDone: false, textValue: draft })}
       />
 
+      {/* The answer is the record — reviewers, HODs and anyone viewing an approved run must see
+          it, not just the person still filling it in. */}
+      {!interactive && item.textValue && (
+        <p className="text-sm font-display text-text px-3 py-2 rounded-lg bg-surface-hover/60 border border-border/60 whitespace-pre-wrap break-words">
+          {item.textValue}
+        </p>
+      )}
+
       {interactive && (
         <div className="flex flex-col gap-2">
           {setItemDone.isError && (

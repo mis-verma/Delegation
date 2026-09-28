@@ -18,6 +18,7 @@ import { SortableContext, useSortable, verticalListSortingStrategy, sortableKeyb
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Trash2, Plus, X, Pencil, Check, Layers, ChevronUp, ChevronDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { useConfirm } from '@/components/confirmDialog';
 import { ChecklistDefinitionItemDraftRow, type ItemDraft } from '../ChecklistDefinitionItemDraftRow';
 import { UNGROUPED, type SectionId, groupBySection, containerOrderFor, normalizeItemOrder } from '../itemSections';
 import { DRAG_SLOP_PX } from '../../../../lib/dragSlop';
@@ -51,6 +52,21 @@ const SortableItemRow = ({
   storeIds?: string[];
 }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: draft.key });
+  // A configured question (options, auditors, GPS target…) used to vanish on one mis-tap.
+  const confirm = useConfirm();
+  const handleRemove = async () => {
+    if (draft.label.trim()) {
+      const ok = await confirm({
+        title: 'Remove this question?',
+        description: `"${draft.label.trim()}" and its settings will be taken off this checklist.`,
+        confirmLabel: 'Remove',
+        cancelLabel: 'Keep it',
+        variant: 'danger',
+      });
+      if (!ok) return;
+    }
+    onRemove();
+  };
 
   return (
     <div
@@ -72,7 +88,7 @@ const SortableItemRow = ({
       </div>
       <button
         type="button"
-        onClick={onRemove}
+        onClick={handleRemove}
         className="shrink-0 p-2 mt-1.5 text-text-muted hover:text-danger hover:bg-danger/10 rounded-md transition-colors duration-150 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"
         aria-label="Remove item"
       >

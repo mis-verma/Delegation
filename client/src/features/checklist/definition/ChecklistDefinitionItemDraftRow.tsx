@@ -1,5 +1,5 @@
 
-import { ItemTypeConfigFields } from './builder/ItemTypeConfigFields';
+import { ItemTypeConfigFields, itemDraftProblem, patchForTypeSwitch } from './builder/ItemTypeConfigFields';
 import type { ChecklistItemType, ChecklistConditionalAction } from '../../../api/checklistDefinitions';
 
 export type ItemDraft = {
@@ -105,11 +105,12 @@ export const ChecklistDefinitionItemDraftRow = ({
   // actions, all still set) let it pass every validity gate, then vanish from the actual save
   // with no warning. It's a real error state now, flagged right here instead of failing silently.
   const isLabelBlank = !draft.label.trim();
+  const problem = itemDraftProblem(draft);
 
   return (
     <div
       className={`flex flex-col gap-3.5 p-4 rounded-lg border bg-surface transition-all duration-150 ${
-        isLabelBlank ? 'border-danger/50' : 'border-border hover:border-border-hover'
+        isLabelBlank || problem ? 'border-danger/50' : 'border-border hover:border-border-hover'
       } ${className}`}
     >
       {/* Item Index + Main Description Input */}
@@ -163,7 +164,7 @@ export const ChecklistDefinitionItemDraftRow = ({
               role="radio"
               aria-checked={isSelected}
               aria-label={`Switch type to ${ITEM_TYPE_LABEL[type]}`}
-              onClick={() => patch({ itemType: type })}
+              onClick={() => patch(patchForTypeSwitch(draft, type))}
               className={[
                 'whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-medium transition-all duration-150 cursor-pointer select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50',
                 isSelected
@@ -181,6 +182,10 @@ export const ChecklistDefinitionItemDraftRow = ({
       <div className="pt-2.5 border-t border-dashed border-border/60">
         <ItemTypeConfigFields draft={draft} onChange={patch} storeIds={storeIds} />
       </div>
+
+      {!isLabelBlank && problem && (
+        <p role="alert" className="text-[11px] font-display font-medium text-danger">{problem}</p>
+      )}
     </div>
   );
 };

@@ -90,6 +90,9 @@ const buildItemPayloads = (itemDrafts: ItemDraft[]): CreateChecklistDefinitionIt
       } : {}),
     }));
 
+const ALL_WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
+const DEFAULT_WORKING_WEEKDAYS = [1, 2, 3, 4, 5, 6];
+
 const STEPS = [
   { key: 'basics', label: 'Basics' },
   { key: 'schedule', label: 'Schedule' },
@@ -127,6 +130,8 @@ export const ChecklistBuilder = () => {
   const [startDate, setStartDate] = useState('');
   const [opensTime, setOpensTime] = useState('');
   const [cutoffTime, setCutoffTime] = useState('');
+  // DAILY only — Mon–Sat by default (Sunday off), matching the server default for new checklists.
+  const [activeWeekdays, setActiveWeekdays] = useState<number[]>(DEFAULT_WORKING_WEEKDAYS);
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [assigneeRoles, setAssigneeRoles] = useState<ChecklistAssigneeRole[]>([]);
   // Additive on top of the role-based verify rule — see ChecklistReviewersField.
@@ -162,12 +167,12 @@ export const ChecklistBuilder = () => {
   // thing that quietly goes stale the next time a field is added.
   const snapshotKey = (f: {
     name: string; description: string; icon: ChecklistIcon; storeIds: string[]; recurrence: ChecklistRecurrence;
-    startDate: string; opensTime: string; cutoffTime: string; assigneeIds: string[]; assigneeRoles: ChecklistAssigneeRole[];
+    startDate: string; opensTime: string; cutoffTime: string; activeWeekdays: number[]; assigneeIds: string[]; assigneeRoles: ChecklistAssigneeRole[];
     reviewerIds: string[]; itemDrafts: ItemDraft[]; sections: string[];
   }) => JSON.stringify(f);
   const [baseline, setBaseline] = useState(() => snapshotKey({
     name: '', description: '', icon: 'store', storeIds: [], recurrence: 'DAILY', startDate: '',
-    opensTime: '', cutoffTime: '', assigneeIds: [], assigneeRoles: [], reviewerIds: [], itemDrafts: [], sections: [],
+    opensTime: '', cutoffTime: '', activeWeekdays: DEFAULT_WORKING_WEEKDAYS, assigneeIds: [], assigneeRoles: [], reviewerIds: [], itemDrafts: [], sections: [],
   }));
 
   if (existing && hydratedId !== existing.id) {
@@ -184,6 +189,7 @@ export const ChecklistBuilder = () => {
     setStartDate(existing.startDate.slice(0, 10));
     setOpensTime(existing.opensTime ?? '');
     setCutoffTime(existing.cutoffTime ?? '');
+    setActiveWeekdays(existing.activeWeekdays ?? ALL_WEEKDAYS);
     setAssigneeIds(existing.assigneeIds);
     setAssigneeRoles(existing.assigneeRoles);
     setReviewerIds(existing.reviewerIds);
@@ -210,6 +216,7 @@ export const ChecklistBuilder = () => {
       startDate: existing.startDate.slice(0, 10),
       opensTime: existing.opensTime ?? '',
       cutoffTime: existing.cutoffTime ?? '',
+      activeWeekdays: existing.activeWeekdays ?? ALL_WEEKDAYS,
       assigneeIds: existing.assigneeIds,
       assigneeRoles: existing.assigneeRoles,
       reviewerIds: existing.reviewerIds,
@@ -219,7 +226,7 @@ export const ChecklistBuilder = () => {
   }
 
   const isDirty = snapshotKey({
-    name, description, icon, storeIds, recurrence, startDate, opensTime, cutoffTime,
+    name, description, icon, storeIds, recurrence, startDate, opensTime, cutoffTime, activeWeekdays,
     assigneeIds, assigneeRoles, reviewerIds, itemDrafts, sections,
   }) !== baseline;
 
@@ -233,7 +240,7 @@ export const ChecklistBuilder = () => {
   const markClean = () => {
     justSavedRef.current = true;
     setBaseline(snapshotKey({
-      name, description, icon, storeIds, recurrence, startDate, opensTime, cutoffTime,
+      name, description, icon, storeIds, recurrence, startDate, opensTime, cutoffTime, activeWeekdays,
       assigneeIds, assigneeRoles, reviewerIds, itemDrafts, sections,
     }));
   };
@@ -282,7 +289,9 @@ export const ChecklistBuilder = () => {
   // not inside its own section's block, breaking the "same-section items are contiguous"
   // assumption every other view relies on.
   const addItem = (patch: Partial<ItemDraft>) =>
-    setItemDrafts(drafts => normalizeItemOrder([...drafts, { ...emptyItemDraft(), section: activeSection, ...patch }], sections));
+    // `section` goes last: the patch from AddQuestionModal is a whole draft carrying section: null,
+    // which used to override the picked section and drop every new item into Ungrouped.
+    setItemDrafts(drafts => normalizeItemOrder([...drafts, { ...emptyItemDraft(), ...patch, section: activeSection }], sections));
 
   const removeItem = (key: string) =>
     setItemDrafts(drafts => drafts.filter(d => d.key !== key));
@@ -337,6 +346,7 @@ export const ChecklistBuilder = () => {
       startDate: new Date(startDate).toISOString(),
       opensTime: opensTime || undefined,
       cutoffTime: cutoffTime || undefined,
+      activeWeekdays: recurrence === 'DAILY' ? activeWeekdays : null,
       assigneeIds,
       reviewerIds: reviewerIds.length ? reviewerIds : undefined,
       assigneeRoles: assigneeRoles.length ? assigneeRoles : undefined,
@@ -415,6 +425,8 @@ export const ChecklistBuilder = () => {
         onOpensTimeChange={setOpensTime}
         cutoffTime={cutoffTime}
         onCutoffTimeChange={setCutoffTime}
+        activeWeekdays={activeWeekdays}
+        onActiveWeekdaysChange={setActiveWeekdays}
       />
     </BuilderStepFrame>,
 
@@ -479,6 +491,7 @@ export const ChecklistBuilder = () => {
         startDate={startDate}
         opensTime={opensTime}
         cutoffTime={cutoffTime}
+        activeWeekdays={activeWeekdays}
         itemDrafts={itemDrafts}
         assigneeIds={assigneeIds}
         assigneeRoles={assigneeRoles}

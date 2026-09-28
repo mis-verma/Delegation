@@ -65,6 +65,8 @@ export type ChecklistDefinition = {
   reviewerIds: string[];
   assigneeRoles: ChecklistAssigneeRole[];
   icon: ChecklistIcon;
+  /** DAILY only: weekdays a run is created on (0 = Sunday … 6 = Saturday). Null = every day. */
+  activeWeekdays: number[] | null;
   version: number;
   createdBy: string;
   items: ChecklistDefinitionItem[];
@@ -113,6 +115,7 @@ export type CreateChecklistDefinitionPayload = {
   reviewerIds?: string[];
   assigneeRoles?: ChecklistAssigneeRole[];
   icon?: ChecklistIcon;
+  activeWeekdays?: number[] | null;
   items: CreateChecklistDefinitionItemPayload[];
 };
 

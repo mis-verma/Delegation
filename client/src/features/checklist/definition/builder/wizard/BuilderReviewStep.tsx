@@ -15,7 +15,7 @@ import {
   UserCheck,
   ShieldCheck,
 } from 'lucide-react';
-import { Button } from '../../../../../components';
+import { Button, formatWeekdays } from '../../../../../components';
 import { Badge } from '@/components/ui/badge';
 import { useStoresQuery } from '../../../hook';
 import { useAssignableUsersQuery } from '../../../../tickets/hook';
@@ -36,6 +36,7 @@ interface BuilderReviewStepProps {
   startDate: string;
   opensTime: string;
   cutoffTime: string;
+  activeWeekdays: number[];
   itemDrafts: ItemDraft[];
   assigneeIds: string[];
   assigneeRoles: ChecklistAssigneeRole[];
@@ -152,6 +153,7 @@ export const BuilderReviewStep = ({
   startDate,
   opensTime,
   cutoffTime,
+  activeWeekdays,
   itemDrafts,
   assigneeIds,
   assigneeRoles,
@@ -254,6 +256,7 @@ export const BuilderReviewStep = ({
                 <span className="text-text-muted">Frequency: </span>
                 <span className="font-medium text-text">
                   {RECURRENCE_LABEL[recurrence] ?? recurrence}
+                  {recurrence === 'DAILY' && ` · ${formatWeekdays(activeWeekdays)}`}
                 </span>
               </div>
             </div>

@@ -32,7 +32,7 @@ const CATEGORIES: PaletteCategory[] = [
       { label: 'Text box', icon: AlignLeft, patch: { itemType: 'TEXT_BOX' } },
       { label: 'Number entry', icon: Hash, patch: { itemType: 'NUMBER_ENTRY' } },
       { label: 'Date & time', icon: Calendar, patch: { itemType: 'DATE_TIME' } },
-      { label: 'Rating 1-5', icon: Star, patch: { itemType: 'RATING', ratingScale: '5' } },
+      { label: 'Rating', icon: Star, patch: { itemType: 'RATING', ratingScale: '5' } },
       { label: 'Simple checkbox', icon: SquareCheck, patch: { itemType: 'STANDARD', requiredImageCount: '0' } },
     ],
   },

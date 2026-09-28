@@ -12,6 +12,8 @@ export type AdminUser = {
     storeId: string | null;
     isActive: boolean;
     avatarUrl: string | null;
+    /** Weekly day(s) off, 0 = Sunday … 6 = Saturday — no daily checklists on these days. */
+    weekOffDays?: number[] | null;
     createdAt: string;
 };
 
@@ -29,6 +31,7 @@ export type UpdateUserPayload = Partial<Omit<CreateUserPayload, "password" | "de
     isActive?: boolean;
     departmentId?: string | null;
     storeId?: string | null;
+    weekOffDays?: number[];
 };
 export type ApiResponse<T> = { success: boolean; data: T };
 

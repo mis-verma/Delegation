@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Sparkles } from 'lucide-react';
 import { Modal } from '../../../../components';
 import { useConfirm } from '@/components/confirmDialog';
-import { ItemTypeConfigFields, isItemDraftComplete } from './ItemTypeConfigFields';
+import { ItemTypeConfigFields, itemDraftProblem } from './ItemTypeConfigFields';
 import { emptyItemDraft, type ItemDraft } from '../ChecklistDefinitionItemDraftRow';
 import type { PaletteEntry } from './QuestionTypePalette';
 
@@ -30,7 +30,8 @@ export const AddQuestionModal = ({
     setDraft((prev) => ({ ...prev, ...patch }));
 
   const hasLabel = Boolean(draft.label.trim());
-  const isComplete = isItemDraftComplete(draft);
+  const problem = itemDraftProblem(draft);
+  const isComplete = problem === null;
   const canConfirm = hasLabel && isComplete;
 
   const handleSubmit = (e?: FormEvent) => {
@@ -128,6 +129,7 @@ export const AddQuestionModal = ({
             onChange={patchDraft}
             storeIds={storeIds}
           />
+          {problem && <p role="alert" className="text-[11px] font-display font-medium text-danger">{problem}</p>}
         </div>
       </form>
     </Modal>

@@ -32,6 +32,7 @@ const publicUserColumns = {
     rank: users.rank,
     phone: users.phone,
     avatarUrl: users.avatarUrl,
+    weekOffDays: users.weekOffDays,
     createdAt: users.createdAt,
     updatedAt: users.updatedAt,
 };
@@ -139,8 +140,8 @@ export const userService = {
             entityId: id,
             action: "UPDATE",
             actorId,
-            before: { email: before.email, role: before.role, isActive: before.isActive },
-            after: { email: user.email, role: user.role, isActive: user.isActive }
+            before: { email: before.email, role: before.role, isActive: before.isActive, weekOffDays: before.weekOffDays },
+            after: { email: user.email, role: user.role, isActive: user.isActive, weekOffDays: user.weekOffDays }
         });
 
         return user;
@@ -163,8 +164,8 @@ export const userService = {
             entityId: id,
             action: "UPDATE",
             actorId: id,
-            before: { firstName: before.firstName, lastName: before.lastName, phone: before.phone },
-            after: { firstName: user.firstName, lastName: user.lastName, phone: user.phone },
+            before: { firstName: before.firstName, lastName: before.lastName, phone: before.phone, weekOffDays: before.weekOffDays },
+            after: { firstName: user.firstName, lastName: user.lastName, phone: user.phone, weekOffDays: user.weekOffDays },
         });
 
         return user;

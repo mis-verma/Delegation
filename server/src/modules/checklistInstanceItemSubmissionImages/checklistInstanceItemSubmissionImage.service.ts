@@ -5,7 +5,8 @@ import { checklistInstanceItemSubmissions, checklistInstanceItemSubmissionImages
 import { eq, inArray } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
 import { AppError } from "../../utils/AppError.js"
-import { assertCanAccess } from "../checklistInstanceItemSubmissions/checklistInstanceItemSubmission.service.js"
+import { assertCanAccess, assertSubmissionRunEditable } from "../checklistInstanceItemSubmissions/checklistInstanceItemSubmission.service.js"
+import { auditService } from "../audit/audit.service.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 
 const UPLOAD_DIR = "checklist-instance-submissions"
@@ -20,6 +21,12 @@ export const checklistInstanceItemSubmissionImageService = {
 
         const [item] = await db.select().from(checklistInstanceItems).where(eq(checklistInstanceItems.id, submission.itemId)).limit(1)
         if (!item) throw AppError.notFound("Checklist item not found")
+        await assertSubmissionRunEditable(item.instanceId, user)
+
+        if (submission.isDone) {
+            discardFiles(files)
+            throw AppError.badRequest("Reopen this submission before changing its photos")
+        }
 
         if (!files.length) {
             throw AppError.badRequest("No valid image files were received (check file type and size)")
@@ -65,14 +72,22 @@ export const checklistInstanceItemSubmissionImageService = {
         if (!image) throw AppError.notFound("Image not found")
 
         const [submission] = await db.select().from(checklistInstanceItemSubmissions).where(eq(checklistInstanceItemSubmissions.id, image.submissionId)).limit(1)
-        if (submission) assertCanAccess(submission, user)
+        if (submission) {
+            assertCanAccess(submission, user)
+            if (submission.isDone) throw AppError.badRequest("Reopen this submission before changing its photos")
+            const [item] = await db.select({ instanceId: checklistInstanceItems.instanceId }).from(checklistInstanceItems).where(eq(checklistInstanceItems.id, submission.itemId)).limit(1)
+            if (item) await assertSubmissionRunEditable(item.instanceId, user)
+        }
 
-        const absolutePath = path.resolve(process.cwd(), "uploads", UPLOAD_DIR, path.basename(image.url))
-        fs.unlink(absolutePath, (err) => {
-            if (err) console.error("Failed to delete image file from disk:", err)
-        })
-
+        // File stays on disk and the removal is logged — same reasoning as the item-image service.
         await db.delete(checklistInstanceItemSubmissionImages).where(eq(checklistInstanceItemSubmissionImages.id, imageId))
+        await auditService.record({
+            entityType: "ChecklistInstanceItemSubmissionImage",
+            entityId: imageId,
+            action: "DELETE",
+            actorId: user.sub,
+            before: image,
+        })
         return image
     },
 }

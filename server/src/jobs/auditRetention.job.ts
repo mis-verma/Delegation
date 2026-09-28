@@ -1,5 +1,5 @@
 import cron from 'node-cron';
-import { lt } from 'drizzle-orm';
+import { and, lt, notLike } from 'drizzle-orm';
 import { db } from '../config/db.js';
 import { auditLogs } from '../db/schema/core.js';
 import { settingsService } from '../modules/settings/settings.service.js';
@@ -35,17 +35,20 @@ export const startAuditRetention = () => {
 
         try {
             for (let batch = 0; batch < MAX_BATCHES_PER_RUN; batch++) {
+                // Checklist-run history (answer changes, evidence removals, approvals) is the
+                // compliance record for past days — it's never trimmed.
+                const where = and(lt(auditLogs.createdAt, cutoff), notLike(auditLogs.entityType, 'ChecklistInstance%'));
                 const stale = await db
                     .select({ id: auditLogs.id })
                     .from(auditLogs)
-                    .where(lt(auditLogs.createdAt, cutoff))
+                    .where(where)
                     .limit(BATCH_SIZE);
 
                 if (!stale.length) break;
 
-                // Delete by the same cutoff rather than by the ids just read: identical result,
+                // Delete by the same condition rather than by the ids just read: identical result,
                 // one fewer round trip, and no risk of a huge IN (...) list.
-                await db.delete(auditLogs).where(lt(auditLogs.createdAt, cutoff)).limit(BATCH_SIZE);
+                await db.delete(auditLogs).where(where).limit(BATCH_SIZE);
                 removed += stale.length;
 
                 if (stale.length < BATCH_SIZE) break;

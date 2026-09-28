@@ -80,6 +80,9 @@ export const checklistDefinitions = mysqlTable(
     isActive: boolean('isActive').notNull().default(true),
     assigneeRoles: json('assigneeRoles').$type<(typeof CHECKLIST_ASSIGNEE_ROLES)[number][]>(),
     icon: mysqlEnum('icon', CHECKLIST_ICONS).notNull().default('store'),
+    // DAILY only: which weekdays a run is created on (0 = Sunday … 6 = Saturday, same as
+    // Date#getDay). Null means every day. New daily checklists default to Mon–Sat.
+    activeWeekdays: json('activeWeekdays').$type<number[]>(),
     version: int('version').notNull().default(1),
     createdBy: varchar('createdBy', { length: 191 }).notNull().references(() => users.id),
     // Soft-delete: remove() sets this instead of deleting the row — which used to cascade through

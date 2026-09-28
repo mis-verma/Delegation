@@ -6,11 +6,15 @@ import { eq, inArray } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 import { AppError } from "../../utils/AppError.js";
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js";
+import { assertInstanceEditable } from "../checklistInstances/checklistInstance.service.js";
+import { auditService } from "../audit/audit.service.js";
 
 const assertCanUpload = async (user: AccessTokenPayload, item: { instanceId: string }) => {
-    if (user.role === "ADMIN" || user.role === "PC") return;
     const [instance] = await db.select().from(checklistInstances).where(eq(checklistInstances.id, item.instanceId)).limit(1);
     if (!instance) throw AppError.notFound("Checklist instance not found");
+    // Same approval lock as setItemDone — evidence on an approved run can't be added or removed.
+    assertInstanceEditable(instance, user);
+    if (user.role === "ADMIN" || user.role === "PC") return;
     const assigneeLinks = await db.select({ userId: checklistInstanceAssignees.userId })
         .from(checklistInstanceAssignees)
         .where(eq(checklistInstanceAssignees.instanceId, instance.id));
@@ -26,6 +30,20 @@ export const checklistInstanceImageService = {
 
         if (!files.length) {
             throw AppError.badRequest("No valid image files were received (check file type and size)");
+        }
+
+        // The upload filter accepts images and videos for every item, so a photo used to satisfy
+        // a video question and a video a photo question. Each item now only takes its own kind.
+        const wantsVideo = item.itemType === "VIDEO_UPLOAD";
+        const wrongKind = files.filter((f) => wantsVideo ? !f.mimetype.startsWith("video/") : !f.mimetype.startsWith("image/"));
+        if (wrongKind.length) {
+            files.forEach((f) => fs.unlink(f.path, () => {}));
+            throw AppError.badRequest(wantsVideo ? "This item needs a video, not a photo" : "This item needs a photo, not a video");
+        }
+
+        if (item.isDone) {
+            files.forEach((f) => fs.unlink(f.path, () => {}));
+            throw AppError.badRequest("This item is already done — reopen it first to change its evidence");
         }
 
         if (item.requiresLivePhoto && captureMethod !== "LIVE") {
@@ -73,12 +91,22 @@ export const checklistInstanceImageService = {
             throw AppError.forbidden("Only an assignee of this checklist can upload evidence for it");
         }
 
-        const absolutePath = path.resolve(process.cwd(), "uploads", "checklist-instances", path.basename(image.url));
-        fs.unlink(absolutePath, (err) => {
-            if (err) console.error("Failed to delete image file from disk:", err);
-        });
+        // Evidence on a completed item stays put — removing it used to leave the item "done" with
+        // its proof gone. Reopen the item first to swap a photo.
+        if (item?.isDone) {
+            throw AppError.badRequest("This item is already done — reopen it first to change its evidence");
+        }
 
+        // The file is deliberately left on disk (only the row goes), and the removal is logged
+        // with the file's URL — a deleted photo used to be unrecoverable.
         await db.delete(checklistInstanceImages).where(eq(checklistInstanceImages.id, imageId));
+        await auditService.record({
+            entityType: "ChecklistInstanceImage",
+            entityId: imageId,
+            action: "DELETE",
+            actorId: user.sub,
+            before: image,
+        });
         return image;
     },
 };

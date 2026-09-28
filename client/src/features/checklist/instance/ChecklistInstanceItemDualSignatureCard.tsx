@@ -14,8 +14,9 @@ interface ChecklistInstanceItemDualSignatureCardProps {
 
 export const ChecklistInstanceItemDualSignatureCard = ({ item, instanceId, canWork, isLocked }: ChecklistInstanceItemDualSignatureCardProps) => {
   const setItemDone = useSetChecklistInstanceItemDoneMutation(instanceId);
-  const [first, setFirst] = useState<string | null>(item.signatureValue);
-  const [second, setSecond] = useState<string | null>(item.secondSignatureValue);
+  // Both start empty, matching the blank pads — see ChecklistInstanceItemSignatureCard.
+  const [first, setFirst] = useState<string | null>(null);
+  const [second, setSecond] = useState<string | null>(null);
   const interactive = canWork && !isLocked;
   const firstLabel = item.signatureLabels?.[0] || 'Signer 1';
   const secondLabel = item.signatureLabels?.[1] || 'Signer 2';

@@ -24,8 +24,13 @@ export const ChecklistInstanceItemCashTallyCard = ({ item, instanceId, canWork, 
     parsed != null &&
     ((item.numberEntryMin != null && parsed < item.numberEntryMin) ||
       (item.numberEntryMax != null && parsed > item.numberEntryMax));
-  const canSubmit = interactive && parsed != null && !Number.isNaN(parsed) && !outOfRange;
   const variance = parsed != null && item.cashExpectedAmount != null ? parsed - item.cashExpectedAmount : null;
+  // A short or over drawer now needs a reason (the server enforces it too) — it used to save
+  // exactly like a matching count.
+  const [reason, setReason] = useState(item.conditionalReasonValue ?? '');
+  const needsReason = variance != null && variance !== 0;
+  const canSubmit = interactive && parsed != null && !Number.isNaN(parsed) && !outOfRange && (!needsReason || reason.trim().length > 0);
+  const unit = item.numberEntryUnit ? `${item.numberEntryUnit} ` : '';
 
   const rangeHint = [
     item.numberEntryMin != null ? `min ${item.numberEntryMin}` : null,
@@ -41,7 +46,7 @@ export const ChecklistInstanceItemCashTallyCard = ({ item, instanceId, canWork, 
         onReopen={() => setItemDone.mutate({ itemId: item.id, isDone: false, numericValue: parsed ?? undefined })}
         subtitle={item.cashExpectedAmount != null && (
           <p className="text-[11px] text-text-muted font-display mt-0.5">
-            Expected {item.numberEntryUnit ?? ''}{item.cashExpectedAmount}
+            Expected {unit}{item.cashExpectedAmount.toLocaleString()}
           </p>
         )}
       />
@@ -70,7 +75,12 @@ export const ChecklistInstanceItemCashTallyCard = ({ item, instanceId, canWork, 
 
           {interactive && !item.isDone && (
             <button
-              onClick={() => parsed != null && setItemDone.mutate({ itemId: item.id, isDone: true, numericValue: parsed })}
+              onClick={() => parsed != null && setItemDone.mutate({
+                itemId: item.id,
+                isDone: true,
+                numericValue: parsed,
+                ...(needsReason ? { conditionalReasonValue: reason.trim() } : {}),
+              })}
               disabled={!canSubmit || setItemDone.isPending}
               className="flex items-center gap-1.5 text-xs font-display font-medium px-2.5 py-1.5 rounded-md border border-primary-500/50 text-primary-600 hover:bg-primary-500/10 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed ml-auto"
             >
@@ -80,9 +90,23 @@ export const ChecklistInstanceItemCashTallyCard = ({ item, instanceId, canWork, 
           )}
         </div>
 
-        {variance != null && variance !== 0 && (
-          <p className={`text-xs font-display ${variance > 0 ? 'text-success' : 'text-danger'}`}>
-            {variance > 0 ? '+' : ''}{variance} {item.numberEntryUnit ?? ''} vs expected
+        {needsReason && (
+          <p className={`text-xs font-display font-medium ${(variance ?? 0) > 0 ? 'text-warning' : 'text-danger'}`}>
+            {(variance ?? 0) > 0 ? 'Over' : 'Short'} by {unit}{Math.abs(variance ?? 0).toLocaleString()}
+          </p>
+        )}
+        {needsReason && interactive && !item.isDone && (
+          <textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            rows={2}
+            placeholder="Why doesn't the count match? (required)"
+            className="w-full px-2.5 py-1.5 text-sm font-display bg-surface text-text rounded-md border border-border focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all resize-none"
+          />
+        )}
+        {item.isDone && item.conditionalReasonValue && (
+          <p className="text-xs font-display text-text-secondary px-2.5 py-1.5 rounded-md bg-surface-hover/60 border border-border/60">
+            <span className="font-semibold text-text">Reason: </span>{item.conditionalReasonValue}
           </p>
         )}
         {interactive && outOfRange && (

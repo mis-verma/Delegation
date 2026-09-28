@@ -6,9 +6,10 @@ import {
   CalendarClock,
   AlertCircle,
   Info,
+  CalendarDays,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { StoreMultiSelect, DatePicker, TimePicker } from '../../../../components';
+import { StoreMultiSelect, DatePicker, TimePicker, WeekdayPicker, formatWeekdays } from '../../../../components';
 import type { ChecklistRecurrence } from '../../../../api/checklistDefinitions';
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
@@ -60,6 +61,8 @@ interface BuilderSchedulePanelProps {
   onOpensTimeChange: (value: string) => void;
   cutoffTime: string;
   onCutoffTimeChange: (value: string) => void;
+  activeWeekdays: number[];
+  onActiveWeekdaysChange: (days: number[]) => void;
   className?: string;
 }
 
@@ -74,6 +77,8 @@ export const BuilderSchedulePanel = ({
   onOpensTimeChange,
   cutoffTime,
   onCutoffTimeChange,
+  activeWeekdays,
+  onActiveWeekdaysChange,
   className = '',
 }: BuilderSchedulePanelProps) => {
   const hasTimeMismatch = hasScheduleTimeMismatch(opensTime, cutoffTime);
@@ -155,6 +160,25 @@ export const BuilderSchedulePanel = ({
             );
           })}
         </div>
+
+        {recurrence === 'DAILY' && (
+          <div className="flex flex-col gap-2 pt-1">
+            <label className="text-xs font-display font-semibold text-text flex items-center gap-1.5">
+              <CalendarDays size={13} className="text-text-muted" />
+              Runs on
+              <span className="font-normal text-text-muted">· {formatWeekdays(activeWeekdays)}</span>
+            </label>
+            <WeekdayPicker
+              value={activeWeekdays}
+              onChange={onActiveWeekdaysChange}
+              minSelected={1}
+              aria-label="Days this checklist runs"
+            />
+            <p className="hidden sm:block text-[11px] font-display text-text-muted">
+              No checklist is created on the days left off. People's own week-off days are skipped too.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* 3. Effective Dates & Daily Availability Window */}

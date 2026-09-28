@@ -33,6 +33,9 @@ const emitToStores = (event: string, storeIds: string[], payload: unknown) => {
 // instance-generation sweep (checklistInstanceGenerator.job.ts).
 const NOT_DELETED = isNull(checklistDefinitions.deletedAt)
 
+// Mon–Sat (0 = Sunday). Same default migration 0023 applied to every existing daily checklist.
+const DEFAULT_WORKING_WEEKDAYS = [1, 2, 3, 4, 5, 6]
+
 export type ChecklistRecurrence = (typeof CHECKLIST_RECURRENCES)[number]
 
 export type ListChecklistDefinitionsFilter = {
@@ -276,6 +279,8 @@ export const checklistDefinitionService = {
                 cutoffTime: input.cutoffTime ?? null,
                 assigneeRoles: input.assigneeRoles ?? [],
                 icon: input.icon,
+                // Daily checklists skip Sunday unless the admin picks their own working days.
+                activeWeekdays: input.recurrence === "DAILY" ? (input.activeWeekdays === undefined ? DEFAULT_WORKING_WEEKDAYS : input.activeWeekdays) : null,
                 createdBy: user.sub,
             })
 
@@ -382,6 +387,8 @@ export const checklistDefinitionService = {
                 cutoffTime: input.cutoffTime ?? null,
                 assigneeRoles: input.assigneeRoles ?? [],
                 icon: input.icon,
+                // Omitted (an older client) keeps whatever days were already set.
+                ...(input.recurrence !== "DAILY" ? { activeWeekdays: null } : input.activeWeekdays !== undefined ? { activeWeekdays: input.activeWeekdays } : {}),
                 version: existing.version + 1,
                 updatedAt: new Date(),
             }).where(eq(checklistDefinitions.id, id))

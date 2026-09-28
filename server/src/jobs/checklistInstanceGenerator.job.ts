@@ -18,6 +18,7 @@ import {
     checklistInstanceItems,
     checklistInstanceItemSubmissions,
     checklistInstanceItemSubmissionAccessories,
+    users,
 } from "../db/schema/index.js"
 import type { ChecklistRecurrence } from "../db/schema/checklistDefinition.js"
 import { getCurrentPeriod, type Period } from "../utils/period.js"
@@ -68,6 +69,7 @@ export type GenerationDefinition = {
     startDate: Date
     opensTime: string | null
     cutoffTime: string | null
+    activeWeekdays: number[] | null
     storeIds: string[]
     assigneeIds: string[]
     reviewerIds: string[]
@@ -142,6 +144,7 @@ export const loadDefinitionsForGeneration = async (definitionIds: string[]): Pro
             startDate: row.startDate,
             opensTime: row.opensTime,
             cutoffTime: row.cutoffTime,
+            activeWeekdays: row.activeWeekdays ?? null,
             storeIds: (storesByDef.get(row.id) ?? []).map((l) => l.storeId),
             assigneeIds: (assigneesByDef.get(row.id) ?? []).map((l) => l.userId),
             reviewerIds: (reviewersByDef.get(row.id) ?? []).map((l) => l.userId),
@@ -277,6 +280,25 @@ export const generateInstanceForDefinition = async (definition: GenerationDefini
     const period = getCurrentPeriod(definition.recurrence, definition.startDate, now, env.CHECKLIST_TIMEZONE_OFFSET_MINUTES)
     if (!period) return []
     if (!definition.storeIds.length) return []
+
+    // Working days + personal week-offs (DAILY only — a weekly/monthly run spans several days, so
+    // one person's day off shouldn't cancel it). periodStart is the org-local calendar day written
+    // as UTC midnight (utils/period.ts), so its UTC weekday IS the local weekday.
+    if (definition.recurrence === "DAILY") {
+        const weekday = period.periodStart.getUTCDay()
+        if (definition.activeWeekdays && !definition.activeWeekdays.includes(weekday)) return []
+        if (definition.assigneeIds.length) {
+            const people = await db.select({ id: users.id, weekOffDays: users.weekOffDays }).from(users).where(inArray(users.id, definition.assigneeIds))
+            const offToday = new Set(people.filter((p) => (p.weekOffDays ?? []).includes(weekday)).map((p) => p.id))
+            if (offToday.size) {
+                const working = definition.assigneeIds.filter((id) => !offToday.has(id))
+                // Everyone on this checklist is off today — no run, rather than an overdue one
+                // nobody was ever going to fill.
+                if (!working.length) return []
+                definition = { ...definition, assigneeIds: working }
+            }
+        }
+    }
 
     // One query covering every store this definition is live in, instead of one
     // "already generated?" existence check per store.

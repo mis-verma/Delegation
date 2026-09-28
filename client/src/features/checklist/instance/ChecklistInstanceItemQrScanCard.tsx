@@ -112,8 +112,12 @@ export const ChecklistInstanceItemQrScanCard = ({ item, instanceId, canWork, isL
           )}
           {error && <p className="flex items-center gap-1.5 text-xs text-danger"><AlertCircle size={12} /> {error}</p>}
 
-          {!item.isDone && isScanning && (
-            <div className="relative w-full max-w-sm rounded-md overflow-hidden border border-border bg-black">
+          {/* Always mounted while the item is open (just hidden until scanning) — startScan()
+              attaches the camera stream to videoRef BEFORE flipping isScanning, so when this only
+              rendered once isScanning was true the ref was still null, the stream went nowhere
+              and the scanner sat on a black box forever. */}
+          {!item.isDone && (
+            <div className={`relative w-full max-w-sm rounded-md overflow-hidden border border-border bg-black ${isScanning ? '' : 'hidden'}`}>
               <video ref={videoRef} muted playsInline className="w-full h-[220px] object-cover" />
               <div className="absolute inset-6 border-2 border-primary-400/80 rounded-lg pointer-events-none" />
               <button
