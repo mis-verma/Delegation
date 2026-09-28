@@ -3,7 +3,6 @@ import { useParams, useNavigate, useBlocker } from 'react-router';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ArrowLeft, AlertCircle, ListChecks, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Skeleton, GradientIconTile, Breadcrumbs, Button } from '../../../../components';
-import { Badge } from '@/components/ui/badge';
 import { useConfirm } from '@/components/confirmDialog';
 import {
   useChecklistDefinitionQuery,
@@ -397,11 +396,10 @@ export const ChecklistBuilder = () => {
 
   const stepContent = [
     <BuilderStepFrame key="basics" stepIndex={step} title="Basics" description="Give this checklist a name your team will recognize.">
-      {/* Same card treatment (rounded-xl border bg-surface shadow-xs p-5) as every other simple-
-          form step below (Schedule/Assign/Reviewers) — this used to be the only step rendering its
-          fields bare with no box at all, at its own one-off max-w-3xl besides. */}
-      <div className="flex flex-col gap-5 p-5 rounded-xl border border-border bg-surface shadow-xs transition-all duration-200">
-        <h2 className="text-xs font-display font-bold text-text-muted">Checklist Details</h2>
+      {/* Fields sit straight on the wizard card, like every other step — a second bordered card
+          inside it (with a "Checklist Details" heading under the step's own "Basics") was a box
+          in a box. */}
+      <div className="flex flex-col gap-5 max-w-2xl">
         <ChecklistDetailsFields
           name={name}
           onNameChange={setName}
@@ -433,19 +431,21 @@ export const ChecklistBuilder = () => {
     <BuilderStepFrame key="items" stepIndex={step} title="Checklist Items" description="Add the steps your team needs to complete, in order.">
       <div className="flex flex-col gap-6">
         <ImportFromTemplateField templates={templates} onImport={handleImportTemplate} />
-        <div className="grid grid-cols-1 lg:grid-cols-[20rem_1fr] gap-6 items-start">
-          <div className="rounded-xl border border-border bg-surface shadow-xs p-4 lg:sticky lg:top-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[19rem_1fr] gap-5 lg:gap-6 items-start">
+          {/* Phones: questions first, the type grid after them — it used to sit on top and push
+              every question below the fold. Desktop: a sticky sidebar next to the list. */}
+          <div className="order-last lg:order-first rounded-2xl border border-border bg-surface p-4 lg:sticky lg:top-4">
             <QuestionTypePalette onAdd={addItem} storeIds={storeIds} />
           </div>
 
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between pb-1">
-              <label className="flex items-center gap-2 text-xs font-display font-bold text-text-secondary">
-                <span>Checklist Items</span>
-                <Badge variant="outline" className="text-[11px] py-0 px-2 font-mono">
-                  {itemDrafts.length}
-                </Badge>
-              </label>
+          <div className="flex flex-col gap-3 min-w-0">
+            <div className="flex items-baseline justify-between gap-2">
+              <h3 className="text-sm font-display font-semibold text-text">
+                Questions <span className="font-normal text-text-muted tabular-nums">· {itemDrafts.length}</span>
+              </h3>
+              {itemDrafts.length > 1 && (
+                <span className="hidden sm:inline text-[11px] font-display text-text-muted">Drag to reorder</span>
+              )}
             </div>
 
             <BuilderItemsList
@@ -551,7 +551,7 @@ export const ChecklistBuilder = () => {
       </div>
 
       {/* Main Wizard Card */}
-      <div className="rounded-2xl border border-border bg-surface shadow-xs overflow-hidden">
+      <div className="rounded-2xl border border-border bg-surface overflow-hidden">
         {/* Stepper Header with Progress Bar */}
         <div className="flex flex-col gap-3 px-4 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4 border-b border-border/60 bg-muted/20">
           <BuilderStepper

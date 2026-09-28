@@ -1,7 +1,5 @@
-import { Sparkles, ArrowDownToLine, Info } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { Sparkles } from 'lucide-react';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-import { SELECT_TRIGGER_CLASS } from './formConstants';
 import type { ChecklistTemplate } from '../../../../api/checklistTemplates';
 
 interface ImportFromTemplateFieldProps {
@@ -15,71 +13,37 @@ const TARGET_LABEL: Record<ChecklistTemplate['appliesTo'], string> = {
   TICKET: 'Tickets',
 };
 
-export const ImportFromTemplateField = ({
-  templates,
-  onImport,
-  className = '',
-}: ImportFromTemplateFieldProps) => {
+// Optional shortcut, so one quiet row rather than a tinted card competing with the questions:
+// picking a template copies its steps in as questions (each still editable afterwards).
+export const ImportFromTemplateField = ({ templates, onImport, className = '' }: ImportFromTemplateFieldProps) => {
   const usable = (templates ?? []).filter((t) => t.items.length > 0);
   if (usable.length === 0) return null;
 
   return (
-    // dark:bg-primary-500/10, not dark:bg-primary-950/20 — primary-950 isn't a defined token in
-    // this app's palette, so that dark: class never generated.
-    <div
-      className={`flex flex-col gap-3 p-4 rounded-xl border border-primary-200/80 dark:border-primary-800/40 bg-primary-50/40 dark:bg-primary-500/10 shadow-2xs transition-all ${className}`}
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className="flex items-center justify-center p-1 rounded-md bg-primary-100 dark:bg-primary-900/60 text-primary-700 dark:text-primary-300 shrink-0">
-            <Sparkles size={13} />
-          </span>
-          <span className="text-xs font-display font-bold text-primary-900 dark:text-primary-300">
-            Start From a Template
-          </span>
-        </div>
-        {/* Same header+status-badge convention as BuilderSchedulePanel's own title row, instead of
-            a plain unstyled word floating in the corner. */}
-        <Badge variant="outline" className="text-[11px] py-0.5">Optional</Badge>
-      </div>
-
-      {/* Select Dropdown */}
+    <div className={`flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 ${className}`}>
+      <span className="flex items-center gap-2 text-sm font-display font-medium text-text-secondary shrink-0">
+        <span className="flex items-center justify-center size-7 rounded-lg bg-coral-500/15 text-coral-700 dark:text-coral-300">
+          <Sparkles size={14} />
+        </span>
+        Start from a template
+      </span>
       <Select value="" onValueChange={onImport}>
-        <SelectTrigger
-          className={`${SELECT_TRIGGER_CLASS} bg-surface text-xs font-display border-border hover:border-primary-300 dark:hover:border-primary-700 shadow-2xs`}
-        >
-          <div className="flex items-center gap-2 text-text-secondary truncate">
-            <ArrowDownToLine size={13} className="text-text-muted shrink-0" />
-            <SelectValue placeholder="Copy steps from one of your templates…" />
-          </div>
+        <SelectTrigger className="h-10 w-full sm:max-w-sm rounded-xl bg-surface text-sm font-display">
+          <SelectValue placeholder="Copy steps from a template…" />
         </SelectTrigger>
-
-        <SelectContent className="bg-surface/95 backdrop-blur-md border border-border shadow-md max-h-72">
+        <SelectContent className="max-h-72">
           {usable.map((t) => (
-            <SelectItem
-              key={t.id}
-              value={t.id}
-              className="font-display text-xs py-2 px-3 focus:bg-primary-50 dark:focus:bg-primary-500/15 cursor-pointer"
-            >
-              <div className="flex items-center justify-between gap-3 w-full">
+            <SelectItem key={t.id} value={t.id} className="font-display text-sm py-2 cursor-pointer">
+              <span className="flex items-center justify-between gap-3 w-full">
                 <span className="font-medium text-text truncate">{t.name}</span>
-                <span className="text-[11px] text-text-muted shrink-0 font-mono">
-                  {t.items.length} step{t.items.length !== 1 ? 's' : ''} ({TARGET_LABEL[t.appliesTo]})
+                <span className="text-[11px] text-text-muted shrink-0 tabular-nums">
+                  {t.items.length} step{t.items.length !== 1 ? 's' : ''} · {TARGET_LABEL[t.appliesTo]}
                 </span>
-              </div>
+              </span>
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
-
-      {/* Helper Note */}
-      <p className="text-[11px] font-display text-text-muted leading-relaxed flex items-start gap-1.5 pl-0.5">
-        <Info size={13} className="shrink-0 mt-0.5 text-text-muted" />
-        <span>
-          Copies the template's steps into this checklist — edit, reorder, or remove any of them afterward.
-        </span>
-      </p>
     </div>
   );
 };

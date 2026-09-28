@@ -1,73 +1,85 @@
 import { useState, type KeyboardEvent } from 'react';
-import { X } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 
 interface AccessoriesListEditorProps {
   label?:       string;
+  placeholder?: string;
   accessories:  string[];
   onChange:     (accessories: string[]) => void;
 }
 
-// Admin-defined list of named, togglable checklist rows (e.g. "Shoes", "Belt", "ID Card") that
-// each auditor checks off on their own AUDIT-item submission — see ChecklistDefinitionItemDraftRow.
-// Styled like the rest of the shared form components (rounded-none, token classes).
-export const AccessoriesListEditor = ({ label = 'Accessories checklist', accessories, onChange }: AccessoriesListEditorProps) => {
+// An editable list of short named entries — the options of a choice question, or the things an
+// auditor ticks off on an AUDIT item. Type and press Enter (or the + button); each entry is a
+// removable chip.
+export const AccessoriesListEditor = ({
+  label = 'Accessories checklist',
+  placeholder = 'Type and press Enter',
+  accessories,
+  onChange,
+}: AccessoriesListEditorProps) => {
   const [draft, setDraft] = useState('');
+  const trimmed = draft.trim();
+  const isDuplicate = trimmed.length > 0 && accessories.some((a) => a.toLowerCase() === trimmed.toLowerCase());
 
   const add = () => {
-    const trimmed = draft.trim();
-    if (!trimmed || accessories.includes(trimmed)) return;
+    if (!trimmed || isDuplicate) return;
     onChange([...accessories, trimmed]);
     setDraft('');
   };
 
-  const remove = (name: string) => onChange(accessories.filter(a => a !== name));
+  const remove = (name: string) => onChange(accessories.filter((a) => a !== name));
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       add();
     }
+    // Backspace on an empty field removes the last chip, like a tag input.
+    if (e.key === 'Backspace' && !draft && accessories.length) remove(accessories[accessories.length - 1]);
   };
 
   return (
-    <div className="flex flex-col gap-2 w-full">
-      <label className="text-sm font-display font-medium text-text-secondary">{label}</label>
-      <div className="flex gap-2">
+    <div className="flex flex-col gap-1.5 w-full">
+      <span className="text-[11px] font-display font-medium text-text-muted">{label}</span>
+      <div className="flex flex-wrap items-center gap-1.5 min-h-10 p-1.5 rounded-xl border border-border bg-surface transition-colors duration-150 focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-500/20">
+        {accessories.map((name) => (
+          <span
+            key={name}
+            className="inline-flex items-center gap-1 h-7 pl-2.5 pr-1 rounded-full bg-surface-hover text-xs font-display font-medium text-text"
+          >
+            {name}
+            <button
+              type="button"
+              onClick={() => remove(name)}
+              className="flex items-center justify-center size-5 rounded-full text-text-muted cursor-pointer hover:bg-danger/10 hover:text-danger transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+              aria-label={`Remove ${name}`}
+            >
+              <X size={11} />
+            </button>
+          </span>
+        ))}
         <input
           value={draft}
-          onChange={e => setDraft(e.target.value)}
+          onChange={(e) => setDraft(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="e.g. Shoes, Belt, ID Card"
-          className="flex-1 px-3 h-10 text-sm bg-surface text-text rounded-none border border-border placeholder:text-text-light focus:outline-none focus:ring-4 focus:border-primary-600 focus:ring-primary-600/15 transition-colors duration-150"
+          onBlur={add}
+          placeholder={accessories.length ? 'Add another…' : placeholder}
+          aria-label={label}
+          className="flex-1 min-w-32 h-7 px-1.5 bg-transparent text-sm font-display text-text placeholder:text-text-light focus:outline-none"
         />
-        <button
-          type="button"
-          onClick={add}
-          className="px-3 h-10 text-sm font-display font-medium text-primary-600 border border-primary-600/30 rounded-none hover:bg-primary-600/10 transition-colors"
-        >
-          Add
-        </button>
+        {trimmed && !isDuplicate && (
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={add}
+            className="flex items-center justify-center size-7 rounded-full bg-primary-600 text-white cursor-pointer hover:bg-primary-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+            aria-label="Add"
+          >
+            <Plus size={14} />
+          </button>
+        )}
       </div>
-      {accessories.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {accessories.map(name => (
-            <span
-              key={name}
-              className="flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 text-xs font-display text-text bg-surface-hover border border-border rounded-none"
-            >
-              {name}
-              <button
-                type="button"
-                onClick={() => remove(name)}
-                className="p-0.5 rounded-full hover:bg-surface hover:text-danger text-text-muted transition-colors"
-                aria-label={`Remove ${name}`}
-              >
-                <X size={11} />
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
+      {isDuplicate && <span className="text-[11px] font-display text-danger">That one’s already in the list.</span>}
     </div>
   );
 };

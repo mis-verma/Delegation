@@ -17,7 +17,6 @@ import {
 import { SortableContext, useSortable, verticalListSortingStrategy, sortableKeyboardCoordinates, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Trash2, Plus, X, Pencil, Check, Layers, ChevronUp, ChevronDown } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import { useConfirm } from '@/components/confirmDialog';
 import { ChecklistDefinitionItemDraftRow, type ItemDraft } from '../ChecklistDefinitionItemDraftRow';
 import { UNGROUPED, type SectionId, groupBySection, containerOrderFor, normalizeItemOrder } from '../itemSections';
@@ -72,28 +71,35 @@ const SortableItemRow = ({
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`group flex items-start gap-1.5 ${isDragging ? 'opacity-40' : ''}`}
+      className={isDragging ? 'opacity-40' : ''}
     >
-      <button
-        type="button"
-        {...attributes}
-        {...listeners}
-        className="shrink-0 mt-1.5 p-2 rounded-md text-text-light hover:text-text-secondary hover:bg-surface-hover transition-colors cursor-grab active:cursor-grabbing touch-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
-        aria-label="Drag to reorder"
-      >
-        <GripVertical size={15} />
-      </button>
-      <div className="flex-1 min-w-0">
-        <ChecklistDefinitionItemDraftRow index={index} draft={draft} onChange={onChange} storeIds={storeIds} />
-      </div>
-      <button
-        type="button"
-        onClick={handleRemove}
-        className="shrink-0 p-2 mt-1.5 text-text-muted hover:text-danger hover:bg-danger/10 rounded-md transition-colors duration-150 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"
-        aria-label="Remove item"
-      >
-        <Trash2 size={15} />
-      </button>
+      <ChecklistDefinitionItemDraftRow
+        index={index}
+        draft={draft}
+        onChange={onChange}
+        storeIds={storeIds}
+        leading={
+          <button
+            type="button"
+            {...attributes}
+            {...listeners}
+            className="flex items-center justify-center shrink-0 w-7 h-10 -ml-1 rounded-lg text-text-light hover:text-text-secondary hover:bg-surface-hover transition-colors cursor-grab active:cursor-grabbing touch-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+            aria-label="Drag to reorder"
+          >
+            <GripVertical size={16} />
+          </button>
+        }
+        trailing={
+          <button
+            type="button"
+            onClick={handleRemove}
+            className="flex items-center justify-center shrink-0 size-10 rounded-lg text-text-light hover:text-danger hover:bg-danger/10 transition-colors duration-150 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"
+            aria-label="Remove question"
+          >
+            <Trash2 size={16} />
+          </button>
+        }
+      />
     </div>
   );
 };
@@ -113,6 +119,7 @@ const SectionContainer = ({
   onMoveUp,
   onMoveDown,
   renderRow,
+  bare = false,
 }: {
   id: SectionId;
   title: string;
@@ -129,6 +136,8 @@ const SectionContainer = ({
   onMoveUp?: () => void;
   onMoveDown?: () => void;
   renderRow: (draft: ItemDraft) => React.ReactNode;
+  /** No header at all — the lone Ungrouped bucket when no sections exist yet. */
+  bare?: boolean;
 }) => {
   const { setNodeRef, isOver } = useDroppable({ id });
   const [renaming, setRenaming] = useState(false);
@@ -146,11 +155,9 @@ const SectionContainer = ({
 
   return (
     <div
-      className={`flex flex-col gap-2.5 rounded-xl border p-3 transition-colors duration-150 ${
-        isOver ? 'border-primary-400 bg-primary-500/5' : isActive ? 'border-primary-300 bg-primary-500/[0.03]' : 'border-border/70 bg-surface-hover/20'
-      }`}
+      className={`flex flex-col gap-3 rounded-2xl transition-colors duration-150 ${isOver ? 'bg-primary-500/5 ring-2 ring-primary-400/40 ring-offset-4 ring-offset-surface' : ''}`}
     >
-      <div className="flex items-center justify-between gap-2 px-0.5">
+      {!bare && <div className="flex items-center justify-between gap-2 pb-1 border-b border-border/60">
         <div className="flex items-center gap-2 min-w-0">
           {renaming ? (
             <div className="flex flex-col gap-1">
@@ -183,16 +190,16 @@ const SectionContainer = ({
             <button
               type="button"
               onClick={onSelect}
-              className="flex items-center gap-1.5 text-xs font-display font-bold text-text-secondary hover:text-primary-700 cursor-pointer truncate rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+              className="flex items-center gap-1.5 py-1 text-sm font-display font-semibold text-text hover:text-primary-700 dark:hover:text-primary-300 cursor-pointer truncate rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
               title="Set as target for new items"
             >
-              <Layers size={12} className={isActive ? 'text-primary-600' : 'text-text-light'} />
+              <Layers size={14} className={isActive ? 'text-primary-600 dark:text-primary-300' : 'text-text-light'} />
               <span className="truncate">{title}</span>
             </button>
           )}
-          <Badge variant="outline" className="text-[10px] py-0 px-1.5 font-mono shrink-0">{items.length}</Badge>
+          <span className="text-xs font-display text-text-muted tabular-nums shrink-0">{items.length}</span>
           {isActive && !renaming && (
-            <span className="text-[10px] font-display text-primary-600 shrink-0">· new items go here</span>
+            <span className="inline-flex items-center h-5 px-2 rounded-full bg-primary-500/10 text-[10px] font-display font-semibold text-primary-700 dark:text-primary-300 shrink-0">New questions go here</span>
           )}
         </div>
 
@@ -224,7 +231,7 @@ const SectionContainer = ({
             </button>
           </div>
         )}
-      </div>
+      </div>}
 
       {/* The container-level droppable ref lives ONLY on the empty-state placeholder or the
           trailing strip below the last row — never on a div wrapping the whole list. Attaching it
@@ -237,11 +244,11 @@ const SectionContainer = ({
           {items.length === 0 ? (
             <div
               ref={setNodeRef}
-              className={`flex items-center justify-center py-3 rounded-lg border border-dashed text-[11px] font-display transition-colors ${
+              className={`flex items-center justify-center py-6 px-4 text-center rounded-2xl border border-dashed text-xs font-display transition-colors ${
                 isOver ? 'border-primary-400 bg-primary-500/5 text-primary-600' : 'border-border/70 text-text-muted'
               }`}
             >
-              Drag an item here, or pick this section and add one from the list on the left.
+              {bare ? 'No questions yet. Pick a type to add the first one.' : 'Drag a question here, or pick this section and add one.'}
             </div>
           ) : (
             <>
@@ -388,29 +395,6 @@ export const BuilderItemsList = ({
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Section management strip */}
-      <div className="flex flex-wrap items-center gap-1.5 p-2 rounded-lg border border-dashed border-border/70 bg-surface-hover/10">
-        <span className="text-[10px] font-display font-bold text-text-muted px-1">Sections</span>
-        <input
-          value={newSectionName}
-          onChange={(e) => setNewSectionName(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleAddSection()}
-          placeholder="e.g. Opening"
-          className={`w-32 px-2 py-1 text-xs font-display bg-surface text-text rounded-md border placeholder:text-text-muted/60 focus:outline-none focus:ring-2 ${
-            isDuplicateSectionName ? 'border-danger focus:border-danger focus:ring-danger/20' : 'border-border focus:border-primary-500 focus:ring-primary-500/20'
-          }`}
-        />
-        <button
-          type="button"
-          onClick={handleAddSection}
-          disabled={!newSectionName.trim() || isDuplicateSectionName}
-          className="flex items-center gap-1 text-xs font-display font-medium px-2 py-1 rounded-md border border-primary-500/50 text-primary-600 hover:bg-primary-500/10 cursor-pointer transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          <Plus size={12} /> Add section
-        </button>
-        {isDuplicateSectionName && <span className="text-[10px] font-display text-danger">Already used</span>}
-      </div>
-
       <DndContext
         sensors={sensors}
         collisionDetection={collisionDetection}
@@ -421,12 +405,13 @@ export const BuilderItemsList = ({
         <div className="flex flex-col gap-3">
           <SectionContainer
             id={UNGROUPED}
-            title="Ungrouped"
+            title="No section"
             items={groups[UNGROUPED]}
             otherSectionNames={sections}
             isActive={activeSection === null}
             onSelect={() => setActiveSection(null)}
             renderRow={renderRow}
+            bare={sections.length === 0}
           />
           {sections.map((name, i) => (
             <SectionContainer
@@ -457,6 +442,31 @@ export const BuilderItemsList = ({
           )}
         </DragOverlay>
       </DndContext>
+
+      {/* Sections are optional grouping ("Opening", "Closing") — a single quiet row under the
+          questions instead of a dashed toolbar above them. */}
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-2 h-10 pl-3 pr-1 rounded-xl border border-dashed border-border focus-within:border-primary-400 focus-within:border-solid transition-colors">
+          <Layers size={14} className="text-text-light shrink-0" />
+          <input
+            value={newSectionName}
+            onChange={(e) => setNewSectionName(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleAddSection()}
+            placeholder="New section, e.g. Opening"
+            aria-label="New section name"
+            className="flex-1 min-w-0 bg-transparent text-sm font-display text-text placeholder:text-text-light focus:outline-none"
+          />
+          <button
+            type="button"
+            onClick={handleAddSection}
+            disabled={!newSectionName.trim() || isDuplicateSectionName}
+            className="inline-flex items-center gap-1 h-8 px-3 rounded-lg text-xs font-display font-semibold text-primary-700 dark:text-primary-300 cursor-pointer hover:bg-primary-500/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+          >
+            <Plus size={13} /> Add section
+          </button>
+        </div>
+        {isDuplicateSectionName && <span className="px-3 text-[11px] font-display text-danger">You already have a section with that name.</span>}
+      </div>
     </div>
   );
 };

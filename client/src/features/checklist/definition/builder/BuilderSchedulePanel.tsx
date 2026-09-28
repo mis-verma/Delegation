@@ -3,12 +3,10 @@ import {
   Calendar,
   Clock,
   Repeat,
-  CalendarClock,
   AlertCircle,
   Info,
   CalendarDays,
 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import { StoreMultiSelect, DatePicker, TimePicker, WeekdayPicker, formatWeekdays } from '../../../../components';
 import type { ChecklistRecurrence } from '../../../../api/checklistDefinitions';
 
@@ -86,36 +84,16 @@ export const BuilderSchedulePanel = ({
 
   return (
     <div
-      className={`flex flex-col gap-5 p-5 rounded-xl border border-border bg-surface shadow-xs transition-all duration-200 ${className}`}
+      className={`flex flex-col gap-5 ${className}`}
     >
-      {/* Panel Header */}
-      <div className="flex items-center justify-between gap-2 pb-3 border-b border-border/60">
-        <div className="flex items-center gap-2">
-          <span className="p-1.5 rounded-lg bg-muted/60 text-text-secondary">
-            <CalendarClock size={15} />
-          </span>
-          <div>
-            <h3 className="text-xs font-display font-bold text-text">
-              Schedule & Location
-            </h3>
-            <p className="text-[11px] font-display text-text-muted">
-              Pick which stores run this, how often, and when it's open each day
-            </p>
-          </div>
-        </div>
-
-        <Badge variant={storeIds.length > 0 ? 'info' : 'outline'} className="text-[11px] py-0.5">
-          {storeIds.length === 0
-            ? 'No stores selected'
-            : `${storeIds.length} store${storeIds.length === 1 ? '' : 's'}`}
-        </Badge>
-      </div>
-
       {/* 1. Target Stores Selection */}
       <div className="flex flex-col gap-2">
         <label className="text-xs font-display font-semibold text-text flex items-center gap-1.5">
           <Store size={13} className="text-text-muted" />
           Stores <span className="text-danger">*</span>
+          {storeIds.length > 0 && (
+            <span className="font-normal text-text-muted tabular-nums">· {storeIds.length} selected</span>
+          )}
         </label>
         <StoreMultiSelect selected={storeIds} onChange={onStoreIdsChange} />
         {storeIds.length === 0 && (

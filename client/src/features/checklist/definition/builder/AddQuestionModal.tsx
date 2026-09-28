@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
-import { Sparkles } from 'lucide-react';
-import { Modal } from '../../../../components';
+import { Plus } from 'lucide-react';
+import { Modal, Button } from '../../../../components';
 import { useConfirm } from '@/components/confirmDialog';
 import { ItemTypeConfigFields, itemDraftProblem } from './ItemTypeConfigFields';
 import { emptyItemDraft, type ItemDraft } from '../ChecklistDefinitionItemDraftRow';
@@ -31,8 +31,7 @@ export const AddQuestionModal = ({
 
   const hasLabel = Boolean(draft.label.trim());
   const problem = itemDraftProblem(draft);
-  const isComplete = problem === null;
-  const canConfirm = hasLabel && isComplete;
+  const canConfirm = hasLabel && problem === null;
 
   const handleSubmit = (e?: FormEvent) => {
     e?.preventDefault();
@@ -64,73 +63,44 @@ export const AddQuestionModal = ({
       open
       onClose={handleClose}
       title={entry.label}
-      description="Set this up once — you can still fine-tune it in the list afterwards."
-      icon={<Icon size={18} className="text-primary-700 dark:text-primary-400" />}
+      description="New question"
+      icon={<Icon size={18} strokeWidth={2.25} />}
       size="md"
+      draggable
       footer={
-        <div className="flex items-center justify-end gap-2.5 w-full">
-          <button
-            type="button"
-            onClick={handleClose}
-            className="px-4 py-2 rounded-lg text-xs sm:text-sm font-display font-medium text-text-secondary border border-border bg-surface hover:bg-surface-hover transition-colors duration-150 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
-          >
+        <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 w-full">
+          <Button type="button" variant="outline" size="md" onClick={handleClose} className="w-full sm:w-auto">
             Cancel
-          </button>
-          <button
-            type="button"
-            onClick={() => handleSubmit()}
-            disabled={!canConfirm}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs sm:text-sm font-display font-medium text-white bg-primary-700 shadow-xs transition-all duration-150 hover:bg-primary-800 hover:shadow-sm active:scale-[0.98] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-none disabled:active:scale-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
-          >
-            <Sparkles size={14} />
-            <span>Add to checklist</span>
-          </button>
+          </Button>
+          <Button type="button" variant="primary" size="md" onClick={() => handleSubmit()} disabled={!canConfirm} className="w-full sm:w-auto">
+            <Plus size={15} />
+            <span>Add question</span>
+          </Button>
         </div>
       }
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-5 py-1">
-        {/* Main Item Label Input */}
         <div className="flex flex-col gap-1.5">
-          <div className="flex items-center justify-between">
-            <label
-              htmlFor="quick-add-label"
-              className="text-xs font-display font-semibold text-text"
-            >
-              What should staff do or answer? <span className="text-danger">*</span>
-            </label>
-            <span className="text-[11px] text-text-muted">
-              What store staff will see
-            </span>
-          </div>
-
-          <div className="relative">
-            <input
-              id="quick-add-label"
-              autoFocus
-              type="text"
-              value={draft.label}
-              onChange={(e) => patchDraft({ label: e.target.value })}
-              placeholder="e.g. Count cash drawer before closing"
-              className="w-full px-3.5 py-2.5 text-sm font-display bg-surface text-text rounded-lg border border-border placeholder:text-text-muted/60 transition-all duration-150 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
-            />
-          </div>
-
-          {!hasLabel && (
-            <p className="text-[11px] font-display text-text-muted">
-              Make it specific enough that anyone on shift knows exactly what to do.
-            </p>
-          )}
-        </div>
-
-        {/* Dynamic Type-specific Configuration Fields */}
-        <div className="flex flex-col gap-3 pt-3 border-t border-dashed border-border/80">
-          <ItemTypeConfigFields
-            draft={draft}
-            onChange={patchDraft}
-            storeIds={storeIds}
+          <label htmlFor="quick-add-label" className="text-[11px] font-display font-medium text-text-muted">
+            Question staff will see
+          </label>
+          <input
+            id="quick-add-label"
+            autoFocus
+            type="text"
+            value={draft.label}
+            onChange={(e) => patchDraft({ label: e.target.value })}
+            placeholder="e.g. Is the cash drawer counted and locked?"
+            className="w-full h-11 px-3.5 text-[15px] font-display font-medium bg-surface text-text rounded-xl border border-border placeholder:font-normal placeholder:text-text-light transition-colors duration-150 hover:border-border-hover focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
           />
-          {problem && <p role="alert" className="text-[11px] font-display font-medium text-danger">{problem}</p>}
         </div>
+
+        <ItemTypeConfigFields draft={draft} onChange={patchDraft} storeIds={storeIds} />
+
+        {/* Only after something's typed — an empty form isn't an error yet. */}
+        {hasLabel && problem && (
+          <p role="alert" className="text-xs font-display font-medium text-danger">{problem}</p>
+        )}
       </form>
     </Modal>
   );

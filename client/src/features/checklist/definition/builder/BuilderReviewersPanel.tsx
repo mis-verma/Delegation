@@ -12,8 +12,7 @@ interface BuilderReviewersPanelProps {
 // approve or reject a run regardless of what's picked here — see ChecklistReviewersField — so this
 // step has nothing to validate and never blocks moving on, even with no one picked.
 export const BuilderReviewersPanel = ({ storeIds, reviewerIds, onReviewerIdsChange }: BuilderReviewersPanelProps) => (
-  <div className="flex flex-col gap-5 p-5 rounded-xl border border-border bg-surface shadow-xs transition-all duration-200">
-    <h2 className="text-xs font-display font-bold text-text-muted">Reviewers</h2>
+  <div className="flex flex-col gap-5">
     <ChecklistReviewersField storeIds={storeIds} selected={reviewerIds} onChange={onReviewerIdsChange} />
   </div>
 );

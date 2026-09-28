@@ -22,7 +22,8 @@ import { useAssignableUsersQuery } from '../../../../tickets/hook';
 import { RECURRENCE_LABEL, formatDate } from '../../../checklistDisplay';
 import { isOvernightWindow } from '../BuilderSchedulePanel';
 import { ROLE_OPTIONS } from '../../form/ChecklistRolesField';
-import { ITEM_TYPE_LABEL, type ItemDraft } from '../../ChecklistDefinitionItemDraftRow';
+import type { ItemDraft } from '../../ChecklistDefinitionItemDraftRow';
+import { questionTypeOf } from '../questionTypes';
 import type {
   ChecklistRecurrence,
   ChecklistAssigneeRole,
@@ -106,7 +107,7 @@ const SectionCard = ({
   children: ReactNode;
 }) => (
   <div
-    className={`flex flex-col rounded-xl border bg-surface p-4 transition-all shadow-xs ${
+    className={`flex flex-col rounded-2xl border bg-surface p-4 transition-colors ${
       valid
         ? 'border-border/80 hover:border-border'
         : 'border-warning/40 bg-warning/5 ring-1 ring-warning/20'
@@ -329,7 +330,7 @@ export const BuilderReviewStep = ({
                     )}
                   </div>
                   <Badge variant="outline" className="shrink-0 text-[10px] py-0 px-1.5">
-                    {ITEM_TYPE_LABEL[item.itemType] ?? item.itemType}
+                    {questionTypeOf(item).label}
                   </Badge>
                 </li>
               ))}

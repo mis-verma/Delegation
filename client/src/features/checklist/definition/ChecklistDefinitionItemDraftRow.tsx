@@ -1,5 +1,8 @@
-
+import type { ReactNode } from 'react';
+import { AlertCircle } from 'lucide-react';
 import { ItemTypeConfigFields, itemDraftProblem, patchForTypeSwitch } from './builder/ItemTypeConfigFields';
+import { QuestionTypeMenu } from './builder/QuestionTypeMenu';
+import { GROUP_TILE, questionTypeOf, type QuestionTypeEntry } from './builder/questionTypes';
 import type { ChecklistItemType, ChecklistConditionalAction } from '../../../api/checklistDefinitions';
 
 export type ItemDraft = {
@@ -56,136 +59,101 @@ export const emptyItemDraft = (): ItemDraft => ({
   noActions: [],
 });
 
+/** Type switch for a catalog entry: clears what the new type can't use, then applies its preset. */
 // eslint-disable-next-line react-refresh/only-export-components
-export const ITEM_TYPE_LABEL: Record<ChecklistItemType, string> = {
-  STANDARD: 'Standard',
-  AUDIT: 'Audit',
-  NUMBER_ENTRY: 'Number entry',
-  RATING: 'Rating',
-  YES_NO: 'Yes / No',
-  PASS_FAIL: 'Pass / Fail',
-  MULTIPLE_CHOICE: 'Multiple choice',
-  DROPDOWN: 'Dropdown',
-  TEXT_BOX: 'Text box',
-  DATE_TIME: 'Date & time',
-  GPS: 'GPS location',
-  SIGNATURE: 'Signature',
-  DUAL_SIGNATURE: 'Dual signature',
-  QR_SCAN: 'QR / Barcode scan',
-  CASH_TALLY: 'Cash tally',
-  VIDEO_UPLOAD: 'Video upload',
+export const patchForEntry = (draft: ItemDraft, entry: QuestionTypeEntry): Partial<ItemDraft> => {
+  const itemType = entry.patch.itemType ?? 'STANDARD';
+  const patch: Partial<ItemDraft> = { ...patchForTypeSwitch(draft, itemType), ...entry.patch };
+  // Checkbox and Photo are both STANDARD, so the generic switch keeps photo settings; a Checkbox
+  // must drop them or it would still ask for photos.
+  if (entry.id === 'CHECKBOX') Object.assign(patch, { maxImageCount: '', requiresLivePhoto: false });
+  return patch;
 };
 
-const ITEM_TYPES = [
-  'STANDARD', 'AUDIT', 'NUMBER_ENTRY', 'RATING',
-  'YES_NO', 'PASS_FAIL', 'MULTIPLE_CHOICE', 'DROPDOWN', 'TEXT_BOX', 'DATE_TIME',
-  'GPS', 'SIGNATURE', 'DUAL_SIGNATURE', 'QR_SCAN', 'CASH_TALLY', 'VIDEO_UPLOAD',
-] as const satisfies readonly ChecklistItemType[];
-
 interface ChecklistDefinitionItemDraftRowProps {
-  // Display-only (row number, placeholder text) — the draft being edited is identified by its
-  // stable `key`, not this position, so a stale/racing index here can't mutate the wrong row.
+  // Display-only (row number) — the draft being edited is identified by its stable `key`, not this
+  // position, so a stale/racing index here can't mutate the wrong row.
   index: number;
   draft: ItemDraft;
   onChange: (key: string, patch: Partial<ItemDraft>) => void;
   storeIds?: string[];
+  /** Drag handle, rendered at the card's top-left. */
+  leading?: ReactNode;
+  /** Card actions (remove), rendered at the top-right. */
+  trailing?: ReactNode;
   className?: string;
 }
 
+// One question, as one card: its type tile, the question itself typed straight into the header,
+// the type chip, then only the settings this type needs. Replaces a card that repeated the label
+// "What should staff do or answer?" and a 16-button type switcher on every single question.
 export const ChecklistDefinitionItemDraftRow = ({
   index,
   draft,
   onChange,
   storeIds,
+  leading,
+  trailing,
   className = '',
 }: ChecklistDefinitionItemDraftRowProps) => {
   const patch = (p: Partial<ItemDraft>) => onChange(draft.key, p);
-  // A blank label used to be silently exempted from the "complete item" check — which meant
-  // clearing an already-configured item's label (its audit users, GPS target, conditional
-  // actions, all still set) let it pass every validity gate, then vanish from the actual save
-  // with no warning. It's a real error state now, flagged right here instead of failing silently.
+  const type = questionTypeOf(draft);
+  const TypeIcon = type.icon;
+  // A blank label is a real error state (the item would be dropped on save), flagged right here.
   const isLabelBlank = !draft.label.trim();
-  const problem = itemDraftProblem(draft);
+  const problem = isLabelBlank ? 'Type the question staff will see — without one it won’t be saved.' : itemDraftProblem(draft);
+  const pickType = (entry: QuestionTypeEntry) => patch(patchForEntry(draft, entry));
 
   return (
-    <div
-      className={`flex flex-col gap-3.5 p-4 rounded-lg border bg-surface transition-all duration-150 ${
-        isLabelBlank || problem ? 'border-danger/50' : 'border-border hover:border-border-hover'
+    <article
+      aria-label={`Question ${index + 1}`}
+      className={`group/q flex flex-col rounded-2xl border bg-surface transition-colors duration-150 ${
+        problem ? 'border-danger/40' : 'border-border hover:border-border-hover focus-within:border-primary-400/70'
       } ${className}`}
     >
-      {/* Item Index + Main Description Input */}
-      <div className="flex flex-col gap-1.5">
-        <label
-          htmlFor={`item-label-${draft.key}`}
-          className="text-xs font-display font-semibold text-text"
-        >
-          What should staff do or answer? <span className="text-danger">*</span>
-        </label>
-        <div className="flex items-center gap-2.5">
-          <span className="flex items-center justify-center size-7 rounded-md bg-muted/60 text-text-secondary text-xs font-mono font-bold shrink-0 tabular-nums select-none border border-border/40">
-            {String(index + 1).padStart(2, '0')}
-          </span>
+      <div className="flex items-start gap-1 sm:gap-3 p-2.5 pr-1.5 sm:p-4 sm:pr-2">
+        {leading}
+        <span className={`hidden sm:flex items-center justify-center size-10 rounded-xl shrink-0 ${GROUP_TILE[type.group]}`} aria-hidden="true">
+          <TypeIcon size={18} strokeWidth={2.25} />
+        </span>
 
-          <input
-            id={`item-label-${draft.key}`}
-            type="text"
-            value={draft.label}
-            onChange={(e) => patch({ label: e.target.value })}
-            placeholder="e.g. Inspect refrigeration temperature"
-            aria-invalid={isLabelBlank}
-            className={`flex-1 min-w-0 px-3.5 py-2 text-sm font-display bg-surface text-text rounded-lg border placeholder:text-text-muted/60 transition-all duration-150 focus:outline-none focus:ring-2 ${
-              isLabelBlank
-                ? 'border-danger/60 focus:border-danger focus:ring-danger/20'
-                : 'border-border hover:border-border/80 focus:border-primary-500 focus:ring-primary-500/20'
-            }`}
-          />
+        {/* Settings live in the same column as the question, so they line up under it by
+            structure rather than by a guessed left padding. */}
+        <div className="flex flex-col gap-3 flex-1 min-w-0">
+          <div className="flex items-start gap-3">
+            <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+              <label htmlFor={`item-label-${draft.key}`} className="text-[11px] font-display font-medium text-text-muted tabular-nums">
+                Question {index + 1}
+              </label>
+              <textarea
+                id={`item-label-${draft.key}`}
+                rows={1}
+                value={draft.label}
+                onChange={(e) => patch({ label: e.target.value })}
+                placeholder="Type the question staff will see"
+                aria-invalid={isLabelBlank}
+                className="w-full resize-none field-sizing-content min-h-7 -mx-1.5 px-1.5 py-0.5 rounded-md bg-transparent text-[15px] leading-snug font-display font-semibold text-text placeholder:font-medium placeholder:text-text-light hover:bg-surface-hover/60 focus:bg-surface-hover/60 focus:outline-none transition-colors duration-150"
+              />
+            </div>
+            <div className="hidden sm:block shrink-0 pt-3">
+              <QuestionTypeMenu draft={draft} onPick={pickType} />
+            </div>
+          </div>
+
+          <div className="sm:hidden">
+            <QuestionTypeMenu draft={draft} onPick={pickType} />
+          </div>
+          <ItemTypeConfigFields draft={draft} onChange={patch} storeIds={storeIds} />
+          {problem && (
+            <p role="alert" className="flex items-start gap-1.5 text-xs font-display font-medium text-danger">
+              <AlertCircle size={13} className="shrink-0 mt-px" />
+              {problem}
+            </p>
+          )}
         </div>
+
+        {trailing}
       </div>
-
-      {isLabelBlank && (
-        <p className="text-[11px] font-display text-danger -mt-2">
-          Give this item a title, or remove it — it won't be saved without one.
-        </p>
-      )}
-
-      {/* Question Type Switcher — wraps to multiple rows instead of scrolling sideways, so all
-          16 types stay visible and scannable even with several items stacked in the builder. */}
-      <div
-        role="radiogroup"
-        aria-label="Question type switcher"
-        className="flex flex-wrap gap-1.5 rounded-lg border border-border/80 bg-muted/30 p-2 text-xs font-display"
-      >
-        {ITEM_TYPES.map((type) => {
-          const isSelected = draft.itemType === type;
-          return (
-            <button
-              key={type}
-              type="button"
-              role="radio"
-              aria-checked={isSelected}
-              aria-label={`Switch type to ${ITEM_TYPE_LABEL[type]}`}
-              onClick={() => patch(patchForTypeSwitch(draft, type))}
-              className={[
-                'whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-medium transition-all duration-150 cursor-pointer select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50',
-                isSelected
-                  ? 'bg-primary-700 text-white shadow-2xs font-semibold'
-                  : 'text-text-muted hover:text-text hover:bg-surface/60',
-              ].join(' ')}
-            >
-              {ITEM_TYPE_LABEL[type]}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Type-specific Fields Configuration */}
-      <div className="pt-2.5 border-t border-dashed border-border/60">
-        <ItemTypeConfigFields draft={draft} onChange={patch} storeIds={storeIds} />
-      </div>
-
-      {!isLabelBlank && problem && (
-        <p role="alert" className="text-[11px] font-display font-medium text-danger">{problem}</p>
-      )}
-    </div>
+    </article>
   );
 };

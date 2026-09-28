@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Camera, Video, MapPin, QrCode, Info, Star } from 'lucide-react';
+import { Camera, Video, MapPin, Info, Star, Plus, X } from 'lucide-react';
 import { UserMultiSelect, AccessoriesListEditor } from '../../../../components';
 import { ConditionalLogicPanel } from './ConditionalLogicPanel';
 import type { ChecklistItemType } from '../../../../api/checklistDefinitions';
@@ -12,161 +12,207 @@ export interface ItemTypeFieldsProps {
   storeIds?: string[];
 }
 
-const FIELD_LABEL = 'text-[11px] font-display font-semibold text-text-muted';
-const INPUT_BASE =
-  'px-2.5 py-1.5 text-xs font-display bg-surface text-text rounded-md border border-border ' +
-  'placeholder:text-text-muted/60 hover:border-border/80 transition-all duration-150 ' +
+// ─── Shared field primitives ────────────────────────────────────────────────────────────────
+// One label style, one input style, one switch — so every question type's settings read as the
+// same form rather than a different mini-widget per type.
+
+const LABEL = 'text-[11px] font-display font-medium text-text-muted';
+const INPUT =
+  'h-9 px-3 text-sm font-display bg-surface text-text rounded-lg border border-border tabular-nums ' +
+  'placeholder:text-text-light hover:border-border-hover transition-colors duration-150 ' +
   'focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20';
 
-const PhotoFields = ({ draft, onChange }: ItemTypeFieldsProps) => (
-  <div className="flex flex-wrap items-center gap-3.5 pt-0.5">
-    {/* Min / Max Photo Counter Pill */}
-    <div className="inline-flex items-center gap-2.5 bg-muted/40 p-1.5 rounded-lg border border-border/80 shadow-2xs">
-      <Camera size={14} className="text-text-muted ml-1 shrink-0" />
-      <div className="flex items-center gap-1.5">
-        <label htmlFor="photo-min-count" className={FIELD_LABEL}>Min</label>
-        <input
-          id="photo-min-count"
-          type="number"
-          min={0}
-          value={draft.requiredImageCount}
-          onChange={(e) => onChange({ requiredImageCount: e.target.value })}
-          className={`w-12 text-center font-mono ${INPUT_BASE}`}
-        />
-      </div>
-      <div className="h-4 w-px bg-border/80" />
-      <div className="flex items-center gap-1.5 pr-0.5">
-        <label htmlFor="photo-max-count" className={FIELD_LABEL}>Max</label>
-        <input
-          id="photo-max-count"
-          type="number"
-          min={0}
-          value={draft.maxImageCount}
-          onChange={(e) => onChange({ maxImageCount: e.target.value })}
-          placeholder="∞"
-          className={`w-12 text-center font-mono ${INPUT_BASE}`}
-        />
-      </div>
-    </div>
+// Per-question ids: several questions are open at once, so a fixed id ("number-min") made every
+// label focus the first question's input.
+const fid = (draft: ItemDraft, name: string) => `${name}-${draft.key}`;
 
-    {/* Live Photo Toggle */}
-    <label className="inline-flex items-center gap-2 text-xs font-display text-text-secondary hover:text-text cursor-pointer select-none transition-colors">
-      <input
-        type="checkbox"
-        checked={draft.requiresLivePhoto}
-        onChange={(e) => onChange({ requiresLivePhoto: e.target.checked })}
-        className="size-4 rounded-sm border-border text-primary-700 focus:ring-primary-500/30 cursor-pointer"
-      />
-      <span>Live photo only — no uploading from the gallery</span>
-    </label>
+const Field = ({ id, label, children, className = '' }: { id: string; label: string; children: ReactNode; className?: string }) => (
+  <div className={`flex flex-col gap-1 ${className}`}>
+    <label htmlFor={id} className={LABEL}>{label}</label>
+    {children}
   </div>
 );
 
+const Switch = ({ checked, onChange, label, hint }: { checked: boolean; onChange: (v: boolean) => void; label: string; hint?: string }) => (
+  <button
+    type="button"
+    role="switch"
+    aria-checked={checked}
+    onClick={() => onChange(!checked)}
+    className="group flex items-center gap-2.5 w-fit text-left cursor-pointer rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+  >
+    <span className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-200 ${checked ? 'bg-primary-600 dark:bg-primary-400' : 'bg-border group-hover:bg-border-hover'}`}>
+      <span className={`absolute top-0.5 left-0.5 size-4 rounded-full bg-white shadow-sm transition-transform duration-200 ease-out ${checked ? 'translate-x-4' : ''}`} />
+    </span>
+    <span className="flex flex-col">
+      <span className="text-[13px] font-display font-medium text-text">{label}</span>
+      {hint && <span className="text-[11px] font-display text-text-muted">{hint}</span>}
+    </span>
+  </button>
+);
+
+const Note = ({ icon: Icon = Info, children }: { icon?: typeof Info; children: ReactNode }) => (
+  <p className="flex items-start gap-1.5 text-xs font-display text-text-muted leading-relaxed">
+    <Icon size={13} className="shrink-0 mt-0.5 text-text-light" />
+    <span>{children}</span>
+  </p>
+);
+
+// ─── Per-type settings ──────────────────────────────────────────────────────────────────────
+
+const PhotoCountFields = ({ draft, onChange, noun }: ItemTypeFieldsProps & { noun: 'photos' | 'videos' }) => (
+  <div className="flex flex-col gap-3">
+    <div className="flex flex-wrap items-end gap-3">
+      <Field id={fid(draft, 'min')} label={`Minimum ${noun}`}>
+        <input
+          id={fid(draft, 'min')}
+          type="number"
+          inputMode="numeric"
+          min={noun === 'videos' ? 1 : 0}
+          value={draft.requiredImageCount}
+          onChange={(e) => onChange({ requiredImageCount: e.target.value })}
+          className={`w-24 ${INPUT}`}
+        />
+      </Field>
+      <Field id={fid(draft, 'max')} label="Maximum">
+        <input
+          id={fid(draft, 'max')}
+          type="number"
+          inputMode="numeric"
+          min={0}
+          value={draft.maxImageCount}
+          onChange={(e) => onChange({ maxImageCount: e.target.value })}
+          placeholder="No limit"
+          className={`w-24 ${INPUT}`}
+        />
+      </Field>
+    </div>
+    <Switch
+      checked={draft.requiresLivePhoto}
+      onChange={(v) => onChange({ requiresLivePhoto: v })}
+      label={noun === 'videos' ? 'Record live only' : 'Live camera only'}
+      hint="No picking from the gallery"
+    />
+  </div>
+);
+
+// STANDARD is both "Checkbox" (no photos) and "Photo" (≥1 photo). A checkbox offers a one-tap way
+// to ask for proof instead of showing photo counters nobody asked for.
+const StandardFields = (props: ItemTypeFieldsProps) => {
+  const { draft, onChange } = props;
+  if (Number(draft.requiredImageCount) > 0) return <PhotoCountFields {...props} noun="photos" />;
+  return (
+    <button
+      type="button"
+      onClick={() => onChange({ requiredImageCount: '1' })}
+      className="inline-flex items-center gap-1.5 w-fit h-8 px-3 rounded-full border border-dashed border-border text-xs font-display font-medium text-text-secondary cursor-pointer transition-colors duration-150 hover:border-primary-400 hover:text-primary-700 dark:hover:text-primary-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+    >
+      <Camera size={13} /> Also ask for a photo
+    </button>
+  );
+};
+
 const VideoFields = (props: ItemTypeFieldsProps) => (
   <div className="flex flex-col gap-2.5">
-    <PhotoFields {...props} />
-    <div className="flex items-center gap-1.5 text-[11px] font-display text-text-muted">
-      <Video size={13} className="shrink-0 text-text-muted" />
-      <span>Accepts short video clips instead of photos — Min/Max above apply to clips.</span>
-    </div>
+    <PhotoCountFields {...props} noun="videos" />
+    <Note icon={Video}>Staff record or upload short clips. Photos aren’t accepted here.</Note>
   </div>
 );
 
 const AuditFields = ({ draft, onChange, storeIds }: ItemTypeFieldsProps) => (
   <div className="flex flex-col gap-4">
     <div className="flex flex-col gap-1.5">
-      <span className={FIELD_LABEL}>Who audits this?</span>
-      <UserMultiSelect
-        storeIds={storeIds}
-        selected={draft.auditUserIds}
-        onChange={(ids) => onChange({ auditUserIds: ids })}
-      />
+      <span className={LABEL}>Who audits this?</span>
+      <UserMultiSelect storeIds={storeIds} selected={draft.auditUserIds} onChange={(ids) => onChange({ auditUserIds: ids })} />
     </div>
     <AccessoriesListEditor
+      label="Things to check (optional)"
+      placeholder="e.g. ID card, uniform"
       accessories={draft.accessories}
       onChange={(accessories) => onChange({ accessories })}
     />
   </div>
 );
 
-const NumberFields = ({ draft, onChange }: ItemTypeFieldsProps) => (
-  <div className="flex flex-wrap items-end gap-3 pt-0.5">
-    <div className="flex flex-col gap-1">
-      <label htmlFor="number-unit" className={FIELD_LABEL}>Unit</label>
-      <input
-        id="number-unit"
-        value={draft.numberEntryUnit}
-        onChange={(e) => onChange({ numberEntryUnit: e.target.value })}
-        placeholder="₹, kg, pcs…"
-        className={`w-24 text-left ${INPUT_BASE}`}
-      />
-    </div>
-    <div className="flex flex-col gap-1">
-      <label htmlFor="number-min" className={FIELD_LABEL}>Min Bound</label>
-      <input
-        id="number-min"
-        type="number"
-        value={draft.numberEntryMin}
-        onChange={(e) => onChange({ numberEntryMin: e.target.value })}
-        placeholder="—"
-        className={`w-20 text-center font-mono ${INPUT_BASE}`}
-      />
-    </div>
-    <div className="flex flex-col gap-1">
-      <label htmlFor="number-max" className={FIELD_LABEL}>Max Bound</label>
-      <input
-        id="number-max"
-        type="number"
-        value={draft.numberEntryMax}
-        onChange={(e) => onChange({ numberEntryMax: e.target.value })}
-        placeholder="—"
-        className={`w-20 text-center font-mono ${INPUT_BASE}`}
-      />
-    </div>
-    {draft.itemType === 'CASH_TALLY' && (
-      <div className="flex flex-col gap-1">
-        <label htmlFor="cash-expected" className={FIELD_LABEL}>Expected Target</label>
+const NumberFields = ({ draft, onChange }: ItemTypeFieldsProps) => {
+  const isCash = draft.itemType === 'CASH_TALLY';
+  return (
+    <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:items-end gap-3">
+      {isCash && (
+        <Field id={fid(draft, 'expected')} label="Expected amount" className="col-span-2 sm:col-span-1">
+          <input
+            id={fid(draft, 'expected')}
+            type="number"
+            inputMode="decimal"
+            min={0}
+            value={draft.cashExpectedAmount}
+            onChange={(e) => onChange({ cashExpectedAmount: e.target.value })}
+            placeholder="e.g. 5000"
+            className={`w-full sm:w-36 ${INPUT}`}
+          />
+        </Field>
+      )}
+      <Field id={fid(draft, 'unit')} label="Unit">
         <input
-          id="cash-expected"
-          type="number"
-          value={draft.cashExpectedAmount}
-          onChange={(e) => onChange({ cashExpectedAmount: e.target.value })}
-          placeholder="Optional"
-          className={`w-28 text-center font-mono ${INPUT_BASE}`}
+          id={fid(draft, 'unit')}
+          value={draft.numberEntryUnit}
+          onChange={(e) => onChange({ numberEntryUnit: e.target.value })}
+          placeholder={isCash ? '₹' : 'kg, °C, pcs'}
+          className={`w-full sm:w-24 ${INPUT}`}
         />
-      </div>
-    )}
-  </div>
-);
+      </Field>
+      <Field id={fid(draft, 'nmin')} label="Lowest allowed">
+        <input
+          id={fid(draft, 'nmin')}
+          type="number"
+          inputMode="decimal"
+          value={draft.numberEntryMin}
+          onChange={(e) => onChange({ numberEntryMin: e.target.value })}
+          placeholder="Any"
+          className={`w-full sm:w-28 ${INPUT}`}
+        />
+      </Field>
+      <Field id={fid(draft, 'nmax')} label="Highest allowed">
+        <input
+          id={fid(draft, 'nmax')}
+          type="number"
+          inputMode="decimal"
+          value={draft.numberEntryMax}
+          onChange={(e) => onChange({ numberEntryMax: e.target.value })}
+          placeholder="Any"
+          className={`w-full sm:w-28 ${INPUT}`}
+        />
+      </Field>
+      {isCash && (
+        <p className="col-span-2 text-[11px] font-display text-text-muted sm:basis-full">
+          If the count doesn’t match, staff must give a reason.
+        </p>
+      )}
+    </div>
+  );
+};
 
 const RATING_SCALES = ['3', '5', '10'];
 
 const RatingFields = ({ draft, onChange }: ItemTypeFieldsProps) => (
-  <div className="flex items-center gap-3 pt-0.5">
-    <span className={FIELD_LABEL}>Scale rating out of</span>
-    <div
-      role="radiogroup"
-      aria-label="Rating scale"
-      className="inline-flex items-center rounded-lg border border-border/80 bg-muted/40 p-0.5 shadow-2xs"
-    >
+  <div className="flex flex-col gap-1.5">
+    <span className={LABEL}>Out of</span>
+    <div role="radiogroup" aria-label="Rating scale" className="inline-flex w-fit items-center gap-0.5 rounded-full bg-surface-hover p-0.5">
       {RATING_SCALES.map((scale) => {
-        const isSelected = draft.ratingScale === scale;
+        const selected = draft.ratingScale === scale;
         return (
           <button
             key={scale}
             type="button"
             role="radio"
-            aria-checked={isSelected}
+            aria-checked={selected}
             onClick={() => onChange({ ratingScale: scale })}
-            className={[
-              'flex items-center gap-1 px-3 py-1 rounded-md text-xs font-display font-medium transition-all duration-150 cursor-pointer select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50',
-              isSelected
-                ? 'bg-surface text-primary-700 dark:text-primary-400 font-bold shadow-xs border border-border/50'
-                : 'text-text-muted hover:text-text hover:bg-surface/50',
-            ].join(' ')}
+            className={`flex items-center gap-1 h-8 px-3.5 rounded-full text-xs font-display font-semibold cursor-pointer transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
+              selected ? 'bg-surface text-text shadow-sm' : 'text-text-muted hover:text-text'
+            }`}
           >
-            <Star size={11} className={isSelected ? 'fill-primary-700 dark:fill-primary-400 text-primary-700 dark:text-primary-400' : 'text-text-muted'} />
-            <span>{scale}</span>
+            <Star size={12} className={selected ? 'fill-coral-500 text-coral-500' : ''} />
+            {scale}
           </button>
         );
       })}
@@ -174,74 +220,66 @@ const RatingFields = ({ draft, onChange }: ItemTypeFieldsProps) => (
   </div>
 );
 
-const GpsFields = ({ draft, onChange }: ItemTypeFieldsProps) => (
-  <div className="flex flex-col gap-2 pt-0.5">
-    <p className="text-[11px] font-display text-text-muted flex items-center gap-1.5">
-      <MapPin size={12} className="text-text-muted shrink-0" />
-      <span>Pin an exact coordinate (optional — leave blank to record staff location without geofencing).</span>
-    </p>
-    <div className="flex flex-wrap items-end gap-3">
-      <div className="flex flex-col gap-1">
-        <label htmlFor="gps-lat" className={FIELD_LABEL}>Latitude</label>
-        <input
-          id="gps-lat"
-          type="number"
-          step="any"
-          value={draft.gpsTargetLat}
-          onChange={(e) => onChange({ gpsTargetLat: e.target.value })}
-          placeholder="e.g. 12.9716"
-          className={`w-28 text-left font-mono ${INPUT_BASE}`}
-        />
+const GpsFields = ({ draft, onChange }: ItemTypeFieldsProps) => {
+  const hasTarget = draft.gpsTargetLat.trim() !== '' || draft.gpsTargetLng.trim() !== '' || draft.gpsRadiusMeters.trim() !== '';
+  if (!hasTarget) {
+    return (
+      <div className="flex flex-col gap-2">
+        <Note icon={MapPin}>Records where staff are when they answer.</Note>
+        <button
+          type="button"
+          onClick={() => onChange({ gpsRadiusMeters: '100' })}
+          className="inline-flex items-center gap-1.5 w-fit h-8 px-3 rounded-full border border-dashed border-border text-xs font-display font-medium text-text-secondary cursor-pointer transition-colors duration-150 hover:border-primary-400 hover:text-primary-700 dark:hover:text-primary-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+        >
+          <Plus size={13} /> Only accept near a set spot
+        </button>
       </div>
-      <div className="flex flex-col gap-1">
-        <label htmlFor="gps-lng" className={FIELD_LABEL}>Longitude</label>
-        <input
-          id="gps-lng"
-          type="number"
-          step="any"
-          value={draft.gpsTargetLng}
-          onChange={(e) => onChange({ gpsTargetLng: e.target.value })}
-          placeholder="e.g. 77.5946"
-          className={`w-28 text-left font-mono ${INPUT_BASE}`}
-        />
+    );
+  }
+  return (
+    <div className="flex flex-col gap-2.5">
+      <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:items-end gap-3">
+        <Field id={fid(draft, 'lat')} label="Latitude">
+          <input id={fid(draft, 'lat')} type="number" step="any" inputMode="decimal" value={draft.gpsTargetLat}
+            onChange={(e) => onChange({ gpsTargetLat: e.target.value })} placeholder="30.9045" className={`w-full sm:w-32 ${INPUT}`} />
+        </Field>
+        <Field id={fid(draft, 'lng')} label="Longitude">
+          <input id={fid(draft, 'lng')} type="number" step="any" inputMode="decimal" value={draft.gpsTargetLng}
+            onChange={(e) => onChange({ gpsTargetLng: e.target.value })} placeholder="77.0967" className={`w-full sm:w-32 ${INPUT}`} />
+        </Field>
+        <Field id={fid(draft, 'radius')} label="Within (metres)">
+          <input id={fid(draft, 'radius')} type="number" min={1} inputMode="numeric" value={draft.gpsRadiusMeters}
+            onChange={(e) => onChange({ gpsRadiusMeters: e.target.value })} placeholder="100" className={`w-full sm:w-28 ${INPUT}`} />
+        </Field>
+        <button
+          type="button"
+          onClick={() => onChange({ gpsTargetLat: '', gpsTargetLng: '', gpsRadiusMeters: '' })}
+          className="self-end inline-flex items-center gap-1 h-9 px-2.5 rounded-lg text-xs font-display font-medium text-text-muted cursor-pointer hover:text-danger hover:bg-danger/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+        >
+          <X size={13} /> Remove spot
+        </button>
       </div>
-      <div className="flex flex-col gap-1">
-        <label htmlFor="gps-radius" className={FIELD_LABEL}>Radius (meters)</label>
-        <input
-          id="gps-radius"
-          type="number"
-          min={1}
-          value={draft.gpsRadiusMeters}
-          onChange={(e) => onChange({ gpsRadiusMeters: e.target.value })}
-          placeholder="e.g. 100"
-          className={`w-24 text-center font-mono ${INPUT_BASE}`}
-        />
-      </div>
+      <Note icon={MapPin}>Tip: open the store in Google Maps, long-press it and copy the two numbers.</Note>
     </div>
-  </div>
-);
+  );
+};
 
 const QrFields = ({ draft, onChange }: ItemTypeFieldsProps) => (
-  <div className="flex flex-col gap-1.5 pt-0.5">
-    <label htmlFor="qr-expected-code" className={FIELD_LABEL}>
-      Expected Barcode / QR Code <span className="text-text-muted/70 font-medium">(Optional)</span>
-    </label>
-    <div className="relative">
-      <input
-        id="qr-expected-code"
-        value={draft.qrExpectedValue}
-        onChange={(e) => onChange({ qrExpectedValue: e.target.value })}
-        placeholder="e.g. SKU-04821 (Leave blank to accept any scanned barcode)"
-        className={`w-full text-left font-mono pr-8 ${INPUT_BASE}`}
-      />
-      <QrCode size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none" />
-    </div>
-  </div>
+  <Field id={fid(draft, 'qr')} label="Code it must match (optional)">
+    <input
+      id={fid(draft, 'qr')}
+      value={draft.qrExpectedValue}
+      onChange={(e) => onChange({ qrExpectedValue: e.target.value })}
+      placeholder="Leave blank to accept any code"
+      className={`w-full sm:max-w-sm ${INPUT}`}
+    />
+  </Field>
 );
 
 const OptionsFields = ({ draft, onChange }: ItemTypeFieldsProps) => (
   <AccessoriesListEditor
     label="Options"
+    placeholder="Type an option and press Enter"
     accessories={draft.options}
     onChange={(options) => onChange({ options })}
   />
@@ -260,18 +298,13 @@ const ConditionalFields = ({ draft, onChange }: ItemTypeFieldsProps) => {
   );
 };
 
-const infoNote = (text: string) => () => (
-  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/40 border border-border/60 text-xs font-display text-text-secondary leading-relaxed">
-    <Info size={14} className="text-text-muted shrink-0" />
-    <span>{text}</span>
-  </div>
-);
+const note = (text: string) => () => <Note>{text}</Note>;
 
 type FieldRenderer = (props: ItemTypeFieldsProps) => ReactNode;
 
 // Single source of truth for "what does this question type need to be configured?"
 const FIELDS_BY_TYPE: Partial<Record<ChecklistItemType, FieldRenderer>> = {
-  STANDARD: PhotoFields,
+  STANDARD: StandardFields,
   VIDEO_UPLOAD: VideoFields,
   AUDIT: AuditFields,
   NUMBER_ENTRY: NumberFields,
@@ -283,20 +316,15 @@ const FIELDS_BY_TYPE: Partial<Record<ChecklistItemType, FieldRenderer>> = {
   DROPDOWN: OptionsFields,
   YES_NO: ConditionalFields,
   PASS_FAIL: ConditionalFields,
-  SIGNATURE: infoNote('Captures one signature drawn on-screen by the store staff.'),
-  DUAL_SIGNATURE: infoNote('Captures two signatures drawn on-screen sequentially — e.g., employee followed by supervisor.'),
+  SIGNATURE: note('Staff sign on the screen.'),
+  DUAL_SIGNATURE: note('Two people sign on the screen — usually the employee, then the supervisor.'),
+  TEXT_BOX: note('Staff type a short answer.'),
+  DATE_TIME: note('Staff pick a date and time.'),
 };
 
 export const ItemTypeConfigFields = (props: ItemTypeFieldsProps) => {
   const Renderer = FIELDS_BY_TYPE[props.draft.itemType];
-  if (!Renderer) {
-    return (
-      <p className="text-xs font-display text-text-muted italic py-1">
-        Nothing else to set up for this type.
-      </p>
-    );
-  }
-  return <>{Renderer(props)}</>;
+  return Renderer ? <>{Renderer(props)}</> : null;
 };
 
 // The exports below are colocated with the component like ui/badge.tsx's own badgeVariants export —
@@ -322,19 +350,19 @@ export const itemDraftProblem = (draft: ItemDraft): string | null => {
   if (draft.itemType === 'NUMBER_ENTRY' || draft.itemType === 'CASH_TALLY') {
     const min = num(draft.numberEntryMin);
     const max = num(draft.numberEntryMax);
-    if (min != null && max != null && min > max) return "Minimum can't be more than the maximum.";
+    if (min != null && max != null && min > max) return "The lowest allowed can't be more than the highest.";
   }
   if (draft.itemType === 'CASH_TALLY' && (num(draft.cashExpectedAmount) ?? 0) < 0) return "Expected amount can't be negative.";
   if (draft.itemType === 'GPS') {
     const lat = num(draft.gpsTargetLat);
     const lng = num(draft.gpsTargetLng);
     const radius = num(draft.gpsRadiusMeters);
-    if ((lat == null) !== (lng == null)) return 'Enter both latitude and longitude, or neither.';
+    if ((lat == null) !== (lng == null)) return 'Enter both latitude and longitude, or remove the spot.';
     if (lat != null && (lat < -90 || lat > 90)) return 'Latitude must be between -90 and 90.';
     if (lng != null && (lng < -180 || lng > 180)) return 'Longitude must be between -180 and 180.';
-    if (radius != null && radius < 1) return 'Radius must be at least 1 metre.';
-    if (radius != null && lat == null) return 'Set the target location for this radius.';
-    if (lat != null && radius == null) return 'Set a radius, or the location is never checked.';
+    if (radius != null && radius < 1) return 'The distance must be at least 1 metre.';
+    if (radius != null && lat == null) return 'Enter the spot’s latitude and longitude, or remove the spot.';
+    if (lat != null && radius == null) return 'Set how close they must be, or the location is never checked.';
   }
   return null;
 };
