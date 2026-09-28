@@ -21,13 +21,9 @@ import { useStoresQuery } from '../../../hook';
 import { useAssignableUsersQuery } from '../../../../tickets/hook';
 import { RECURRENCE_LABEL, formatDate } from '../../../checklistDisplay';
 import { isOvernightWindow } from '../BuilderSchedulePanel';
-import { ROLE_OPTIONS } from '../../form/ChecklistRolesField';
 import type { ItemDraft } from '../../ChecklistDefinitionItemDraftRow';
 import { questionTypeOf } from '../questionTypes';
-import type {
-  ChecklistRecurrence,
-  ChecklistAssigneeRole,
-} from '../../../../../api/checklistDefinitions';
+import type { ChecklistRecurrence } from '../../../../../api/checklistDefinitions';
 
 interface BuilderReviewStepProps {
   name: string;
@@ -40,7 +36,6 @@ interface BuilderReviewStepProps {
   activeWeekdays: number[];
   itemDrafts: ItemDraft[];
   assigneeIds: string[];
-  assigneeRoles: ChecklistAssigneeRole[];
   reviewerIds: string[];
   sectionValidity: readonly [boolean, boolean, boolean, boolean];
   onEditSection: (stepIndex: number) => void;
@@ -157,7 +152,6 @@ export const BuilderReviewStep = ({
   activeWeekdays,
   itemDrafts,
   assigneeIds,
-  assigneeRoles,
   reviewerIds,
   sectionValidity,
   onEditSection,
@@ -346,26 +340,9 @@ export const BuilderReviewStep = ({
           onEdit={() => onEditSection(3)}
         >
           <div className="flex flex-col gap-3">
-            {/* Roles */}
-            {assigneeRoles.length > 0 && (
-              <div className="space-y-1">
-                <span className="text-[11px] font-medium text-text-muted">
-                  Assigned Roles
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {assigneeRoles.map((role) => (
-                    <Badge key={role} variant="info" className="text-[11px] py-0.5">
-                      {ROLE_OPTIONS.find((r) => r.value === role)?.label ?? role}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Specific Assignees */}
             <div className="space-y-1">
               <span className="text-[11px] font-medium text-text-muted flex items-center gap-1">
-                <UserCheck size={11} /> Specific Assignees
+                <UserCheck size={11} /> Assigned to
               </span>
               <p className="text-xs font-display text-text-secondary">
                 {assignees.length ? (

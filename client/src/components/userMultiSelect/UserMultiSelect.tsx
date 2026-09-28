@@ -85,7 +85,8 @@ export const UserMultiSelect = ({ departmentId, storeId, storeIds, selected, onC
           byDept.set(deptName, list);
         }
         const sorted = [...byDept.entries()].sort(([a], [b]) => a.localeCompare(b));
-        if (unassigned.length) sorted.push(['Unassigned', unassigned]);
+        // "No department", not "Unassigned" — on an Assign screen the latter reads as "not assigned".
+        if (unassigned.length) sorted.push(['No department', unassigned]);
         return sorted;
       })()
     : null;

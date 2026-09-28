@@ -11,7 +11,7 @@ import {
   Store,
   ListTodo,
 } from 'lucide-react';
-import { Skeleton, Breadcrumbs } from '../../../components';
+import { Skeleton, Breadcrumbs, formatWeekdays } from '../../../components';
 import { Badge } from '@/components/ui/badge';
 import { useChecklistDefinitionQuery, useInstancesForDefinitionQuery, useStoresQuery } from '../hook';
 import { ChecklistInstanceRow } from '../instance/ChecklistInstanceRow';
@@ -26,8 +26,27 @@ import {
   type InstanceProgressStatus,
 } from '../checklistDisplay';
 import type { ChecklistInstance } from '../../../api/checklistInstances';
+import type { ChecklistDefinition } from '../../../api/checklistDefinitions';
 
 const STATUS_ORDER: InstanceProgressStatus[] = ['TODO', 'IN_PROGRESS', 'COMPLETED'];
+
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+// Why a checklist has no run yet — the same rules the server's generator applies
+// (checklistInstanceGenerator.job.ts), so an admin sees the actual reason instead of "it'll show
+// up automatically" while nothing ever does. Dates are the org's local (India) calendar day.
+const noRunReason = (definition: ChecklistDefinition): string => {
+  const localToday = new Date(Date.now() + 330 * 60_000);
+  const todayKey = localToday.toISOString().slice(0, 10);
+  const startKey = new Date(new Date(definition.startDate).getTime() + 330 * 60_000).toISOString().slice(0, 10);
+  if (!definition.isActive) return 'This checklist is paused. Turn it back on to start creating runs.';
+  if (startKey > todayKey) return `It starts on ${formatDate(definition.startDate)} — the first run is created that day.`;
+  if (!definition.assigneeIds.length) return 'Nobody is assigned yet. Edit it and pick who fills it in.';
+  if (definition.recurrence === 'DAILY' && definition.activeWeekdays && !definition.activeWeekdays.includes(localToday.getUTCDay())) {
+    return `${DAY_NAMES[localToday.getUTCDay()]} isn't one of its working days (${formatWeekdays(definition.activeWeekdays)}). The next run is created on the next working day.`;
+  }
+  return `Today's run is created within the hour. If everyone assigned is on their week off today, there's no run today.`;
+};
 
 interface RateTileProps {
   icon: typeof Gauge;
@@ -240,9 +259,7 @@ export const ChecklistDefinitionDetail = () => {
               <ListTodo size={18} />
             </span>
             <p className="text-xs font-display font-medium text-text">No runs yet</p>
-            <p className="text-[11px] font-display text-text-muted max-w-xs">
-              New runs will show up here automatically, based on how often this checklist repeats ({RECURRENCE_LABEL[definition.recurrence] ?? definition.recurrence}).
-            </p>
+            <p className="text-[11px] font-display text-text-muted max-w-xs">{noRunReason(definition)}</p>
           </div>
         ) : (
           <div className="flex flex-col gap-5">

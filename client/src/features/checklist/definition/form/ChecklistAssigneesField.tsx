@@ -90,7 +90,7 @@ export const ChecklistAssigneesField = ({
         {departments.length > 0 && (
           <div className="flex items-center gap-2">
             <Select value="" onValueChange={selectAllInDepartment}>
-              <SelectTrigger size="sm" className="w-auto min-w-[13rem]" disabled={!!loadingDeptId}>
+              <SelectTrigger size="sm" className="w-auto min-w-[13rem] h-8 rounded-md text-xs font-display font-medium" disabled={!!loadingDeptId}>
                 <Building2 size={13} className="text-text-muted shrink-0" />
                 <SelectValue placeholder="Select all in a department…" />
               </SelectTrigger>
@@ -129,8 +129,8 @@ export const ChecklistAssigneesField = ({
       />
 
       {/* Helper Subtext */}
-      <p className="text-[11px] font-display text-text-muted">
-        Pick specific people to do this checklist, or use the buttons above to add everyone at the store — or a whole department — at once.
+      <p className="hidden sm:block text-[11px] font-display text-text-muted">
+        Tick the people who fill this in, or add a whole store or department at once.
       </p>
     </div>
   );

@@ -1,26 +1,17 @@
 import { useNavigate } from 'react-router';
 import { Camera, MapPin, PenLine, Wallet, ScanLine, type LucideIcon } from 'lucide-react';
-import { EntityIconTile, StatusPill, EntityCardActions } from '../../../components';
+import { EntityIconTile, StatusPill, EntityCardActions, formatWeekdays } from '../../../components';
 import { Badge } from '@/components/ui/badge';
 import { useConfirm } from '@/components/confirmDialog';
 import { RECURRENCE_LABEL, rateToneClass, rateBarClass } from '../checklistDisplay';
 import { useSetChecklistDefinitionActiveMutation, useDeleteChecklistDefinitionMutation } from '../hook';
 import { useAuth } from '../../../context/AuthContext';
 import { CHECKLIST_ICON_MAP } from './checklistIconMap';
-import type { ChecklistDefinition, ChecklistAssigneeRole, ChecklistItemType } from '../../../api/checklistDefinitions';
+import type { ChecklistDefinition, ChecklistItemType } from '../../../api/checklistDefinitions';
 
 interface ChecklistDefinitionCardProps {
   definition: ChecklistDefinition;
 }
-
-const ROLE_LABEL: Record<ChecklistAssigneeRole, string> = {
-  STORE_MANAGER: 'Store Manager',
-  FLOOR_MANAGER: 'Floor Manager',
-  CASHIER: 'Cashier',
-  SECURITY: 'Security',
-  HOUSEKEEPING: 'Housekeeping',
-  OPERATIONS: 'Operations',
-};
 
 
 const TAG_BY_ITEM_TYPE: Partial<Record<ChecklistItemType, string>> = {
@@ -68,7 +59,8 @@ export const ChecklistDefinitionCard = ({ definition }: ChecklistDefinitionCardP
 
   const Icon = CHECKLIST_ICON_MAP[definition.icon];
   const tags = cardTags(definition);
-  const roleLabel = definition.assigneeRoles[0] ? ROLE_LABEL[definition.assigneeRoles[0]] : null;
+  // Working days, not the retired role label (a made-up role that assigned nobody).
+  const daysLabel = definition.recurrence === 'DAILY' ? formatWeekdays(definition.activeWeekdays) : null;
   const { completionRate, qualityRate } = definition;
 
   const openDetail = () => navigate(`/admin/scheduled-checklists/${definition.id}`);
@@ -128,7 +120,7 @@ export const ChecklistDefinitionCard = ({ definition }: ChecklistDefinitionCardP
         <h3 className="font-display text-base font-bold text-text leading-snug">{definition.name}</h3>
         <p className="text-xs font-display text-text-muted">
           {RECURRENCE_LABEL[definition.recurrence]}
-          {roleLabel ? ` · ${roleLabel}` : ''}
+          {daysLabel ? ` · ${daysLabel}` : ''}
         </p>
       </div>
 

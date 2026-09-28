@@ -24,7 +24,7 @@ import { emptyItemDraft, type ItemDraft } from '../ChecklistDefinitionItemDraftR
 import { normalizeItemOrder } from '../itemSections';
 import { BuilderItemsList } from './BuilderItemsList';
 import type {
-  ChecklistRecurrence, ChecklistAssigneeRole, ChecklistIcon,
+  ChecklistRecurrence, ChecklistIcon,
   ChecklistDefinitionItem, CreateChecklistDefinitionItemPayload,
 } from '../../../../api/checklistDefinitions';
 
@@ -132,7 +132,6 @@ export const ChecklistBuilder = () => {
   // DAILY only — Mon–Sat by default (Sunday off), matching the server default for new checklists.
   const [activeWeekdays, setActiveWeekdays] = useState<number[]>(DEFAULT_WORKING_WEEKDAYS);
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
-  const [assigneeRoles, setAssigneeRoles] = useState<ChecklistAssigneeRole[]>([]);
   // Additive on top of the role-based verify rule — see ChecklistReviewersField.
   const [reviewerIds, setReviewerIds] = useState<string[]>([]);
   const [itemDrafts, setItemDrafts] = useState<ItemDraft[]>([]);
@@ -166,12 +165,12 @@ export const ChecklistBuilder = () => {
   // thing that quietly goes stale the next time a field is added.
   const snapshotKey = (f: {
     name: string; description: string; icon: ChecklistIcon; storeIds: string[]; recurrence: ChecklistRecurrence;
-    startDate: string; opensTime: string; cutoffTime: string; activeWeekdays: number[]; assigneeIds: string[]; assigneeRoles: ChecklistAssigneeRole[];
+    startDate: string; opensTime: string; cutoffTime: string; activeWeekdays: number[]; assigneeIds: string[];
     reviewerIds: string[]; itemDrafts: ItemDraft[]; sections: string[];
   }) => JSON.stringify(f);
   const [baseline, setBaseline] = useState(() => snapshotKey({
     name: '', description: '', icon: 'store', storeIds: [], recurrence: 'DAILY', startDate: '',
-    opensTime: '', cutoffTime: '', activeWeekdays: DEFAULT_WORKING_WEEKDAYS, assigneeIds: [], assigneeRoles: [], reviewerIds: [], itemDrafts: [], sections: [],
+    opensTime: '', cutoffTime: '', activeWeekdays: DEFAULT_WORKING_WEEKDAYS, assigneeIds: [], reviewerIds: [], itemDrafts: [], sections: [],
   }));
 
   if (existing && hydratedId !== existing.id) {
@@ -190,7 +189,6 @@ export const ChecklistBuilder = () => {
     setCutoffTime(existing.cutoffTime ?? '');
     setActiveWeekdays(existing.activeWeekdays ?? ALL_WEEKDAYS);
     setAssigneeIds(existing.assigneeIds);
-    setAssigneeRoles(existing.assigneeRoles);
     setReviewerIds(existing.reviewerIds);
     const seenSections: string[] = [];
     for (const item of existing.items) {
@@ -217,7 +215,6 @@ export const ChecklistBuilder = () => {
       cutoffTime: existing.cutoffTime ?? '',
       activeWeekdays: existing.activeWeekdays ?? ALL_WEEKDAYS,
       assigneeIds: existing.assigneeIds,
-      assigneeRoles: existing.assigneeRoles,
       reviewerIds: existing.reviewerIds,
       itemDrafts: hydratedItemDrafts,
       sections: seenSections,
@@ -226,7 +223,7 @@ export const ChecklistBuilder = () => {
 
   const isDirty = snapshotKey({
     name, description, icon, storeIds, recurrence, startDate, opensTime, cutoffTime, activeWeekdays,
-    assigneeIds, assigneeRoles, reviewerIds, itemDrafts, sections,
+    assigneeIds, reviewerIds, itemDrafts, sections,
   }) !== baseline;
 
   // Escape hatch for "I just saved, don't warn me on the way out" — handleSubmit's onSuccess
@@ -240,7 +237,7 @@ export const ChecklistBuilder = () => {
     justSavedRef.current = true;
     setBaseline(snapshotKey({
       name, description, icon, storeIds, recurrence, startDate, opensTime, cutoffTime, activeWeekdays,
-      assigneeIds, assigneeRoles, reviewerIds, itemDrafts, sections,
+      assigneeIds, reviewerIds, itemDrafts, sections,
     }));
   };
 
@@ -348,7 +345,8 @@ export const ChecklistBuilder = () => {
       activeWeekdays: recurrence === 'DAILY' ? activeWeekdays : null,
       assigneeIds,
       reviewerIds: reviewerIds.length ? reviewerIds : undefined,
-      assigneeRoles: assigneeRoles.length ? assigneeRoles : undefined,
+      // Role labels are retired — saving clears any old ones so cards stop showing them.
+      assigneeRoles: [],
       items,
     };
 
@@ -469,8 +467,6 @@ export const ChecklistBuilder = () => {
         storeIds={storeIds}
         assigneeIds={assigneeIds}
         onAssigneeIdsChange={setAssigneeIds}
-        assigneeRoles={assigneeRoles}
-        onAssigneeRolesChange={setAssigneeRoles}
       />
     </BuilderStepFrame>,
 
@@ -494,7 +490,6 @@ export const ChecklistBuilder = () => {
         activeWeekdays={activeWeekdays}
         itemDrafts={itemDrafts}
         assigneeIds={assigneeIds}
-        assigneeRoles={assigneeRoles}
         reviewerIds={reviewerIds}
         sectionValidity={sectionValidity}
         onEditSection={goToStep}
