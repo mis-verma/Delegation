@@ -41,11 +41,11 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
   return (
     <div className={`flex flex-col gap-6 w-full ${className}`}>
       {/* Header & Page Actions */}
-      <div className="flex items-center justify-between gap-4 flex-wrap pb-1">
+      <div className="flex items-center justify-between gap-3 sm:gap-4 pb-1">
         <div className="flex flex-col gap-1 min-w-0">
           <div className="flex items-center gap-2.5 flex-wrap">
             <h1 className="font-display text-xl sm:text-2xl font-bold text-text tracking-tight">
-              Checklist Templates
+              Recurring Checklists
             </h1>
             {!isPending && !isError && (
               <Badge variant="outline" className="font-mono text-xs py-0.5 px-2 font-semibold">
@@ -53,22 +53,23 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
               </Badge>
             )}
           </div>
-          <p className="text-xs sm:text-sm font-display text-text-muted leading-relaxed max-w-2xl">
+          <p className="hidden sm:block text-sm font-display text-text-muted leading-relaxed max-w-2xl">
             Build recurring checklists your stores run on a schedule — questions, proof requirements, and all.
           </p>
         </div>
 
         {/* Top Action Buttons — create/import/export are ADMIN-only, see the isAdmin comment above. */}
         {isAdmin && (
-          <div className="flex items-center gap-2.5 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
             <Button
               size="sm"
               variant="secondary"
               className="gap-1.5 text-xs font-display font-medium"
               onClick={() => setShowExport(true)}
+              aria-label="Export"
             >
               <FileDown size={14} className="text-text-muted" />
-              <span>Export</span>
+              <span className="hidden sm:inline">Export</span>
             </Button>
 
             <Button
@@ -76,9 +77,10 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
               variant="secondary"
               className="gap-1.5 text-xs font-display font-medium"
               onClick={() => setShowBulkImport(true)}
+              aria-label="Import"
             >
               <Upload size={14} className="text-text-muted" />
-              <span>Import</span>
+              <span className="hidden sm:inline">Import</span>
             </Button>
 
             <Button
@@ -88,7 +90,8 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
               onClick={() => navigate('/admin/scheduled-checklists/builder')}
             >
               <Plus size={14} />
-              <span>New checklist</span>
+              <span className="sm:hidden">New</span>
+              <span className="hidden sm:inline">New checklist</span>
             </Button>
           </div>
         )}

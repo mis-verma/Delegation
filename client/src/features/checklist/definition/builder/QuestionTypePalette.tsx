@@ -70,7 +70,9 @@ export const QuestionTypePalette = ({ onAdd, storeIds }: QuestionTypePaletteProp
       {CATEGORIES.map(({ title, entries }, i) => (
         <div key={title} className={i > 0 ? 'mt-3' : ''}>
           <p className="px-2.5 pb-1 text-[10px] font-display font-bold text-text-light">{title}</p>
-          <div className="flex flex-col gap-0.5">
+          {/* Two columns on phones: 17 one-per-row entries made the Items step a long scroll
+              before you ever reached the items themselves. */}
+          <div className="grid grid-cols-2 gap-1 lg:flex lg:flex-col lg:gap-0.5">
             {entries.map(entry => {
               const Icon = entry.icon;
               return (
@@ -82,13 +84,13 @@ export const QuestionTypePalette = ({ onAdd, storeIds }: QuestionTypePaletteProp
                   // — this app's primary-* scale isn't redefined for dark mode (see index.css), so
                   // a literal `bg-primary-50` hover here rendered as a stark near-white smudge on
                   // this list in dark theme instead of a subtle tint.
-                  className="group relative flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm font-display font-medium text-text-secondary transition-all duration-200 hover:bg-primary-500/10 hover:text-primary-700 dark:hover:text-primary-300 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
+                  className="group relative flex w-full min-h-11 items-center gap-2 lg:gap-2.5 rounded-lg px-2 lg:px-2.5 py-2 text-left text-[13px] lg:text-sm font-display font-medium text-text-secondary transition-all duration-200 hover:bg-primary-500/10 hover:text-primary-700 dark:hover:text-primary-300 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
                 >
                   <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-surface-hover text-text-muted transition-colors duration-200 group-hover:bg-primary-500/15 group-hover:text-primary-700 dark:group-hover:text-primary-300">
                     <Icon size={16} strokeWidth={2.25} />
                   </span>
-                  <span className="min-w-0 flex-1 truncate">{entry.label}</span>
-                  <span className="flex size-6 shrink-0 scale-75 items-center justify-center rounded-full border border-border text-text-light opacity-0 transition-all duration-200 group-hover:scale-100 group-hover:border-primary-400 group-hover:bg-primary-500/10 group-hover:text-primary-600 dark:group-hover:text-primary-400 group-hover:opacity-100">
+                  <span className="min-w-0 flex-1 leading-tight">{entry.label}</span>
+                  <span className="hidden lg:flex size-6 shrink-0 scale-75 items-center justify-center rounded-full border border-border text-text-light opacity-0 transition-all duration-200 group-hover:scale-100 group-hover:border-primary-400 group-hover:bg-primary-500/10 group-hover:text-primary-600 dark:group-hover:text-primary-400 group-hover:opacity-100">
                     <Plus size={12} />
                   </span>
                 </button>

@@ -196,18 +196,8 @@ export const BuilderReviewStep = ({
     .filter((s): s is { index: number; label: (typeof SECTION_CONFIG)[number]['label'] } => s !== null);
 
   return (
-    <div className="flex flex-col gap-6 w-full max-w-5xl mx-auto">
-      {/* Review summary header */}
-      <div>
-        <h2 className="text-base font-display font-semibold text-text">
-          Review Checklist Details
-        </h2>
-        <p className="text-xs font-display text-text-muted mt-0.5">
-          Take a look through everything below before you {isEditing ? 'save' : 'publish'}.
-        </p>
-      </div>
-
-      {/* Grid of Sections */}
+    <div className="flex flex-col gap-4 sm:gap-6 w-full max-w-5xl mx-auto">
+      {/* Grid of Sections — the step frame above already carries the "Review & Create" heading. */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* 1. Basics */}
         <SectionCard

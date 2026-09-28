@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Check, Loader2 } from 'lucide-react';
 import { useAssignableUsersQuery } from '../../features/tickets/hook';
 import { avatarColorClass } from '../../lib/avatarColors';
@@ -17,6 +18,8 @@ interface UserMultiSelectProps {
    *  under a header per department instead of one flat list — e.g. picking assignees across a
    *  whole store, where Sales/Housekeeping/Security staff would otherwise all run together. */
   departments?: { id: string; name: string }[];
+  /** Replaces the plain "no users" line — lets a caller explain how to fix an empty scope. */
+  emptyHint?: ReactNode;
 }
 
 const userLabel = (u: AssignableUser) => `${u.firstName} ${u.lastName ?? ''}`.trim();
@@ -24,7 +27,7 @@ const userLabel = (u: AssignableUser) => `${u.firstName} ${u.lastName ?? ''}`.tr
 // Picks specific users within a department and/or store — shadcn's Select is single-value only,
 // so this is a small bordered checkbox-list instead. Disabled until a scope is chosen since
 // assignable users are scoped server-side by departmentId/storeId(s).
-export const UserMultiSelect = ({ departmentId, storeId, storeIds, selected, onChange, departments }: UserMultiSelectProps) => {
+export const UserMultiSelect = ({ departmentId, storeId, storeIds, selected, onChange, departments, emptyHint }: UserMultiSelectProps) => {
   const { data: users, isLoading } = useAssignableUsersQuery(departmentId, storeId, storeIds);
 
   const toggle = (id: string) => {
@@ -95,7 +98,7 @@ export const UserMultiSelect = ({ departmentId, storeId, storeIds, selected, onC
         </p>
       )}
       {!isLoading && !users?.length && (
-        <p className="text-xs font-display text-text-muted px-2 py-2">No assignable users in this scope.</p>
+        emptyHint ?? <p className="text-xs font-display text-text-muted px-2 py-2">No assignable users in this scope.</p>
       )}
       {!isLoading && groups
         ? groups.map(([deptName, deptUsers]) => (

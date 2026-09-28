@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router';
 import { Users, UserCheck, Building2, Loader2, UsersRound } from 'lucide-react';
 import { UserMultiSelect } from '../../../../components';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../../../../components/ui/select';
@@ -111,6 +112,20 @@ export const ChecklistAssigneesField = ({
         selected={selected}
         onChange={onChange}
         departments={allDepartments}
+        emptyHint={
+          // Assignees must belong to one of the checklist's stores (enforced server-side too), so
+          // an empty list almost always means nobody has that store set on their profile yet.
+          <div className="flex flex-col gap-1.5 px-2 py-2 text-xs font-display text-text-muted">
+            <span className="font-semibold text-text">Nobody works at {storeIds.length === 1 ? 'this store' : 'these stores'} yet.</span>
+            <span>
+              Set each person's store in{' '}
+              <Link to="/admin/directory" className="font-semibold text-primary-700 dark:text-primary-300 underline underline-offset-2 hover:text-primary-800 dark:hover:text-primary-200">
+                People & Teams
+              </Link>
+              , or go back and pick a different store.
+            </span>
+          </div>
+        }
       />
 
       {/* Helper Subtext */}

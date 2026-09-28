@@ -27,9 +27,49 @@ export const BuilderStepper = ({
   className = '',
 }: BuilderStepperProps) => {
   return (
+    <>
+    {/* Phones: six labelled steps never fit in one row (it scrolled sideways, cutting labels
+        off), so they collapse to "Step n of 6" plus one tappable segment per step, tinted the
+        same way the desktop circles are (done / needs attention / current / locked). */}
+    <nav aria-label="Checklist builder progress" className={`sm:hidden flex flex-col gap-2 ${className}`}>
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="text-sm font-display font-bold text-text">{steps[current]?.label}</span>
+        <span className="text-[11px] font-display font-medium text-text-muted tabular-nums">Step {current + 1} of {steps.length}</span>
+      </div>
+      <ol className="flex items-center gap-1.5">
+        {steps.map((step, index) => {
+          const isLocked = index > maxReached && !allUnlocked;
+          const isCurrent = index === current;
+          const isValid = isStepValid(index);
+          const needsAttention = !isCurrent && !isLocked && !isValid && index < maxReached;
+          return (
+            <li key={step.label} className="flex-1">
+              <button
+                type="button"
+                onClick={() => !isLocked && onSelect(index)}
+                disabled={isLocked}
+                aria-current={isCurrent ? 'step' : undefined}
+                aria-label={`Step ${index + 1}: ${step.label}`}
+                className="flex items-center w-full h-6 cursor-pointer disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 rounded-full"
+              >
+                <span
+                  className={[
+                    'h-1.5 w-full rounded-full transition-colors duration-200',
+                    isCurrent && 'bg-primary-700 dark:bg-primary-400',
+                    needsAttention && 'bg-warning',
+                    !isCurrent && !needsAttention && !isLocked && index <= maxReached && 'bg-primary-500/45',
+                    !isCurrent && !needsAttention && (isLocked || index > maxReached) && 'bg-border',
+                  ].filter(Boolean).join(' ')}
+                />
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
     <nav
       aria-label="Checklist builder progress"
-      className={`w-full overflow-x-auto no-scrollbar py-2 ${className}`}
+      className={`hidden sm:block w-full overflow-x-auto no-scrollbar py-2 ${className}`}
     >
       <ol className="flex items-center justify-between min-w-max sm:min-w-0 w-full gap-1 sm:gap-2">
         {steps.map((step, index) => {
@@ -126,5 +166,6 @@ export const BuilderStepper = ({
         })}
       </ol>
     </nav>
+    </>
   )
 }

@@ -94,7 +94,7 @@ export const ChecklistDefinitionCard = ({ definition }: ChecklistDefinitionCardP
       tabIndex={0}
       onClick={openDetail}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDetail(); } }}
-      className={`flex flex-col gap-4 p-5 rounded-lg border border-border bg-surface hover:border-border-hover transition-all duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${deleteMutation.isPending ? 'opacity-50 pointer-events-none' : ''}`}
+      className={`flex flex-col gap-3 sm:gap-4 p-4 sm:p-5 rounded-lg border border-border bg-surface hover:border-border-hover transition-all duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${deleteMutation.isPending ? 'opacity-50 pointer-events-none' : ''}`}
     >
       <div className="flex items-start justify-between gap-3">
         <EntityIconTile icon={Icon} tone="coral" />

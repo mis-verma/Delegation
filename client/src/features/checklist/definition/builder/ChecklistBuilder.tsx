@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useBlocker } from 'react-router';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ArrowLeft, AlertCircle, ListChecks, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -226,7 +226,12 @@ export const ChecklistBuilder = () => {
   // Escape hatch for "I just saved, don't warn me on the way out" — handleSubmit's onSuccess
   // calls this before navigating so the guard below doesn't immediately re-fire on its own
   // redirect to the new/updated checklist's detail page.
+  // The baseline update below only lands on the NEXT render, but onSuccess navigates in the same
+  // tick — so the blocker still saw the form as dirty and popped "Discard unsaved changes?" right
+  // after "Checklist created". A ref is read at navigation time, so it skips the guard immediately.
+  const justSavedRef = useRef(false);
   const markClean = () => {
+    justSavedRef.current = true;
     setBaseline(snapshotKey({
       name, description, icon, storeIds, recurrence, startDate, opensTime, cutoffTime,
       assigneeIds, assigneeRoles, reviewerIds, itemDrafts, sections,
@@ -235,7 +240,7 @@ export const ChecklistBuilder = () => {
 
   const confirm = useConfirm();
   const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) => isDirty && currentLocation.pathname !== nextLocation.pathname,
+    ({ currentLocation, nextLocation }) => isDirty && !justSavedRef.current && currentLocation.pathname !== nextLocation.pathname,
   );
   useEffect(() => {
     if (blocker.state !== 'blocked') return;
@@ -504,14 +509,14 @@ export const ChecklistBuilder = () => {
       />
 
       {/* Top Header */}
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-3.5">
-          <GradientIconTile icon={ListChecks} />
-          <div>
-            <h1 className="font-display text-xl sm:text-2xl font-bold text-text tracking-tight leading-snug">
+      <div className="flex items-center justify-between gap-3 sm:gap-4">
+        <div className="flex items-center gap-3 sm:gap-3.5 min-w-0">
+          <GradientIconTile icon={ListChecks} className="hidden sm:flex" />
+          <div className="flex flex-col gap-0.5 min-w-0">
+            <h1 className="font-display text-xl sm:text-2xl font-bold text-text tracking-tight leading-snug line-clamp-2">
               {isEditing ? `Editing: ${existing?.name}` : 'New Checklist'}
             </h1>
-            <p className="text-xs sm:text-sm text-text-muted mt-0.5">
+            <p className="hidden sm:block text-sm text-text-muted">
               {isEditing && existing
                 ? `Version ${existing.version} · Live in ${existing.storeIds.length} store${existing.storeIds.length !== 1 ? 's' : ''}`
                 : 'Build a recurring checklist your team runs on a schedule.'}
@@ -524,17 +529,18 @@ export const ChecklistBuilder = () => {
           variant="secondary"
           size="sm"
           onClick={() => navigate('/admin/scheduled-checklists')}
-          className="font-display"
+          className="font-display shrink-0"
+          aria-label="Back to checklists"
         >
           <ArrowLeft size={13} />
-          <span>Back to Templates</span>
+          <span className="hidden sm:inline">Back to checklists</span>
         </Button>
       </div>
 
       {/* Main Wizard Card */}
       <div className="rounded-2xl border border-border bg-surface shadow-xs overflow-hidden">
         {/* Stepper Header with Progress Bar */}
-        <div className="flex flex-col gap-3 px-5 sm:px-6 pt-5 pb-4 border-b border-border/60 bg-muted/20">
+        <div className="flex flex-col gap-3 px-4 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4 border-b border-border/60 bg-muted/20">
           <BuilderStepper
             steps={STEPS}
             current={step}
@@ -543,7 +549,7 @@ export const ChecklistBuilder = () => {
             isStepValid={isStepValid}
             onSelect={goToStep}
           />
-          <div className="h-1.5 w-full rounded-full bg-border/60 overflow-hidden">
+          <div className="hidden sm:block h-1.5 w-full rounded-full bg-border/60 overflow-hidden">
             <div
               className="h-full rounded-full bg-gradient-to-r from-primary-600 via-primary-500 to-primary-400 transition-[width] duration-300 ease-out"
               style={{ width: `${progressPercent}%` }}
@@ -552,7 +558,7 @@ export const ChecklistBuilder = () => {
         </div>
 
         {/* Wizard Content Step */}
-        <div className="p-5 sm:p-8">
+        <div className="p-4 sm:p-8">
           <AnimatePresence mode="wait">
             <motion.div
               key={step}
@@ -566,7 +572,7 @@ export const ChecklistBuilder = () => {
           </AnimatePresence>
 
           {/* Footer Navigation Bar */}
-          <div className="flex items-center justify-between pt-6 mt-8 border-t border-border/60">
+          <div className="flex items-center justify-between pt-4 sm:pt-6 mt-6 sm:mt-8 border-t border-border/60">
             {step > 0 ? (
               <Button
                 type="button"

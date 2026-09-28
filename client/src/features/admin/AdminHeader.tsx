@@ -17,6 +17,7 @@ import { Dropdown, type DropdownAction } from '../../components/dropdown';
 // Same greeting logic HomePage's DashboardHeader already uses — one shared source instead of a
 // second copy that could drift to a different morning/afternoon/evening boundary.
 import { greeting } from '../dashboard/dashboardDisplay';
+import { useIsMobile } from '../../lib/useMediaQuery';
 
 // Matches DashboardHeader's own clock: cheap enough to tick on an interval without re-rendering
 // the whole header every second, and 30s is plenty of precision for a minute-resolution display.
@@ -74,8 +75,11 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
   const currentDate = now.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
   const currentTime = now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 
+  // Phones: the theme toggle moves in here so the section title in the bar has room to show whole.
+  const isMobile = useIsMobile();
   const accountActions: DropdownAction[] = [
     { label: 'Dashboard', to: '/', icon: LayoutDashboard },
+    ...(isMobile ? [{ label: theme === 'light' ? 'Dark mode' : 'Light mode', onClick: toggleTheme, icon: theme === 'light' ? Moon : Sun }] : []),
     { label: 'Settings', to: '/admin/settings', icon: Settings },
     { label: 'Sign out', onClick: logout, icon: LogOut, variant: 'destructive', separatorBefore: true },
   ];
@@ -114,23 +118,23 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
 
           <span className="hidden sm:block h-8 w-px bg-border shrink-0" aria-hidden="true" />
 
-          <div className="flex flex-col min-w-0 leading-tight">
-            <span className="text-sm sm:text-base font-display font-bold text-text truncate">
-              {/* Name suffix hidden below sm — squeezed between the sidebar toggle and the icon
-                  cluster, there wasn't room left for it, so it was hard-truncating mid-word
-                  ("Good afternoon,...") instead of ever reaching the name. Plain "Good afternoon"
-                  reads as intentional; a comma with nothing after it doesn't. */}
-              {greeting()}{firstName ? <span className="hidden sm:inline">, {firstName}</span> : null}
+          {/* Phones: the section you're in, with today's date under it (same pattern as the main
+              app header) — a greeting squeezed between the toggle and the icons only ever showed
+              as "Good morn…". Desktop keeps the greeting with the section underneath. */}
+          <div className="sm:hidden flex flex-col min-w-0 leading-tight">
+            <span className="text-[15px] font-display font-bold text-text tracking-tight truncate">{pageLabel || 'Admin'}</span>
+            <span className="text-[11px] font-medium text-text-muted">{currentDate}</span>
+          </div>
+          <div className="hidden sm:flex flex-col min-w-0 leading-tight">
+            <span className="text-base font-display font-bold text-text truncate">
+              {greeting()}{firstName ? `, ${firstName}` : null}
             </span>
-            {/* Also dropped below sm — the breadcrumb at the top of the page content already
-                names the current section, so repeating it here just competed with the greeting
-                for the same cramped line. */}
-            <span className="hidden sm:block text-[11px] font-medium text-text-muted truncate">{pageLabel}</span>
+            <span className="text-[11px] font-medium text-text-muted truncate">{pageLabel}</span>
           </div>
         </div>
 
         {/* Right: quick actions + account */}
-        <div className="flex items-center gap-2 sm:gap-3 ml-auto">
+        <div className="flex items-center gap-1 sm:gap-3 ml-auto shrink-0">
           {/* Live date/time — same pill treatment and tabular-nums convention as the main
               dashboard's DashboardHeader, just condensed to fit a 64px-tall bar. Hidden below `lg`:
               at that width the greeting is already fighting the icon cluster for room, and a
@@ -143,11 +147,12 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
 
           {/* gap-2 (8px), not gap-1 — the minimum spacing between two adjacent touch targets so a
               slightly-off tap on one doesn't land on the other. */}
-          <div className="flex items-center gap-2 p-1 rounded-full bg-surface-hover border border-border">
+          {/* Boxed pill from sm up; on phones the icons sit bare so the section title keeps its room. */}
+          <div className="flex items-center gap-0.5 sm:gap-2 sm:p-1 rounded-full sm:bg-surface-hover sm:border sm:border-border">
             <NotificationBell badgeRing={false} />
             <button
               onClick={toggleTheme}
-              className={`inline-flex ${ICON_BUTTON} overflow-hidden`}
+              className={`hidden sm:inline-flex ${ICON_BUTTON} overflow-hidden`}
               title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
               aria-label="Toggle visual theme"
             >
@@ -164,7 +169,7 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
                 <button
                   title={user.name}
                   aria-label={`Account menu — ${user.name}${user.role ? `, ${titleCase(user.role)}` : ''}`}
-                  className="flex items-center gap-2.5 h-11 pl-1 pr-2 sm:pr-3 rounded-full bg-surface-hover border border-border text-text-secondary cursor-pointer transition-all duration-200 hover:bg-surface-active hover:text-text active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 group"
+                  className="flex items-center gap-2.5 h-11 px-1.5 sm:pl-1 sm:pr-3 rounded-full sm:bg-surface-hover sm:border sm:border-border text-text-secondary cursor-pointer transition-all duration-200 hover:bg-surface-active hover:text-text active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 group"
                 >
                   <span className="relative flex items-center justify-center size-8 rounded-full bg-primary-100 dark:bg-primary-500/20 text-primary-700 dark:text-primary-300 font-bold text-[11px] shrink-0 group-hover:scale-105 transition-transform">
                     {initials || <User size={14} strokeWidth={2.5} />}
