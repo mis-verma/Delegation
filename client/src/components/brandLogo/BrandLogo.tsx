@@ -15,48 +15,64 @@ interface BrandLogoProps {
   textClassName?: string;
 }
 
-// The app's own default mark — replaces the old logo.png (a glossy, photorealistic 3D render
-// that didn't match this app's flat, token-driven visual language and went illegible at the 24px
-// height Header/Footer actually render it at). Keeps the original's actual identity — a "K" whose
-// lower leg is a checkmark, immediately followed by "आर्य" so the whole lockup reads "Karya"
-// (क+आर्य, work/task), just as flat filled shapes instead of glossy 3D chrome.
-//
-// Two earlier passes at this fused K+checkmark shape both failed the same way: the checkmark's
-// upstroke crossed diagonally through the K's own upper arm, which the original's glossy 3D
-// render gets away with (strong directional lighting/bevels sell the two strokes as separate
-// objects in depth) but flat color can't — at real size (44px in the header, smaller still as a
-// favicon) it just read as a tangle of crossing lines. The fix: keep the checkmark's long stroke
-// running roughly PARALLEL to the K's upper diagonal instead of crossing it, offset below/right —
-// same "K with an integrated check" silhouette, no ambiguous overlap.
+/**
+ * The Karya mark: a Latin "K" followed by the Devanagari "आर्य", so the lockup reads Karya
+ * (क + आर्य, "work").
+ *
+ * The idea that ties the two scripts together is the shirorekha, the headline bar every
+ * Devanagari letter hangs from. Here it is drawn in gold across the top of the navy tile, and the
+ * K is built the Devanagari way: its stem hangs from that bar and its upper arm rises into it,
+ * instead of floating free as a Latin letter would. Next to the wordmark, whose own letters hang
+ * from the same kind of bar, the K reads as the first letter of one word.
+ *
+ * All flat, filled geometry (no hairline strokes) so it holds from a 16px favicon up; a 1px light
+ * inner edge keeps the navy tile from sinking into a dark page.
+ */
 export const BrandLogo = ({ className = 'size-6', showWordmark = true, textClassName }: BrandLogoProps) => {
-  // Unique per instance so Header + Footer + a logo-upload preview mounted at once don't collide
-  // on the gradient's id — a duplicate SVG def id is invalid and can resolve to the wrong instance.
-  const gradientId = `brand-logo-tile-${useId()}`;
+  // Unique per instance (and colon-free, which url(#id) needs) so Header + Footer + a preview
+  // mounted at once don't collide on gradient/clip ids.
+  const uid = useId().replace(/:/g, '');
+  const tileId = `karya-tile-${uid}`;
+  const goldId = `karya-gold-${uid}`;
+  const clipId = `karya-clip-${uid}`;
 
   return (
     <span className="inline-flex items-center gap-2 min-w-0">
       <svg viewBox="0 0 40 40" className={cn('shrink-0', className)} role="img" aria-label={showWordmark ? undefined : 'Karya'}>
         <defs>
-          <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#426a9f" />
-            <stop offset="100%" stopColor="#213e6a" />
+          <linearGradient id={tileId} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#35598c" />
+            <stop offset="100%" stopColor="#152a4b" />
           </linearGradient>
+          <linearGradient id={goldId} x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="#f0d27a" />
+            <stop offset="100%" stopColor="#c89b32" />
+          </linearGradient>
+          {/* Flat baseline for the K: the diagonal leg is cut level with the stem's foot. */}
+          <clipPath id={clipId}>
+            <rect x="0" y="0" width="40" height="31.5" />
+          </clipPath>
         </defs>
-        <rect width="40" height="40" rx="10" fill={`url(#${gradientId})`} />
-        {/* K's vertical bar + upper diagonal, as one solid white shape (no hand-drawn stroke
-            skeleton — a filled letterform silhouette holds up at small sizes the way a thin line
-            doesn't). */}
-        <path
-          d="M9 6 L15 6 L15 18.5 L26.5 6.5 L32.5 6.5 L18 21.2 L15 21.2 L15 34 L9 34 Z"
-          fill="#ffffff"
-        />
-        {/* The checkmark, gold, sitting below the upper diagonal rather than crossing it. */}
-        <path d="M9.5 25.5 L12.6 22.4 L17 26.8 L31.5 12.2 L34.4 15.1 L17 32.5 Z" fill="#d4af37" />
+
+        <rect width="40" height="40" rx="10" fill={`url(#${tileId})`} />
+        <rect x="0.5" y="0.5" width="39" height="39" rx="9.5" fill="none" stroke="#ffffff" strokeOpacity="0.14" />
+
+        {/* The K, white. Stem hangs from the bar; the upper arm runs up into it; the leg kicks
+            out to the baseline. */}
+        <g fill="none" stroke="#ffffff" strokeLinecap="butt" clipPath={`url(#${clipId})`}>
+          <line x1="12.6" y1="10" x2="12.6" y2="31.5" strokeWidth="5.2" />
+          <line x1="13.4" y1="24.2" x2="28.6" y2="11.4" strokeWidth="5" />
+          <line x1="18.2" y1="19.6" x2="31.6" y2="33.2" strokeWidth="5.4" />
+        </g>
+
+        {/* The gold headline bar, drawn last so the stem and arm read as hanging from it. */}
+        <rect x="6.5" y="8" width="27" height="3.6" rx="1.8" fill={`url(#${goldId})`} />
       </svg>
+
       {showWordmark && (
         <span
           lang="hi"
-          className={cn('leading-none text-primary-700 dark:text-white truncate', textClassName)}
+          className={cn('leading-none text-primary-800 dark:text-white truncate', textClassName)}
           style={{ fontFamily: "'Noto Sans Devanagari', sans-serif", fontWeight: 800 }}
         >
           आर्य
