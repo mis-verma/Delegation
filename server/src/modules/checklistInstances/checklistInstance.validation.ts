@@ -17,7 +17,11 @@ export const setChecklistInstanceItemDoneSchema = z.object({
     signatureValue: z.string().optional(),       // SIGNATURE, DUAL_SIGNATURE
     secondSignatureValue: z.string().optional(), // DUAL_SIGNATURE
     conditionalReasonValue: z.string().optional(), // ASK_REASON conditional action
-    remarks: z.string().optional(), // free-text note, any item type — required client-side once overdue+not-done
+    // Free-text note, any item type. null clears it. Required client-side once overdue+not-done,
+    // and required server-side when marking an item Not applicable.
+    remarks: z.string().trim().max(1000).nullable().optional(),
+    // Mark the item "Not applicable" (with isDone: true). Omit for a normal completion.
+    notApplicable: z.boolean().optional(),
 })
 
 // Mirrors task.validation.ts's complianceReportQuerySchema — same groupBy/storeId/from/to

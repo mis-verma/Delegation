@@ -464,7 +464,9 @@ export type ItemValueInput = {
     signatureValue?: string
     secondSignatureValue?: string
     conditionalReasonValue?: string
-    remarks?: string
+    /** null clears the remark. */
+    remarks?: string | null
+    notApplicable?: boolean
 }
 
 // One validator per value-bearing item type, keyed by itemType — a lookup instead of an
@@ -894,6 +896,48 @@ export const checklistInstanceService = {
             throw AppError.badRequest("Audit items can only be completed by submitting each auditor's entry.")
         }
 
+        // A remark on its own (no answer, no change of done-ness) is just a note. It used to go
+        // through the full completion path below: on a done item that re-ran every validator
+        // against a request carrying no answer (so a Yes/No or number item failed with "answer
+        // required"), and re-stamped completedAt/completedBy as if it were finished again.
+        const { remarks: remarkInput, notApplicable, ...answerValues } = values
+        const isRemarkOnly = remarkInput !== undefined
+            && notApplicable === undefined
+            && isDone === item.isDone
+            && Object.values(answerValues).every((v) => v === undefined)
+        if (isRemarkOnly) {
+            const nextRemarks = remarkInput?.trim() ? remarkInput.trim() : null
+            if (item.isNotApplicable && !nextRemarks) {
+                throw AppError.badRequest("A not-applicable item needs a reason. Edit it instead of clearing it.")
+            }
+            await db.update(checklistInstanceItems).set({ remarks: nextRemarks, updatedAt: new Date() }).where(eq(checklistInstanceItems.id, itemId))
+            const [saved] = await db.select().from(checklistInstanceItems).where(eq(checklistInstanceItems.id, itemId)).limit(1)
+            if (!saved) throw AppError.notFound("Checklist item not found.")
+            await auditService.record({
+                entityType: "ChecklistInstanceItem",
+                entityId: itemId,
+                action: "UPDATE",
+                actorId: user.sub,
+                before: auditItemSnapshot(item),
+                after: auditItemSnapshot(saved),
+            })
+            emitChecklistEvent("checklist-instance:updated", { storeId: instanceRow.storeId }, { instanceId: instanceRow.id })
+            return stripSecretItemFields(saved)
+        }
+
+        // Not applicable: counts as done, skips the item's own answer/photo rules, but must say why.
+        const markingNotApplicable = isDone && notApplicable === true
+        if (notApplicable === true && !isDone) {
+            throw AppError.badRequest("Send isDone: true with notApplicable.")
+        }
+        if (markingNotApplicable) {
+            if (item.itemType === "AUDIT") {
+                throw AppError.badRequest("Audit items can't be marked not applicable.")
+            }
+            const reason = (remarkInput ?? item.remarks)?.trim()
+            if (!reason) throw AppError.badRequest("Say why this step doesn't apply before marking it not applicable.")
+        }
+
         // opensTime gates STARTING work, not un-doing it — reopening an already-completed item
         // (isDone: false) is always allowed regardless of the window, same as it already ignores
         // isLocked/verification state elsewhere. periodStart is a UTC-midnight calendar-day label
@@ -921,14 +965,17 @@ export const checklistInstanceService = {
         if (values.signatureValue !== undefined) patch.signatureValue = values.signatureValue
         if (values.secondSignatureValue !== undefined) patch.secondSignatureValue = values.secondSignatureValue
         if (values.conditionalReasonValue !== undefined) patch.conditionalReasonValue = values.conditionalReasonValue
-        if (values.remarks !== undefined) patch.remarks = values.remarks
+        if (remarkInput !== undefined) patch.remarks = remarkInput?.trim() ? remarkInput.trim() : null
+        // Any save that isn't an explicit N/A (a real completion or a reopen) clears the flag, so
+        // reopening an N/A item puts it back to a normal, answerable step.
+        patch.isNotApplicable = markingNotApplicable
 
         // Validators need to see the patched values (e.g. a just-submitted conditionalReasonValue)
         // the same way the original code validated against the already-`.save()`d in-memory
         // document — merge here instead of round-tripping through the DB.
         const mergedItem = { ...item, ...patch }
 
-        if (isDone) {
+        if (isDone && !markingNotApplicable) {
             await assertPhotosSatisfied(mergedItem)
             VALUE_VALIDATORS_BY_ITEM_TYPE[item.itemType]?.(mergedItem, values)
             await assertConditionalActionsSatisfied(mergedItem, values)
@@ -945,7 +992,7 @@ export const checklistInstanceService = {
 
         let updatedItem = { ...mergedItem, isDone, completedAt: completion.completedAt, completedBy: completion.completedBy }
 
-        if (isDone) {
+        if (isDone && !markingNotApplicable) {
             updatedItem = await applyConditionalSideEffects(updatedItem, instanceRow, user, values)
         }
 

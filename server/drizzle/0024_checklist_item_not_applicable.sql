@@ -1,0 +1,1 @@
+ALTER TABLE `ChecklistInstanceItem` ADD `isNotApplicable` boolean DEFAULT false NOT NULL;

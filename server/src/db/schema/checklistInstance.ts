@@ -174,6 +174,10 @@ export const checklistInstanceItems = mysqlTable(
     // parent instance is overdue and this item is still not done, so a genuinely-skipped step
     // always carries an explanation instead of just silently sitting incomplete.
     remarks: text('remarks'),
+    // "This step doesn't apply here" (no cash drawer at this store, no delivery today). Counts as
+    // done for progress and approval, skips the item's own value/photo rules, and always carries
+    // a reason in `remarks` so the reviewer sees why it was skipped.
+    isNotApplicable: boolean('isNotApplicable').notNull().default(false),
     issueId: varchar('issueId', { length: 191 }).references(() => tickets.id),
     instanceId: varchar('instanceId', { length: 191 })
       .notNull()

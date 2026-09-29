@@ -17,6 +17,7 @@ import { ChecklistInstanceItemDualSignatureCard } from './ChecklistInstanceItemD
 import { ChecklistInstanceItemQrScanCard } from './ChecklistInstanceItemQrScanCard';
 import { ChecklistInstanceItemCashTallyCard } from './ChecklistInstanceItemCashTallyCard';
 import { ItemRemarksField } from './ItemRemarksField';
+import { NotApplicableItemCard } from './NotApplicableItemCard';
 import { formatDate, formatDateTime, instanceProgressBarClass, isInstanceOverdue, isInstanceNotYetOpen, RECURRENCE_LABEL, VERIFICATION_STATUS_LABEL, VERIFICATION_CHIP } from '../checklistDisplay';
 import { useAuth } from '../../../context/AuthContext';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
@@ -235,9 +236,15 @@ export const ChecklistInstanceDetail = () => {
                 </div>
               )}
               <div className="flex flex-col gap-1.5">
-                {ITEM_CARD_RENDERERS[item.itemType](item, { instanceId, canWork, isLocked, currentUserId: user?.id })}
-                {canWork && !isLocked && !item.isDone && item.itemType !== 'AUDIT' && (
-                  <ItemRemarksField item={item} instanceId={instanceId} required={overdue} />
+                {item.isNotApplicable ? (
+                  <NotApplicableItemCard item={item} instanceId={instanceId} canEdit={canWork && !isLocked} />
+                ) : (
+                  ITEM_CARD_RENDERERS[item.itemType](item, { instanceId, canWork, isLocked, currentUserId: user?.id })
+                )}
+                {/* Shown for done items too, and read-only for reviewers: a remark used to vanish
+                    the moment its item was ticked, so nobody reviewing ever saw it. */}
+                {item.itemType !== 'AUDIT' && (
+                  <ItemRemarksField item={item} instanceId={instanceId} required={overdue} canEdit={canWork && !isLocked} />
                 )}
               </div>
             </div>

@@ -119,7 +119,7 @@ export const ChecklistInstanceItemBooleanCard = ({ item, instanceId, canWork, is
             </p>
           )}
         </div>
-      )}x
+      )}
 
       <div className="flex items-center gap-2">
         <button

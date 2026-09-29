@@ -97,6 +97,8 @@ export type ChecklistInstanceItem = {
   noActions:          ChecklistConditionalAction[];
   conditionalReasonValue: string | null;
   remarks:            string | null;
+  /** Marked "Not applicable": counts as done, reason is in `remarks`. */
+  isNotApplicable:    boolean;
   issueId:            string | null;
   instanceId:         string;
   images:             ChecklistInstanceImage[];
@@ -292,7 +294,9 @@ export const checklistInstanceApi = {
     signatureValue?: string;
     secondSignatureValue?: string;
     conditionalReasonValue?: string;
-    remarks?: string;
+    /** null clears the remark. */
+    remarks?: string | null;
+    notApplicable?: boolean;
   }) =>
     apiFetch<ApiResponse<ChecklistInstanceItem>>(`/checklist-instance-items/${itemId}`, {
       method: 'PATCH',

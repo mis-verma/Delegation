@@ -169,6 +169,13 @@
       "when": 1790575298745,
       "tag": "0023_daily_checklists_skip_sunday",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "5",
+      "when": 1790685247705,
+      "tag": "0024_checklist_item_not_applicable",
+      "breakpoints": true
     }
   ]
 }

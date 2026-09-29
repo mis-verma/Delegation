@@ -239,7 +239,9 @@ type SetChecklistInstanceItemDoneVars = {
   signatureValue?: string;
   secondSignatureValue?: string;
   conditionalReasonValue?: string;
-  remarks?: string;
+  /** null clears the remark. */
+  remarks?: string | null;
+  notApplicable?: boolean;
 };
 
 export const useSetChecklistInstanceItemDoneMutation = (instanceId: string) => {
@@ -247,14 +249,14 @@ export const useSetChecklistInstanceItemDoneMutation = (instanceId: string) => {
   const instanceKey = KEYS.instanceDetail(instanceId);
 
   return useMutation<unknown, unknown, SetChecklistInstanceItemDoneVars, { previous?: ChecklistInstance; wasComplete: boolean }>({
-    mutationFn: ({ itemId, isDone, numericValue, booleanAnswer, textValue, dateValue, gpsLat, gpsLng, gpsAccuracy, signatureValue, secondSignatureValue, conditionalReasonValue, remarks }) =>
+    mutationFn: ({ itemId, isDone, numericValue, booleanAnswer, textValue, dateValue, gpsLat, gpsLng, gpsAccuracy, signatureValue, secondSignatureValue, conditionalReasonValue, remarks, notApplicable }) =>
       checklistInstanceApi.setItemDone(itemId, isDone, {
-        numericValue, booleanAnswer, textValue, dateValue, gpsLat, gpsLng, gpsAccuracy, signatureValue, secondSignatureValue, conditionalReasonValue, remarks,
+        numericValue, booleanAnswer, textValue, dateValue, gpsLat, gpsLng, gpsAccuracy, signatureValue, secondSignatureValue, conditionalReasonValue, remarks, notApplicable,
       }).then(r => r.data),
     // Checking an item off (or filling in its answer) should reflect on the card immediately —
     // waiting on the round-trip made every tap feel laggy. Patch the cached instance's item now,
     // roll back in onError if the server rejects it.
-    onMutate: async ({ itemId, ...patch }) => {
+    onMutate: async ({ itemId, notApplicable, ...patch }) => {
       await queryClient.cancelQueries({ queryKey: instanceKey });
       const previous = queryClient.getQueryData<ChecklistInstance>(instanceKey);
       const wasComplete = !!previous && previous.items.length > 0 && previous.items.every((i) => i.isDone);
@@ -263,7 +265,20 @@ export const useSetChecklistInstanceItemDoneMutation = (instanceId: string) => {
           ...previous,
           items: previous.items.map((item) =>
             item.id === itemId
-              ? { ...item, ...patch, completedAt: patch.isDone ? new Date().toISOString() : null }
+              ? {
+                  ...item,
+                  ...patch,
+                  // Only a change of done-ness moves the completion stamp; a remark saved on a
+                  // finished item used to re-stamp it "Completed just now" locally.
+                  completedAt: patch.isDone === item.isDone ? item.completedAt : patch.isDone ? new Date().toISOString() : null,
+                  // Mirrors the server: only an explicit N/A save sets it; a remark-only save
+                  // leaves it; anything else (complete, reopen) clears it.
+                  isNotApplicable: notApplicable === true
+                    ? true
+                    : patch.isDone === item.isDone && Object.keys(patch).every((k) => k === 'isDone' || k === 'remarks')
+                      ? item.isNotApplicable
+                      : false,
+                }
               : item,
           ),
         });
