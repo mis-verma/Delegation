@@ -37,6 +37,8 @@ export const useDeleteTagMutation = () =>
         // label list itself.
         mutationFn: (id: string) => tagApi.delete(id),
         invalidateKeys: [['tags'], ['tasks'], ['tickets']],
-        successMessage: 'Label deleted',
-        errorFallback: 'Failed to delete label',
+        // No toast: the chip leaving the list is the confirmation (LabelsField already asked
+        // "Delete everywhere?" inline before calling this).
+        successMessage: null,
+        errorFallback: "Couldn't delete that label. Try again.",
     });
