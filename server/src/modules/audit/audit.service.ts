@@ -106,6 +106,7 @@ export const auditService = {
                         id: users.id,
                         email: users.email,
                         firstName: users.firstName,
+                        lastName: users.lastName,
                         role: users.role,
                     },
                 })

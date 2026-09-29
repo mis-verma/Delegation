@@ -106,6 +106,17 @@
   to { transform: rotate(360deg); }
 }
 
+/* NotificationBell.tsx: a quick swing on the bell icon itself when a new notification lands
+   while the panel is closed — arbitrary keyframe (not a --animate-* token) since nothing else
+   in the app needs this motion. */
+@keyframes bell-ring {
+  0%, 100% { transform: rotate(0deg); }
+  20% { transform: rotate(14deg); }
+  40% { transform: rotate(-12deg); }
+  60% { transform: rotate(8deg); }
+  80% { transform: rotate(-4deg); }
+}
+
 /* Chromium forces its own light autofill background (yellow/blue) on remembered email & password
    fields, ignoring the page's own dark theme entirely. The actual paint mechanism Chrome uses is
    a UA-stylesheet inset box-shadow (not background-color) — the background-color transition trick

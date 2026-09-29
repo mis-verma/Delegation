@@ -1,28 +1,17 @@
-import { useState } from 'react';
-import { Bell, CheckCheck, BellRing, AlertCircle } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Bell, CheckCheck, BellRing, AlertCircle, ChevronRight } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useNavigate } from 'react-router';
 import type { Notification } from '@/api/notifications';
 import { useNotificationsQuery, useMarkNotificationReadMutation, useMarkAllNotificationsReadMutation } from './hooks';
 import { useNotificationSocket } from './useNotificationSocket';
+import { notificationLook, notificationPath, formatNotificationTime, formatRelativeShort } from './notificationDisplay';
 import { Popover, PopoverTrigger, PopoverContent } from '../../components/ui/popover';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
-
-const formatRelativeTime = (dateString: string) => {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-  if (diffInSeconds < 60) return 'Just now';
-  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
-  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
-  if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`;
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-};
 
 interface NotificationBellProps {
   // 'light' (default) is tuned for the app's own light-surface header. 'dark' swaps the trigger
@@ -45,21 +34,31 @@ interface NotificationBellProps {
 
 export const NotificationBell = ({ tone = 'light', badgeRing = true, accent = false }: NotificationBellProps) => {
   const [open, setOpen] = useState(false);
+  // Rings the bell for a beat when a notification lands while the panel is closed — the toast
+  // (useNotificationSocket) already surfaces it, this is what makes the bell itself say "new" if
+  // someone glances at the header a second later instead of catching the toast.
+  const [justArrived, setJustArrived] = useState(false);
+  const arrivalTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: notifications = [], isError } = useNotificationsQuery();
   const markRead = useMarkNotificationReadMutation();
   const markAllRead = useMarkAllNotificationsReadMutation();
   const navigate = useNavigate();
 
-  useNotificationSocket();
+  useNotificationSocket(() => {
+    if (arrivalTimer.current) clearTimeout(arrivalTimer.current);
+    setJustArrived(true);
+    arrivalTimer.current = setTimeout(() => setJustArrived(false), 1600);
+  });
+  useEffect(() => () => { if (arrivalTimer.current) clearTimeout(arrivalTimer.current); }, []);
+
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
   const handleClick = (n: Notification) => {
     if (!n.isRead) markRead.mutate(n.id);
     setOpen(false);
-    if (n.ticketId) navigate(`/tickets?open=${n.ticketId}`);
-    else if (n.taskId) navigate(`/tasks?open=${n.taskId}`);
-    else if (n.checklistInstanceId) navigate(`/checklists/${n.checklistInstanceId}`);
+    const path = notificationPath(n);
+    if (path) navigate(path);
   };
 
   return (
@@ -76,11 +75,12 @@ export const NotificationBell = ({ tone = 'light', badgeRing = true, accent = fa
                 : cn(
                     "text-text-light hover:text-text hover:bg-surface-hover",
                     open && "bg-surface-hover text-text"
-                  )
+                  ),
+            justArrived && !open && (tone === 'dark' ? 'text-white bg-white/10' : 'text-danger bg-danger/10')
           )}
           aria-label={`Notifications ${unreadCount > 0 ? `(${unreadCount} unread)` : ''}`}
         >
-          <Bell className={cn("w-5 h-5 transition-transform duration-300", open && "scale-90")} />
+          <Bell className={cn("w-5 h-5 transition-transform duration-300", open && "scale-90", justArrived && "animate-[bell-ring_0.5s_ease-in-out]")} />
 
           {unreadCount > 0 && (
             <span className={cn(
@@ -88,7 +88,8 @@ export const NotificationBell = ({ tone = 'light', badgeRing = true, accent = fa
               "rounded-full bg-danger text-white text-[10px] font-bold leading-none",
               badgeRing && "ring-2 ring-surface",
               "transform translate-x-1/2 -translate-y-1/2",
-              "animate-in zoom-in duration-300"
+              "animate-in zoom-in duration-300",
+              justArrived && "animate-pulse"
             )}>
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
@@ -106,13 +107,13 @@ export const NotificationBell = ({ tone = 'light', badgeRing = true, accent = fa
       <PopoverContent
         align="end"
         sideOffset={10}
-        className="w-[calc(100vw-2rem)] sm:w-80 p-0 rounded-2xl border border-border bg-surface overflow-hidden flex flex-col max-h-[32rem]"
+        className="w-[calc(100vw-2rem)] sm:w-96 p-0 rounded-2xl border border-border bg-surface overflow-hidden flex flex-col max-h-[32rem]"
       >
         <header className="flex items-center justify-between px-5 py-4 border-b border-border/60 bg-surface-hover/50 shrink-0">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-display font-bold text-text">Notifications</h3>
             {unreadCount > 0 && (
-              <span className="px-2 py-0.5 rounded-full bg-info/10 text-info text-[10px] font-display font-bold">
+              <span className="px-2 py-0.5 rounded-full bg-danger/15 text-danger text-[10px] font-display font-bold">
                 {unreadCount} new
               </span>
             )}
@@ -121,8 +122,8 @@ export const NotificationBell = ({ tone = 'light', badgeRing = true, accent = fa
             <button
               onClick={() => markAllRead.mutate()}
               className={cn(
-                "flex items-center gap-1.5 text-xs font-display font-medium text-text-light hover:text-primary-600",
-                "transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded-md px-1 -mx-1 cursor-pointer"
+                "flex items-center gap-1.5 min-h-8 text-xs font-display font-medium text-text-light hover:text-primary-600",
+                "transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded-md px-1.5 -mx-1.5 cursor-pointer"
               )}
             >
               <CheckCheck className="w-3.5 h-3.5" />
@@ -150,45 +151,57 @@ export const NotificationBell = ({ tone = 'light', badgeRing = true, accent = fa
             </div>
           ) : (
             <ul className="divide-y divide-border/60">
-              {notifications.map(n => (
-                <li key={n.id}>
-                  <button
-                    onClick={() => handleClick(n)}
-                    className={cn(
-                      "w-full flex items-start gap-3 p-4 text-left transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:bg-surface-hover",
-                      n.isRead
-                        ? "bg-surface hover:bg-surface-hover"
-                        : "bg-info/5 hover:bg-info/10"
-                    )}
-                  >
-                    {/* Unread Dot */}
-                    <div className="flex shrink-0 w-2 pt-2 justify-center">
-                      <span className={cn(
-                        "w-2 h-2 rounded-full transition-all duration-300",
-                        n.isRead ? "bg-transparent scale-50" : "bg-primary-500 scale-100"
-                      )} />
-                    </div>
+              {notifications.map(n => {
+                const look = notificationLook(n.type);
+                const Icon = look.icon;
+                const canOpen = notificationPath(n) !== null;
+                return (
+                  <li key={n.id}>
+                    <button
+                      onClick={() => handleClick(n)}
+                      className={cn(
+                        "w-full flex items-start gap-3 p-4 text-left transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:bg-surface-hover relative",
+                        // Unread rows get a left accent bar in the badge's own colour plus a
+                        // stronger tint, so "needs attention" is legible at a glance, not just
+                        // from the small dot the old version relied on.
+                        n.isRead
+                          ? "bg-surface hover:bg-surface-hover"
+                          : "bg-primary-500/[0.06] hover:bg-primary-500/10 before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:bg-primary-500"
+                      )}
+                    >
+                      <span className={cn("flex items-center justify-center size-9 rounded-full shrink-0", look.tile)}>
+                        <Icon size={16} strokeWidth={2.25} />
+                      </span>
 
-                    <div className="flex-1 min-w-0 space-y-1">
-                      <p className={cn(
-                        "text-sm font-display font-medium truncate",
-                        n.isRead ? "text-text-secondary" : "text-text"
-                      )}>
-                        {n.title}
-                      </p>
-                      <p className={cn(
-                        "text-sm font-display line-clamp-2 leading-relaxed",
-                        n.isRead ? "text-text-muted" : "text-text-secondary"
-                      )}>
-                        {n.message}
-                      </p>
-                      <p className="text-[11px] font-display font-medium text-text-light pt-1">
-                        {formatRelativeTime(n.createdAt)}
-                      </p>
-                    </div>
-                  </button>
-                </li>
-              ))}
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className={cn(
+                            "text-sm font-display leading-snug",
+                            n.isRead ? "font-medium text-text-secondary" : "font-bold text-text"
+                          )}>
+                            {n.title}
+                          </p>
+                          {!n.isRead && <span className="mt-1 size-1.5 rounded-full bg-primary-500 shrink-0" aria-hidden />}
+                        </div>
+                        <p className={cn(
+                          "text-sm font-display line-clamp-2 leading-relaxed",
+                          n.isRead ? "text-text-muted" : "text-text-secondary"
+                        )}>
+                          {n.message}
+                        </p>
+                        <div className="flex items-center gap-1.5 pt-1">
+                          <p className="text-[11px] font-display font-semibold text-text-light" title={formatRelativeShort(n.createdAt)}>
+                            {formatNotificationTime(n.createdAt)}
+                          </p>
+                          {canOpen && (
+                            <ChevronRight size={11} className="text-text-light" aria-hidden />
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           )}
 

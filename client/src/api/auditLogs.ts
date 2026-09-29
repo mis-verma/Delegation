@@ -26,7 +26,7 @@ export type AuditLog = {
   after: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
-  actor: { id: string; email: string; firstName: string; role: Role } | null;
+  actor: { id: string; email: string; firstName: string; lastName: string | null; role: Role } | null;
 };
 
 export type AuditLogPage = {
