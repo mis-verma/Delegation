@@ -155,10 +155,12 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
               >
                 <DropdownMenuLabel className="text-xs text-text-muted font-medium">Move to</DropdownMenuLabel>
                 {MOVABLE_STATUSES.map((status) => {
-                  // "Done" is reached through the verification flow (Approve), never a raw status
-                  // change — same rule TaskBoard enforces on a drop and task.service.ts on the
-                  // server. Showing it disabled says the option exists but isn't yours to take.
-                  const blocked = status === 'done' && !isVerifier;
+                  // "Done" is reached through the verification flow (Approve) only, for anyone —
+                  // same rule useTaskStatusMove enforces on a drop and task.service.ts on the
+                  // server. "Pending Approval" must arrive from "In Progress" — skipping straight
+                  // there from To Do used to be allowed. Showing both disabled says the option
+                  // exists but isn't available from here/now, rather than hiding it outright.
+                  const blocked = status === 'done' || (status === 'pending_approval' && task.status !== 'in_progress');
                   return (
                     <DropdownMenuItem
                       key={status}

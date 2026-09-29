@@ -18,7 +18,6 @@ interface TaskTableProps {
   tasks: Task[];
   assigneeNames: Map<string, string>;
   departmentNames?: Map<string, string>;
-  isVerifier: boolean;
   onOpen: (task: Task, mode?: 'view' | 'edit') => void;
   /** Same visibility the cards use — the Fields row governs columns here too. */
   fields: CardFieldVisibility;
@@ -70,12 +69,11 @@ const TaskTableComponent = ({
   tasks,
   assigneeNames,
   departmentNames,
-  isVerifier,
   onOpen,
   fields,
   newlyAssignedTaskIds,
 }: TaskTableProps) => {
-  const { requestMove, statusRemarkDialog } = useTaskStatusMove(isVerifier);
+  const { requestMove, statusRemarkDialog } = useTaskStatusMove();
 
   return (
     <>
@@ -225,7 +223,7 @@ const TaskTableComponent = ({
 
                   <td className={`${CELL_CLASS} text-right`}>
                     <div className="flex items-center justify-end">
-                      <TaskMoveMenu task={task} isVerifier={isVerifier} onMove={requestMove} />
+                      <TaskMoveMenu task={task} onMove={requestMove} />
                     </div>
                   </td>
                 </tr>

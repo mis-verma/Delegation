@@ -594,9 +594,14 @@ export const taskService = {
         const beforeStatus = existing.status;
 
         if (input.status === "done" && beforeStatus !== "done") {
-            if (user.role !== "ADMIN") {
-                throw AppError.forbidden("Only a verifier can mark a delegation done — send it for review instead.")
-            }
+            // Same call as Ticket's own CLOSED guard (ticket.service.ts's update()): this used to
+            // just role-gate (ADMIN) and let the status through, which meant an admin could mark a
+            // delegation done straight from todo/in_progress — skipping both the checklist gate
+            // that's supposed to clear on the way into pending_approval and the verification record
+            // itself (verifiedBy/verifiedAt were never set through this path). verify() (PATCH
+            // /tasks/:id/verify, action=APPROVE) is the one place that does all of that atomically
+            // under its own optimistic-concurrency guard, and is now the only way to reach "done".
+            throw AppError.badRequest("A delegation can only be marked done by approving it — send it for review first, then approve it from there.")
         } else if (beforeStatus === "done" && input.status !== undefined && input.status !== "done") {
             // Symmetric with the guard above: only a verifier can move a task OUT of "done" too —
             // otherwise the creator/assignee (who already has ordinary mutate rights) could reopen
@@ -606,6 +611,14 @@ export const taskService = {
                 throw AppError.forbidden("Only a verifier can reopen a delegation that's already been verified.")
             }
         } else if (input.status === "pending_approval" && beforeStatus !== "pending_approval") {
+            // Must arrive from in_progress — a delegation used to be able to jump straight from
+            // todo (or even draft) to pending_approval, "arriving" for review despite never
+            // actually being marked as started. The stepper on the detail sheet already presents
+            // this as a strict four-stage pipeline; the board's drag and card "Move to" menu (both
+            // funnelled through this same update()) just weren't enforcing what it shows.
+            if (beforeStatus !== "in_progress") {
+                throw AppError.badRequest("Move this delegation to In Progress before sending it for review.")
+            }
             const checklistRows = await db.select().from(taskChecklists).where(eq(taskChecklists.taskId, existing.id));
             const checklistIds = checklistRows.map((c) => c.id);
             const itemRows = checklistIds.length

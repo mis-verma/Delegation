@@ -10,7 +10,6 @@ interface TaskTimelineProps {
   tasks: Task[];
   assigneeNames: Map<string, string>;
   departmentNames?: Map<string, string>;
-  isVerifier: boolean;
   onOpen: (task: Task, mode?: 'view' | 'edit') => void;
   fields: CardFieldVisibility;
   newlyAssignedTaskIds?: Set<string>;
@@ -53,11 +52,10 @@ type Bar = {
 const TaskTimelineComponent = ({
   tasks,
   assigneeNames,
-  isVerifier,
   onOpen,
   newlyAssignedTaskIds,
 }: TaskTimelineProps) => {
-  const { requestMove, statusRemarkDialog } = useTaskStatusMove(isVerifier);
+  const { requestMove, statusRemarkDialog } = useTaskStatusMove();
 
   const { days, bars, undated } = useMemo(() => {
     const scheduled = tasks.filter((t) => !!t.dueDate);
@@ -207,7 +205,7 @@ const TaskTimelineComponent = ({
                           </button>
 
                           <div className="ml-auto shrink-0">
-                            <TaskMoveMenu task={task} isVerifier={isVerifier} onMove={requestMove} />
+                            <TaskMoveMenu task={task} onMove={requestMove} />
                           </div>
                         </div>
 
@@ -291,7 +289,7 @@ const TaskTimelineComponent = ({
                       </span>
                     </div>
                     <div className="ml-auto shrink-0">
-                      <TaskMoveMenu task={task} isVerifier={isVerifier} onMove={requestMove} />
+                      <TaskMoveMenu task={task} onMove={requestMove} />
                     </div>
                   </div>
                 </li>

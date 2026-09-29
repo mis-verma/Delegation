@@ -727,7 +727,6 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
               tasks={sorted}
               assigneeNames={assigneeNames}
               departmentNames={departmentNames}
-              isVerifier={isVerifier}
               onOpen={handleOpen}
               fields={fieldVisibility}
               newlyAssignedTaskIds={newlyAssignedTaskIds}
@@ -739,7 +738,6 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
               tasks={sorted}
               assigneeNames={assigneeNames}
               departmentNames={departmentNames}
-              isVerifier={isVerifier}
               onOpen={handleOpen}
               fields={fieldVisibility}
               newlyAssignedTaskIds={newlyAssignedTaskIds}

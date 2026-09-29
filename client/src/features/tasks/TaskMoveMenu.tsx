@@ -11,7 +11,6 @@ import type { Task } from '../../api/task';
 
 interface TaskMoveMenuProps {
   task: Task;
-  isVerifier: boolean;
   /** Always route this through useTaskStatusMove's requestMove — never a mutation directly. */
   onMove: (task: Task, status: Task['status']) => void;
 }
@@ -23,10 +22,12 @@ interface TaskMoveMenuProps {
  * listeners and has to stopPropagation on pointerdown so opening the menu doesn't pick the card
  * up instead. Nothing here is draggable, so this version doesn't carry that.
  *
- * "Done" shows disabled rather than hidden for non-verifiers: the option exists, it just isn't
- * theirs to take — same rule as TaskBoard's drop handler and task.service.ts's update() guard.
+ * "Done" and an out-of-order "Pending Approval" show disabled rather than hidden: the option
+ * exists, it just isn't available from here/now — same rules useTaskStatusMove's requestMove and
+ * task.service.ts's update() guard enforce. "Done" is blocked for everyone, verifier included —
+ * that only ever happens through the dedicated Approve flow.
  */
-export const TaskMoveMenu = ({ task, isVerifier, onMove }: TaskMoveMenuProps) => (
+export const TaskMoveMenu = ({ task, onMove }: TaskMoveMenuProps) => (
   <DropdownMenu>
     <DropdownMenuTrigger asChild>
       <button
@@ -44,7 +45,7 @@ export const TaskMoveMenu = ({ task, isVerifier, onMove }: TaskMoveMenuProps) =>
       {MOVABLE_STATUSES.map((status) => (
         <DropdownMenuItem
           key={status}
-          disabled={status === task.status || (status === 'done' && !isVerifier)}
+          disabled={status === task.status || status === 'done' || (status === 'pending_approval' && task.status !== 'in_progress')}
           onClick={() => onMove(task, status)}
           className="gap-2.5 py-2 cursor-pointer"
         >

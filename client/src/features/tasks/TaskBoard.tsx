@@ -276,7 +276,7 @@ const Column = memo(({ columnKey, label, tasks, isDropTarget, fillsRow, assignee
 // re-renders when unrelated page state changes — opening a dialog, typing in a filter, a socket
 // invalidation landing.
 const TaskBoardComponent = ({ tasks, assigneeNames, departmentNames, isVerifier = false, onOpen, onAddTask, fields, newlyAssignedTaskIds, isFiltered, groupBy = 'status' }: TaskBoardProps) => {
-  const { requestMove, statusRemarkDialog } = useTaskStatusMove(isVerifier);
+  const { requestMove, statusRemarkDialog } = useTaskStatusMove();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const byStatus = groupBy === 'status';
   const columns = useMemo(
