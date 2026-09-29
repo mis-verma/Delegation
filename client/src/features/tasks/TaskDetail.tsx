@@ -3,12 +3,11 @@ import { CheckSquare, Loader2, ChevronRight, CircleDot, Clock, Eye, Type, CheckC
 import { Modal, Button, DateRangePicker, ActivityTimeline, DepartmentChip, StatusChip, type StatusChipStatus } from '../../components';
 import { IconChip } from '../../components/iconChip';
 import type { DateRangeValue } from '../../components';
-import { useTaskQuery, useUpdateTaskMutation, useDeleteTaskMutation, useAssignableUsersQuery, useUploadTaskAttachmentsMutation } from './hook';
+import { useTaskQuery, useUpdateTaskMutation, useDeleteTaskMutation, useAssignableUsersQuery } from './hook';
 import { useDepartmentsQuery } from '../tickets/hook';
 import { TaskVerifyActions } from './TaskVerifyActions';
 import { TaskFormDepartmentField } from './TaskFormDepartmentField';
 import { AssigneeField } from '../assignees/AssigneeField';
-import { TaskAttachmentsGrid } from './TaskAttachmentsGrid';
 import { TaskDescriptionField } from './TaskDescriptionField';
 import { VerificationNoteBanner } from '../../components/verificationBanner';
 import { STATUS_LABEL, NEXT_STATUS } from './taskDisplay';
@@ -17,7 +16,6 @@ import { TaskPriorityChipPicker } from './TaskPriorityChipPicker';
 import { DETAIL_HEADING_CLASS, CHIP_TRIGGER_CLASS } from './taskFormFieldStyles';
 import { TaskStatusRemarkDialog } from './TaskStatusRemarkDialog';
 import { taskAssigneeIds } from './cardFields';
-import { ReviewersField } from '../reviewers/ReviewersField';
 import { useAuth } from '../../context/AuthContext';
 import type { Task, UpdateTaskPayload } from '../../api/task';
 
@@ -364,7 +362,6 @@ interface TaskEditLayoutProps {
   isVerifier: boolean;
   isViewOnly: boolean;
   canReassign: boolean;
-  canManageAttachments: boolean;
   assignableUsers: ReturnType<typeof useAssignableUsersQuery>['data'];
   isLoadingUsers: boolean;
   departments: ReturnType<typeof useDepartmentsQuery>['data'];
@@ -374,13 +371,12 @@ interface TaskEditLayoutProps {
   onUpdate: (payload: UpdateTaskPayload) => void;
   onDelete: (id: string) => void;
   isDeleting: boolean;
-  uploadMutation: ReturnType<typeof useUploadTaskAttachmentsMutation>;
 }
 
 const TaskEditLayout = ({
-  task, isVerifier, isViewOnly, canReassign, canManageAttachments,
+  task, isVerifier, isViewOnly, canReassign,
   assignableUsers, isLoadingUsers, departments, isLoadingDepts,
-  onSaveTitle, onSaveDescription, onUpdate, onDelete, isDeleting, uploadMutation,
+  onSaveTitle, onSaveDescription, onUpdate, onDelete, isDeleting,
 }: TaskEditLayoutProps) => {
   const { user } = useAuth();
   const departmentName = task.departmentId ? departments?.find((d) => d.id === task.departmentId)?.name : undefined;
@@ -489,21 +485,11 @@ const TaskEditLayout = ({
           <p className="text-[11px] font-medium text-text-light">Only a manager or above can reassign or move departments.</p>
         )}
 
-        {/* Reviewer assignment is the same "routing authority" decision as reassigning who owns
-            this delegation — gated behind canReassign for the same reason. Someone without that
-            authority still sees who's named, just not an editable picker. Its own line: it's a
-            list of names, not one short value. */}
-        {!isViewOnly && canReassign ? (
-          // empty:hidden — ReviewersField renders nothing when the department has no assignable
-          // reviewers; the empty wrapper would still add a gap.
-          <div className="empty:hidden pt-1">
-            <ReviewersField
-              departmentId={task.departmentId ?? undefined}
-              selected={(task.reviewers ?? []).map((r) => r.id)}
-              onChange={(ids) => onUpdate({ reviewerIds: ids })}
-            />
-          </div>
-        ) : (task.reviewers?.length ?? 0) > 0 && (
+        {/* No reviewer picker: PC and Admin already verify every delegation by default
+            (task.service.ts's CAN_VERIFY_BY_ROLE), same as Ticket — naming one was a manual step
+            that changed nothing. Older delegations that already named reviewers still show them,
+            read-only. */}
+        {(task.reviewers?.length ?? 0) > 0 && (
           <div className="flex items-center gap-2 text-xs text-text-secondary">
             <ShieldCheck size={14} className="text-text-light shrink-0" />
             <span>Reviewers: {task.reviewers!.map((r) => `${r.firstName}${r.lastName ? ` ${r.lastName}` : ''}`).join(', ')}</span>
@@ -514,37 +500,20 @@ const TaskEditLayout = ({
       <hr className="border-border/60" />
 
       <div className="flex flex-col gap-2">
-        {/* No upload buttons on the detail sheet (hidden by request) — files already attached
-            still show below the description. */}
         <h3 className={DETAIL_HEADING_CLASS}>
           <AlignLeft size={14} className="text-text-light" />
           Description
         </h3>
+        {/* No attachments grid here any more (removed by request, same call as the comment feed
+            below) — files can still be attached when a delegation is first created (TaskForm's
+            own AttachFilesToolbar), that flow is untouched. This sheet's own upload button had
+            already been hidden with nothing left to trigger it; this finishes that and drops the
+            now-inert view/delete grid too, rather than leaving it half-removed. */}
         <PlainDescriptionEditor
           value={task.description ?? ''}
           disabled={isViewOnly}
           onSave={onSaveDescription}
-        >
-          {/* TaskDescriptionField already wraps children in its own bordered, padded sub-row (see
-              TaskForm's identical StagedFileChips usage) — the old mt-4 pt-4 here was compensating
-              for PlainDescriptionEditor rendering children with no wrapper at all; keeping it now
-              would double up the spacing on top of that shared wrapper's own padding. */}
-          {(uploadMutation.isPending || uploadMutation.isError || (task.attachments?.length ?? 0) > 0) && (
-            <div className="flex flex-col gap-3">
-              {uploadMutation.isPending && (
-                <p className="flex items-center gap-2 text-sm font-medium text-text-muted">
-                  <Loader2 size={16} className="animate-spin text-primary-500" /> Uploading files…
-                </p>
-              )}
-              {uploadMutation.isError && (
-                <p className="text-sm font-medium text-danger bg-danger/10 p-3 rounded-lg border border-danger/20">
-                  {uploadMutation.error instanceof Error ? uploadMutation.error.message : 'Failed to upload files.'}
-                </p>
-              )}
-              <TaskAttachmentsGrid taskId={task.id} attachments={task.attachments ?? []} canManage={canManageAttachments} />
-            </div>
-          )}
-        </PlainDescriptionEditor>
+        />
       </div>
 
       <hr className="border-border/60" />
@@ -596,12 +565,10 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
   const isViewOnly = isPC || isRestrictedUser || user?.role === 'APPROVAL_MANAGER';
   const isVerifier = isPC || user?.role === 'ADMIN';
   const canReassign = user?.role !== 'AGENT' && user?.role !== 'USER';
-  const canManageAttachments = isVerifier || task.userId === user?.id || taskAssigneeIds(task).includes(user?.id ?? '');
   const nextStatus = NEXT_STATUS[task.status as keyof typeof NEXT_STATUS];
 
   const updateMutation = useUpdateTaskMutation({ silent: true });
   const deleteMutation = useDeleteTaskMutation();
-  const uploadAttachmentsMutation = useUploadTaskAttachmentsMutation(task.id);
   const { data: assignableUsers, isLoading: isLoadingUsers } = useAssignableUsersQuery();
   const { data: departments, isLoading: isLoadingDepts } = useDepartmentsQuery();
 
@@ -658,7 +625,6 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
           isVerifier={isVerifier}
           isViewOnly={isViewOnly}
           canReassign={canReassign}
-          canManageAttachments={canManageAttachments}
           assignableUsers={assignableUsers}
           isLoadingUsers={isLoadingUsers}
           departments={departments}
@@ -668,7 +634,6 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
           onUpdate={handleUpdate}
           onDelete={(id: string) => deleteMutation.mutate(id, { onSuccess: onClose })}
           isDeleting={deleteMutation.isPending}
-          uploadMutation={uploadAttachmentsMutation}
         />
       </div>
 

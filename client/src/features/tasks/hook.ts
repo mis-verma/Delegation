@@ -196,24 +196,6 @@ export const useCreateTaskWithAttachmentsMutation = () =>
         errorFallback: 'Failed to create task',
     });
 
-// General files (pdf/csv/image/video) attached directly to a task — separate from checklist
-// items' own required-photo evidence flow, so these only ever touch this one task's detail query.
-export const useUploadTaskAttachmentsMutation = (taskId: string) =>
-    useEntityMutation({
-        mutationFn: (files: File[]) => taskApi.uploadAttachments(taskId, files).then(r => r.data),
-        invalidateKeys: [TASK_KEYS.detail(taskId)],
-        successMessage: 'Files attached',
-        errorFallback: 'Failed to upload files',
-    });
-
-export const useDeleteTaskAttachmentMutation = (taskId: string) =>
-    useEntityMutation({
-        mutationFn: (id: string) => taskApi.deleteAttachment(id),
-        invalidateKeys: [TASK_KEYS.detail(taskId)],
-        successMessage: 'Attachment removed',
-        errorFallback: 'Failed to remove attachment',
-    });
-
 // `silent: true` drops the success toast (still errors loudly on failure) — used by TaskDetail's
 // per-field autosave, where a toast on every single edit is noise; the board/row quick-status
 // actions call this with no options so they keep the confirmation toast.
