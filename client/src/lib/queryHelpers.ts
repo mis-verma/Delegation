@@ -99,7 +99,12 @@ export function useEntityMutation<TVars, TResult>(config: EntityMutationConfig<T
       if (removed) queryClient.removeQueries({ queryKey: removed });
 
       config.invalidateKeys.forEach(key => queryClient.invalidateQueries({ queryKey: key }));
-      if (invalidatesAnalytics(config.invalidateKeys)) queryClient.invalidateQueries({ queryKey: ['analytics'] });
+      if (invalidatesAnalytics(config.invalidateKeys)) {
+        queryClient.invalidateQueries({ queryKey: ['analytics'] });
+        // Every one of these writes an audit row, so an open detail sheet's Activity section
+        // should show the change right away rather than on the next remount.
+        queryClient.invalidateQueries({ queryKey: ['audit-logs'] });
+      }
 
       if (config.successMessage != null) {
         const msg = typeof config.successMessage === 'function'

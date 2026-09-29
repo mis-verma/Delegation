@@ -89,6 +89,13 @@ const syncTaskTags = async (
     await tx.insert(taskTags).values(existing.map((tag) => ({ taskId, tagId: tag.id })));
 };
 
+// Labels live in a join table, not on the row, so the audit snapshot has to carry them itself —
+// otherwise adding or removing a label leaves an UPDATE row with no visible change in Activity.
+// Same shape as ticket.service's ticketTagIds.
+const taskTagIds = async (taskId: string): Promise<string[]> =>
+    (await db.select({ tagId: taskTags.tagId }).from(taskTags).where(eq(taskTags.taskId, taskId)))
+        .map((r) => r.tagId).sort();
+
 const additionalAssigneeTaskIds = async (userId: string): Promise<string[]> => {
     const rows = await db.select({ taskId: taskAdditionalAssignees.taskId })
         .from(taskAdditionalAssignees)
@@ -635,6 +642,7 @@ export const taskService = {
         }
 
         const { additionalAssigneeIds, tagIds, reviewerIds, startDate, dueDate, statusRemark, ...rest } = input;
+        const beforeTagIds = await taskTagIds(id);
 
         // Every status move must say why. Tickets have always worked this way; delegations moved
         // between columns with nothing recorded, so a board that changed under you gave no way to
@@ -721,11 +729,22 @@ export const taskService = {
             }, 'TASK'));
         }
 
-        await auditService.record({ entityType: "Task", entityId: id, action: "UPDATE", actorId: user.sub, before: existing, after: task });
+        const afterTagIds = tagIds !== undefined ? await taskTagIds(id) : beforeTagIds;
+        await auditService.record({
+            entityType: "Task", entityId: id, action: "UPDATE", actorId: user.sub,
+            before: { ...existing, tagIds: beforeTagIds },
+            after: { ...task, tagIds: afterTagIds },
+        });
 
         // Includes the history: the client writes this response straight into its detail cache,
         // so returning the bare row would momentarily blank the Activity feed's status entries.
-        return { ...task, reviewers: (await reviewersByTask([id])).get(id) ?? [], statusUpdates: await loadStatusUpdates(id) };
+        // Labels too: without them the detail cache lost its chips after every field edit.
+        return {
+            ...task,
+            tags: (await tagsByTask([id])).get(id) ?? [],
+            reviewers: (await reviewersByTask([id])).get(id) ?? [],
+            statusUpdates: await loadStatusUpdates(id),
+        };
     },
 
 

@@ -87,7 +87,9 @@ export const useCreateTicketMutation = () =>
     errorFallback: 'Failed to create ticket',
   });
 
-export const useUpdateTicketMutation = () =>
+// `silent: true` drops the success toast — for edits whose result is already visible on screen
+// (a label chip appearing), same as useUpdateTaskMutation's option.
+export const useUpdateTicketMutation = (options?: { silent?: boolean }) =>
   useEntityMutation({
     mutationFn: ({ id, payload }: { id: string; payload: UpdateTicketPayload }) =>
       ticketApi.update(id, payload).then(r => r.data),
@@ -99,7 +101,7 @@ export const useUpdateTicketMutation = () =>
       keyPrefixes: [['tickets']],
       apply: ({ id, payload }) => (old) => patchEntityInCache<Ticket>(old, id, payload),
     },
-    successMessage: 'Ticket updated',
+    successMessage: options?.silent ? null : 'Ticket updated',
     errorFallback: 'Failed to update ticket',
   });
 

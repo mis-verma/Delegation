@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useForm, Controller, useWatch } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { CheckSquare, Check, FileEdit, Type, AlignLeft, SlidersHorizontal } from 'lucide-react';
@@ -18,7 +18,6 @@ import { TaskFormDepartmentField } from './TaskFormDepartmentField';
 import { AssigneeField } from '../assignees/AssigneeField';
 import { TaskPriorityChipPicker } from './TaskPriorityChipPicker';
 import { TaskFormErrorBanner } from './TaskFormErrorBanner';
-import { ReviewersField } from '../reviewers/ReviewersField';
 import { FIELD_CARD_CLASS, DETAIL_HEADING_CLASS, CHIP_TRIGGER_CLASS } from './taskFormFieldStyles';
 
 const taskSchema = z.object({
@@ -52,7 +51,6 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
   // Local state rather than a form field: the label set is a list of ids toggled by pills, with
   // nothing for zod to validate beyond what the server already enforces (existing ids, max 12).
   const [tagIds, setTagIds] = useState<string[]>([]);
-  const [reviewerIds, setReviewerIds] = useState<string[]>([]);
   const [dateRange, setDateRange] = useState<DateRangeValue>({ from: null, to: null });
   const [files, setFiles] = useState<File[]>([]);
   // Which footer button triggered the submit — both are type="submit" for the same form, so this
@@ -73,10 +71,6 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
       description: '',
     },
   });
-
-  // Scopes the reviewer picker to whichever department is currently selected — re-evaluates live
-  // as that field changes, same as any other value derived from a watched field.
-  const selectedDepartmentId = useWatch({ control, name: 'departmentId' });
 
   const isBusy = mutation.isPending || isSubmitting;
   // Both footer buttons submit the same form/mutation, so a single shared `isBusy` flipped BOTH
@@ -104,7 +98,6 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
           // explicit "clear them" — harmless on create, but it keeps the payload honest and
           // matches how the update path reads the same field.
           tagIds:                tagIds.length ? tagIds : undefined,
-          reviewerIds:           reviewerIds.length ? reviewerIds : undefined,
         },
         files,
       },
@@ -319,24 +312,15 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
             </div>
           </div>
 
-          {/* Labels and Reviewers are desktop-only — optional extras that doubled the form's length
-              on a phone. Reviewers can still be set from the delegation's detail view; labels
-              currently only here, so phone users can't add them. Full width: the label chips, the
-              suggestion dropdown and the reviewer checkbox list all need the room. */}
-          <div className="hidden sm:flex flex-col gap-5">
-            <LabelsField
-              tags={tags ?? []}
-              selectedIds={tagIds}
-              onChange={setTagIds}
-              canCreate={isVerifier}
-              disabled={isBusy}
-            />
-            <ReviewersField
-              departmentId={selectedDepartmentId || undefined}
-              selected={reviewerIds}
-              onChange={setReviewerIds}
-            />
-          </div>
+          {/* No Reviewers picker: PC and Admin verify every delegation by default, same as
+              Tickets, so naming one was a manual step that changed nothing. */}
+          <LabelsField
+            tags={tags ?? []}
+            selectedIds={tagIds}
+            onChange={setTagIds}
+            canCreate={isVerifier}
+            disabled={isBusy}
+          />
 
           {mutation.isError && (
             <TaskFormErrorBanner error={mutation.error} fallback="Failed to create task. Please verify your inputs and try again." />

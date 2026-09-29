@@ -15,6 +15,7 @@ import { TaskScoreBadge } from './TaskScoreBadge';
 import { TaskPriorityChipPicker } from './TaskPriorityChipPicker';
 import { DETAIL_HEADING_CLASS, CHIP_TRIGGER_CLASS } from './taskFormFieldStyles';
 import { TaskStatusRemarkDialog } from './TaskStatusRemarkDialog';
+import { DetailLabelsField } from '../tags/DetailLabelsField';
 import { taskAssigneeIds } from './cardFields';
 import { useAuth } from '../../context/AuthContext';
 import type { Task, UpdateTaskPayload } from '../../api/task';
@@ -496,6 +497,14 @@ const TaskEditLayout = ({
           </div>
         )}
       </div>
+
+      <DetailLabelsField
+        current={task.tags ?? []}
+        onSave={(tagIds) => onUpdate({ tagIds })}
+        canCreate={isVerifier}
+        readOnly={isViewOnly}
+        headingClassName={DETAIL_HEADING_CLASS}
+      />
 
       <hr className="border-border/60" />
 

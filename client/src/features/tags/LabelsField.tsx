@@ -1,35 +1,19 @@
-import { useMemo, useRef, useState } from 'react';
-import { Tag as TagIcon, X, Plus } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuCheckboxItem,
-  DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { Tag as TagIcon, X, Plus, Loader2, CornerDownLeft } from 'lucide-react';
 import { useCreateTagMutation } from './hook';
 import { labelChipClass, labelDotClass } from '../../lib/labelColors';
 import { FIELD_LABEL_CLASS, FIELD_LABEL_ICON_CLASS } from '../tasks/taskFormFieldStyles';
 import type { Tag } from '../../api/tags';
 
-/** Server caps `tagIds` at 12; enforced here too so a full set fails at the pill, not on submit. */
+/** Server caps `tagIds` at 12; enforced here too so a full set fails at the field, not on submit. */
 const MAX_LABELS = 12;
+/** How many unpicked labels the suggestion strip shows before the rest need typing to find. */
+const MAX_SUGGESTIONS = 8;
 
 /**
- * Offered as one-click creates while no labels exist yet.
- *
- * Not seeded into the database behind anyone's back — an empty label list is a real state, and
- * inventing rows in it would be a decision nobody asked for. These are a starting point an
- * ADMIN/PC can take or ignore; each becomes a real Tag only when clicked. Once any label exists
- * the row disappears, since the list itself is then the better prompt.
- *
- * Each renders in the colour the hash will actually give it, so what you click is what you get —
- * which is also why the set is exactly these six. A hash over ten hues can't be told to avoid
- * collisions (six draws from ten collide more often than not), but the names here are ours to
- * pick, and this set happens to land on six different colours: emerald, teal, lime, violet, blue
- * and near-black. "Compliance" and "Vendor" were the first two candidates and were dropped
- * because they duplicated Travel's and Expense's hues. If you change a name here, re-check the
- * colour it produces.
+ * Offered as one-click creates while no labels exist yet. Each becomes a real Tag only when
+ * clicked. These six names hash to six different colours; re-check if you change one.
  */
 const STARTER_LABELS = ['Travel', 'Billing', 'Expense', 'Marketing', 'Audit', 'Tax'];
 
@@ -38,25 +22,21 @@ interface LabelsFieldProps {
   tags: Tag[];
   selectedIds: string[];
   onChange: (next: string[]) => void;
-  /**
-   * Whether this user may coin a new label. `POST /tags` is ADMIN/PC only, so for anyone else the
-   * "Create" affordance is hidden rather than shown and then 403'd.
-   */
+  /** Whether this user may coin a new label. `POST /tags` is ADMIN/PC only. */
   canCreate: boolean;
   disabled?: boolean;
+  /** Drop the "Labels n/12" heading, for a caller that already labels the row itself. */
+  hideHeading?: boolean;
 }
 
 /**
- * Label picker shared by Delegation and Tickets — labels are one org-wide vocabulary, not a
- * concept either entity owns, so this lives under features/tags rather than features/tasks
- * (where it was originally written, before Tickets needed the identical picker).
+ * Label field shared by Delegation and Tickets, in both the create forms and the detail sheets.
  *
- * Built on the same DropdownMenu primitive as AssigneeField, not a bespoke popup — same
- * trigger shape, same `container`/`collisionBoundary` fix for scrolling inside a Dialog (see that
- * file's comments for why the fix is needed), same multi-select-without-closing behaviour. The one
- * addition over a plain checklist is a search input pinned at the top of the content, since a
- * label set can grow past what's comfortable to scan — it also doubles as where a new label's name
- * is typed for "Create".
+ * Works like a tag input, no popup: the picked labels are chips inside the box, and the box itself
+ * is where you type. Enter (or a comma) attaches a matching label, or creates the typed one on the
+ * spot and attaches it — the chip shows at once with a small spinner while the server catches up.
+ * Unpicked labels sit as a strip of one-tap suggestions right under the box while it has focus.
+ * Backspace on an empty box removes the last chip.
  */
 export const LabelsField = ({
   tags,
@@ -64,252 +44,216 @@ export const LabelsField = ({
   onChange,
   canCreate,
   disabled = false,
+  hideHeading = false,
 }: LabelsFieldProps) => {
+  const queryClient = useQueryClient();
   const createTag = useCreateTagMutation();
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
-  // Reading a ref's .current during render isn't allowed (it can go stale without triggering a
-  // re-render), so the trigger's DOM node is tracked in state via a callback ref instead.
-  const [triggerEl, setTriggerEl] = useState<HTMLButtonElement | null>(null);
+  const [focused, setFocused] = useState(false);
+  // Names being created right now — drawn as chips straight away so Enter feels instant.
+  const [pending, setPending] = useState<string[]>([]);
+
+  // Several quick Enters each finish creating on their own schedule; each must append to the
+  // selection as it is *then*, not as it was when that Enter was pressed.
+  const selectedRef = useRef(selectedIds);
+  useEffect(() => { selectedRef.current = selectedIds; }, [selectedIds]);
 
   const byId = useMemo(() => new Map(tags.map((t) => [t.id, t])), [tags]);
   const selected = selectedIds.map((id) => byId.get(id)).filter((t): t is Tag => !!t);
-  const atCap = selectedIds.length >= MAX_LABELS;
+  const used = selectedIds.length + pending.length;
+  const atCap = used >= MAX_LABELS;
 
-  const trimmed = query.trim();
-  const suggestions = useMemo(() => {
-    const needle = trimmed.toLowerCase();
-    return tags.filter((t) => !needle || t.name.toLowerCase().includes(needle));
-  }, [tags, trimmed]);
+  const trimmed = query.trim().replace(/,+$/, '').trim();
+  const needle = trimmed.toLowerCase();
+  const suggestions = useMemo(
+    () => tags.filter((t) => !selectedIds.includes(t.id) && (!needle || t.name.toLowerCase().includes(needle))),
+    [tags, selectedIds, needle],
+  );
+  // Case-insensitive, since the server's unique index would 409 "hallmarking" vs "Hallmarking".
+  const exactMatch = tags.find((t) => t.name.toLowerCase() === needle);
+  const isPendingName = pending.some((n) => n.toLowerCase() === needle);
+  const canOfferCreate = canCreate && !!trimmed && !exactMatch && !isPendingName && !atCap;
 
-  // Case-insensitive, because the server's unique index is on the exact name and offering
-  // "Create Hallmarking" when "hallmarking" already exists would just 409.
-  const exactMatch = tags.find((t) => t.name.toLowerCase() === trimmed.toLowerCase());
-  const canOfferCreate = canCreate && !!trimmed && !exactMatch && !atCap;
-
-  const toggle = (id: string) => {
-    if (atCap && !selectedIds.includes(id)) return;
-    onChange(selectedIds.includes(id) ? selectedIds.filter((x) => x !== id) : [...selectedIds, id]);
+  const attach = (id: string) => {
+    if (selectedRef.current.includes(id) || selectedRef.current.length + pending.length >= MAX_LABELS) return;
+    onChange([...selectedRef.current, id]);
   };
 
   const remove = (id: string) => onChange(selectedIds.filter((x) => x !== id));
 
-  // Shared by the "Create" row and the starter chips below, so both paths attach the new label
-  // immediately rather than creating it and leaving the user to pick it again.
-  const createAndAttach = (name: string) => {
-    if (createTag.isPending) return;
+  const create = (name: string) => {
+    setPending((p) => [...p, name]);
     createTag.mutate(
       { name },
       {
         onSuccess: (tag) => {
-          onChange([...selectedIds, tag.id]);
-          setQuery('');
-          inputRef.current?.focus();
+          // Put it in the shared list now, so the chip resolves to its real name/colour without
+          // waiting on the refetch the mutation also triggers.
+          queryClient.setQueryData<Tag[]>(['tags'], (old) => (old?.some((t) => t.id === tag.id) ? old : [...(old ?? []), tag]));
+          if (!selectedRef.current.includes(tag.id)) onChange([...selectedRef.current, tag.id]);
         },
+        onSettled: () => setPending((p) => p.filter((n) => n !== name)),
       },
     );
   };
 
-  // Gates both whether the trigger renders below and whether the label's `htmlFor` should point
-  // at it — pointing a label at an id that isn't in the DOM (the trigger disappears at the cap or
-  // when disabled) is a silent broken association, not a crash, but still wrong.
-  const showTrigger = !disabled && !atCap;
+  const commit = () => {
+    if (!trimmed || atCap) return;
+    if (exactMatch) attach(exactMatch.id);
+    else if (canOfferCreate) create(trimmed);
+    // Someone who can't create still gets Enter-to-pick on the closest match.
+    else if (!canCreate && suggestions[0]) attach(suggestions[0].id);
+    else return;
+    setQuery('');
+  };
+
+  const showSuggestions = focused && !disabled && !atCap && (suggestions.length > 0 || canOfferCreate);
 
   return (
-    <div
-      className="group/field flex flex-col gap-1.5"
-      aria-describedby={atCap ? 'labels-field-help' : undefined}
-    >
-      <label htmlFor={showTrigger ? 'labels-field-trigger' : undefined} className={FIELD_LABEL_CLASS}>
-        <TagIcon className={FIELD_LABEL_ICON_CLASS} />
-        Labels
-        <span className="ml-auto text-[11px] font-medium text-text-light tabular-nums">
-          {selectedIds.length}/{MAX_LABELS}
-        </span>
-      </label>
+    <div className="flex flex-col gap-1.5" aria-describedby={atCap ? 'labels-field-help' : undefined}>
+      {!hideHeading && (
+        <label htmlFor="labels-field-input" className={FIELD_LABEL_CLASS}>
+          <TagIcon className={FIELD_LABEL_ICON_CLASS} />
+          Labels
+          <span className="ml-auto text-[11px] font-medium text-text-light tabular-nums">
+            {used}/{MAX_LABELS}
+          </span>
+        </label>
+      )}
 
-      <div className="flex flex-col gap-2">
-        {/* min-h-10, matching AssigneeField's row exactly — same height for the "+" trigger
-            to center inside, so the two dropdown fields line up. */}
-        <div className="flex flex-wrap items-center gap-1.5 min-h-10">
-          {/* Each selected chip wears the label's own colour rather than one flat primary fill,
-              so the set you've picked here matches what the card will show. */}
-          {selected.map((tag) => (
-            <span
-              key={tag.id}
-              className={`flex items-center gap-1 pl-2.5 pr-1 py-1 rounded-full border text-xs font-medium ${labelChipClass(tag.name)}`}
-            >
-              {tag.name}
+      {/* The whole box focuses the input, so a tap anywhere in it starts typing. */}
+      <div
+        onClick={() => inputRef.current?.focus()}
+        className={`flex flex-wrap items-center gap-1.5 min-h-10 px-1.5 py-1.5 rounded-xl border bg-surface transition-all duration-200 ease-in-out ${
+          disabled
+            ? 'border-border/60 opacity-60 cursor-not-allowed'
+            : focused
+              ? 'border-primary-400 ring-2 ring-primary-500/15 cursor-text'
+              : 'border-border/60 dark:border-white/[0.08] hover:border-border-hover cursor-text'
+        }`}
+      >
+        {selected.map((tag) => (
+          <span
+            key={tag.id}
+            className={`inline-flex items-center gap-1 h-7 pl-2.5 pr-1 rounded-full border text-xs font-display font-semibold animate-in fade-in zoom-in-95 duration-150 ${labelChipClass(tag.name)}`}
+          >
+            {tag.name}
+            {!disabled && (
               <button
                 type="button"
-                onClick={() => remove(tag.id)}
-                disabled={disabled}
+                onClick={(e) => { e.stopPropagation(); remove(tag.id); }}
                 aria-label={`Remove label ${tag.name}`}
-                // currentColor-tinted hover, so it reads on both the light palette fills and the
-                // near-black one without needing a per-colour override.
-                className="p-0.5 rounded-full hover:bg-current/20 focus-visible:bg-current/20 transition-colors duration-200 ease-in-out cursor-pointer outline-none disabled:cursor-not-allowed"
+                className="flex items-center justify-center size-5 rounded-full hover:bg-current/15 focus-visible:bg-current/15 transition-colors duration-200 cursor-pointer outline-none"
               >
-                <X size={12} strokeWidth={2.5} />
+                <X size={12} strokeWidth={2.75} />
               </button>
-            </span>
-          ))}
+            )}
+          </span>
+        ))}
 
-          {showTrigger && (
-            // modal={false}: same reason as AssigneeField — keeps the dialog scrollable
-            // while the checklist is open, since checkbox items call preventDefault on select.
-            <DropdownMenu
-              modal={false}
-              onOpenChange={(open) => {
-                if (!open) setQuery('');
-              }}
-            >
-              <DropdownMenuTrigger asChild>
-                <button
-                  id="labels-field-trigger"
-                  ref={setTriggerEl}
-                  type="button"
-                  title="Add label"
-                  aria-label="Add label"
-                  className="flex items-center gap-1.5 h-8 pl-2 pr-3 rounded-full border border-dashed border-border-hover text-text-light hover:text-primary-600 hover:border-primary-400 transition-colors cursor-pointer shrink-0"
-                >
-                  <Plus size={15} strokeWidth={2.5} />
-                  <span className="text-xs font-display">{selected.length === 0 ? 'Add label' : 'Add'}</span>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="start"
-                side="bottom"
-                // Labels sits last in every form that has it, right above the footer — Radix's
-                // default flip-to-whichever-side-has-more-room logic was choosing "top" here
-                // (more space above the trigger than below, inside a modal that doesn't stretch
-                // to the screen edges) and landing the panel over the Description field instead
-                // of anywhere near its own trigger. Pinning the side stops that; the panel's own
-                // max-h-(--radix-dropdown-menu-content-available-height) (in DropdownMenuContent's
-                // base styles) still clamps it to whatever room genuinely exists below and scrolls
-                // — a short, scrollable list beats one floating over unrelated fields.
-                avoidCollisions={false}
-                // See AssigneeField's identical comment: required so the list actually
-                // scrolls with a trackpad instead of just sitting there frozen.
-                //
-                // max-h here used to be a flat max-h-80 (320px) — since it shares the "max-height"
-                // property with DropdownMenuContent's own base max-h-(--radix-...-available-height)
-                // class, tailwind-merge always kept this one and dropped that one, so the panel
-                // never actually respected how much room was really there. With avoidCollisions
-                // now off (see the side comment below) that showed up immediately: pinned to
-                // "bottom" with only ~107px of real room in this form, it tried to render at its
-                // full 320px anyway and the dialog's own overflow-hidden just sliced it off
-                // mid-list. min() keeps the same 320px ceiling for a long label list while still
-                // shrinking to whatever's actually available and scrolling — never overflowing its
-                // container.
-                className="w-64 max-h-[min(20rem,var(--radix-dropdown-menu-content-available-height))] pointer-events-auto overscroll-contain flex flex-col p-0"
-                collisionBoundary={triggerEl?.closest('[data-slot="dialog-content"]') ?? undefined}
-                collisionPadding={16}
-                container={triggerEl?.closest<HTMLElement>('[data-slot="dialog-content"]') ?? undefined}
-              >
-                <div className="p-1.5 shrink-0">
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    // Radix's DropdownMenuContent doesn't expose an onOpenAutoFocus override (it's
-                    // an internal-only prop on the underlying Menu primitive), but its FocusScope
-                    // only moves focus on mount if nothing inside the content already has it —
-                    // autoFocus here wins that race, landing focus on search rather than the
-                    // first checklist row.
-                    autoFocus
-                    autoComplete="off"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    // Radix's roving focus/typeahead lives on the content and would otherwise
-                    // steal arrow keys and letter keys away from this input.
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        // Typing a label that already exists and hitting Enter should attach it,
-                        // the same as clicking its checkbox — not fall through to "Create" (which
-                        // would 409) or do nothing.
-                        if (exactMatch) {
-                          toggle(exactMatch.id);
-                          setQuery('');
-                          return;
-                        }
-                        if (canOfferCreate) createAndAttach(trimmed);
-                        return;
-                      }
-                      if (e.key !== 'Escape') e.stopPropagation();
-                    }}
-                    placeholder="Search labels…"
-                    className="w-full px-2.5 py-1.5 text-sm bg-surface border border-border rounded-lg placeholder:text-text-light focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 outline-none transition-all duration-200 ease-in-out"
-                  />
-                </div>
+        {pending.map((name) => (
+          <span
+            key={`pending-${name}`}
+            className={`inline-flex items-center gap-1.5 h-7 pl-2.5 pr-2 rounded-full border text-xs font-display font-semibold opacity-70 ${labelChipClass(name)}`}
+          >
+            {name}
+            <Loader2 size={12} className="animate-spin" aria-label="Saving" />
+          </span>
+        ))}
 
-                <div className="overflow-y-auto overscroll-contain flex flex-col p-1.5 pt-0">
-                  {suggestions.length === 0 && !canOfferCreate && (
-                    <div className="px-2 py-1.5 text-xs text-text-light">
-                      {canCreate ? 'No labels match.' : `No label matches “${trimmed}”. Only an admin can add new labels.`}
-                    </div>
-                  )}
-
-                  {/* Each option shows its own colour, so the label you're about to pick looks
-                      the same here as it will on the card. */}
-                  {suggestions.map((tag) => (
-                    <DropdownMenuCheckboxItem
-                      key={tag.id}
-                      checked={selectedIds.includes(tag.id)}
-                      onCheckedChange={() => toggle(tag.id)}
-                      onSelect={(e) => e.preventDefault()}
-                      className="gap-2"
-                    >
-                      <span aria-hidden className={`size-2.5 rounded-full shrink-0 ${labelDotClass(tag.name)}`} />
-                      {tag.name}
-                    </DropdownMenuCheckboxItem>
-                  ))}
-
-                  {canOfferCreate && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <button
-                        type="button"
-                        onClick={() => createAndAttach(trimmed)}
-                        disabled={createTag.isPending}
-                        className="w-full flex items-center gap-2 text-left px-3 py-2.5 rounded-lg text-sm font-semibold text-primary-600 dark:text-primary-400 hover:bg-surface-hover transition-colors duration-200 ease-in-out cursor-pointer outline-none disabled:opacity-60 disabled:cursor-not-allowed"
-                      >
-                        <Plus size={14} strokeWidth={2.5} />
-                        {createTag.isPending ? 'Creating…' : `Create “${trimmed}”`}
-                      </button>
-                    </>
-                  )}
-                </div>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
-
-        {/* Starter labels, only while none exist and only for someone who may create them. Gives
-            an empty field something to do besides stare back, and shows the colour range. */}
-        {tags.length === 0 && canCreate && (
-          <div className="flex flex-col gap-1.5">
-            <span className="text-[11px] font-medium text-text-light">No labels yet — start with one of these:</span>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {STARTER_LABELS.map((name) => (
-                <button
-                  key={name}
-                  type="button"
-                  disabled={disabled || createTag.isPending}
-                  onClick={() => createAndAttach(name)}
-                  title={`Create the label “${name}”`}
-                  className={`px-2.5 py-1 rounded-full border text-xs font-medium transition-all duration-200 ease-in-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 hover:brightness-95 disabled:opacity-60 disabled:cursor-not-allowed ${labelChipClass(name)}`}
-                >
-                  {name}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {atCap && (
-          <p id="labels-field-help" className="text-[11px] font-medium text-text-light">Remove one to add another.</p>
+        {!disabled && !atCap && (
+          <input
+            id="labels-field-input"
+            ref={inputRef}
+            type="text"
+            autoComplete="off"
+            enterKeyHint="done"
+            value={query}
+            maxLength={40}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter or a comma commits, like most tag inputs.
+              if (e.key === 'Enter' || (e.key === ',' && trimmed)) {
+                // Never let Enter submit the surrounding form from here.
+                e.preventDefault();
+                commit();
+              } else if (e.key === 'Backspace' && !query && selectedIds.length) {
+                remove(selectedIds[selectedIds.length - 1]);
+              } else if (e.key === 'Escape' && query) {
+                e.stopPropagation();
+                setQuery('');
+              }
+            }}
+            placeholder={used ? 'Add another…' : canCreate ? 'Type a label, press Enter' : 'Search labels'}
+            aria-label="Add label"
+            className="flex-1 min-w-[8rem] h-7 px-1.5 bg-transparent text-sm text-text placeholder:text-text-light outline-none"
+          />
         )}
       </div>
+
+      {/* Inline, not floating: pushes content down a little instead of covering the fields
+          around it. onMouseDown preventDefault keeps focus in the input so taps land. */}
+      {showSuggestions && (
+        <div className="flex flex-wrap items-center gap-1.5 px-0.5 animate-in fade-in slide-in-from-top-1 duration-150">
+          {canOfferCreate && (
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={commit}
+              className="inline-flex items-center gap-1.5 h-7 pl-2 pr-2.5 rounded-full border border-dashed border-primary-400/70 bg-primary-500/[0.06] dark:bg-primary-500/10 text-xs font-display font-semibold text-primary-700 dark:text-primary-300 hover:bg-primary-500/10 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+            >
+              <Plus size={12} strokeWidth={2.75} />
+              Create “{trimmed}”
+              <CornerDownLeft size={11} strokeWidth={2.5} className="opacity-60" aria-hidden />
+            </button>
+          )}
+          {suggestions.slice(0, MAX_SUGGESTIONS).map((tag) => (
+            <button
+              key={tag.id}
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => { attach(tag.id); setQuery(''); }}
+              className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full border border-border/60 dark:border-white/[0.08] bg-surface text-xs font-display font-semibold text-text-secondary hover:border-primary-400/60 hover:text-text transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+            >
+              <span aria-hidden className={`size-2 rounded-full shrink-0 ${labelDotClass(tag.name)}`} />
+              {tag.name}
+            </button>
+          ))}
+          {suggestions.length > MAX_SUGGESTIONS && (
+            <span className="text-[11px] font-medium text-text-light">+{suggestions.length - MAX_SUGGESTIONS} more, keep typing</span>
+          )}
+        </div>
+      )}
+
+      {focused && !!trimmed && !canCreate && suggestions.length === 0 && (
+        <p className="text-[11px] font-medium text-text-light px-0.5">No label called “{trimmed}”. Only an admin can add new ones.</p>
+      )}
+
+      {tags.length === 0 && canCreate && !disabled && pending.length === 0 && (
+        <div className="flex flex-col gap-1.5">
+          <span className="text-[11px] font-medium text-text-light">No labels yet. Tap one to start:</span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {STARTER_LABELS.map((name) => (
+              <button
+                key={name}
+                type="button"
+                onClick={() => create(name)}
+                title={`Create the label “${name}”`}
+                className={`px-2.5 h-7 rounded-full border text-xs font-display font-semibold transition-all duration-200 ease-in-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 hover:brightness-95 ${labelChipClass(name)}`}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {atCap && (
+        <p id="labels-field-help" className="text-[11px] font-medium text-text-light">That's the limit of 12. Remove one to add another.</p>
+      )}
     </div>
   );
 };

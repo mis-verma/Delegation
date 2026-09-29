@@ -24,8 +24,10 @@ export const useCreateTagMutation = () =>
     useEntityMutation({
         mutationFn: (payload: CreateTagPayload) => tagApi.create(payload).then(r => r.data),
         invalidateKeys: [['tags']],
-        successMessage: 'Label created',
-        errorFallback: 'Failed to create label',
+        // No toast: the new chip appearing in the field is the confirmation, and a popup on
+        // every Enter made quick labelling feel slow.
+        successMessage: null,
+        errorFallback: "Couldn't create that label. Try again.",
     });
 
 export const useDeleteTagMutation = () =>

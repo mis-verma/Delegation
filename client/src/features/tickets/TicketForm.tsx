@@ -273,18 +273,15 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
           )}
         </div>
 
-        {/* Labels are desktop-only, same as the delegation form: an optional extra that doubled
-            the form's length on a phone. No Reviewers picker here: PC and Admin already verify
-            every ticket by default (ticket.service CAN_VERIFY_BY_ROLE), so naming one was a
-            manual step that changed nothing. */}
-        <div className="hidden sm:flex flex-col gap-5">
-          <LabelsField
-            tags={tags ?? []}
-            selectedIds={tagIds ?? []}
-            onChange={v => setValue('tagIds', v)}
-            canCreate={isVerifier}
-          />
-        </div>
+        {/* No Reviewers picker here: PC and Admin already verify every ticket by default
+            (ticket.service CAN_VERIFY_BY_ROLE), so naming one was a manual step that changed
+            nothing. */}
+        <LabelsField
+          tags={tags ?? []}
+          selectedIds={tagIds ?? []}
+          onChange={v => setValue('tagIds', v)}
+          canCreate={isVerifier}
+        />
 
         {mutation.isError && (
           <div className="p-3 rounded-lg bg-danger/10 border border-danger/20 text-xs text-danger font-display flex items-center gap-2.5">

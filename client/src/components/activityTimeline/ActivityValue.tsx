@@ -2,6 +2,7 @@ import { StatusChip, type StatusChipStatus } from '../statusChip/StatusChip';
 import { PriorityChip } from '../priorityChip/PriorityChip';
 import { PRIORITY_MAP, STATUS_LABEL } from '../../features/tasks/taskDisplay';
 import { PRIORITY_CONFIG } from '../../features/tickets/ticketDisplay';
+import { labelChipClass } from '../../lib/labelColors';
 import type { AuditEntityType } from '../../api/auditLogs';
 
 const EMPTY = '—';
@@ -69,6 +70,19 @@ export const ActivityValue = ({
           ? PRIORITY_MAP[raw as keyof typeof PRIORITY_MAP]
           : undefined;
     if (meta) return <PriorityChip meta={meta} className={dim} />;
+  }
+
+  // Labels: each name in its own colour, same chip as the card and the field.
+  if (field === 'tagIds' && Array.isArray(raw) && text !== EMPTY) {
+    return (
+      <span className={`inline-flex flex-wrap items-center gap-1 ${dim}`}>
+        {text.split(', ').map((name) => (
+          <span key={name} className={`inline-flex items-center h-6 px-2 rounded-full border text-[11px] font-display font-semibold ${name.startsWith('+') || name.startsWith('#') ? 'border-border/60 bg-surface-hover/60 text-text-muted' : labelChipClass(name)}`}>
+            {name}
+          </span>
+        ))}
+      </span>
+    );
   }
 
   if (text === EMPTY) {

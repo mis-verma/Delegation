@@ -11,6 +11,7 @@ import {
 } from './hook';
 import { ImageLightbox, ActivityTimeline, IconChip, StatusChip, PriorityChip, DepartmentChip, type StatusChipStatus } from '../../components';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
+import { DetailLabelsField } from '../tags/DetailLabelsField';
 import { useAuth } from '../../context/AuthContext';
 import { getTicketStatusLabel } from '../../lib/ticketStatusLabel';
 import { getInitials } from '../../lib/getInitials';
@@ -40,6 +41,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
   const ticket = fresh ?? initialTicket;
   
   const updateMut = useUpdateTicketMutation();
+  const labelsMut = useUpdateTicketMutation({ silent: true });
   const deleteMut = useDeleteTicketMutation();
   const verifyMut = useVerifyTicketMutation();
 
@@ -207,6 +209,16 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
               )}
             </div>
           </section>
+
+          {/* Same inline label field as the create form; each change saves at once. Editable by
+              whoever can reassign the ticket, read-only chips for everyone else. */}
+          <DetailLabelsField
+            current={ticket.tags ?? []}
+            onSave={(tagIds) => labelsMut.mutate({ id: ticket.id, payload: { tagIds } })}
+            canCreate={isVerifier}
+            readOnly={!canAssign}
+            headingClassName={DETAIL_HEADING_CLASS}
+          />
 
           {/* No reviewer picker: PC and Admin verify every ticket by default. Older tickets that
               named reviewers still show them, read-only. */}
