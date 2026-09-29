@@ -45,10 +45,16 @@ export const NotificationBell = ({ tone = 'light', badgeRing = true, accent = fa
   const markAllRead = useMarkAllNotificationsReadMutation();
   const navigate = useNavigate();
 
-  useNotificationSocket(() => {
-    if (arrivalTimer.current) clearTimeout(arrivalTimer.current);
-    setJustArrived(true);
-    arrivalTimer.current = setTimeout(() => setJustArrived(false), 1600);
+  useNotificationSocket({
+    onArrive: () => {
+      if (arrivalTimer.current) clearTimeout(arrivalTimer.current);
+      setJustArrived(true);
+      arrivalTimer.current = setTimeout(() => setJustArrived(false), 1600);
+    },
+    // Safe here: NotificationBell only ever renders inside Header/AdminHeader, both of which sit
+    // under <RouterProvider> (App.tsx's own bare useNotificationSocket() call, above the Router,
+    // deliberately doesn't pass this — see that hook's own comment).
+    navigate,
   });
   useEffect(() => () => { if (arrivalTimer.current) clearTimeout(arrivalTimer.current); }, []);
 

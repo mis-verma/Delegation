@@ -1,21 +1,31 @@
 import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import { useAuth } from "../../context/AuthContext";
 import { connectSocket, releaseSocket } from "../../lib/socket";
 import { notificationApi, type Notification } from "../../api/notifications";
 import { notificationPath } from "./notificationDisplay";
 
-// `onArrive` lets the bell play its own "new" animation. Every arrival also pops a toast (top
-// right, from main.tsx's Toaster) so a new notification is seen even when the panel is closed;
-// the toast id is the notification id, so a double delivery never stacks two.
-export const useNotificationSocket = (onArrive?: () => void) => {
+interface Options {
+    /** Lets the bell play its own "new" animation. */
+    onArrive?: () => void;
+    // App.tsx also calls this hook, bare, at the very top of <App> — ABOVE where <RouterProvider>
+    // is returned, same as its sibling useTicketSocket/useTaskSocket/useChecklistSocket calls
+    // (kept there so the cache stays fresh app-wide, not just while a particular page is open) -
+    // so this hook itself can never call useNavigate(). Only NotificationBell, which renders
+    // inside Header/AdminHeader and is therefore always under <RouterProvider>, passes one - the
+    // toast's "Open" action (and the toast itself) only appears for whichever caller opts in,
+    // so a notification arriving isn't announced twice while both callers are mounted at once.
+    navigate?: (path: string) => void;
+}
+
+export const useNotificationSocket = ({ onArrive, navigate }: Options = {}) => {
     const { token } = useAuth();
     const queryClient = useQueryClient();
-    const navigate = useNavigate();
     const onArriveRef = useRef(onArrive);
     useEffect(() => { onArriveRef.current = onArrive; }, [onArrive]);
+    const navigateRef = useRef(navigate);
+    useEffect(() => { navigateRef.current = navigate; }, [navigate]);
 
     useEffect(() => {
         if (!token) return;
@@ -23,9 +33,13 @@ export const useNotificationSocket = (onArrive?: () => void) => {
         const handleNew = (n?: Partial<Notification>) => {
             queryClient.invalidateQueries({ queryKey: ["notifications"] });
             onArriveRef.current?.();
-            if (!n?.id || !n.title) return;
+
+            const doNavigate = navigateRef.current;
+            if (!doNavigate || !n?.id || !n.title) return;
             const path = notificationPath({ ticketId: n.ticketId ?? null, taskId: n.taskId ?? null, checklistInstanceId: n.checklistInstanceId ?? null });
             const id = n.id;
+            // Top-right (main.tsx's Toaster) so a new notification is seen even with the panel
+            // closed; the toast id is the notification id, so a double delivery never stacks two.
             toast.info(n.title, {
                 id,
                 description: n.message,
@@ -37,7 +51,7 @@ export const useNotificationSocket = (onArrive?: () => void) => {
                             notificationApi.markRead(id)
                                 .then(() => queryClient.invalidateQueries({ queryKey: ["notifications"] }))
                                 .catch(() => undefined);
-                            navigate(path);
+                            doNavigate(path);
                         },
                     }
                     : undefined,
@@ -50,5 +64,5 @@ export const useNotificationSocket = (onArrive?: () => void) => {
             socket.off("notification:new", handleNew);
             releaseSocket();
         };
-    }, [token, queryClient, navigate]);
+    }, [token, queryClient]);
 };
