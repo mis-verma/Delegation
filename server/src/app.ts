@@ -41,6 +41,7 @@ import { doubletickRouter } from "./modules/doubletick/doubletick.routes.js"
 import helmet from "helmet"
 import compression from "compression"
 import type { Store } from "express-rate-limit"
+import { verifyUploadSignature, signUploadPathsDeep } from "./utils/signedUpload.js"
 
 const DEV_ORIGIN_PATTERN = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}):\d+$/;
 
@@ -91,7 +92,36 @@ class App {
         this.app.set("etag", false)
         if (env.NODE_ENV != 'test') this.app.use(morgan('dev'))
         this.app.use(createApiLimiter(rateLimitStoreFactory?.('api')))
-        this.app.use('/uploads', express.static(path.resolve('uploads')))
+
+        // Every `/uploads/...` path this API ever hands out in a JSON response gets a
+        // short-lived signature appended (signUploadPathsDeep, utils/signedUpload.ts) before it
+        // reaches the browser — this is what actually checks that signature before serving the
+        // file. A request with no signature, a wrong one, or an expired one never reaches
+        // express.static at all, so a photo/attachment link that leaked out (forwarded
+        // screenshot, browser history) stops working once it expires instead of staying open
+        // forever. `req.path` here is already relative to the '/uploads' mount, so it's
+        // prefixed back to match exactly what signUploadPath signed.
+        this.app.use('/uploads', (req: Request, res: Response, next) => {
+            const fullPath = `/uploads${req.path}`
+            if (!verifyUploadSignature(fullPath, req.query.exp, req.query.sig)) {
+                return res.status(403).json({ success: false, message: 'This link has expired. Reopen the page to get a fresh one.' })
+            }
+            next()
+        }, express.static(path.resolve('uploads')))
+
+        // Signs every embedded `/uploads/...` path in every JSON response, org-wide, so none of
+        // the ~12 modules that write one of these paths (avatars, logos, checklist/ticket/task
+        // photos and attachments, ...) need to remember to sign it themselves — see
+        // signUploadPathsDeep's own comment for why a response-shape-agnostic deep walk was
+        // chosen over touching each module. Registered before initRoutes() below so every route
+        // handler's res.json is already wrapped by the time it runs.
+        this.app.use((_req: Request, res: Response, next) => {
+            const originalJson = res.json.bind(res)
+            // `any` here matches Express's own `Response.json(body?: any)` signature — there's no
+            // narrower type to give a function meant to sign whatever shape any route returns.
+            res.json = ((body?: any) => originalJson(signUploadPathsDeep(body))) as typeof res.json
+            next()
+        })
     }
 
     private initRoutes(rateLimitStoreFactory?: (prefix: string) => Store): void {
