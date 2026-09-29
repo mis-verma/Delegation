@@ -1,12 +1,23 @@
 import { lazy, Suspense, useState } from 'react';
-import { Settings2, UserCheck, Send, Users } from 'lucide-react';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
-import { Button, OptionsDialog, SortOptionRow, OptionRow, OptionRowGroup, FilterGroup, FilterPill } from '../../components';
-import { TaskFilterFields } from './TaskFilterFields';
-import { SORT_LABEL, SORT_ICON, type TaskSortKey, type TaskFilters } from './taskFilters';
+import {
+  Eye, Users, UserCheck, Send, Columns3, ArrowUpDown, LayoutGrid, Shapes, AlertTriangle, CheckSquare,
+  CircleDot, Flag, Tag as TagIcon, Store, Building2, UserPlus, FileEdit, type LucideIcon,
+} from 'lucide-react';
+import {
+  OptionsSheet, OptionSection, OptionSegmented, OptionSelect,
+  ChoiceChip, ChoiceIcon, ChoiceWrap, ChoiceClear,
+} from '../../components/optionsSheet';
+import { getStatusChipMeta, type StatusChipStatus } from '../../components/statusChip';
+import { STATUS_LABEL, PRIORITY_MAP } from './taskDisplay';
+import { SORT_LABEL, SORT_ICON, type TaskSortKey, type TaskFilters, type CategoryFilterKey } from './taskFilters';
 import { BOARD_GROUP_LABEL, BOARD_GROUP_ICON, type BoardGroupBy } from './taskBoardGroups';
 import { type TaskViewKey } from './taskViews';
 import { CARD_FIELD_CONFIG, type CardFieldKey, type CardFieldVisibility } from './cardFields';
+import { toggleValue } from '../../lib/toggleValue';
+import { labelDotClass } from '../../lib/labelColors';
+import { avatarColorClass } from '../../lib/avatarColors';
+import { getInitials } from '../../lib/getInitials';
+import type { Task } from '../../api/task';
 import type { AssignableUser } from '../../api/users';
 import type { Tag } from '../../api/tags';
 
@@ -21,10 +32,13 @@ interface TaskOptionsDialogProps {
   onChange:         (patch: Partial<TaskFilters>) => void;
   onClearAll:       () => void;
   activeCount:      number;
+  /** How many delegations match right now, and out of how many — header subtitle + footer button. */
+  resultCount:      number;
+  totalCount:       number;
   sort:             TaskSortKey;
   onSortChange:     (key: TaskSortKey) => void;
-  /** Read-only here — the view is switched from the toolbar strip. Used only for the trigger
-   *  hint and to hide rows that don't apply to the current view. */
+  /** Read-only here — the view is switched from the toolbar strip. Used only to hide rows that
+   *  don't apply to the current view. */
   view:             TaskViewKey;
   groupBy:          BoardGroupBy;
   onGroupByChange:  (key: BoardGroupBy) => void;
@@ -32,170 +46,282 @@ interface TaskOptionsDialogProps {
   onToggleField:    (key: CardFieldKey) => void;
   assignableUsers?: AssignableUser[];
   tags?:            Tag[];
+  /** Already filtered to active stores by TaskList. */
   storeOptions:     { id: string; name: string }[];
+  /** Already narrowed to the selected store's departments by TaskList. */
   departmentOptions: { id: string; name: string }[];
   isAdmin?:         boolean;
   canExport:        boolean;
   onExport:         () => void;
-  /** Passed straight through to TaskFilterFields — see its own doc comment. */
+  /** Omit the Category section — for a page already locked to one category (Smart Delegations). */
   hideCategory?:    boolean;
-  /** Omitted when there's no signed-in user to scope by — the row is then not rendered at all. */
+  /** Omitted when there's no signed-in user to scope by — the section is then not rendered. */
   scope?: {
-    assignedToMe: boolean;
-    raisedByMe:   boolean;
-    onAssignedToMe: () => void;
-    onRaisedByMe:   () => void;
+    value:    TaskScopeKey;
+    onChange: (next: TaskScopeKey) => void;
   };
 }
 
-// Show/Fields/Category/Status/Priority/Assignee/Raised-by live as rows in one dialog instead of a
-// separate Filters popover plus more toolbar dropdowns. The dialog shell is the shared
-// components/optionsDialog one — this file owns only the rows specific to Delegation.
-//
-// View and Sort are NOT in here: both changed the page rather than narrowing the list, and both
-// now sit in the toolbar where their current value is readable without opening anything. Each has
-// exactly one control on the page.
+export type TaskScopeKey = 'all' | 'mine' | 'byMe';
+
+const CATEGORY_CHIPS: { value: Exclude<CategoryFilterKey, 'all'>; label: string; icon: LucideIcon; tone: string }[] = [
+  { value: 'issue', label: 'Issue', icon: AlertTriangle, tone: 'bg-danger' },
+  { value: 'delegation', label: 'Delegation', icon: Send, tone: 'bg-primary-600' },
+  { value: 'task', label: 'Direct Task', icon: CheckSquare, tone: 'bg-success' },
+];
+
+// Same palette the card and detail header use for each status.
+const STATUS_CHIP_KEY: Record<Task['status'], StatusChipStatus | null> = {
+  draft: null,
+  todo: 'open',
+  in_progress: 'in_progress',
+  pending_approval: 'pending_approval',
+  done: 'completed',
+};
+
+const STATUS_ORDER: Task['status'][] = ['todo', 'in_progress', 'pending_approval', 'done', 'draft'];
+const PRIORITY_ORDER: Task['priority'][] = ['high', 'medium', 'low'];
+
+/**
+ * Delegation's Filter and sort sheet — same shell and chip language as Tickets' (see
+ * TicketSettingsMenu): who you're looking at, how the board groups and sorts, what the cards show,
+ * then every filter as icon chips. Changes apply as you tap; the footer says how many match.
+ */
 export const TaskOptionsDialog = ({
-  isOpen, setIsOpen, filters, onChange, onClearAll, activeCount,
+  isOpen, setIsOpen, filters, onChange, onClearAll, activeCount, resultCount, totalCount,
   sort, onSortChange, view, groupBy, onGroupByChange, fieldVisibility, onToggleField,
   assignableUsers, tags, storeOptions, departmentOptions, isAdmin = false, canExport, onExport, scope,
   hideCategory = false,
 }: TaskOptionsDialogProps) => {
   const [showAddUser, setShowAddUser] = useState(false);
-  // `Button` isn't a forwardRef component, so it can't carry the ref DropdownMenuTrigger's
-  // asChild would need directly — this wrapper div gives the same "find the Dialog's own content
-  // element" anchor the assignee/labels pickers use, without changing the shared Button.
-  const [fieldsMenuWrapperEl, setFieldsMenuWrapperEl] = useState<HTMLDivElement | null>(null);
+  const people = (assignableUsers ?? []).map((u) => ({ id: u.id, name: `${u.firstName} ${u.lastName ?? ''}`.trim(), first: u.firstName }));
+
+  const scopeValue: TaskScopeKey = scope?.value ?? 'all';
+
+  const personChips = (selected: string[], onPick: (ids: string[]) => void) => (
+    <ChoiceWrap>
+      {people.map((p) => (
+        <ChoiceChip
+          key={p.id}
+          active={selected.includes(p.id)}
+          onClick={() => onPick(toggleValue(selected, p.id))}
+          lead={
+            <span className={`flex items-center justify-center size-6 rounded-full text-white text-[9px] font-bold shrink-0 ${avatarColorClass(p.name)}`}>
+              {getInitials(p.name)}
+            </span>
+          }
+        >
+          {p.first}
+        </ChoiceChip>
+      ))}
+    </ChoiceWrap>
+  );
+
+  const allFieldsOn = CARD_FIELD_CONFIG.every(({ key }) => fieldVisibility[key]);
 
   return (
     <>
-      <OptionsDialog
+      <OptionsSheet
         isOpen={isOpen}
         setIsOpen={setIsOpen}
-        title="Delegation options"
         activeCount={activeCount}
-        onClearAll={onClearAll}
-        canExport={canExport}
-        onExport={onExport}
+        subtitle={`${resultCount} of ${totalCount} delegations`}
+        onReset={onClearAll}
+        canReset={activeCount > 0 || scopeValue !== 'all'}
+        onExport={canExport ? onExport : undefined}
+        showLabel={`Show ${resultCount} ${resultCount === 1 ? 'delegation' : 'delegations'}`}
       >
-        {/* Show/Group board by/Sort by/Fields are each a single `w-fit` control — side by side
-            instead of each claiming its own full-width row, so the dialog doesn't spend its whole
-            first screenful on four small pickers. */}
-        <OptionRowGroup>
-          {/* Was a pair of pill tabs sitting loose under the page header. They're two more ways of
-              narrowing the same list as every other row in here, so they live with the rest of them.
-              "Everyone" is the resting state, made explicit rather than implied by neither tab
-              being lit — you can now see what's selected without inferring it. */}
-          {scope && (
-            <OptionRow label="Show">
-              <FilterGroup>
-                <FilterPill
-                  active={!scope.assignedToMe && !scope.raisedByMe}
-                  onClick={() => {
-                    if (scope.assignedToMe) scope.onAssignedToMe();
-                    if (scope.raisedByMe) scope.onRaisedByMe();
-                  }}
+        {scope && (
+          <OptionSection icon={Eye} label="Show">
+            <OptionSegmented
+              options={[
+                { value: 'all' as const, label: 'Everyone', icon: Users },
+                { value: 'mine' as const, label: 'Assigned to me', icon: UserCheck },
+                { value: 'byMe' as const, label: 'Assigned by me', icon: Send },
+              ]}
+              value={scopeValue}
+              onChange={(next) => scope.onChange(next)}
+            />
+          </OptionSection>
+        )}
+
+        {/* Group is board-only (columns are the board's structure); Timeline lays bars on a date
+            axis, so it ignores sort and neither control shows there. */}
+        {view !== 'timeline' && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {view === 'board' && (
+              <OptionSection icon={Columns3} label="Group board by">
+                <OptionSelect labels={BOARD_GROUP_LABEL} icons={BOARD_GROUP_ICON} value={groupBy} onChange={onGroupByChange} />
+              </OptionSection>
+            )}
+            <OptionSection icon={ArrowUpDown} label="Sort by">
+              <OptionSelect labels={SORT_LABEL} icons={SORT_ICON} value={sort} onChange={onSortChange} />
+            </OptionSection>
+          </div>
+        )}
+
+        <OptionSection
+          icon={LayoutGrid}
+          label="Show on cards"
+          aside={!allFieldsOn && (
+            <button
+              type="button"
+              onClick={() => CARD_FIELD_CONFIG.forEach(({ key }) => { if (!fieldVisibility[key]) onToggleField(key); })}
+              className="text-[11px] font-semibold text-text-muted hover:text-primary-600 px-1.5 py-0.5 rounded cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+            >
+              Show all
+            </button>
+          )}
+        >
+          <ChoiceWrap>
+            {CARD_FIELD_CONFIG.map(({ key, label, icon }) => (
+              <ChoiceChip
+                key={key}
+                active={fieldVisibility[key]}
+                onClick={() => onToggleField(key)}
+                lead={<ChoiceIcon icon={icon} tone={fieldVisibility[key] ? 'bg-primary-600' : 'bg-text-light'} />}
+              >
+                {label}
+              </ChoiceChip>
+            ))}
+          </ChoiceWrap>
+        </OptionSection>
+
+        {!hideCategory && (
+          <OptionSection icon={Shapes} label="Category" aside={filters.category !== 'all' && <ChoiceClear onClick={() => onChange({ category: 'all' })} />}>
+            <ChoiceWrap>
+              {CATEGORY_CHIPS.map((c) => (
+                <ChoiceChip
+                  key={c.value}
+                  active={filters.category === c.value}
+                  onClick={() => onChange({ category: filters.category === c.value ? 'all' : c.value })}
+                  lead={<ChoiceIcon icon={c.icon} tone={c.tone} />}
                 >
-                  <Users size={14} />
-                  Everyone
-                </FilterPill>
-                <FilterPill active={scope.assignedToMe} onClick={scope.onAssignedToMe}>
-                  <UserCheck size={14} />
-                  Assigned to me
-                </FilterPill>
-                <FilterPill active={scope.raisedByMe} onClick={scope.onRaisedByMe}>
-                  <Send size={13} />
-                  Assigned by me
-                </FilterPill>
-              </FilterGroup>
-            </OptionRow>
-          )}
+                  {c.label}
+                </ChoiceChip>
+              ))}
+            </ChoiceWrap>
+          </OptionSection>
+        )}
 
-          {/* What the board's columns represent. Only Status columns accept a dropped card — the
-              other three are lenses on the same delegations, and a drop on a Department column would
-              have to mean "reassign", a different decision entirely. Every card keeps its own
-              "Move to" menu in all four, so no status change is ever out of reach.
-
-              Board-only: columns are the board's structure, and Timeline groups by due date while
-              Table and List are flat, so this row would be a control with nothing to control. */}
-          {view === 'board' && (
-            <OptionRow label="Group board by">
-              <FilterGroup>
-                {(Object.keys(BOARD_GROUP_LABEL) as BoardGroupBy[]).map((key) => {
-                  const Icon = BOARD_GROUP_ICON[key];
-                  return (
-                    <FilterPill key={key} active={groupBy === key} onClick={() => onGroupByChange(key)}>
-                      <Icon size={14} />
-                      {BOARD_GROUP_LABEL[key]}
-                    </FilterPill>
-                  );
-                })}
-              </FilterGroup>
-            </OptionRow>
-          )}
-
-          {/* Hidden in Timeline: that view lays bars out on a date axis, so it ignores this
-              entirely and a control that silently does nothing is worse than no control. */}
-          {view !== 'timeline' && (
-            <SortOptionRow labels={SORT_LABEL} icons={SORT_ICON} value={sort} onChange={onSortChange} />
-          )}
-
-          <OptionRow label="Fields">
-            {/* modal={false} for the same reason as AssigneeField's picker: a modal Radix
-                dropdown nested inside this Dialog takes its own scroll lock, and because these
-                checkbox items preventDefault on select (so you can toggle several fields without
-                the menu closing), the menu is still open afterwards and the dialog can't scroll. */}
-            <div ref={setFieldsMenuWrapperEl}>
-              <DropdownMenu modal={false}>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="secondary" size="sm" className="h-9 px-3 gap-2 border border-border/60 rounded-lg w-fit">
-                    <Settings2 size={14} className="text-text-muted" />
-                    <span className="text-xs font-medium">Customize cards</span>
-                  </Button>
-                </DropdownMenuTrigger>
-                {/* pointer-events-auto + overscroll-contain, and `container`/`collisionBoundary`
-                    pointed at this dialog's own content element — same three-part fix as
-                    AssigneeField's picker (see its comments): without `container` the menu
-                    portals to document.body, outside the Dialog's react-remove-scroll subtree, and
-                    is visible but unscrollable with a trackpad however tall CARD_FIELD_CONFIG grows. */}
-                <DropdownMenuContent
-                  align="start"
-                  className="w-52 rounded-xl max-h-72 pointer-events-auto overscroll-contain"
-                  collisionBoundary={fieldsMenuWrapperEl?.closest('[data-slot="dialog-content"]') ?? undefined}
-                  collisionPadding={16}
-                  container={fieldsMenuWrapperEl?.closest<HTMLElement>('[data-slot="dialog-content"]') ?? undefined}
+        <OptionSection icon={CircleDot} label="Status" aside={filters.status !== 'all' && <ChoiceClear onClick={() => onChange({ status: 'all' })} />}>
+          <ChoiceWrap>
+            {STATUS_ORDER.map((s) => {
+              const key = STATUS_CHIP_KEY[s];
+              const meta = key ? getStatusChipMeta(key) : { icon: FileEdit, tone: 'bg-text-light' };
+              return (
+                <ChoiceChip
+                  key={s}
+                  active={filters.status === s}
+                  onClick={() => onChange({ status: filters.status === s ? 'all' : s })}
+                  lead={<ChoiceIcon icon={meta.icon} tone={meta.tone} />}
                 >
-                  <DropdownMenuLabel className="text-xs text-text-muted font-medium tracking-tight">Show only</DropdownMenuLabel>
-                  {CARD_FIELD_CONFIG.map(({ key, label, icon: Icon }) => (
-                    <DropdownMenuCheckboxItem
-                      key={key}
-                      checked={fieldVisibility[key]}
-                      onCheckedChange={() => onToggleField(key)}
-                      onSelect={(e) => e.preventDefault()}
-                      className="gap-2.5 py-2 cursor-pointer"
-                    >
-                      <Icon size={14} className="text-text-muted" />
-                      <span className="font-medium text-sm">{label}</span>
-                    </DropdownMenuCheckboxItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </OptionRow>
-        </OptionRowGroup>
+                  {STATUS_LABEL[s]}
+                </ChoiceChip>
+              );
+            })}
+          </ChoiceWrap>
+        </OptionSection>
 
-        <TaskFilterFields
-          filters={filters}
-          onChange={onChange}
-          assignableUsers={assignableUsers}
-          tags={tags}
-          storeOptions={storeOptions}
-          departmentOptions={departmentOptions}
-          isAdmin={isAdmin}
-          onAddUser={() => { setShowAddUser(true); setIsOpen(false); }}
-          hideCategory={hideCategory}
-        />
-      </OptionsDialog>
+        <OptionSection icon={Flag} label="Priority" aside={filters.priority.length > 0 && <ChoiceClear onClick={() => onChange({ priority: [] })} />}>
+          <ChoiceWrap>
+            {PRIORITY_ORDER.map((p) => (
+              <ChoiceChip
+                key={p}
+                active={filters.priority.includes(p)}
+                onClick={() => onChange({ priority: toggleValue(filters.priority, p) })}
+                lead={<ChoiceIcon icon={PRIORITY_MAP[p].icon} tone={PRIORITY_MAP[p].solid} />}
+              >
+                {PRIORITY_MAP[p].label}
+              </ChoiceChip>
+            ))}
+          </ChoiceWrap>
+        </OptionSection>
+
+        {/* Matched as OR server-side: a delegation carrying any picked label passes. */}
+        {!!tags?.length && (
+          <OptionSection icon={TagIcon} label="Labels" aside={filters.tagIds.length > 0 && <ChoiceClear onClick={() => onChange({ tagIds: [] })} />}>
+            <ChoiceWrap>
+              {tags.map((tag) => (
+                <ChoiceChip
+                  key={tag.id}
+                  active={filters.tagIds.includes(tag.id)}
+                  onClick={() => onChange({ tagIds: toggleValue(filters.tagIds, tag.id) })}
+                  lead={<span className="flex items-center justify-center size-6 shrink-0"><span className={`size-2.5 rounded-full ${labelDotClass(tag.name)}`} /></span>}
+                >
+                  {tag.name}
+                </ChoiceChip>
+              ))}
+            </ChoiceWrap>
+          </OptionSection>
+        )}
+
+        {/* Store before Department: picking a store narrows the departments offered (TaskList
+            clears a department that no longer belongs). Each hidden when there's no choice. */}
+        {storeOptions.length > 1 && (
+          <OptionSection icon={Store} label="Store" aside={!!filters.storeId && <ChoiceClear onClick={() => onChange({ storeId: '' })} />}>
+            <ChoiceWrap>
+              {storeOptions.map((s) => (
+                <ChoiceChip
+                  key={s.id}
+                  active={filters.storeId === s.id}
+                  onClick={() => onChange({ storeId: filters.storeId === s.id ? '' : s.id })}
+                  lead={<ChoiceIcon icon={Store} tone="bg-primary-600" />}
+                >
+                  {s.name}
+                </ChoiceChip>
+              ))}
+            </ChoiceWrap>
+          </OptionSection>
+        )}
+
+        {departmentOptions.length > 1 && (
+          <OptionSection icon={Building2} label="Department" aside={!!filters.departmentId && <ChoiceClear onClick={() => onChange({ departmentId: '' })} />}>
+            <ChoiceWrap>
+              {departmentOptions.map((d) => (
+                <ChoiceChip
+                  key={d.id}
+                  active={filters.departmentId === d.id}
+                  onClick={() => onChange({ departmentId: filters.departmentId === d.id ? '' : d.id })}
+                  lead={<ChoiceIcon icon={Building2} tone="bg-primary-600" />}
+                >
+                  {d.name}
+                </ChoiceChip>
+              ))}
+            </ChoiceWrap>
+          </OptionSection>
+        )}
+
+        {!!people.length && (
+          <OptionSection
+            icon={UserCheck}
+            label="Assigned to"
+            aside={
+              <span className="flex items-center gap-1">
+                {filters.assigneeIds.length > 0 && <ChoiceClear onClick={() => onChange({ assigneeIds: [] })} />}
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => { setShowAddUser(true); setIsOpen(false); }}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-text-muted hover:text-primary-600 px-1.5 py-0.5 rounded cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+                  >
+                    <UserPlus size={12} strokeWidth={2.5} />
+                    Add user
+                  </button>
+                )}
+              </span>
+            }
+          >
+            {personChips(filters.assigneeIds, (assigneeIds) => onChange({ assigneeIds }))}
+          </OptionSection>
+        )}
+
+        {!!people.length && (
+          <OptionSection icon={Users} label="Raised by" aside={filters.raisedByIds.length > 0 && <ChoiceClear onClick={() => onChange({ raisedByIds: [] })} />}>
+            {personChips(filters.raisedByIds, (raisedByIds) => onChange({ raisedByIds }))}
+          </OptionSection>
+        )}
+      </OptionsSheet>
 
       {showAddUser && (
         <Suspense fallback={null}>

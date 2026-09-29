@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { Wand2, AlertCircle, Save, Inbox, X, Plus, ChevronDown, Upload } from "lucide-react";
-import { Button, Skeleton, Fab, ViewToggle, EmptyState, type ViewTab } from "../../components";
+import { Skeleton, Fab, ViewToggle, EmptyState, type ViewTab } from "../../components";
 import { ExportDialog } from "../reports";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { useTasksQuery, useTasksMetaQuery, useAssignableUsersQuery } from "./hook";
@@ -317,14 +317,6 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
   // toggle-off behavior as the quick-stat tiles above.
   const isAssignedToMe = !!user && filters.assigneeIds.length === 1 && filters.assigneeIds[0] === user.id;
   const isAssignedByMe = !!user && filters.raisedByIds.length === 1 && filters.raisedByIds[0] === user.id;
-  const toggleAssignedToMe = () => {
-    if (!user) return;
-    updateFilters({ assigneeIds: isAssignedToMe ? [] : [user.id] });
-  };
-  const toggleAssignedByMe = () => {
-    if (!user) return;
-    updateFilters({ raisedByIds: isAssignedByMe ? [] : [user.id] });
-  };
 
   const saveFilters = () => {
     try {
@@ -484,45 +476,50 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
                 <div className="hidden md:block">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button
-                        size="sm"
-                        variant="primary"
-                        className="group gap-2 font-semibold tracking-tight rounded-full text-xs sm:text-sm px-4 py-2 transition-all duration-200 ease-in-out"
+                      {/* Solid navy at rest, not the app's quiet primary: this is the page's one
+                          create action, and the grey resting state read as disabled next to the
+                          navy Total tile above it. Split look: action on the left, a divided
+                          chevron on the right saying "more ways to create". */}
+                      <button
+                        type="button"
+                        className="group inline-flex items-center h-9 rounded-full bg-primary-800 hover:bg-primary-900 dark:bg-primary-600 dark:hover:bg-primary-500 text-white text-sm font-display font-semibold tracking-tight ring-1 ring-inset ring-white/10 transition-all duration-200 ease-in-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-surface active:scale-[0.98] data-[state=open]:bg-primary-900 dark:data-[state=open]:bg-primary-500"
                       >
-                        <Plus size={16} strokeWidth={2.5} className="transition-transform duration-300 group-hover:rotate-90" />
-                        <span>New Delegation</span>
-                        <ChevronDown size={14} className="opacity-70" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56 rounded-xl">
-                      <DropdownMenuItem onClick={() => setShowForm(true)} className="gap-2.5 py-2 cursor-pointer">
-                        <Plus size={15} className="text-primary-600" />
-                        <span className="font-medium text-sm">New Delegation</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => isVerifier && setShowSmartModal(true)}
-                        disabled={!isVerifier}
-                        className="gap-2.5 py-2 cursor-pointer justify-between"
-                      >
-                        <span className="flex items-center gap-2.5">
-                          <Wand2 size={15} className="text-primary-600" />
-                          <span className="font-medium text-sm">Smart Task</span>
-                        </span>
-                        {!isVerifier && (
-                          <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full bg-surface-hover border border-border text-text-light">
-                            Soon
+                        <span className="flex items-center gap-2 pl-3.5 pr-3">
+                          <span className="flex items-center justify-center size-5 rounded-full bg-white/15">
+                            <Plus size={13} strokeWidth={3} className="transition-transform duration-300 group-hover:rotate-90" />
                           </span>
-                        )}
-                      </DropdownMenuItem>
-                      {/* Admin/PC only, and absent rather than shown-disabled for anyone else —
-                          unlike Smart Task's "Soon" state, this is a real, ready feature that's
-                          just scoped to who's allowed to bulk-create delegations for other people. */}
-                      {isVerifier && (
-                        <DropdownMenuItem onClick={() => setShowBulkImport(true)} className="gap-2.5 py-2 cursor-pointer">
-                          <Upload size={15} className="text-primary-600" />
-                          <span className="font-medium text-sm">Bulk Import</span>
+                          New Delegation
+                        </span>
+                        <span className="flex items-center self-stretch pl-2 pr-3 border-l border-white/15">
+                          <ChevronDown size={14} strokeWidth={2.5} className="opacity-80 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                        </span>
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" sideOffset={8} className="w-72 rounded-xl p-1.5">
+                      {[
+                        { key: 'new', icon: Plus, title: 'New Delegation', hint: 'Assign work with a due date', onClick: () => setShowForm(true), tile: 'bg-primary-600', show: true, soon: false },
+                        { key: 'smart', icon: Wand2, title: 'Smart Task', hint: 'Type it in plain words, form fills itself', onClick: () => isVerifier && setShowSmartModal(true), tile: 'bg-warning', show: true, soon: !isVerifier },
+                        // Admin/PC only, and absent rather than shown-disabled for anyone else —
+                        // a real, ready feature scoped to who may bulk-create for other people.
+                        { key: 'bulk', icon: Upload, title: 'Bulk Import', hint: 'Upload a sheet, create many at once', onClick: () => setShowBulkImport(true), tile: 'bg-success', show: isVerifier, soon: false },
+                      ].filter((item) => item.show).map(({ key, icon: ItemIcon, title: itemTitle, hint, onClick, tile, soon }) => (
+                        <DropdownMenuItem key={key} onClick={onClick} disabled={soon} className="gap-3 px-2 py-2 rounded-lg cursor-pointer">
+                          {/* Solid tile + white glyph, same as the icon chips. `!` beats the menu
+                              item's own descendant rule that greys every svg inside it. */}
+                          <span className={`flex items-center justify-center size-9 rounded-lg shrink-0 ${tile} ${soon ? 'opacity-50' : ''}`}>
+                            <ItemIcon size={16} strokeWidth={2.5} className="text-white!" />
+                          </span>
+                          <span className="flex flex-col min-w-0 flex-1">
+                            <span className="text-sm font-display font-semibold text-text">{itemTitle}</span>
+                            <span className="text-[11px] text-text-muted leading-snug">{hint}</span>
+                          </span>
+                          {soon && (
+                            <span className="text-[10px] font-display font-bold px-1.5 py-0.5 rounded-full bg-surface-hover border border-border text-text-light">
+                              Soon
+                            </span>
+                          )}
                         </DropdownMenuItem>
-                      )}
+                      ))}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -564,11 +561,16 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
               canExport={isVerifier}
               onExport={() => setShowExport(true)}
               hideCategory={!!lockCategory}
+              resultCount={sorted.length}
+              totalCount={scopeFiltered.length}
               scope={!userId && user ? {
-                assignedToMe: isAssignedToMe,
-                raisedByMe: isAssignedByMe,
-                onAssignedToMe: toggleAssignedToMe,
-                onRaisedByMe: toggleAssignedByMe,
+                value: isAssignedToMe ? 'mine' : isAssignedByMe ? 'byMe' : 'all',
+                // One patch for both fields — updateFilters reads `filters` from this render, so
+                // two back-to-back calls would have the second overwrite the first.
+                onChange: (next) => updateFilters({
+                  assigneeIds: next === 'mine' ? [user.id] : isAssignedToMe ? [] : filters.assigneeIds,
+                  raisedByIds: next === 'byMe' ? [user.id] : isAssignedByMe ? [] : filters.raisedByIds,
+                }),
               } : undefined}
             />
     </>
