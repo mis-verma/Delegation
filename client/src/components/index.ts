@@ -49,7 +49,7 @@ export { ChecklistItemDraftRow, emptyChecklistItemDraft, moveDraftItem } from '.
 export type { ChecklistItemDraft } from './checklistItemDraftRow/ItemDraftRow';
 export { OrbitDecoration } from './orbitDecoration';
 export { ComingSoon } from './comingSoon';
-export { ChecklistProgressBar, DueProgressBar } from './progress';
+export { ChecklistProgressBar } from './progress';
 export { GradientIconTile } from './gradientIconTile';
 export { QuickFilterStats } from './quickFilterStats';
 export type { QuickFilterTile } from './quickFilterStats';

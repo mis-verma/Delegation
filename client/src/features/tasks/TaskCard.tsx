@@ -6,6 +6,7 @@ import {
   UserCog,
   ShieldQuestion,
   CalendarPlus,
+  CalendarDays,
   History,
 } from "lucide-react";
 import { useDeleteTaskMutation } from "./hook";
@@ -23,7 +24,7 @@ import { DepartmentChip } from "../../components/departmentChip";
 import { IconChip } from "../../components/iconChip";
 import { getInitials } from "../../lib/getInitials";
 import { getChecklistProgress } from "../../lib/checklistProgress";
-import { ChecklistProgressBar, DueProgressBar } from "../../components/progress";
+import { ChecklistProgressBar } from "../../components/progress";
 import { CATEGORY_CONFIG, formatShortDateTime, type CardFieldVisibility } from "./cardFields";
 import { STATUS_LABEL, STATUS_ICON, MOVABLE_STATUSES } from "./taskDisplay";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
@@ -83,23 +84,16 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
   const showReviewBadge = fields.status && task.status === 'pending_approval' && !isVerifier;
   const showVerifyActions = task.status === 'pending_approval' && isVerifier;
 
-  // The card has two places that can report the deadline, and they were both firing at once:
-  // DueProgressBar (mid-card) renders a red "Overdue" pill once the date has passed, while the
-  // footer StatusChip renders "Nd overdue" — so an overdue delegation showed the word twice, in
-  // two different red pills. Not only when overdue, either: on a healthy task the bar's own label
-  // said "3d left" while the footer chip said "3 days left".
-  //
-  // They're now mutually exclusive. The bar is the richer of the two (it shows how much of the
-  // created→due window has burned down), so it wins the slot whenever it renders; the footer chip
-  // is the fallback for the case where a checklist has taken that slot instead and the bar isn't
-  // on the card at all.
   const showChecklistBar = fields.subtasks && progress !== null;
-  const showDueBar = !showChecklistBar && fields.dueDate && !!task.dueDate && task.status !== 'done';
+  // A single due/overdue IconChip in the main chip row now — same pill Ticket and Checklist cards
+  // already use for their own due date. This used to be two different-looking treatments
+  // (a bespoke gradient progress bar mid-card, a StatusChip pill in the footer) that were also
+  // mutually exclusive for no reason a viewer could see, and disagreed with each other's wording
+  // ("3d left" vs "3 days left") whenever both could have applied.
+  const showDueChip = fields.dueDate && !!task.dueDate && task.status !== 'done';
   // The footer shows Done / In review / verify actions for these states, so the score pill would
   // just be a second reading of the same status.
   const showScoreBadge = fields.status && task.status !== 'done' && task.status !== 'pending_approval';
-  const showDuePill =
-    !showDueBar && fields.dueDate && !!task.dueDate && task.status !== 'done' && task.status !== 'pending_approval';
 
   return (
     <div
@@ -224,20 +218,15 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
         </p>
       )}
 
-      {/* Progress — checklist completion when there's a checklist to track (governed by the
-          "Subtasks" field toggle), otherwise how much of the created-to-due-date window has
-          elapsed (governed by "Due date" instead, since there's no checklist to speak of). Same
-          shared component Tickets use, so the two card types read identically. */}
-      {showChecklistBar ? (
-        <ChecklistProgressBar done={doneItems} total={totalItems} />
-      ) : (
-        showDueBar && <DueProgressBar createdAt={task.createdAt} dueDate={task.dueDate!} />
-      )}
+      {/* Checklist completion, governed by the "Subtasks" field toggle. Same shared component
+          Tickets use, so the two card types read identically. */}
+      {showChecklistBar && <ChecklistProgressBar done={doneItems} total={totalItems} />}
 
-      {/* One pill row. The score badge is suppressed whenever the footer already carries a status
-          badge for the same fact — otherwise a finished delegation showed "Mark 100%" here and
-          "Done" three lines below it. */}
-      {(fields.department || fields.priority || fields.category || showScoreBadge) && (
+      {/* One pill row: department, priority, category, due date and the score badge all read as
+          the same kind of thing now, matching Ticket/Checklist cards' own chip row. The score
+          badge is suppressed whenever the footer already carries a status badge for the same fact
+          — otherwise a finished delegation showed "Mark 100%" here and "Done" three lines below it. */}
+      {(fields.department || fields.priority || fields.category || showDueChip || showScoreBadge) && (
         <div className="flex flex-wrap items-center gap-1.5">
           {fields.department && departmentName && <DepartmentChip name={departmentName} />}
 
@@ -247,6 +236,16 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
             const cat = CATEGORY_CONFIG[task.category];
             return <IconChip icon={cat.icon} tone={cat.solid} label={cat.label} />;
           })()}
+
+          {showDueChip && (
+            <IconChip
+              icon={CalendarDays}
+              tone={isOverdue ? 'bg-danger' : 'bg-primary-700'}
+              label={daysLeftLabel(task.dueDate!)}
+              title={isOverdue ? 'Overdue' : 'Due date'}
+              className={isOverdue ? 'border-danger/30 text-danger' : undefined}
+            />
+          )}
 
           {showScoreBadge && <TaskScoreBadge status={task.status} />}
         </div>
@@ -337,8 +336,6 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
             <StatusChip status="completed" label="Done" />
           ) : showReviewBadge ? (
             <StatusChip status="in_review" label="In review" icon={ShieldQuestion} />
-          ) : showDuePill ? (
-            <StatusChip status={isOverdue ? 'overdue' : 'due'} label={daysLeftLabel(task.dueDate!)} />
           ) : null}
         </div>
       </div>
