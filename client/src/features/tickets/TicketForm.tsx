@@ -15,7 +15,6 @@ import { ticketApi } from '../../api/ticket';
 import { ticketSchema, type TicketFields } from './form/ticketFormSchema';
 import { AssignmentModeToggle } from './form/AssignmentModeToggle';
 import { DueDateField } from './form/DueDateField';
-import { ReviewersField } from '../reviewers/ReviewersField';
 import { TicketPriorityChipPicker } from './form/TicketPriorityChipPicker';
 import { TaskDescriptionField } from '../tasks/TaskDescriptionField';
 import { StagedFileChips } from '../tasks/StagedFileChips';
@@ -41,7 +40,6 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
   const queryClient = useQueryClient();
 
   const [photos, setPhotos] = useState<File[]>([]);
-  const [reviewerIds, setReviewerIds] = useState<string[]>([]);
   const addPhotos = (files: FileList | null) => {
     if (!files || !files.length) return;
     setPhotos(prev => [...prev, ...Array.from(files)]);
@@ -104,7 +102,6 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
         assigneeId: data.assigneeId !== '' ? data.assigneeId : undefined,
         tatHours: tatHours ?? (data.assignmentMode === 'AUTO' ? (selectedCategory?.tatHours ?? 24) : undefined),
         tagIds: data.tagIds?.length ? data.tagIds : undefined,
-        reviewerIds: reviewerIds.length ? reviewerIds : undefined,
       },
       {
         onSuccess: async (created) => {
@@ -120,7 +117,7 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
         },
       },
     );
-  }, [mutation, photos, queryClient, onClose, selectedCategory, reviewerIds]);
+  }, [mutation, photos, queryClient, onClose, selectedCategory]);
 
   const footer = (
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-3">
@@ -276,19 +273,16 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
           )}
         </div>
 
-        {/* Labels and Reviewers are desktop-only, same as the delegation form: optional extras that
-            doubled the form's length on a phone. Reviewers can still be set from the ticket sheet. */}
+        {/* Labels are desktop-only, same as the delegation form: an optional extra that doubled
+            the form's length on a phone. No Reviewers picker here: PC and Admin already verify
+            every ticket by default (ticket.service CAN_VERIFY_BY_ROLE), so naming one was a
+            manual step that changed nothing. */}
         <div className="hidden sm:flex flex-col gap-5">
           <LabelsField
             tags={tags ?? []}
             selectedIds={tagIds ?? []}
             onChange={v => setValue('tagIds', v)}
             canCreate={isVerifier}
-          />
-          <ReviewersField
-            departmentId={departmentId || undefined}
-            selected={reviewerIds}
-            onChange={setReviewerIds}
           />
         </div>
 

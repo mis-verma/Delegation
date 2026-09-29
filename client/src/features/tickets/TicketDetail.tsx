@@ -24,7 +24,6 @@ import { TicketStatusHistory } from './detail/TicketStatusHistory';
 import { TicketVerificationActions } from './detail/TicketVerificationActions';
 import { TicketStatusMenu } from './detail/TicketStatusMenu';
 import { TicketStatusRemarkDialog } from './TicketStatusRemarkDialog';
-import { ReviewersField } from '../reviewers/ReviewersField';
 import type { AssignableUser } from '../../api/users';
 import type { Role } from '../../api/auth';
 import { AssigneeField } from '../assignees/AssigneeField';
@@ -204,16 +203,9 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
             </div>
           </section>
 
-          {/* Reviewer assignment is the same routing decision as reassigning the owner, so it's
-              behind the same canAssign check. Others just see who's named. */}
-          {canAssign ? (
-            <ReviewersField
-              departmentId={ticket.departmentId ?? undefined}
-              storeId={ticket.storeId ?? undefined}
-              selected={ticket.reviewers.map((r) => r.id)}
-              onChange={(ids) => updateMut.mutate({ id: ticket.id, payload: { reviewerIds: ids } })}
-            />
-          ) : ticket.reviewers.length > 0 && (
+          {/* No reviewer picker: PC and Admin verify every ticket by default. Older tickets that
+              named reviewers still show them, read-only. */}
+          {ticket.reviewers.length > 0 && (
             <div className="flex items-center gap-2 text-sm">
               <ShieldCheck size={15} className="text-text-light shrink-0" />
               <span className="text-text-secondary">
