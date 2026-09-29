@@ -245,28 +245,6 @@ export const useDeleteChecklistImageMutation = (ticketId: string) =>
     errorFallback: 'Failed to delete photo',
   });
 
-export const useUploadTicketAttachmentMutation = (ticketId: string) =>
-  useEntityMutation({
-    mutationFn: (files: File[]) => ticketApi.uploadAttachments(ticketId, files).then(r => r.data),
-    invalidateKeys: [KEYS.detail(ticketId)],
-    successMessage: 'Attachment uploaded',
-    errorFallback: 'Failed to upload attachment',
-  });
-
-export const useDeleteTicketAttachmentMutation = (ticketId: string) =>
-  useEntityMutation({
-    mutationFn: (id: string) => ticketApi.deleteAttachment(id),
-    invalidateKeys: [KEYS.detail(ticketId)],
-    successMessage: 'Attachment removed',
-    errorFallback: 'Failed to remove attachment',
-  });
-
-export const useAddTicketCommentMutation = (ticketId: string) =>
-  useEntityMutation({
-    mutationFn: (body: string) => ticketApi.addComment(ticketId, body).then(r => r.data),
-    invalidateKeys: [KEYS.detail(ticketId)],
-    errorFallback: 'Failed to post comment',
-  });
 
 // Reusable checklist templates (managed under Admin) that can be applied to a ticket in one
 // click instead of typing the same checklist out by hand — see features/admin/ChecklistTemplateList.tsx.

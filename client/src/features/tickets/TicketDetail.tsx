@@ -8,9 +8,6 @@ import {
   useVerifyTicketMutation,
   useAddTicketStatusUpdateMutation,
   useDepartmentsQuery,
-  useUploadTicketAttachmentMutation,
-  useDeleteTicketAttachmentMutation,
-  useAddTicketCommentMutation,
 } from './hook';
 import { ImageLightbox, ActivityTimeline, IconChip, StatusChip, PriorityChip, DepartmentChip, type StatusChipStatus } from '../../components';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
@@ -27,8 +24,6 @@ import { TicketStatusHistory } from './detail/TicketStatusHistory';
 import { TicketVerificationActions } from './detail/TicketVerificationActions';
 import { TicketStatusMenu } from './detail/TicketStatusMenu';
 import { TicketStatusRemarkDialog } from './TicketStatusRemarkDialog';
-import { TicketAttachments } from './detail/TicketAttachments';
-import { TicketComments } from './detail/TicketComments';
 import type { AssignableUser } from '../../api/users';
 import type { Role } from '../../api/auth';
 import { AssigneeField } from '../assignees/AssigneeField';
@@ -71,16 +66,6 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
 
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const statusUpdateMut = useAddTicketStatusUpdateMutation(ticket.id);
-
-  // Attachments/comments — built earlier but never wired into this screen, so nobody (staff or
-  // admin) could see a comment or a standalone attachment once posted. Upload/delete share the
-  // server's assertCanMutate gate (same as status changes), so they're read-only for a viewer
-  // without those rights; comments have no such gate server-side, so the box is open to anyone
-  // who can see the ticket at all.
-  const uploadAttachmentMut = useUploadTicketAttachmentMutation(ticket.id);
-  const deleteAttachmentMut = useDeleteTicketAttachmentMutation(ticket.id);
-  const addCommentMut = useAddTicketCommentMutation(ticket.id);
-  const [commentText, setCommentText] = useState('');
 
   const handleDelete = () => {
     deleteMut.mutate(ticket.id, { onSuccess: onClose });
@@ -238,29 +223,14 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
 
           <TicketDescription description={ticket.description} />
 
-          <TicketAttachments
-            attachments={ticket.attachments ?? []}
-            onUpload={(files) => { if (files && files.length) uploadAttachmentMut.mutate(Array.from(files)); }}
-            isUploading={uploadAttachmentMut.isPending}
-            uploadErrorMessage={uploadAttachmentMut.error instanceof Error ? uploadAttachmentMut.error.message : null}
-            onDelete={(id) => deleteAttachmentMut.mutate(id)}
-            isDeleting={deleteAttachmentMut.isPending}
-            onPreview={setPreviewImage}
-            readOnly={!canChangeStatus}
-          />
-
+          {/* No standalone attachments/comments UI here (removed by request, same call as
+              Delegation's own — TaskDetail.tsx carries the identical reasoning): every status
+              change already goes through TicketStatusRemarkDialog below, which takes a mandatory
+              remark and optional proof photos, so this sheet already has one place to say
+              something and show evidence without a second, separate mechanism duplicating it. */}
           {(ticket.statusUpdates?.length ?? 0) > 0 && (
             <TicketStatusHistory statusUpdates={ticket.statusUpdates} onPreview={setPreviewImage} />
           )}
-
-          <TicketComments
-            comments={ticket.comments ?? []}
-            commentText={commentText}
-            onCommentTextChange={setCommentText}
-            onSubmit={() => addCommentMut.mutate(commentText.trim(), { onSuccess: () => setCommentText('') })}
-            isSubmitting={addCommentMut.isPending}
-            submitErrorMessage={addCommentMut.error instanceof Error ? addCommentMut.error.message : null}
-          />
 
           {isAdmin && <ActivityTimeline entityType="Ticket" entityId={ticket.id} />}
         </div>

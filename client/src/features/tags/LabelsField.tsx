@@ -178,9 +178,30 @@ export const LabelsField = ({
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="start"
+                side="bottom"
+                // Labels sits last in every form that has it, right above the footer — Radix's
+                // default flip-to-whichever-side-has-more-room logic was choosing "top" here
+                // (more space above the trigger than below, inside a modal that doesn't stretch
+                // to the screen edges) and landing the panel over the Description field instead
+                // of anywhere near its own trigger. Pinning the side stops that; the panel's own
+                // max-h-(--radix-dropdown-menu-content-available-height) (in DropdownMenuContent's
+                // base styles) still clamps it to whatever room genuinely exists below and scrolls
+                // — a short, scrollable list beats one floating over unrelated fields.
+                avoidCollisions={false}
                 // See AssigneeField's identical comment: required so the list actually
                 // scrolls with a trackpad instead of just sitting there frozen.
-                className="w-64 max-h-80 pointer-events-auto overscroll-contain flex flex-col p-0"
+                //
+                // max-h here used to be a flat max-h-80 (320px) — since it shares the "max-height"
+                // property with DropdownMenuContent's own base max-h-(--radix-...-available-height)
+                // class, tailwind-merge always kept this one and dropped that one, so the panel
+                // never actually respected how much room was really there. With avoidCollisions
+                // now off (see the side comment below) that showed up immediately: pinned to
+                // "bottom" with only ~107px of real room in this form, it tried to render at its
+                // full 320px anyway and the dialog's own overflow-hidden just sliced it off
+                // mid-list. min() keeps the same 320px ceiling for a long label list while still
+                // shrinking to whatever's actually available and scrolling — never overflowing its
+                // container.
+                className="w-64 max-h-[min(20rem,var(--radix-dropdown-menu-content-available-height))] pointer-events-auto overscroll-contain flex flex-col p-0"
                 collisionBoundary={triggerEl?.closest('[data-slot="dialog-content"]') ?? undefined}
                 collisionPadding={16}
                 container={triggerEl?.closest<HTMLElement>('[data-slot="dialog-content"]') ?? undefined}
