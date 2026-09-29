@@ -30,7 +30,11 @@ const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDat
 const isSameDay = (a: Date | null, b: Date | null) =>
   !!a && !!b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 
-const formatDate = (d: Date) => `${MONTH_LABELS[d.getMonth()].slice(0, 3)} ${d.getDate()}, ${d.getFullYear()}`;
+// No year — matches every other short-date display in the app (TicketCard's dueLabel,
+// ChecklistDefinitionCard's formatDate, ...), none of which show one for a near-term date. This
+// used to include the year ("Sep 30, 2026 • 2:59 PM"), which was long enough on its own to force
+// this chip onto its own line in a row of shorter chips (category/department/priority/assignee).
+const formatDate = (d: Date) => `${MONTH_LABELS[d.getMonth()].slice(0, 3)} ${d.getDate()}`;
 const formatTime = (d: Date) => {
   const h24 = d.getHours();
   const period = h24 >= 12 ? 'PM' : 'AM';

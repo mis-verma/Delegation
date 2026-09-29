@@ -153,7 +153,7 @@ export const Modal = ({
 
         <div
           className={cn(
-            'flex flex-col gap-5 px-5 py-4 overflow-y-auto overflow-x-hidden flex-1 min-h-0',
+            'flex flex-col gap-5 px-5 py-4 overflow-y-auto overflow-x-hidden flex-1 min-h-0 custom-scrollbar',
             !footer && 'pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-4',
             bodyClassName,
           )}

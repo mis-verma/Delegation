@@ -260,6 +260,18 @@ body {
   background-color: var(--color-text-light);
 }
 
+/* Chrome/Edge on Windows still draws its own up/down scroll-arrow buttons at each end of a
+   webkit-styled scrollbar unless they're explicitly zeroed out — the thin track/thumb above don't
+   suppress them on their own. Left alone, a scroll area that's otherwise fully themed (thin track,
+   rounded thumb) still shows the chunky native buttons poking out past it, most visible on a
+   status-remark popup's tall form. */
+*::-webkit-scrollbar-button,
+.custom-scrollbar::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   html {
     scroll-behavior: smooth;
