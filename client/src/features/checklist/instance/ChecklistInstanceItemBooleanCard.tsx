@@ -19,8 +19,6 @@ interface ChecklistInstanceItemBooleanCardProps {
   isLocked:   boolean;
 }
 
-// Shared by YES_NO and PASS_FAIL — same booleanAnswer field and interaction, just different
-// button labels (Yes/No vs Pass/Fail) for the same underlying two-way question.
 const LABELS_BY_ITEM_TYPE: Partial<Record<ChecklistInstanceItem['itemType'], { yes: string; no: string }>> = {
   YES_NO: { yes: 'Yes', no: 'No' },
   PASS_FAIL: { yes: 'Pass', no: 'Fail' },
@@ -40,10 +38,6 @@ export const ChecklistInstanceItemBooleanCard = ({ item, instanceId, canWork, is
   const labels = LABELS_BY_ITEM_TYPE[item.itemType] ?? LABELS_BY_ITEM_TYPE.YES_NO!;
   const interactive = canWork && !isLocked;
 
-  // Builder-authored "if answer is X then:" rules (see ChecklistDefinitionItem.yesActions/
-  // noActions) — clicking a triggering answer doesn't submit immediately, it reveals whatever
-  // that branch's rule requires (a reason, a photo) first, gated behind a separate Confirm step.
-  // Both branches are independent, so Yes and No can each carry their own rule at once.
   const yesActions = item.yesActions ?? [];
   const noActions = item.noActions ?? [];
   const actionsFor = (value: 'YES' | 'NO') => (value === 'YES' ? yesActions : noActions);
@@ -125,7 +119,7 @@ export const ChecklistInstanceItemBooleanCard = ({ item, instanceId, canWork, is
             </p>
           )}
         </div>
-      )}
+      )}x
 
       <div className="flex items-center gap-2">
         <button

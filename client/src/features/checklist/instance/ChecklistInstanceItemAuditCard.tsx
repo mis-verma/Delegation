@@ -22,11 +22,7 @@ interface ChecklistInstanceItemAuditCardProps {
   isLocked:       boolean;
 }
 
-// AUDIT counterpart to ChecklistInstanceItemCard — instead of one shared isDone/photo pool, an
-// AUDIT item names specific auditors (ChecklistDefinitionItem.auditUserIds) who each get their
-// own ChecklistInstanceItemSubmission row, rendered here as an independent sub-card. Only the
-// viewer's own submission is interactive; everyone else's (including ADMIN's view of others')
-// renders read-only.
+
 export const ChecklistInstanceItemAuditCard = ({ item, instanceId, currentUserId, isLocked }: ChecklistInstanceItemAuditCardProps) => {
   const { data: stores } = useStoresQuery();
   const storeName = (id: string | null) => (id ? stores?.find(s => s.id === id)?.name ?? '—' : '—');
@@ -102,10 +98,7 @@ const SubmissionRow = ({ item, submission, instanceId, storeName, interactive }:
 
   const userLabel = `${submission.userId?.firstName ?? ''} ${submission.userId?.lastName ?? ''}`.trim() || 'Unknown user';
 
-  // Remarks live behind their own PATCH endpoint (updateRemarks), separate from the isDone PATCH
-  // (setDone) — Submit used to fire setDone directly, so a note typed into the textarea but never
-  // sent via the small "Save remarks" link was silently lost the moment the item locked. Now
-  // Submit itself saves any dirty remarks first and only marks done once that's settled.
+
   const submitting = setDone.isPending || updateRemarks.isPending;
   const handleSubmit = async () => {
     if (remarksDirty) {
@@ -142,9 +135,7 @@ const SubmissionRow = ({ item, submission, instanceId, storeName, interactive }:
         {submission.isDone && !interactive && <span className="text-[10px] font-display text-success shrink-0">Submitted</span>}
       </div>
 
-      {/* Defensive null-check: the type says string[], but rows written before the generator job
-          normalized null->[] (or any other write path that skips that step) can still hand back
-          null here — a raw `.length` on that crashed the whole checklist detail page. */}
+
       {(item.accessories?.length ?? 0) > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {submission.accessories.map(a => (

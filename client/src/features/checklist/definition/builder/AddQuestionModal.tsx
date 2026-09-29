@@ -1,9 +1,12 @@
 import { useState, type FormEvent } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Type, SlidersHorizontal } from 'lucide-react';
 import { Modal, Button } from '../../../../components';
 import { useConfirm } from '@/components/confirmDialog';
+import { DETAIL_HEADING_CLASS } from '../../../tasks/taskFormFieldStyles';
 import { ItemTypeConfigFields, itemDraftProblem } from './ItemTypeConfigFields';
-import { emptyItemDraft, type ItemDraft } from '../ChecklistDefinitionItemDraftRow';
+import { QuestionTypeMenu } from './QuestionTypeMenu';
+import { questionTypeOf } from './questionTypes';
+import { emptyItemDraft, patchForEntry, type ItemDraft } from '../ChecklistDefinitionItemDraftRow';
 import type { PaletteEntry } from './QuestionTypePalette';
 
 interface AddQuestionModalProps {
@@ -13,6 +16,9 @@ interface AddQuestionModalProps {
   onConfirm: (patch: Partial<ItemDraft>) => void;
 }
 
+// Laid out like the New Delegation / New Ticket pop-ups: an icon-led "Question" heading over a
+// quiet field, then a "Details" row whose first chip is the question type itself — so the type can
+// still be changed here without closing and reopening from the palette.
 export const AddQuestionModal = ({
   entry,
   storeIds,
@@ -25,7 +31,8 @@ export const AddQuestionModal = ({
     label: '',
   }));
 
-  const Icon = entry.icon;
+  const type = questionTypeOf(draft);
+  const Icon = type.icon;
   const patchDraft = (patch: Partial<ItemDraft>) =>
     setDraft((prev) => ({ ...prev, ...patch }));
 
@@ -41,8 +48,7 @@ export const AddQuestionModal = ({
 
   // Escape/overlay-click and the shared Modal's own close button all funnel through the same
   // onOpenChange -> onClose path with no distinction between them — so without this, typing a
-  // question and tapping outside the modal (or hitting Escape) silently threw it away, unlike a
-  // destructive action elsewhere in the app, which at least asks first.
+  // question and tapping outside the modal (or hitting Escape) silently threw it away.
   const confirm = useConfirm();
   const handleClose = async () => {
     if (hasLabel) {
@@ -62,8 +68,8 @@ export const AddQuestionModal = ({
     <Modal
       open
       onClose={handleClose}
-      title={entry.label}
-      description="New question"
+      title="New question"
+      description={type.hint}
       icon={<Icon size={18} strokeWidth={2.25} />}
       size="md"
       draggable
@@ -81,8 +87,9 @@ export const AddQuestionModal = ({
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-5 py-1">
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="quick-add-label" className="text-[11px] font-display font-medium text-text-muted">
-            Question staff will see
+          <label htmlFor="quick-add-label" className={DETAIL_HEADING_CLASS}>
+            <Type size={14} className="text-text-light" />
+            Question <span className="text-danger">*</span>
           </label>
           <input
             id="quick-add-label"
@@ -91,11 +98,20 @@ export const AddQuestionModal = ({
             value={draft.label}
             onChange={(e) => patchDraft({ label: e.target.value })}
             placeholder="e.g. Is the cash drawer counted and locked?"
-            className="w-full h-11 px-3.5 text-[15px] font-display font-medium bg-surface text-text rounded-xl border border-border placeholder:font-normal placeholder:text-text-light transition-colors duration-150 hover:border-border-hover focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+            className="w-full h-11 px-3.5 text-[15px] font-display font-medium text-text rounded-xl border border-transparent bg-surface-hover/50 placeholder:font-normal placeholder:text-text-light transition-colors duration-150 hover:bg-surface-hover focus:bg-surface focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
           />
         </div>
 
-        <ItemTypeConfigFields draft={draft} onChange={patchDraft} storeIds={storeIds} />
+        <div className="flex flex-col gap-2.5">
+          <span className={DETAIL_HEADING_CLASS}>
+            <SlidersHorizontal size={14} className="text-text-light" />
+            Details
+          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <QuestionTypeMenu draft={draft} onPick={(next) => patchDraft(patchForEntry(draft, next))} />
+          </div>
+          <ItemTypeConfigFields draft={draft} onChange={patchDraft} storeIds={storeIds} />
+        </div>
 
         {/* Only after something's typed — an empty form isn't an error yet. */}
         {hasLabel && problem && (

@@ -15,6 +15,11 @@ interface TimePickerProps {
   className?: string;
   triggerClassName?: string;
   disabled?: boolean;
+  /** Floats the dial under the trigger instead of expanding inline — for chip rows, where an
+   *  inline panel would shove the neighbouring chips around. */
+  popover?: boolean;
+  /** Text before the time on the trigger, e.g. `Opens` → "Opens 9:30 AM". */
+  prefix?: string;
 }
 
 const HOUR_MARKS = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
@@ -55,6 +60,8 @@ export function TimePicker({
   className = '',
   triggerClassName = '',
   disabled = false,
+  popover = false,
+  prefix,
 }: TimePickerProps) {
   const [open, setOpen] = useState(false);
   const [dialMode, setDialMode] = useState<'hour' | 'minute'>('hour');
@@ -123,6 +130,7 @@ export function TimePicker({
       >
         <ClockIcon size={16} className="text-text-light shrink-0" />
         <span className={cn('truncate', hasValue ? 'text-text font-medium' : 'text-text-muted font-medium')}>
+          {prefix && <span className="text-text-muted font-medium">{prefix} </span>}
           {hasValue ? formatDisplay(draft.h, draft.m) : placeholder}
         </span>
         {hasValue && (
@@ -147,11 +155,13 @@ export function TimePicker({
         )}
       </button>
 
-      {/* Same grid-rows "animate to auto height" trick as DatePicker, so it expands inline rather
-          than as a floating popover that can overlap surrounding fields. */}
-      <div className={cn('grid transition-[grid-template-rows] duration-300 ease-in-out', open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]')}>
-        <div className="overflow-hidden">
-          <div className="mt-3 pt-3 flex flex-col gap-2.5 border-t border-border/60">
+      {/* Inline: same grid-rows "animate to auto height" trick as DatePicker, so it expands in place.
+          Popover: floats under the trigger (chip rows). One panel, two wrappers. */}
+      <div className={popover
+        ? cn('absolute left-0 top-full z-50 mt-2 w-64 rounded-2xl border border-border bg-surface p-3 shadow-lg shadow-black/10 origin-top transition-[opacity,transform] duration-150', open ? 'opacity-100 scale-100' : 'pointer-events-none opacity-0 scale-95 invisible')
+        : cn('grid transition-[grid-template-rows] duration-300 ease-in-out', open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]')}>
+        <div className={popover ? '' : 'overflow-hidden'}>
+          <div className={cn('flex flex-col gap-2.5', !popover && 'mt-3 pt-3 border-t border-border/60')}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1">
                 <button

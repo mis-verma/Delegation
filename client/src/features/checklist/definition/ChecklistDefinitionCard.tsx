@@ -1,9 +1,10 @@
 import { useNavigate } from 'react-router';
-import { Camera, MapPin, PenLine, Wallet, ScanLine, type LucideIcon } from 'lucide-react';
+import { Camera, MapPin, PenLine, Wallet, ScanLine, Repeat, CalendarDays, Store, ListChecks, type LucideIcon } from 'lucide-react';
 import { EntityIconTile, StatusPill, EntityCardActions, formatWeekdays } from '../../../components';
+import { IconChip } from '../../../components/iconChip';
 import { Badge } from '@/components/ui/badge';
 import { useConfirm } from '@/components/confirmDialog';
-import { RECURRENCE_LABEL, rateToneClass, rateBarClass } from '../checklistDisplay';
+import { RECURRENCE_LABEL, rateToneClass, rateBarClass, formatDate } from '../checklistDisplay';
 import { useSetChecklistDefinitionActiveMutation, useDeleteChecklistDefinitionMutation } from '../hook';
 import { useAuth } from '../../../context/AuthContext';
 import { CHECKLIST_ICON_MAP } from './checklistIconMap';
@@ -31,6 +32,10 @@ const TAG_ICON_BY_LABEL: Record<string, LucideIcon> = {
   'Cash tally': Wallet,
   'QR scan': ScanLine,
 };
+
+// Org-local (India) calendar days, same as the generator — true when the first run is still ahead.
+const dayKey = (ms: number) => new Date(ms + 330 * 60_000).toISOString().slice(0, 10);
+const startsAfterToday = (startDate: string) => dayKey(new Date(startDate).getTime()) > dayKey(Date.now());
 
 const cardTags = (definition: ChecklistDefinition) => {
   const tags: string[] = [];
@@ -62,6 +67,7 @@ export const ChecklistDefinitionCard = ({ definition }: ChecklistDefinitionCardP
   // Working days, not the retired role label (a made-up role that assigned nobody).
   const daysLabel = definition.recurrence === 'DAILY' ? formatWeekdays(definition.activeWeekdays) : null;
   const { completionRate, qualityRate } = definition;
+  const startsLater = startsAfterToday(definition.startDate);
 
   const openDetail = () => navigate(`/admin/scheduled-checklists/${definition.id}`);
 
@@ -116,27 +122,19 @@ export const ChecklistDefinitionCard = ({ definition }: ChecklistDefinitionCardP
         )}
       </div>
 
-      <div className="space-y-1">
-        <h3 className="font-display text-base font-bold text-text leading-snug">{definition.name}</h3>
-        <p className="text-xs font-display text-text-muted">
-          {RECURRENCE_LABEL[definition.recurrence]}
-          {daysLabel ? ` · ${daysLabel}` : ''}
-        </p>
-      </div>
+      <h3 className="font-display text-base font-bold text-text leading-snug line-clamp-2">{definition.name}</h3>
 
-      {tags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {tags.map(tag => {
-            const TagIcon = TAG_ICON_BY_LABEL[tag];
-            return (
-              <Badge key={tag} variant="secondary" className="bg-surface-hover">
-                {TagIcon && <TagIcon size={11} />}
-                {tag}
-              </Badge>
-            );
-          })}
-        </div>
-      )}
+      {/* Same IconChip row as delegation and ticket cards: cadence, working days, reach, size,
+          then whatever proof the questions ask for. */}
+      <div className="flex flex-wrap gap-1.5">
+        <IconChip icon={Repeat} tone="bg-primary-600" label={RECURRENCE_LABEL[definition.recurrence]} />
+        {daysLabel && <IconChip icon={CalendarDays} tone="bg-coral-500" label={daysLabel} />}
+        <IconChip icon={Store} tone="bg-success" label={`${definition.storeIds.length} store${definition.storeIds.length !== 1 ? 's' : ''}`} />
+        <IconChip icon={ListChecks} tone="bg-info" label={`${definition.items.length} question${definition.items.length !== 1 ? 's' : ''}`} />
+        {tags.map((tag) => (
+          <IconChip key={tag} icon={TAG_ICON_BY_LABEL[tag] ?? ListChecks} tone="bg-text-muted" label={tag} />
+        ))}
+      </div>
 
       {completionRate !== null ? (
         <div className="flex flex-col gap-1.5">
@@ -158,14 +156,11 @@ export const ChecklistDefinitionCard = ({ definition }: ChecklistDefinitionCardP
           )}
         </div>
       ) : (
-        <p className="text-[11px] font-display text-text-light">No runs yet</p>
+        // A future start date is the most common reason for "no runs" — say so right here.
+        <p className="mt-auto text-xs font-display text-text-muted">
+          {startsLater ? `Starts ${formatDate(definition.startDate)}` : 'No runs yet'}
+        </p>
       )}
-
-      <div className="flex items-center justify-between text-xs font-display text-text-muted pt-3 border-t border-border/60 mt-auto">
-        <span>{definition.items.length} question{definition.items.length !== 1 ? 's' : ''}</span>
-        <span>{definition.storeIds.length} store{definition.storeIds.length !== 1 ? 's' : ''}</span>
-        <span>v{definition.version}</span>
-      </div>
     </article>
   );
 };

@@ -14,16 +14,10 @@ interface ColumnConfig {
   dot: string;
   containerClass: string;
   headerText: string;
-  // Mobile-only reorder (see the grid's own comment below) — Overdue is the one column someone
-  // actually needs to act on, so it goes first when everything is stacked full-width instead of
-  // laid out left-to-right. Desktop keeps the untouched Due/Overdue/Completed reading order via
-  // its own `lg:order-none`.
   mobileOrder: string;
 }
 
-// Same tone convention as statusTiles.ts (warning=Due, danger=Overdue, success=Completed) — the
-// board's columns read as the same three buckets the Table view's Status column and the quick-stat
-// tiles already use, just laid out spatially instead of as a list.
+
 const COLUMNS: ColumnConfig[] = [
   { key: 'due', label: 'Due', icon: Clock, dot: 'bg-warning', containerClass: 'border-warning/20 bg-warning/[0.04]', headerText: 'text-warning', mobileOrder: 'order-2' },
   { key: 'overdue', label: 'Overdue', icon: AlarmClock, dot: 'bg-danger', containerClass: 'border-danger/20 bg-danger/[0.04]', headerText: 'text-danger', mobileOrder: 'order-1' },
@@ -34,11 +28,6 @@ interface ChecklistInstanceBoardProps {
   instances: ChecklistInstance[];
 }
 
-// Read-only status board — the Board-view sibling of MyChecklists' List/Table, styled after
-// TicketBoardColumn's swimlane treatment (tinted rounded container, glowing status dot, shadowed
-// count pill) so a checklist board reads as the same "board" pattern as Ticket/Delegation's,
-// just without drag: a checklist's status is derived from ticking off its own items, not
-// something you manually move between columns. Click a card to open and act on it, same as List.
 export const ChecklistInstanceBoard = ({ instances }: ChecklistInstanceBoardProps) => {
   const byStatus = new Map<BoardStatus, ChecklistInstance[]>(COLUMNS.map((c) => [c.key, []]));
   for (const instance of instances) {
@@ -51,20 +40,14 @@ export const ChecklistInstanceBoard = ({ instances }: ChecklistInstanceBoardProp
   }
 
   return (
-    // Full-width stacked columns below `lg`, Overdue first (via each column's mobileOrder) — a
-    // sideways-scrolling row of columns made someone swipe past "Due" just to reach the one column
-    // that actually needs attention, and horizontal swiping over the page's main content competes
-    // with plain vertical scrolling on a phone. Side-by-side columns only kick in at `lg`, where
-    // there's room to see all three without scrolling either way.
+
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-4 items-start animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out">
       {COLUMNS.map((col) => {
         const items = byStatus.get(col.key) ?? [];
         return (
           <div
             key={col.key}
-            // Phones: no tinted box around each group (three stacked coloured panels read as a
-            // wall), just a heading and the cards; an empty group is skipped. Desktop keeps the
-            // tinted swimlanes side by side.
+          
             className={`${col.mobileOrder} lg:order-none flex-col gap-2.5 lg:gap-3 lg:rounded-2xl lg:border lg:p-2.5 transition-colors duration-300 ${col.containerClass} max-lg:border-0 max-lg:bg-transparent ${items.length === 0 ? 'hidden lg:flex' : 'flex'}`}
           >
             <div className="flex items-center justify-between px-0.5 lg:px-2 lg:py-1.5">
@@ -88,9 +71,7 @@ export const ChecklistInstanceBoard = ({ instances }: ChecklistInstanceBoardProp
               {items.length === 0 ? (
                 <EmptyState size="compact" icon={Inbox} title="Nothing here" />
               ) : (
-                // The card handles its own hover treatment (border-color change, no shadow/lift —
-                // this app's house rule against shadow-as-elevation on card/row containers), so
-                // this no longer needs its own shadow+lift wrapper on top of it.
+               
                 items.map((instance) => (
                   <ChecklistInstanceCard key={instance.id} instance={instance} />
                 ))

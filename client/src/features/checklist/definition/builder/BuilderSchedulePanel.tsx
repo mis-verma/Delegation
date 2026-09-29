@@ -1,13 +1,8 @@
-import {
-  Store,
-  Calendar,
-  Clock,
-  Repeat,
-  AlertCircle,
-  Info,
-  CalendarDays,
-} from 'lucide-react';
-import { StoreMultiSelect, DatePicker, TimePicker, WeekdayPicker, formatWeekdays } from '../../../../components';
+import type { ReactNode } from 'react';
+import { Store, Repeat, CalendarDays, Clock, AlertCircle, Moon, Check, Loader2 } from 'lucide-react';
+import { DatePicker, TimePicker, WeekdayPicker, formatWeekdays } from '../../../../components';
+import { useStoresQuery } from '../../../tickets/hook';
+import { DETAIL_HEADING_CLASS, CHIP_TRIGGER_CLASS } from '../../../tasks/taskFormFieldStyles';
 import type { ChecklistRecurrence } from '../../../../api/checklistDefinitions';
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
@@ -18,9 +13,7 @@ const parseDateStr = (v: string) => (v ? new Date(`${v}T00:00:00`) : null);
 // real problem — a genuinely zero-length window that can never be completed. A cutoff EARLIER
 // than open time is not a mismatch: it's this app's real, supported overnight window (see
 // checklistDisplay.ts's instanceDeadline — "opens 18:00, cutoff 07:00" is the documented example),
-// which rolls the deadline to the next calendar day. This used to also flag that case as a
-// blocking error, which meant the builder could never actually create the schedule its own
-// backend was built to support.
+// which rolls the deadline to the next calendar day.
 // eslint-disable-next-line react-refresh/only-export-components
 export const hasScheduleTimeMismatch = (opensTime: string, cutoffTime: string): boolean =>
   Boolean(opensTime && cutoffTime) && opensTime === cutoffTime;
@@ -31,9 +24,6 @@ export const hasScheduleTimeMismatch = (opensTime: string, cutoffTime: string): 
 export const isOvernightWindow = (opensTime: string, cutoffTime: string): boolean =>
   Boolean(opensTime && cutoffTime) && cutoffTime < opensTime;
 
-// Colocated with the component like ui/badge.tsx's own badgeVariants export — only affects Fast
-// Refresh granularity (a full reload instead of a hot-swap when this file changes), not runtime
-// correctness.
 // eslint-disable-next-line react-refresh/only-export-components
 export const RECURRENCE_OPTIONS: {
   value: ChecklistRecurrence;
@@ -64,6 +54,37 @@ interface BuilderSchedulePanelProps {
   className?: string;
 }
 
+// One pill toggle — the same rounded-full chip language as the delegation / ticket forms'
+// Details row, so picking stores and a cadence feels like picking a priority or a department.
+const ToggleChip = ({ on, onClick, children, label }: { on: boolean; onClick: () => void; children: ReactNode; label?: string }) => (
+  <button
+    type="button"
+    aria-pressed={on}
+    aria-label={label}
+    onClick={onClick}
+    className={`inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full border text-[13px] font-display font-semibold cursor-pointer select-none transition-all duration-150 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
+      on
+        ? 'border-primary-600 bg-primary-600 text-white dark:border-primary-400 dark:bg-primary-400 dark:text-primary-900'
+        : 'border-border/70 bg-surface text-text-secondary hover:border-primary-400 hover:text-text'
+    }`}
+  >
+    {children}
+  </button>
+);
+
+const Section = ({ icon: Icon, title, aside, children }: { icon: typeof Store; title: string; aside?: ReactNode; children: ReactNode }) => (
+  <section className="flex flex-col gap-2.5">
+    <div className="flex items-center justify-between gap-2">
+      <span className={DETAIL_HEADING_CLASS}>
+        <Icon size={14} className="text-text-light" />
+        {title}
+      </span>
+      {aside}
+    </div>
+    {children}
+  </section>
+);
+
 export const BuilderSchedulePanel = ({
   storeIds,
   onStoreIdsChange,
@@ -79,156 +100,111 @@ export const BuilderSchedulePanel = ({
   onActiveWeekdaysChange,
   className = '',
 }: BuilderSchedulePanelProps) => {
+  const { data: stores, isLoading: storesLoading } = useStoresQuery();
+  const activeStores = (stores ?? []).filter((s) => s.isActive !== false);
   const hasTimeMismatch = hasScheduleTimeMismatch(opensTime, cutoffTime);
   const isOvernight = isOvernightWindow(opensTime, cutoffTime);
 
+  const toggleStore = (id: string) =>
+    onStoreIdsChange(storeIds.includes(id) ? storeIds.filter((s) => s !== id) : [...storeIds, id]);
+  const allSelected = activeStores.length > 0 && activeStores.every((s) => storeIds.includes(s.id));
+
   return (
-    <div
-      className={`flex flex-col gap-5 ${className}`}
-    >
-      {/* 1. Target Stores Selection */}
-      <div className="flex flex-col gap-2">
-        <label className="text-xs font-display font-semibold text-text flex items-center gap-1.5">
-          <Store size={13} className="text-text-muted" />
-          Stores <span className="text-danger">*</span>
-          {storeIds.length > 0 && (
-            <span className="font-normal text-text-muted tabular-nums">· {storeIds.length} selected</span>
-          )}
-        </label>
-        <StoreMultiSelect selected={storeIds} onChange={onStoreIdsChange} />
-        {storeIds.length === 0 && (
-          <p className="text-[11px] font-display text-warning flex items-center gap-1">
-            <Info size={12} className="shrink-0" />
-            Pick at least one store for this checklist.
-          </p>
+    <div className={`flex flex-col gap-6 ${className}`}>
+      <Section
+        icon={Store}
+        title="Stores"
+        aside={activeStores.length > 1 && (
+          <button
+            type="button"
+            onClick={() => onStoreIdsChange(allSelected ? [] : activeStores.map((s) => s.id))}
+            className="text-xs font-display font-semibold text-primary-700 dark:text-primary-300 cursor-pointer hover:underline underline-offset-2 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+          >
+            {allSelected ? 'Clear all' : 'Select all'}
+          </button>
         )}
-      </div>
+      >
+        {storesLoading ? (
+          <span className="flex items-center gap-2 text-xs font-display text-text-muted"><Loader2 size={13} className="animate-spin" /> Loading stores…</span>
+        ) : activeStores.length === 0 ? (
+          <span className="text-xs font-display text-text-muted">No stores yet — add one in People &amp; Teams.</span>
+        ) : (
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Stores that run this checklist">
+            {activeStores.map((s) => {
+              const on = storeIds.includes(s.id);
+              return (
+                <ToggleChip key={s.id} on={on} onClick={() => toggleStore(s.id)}>
+                  {on ? <Check size={14} strokeWidth={2.75} /> : <Store size={14} className="text-text-light" />}
+                  {s.name}
+                </ToggleChip>
+              );
+            })}
+          </div>
+        )}
+        {storeIds.length === 0 && !storesLoading && activeStores.length > 0 && (
+          <p className="text-xs font-display text-text-muted">Pick at least one store.</p>
+        )}
+      </Section>
 
-      {/* 2. Recurrence Frequency */}
-      <div className="flex flex-col gap-2.5 pt-2 border-t border-dashed border-border/60">
-        <label className="text-xs font-display font-semibold text-text flex items-center gap-1.5">
-          <Repeat size={13} className="text-text-muted" />
-          How often does this repeat? <span className="text-danger">*</span>
-        </label>
-
-        <div
-          role="radiogroup"
-          aria-label="Select recurrence frequency"
-          className="flex flex-wrap gap-2"
-        >
-          {RECURRENCE_OPTIONS.map((opt) => {
-            const isSelected = recurrence === opt.value;
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                role="radio"
-                aria-checked={isSelected}
-                onClick={() => onRecurrenceChange(opt.value)}
-                title={opt.description}
-                className={[
-                  'px-3.5 py-1.5 rounded-lg text-xs font-display font-medium transition-all duration-150 cursor-pointer select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50',
-                  isSelected
-                    ? 'bg-primary-700 text-white shadow-xs'
-                    : 'bg-surface border border-border text-text-secondary hover:bg-surface-hover hover:text-text hover:border-border/80',
-                ].join(' ')}
-              >
-                {opt.label}
-              </button>
-            );
-          })}
+      <Section icon={Repeat} title="Repeats">
+        <div role="radiogroup" aria-label="How often it repeats" className="flex flex-wrap gap-2">
+          {RECURRENCE_OPTIONS.map((opt) => (
+            <ToggleChip key={opt.value} on={recurrence === opt.value} onClick={() => onRecurrenceChange(opt.value)} label={`${opt.label} — ${opt.description}`}>
+              {opt.label}
+            </ToggleChip>
+          ))}
         </div>
+      </Section>
 
-        {recurrence === 'DAILY' && (
-          <div className="flex flex-col gap-2 pt-1">
-            <label className="text-xs font-display font-semibold text-text flex items-center gap-1.5">
-              <CalendarDays size={13} className="text-text-muted" />
-              Runs on
-              <span className="font-normal text-text-muted">· {formatWeekdays(activeWeekdays)}</span>
-            </label>
-            <WeekdayPicker
-              value={activeWeekdays}
-              onChange={onActiveWeekdaysChange}
-              minSelected={1}
-              aria-label="Days this checklist runs"
+      {recurrence === 'DAILY' && (
+        <Section icon={CalendarDays} title="Runs on" aside={<span className="text-xs font-display text-text-muted">{formatWeekdays(activeWeekdays)}</span>}>
+          <WeekdayPicker value={activeWeekdays} onChange={onActiveWeekdaysChange} minSelected={1} aria-label="Days this checklist runs" />
+          <p className="hidden sm:block text-xs font-display text-text-muted">
+            No checklist on the days left off. People’s own week-off days are skipped too.
+          </p>
+        </Section>
+      )}
+
+      <Section icon={Clock} title={recurrence === 'ONE_TIME' ? 'When' : 'Starts & open hours'}>
+        <div className="flex flex-wrap items-center gap-2">
+          <div title={recurrence === 'ONE_TIME' ? 'Due date' : 'Starts on'}>
+            <DatePicker
+              value={parseDateStr(startDate)}
+              onChange={(d) => onStartDateChange(d ? toDateStr(d) : '')}
+              placeholder={recurrence === 'ONE_TIME' ? 'Due date' : 'Start date'}
+              triggerClassName={`${CHIP_TRIGGER_CLASS} h-9 text-[13px] ${startDate ? 'pr-10' : ''}`}
             />
-            <p className="hidden sm:block text-[11px] font-display text-text-muted">
-              No checklist is created on the days left off. People's own week-off days are skipped too.
-            </p>
           </div>
-        )}
-      </div>
-
-      {/* 3. Effective Dates & Daily Availability Window */}
-      <div className="flex flex-col gap-4 pt-2 border-t border-dashed border-border/60">
-        {/* Start / Due Date */}
-        <div className="flex flex-col gap-1.5">
-          <label className="flex items-center gap-1.5 text-xs font-display font-semibold text-text px-1">
-            <Calendar size={13} className="text-text-muted" />
-            {recurrence === 'ONE_TIME' ? 'Due Date' : 'Starts on'} <span className="text-danger">*</span>
-          </label>
-          <DatePicker
-            value={parseDateStr(startDate)}
-            onChange={(d) => onStartDateChange(d ? toDateStr(d) : '')}
-            placeholder="Select a date"
-            triggerClassName="h-12 rounded-lg px-4"
+          <TimePicker
+            popover
+            prefix="Opens"
+            value={opensTime}
+            onChange={onOpensTimeChange}
+            placeholder="any time"
+            triggerClassName={`${CHIP_TRIGGER_CLASS} h-9 text-[13px]`}
           />
-          <p className="text-[11px] font-display text-text-muted px-1">
-            {recurrence === 'ONE_TIME'
-              ? 'Date when this single checklist must be completed.'
-              : 'The checklist starts repeating from this date.'}
+          <TimePicker
+            popover
+            prefix="Closes"
+            value={cutoffTime}
+            onChange={onCutoffTimeChange}
+            placeholder="any time"
+            triggerClassName={`${CHIP_TRIGGER_CLASS} h-9 text-[13px]`}
+          />
+        </div>
+        {!startDate && <p className="text-xs font-display text-text-muted">Pick a start date to continue.</p>}
+        {hasTimeMismatch ? (
+          <p className="flex items-center gap-1.5 text-xs font-display font-medium text-danger">
+            <AlertCircle size={13} className="shrink-0" />
+            Opening and closing can’t be the same time.
           </p>
-        </div>
-
-        {/* Daily Time Window */}
-        <div className="space-y-1.5">
-          <label className="text-xs font-display font-semibold text-text flex items-center gap-1.5">
-            <Clock size={13} className="text-text-muted" />
-            Hours it's open each day (optional)
-          </label>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-display font-semibold text-text-muted px-1">
-                Opens at
-              </label>
-              <TimePicker
-                value={opensTime}
-                onChange={onOpensTimeChange}
-                placeholder="Any time"
-                triggerClassName="h-12 rounded-lg px-4"
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-display font-semibold text-text-muted px-1">
-                Closes at
-              </label>
-              <TimePicker
-                value={cutoffTime}
-                onChange={onCutoffTimeChange}
-                placeholder="Any time"
-                triggerClassName="h-12 rounded-lg px-4"
-              />
-            </div>
-          </div>
-
-          {hasTimeMismatch ? (
-            <p className="text-[11px] font-display text-warning flex items-center gap-1 mt-1">
-              <AlertCircle size={12} className="shrink-0" />
-              Open and cut-off can't be the same time — there'd be no time to complete it.
-            </p>
-          ) : isOvernight ? (
-            <p className="text-[11px] font-display text-primary-600 dark:text-primary-400 flex items-center gap-1 mt-1">
-              <Info size={12} className="shrink-0" />
-              Overnight window — cuts off at {cutoffTime} the next morning, not the same day.
-            </p>
-          ) : (
-            <p className="text-[11px] font-display text-text-muted">
-              Leave blank if there's no time limit — staff can complete it any time of day.
-            </p>
-          )}
-        </div>
-      </div>
+        ) : isOvernight ? (
+          <p className="flex items-center gap-1.5 text-xs font-display text-text-secondary">
+            <Moon size={13} className="shrink-0 text-text-light" />
+            Overnight — closes at {cutoffTime} the next morning.
+          </p>
+        ) : null}
+      </Section>
     </div>
   );
 };

@@ -15,7 +15,7 @@ import { useChecklistTemplatesQuery } from '../../hook';
 import { QuestionTypePalette } from './QuestionTypePalette';
 import { isItemDraftComplete } from './ItemTypeConfigFields';
 import { BuilderSchedulePanel, hasScheduleTimeMismatch } from './BuilderSchedulePanel';
-import  {BuilderAssignPanel}  from './BuilderAssignPanel';
+import { BuilderAssignPanel } from './BuilderAssignPanel';
 import { BuilderReviewersPanel } from './BuilderReviewersPanel';
 import { BuilderStepper } from './wizard/BuilderStepper';
 import { BuilderStepFrame } from './wizard/BuilderStepFrame';
@@ -546,9 +546,9 @@ export const ChecklistBuilder = () => {
       </div>
 
       {/* Main Wizard Card */}
-      <div className="rounded-2xl border border-border bg-surface overflow-hidden">
+      <div className="rounded-2xl border border-border bg-surface">
         {/* Stepper Header with Progress Bar */}
-        <div className="flex flex-col gap-3 px-4 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4 border-b border-border/60 bg-muted/20">
+        <div className="flex flex-col gap-3 px-4 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4 border-b border-border/60 bg-muted/20 rounded-t-2xl">
           <BuilderStepper
             steps={STEPS}
             current={step}

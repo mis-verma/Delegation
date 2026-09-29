@@ -16,12 +16,7 @@ interface ChecklistInstanceCardProps {
   instance: ChecklistInstance;
 }
 
-/**
- * One checklist run as a tile, same design as the delegation and ticket cards: title, a quiet meta
- * line (how often, the period, today's deadline), one chip row (status, and approval once it's
- * been sent), then a slim progress bar with the item count. The old gold icon tile and the
- * "0% done" badge are gone; the bar already says both.
- */
+
 export const ChecklistInstanceCard = ({ instance }: ChecklistInstanceCardProps) => {
   const total = instance.items.length;
   const done = instance.items.filter(i => i.isDone).length;
@@ -30,7 +25,6 @@ export const ChecklistInstanceCard = ({ instance }: ChecklistInstanceCardProps) 
   const overdue = isInstanceOverdue(instance, isComplete);
   const deadlineTime = formatDeadlineTime(instance);
   const verification = VERIFICATION_CHIP[instance.verificationStatus];
-  // "Not submitted" on a half-done run says nothing; show approval once it's finished or sent.
   const showVerification = isComplete || instance.verificationStatus !== 'NOT_SUBMITTED';
 
   return (

@@ -9,10 +9,6 @@ export interface ComplianceQuickFilterCounts {
   overdue: number;
 }
 
-// "All" leads (and doubles as the clear-filter tile, so it takes the navy hero slot at index 0).
-// Both labels here are genuinely board-specific wording — "Total" is what this page counts
-// (every checklist run, not the internal "instance" term), and "Not yet complete" is clearer
-// than a bare "Pending" next to an "Overdue" tile.
 const TILES = statusTiles<ComplianceQuickFilterKey>(['all', 'completed', 'pending', 'overdue'], {
   all: 'Total',
   pending: 'Not yet complete',
