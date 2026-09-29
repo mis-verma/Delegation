@@ -125,6 +125,17 @@ const resolveId = (key: string, id: unknown, resolvers: AuditIdResolvers | undef
   return isIdLikeKey(key) ? shortId(id) : null;
 };
 
+// Matches a raw DB enum verbatim — status/role/priority/category columns all store one of these
+// (ON_HOLD, PENDING_APPROVAL, ADMIN, HIGH, ...) and used to render exactly like that: shouting,
+// underscored, unmistakably a database value leaking into a page a non-technical reviewer reads.
+// Every other status/role/priority display in the app goes through its own *_LABEL map instead —
+// this diff view is generic across every module's columns, so it can't know which specific map
+// applies, but it doesn't need to: the shape alone (all caps, optional underscores) is enough to
+// safely retitle it, and no real remark/title text will ever accidentally match it.
+const isShoutingEnum = (value: string): boolean => /^[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$/.test(value);
+const humanizeEnum = (value: string) =>
+  value.toLowerCase().split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+
 const formatScalar = (value: unknown): string => {
   if (value === null || value === undefined) return '—';
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';
@@ -134,7 +145,8 @@ const formatScalar = (value: unknown): string => {
       ? value
       : date.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
   }
-  if (typeof value === 'string' || typeof value === 'number') return String(value);
+  if (typeof value === 'string') return isShoutingEnum(value) ? humanizeEnum(value) : value;
+  if (typeof value === 'number') return String(value);
   return JSON.stringify(value);
 };
 

@@ -6,7 +6,7 @@ import { useAuditLogsQuery } from '../../features/admin/auditLog/hook';
 import { actionConfig, entityTypeConfig, diffAuditLog, type AuditIdResolvers, type DiffRow } from '../../features/admin/auditLog/auditLogDisplay';
 import { useAuditIdResolvers } from '../../features/admin/auditLog/useAuditIdResolvers';
 import { AuditLogDiff } from '../../features/admin/auditLog/AuditLogDiff';
-import { ROLE_LABEL } from '../../features/admin/roleBadge';
+import { ROLE_LABEL, ROLE_STYLES } from '../../features/admin/roleBadge';
 import { IconChip } from '../iconChip';
 import { avatarColorClass } from '../../lib/avatarColors';
 import { formatRelativeTime } from '../../features/dashboard/dashboardDisplay';
@@ -216,8 +216,13 @@ const ActivityTimelineRow = ({
             <div className="flex flex-col min-w-0">
               <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
                 <span className="text-sm font-display font-bold text-text leading-snug">{fullName}</span>
+                {/* Same color-per-role convention UserCard/PresenceOverview already use — this
+                    used to be one flat neutral outline for every role, which made a QC pass
+                    slower to scan ("was that an Admin change or an Agent's own?" took reading the
+                    text every time) and looked like an unfinished detail next to the rest of this
+                    row's real color. */}
                 {log.actor && (
-                  <span className="hidden sm:inline-flex px-1.5 py-px rounded border border-border text-[10px] font-display font-semibold text-text-muted">
+                  <span className={`hidden sm:inline-flex px-1.5 py-px rounded border text-[10px] font-display font-semibold ${ROLE_STYLES[log.actor.role]}`}>
                     {ROLE_LABEL[log.actor.role] ?? log.actor.role}
                   </span>
                 )}
