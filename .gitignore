@@ -41,3 +41,8 @@ Thumbs.db
 client/src.zip
 *.claudescratch-theme-check*.png
 .claude/scratch-theme-check.png
+
+# AI coding tool configs — local dev tooling, not part of the shipped app; never deployed
+# (see .github/workflows/deploy.yml, which only ships client/server dist/ output).
+.agents/
+.codex/
