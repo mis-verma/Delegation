@@ -1,5 +1,9 @@
 import { memo } from 'react';
-import { StatusChip, PriorityChip, DepartmentChip, TagChip, IconChip, type StatusChipStatus } from '../../components';
+import { CalendarDays } from 'lucide-react';
+import { PriorityChip, DepartmentChip, TagChip, IconChip } from '../../components';
+import { TaskStatusChip } from './TaskStatusChip';
+import { avatarColorClass } from '../../lib/avatarColors';
+import { getInitials } from '../../lib/getInitials';
 import { TaskMoveMenu } from './TaskMoveMenu';
 import { useTaskStatusMove } from './useTaskStatusMove';
 import { PRIORITY_MAP, STATUS_LABEL } from './taskDisplay';
@@ -24,18 +28,16 @@ interface TaskTableProps {
   newlyAssignedTaskIds?: Set<string>;
 }
 
-// The status values Task uses aren't StatusChip's vocabulary (StatusChip is shared with tickets
-// and checklists), so map rather than casting.
-const STATUS_CHIP_KEY = {
-  // draft never actually reaches this view (the normal Task List excludes it — see
-  // task.service.ts#list), but Task['status'] includes it structurally so this map still needs
-  // an entry; 'open' is the closest neutral reading if one ever did.
-  draft: 'open',
-  todo: 'open',
-  in_progress: 'in_progress',
-  pending_approval: 'pending',
-  done: 'completed',
-} as const satisfies Record<Task['status'], StatusChipStatus>;
+// Overdue reads as "14d overdue" (same wording as the cards), anything else as the short date.
+const dueText = (iso: string, overdue: boolean) => {
+  const days = Math.round((new Date(iso).setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0)) / 86_400_000);
+  if (overdue && days < 0) return `${Math.abs(days)}d overdue`;
+  if (days === 0) return 'Today';
+  if (days === 1) return 'Tomorrow';
+  return formatShortDate(iso);
+};
+
+const MAX_TABLE_LABELS = 2;
 
 // Solid navy header rather than a tinted surface row: it anchors the top of a dense grid and
 // reads as a header at a glance even when the table is scrolled horizontally away from the
@@ -77,7 +79,7 @@ const TaskTableComponent = ({
 
   return (
     <>
-      <div className="w-full overflow-x-auto rounded-lg border border-border/60">
+      <div className="w-full overflow-x-auto rounded-lg border border-border/60 bg-surface">
         <table className="w-full min-w-[52rem] border-collapse">
           <thead className={HEAD_ROW_CLASS}>
             <tr>
@@ -88,10 +90,10 @@ const TaskTableComponent = ({
               {fields.priority && <th scope="col" className={HEAD_CLASS}>Priority</th>}
               {fields.category && <th scope="col" className={HEAD_CLASS}>Category</th>}
               {fields.assignee && <th scope="col" className={HEAD_CLASS}>Assignee</th>}
+              {fields.dueDate && <th scope="col" className={HEAD_CLASS}>Due</th>}
               {fields.department && <th scope="col" className={HEAD_CLASS}>Department</th>}
               <th scope="col" className={HEAD_CLASS}>Labels</th>
               {fields.raisedBy && <th scope="col" className={HEAD_CLASS}>Raised by</th>}
-              {fields.dueDate && <th scope="col" className={HEAD_CLASS}>Due</th>}
               {fields.subtasks && <th scope="col" className={HEAD_CLASS}>Subtasks</th>}
               {fields.created && <th scope="col" className={HEAD_CLASS}>Created</th>}
               {fields.updated && <th scope="col" className={HEAD_CLASS}>Updated</th>}
@@ -130,13 +132,13 @@ const TaskTableComponent = ({
                           title="Newly assigned to you"
                         />
                       )}
-                      <span className="font-semibold text-text-secondary truncate">{task.title}</span>
+                      <span className="font-display font-semibold text-sm text-text truncate" title={task.title}>{task.title}</span>
                     </div>
                   </td>
 
                   {fields.status && (
                     <td className={CELL_CLASS}>
-                      <StatusChip status={STATUS_CHIP_KEY[task.status]} />
+                      <TaskStatusChip status={task.status} />
                     </td>
                   )}
 
@@ -155,14 +157,35 @@ const TaskTableComponent = ({
                   {fields.assignee && (
                     <td className={`${CELL_CLASS} whitespace-nowrap`}>
                       {assignees.length ? (
-                        <span title={assignees.join(', ')}>
-                          {assignees[0]}
+                        <span className="inline-flex items-center gap-2" title={assignees.join(', ')}>
+                          <span className={`flex items-center justify-center size-6 rounded-full text-white text-[9px] font-bold shrink-0 ${avatarColorClass(assignees[0])}`}>
+                            {getInitials(assignees[0])}
+                          </span>
+                          <span className="font-medium text-text">{assignees[0]}</span>
                           {assignees.length > 1 && (
-                            <span className="text-text-muted"> +{assignees.length - 1}</span>
+                            <span className="text-[10px] font-bold px-1.5 py-px rounded-full bg-surface-hover text-text-secondary">+{assignees.length - 1}</span>
                           )}
                         </span>
                       ) : (
-                        <span className="text-text-light">Unassigned</span>
+                        <span className="inline-flex items-center gap-2 text-text-light">
+                          <span className="size-6 rounded-full border border-dashed border-border-hover shrink-0" aria-hidden />
+                          Unassigned
+                        </span>
+                      )}
+                    </td>
+                  )}
+
+                  {fields.dueDate && (
+                    <td className={`${CELL_CLASS} whitespace-nowrap tabular-nums`}>
+                      {task.dueDate ? (
+                        <IconChip
+                          icon={CalendarDays}
+                          tone={overdue ? 'bg-danger' : 'bg-primary-700'}
+                          label={dueText(task.dueDate, overdue)}
+                          className={overdue ? 'border-danger/30 text-danger' : undefined}
+                        />
+                      ) : (
+                        <span className="text-text-light">—</span>
                       )}
                     </td>
                   )}
@@ -177,8 +200,11 @@ const TaskTableComponent = ({
                       picker, and this is the one view wide enough to show a full set of them. */}
                   <td className={CELL_CLASS}>
                     {task.tags?.length ? (
-                      <div className="flex items-center gap-1 flex-wrap">
-                        {task.tags.map((tag) => <TagChip key={tag.id} tag={tag} />)}
+                      <div className="flex items-center gap-1 flex-nowrap" title={task.tags.map((t) => t.name).join(', ')}>
+                        {task.tags.slice(0, MAX_TABLE_LABELS).map((tag) => <TagChip key={tag.id} tag={tag} />)}
+                        {task.tags.length > MAX_TABLE_LABELS && (
+                          <span className="text-[10px] font-bold px-1.5 py-px rounded-full bg-surface-hover text-text-secondary tabular-nums">+{task.tags.length - MAX_TABLE_LABELS}</span>
+                        )}
                       </div>
                     ) : (
                       <span className="text-text-light">—</span>
@@ -188,18 +214,6 @@ const TaskTableComponent = ({
                   {fields.raisedBy && (
                     <td className={`${CELL_CLASS} whitespace-nowrap`}>
                       {raisedBy ?? <span className="text-text-light">—</span>}
-                    </td>
-                  )}
-
-                  {fields.dueDate && (
-                    <td className={`${CELL_CLASS} whitespace-nowrap tabular-nums`}>
-                      {task.dueDate ? (
-                        <span className={overdue ? 'text-danger font-semibold' : undefined}>
-                          {formatShortDate(task.dueDate)}
-                        </span>
-                      ) : (
-                        <span className="text-text-light">—</span>
-                      )}
                     </td>
                   )}
 

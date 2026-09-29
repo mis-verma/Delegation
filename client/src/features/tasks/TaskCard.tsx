@@ -125,12 +125,18 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
         </div>
       )}
 
-      <div className="flex items-start justify-between gap-2">
-        <h4 className="text-sm font-bold text-text-secondary tracking-tight leading-tight line-clamp-2 break-words">
+      {/* Title gets the card's full width. Move/Delete used to sit beside it and squeezed a
+          ~250px column's title down to "Security camera offlin…"; they're a small floating
+          toolbar now, shown on hover or keyboard focus (always on touch, where there's no hover). */}
+      <div className="flex items-start gap-2">
+        <h4 className={`flex-1 min-w-0 text-sm font-display font-semibold text-text tracking-tight leading-snug line-clamp-2 break-words ${onMove || isVerifier ? 'pointer-coarse:pr-20' : ''}`}>
           {task.title}
         </h4>
-        <div className="flex items-center gap-1 shrink-0">
-          <TaskSourceBadge aiMeta={task.aiMeta} />
+        <TaskSourceBadge aiMeta={task.aiMeta} />
+      </div>
+
+      {(onMove || isVerifier) && (
+        <div className="absolute top-2 right-2 z-10 flex items-center gap-0.5 p-0.5 rounded-lg border border-border/70 bg-surface opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-coarse:opacity-100 transition-opacity duration-150">
 
           {onMove && (
             <DropdownMenu>
@@ -143,7 +149,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
                   onClick={(e) => e.stopPropagation()}
                   aria-label="Move to another status"
                   title="Move to another status"
-                  className="flex items-center justify-center size-9 rounded-md text-text-light hover:text-primary-600 hover:bg-primary-500/10 transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+                  className="flex items-center justify-center size-8 rounded-md text-text-muted hover:text-primary-600 hover:bg-primary-500/10 transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
                 >
                   <MoveRight size={15} strokeWidth={2.5} />
                 </button>
@@ -191,7 +197,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
               disabled={deleteMutation.isPending}
               aria-label="Delete delegation"
               title="Delete delegation"
-              className="flex items-center justify-center size-9 rounded-md text-text-light hover:text-danger hover:bg-danger/10 transition-colors cursor-pointer disabled:opacity-50 outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+              className="flex items-center justify-center size-8 rounded-md text-text-muted hover:text-danger hover:bg-danger/10 transition-colors cursor-pointer disabled:opacity-50 outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
             >
               {deleteMutation.isPending ? (
                 <Loader2 size={15} strokeWidth={2.5} className="animate-spin text-danger" />
@@ -201,7 +207,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
             </button>
           )}
         </div>
-      </div>
+      )}
 
       {coverPhoto && (
         // aspect-video gave a ~250px-wide column a ~140px image — the single heaviest thing on the

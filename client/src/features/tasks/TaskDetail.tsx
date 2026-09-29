@@ -163,7 +163,9 @@ const TaskFooter = ({ task, isPC, isVerifier, nextStatus, onAdvance, isAdvancing
             <Button
               variant="outline"
               size="sm"
-              className="max-sm:flex-1 max-sm:min-w-0 max-sm:bg-primary-700 max-sm:text-white max-sm:border-transparent max-sm:hover:bg-primary-800 sm:border-primary-200 sm:text-primary-700 sm:hover:bg-primary-50"
+              // The sheet's one forward action, so it's the solid navy button on every screen
+              // (was navy on phones only, a pale outline on desktop).
+              className="max-sm:flex-1 max-sm:min-w-0 bg-primary-800 text-white border-transparent hover:bg-primary-900 hover:text-white dark:bg-primary-600 dark:hover:bg-primary-500 font-display"
               disabled={isAdvancing}
               onClick={onAdvance}
             >
@@ -172,7 +174,7 @@ const TaskFooter = ({ task, isPC, isVerifier, nextStatus, onAdvance, isAdvancing
             </Button>
           )}
           <Button
-            variant="primary"
+            variant="outline"
             size="sm"
             onClick={onClose}
             // Phones: only when there's nothing else in the row — otherwise the header ✕ closes.

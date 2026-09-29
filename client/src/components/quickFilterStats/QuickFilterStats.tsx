@@ -184,6 +184,8 @@ export function QuickFilterStats<K extends string>({
         const count = isTotalTile ? total : counts[key as K];
         const handleClick = () => (isTotalTile ? onClearFilter?.() : onToggle(key as K));
         const isHero = variant === 'navy' && index === 0;
+        // Only meaningful against a real total, and never on the Total tile itself (always 100%).
+        const share = hasTotal && !isTotalTile && total ? Math.round(((count ?? 0) / total) * 100) : null;
         // `title` alone never appears on touch, where it was the only thing saying these tiles
         // filter at all. It stays for pointer users, but the same sentence is now also the
         // accessible name (aria-label) so the affordance survives on any device without needing a
@@ -280,11 +282,21 @@ export function QuickFilterStats<K extends string>({
               <p className={cn("text-2xl font-bold tracking-tight leading-none tabular-nums transition-colors", isActive ? "text-text" : "text-text-secondary group-hover:text-text")}>
                 {count}
               </p>
-              {/* See the hero tile's identical comment above — same wrap-not-truncate fix. */}
-              <p className="text-[11px] md:text-xs font-semibold text-text-muted mt-1.5 leading-snug tracking-tight">
+              {/* See the hero tile's identical comment above — same wrap-not-truncate fix. The
+                  share of the total rides on the label line, so "31 Delayed" also says how big a
+                  slice that is without doing the maths. */}
+              <p className="flex items-baseline gap-1.5 text-[11px] md:text-xs font-semibold text-text-muted mt-1.5 leading-snug tracking-tight">
                 {label}
+                {share !== null && <span className="text-[10px] font-bold text-text-light tabular-nums">{share}%</span>}
               </p>
             </div>
+
+            {/* Same share as a hairline along the bottom edge, in the tile's own accent colour. */}
+            {share !== null && (
+              <span aria-hidden className="absolute left-0 right-0 bottom-0 h-[3px] bg-surface-hover/70">
+                <span className={cn("block h-full transition-all duration-500 ease-out", accentBar)} style={{ width: `${share}%` }} />
+              </span>
+            )}
 
             {/* Icon tile — the StatCard-style treatment this row was missing. No decorative ring
                 behind it and no corner badge on top of it: at this tile's compact size (roughly a

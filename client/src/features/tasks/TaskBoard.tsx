@@ -198,7 +198,9 @@ const Column = memo(({ columnKey, label, tasks, isDropTarget, fillsRow, assignee
       {/* Column Header */}
       <div className="flex items-center justify-between gap-2 px-2 py-2">
         <div className="flex items-center gap-2 min-w-0">
-          <h3 className="text-xs font-bold text-text-secondary truncate">
+          {/* Wraps rather than truncates: "Pending Approval" next to two badges was being cut to
+              "Pending Appro…" in a four-column board. */}
+          <h3 className="text-[13px] font-display font-semibold text-text leading-tight">
             {label}
           </h3>
           <Badge variant="default" className="min-w-6 justify-center bg-primary-500/10 tabular-nums">

@@ -148,7 +148,7 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
               discover it by submitting. */}
           {/* Desktop-only — the red * on the title label already says it on a phone. */}
           <p className="hidden sm:block text-xs font-medium text-text-light">
-            <span className="text-danger">*</span> Title is required — everything else can be added later.
+            <span className="text-danger">*</span> Only the title is required. Add the rest now or later.
           </p>
 
           {/* Three hand-rolled <button>s with their own duplicated Tailwind soup — missing the

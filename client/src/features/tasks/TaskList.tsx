@@ -718,6 +718,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
             <TaskListView
               tasks={sorted}
               departmentNames={departmentNames}
+              assigneeNames={assigneeNames}
               onOpen={handleOpen}
               fields={fieldVisibility}
               newlyAssignedTaskIds={newlyAssignedTaskIds}

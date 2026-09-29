@@ -1,10 +1,14 @@
 import { memo } from 'react';
 import { CalendarDays } from 'lucide-react';
-import { StatusChip, DepartmentChip, TagChip, PriorityChip, IconChip, type StatusChipStatus } from '../../components';
+import { DepartmentChip, TagChip, PriorityChip, IconChip } from '../../components';
+import { TaskStatusChip } from './TaskStatusChip';
+import { avatarColorClass } from '../../lib/avatarColors';
+import { getInitials } from '../../lib/getInitials';
 import { PRIORITY_MAP } from './taskDisplay';
 import { isOverdueTask } from './taskFilters';
 import {
   subtaskProgress,
+  taskAssigneeIds,
   formatShortDate,
   CATEGORY_CONFIG,
   type CardFieldVisibility,
@@ -15,27 +19,21 @@ import type { Task } from '../../api/task';
 interface TaskListViewProps {
   tasks: Task[];
   departmentNames?: Map<string, string>;
+  /** id -> display name, for the owner avatars on each tile. */
+  assigneeNames?: Map<string, string>;
   onOpen: (task: Task, mode?: 'view' | 'edit') => void;
   fields: CardFieldVisibility;
   newlyAssignedTaskIds?: Set<string>;
 }
 
-const STATUS_CHIP_KEY = {
-  // draft never actually reaches this view (the normal Task List excludes it — see
-  // task.service.ts#list), but Task['status'] includes it structurally so this map still needs
-  // an entry; 'open' is the closest neutral reading if one ever did.
-  draft: 'open',
-  todo: 'open',
-  in_progress: 'in_progress',
-  pending_approval: 'pending',
-  done: 'completed',
-} as const satisfies Record<Task['status'], StatusChipStatus>;
-
 // "Today" and "Tomorrow" beat a date the reader has to compare against today's, which is the whole
 // job of a due value. Anything further out is the plain short date.
-const dueLabel = (iso: string) => {
+// Overdue says by how much ("14d overdue"), the same wording the Board card uses, rather than a
+// bare past date the reader has to subtract from today.
+const dueLabel = (iso: string, overdue: boolean) => {
   const startOfDay = (d: Date) => new Date(d).setHours(0, 0, 0, 0);
   const days = Math.round((startOfDay(new Date(iso)) - startOfDay(new Date())) / 86_400_000);
+  if (overdue && days < 0) return `${Math.abs(days)}d overdue`;
   if (days === 0) return 'Today';
   if (days === 1) return 'Tomorrow';
   if (days === -1) return 'Yesterday';
@@ -50,9 +48,8 @@ const dueLabel = (iso: string) => {
  * row breaks that: the eye moves down two short columns instead of scanning one wide line, and
  * twice as many delegations fit on a screen.
  *
- * No owner here. On a page that is already scoped to a person most of the time, repeating the same
- * name down every tile spends the tile's most valuable space saying nothing — Table and Timeline
- * both carry the owner for when that is the question being asked.
+ * The owner is a small avatar stack beside the title (governed by the Assignee field toggle), not
+ * a spelled-out name — enough to spot "mine" at a glance without spending the tile's width on it.
  *
  * No "Move to" menu either: status changes from this view go through the tile's detail sheet, which
  * enforces the same remark gate. Board and Timeline keep their inline menus.
@@ -60,6 +57,7 @@ const dueLabel = (iso: string) => {
 const TaskListViewComponent = ({
   tasks,
   departmentNames,
+  assigneeNames,
   onOpen,
   fields,
   newlyAssignedTaskIds,
@@ -72,6 +70,9 @@ const TaskListViewComponent = ({
       const checklist = getChecklistProgress(task.checklists ?? []);
       const department = task.departmentId ? departmentNames?.get(task.departmentId) : undefined;
       const isNew = newlyAssignedTaskIds?.has(task.id);
+      const owners = taskAssigneeIds(task)
+        .map((id) => assigneeNames?.get(id))
+        .filter((n): n is string => !!n);
 
       return (
         <li key={task.id}>
@@ -103,6 +104,28 @@ const TaskListViewComponent = ({
                 <span className="flex-1 min-w-0 text-[15px] font-display font-semibold text-text tracking-tight leading-snug">
                   {task.title}
                 </span>
+                {/* Who owns it, as a small avatar stack — a glance answers "is this mine?" without
+                    opening the tile. Up to three faces, then +n. */}
+                {fields.assignee && (
+                  <span className="flex items-center -space-x-1.5 shrink-0" title={owners.length ? owners.join(', ') : 'Unassigned'}>
+                    {owners.length ? (
+                      <>
+                        {owners.slice(0, 3).map((name, i) => (
+                          <span key={name + i} className={`flex items-center justify-center size-6 rounded-full ring-2 ring-surface text-white text-[9px] font-bold ${avatarColorClass(name)}`}>
+                            {getInitials(name)}
+                          </span>
+                        ))}
+                        {owners.length > 3 && (
+                          <span className="flex items-center justify-center size-6 rounded-full ring-2 ring-surface bg-surface-hover text-text-secondary text-[9px] font-bold">
+                            +{owners.length - 3}
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="flex items-center justify-center size-6 rounded-full border border-dashed border-border-hover text-text-light text-[9px] font-bold">?</span>
+                    )}
+                  </span>
+                )}
               </div>
               {/* The reference layout also puts a task code and a comment count on this line.
                   Neither exists yet: ids are cuids with no short human code, and the list payload
@@ -123,7 +146,7 @@ const TaskListViewComponent = ({
             {/* mt-auto so tiles of differing title length still align their footers to the bottom
                 of the row — a two-up grid stretches its cells to equal height. */}
             <div className="flex items-center gap-1.5 flex-wrap mt-auto">
-              {fields.status && <StatusChip status={STATUS_CHIP_KEY[task.status]} />}
+              {fields.status && <TaskStatusChip status={task.status} />}
 
               <PriorityChip meta={priority} />
 
@@ -133,7 +156,7 @@ const TaskListViewComponent = ({
                 <IconChip
                   icon={CalendarDays}
                   tone={overdue ? 'bg-danger' : 'bg-primary-700'}
-                  label={dueLabel(task.dueDate)}
+                  label={dueLabel(task.dueDate, overdue)}
                   title={overdue ? 'Overdue' : 'Due date'}
                   className={overdue ? 'border-danger/30 text-danger' : undefined}
                 />
