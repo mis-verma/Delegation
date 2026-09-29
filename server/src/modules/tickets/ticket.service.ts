@@ -545,11 +545,15 @@ export const ticketService = {
     if (input.status !== undefined) patch.status = input.status
 
     if (input.status === "CLOSED" && before.status !== "CLOSED") {
-
-      if (user.role !== "ADMIN" && user.role !== "PC") {
-        throw AppError.forbidden("Only a verifier can close a ticket — send it for review instead.")
-      }
-      patch.closedAt = new Date();
+      // This used to just role-gate (ADMIN/PC) and set closedAt — which let a verifier close a
+      // ticket straight from OPEN/IN_PROGRESS/ON_HOLD, skipping both the checklist gate that
+      // normally has to clear on the way into PENDING_APPROVAL (see the branch below) and the
+      // verification record itself (verifiedBy/verifiedAt/verificationNote all stayed null, so
+      // VerificationNoteBanner had nothing to show for a "closed" ticket). Closing is a
+      // verification decision, not a plain status change — verify() (PATCH /tickets/:id/verify,
+      // action=APPROVE) is the one place that sets all three atomically under the same
+      // optimistic-concurrency guard, and is now the only way to reach CLOSED going forward.
+      throw AppError.badRequest("A ticket can only be closed by approving it — send it for review first, then approve it from there.")
     } else if (input.status === "PENDING_APPROVAL" && before.status !== "PENDING_APPROVAL") {
       // Fresh read with the exact `with` needed for the checklist gate, replacing the old
       // mid-flight `ticket.populate(...)` call on the already-fetched Mongoose document.

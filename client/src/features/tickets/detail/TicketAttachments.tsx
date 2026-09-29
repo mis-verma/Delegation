@@ -12,6 +12,10 @@ interface TicketAttachmentsProps {
   onDelete: (attachmentId: string) => void;
   isDeleting: boolean;
   onPreview: (url: string) => void;
+  /** Hides the upload dropzone and the delete action — for a viewer who can see the ticket but
+   *  doesn't have mutate rights on it (the server's assertCanMutate would 403 both anyway). The
+   *  existing attachments stay visible and previewable either way. */
+  readOnly?: boolean;
 }
 
 export const TicketAttachments = ({
@@ -22,6 +26,7 @@ export const TicketAttachments = ({
   onDelete,
   isDeleting,
   onPreview,
+  readOnly = false,
 }: TicketAttachmentsProps) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -34,26 +39,32 @@ export const TicketAttachments = ({
         <span className="text-[11px] text-text-muted">{attachments.length} files</span>
       </div>
 
-      <div
-        onClick={() => fileInputRef.current?.click()}
-        className="group border border-dashed border-border/80 hover:border-primary-500/50 bg-surface/40 hover:bg-primary-500/5 p-4 rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all duration-200"
-      >
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          className="hidden"
-          onChange={(e) => { onUpload(e.target.files); e.target.value = ''; }}
-        />
-        <div className="p-2 rounded-full bg-surface-muted group-hover:bg-primary-500/10 text-text-muted group-hover:text-primary-500 transition-colors mb-1.5">
-          <UploadCloud size={18} />
+      {!readOnly && (
+        <div
+          onClick={() => fileInputRef.current?.click()}
+          className="group border border-dashed border-border/80 hover:border-primary-500/50 bg-surface/40 hover:bg-primary-500/5 p-4 rounded-xl flex flex-col items-center justify-center cursor-pointer transition-all duration-200"
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(e) => { onUpload(e.target.files); e.target.value = ''; }}
+          />
+          <div className="p-2 rounded-full bg-surface-muted group-hover:bg-primary-500/10 text-text-muted group-hover:text-primary-500 transition-colors mb-1.5">
+            <UploadCloud size={18} />
+          </div>
+          <p className="text-xs font-medium text-text group-hover:text-primary-500 transition-colors">
+            {isUploading ? 'Uploading...' : 'Click or drop pictures here'}
+          </p>
+          <p className="text-[10px] text-text-muted mt-0.5">PNG, JPG, WEBP up to 10MB</p>
         </div>
-        <p className="text-xs font-medium text-text group-hover:text-primary-500 transition-colors">
-          {isUploading ? 'Uploading...' : 'Click or drop pictures here'}
-        </p>
-        <p className="text-[10px] text-text-muted mt-0.5">PNG, JPG, WEBP up to 10MB</p>
-      </div>
+      )}
+
+      {attachments.length === 0 && readOnly && (
+        <p className="text-xs text-text-muted font-display">No attachments.</p>
+      )}
 
       {uploadErrorMessage && (
         <p className="text-xs text-danger">{uploadErrorMessage}</p>
@@ -87,15 +98,17 @@ export const TicketAttachments = ({
                 >
                   <Eye size={14} />
                 </Button>
-                <Button
-                  type="button"
-                  onClick={() => onDelete(file.id)}
-                  disabled={isDeleting}
-                  className="p-1.5 rounded-full bg-danger/80 text-white hover:bg-danger transition-colors cursor-pointer disabled:opacity-50"
-                  title="Delete image"
-                >
-                  <Trash2 size={14} />
-                </Button>
+                {!readOnly && (
+                  <Button
+                    type="button"
+                    onClick={() => onDelete(file.id)}
+                    disabled={isDeleting}
+                    className="p-1.5 rounded-full bg-danger/80 text-white hover:bg-danger transition-colors cursor-pointer disabled:opacity-50"
+                    title="Delete image"
+                  >
+                    <Trash2 size={14} />
+                  </Button>
+                )}
               </div>
             </div>
           ))}
