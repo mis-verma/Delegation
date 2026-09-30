@@ -1025,13 +1025,13 @@ export const checklistInstanceService = {
     // QC, PENDING_APPROVAL for a separate org-wide-only final approval) — collapsed to one queue.
     async listPendingVerification(user: AccessTokenPayload, page?: number, limit?: number) {
         const p = paginate(page, limit)
-        // Same rule as instanceConditions' includeDeleted — ADMIN/PC still see a deleted
-        // checklist's leftover PENDING_APPROVAL instance (auditing history); MANAGER and named
-        // reviewers don't, since for them it's just a template nobody can open any more.
-        const includeDeleted = user.role === "ADMIN" || user.role === "PC"
-        const conditions = includeDeleted
-            ? [eq(checklistInstances.verificationStatus, "PENDING_APPROVAL")]
-            : [eq(checklistInstances.verificationStatus, "PENDING_APPROVAL"), parentNotDeletedExpr]
+        // Always excluded, every role including ADMIN/PC — this is an actionable "needs your
+        // review" queue, not an audit view (matches getMine's own reasoning, see that method's
+        // controller comment). A deleted checklist's leftover PENDING_APPROVAL instance has
+        // nothing left to approve it into — its own template is gone — so it doesn't belong in
+        // a queue framed around "review this." Audit history stays reachable on the Compliance
+        // Board's explicit toggle instead.
+        const conditions = [eq(checklistInstances.verificationStatus, "PENDING_APPROVAL"), parentNotDeletedExpr]
 
         if (user.role !== "ADMIN" && user.role !== "PC") {
             // ADMIN/PC see everything (unchanged). Everyone else is scoped to the union of their
@@ -1070,13 +1070,14 @@ export const checklistInstanceService = {
         return { data: await hydrateInstances(instanceRows), meta: buildMeta(p, total) }
     },
 
-    // Dashboard's "Needs your approval" card (ADMIN/PC only — gated at the route). No
-    // parent-deleted filter, matching listPendingVerification's own ADMIN/PC branch above (they
-    // see a deleted checklist's leftover queue too). Oldest-waiting-first via `updatedAt` directly
-    // — no second query needed here, unlike Ticket/Task: there's no generic "edit any field"
-    // endpoint for an instance that could drift it, syncVerificationStatus only touches it exactly
-    // when the status flips into or out of PENDING_APPROVAL, so it's a trustworthy "entered
-    // approval at" timestamp as-is (see that method's own comment near the top of this file).
+    // Dashboard's "Needs your approval" card (ADMIN/PC only — gated at the route). Excludes a
+    // deleted checklist's leftover queue now, same reasoning as listPendingVerification just
+    // above — this card is framed as "here's what to go act on," and a deleted checklist has
+    // nothing left to act on. Oldest-waiting-first via `updatedAt` directly — no second query
+    // needed here, unlike Ticket/Task: there's no generic "edit any field" endpoint for an
+    // instance that could drift it, syncVerificationStatus only touches it exactly when the
+    // status flips into or out of PENDING_APPROVAL, so it's a trustworthy "entered approval at"
+    // timestamp as-is (see that method's own comment near the top of this file).
     async pendingApprovalPreview(limit = 8): Promise<ChecklistPendingApprovalRow[]> {
         const rows = await db.select({
             id: checklistInstances.id,
@@ -1086,7 +1087,7 @@ export const checklistInstanceService = {
         })
             .from(checklistInstances)
             .leftJoin(stores, eq(checklistInstances.storeId, stores.id))
-            .where(eq(checklistInstances.verificationStatus, "PENDING_APPROVAL"))
+            .where(and(eq(checklistInstances.verificationStatus, "PENDING_APPROVAL"), parentNotDeletedExpr))
             .orderBy(asc(checklistInstances.updatedAt))
             .limit(limit)
 

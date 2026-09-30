@@ -20,9 +20,12 @@ export const checklistInstanceController = {
     // so a caller that ignores `meta` still works, it just gets the first page.
     getMine: asyncHandler(async (req: Request, res: Response) => {
         const { page, limit, status } = listChecklistInstancesQuerySchema.parse(req.query)
-        // ADMIN/PC still see a deleted checklist's history on their own "mine" tab too — see
-        // InstanceListFilter.includeDeleted. Everyone else never sees it, here or anywhere else.
-        const includeDeleted = req.user!.role === "ADMIN" || req.user!.role === "PC"
+        // Always excluded here, even for ADMIN/PC — My Checklists is everyone's own day-to-day
+        // list, not an audit view, so a checklist someone deleted disappears from it for
+        // literally every role. Audit history has one home: the Compliance Board's explicit
+        // "Show deleted checklists" toggle (see `list` below) — this endpoint doesn't get a
+        // parallel toggle of its own on purpose, to keep this list unambiguous ("nothing left to
+        // do here" should always mean nothing left, full stop).
         const result = await checklistInstanceService.getMine(req.user!.sub, {
             status,
             storeId: req.query.storeId as string | undefined,
@@ -30,7 +33,7 @@ export const checklistInstanceController = {
             verificationStatus: req.query.verificationStatus as InstanceVerificationStatus | undefined,
             departmentId: req.query.departmentId as string | undefined,
             assigneeIds: parseIdsParam(req.query.assigneeIds),
-            includeDeleted,
+            includeDeleted: false,
             page,
             limit,
         })
