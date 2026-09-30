@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Copy, Trash2 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { Loader } from '../loaders/Loader';
@@ -156,9 +156,13 @@ interface EntityCardActionsProps {
   isDeleting: boolean;
   editLabel: string;
   deleteLabel: string;
+  /** Adds a copy button between edit and delete — only the cards whose thing can be duplicated
+   *  (checklists) pass these; Users/Departments/Stores leave them out and look exactly as before. */
+  onDuplicate?: () => void;
+  duplicateLabel?: string;
 }
   
-export const EntityCardActions = ({ onEdit, onDelete, isDeleting, editLabel, deleteLabel }: EntityCardActionsProps) => (
+export const EntityCardActions = ({ onEdit, onDelete, isDeleting, editLabel, deleteLabel, onDuplicate, duplicateLabel }: EntityCardActionsProps) => (
   <div className="flex items-center gap-1">
     <button
       type="button"
@@ -168,6 +172,18 @@ export const EntityCardActions = ({ onEdit, onDelete, isDeleting, editLabel, del
     >
       <Pencil className="size-4" strokeWidth={2.5} />
     </button>
+
+    {onDuplicate && (
+      <button
+        type="button"
+        onClick={onDuplicate}
+        className="p-2 rounded-lg text-text-muted transition-all duration-200 hover:bg-primary-50 hover:text-primary-600 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-50/50 active:scale-90"
+        aria-label={duplicateLabel}
+        title={duplicateLabel}
+      >
+        <Copy className="size-4" strokeWidth={2.5} />
+      </button>
+    )}
 
     <button
       type="button"

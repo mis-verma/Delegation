@@ -16,10 +16,14 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy, sortableKeyboardCoordinates, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Trash2, Plus, X, Pencil, Check, Layers, ChevronUp, ChevronDown } from 'lucide-react';
+import { GripVertical, Trash2, Copy, Plus, X, Pencil, Check, Layers, ChevronUp, ChevronDown } from 'lucide-react';
+import { toast } from 'sonner';
 import { useConfirm } from '@/components/confirmDialog';
 import { ChecklistDefinitionItemDraftRow, type ItemDraft } from '../ChecklistDefinitionItemDraftRow';
-import { UNGROUPED, type SectionId, groupBySection, containerOrderFor, normalizeItemOrder } from '../itemSections';
+import {
+  UNGROUPED, MAX_CHECKLIST_ITEMS, type SectionId,
+  groupBySection, containerOrderFor, normalizeItemOrder, cloneItemDraft, copiedSectionName,
+} from '../itemSections';
 import { DRAG_SLOP_PX } from '../../../../lib/dragSlop';
 
 interface BuilderItemsListProps {
@@ -42,12 +46,14 @@ const SortableItemRow = ({
   index,
   onChange,
   onRemove,
+  onDuplicate,
   storeIds,
 }: {
   draft: ItemDraft;
   index: number;
   onChange: (key: string, patch: Partial<ItemDraft>) => void;
   onRemove: () => void;
+  onDuplicate: () => void;
   storeIds?: string[];
 }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: draft.key });
@@ -90,14 +96,27 @@ const SortableItemRow = ({
           </button>
         }
         trailing={
-          <button
-            type="button"
-            onClick={handleRemove}
-            className="flex items-center justify-center shrink-0 size-10 rounded-lg text-text-light hover:text-danger hover:bg-danger/10 transition-colors duration-150 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"
-            aria-label="Remove question"
-          >
-            <Trash2 size={16} />
-          </button>
+          // Stacked, so the card's content column keeps its width. Remove stays where it always
+          // was (top); Duplicate sits under it.
+          <div className="flex flex-col gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={handleRemove}
+              className="flex items-center justify-center shrink-0 size-10 rounded-lg text-text-light hover:text-danger hover:bg-danger/10 transition-colors duration-150 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"
+              aria-label="Remove question"
+            >
+              <Trash2 size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={onDuplicate}
+              className="flex items-center justify-center shrink-0 size-10 rounded-lg text-text-light hover:text-primary-700 dark:hover:text-primary-300 hover:bg-primary-500/10 transition-colors duration-150 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+              aria-label="Duplicate question"
+              title="Duplicate question"
+            >
+              <Copy size={16} />
+            </button>
+          </div>
         }
       />
     </div>
@@ -116,6 +135,7 @@ const SectionContainer = ({
   onSelect,
   onRename,
   onDelete,
+  onDuplicate,
   onMoveUp,
   onMoveDown,
   renderRow,
@@ -131,6 +151,7 @@ const SectionContainer = ({
   onSelect: () => void;
   onRename?: (next: string) => void;
   onDelete?: () => void;
+  onDuplicate?: () => void;
   // Section *blocks* aren't drag-reorderable (only items are) — undefined at either boundary of
   // the sections list, or entirely for the fixed Ungrouped bucket.
   onMoveUp?: () => void;
@@ -155,7 +176,8 @@ const SectionContainer = ({
 
   return (
     <div
-      className={`flex flex-col gap-3 rounded-2xl transition-colors duration-150 ${isOver ? 'bg-primary-500/5 ring-2 ring-primary-400/40 ring-offset-4 ring-offset-surface' : ''}`}
+      data-section-name={title}
+      className={`flex flex-col gap-3 rounded-2xl scroll-mt-24 transition-colors duration-150 ${isOver ? 'bg-primary-500/5 ring-2 ring-primary-400/40 ring-offset-4 ring-offset-surface' : ''}`}
     >
       {!bare && <div className="flex items-center justify-between gap-2 pb-1 border-b border-border/60">
         <div className="flex items-center gap-2 min-w-0">
@@ -225,6 +247,9 @@ const SectionContainer = ({
             </button>
             <button type="button" onClick={() => setRenaming(true)} className="p-2 text-text-light hover:text-text-secondary hover:bg-surface-hover rounded-md cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50" aria-label={`Rename ${title}`}>
               <Pencil size={12} />
+            </button>
+            <button type="button" onClick={onDuplicate} className="p-2 text-text-light hover:text-text-secondary hover:bg-surface-hover rounded-md cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50" aria-label={`Duplicate ${title} section`} title="Duplicate section and its questions">
+              <Copy size={12} />
             </button>
             <button type="button" onClick={onDelete} className="p-2 text-text-light hover:text-danger hover:bg-danger/10 rounded-md cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-danger/50" aria-label={`Delete ${title} section`}>
               <X size={12} />
@@ -320,6 +345,60 @@ export const BuilderItemsList = ({
     if (activeSection === name) setActiveSection(null);
   };
 
+  // True (after telling the person why) when adding `count` more questions would pass the server's
+  // per-checklist limit.
+  const wouldExceedItemLimit = (count: number) => {
+    if (itemDrafts.length + count <= MAX_CHECKLIST_ITEMS) return false;
+    toast.error(`A checklist can have at most ${MAX_CHECKLIST_ITEMS} questions.`);
+    return true;
+  };
+
+  // The new card/section mounts after the click handler returns, so look it up on the next frame:
+  // scroll it into view, and for a question put the cursor in its text so the copy can be reworded
+  // straight away.
+  const revealAfterRender = (find: () => HTMLElement | null, focus: boolean) =>
+    requestAnimationFrame(() => {
+      const el = find();
+      if (!el) return;
+      el.scrollIntoView({ block: focus ? 'center' : 'start', behavior: 'smooth' });
+      if (focus) el.focus({ preventScroll: true });
+    });
+
+  // The copy goes straight after the original, in the same section — which also keeps every
+  // section's questions contiguous, as the saved order needs.
+  const handleDuplicateItem = (key: string) => {
+    const at = itemDrafts.findIndex((d) => d.key === key);
+    if (at < 0 || wouldExceedItemLimit(1)) return;
+    const copy = cloneItemDraft(itemDrafts[at]);
+    setItemDrafts((prev) => {
+      const i = prev.findIndex((d) => d.key === key);
+      if (i < 0) return prev;
+      const next = [...prev];
+      next.splice(i + 1, 0, copy);
+      return next;
+    });
+    toast.success('Question duplicated');
+    revealAfterRender(() => document.getElementById(`item-label-${copy.key}`), true);
+  };
+
+  // A new section right after the original, holding copies of all its questions.
+  const handleDuplicateSection = (name: string) => {
+    const questionCount = itemDrafts.filter((d) => d.section === name).length;
+    if (wouldExceedItemLimit(questionCount)) return;
+    const copyName = copiedSectionName(name, sections);
+    const nextSections = [...sections];
+    nextSections.splice(sections.indexOf(name) + 1, 0, copyName);
+    setSections(nextSections);
+    setItemDrafts((prev) => normalizeItemOrder(
+      [...prev, ...prev.filter((d) => d.section === name).map((d) => cloneItemDraft(d, { section: copyName }))],
+      nextSections,
+    ));
+    setActiveSection(copyName);
+    toast.success(`Duplicated "${name}" with ${questionCount} ${questionCount === 1 ? 'question' : 'questions'}`);
+    // `window.CSS`: the bare name is dnd-kit's CSS helper in this file.
+    revealAfterRender(() => document.querySelector<HTMLElement>(`[data-section-name="${window.CSS.escape(copyName)}"]`), false);
+  };
+
   // Section blocks display in `sections` array order, so swapping two entries reorders them —
   // but the saved item order comes from flattening `itemDrafts` in that same order (see
   // itemSections.ts), so it must be re-flattened here too, or the visual reorder wouldn't be
@@ -389,6 +468,7 @@ export const BuilderItemsList = ({
       index={itemDrafts.indexOf(draft)}
       onChange={onUpdateDraft}
       onRemove={() => onRemoveItem(draft.key)}
+      onDuplicate={() => handleDuplicateItem(draft.key)}
       storeIds={storeIds}
     />
   );
@@ -424,6 +504,7 @@ export const BuilderItemsList = ({
               onSelect={() => setActiveSection(name)}
               onRename={(next) => handleRenameSection(name, next)}
               onDelete={() => handleDeleteSection(name)}
+              onDuplicate={() => handleDuplicateSection(name)}
               onMoveUp={i > 0 ? () => moveSection(name, -1) : undefined}
               onMoveDown={i < sections.length - 1 ? () => moveSection(name, 1) : undefined}
               renderRow={renderRow}

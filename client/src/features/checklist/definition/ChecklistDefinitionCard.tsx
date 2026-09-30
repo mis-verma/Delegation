@@ -131,9 +131,11 @@ export const ChecklistDefinitionCard = ({ definition, selectionMode = false, sel
             />
             <EntityCardActions
               onEdit={() => navigate(`/admin/scheduled-checklists/builder/${definition.id}`)}
+              onDuplicate={() => navigate(`/admin/scheduled-checklists/builder?copyFrom=${definition.id}`)}
               onDelete={handleDelete}
               isDeleting={deleteMutation.isPending}
               editLabel={`Edit ${definition.name} in builder`}
+              duplicateLabel={`Duplicate ${definition.name}`}
               deleteLabel={`Delete ${definition.name}`}
             />
           </div>

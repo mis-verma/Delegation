@@ -321,6 +321,12 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
   // Desktop gets a fixed, chunky width too; left to Recharts it drew ~12px sticks.
   const mobileBarSize = isMobile ? Math.min(28, Math.floor((300 / data.length) * 0.66)) : data.length <= 8 ? 30 : 20;
 
+  // Whole-number ticks only (these are item counts), and no more ticks than the tallest bar has
+  // steps. Asking for the default five with `allowDecimals={false}` made a quiet week whose tallest
+  // bar is 2 get an axis running 0-4, so every bar and its gray track stopped halfway up the plot.
+  const yMax = chartData[0]?.track ?? 1;
+  const yTickCount = yMax < 4 ? yMax + 1 : 5;
+
   const selectedDatum = selectedIndex !== null ? data[selectedIndex] : null;
   // Bars read at full, real color until the user actually taps one to isolate it — no ambient
   // dimming of "not today" bars, which used to make legitimate data look washed-out for no reason.
@@ -423,6 +429,7 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
                 axisLine={false}
                 width={28}
                 allowDecimals={false}
+                tickCount={yTickCount}
                 tick={{ fill: 'var(--color-text-muted)', fontSize: 11, fontWeight: 600 }}
               />
             )}

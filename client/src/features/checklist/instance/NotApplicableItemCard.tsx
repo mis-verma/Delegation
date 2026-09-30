@@ -1,12 +1,13 @@
 import { Ban, RotateCcw, Loader2 } from 'lucide-react';
 import { useSetChecklistInstanceItemDoneMutation } from '../hook';
 import { formatDate } from '../checklistDisplay';
+import { useCanReopen } from './useCanReopen';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 
 interface NotApplicableItemCardProps {
   item: ChecklistInstanceItem;
   instanceId: string;
-  /** canWork && !isLocked — shows "Undo". */
+  /** canWork && !isLocked — shows "Undo" (to an admin, or to anyone once a reject reopened it). */
   canEdit: boolean;
 }
 
@@ -17,6 +18,11 @@ interface NotApplicableItemCardProps {
  */
 export const NotApplicableItemCard = ({ item, instanceId, canEdit }: NotApplicableItemCardProps) => {
   const mutation = useSetChecklistInstanceItemDoneMutation(instanceId);
+  // Marked-not-applicable is finished work like any other: only an admin can take it back. The one
+  // exception is a run a reviewer sent back, which reopens every step (isDone false) so its owner
+  // can answer it properly this time.
+  const canReopen = useCanReopen();
+  const canUndo = canEdit && (!item.isDone || canReopen);
 
   return (
     <div className="flex flex-col gap-2.5 p-3.5 sm:p-4 rounded-lg border border-dashed border-border-hover bg-surface-hover/40">
@@ -36,7 +42,7 @@ export const NotApplicableItemCard = ({ item, instanceId, canEdit }: NotApplicab
             )}
           </div>
         </div>
-        {canEdit && (
+        {canUndo && (
           <button
             type="button"
             onClick={() => mutation.mutate({ itemId: item.id, isDone: false })}

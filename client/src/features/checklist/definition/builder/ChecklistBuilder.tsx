@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, useBlocker } from 'react-router';
+import { useParams, useNavigate, useBlocker, useSearchParams } from 'react-router';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ArrowLeft, AlertCircle, ListChecks, ChevronLeft, ChevronRight, ClipboardX } from 'lucide-react';
 import { Skeleton, GradientIconTile, Breadcrumbs, Button } from '../../../../components';
@@ -23,10 +23,10 @@ import { BuilderStepper } from './wizard/BuilderStepper';
 import { BuilderStepFrame } from './wizard/BuilderStepFrame';
 import { BuilderReviewStep } from './wizard/BuilderReviewStep';
 import { emptyItemDraft, type ItemDraft } from '../ChecklistDefinitionItemDraftRow';
-import { normalizeItemOrder } from '../itemSections';
+import { normalizeItemOrder, cloneItemDraft } from '../itemSections';
 import { BuilderItemsList } from './BuilderItemsList';
 import type {
-  ChecklistRecurrence, ChecklistIcon,
+  ChecklistDefinition, ChecklistRecurrence, ChecklistIcon,
   ChecklistDefinitionItem, CreateChecklistDefinitionItemPayload,
 } from '../../../../api/checklistDefinitions';
 
@@ -53,6 +53,10 @@ const toItemDraft = (item: ChecklistDefinitionItem): ItemDraft => ({
   yesActions: item.yesActions ?? [],
   noActions: item.noActions ?? [],
 });
+
+// "Morning check" becomes "Morning check (copy)" — trimmed so even a very long name still fits the
+// 191-character limit.
+const copiedChecklistName = (name: string) => `${name.slice(0, 191 - ' (copy)'.length).trimEnd()} (copy)`;
 
 const SIGNATURE_LABELS: Record<string, string[]> = {
   SIGNATURE: ['Signature'],
@@ -116,9 +120,16 @@ export const ChecklistBuilder = () => {
   const isEditing = !!definitionId;
   const navigate = useNavigate();
   const shouldReduceMotion = useReducedMotion();
+  // "Duplicate checklist" lands here as /builder?copyFrom=<id>: a NEW checklist, pre-filled with
+  // another one's settings, questions, stores, people and schedule.
+  const [searchParams] = useSearchParams();
+  const copyFromId = isEditing ? '' : searchParams.get('copyFrom') ?? '';
+  const isCopying = !!copyFromId;
 
   const { data: existing, isPending: isLoadingExisting, isError: loadError, error: loadErrorObj, refetch: refetchExisting } = useChecklistDefinitionQuery(definitionId ?? '');
   const isDeleted = loadErrorObj instanceof ApiError && loadErrorObj.status === 404;
+  const { data: copySource, isPending: isLoadingCopy, isError: copyFailed, error: copyErrorObj, refetch: refetchCopy } = useChecklistDefinitionQuery(copyFromId);
+  const copySourceDeleted = copyErrorObj instanceof ApiError && copyErrorObj.status === 404;
   const { data: templates } = useChecklistTemplatesQuery();
   const createDefinition = useCreateChecklistDefinitionMutation();
   const updateDefinition = useUpdateChecklistDefinitionMutation();
@@ -154,6 +165,7 @@ export const ChecklistBuilder = () => {
   };
 
   const [hydratedId, setHydratedId] = useState<string | undefined>(undefined);
+  const [copiedFromId, setCopiedFromId] = useState<string | undefined>(undefined);
   // Captured once at hydrate time, not read live off `existing` at submit time — if a background
   // refetch (e.g. another admin's edit invalidating this query) pulls in a newer version while
   // this form is still open, submitting THAT version would defeat the whole conflict check: it'd
@@ -177,63 +189,80 @@ export const ChecklistBuilder = () => {
     opensTime: '', cutoffTime: '', activeWeekdays: DEFAULT_WORKING_WEEKDAYS, assigneeIds: [], reviewerIds: [], itemDrafts: [], sections: [],
   }));
 
-  if (existing && hydratedId !== existing.id) {
-    setHydratedId(existing.id);
-    setLoadedVersion(existing.version);
-    setName(existing.name);
+  // Pre-fills every field from a saved checklist — to edit it, or as the starting point of a copy.
+  // A copy gets a new name and fresh question ids; everything else is carried over as it is.
+  const applyDefinition = (def: ChecklistDefinition, asCopy: boolean) => {
+    const nextName = asCopy ? copiedChecklistName(def.name) : def.name;
     // Trimmed on the way in, not just on submit — a whitespace-only stored value would otherwise
     // render as "unchanged" blank text but silently turn into a real change (cleared to undefined)
     // the moment the admin saves anything else on this checklist.
-    setDescription(existing.description?.trim() ?? '');
-    setIcon(existing.icon);
-    setStoreIds(existing.storeIds);
-    setRecurrence(existing.recurrence);
-    setStartDate(existing.startDate.slice(0, 10));
-    setOpensTime(existing.opensTime ?? '');
-    setCutoffTime(existing.cutoffTime ?? '');
-    setActiveWeekdays(existing.activeWeekdays ?? ALL_WEEKDAYS);
-    setAssigneeIds(existing.assigneeIds);
-    setReviewerIds(existing.reviewerIds);
+    const nextDescription = def.description?.trim() ?? '';
+    const weekdays = def.activeWeekdays ?? ALL_WEEKDAYS;
     const seenSections: string[] = [];
-    for (const item of existing.items) {
+    for (const item of def.items) {
       if (item.section && !seenSections.includes(item.section)) seenSections.push(item.section);
     }
     // Re-normalized on load (not just after a drag) in case the stored order was ever written by
     // a path that doesn't guarantee same-section contiguity (e.g. a bulk import or direct API
     // call) — the builder and instance-detail views both assume items sharing a section sit
     // together.
-    const hydratedItemDrafts = normalizeItemOrder(existing.items.map(toItemDraft), seenSections);
+    const hydratedItemDrafts = normalizeItemOrder(
+      def.items.map((item) => (asCopy ? cloneItemDraft(toItemDraft(item)) : toItemDraft(item))),
+      seenSections,
+    );
+    setName(nextName);
+    setDescription(nextDescription);
+    setIcon(def.icon);
+    setStoreIds(def.storeIds);
+    setRecurrence(def.recurrence);
+    setStartDate(def.startDate.slice(0, 10));
+    setOpensTime(def.opensTime ?? '');
+    setCutoffTime(def.cutoffTime ?? '');
+    setActiveWeekdays(weekdays);
+    setAssigneeIds(def.assigneeIds);
+    setReviewerIds(def.reviewerIds);
     setItemDrafts(hydratedItemDrafts);
     setSections(seenSections);
-    // Reads straight from `existing`/the values just computed above, NOT the state setters just
-    // called — those won't be visible on `name`/`itemDrafts`/etc. until the next render, so
-    // snapshotting off the state variables here would capture the PRE-hydrate (blank) values.
+    // Built from the values computed above, NOT the state setters just called — those won't be
+    // visible on `name`/`itemDrafts`/etc. until the next render, so snapshotting off the state
+    // variables here would capture the PRE-hydrate (blank) values. A copy isn't "unsaved work"
+    // either — leaving straight away loses nothing — so it starts clean, same as an edit.
     setBaseline(snapshotKey({
-      name: existing.name,
-      description: existing.description?.trim() ?? '',
-      icon: existing.icon,
-      storeIds: existing.storeIds,
-      recurrence: existing.recurrence,
-      startDate: existing.startDate.slice(0, 10),
-      opensTime: existing.opensTime ?? '',
-      cutoffTime: existing.cutoffTime ?? '',
-      activeWeekdays: existing.activeWeekdays ?? ALL_WEEKDAYS,
-      assigneeIds: existing.assigneeIds,
-      reviewerIds: existing.reviewerIds,
+      name: nextName,
+      description: nextDescription,
+      icon: def.icon,
+      storeIds: def.storeIds,
+      recurrence: def.recurrence,
+      startDate: def.startDate.slice(0, 10),
+      opensTime: def.opensTime ?? '',
+      cutoffTime: def.cutoffTime ?? '',
+      activeWeekdays: weekdays,
+      assigneeIds: def.assigneeIds,
+      reviewerIds: def.reviewerIds,
       itemDrafts: hydratedItemDrafts,
       sections: seenSections,
     }));
+  };
+
+  if (existing && hydratedId !== existing.id) {
+    setHydratedId(existing.id);
+    setLoadedVersion(existing.version);
+    applyDefinition(existing, false);
+  }
+  if (copySource && copiedFromId !== copySource.id) {
+    setCopiedFromId(copySource.id);
+    applyDefinition(copySource, true);
   }
 
-  // New checklist only — PC is the org's default reviewer, so a fresh checklist starts with every
+  // Brand-new checklist only (a copy brings its own reviewers) — PC is the org's default reviewer, so a fresh checklist starts with every
   // PC-role user pre-picked instead of an empty reviewer list nobody remembers to fill in. Still
   // just a starting point: the maker can remove any of them or add a department's HOD from the
   // grouped picker below. Applied the same way `existing` hydrates above — a guarded state update
   // during render, not inside an effect — and folded into `baseline` too, so this doesn't itself
   // count as an unsaved change the moment the form opens.
   const [reviewerDefaultApplied, setReviewerDefaultApplied] = useState(false);
-  const orgWideUsers = useAssignableUsersQuery(undefined, undefined, undefined, !isEditing);
-  if (!isEditing && !reviewerDefaultApplied && orgWideUsers.data) {
+  const orgWideUsers = useAssignableUsersQuery(undefined, undefined, undefined, !isEditing && !isCopying);
+  if (!isEditing && !isCopying && !reviewerDefaultApplied && orgWideUsers.data) {
     setReviewerDefaultApplied(true);
     const pcIds = orgWideUsers.data.filter(u => u.role === 'PC').map(u => u.id);
     if (pcIds.length && !reviewerIds.length) {
@@ -377,7 +406,7 @@ export const ChecklistBuilder = () => {
       // while it's still unset. The guard is defensive, not an expected path.
       if (loadedVersion == null) return;
       updateDefinition.mutate({ id: definitionId!, payload: { ...payload, version: loadedVersion } }, {
-        onSuccess: (updated) => { markClean(); navigate(`/admin/scheduled-checklists/${updated.id}`); },
+        onSuccess: ({ definition }) => { markClean(); navigate(`/admin/scheduled-checklists/${definition.id}`); },
       });
     } else {
       createDefinition.mutate(payload, {
@@ -386,7 +415,7 @@ export const ChecklistBuilder = () => {
     }
   };
 
-  if (isEditing && isLoadingExisting) {
+  if ((isEditing && isLoadingExisting) || (isCopying && isLoadingCopy)) {
     return (
       <div className="flex flex-col gap-4 w-full max-w-5xl mx-auto p-4 sm:p-6">
         <Skeleton className="h-10 w-72 rounded-lg" />
@@ -398,7 +427,7 @@ export const ChecklistBuilder = () => {
   // 404 means the checklist was actually deleted — retrying just repeats the same doomed request
   // (see lib/queryHelpers.ts's handleQueryRetry), so this gets its own message and a way back
   // instead of the generic "try refreshing" banner below, whose Retry can never succeed here.
-  if (isEditing && isDeleted) {
+  if ((isEditing && isDeleted) || (isCopying && copySourceDeleted)) {
     return (
       <div className="w-full max-w-5xl mx-auto p-4 sm:p-6 py-16 flex flex-col items-center gap-3 text-center">
         <span className="flex items-center justify-center size-12 rounded-lg border border-border/60 bg-muted/60 text-text-muted">
@@ -406,7 +435,7 @@ export const ChecklistBuilder = () => {
         </span>
         <h1 className="text-base font-display font-bold text-text">This checklist was deleted</h1>
         <p className="text-sm font-display text-text-muted max-w-sm">
-          There's nothing left here to edit — its run history is still on the Compliance Board if you need it.
+          {isCopying ? "There's nothing left to copy" : "There's nothing left here to edit"} — its run history is still on the Compliance Board if you need it.
         </p>
         <Button
           variant="secondary"
@@ -421,7 +450,7 @@ export const ChecklistBuilder = () => {
     );
   }
 
-  if (isEditing && (loadError || !existing)) {
+  if ((isEditing && (loadError || !existing)) || (isCopying && (copyFailed || !copySource))) {
     return (
       <div className="w-full max-w-5xl mx-auto p-4 sm:p-6">
         <div className="flex items-center gap-3 px-4 py-3.5 rounded-xl bg-danger/10 border border-danger/20 text-danger text-sm font-display shadow-xs">
@@ -429,7 +458,7 @@ export const ChecklistBuilder = () => {
           <span className="flex-1">We couldn't load this checklist. Try refreshing, or come back in a bit.</span>
           <button
             type="button"
-            onClick={() => refetchExisting()}
+            onClick={() => (isEditing ? refetchExisting() : refetchCopy())}
             className="shrink-0 px-3 py-1.5 rounded-md text-xs font-display font-semibold border border-danger/30 hover:bg-danger/10 cursor-pointer transition-colors outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
           >
             Retry
@@ -558,7 +587,7 @@ export const ChecklistBuilder = () => {
           { label: 'Dashboard', to: '/' },
           { label: 'Admin', to: '/admin' },
           { label: 'Checklists', to: '/admin/scheduled-checklists' },
-          { label: isEditing && existing ? existing.name : 'New checklist' },
+          { label: isEditing && existing ? existing.name : isCopying ? 'Duplicate checklist' : 'New checklist' },
           { label: STEPS[step].label },
         ]}
       />
@@ -569,12 +598,14 @@ export const ChecklistBuilder = () => {
           <GradientIconTile icon={ListChecks} className="hidden sm:flex" />
           <div className="flex flex-col gap-0.5 min-w-0">
             <h1 className="font-display text-xl sm:text-2xl font-bold text-text tracking-tight leading-snug line-clamp-2">
-              {isEditing ? `Editing: ${existing?.name}` : 'New Checklist'}
+              {isEditing ? `Editing: ${existing?.name}` : isCopying ? 'Duplicate checklist' : 'New Checklist'}
             </h1>
             <p className="hidden sm:block text-sm text-text-muted">
               {isEditing && existing
                 ? `Version ${existing.version} · Live in ${existing.storeIds.length} store${existing.storeIds.length !== 1 ? 's' : ''}`
-                : 'Build a recurring checklist your team runs on a schedule.'}
+                : isCopying && copySource
+                  ? `Copied from "${copySource.name}" — stores, people, schedule and every question. Give it a new name and assign it, then save.`
+                  : 'Build a recurring checklist your team runs on a schedule.'}
             </p>
           </div>
         </div>
@@ -600,7 +631,7 @@ export const ChecklistBuilder = () => {
             steps={STEPS}
             current={step}
             maxReached={maxStepReached}
-            allUnlocked={isEditing}
+            allUnlocked={isEditing || isCopying}
             isStepValid={isStepValid}
             onSelect={goToStep}
           />

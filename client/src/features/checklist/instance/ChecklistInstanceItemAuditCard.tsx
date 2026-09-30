@@ -14,6 +14,7 @@ import {
   useStoresQuery,
 } from '../hook';
 import { ChecklistItemCardHeader } from './ChecklistItemCardHeader';
+import { useCanReopen } from './useCanReopen';
 import { formatTimeOnly } from '../checklistDisplay';
 import type {
   ChecklistInstanceItem,
@@ -297,6 +298,8 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
   const updateRemarks = useUpdateChecklistInstanceItemSubmissionRemarksMutation(instanceId);
   const uploadImages = useUploadChecklistInstanceItemSubmissionImagesMutation(instanceId);
   const deleteImage = useDeleteChecklistInstanceItemSubmissionImageMutation(instanceId);
+  // A submitted person stays submitted: only an admin can reopen their row.
+  const canReopen = useCanReopen();
 
   const [remarksDraft, setRemarksDraft] = useState(submission.remarks ?? '');
   const remarksDirty = remarksDraft !== (submission.remarks ?? '');
@@ -523,7 +526,7 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
         </div>
       )}
 
-      {interactive && submission.isDone && (
+      {interactive && submission.isDone && canReopen && (
         <div className="flex flex-col sm:flex-row sm:justify-end">
           <Button
             variant="outline"

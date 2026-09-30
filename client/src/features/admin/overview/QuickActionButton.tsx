@@ -14,27 +14,27 @@ interface QuickActionButtonProps {
 // sliding off in different directions. That combination read as busy/unsmooth rather than
 // premium; a plain tint is the same quiet feedback every other clickable row in the app already
 // uses (RecentActivity's rows, the sidebar's nav items), just applied here too.
+//
+// Icon and arrow share the top row, label and description stack underneath. The old one-line
+// layout put icon + text + arrow side by side, which left the text only ~100px once four of these
+// shared a half-width card: descriptions were cut to "View your …" and the label ran into the
+// arrow. Stacked, the text gets the tile's whole width and the description wraps instead.
 export const QuickActionButton = ({ to, icon: Icon, label, description }: QuickActionButtonProps) => (
   <Link
     to={to}
-    className="flex items-center gap-3 rounded-xl border border-border/60 bg-surface p-3.5 transition-colors duration-200 hover:bg-surface-hover focus-visible:outline-none focus-visible:border-primary-500"
+    className="flex h-full min-h-28 w-full flex-col justify-between gap-4 rounded-xl border border-border/60 bg-surface p-4 transition-colors duration-200 hover:bg-surface-hover focus-visible:outline-none focus-visible:border-primary-500"
   >
     {/* No `group` on the Link above — EntityIconTile's own `group-hover:scale-105` keys off an
         ancestor `.group`, so without one the icon stays still instead of popping on hover along
         with everything else this button used to animate. */}
-    <EntityIconTile icon={Icon} className="size-10" />
-
-    <div className="min-w-0 flex-1">
-      {/* No `truncate` on the label — at a 2-up grid on a tablet-width sidebar-collapsed layout,
-          even short labels like "Delegations"/"Checklists" were clipping to "Delegati...". Letting
-          it wrap (still just one line almost everywhere) reads far better than an ellipsis on a
-          five-letter difference. */}
-      <p className="text-sm font-display font-semibold text-text leading-snug">
-        {label}
-      </p>
-      <p className="truncate text-xs font-display text-text-muted">{description}</p>
+    <div className="flex items-start justify-between gap-2">
+      <EntityIconTile icon={Icon} />
+      <ArrowUpRight size={16} strokeWidth={2.25} className="shrink-0 text-text-muted/50" />
     </div>
 
-    <ArrowUpRight size={15} strokeWidth={2.25} className="shrink-0 text-text-muted/50" />
+    <div className="flex min-w-0 flex-col gap-0.5">
+      <p className="text-sm font-display font-semibold text-text leading-snug">{label}</p>
+      <p className="line-clamp-2 text-xs font-display text-text-muted leading-snug">{description}</p>
+    </div>
   </Link>
 );

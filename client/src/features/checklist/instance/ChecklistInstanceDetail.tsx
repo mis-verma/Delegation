@@ -269,10 +269,9 @@ export const ChecklistInstanceDetail = () => {
                   ITEM_CARD_RENDERERS[item.itemType](item, { instanceId, canWork, isLocked, currentUserId: user?.id })
                 )}
                 {/* Shown for done items too, and read-only for reviewers: a remark used to vanish
-                    the moment its item was ticked, so nobody reviewing ever saw it. */}
-                {item.itemType !== 'AUDIT' && (
-                  <ItemRemarksField item={item} instanceId={instanceId} required={overdue} canEdit={canWork && !isLocked} />
-                )}
+                    the moment its item was ticked, so nobody reviewing ever saw it. Audit
+                    questions get the same Add remark / Not applicable row as every other type. */}
+                <ItemRemarksField item={item} instanceId={instanceId} required={overdue} canEdit={canWork && !isLocked} />
               </div>
             </div>
           );

@@ -32,8 +32,15 @@ const COPY: Record<Mode, { title: string; hint: string; placeholder: string; sav
   },
 };
 
+// An audit question waved off as a whole: nobody's left to check, so the wording says so.
+const AUDIT_NA_COPY = {
+  hint: "Say why there's nobody to check today. The whole audit counts as done, and the reviewer sees your reason.",
+  placeholder: 'e.g. Store was closed today',
+};
+
 /**
- * The note row under every checklist item (AUDIT items excepted, they keep per-auditor remarks).
+ * The note row under every checklist item, audit questions included. On an audit this note is about
+ * the question as a whole; each person's own remark still lives inside the audit card.
  *
  * The saved remark is shown as text on the card, not hidden behind a chip. It used to render only
  * while the item was unticked, so ticking it made the remark disappear for everyone, reviewers
@@ -48,7 +55,10 @@ export const ItemRemarksField = ({ item, instanceId, required, canEdit }: ItemRe
 
   const saved = item.remarks?.trim() ?? '';
   const missing = required && !item.isDone && !saved;
-  const canMarkNa = canEdit && !item.isDone && item.itemType !== 'AUDIT';
+  // An audit can be waved off as a whole only while nobody's been checked yet: doing it over people
+  // who were really audited would throw those checks away (the server refuses too).
+  const auditStarted = item.itemType === 'AUDIT' && item.submissions.some((s) => s.isDone);
+  const canMarkNa = canEdit && !item.isDone && !auditStarted;
   const dirty = mode !== null && value.trim() !== saved;
 
   const openAs = (next: Mode) => {
@@ -93,7 +103,8 @@ export const ItemRemarksField = ({ item, instanceId, required, canEdit }: ItemRe
   if (item.isNotApplicable) return null;
   if (!canEdit && !saved) return null;
 
-  const copy = mode ? COPY[mode] : COPY.remark;
+  const baseCopy = mode ? COPY[mode] : COPY.remark;
+  const copy = mode === 'na' && item.itemType === 'AUDIT' ? { ...baseCopy, ...AUDIT_NA_COPY } : baseCopy;
   const saveDisabled = mode === 'na' ? !value.trim() : value.trim() === saved;
 
   return (

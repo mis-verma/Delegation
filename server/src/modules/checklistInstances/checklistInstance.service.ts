@@ -932,12 +932,11 @@ export const checklistInstanceService = {
         assertCanAccess({ assigneeIds }, user)
         assertInstanceEditable(instanceRow, user)
 
-        // AUDIT items only complete through checklistInstanceItemSubmission.service.ts's
-        // per-named-auditor flow (recomputeItemAndVerification flips this once every auditor has
-        // submitted). Letting this endpoint flip isDone directly would let any assignee mark the
-        // audit "done" with no auditor ever having submitted anything.
-        if (isDone && item.itemType === "AUDIT") {
-            throw AppError.badRequest("Audit items can only be completed by submitting each auditor's entry.")
+        // Once something is done it stays done: only an admin may reopen it. A reviewer sending a
+        // run back (verify, REJECT) reopens every item itself, so nobody else needs to undo their
+        // own finished work — and a stray tap on a tick can no longer quietly un-complete a step.
+        if (!isDone && item.isDone && user.role !== "ADMIN") {
+            throw AppError.forbidden("This step is already done. Only an admin can reopen it.")
         }
 
         // A remark on its own (no answer, no change of done-ness) is just a note. It used to go
@@ -974,10 +973,26 @@ export const checklistInstanceService = {
         if (notApplicable === true && !isDone) {
             throw AppError.badRequest("Send isDone: true with notApplicable.")
         }
-        if (markingNotApplicable) {
-            if (item.itemType === "AUDIT") {
-                throw AppError.badRequest("Audit items can't be marked not applicable.")
+
+        // AUDIT items only complete through checklistInstanceItemSubmission.service.ts's
+        // per-person flow (recomputeItemAndVerification flips this once every person has been
+        // submitted). Letting this endpoint flip isDone directly would let any assignee mark the
+        // audit "done" with nobody ever having been checked. "Not applicable" is the one exception
+        // (nothing to audit today), and only while nobody's been recorded yet — otherwise it would
+        // throw away checks that were really done.
+        if (isDone && item.itemType === "AUDIT") {
+            if (!markingNotApplicable) {
+                throw AppError.badRequest("Audit items can only be completed by submitting each person's check.")
             }
+            const [alreadyChecked] = await db.select({ id: checklistInstanceItemSubmissions.id }).from(checklistInstanceItemSubmissions)
+                .where(and(eq(checklistInstanceItemSubmissions.itemId, itemId), eq(checklistInstanceItemSubmissions.isDone, true)))
+                .limit(1)
+            if (alreadyChecked) {
+                throw AppError.badRequest("Some people are already checked on this audit, so it can't be marked not applicable.")
+            }
+        }
+
+        if (markingNotApplicable) {
             const reason = (remarkInput ?? item.remarks)?.trim()
             if (!reason) throw AppError.badRequest("Say why this step doesn't apply before marking it not applicable.")
         }

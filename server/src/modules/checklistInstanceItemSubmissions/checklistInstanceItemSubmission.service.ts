@@ -126,6 +126,19 @@ export const checklistInstanceItemSubmissionService = {
         await assertCanAccess(item.instanceId, user)
         await assertSubmissionRunEditable(item.instanceId, user)
 
+        // Once a person's check is submitted it stays submitted: only an admin may reopen it. A
+        // reviewer rejecting the run reopens every submission itself (verify, REJECT), so nobody
+        // else needs to undo their own finished work.
+        if (!isDone && submission.isDone && user.role !== "ADMIN") {
+            throw AppError.forbidden("This check is already submitted. Only an admin can reopen it.")
+        }
+
+        // The whole audit was marked not applicable (see setItemDone): there is nobody left to
+        // check, and recomputeItemAndVerification below would quietly un-complete that item.
+        if (item.isNotApplicable) {
+            throw AppError.badRequest("This audit is marked not applicable. Reopen it first to check people.")
+        }
+
         // Fetched once, used both for the opens-time gate below and to know which store's room to
         // broadcast the live update to afterward.
         const [instance] = await db.select({ opensTime: checklistInstances.opensTime, periodStart: checklistInstances.periodStart, storeId: checklistInstances.storeId })

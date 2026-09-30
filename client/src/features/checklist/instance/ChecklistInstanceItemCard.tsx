@@ -6,6 +6,7 @@ import {
 } from '../hook';
 import { ITEM_TYPE_ICON } from './checklistItemIcon';
 import { ChecklistItemIconTile } from './ChecklistItemIconTile';
+import { useCanReopen } from './useCanReopen';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 import type { CaptureMethod } from '../../../api/ticket';
 import { formatDateTime, formatTimeOnly } from '../checklistDisplay';
@@ -34,6 +35,9 @@ export const ChecklistInstanceItemCard = ({ item, instanceId, canWork, isLocked 
     : images.length;
   const photosSatisfied = item.requiredImageCount > 0 && qualifying >= item.requiredImageCount;
   const interactive = canWork && !isLocked;
+  const canReopen = useCanReopen();
+  // A finished step is final for everyone except an admin: the tick stops toggling back.
+  const canToggle = interactive && (!item.isDone || canReopen);
 
   const handleFiles = (files: FileList | null, captureMethod: CaptureMethod) => {
     if (!files || !files.length) return;
@@ -46,11 +50,13 @@ export const ChecklistInstanceItemCard = ({ item, instanceId, canWork, isLocked 
     return (
       <button
         type="button"
-        disabled={!interactive || setItemDone.isPending}
+        disabled={!canToggle || setItemDone.isPending}
         onClick={() => setItemDone.mutate({ itemId: item.id, isDone: !item.isDone })}
         aria-pressed={item.isDone}
+        title={interactive && !canToggle ? 'Done. Only an admin can reopen this.' : undefined}
         className={`group flex items-center gap-3 p-3.5 sm:p-4 rounded-2xl border text-left transition-all duration-200 ease-in-out outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 [-webkit-tap-highlight-color:transparent] ${
-          interactive ? 'cursor-pointer hover:border-primary-500/50 active:bg-surface-hover/50' : 'cursor-not-allowed opacity-75'
+          // A settled tick (done, not yours to undo) reads as finished, not as a broken control.
+          canToggle ? 'cursor-pointer hover:border-primary-500/50 active:bg-surface-hover/50' : interactive ? 'cursor-default' : 'cursor-not-allowed opacity-75'
         } ${item.isDone ? 'border-border/40 dark:border-white/[0.04] bg-surface/60' : 'border-border/60 dark:border-white/[0.06] bg-surface'}`}
       >
         {/* Round check, same as the To-Do list: empty ring, green with a tick when done. */}
@@ -99,13 +105,13 @@ export const ChecklistInstanceItemCard = ({ item, instanceId, canWork, isLocked 
             <p className="text-xs text-text-muted font-display mt-1">Completed {formatDateTime(item.completedAt)}</p>
           )}
         </div>
-        {interactive && item.isDone && (
+        {interactive && item.isDone && canReopen && (
           <button
             onClick={() => setItemDone.mutate({ itemId: item.id, isDone: false })}
             disabled={setItemDone.isPending}
             className="shrink-0 p-2 rounded-md text-text-light hover:text-warning hover:bg-warning/10 transition-colors cursor-pointer disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-warning/50"
             aria-label="Reopen item"
-            title="Reopen"
+            title="Reopen (admin only)"
           >
             <RotateCcw size={14} />
           </button>

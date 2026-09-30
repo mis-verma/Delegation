@@ -20,21 +20,22 @@ interface QuickActionsGridProps {
 }
 
 // A plain component now, not a fixed admin-only action list — OrgOverview.tsx and HomePage.tsx
-// each pass their own `actions`, so the same shell (icon tile, header, responsive button grid)
-// is shared instead of duplicated for the user-facing dashboard's own version of this card.
-// Header/shell now matches every other Dashboard card's shared convention (RecentActivity,
+// each pass their own `actions`, so the same shell (icon tile, header, action tiles) is shared
+// instead of duplicated for the user-facing dashboard's own version of this card.
+// Header/shell matches every other Dashboard card's shared convention (RecentActivity,
 // UpcomingEvents: DASHBOARD_CARD_CLASS + the same px-4 sm:px-5 py-4 border-b/backdrop-blur-xl
-// header band) instead of a bespoke padding/blur/border that only this card used — this was the
-// one section whose outer rhythm didn't line up with its neighbors. The action grid itself moved
-// to 4 columns at `lg`, matching the KPI strip above it, so card edges actually align down the
-// page instead of the two grids sitting on unrelated column widths.
+// header band).
+//
+// The tiles are a wrapping row that grows, not a fixed-column grid. This card renders at two very
+// different widths — half the page beside Activity Overview on the user Dashboard, full width on
+// Admin Overview — and a column count tuned for one crammed or stranded tiles at the other (4
+// columns in the half-width case left each tile ~180px, and the fifth sat alone on its own row).
+// With a minimum tile width instead, the card fits as many as it honestly can per row and lets the
+// last row's tiles grow into the leftover space, so there's never a stray gap. The list is also
+// the card's flex-1 body: beside a taller neighbour its rows stretch to fill the card rather than
+// leaving an empty band under the tiles.
 export const QuickActionsGrid = ({ actions, title = 'Quick actions', description = 'Jump straight to the tools you use most' }: QuickActionsGridProps) => (
-  // @container: this now shares a row with Activity Overview on the user Dashboard (half the
-  // viewport wide) but still renders full-width on Admin Overview — a viewport breakpoint would
-  // force 4 columns into that half-width column too, cramming each button down to almost nothing.
-  // Sized off this card's own rendered width instead, same reasoning TeamProgressCard/
-  // MonthlyTargetCard already use for the same dual-width-context problem.
-  <section className={`relative overflow-hidden @container ${DASHBOARD_CARD_CLASS}`}>
+  <section className={`relative flex flex-col overflow-hidden ${DASHBOARD_CARD_CLASS}`}>
     {/* Decorative glow, matching RecentActivity's panel language */}
     <div className="pointer-events-none absolute -top-20 -right-20 h-40 w-40 rounded-full bg-primary-500/10 blur-3xl" />
 
@@ -46,10 +47,12 @@ export const QuickActionsGrid = ({ actions, title = 'Quick actions', description
       </div>
     </div>
 
-    <div className="relative z-10 grid grid-cols-1 gap-3 p-4 @sm:grid-cols-2 @sm:gap-3.5 @sm:p-5 @2xl:grid-cols-4">
+    <ul className="relative z-10 flex flex-1 flex-wrap gap-3 p-4 sm:gap-3.5 sm:p-5">
       {actions.map((action) => (
-        <QuickActionButton key={action.to} {...action} />
+        <li key={action.to} className="flex grow basis-56">
+          <QuickActionButton {...action} />
+        </li>
       ))}
-    </div>
+    </ul>
   </section>
 );

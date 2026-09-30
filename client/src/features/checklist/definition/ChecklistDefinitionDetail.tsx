@@ -6,6 +6,7 @@ import {
   Users,
   Calendar,
   Pencil,
+  Copy,
   Gauge,
   Camera,
   Store,
@@ -203,15 +204,25 @@ export const ChecklistDefinitionDetail = () => {
           <span>Back to Templates</span>
         </button>
 
-        <Link
-          to={`/admin/scheduled-checklists/builder/${definition.id}`}
-          // dark:bg-primary-500/15, not dark:bg-primary-950/40 — see ChecklistInstanceDetail.tsx's
-          // own comment on this exact same button; primary-950 isn't a defined token here.
-          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-display font-medium text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-500/15 border border-primary-200 dark:border-primary-800 hover:bg-primary-100 dark:hover:bg-primary-900/60 shadow-2xs transition-all duration-150 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
-        >
-          <Pencil size={12} />
-          <span>Edit in Builder</span>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            to={`/admin/scheduled-checklists/builder?copyFrom=${definition.id}`}
+            title="Make a new checklist with the same stores, people, schedule and questions"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-display font-medium text-text-secondary bg-surface border border-border hover:bg-surface-hover hover:text-text transition-all duration-150 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+          >
+            <Copy size={12} />
+            <span>Duplicate</span>
+          </Link>
+          <Link
+            to={`/admin/scheduled-checklists/builder/${definition.id}`}
+            // dark:bg-primary-500/15, not dark:bg-primary-950/40 — see ChecklistInstanceDetail.tsx's
+            // own comment on this exact same button; primary-950 isn't a defined token here.
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-display font-medium text-primary-700 dark:text-primary-300 bg-primary-50 dark:bg-primary-500/15 border border-primary-200 dark:border-primary-800 hover:bg-primary-100 dark:hover:bg-primary-900/60 shadow-2xs transition-all duration-150 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+          >
+            <Pencil size={12} />
+            <span>Edit in Builder</span>
+          </Link>
+        </div>
       </div>
 
       {/* Main Overview Card */}

@@ -82,6 +82,10 @@ export type ChecklistDefinition = {
 
 export type ApiResponse<T> = { success: boolean; data: T };
 
+/** What saving an edit did to today's runs of a checklist: `refreshed` runs nobody had started were
+ *  rebuilt from the edit; `inProgress` runs already had work in them and kept their old version. */
+export type LiveRunsSummary = { refreshed: number; inProgress: number };
+
 export type CreateChecklistDefinitionItemPayload = {
   label: string;
   order?: number;
@@ -205,7 +209,7 @@ export const checklistDefinitionApi = {
       .then((r) => ({ ...r, data: normalizeDefinition(r.data) })),
 
   update: (id: string, payload: UpdateChecklistDefinitionPayload) =>
-    apiFetch<ApiResponse<ChecklistDefinition>>(`/checklist-definitions/${id}`, { method: 'PUT', body: JSON.stringify(payload) })
+    apiFetch<ApiResponse<ChecklistDefinition> & { liveRuns?: LiveRunsSummary }>(`/checklist-definitions/${id}`, { method: 'PUT', body: JSON.stringify(payload) })
       .then((r) => ({ ...r, data: normalizeDefinition(r.data) })),
 
   setActive: (id: string, isActive: boolean) =>

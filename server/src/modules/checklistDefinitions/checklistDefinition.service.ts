@@ -15,7 +15,7 @@ import { cached, cacheKey } from "../../config/queryCache.js"
 import { AppError } from "../../utils/AppError.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { CreateChecklistDefinitionInput, UpdateChecklistDefinitionInput, SetChecklistDefinitionActiveInput } from "./checklistDefinition.validation.js"
-import { generateInstanceForDefinition, loadDefinitionForGeneration } from "../../jobs/checklistInstanceGenerator.job.js"
+import { generateInstanceForDefinition, loadDefinitionForGeneration, refreshUntouchedInstances, type LiveRunsSummary } from "../../jobs/checklistInstanceGenerator.job.js"
 import { auditService } from "../audit/audit.service.js";
 import { emitChecklistEvent } from "../../sockets/checklistEvent.js"
 import { GATED_BOOLEAN_ITEM_EXPR, FLAGGED_BOOLEAN_ANSWER_EXPR } from "../../utils/checklistBooleanFlags.js"
@@ -466,17 +466,25 @@ export const checklistDefinitionService = {
             )
         })
 
-        // Only stamp out a fresh instance if this definition is still active - an admin editing a
-        // deactivated checklist (e.g. fixing a label typo) shouldn't silently bring it back to life.
+        // Only touch runs if this definition is still active - an admin editing a deactivated
+        // checklist (e.g. fixing a label typo) shouldn't silently bring it back to life.
+        let liveRuns: LiveRunsSummary = { refreshed: 0, inProgress: 0 }
         if (wasActive) {
             const definitionForGeneration = await loadDefinitionForGeneration(id)
-            if (definitionForGeneration) await generateInstanceForDefinition(definitionForGeneration, new Date())
+            if (definitionForGeneration) {
+                const now = new Date()
+                // First bring this period's existing runs up to date (the ones nobody has started —
+                // see refreshUntouchedInstances), THEN stamp out any that are missing, e.g. for a
+                // store the edit just added.
+                liveRuns = await refreshUntouchedInstances(definitionForGeneration, now)
+                await generateInstanceForDefinition(definitionForGeneration, now)
+            }
         }
 
         const updated = await this.getById(id)
         await auditService.record({ entityType: "ChecklistDefinition", entityId: id, action: "UPDATE", actorId, after: updated })
         emitToStores("checklist-definition:updated", affectedStoreIds, { definitionId: id })
-        return updated
+        return { definition: updated, liveRuns }
     },
 
     async setActive(id: string, input: SetChecklistDefinitionActiveInput, actorId: string) {

@@ -7,6 +7,7 @@ import {
   type UpdateChecklistDefinitionPayload,
   type ListChecklistDefinitionsParams,
   type ChecklistRecurrence,
+  type LiveRunsSummary,
 } from '../../api/checklistDefinitions';
 import { checklistInstanceApi, type ChecklistInstance, type ChecklistInstanceStatus, type ChecklistVerificationStatus, type VerifyChecklistInstancePayload } from '../../api/checklistInstances';
 import { checklistInstanceItemSubmissionApi } from '../../api/checklistInstanceItemSubmissions';
@@ -66,15 +67,29 @@ export const useCreateChecklistDefinitionMutation = () => {
   });
 };
 
+// Saving an edit rebuilds today's runs nobody has started, and leaves runs that already have work in
+// them as they were — say which happened, so "I saved it but it isn't live" never has to be guessed.
+const savedMessage = (live?: LiveRunsSummary) => {
+  const lines: string[] = [];
+  if (live?.refreshed) lines.push(live.refreshed === 1 ? "Today's run is updated." : `${live.refreshed} of today's runs are updated.`);
+  if (live?.inProgress) {
+    lines.push(`${live.inProgress} ${live.inProgress === 1 ? 'run is' : 'runs are'} already in progress and ${live.inProgress === 1 ? 'keeps' : 'keep'} the old version. Your changes start with the next run.`);
+  }
+  return lines.join(' ');
+};
+
 export const useUpdateChecklistDefinitionMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: UpdateChecklistDefinitionPayload }) =>
-      checklistDefinitionApi.update(id, payload).then(r => r.data),
-    onSuccess: (updated) => {
-      queryClient.setQueryData(KEYS.definitionDetail(updated.id), updated);
+      checklistDefinitionApi.update(id, payload).then(r => ({ definition: r.data, liveRuns: r.liveRuns })),
+    onSuccess: ({ definition, liveRuns }) => {
+      queryClient.setQueryData(KEYS.definitionDetail(definition.id), definition);
       queryClient.invalidateQueries({ queryKey: ['checklist-definitions'] });
-      toast.success('Checklist updated');
+      // Runs changed too, so every list/board/detail/count built from them has to reload.
+      if (liveRuns?.refreshed) queryClient.invalidateQueries({ queryKey: ['checklist-instances'] });
+      const description = savedMessage(liveRuns);
+      toast.success('Checklist updated', description ? { description, duration: liveRuns?.inProgress ? 8000 : undefined } : undefined);
     },
     onError: (err) => toast.error(errorMessage(err, "Couldn't update checklist")),
   });

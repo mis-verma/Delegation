@@ -34,8 +34,10 @@ export const checklistDefinitionController = {
 
     update: asyncHandler(async (req: Request, res: Response) => {
         const input = updateChecklistDefinitionSchema.parse(req.body)
-        const definition = await checklistDefinitionService.update(req.params.id, input, req.user!.sub)
-        res.json({ success: true, data: definition })
+        const { definition, liveRuns } = await checklistDefinitionService.update(req.params.id, input, req.user!.sub)
+        // `liveRuns`: what the edit did to today's runs — how many were rebuilt from it and how many
+        // were already in progress and so kept their old version (see refreshUntouchedInstances).
+        res.json({ success: true, data: definition, liveRuns })
     }),
 
     setActive: asyncHandler(async (req: Request, res: Response) => {
