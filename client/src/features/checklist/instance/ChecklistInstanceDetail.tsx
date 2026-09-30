@@ -1,8 +1,9 @@
 import type { ReactElement } from 'react';
 import { useParams, useNavigate, Link } from 'react-router';
-import { ArrowLeft, AlertCircle, ShieldCheck, ShieldAlert, ShieldQuestion, Pencil, Clock, Layers } from 'lucide-react';
+import { ArrowLeft, AlertCircle, ShieldCheck, ShieldAlert, ShieldQuestion, Pencil, Clock, Layers, ClipboardX } from 'lucide-react';
 import { Skeleton, StatusChip, IconChip } from '../../../components';
 import { useChecklistInstanceQuery } from '../hook';
+import { ApiError } from '../../../api/http';
 import { ChecklistInstanceItemCard } from './ChecklistInstanceItemCard';
 import { ChecklistInstanceItemAuditCard } from './ChecklistInstanceItemAuditCard';
 import { ChecklistInstanceItemNumberEntryCard } from './ChecklistInstanceItemNumberEntryCard';
@@ -87,13 +88,39 @@ export const ChecklistInstanceDetail = () => {
   const { instanceId = '' } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { data: instance, isPending, isError, refetch } = useChecklistInstanceQuery(instanceId);
+  const { data: instance, isPending, isError, error, refetch } = useChecklistInstanceQuery(instanceId);
 
   if (isPending) {
     return (
       <div className="flex flex-col gap-4 max-w-4xl">
         <Skeleton className="h-8 w-64" />
         <Skeleton className="h-40 w-full rounded-xl" />
+      </div>
+    );
+  }
+
+  // Same reasoning as ChecklistDefinitionDetail/ChecklistBuilder's own "was deleted" state — an
+  // old notification or bookmark pointing at an instance id that's gone (or was never real) hits
+  // a 404 every retry, so show what actually happened instead of a "check your connection" banner
+  // whose Retry can never succeed.
+  const isDeleted = error instanceof ApiError && error.status === 404;
+  if (isDeleted) {
+    return (
+      <div className="w-full max-w-4xl mx-auto py-16 flex flex-col items-center gap-3 text-center">
+        <span className="flex items-center justify-center size-12 rounded-lg border border-border/60 bg-muted/60 text-text-muted">
+          <ClipboardX className="size-6" strokeWidth={2.25} />
+        </span>
+        <h1 className="text-base font-display font-bold text-text">This checklist run is no longer available</h1>
+        <p className="text-sm font-display text-text-muted max-w-sm">
+          It may have been part of a checklist that's since been deleted.
+        </p>
+        <Link
+          to="/checklists"
+          className="mt-1 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-display font-semibold border border-border bg-surface hover:bg-surface-hover transition-colors"
+        >
+          <ArrowLeft size={13} />
+          Back to My Checklists
+        </Link>
       </div>
     );
   }

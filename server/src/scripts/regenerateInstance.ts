@@ -1,0 +1,96 @@
+// One-off maintenance script: a checklist instance is stamped out once per (definition, store,
+// period) and never retroactively updated when the definition's template changes afterward (see
+// checklistInstanceGenerator.job.ts's generateInstanceForDefinition) — by design, so in-progress
+// work isn't rewritten under someone mid-fill. But that means adding/removing an AUDIT item's
+// auditors (or any other item edit) after today's instance already generated has no effect on
+// today's run at all. This script deletes one specific, still-untouched instance and immediately
+// regenerates it fresh off the CURRENT definition, so a same-day edit can actually take effect
+// today instead of waiting for tomorrow's sweep.
+//
+// Usage:
+//   List today's instances (no changes made):
+//     npm run regenerate:instance
+//   Delete one and regenerate it fresh:
+//     npm run regenerate:instance -- --deleteId=<instanceId> --yes
+import 'dotenv/config'
+import { eq } from 'drizzle-orm'
+import { connectDB, disconnectDB, db } from '../config/db.js'
+import { checklistInstances, checklistDefinitions } from '../db/schema/index.js'
+import { loadDefinitionForGeneration, generateInstanceForDefinition } from '../jobs/checklistInstanceGenerator.job.js'
+import { refuseInProductionUnlessOverridden } from './_productionGuard.js'
+
+const deleteId = process.argv.find((a) => a.startsWith('--deleteId='))?.split('=')[1]
+const confirmed = process.argv.includes('--yes')
+
+const run = async () => {
+    refuseInProductionUnlessOverridden('regenerateInstance')
+    await connectDB()
+
+    if (!deleteId) {
+        const todayStart = new Date()
+        todayStart.setUTCHours(0, 0, 0, 0)
+        const rows = await db.select({
+            id: checklistInstances.id,
+            title: checklistInstances.title,
+            storeId: checklistInstances.storeId,
+            definitionId: checklistInstances.definitionId,
+            periodKey: checklistInstances.periodKey,
+            generatedAt: checklistInstances.generatedAt,
+        }).from(checklistInstances)
+        const todays = rows.filter((r) => r.generatedAt >= todayStart)
+        console.log(`${todays.length} instance(s) generated today:`)
+        for (const r of todays) {
+            console.log(`  id=${r.id}  title="${r.title}"  storeId=${r.storeId}  definitionId=${r.definitionId}  periodKey=${r.periodKey}`)
+        }
+        console.log('\nPass --deleteId=<id> --yes to delete one of these and regenerate it fresh off the current definition.')
+        await disconnectDB()
+        process.exit(0)
+    }
+
+    if (!confirmed) {
+        console.error('Refusing to delete: pass --yes to confirm.')
+        process.exit(1)
+    }
+
+    const [instance] = await db.select().from(checklistInstances).where(eq(checklistInstances.id, deleteId))
+    if (!instance) {
+        console.error(`No instance found with id ${deleteId}.`)
+        await disconnectDB()
+        process.exit(1)
+    }
+
+    const [definition] = await db.select().from(checklistDefinitions).where(eq(checklistDefinitions.id, instance.definitionId))
+    if (!definition) {
+        console.error(`Instance ${deleteId}'s definition ${instance.definitionId} no longer exists — nothing to regenerate against.`)
+        await disconnectDB()
+        process.exit(1)
+    }
+
+    console.log(`Deleting instance ${deleteId} ("${instance.title}", store ${instance.storeId})...`)
+    await db.delete(checklistInstances).where(eq(checklistInstances.id, deleteId))
+
+    const definitionForGeneration = await loadDefinitionForGeneration(definition.id)
+    if (!definitionForGeneration) {
+        console.error('Could not reload the definition for generation — instance was deleted but not regenerated.')
+        await disconnectDB()
+        process.exit(1)
+    }
+    // Only the store whose instance we just deleted should still be "pending" for today's period
+    // — every other store on this definition already has its own up-to-date instance and gets
+    // skipped, same as the hourly sweep would skip it.
+    const created = await generateInstanceForDefinition(definitionForGeneration, new Date())
+    if (created.length) {
+        for (const c of created) console.log(`Regenerated: new instance id=${c.id}`)
+    } else {
+        console.log('No new instance was created — check the definition is still active and due today.')
+    }
+
+    await disconnectDB()
+    process.exit(0)
+}
+
+run().catch(async (err) => {
+    console.error('regenerateInstance failed:', err)
+    await disconnectDB()
+    process.exit(1)
+})

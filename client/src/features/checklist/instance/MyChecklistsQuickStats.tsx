@@ -17,8 +17,15 @@ const TILES = statusTiles<MyChecklistsQuickFilterKey>(['pending', 'completed', '
 
 interface MyChecklistsQuickStatsProps {
   counts: MyChecklistsQuickFilterCounts;
-  /** Everything in scope, unfiltered — the number the page header used to state in words. */
-  total: number;
+  /**
+   * Today's assigned count, for the lead tile — not "everything in scope, unfiltered": `counts`
+   * mixes an all-time scope (Pending/Due/Overdue, which must stay all-time or a still-open weekly/
+   * monthly checklist would vanish most days) with a today-only one (Completed), so there's no
+   * single number left that's really "the total" of the row below it. Passing one anyway would
+   * make every tile's "X% of total" caption nonsense against a mismatched denominator — omit this
+   * (leave it `undefined`) rather than guess at one; the row still works fine with no lead tile.
+   */
+  total?: number;
   active: MyChecklistsQuickFilterKey | null;
   onToggle: (key: MyChecklistsQuickFilterKey) => void;
   onClear: () => void;

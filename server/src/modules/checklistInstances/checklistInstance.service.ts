@@ -772,15 +772,18 @@ export const checklistInstanceService = {
         assigneeIds?: string[]
         /** See InstanceListFilter.includeDeleted — set by the controller from the caller's own role. */
         includeDeleted?: boolean
+        /** See InstanceListFilter.from/to — My Checklists' own "today only" scoping passes both. */
+        from?: string
+        to?: string
     } = {}) {
-        const { status, page, limit, storeId, recurrence, verificationStatus, departmentId, assigneeIds, includeDeleted } = options
+        const { status, page, limit, storeId, recurrence, verificationStatus, departmentId, assigneeIds, includeDeleted, from, to } = options
         const p = paginate(page, limit)
         // Delegates to the same condition-builder as listAll/summary instead of reimplementing the
         // userId/status/store/recurrence/verificationStatus/department/assigneeIds filters here —
         // this used to drift from instanceConditions as a separate ~25-line copy. "Mine" is just
         // instanceConditions with `userId` filled in, which resolves to the same
         // "assignee junction lookup, AND'd with the rest" logic that path already has.
-        const built = await instanceConditions({ userId, status, storeId, recurrence, verificationStatus, departmentId, assigneeIds, includeDeleted })
+        const built = await instanceConditions({ userId, status, storeId, recurrence, verificationStatus, departmentId, assigneeIds, includeDeleted, from, to })
         if (built === NO_MATCHES) return { data: [], meta: buildMeta(p, 0) }
         const where = built
 

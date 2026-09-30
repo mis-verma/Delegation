@@ -17,6 +17,7 @@
     "seed:demo": "tsx src/scripts/seedDemoData.ts",
     "seed:todos": "tsx src/scripts/seedTodos.ts",
     "wipe:checklists": "tsx src/scripts/wipeChecklists.ts",
+    "regenerate:instance": "tsx src/scripts/regenerateInstance.ts",
     "backup:data": "tsx src/scripts/backupData.ts",
     "test:whatsapp": "tsx src/scripts/testWhatsAppWebhook.ts",
     "test:rules": "tsx src/scripts/testRuleBasedExtraction.ts",

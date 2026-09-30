@@ -221,7 +221,11 @@ export type ChecklistPendingApproval = {
 
 export const checklistInstanceApi = {
   getMine: (
-    filter: { status?: ChecklistInstanceStatus; storeId?: string; recurrence?: ChecklistRecurrence; verificationStatus?: ChecklistVerificationStatus; departmentId?: string; assigneeIds?: string[] } = {},
+    filter: {
+      status?: ChecklistInstanceStatus; storeId?: string; recurrence?: ChecklistRecurrence; verificationStatus?: ChecklistVerificationStatus; departmentId?: string; assigneeIds?: string[];
+      /** Restricts to instances whose period falls in [from, to] — ISO strings, same convention as getSummary. */
+      from?: string; to?: string;
+    } = {},
     paging: PageParams = {},
   ) =>
     apiFetch<ApiResponse<ChecklistInstance[]> & { meta: ChecklistInstancePage }>(

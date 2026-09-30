@@ -179,6 +179,8 @@ export const useMyChecklistInstancesQuery = (
     verificationStatus?: ChecklistVerificationStatus;
     departmentId?: string;
     assigneeIds?: string[];
+    from?: string;
+    to?: string;
   } = {},
   paging: { page?: number; limit?: number } = {},
 ) => {

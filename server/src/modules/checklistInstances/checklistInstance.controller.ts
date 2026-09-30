@@ -19,7 +19,7 @@ export const checklistInstanceController = {
     // Paginated. Responds `{ success, data, meta }` — `data` is the same array shape as before,
     // so a caller that ignores `meta` still works, it just gets the first page.
     getMine: asyncHandler(async (req: Request, res: Response) => {
-        const { page, limit, status } = listChecklistInstancesQuerySchema.parse(req.query)
+        const { page, limit, status, from, to } = listChecklistInstancesQuerySchema.parse(req.query)
         // Always excluded here, even for ADMIN/PC — My Checklists is everyone's own day-to-day
         // list, not an audit view, so a checklist someone deleted disappears from it for
         // literally every role. Audit history has one home: the Compliance Board's explicit
@@ -34,6 +34,8 @@ export const checklistInstanceController = {
             departmentId: req.query.departmentId as string | undefined,
             assigneeIds: parseIdsParam(req.query.assigneeIds),
             includeDeleted: false,
+            from,
+            to,
             page,
             limit,
         })

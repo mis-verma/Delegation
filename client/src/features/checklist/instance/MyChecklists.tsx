@@ -16,7 +16,7 @@ import { ChecklistInstanceCard } from './ChecklistInstanceCard';
 import { ChecklistInstanceTable } from './ChecklistInstanceTable';
 import { ChecklistInstanceBoard } from './ChecklistInstanceBoard';
 import { MyChecklistsQuickStats, type MyChecklistsQuickFilterKey } from './MyChecklistsQuickStats';
-import { RECURRENCE_LABEL, VERIFICATION_STATUS_LABEL, VERIFICATION_CHIP } from '../checklistDisplay';
+import { RECURRENCE_LABEL, VERIFICATION_STATUS_LABEL, VERIFICATION_CHIP, todayPeriodBoundIso } from '../checklistDisplay';
 import type { ChecklistInstance, ChecklistInstanceStatus, ChecklistVerificationStatus } from '../../../api/checklistInstances';
 import type { ChecklistRecurrence } from '../../../api/checklistDefinitions';
 
@@ -119,6 +119,9 @@ export const MyChecklists = () => {
   const people = useMemo(() => toFilterPeople(assignableUsers), [assignableUsers]);
   const peopleNameById = useMemo(() => new Map(people.map((p) => [p.id, p.name])), [people]);
 
+  // Today's bound (org-local calendar day) — only applied when the Completed filter is actually
+  // engaged, below, so the "Completed" tile and this list agree on what "completed" means.
+  const todayBound = todayPeriodBoundIso();
   const instanceFilter = {
     status: serverStatus,
     storeId: storeId || undefined,
@@ -126,6 +129,8 @@ export const MyChecklists = () => {
     verificationStatus: verificationStatus || undefined,
     departmentId: departmentId || undefined,
     assigneeIds: assigneeIds.length ? assigneeIds : undefined,
+    from: serverStatus === 'COMPLETED' ? todayBound : undefined,
+    to: serverStatus === 'COMPLETED' ? todayBound : undefined,
   };
   const { data: allInstances = [], isPending, isError, refetch } = useMyChecklistInstancesQuery(instanceFilter, { page, limit: PAGE_SIZE });
 
@@ -157,9 +162,24 @@ export const MyChecklists = () => {
     departmentId: departmentId || undefined,
     assigneeIds: assigneeIds.length ? assigneeIds : undefined,
   });
+  // Pending/Due/Overdue only ever make sense all-time — a weekly or monthly checklist stays open
+  // for its whole period, not just the day it was generated, so a date bound here would make a
+  // still-open checklist vanish from your own list most days of the week. Completed is the one
+  // number that's safe (and better) to reset daily: an all-time "completed" count only ever
+  // climbs for a recurring checklist, so it stops meaning anything as a "your day" number.
+  const { data: todaySummary } = useChecklistInstanceSummaryQuery({
+    mine: true,
+    storeId: storeId || undefined,
+    recurrence: recurrence || undefined,
+    verificationStatus: verificationStatus || undefined,
+    departmentId: departmentId || undefined,
+    assigneeIds: assigneeIds.length ? assigneeIds : undefined,
+    from: todayBound,
+    to: todayBound,
+  });
   const counts: Record<MyChecklistsQuickFilterKey, number> = {
     pending: summary?.pending ?? 0,
-    completed: summary?.completed ?? 0,
+    completed: todaySummary?.completed ?? 0,
     due: summary?.due ?? 0,
     overdue: summary?.overdue ?? 0,
   };
@@ -228,9 +248,13 @@ export const MyChecklists = () => {
     // visibly jumped the content ~500px narrower and slammed it against the left edge.
     <div className="flex flex-col gap-6 mx-auto w-full max-w-(--container-width) transition-all duration-300">
       {/* Same header treatment as Delegation, Tickets and To-Do: no visible title block — the nav
-          item that got you here already says My Checklists, and the lead "Assigned to you" tile
-          carries the count. The heading stays as the page's one accessibility landmark. */}
+          item that got you here already says My Checklists. The heading stays as the page's one
+          accessibility landmark; the count that used to sit in a lead "Total" tile is now this
+          plain today-scoped line instead (see MyChecklistsQuickStats' `total` prop comment). */}
       <h1 className="sr-only">My Checklists</h1>
+      <p className="text-sm font-display text-text-muted -mb-2">
+        <span className="font-semibold text-text">{todaySummary?.total ?? 0}</span> assigned to you today
+      </p>
 
       {/* Persistent (not a dismissable toast) for as long as anything is overdue — the "banner"
           rung of the app's escalating overdue design, one step down from the full-screen
@@ -259,7 +283,6 @@ export const MyChecklists = () => {
 
       <MyChecklistsQuickStats
         counts={counts}
-        total={summary?.total ?? 0}
         active={quickFilter}
         onToggle={toggleQuickFilter}
         onClear={() => setQuickFilter(null)}

@@ -156,6 +156,16 @@ type InstanceWindow = {
 // gate and deadline landed 5½ hours late ("opens 09:00" really opened at 14:30).
 const ORG_TZ_OFFSET_MS = 330 * 60_000;
 
+// Today's periodStart bound, as the `from`/`to` filter (checklistInstance.service.ts's
+// instanceConditions) expects it: an ISO string matching periodStart's own UTC-midnight-labeled
+// convention. Shift "now" into org-local wall-clock time first, then take THAT day's UTC midnight
+// — using the viewer's own local midnight here would drift a device in a different time zone off
+// by however many hours it's offset from the org.
+export const todayPeriodBoundIso = (): string => {
+  const local = new Date(Date.now() + ORG_TZ_OFFSET_MS);
+  return new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate())).toISOString();
+};
+
 export const instanceOpensAt = (instance: Pick<InstanceWindow, 'periodStart' | 'opensTime'>): number | null => {
   if (!instance.opensTime) return null;
   const [hours, minutes] = instance.opensTime.split(':').map(Number);
