@@ -18,6 +18,10 @@ const UPLOADS_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'ht
 interface ChecklistInstanceItemAuditCardProps {
   item:           ChecklistInstanceItem;
   instanceId:     string;
+  /** Same rule as every other item type — whoever's assigned this checklist (or ADMIN/PC) can
+   *  fill it in. One field auditor works through everyone on this list themselves; a row here
+   *  isn't locked to whichever account happens to share that row's name. */
+  canWork:        boolean;
   currentUserId?: string;
   isLocked:       boolean;
 }
@@ -26,9 +30,9 @@ const submissionLabel = (submission: ChecklistInstanceItemSubmission) =>
   `${submission.userId?.firstName ?? ''} ${submission.userId?.lastName ?? ''}`.trim() || 'Unknown user';
 
 // Picking a person first, then filling in just their form, keeps this readable whether the audit
-// has 3 auditors or 30 — the old layout rendered every auditor's full checklist stacked on top of
+// covers 3 people or 30 — the old layout rendered every one of their checklists stacked on top of
 // each other at once, which turned into a wall of checkboxes long before the list got long.
-export const ChecklistInstanceItemAuditCard = ({ item, instanceId, currentUserId, isLocked }: ChecklistInstanceItemAuditCardProps) => {
+export const ChecklistInstanceItemAuditCard = ({ item, instanceId, canWork, currentUserId, isLocked }: ChecklistInstanceItemAuditCardProps) => {
   const { data: stores } = useStoresQuery();
   const storeName = (id: string | null) => (id ? stores?.find(s => s.id === id)?.name ?? '—' : '—');
 
@@ -62,7 +66,7 @@ export const ChecklistInstanceItemAuditCard = ({ item, instanceId, currentUserId
               />
             </div>
             <span className="text-[11px] text-text-muted font-display shrink-0">
-              {submittedCount}/{submissions.length} auditor{submissions.length !== 1 ? 's' : ''}
+              {submittedCount}/{submissions.length} checked
             </span>
           </div>
         </div>
@@ -113,7 +117,7 @@ export const ChecklistInstanceItemAuditCard = ({ item, instanceId, currentUserId
               submission={selected}
               instanceId={instanceId}
               storeName={storeName(selected.userId?.storeId ?? null)}
-              interactive={!isLocked && !!currentUserId && selected.userId?.id === currentUserId}
+              interactive={!isLocked && canWork}
             />
           )}
         </div>

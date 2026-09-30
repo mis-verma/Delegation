@@ -124,15 +124,17 @@ const AuditFields = ({ draft, onChange, storeIds }: ItemTypeFieldsProps) => (
   <div className="flex flex-col gap-4">
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between gap-2">
-        <span className={LABEL}>Who audits this?</span>
+        <span className={LABEL}>Who gets audited?</span>
         {draft.auditUserIds.length > 0 && (
           <span className="text-[11px] font-display font-medium text-text-muted">
-            {draft.auditUserIds.length} auditor{draft.auditUserIds.length === 1 ? '' : 's'}
+            {draft.auditUserIds.length} {draft.auditUserIds.length === 1 ? 'person' : 'people'}
           </span>
         )}
       </div>
-      {/* Same bulk-pick UI as the Assign step — a real-world audit (e.g. a uniform/ID check) is
-          often run by a whole team of small auditors, not one or two people picked by hand. */}
+      {/* Same bulk-pick UI as the Assign step — a real-world audit (e.g. a uniform/ID check) often
+          covers a whole team, not one or two people picked by hand. Whoever's assigned to run this
+          checklist works through everyone picked here themselves — this isn't a list of separate
+          self-reporters. */}
       <UserBulkPicker
         storeIds={storeIds ?? []}
         selected={draft.auditUserIds}
@@ -354,7 +356,7 @@ const num = (v: string) => (v.trim() === '' ? null : Number(v));
 // eslint-disable-next-line react-refresh/only-export-components
 export const itemDraftProblem = (draft: ItemDraft): string | null => {
   if (draft.label.trim().length > 191) return 'Keep the question under 191 characters.';
-  if (draft.itemType === 'AUDIT' && draft.auditUserIds.length === 0) return 'Pick at least one auditor.';
+  if (draft.itemType === 'AUDIT' && draft.auditUserIds.length === 0) return 'Pick at least one person to audit.';
   if ((draft.itemType === 'MULTIPLE_CHOICE' || draft.itemType === 'DROPDOWN') && draft.options.length < 2) return 'Add at least two options.';
   if (PHOTO_TYPES.includes(draft.itemType)) {
     const min = num(draft.requiredImageCount) ?? 0;

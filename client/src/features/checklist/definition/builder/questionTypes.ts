@@ -37,7 +37,7 @@ export const QUESTION_TYPES: QuestionTypeEntry[] = [
   { id: 'QR_SCAN', label: 'QR / barcode', hint: 'Scan a code, optionally a set one', icon: ScanLine, group: 'verify', patch: { itemType: 'QR_SCAN' } },
   { id: 'GPS', label: 'Location', hint: 'Prove they were on site', icon: MapPin, group: 'verify', patch: { itemType: 'GPS' } },
   { id: 'CASH_TALLY', label: 'Cash tally', hint: 'Count against an expected amount', icon: Wallet, group: 'verify', patch: { itemType: 'CASH_TALLY' } },
-  { id: 'AUDIT', label: 'Audit', hint: 'Named auditors check a list', icon: ClipboardCheck, group: 'verify', patch: { itemType: 'AUDIT' } },
+  { id: 'AUDIT', label: 'Audit', hint: 'Check a named list of people, one by one', icon: ClipboardCheck, group: 'verify', patch: { itemType: 'AUDIT' } },
 ];
 
 export const QUESTION_GROUPS: { id: QuestionGroup; label: string }[] = [

@@ -24,16 +24,16 @@ import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 
 type ItemCardContext = { instanceId: string; canWork: boolean; isLocked: boolean; currentUserId?: string };
 
-// Which card renders a given item — AUDIT items fan out into per-auditor submissions
-// (ChecklistInstanceItemAuditCard, its own currentUserId-scoped interactivity), everything else
-// keeps the original single-state card. A lookup map of render closures, not an if/else, since
-// the two cards take different prop shapes and can't share one component reference directly.
+// Which card renders a given item — AUDIT items fan out into one row per person being audited,
+// everything else keeps the original single-state card. A lookup map of render closures, not an
+// if/else, since the two cards take different prop shapes and can't share one component reference
+// directly.
 const ITEM_CARD_RENDERERS: Record<ChecklistInstanceItem['itemType'], (item: ChecklistInstanceItem, ctx: ItemCardContext) => ReactElement> = {
   STANDARD: (item, ctx) => (
     <ChecklistInstanceItemCard item={item} instanceId={ctx.instanceId} canWork={ctx.canWork} isLocked={ctx.isLocked} />
   ),
   AUDIT: (item, ctx) => (
-    <ChecklistInstanceItemAuditCard item={item} instanceId={ctx.instanceId} currentUserId={ctx.currentUserId} isLocked={ctx.isLocked} />
+    <ChecklistInstanceItemAuditCard item={item} instanceId={ctx.instanceId} canWork={ctx.canWork} currentUserId={ctx.currentUserId} isLocked={ctx.isLocked} />
   ),
   NUMBER_ENTRY: (item, ctx) => (
     <ChecklistInstanceItemNumberEntryCard item={item} instanceId={ctx.instanceId} canWork={ctx.canWork} isLocked={ctx.isLocked} />
