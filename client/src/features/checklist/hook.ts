@@ -20,6 +20,7 @@ const KEYS = {
   definitionDetail:       (id: string) => ['checklist-definitions', 'detail', id] as const,
   myInstances:            (status?: ChecklistInstanceStatus) => ['checklist-instances', 'mine', status ?? 'all'] as const,
   instanceDetail:         (id: string) => ['checklist-instances', 'detail', id] as const,
+  myAuditResults:         () => ['checklist-instances', 'my-audits'] as const,
   instancesForDefinition: (definitionId: string) => ['checklist-instances', 'by-definition', definitionId] as const,
   instancesBoard:         (filter: { storeId?: string; assigneeId?: string; status?: ChecklistInstanceStatus }) =>
     ['checklist-instances', 'board', filter] as const,
@@ -188,6 +189,19 @@ export const useMyChecklistInstancesQuery = (
   return useQuery({
     queryKey: [...KEYS.myInstances(filter.status), filter, paging],
     queryFn: () => checklistInstanceApi.getMine(filter, paging).then(r => r.data),
+    enabled: !!token,
+    retry: handleQueryRetry,
+  });
+};
+
+// The signed-in person's own audit results (what an auditor recorded about them). Under the
+// 'checklist-instances' prefix on purpose, so submitting or reopening any audit row invalidates it
+// along with everything else on that prefix.
+export const useMyAuditResultsQuery = () => {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: KEYS.myAuditResults(),
+    queryFn: () => checklistInstanceApi.getMyAuditResults().then(r => r.data),
     enabled: !!token,
     retry: handleQueryRetry,
   });

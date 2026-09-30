@@ -202,7 +202,9 @@ const SectionHeader = ({ label, meta, action }: { label: string; meta?: ReactNod
   </div>
 );
 
-const AccessoryTile = ({ name, checked, missing, interactive, onToggle }: {
+// Also used read-only by MyAuditResults, so a person sees their own result drawn exactly the way
+// the auditor saw it.
+export const AccessoryTile = ({ name, checked, missing, interactive, onToggle }: {
   name: string; checked: boolean; missing: boolean; interactive: boolean; onToggle: () => void;
 }) => {
   const className = cn(

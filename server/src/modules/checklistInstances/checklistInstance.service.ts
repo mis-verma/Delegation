@@ -865,6 +865,53 @@ export const checklistInstanceService = {
         )
     },
 
+    /**
+     * What an auditor recorded about ONE person, for that person — the only window an audited
+     * person gets onto a run (they can't open the run itself, see assertCanView). Returns just
+     * their own submitted rows, newest first: their ticks, remarks and photos, never anyone else's
+     * row and never the run's other items, assignees or reviewers. A row that's been reopened (not
+     * done any more) drops out until it's submitted again.
+     */
+    async myAuditResults(userId: string, limit = 20) {
+        const rows = await db.select({
+            id: checklistInstanceItemSubmissions.id,
+            remarks: checklistInstanceItemSubmissions.remarks,
+            completedAt: checklistInstanceItemSubmissions.completedAt,
+            itemLabel: checklistInstanceItems.label,
+            checklistTitle: checklistInstances.title,
+            periodStart: checklistInstances.periodStart,
+        })
+            .from(checklistInstanceItemSubmissions)
+            .innerJoin(checklistInstanceItems, eq(checklistInstanceItems.id, checklistInstanceItemSubmissions.itemId))
+            .innerJoin(checklistInstances, eq(checklistInstances.id, checklistInstanceItems.instanceId))
+            .where(and(
+                eq(checklistInstanceItemSubmissions.userId, userId),
+                eq(checklistInstanceItemSubmissions.isDone, true),
+                parentNotDeletedExpr,
+            ))
+            .orderBy(desc(checklistInstanceItemSubmissions.completedAt))
+            .limit(limit)
+        if (!rows.length) return []
+
+        const submissionIds = rows.map((r) => r.id)
+        const accessories = await db.select().from(checklistInstanceItemSubmissionAccessories)
+            .where(inArray(checklistInstanceItemSubmissionAccessories.submissionId, submissionIds))
+        const images = await db.select().from(checklistInstanceItemSubmissionImages)
+            .where(inArray(checklistInstanceItemSubmissionImages.submissionId, submissionIds))
+
+        return rows.map((r) => ({
+            ...r,
+            accessories: accessories.filter((a) => a.submissionId === r.id).map((a) => ({ name: a.name, checked: a.checked })),
+            images: images.filter((img) => img.submissionId === r.id).map((img) => ({
+                id: img.id,
+                url: img.url,
+                originalFilename: img.originalFilename,
+                captureMethod: img.captureMethod,
+                createdAt: img.createdAt,
+            })),
+        }))
+    },
+
     async getById(id: string, user: AccessTokenPayload) {
         const instance = await getPopulatedInstanceById(id)
         if (!instance) throw AppError.notFound("Checklist instance not found")

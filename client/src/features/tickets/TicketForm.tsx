@@ -20,6 +20,7 @@ import { TaskDescriptionField } from '../tasks/TaskDescriptionField';
 import { StagedFileChips } from '../tasks/StagedFileChips';
 import { DETAIL_HEADING_CLASS, CHIP_TRIGGER_CLASS } from '../tasks/taskFormFieldStyles';
 import { useAuth } from '../../context/AuthContext';
+import { OWN_SCOPE_ROLES } from '../../api/auth';
 
 // Quiet fill until focused; Input's own danger styling takes over once validation fails.
 const QUIET_FIELD_CLASS = 'font-display border-transparent bg-surface-hover/50 hover:bg-surface-hover focus:bg-surface';
@@ -33,6 +34,9 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
   // Same role test the rest of the app uses for "may create a new label" — matches Delegation's
   // TaskForm exactly, since it's the same server-side gate (POST /tags is ADMIN/PC only).
   const isVerifier = user?.role === 'PC' || user?.role === 'ADMIN';
+  // Front-line staff send a ticket to a department (or a category, which routes it); a manager or
+  // Admin/PC picks the named person. Same role set the server already stops from re-assigning.
+  const ownScopeOnly = !!user && OWN_SCOPE_ROLES.includes(user.role);
   const { data: departments } = useDepartmentsQuery();
   const { data: categories } = useCategoriesQuery();
   const { data: tags } = useTagsQuery();
@@ -63,7 +67,7 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
   const priority = useWatch({ control, name: 'priority' });
   const assigneeId = useWatch({ control, name: 'assigneeId' });
   const tagIds = useWatch({ control, name: 'tagIds' });
-  const { data: assignableUsers, isLoading: isLoadingAssignableUsers } = useAssignableUsersQuery(departmentId || undefined);
+  const { data: assignableUsers, isLoading: isLoadingAssignableUsers } = useAssignableUsersQuery(departmentId || undefined, undefined, undefined, !ownScopeOnly);
 
   const selectedCategory = categories?.find(c => c.id === categoryId);
 
@@ -146,7 +150,7 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
       size="xl"
       icon={<TicketIcon className="w-5 h-5" />}
       title="New ticket"
-      description={<span className="hidden sm:inline">Say what's wrong, then choose who picks it up.</span>}
+      description={<span className="hidden sm:inline">{ownScopeOnly ? "Say what's wrong, then choose where it should go." : "Say what's wrong, then choose who picks it up."}</span>}
       footer={footer}
       bodyClassName="p-0 sm:p-0 overflow-y-auto"
       headerClassName="border-b-0"
@@ -235,17 +239,19 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
 
             <TicketPriorityChipPicker value={priority} onChange={v => setValue('priority', v)} />
 
-            <div title="Assignee" className="flex items-center">
-              <AssigneeField
-                single
-                hideLabel
-                selectedIds={assigneeId ? [assigneeId] : []}
-                onChange={ids => setValue('assigneeId', ids[0] ?? '')}
-                users={assignableUsers}
-                isLoading={isLoadingAssignableUsers}
-                disabled={!!selectedCategory}
-              />
-            </div>
+            {!ownScopeOnly && (
+              <div title="Assignee" className="flex items-center">
+                <AssigneeField
+                  single
+                  hideLabel
+                  selectedIds={assigneeId ? [assigneeId] : []}
+                  onChange={ids => setValue('assigneeId', ids[0] ?? '')}
+                  users={assignableUsers}
+                  isLoading={isLoadingAssignableUsers}
+                  disabled={!!selectedCategory}
+                />
+              </div>
+            )}
 
             {assignmentMode === 'MANUAL' && (
               <div title="Due date">

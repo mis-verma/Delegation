@@ -74,6 +74,14 @@ export const checklistInstanceController = {
         res.json({ success: true, ...result })
     }),
 
+    // GET /checklist-instances/my-audits — the caller's OWN submitted audit rows only (what an
+    // auditor recorded about them). Open to every role: it can only ever return the caller's own
+    // data, which is exactly what makes it safe to hand to someone who can't open the run.
+    myAudits: asyncHandler(async (req: Request, res: Response) => {
+        const data = await checklistInstanceService.myAuditResults(req.user!.sub)
+        res.json({ success: true, data })
+    }),
+
     pendingApprovalPreview: asyncHandler(async (req: Request, res: Response) => {
         const data = await checklistInstanceService.pendingApprovalPreview()
         res.json({ success: true, data })

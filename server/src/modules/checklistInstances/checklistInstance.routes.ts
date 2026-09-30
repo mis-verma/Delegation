@@ -5,11 +5,12 @@ import { authenticate, requireRole } from "../../middleware/auth/auth.js"
 import { checklistInstanceImageUpload } from "../../config/upload.js"
 
 // Mounted at /checklist-instances in app.ts. Instances are cron-generated only — no create/delete
-// endpoints here. "/mine", "/pending-verification" and "/summary" must be registered before
-// "/:id" so Express doesn't treat any of them as an id.
+// endpoints here. "/mine", "/my-audits", "/pending-verification" and "/summary" must be registered
+// before "/:id" so Express doesn't treat any of them as an id.
 export const checklistInstanceRouter = Router()
 checklistInstanceRouter.use(authenticate)
 checklistInstanceRouter.get("/mine", checklistInstanceController.getMine)
+checklistInstanceRouter.get("/my-audits", checklistInstanceController.myAudits)
 // No role gate — an explicitly named reviewer (checklistDefinitionReviewers) can be any role at
 // all, so listPendingVerification/verify scope access themselves, per-instance, instead of at the
 // router (same "No role gate on setItemDone" convention as the item router below).

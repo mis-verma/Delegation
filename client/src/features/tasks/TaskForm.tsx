@@ -13,6 +13,7 @@ import { AttachFilesToolbar } from './AttachFilesToolbar';
 import { StagedFileChips } from './StagedFileChips';
 import { useDepartmentsQuery } from '../tickets/hook';
 import { useAuth } from '../../context/AuthContext';
+import { OWN_SCOPE_ROLES } from '../../api/auth';
 import type { Task } from '../../api/task';
 import { TaskFormDepartmentField } from './TaskFormDepartmentField';
 import { AssigneeField } from '../assignees/AssigneeField';
@@ -43,6 +44,9 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
   // Same role test the rest of Delegation uses. Gates the "create a new label" affordance, which
   // is what the server's /tags write routes allow.
   const isVerifier = user?.role === 'PC' || user?.role === 'ADMIN';
+  // Front-line staff send work to a department; a manager (or Admin/PC) picks who does it. Same
+  // role set the server already stops from re-assigning once a delegation exists.
+  const ownScopeOnly = !!user && OWN_SCOPE_ROLES.includes(user.role);
   const mutation = useCreateTaskWithAttachmentsMutation();
   const { data: assignableUsers, isLoading: isLoadingUsers } = useAssignableUsersQuery();
   const { data: departments, isLoading: isLoadingDepts } = useDepartmentsQuery();
@@ -129,7 +133,7 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
       // when. The old copy ("Define objectives, set priorities…") described the act of filling
       // a form rather than telling anyone anything.
       // Desktop-only: on a phone this sentence cost two lines of an already-tight sheet.
-      description={<span className="hidden sm:inline">Describe the work, then set who owns it and by when.</span>}
+      description={<span className="hidden sm:inline">{ownScopeOnly ? 'Describe the work and pick a department. A manager will assign it.' : 'Describe the work, then set who owns it and by when.'}</span>}
       // One scrollbar for the whole body instead of a separate one per pane. Two nested scroll
       // areas meant fields below the fold in the sidebar (Department, Labels) were reachable only
       // by scrolling inside a region with no visible affordance — so they read as missing.
@@ -266,15 +270,17 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
               Details
             </span>
             <div className="flex flex-wrap items-center gap-2">
-              <div title="Assignees" className="flex items-center">
-                <AssigneeField
-                  hideLabel
-                  selectedIds={assigneeIds}
-                  onChange={setAssigneeIds}
-                  users={assignableUsers}
-                  isLoading={isLoadingUsers}
-                />
-              </div>
+              {!ownScopeOnly && (
+                <div title="Assignees" className="flex items-center">
+                  <AssigneeField
+                    hideLabel
+                    selectedIds={assigneeIds}
+                    onChange={setAssigneeIds}
+                    users={assignableUsers}
+                    isLoading={isLoadingUsers}
+                  />
+                </div>
+              )}
 
               <Controller
                 control={control}

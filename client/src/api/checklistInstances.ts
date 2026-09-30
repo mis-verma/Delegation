@@ -209,6 +209,19 @@ export type ChecklistInstanceSummary = {
   newToday: number;
 };
 
+/** What an auditor recorded about the signed-in person, on one AUDIT item of one run — their own
+ *  row only. It's how someone who is being audited (and so can't open the run) sees their result. */
+export type MyAuditResult = {
+  id:             string;
+  itemLabel:      string;
+  checklistTitle: string;
+  periodStart:    string;
+  completedAt:    string | null;
+  remarks:        string | null;
+  accessories:    ChecklistInstanceItemSubmissionAccessory[];
+  images:         Pick<ChecklistInstanceItemSubmissionImage, 'id' | 'url' | 'originalFilename' | 'captureMethod' | 'createdAt'>[];
+};
+
 /** Dashboard's "Needs your approval" card — one row per checklist run currently awaiting an
  *  ADMIN/PC's sign-off. No single submitter field here (assignment is many-to-many), so this
  *  carries the store instead — see the server-side ChecklistPendingApprovalRow doc comment. */
@@ -235,6 +248,9 @@ export const checklistInstanceApi = {
         ...paging,
       })}`,
     ).then(r => ({ ...r, data: normalizeInstances(r.data) })),
+
+  getMyAuditResults: () =>
+    apiFetch<ApiResponse<MyAuditResult[]>>('/checklist-instances/my-audits'),
 
   /**
    * The counts screens used to derive by downloading every instance and reducing in JS. Ask for
