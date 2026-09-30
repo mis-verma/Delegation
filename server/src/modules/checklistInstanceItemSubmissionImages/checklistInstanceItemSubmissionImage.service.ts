@@ -17,10 +17,10 @@ export const checklistInstanceItemSubmissionImageService = {
     async upload(submissionId: string, files: Express.Multer.File[], captureMethod: "LIVE" | "GALLERY", user: AccessTokenPayload) {
         const [submission] = await db.select().from(checklistInstanceItemSubmissions).where(eq(checklistInstanceItemSubmissions.id, submissionId)).limit(1)
         if (!submission) throw AppError.notFound("Submission not found")
-        assertCanAccess(submission, user)
 
         const [item] = await db.select().from(checklistInstanceItems).where(eq(checklistInstanceItems.id, submission.itemId)).limit(1)
         if (!item) throw AppError.notFound("Checklist item not found")
+        await assertCanAccess(item.instanceId, user)
         await assertSubmissionRunEditable(item.instanceId, user)
 
         if (submission.isDone) {
@@ -73,10 +73,11 @@ export const checklistInstanceItemSubmissionImageService = {
 
         const [submission] = await db.select().from(checklistInstanceItemSubmissions).where(eq(checklistInstanceItemSubmissions.id, image.submissionId)).limit(1)
         if (submission) {
-            assertCanAccess(submission, user)
-            if (submission.isDone) throw AppError.badRequest("Reopen this submission before changing its photos")
             const [item] = await db.select({ instanceId: checklistInstanceItems.instanceId }).from(checklistInstanceItems).where(eq(checklistInstanceItems.id, submission.itemId)).limit(1)
-            if (item) await assertSubmissionRunEditable(item.instanceId, user)
+            if (!item) throw AppError.notFound("Checklist item not found")
+            await assertCanAccess(item.instanceId, user)
+            if (submission.isDone) throw AppError.badRequest("Reopen this submission before changing its photos")
+            await assertSubmissionRunEditable(item.instanceId, user)
         }
 
         // File stays on disk and the removal is logged — same reasoning as the item-image service.

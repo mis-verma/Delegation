@@ -9,6 +9,13 @@ export type Role = 'ADMIN' | 'APPROVAL_MANAGER' | 'SENIOR' | 'MANAGER' | 'AGENT'
 // never actually routed there on login).
 export const ADMIN_AREA_ROLES: readonly Role[] = ['ADMIN', 'PC'];
 
+// Front-line roles whose tickets, delegations and checklists are strictly their own on the server
+// (raised by / assigned to them — see ticket.service.ts's visibilityFilter and task.service.ts's
+// buildVisibilityCondition). Filtering a list that only ever holds your own work by someone else,
+// or by a department, has nothing to act on — and those pickers list colleagues' names — so the
+// Options sheets leave the people/department sections out for these roles.
+export const OWN_SCOPE_ROLES: readonly Role[] = ['AGENT', 'USER'];
+
 export type AuthUser = {
   id:           string;
   email:        string;

@@ -5,8 +5,8 @@ import { authenticate } from "../../middleware/auth/auth.js"
 import { checklistInstanceItemSubmissionImageUpload } from "../../config/upload.js"
 
 // Mounted at /checklist-instance-item-submissions in app.ts. No role gate — the service
-// authorizes based on whether the requester is the named auditor on this submission, or ADMIN
-// (see checklistInstanceItemSubmission.service.ts's assertCanAccess), same convention as
+// authorizes per request: ADMIN/PC, any assignee of the submission's instance, or the named person
+// on it (see checklistInstanceItemSubmission.service.ts's assertCanAccess), same convention as
 // checklistInstance.routes.ts's item-level router.
 export const checklistInstanceItemSubmissionRouter = Router()
 checklistInstanceItemSubmissionRouter.use(authenticate)

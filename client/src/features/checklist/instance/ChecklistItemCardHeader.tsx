@@ -10,8 +10,10 @@ interface ChecklistItemCardHeaderProps {
   // Whether the item's still open for editing (canWork && !isLocked) — NOT gated on item.isDone
   // itself, since the reopen button below needs exactly the opposite (isDone) alongside this.
   interactive: boolean;
-  onReopen: () => void;
-  reopenPending: boolean;
+  // Omitted by cards with no item-level reopen (AUDIT reopens one person's row at a time, inside
+  // the card) — no button renders without it.
+  onReopen?: () => void;
+  reopenPending?: boolean;
   // Per-type info line between the label and the "Completed" line (NumberEntry/CashTally's
   // range/unit/expected-amount hint) — most cards have none.
   subtitle?: ReactNode;
@@ -30,7 +32,7 @@ export const ChecklistItemCardHeader = ({ item, interactive, onReopen, reopenPen
         <p className="text-xs text-text-muted font-display mt-0.5">Completed {formatDate(item.completedAt)}</p>
       )}
     </div>
-    {interactive && item.isDone && (
+    {interactive && item.isDone && onReopen && (
       <button
         onClick={onReopen}
         disabled={reopenPending}

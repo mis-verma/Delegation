@@ -1,5 +1,10 @@
-import { useMemo, useState } from 'react';
-import { Camera, ImageUp, X, Loader2, RotateCcw, Check } from 'lucide-react';
+import { useId, useState, type ReactNode } from 'react';
+import { Camera, Check, CheckCheck, ImageUp, Loader2, RotateCcw, X, type LucideIcon } from 'lucide-react';
+import { Button } from '../../../components';
+import { cn } from '@/lib/utils';
+import { UPLOADS_BASE } from '../../../lib/uploadsBase';
+import { avatarColorClass } from '../../../lib/avatarColors';
+import { getInitials } from '../../../lib/getInitials';
 import {
   useSetChecklistInstanceItemSubmissionDoneMutation,
   useUpdateChecklistInstanceItemSubmissionAccessoriesMutation,
@@ -8,12 +13,14 @@ import {
   useDeleteChecklistInstanceItemSubmissionImageMutation,
   useStoresQuery,
 } from '../hook';
-import { ITEM_TYPE_ICON } from './checklistItemIcon';
-import { ChecklistItemIconTile } from './ChecklistItemIconTile';
-import type { ChecklistInstanceItem, ChecklistInstanceItemSubmission } from '../../../api/checklistInstances';
+import { ChecklistItemCardHeader } from './ChecklistItemCardHeader';
+import { formatTimeOnly } from '../checklistDisplay';
+import type {
+  ChecklistInstanceItem,
+  ChecklistInstanceItemSubmission,
+  ChecklistInstanceItemSubmissionAccessory,
+} from '../../../api/checklistInstances';
 import type { CaptureMethod } from '../../../api/ticket';
-
-const UPLOADS_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:5050';
 
 interface ChecklistInstanceItemAuditCardProps {
   item:           ChecklistInstanceItem;
@@ -26,115 +33,263 @@ interface ChecklistInstanceItemAuditCardProps {
   isLocked:       boolean;
 }
 
-const submissionLabel = (submission: ChecklistInstanceItemSubmission) =>
-  `${submission.userId?.firstName ?? ''} ${submission.userId?.lastName ?? ''}`.trim() || 'Unknown user';
+const personName = (submission: ChecklistInstanceItemSubmission) =>
+  `${submission.userId?.firstName ?? ''} ${submission.userId?.lastName ?? ''}`.trim() || 'Unknown person';
 
-// Picking a person first, then filling in just their form, keeps this readable whether the audit
-// covers 3 people or 30 — the old layout rendered every one of their checklists stacked on top of
-// each other at once, which turned into a wall of checkboxes long before the list got long.
+// Pick a person, then fill in just their row. An auditor walks the floor one person at a time, so
+// the card shows one person's checklist at a time too, and moves on by itself after each Submit.
 export const ChecklistInstanceItemAuditCard = ({ item, instanceId, canWork, currentUserId, isLocked }: ChecklistInstanceItemAuditCardProps) => {
+  const pickerLabelId = useId();
   const { data: stores } = useStoresQuery();
-  const storeName = (id: string | null) => (id ? stores?.find(s => s.id === id)?.name ?? '—' : '—');
+  const storeName = (id: string | null) => (id ? stores?.find(s => s.id === id)?.name ?? null : null);
 
-  const submissions = useMemo(() => item.submissions ?? [], [item.submissions]);
+  const submissions = item.submissions ?? [];
   const submittedCount = submissions.filter(s => s.isDone).length;
-  const auditProgress = submissions.length ? Math.round((submittedCount / submissions.length) * 100) : 0;
+  const interactive = canWork && !isLocked;
 
-  const defaultSelectedId = useMemo(() => {
+  const [selectedId, setSelectedId] = useState<string | null>(() => {
     const own = submissions.find(s => s.userId?.id === currentUserId && !s.isDone);
-    if (own) return own.id;
-    const pending = submissions.find(s => !s.isDone);
-    return (pending ?? submissions[0])?.id ?? null;
-  }, [submissions, currentUserId]);
-
-  const [selectedId, setSelectedId] = useState<string | null>(defaultSelectedId);
+    return (own ?? submissions.find(s => !s.isDone) ?? submissions[0])?.id ?? null;
+  });
   const selected = submissions.find(s => s.id === selectedId) ?? submissions[0] ?? null;
 
-  return (
-    <div className={`flex flex-col gap-3 p-3.5 sm:p-4 rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface ${isLocked ? 'opacity-75' : ''}`}>
-      <div className="flex items-start gap-3">
-        <ChecklistItemIconTile icon={ITEM_TYPE_ICON[item.itemType]} done={item.isDone} />
-        <div className="flex-1 min-w-0">
-          <p className={`text-sm font-display font-medium leading-snug ${item.isDone ? 'text-text-muted' : 'text-text'}`}>
-            {item.label}
-          </p>
-          <div className="flex items-center gap-2 mt-1.5">
-            <div className="h-1.5 flex-1 max-w-32 bg-surface-hover rounded-full overflow-hidden border border-border/50">
-              <div
-                className={`h-full rounded-full transition-all duration-500 ${item.isDone ? 'bg-success' : auditProgress > 0 ? 'bg-warning' : 'bg-border'}`}
-                style={{ width: `${auditProgress}%` }}
-              />
-            </div>
-            <span className="text-[11px] text-text-muted font-display shrink-0">
-              {submittedCount}/{submissions.length} checked
-            </span>
-          </div>
-        </div>
-      </div>
+  // Next person still waiting, searching forward from the one just submitted and wrapping round —
+  // the refetch that marks it done hasn't landed yet, so it's skipped by position, not by isDone.
+  const goToNextPending = (submittedId: string) => {
+    const at = submissions.findIndex(s => s.id === submittedId);
+    const next = [...submissions.slice(at + 1), ...submissions.slice(0, at)].find(s => !s.isDone);
+    if (next) setSelectedId(next.id);
+  };
 
-      {submissions.length > 0 && (
-        <div className="flex flex-col gap-3">
-          <div>
-            <p className="text-[11px] font-display font-medium text-text-muted mb-1.5">Select a person</p>
-            <div className="flex flex-wrap gap-1.5">
-              {submissions.map(submission => {
-                const label = submissionLabel(submission);
-                const isActive = submission.id === selected?.id;
-                const isMe = !!currentUserId && submission.userId?.id === currentUserId;
-                return (
-                  <button
-                    key={submission.id}
-                    type="button"
-                    onClick={() => setSelectedId(submission.id)}
-                    className={[
-                      'flex items-center gap-1.5 pl-1 pr-2.5 py-1 rounded-full border text-xs font-display font-medium transition-all duration-150 cursor-pointer active:scale-95',
-                      isActive
-                        ? 'border-primary-500 bg-primary-500/10 text-primary-700 dark:text-primary-300 shadow-sm'
-                        : submission.isDone
-                          ? 'border-success/30 bg-success/5 text-text-secondary hover:bg-success/10'
-                          : 'border-border text-text-secondary hover:bg-surface-hover',
-                    ].join(' ')}
-                  >
-                    <span className="relative flex items-center justify-center size-5 rounded-full text-[9px] font-display font-semibold shrink-0 bg-surface-hover text-text-muted">
-                      {label.slice(0, 1).toUpperCase()}
-                      {submission.isDone && (
-                        <span className="absolute -bottom-0.5 -right-0.5 flex items-center justify-center size-2.5 rounded-full bg-success text-white ring-2 ring-surface">
-                          <Check size={7} strokeWidth={3.5} />
-                        </span>
-                      )}
-                    </span>
-                    <span className="truncate max-w-28">{label}{isMe ? ' (You)' : ''}</span>
-                  </button>
-                );
-              })}
+  return (
+    <div className={cn('flex flex-col gap-4 p-3.5 sm:p-4 rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface', isLocked && 'opacity-75')}>
+      <ChecklistItemCardHeader
+        item={item}
+        interactive={false}
+        subtitle={submissions.length > 0 && <AuditProgress done={submittedCount} total={submissions.length} />}
+      />
+
+      {submissions.length === 0 ? (
+        <p className="text-sm text-text-muted">
+          Nobody to audit yet. Add people under "Who gets audited?" in the checklist builder.
+        </p>
+      ) : (
+        <>
+          <div className="flex flex-col gap-2">
+            <p id={pickerLabelId} className="text-xs font-semibold text-text-secondary">Select a person</p>
+            <div role="group" aria-labelledby={pickerLabelId} className="flex flex-wrap gap-2">
+              {submissions.map(submission => (
+                <PersonChip
+                  key={submission.id}
+                  name={personName(submission)}
+                  done={submission.isDone}
+                  active={submission.id === selected?.id}
+                  isMe={!!currentUserId && submission.userId?.id === currentUserId}
+                  onSelect={() => setSelectedId(submission.id)}
+                />
+              ))}
             </div>
           </div>
 
           {selected && (
-            <SubmissionDetail
+            <SubmissionPanel
               key={selected.id}
               item={item}
               submission={selected}
               instanceId={instanceId}
               storeName={storeName(selected.userId?.storeId ?? null)}
-              interactive={!isLocked && canWork}
+              isMe={!!currentUserId && selected.userId?.id === currentUserId}
+              interactive={interactive}
+              onSubmitted={goToNextPending}
             />
           )}
-        </div>
+        </>
       )}
     </div>
   );
 };
 
-interface SubmissionDetailProps {
+const AuditProgress = ({ done, total }: { done: number; total: number }) => {
+  const complete = done === total;
+  return (
+    <div className="flex items-center gap-2 mt-1.5">
+      <div
+        role="progressbar"
+        aria-label="People submitted"
+        aria-valuemin={0}
+        aria-valuemax={total}
+        aria-valuenow={done}
+        className="h-1.5 w-24 sm:w-32 rounded-full bg-surface-active overflow-hidden"
+      >
+        <div
+          className={cn('h-full w-full origin-left transition-transform duration-500 ease-out motion-reduce:transition-none', complete ? 'bg-success' : 'bg-primary-500')}
+          style={{ transform: `scaleX(${total ? done / total : 0})` }}
+        />
+      </div>
+      <span className="text-xs text-text-muted tabular-nums">{done} of {total} submitted</span>
+    </div>
+  );
+};
+
+const PersonAvatar = ({ name, done, size }: { name: string; done: boolean; size: 'chip' | 'panel' }) => {
+  // At chip size a corner badge lands on top of the initials, so a finished person's chip swaps
+  // its initials for the tick outright. The name sits right beside it, so nothing is lost.
+  if (done && size === 'chip') {
+    return (
+      <span aria-hidden className="flex items-center justify-center size-8 sm:size-7 rounded-full bg-success text-white shrink-0">
+        <Check size={14} strokeWidth={3} />
+      </span>
+    );
+  }
+  return (
+    <span className="relative shrink-0">
+      <span
+        aria-hidden
+        className={cn(
+          'flex items-center justify-center rounded-full font-bold text-white',
+          avatarColorClass(name),
+          size === 'chip' ? 'size-8 sm:size-7 text-[11px] sm:text-[10px]' : 'size-10 text-xs',
+        )}
+      >
+        {getInitials(name)}
+      </span>
+      {done && (
+        <span aria-hidden className="absolute -bottom-0.5 -right-0.5 flex items-center justify-center size-4 rounded-full bg-success text-white ring-2 ring-surface">
+          <Check size={10} strokeWidth={3.5} />
+        </span>
+      )}
+    </span>
+  );
+};
+
+// Same selected/unselected vocabulary as OptionsSheet's ChoiceChip, minus its trailing tick: here a
+// tick already means "submitted" (the avatar badge), so selection is carried by border and tint.
+const PersonChip = ({ name, done, active, isMe, onSelect }: {
+  name: string; done: boolean; active: boolean; isMe: boolean; onSelect: () => void;
+}) => (
+  <button
+    type="button"
+    aria-pressed={active}
+    onClick={onSelect}
+    title={name}
+    className={cn(
+      'inline-flex items-center gap-2 h-11 sm:h-9 pl-1 pr-3.5 rounded-full border text-sm sm:text-xs font-semibold',
+      'transition-[background-color,border-color,color,transform] duration-150 ease-out cursor-pointer outline-none',
+      'focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.97] [-webkit-tap-highlight-color:transparent]',
+      active
+        ? 'border-primary-600 dark:border-primary-400 bg-primary-500/10 dark:bg-primary-500/15 text-primary-800 dark:text-primary-100'
+        : done
+          ? 'border-success/40 bg-surface text-text-secondary hover:border-success/70'
+          : 'border-border/60 dark:border-white/[0.08] bg-surface text-text-secondary hover:border-primary-400/60',
+    )}
+  >
+    <PersonAvatar name={name} done={done} size="chip" />
+    <span className="truncate max-w-[9rem]">{name}</span>
+    {isMe && <span className="font-medium opacity-75">(You)</span>}
+    {done && <span className="sr-only">, submitted</span>}
+  </button>
+);
+
+// Label on the left in the card's secondary text tone, an optional count beside it, and an
+// optional action on the right. The fixed min height keeps rows with and without an action level.
+const SectionHeader = ({ label, meta, action }: { label: string; meta?: ReactNode; action?: ReactNode }) => (
+  <div className="flex items-center justify-between gap-3 min-h-8">
+    <p className="flex items-center gap-1.5 text-xs font-semibold text-text-secondary">
+      {label}
+      {meta && <span className="flex items-center gap-1 font-medium text-text-muted tabular-nums">{meta}</span>}
+    </p>
+    {action}
+  </div>
+);
+
+const AccessoryTile = ({ name, checked, missing, interactive, onToggle }: {
+  name: string; checked: boolean; missing: boolean; interactive: boolean; onToggle: () => void;
+}) => {
+  const className = cn(
+    'inline-flex items-center gap-2 h-11 sm:h-9 pl-2.5 pr-3.5 rounded-lg border text-sm sm:text-xs font-medium select-none',
+    'transition-[background-color,border-color,color,transform] duration-150 ease-out [-webkit-tap-highlight-color:transparent]',
+    checked
+      ? 'border-success/50 bg-success/10 dark:bg-success/15 text-text'
+      : missing
+        ? 'border-danger/30 bg-surface text-text-secondary'
+        : 'border-border/60 dark:border-white/[0.08] bg-surface text-text-secondary',
+    interactive && 'cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.97]',
+    interactive && !checked && 'hover:border-border-hover hover:bg-surface-hover',
+  );
+  const box = (
+    <span
+      aria-hidden
+      className={cn(
+        'flex items-center justify-center size-[18px] rounded-[5px] border shrink-0 transition-colors duration-150',
+        checked ? 'bg-success border-success text-white' : missing ? 'border-danger/40 text-danger' : 'border-border-hover bg-surface',
+      )}
+    >
+      {missing ? (
+        <X size={11} strokeWidth={3} />
+      ) : (
+        <Check
+          size={12}
+          strokeWidth={3.25}
+          className={cn('transition-transform duration-150 ease-out motion-reduce:transition-none', checked ? 'scale-100' : 'scale-0')}
+        />
+      )}
+    </span>
+  );
+
+  if (!interactive) {
+    return (
+      <span className={className}>
+        {box}
+        {name}
+        <span className="sr-only">{checked ? ', has it' : missing ? ', missing' : ', not checked yet'}</span>
+      </span>
+    );
+  }
+  return (
+    <button type="button" aria-pressed={checked} onClick={onToggle} className={className}>
+      {box}
+      {name}
+    </button>
+  );
+};
+
+const CaptureButton = ({ icon: Icon, label, live, onFiles }: {
+  icon: LucideIcon; label: string; live: boolean; onFiles: (files: FileList | null) => void;
+}) => (
+  <label
+    className={cn(
+      'inline-flex items-center justify-center gap-2 h-11 sm:h-9 px-3.5 rounded-lg border text-sm sm:text-xs font-medium cursor-pointer select-none',
+      'transition-[background-color,border-color,transform] duration-150 ease-out active:scale-[0.97] [-webkit-tap-highlight-color:transparent]',
+      'focus-within:ring-2 focus-within:ring-primary-500/40',
+      live
+        ? 'border-primary-500/50 text-primary-600 dark:text-primary-300 hover:bg-primary-500/10'
+        : 'border-border/60 dark:border-white/[0.08] text-text-secondary hover:border-border-hover hover:bg-surface-hover',
+    )}
+  >
+    <Icon size={15} aria-hidden />
+    {label}
+    <input
+      type="file"
+      accept="image/*"
+      capture={live ? 'environment' : undefined}
+      multiple
+      className="sr-only"
+      onChange={e => { onFiles(e.target.files); e.target.value = ''; }}
+    />
+  </label>
+);
+
+interface SubmissionPanelProps {
   item:        ChecklistInstanceItem;
   submission:  ChecklistInstanceItemSubmission;
   instanceId:  string;
-  storeName:   string;
+  storeName:   string | null;
+  isMe:        boolean;
   interactive: boolean;
+  onSubmitted: (submissionId: string) => void;
 }
 
-const SubmissionDetail = ({ item, submission, instanceId, storeName, interactive }: SubmissionDetailProps) => {
+const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, interactive, onSubmitted }: SubmissionPanelProps) => {
   const setDone = useSetChecklistInstanceItemSubmissionDoneMutation(instanceId);
   const updateAccessories = useUpdateChecklistInstanceItemSubmissionAccessoriesMutation(instanceId);
   const updateRemarks = useUpdateChecklistInstanceItemSubmissionRemarksMutation(instanceId);
@@ -148,225 +303,237 @@ const SubmissionDetail = ({ item, submission, instanceId, storeName, interactive
   // tap registered. Rolled back to the last known-good state only if the save actually fails.
   const [accessoriesDraft, setAccessoriesDraft] = useState(submission.accessories);
 
+  const name = personName(submission);
+  const editable = interactive && !submission.isDone;
   const images = submission.images ?? [];
   const qualifying = item.requiresLivePhoto ? images.filter(i => i.captureMethod === 'LIVE').length : images.length;
-  const photosSatisfied = item.requiredImageCount === 0 || qualifying >= item.requiredImageCount;
-  const canSubmit = interactive && !submission.isDone;
+  const photosNeeded = Math.max(item.requiredImageCount - qualifying, 0);
+  const checkedCount = accessoriesDraft.filter(a => a.checked).length;
+  const allChecked = checkedCount === accessoriesDraft.length;
+
+  const saveAccessories = (next: ChecklistInstanceItemSubmissionAccessory[]) => {
+    setAccessoriesDraft(next);
+    updateAccessories.mutate({ id: submission.id, accessories: next }, {
+      onError: () => setAccessoriesDraft(submission.accessories),
+    });
+  };
+  const toggleAccessory = (accessoryName: string) => {
+    if (!editable) return;
+    saveAccessories(accessoriesDraft.map(a => (a.name === accessoryName ? { ...a, checked: !a.checked } : a)));
+  };
+  // Most people pass most checks — tick everything in one tap, then untick whatever's missing.
+  const tickAll = () => {
+    if (!editable) return;
+    saveAccessories(accessoriesDraft.map(a => ({ ...a, checked: true })));
+  };
 
   const handleFiles = (files: FileList | null, captureMethod: CaptureMethod) => {
     if (!files || !files.length) return;
     uploadImages.mutate({ submissionId: submission.id, files: Array.from(files), captureMethod });
   };
 
-  const toggleAccessory = (name: string) => {
-    if (!canSubmit) return;
-    const next = accessoriesDraft.map(a => (a.name === name ? { ...a, checked: !a.checked } : a));
-    setAccessoriesDraft(next);
-    updateAccessories.mutate({ id: submission.id, accessories: next }, {
-      onError: () => setAccessoriesDraft(submission.accessories),
-    });
-  };
-
-  const userLabel = submissionLabel(submission);
+  const saveRemarks = () => updateRemarks.mutate({ id: submission.id, remarks: remarksDraft.trim() || null });
 
   const submitting = setDone.isPending || updateRemarks.isPending;
   const handleSubmit = async () => {
     if (remarksDirty) {
-      await updateRemarks.mutateAsync({ id: submission.id, remarks: remarksDraft.trim() || null });
+      try {
+        await updateRemarks.mutateAsync({ id: submission.id, remarks: remarksDraft.trim() || null });
+      } catch {
+        return;
+      }
     }
-    setDone.mutate({ id: submission.id, isDone: true });
+    setDone.mutate({ id: submission.id, isDone: true }, { onSuccess: () => onSubmitted(submission.id) });
   };
 
+  const error = uploadImages.error ?? setDone.error ?? updateRemarks.error;
+  const errorText = error ? (error instanceof Error ? error.message : "Couldn't save that. Try again.") : null;
+
+  const showPhotos = editable || images.length > 0 || item.requiredImageCount > 0;
+  const liveWord = item.requiresLivePhoto ? 'live ' : '';
+
   return (
-    <div className={`flex flex-col gap-3 p-3 rounded-xl border transition-colors duration-200 animate-in fade-in slide-in-from-bottom-1 duration-200 ${
-      submission.isDone ? 'border-success/25 bg-success/[0.03]' : 'border-border bg-background'
-    }`}>
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="relative shrink-0">
-            <span className={`flex items-center justify-center size-8 rounded-full text-xs font-display font-semibold ${
-              submission.isDone ? 'bg-success/15 text-success' : 'bg-surface-hover text-text-muted'
-            }`}>
-              {userLabel.slice(0, 1).toUpperCase()}
-            </span>
-            {submission.isDone && (
-              <span className="absolute -bottom-0.5 -right-0.5 flex items-center justify-center size-3.5 rounded-full bg-success text-white ring-2 ring-surface">
-                <Check size={9} strokeWidth={3.5} />
-              </span>
-            )}
-          </span>
-          <div className="min-w-0">
-            <p className="text-sm font-display font-medium text-text truncate">{userLabel}</p>
-            <p className="text-[11px] text-text-muted font-display truncate">{storeName}</p>
-          </div>
+    <section
+      aria-label={`Audit for ${name}`}
+      className="flex flex-col gap-4 pt-4 border-t border-border/60 dark:border-white/[0.06] animate-in fade-in slide-in-from-bottom-1 duration-200 ease-out"
+    >
+      <div className="flex items-center gap-3">
+        <PersonAvatar name={name} done={submission.isDone} size="panel" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-text truncate">
+            {name}{isMe && <span className="font-medium text-text-muted"> (You)</span>}
+          </p>
+          {storeName && <p className="text-xs text-text-muted truncate">{storeName}</p>}
         </div>
-        {submission.isDone && interactive && (
-          <button
-            onClick={() => setDone.mutate({ id: submission.id, isDone: false })}
-            disabled={setDone.isPending}
-            className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-display font-medium text-text-light hover:text-warning hover:bg-warning/10 transition-all duration-150 cursor-pointer active:scale-95 disabled:opacity-50 disabled:active:scale-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-warning/50"
-          >
-            <RotateCcw size={13} />
-            Reopen
-          </button>
-        )}
-        {submission.isDone && !interactive && (
-          <span className="shrink-0 text-[11px] font-display font-medium text-success bg-success/10 px-2 py-1 rounded-md">Submitted</span>
-        )}
-        {!submission.isDone && !interactive && (
-          <span className="shrink-0 text-[11px] font-display font-medium text-text-light bg-surface-hover px-2 py-1 rounded-md">Pending</span>
-        )}
+        {submission.isDone ? (
+          <span className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full bg-success/10 dark:bg-success/15 text-xs font-medium text-text-secondary shrink-0 tabular-nums">
+            <Check size={12} strokeWidth={3} className="text-success" aria-hidden />
+            Submitted{submission.completedAt ? ` ${formatTimeOnly(submission.completedAt)}` : ''}
+          </span>
+        ) : !interactive ? (
+          <span className="inline-flex items-center h-7 px-2.5 rounded-full bg-surface-hover text-xs font-medium text-text-muted shrink-0">
+            Pending
+          </span>
+        ) : null}
       </div>
 
-      {(item.accessories?.length ?? 0) > 0 && (
-        <div>
-          <p className="text-[11px] font-display font-medium text-text-muted mb-1.5">What they have</p>
-          <div className="flex flex-wrap gap-1.5">
-            {accessoriesDraft.map(a => (
-              <button
-                key={a.name}
-                type="button"
-                aria-pressed={a.checked}
-                disabled={!canSubmit}
-                onClick={() => toggleAccessory(a.name)}
-                className={[
-                  'flex items-center gap-1.5 pl-1.5 pr-2.5 py-1.5 rounded-lg border text-xs font-display font-medium transition-all duration-150 active:scale-95',
-                  a.checked ? 'border-success/40 bg-success/10 text-success' : 'border-border text-text-secondary',
-                  canSubmit ? 'cursor-pointer hover:bg-surface-hover' : 'cursor-not-allowed opacity-80',
-                ].join(' ')}
+      {accessoriesDraft.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <SectionHeader
+            label="What they have"
+            meta={`${checkedCount}/${accessoriesDraft.length}`}
+            action={editable && !allChecked && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={tickAll}
+                className="text-primary-600 dark:text-primary-300 hover:text-primary-700 dark:hover:text-primary-200 hover:bg-primary-500/10"
               >
-                <span className={`flex items-center justify-center size-4 rounded-[4px] border shrink-0 transition-colors duration-150 ${
-                  a.checked ? 'bg-success border-success text-white' : 'border-border-hover text-transparent'
-                }`}>
-                  <Check size={10} strokeWidth={3} />
-                </span>
-                {a.name}
-              </button>
+                <CheckCheck size={14} aria-hidden />
+                Tick all
+              </Button>
+            )}
+          />
+          <ul className="flex flex-wrap gap-2">
+            {accessoriesDraft.map(a => (
+              <li key={a.name}>
+                <AccessoryTile
+                  name={a.name}
+                  checked={a.checked}
+                  missing={submission.isDone && !a.checked}
+                  interactive={editable}
+                  onToggle={() => toggleAccessory(a.name)}
+                />
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       )}
 
-      {item.requiredImageCount > 0 && (
-        <div className="flex items-center gap-1.5">
-          <span className={`flex items-center justify-center size-4 rounded shrink-0 ${photosSatisfied ? 'bg-success' : 'bg-warning'}`}>
-            <Camera size={10} className="text-white" />
-          </span>
-          <span className="text-[11px] font-display text-text-muted truncate">
-            {qualifying}/{item.requiredImageCount} photo{item.requiredImageCount !== 1 ? 's' : ''}
-            {item.requiresLivePhoto ? ' (live only)' : ''}
-          </span>
-        </div>
-      )}
-
-      {images.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {images.map(img => (
-            <div key={img.id} className="relative">
-              <img
-                src={`${UPLOADS_BASE}${img.url}`}
-                alt={img.originalFilename ?? 'evidence'}
-                className="size-14 object-cover rounded-md border border-border"
-              />
-              <span className={`absolute -top-1 -left-1 text-[9px] font-display px-1 rounded-full text-white ${
-                img.captureMethod === 'LIVE' ? 'bg-success' : 'bg-text-light'
-              }`}>
-                {img.captureMethod === 'LIVE' ? 'Live' : 'Gallery'}
-              </span>
-              {canSubmit && (
-                <button
-                  onClick={() => deleteImage.mutate(img.id)}
-                  disabled={deleteImage.isPending}
-                  className="absolute -top-2 -right-2 size-6 rounded-full bg-surface border border-border flex items-center justify-center text-text-muted hover:text-danger opacity-90 hover:opacity-100 transition-opacity cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"
-                  aria-label="Delete image"
-                >
-                  <X size={11} />
-                </button>
+      {showPhotos && (
+        <div className="flex flex-col gap-2">
+          <SectionHeader
+            label="Photos"
+            meta={item.requiredImageCount > 0 ? (
+              <>
+                {photosNeeded === 0 && <Check size={12} strokeWidth={3} className="text-success" aria-hidden />}
+                {qualifying}/{item.requiredImageCount}{item.requiresLivePhoto ? ' · live only' : ''}
+              </>
+            ) : 'optional'}
+          />
+          {images.length > 0 && (
+            <ul className="flex flex-wrap gap-2">
+              {images.map(img => (
+                <li key={img.id} className="relative">
+                  <img
+                    src={`${UPLOADS_BASE}${img.url}`}
+                    alt={img.originalFilename ?? `Photo of ${name}`}
+                    loading="lazy"
+                    className="size-16 rounded-lg border border-border object-cover bg-surface-hover"
+                  />
+                  <span className={cn(
+                    'absolute -top-1 -left-1 px-1 rounded-full text-[9px] font-semibold text-white',
+                    img.captureMethod === 'LIVE' ? 'bg-success' : 'bg-text-muted',
+                  )}>
+                    {img.captureMethod === 'LIVE' ? 'Live' : 'Gallery'}
+                  </span>
+                  <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-1 rounded-full bg-black/70 text-[9px] font-medium text-white whitespace-nowrap tabular-nums">
+                    {formatTimeOnly(img.createdAt)}
+                  </span>
+                  {editable && (
+                    <button
+                      type="button"
+                      onClick={() => deleteImage.mutate(img.id)}
+                      disabled={deleteImage.isPending}
+                      aria-label="Delete photo"
+                      className="absolute -top-2 -right-2 size-6 rounded-full bg-surface border border-border flex items-center justify-center text-text-muted hover:text-danger hover:border-danger/40 transition-colors duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-danger/40 after:absolute after:-inset-2 after:content-['']"
+                    >
+                      <X size={11} aria-hidden />
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {editable && (
+            <div className="flex flex-wrap items-center gap-2">
+              <CaptureButton icon={Camera} label="Take photo" live onFiles={files => handleFiles(files, 'LIVE')} />
+              {/* A live-only question rejects gallery uploads server-side, so there's no Gallery button to fail. */}
+              {!item.requiresLivePhoto && (
+                <CaptureButton icon={ImageUp} label="Gallery" live={false} onFiles={files => handleFiles(files, 'GALLERY')} />
+              )}
+              {uploadImages.isPending && (
+                <span className="inline-flex items-center gap-1.5 text-xs text-text-muted">
+                  <Loader2 size={13} className="animate-spin" aria-hidden />
+                  Uploading…
+                </span>
               )}
             </div>
-          ))}
+          )}
         </div>
       )}
 
-      {!canSubmit && submission.remarks && (
-        <div>
-          <p className="text-[11px] font-display font-medium text-text-muted mb-1">Remarks</p>
-          <p className="text-xs font-display text-text-secondary italic">"{submission.remarks}"</p>
-        </div>
-      )}
-
-      {canSubmit && (
+      {editable ? (
         <div className="flex flex-col gap-2">
-          {(uploadImages.isError || setDone.isError || updateRemarks.isError) && (
-            <p className="text-xs text-danger">
-              {uploadImages.error instanceof Error
-                ? uploadImages.error.message
-                : setDone.error instanceof Error
-                  ? setDone.error.message
-                  : updateRemarks.error instanceof Error
-                    ? updateRemarks.error.message
-                    : "Couldn't save that — try again."}
-            </p>
-          )}
+          <SectionHeader
+            label="Remarks"
+            action={remarksDirty && (
+              <Button variant="ghost" size="sm" onClick={saveRemarks} isLoading={updateRemarks.isPending}>
+                Save
+              </Button>
+            )}
+          />
+          <textarea
+            value={remarksDraft}
+            onChange={e => setRemarksDraft(e.target.value)}
+            aria-label={`Remarks for ${name}`}
+            placeholder="Were they present today? Note anything missing or out of place…"
+            rows={2}
+            className="w-full min-h-[4.5rem] px-3 py-2.5 rounded-lg border border-border/60 dark:border-white/[0.08] bg-surface text-base sm:text-sm text-text placeholder:text-text-muted resize-y transition-[border-color,box-shadow] duration-150 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+          />
+        </div>
+      ) : submission.remarks ? (
+        <div className="flex flex-col gap-1">
+          <p className="text-xs font-semibold text-text-secondary">Remarks</p>
+          <p className="text-sm text-text-secondary whitespace-pre-wrap break-words">{submission.remarks}</p>
+        </div>
+      ) : null}
 
-          <div>
-            <p className="text-[11px] font-display font-medium text-text-muted mb-1">Remarks</p>
-            <textarea
-              value={remarksDraft}
-              onChange={e => setRemarksDraft(e.target.value)}
-              placeholder="Were they present today? Note anything missing or out of place…"
-              rows={2}
-              className="w-full px-2.5 py-2 text-xs font-display bg-surface text-text rounded-md border border-border focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all resize-y"
-            />
-          </div>
-          {remarksDirty && (
-            <button
-              onClick={() => updateRemarks.mutate({ id: submission.id, remarks: remarksDraft.trim() || null })}
-              disabled={updateRemarks.isPending}
-              className="self-start flex items-center gap-1.5 text-[11px] font-display font-medium px-2.5 py-1 rounded-md border border-border text-text-secondary hover:bg-surface-hover cursor-pointer transition-all duration-150 active:scale-95 disabled:opacity-50 disabled:active:scale-100"
-            >
-              {updateRemarks.isPending && <Loader2 size={11} className="animate-spin" />}
-              Save remarks
-            </button>
-          )}
-
-          <div className="flex items-center gap-2 flex-wrap pt-0.5">
-            <label className="flex items-center gap-1.5 text-[11px] font-display font-medium px-2.5 py-1 rounded-md border border-primary-500/50 text-primary-600 hover:bg-primary-500/10 cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-primary-500/50 focus-within:ring-offset-1">
-              <Camera size={11} />
-              Take photo
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                multiple
-                className="sr-only"
-                onChange={e => { handleFiles(e.target.files, 'LIVE'); e.target.value = ''; }}
-              />
-            </label>
-            <label className="flex items-center gap-1.5 text-[11px] font-display font-medium px-2.5 py-1 rounded-md border border-border text-text-secondary hover:bg-surface-hover cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-primary-500/50 focus-within:ring-offset-1">
-              <ImageUp size={11} />
-              Gallery
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                className="sr-only"
-                onChange={e => { handleFiles(e.target.files, 'GALLERY'); e.target.value = ''; }}
-              />
-            </label>
-            {uploadImages.isPending && <Loader2 size={12} className="animate-spin text-text-muted" />}
-
-            <button
+      {editable && (
+        <div className="flex flex-col gap-2">
+          {errorText && <p role="alert" className="text-xs text-danger">{errorText}</p>}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2">
+            {photosNeeded > 0 && (
+              <p className="text-xs text-text-muted text-center sm:text-left sm:flex-1">
+                Add {photosNeeded} more {liveWord}photo{photosNeeded === 1 ? '' : 's'} to submit.
+              </p>
+            )}
+            <Button
+              variant="primary"
               onClick={handleSubmit}
-              disabled={submitting}
-              className="flex items-center gap-1.5 text-[11px] font-display font-medium px-2.5 py-1 rounded-md border border-primary-500/50 text-primary-600 hover:bg-primary-500/10 cursor-pointer transition-all duration-150 active:scale-95 disabled:opacity-50 disabled:active:scale-100 ml-auto"
+              isLoading={submitting}
+              disabled={photosNeeded > 0}
+              className="w-full sm:w-auto h-11 sm:h-10"
             >
-              {submitting && <Loader2 size={11} className="animate-spin" />}
               Submit
-            </button>
+            </Button>
           </div>
         </div>
       )}
-    </div>
+
+      {interactive && submission.isDone && (
+        <div className="flex flex-col sm:flex-row sm:justify-end">
+          <Button
+            variant="outline"
+            onClick={() => setDone.mutate({ id: submission.id, isDone: false })}
+            isLoading={setDone.isPending}
+            className="w-full sm:w-auto h-11 sm:h-10"
+          >
+            {!setDone.isPending && <RotateCcw size={14} aria-hidden />}
+            Reopen
+          </Button>
+        </div>
+      )}
+    </section>
   );
 };

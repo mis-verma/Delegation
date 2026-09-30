@@ -4,6 +4,7 @@ import { Plus, ChevronDown, Upload, AlertCircle, Inbox, LayoutList, Kanban, Tabl
 import { Button, PageNav, Fab, ViewToggle, EmptyState, type ViewTab } from '../../components';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/context/AuthContext';
+import { OWN_SCOPE_ROLES } from '../../api/auth';
 import { useDepartmentsQuery, useStoresQuery, useAssignableUsersQuery, useTicketsBoardQuery } from './hook';
 import { useCategoriesQuery } from '../settings/hook';
 import { useTagsQuery } from '../tags/hook';
@@ -122,6 +123,7 @@ export const TicketList = () => {
 
   const isVerifier = user?.role === 'PC' || user?.role === 'ADMIN';
   const canExport = user?.role === 'ADMIN' || user?.role === 'PC';
+  const ownScopeOnly = !!user && OWN_SCOPE_ROLES.includes(user.role);
 
   return (
     <div className="flex flex-col gap-6 mx-auto w-full max-w-(--container-width) transition-all duration-300">
@@ -191,8 +193,8 @@ export const TicketList = () => {
               isOpen={showOptions}
               setIsOpen={setShowOptions}
               organizer={organizer}
-              departments={departments}
-              assignableUsers={assignableUsers}
+              departments={ownScopeOnly ? undefined : departments}
+              assignableUsers={ownScopeOnly ? undefined : assignableUsers}
               tags={tags}
               canExport={canExport}
               onExport={() => setShowExport(true)}

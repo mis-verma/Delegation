@@ -5,21 +5,28 @@ import {
     checklistInstanceItemSubmissionImages,
     checklistInstanceItemSubmissionAccessories,
     checklistInstances,
+    checklistInstanceAssignees,
 } from "../../db/schema/index.js"
-import { eq, sql } from "drizzle-orm"
+import { and, eq, sql } from "drizzle-orm"
 import { AppError } from "../../utils/AppError.js"
 import { syncVerificationStatus, assertInstanceOpen, assertInstanceEditable } from "../checklistInstances/checklistInstance.service.js"
 import { emitChecklistEvent } from "../../sockets/checklistEvent.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { UpdateChecklistInstanceItemSubmissionAccessoriesInput, UpdateChecklistInstanceItemSubmissionRemarksInput } from "./checklistInstanceItemSubmission.validation.js"
 
-// A submission belongs to exactly one named auditor (ChecklistDefinitionItem.auditUserIds names
-// specific people, not a group) — tighter than the item-level "any instance assignee" check used
-// for STANDARD items.
-export const assertCanAccess = (submission: { userId: string }, user: AccessTokenPayload) => {
+// A submission is one person being audited (ChecklistDefinitionItem.auditUserIds names who gets
+// checked). Whoever is running the checklist — ADMIN/PC or any assignee of its instance, the same
+// rule every other item type uses — works through everyone on that list, so they may fill in any
+// row. The person being audited gets no access of their own: letting someone tick off and submit
+// their own uniform check would defeat the audit.
+export const assertCanAccess = async (instanceId: string, user: AccessTokenPayload) => {
     if (user.role === "ADMIN" || user.role === "PC") return
-    if (submission.userId === user.sub) return
-    throw AppError.forbidden("Only the named auditor can act on this submission")
+    const [assignee] = await db.select({ userId: checklistInstanceAssignees.userId })
+        .from(checklistInstanceAssignees)
+        .where(and(eq(checklistInstanceAssignees.instanceId, instanceId), eq(checklistInstanceAssignees.userId, user.sub)))
+        .limit(1)
+    if (assignee) return
+    throw AppError.forbidden("Only someone assigned to this checklist can fill in this audit")
 }
 
 const assertNotLocked = (submission: { isDone: boolean }) => {
@@ -81,7 +88,7 @@ const recomputeItemAndVerification = async (item: { id: string; isDone: boolean;
 export const checklistInstanceItemSubmissionService = {
     async updateAccessories(id: string, accessories: UpdateChecklistInstanceItemSubmissionAccessoriesInput["accessories"], user: AccessTokenPayload) {
         const { submission, item } = await loadSubmissionAndItem(id)
-        assertCanAccess(submission, user)
+        await assertCanAccess(item.instanceId, user)
         assertNotLocked(submission)
         await assertSubmissionRunEditable(item.instanceId, user)
 
@@ -106,7 +113,7 @@ export const checklistInstanceItemSubmissionService = {
 
     async updateRemarks(id: string, remarks: UpdateChecklistInstanceItemSubmissionRemarksInput["remarks"], user: AccessTokenPayload) {
         const { submission, item } = await loadSubmissionAndItem(id)
-        assertCanAccess(submission, user)
+        await assertCanAccess(item.instanceId, user)
         assertNotLocked(submission)
         await assertSubmissionRunEditable(item.instanceId, user)
 
@@ -116,7 +123,7 @@ export const checklistInstanceItemSubmissionService = {
 
     async setDone(id: string, isDone: boolean, user: AccessTokenPayload) {
         const { submission, item } = await loadSubmissionAndItem(id)
-        assertCanAccess(submission, user)
+        await assertCanAccess(item.instanceId, user)
         await assertSubmissionRunEditable(item.instanceId, user)
 
         // Fetched once, used both for the opens-time gate below and to know which store's room to

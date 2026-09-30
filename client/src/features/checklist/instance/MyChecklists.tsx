@@ -9,6 +9,8 @@ import { avatarColorClass } from '../../../lib/avatarColors';
 import { getInitials } from '../../../lib/getInitials';
 import { toggleValue } from '../../../lib/toggleValue';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from '../../../context/AuthContext';
+import { OWN_SCOPE_ROLES } from '../../../api/auth';
 import { useMyChecklistInstancesQuery, useChecklistInstanceSummaryQuery, useAssignableUsersQuery, useDepartmentsQuery } from '../hook';
 import { useStoresQuery } from '../../tickets/hook';
 import { toFilterPeople } from '../../../lib/filterPeople';
@@ -115,7 +117,11 @@ export const MyChecklists = () => {
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [showOptions, setShowOptions] = useState(false);
 
-  const { data: assignableUsers } = useAssignableUsersQuery();
+  // Front-line staff see only their own checklists, so the "Shared with" people list and the
+  // Department filter are left out for them — the list of colleagues isn't even requested.
+  const { user } = useAuth();
+  const ownScopeOnly = !!user && OWN_SCOPE_ROLES.includes(user.role);
+  const { data: assignableUsers } = useAssignableUsersQuery(undefined, undefined, undefined, !ownScopeOnly);
   const people = useMemo(() => toFilterPeople(assignableUsers), [assignableUsers]);
   const peopleNameById = useMemo(() => new Map(people.map((p) => [p.id, p.name])), [people]);
 
@@ -401,7 +407,7 @@ export const MyChecklists = () => {
 
             {/* Instances carry no department of their own: this matches "at least one assignee is
                 in this department" server-side. */}
-            {departmentOptions.length > 0 && (
+            {!ownScopeOnly && departmentOptions.length > 0 && (
               <OptionSection icon={Building2} label="Department" aside={!!departmentId && <ChoiceClear onClick={() => { setDepartmentId(''); setPage(1); }} />}>
                 <ChoiceWrap>
                   {departmentOptions.map((d) => (

@@ -26,6 +26,7 @@ import { CATEGORY_PREDICATES, SORT_COMPARATORS, isOverdueTask, type CategoryFilt
 import { STATUS_LABEL, PRIORITY_MAP } from "./taskDisplay";
 import { useCardFieldVisibility, taskAssigneeIds } from "./cardFields";
 import { useAuth } from "../../context/AuthContext";
+import { OWN_SCOPE_ROLES } from "../../api/auth";
 import { useNotificationsQuery, useMarkNotificationReadMutation } from "../notifications/hooks";
 import { readQuickFilterParam } from "../../lib/readQuickFilterParam";
 
@@ -107,6 +108,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const isVerifier = user?.role === "PC" || user?.role === "ADMIN";
+  const ownScopeOnly = !!user && OWN_SCOPE_ROLES.includes(user.role);
   const [searchParams, setSearchParams] = useSearchParams();
   const [showSmartModal, setShowSmartModal] = useState(false);
   const [showBulkImport, setShowBulkImport] = useState(false);
@@ -549,13 +551,13 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
               sort={sort}
               onSortChange={setSort}
               storeOptions={storeOptions}
-              departmentOptions={departmentOptions}
+              departmentOptions={ownScopeOnly ? [] : departmentOptions}
               view={view}
               groupBy={boardGroupBy}
               onGroupByChange={setBoardGroupBy}
               fieldVisibility={fieldVisibility}
               onToggleField={toggleField}
-              assignableUsers={assignableUsers}
+              assignableUsers={ownScopeOnly ? undefined : assignableUsers}
               tags={tags}
               isAdmin={isVerifier}
               canExport={isVerifier}

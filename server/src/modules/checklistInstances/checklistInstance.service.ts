@@ -312,13 +312,11 @@ const getDepartmentIdsForUserIds = async (userIds: string[]): Promise<Set<string
 // setItemDone, so a HOD can view but never fill in an employee's checklist. An explicitly named
 // reviewer (checklistInstanceReviewers, additive on top of the role-based rule — see
 // CAN_VERIFY_BY_ROLE) can always view too, regardless of role or department, since they need to
-// see it before they can approve/reject it.
-const assertCanView = async (instance: { assigneeIds: string[]; reviewerIds: string[]; items?: { submissions?: { userId: { id: string } | null }[] }[] }, user: AccessTokenPayload) => {
+// see it before they can approve/reject it. Being named on an AUDIT item's "who gets audited" list
+// grants nothing: that person is the subject of a check, and opening the run would show them every
+// other person's results, remarks and photos.
+const assertCanView = async (instance: { assigneeIds: string[]; reviewerIds: string[] }, user: AccessTokenPayload) => {
     const isAssignee = instance.assigneeIds.some((id) => id === user.sub)
-    // A named AUDIT auditor has their own submission on the item but needn't be an assignee —
-    // without this they got a 403 on the very checklist they were asked to audit.
-    const isAuditor = (instance.items ?? []).some((i) => (i.submissions ?? []).some((s) => s.userId?.id === user.sub))
-    if (isAuditor) return
     // APPROVAL_MANAGER has the same org-wide reach as ADMIN/PC here — the final-approval stage
     // needs to be able to open any instance to review it before giving final sign-off.
     if (user.role === "ADMIN" || user.role === "PC" || user.role === "APPROVAL_MANAGER" || isAssignee || instance.reviewerIds.includes(user.sub)) return
@@ -714,16 +712,11 @@ const instanceConditions = async (filter: InstanceListFilter) => {
         const links = await db.select({ instanceId: checklistInstanceAssignees.instanceId })
             .from(checklistInstanceAssignees)
             .where(eq(checklistInstanceAssignees.userId, assigneeFilter))
+        // Assignees only. Someone who's merely on an AUDIT item's "who gets audited" list is the
+        // subject of a check, not a participant in it — the assignee works through them — so the run
+        // must not turn up in their My Checklists (or their counts and badges), where it used to
+        // hand every audited person the auditor's whole checklist.
         const ids = new Set(links.map((l) => l.instanceId))
-        // "Mine" also covers runs where I'm a named AUDIT auditor (they aren't copied in as
-        // assignees, so these runs never showed up in the auditor's My Checklists at all).
-        if (filter.userId && !filter.assigneeId) {
-            const auditLinks = await db.select({ instanceId: checklistInstanceItems.instanceId })
-                .from(checklistInstanceItemSubmissions)
-                .innerJoin(checklistInstanceItems, eq(checklistInstanceItems.id, checklistInstanceItemSubmissions.itemId))
-                .where(eq(checklistInstanceItemSubmissions.userId, filter.userId))
-            for (const l of auditLinks) ids.add(l.instanceId)
-        }
         if (!ids.size) return NO_MATCHES
         conditions.push(inArray(checklistInstances.id, [...ids]))
     }
