@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useBlocker } from 'react-router';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { ArrowLeft, AlertCircle, ListChecks, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, AlertCircle, ListChecks, ChevronLeft, ChevronRight, ClipboardX } from 'lucide-react';
 import { Skeleton, GradientIconTile, Breadcrumbs, Button } from '../../../../components';
 import { useConfirm } from '@/components/confirmDialog';
+import { ApiError } from '../../../../api/http';
 import {
   useChecklistDefinitionQuery,
   useCreateChecklistDefinitionMutation,
@@ -115,7 +116,8 @@ export const ChecklistBuilder = () => {
   const navigate = useNavigate();
   const shouldReduceMotion = useReducedMotion();
 
-  const { data: existing, isPending: isLoadingExisting, isError: loadError, refetch: refetchExisting } = useChecklistDefinitionQuery(definitionId ?? '');
+  const { data: existing, isPending: isLoadingExisting, isError: loadError, error: loadErrorObj, refetch: refetchExisting } = useChecklistDefinitionQuery(definitionId ?? '');
+  const isDeleted = loadErrorObj instanceof ApiError && loadErrorObj.status === 404;
   const { data: templates } = useChecklistTemplatesQuery();
   const createDefinition = useCreateChecklistDefinitionMutation();
   const updateDefinition = useUpdateChecklistDefinitionMutation();
@@ -370,6 +372,32 @@ export const ChecklistBuilder = () => {
       <div className="flex flex-col gap-4 w-full max-w-5xl mx-auto p-4 sm:p-6">
         <Skeleton className="h-10 w-72 rounded-lg" />
         <Skeleton className="h-96 w-full rounded-2xl" />
+      </div>
+    );
+  }
+
+  // 404 means the checklist was actually deleted — retrying just repeats the same doomed request
+  // (see lib/queryHelpers.ts's handleQueryRetry), so this gets its own message and a way back
+  // instead of the generic "try refreshing" banner below, whose Retry can never succeed here.
+  if (isEditing && isDeleted) {
+    return (
+      <div className="w-full max-w-5xl mx-auto p-4 sm:p-6 py-16 flex flex-col items-center gap-3 text-center">
+        <span className="flex items-center justify-center size-12 rounded-lg border border-border/60 bg-muted/60 text-text-muted">
+          <ClipboardX className="size-6" strokeWidth={2.25} />
+        </span>
+        <h1 className="text-base font-display font-bold text-text">This checklist was deleted</h1>
+        <p className="text-sm font-display text-text-muted max-w-sm">
+          There's nothing left here to edit — its run history is still on the Compliance Board if you need it.
+        </p>
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={() => navigate('/admin/scheduled-checklists')}
+          className="mt-1 gap-1.5 font-display"
+        >
+          <ArrowLeft size={13} />
+          Back to checklists
+        </Button>
       </div>
     );
   }

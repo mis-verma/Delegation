@@ -11,10 +11,12 @@ import {
   Store,
   ListTodo,
   AlertTriangle,
+  ClipboardX,
 } from 'lucide-react';
 import { Skeleton, Breadcrumbs, formatWeekdays } from '../../../components';
 import { Badge } from '@/components/ui/badge';
 import { useChecklistDefinitionQuery, useInstancesForDefinitionQuery, useStoresQuery } from '../hook';
+import { ApiError } from '../../../api/http';
 import { ChecklistInstanceRow } from '../instance/ChecklistInstanceRow';
 import {
   formatDate,
@@ -109,7 +111,8 @@ const groupByStatus = (instances: ChecklistInstance[]) =>
 export const ChecklistDefinitionDetail = () => {
   const { definitionId = '' } = useParams();
   const navigate = useNavigate();
-  const { data: definition, isPending, isError, refetch } = useChecklistDefinitionQuery(definitionId);
+  const { data: definition, isPending, isError, error, refetch } = useChecklistDefinitionQuery(definitionId);
+  const isDeleted = error instanceof ApiError && error.status === 404;
   // The instance list is now paginated server-side (default 50). This panel shows a recent
   // history for one definition rather than an audit of all time, so it asks for the newest
   // 100 explicitly instead of silently receiving whatever the default happens to be.
@@ -131,6 +134,31 @@ export const ChecklistDefinitionDetail = () => {
           <Skeleton className="h-28 w-full rounded-xl" />
           <Skeleton className="h-28 w-full rounded-xl" />
         </div>
+      </div>
+    );
+  }
+
+  // A 404 here means the checklist was actually deleted, not a hiccup worth retrying — retrying
+  // it just repeats the same doomed request (see lib/queryHelpers.ts's handleQueryRetry). Show
+  // what actually happened and a way back, instead of a generic "check your connection" banner
+  // whose Retry button can never succeed.
+  if (isDeleted) {
+    return (
+      <div className="w-full max-w-4xl mx-auto py-16 flex flex-col items-center gap-3 text-center">
+        <span className="flex items-center justify-center size-12 rounded-lg border border-border/60 bg-muted/60 text-text-muted">
+          <ClipboardX className="size-6" strokeWidth={2.25} />
+        </span>
+        <h1 className="text-base font-display font-bold text-text">This checklist was deleted</h1>
+        <p className="text-sm font-display text-text-muted max-w-sm">
+          Its history is still on the Compliance Board if you need it — toggle "Show deleted checklists" there.
+        </p>
+        <Link
+          to="/admin/scheduled-checklists"
+          className="mt-1 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-display font-semibold border border-border bg-surface hover:bg-surface-hover transition-colors"
+        >
+          <ArrowLeft size={13} />
+          Back to checklists
+        </Link>
       </div>
     );
   }

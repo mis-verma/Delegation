@@ -7,10 +7,13 @@ import { ApiError } from '../api/http';
 export const errorMessage = (err: unknown, fallback: string) =>
   err instanceof Error ? err.message : fallback;
 
-// Stops React Query from retrying a query when the failure is a 401 — no point hammering the
-// server once the session itself is invalid. Pass as a query's `retry` option.
+// Stops React Query from retrying a query on any 4xx (401 unauthenticated, 403 forbidden, 404 not
+// found, etc.) — retrying doesn't fix "you're not allowed" or "this doesn't exist any more," it
+// just fires the same doomed request 3x in a row (e.g. a deleted checklist's detail page hammering
+// GET /checklist-definitions/:id 3 times before giving up, instead of failing on the first try).
+// Only network errors and 5xx (genuinely transient) are worth retrying. Pass as a query's `retry`.
 export const handleQueryRetry = (failureCount: number, error: unknown) => {
-  if (error instanceof ApiError && error.status === 401) return false;
+  if (error instanceof ApiError && error.status >= 400 && error.status < 500) return false;
   return failureCount < 3;
 };
 
