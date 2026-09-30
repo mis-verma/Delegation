@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Camera, ImageUp, X, Loader2, RotateCcw, Check } from 'lucide-react';
 import {
   useSetChecklistInstanceItemSubmissionDoneMutation,
@@ -22,14 +22,29 @@ interface ChecklistInstanceItemAuditCardProps {
   isLocked:       boolean;
 }
 
+const submissionLabel = (submission: ChecklistInstanceItemSubmission) =>
+  `${submission.userId?.firstName ?? ''} ${submission.userId?.lastName ?? ''}`.trim() || 'Unknown user';
 
+// Picking a person first, then filling in just their form, keeps this readable whether the audit
+// has 3 auditors or 30 — the old layout rendered every auditor's full checklist stacked on top of
+// each other at once, which turned into a wall of checkboxes long before the list got long.
 export const ChecklistInstanceItemAuditCard = ({ item, instanceId, currentUserId, isLocked }: ChecklistInstanceItemAuditCardProps) => {
   const { data: stores } = useStoresQuery();
   const storeName = (id: string | null) => (id ? stores?.find(s => s.id === id)?.name ?? '—' : '—');
 
-  const submissions = item.submissions ?? [];
+  const submissions = useMemo(() => item.submissions ?? [], [item.submissions]);
   const submittedCount = submissions.filter(s => s.isDone).length;
   const auditProgress = submissions.length ? Math.round((submittedCount / submissions.length) * 100) : 0;
+
+  const defaultSelectedId = useMemo(() => {
+    const own = submissions.find(s => s.userId?.id === currentUserId && !s.isDone);
+    if (own) return own.id;
+    const pending = submissions.find(s => !s.isDone);
+    return (pending ?? submissions[0])?.id ?? null;
+  }, [submissions, currentUserId]);
+
+  const [selectedId, setSelectedId] = useState<string | null>(defaultSelectedId);
+  const selected = submissions.find(s => s.id === selectedId) ?? submissions[0] ?? null;
 
   return (
     <div className={`flex flex-col gap-3 p-3.5 sm:p-4 rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface ${isLocked ? 'opacity-75' : ''}`}>
@@ -53,23 +68,61 @@ export const ChecklistInstanceItemAuditCard = ({ item, instanceId, currentUserId
         </div>
       </div>
 
-      <div className="flex flex-col gap-2.5">
-        {submissions.map(submission => (
-          <SubmissionRow
-            key={submission.id}
-            item={item}
-            submission={submission}
-            instanceId={instanceId}
-            storeName={storeName(submission.userId?.storeId ?? null)}
-            interactive={!isLocked && !!currentUserId && submission.userId?.id === currentUserId}
-          />
-        ))}
-      </div>
+      {submissions.length > 0 && (
+        <div className="flex flex-col gap-3">
+          <div>
+            <p className="text-[11px] font-display font-medium text-text-muted mb-1.5">Select a person</p>
+            <div className="flex flex-wrap gap-1.5">
+              {submissions.map(submission => {
+                const label = submissionLabel(submission);
+                const isActive = submission.id === selected?.id;
+                const isMe = !!currentUserId && submission.userId?.id === currentUserId;
+                return (
+                  <button
+                    key={submission.id}
+                    type="button"
+                    onClick={() => setSelectedId(submission.id)}
+                    className={[
+                      'flex items-center gap-1.5 pl-1 pr-2.5 py-1 rounded-full border text-xs font-display font-medium transition-colors cursor-pointer',
+                      isActive
+                        ? 'border-primary-500 bg-primary-500/10 text-primary-700 dark:text-primary-300'
+                        : submission.isDone
+                          ? 'border-success/30 bg-success/5 text-text-secondary hover:bg-success/10'
+                          : 'border-border text-text-secondary hover:bg-surface-hover',
+                    ].join(' ')}
+                  >
+                    <span className="relative flex items-center justify-center size-5 rounded-full text-[9px] font-display font-semibold shrink-0 bg-surface-hover text-text-muted">
+                      {label.slice(0, 1).toUpperCase()}
+                      {submission.isDone && (
+                        <span className="absolute -bottom-0.5 -right-0.5 flex items-center justify-center size-2.5 rounded-full bg-success text-white ring-2 ring-surface">
+                          <Check size={7} strokeWidth={3.5} />
+                        </span>
+                      )}
+                    </span>
+                    <span className="truncate max-w-28">{label}{isMe ? ' (You)' : ''}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {selected && (
+            <SubmissionDetail
+              key={selected.id}
+              item={item}
+              submission={selected}
+              instanceId={instanceId}
+              storeName={storeName(selected.userId?.storeId ?? null)}
+              interactive={!isLocked && !!currentUserId && selected.userId?.id === currentUserId}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 };
 
-interface SubmissionRowProps {
+interface SubmissionDetailProps {
   item:        ChecklistInstanceItem;
   submission:  ChecklistInstanceItemSubmission;
   instanceId:  string;
@@ -77,7 +130,7 @@ interface SubmissionRowProps {
   interactive: boolean;
 }
 
-const SubmissionRow = ({ item, submission, instanceId, storeName, interactive }: SubmissionRowProps) => {
+const SubmissionDetail = ({ item, submission, instanceId, storeName, interactive }: SubmissionDetailProps) => {
   const setDone = useSetChecklistInstanceItemSubmissionDoneMutation(instanceId);
   const updateAccessories = useUpdateChecklistInstanceItemSubmissionAccessoriesMutation(instanceId);
   const updateRemarks = useUpdateChecklistInstanceItemSubmissionRemarksMutation(instanceId);
@@ -105,8 +158,7 @@ const SubmissionRow = ({ item, submission, instanceId, storeName, interactive }:
     });
   };
 
-  const userLabel = `${submission.userId?.firstName ?? ''} ${submission.userId?.lastName ?? ''}`.trim() || 'Unknown user';
-
+  const userLabel = submissionLabel(submission);
 
   const submitting = setDone.isPending || updateRemarks.isPending;
   const handleSubmit = async () => {
@@ -117,64 +169,70 @@ const SubmissionRow = ({ item, submission, instanceId, storeName, interactive }:
   };
 
   return (
-    <div className={`flex flex-col gap-2.5 p-2.5 rounded-lg border transition-colors duration-200 ${
-      submission.isDone ? 'border-success/25 bg-success/[0.03]' : 'border-border/70 bg-background'
+    <div className={`flex flex-col gap-3 p-3 rounded-xl border transition-colors duration-200 ${
+      submission.isDone ? 'border-success/25 bg-success/[0.03]' : 'border-border bg-background'
     }`}>
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <span className="relative shrink-0">
-            <span className={`flex items-center justify-center size-6 rounded-full text-[10px] font-display font-semibold ${
+            <span className={`flex items-center justify-center size-8 rounded-full text-xs font-display font-semibold ${
               submission.isDone ? 'bg-success/15 text-success' : 'bg-surface-hover text-text-muted'
             }`}>
               {userLabel.slice(0, 1).toUpperCase()}
             </span>
             {submission.isDone && (
-              <span className="absolute -bottom-0.5 -right-0.5 flex items-center justify-center size-3 rounded-full bg-success text-white ring-2 ring-surface">
-                <Check size={8} strokeWidth={3.5} />
+              <span className="absolute -bottom-0.5 -right-0.5 flex items-center justify-center size-3.5 rounded-full bg-success text-white ring-2 ring-surface">
+                <Check size={9} strokeWidth={3.5} />
               </span>
             )}
           </span>
           <div className="min-w-0">
-            <p className="text-xs font-display font-medium text-text truncate">{userLabel}</p>
-            <p className="text-[10px] text-text-muted font-display truncate">{storeName}</p>
+            <p className="text-sm font-display font-medium text-text truncate">{userLabel}</p>
+            <p className="text-[11px] text-text-muted font-display truncate">{storeName}</p>
           </div>
         </div>
         {submission.isDone && interactive && (
           <button
             onClick={() => setDone.mutate({ id: submission.id, isDone: false })}
             disabled={setDone.isPending}
-            className="shrink-0 p-1.5 rounded-md text-text-light hover:text-warning hover:bg-warning/10 transition-colors cursor-pointer disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-warning/50"
-            aria-label="Reopen submission"
-            title="Reopen"
+            className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-display font-medium text-text-light hover:text-warning hover:bg-warning/10 transition-colors cursor-pointer disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-warning/50"
           >
             <RotateCcw size={13} />
+            Reopen
           </button>
         )}
-        {submission.isDone && !interactive && <span className="text-[10px] font-display text-success shrink-0">Submitted</span>}
+        {submission.isDone && !interactive && (
+          <span className="shrink-0 text-[11px] font-display font-medium text-success bg-success/10 px-2 py-1 rounded-md">Submitted</span>
+        )}
+        {!submission.isDone && !interactive && (
+          <span className="shrink-0 text-[11px] font-display font-medium text-text-light bg-surface-hover px-2 py-1 rounded-md">Pending</span>
+        )}
       </div>
 
-
       {(item.accessories?.length ?? 0) > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {submission.accessories.map(a => (
-            <label
-              key={a.name}
-              className={[
-                'flex items-center gap-1.5 px-2 py-1 rounded-md border text-[11px] font-display transition-colors',
-                a.checked ? 'border-success/40 bg-success/10 text-success' : 'border-border text-text-secondary',
-                canSubmit ? 'cursor-pointer hover:bg-surface-hover' : 'cursor-not-allowed opacity-80',
-              ].join(' ')}
-            >
-              <input
-                type="checkbox"
-                checked={a.checked}
-                disabled={!canSubmit}
-                onChange={() => toggleAccessory(a.name)}
-                className="accent-primary-600 size-3"
-              />
-              {a.name}
-            </label>
-          ))}
+        <div>
+          <p className="text-[11px] font-display font-medium text-text-muted mb-1.5">What they have</p>
+          <div className="flex flex-wrap gap-1.5">
+            {submission.accessories.map(a => (
+              <label
+                key={a.name}
+                className={[
+                  'flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-xs font-display transition-colors',
+                  a.checked ? 'border-success/40 bg-success/10 text-success' : 'border-border text-text-secondary',
+                  canSubmit ? 'cursor-pointer hover:bg-surface-hover' : 'cursor-not-allowed opacity-80',
+                ].join(' ')}
+              >
+                <input
+                  type="checkbox"
+                  checked={a.checked}
+                  disabled={!canSubmit}
+                  onChange={() => toggleAccessory(a.name)}
+                  className="accent-primary-600 size-3.5"
+                />
+                {a.name}
+              </label>
+            ))}
+          </div>
         </div>
       )}
 
@@ -219,8 +277,11 @@ const SubmissionRow = ({ item, submission, instanceId, storeName, interactive }:
         </div>
       )}
 
-      {submission.isDone && submission.remarks && (
-        <p className="text-[11px] font-display text-text-muted italic">"{submission.remarks}"</p>
+      {!canSubmit && submission.remarks && (
+        <div>
+          <p className="text-[11px] font-display font-medium text-text-muted mb-1">Remarks</p>
+          <p className="text-xs font-display text-text-secondary italic">"{submission.remarks}"</p>
+        </div>
       )}
 
       {canSubmit && (
@@ -237,13 +298,16 @@ const SubmissionRow = ({ item, submission, instanceId, storeName, interactive }:
             </p>
           )}
 
-          <textarea
-            value={remarksDraft}
-            onChange={e => setRemarksDraft(e.target.value)}
-            placeholder="Remarks (optional)…"
-            rows={2}
-            className="w-full px-2.5 py-2 text-xs font-display bg-surface text-text rounded-md border border-border focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all resize-y"
-          />
+          <div>
+            <p className="text-[11px] font-display font-medium text-text-muted mb-1">Remarks</p>
+            <textarea
+              value={remarksDraft}
+              onChange={e => setRemarksDraft(e.target.value)}
+              placeholder="Were they present today? Note anything missing or out of place…"
+              rows={2}
+              className="w-full px-2.5 py-2 text-xs font-display bg-surface text-text rounded-md border border-border focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all resize-y"
+            />
+          </div>
           {remarksDirty && (
             <button
               onClick={() => updateRemarks.mutate({ id: submission.id, remarks: remarksDraft.trim() || null })}

@@ -9,6 +9,7 @@ import {
   useChecklistDefinitionQuery,
   useCreateChecklistDefinitionMutation,
   useUpdateChecklistDefinitionMutation,
+  useAssignableUsersQuery,
 } from '../../hook';
 import { ChecklistDetailsFields } from '../form/ChecklistDetailsFields';
 import { ImportFromTemplateField } from '../form/ImportFromTemplateField';
@@ -170,6 +171,7 @@ export const ChecklistBuilder = () => {
     startDate: string; opensTime: string; cutoffTime: string; activeWeekdays: number[]; assigneeIds: string[];
     reviewerIds: string[]; itemDrafts: ItemDraft[]; sections: string[];
   }) => JSON.stringify(f);
+  type BuilderSnapshot = Parameters<typeof snapshotKey>[0];
   const [baseline, setBaseline] = useState(() => snapshotKey({
     name: '', description: '', icon: 'store', storeIds: [], recurrence: 'DAILY', startDate: '',
     opensTime: '', cutoffTime: '', activeWeekdays: DEFAULT_WORKING_WEEKDAYS, assigneeIds: [], reviewerIds: [], itemDrafts: [], sections: [],
@@ -221,6 +223,23 @@ export const ChecklistBuilder = () => {
       itemDrafts: hydratedItemDrafts,
       sections: seenSections,
     }));
+  }
+
+  // New checklist only — PC is the org's default reviewer, so a fresh checklist starts with every
+  // PC-role user pre-picked instead of an empty reviewer list nobody remembers to fill in. Still
+  // just a starting point: the maker can remove any of them or add a department's HOD from the
+  // grouped picker below. Applied the same way `existing` hydrates above — a guarded state update
+  // during render, not inside an effect — and folded into `baseline` too, so this doesn't itself
+  // count as an unsaved change the moment the form opens.
+  const [reviewerDefaultApplied, setReviewerDefaultApplied] = useState(false);
+  const orgWideUsers = useAssignableUsersQuery(undefined, undefined, undefined, !isEditing);
+  if (!isEditing && !reviewerDefaultApplied && orgWideUsers.data) {
+    setReviewerDefaultApplied(true);
+    const pcIds = orgWideUsers.data.filter(u => u.role === 'PC').map(u => u.id);
+    if (pcIds.length && !reviewerIds.length) {
+      setReviewerIds(pcIds);
+      setBaseline(prev => snapshotKey({ ...(JSON.parse(prev) as BuilderSnapshot), reviewerIds: pcIds }));
+    }
   }
 
   const isDirty = snapshotKey({

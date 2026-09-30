@@ -16,7 +16,11 @@ interface ChecklistReviewersFieldProps {
 // MANAGER/HOD in the assignees' own department) — naming someone here lets them approve/reject
 // this checklist's instances regardless of role or department. Deliberately no bulk "select
 // everyone"/"select a department" shortcuts here (unlike ChecklistAssigneesField) — a reviewer
-// list is meant to stay small and hand-picked, not mirror the whole staff roster.
+// list is meant to stay small and hand-picked, not mirror the whole staff roster. Grouped by
+// department (via UserMultiSelect's `departments` prop) so a department's HOD — badged "HOD" —
+// is easy to spot and add without scanning the full org roster. A new checklist starts with every
+// PC user pre-picked (see ChecklistBuilder's reviewerDefaultAppliedRef) — still just a starting
+// point the maker can remove from or add to.
 export const ChecklistReviewersField = ({
   storeIds,
   selected,
@@ -49,8 +53,9 @@ export const ChecklistReviewersField = ({
       />
 
       <p className="text-[11px] font-display text-text-muted">
-        Anyone you add here can approve or reject this checklist's runs — on top of PC/Admin,
-        and the department head of anyone assigned.
+        Starts with PC pre-selected. Anyone you add here can approve or reject this checklist's
+        runs — on top of PC/Admin, and the department head of anyone assigned. Look for the
+        "HOD" badge to add a department head directly.
       </p>
     </div>
   );

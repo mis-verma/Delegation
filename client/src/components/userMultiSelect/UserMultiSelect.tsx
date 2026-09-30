@@ -59,6 +59,11 @@ export const UserMultiSelect = ({ departmentId, storeId, storeIds, selected, onC
           {getInitials(name)}
         </span>
         <span className="flex-1 min-w-0 truncate">{name}</span>
+        {u.role === 'MANAGER' && (
+          <span className="shrink-0 text-[9px] font-display font-bold px-1.5 py-0.5 rounded-full bg-primary-500/10 text-primary-700 dark:text-primary-400">
+            HOD
+          </span>
+        )}
         <span
           className={`flex items-center justify-center size-4 rounded-full border shrink-0 transition-colors duration-150 ${
             checked ? 'bg-primary-600 border-primary-600 text-white' : 'border-border-hover text-transparent'
