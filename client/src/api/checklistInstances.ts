@@ -141,6 +141,13 @@ export type ComplianceReportRow = {
   completionRate: number | null;
   itemsRequiringPhotos: number;
   qualityRate: number | null;
+  // Share of gated Yes/No-style items (one branch configured with REQUIRE_PHOTO/ASK_REASON/
+  // CREATE_ISSUE/NOTIFY_AREA_MANAGER) whose actual answer landed on that flagged branch. Higher
+  // is worse — pair with a `lowerIsBetter` treatment wherever this is shown, same as Overdue.
+  // Stays flagged even once a required photo/reason was supplied to get past it; null when
+  // nothing in this bucket was actually gated with a conditional action.
+  gatedBooleanItems: number;
+  issueRate: number | null;
   // First-attempt-approval quality: of the instances actually submitted (reached PENDING/
   // APPROVED/REJECTED), what % were approved without ever having been rejected first. A reject
   // permanently disqualifies that instance from "first attempt," even once it's later fixed
@@ -152,7 +159,7 @@ export type ComplianceReportRow = {
 
 // Accepts numbers too, since page/limit are numeric — they were being stringified at the call
 // site before, which is easy to forget and silently drops the param.
-const buildQuery = (params: Record<string, string | number | undefined>) => {
+const buildQuery = (params: Record<string, string | number | boolean | undefined>) => {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value !== undefined) search.set(key, String(value));
@@ -243,6 +250,9 @@ export const checklistInstanceApi = {
     /** Restricts to instances whose period falls in [from, to] — ISO strings. */
     from?: string;
     to?: string;
+    /** ADMIN/PC only, opt-in — includes instances whose checklist has since been deleted (kept
+     *  for audit history, hidden by default so a delete actually cleans up this board). */
+    includeDeleted?: boolean;
   } = {}) =>
     apiFetch<ApiResponse<ChecklistInstanceSummary>>(
       `/checklist-instances/summary${buildQuery({
@@ -256,6 +266,7 @@ export const checklistInstanceApi = {
         departmentId: filter.departmentId,
         from: filter.from,
         to: filter.to,
+        includeDeleted: filter.includeDeleted ? '1' : undefined,
       })}`,
     ),
 
@@ -273,7 +284,7 @@ export const checklistInstanceApi = {
 
   // Powers the compliance board — same endpoint as getForDefinition, generalized to whichever
   // combination of filters the admin has picked (store and/or person, plus status).
-  list: (filter: { storeId?: string; assigneeId?: string; status?: ChecklistInstanceStatus; from?: string; to?: string } & PageParams = {}) =>
+  list: (filter: { storeId?: string; assigneeId?: string; status?: ChecklistInstanceStatus; from?: string; to?: string; includeDeleted?: boolean } & PageParams = {}) =>
     apiFetch<ApiResponse<ChecklistInstance[]> & { meta: ChecklistInstancePage }>(
       `/checklist-instances${buildQuery(filter)}`,
     ).then(r => ({ ...r, data: normalizeInstances(r.data) })),
@@ -322,11 +333,12 @@ export const checklistInstanceApi = {
   deleteImage: (id: string) =>
     apiFetch<ApiResponse<{ deleted: boolean }>>(`/checklist-instance-images/${id}`, { method: 'DELETE' }),
 
-  getComplianceReport: (groupBy: ComplianceReportGroupBy = 'month', storeId?: string, from?: string, to?: string) => {
+  getComplianceReport: (groupBy: ComplianceReportGroupBy = 'month', storeId?: string, from?: string, to?: string, includeDeleted?: boolean) => {
     const params = new URLSearchParams({ groupBy });
     if (storeId) params.set('storeId', storeId);
     if (from) params.set('from', from);
     if (to) params.set('to', to);
+    if (includeDeleted) params.set('includeDeleted', '1');
     return apiFetch<ApiResponse<ComplianceReportRow[]>>(`/checklist-instances/reports/compliance?${params.toString()}`);
   },
 };

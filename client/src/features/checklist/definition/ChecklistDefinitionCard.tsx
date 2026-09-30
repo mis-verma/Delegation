@@ -1,10 +1,10 @@
 import { useNavigate } from 'react-router';
-import { Camera, MapPin, PenLine, Wallet, ScanLine, Repeat, CalendarDays, Store, ListChecks, type LucideIcon } from 'lucide-react';
+import { Camera, MapPin, PenLine, Wallet, ScanLine, Repeat, CalendarDays, Store, ListChecks, Check, type LucideIcon } from 'lucide-react';
 import { EntityIconTile, StatusPill, EntityCardActions, formatWeekdays } from '../../../components';
 import { IconChip } from '../../../components/iconChip';
 import { Badge } from '@/components/ui/badge';
 import { useConfirm } from '@/components/confirmDialog';
-import { RECURRENCE_LABEL, rateToneClass, rateBarClass, formatDate } from '../checklistDisplay';
+import { RECURRENCE_LABEL, rateToneClass, rateBarClass, inverseRateToneClass, formatDate } from '../checklistDisplay';
 import { useSetChecklistDefinitionActiveMutation, useDeleteChecklistDefinitionMutation } from '../hook';
 import { useAuth } from '../../../context/AuthContext';
 import { CHECKLIST_ICON_MAP } from './checklistIconMap';
@@ -12,6 +12,12 @@ import type { ChecklistDefinition, ChecklistItemType } from '../../../api/checkl
 
 interface ChecklistDefinitionCardProps {
   definition: ChecklistDefinition;
+  /** Bulk-select mode (ADMIN/PC only, toggled from the grid) — while on, the whole card selects
+   *  instead of opening, and the pause/edit/delete actions step aside for a checkbox so a click
+   *  in this mode can't accidentally trigger one of those instead. */
+  selectionMode?: boolean;
+  selected?: boolean;
+  onToggleSelected?: () => void;
 }
 
 
@@ -54,7 +60,7 @@ const cardTags = (definition: ChecklistDefinition) => {
 // EntityCardActions kit the Users/Departments/Stores cards use, so pause and delete work right from
 // the grid without opening the detail page — while keeping this card's own richer content
 // (recurrence, tags, completion bars, footer stats) that a plain EntityCard doesn't have a slot for.
-export const ChecklistDefinitionCard = ({ definition }: ChecklistDefinitionCardProps) => {
+export const ChecklistDefinitionCard = ({ definition, selectionMode = false, selected = false, onToggleSelected }: ChecklistDefinitionCardProps) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
@@ -66,10 +72,11 @@ export const ChecklistDefinitionCard = ({ definition }: ChecklistDefinitionCardP
   const tags = cardTags(definition);
   // Working days, not the retired role label (a made-up role that assigned nobody).
   const daysLabel = definition.recurrence === 'DAILY' ? formatWeekdays(definition.activeWeekdays) : null;
-  const { completionRate, qualityRate } = definition;
+  const { completionRate, qualityRate, issueRate } = definition;
   const startsLater = startsAfterToday(definition.startDate);
 
   const openDetail = () => navigate(`/admin/scheduled-checklists/${definition.id}`);
+  const handleCardActivate = () => (selectionMode ? onToggleSelected?.() : openDetail());
 
   const handleDelete = async () => {
     // This used to claim runs/submissions/photos are erased "for good" — they aren't (it's a soft
@@ -90,16 +97,31 @@ export const ChecklistDefinitionCard = ({ definition }: ChecklistDefinitionCardP
     <article
       role="button"
       tabIndex={0}
-      onClick={openDetail}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDetail(); } }}
-      className={`flex flex-col gap-3 sm:gap-4 p-4 sm:p-5 rounded-lg border border-border bg-surface hover:border-border-hover transition-all duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${deleteMutation.isPending ? 'opacity-50 pointer-events-none' : ''}`}
+      onClick={handleCardActivate}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCardActivate(); } }}
+      aria-pressed={selectionMode ? selected : undefined}
+      className={`flex flex-col gap-3 sm:gap-4 p-4 sm:p-5 rounded-lg border bg-surface transition-all duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
+        selected ? 'border-primary-500 bg-primary-500/5' : 'border-border hover:border-border-hover'
+      } ${deleteMutation.isPending ? 'opacity-50 pointer-events-none' : ''}`}
     >
       <div className="flex items-start justify-between gap-3">
-        <EntityIconTile icon={Icon} tone="coral" />
+        {selectionMode ? (
+          <span
+            className={`flex items-center justify-center size-9 rounded-lg border-2 shrink-0 transition-colors duration-150 ${
+              selected ? 'bg-primary-600 border-primary-600 text-white' : 'border-border-hover text-transparent'
+            }`}
+          >
+            <Check size={16} strokeWidth={3} />
+          </span>
+        ) : (
+          <EntityIconTile icon={Icon} tone="coral" />
+        )}
 
         {/* Stops the click from also bubbling up to the card's own openDetail — same pattern
-            TaskCard.tsx uses for its own inline actions inside an otherwise-clickable card. */}
-        {isAdmin ? (
+            TaskCard.tsx uses for its own inline actions inside an otherwise-clickable card.
+            Hidden entirely in selection mode so a stray tap can't pause/edit/delete instead of
+            just selecting the card. */}
+        {selectionMode ? null : isAdmin ? (
           <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
             <StatusPill
               active={definition.isActive}
@@ -152,6 +174,12 @@ export const ChecklistDefinitionCard = ({ definition }: ChecklistDefinitionCardP
             <div className="flex items-center justify-between text-[11px] font-display">
               <span className="text-text-muted">Photo compliance</span>
               <span className={`font-medium ${rateToneClass(qualityRate)}`}>{qualityRate}%</span>
+            </div>
+          )}
+          {issueRate !== null && issueRate > 0 && (
+            <div className="flex items-center justify-between text-[11px] font-display">
+              <span className="text-text-muted">Flagged answers</span>
+              <span className={`font-medium ${inverseRateToneClass(issueRate)}`}>{issueRate}%</span>
             </div>
           )}
         </div>

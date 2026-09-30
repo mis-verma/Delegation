@@ -1,16 +1,19 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { Plus, AlertCircle, ClipboardList, FileDown, Upload } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { Plus, AlertCircle, ClipboardList, FileDown, Upload, ListChecks as SelectIcon, X, Trash2, Loader2 } from 'lucide-react';
 import { Button, Skeleton, EmptyState } from '../../../components';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useConfirm } from '@/components/confirmDialog';
 import { useAuth } from '../../../context/AuthContext';
 import { useChecklistDefinitionsQuery } from '../hook';
 import { ChecklistDefinitionCard } from './ChecklistDefinitionCard';
 import { ChecklistBulkImportModal } from './bulkImport/ChecklistBulkImportModal';
 import { ExportDialog } from '../../reports';
 import { RECURRENCE_LABEL } from '../checklistDisplay';
-import type { ChecklistRecurrence } from '../../../api/checklistDefinitions';
+import { checklistDefinitionApi, type ChecklistRecurrence } from '../../../api/checklistDefinitions';
 
 interface ChecklistTemplatesGridProps {
   className?: string;
@@ -24,19 +27,67 @@ const RECURRENCE_TABS: Array<ChecklistRecurrence | 'all'> = ['all', 'DAILY', 'WE
 export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGridProps) => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const confirm = useConfirm();
   // This grid's route (`/admin/scheduled-checklists`) is open to ADMIN and PC alike, but creating,
   // importing, and exporting checklist definitions is an ADMIN-only action — PC gets read access
   // to the grid (browsing/opening existing definitions) without the ability to add or bulk-change
   // them.
   const isAdmin = user?.role === 'ADMIN';
+  // Bulk multi-select + delete is available to both — same role gate as the delete route itself
+  // (checklistDefinitionRouter is ADMIN/PC), unlike the single-card pause/edit/delete actions
+  // (ChecklistDefinitionCard's own isAdmin), which are deliberately narrower.
+  const canBulkDelete = user?.role === 'ADMIN' || user?.role === 'PC';
   const [showExport, setShowExport] = useState(false);
   const [showBulkImport, setShowBulkImport] = useState(false);
   const [recurrence, setRecurrence] = useState<ChecklistRecurrence | 'all'>('all');
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const { data, isPending, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } = useChecklistDefinitionsQuery(
     recurrence === 'all' ? {} : { recurrence },
   );
   const definitions = useMemo(() => data?.pages.flatMap((p) => p.data) ?? [], [data]);
   const total = data?.pages[0]?.meta?.total ?? definitions.length;
+
+  const exitSelectMode = () => { setSelectMode(false); setSelectedIds(new Set()); };
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const allOnPageSelected = definitions.length > 0 && definitions.every((d) => selectedIds.has(d.id));
+  const toggleSelectAll = () => setSelectedIds(allOnPageSelected ? new Set() : new Set(definitions.map((d) => d.id)));
+
+  // Fires every delete in parallel and reports one combined result — same soft-delete remove()
+  // as the single-card action, just looped, since there's no dedicated bulk-delete endpoint (each
+  // definition's own delete is independent and cheap; nothing here needs a transaction across
+  // definitions that don't relate to each other).
+  const handleBulkDelete = async () => {
+    const ids = [...selectedIds];
+    if (!ids.length) return;
+    const ok = await confirm({
+      title: `Delete ${ids.length} checklist${ids.length === 1 ? '' : 's'}?`,
+      description: `${ids.length === 1 ? 'This checklist and every run tied to it' : 'These checklists and every run tied to them'} will disappear from the app — My Checklists, Compliance, the Dashboard, everywhere.`,
+      confirmLabel: `Yes, delete ${ids.length === 1 ? 'it' : 'all'}`,
+      cancelLabel: 'Cancel',
+      variant: 'danger',
+    });
+    if (!ok) return;
+
+    setIsBulkDeleting(true);
+    const results = await Promise.allSettled(ids.map((id) => checklistDefinitionApi.remove(id)));
+    setIsBulkDeleting(false);
+    await queryClient.invalidateQueries({ queryKey: ['checklist-definitions'] });
+
+    const failed = results.filter((r) => r.status === 'rejected').length;
+    const succeeded = results.length - failed;
+    if (succeeded) toast.success(`Deleted ${succeeded} checklist${succeeded === 1 ? '' : 's'}`);
+    if (failed) toast.error(`Couldn't delete ${failed} checklist${failed === 1 ? '' : 's'} — try again`);
+    exitSelectMode();
+  };
 
   return (
     <div className={`flex flex-col gap-6 w-full ${className}`}>
@@ -58,41 +109,80 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
           </p>
         </div>
 
-        {/* Top Action Buttons — create/import/export are ADMIN-only, see the isAdmin comment above. */}
-        {isAdmin && (
+        {/* Top Action Buttons — create/import/export are ADMIN-only (see isAdmin comment above);
+            Select/bulk-delete is ADMIN-or-PC (see canBulkDelete comment above), so it renders on
+            its own condition rather than nesting inside the isAdmin block. */}
+        {selectMode ? (
+          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0 flex-wrap justify-end">
+            <Button size="sm" variant="secondary" className="gap-1.5 text-xs font-display font-medium" onClick={toggleSelectAll}>
+              {allOnPageSelected ? 'Clear all' : 'Select all'}
+            </Button>
+            <Button
+              size="sm"
+              variant="danger"
+              className="gap-1.5 text-xs font-display font-medium"
+              onClick={handleBulkDelete}
+              disabled={!selectedIds.size || isBulkDeleting}
+            >
+              {isBulkDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+              <span>Delete{selectedIds.size > 0 ? ` (${selectedIds.size})` : ''}</span>
+            </Button>
+            <Button size="sm" variant="secondary" className="gap-1.5 text-xs font-display font-medium" onClick={exitSelectMode} aria-label="Cancel selection">
+              <X size={14} />
+              <span className="hidden sm:inline">Cancel</span>
+            </Button>
+          </div>
+        ) : (
           <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-            <Button
-              size="sm"
-              variant="secondary"
-              className="gap-1.5 text-xs font-display font-medium"
-              onClick={() => setShowExport(true)}
-              aria-label="Export"
-            >
-              <FileDown size={14} className="text-text-muted" />
-              <span className="hidden sm:inline">Export</span>
-            </Button>
+            {isAdmin && (
+              <>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="gap-1.5 text-xs font-display font-medium"
+                  onClick={() => setShowExport(true)}
+                  aria-label="Export"
+                >
+                  <FileDown size={14} className="text-text-muted" />
+                  <span className="hidden sm:inline">Export</span>
+                </Button>
 
-            <Button
-              size="sm"
-              variant="secondary"
-              className="gap-1.5 text-xs font-display font-medium"
-              onClick={() => setShowBulkImport(true)}
-              aria-label="Import"
-            >
-              <Upload size={14} className="text-text-muted" />
-              <span className="hidden sm:inline">Import</span>
-            </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="gap-1.5 text-xs font-display font-medium"
+                  onClick={() => setShowBulkImport(true)}
+                  aria-label="Import"
+                >
+                  <Upload size={14} className="text-text-muted" />
+                  <span className="hidden sm:inline">Import</span>
+                </Button>
 
-            <Button
-              size="sm"
-              variant="primary"
-              className="gap-1.5 text-xs font-display font-medium"
-              onClick={() => navigate('/admin/scheduled-checklists/builder')}
-            >
-              <Plus size={14} />
-              <span className="sm:hidden">New</span>
-              <span className="hidden sm:inline">New checklist</span>
-            </Button>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  className="gap-1.5 text-xs font-display font-medium"
+                  onClick={() => navigate('/admin/scheduled-checklists/builder')}
+                >
+                  <Plus size={14} />
+                  <span className="sm:hidden">New</span>
+                  <span className="hidden sm:inline">New checklist</span>
+                </Button>
+              </>
+            )}
+
+            {canBulkDelete && definitions.length > 0 && (
+              <Button
+                size="sm"
+                variant="secondary"
+                className="gap-1.5 text-xs font-display font-medium"
+                onClick={() => setSelectMode(true)}
+                aria-label="Select checklists to delete"
+              >
+                <SelectIcon size={14} className="text-text-muted" />
+                <span className="hidden sm:inline">Select</span>
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -202,7 +292,13 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
       {!isPending && !isError && definitions.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
           {definitions.map((d) => (
-            <ChecklistDefinitionCard key={d.id} definition={d} />
+            <ChecklistDefinitionCard
+              key={d.id}
+              definition={d}
+              selectionMode={selectMode}
+              selected={selectedIds.has(d.id)}
+              onToggleSelected={() => toggleSelected(d.id)}
+            />
           ))}
         </div>
       )}

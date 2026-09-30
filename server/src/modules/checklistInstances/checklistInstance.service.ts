@@ -25,6 +25,7 @@ import type { VerifyChecklistInstanceInput } from "./checklistInstance.validatio
 import type { Role } from "../../db/schema/core.js"
 import { DATE_FORMATS } from "../../utils/dateBucket.js"
 import type { DateBucket } from "../../utils/index.js"
+import { GATED_BOOLEAN_ITEM_EXPR, FLAGGED_BOOLEAN_ANSWER_EXPR } from "../../utils/checklistBooleanFlags.js"
 import { emitChecklistEvent } from "../../sockets/checklistEvent.js"
 import { env } from "../../config/env.js"
 
@@ -1180,8 +1181,16 @@ export const checklistInstanceService = {
     // instance's periodStart rather than the item's own createdAt — periodStart is the
     // semantically correct "which operational period does this belong to" field; createdAt is
     // just whenever the cron job happened to stamp the item out (could lag on a backfill run).
-    async complianceReport(groupBy: DateBucket, storeId?: string, from?: string, to?: string) {
+    // `includeDeleted` mirrors instanceConditions' own flag (see parentNotDeletedExpr's comment) —
+    // off by default so a deleted checklist's history doesn't inflate the org-wide trend/rate
+    // cards, same as the board/summary it sits above. Can't reuse parentNotDeletedExpr itself
+    // here: that fragment refers to the unaliased `ChecklistInstance` table, but this query
+    // aliases it `ci` — MySQL requires the alias once one's assigned in the same statement.
+    async complianceReport(groupBy: DateBucket, storeId?: string, from?: string, to?: string, includeDeleted = false) {
         const conditions: ReturnType<typeof sql>[] = [];
+        if (!includeDeleted) {
+            conditions.push(sql`NOT EXISTS (SELECT 1 FROM ${checklistDefinitions} d WHERE d.id = ci.definitionId AND d.deletedAt IS NOT NULL)`);
+        }
         if (storeId) conditions.push(sql`ci.storeId = ${storeId}`);
         if (from) conditions.push(sql`ci.periodStart >= ${new Date(from)}`);
         if (to) conditions.push(sql`ci.periodStart <= ${new Date(to)}`);
@@ -1212,6 +1221,8 @@ export const checklistInstanceService = {
                         AND (CASE WHEN cii.requiresLivePhoto THEN COALESCE(img.liveCount, 0) ELSE COALESCE(img.totalCount, 0) END) >= cii.requiredImageCount
                     THEN 1 ELSE 0 END
                 ) AS photoCompliantItems,
+                SUM(CASE WHEN ${GATED_BOOLEAN_ITEM_EXPR} THEN 1 ELSE 0 END) AS gatedBooleanItems,
+                SUM(CASE WHEN ${FLAGGED_BOOLEAN_ANSWER_EXPR} THEN 1 ELSE 0 END) AS flaggedItems,
                 COUNT(DISTINCT CASE WHEN ci.verificationStatus IN ('PENDING_APPROVAL', 'APPROVED', 'REJECTED') OR ci.rejectionCount > 0 THEN ci.id END) AS submittedInstances,
                 COUNT(DISTINCT CASE WHEN ci.verificationStatus = 'APPROVED' AND ci.rejectionCount = 0 THEN ci.id END) AS firstAttemptApproved
             FROM ChecklistInstanceItem cii
@@ -1232,6 +1243,11 @@ export const checklistInstanceService = {
             completionRate: Number(r.totalItems) ? Math.round((Number(r.doneItems) / Number(r.totalItems)) * 1000) / 10 : null,
             itemsRequiringPhotos: Number(r.itemsRequiringPhotos),
             qualityRate: Number(r.itemsRequiringPhotos) ? Math.round((Number(r.photoCompliantItems) / Number(r.itemsRequiringPhotos)) * 1000) / 10 : null,
+            // Share of gated Yes/No-style items whose answer landed on the flagged branch —
+            // higher is worse (pair with `lowerIsBetter` wherever it's shown), null when nothing
+            // in this bucket was actually gated with a conditional action.
+            gatedBooleanItems: Number(r.gatedBooleanItems),
+            issueRate: Number(r.gatedBooleanItems) ? Math.round((Number(r.flaggedItems) / Number(r.gatedBooleanItems)) * 1000) / 10 : null,
             submittedInstances: Number(r.submittedInstances),
             firstAttemptApproved: Number(r.firstAttemptApproved),
             approvalRate: Number(r.submittedInstances) ? Math.round((Number(r.firstAttemptApproved) / Number(r.submittedInstances)) * 1000) / 10 : null,

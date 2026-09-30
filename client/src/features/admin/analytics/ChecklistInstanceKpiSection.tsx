@@ -1,4 +1,4 @@
-import { Repeat, Camera, ShieldCheck } from 'lucide-react';
+import { Repeat, Camera, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { KpiSectionShell } from './KpiSectionShell';
 import { ReportTrendChart } from './ReportTrendChart';
@@ -12,14 +12,19 @@ interface ChecklistInstanceKpiSectionProps {
   to?: string;
   /** /admin/checklist-compliance (this card's click destination) is PC/ADMIN-gated. */
   isOrgWideRole: boolean;
+  /** Off by default (server-side too) — include a deleted checklist's historical instances in
+   *  these rates/trend instead of hiding them. Passed down from the Compliance Board's own
+   *  "Show deleted checklists" toggle when this section is embedded there. */
+  includeDeleted?: boolean;
 }
 
-export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole }: ChecklistInstanceKpiSectionProps) => {
+export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole, includeDeleted }: ChecklistInstanceKpiSectionProps) => {
   const navigate = useNavigate();
-  const { data: rows, isPending, isError } = useChecklistInstanceComplianceReportQuery(groupBy, from, to);
+  const { data: rows, isPending, isError } = useChecklistInstanceComplianceReportQuery(groupBy, from, to, includeDeleted);
   const completion = latestWithTrend(rows, 'completionRate', 'rate');
   const quality = latestWithTrend(rows, 'qualityRate', 'rate');
   const approval = latestWithTrend(rows, 'approvalRate', 'rate');
+  const issues = latestWithTrend(rows, 'issueRate', 'rate');
   // All three are rates bucketed across every instance, not a literal record list — the real
   // per-instance rows these are computed from live on the Checklist Compliance board, the same
   // destination AnalyticsSummaryStrip's own "Proof compliance" card already points at.
@@ -29,7 +34,7 @@ export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole }
     <KpiSectionShell
       icon={Repeat}
       title="Recurring Checklists"
-      description="Completion, photo-evidence compliance, and PC first-attempt approval for scheduled checklist instances, bucketed by each instance's period."
+      description="Completion, photo-evidence compliance, PC first-attempt approval, and flagged Yes/No answers for scheduled checklist instances, bucketed by each instance's period."
       isPending={isPending}
       isError={isError}
       errorMessage="Failed to load recurring checklist data."
@@ -62,6 +67,17 @@ export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole }
           trend: approval.trend,
           onClick,
         },
+        {
+          icon: AlertTriangle,
+          iconTint: 'text-danger',
+          // Share of gated Yes/No-style answers (one branch wired with a conditional action) that
+          // landed on the flagged branch — rising is bad news, same treatment as Overdue.
+          label: 'Flagged answers',
+          value: issues.value != null ? `${issues.value}%` : '—',
+          trend: issues.trend,
+          lowerIsBetter: true,
+          onClick,
+        },
       ]}
       chart={
         <ReportTrendChart
@@ -70,6 +86,7 @@ export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole }
             { key: 'completionRate', label: 'Completion %', color: 'var(--color-primary-500)' },
             { key: 'qualityRate', label: 'Quality %', color: 'var(--color-success)' },
             { key: 'approvalRate', label: 'PC approval %', color: 'var(--color-coral-500)' },
+            { key: 'issueRate', label: 'Flagged %', color: 'var(--color-danger)' },
           ]}
           valueSuffix="%"
           yDomain={[0, 100]}

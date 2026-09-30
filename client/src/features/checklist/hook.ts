@@ -147,6 +147,7 @@ export const useChecklistInstanceSummaryQuery = (
     departmentId?: string;
     from?: string;
     to?: string;
+    includeDeleted?: boolean;
   } = {},
 ) => {
   const { token } = useAuth();
@@ -215,7 +216,7 @@ export const useInstancesForDefinitionQuery = (definitionId: string, paging: { p
 // useInstancesForDefinitionQuery above).
 /** Returns the whole `{ data, meta }` page — the board needs `meta.totalPages` for its pager. */
 export const useChecklistInstancesBoardQuery = (
-  filter: { storeId?: string; assigneeId?: string; status?: ChecklistInstanceStatus; from?: string; to?: string; page?: number; limit?: number } = {},
+  filter: { storeId?: string; assigneeId?: string; status?: ChecklistInstanceStatus; from?: string; to?: string; includeDeleted?: boolean; page?: number; limit?: number } = {},
 ) => {
   const { token } = useAuth();
   return useQuery({

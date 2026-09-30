@@ -35,11 +35,11 @@ export const useTicketTatReportQuery = (groupBy: GroupBy, from?: string, to?: st
   });
 };
 
-export const useChecklistInstanceComplianceReportQuery = (groupBy: GroupBy, from?: string, to?: string) => {
+export const useChecklistInstanceComplianceReportQuery = (groupBy: GroupBy, from?: string, to?: string, includeDeleted?: boolean) => {
   const { token, user } = useAuth();
   return useQuery({
-    queryKey: ['analytics', 'checklist-instance-compliance', groupBy, from, to],
-    queryFn: () => checklistInstanceApi.getComplianceReport(groupBy, undefined, from, to).then((r) => r.data),
+    queryKey: ['analytics', 'checklist-instance-compliance', groupBy, from, to, includeDeleted],
+    queryFn: () => checklistInstanceApi.getComplianceReport(groupBy, undefined, from, to, includeDeleted).then((r) => r.data),
     enabled: !!token && canViewOrgReports(user?.role),
     retry: handleQueryRetry,
   });

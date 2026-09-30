@@ -10,6 +10,7 @@ import {
   Camera,
   Store,
   ListTodo,
+  AlertTriangle,
 } from 'lucide-react';
 import { Skeleton, Breadcrumbs, formatWeekdays } from '../../../components';
 import { Badge } from '@/components/ui/badge';
@@ -21,6 +22,8 @@ import {
   INSTANCE_STATUS_LABEL,
   rateToneClass,
   rateBarClass,
+  inverseRateToneClass,
+  inverseRateBarClass,
   RECURRENCE_LABEL,
   isInstanceOverdue,
   type InstanceProgressStatus,
@@ -53,39 +56,46 @@ interface RateTileProps {
   label: string;
   rate: number | null;
   emptyLabel: string;
+  /** For rates where a HIGHER number is worse news (e.g. flagged-answer rate) — reads the same
+   *  green/amber/red thresholds from the other end instead of showing a high bad number as green. */
+  invert?: boolean;
 }
 
-const RateTile = ({ icon: Icon, label, rate, emptyLabel }: RateTileProps) => (
-  <div className="flex flex-col gap-2.5 p-4 rounded-lg border border-border bg-surface flex-1 min-w-[12rem]">
-    <div className="flex items-center justify-between">
-      <span className="flex items-center gap-1.5 text-xs font-display font-semibold text-text-muted">
-        <Icon size={14} className="text-text-muted" />
-        {label}
-      </span>
-      {rate !== null && (
-        <span className={`text-[11px] font-display font-medium ${rateToneClass(rate)}`}>
-          {rate}%
+const RateTile = ({ icon: Icon, label, rate, emptyLabel, invert = false }: RateTileProps) => {
+  const toneClass = invert ? inverseRateToneClass : rateToneClass;
+  const barClass = invert ? inverseRateBarClass : rateBarClass;
+  return (
+    <div className="flex flex-col gap-2.5 p-4 rounded-lg border border-border bg-surface flex-1 min-w-[12rem]">
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-1.5 text-xs font-display font-semibold text-text-muted">
+          <Icon size={14} className="text-text-muted" />
+          {label}
         </span>
+        {rate !== null && (
+          <span className={`text-[11px] font-display font-medium ${toneClass(rate)}`}>
+            {rate}%
+          </span>
+        )}
+      </div>
+
+      {rate !== null ? (
+        <>
+          <p className={`font-display text-2xl sm:text-3xl font-bold tracking-tight ${toneClass(rate)}`}>
+            {rate}%
+          </p>
+          <div className="h-1.5 w-full rounded-full bg-muted/60 overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-[width] duration-300 ease-out ${barClass(rate)}`}
+              style={{ width: `${rate}%` }}
+            />
+          </div>
+        </>
+      ) : (
+        <p className="text-xs font-display text-text-muted py-2 italic">{emptyLabel}</p>
       )}
     </div>
-
-    {rate !== null ? (
-      <>
-        <p className={`font-display text-2xl sm:text-3xl font-bold tracking-tight ${rateToneClass(rate)}`}>
-          {rate}%
-        </p>
-        <div className="h-1.5 w-full rounded-full bg-muted/60 overflow-hidden">
-          <div
-            className={`h-full rounded-full transition-[width] duration-300 ease-out ${rateBarClass(rate)}`}
-            style={{ width: `${rate}%` }}
-          />
-        </div>
-      </>
-    ) : (
-      <p className="text-xs font-display text-text-muted py-2 italic">{emptyLabel}</p>
-    )}
-  </div>
-);
+  );
+};
 
 const groupByStatus = (instances: ChecklistInstance[]) =>
   STATUS_ORDER.map((status) => ({
@@ -230,7 +240,7 @@ export const ChecklistDefinitionDetail = () => {
       </div>
 
       {/* Metric Rate Tiles */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <RateTile
           icon={Gauge}
           label="Completion rate"
@@ -242,6 +252,13 @@ export const ChecklistDefinitionDetail = () => {
           label="Photo compliance"
           rate={definition.qualityRate}
           emptyLabel="No photo checks on this checklist"
+        />
+        <RateTile
+          icon={AlertTriangle}
+          label="Flagged answers"
+          rate={definition.issueRate}
+          emptyLabel="No gated Yes/No questions on this checklist"
+          invert
         />
       </div>
 

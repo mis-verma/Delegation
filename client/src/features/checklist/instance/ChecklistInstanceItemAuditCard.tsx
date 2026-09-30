@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Camera, ImageUp, X, Loader2, RotateCcw } from 'lucide-react';
+import { Camera, ImageUp, X, Loader2, RotateCcw, Check } from 'lucide-react';
 import {
   useSetChecklistInstanceItemSubmissionDoneMutation,
   useUpdateChecklistInstanceItemSubmissionAccessoriesMutation,
@@ -29,6 +29,7 @@ export const ChecklistInstanceItemAuditCard = ({ item, instanceId, currentUserId
 
   const submissions = item.submissions ?? [];
   const submittedCount = submissions.filter(s => s.isDone).length;
+  const auditProgress = submissions.length ? Math.round((submittedCount / submissions.length) * 100) : 0;
 
   return (
     <div className={`flex flex-col gap-3 p-3.5 sm:p-4 rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface ${isLocked ? 'opacity-75' : ''}`}>
@@ -38,9 +39,17 @@ export const ChecklistInstanceItemAuditCard = ({ item, instanceId, currentUserId
           <p className={`text-sm font-display font-medium leading-snug ${item.isDone ? 'text-text-muted' : 'text-text'}`}>
             {item.label}
           </p>
-          <p className="text-[11px] text-text-muted font-display mt-0.5">
-            Audit · {submittedCount}/{submissions.length} auditor{submissions.length !== 1 ? 's' : ''} submitted
-          </p>
+          <div className="flex items-center gap-2 mt-1.5">
+            <div className="h-1.5 flex-1 max-w-32 bg-surface-hover rounded-full overflow-hidden border border-border/50">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${item.isDone ? 'bg-success' : auditProgress > 0 ? 'bg-warning' : 'bg-border'}`}
+                style={{ width: `${auditProgress}%` }}
+              />
+            </div>
+            <span className="text-[11px] text-text-muted font-display shrink-0">
+              {submittedCount}/{submissions.length} auditor{submissions.length !== 1 ? 's' : ''}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -108,13 +117,22 @@ const SubmissionRow = ({ item, submission, instanceId, storeName, interactive }:
   };
 
   return (
-    <div className="flex flex-col gap-2.5 p-2.5 rounded-lg border border-border/70 bg-background">
+    <div className={`flex flex-col gap-2.5 p-2.5 rounded-lg border transition-colors duration-200 ${
+      submission.isDone ? 'border-success/25 bg-success/[0.03]' : 'border-border/70 bg-background'
+    }`}>
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <span className={`flex items-center justify-center size-6 rounded-full shrink-0 text-[10px] font-display font-medium ${
-            submission.isDone ? 'bg-success/10 text-success' : 'bg-surface-hover text-text-muted'
-          }`}>
-            {userLabel.slice(0, 1).toUpperCase()}
+          <span className="relative shrink-0">
+            <span className={`flex items-center justify-center size-6 rounded-full text-[10px] font-display font-semibold ${
+              submission.isDone ? 'bg-success/15 text-success' : 'bg-surface-hover text-text-muted'
+            }`}>
+              {userLabel.slice(0, 1).toUpperCase()}
+            </span>
+            {submission.isDone && (
+              <span className="absolute -bottom-0.5 -right-0.5 flex items-center justify-center size-3 rounded-full bg-success text-white ring-2 ring-surface">
+                <Check size={8} strokeWidth={3.5} />
+              </span>
+            )}
           </span>
           <div className="min-w-0">
             <p className="text-xs font-display font-medium text-text truncate">{userLabel}</p>

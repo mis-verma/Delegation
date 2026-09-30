@@ -75,8 +75,10 @@ export const KpiSectionShell = ({ icon: Icon, title, description, isPending, isE
     ) : (
       <div className="flex flex-col gap-6">
         {/* Caps at 2 columns when there are only 2 cards (e.g. Delegation Checklists) instead of
-            always reserving a 3rd column that then sits visibly empty. */}
-        <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 ${cards.length >= 3 ? 'lg:grid-cols-3' : ''}`}>
+            always reserving a 3rd/4th column that then sits visibly empty; a 4-card section (e.g.
+            Recurring Checklists) upgrades to a single row only once there's room at `xl`, rather
+            than sitting 3-wide with one card wrapping onto its own mostly-empty row at `lg`. */}
+        <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 ${cards.length >= 3 ? 'lg:grid-cols-3' : ''} ${cards.length >= 4 ? 'xl:grid-cols-4' : ''}`}>
           {cards.map((c) => (
             <StatCard key={c.label} {...c} />
           ))}

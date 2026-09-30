@@ -2,13 +2,13 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { PageNav } from '../../../components';
 import { Link } from 'react-router';
-import { Store, AlertCircle, SearchX, SlidersHorizontal } from 'lucide-react';
+import { Store, AlertCircle, AlertTriangle, SearchX, SlidersHorizontal } from 'lucide-react';
 import { Skeleton, SelectDropdown, StatusChip, EmptyState, type DateRangeValue } from '../../../components';
 import { Badge } from '@/components/ui/badge';
 import { useStoresQuery, useAssignableUsersQuery, useChecklistInstancesBoardQuery, useChecklistInstanceSummaryQuery } from '../hook';
 import {
   formatDate, formatDeadlineTime, instanceProgressStatus, VERIFICATION_STATUS_LABEL, VERIFICATION_BADGE_VARIANT,
-  instanceProgressToneClass, instanceProgressBarClass, isInstanceOverdue,
+  instanceProgressToneClass, instanceProgressBarClass, isInstanceOverdue, isFlaggedAnswer,
 } from '../checklistDisplay';
 import { ChecklistComplianceQuickStats, type ComplianceQuickFilterKey } from './ChecklistComplianceQuickStats';
 import { GroupByControl, type GroupBy } from '../../admin/analytics/GroupByControl';
@@ -39,6 +39,7 @@ const ComplianceRow = ({ instance, storeName, nameById }: ComplianceRowProps) =>
   const progress = total ? Math.round((done / total) * 100) : 0;
   const overdue = isInstanceOverdue(instance, status === 'COMPLETED');
   const deadlineTime = formatDeadlineTime(instance);
+  const flaggedItems = instance.items.filter(isFlaggedAnswer);
 
   return (
     <Link
@@ -59,6 +60,12 @@ const ComplianceRow = ({ instance, storeName, nameById }: ComplianceRowProps) =>
             {VERIFICATION_STATUS_LABEL[instance.verificationStatus]}
           </Badge>
           {overdue && <StatusChip status="overdue" />}
+          {flaggedItems.length > 0 && (
+            <Badge variant="destructive" className="gap-1 bg-danger/10 text-danger">
+              <AlertTriangle size={11} />
+              {flaggedItems.length} flagged
+            </Badge>
+          )}
         </div>
       </div>
 
@@ -76,15 +83,22 @@ const ComplianceRow = ({ instance, storeName, nameById }: ComplianceRowProps) =>
         <div className="flex flex-wrap gap-1.5 pt-1 border-t border-dashed border-border/60">
           {instance.assigneeIds.map(id => {
             const completedByThem = instance.items.filter(i => i.completedBy === id).length;
+            // A flagged answer only ever attributes to whoever actually completed that item — the
+            // same honest-signal limitation the surrounding comment already calls out for plain
+            // completion counts (a shared instance has no per-item "owner" beyond completedBy).
+            const flaggedByThem = instance.items.filter(i => i.completedBy === id && isFlaggedAnswer(i)).length;
             const allDone = total > 0 && completedByThem === total;
             const started = completedByThem > 0;
+            const hasFlag = flaggedByThem > 0;
             return (
               <Badge
                 key={id}
-                variant={allDone ? 'success' : started ? 'warning' : 'neutral'}
-                className={`text-[11px] ${allDone ? 'bg-success/10' : started ? 'bg-warning/10' : 'bg-surface-hover'}`}
+                variant={hasFlag ? 'destructive' : allDone ? 'success' : started ? 'warning' : 'neutral'}
+                className={`gap-1 text-[11px] ${hasFlag ? 'bg-danger/10 text-danger' : allDone ? 'bg-success/10' : started ? 'bg-warning/10' : 'bg-surface-hover'}`}
               >
+                {hasFlag && <AlertTriangle size={10} className="shrink-0" />}
                 {nameById.get(id) ?? 'Unknown'} · {completedByThem}/{total}
+                {hasFlag && ` · ${flaggedByThem} flagged`}
               </Badge>
             );
           })}
@@ -114,6 +128,9 @@ export const ChecklistComplianceBoard = () => {
   const [storeId, setStoreIdState] = useState('');
   const [assigneeId, setAssigneeIdState] = useState('');
   const [status, setStatusState] = useState<'' | ChecklistInstanceStatus>('');
+  // Off by default — a deleted checklist's history is kept for audit purposes, but shouldn't
+  // clutter the board every viewer sees day to day; this is the explicit "show me anyway" switch.
+  const [includeDeleted, setIncludeDeleted] = useState(false);
   // Layered on top of the store/person/status filters above, same as TicketList's quickFilter —
   // click a tile to narrow the list further, click it again (or "Instances") to clear.
   const [quickFilter, setQuickFilter] = useState<ComplianceQuickFilterKey>('all');
@@ -125,6 +142,7 @@ export const ChecklistComplianceBoard = () => {
   const setStoreId = (value: string) => { setStoreIdState(value); setPage(1); };
   const setAssigneeId = (value: string) => { setAssigneeIdState(value); setPage(1); };
   const setStatus = (value: '' | ChecklistInstanceStatus) => { setStatusState(value); setPage(1); };
+  const toggleIncludeDeleted = () => { setIncludeDeleted((v) => !v); setPage(1); };
   const setRange = (value: DateRangeValue) => { setRangeState(value); setPage(1); };
   const setLastMonth = () => {
     const now = new Date();
@@ -167,6 +185,7 @@ export const ChecklistComplianceBoard = () => {
     status: effectiveStatus,
     from: reportFrom,
     to: reportTo,
+    includeDeleted,
     page,
     limit: PAGE_SIZE,
   });
@@ -182,6 +201,7 @@ export const ChecklistComplianceBoard = () => {
     assigneeId: assigneeId || undefined,
     from: reportFrom,
     to: reportTo,
+    includeDeleted,
   });
   const summary: Record<ComplianceQuickFilterKey, number> = {
     all: counts?.total ?? 0,
@@ -282,13 +302,30 @@ export const ChecklistComplianceBoard = () => {
               ))}
             </div>
           </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-display font-medium text-text-secondary">History</label>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={includeDeleted}
+              onClick={toggleIncludeDeleted}
+              className={`flex items-center gap-2 h-11 px-3 rounded-full border text-xs font-display font-medium transition-colors duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
+                includeDeleted ? 'border-primary-500/60 bg-primary-500/10 text-primary-700 dark:text-primary-300' : 'border-border bg-surface text-text-secondary hover:bg-surface-hover'
+              }`}
+            >
+              <span className={`relative inline-flex h-4 w-7 shrink-0 rounded-full transition-colors duration-200 ${includeDeleted ? 'bg-primary-600' : 'bg-border'}`}>
+                <span className={`absolute top-0.5 left-0.5 size-3 rounded-full bg-white shadow-sm transition-transform duration-200 ${includeDeleted ? 'translate-x-3' : ''}`} />
+              </span>
+              <span>Show deleted checklists</span>
+            </button>
+          </div>
         </div>
       </div>
 
       {/* isOrgWideRole=false here on purpose — these cards' click destination on the Overview page
           is this exact page, so on this page itself there's nowhere further to send a click; the
           real per-instance rows they'd otherwise link to already render directly below. */}
-      <ChecklistInstanceKpiSection groupBy={groupBy} from={reportFrom} to={reportTo} isOrgWideRole={false} />
+      <ChecklistInstanceKpiSection groupBy={groupBy} from={reportFrom} to={reportTo} isOrgWideRole={false} includeDeleted={includeDeleted} />
 
       <div className="flex items-center gap-3 pt-2 border-t border-border/60">
         <h2 className="text-sm font-display font-bold text-text shrink-0">Who's done what</h2>

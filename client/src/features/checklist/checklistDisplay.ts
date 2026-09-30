@@ -1,6 +1,6 @@
 import { CircleDashed, Eye, ShieldCheck, ShieldX, type LucideIcon } from 'lucide-react';
 import type { ChecklistRecurrence } from '../../api/checklistDefinitions';
-import type { ChecklistVerificationStatus } from '../../api/checklistInstances';
+import type { ChecklistVerificationStatus, ChecklistInstanceItem } from '../../api/checklistInstances';
 
 // Shared display lookups/helpers for the checklist feature — used by ChecklistDefinitionList,
 // ChecklistDefinitionDetail, ChecklistInstanceDetail, and MyChecklists. Previously each of those
@@ -110,6 +110,20 @@ export const rateBarClass = (rate: number) => {
   return 'bg-danger';
 };
 
+// For rates where a HIGHER number is worse news (e.g. issueRate/flagged-answer rate) — same
+// thresholds as rateToneClass/rateBarClass, just read from the other end.
+export const inverseRateToneClass = (rate: number) => {
+  if (rate <= 20) return 'text-success';
+  if (rate <= 50) return 'text-warning';
+  return 'text-danger';
+};
+
+export const inverseRateBarClass = (rate: number) => {
+  if (rate <= 20) return 'bg-success';
+  if (rate <= 50) return 'bg-warning';
+  return 'bg-danger';
+};
+
 // A single instance's own progress bar/text should read "on track" vs. "actually a problem" —
 // which is about the deadline, not the raw fill%. Complete is always success; overdue-and-not-
 // complete is the only case that should read as danger; everything else (partially filled, still
@@ -195,4 +209,26 @@ export const isInstanceOverdue = (instance: InstanceWindow, isComplete: boolean)
 export const isInstanceNotYetOpen = (instance: Pick<InstanceWindow, 'periodStart' | 'opensTime'>) => {
   const opensAt = instanceOpensAt(instance);
   return opensAt != null && Date.now() < opensAt;
+};
+
+type FlaggableItem = Pick<ChecklistInstanceItem, 'itemType' | 'booleanAnswer' | 'yesActions' | 'noActions'>;
+
+// Mirrors the server's GATED_BOOLEAN_ITEM_EXPR/FLAGGED_BOOLEAN_ANSWER_EXPR (see
+// server/src/utils/checklistBooleanFlags.ts) — a Yes/No-style item is "gated" when exactly one
+// branch has a conditional action wired up (that's the branch the checklist's author flagged as
+// needing scrutiny), and a "flagged" answer is one that actually landed on that branch. Stays
+// flagged even once a required photo/reason was supplied to get past it — those only unblock
+// completion, they never turn a flagged answer back into a clean one.
+export const isGatedBooleanItem = (item: FlaggableItem) => {
+  if (item.itemType !== 'YES_NO' && item.itemType !== 'PASS_FAIL') return false;
+  const noGated = item.noActions.length > 0 && item.yesActions.length === 0;
+  const yesGated = item.yesActions.length > 0 && item.noActions.length === 0;
+  return noGated || yesGated;
+};
+
+export const isFlaggedAnswer = (item: FlaggableItem) => {
+  if (!isGatedBooleanItem(item)) return false;
+  if (item.booleanAnswer === 'NO') return item.noActions.length > 0;
+  if (item.booleanAnswer === 'YES') return item.yesActions.length > 0;
+  return false;
 };

@@ -74,6 +74,10 @@ export type ChecklistDefinition = {
   // least one instance/qualifying item exists yet, rather than a misleading 0%.
   completionRate: number | null;
   qualityRate: number | null;
+  // Share of gated Yes/No-style items (one branch wired with REQUIRE_PHOTO/ASK_REASON/
+  // CREATE_ISSUE/NOTIFY_AREA_MANAGER) whose answer landed on that flagged branch. Higher is
+  // worse; null when nothing on this checklist is actually gated that way.
+  issueRate: number | null;
 };
 
 export type ApiResponse<T> = { success: boolean; data: T };

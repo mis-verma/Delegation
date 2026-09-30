@@ -37,13 +37,17 @@ export const checklistInstanceController = {
         res.json({ success: true, ...result })
     }),
 
-    // GET /checklist-instances?definitionId=&storeId=&status=&assigneeId=&from=&to=  (ADMIN/PC only —
-    // requireRole gate on the route — so includeDeleted is always true here in practice; still
-    // derived from role rather than hardcoded, in case that gate ever loosens.)
+    // GET /checklist-instances?definitionId=&storeId=&status=&assigneeId=&from=&to=&includeDeleted=
+    // (ADMIN/PC only — requireRole gate on the route.) includeDeleted is opt-IN, not automatic —
+    // the Compliance Board defaults to hiding a deleted checklist's history (so deleting one
+    // actually cleans up the board, matching what the delete confirmation promises), with this as
+    // the explicit "show me the full audit history anyway" toggle. Still capped by role regardless
+    // of what the client sends, in case the route's own gate ever loosens.
     list: asyncHandler(async (req: Request, res: Response) => {
         const { definitionId, storeId, assigneeId } = req.query
         const { page, limit, from, to, status } = listChecklistInstancesQuerySchema.parse(req.query)
-        const includeDeleted = req.user!.role === "ADMIN" || req.user!.role === "PC"
+        const isOrgWide = req.user!.role === "ADMIN" || req.user!.role === "PC"
+        const includeDeleted = isOrgWide && (req.query.includeDeleted === "1" || req.query.includeDeleted === "true")
         const result = await checklistInstanceService.listAll({
             definitionId: definitionId as string | undefined,
             storeId: storeId as string | undefined,
@@ -70,7 +74,7 @@ export const checklistInstanceController = {
         res.json({ success: true, data })
     }),
 
-    // GET /checklist-instances/summary?mine=1|storeId=&assigneeId=&assigneeIds=&definitionId=
+    // GET /checklist-instances/summary?mine=1|storeId=&assigneeId=&assigneeIds=&definitionId=&includeDeleted=
     // The counts the compliance board and dashboard cards used to compute by downloading every
     // instance. `mine=1` scopes to the caller, which is what the dashboard cards want.
     summary: asyncHandler(async (req: Request, res: Response) => {
@@ -90,9 +94,10 @@ export const checklistInstanceController = {
             from: req.query.from as string | undefined,
             to: req.query.to as string | undefined,
             userId: scopedToSelf || !isOrgWide ? req.user!.sub : undefined,
-            // Same ADMIN/PC-only visibility as every other list above — a deleted checklist's
-            // instances shouldn't inflate (or appear in) a regular user's own compliance counts.
-            includeDeleted: isOrgWide,
+            // Opt-in, not automatic (see `list` above's own comment) — a deleted checklist's
+            // instances shouldn't inflate the Compliance Board's counts by default, only when the
+            // viewer explicitly asks to include deleted-checklist history.
+            includeDeleted: isOrgWide && (req.query.includeDeleted === "1" || req.query.includeDeleted === "true"),
         })
         res.json({ success: true, data })
     }),
@@ -129,7 +134,11 @@ export const checklistInstanceController = {
         const storeId = req.user!.role === "MANAGER" && req.user!.departmentId
             ? await resolveStoreIdForDepartment(req.user!.departmentId)
             : baseStoreId;
-        const data = await checklistInstanceService.complianceReport(query.groupBy, storeId, query.from, query.to)
+        // Opt-in, ADMIN/PC only — same "show me deleted-checklist history anyway" toggle as
+        // list/summary above, off by default so this org-wide trend doesn't include it silently.
+        const isOrgWide = req.user!.role === "ADMIN" || req.user!.role === "PC"
+        const includeDeleted = isOrgWide && (req.query.includeDeleted === "1" || req.query.includeDeleted === "true")
+        const data = await checklistInstanceService.complianceReport(query.groupBy, storeId, query.from, query.to, includeDeleted)
         res.json({ success: true, data })
     }),
 }

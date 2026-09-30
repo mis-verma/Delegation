@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Camera, Video, MapPin, Info, Star, Plus, X } from 'lucide-react';
-import { UserMultiSelect, AccessoriesListEditor } from '../../../../components';
+import { AccessoriesListEditor } from '../../../../components';
+import { UserBulkPicker } from '../../UserBulkPicker';
 import { ConditionalLogicPanel } from './ConditionalLogicPanel';
 import type { ChecklistItemType } from '../../../../api/checklistDefinitions';
 import type { ItemDraft } from '../ChecklistDefinitionItemDraftRow';
@@ -122,8 +123,22 @@ const VideoFields = (props: ItemTypeFieldsProps) => (
 const AuditFields = ({ draft, onChange, storeIds }: ItemTypeFieldsProps) => (
   <div className="flex flex-col gap-4">
     <div className="flex flex-col gap-1.5">
-      <span className={LABEL}>Who audits this?</span>
-      <UserMultiSelect storeIds={storeIds} selected={draft.auditUserIds} onChange={(ids) => onChange({ auditUserIds: ids })} />
+      <div className="flex items-center justify-between gap-2">
+        <span className={LABEL}>Who audits this?</span>
+        {draft.auditUserIds.length > 0 && (
+          <span className="text-[11px] font-display font-medium text-text-muted">
+            {draft.auditUserIds.length} auditor{draft.auditUserIds.length === 1 ? '' : 's'}
+          </span>
+        )}
+      </div>
+      {/* Same bulk-pick UI as the Assign step — a real-world audit (e.g. a uniform/ID check) is
+          often run by a whole team of small auditors, not one or two people picked by hand. */}
+      <UserBulkPicker
+        storeIds={storeIds ?? []}
+        selected={draft.auditUserIds}
+        onChange={(ids) => onChange({ auditUserIds: ids })}
+        everyoneLabel="Select everyone at this store"
+      />
     </div>
     <AccessoriesListEditor
       label="Things to check (optional)"

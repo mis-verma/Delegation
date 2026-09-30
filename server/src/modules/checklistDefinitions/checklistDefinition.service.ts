@@ -18,6 +18,7 @@ import type { CreateChecklistDefinitionInput, UpdateChecklistDefinitionInput, Se
 import { generateInstanceForDefinition, loadDefinitionForGeneration } from "../../jobs/checklistInstanceGenerator.job.js"
 import { auditService } from "../audit/audit.service.js";
 import { emitChecklistEvent } from "../../sockets/checklistEvent.js"
+import { GATED_BOOLEAN_ITEM_EXPR, FLAGGED_BOOLEAN_ANSWER_EXPR } from "../../utils/checklistBooleanFlags.js"
 
 // create/update/setActive/remove all end by broadcasting to every store this definition touches —
 // a definition can span several, and the Templates grid / builder open elsewhere need to hear
@@ -64,8 +65,10 @@ const buildDefinitionsMeta = (p: { page: number; limit: number }, total: number)
     hasNext: p.page * p.limit < total,
 })
 
-const statsByDefinition = async (definitionIds: string[]): Promise<Map<string, { completionRate: number | null; qualityRate: number | null }>> => {
-    const map = new Map<string, { completionRate: number | null; qualityRate: number | null }>()
+type DefinitionStats = { completionRate: number | null; qualityRate: number | null; issueRate: number | null }
+
+const statsByDefinition = async (definitionIds: string[]): Promise<Map<string, DefinitionStats>> => {
+    const map = new Map<string, DefinitionStats>()
     if (!definitionIds.length) return map
 
     // Unbounded scan over every instance+item this definition has ever generated — unlike
@@ -90,7 +93,9 @@ const statsByDefinition = async (definitionIds: string[]): Promise<Map<string, {
                         CASE WHEN cii.requiredImageCount > 0
                             AND (CASE WHEN cii.requiresLivePhoto THEN COALESCE(img.liveCount, 0) ELSE COALESCE(img.totalCount, 0) END) >= cii.requiredImageCount
                         THEN 1 ELSE 0 END
-                    ) AS photoCompliantItems
+                    ) AS photoCompliantItems,
+                    SUM(CASE WHEN ${GATED_BOOLEAN_ITEM_EXPR} THEN 1 ELSE 0 END) AS gatedBooleanItems,
+                    SUM(CASE WHEN ${FLAGGED_BOOLEAN_ANSWER_EXPR} THEN 1 ELSE 0 END) AS flaggedItems
                 FROM ChecklistInstanceItem cii
                 JOIN ChecklistInstance ci ON ci.id = cii.instanceId
                 LEFT JOIN (
@@ -107,9 +112,14 @@ const statsByDefinition = async (definitionIds: string[]): Promise<Map<string, {
     for (const r of rows) {
         const totalItems = Number(r.totalItems)
         const itemsRequiringPhotos = Number(r.itemsRequiringPhotos)
+        const gatedBooleanItems = Number(r.gatedBooleanItems)
         map.set(r.definitionId as string, {
             completionRate: totalItems ? Math.round((Number(r.doneItems) / totalItems) * 1000) / 10 : null,
             qualityRate: itemsRequiringPhotos ? Math.round((Number(r.photoCompliantItems) / itemsRequiringPhotos) * 1000) / 10 : null,
+            // Share of gated Yes/No-style items whose answer landed on the flagged branch —
+            // higher is worse (paired with `lowerIsBetter` wherever it's shown), null when this
+            // definition has no items an author actually gated with a conditional action.
+            issueRate: gatedBooleanItems ? Math.round((Number(r.flaggedItems) / gatedBooleanItems) * 1000) / 10 : null,
         })
     }
     return map
@@ -170,6 +180,7 @@ const hydrateDefinitions = async (definitionRows: (typeof checklistDefinitions.$
         items: itemsByDefinition.get(definition.id) ?? [],
         completionRate: stats.get(definition.id)?.completionRate ?? null,
         qualityRate: stats.get(definition.id)?.qualityRate ?? null,
+        issueRate: stats.get(definition.id)?.issueRate ?? null,
     }))
 }
 

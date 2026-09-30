@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Camera, ImageUp, X, Loader2, Zap } from 'lucide-react';
+import { Camera, ImageUp, X, Loader2, Zap, AlertTriangle } from 'lucide-react';
 import {
   useSetChecklistInstanceItemDoneMutation,
   useUploadChecklistInstanceImagesMutation,
   useDeleteChecklistInstanceImageMutation,
 } from '../hook';
 import { ChecklistItemCardHeader } from './ChecklistItemCardHeader';
+import { isFlaggedAnswer } from '../checklistDisplay';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 import type { ChecklistConditionalAction } from '../../../api/checklistDefinitions';
 import type { CaptureMethod } from '../../../api/ticket';
@@ -147,6 +148,13 @@ export const ChecklistInstanceItemBooleanCard = ({ item, instanceId, canWork, is
           {labels.no}
         </button>
       </div>
+
+      {item.isDone && isFlaggedAnswer(item) && (
+        <p className="flex items-center gap-1.5 text-[11px] font-display font-medium text-danger">
+          <AlertTriangle size={12} className="shrink-0" />
+          Flagged — this answer counts against compliance, even with a reason or photo on file.
+        </p>
+      )}
 
       {showFollowUp && (
         <div className="flex flex-col gap-2.5 pt-2.5 border-t border-dashed border-border/60">
