@@ -87,9 +87,9 @@ export const ChecklistInstanceItemAuditCard = ({ item, instanceId, canWork, curr
                     type="button"
                     onClick={() => setSelectedId(submission.id)}
                     className={[
-                      'flex items-center gap-1.5 pl-1 pr-2.5 py-1 rounded-full border text-xs font-display font-medium transition-colors cursor-pointer',
+                      'flex items-center gap-1.5 pl-1 pr-2.5 py-1 rounded-full border text-xs font-display font-medium transition-all duration-150 cursor-pointer active:scale-95',
                       isActive
-                        ? 'border-primary-500 bg-primary-500/10 text-primary-700 dark:text-primary-300'
+                        ? 'border-primary-500 bg-primary-500/10 text-primary-700 dark:text-primary-300 shadow-sm'
                         : submission.isDone
                           ? 'border-success/30 bg-success/5 text-text-secondary hover:bg-success/10'
                           : 'border-border text-text-secondary hover:bg-surface-hover',
@@ -143,6 +143,10 @@ const SubmissionDetail = ({ item, submission, instanceId, storeName, interactive
 
   const [remarksDraft, setRemarksDraft] = useState(submission.remarks ?? '');
   const remarksDirty = remarksDraft !== (submission.remarks ?? '');
+  // Ticked instantly, on the tap — not after the round trip. The mutation still fires and saves
+  // for real, but nobody should have to stare at a checkbox for half a second wondering if their
+  // tap registered. Rolled back to the last known-good state only if the save actually fails.
+  const [accessoriesDraft, setAccessoriesDraft] = useState(submission.accessories);
 
   const images = submission.images ?? [];
   const qualifying = item.requiresLivePhoto ? images.filter(i => i.captureMethod === 'LIVE').length : images.length;
@@ -156,9 +160,10 @@ const SubmissionDetail = ({ item, submission, instanceId, storeName, interactive
 
   const toggleAccessory = (name: string) => {
     if (!canSubmit) return;
-    updateAccessories.mutate({
-      id: submission.id,
-      accessories: submission.accessories.map(a => (a.name === name ? { ...a, checked: !a.checked } : a)),
+    const next = accessoriesDraft.map(a => (a.name === name ? { ...a, checked: !a.checked } : a));
+    setAccessoriesDraft(next);
+    updateAccessories.mutate({ id: submission.id, accessories: next }, {
+      onError: () => setAccessoriesDraft(submission.accessories),
     });
   };
 
@@ -173,7 +178,7 @@ const SubmissionDetail = ({ item, submission, instanceId, storeName, interactive
   };
 
   return (
-    <div className={`flex flex-col gap-3 p-3 rounded-xl border transition-colors duration-200 ${
+    <div className={`flex flex-col gap-3 p-3 rounded-xl border transition-colors duration-200 animate-in fade-in slide-in-from-bottom-1 duration-200 ${
       submission.isDone ? 'border-success/25 bg-success/[0.03]' : 'border-border bg-background'
     }`}>
       <div className="flex items-center justify-between gap-2">
@@ -199,7 +204,7 @@ const SubmissionDetail = ({ item, submission, instanceId, storeName, interactive
           <button
             onClick={() => setDone.mutate({ id: submission.id, isDone: false })}
             disabled={setDone.isPending}
-            className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-display font-medium text-text-light hover:text-warning hover:bg-warning/10 transition-colors cursor-pointer disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-warning/50"
+            className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-display font-medium text-text-light hover:text-warning hover:bg-warning/10 transition-all duration-150 cursor-pointer active:scale-95 disabled:opacity-50 disabled:active:scale-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-warning/50"
           >
             <RotateCcw size={13} />
             Reopen
@@ -217,24 +222,26 @@ const SubmissionDetail = ({ item, submission, instanceId, storeName, interactive
         <div>
           <p className="text-[11px] font-display font-medium text-text-muted mb-1.5">What they have</p>
           <div className="flex flex-wrap gap-1.5">
-            {submission.accessories.map(a => (
-              <label
+            {accessoriesDraft.map(a => (
+              <button
                 key={a.name}
+                type="button"
+                aria-pressed={a.checked}
+                disabled={!canSubmit}
+                onClick={() => toggleAccessory(a.name)}
                 className={[
-                  'flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-xs font-display transition-colors',
+                  'flex items-center gap-1.5 pl-1.5 pr-2.5 py-1.5 rounded-lg border text-xs font-display font-medium transition-all duration-150 active:scale-95',
                   a.checked ? 'border-success/40 bg-success/10 text-success' : 'border-border text-text-secondary',
                   canSubmit ? 'cursor-pointer hover:bg-surface-hover' : 'cursor-not-allowed opacity-80',
                 ].join(' ')}
               >
-                <input
-                  type="checkbox"
-                  checked={a.checked}
-                  disabled={!canSubmit}
-                  onChange={() => toggleAccessory(a.name)}
-                  className="accent-primary-600 size-3.5"
-                />
+                <span className={`flex items-center justify-center size-4 rounded-[4px] border shrink-0 transition-colors duration-150 ${
+                  a.checked ? 'bg-success border-success text-white' : 'border-border-hover text-transparent'
+                }`}>
+                  <Check size={10} strokeWidth={3} />
+                </span>
                 {a.name}
-              </label>
+              </button>
             ))}
           </div>
         </div>
@@ -316,7 +323,7 @@ const SubmissionDetail = ({ item, submission, instanceId, storeName, interactive
             <button
               onClick={() => updateRemarks.mutate({ id: submission.id, remarks: remarksDraft.trim() || null })}
               disabled={updateRemarks.isPending}
-              className="self-start flex items-center gap-1.5 text-[11px] font-display font-medium px-2.5 py-1 rounded-md border border-border text-text-secondary hover:bg-surface-hover cursor-pointer transition-colors disabled:opacity-50"
+              className="self-start flex items-center gap-1.5 text-[11px] font-display font-medium px-2.5 py-1 rounded-md border border-border text-text-secondary hover:bg-surface-hover cursor-pointer transition-all duration-150 active:scale-95 disabled:opacity-50 disabled:active:scale-100"
             >
               {updateRemarks.isPending && <Loader2 size={11} className="animate-spin" />}
               Save remarks
@@ -352,7 +359,7 @@ const SubmissionDetail = ({ item, submission, instanceId, storeName, interactive
             <button
               onClick={handleSubmit}
               disabled={submitting}
-              className="flex items-center gap-1.5 text-[11px] font-display font-medium px-2.5 py-1 rounded-md border border-primary-500/50 text-primary-600 hover:bg-primary-500/10 cursor-pointer transition-colors disabled:opacity-50 ml-auto"
+              className="flex items-center gap-1.5 text-[11px] font-display font-medium px-2.5 py-1 rounded-md border border-primary-500/50 text-primary-600 hover:bg-primary-500/10 cursor-pointer transition-all duration-150 active:scale-95 disabled:opacity-50 disabled:active:scale-100 ml-auto"
             >
               {submitting && <Loader2 size={11} className="animate-spin" />}
               Submit
