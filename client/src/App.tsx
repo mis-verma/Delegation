@@ -53,6 +53,7 @@ const DirectoryPage = lazy(() => import('./features/admin/directory').then(m => 
 const OrgStructurePage = lazy(() => import('./features/admin/orgStructure').then(m => ({ default: m.OrgStructurePage })));
 const ReportsPage = lazy(() => import('./features/reports').then(m => ({ default: m.ReportsPage })));
 const AuditLogPage = lazy(() => import('./features/admin/auditLog').then(m => ({ default: m.AuditLogPage })));
+const HolidaysPage = lazy(() => import('./features/admin/holidays').then(m => ({ default: m.HolidaysPage })));
 const PresenceOverview = lazy(() => import('./features/admin/presence').then(m => ({ default: m.PresenceOverview })));
 const SettingsPage = lazy(() => import('./features/admin/SettingsPage').then(m => ({ default: m.SettingsPage })));
 const ChecklistTemplateList = lazy(() => import('./features/admin/checklistTemplate').then(m => ({ default: m.ChecklistTemplateList })));
@@ -316,6 +317,7 @@ const router = createBrowserRouter([
               { path: '/admin/tickets', element: <TicketList /> },
               { path: '/admin/reports', element: <ReportsPage /> },
               { path: '/admin/audit-log', element: <AuditLogPage /> },
+              { path: '/admin/holidays', element: <HolidaysPage /> },
               { path: '/admin/presence', element: <PresenceOverview /> },
               { path: '/admin/settings', element: <SettingsPage /> },
             ],

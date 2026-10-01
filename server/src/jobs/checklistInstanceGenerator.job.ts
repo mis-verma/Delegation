@@ -21,6 +21,7 @@ import {
     checklistInstanceItemSubmissionAccessories,
     checklistInstanceItemSubmissionImages,
     users,
+    holidays,
 } from "../db/schema/index.js"
 import type { ChecklistRecurrence } from "../db/schema/checklistDefinition.js"
 import type { Gender } from "../db/schema/core.js"
@@ -317,13 +318,22 @@ const generateInstanceForStore = async (
     return { id: instanceId }
 }
 
-// Working days + personal week-offs (DAILY only — a weekly/monthly run spans several days, so one
-// person's day off shouldn't cancel it). periodStart is the org-local calendar day written as UTC
-// midnight (utils/period.ts), so its UTC weekday IS the local weekday. Returns the definition to
-// stamp this period from (for a DAILY one, with today's off-duty assignees filtered out), or null
-// when nothing should run today: not a working day, or everyone assigned is off.
+// A company-wide day off (Admin -> Holidays). `dateStr` is the org-local day as YYYY-MM-DD, which is
+// exactly periodStart's own date because periodStart is that local day written as UTC midnight.
+const isHoliday = async (dateStr: string): Promise<boolean> => {
+    const [row] = await db.select({ id: holidays.id }).from(holidays).where(eq(holidays.date, dateStr)).limit(1)
+    return !!row
+}
+
+// Working days + personal week-offs + company holidays (DAILY only — a weekly/monthly run spans
+// several days, so one person's day off or one public holiday shouldn't cancel it). periodStart is
+// the org-local calendar day written as UTC midnight (utils/period.ts), so its UTC weekday IS the
+// local weekday. Returns the definition to stamp this period from (for a DAILY one, with today's
+// off-duty assignees filtered out), or null when nothing should run today: a holiday, not a
+// working day, or everyone assigned is off. No run means nothing to miss, so no score drops.
 const applyWorkingDayRules = async (definition: GenerationDefinition, period: Period): Promise<GenerationDefinition | null> => {
     if (definition.recurrence !== "DAILY") return definition
+    if (await isHoliday(period.periodStart.toISOString().slice(0, 10))) return null
     const weekday = period.periodStart.getUTCDay()
     if (definition.activeWeekdays && !definition.activeWeekdays.includes(weekday)) return null
     if (!definition.assigneeIds.length) return definition
@@ -704,6 +714,36 @@ export const syncLiveInstances = async (definition: GenerationDefinition, now: D
         }
     }
     return summary
+}
+
+// Called when a holiday is added for a date that may already have runs (the hourly sweep creates
+// the day's runs at the start of the day): every DAILY run for that day that nobody has started is
+// removed, so there is no checklist left standing to be missed. A run someone has already started
+// stays, since they chose to work that day and their answers are real. Returns how many were removed.
+export const dropUntouchedDailyRunsOn = async (dateStr: string): Promise<number> => {
+    const dayStart = new Date(`${dateStr}T00:00:00.000Z`)
+    const runs = await db.select({ id: checklistInstances.id, storeId: checklistInstances.storeId }).from(checklistInstances)
+        .where(and(eq(checklistInstances.recurrence, "DAILY"), eq(checklistInstances.periodStart, dayStart)))
+
+    let removed = 0
+    for (const { id, storeId } of runs) {
+        try {
+            const gone = await db.transaction(async (tx) => {
+                const [run] = await tx.select().from(checklistInstances).where(eq(checklistInstances.id, id)).for("update").limit(1)
+                if (!run || await runHasProgress(tx, run)) return false
+                await tx.delete(checklistInstances).where(eq(checklistInstances.id, id))
+                return true
+            })
+            if (gone) {
+                removed++
+                emitChecklistEvent("checklist-instance:updated", { storeId }, { instanceId: id })
+            }
+        } catch (err) {
+            // One run failing to clear must not stop the rest.
+            console.error(`Removing holiday run ${id} failed:`, err)
+        }
+    }
+    return removed
 }
 
 const generateDueInstances = async () => {

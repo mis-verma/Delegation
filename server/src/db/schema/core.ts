@@ -64,6 +64,27 @@ export const stores = mysqlTable(
 );
 
 // ---------------------------------------------------------------------------
+// Holiday — a company-wide day off (national holidays). On these dates the daily checklist
+// generator creates no run, so nobody has anything to miss and no completion/compliance score
+// drops. `date` is the org-local calendar day as 'YYYY-MM-DD' (a plain string on purpose: it is a
+// calendar label, not a moment in time, so it can't drift with time zones).
+// ---------------------------------------------------------------------------
+export const holidays = mysqlTable(
+  'Holiday',
+  {
+    id: varchar('id', { length: 191 }).primaryKey().$defaultFn(() => createId()),
+    date: varchar('date', { length: 10 }).notNull(),
+    name: varchar('name', { length: 191 }).notNull(),
+    // Plain string, not a foreign key: the admin who added it may leave, and that must never block
+    // deleting their user (same reasoning as AuditLog.actorId).
+    createdBy: varchar('createdBy', { length: 191 }).notNull(),
+    createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
+    updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
+  },
+  (table) => [uniqueIndex('Holiday_date_key').on(table.date)],
+);
+
+// ---------------------------------------------------------------------------
 // Department — org unit, optionally scoped to a "home" store
 // ---------------------------------------------------------------------------
 export const departments = mysqlTable(
