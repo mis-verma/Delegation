@@ -166,6 +166,11 @@ export const checklistDefinitionItems = mysqlTable(
     requiresLivePhoto: boolean('requiresLivePhoto').notNull().default(false),
     itemType: mysqlEnum('itemType', CHECKLIST_ITEM_TYPES).notNull().default('STANDARD'),
     accessories: json('accessories').$type<string[]>(),
+    // AUDIT only: what to check on a FEMALE / MALE person. An audited person gets the list that
+    // matches their gender (User.gender); when that list is empty, or their gender isn't set, they
+    // get the main `accessories` list above.
+    accessoriesFemale: json('accessoriesFemale').$type<string[]>(),
+    accessoriesMale: json('accessoriesMale').$type<string[]>(),
     numberEntryUnit: varchar('numberEntryUnit', { length: 191 }),
     numberEntryMin: float('numberEntryMin'),
     numberEntryMax: float('numberEntryMax'),

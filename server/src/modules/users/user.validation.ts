@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { ROLES } from "../../db/schema/core.js"
+import { ROLES, GENDERS } from "../../db/schema/core.js"
 import { objectId } from "../../utils/index.js"
 
 export const createUserSchema = z.object({
@@ -10,6 +10,8 @@ export const createUserSchema = z.object({
     role: z.enum(ROLES),
     departmentId: objectId.optional(),
     storeId: objectId.optional(),
+    // Picks which uniform checklist an audit gives this person (see ChecklistDefinitionItem).
+    gender: z.enum(GENDERS).optional(),
 });
 
 // Password changes aren't handled through this update endpoint (see user.service.ts's
@@ -26,6 +28,8 @@ export const updateUserSchema = createUserSchema.omit({ password: true, departme
     isActive: z.boolean().optional(),
     departmentId: objectId.nullable().optional(),
     storeId: objectId.nullable().optional(),
+    // null clears it (back to "not set").
+    gender: z.enum(GENDERS).nullable().optional(),
     weekOffDays: weekOffDays.optional(),
 });
 

@@ -143,11 +143,31 @@ const AuditFields = ({ draft, onChange, storeIds }: ItemTypeFieldsProps) => (
       />
     </div>
     <AccessoriesListEditor
-      label="Things to check (optional)"
+      label="Things to check (everyone)"
       placeholder="e.g. ID card, uniform"
       accessories={draft.accessories}
       onChange={(accessories) => onChange({ accessories })}
     />
+    {/* Uniform rules often differ by gender. A person gets the list for their gender (set on their
+        user profile); when that list is empty, or their gender isn't set, they get the one above. */}
+    <div className="flex flex-col gap-3 p-3 rounded-lg border border-dashed border-border bg-surface-hover/30">
+      <p className="text-[11px] font-display text-text-muted leading-relaxed">
+        Different checks for women and men? Fill the lists below. Anyone whose gender isn't set, or
+        whose list is empty, gets the "everyone" list.
+      </p>
+      <AccessoriesListEditor
+        label="Female"
+        placeholder="e.g. Saree or suit, bindi"
+        accessories={draft.accessoriesFemale}
+        onChange={(accessoriesFemale) => onChange({ accessoriesFemale })}
+      />
+      <AccessoriesListEditor
+        label="Male"
+        placeholder="e.g. Tie, formal shoes"
+        accessories={draft.accessoriesMale}
+        onChange={(accessoriesMale) => onChange({ accessoriesMale })}
+      />
+    </div>
   </div>
 );
 

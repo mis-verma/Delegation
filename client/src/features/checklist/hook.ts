@@ -374,8 +374,8 @@ export const useDeleteChecklistInstanceImageMutation = (instanceId: string) =>
 // uniformly with the same instanceId argument.
 export const useSetChecklistInstanceItemSubmissionDoneMutation = (_instanceId: string) =>
   useEntityMutation({
-    mutationFn: ({ id, isDone }: { id: string; isDone: boolean }) =>
-      checklistInstanceItemSubmissionApi.setDone(id, isDone).then(r => r.data),
+    mutationFn: ({ id, isDone, notApplicable, remarks }: { id: string; isDone: boolean; notApplicable?: boolean; remarks?: string }) =>
+      checklistInstanceItemSubmissionApi.setDone(id, isDone, { notApplicable, remarks }).then(r => r.data),
     // Whole prefix, not just this instance's own detail key — same reasoning as
     // useSetChecklistInstanceItemDoneMutation above: a submission can complete the whole
     // instance, which the summary/board/verification-queue queries need to reflect too.

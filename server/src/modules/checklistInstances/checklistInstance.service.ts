@@ -900,6 +900,7 @@ export const checklistInstanceService = {
         const rows = await db.select({
             id: checklistInstanceItemSubmissions.id,
             remarks: checklistInstanceItemSubmissions.remarks,
+            isNotApplicable: checklistInstanceItemSubmissions.isNotApplicable,
             completedAt: checklistInstanceItemSubmissions.completedAt,
             itemLabel: checklistInstanceItems.label,
             checklistTitle: checklistInstances.title,
@@ -1236,7 +1237,7 @@ export const checklistInstanceService = {
                 }).where(eq(checklistInstanceItems.instanceId, id))
                 // AUDIT items derive isDone from their auditors' submissions — reopening only the
                 // item left every submission saying "Submitted" with nothing for the auditor to redo.
-                await tx.update(checklistInstanceItemSubmissions).set({ isDone: false, completedAt: null, updatedAt: now })
+                await tx.update(checklistInstanceItemSubmissions).set({ isDone: false, isNotApplicable: false, completedAt: null, updatedAt: now })
                     .where(sql`${checklistInstanceItemSubmissions.itemId} IN (SELECT id FROM ${checklistInstanceItems} WHERE ${checklistInstanceItems.instanceId} = ${id})`)
             })
         }

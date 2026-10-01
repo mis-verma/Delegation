@@ -3,6 +3,9 @@ import { CAPTURE_METHODS } from "../../db/schema/task.js"
 
 export const setChecklistInstanceItemSubmissionDoneSchema = z.object({
     isDone: z.boolean(),
+    // "This person can't be checked today": counts as submitted, needs a reason (remarks).
+    notApplicable: z.boolean().optional(),
+    remarks: z.string().trim().max(2000).optional(),
 })
 
 export const updateChecklistInstanceItemSubmissionAccessoriesSchema = z.object({

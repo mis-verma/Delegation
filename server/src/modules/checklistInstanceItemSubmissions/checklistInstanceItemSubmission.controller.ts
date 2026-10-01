@@ -11,7 +11,10 @@ export const checklistInstanceItemSubmissionController = {
     // PATCH /checklist-instance-item-submissions/:id
     setDone: asyncHandler(async (req: Request, res: Response) => {
         const input = setChecklistInstanceItemSubmissionDoneSchema.parse(req.body)
-        const submission = await checklistInstanceItemSubmissionService.setDone(req.params.id, input.isDone, req.user!)
+        const submission = await checklistInstanceItemSubmissionService.setDone(req.params.id, input.isDone, req.user!, {
+            notApplicable: input.notApplicable,
+            remarks: input.remarks,
+        })
         res.json({ success: true, data: submission })
     }),
 

@@ -203,6 +203,9 @@ export const checklistInstanceItemSubmissions = mysqlTable(
     userId: varchar('userId', { length: 191 }).notNull().references(() => users.id),
     remarks: text('remarks'),
     isDone: boolean('isDone').notNull().default(false),
+    // "Can't be checked today" (absent, on leave): counts as submitted so the audit can finish, skips
+    // the ticks and photos, and always carries the reason in `remarks`. Only with isDone = true.
+    isNotApplicable: boolean('isNotApplicable').notNull().default(false),
     completedAt: datetime('completedAt', { mode: 'date' }),
     createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
     updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),

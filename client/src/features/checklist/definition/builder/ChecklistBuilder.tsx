@@ -40,6 +40,8 @@ const toItemDraft = (item: ChecklistDefinitionItem): ItemDraft => ({
   itemType: item.itemType,
   auditUserIds: item.auditUserIds,
   accessories: item.accessories,
+  accessoriesFemale: item.accessoriesFemale,
+  accessoriesMale: item.accessoriesMale,
   numberEntryUnit: item.numberEntryUnit ?? '',
   numberEntryMin: item.numberEntryMin != null ? String(item.numberEntryMin) : '',
   numberEntryMax: item.numberEntryMax != null ? String(item.numberEntryMax) : '',
@@ -76,7 +78,12 @@ const buildItemPayloads = (itemDrafts: ItemDraft[]): CreateChecklistDefinitionIt
       maxImageCount: d.maxImageCount ? Number(d.maxImageCount) : undefined,
       requiresLivePhoto: d.requiresLivePhoto,
       itemType: d.itemType,
-      ...(d.itemType === 'AUDIT' ? { auditUserIds: d.auditUserIds, accessories: d.accessories } : {}),
+      ...(d.itemType === 'AUDIT' ? {
+        auditUserIds: d.auditUserIds,
+        accessories: d.accessories,
+        accessoriesFemale: d.accessoriesFemale,
+        accessoriesMale: d.accessoriesMale,
+      } : {}),
       ...(d.itemType === 'NUMBER_ENTRY' || d.itemType === 'CASH_TALLY' ? {
         numberEntryUnit: d.numberEntryUnit.trim() || undefined,
         numberEntryMin: d.numberEntryMin.trim() ? Number(d.numberEntryMin) : undefined,

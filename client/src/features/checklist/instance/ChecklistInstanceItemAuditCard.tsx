@@ -1,6 +1,7 @@
 import { useId, useState, type ReactNode } from 'react';
-import { Camera, Check, CheckCheck, ImageUp, Loader2, RotateCcw, X, type LucideIcon } from 'lucide-react';
+import { Ban, Camera, Check, CheckCheck, ImageUp, Loader2, RotateCcw, X, type LucideIcon } from 'lucide-react';
 import { Button } from '../../../components';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '../../../components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { UPLOADS_BASE } from '../../../lib/uploadsBase';
 import { avatarColorClass } from '../../../lib/avatarColors';
@@ -84,6 +85,7 @@ export const ChecklistInstanceItemAuditCard = ({ item, instanceId, canWork, curr
                   key={submission.id}
                   name={personName(submission)}
                   done={submission.isDone}
+                  notApplicable={submission.isNotApplicable}
                   active={submission.id === selected?.id}
                   isMe={!!currentUserId && submission.userId?.id === currentUserId}
                   onSelect={() => setSelectedId(submission.id)}
@@ -132,13 +134,20 @@ const AuditProgress = ({ done, total }: { done: number; total: number }) => {
   );
 };
 
-const PersonAvatar = ({ name, done, size }: { name: string; done: boolean; size: 'chip' | 'panel' }) => {
+const PersonAvatar = ({ name, done, notApplicable = false, size }: { name: string; done: boolean; notApplicable?: boolean; size: 'chip' | 'panel' }) => {
   // At chip size a corner badge lands on top of the initials, so a finished person's chip swaps
-  // its initials for the tick outright. The name sits right beside it, so nothing is lost.
+  // its initials for the tick outright. The name sits right beside it, so nothing is lost. Someone
+  // marked not applicable (absent, on leave) gets a muted "none" mark instead of the success tick.
   if (done && size === 'chip') {
     return (
-      <span aria-hidden className="flex items-center justify-center size-8 sm:size-7 rounded-full bg-success text-white shrink-0">
-        <Check size={14} strokeWidth={3} />
+      <span
+        aria-hidden
+        className={cn(
+          'flex items-center justify-center size-8 sm:size-7 rounded-full shrink-0',
+          notApplicable ? 'bg-surface-active text-text-muted' : 'bg-success text-white',
+        )}
+      >
+        {notApplicable ? <Ban size={14} strokeWidth={2.5} /> : <Check size={14} strokeWidth={3} />}
       </span>
     );
   }
@@ -155,8 +164,14 @@ const PersonAvatar = ({ name, done, size }: { name: string; done: boolean; size:
         {getInitials(name)}
       </span>
       {done && (
-        <span aria-hidden className="absolute -bottom-0.5 -right-0.5 flex items-center justify-center size-4 rounded-full bg-success text-white ring-2 ring-surface">
-          <Check size={10} strokeWidth={3.5} />
+        <span
+          aria-hidden
+          className={cn(
+            'absolute -bottom-0.5 -right-0.5 flex items-center justify-center size-4 rounded-full ring-2 ring-surface',
+            notApplicable ? 'bg-surface-active text-text-muted' : 'bg-success text-white',
+          )}
+        >
+          {notApplicable ? <Ban size={10} strokeWidth={3} /> : <Check size={10} strokeWidth={3.5} />}
         </span>
       )}
     </span>
@@ -165,8 +180,8 @@ const PersonAvatar = ({ name, done, size }: { name: string; done: boolean; size:
 
 // Same selected/unselected vocabulary as OptionsSheet's ChoiceChip, minus its trailing tick: here a
 // tick already means "submitted" (the avatar badge), so selection is carried by border and tint.
-const PersonChip = ({ name, done, active, isMe, onSelect }: {
-  name: string; done: boolean; active: boolean; isMe: boolean; onSelect: () => void;
+const PersonChip = ({ name, done, notApplicable, active, isMe, onSelect }: {
+  name: string; done: boolean; notApplicable: boolean; active: boolean; isMe: boolean; onSelect: () => void;
 }) => (
   <button
     type="button"
@@ -180,14 +195,16 @@ const PersonChip = ({ name, done, active, isMe, onSelect }: {
       active
         ? 'border-primary-600 dark:border-primary-400 bg-primary-500/10 dark:bg-primary-500/15 text-primary-800 dark:text-primary-100'
         : done
-          ? 'border-success/40 bg-surface text-text-secondary hover:border-success/70'
+          ? notApplicable
+            ? 'border-border/60 dark:border-white/[0.08] bg-surface text-text-muted hover:border-border-hover'
+            : 'border-success/40 bg-surface text-text-secondary hover:border-success/70'
           : 'border-border/60 dark:border-white/[0.08] bg-surface text-text-secondary hover:border-primary-400/60',
     )}
   >
-    <PersonAvatar name={name} done={done} size="chip" />
+    <PersonAvatar name={name} done={done} notApplicable={notApplicable} size="chip" />
     <span className="truncate max-w-[9rem]">{name}</span>
     {isMe && <span className="font-medium opacity-75">(You)</span>}
-    {done && <span className="sr-only">, submitted</span>}
+    {done && <span className="sr-only">{notApplicable ? ', not applicable' : ', submitted'}</span>}
   </button>
 );
 
@@ -303,6 +320,11 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
 
   const [remarksDraft, setRemarksDraft] = useState(submission.remarks ?? '');
   const remarksDirty = remarksDraft !== (submission.remarks ?? '');
+  // "Not applicable": this person can't be checked today (absent, on leave). Asks for the reason in
+  // a pop-up, then counts them as submitted so the audit can still finish.
+  const isNa = submission.isNotApplicable;
+  const [naOpen, setNaOpen] = useState(false);
+  const [naReason, setNaReason] = useState('');
   // Ticked instantly, on the tap — not after the round trip. The mutation still fires and saves
   // for real, but nobody should have to stare at a checkbox for half a second wondering if their
   // tap registered. Rolled back to the last known-good state only if the save actually fails.
@@ -351,6 +373,20 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
     setDone.mutate({ id: submission.id, isDone: true }, { onSuccess: () => onSubmitted(submission.id) });
   };
 
+  const openNa = () => {
+    // Start from whatever is already typed in Remarks, so nothing has to be typed twice.
+    setNaReason(remarksDraft.trim());
+    setNaOpen(true);
+  };
+  const markNotApplicable = () => {
+    const reason = naReason.trim();
+    if (!reason) return;
+    setDone.mutate(
+      { id: submission.id, isDone: true, notApplicable: true, remarks: reason },
+      { onSuccess: () => { setNaOpen(false); onSubmitted(submission.id); } },
+    );
+  };
+
   const error = uploadImages.error ?? setDone.error ?? updateRemarks.error;
   const errorText = error ? (error instanceof Error ? error.message : "Couldn't save that. Try again.") : null;
 
@@ -363,14 +399,19 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
       className="flex flex-col gap-4 pt-4 border-t border-border/60 dark:border-white/[0.06] animate-in fade-in slide-in-from-bottom-1 duration-200 ease-out"
     >
       <div className="flex items-center gap-3">
-        <PersonAvatar name={name} done={submission.isDone} size="panel" />
+        <PersonAvatar name={name} done={submission.isDone} notApplicable={isNa} size="panel" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-text truncate">
             {name}{isMe && <span className="font-medium text-text-muted"> (You)</span>}
           </p>
           {storeName && <p className="text-xs text-text-muted truncate">{storeName}</p>}
         </div>
-        {submission.isDone ? (
+        {submission.isDone && isNa ? (
+          <span className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full bg-surface-hover text-xs font-medium text-text-secondary shrink-0">
+            <Ban size={12} strokeWidth={2.5} aria-hidden />
+            Not applicable
+          </span>
+        ) : submission.isDone ? (
           <span className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full bg-success/10 dark:bg-success/15 text-xs font-medium text-text-secondary shrink-0 tabular-nums">
             <Check size={12} strokeWidth={3} className="text-success" aria-hidden />
             Submitted{submission.completedAt ? ` ${formatTimeOnly(submission.completedAt)}` : ''}
@@ -382,7 +423,7 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
         ) : null}
       </div>
 
-      {accessoriesDraft.length > 0 && (
+      {accessoriesDraft.length > 0 && !isNa && (
         <div className="flex flex-col gap-2">
           <SectionHeader
             label="What they have"
@@ -415,7 +456,7 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
         </div>
       )}
 
-      {showPhotos && (
+      {showPhotos && !isNa && (
         <div className="flex flex-col gap-2">
           <SectionHeader
             label="Photos"
@@ -499,7 +540,7 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
         </div>
       ) : submission.remarks ? (
         <div className="flex flex-col gap-1">
-          <p className="text-xs font-semibold text-text-secondary">Remarks</p>
+          <p className="text-xs font-semibold text-text-secondary">{isNa ? 'Reason' : 'Remarks'}</p>
           <p className="text-sm text-text-secondary whitespace-pre-wrap break-words">{submission.remarks}</p>
         </div>
       ) : null}
@@ -514,6 +555,15 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
               </p>
             )}
             <Button
+              variant="outline"
+              onClick={openNa}
+              disabled={submitting}
+              className="w-full sm:w-auto h-11 sm:h-10 border-dashed text-text-secondary"
+            >
+              <Ban size={14} aria-hidden />
+              Not applicable
+            </Button>
+            <Button
               variant="primary"
               onClick={handleSubmit}
               isLoading={submitting}
@@ -525,6 +575,39 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
           </div>
         </div>
       )}
+
+      <Dialog open={naOpen} onOpenChange={setNaOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-base">Mark as not applicable</DialogTitle>
+            <DialogDescription className="text-xs">{name}</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor={`na-reason-${submission.id}`} className="text-[11px] font-display font-medium text-text-muted">
+              Say why they can't be checked today. They count as done and the reviewer sees your reason.
+            </label>
+            <textarea
+              id={`na-reason-${submission.id}`}
+              autoFocus
+              value={naReason}
+              onChange={e => setNaReason(e.target.value)}
+              rows={3}
+              maxLength={1000}
+              placeholder="e.g. On leave today"
+              className="px-2.5 py-1.5 text-sm font-display bg-surface text-text rounded-md border border-border resize-none placeholder:text-text-light focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-colors duration-150"
+            />
+            {errorText && <p role="alert" className="text-xs text-danger">{errorText}</p>}
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button type="button" variant="outline" size="sm">Cancel</Button>
+            </DialogClose>
+            <Button type="button" variant="primary" size="sm" onClick={markNotApplicable} disabled={!naReason.trim()} isLoading={setDone.isPending}>
+              Mark not applicable
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {interactive && submission.isDone && canReopen && (
         <div className="flex flex-col sm:flex-row sm:justify-end">

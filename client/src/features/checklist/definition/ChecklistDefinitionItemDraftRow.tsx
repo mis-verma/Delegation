@@ -18,6 +18,9 @@ export type ItemDraft = {
   itemType: ChecklistItemType;
   auditUserIds: string[];
   accessories: string[];
+  // AUDIT only: separate lists for female / male people (empty = they get `accessories`).
+  accessoriesFemale: string[];
+  accessoriesMale: string[];
   numberEntryUnit: string;
   numberEntryMin: string;
   numberEntryMax: string;
@@ -45,6 +48,8 @@ export const emptyItemDraft = (): ItemDraft => ({
   itemType: 'STANDARD',
   auditUserIds: [],
   accessories: [],
+  accessoriesFemale: [],
+  accessoriesMale: [],
   numberEntryUnit: '',
   numberEntryMin: '',
   numberEntryMax: '',

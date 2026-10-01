@@ -37,6 +37,9 @@ const definitionItemShape = z.object({
     // Nullable: a stored AUDIT item with no accessories comes back as null, and the builder sends
     // it straight back on save — rejecting null made every such checklist impossible to re-save.
     accessories: z.array(z.string().min(1)).nullable().optional().transform((v) => v ?? undefined),
+    // AUDIT only: a separate list for female / male people (empty or missing = use `accessories`).
+    accessoriesFemale: z.array(z.string().min(1)).nullable().optional().transform((v) => v ?? undefined),
+    accessoriesMale: z.array(z.string().min(1)).nullable().optional().transform((v) => v ?? undefined),
     numberEntryUnit: z.string().trim().min(1).max(191).nullable().optional(),
     numberEntryMin: z.number().nullable().optional(),
     numberEntryMax: z.number().nullable().optional(),

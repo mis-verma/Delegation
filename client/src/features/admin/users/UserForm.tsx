@@ -16,7 +16,7 @@ import { useStoresQuery } from '../../tickets/hook';
 import { resolveAvatarUrl } from '../../../lib/uploadsBase';
 import { DepartmentForm } from '../department/DepartmentForm';
 import { StoreForm } from '../store/StoreForm';
-import type { AdminUser, Role } from '../../../api/admin';
+import type { AdminUser, Gender, Role } from '../../../api/admin';
 
 const ROLE_OPTIONS: { value: Role; label: string }[] = [
   { value: 'USER', label: 'User' },
@@ -141,6 +141,9 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
   // Weekly day(s) off — no daily checklists for this person on these days. Edit mode only (a new
   // user sets their own from My account, or an admin sets it here afterwards).
   const [weekOffDays, setWeekOffDays] = useState<number[]>(user?.weekOffDays ?? []);
+  // Picks which uniform list an audit checks this person against (a question can have a separate
+  // female and male list). '' = not set: they get the question's main list.
+  const [gender, setGender] = useState<Gender | ''>(user?.gender ?? '');
 
   const createMutation = useCreateUserMutation();
   const updateMutation = useUpdateUserMutation();
@@ -197,6 +200,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
             role: data.role,
             departmentId: departmentPayload ?? null,
             storeId: storePayload ?? null,
+            gender: gender || null,
             weekOffDays,
           },
         },
@@ -220,6 +224,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
         role: data.role,
         departmentId: departmentPayload,
         storeId: storePayload,
+        gender: gender || undefined,
       },
       {
         onSuccess: (created) => {
@@ -348,6 +353,22 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
                 />
               )}
             />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="gender" className="flex items-center gap-1.5 text-xs font-medium text-text-secondary">
+              <User className="w-3.5 h-3.5 text-text-light" strokeWidth={2.5} />
+              Gender
+            </label>
+            <Combobox
+              id="gender"
+              value={gender}
+              onChange={(value) => setGender(value as Gender | '')}
+              placeholder="Not set"
+              emptyOptionLabel="Not set"
+              options={[{ value: 'FEMALE', label: 'Female' }, { value: 'MALE', label: 'Male' }]}
+            />
+            <p className="text-[11px] text-text-muted">Used to pick the right uniform checklist in audits.</p>
           </div>
 
           <div className="flex flex-col gap-1.5">

@@ -23,6 +23,10 @@ import { createId } from '@paralleldrive/cuid2';
 // (ADMIN/PC/MANAGER-in-department/named reviewer) — someone who already did QC on an item can't
 // also be the one who gives it final approval.
 export const ROLES = ['ADMIN', 'APPROVAL_MANAGER', 'SENIOR', 'MANAGER', 'AGENT', 'USER', 'PC'] as const;
+// Only used to pick which uniform checklist an audit gives a person (an AUDIT question can carry a
+// separate female and male list). Null = not set: that person gets the question's main list.
+export const GENDERS = ['FEMALE', 'MALE'] as const;
+export type Gender = (typeof GENDERS)[number];
 export type Role = (typeof ROLES)[number];
 export const EVENT_TYPES = ['DEADLINE', 'ANNOUNCEMENT', 'BROADCAST'] as const;
 
@@ -90,6 +94,7 @@ export const users = mysqlTable(
     firstName: varchar('firstName', { length: 191 }).notNull(),
     lastName: varchar('lastName', { length: 191 }),
     role: mysqlEnum('role', ROLES).notNull().default('USER'),
+    gender: mysqlEnum('gender', GENDERS),
     departmentId: varchar('departmentId', { length: 191 }).references(() => departments.id),
     storeId: varchar('storeId', { length: 191 }).references(() => stores.id),
     isActive: boolean('isActive').notNull().default(true),

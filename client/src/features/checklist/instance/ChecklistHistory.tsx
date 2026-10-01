@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { AlertCircle, Check, ClipboardCheck, History, ListChecks, SearchX, Store, User } from 'lucide-react';
+import { AlertCircle, Ban, Check, ClipboardCheck, History, ListChecks, SearchX, Store, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -50,7 +50,12 @@ const AuditRowCard = ({ row }: { row: AuditHistoryRow }) => {
             <span>{formatDate(row.periodStart)}{row.completedAt ? ` · checked ${formatTimeOnly(row.completedAt)}` : ''}</span>
           </p>
         </div>
-        {row.accessories.length > 0 && (
+        {row.isNotApplicable ? (
+          <span className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full bg-surface-hover text-xs font-medium text-text-secondary shrink-0">
+            <Ban size={12} strokeWidth={2.5} aria-hidden />
+            Not applicable
+          </span>
+        ) : row.accessories.length > 0 && (
           <span
             className={cn(
               'inline-flex items-center gap-1 h-7 px-2.5 rounded-full text-xs font-medium shrink-0 tabular-nums',
@@ -69,7 +74,7 @@ const AuditRowCard = ({ row }: { row: AuditHistoryRow }) => {
         )}
       </div>
 
-      {row.accessories.length > 0 && (
+      {row.accessories.length > 0 && !row.isNotApplicable && (
         <ul className="flex flex-wrap gap-2">
           {row.accessories.map(a => (
             <li key={a.name}>
@@ -96,7 +101,7 @@ const AuditRowCard = ({ row }: { row: AuditHistoryRow }) => {
 
       {row.remarks && (
         <div className="flex flex-col gap-1">
-          <p className="text-xs font-semibold text-text-secondary">Remarks</p>
+          <p className="text-xs font-semibold text-text-secondary">{row.isNotApplicable ? 'Reason' : 'Remarks'}</p>
           <p className="text-sm text-text-secondary whitespace-pre-wrap break-words">{row.remarks}</p>
         </div>
       )}

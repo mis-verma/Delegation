@@ -121,7 +121,10 @@ export const checklistInstanceItemSubmissionService = {
         return { ...submission, remarks }
     },
 
-    async setDone(id: string, isDone: boolean, user: AccessTokenPayload) {
+    // `notApplicable` marks this ONE person as not checkable today (absent, on leave): it counts as
+    // submitted so the audit can still finish, skips the ticks and photos, and needs a reason
+    // (`remarks`, or the one already saved). Any other save, including an admin's reopen, clears it.
+    async setDone(id: string, isDone: boolean, user: AccessTokenPayload, options: { notApplicable?: boolean; remarks?: string } = {}) {
         const { submission, item } = await loadSubmissionAndItem(id)
         await assertCanAccess(item.instanceId, user)
         await assertSubmissionRunEditable(item.instanceId, user)
@@ -144,17 +147,31 @@ export const checklistInstanceItemSubmissionService = {
         const [instance] = await db.select({ opensTime: checklistInstances.opensTime, periodStart: checklistInstances.periodStart, storeId: checklistInstances.storeId })
             .from(checklistInstances).where(eq(checklistInstances.id, item.instanceId)).limit(1)
 
+        const markingNotApplicable = isDone && options.notApplicable === true
+        if (options.notApplicable === true && !isDone) {
+            throw AppError.badRequest("Send isDone: true with notApplicable.")
+        }
+        let reason: string | null = null
+        if (markingNotApplicable) {
+            if (submission.isDone) throw AppError.badRequest("This person is already submitted.")
+            reason = (options.remarks ?? submission.remarks)?.trim() || null
+            if (!reason) throw AppError.badRequest("Say why this person can't be checked before marking them not applicable.")
+        }
+
         if (isDone) {
             // Same opens-time gate a STANDARD item's setItemDone enforces — an auditor shouldn't be
             // able to complete their submission before the checklist "opens" either.
             if (instance) assertInstanceOpen(instance)
 
-            await assertPhotosSatisfied(submission, item)
+            // Not applicable skips the photo rule: there's nobody to photograph.
+            if (!markingNotApplicable) await assertPhotosSatisfied(submission, item)
         }
 
         const completion = deriveSubmissionCompletion(isDone)
         await db.update(checklistInstanceItemSubmissions).set({
             isDone,
+            isNotApplicable: markingNotApplicable,
+            ...(markingNotApplicable ? { remarks: reason } : {}),
             completedAt: completion.completedAt,
             updatedAt: new Date(),
         }).where(eq(checklistInstanceItemSubmissions.id, id))

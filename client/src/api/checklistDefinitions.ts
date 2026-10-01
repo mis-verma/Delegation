@@ -30,6 +30,9 @@ export type ChecklistDefinitionItem = {
   itemType: ChecklistItemType;
   auditUserIds: string[];
   accessories: string[];
+  /** AUDIT only: separate lists for female / male people; empty = use `accessories`. */
+  accessoriesFemale: string[];
+  accessoriesMale: string[];
   numberEntryUnit: string | null;
   numberEntryMin: number | null;
   numberEntryMax: number | null;
@@ -102,6 +105,8 @@ export type CreateChecklistDefinitionItemPayload = {
   itemType?: ChecklistItemType;
   auditUserIds?: string[];
   accessories?: string[];
+  accessoriesFemale?: string[];
+  accessoriesMale?: string[];
   numberEntryUnit?: string;
   numberEntryMin?: number;
   numberEntryMax?: number;
@@ -177,6 +182,8 @@ const buildQuery = (params: Record<string, string | undefined>) => {
 const definitionItemDefaults = withArrayDefaults({
   auditUserIds: arrayField(z.string()),
   accessories: arrayField(z.string()),
+  accessoriesFemale: arrayField(z.string()),
+  accessoriesMale: arrayField(z.string()),
   options: arrayField(z.string()),
   signatureLabels: arrayField(z.string()),
   yesActions: arrayField(z.string()),

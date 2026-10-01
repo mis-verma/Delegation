@@ -53,6 +53,8 @@ export type ChecklistInstanceItemSubmission = {
   accessories: ChecklistInstanceItemSubmissionAccessory[];
   remarks:     string | null;
   isDone:      boolean;
+  /** This person couldn't be checked (absent, on leave): counts as submitted, reason in `remarks`. */
+  isNotApplicable: boolean;
   completedAt: string | null;
   images:      ChecklistInstanceItemSubmissionImage[];
 };
@@ -218,6 +220,8 @@ export type AuditHistoryRow = {
   periodStart:     string;
   completedAt:     string | null;
   remarks:         string | null;
+  /** The person couldn't be checked that day; `remarks` holds the reason. */
+  isNotApplicable: boolean;
   storeId:         string;
   storeName:       string | null;
   personFirstName: string;

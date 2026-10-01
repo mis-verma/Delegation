@@ -12,10 +12,14 @@ export type AdminUser = {
     storeId: string | null;
     isActive: boolean;
     avatarUrl: string | null;
+    /** Picks which uniform checklist an audit gives this person; null = not set (main list). */
+    gender?: Gender | null;
     /** Weekly day(s) off, 0 = Sunday … 6 = Saturday — no daily checklists on these days. */
     weekOffDays?: number[] | null;
     createdAt: string;
 };
+
+export type Gender = 'FEMALE' | 'MALE';
 
 export type CreateUserPayload = {
     email: string;
@@ -25,12 +29,15 @@ export type CreateUserPayload = {
     role: Role;
     departmentId?: string;
     storeId?: string;
+    gender?: Gender;
 };
 
-export type UpdateUserPayload = Partial<Omit<CreateUserPayload, "password" | "departmentId" | "storeId">> & {
+export type UpdateUserPayload = Partial<Omit<CreateUserPayload, "password" | "departmentId" | "storeId" | "gender">> & {
     isActive?: boolean;
     departmentId?: string | null;
     storeId?: string | null;
+    /** null clears it back to "not set". */
+    gender?: Gender | null;
     weekOffDays?: number[];
 };
 export type ApiResponse<T> = { success: boolean; data: T };

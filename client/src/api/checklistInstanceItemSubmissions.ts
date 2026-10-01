@@ -8,10 +8,11 @@ import type {
 } from './checklistInstances';
 
 export const checklistInstanceItemSubmissionApi = {
-  setDone: (id: string, isDone: boolean) =>
+  /** `notApplicable` marks this one person as not checkable today; it needs a reason in `remarks`. */
+  setDone: (id: string, isDone: boolean, options: { notApplicable?: boolean; remarks?: string } = {}) =>
     apiFetch<ApiResponse<ChecklistInstanceItemSubmission>>(`/checklist-instance-item-submissions/${id}`, {
       method: 'PATCH',
-      body: JSON.stringify({ isDone }),
+      body: JSON.stringify({ isDone, ...options }),
     }),
 
   updateAccessories: (id: string, accessories: ChecklistInstanceItemSubmissionAccessory[]) =>

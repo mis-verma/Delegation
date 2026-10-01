@@ -26,6 +26,7 @@ const publicUserColumns = {
     firstName: users.firstName,
     lastName: users.lastName,
     role: users.role,
+    gender: users.gender,
     departmentId: users.departmentId,
     storeId: users.storeId,
     isActive: users.isActive,
@@ -88,6 +89,7 @@ export const userService = {
             role: input.role,
             departmentId: input.departmentId ?? null,
             storeId: input.storeId ?? null,
+            gender: input.gender ?? null,
             rank,
         });
 
