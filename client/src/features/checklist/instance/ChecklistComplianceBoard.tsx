@@ -76,7 +76,10 @@ const ComplianceRow = ({ instance, storeName, nameById }: ComplianceRowProps) =>
             style={{ width: `${progress}%` }}
           />
         </div>
-        <span className={`text-xs font-display font-medium shrink-0 ${instanceProgressToneClass(overdue, status === 'COMPLETED')}`}>{done}/{total}</span>
+        <span className="flex items-baseline gap-1.5 shrink-0 tabular-nums font-display">
+          <span className={`text-sm font-bold ${instanceProgressToneClass(overdue, status === 'COMPLETED')}`}>{progress}%</span>
+          <span className="text-[11px] font-medium text-text-muted">{done}/{total}</span>
+        </span>
       </div>
 
       {instance.assigneeIds.length > 0 && (

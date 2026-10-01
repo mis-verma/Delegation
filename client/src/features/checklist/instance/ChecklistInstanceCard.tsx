@@ -5,6 +5,7 @@ import {
   formatDateShort,
   formatDeadlineTime,
   instanceProgressBarClass,
+  instanceProgressToneClass,
   isInstanceOverdue,
   RECURRENCE_LABEL,
   VERIFICATION_STATUS_LABEL,
@@ -54,7 +55,12 @@ export const ChecklistInstanceCard = ({ instance }: ChecklistInstanceCardProps) 
             style={{ width: `${progress}%` }}
           />
         </div>
-        <span className="text-[11px] text-text-muted font-semibold tabular-nums shrink-0">{done}/{total}</span>
+        {/* Percent first and coloured by state (done green, overdue red, else neutral), the item
+            count beside it for the detail. */}
+        <span className="flex items-baseline gap-1.5 shrink-0 tabular-nums">
+          <span className={`text-sm font-display font-bold ${instanceProgressToneClass(overdue, isComplete)}`}>{progress}%</span>
+          <span className="text-[11px] text-text-muted font-medium">{done}/{total}</span>
+        </span>
       </div>
     </Link>
   );

@@ -12,6 +12,7 @@ import {
 import { eq, and, asc, inArray, notInArray, isNull, sql } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
 import { cached, cacheKey } from "../../config/queryCache.js"
+import { env } from "../../config/env.js"
 import { AppError } from "../../utils/AppError.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { CreateChecklistDefinitionInput, UpdateChecklistDefinitionInput, SetChecklistDefinitionActiveInput } from "./checklistDefinition.validation.js"
@@ -65,7 +66,10 @@ const buildDefinitionsMeta = (p: { page: number; limit: number }, total: number)
     hasNext: p.page * p.limit < total,
 })
 
-type DefinitionStats = { completionRate: number | null; qualityRate: number | null; issueRate: number | null }
+// currentRate: how far along the run(s) happening RIGHT NOW are (today's run for a daily checklist,
+// this week's for a weekly one), across every store; null when no run is live today (a day off, a
+// future start date). completionRate below is the lifetime figure over every run ever generated.
+type DefinitionStats = { completionRate: number | null; qualityRate: number | null; issueRate: number | null; currentRate: number | null }
 
 const statsByDefinition = async (definitionIds: string[]): Promise<Map<string, DefinitionStats>> => {
     const map = new Map<string, DefinitionStats>()
@@ -77,6 +81,9 @@ const statsByDefinition = async (definitionIds: string[]): Promise<Map<string, D
     // summary(): these rates move whenever anyone ticks an item, so there's no clean "just
     // changed" moment to invalidate on, and a fixed key per (sorted) id set means concurrent
     // viewers of the same page/definition share one computation instead of each re-running it.
+    // periodStart/periodEnd are org-local calendar days written as UTC, so "now" has to be shifted
+    // into org-local time before it's compared with them (same offset the generator uses).
+    const localNow = new Date(Date.now() + env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000)
     const rows = await cached(
         cacheKey("checklist-definition-stats", [...definitionIds].sort().join(",")),
         30,
@@ -88,6 +95,8 @@ const statsByDefinition = async (definitionIds: string[]): Promise<Map<string, D
                     ci.definitionId AS definitionId,
                     COUNT(*) AS totalItems,
                     SUM(cii.isDone) AS doneItems,
+                    SUM(CASE WHEN ci.periodStart <= ${localNow} AND ci.periodEnd >= ${localNow} THEN 1 ELSE 0 END) AS currentItems,
+                    SUM(CASE WHEN ci.periodStart <= ${localNow} AND ci.periodEnd >= ${localNow} THEN cii.isDone ELSE 0 END) AS currentDone,
                     SUM(cii.requiredImageCount > 0) AS itemsRequiringPhotos,
                     SUM(
                         CASE WHEN cii.requiredImageCount > 0
@@ -113,7 +122,9 @@ const statsByDefinition = async (definitionIds: string[]): Promise<Map<string, D
         const totalItems = Number(r.totalItems)
         const itemsRequiringPhotos = Number(r.itemsRequiringPhotos)
         const gatedBooleanItems = Number(r.gatedBooleanItems)
+        const currentItems = Number(r.currentItems)
         map.set(r.definitionId as string, {
+            currentRate: currentItems ? Math.round((Number(r.currentDone) / currentItems) * 100) : null,
             completionRate: totalItems ? Math.round((Number(r.doneItems) / totalItems) * 1000) / 10 : null,
             qualityRate: itemsRequiringPhotos ? Math.round((Number(r.photoCompliantItems) / itemsRequiringPhotos) * 1000) / 10 : null,
             // Share of gated Yes/No-style items whose answer landed on the flagged branch —
@@ -178,6 +189,7 @@ const hydrateDefinitions = async (definitionRows: (typeof checklistDefinitions.$
         assigneeIds: assigneeIdsByDefinition.get(definition.id) ?? [],
         reviewerIds: reviewerIdsByDefinition.get(definition.id) ?? [],
         items: itemsByDefinition.get(definition.id) ?? [],
+        currentRate: stats.get(definition.id)?.currentRate ?? null,
         completionRate: stats.get(definition.id)?.completionRate ?? null,
         qualityRate: stats.get(definition.id)?.qualityRate ?? null,
         issueRate: stats.get(definition.id)?.issueRate ?? null,

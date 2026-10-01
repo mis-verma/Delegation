@@ -162,8 +162,27 @@ export const ChecklistDefinitionCard = ({ definition, selectionMode = false, sel
 
       {completionRate !== null ? (
         <div className="flex flex-col gap-1.5">
+          {/* Right now: how far today's run (this week's, for a weekly checklist) has got. Green
+              once everything's done, otherwise neutral, since a half-filled run that isn't due yet
+              is normal and shouldn't read as a problem. */}
+          {definition.currentRate !== null && (
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center justify-between font-display">
+                <span className="text-xs font-medium text-text-secondary">{definition.recurrence === 'DAILY' ? 'Today' : 'This run'}</span>
+                <span className={`text-base font-bold tabular-nums ${definition.currentRate === 100 ? 'text-success' : 'text-primary-600 dark:text-primary-400'}`}>
+                  {definition.currentRate}%
+                </span>
+              </div>
+              <div className="h-1.5 w-full rounded-full bg-surface-hover overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-[width] duration-300 ${definition.currentRate === 100 ? 'bg-success' : 'bg-primary-500'}`}
+                  style={{ width: `${definition.currentRate}%` }}
+                />
+              </div>
+            </div>
+          )}
           <div className="flex items-center justify-between text-[11px] font-display font-medium">
-            <span className="text-text-muted">Completion</span>
+            <span className="text-text-muted">All time</span>
             <span className={rateToneClass(completionRate)}>{completionRate}%</span>
           </div>
           <div className="h-1.5 w-full rounded-full bg-surface-hover overflow-hidden">

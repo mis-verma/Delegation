@@ -19,7 +19,7 @@ import { ChecklistInstanceItemQrScanCard } from './ChecklistInstanceItemQrScanCa
 import { ChecklistInstanceItemCashTallyCard } from './ChecklistInstanceItemCashTallyCard';
 import { ItemRemarksField } from './ItemRemarksField';
 import { NotApplicableItemCard } from './NotApplicableItemCard';
-import { formatDate, formatDateTime, instanceProgressBarClass, isInstanceOverdue, isInstanceNotYetOpen, RECURRENCE_LABEL, VERIFICATION_STATUS_LABEL, VERIFICATION_CHIP } from '../checklistDisplay';
+import { formatDate, formatDateTime, instanceProgressBarClass, instanceProgressToneClass, isInstanceOverdue, isInstanceNotYetOpen, RECURRENCE_LABEL, VERIFICATION_STATUS_LABEL, VERIFICATION_CHIP } from '../checklistDisplay';
 import { useAuth } from '../../../context/AuthContext';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 
@@ -205,7 +205,10 @@ export const ChecklistInstanceDetail = () => {
         <div className="flex flex-col gap-1.5 pt-1">
           <div className="flex items-baseline justify-between gap-2">
             <span className="text-xs font-medium text-text-muted">Progress</span>
-            <span className="text-xs font-semibold text-text tabular-nums">{done} of {total} done</span>
+            <span className="flex items-baseline gap-2 tabular-nums">
+              <span className={`text-lg font-display font-bold leading-none ${instanceProgressToneClass(overdue, isComplete)}`}>{progress}%</span>
+              <span className="text-xs font-semibold text-text">{done} of {total} done</span>
+            </span>
           </div>
           <div className="h-2 bg-surface-hover rounded-full overflow-hidden">
             <div

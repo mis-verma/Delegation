@@ -76,6 +76,9 @@ export type ChecklistDefinition = {
   // Computed server-side across every generated instance of this checklist — null until at
   // least one instance/qualifying item exists yet, rather than a misleading 0%.
   completionRate: number | null;
+  /** How far along the run(s) happening right now are (today's, or this week's), 0-100; null when
+   *  no run is live today. completionRate above is the lifetime figure. */
+  currentRate: number | null;
   qualityRate: number | null;
   // Share of gated Yes/No-style items (one branch wired with REQUIRE_PHOTO/ASK_REASON/
   // CREATE_ISSUE/NOTIFY_AREA_MANAGER) whose answer landed on that flagged branch. Higher is
