@@ -1,7 +1,7 @@
 import path from "node:path";
 import fs from "node:fs";
 import { db } from "../../config/db.js";
-import { users, refreshTokens } from "../../db/schema/core.js";
+import { users, refreshTokens, passwordResetTokens, notifications } from "../../db/schema/core.js";
 import { eq, and, or, desc, asc, sql, isNull, inArray } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 import { AppError } from "../../utils/AppError.js";
@@ -10,6 +10,30 @@ import { hashPassword, comparePassword, deriveDefaultRank } from "../../utils/pa
 import { AccessTokenPayload } from "../../middleware/auth/auth.js";
 import { presenceService } from "../presence/presence.service.js";
 import type { CreateUserInput, UpdateUserInput, UpdateOwnProfileInput } from "./user.validation.js";
+
+// Drizzle wraps the driver's error: the MySQL code sits on `.cause`. 1451 = a row somewhere still
+// points at this one (the delete is blocked by a foreign key).
+const isReferencedError = (err: unknown) => {
+    const e = err as { code?: string; cause?: { code?: string } } | null;
+    return e?.code === 'ER_ROW_IS_REFERENCED_2' || e?.cause?.code === 'ER_ROW_IS_REFERENCED_2';
+};
+
+// Switching someone off must never lock the organisation out or let an admin do it to themselves.
+// Shared by the plain PATCH below and the offboarding flow.
+export const assertCanDeactivate = async (id: string, role: string, actorId: string) => {
+    if (id === actorId) throw AppError.badRequest("You can't deactivate your own account.");
+    if (role !== 'ADMIN') return;
+    const [others] = await db.select({ n: sql<number>`count(*)` }).from(users)
+        .where(and(eq(users.role, 'ADMIN'), eq(users.isActive, true), sql`${users.id} <> ${id}`));
+    if (!Number(others?.n ?? 0)) throw AppError.badRequest('This is the last active admin. Make someone else an admin first.');
+};
+
+// Ends every session of a person who has been switched off, so a stolen or still-open login stops
+// working immediately (the access token is re-checked against isActive on every request anyway).
+export const revokeSessions = (id: string) =>
+    db.update(refreshTokens)
+        .set({ revokedAt: new Date(), updatedAt: new Date() })
+        .where(and(eq(refreshTokens.userId, id), isNull(refreshTokens.revokedAt)));
 
 // An assertion function narrowing `T | undefined` (a plain row is now `undefined` when missing,
 // not Mongoose's `null`) to `T`, throwing AppError.notFound otherwise.
@@ -117,6 +141,8 @@ export const userService = {
         // there's no passwordHash to touch here — just the plain profile/admin-management fields.
         const { email, ...rest } = input;
         const normalizedEmail = email !== undefined ? email.trim().toLowerCase() : undefined;
+        const deactivating = input.isActive === false && before.isActive;
+        if (deactivating) await assertCanDeactivate(id, before.role, actorId);
 
         // Same pre-check create() does — without it, changing a user's email to one already in
         // use hits the DB's unique index instead, which throws a raw ER_DUP_ENTRY the caller sees
@@ -133,6 +159,8 @@ export const userService = {
                 updatedAt: new Date(),
             })
             .where(eq(users.id, id));
+
+        if (deactivating) await revokeSessions(id);
 
         const user = await getSafeById(id);
         assertFound(user);
@@ -201,11 +229,32 @@ export const userService = {
         });
     },
 
+    // Real delete is only for an account with no history (one created by mistake). Anyone who has
+    // worked in the system is referenced by tickets, tasks, checklists or audits, and removing them
+    // would leave those records pointing at nobody, so they are deactivated instead (offboard in
+    // userOffboarding.service.ts). Sessions, reset links and notifications are disposable and go with
+    // the account; if anything real still points at the person the whole delete rolls back.
     async remove(id: string, actorId: string) {
         const user = await getSafeById(id);
         assertFound(user);
+        if (id === actorId) throw AppError.badRequest("You can't delete your own account.");
 
-        await db.delete(users).where(eq(users.id, id));
+        try {
+            await db.transaction(async (tx) => {
+                await tx.delete(refreshTokens).where(eq(refreshTokens.userId, id));
+                await tx.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, id));
+                await tx.delete(notifications).where(eq(notifications.recipientId, id));
+                await tx.delete(users).where(eq(users.id, id));
+            });
+        } catch (err) {
+            if (isReferencedError(err)) {
+                throw AppError.conflict(
+                    `${user.firstName} has records in the system (tickets, tasks, checklists or audits), so they can't be deleted. ` +
+                    "Deactivate them instead: they keep their name on old records and can no longer log in.",
+                );
+            }
+            throw err;
+        }
 
         await auditService.record({
             entityType: "User",

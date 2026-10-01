@@ -70,3 +70,10 @@ export const listUsersQuerySchema = z.object({
     page: z.coerce.number().int().min(1).optional(),
     limit: z.coerce.number().int().min(1).max(100).optional(),
 });
+
+// Switching a person off. `transferToUserId` is who takes over their open tickets, tasks, checklists
+// and categories; it's required only when they actually hold some (the service checks that).
+export const offboardUserSchema = z.object({
+    transferToUserId: z.string().min(1).optional(),
+});
+export type OffboardUserInput = z.infer<typeof offboardUserSchema>;

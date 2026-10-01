@@ -143,6 +143,37 @@ export const useUpdateUserMutation = () => {
     });
 };
 
+export const useOffboardingQuery = (id: string, enabled: boolean) => {
+    const { token } = useAuth();
+    return useQuery({
+        queryKey: [...USER_KEYS.detail(id), "offboarding"] as const,
+        queryFn: () => adminApi.getOffboarding(id).then(r => r.data),
+        enabled: !!token && enabled,
+        retry: handleQueryRetry,
+        // The counts move whenever someone works, so never reuse a stale answer for a decision.
+        staleTime: 0,
+    });
+};
+
+export const useOffboardUserMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id, transferToUserId }: { id: string; transferToUserId?: string }) =>
+            adminApi.offboard(id, { transferToUserId }).then(r => r.data),
+        onSuccess: (_data, { id }) => {
+            queryClient.invalidateQueries({ queryKey: USER_KEYS.all });
+            queryClient.invalidateQueries({ queryKey: USER_KEYS.detail(id) });
+            // Their tickets, tasks and checklists changed hands too.
+            queryClient.invalidateQueries({ queryKey: ['tickets'] });
+            queryClient.invalidateQueries({ queryKey: ['tasks'] });
+            queryClient.invalidateQueries({ queryKey: ['checklist-instances'] });
+            queryClient.invalidateQueries({ queryKey: ['checklist-definitions'] });
+            toast.success('Deactivated', { description: 'They can no longer log in. Their name stays on old records.' });
+        },
+        onError: (err) => toast.error(errorMessage(err, "Couldn't deactivate this person")),
+    });
+};
+
 export const useDeleteUserMutation = () => {
     const queryClient = useQueryClient();
     return useMutation({

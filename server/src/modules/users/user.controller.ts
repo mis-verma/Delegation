@@ -1,8 +1,9 @@
 import type { Request , Response} from 'express'
 import { userService } from './user.service.js'
+import { userOffboardingService } from './userOffboarding.service.js'
 import { asyncHandler } from '../../utils/asyncHandler.js'
 import { AppError } from '../../utils/AppError.js'
-import { createUserSchema, updateUserSchema, listUsersQuerySchema, resetUserPasswordSchema, updateOwnProfileSchema, changeOwnPasswordSchema } from './user.validation.js'
+import { createUserSchema, updateUserSchema, listUsersQuerySchema, resetUserPasswordSchema, updateOwnProfileSchema, changeOwnPasswordSchema, offboardUserSchema } from './user.validation.js'
 
 // Controllers are the layer that talks directly to Express (reads the request, sends the
 // response). They don't contain business logic themselves - they just call into the
@@ -103,6 +104,18 @@ export const userController = {
         const url = `/uploads/avatars/${req.file.filename}`;
         const user = await userService.setAvatar(req.params.id, url, req.user!.sub);
         res.json({ success : true , data : user})
+    }),
+
+    // GET /users/:id/offboarding -> what this person still holds (open tickets, tasks, checklists...)
+    offboardingSummary : asyncHandler(async (req : Request , res : Response) => {
+        res.json({ success : true , data : await userOffboardingService.summary(req.params.id)})
+    }),
+
+    // POST /users/:id/offboard { transferToUserId? } -> hand over open work and switch them off
+    offboard : asyncHandler(async (req : Request , res : Response) => {
+        const input = offboardUserSchema.parse(req.body ?? {})
+        const result = await userOffboardingService.offboard(req.params.id, input, req.user!.sub)
+        res.json({ success : true , data : result})
     }),
 
     removeAvatar : asyncHandler(async (req : Request , res : Response) => {

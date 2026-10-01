@@ -55,6 +55,15 @@ export type UserPresence = {
     lastActiveAt: string | null;
 };
 
+export type OffboardingSummary = {
+    openTickets: number;
+    openTasks: number;
+    checklists: { id: string; name: string }[];
+    categories: { id: string; name: string }[];
+    auditQuestions: number;
+    hasOpenWork: boolean;
+};
+
 export const adminApi = {
     // No page/limit -> the full roster (org structure's tree, assignable-user pickers, etc. all
     // rely on getting everyone back). Use getPage for the admin directory's paginated list view.
@@ -73,6 +82,17 @@ export const adminApi = {
 
     delete: (id: string) =>
         apiFetch<ApiResponse<{ deleted: boolean }>>(`/users/${id}`, { method: "DELETE" }),
+
+    /** What this person still holds (open tickets, tasks, checklists, categories). */
+    getOffboarding: (id: string) =>
+        apiFetch<ApiResponse<OffboardingSummary>>(`/users/${id}/offboarding`),
+
+    /** Hand their open work to someone and switch them off. They keep their name on old records. */
+    offboard: (id: string, payload: { transferToUserId?: string }) =>
+        apiFetch<ApiResponse<{ summary: OffboardingSummary; transferredTo: string | null }>>(`/users/${id}/offboard`, {
+            method: "POST",
+            body: JSON.stringify(payload),
+        }),
 
     resetPassword: (id: string, password: string) =>
         apiFetch<ApiResponse<{ reset: boolean }>>(`/users/${id}/reset-password`, {

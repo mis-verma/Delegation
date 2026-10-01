@@ -9,6 +9,7 @@ import {
   usePresenceQuery,
 } from '../hook';
 import { UserCard } from './UserCard';
+import { OffboardDialog } from './OffboardDialog';
 import { Button, Loader, FormLoadError, PageNav, EntityStatusFilter, EntityCardSkeleton, type EntityStatusFilterValue, useConfirm } from '../../../components';
 
 const PAGE_SIZE = 24;
@@ -75,8 +76,16 @@ export const UserList = () => {
     setPage(1);
   };
 
+  // Switching someone OFF goes through the offboarding dialog (hand over their open work, keep their
+  // name on old records). Switching back ON is a plain, instant toggle.
+  const [offboarding, setOffboarding] = useState<AdminUser | null>(null);
   const toggleActive = (id: string, isActive: boolean) => {
-    updateMut.mutate({ id, payload: { isActive: !isActive } });
+    if (isActive) {
+      const person = users.find(u => u.id === id);
+      if (person) setOffboarding(person);
+      return;
+    }
+    updateMut.mutate({ id, payload: { isActive: true } });
   };
 
   const closeForm = () => {
@@ -87,7 +96,7 @@ export const UserList = () => {
   const handleDelete = async (user: AdminUser) => {
     const ok = await confirm({
       title: `Delete ${user.firstName} ${user.lastName ?? ''}?`,
-      description: 'This permanently removes their account. This cannot be undone.',
+      description: "This permanently removes their account and can't be undone. Anyone who has worked in the system can't be deleted: deactivate them instead, and they keep their name on old records.",
       confirmLabel: 'Delete',
       variant: 'danger',
     });
@@ -182,6 +191,10 @@ export const UserList = () => {
         }>
           <UserForm onClose={closeForm} user={editingUser ?? undefined} />
         </Suspense>
+      )}
+
+      {offboarding && (
+        <OffboardDialog user={offboarding} people={users} onClose={() => setOffboarding(null)} />
       )}
     </div>
   );
