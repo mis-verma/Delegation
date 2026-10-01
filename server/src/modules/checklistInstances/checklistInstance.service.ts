@@ -297,7 +297,11 @@ const assertCanAccess = (instance: { assigneeIds: string[] }, user: AccessTokenP
     if (user.role !== "ADMIN" && user.role !== "PC" && !isAssignee) throw AppError.forbidden()
 }
 
-// Shared by assertCanView/CAN_VERIFY_BY_ROLE's MANAGER branch — a checklist instance has no
+// Department heads: MANAGER and SENIOR both act as HOD, scoped to their own department (the one
+// on their user record). A HOD with no department sees nothing rather than everything.
+export const isHod = (user: { role: string }) => user.role === "MANAGER" || user.role === "SENIOR"
+
+// Shared by assertCanView/CAN_VERIFY_BY_ROLE's HOD branch — a checklist instance has no
 // departmentId of its own (only storeId), so "does this belong to my department" is derived
 // from whichever department(s) its assignees actually sit in.
 const getDepartmentIdsForUserIds = async (userIds: string[]): Promise<Set<string>> => {
@@ -320,7 +324,7 @@ const assertCanView = async (instance: { assigneeIds: string[]; reviewerIds: str
     // APPROVAL_MANAGER has the same org-wide reach as ADMIN/PC here — the final-approval stage
     // needs to be able to open any instance to review it before giving final sign-off.
     if (user.role === "ADMIN" || user.role === "PC" || user.role === "APPROVAL_MANAGER" || isAssignee || instance.reviewerIds.includes(user.sub)) return
-    if (user.role === "MANAGER" && user.departmentId) {
+    if (isHod(user) && user.departmentId) {
         const departmentIds = await getDepartmentIdsForUserIds(instance.assigneeIds)
         if (departmentIds.has(user.departmentId)) return
     }
@@ -620,6 +624,7 @@ const CAN_VERIFY_BY_ROLE: Partial<Record<Role, (assigneeDepartmentIds: Set<strin
     ADMIN: () => true,
     PC: () => true,
     MANAGER: (assigneeDepartmentIds, user) => !!user.departmentId && assigneeDepartmentIds.has(user.departmentId),
+    SENIOR: (assigneeDepartmentIds, user) => !!user.departmentId && assigneeDepartmentIds.has(user.departmentId),
 }
 
 // An explicitly named reviewer (checklistDefinitionReviewers, copied onto the instance at
@@ -866,13 +871,32 @@ export const checklistInstanceService = {
     },
 
     /**
-     * What an auditor recorded about ONE person, for that person — the only window an audited
-     * person gets onto a run (they can't open the run itself, see assertCanView). Returns just
-     * their own submitted rows, newest first: their ticks, remarks and photos, never anyone else's
-     * row and never the run's other items, assignees or reviewers. A row that's been reopened (not
-     * done any more) drops out until it's submitted again.
+     * Audit history: every submitted audit row (one person's check on one day), newest first, with
+     * the ticks, remarks and photos exactly as recorded. ADMIN/PC see every store; a department head
+     * (MANAGER/SENIOR) sees only people who sit in their own department, and nothing at all when
+     * they have no department. The route is closed to everyone else, an audited person included:
+     * what an auditor wrote about someone is for the people who oversee the audit.
      */
-    async myAuditResults(userId: string, limit = 20) {
+    async auditHistory(user: AccessTokenPayload, filter: { from?: string; to?: string; storeId?: string; page?: number; limit?: number }) {
+        const p = paginate(filter.page, filter.limit)
+        const conditions = [eq(checklistInstanceItemSubmissions.isDone, true), parentNotDeletedExpr]
+        if (filter.storeId) conditions.push(eq(checklistInstances.storeId, filter.storeId))
+        if (filter.from) conditions.push(gte(checklistInstances.periodStart, new Date(filter.from)))
+        if (filter.to) conditions.push(lte(checklistInstances.periodStart, new Date(filter.to)))
+        if (user.role !== "ADMIN" && user.role !== "PC") {
+            if (!isHod(user) || !user.departmentId) return { data: [], meta: buildMeta(p, 0) }
+            conditions.push(eq(users.departmentId, user.departmentId))
+        }
+        const where = and(...conditions)
+
+        const [countRow] = await db.select({ n: sql<number>`COUNT(*)` })
+            .from(checklistInstanceItemSubmissions)
+            .innerJoin(checklistInstanceItems, eq(checklistInstanceItems.id, checklistInstanceItemSubmissions.itemId))
+            .innerJoin(checklistInstances, eq(checklistInstances.id, checklistInstanceItems.instanceId))
+            .innerJoin(users, eq(users.id, checklistInstanceItemSubmissions.userId))
+            .where(where)
+        const total = Number(countRow?.n ?? 0)
+
         const rows = await db.select({
             id: checklistInstanceItemSubmissions.id,
             remarks: checklistInstanceItemSubmissions.remarks,
@@ -880,18 +904,20 @@ export const checklistInstanceService = {
             itemLabel: checklistInstanceItems.label,
             checklistTitle: checklistInstances.title,
             periodStart: checklistInstances.periodStart,
+            storeId: checklistInstances.storeId,
+            storeName: stores.name,
+            personFirstName: users.firstName,
+            personLastName: users.lastName,
         })
             .from(checklistInstanceItemSubmissions)
             .innerJoin(checklistInstanceItems, eq(checklistInstanceItems.id, checklistInstanceItemSubmissions.itemId))
             .innerJoin(checklistInstances, eq(checklistInstances.id, checklistInstanceItems.instanceId))
-            .where(and(
-                eq(checklistInstanceItemSubmissions.userId, userId),
-                eq(checklistInstanceItemSubmissions.isDone, true),
-                parentNotDeletedExpr,
-            ))
+            .innerJoin(users, eq(users.id, checklistInstanceItemSubmissions.userId))
+            .leftJoin(stores, eq(stores.id, checklistInstances.storeId))
+            .where(where)
             .orderBy(desc(checklistInstanceItemSubmissions.completedAt))
-            .limit(limit)
-        if (!rows.length) return []
+            .limit(p.limit).offset(p.offset)
+        if (!rows.length) return { data: [], meta: buildMeta(p, total) }
 
         const submissionIds = rows.map((r) => r.id)
         const accessories = await db.select().from(checklistInstanceItemSubmissionAccessories)
@@ -899,7 +925,7 @@ export const checklistInstanceService = {
         const images = await db.select().from(checklistInstanceItemSubmissionImages)
             .where(inArray(checklistInstanceItemSubmissionImages.submissionId, submissionIds))
 
-        return rows.map((r) => ({
+        const data = rows.map((r) => ({
             ...r,
             accessories: accessories.filter((a) => a.submissionId === r.id).map((a) => ({ name: a.name, checked: a.checked })),
             images: images.filter((img) => img.submissionId === r.id).map((img) => ({
@@ -910,6 +936,7 @@ export const checklistInstanceService = {
                 createdAt: img.createdAt,
             })),
         }))
+        return { data, meta: buildMeta(p, total) }
     },
 
     async getById(id: string, user: AccessTokenPayload) {
@@ -1100,7 +1127,7 @@ export const checklistInstanceService = {
             // favor of this per-instance scoping.
             const scopeIds = new Set<string>()
 
-            if (user.role === "MANAGER" && user.departmentId) {
+            if (isHod(user) && user.departmentId) {
                 const deptUsers = await db.select({ id: users.id }).from(users).where(eq(users.departmentId, user.departmentId))
                 if (deptUsers.length) {
                     const links = await db.select({ instanceId: checklistInstanceAssignees.instanceId })

@@ -18,7 +18,6 @@ import { ChecklistInstanceCard } from './ChecklistInstanceCard';
 import { ChecklistInstanceTable } from './ChecklistInstanceTable';
 import { ChecklistInstanceBoard } from './ChecklistInstanceBoard';
 import { MyChecklistsQuickStats, type MyChecklistsQuickFilterKey } from './MyChecklistsQuickStats';
-import { MyAuditResults } from './MyAuditResults';
 import { RECURRENCE_LABEL, VERIFICATION_STATUS_LABEL, VERIFICATION_CHIP, todayPeriodBoundIso } from '../checklistDisplay';
 import type { ChecklistInstance, ChecklistInstanceStatus, ChecklistVerificationStatus } from '../../../api/checklistInstances';
 import type { ChecklistRecurrence } from '../../../api/checklistDefinitions';
@@ -512,10 +511,6 @@ export const MyChecklists = () => {
       {!isPending && !isError && totalPages > 1 && (
         <PageNav page={page} totalPages={totalPages} onPageChange={setPage} />
       )}
-
-      {/* Separate from everything above on purpose: these aren't checklists to fill in, so they
-          stay out of the tiles, counts and filters. Only shows for someone who's been audited. */}
-      <MyAuditResults />
     </div>
   );
 };

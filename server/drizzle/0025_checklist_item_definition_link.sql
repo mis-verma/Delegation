@@ -1,0 +1,1 @@
+ALTER TABLE `ChecklistInstanceItem` ADD `definitionItemId` varchar(191);

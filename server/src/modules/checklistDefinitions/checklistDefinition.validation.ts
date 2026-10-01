@@ -19,6 +19,10 @@ const dedupedIdArray = z.array(z.string().min(1)).max(500, "Too many ids").trans
 const uniqueIdArray = (message: string) => dedupedIdArray.pipe(z.array(z.string()).min(1, message))
 
 const definitionItemShape = z.object({
+    // The builder sends back the id of every question it loaded. On an update the service keeps that
+    // id (when it really belongs to this checklist) so today's runs stay linked to their question;
+    // anything else, and every create, gets a fresh one.
+    id: z.string().min(1).max(191).optional(),
     // 191 = the varchar length of every one of these columns; longer used to reach the DB and 500.
     label: z.string().trim().min(1).max(191),
     order: z.number().int().min(0).optional(),

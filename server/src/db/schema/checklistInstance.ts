@@ -178,6 +178,13 @@ export const checklistInstanceItems = mysqlTable(
     // done for progress and approval, skips the item's own value/photo rules, and always carries
     // a reason in `remarks` so the reviewer sees why it was skipped.
     isNotApplicable: boolean('isNotApplicable').notNull().default(false),
+    // The checklist question this run's question was stamped from (ChecklistDefinitionItem.id). It
+    // lets an edit to the checklist reach a run that's already started: the run's question is found
+    // again even if it was renamed or moved, instead of looking like one question removed and
+    // another added. Deliberately NOT a foreign key: taking a question out of the checklist must not
+    // touch a run that holds answers to it. Null on runs stamped before this column existed (those
+    // are matched by wording instead, see matchRunItems in checklistInstanceGenerator.job.ts).
+    definitionItemId: varchar('definitionItemId', { length: 191 }),
     issueId: varchar('issueId', { length: 191 }).references(() => tickets.id),
     instanceId: varchar('instanceId', { length: 191 })
       .notNull()

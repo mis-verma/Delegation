@@ -5,12 +5,14 @@ import { authenticate, requireRole } from "../../middleware/auth/auth.js"
 import { checklistInstanceImageUpload } from "../../config/upload.js"
 
 // Mounted at /checklist-instances in app.ts. Instances are cron-generated only — no create/delete
-// endpoints here. "/mine", "/my-audits", "/pending-verification" and "/summary" must be registered
+// endpoints here. "/mine", "/audit-history", "/pending-verification" and "/summary" must be registered
 // before "/:id" so Express doesn't treat any of them as an id.
 export const checklistInstanceRouter = Router()
 checklistInstanceRouter.use(authenticate)
 checklistInstanceRouter.get("/mine", checklistInstanceController.getMine)
-checklistInstanceRouter.get("/my-audits", checklistInstanceController.myAudits)
+// History is for the people who oversee checklists: ADMIN/PC see every store, MANAGER/SENIOR their
+// own department only (scoped in the service). Everyone else, an audited person included, is out.
+checklistInstanceRouter.get("/audit-history", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), checklistInstanceController.auditHistory)
 // No role gate — an explicitly named reviewer (checklistDefinitionReviewers) can be any role at
 // all, so listPendingVerification/verify scope access themselves, per-instance, instead of at the
 // router (same "No role gate on setItemDone" convention as the item router below).
@@ -18,7 +20,7 @@ checklistInstanceRouter.get("/pending-verification", checklistInstanceController
 // Dashboard's "Needs your approval" card — a lightweight preview (title/store/waiting-since only,
 // no full hydrateInstances) distinct from the paginated queue above, gated ADMIN/PC to match it.
 checklistInstanceRouter.get("/pending-approval-preview", requireRole("ADMIN", "PC"), checklistInstanceController.pendingApprovalPreview)
-checklistInstanceRouter.get("/", requireRole("ADMIN", "PC"), checklistInstanceController.list)
+checklistInstanceRouter.get("/", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), checklistInstanceController.list)
 checklistInstanceRouter.get("/summary", checklistInstanceController.summary)
 checklistInstanceRouter.get("/reports/compliance", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), checklistInstanceController.complianceReport)
 checklistInstanceRouter.get("/:id", checklistInstanceController.getOne)

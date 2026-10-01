@@ -63,6 +63,7 @@ const ChecklistDefinitionDetail = lazy(() => import('./features/checklist').then
 const ChecklistBuilder = lazy(() => import('./features/checklist').then(m => ({ default: m.ChecklistBuilder })));
 const ChecklistComplianceBoard = lazy(() => import('./features/checklist').then(m => ({ default: m.ChecklistComplianceBoard })));
 const ChecklistApprovals = lazy(() => import('./features/checklist').then(m => ({ default: m.ChecklistApprovals })));
+const ChecklistHistory = lazy(() => import('./features/checklist').then(m => ({ default: m.ChecklistHistory })));
 
 const ProtectedRoute = () => {
   const { token, user } = useAuth();
@@ -143,11 +144,15 @@ const AdminOverviewRoute = () => {
 
 const AnalyticsRoute = createRoleGuard('MANAGER', 'SENIOR');
 
-// HOD-only — checklist verification is the one place a MANAGER gets an approval queue of their
-// own (own-department instances, enforced server-side too). Deliberately narrower than
-// AnalyticsRoute (MANAGER-or-SENIOR): a SENIOR oversees a whole store across departments, not one
-// department's checklist compliance, so this stays MANAGER-only per the requested flow.
-const ManagerRoute = createRoleGuard('MANAGER');
+// Department heads (HOD) — checklist verification is where a MANAGER or SENIOR gets an approval
+// queue of their own: own-department instances only, enforced server-side too (isHod in
+// checklistInstance.service.ts). SENIOR was added to MANAGER on request: a Senior is a department
+// HOD as well, scoped to the department on their user record.
+const ManagerRoute = createRoleGuard('MANAGER', 'SENIOR');
+
+// Checklist History (past audits + checklists): ADMIN/PC see every store, MANAGER/SENIOR only their
+// own department. Same split the API enforces, this just keeps everyone else off the page.
+const HistoryRoute = createRoleGuard('ADMIN', 'PC', 'MANAGER', 'SENIOR');
 
 const ChecklistTemplatesRoute = () => {
   const { user } = useAuth();
@@ -243,6 +248,12 @@ const router = createBrowserRouter([
             element: <ManagerRoute />,
             children: [
               { path: '/checklists/approvals', element: <ChecklistApprovals /> },
+            ],
+          },
+          {
+            element: <HistoryRoute />,
+            children: [
+              { path: '/checklists/history', element: <ChecklistHistory /> },
             ],
           },
           {

@@ -67,6 +67,9 @@ const buildItemPayloads = (itemDrafts: ItemDraft[]): CreateChecklistDefinitionIt
   itemDrafts
     .filter(d => d.label.trim())
     .map(d => ({
+      // A loaded question's key IS its server id; a new or copied one has a random key the server
+      // doesn't recognise and simply mints a fresh id for.
+      id: d.key,
       label: d.label.trim(),
       section: d.section ?? undefined,
       requiredImageCount: Number(d.requiredImageCount) || 0,

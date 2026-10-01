@@ -209,15 +209,19 @@ export type ChecklistInstanceSummary = {
   newToday: number;
 };
 
-/** What an auditor recorded about the signed-in person, on one AUDIT item of one run — their own
- *  row only. It's how someone who is being audited (and so can't open the run) sees their result. */
-export type MyAuditResult = {
-  id:             string;
-  itemLabel:      string;
-  checklistTitle: string;
-  periodStart:    string;
-  completedAt:    string | null;
-  remarks:        string | null;
+/** One submitted audit row for the History page: what an auditor recorded about ONE person on one
+ *  AUDIT item of one run. ADMIN/PC get every store, MANAGER/SENIOR only their own department. */
+export type AuditHistoryRow = {
+  id:              string;
+  itemLabel:       string;
+  checklistTitle:  string;
+  periodStart:     string;
+  completedAt:     string | null;
+  remarks:         string | null;
+  storeId:         string;
+  storeName:       string | null;
+  personFirstName: string;
+  personLastName:  string | null;
   accessories:    ChecklistInstanceItemSubmissionAccessory[];
   images:         Pick<ChecklistInstanceItemSubmissionImage, 'id' | 'url' | 'originalFilename' | 'captureMethod' | 'createdAt'>[];
 };
@@ -249,8 +253,10 @@ export const checklistInstanceApi = {
       })}`,
     ).then(r => ({ ...r, data: normalizeInstances(r.data) })),
 
-  getMyAuditResults: () =>
-    apiFetch<ApiResponse<MyAuditResult[]>>('/checklist-instances/my-audits'),
+  getAuditHistory: (filter: { storeId?: string; from?: string; to?: string } = {}, paging: PageParams = {}) =>
+    apiFetch<ApiResponse<AuditHistoryRow[]> & { meta: ChecklistInstancePage }>(
+      `/checklist-instances/audit-history${buildQuery({ ...filter, ...paging })}`,
+    ),
 
   /**
    * The counts screens used to derive by downloading every instance and reducing in JS. Ask for

@@ -83,10 +83,16 @@ export type ChecklistDefinition = {
 export type ApiResponse<T> = { success: boolean; data: T };
 
 /** What saving an edit did to today's runs of a checklist: `refreshed` runs nobody had started were
- *  rebuilt from the edit; `inProgress` runs already had work in them and kept their old version. */
-export type LiveRunsSummary = { refreshed: number; inProgress: number };
+ *  rebuilt from the edit; `updated` runs already had work in them and got the edit merged in, every
+ *  answer kept; `kept` runs stay as they were (already sent for review or approved, or their store
+ *  was taken out of the checklist). */
+export type LiveRunsSummary = { refreshed: number; updated: number; kept: number };
 
 export type CreateChecklistDefinitionItemPayload = {
+  /** Id of the question as loaded from the server. Sent back on an edit so today's runs stay linked
+   *  to their question (a rename or move then reaches a run that's already started). Ignored for a
+   *  question the server doesn't know, so a new or copied one can carry any unique key. */
+  id?: string;
   label: string;
   order?: number;
   section?: string | null;

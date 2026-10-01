@@ -26,6 +26,7 @@ import type { ChecklistRecurrence } from "../db/schema/checklistDefinition.js"
 import { getCurrentPeriod, type Period } from "../utils/period.js"
 import { env } from "../config/env.js"
 import { emitChecklistEvent } from "../sockets/checklistEvent.js"
+import { syncVerificationStatus } from "../modules/checklistInstances/checklistInstance.service.js"
 
 // Caps how many due checklist definitions get processed in a single hourly sweep, same rationale
 // as the batch caps in slaSweep.job.ts/taskDeadlineReminder.job.ts. In practice the number of
@@ -158,11 +159,8 @@ export const loadDefinitionsForGeneration = async (definitionIds: string[]): Pro
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
-// Everything under an instance row that comes from its definition: who fills it in, who reviews
-// it, and its questions (with one row per audited person on an AUDIT question). Shared by a brand
-// new instance (generateInstanceForStore) and by refreshUntouchedInstances, so a run rebuilt after
-// an edit is stamped exactly the way a fresh one is.
-const stampInstanceContents = async (tx: Tx, instanceId: string, definition: GenerationDefinition) => {
+// Who fills a run in and who reviews it, copied from the definition.
+const stampPeople = async (tx: Tx, instanceId: string, definition: GenerationDefinition) => {
     if (definition.assigneeIds.length) {
         await tx.insert(checklistInstanceAssignees).values(
             definition.assigneeIds.map((userId) => ({ instanceId, userId })),
@@ -173,68 +171,84 @@ const stampInstanceContents = async (tx: Tx, instanceId: string, definition: Gen
             definition.reviewerIds.map((userId) => ({ instanceId, userId })),
         )
     }
+}
 
-    if (!definition.items.length) return
+// The columns of a run's question that are authored on the checklist question and copied across
+// (how the question is answered, its photo rules, its options). Used both to stamp a question onto
+// a run and to bring a not-yet-answered question on a started run up to date.
+const definitionConfig = (item: GenerationItem) => ({
+    // Photo requirements are authored once on the definition item and copied onto
+    // every instance it stamps out — an instance item never edits these itself.
+    requiredImageCount: item.requiredImageCount,
+    maxImageCount: item.maxImageCount,
+    requiresLivePhoto: item.requiresLivePhoto,
+    // Definition items commonly leave this null (only some items use accessory
+    // checkboxes) — the client's ChecklistInstanceItem type declares this a plain
+    // string[] (never null), and ChecklistInstanceItemAuditCard.tsx reads
+    // `.length` on it unconditionally, so a raw null here crashed the whole
+    // checklist detail page for any AUDIT item with no accessories configured.
+    accessories: item.accessories ?? [],
+    numberEntryUnit: item.numberEntryUnit,
+    numberEntryMin: item.numberEntryMin,
+    numberEntryMax: item.numberEntryMax,
+    ratingScale: item.ratingScale,
+    options: item.options,
+    gpsTargetLat: item.gpsTargetLat,
+    gpsTargetLng: item.gpsTargetLng,
+    gpsRadiusMeters: item.gpsRadiusMeters,
+    signatureLabels: item.signatureLabels,
+    qrExpectedValue: item.qrExpectedValue,
+    cashExpectedAmount: item.cashExpectedAmount,
+    yesActions: item.yesActions,
+    noActions: item.noActions,
+})
 
-    const itemIds = definition.items.map(() => createId())
+// One ticked-off-nothing row per accessory, for each person on an AUDIT question.
+const stampAuditPeople = async (tx: Tx, itemId: string, userIds: string[], accessories: string[]) => {
+    if (!userIds.length) return
+    const drafts = userIds.map((userId) => ({ id: createId(), itemId, userId }))
+    await tx.insert(checklistInstanceItemSubmissions).values(drafts)
+    const accessoryRows = drafts.flatMap((d) =>
+        accessories.map((name) => ({ id: createId(), submissionId: d.id, name, checked: false })),
+    )
+    if (accessoryRows.length) {
+        await tx.insert(checklistInstanceItemSubmissionAccessories).values(accessoryRows)
+    }
+}
+
+// Stamps checklist questions onto a run as brand-new, unanswered questions. Each one remembers which
+// checklist question it came from (definitionItemId), so a later edit can find it again.
+const stampItems = async (tx: Tx, instanceId: string, items: GenerationItem[]) => {
+    if (!items.length) return
+
+    const itemIds = items.map(() => createId())
     await tx.insert(checklistInstanceItems).values(
-        definition.items.map((item, index) => ({
+        items.map((item, index) => ({
             id: itemIds[index],
             label: item.label,
             order: item.order,
             section: item.section,
-            // Photo requirements are authored once on the definition item and copied onto
-            // every instance it stamps out — an instance item never edits these itself.
-            requiredImageCount: item.requiredImageCount,
-            maxImageCount: item.maxImageCount,
-            requiresLivePhoto: item.requiresLivePhoto,
             itemType: item.itemType,
-            // Definition items commonly leave this null (only some items use accessory
-            // checkboxes) — the client's ChecklistInstanceItem type declares this a plain
-            // string[] (never null), and ChecklistInstanceItemAuditCard.tsx reads
-            // `.length` on it unconditionally, so a raw null here crashed the whole
-            // checklist detail page for any AUDIT item with no accessories configured.
-            accessories: item.accessories ?? [],
-            numberEntryUnit: item.numberEntryUnit,
-            numberEntryMin: item.numberEntryMin,
-            numberEntryMax: item.numberEntryMax,
-            ratingScale: item.ratingScale,
-            options: item.options,
-            gpsTargetLat: item.gpsTargetLat,
-            gpsTargetLng: item.gpsTargetLng,
-            gpsRadiusMeters: item.gpsRadiusMeters,
-            signatureLabels: item.signatureLabels,
-            qrExpectedValue: item.qrExpectedValue,
-            cashExpectedAmount: item.cashExpectedAmount,
-            yesActions: item.yesActions,
-            noActions: item.noActions,
+            definitionItemId: item.id,
+            ...definitionConfig(item),
             instanceId,
         })),
     )
 
     // AUDIT items fan out into one ChecklistInstanceItemSubmission per person being audited,
     // seeded with that item's accessories checklist (all unchecked).
-    const submissionDrafts = definition.items.flatMap((item, index) => {
-        if (item.itemType !== "AUDIT" || !item.auditUserIds.length) return []
-        const itemId = itemIds[index]
-        return item.auditUserIds.map((userId) => ({
-            id: createId(),
-            itemId,
-            userId,
-            accessories: item.accessories ?? [],
-        }))
-    })
-    if (submissionDrafts.length) {
-        await tx.insert(checklistInstanceItemSubmissions).values(
-            submissionDrafts.map((d) => ({ id: d.id, itemId: d.itemId, userId: d.userId })),
-        )
-        const accessoryRows = submissionDrafts.flatMap((d) =>
-            d.accessories.map((name) => ({ id: createId(), submissionId: d.id, name, checked: false })),
-        )
-        if (accessoryRows.length) {
-            await tx.insert(checklistInstanceItemSubmissionAccessories).values(accessoryRows)
-        }
+    for (const [index, item] of items.entries()) {
+        if (item.itemType === "AUDIT") await stampAuditPeople(tx, itemIds[index], item.auditUserIds, item.accessories ?? [])
     }
+}
+
+// Everything under an instance row that comes from its definition: who fills it in, who reviews
+// it, and its questions (with one row per audited person on an AUDIT question). Shared by a brand
+// new instance (generateInstanceForStore) and by syncLiveInstances, so a run rebuilt after an edit
+// is stamped exactly the way a fresh one is.
+const stampInstanceContents = async (tx: Tx, instanceId: string, definition: GenerationDefinition) => {
+    await stampPeople(tx, instanceId, definition)
+    await stampItems(tx, instanceId, definition.items)
 }
 
 // Stamps out the currently-due ChecklistInstance for one (definition, store) pair. Caller is
@@ -357,27 +371,38 @@ export const generateInstanceForDefinition = async (definition: GenerationDefini
 }
 
 // What an edit did to the runs that already exist for the current period.
-//  refreshed  — runs nobody had started, rebuilt from the edited checklist (or dropped, if the
-//               edit took their store or today out of it)
-//  inProgress — runs someone had already started, left exactly as they were
-export type LiveRunsSummary = { refreshed: number; inProgress: number }
+//  refreshed — runs nobody had started, rebuilt from the edited checklist (or dropped, if the
+//              edit took their store or today out of it)
+//  updated   — runs someone had already started, brought up to date in place: renamed/moved/new/
+//              removed questions, audit people and times all follow the edit, and every answer
+//              already entered stays
+//  kept      — runs left exactly as they were: already sent for review or approved (a signed-off
+//              record), or started runs whose store or day the edit took out of the checklist
+export type LiveRunsSummary = { refreshed: number; updated: number; kept: number }
 
 const hasValue = (v: unknown) => (typeof v === "string" ? v.trim() !== "" : v != null)
 
+type RunRow = typeof checklistInstances.$inferSelect
+type InstanceItemRow = typeof checklistInstanceItems.$inferSelect
+type SubmissionRow = typeof checklistInstanceItemSubmissions.$inferSelect
+
+// True when a question on a run holds an answer, a skip or a note (photos and audit rows are
+// checked separately, they live in other tables).
+const itemHasAnswer = (i: InstanceItemRow) =>
+    i.isDone || i.isNotApplicable
+    || hasValue(i.completedAt) || hasValue(i.numericValue) || hasValue(i.booleanAnswer) || hasValue(i.textValue)
+    || hasValue(i.dateValue) || hasValue(i.gpsLat) || hasValue(i.gpsLng)
+    || hasValue(i.signatureValue) || hasValue(i.secondSignatureValue)
+    || hasValue(i.conditionalReasonValue) || hasValue(i.remarks) || hasValue(i.issueId)
+
 // True once anyone has done anything on a run: answered or skipped a question, typed a note,
 // attached a photo, ticked someone off an audit, or pushed it into review. Deliberately generous —
-// a run that merely *might* hold someone's work is never rebuilt.
-const runHasProgress = async (tx: Tx, run: typeof checklistInstances.$inferSelect): Promise<boolean> => {
+// a run that merely *might* hold someone's work is never rebuilt from scratch.
+const runHasProgress = async (tx: Tx, run: RunRow): Promise<boolean> => {
     if (run.verificationStatus !== "NOT_SUBMITTED" || run.rejectionCount > 0 || run.draftReminderSentAt) return true
 
     const items = await tx.select().from(checklistInstanceItems).where(eq(checklistInstanceItems.instanceId, run.id))
-    if (items.some((i) =>
-        i.isDone || i.isNotApplicable
-        || hasValue(i.completedAt) || hasValue(i.numericValue) || hasValue(i.booleanAnswer) || hasValue(i.textValue)
-        || hasValue(i.dateValue) || hasValue(i.gpsLat) || hasValue(i.gpsLng)
-        || hasValue(i.signatureValue) || hasValue(i.secondSignatureValue)
-        || hasValue(i.conditionalReasonValue) || hasValue(i.remarks) || hasValue(i.issueId),
-    )) return true
+    if (items.some(itemHasAnswer)) return true
     if (!items.length) return false
     const itemIds = items.map((i) => i.id)
 
@@ -403,14 +428,195 @@ const runHasProgress = async (tx: Tx, run: typeof checklistInstances.$inferSelec
     return !!submissionImage
 }
 
-// A run is a snapshot of its checklist taken when it was created (an edit mustn't rewrite work
-// someone has already done), so saving an edit used to leave today's run on the OLD version — the
-// change only showed from the next run. That's right once a run has answers in it, but for a run
-// nobody has touched it just made the edit look like it hadn't saved. This rebuilds every such
-// run from the edited checklist, in place (same id, so links and notifications still work), and
-// reports how many runs were left alone because they're already in progress.
-export const refreshUntouchedInstances = async (definition: GenerationDefinition, now: Date): Promise<LiveRunsSummary> => {
-    const summary: LiveRunsSummary = { refreshed: 0, inProgress: 0 }
+// Wording compared loosely, so "Check the  badge" and "check the badge " are the same question.
+const normalizeLabel = (label: string) => label.trim().replace(/\s+/g, " ").toLowerCase()
+
+// Pairs each question already on a run with the checklist question it came from, so an edit can be
+// carried onto the run:
+//  1. by the link written when the question was stamped (definitionItemId) — survives a rename or a
+//     move to another section, as long as the question kept its type;
+//  2. for runs stamped before that link existed (or whose question was re-created), by same type +
+//     same wording, first-come in the run's own order.
+// Whatever is left over is a run question the checklist no longer has (unmatchedRun) and a checklist
+// question the run doesn't have yet (newDefs).
+export const matchRunItems = (runItems: InstanceItemRow[], defItems: GenerationItem[]) => {
+    const defById = new Map(defItems.map((d) => [d.id, d]))
+    const takenDef = new Set<string>()
+    const pairs: { run: InstanceItemRow; def: GenerationItem }[] = []
+    const leftoverRun: InstanceItemRow[] = []
+
+    for (const run of runItems) {
+        const def = run.definitionItemId ? defById.get(run.definitionItemId) : undefined
+        if (def && def.itemType === run.itemType && !takenDef.has(def.id)) {
+            pairs.push({ run, def })
+            takenDef.add(def.id)
+        } else {
+            leftoverRun.push(run)
+        }
+    }
+
+    const byWording = new Map<string, GenerationItem[]>()
+    for (const def of [...defItems].sort((a, b) => a.order - b.order)) {
+        if (takenDef.has(def.id)) continue
+        const key = `${def.itemType}::${normalizeLabel(def.label)}`
+        const bucket = byWording.get(key)
+        if (bucket) bucket.push(def)
+        else byWording.set(key, [def])
+    }
+    const unmatchedRun: InstanceItemRow[] = []
+    for (const run of [...leftoverRun].sort((a, b) => a.order - b.order)) {
+        const def = byWording.get(`${run.itemType}::${normalizeLabel(run.label)}`)?.shift()
+        if (def) {
+            pairs.push({ run, def })
+            takenDef.add(def.id)
+        } else {
+            unmatchedRun.push(run)
+        }
+    }
+
+    return { pairs, unmatchedRun, newDefs: defItems.filter((d) => !takenDef.has(d.id)) }
+}
+
+// Keeps the people on a started run's AUDIT question in step with the checklist: someone added to
+// the audit gets a row to fill in, someone taken off loses theirs unless they were already checked
+// (that result is a record and stays), and every open person's tick-list follows the accessories
+// list. Returns whether everyone left on the question is now submitted.
+const syncAuditPeople = async (
+    tx: Tx,
+    itemId: string,
+    def: GenerationItem,
+    submissions: SubmissionRow[],
+    accessoriesBySubmission: Map<string, { id: string; name: string }[]>,
+): Promise<boolean> => {
+    const wanted = new Set(def.auditUserIds)
+    const accessoryNames = def.accessories ?? []
+    const haveUsers = new Set(submissions.map((s) => s.userId))
+
+    const added = def.auditUserIds.filter((userId) => !haveUsers.has(userId))
+    await stampAuditPeople(tx, itemId, added, accessoryNames)
+
+    const dropped = submissions.filter((s) => !wanted.has(s.userId) && !s.isDone).map((s) => s.id)
+    if (dropped.length) {
+        await tx.delete(checklistInstanceItemSubmissions).where(inArray(checklistInstanceItemSubmissions.id, dropped))
+    }
+    const droppedSet = new Set(dropped)
+    const remaining = submissions.filter((s) => !droppedSet.has(s.id))
+
+    for (const submission of remaining) {
+        if (submission.isDone) continue
+        const rows = accessoriesBySubmission.get(submission.id) ?? []
+        const haveNames = new Set(rows.map((r) => r.name))
+        const missing = accessoryNames.filter((name) => !haveNames.has(name))
+        if (missing.length) {
+            await tx.insert(checklistInstanceItemSubmissionAccessories).values(
+                missing.map((name) => ({ id: createId(), submissionId: submission.id, name, checked: false })),
+            )
+        }
+        const stale = rows.filter((r) => !accessoryNames.includes(r.name)).map((r) => r.id)
+        if (stale.length) {
+            await tx.delete(checklistInstanceItemSubmissionAccessories).where(inArray(checklistInstanceItemSubmissionAccessories.id, stale))
+        }
+    }
+
+    return added.length === 0 && remaining.length > 0 && remaining.every((s) => s.isDone)
+}
+
+// Brings a run that's already started up to date with the edited checklist WITHOUT touching anyone's
+// work. Every question that's still on the checklist keeps its answer and follows the edit (new
+// wording, new section, new place in the order); a question nobody touched that the edit removed is
+// dropped, one that already holds an answer stays; new questions are added unanswered; the audit's
+// people, the times, the assignees and the reviewers follow the edit. A question that's already
+// answered keeps the rules it was answered under (photo count, options, range) — only its wording,
+// section and place change.
+const mergeIntoStartedRun = async (tx: Tx, run: RunRow, working: GenerationDefinition, now: Date) => {
+    const runItems = await tx.select().from(checklistInstanceItems).where(eq(checklistInstanceItems.instanceId, run.id))
+    const itemIds = runItems.map((i) => i.id)
+
+    const itemImages = itemIds.length
+        ? await tx.select({ itemId: checklistInstanceImages.checklistInstanceItemId }).from(checklistInstanceImages)
+            .where(inArray(checklistInstanceImages.checklistInstanceItemId, itemIds))
+        : []
+    const itemsWithImages = new Set(itemImages.map((r) => r.itemId))
+
+    const submissions = itemIds.length
+        ? await tx.select().from(checklistInstanceItemSubmissions).where(inArray(checklistInstanceItemSubmissions.itemId, itemIds))
+        : []
+    const submissionIds = submissions.map((s) => s.id)
+    const accessoryRows = submissionIds.length
+        ? await tx.select().from(checklistInstanceItemSubmissionAccessories).where(inArray(checklistInstanceItemSubmissionAccessories.submissionId, submissionIds))
+        : []
+    const submissionImages = submissionIds.length
+        ? await tx.select({ submissionId: checklistInstanceItemSubmissionImages.submissionId }).from(checklistInstanceItemSubmissionImages)
+            .where(inArray(checklistInstanceItemSubmissionImages.submissionId, submissionIds))
+        : []
+
+    const submissionsByItem = new Map<string, SubmissionRow[]>()
+    for (const s of submissions) submissionsByItem.set(s.itemId, [...(submissionsByItem.get(s.itemId) ?? []), s])
+    const accessoriesBySubmission = new Map<string, { id: string; name: string; checked: boolean }[]>()
+    for (const a of accessoryRows) accessoriesBySubmission.set(a.submissionId, [...(accessoriesBySubmission.get(a.submissionId) ?? []), a])
+    const submissionsWithImages = new Set(submissionImages.map((r) => r.submissionId))
+
+    const submissionHasWork = (s: SubmissionRow) =>
+        s.isDone || hasValue(s.remarks) || hasValue(s.completedAt)
+        || (accessoriesBySubmission.get(s.id) ?? []).some((a) => a.checked) || submissionsWithImages.has(s.id)
+    const itemHasWork = (i: InstanceItemRow) =>
+        itemHasAnswer(i) || itemsWithImages.has(i.id) || (submissionsByItem.get(i.id) ?? []).some(submissionHasWork)
+
+    const { pairs, unmatchedRun, newDefs } = matchRunItems(runItems, working.items)
+
+    for (const { run: item, def } of pairs) {
+        // A not-applicable audit is finished as a whole: its people are left alone.
+        let auditAllDone: boolean | null = null
+        if (def.itemType === "AUDIT" && !item.isNotApplicable) {
+            auditAllDone = await syncAuditPeople(tx, item.id, def, submissionsByItem.get(item.id) ?? [], accessoriesBySubmission)
+        }
+        const finished = item.isNotApplicable || (auditAllDone !== null ? auditAllDone : item.isDone)
+
+        const patch: Partial<typeof checklistInstanceItems.$inferInsert> = {
+            label: def.label,
+            order: def.order,
+            section: def.section,
+            definitionItemId: def.id,
+            updatedAt: now,
+        }
+        if (!finished) Object.assign(patch, definitionConfig(def))
+        if (auditAllDone !== null && auditAllDone !== item.isDone) {
+            // The audit's done-ness is derived from its people (see the submission service): someone
+            // new to check reopens it, taking the last open person off finishes it.
+            patch.isDone = auditAllDone
+            if (!auditAllDone) { patch.completedAt = null; patch.completedBy = null }
+        }
+        await tx.update(checklistInstanceItems).set(patch).where(eq(checklistInstanceItems.id, item.id))
+    }
+
+    const droppable = unmatchedRun.filter((i) => !itemHasWork(i)).map((i) => i.id)
+    if (droppable.length) await tx.delete(checklistInstanceItems).where(inArray(checklistInstanceItems.id, droppable))
+
+    await stampItems(tx, run.id, newDefs)
+
+    await tx.update(checklistInstances).set({
+        title: working.name,
+        opensTime: working.opensTime,
+        cutoffTime: working.cutoffTime,
+        updatedAt: now,
+    }).where(eq(checklistInstances.id, run.id))
+    await tx.delete(checklistInstanceAssignees).where(eq(checklistInstanceAssignees.instanceId, run.id))
+    await tx.delete(checklistInstanceReviewers).where(eq(checklistInstanceReviewers.instanceId, run.id))
+    await stampPeople(tx, run.id, working)
+}
+
+// A run is a snapshot of its checklist taken when it was created, so saving an edit used to leave
+// today's runs on the OLD version — the change only showed from the next run, which made an edit
+// look like it hadn't saved. Now every run of the current period follows the edit, in place (same
+// id, so links and notifications still work):
+//  - a run nobody has started is rebuilt from the edited checklist;
+//  - a run that's already started is merged: the edit is carried onto it and every answer stays
+//    (see mergeIntoStartedRun);
+//  - a run already sent for review or approved is a signed-off record and is left alone, like a
+//    started run whose store (or day) the edit took out of the checklist.
+// Returns how many runs fell in each group.
+export const syncLiveInstances = async (definition: GenerationDefinition, now: Date): Promise<LiveRunsSummary> => {
+    const summary: LiveRunsSummary = { refreshed: 0, updated: 0, kept: 0 }
     const period = getCurrentPeriod(definition.recurrence, definition.startDate, now, env.CHECKLIST_TIMEZONE_OFFSET_MINUTES)
     if (!period) return summary
     const working = await applyWorkingDayRules(definition, period)
@@ -427,7 +633,16 @@ export const refreshUntouchedInstances = async (definition: GenerationDefinition
                 const [run] = await tx.select().from(checklistInstances)
                     .where(eq(checklistInstances.id, id)).for("update").limit(1)
                 if (!run) return null
-                if (await runHasProgress(tx, run)) return { kind: "inProgress" as const, storeId: run.storeId }
+
+                if (await runHasProgress(tx, run)) {
+                    // Sent for review or approved: nobody may change what a reviewer is looking at.
+                    const editable = run.verificationStatus === "NOT_SUBMITTED" || run.verificationStatus === "REJECTED"
+                    if (!editable || !working || !definition.storeIds.includes(run.storeId)) {
+                        return { kind: "kept" as const, storeId: run.storeId }
+                    }
+                    await mergeIntoStartedRun(tx, run, working, now)
+                    return { kind: "updated" as const, storeId: run.storeId }
+                }
 
                 // The edit took this store out (or made today a day off) and nobody started it:
                 // the empty run has no reason to exist any more.
@@ -441,7 +656,7 @@ export const refreshUntouchedInstances = async (definition: GenerationDefinition
                     recurrence: working.recurrence,
                     opensTime: working.opensTime,
                     cutoffTime: working.cutoffTime,
-                    updatedAt: new Date(),
+                    updatedAt: now,
                 }).where(eq(checklistInstances.id, id))
                 await tx.delete(checklistInstanceAssignees).where(eq(checklistInstanceAssignees.instanceId, id))
                 await tx.delete(checklistInstanceReviewers).where(eq(checklistInstanceReviewers.instanceId, id))
@@ -452,12 +667,17 @@ export const refreshUntouchedInstances = async (definition: GenerationDefinition
             })
             if (!outcome) continue
             summary[outcome.kind]++
-            if (outcome.kind === "refreshed") {
+            if (outcome.kind === "updated") {
+                // Removing the last open question (or finishing the audit's last open person) can
+                // leave the run fully done: move it on to review the way ticking it off would have.
+                await syncVerificationStatus(id)
+            }
+            if (outcome.kind !== "kept") {
                 emitChecklistEvent("checklist-instance:updated", { storeId: outcome.storeId }, { instanceId: id })
             }
         } catch (err) {
-            // One run failing to refresh must not stop the rest — it simply keeps its old version.
-            console.error(`Refreshing checklist run ${id} for definition ${definition.id} failed:`, err)
+            // One run failing to update must not stop the rest — it simply keeps its old version.
+            console.error(`Updating checklist run ${id} for definition ${definition.id} failed:`, err)
         }
     }
     return summary

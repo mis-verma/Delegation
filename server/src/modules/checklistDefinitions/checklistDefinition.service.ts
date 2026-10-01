@@ -15,7 +15,7 @@ import { cached, cacheKey } from "../../config/queryCache.js"
 import { AppError } from "../../utils/AppError.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { CreateChecklistDefinitionInput, UpdateChecklistDefinitionInput, SetChecklistDefinitionActiveInput } from "./checklistDefinition.validation.js"
-import { generateInstanceForDefinition, loadDefinitionForGeneration, refreshUntouchedInstances, type LiveRunsSummary } from "../../jobs/checklistInstanceGenerator.job.js"
+import { generateInstanceForDefinition, loadDefinitionForGeneration, syncLiveInstances, type LiveRunsSummary } from "../../jobs/checklistInstanceGenerator.job.js"
 import { auditService } from "../audit/audit.service.js";
 import { emitChecklistEvent } from "../../sockets/checklistEvent.js"
 import { GATED_BOOLEAN_ITEM_EXPR, FLAGGED_BOOLEAN_ANSWER_EXPR } from "../../utils/checklistBooleanFlags.js"
@@ -417,12 +417,22 @@ export const checklistDefinitionService = {
                     input.reviewerIds.map(userId => ({ definitionId: id, userId })),
                 )
             }
+            // A question the builder loaded comes back with its id. Keeping that id (rather than
+            // minting a new one on every save) is what lets a run that's already started stay linked
+            // to its question, so a rename or move reaches it instead of reading as "one question
+            // deleted, another added". Only ids that really belong to THIS checklist are honoured, and
+            // each at most once; a new question, a copied one or anyone else's id gets a fresh id.
+            const existingItemRows = await tx.select({ id: checklistDefinitionItems.id }).from(checklistDefinitionItems)
+                .where(eq(checklistDefinitionItems.definitionId, id))
+            const existingItemIds = new Set(existingItemRows.map((r) => r.id))
+            const claimedItemIds = new Set<string>()
             const newItemIds: string[] = []
             for (const [index, item] of input.items.entries()) {
-                const itemId = createId()
+                const keepsId = item.id !== undefined && existingItemIds.has(item.id) && !claimedItemIds.has(item.id)
+                const itemId = keepsId ? item.id! : createId()
+                claimedItemIds.add(itemId)
                 newItemIds.push(itemId)
-                await tx.insert(checklistDefinitionItems).values({
-                    id: itemId,
+                const itemValues = {
                     label: item.label,
                     order: item.order ?? index,
                     section: item.section ?? null,
@@ -444,8 +454,13 @@ export const checklistDefinitionService = {
                     cashExpectedAmount: item.cashExpectedAmount ?? null,
                     yesActions: item.yesActions ?? null,
                     noActions: item.noActions ?? null,
-                    definitionId: id,
-                })
+                }
+                if (keepsId) {
+                    await tx.update(checklistDefinitionItems).set({ ...itemValues, updatedAt: new Date() }).where(eq(checklistDefinitionItems.id, itemId))
+                    await tx.delete(checklistDefinitionItemAuditUsers).where(eq(checklistDefinitionItemAuditUsers.itemId, itemId))
+                } else {
+                    await tx.insert(checklistDefinitionItems).values({ id: itemId, ...itemValues, definitionId: id })
+                }
                 if (item.itemType === "AUDIT" && item.auditUserIds?.length) {
                     await tx.insert(checklistDefinitionItemAuditUsers).values(
                         item.auditUserIds.map(userId => ({ itemId, userId })),
@@ -468,15 +483,15 @@ export const checklistDefinitionService = {
 
         // Only touch runs if this definition is still active - an admin editing a deactivated
         // checklist (e.g. fixing a label typo) shouldn't silently bring it back to life.
-        let liveRuns: LiveRunsSummary = { refreshed: 0, inProgress: 0 }
+        let liveRuns: LiveRunsSummary = { refreshed: 0, updated: 0, kept: 0 }
         if (wasActive) {
             const definitionForGeneration = await loadDefinitionForGeneration(id)
             if (definitionForGeneration) {
                 const now = new Date()
-                // First bring this period's existing runs up to date (the ones nobody has started —
-                // see refreshUntouchedInstances), THEN stamp out any that are missing, e.g. for a
-                // store the edit just added.
-                liveRuns = await refreshUntouchedInstances(definitionForGeneration, now)
+                // First bring this period's existing runs up to date — rebuilt if nobody started
+                // them, merged (answers kept) if someone did, see syncLiveInstances — THEN stamp out
+                // any that are missing, e.g. for a store the edit just added.
+                liveRuns = await syncLiveInstances(definitionForGeneration, now)
                 await generateInstanceForDefinition(definitionForGeneration, now)
             }
         }

@@ -203,7 +203,7 @@ const SectionHeader = ({ label, meta, action }: { label: string; meta?: ReactNod
   </div>
 );
 
-// Also used read-only by MyAuditResults, so a person sees their own result drawn exactly the way
+// Also used read-only by ChecklistHistory, so a past result is drawn exactly the way
 // the auditor saw it.
 export const AccessoryTile = ({ name, checked, missing, interactive, onToggle }: {
   name: string; checked: boolean; missing: boolean; interactive: boolean; onToggle: () => void;

@@ -43,7 +43,7 @@ export const checklistInstanceController = {
     }),
 
     // GET /checklist-instances?definitionId=&storeId=&status=&assigneeId=&from=&to=&includeDeleted=
-    // (ADMIN/PC only — requireRole gate on the route.) includeDeleted is opt-IN, not automatic —
+    // (ADMIN/PC org-wide; MANAGER/SENIOR their own department, see below.) includeDeleted is opt-IN, not automatic —
     // the Compliance Board defaults to hiding a deleted checklist's history (so deleting one
     // actually cleans up the board, matching what the delete confirmation promises), with this as
     // the explicit "show me the full audit history anyway" toggle. Still capped by role regardless
@@ -58,6 +58,11 @@ export const checklistInstanceController = {
             storeId: storeId as string | undefined,
             status,
             assigneeId: assigneeId as string | undefined,
+            // A department head (MANAGER/SENIOR) only ever gets their own department's checklists,
+            // whatever the query says. No department on their record means no match at all: the id
+            // below belongs to no department, so the filter resolves to an empty result instead of
+            // being dropped (which would return every checklist).
+            ...(isOrgWide ? {} : { departmentId: req.user!.departmentId ?? "no-department" }),
             from,
             to,
             includeDeleted,
@@ -74,12 +79,18 @@ export const checklistInstanceController = {
         res.json({ success: true, ...result })
     }),
 
-    // GET /checklist-instances/my-audits — the caller's OWN submitted audit rows only (what an
-    // auditor recorded about them). Open to every role: it can only ever return the caller's own
-    // data, which is exactly what makes it safe to hand to someone who can't open the run.
-    myAudits: asyncHandler(async (req: Request, res: Response) => {
-        const data = await checklistInstanceService.myAuditResults(req.user!.sub)
-        res.json({ success: true, data })
+    // GET /checklist-instances/audit-history?from=&to=&storeId=&page=&limit= (ADMIN/PC everything,
+    // MANAGER/SENIOR their own department's people: the scoping lives in the service).
+    auditHistory: asyncHandler(async (req: Request, res: Response) => {
+        const { page, limit, from, to } = listChecklistInstancesQuerySchema.parse(req.query)
+        const result = await checklistInstanceService.auditHistory(req.user!, {
+            from,
+            to,
+            storeId: req.query.storeId as string | undefined,
+            page,
+            limit,
+        })
+        res.json({ success: true, ...result })
     }),
 
     pendingApprovalPreview: asyncHandler(async (req: Request, res: Response) => {

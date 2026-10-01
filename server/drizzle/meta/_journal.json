@@ -176,6 +176,13 @@
       "when": 1790685247705,
       "tag": "0024_checklist_item_not_applicable",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "5",
+      "when": 1790772629770,
+      "tag": "0025_checklist_item_definition_link",
+      "breakpoints": true
     }
   ]
 }

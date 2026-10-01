@@ -21,7 +21,7 @@ const KEYS = {
   definitionDetail:       (id: string) => ['checklist-definitions', 'detail', id] as const,
   myInstances:            (status?: ChecklistInstanceStatus) => ['checklist-instances', 'mine', status ?? 'all'] as const,
   instanceDetail:         (id: string) => ['checklist-instances', 'detail', id] as const,
-  myAuditResults:         () => ['checklist-instances', 'my-audits'] as const,
+  auditHistory:           () => ['checklist-instances', 'audit-history'] as const,
   instancesForDefinition: (definitionId: string) => ['checklist-instances', 'by-definition', definitionId] as const,
   instancesBoard:         (filter: { storeId?: string; assigneeId?: string; status?: ChecklistInstanceStatus }) =>
     ['checklist-instances', 'board', filter] as const,
@@ -67,13 +67,18 @@ export const useCreateChecklistDefinitionMutation = () => {
   });
 };
 
-// Saving an edit rebuilds today's runs nobody has started, and leaves runs that already have work in
-// them as they were — say which happened, so "I saved it but it isn't live" never has to be guessed.
+// Saving an edit goes live in today's runs straight away: runs nobody started are rebuilt, runs that
+// already have answers get the edit merged in with every answer kept, and runs already sent for
+// review or approved stay as signed off. Say which happened, so "I saved it but it isn't live" never
+// has to be guessed.
 const savedMessage = (live?: LiveRunsSummary) => {
   const lines: string[] = [];
   if (live?.refreshed) lines.push(live.refreshed === 1 ? "Today's run is updated." : `${live.refreshed} of today's runs are updated.`);
-  if (live?.inProgress) {
-    lines.push(`${live.inProgress} ${live.inProgress === 1 ? 'run is' : 'runs are'} already in progress and ${live.inProgress === 1 ? 'keeps' : 'keep'} the old version. Your changes start with the next run.`);
+  if (live?.updated) {
+    lines.push(`${live.updated} ${live.updated === 1 ? 'run' : 'runs'} already started ${live.updated === 1 ? 'has' : 'have'} your changes too. Answers already entered are kept.`);
+  }
+  if (live?.kept) {
+    lines.push(`${live.kept} ${live.kept === 1 ? 'run stays' : 'runs stay'} as ${live.kept === 1 ? 'it was' : 'they were'} (already sent for review, approved, or taken out of this checklist).`);
   }
   return lines.join(' ');
 };
@@ -87,9 +92,9 @@ export const useUpdateChecklistDefinitionMutation = () => {
       queryClient.setQueryData(KEYS.definitionDetail(definition.id), definition);
       queryClient.invalidateQueries({ queryKey: ['checklist-definitions'] });
       // Runs changed too, so every list/board/detail/count built from them has to reload.
-      if (liveRuns?.refreshed) queryClient.invalidateQueries({ queryKey: ['checklist-instances'] });
+      if (liveRuns?.refreshed || liveRuns?.updated) queryClient.invalidateQueries({ queryKey: ['checklist-instances'] });
       const description = savedMessage(liveRuns);
-      toast.success('Checklist updated', description ? { description, duration: liveRuns?.inProgress ? 8000 : undefined } : undefined);
+      toast.success('Checklist updated', description ? { description, duration: liveRuns?.kept ? 8000 : undefined } : undefined);
     },
     onError: (err) => toast.error(errorMessage(err, "Couldn't update checklist")),
   });
@@ -209,14 +214,17 @@ export const useMyChecklistInstancesQuery = (
   });
 };
 
-// The signed-in person's own audit results (what an auditor recorded about them). Under the
-// 'checklist-instances' prefix on purpose, so submitting or reopening any audit row invalidates it
-// along with everything else on that prefix.
-export const useMyAuditResultsQuery = () => {
+// Audit history (History page): submitted audit rows, newest first. Under the 'checklist-instances'
+// prefix on purpose, so submitting or reopening any audit row invalidates it along with everything
+// else on that prefix. The server scopes it by role (ADMIN/PC all, MANAGER/SENIOR their department).
+export const useAuditHistoryQuery = (
+  filter: { storeId?: string; from?: string; to?: string } = {},
+  paging: { page?: number; limit?: number } = {},
+) => {
   const { token } = useAuth();
   return useQuery({
-    queryKey: KEYS.myAuditResults(),
-    queryFn: () => checklistInstanceApi.getMyAuditResults().then(r => r.data),
+    queryKey: [...KEYS.auditHistory(), filter, paging],
+    queryFn: () => checklistInstanceApi.getAuditHistory(filter, paging),
     enabled: !!token,
     retry: handleQueryRetry,
   });
