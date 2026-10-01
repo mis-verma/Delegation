@@ -25,6 +25,7 @@ import { TicketStatusHistory } from './detail/TicketStatusHistory';
 import { TicketVerificationActions } from './detail/TicketVerificationActions';
 import { TicketStatusMenu } from './detail/TicketStatusMenu';
 import { TicketStatusRemarkDialog } from './TicketStatusRemarkDialog';
+import { useConfirm } from '@/components/confirmDialog';
 import type { AssignableUser } from '../../api/users';
 import type { Role } from '../../api/auth';
 import { AssigneeField } from '../assignees/AssigneeField';
@@ -69,7 +70,17 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const statusUpdateMut = useAddTicketStatusUpdateMutation(ticket.id);
 
-  const handleDelete = () => {
+  const confirm = useConfirm();
+  // Asked first: a delete takes the ticket off every list for everyone working on it.
+  const handleDelete = async () => {
+    const ok = await confirm({
+      title: 'Delete this ticket?',
+      description: `"${ticket.title}" will be removed from every list for everyone working on it. An admin can still see it in the audit history.`,
+      confirmLabel: 'Delete ticket',
+      cancelLabel: 'Keep it',
+      variant: 'danger',
+    });
+    if (!ok) return;
     deleteMut.mutate(ticket.id, { onSuccess: onClose });
   };
 

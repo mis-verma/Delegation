@@ -1,6 +1,6 @@
 import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Ticket as TicketIcon, AlertCircle, Check, Type, AlignLeft, SlidersHorizontal, Camera, Image as ImageIcon } from 'lucide-react';
@@ -12,7 +12,9 @@ import { useTagsQuery } from '../tags/hook';
 import { LabelsField } from '../tags/LabelsField';
 import { AssigneeField } from '../assignees/AssigneeField';
 import { ticketApi } from '../../api/ticket';
-import { ticketSchema, type TicketFields } from './form/ticketFormSchema';
+import { buildTicketSchema, type TicketFields } from './form/ticketFormSchema';
+import { CategoryForm } from '../settings/CategoryForm';
+import { DepartmentForm } from '../admin/department/DepartmentForm';
 import { AssignmentModeToggle } from './form/AssignmentModeToggle';
 import { DueDateField } from './form/DueDateField';
 import { TicketPriorityChipPicker } from './form/TicketPriorityChipPicker';
@@ -42,6 +44,11 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
   const { data: tags } = useTagsQuery();
   const mutation = useCreateTicketMutation();
   const queryClient = useQueryClient();
+  // "Create new" from inside this form: a missing category or department can be added on the spot by
+  // Admin/PC (the server only lets them), then it's selected. Everyone else is told to ask an admin.
+  const [creating, setCreating] = useState<'category' | 'department' | null>(null);
+  // Front-line staff send to a department or category; everyone else must also pick the person.
+  const schema = useMemo(() => buildTicketSchema({ requirePerson: !ownScopeOnly }), [ownScopeOnly]);
 
   const [photos, setPhotos] = useState<File[]>([]);
   const addPhotos = (files: FileList | null) => {
@@ -57,7 +64,7 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
     setValue,
     formState: { errors },
   } = useForm<TicketFields>({
-    resolver: zodResolver(ticketSchema),
+    resolver: zodResolver(schema),
     defaultValues: { priority: 'MEDIUM', assignmentMode: 'MANUAL' },
   });
 
@@ -70,6 +77,13 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
   const { data: assignableUsers, isLoading: isLoadingAssignableUsers } = useAssignableUsersQuery(departmentId || undefined, undefined, undefined, !ownScopeOnly);
 
   const selectedCategory = categories?.find(c => c.id === categoryId);
+  // A category brings its own people. They're the choices in the person picker (the first is
+  // pre-selected below), so a category with several people no longer drops all but the first. If
+  // none of them show up in the department's list, fall back to the whole list rather than empty.
+  const categoryPeople = selectedCategory && assignableUsers
+    ? assignableUsers.filter(u => selectedCategory.assigneeIds.some(a => a.id === u.id))
+    : undefined;
+  const assigneeChoices = categoryPeople?.length ? categoryPeople : assignableUsers;
 
   useEffect(() => {
     if (categoryId) return;
@@ -127,7 +141,7 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-3">
       {/* Desktop-only: on a phone the red * on the two labels already says it. */}
       <p className="hidden sm:block text-xs font-medium text-text-light font-display">
-        <span className="text-danger">*</span> Title and description are required. Everything else can be added later.
+        <span className="text-danger">*</span> Title, description and where it goes are all required.
       </p>
 
       {/* Phones: one full-width Create; the X in the header dismisses. Desktop keeps Cancel. */}
@@ -221,7 +235,9 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
                 placeholder="Search categories..."
                 emptyOptionLabel="No category"
                 options={(categories ?? []).map(c => ({ value: c.id, label: c.name }))}
-                className={`${CHIP_TRIGGER_CLASS} max-w-[13rem]`}
+                onCreateNew={isVerifier ? () => setCreating('category') : undefined}
+                createNewLabel="New category"
+                className={`${CHIP_TRIGGER_CLASS} max-w-[13rem] ${errors.categoryId ? 'border-danger/60' : ''}`}
               />
             </div>
 
@@ -231,9 +247,11 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
                 onChange={v => setValue('departmentId', v)}
                 disabled={!!selectedCategory}
                 placeholder="Search departments..."
-                emptyOptionLabel="Any department"
+                emptyOptionLabel="Choose a department"
                 options={(departments ?? []).map(d => ({ value: d.id, label: d.name }))}
-                className={`${CHIP_TRIGGER_CLASS} max-w-[13rem]`}
+                onCreateNew={isVerifier ? () => setCreating('department') : undefined}
+                createNewLabel="New department"
+                className={`${CHIP_TRIGGER_CLASS} max-w-[13rem] ${errors.departmentId ? 'border-danger/60' : ''}`}
               />
             </div>
 
@@ -246,9 +264,9 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
                   hideLabel
                   selectedIds={assigneeId ? [assigneeId] : []}
                   onChange={ids => setValue('assigneeId', ids[0] ?? '')}
-                  users={assignableUsers}
+                  users={assigneeChoices}
                   isLoading={isLoadingAssignableUsers}
-                  disabled={!!selectedCategory}
+                  disabled={!departmentId && !selectedCategory}
                 />
               </div>
             )}
@@ -267,6 +285,18 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
               </div>
             )}
           </div>
+
+          {/* Why Create is blocked, in plain words, right under the chips they belong to. */}
+          {(errors.categoryId?.message || errors.departmentId?.message || errors.assigneeId?.message) && (
+            <p className="text-xs text-danger font-display" role="alert">
+              {errors.categoryId?.message ?? errors.departmentId?.message ?? errors.assigneeId?.message}
+            </p>
+          )}
+          {!isVerifier && (
+            <p className="text-[11px] text-text-light font-display">
+              Can't find the right category? Ask an admin to add it.
+            </p>
+          )}
 
           {assignmentMode === 'AUTO' && (
             <DueDateField
@@ -296,6 +326,19 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
           </div>
         )}
       </form>
+
+      {creating === 'category' && (
+        <CategoryForm
+          onClose={() => setCreating(null)}
+          onCreated={(created) => setValue('categoryId', created.id, { shouldValidate: true })}
+        />
+      )}
+      {creating === 'department' && (
+        <DepartmentForm
+          onClose={() => setCreating(null)}
+          onCreated={(created) => setValue('departmentId', created.id, { shouldValidate: true })}
+        />
+      )}
     </Modal>
   );
 };

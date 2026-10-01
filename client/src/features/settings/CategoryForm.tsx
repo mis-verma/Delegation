@@ -21,9 +21,12 @@ type CategoryFields = z.infer<typeof categorySchema>;
 interface CategoryFormProps {
   onClose: () => void;
   category?: Category;
+  /** Fired with the new category right after a successful create (not when editing), so a caller
+   *  opening this as a quick "create new" (the ticket form's category picker) can select it. */
+  onCreated?: (category: Category) => void;
 }
 
-export const CategoryForm = ({ onClose, category }: CategoryFormProps) => {
+export const CategoryForm = ({ onClose, category, onCreated }: CategoryFormProps) => {
   const isEditing = !!category;
   const createMutation = useCreateCategoryMutation();
   const updateMutation = useUpdateCategoryMutation();
@@ -59,7 +62,7 @@ export const CategoryForm = ({ onClose, category }: CategoryFormProps) => {
     if (isEditing) {
       updateMutation.mutate({ id: category.id, payload }, { onSuccess: () => onClose() });
     } else {
-      createMutation.mutate(payload, { onSuccess: () => onClose() });
+      createMutation.mutate(payload, { onSuccess: (created) => { onCreated?.(created); onClose(); } });
     }
   };
 
