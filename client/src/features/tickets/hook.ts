@@ -110,7 +110,7 @@ export const useUpdateTicketMutation = (options?: { silent?: boolean }) =>
 // request — mirrors useVerifyTicketMutation's shape (also writes straight to the detail cache).
 export const useAddTicketStatusUpdateMutation = (ticketId: string) =>
   useEntityMutation({
-    mutationFn: (payload: { status: RestrictedStatus; remark: string; captureMethod?: CaptureMethod; files?: File[] }) =>
+    mutationFn: (payload: { status: RestrictedStatus; remark?: string; captureMethod?: CaptureMethod; files?: File[] }) =>
       ticketApi.addStatusUpdate(ticketId, payload).then(r => r.data),
     setDetailData: (updated) => ({ key: KEYS.detail(updated.id), data: updated }),
     invalidateKeys: [['tickets']],
@@ -123,7 +123,7 @@ export const useAddTicketStatusUpdateMutation = (ticketId: string) =>
 // so it can't name the ticket up front the way the detail sheet can.
 export const useTicketStatusMoveMutation = () =>
   useEntityMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: { status: RestrictedStatus; remark: string } }) =>
+    mutationFn: ({ id, payload }: { id: string; payload: { status: RestrictedStatus; remark?: string } }) =>
       ticketApi.addStatusUpdate(id, payload).then(r => r.data),
     setDetailData: (updated) => ({ key: KEYS.detail(updated.id), data: updated }),
     invalidateKeys: [['tickets']],

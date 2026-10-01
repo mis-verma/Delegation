@@ -257,10 +257,11 @@ export const ticketApi = {
   verify: (id: string, payload: VerifyTicketPayload) =>
     apiFetch<ApiResponse<Ticket>>(`/tickets/${id}/verify`, { method: 'PATCH', body: JSON.stringify(payload) }).then(r => ({ ...r, data: normalizeTicket(r.data) })),
 
-  addStatusUpdate: (id: string, payload: { status: RestrictedStatus; remark: string; captureMethod?: CaptureMethod; files?: File[] }) => {
+  addStatusUpdate: (id: string, payload: { status: RestrictedStatus; remark?: string; captureMethod?: CaptureMethod; files?: File[] }) => {
     const formData = new FormData();
     formData.append('status', payload.status);
-    formData.append('remark', payload.remark);
+    // Only On Hold needs one; the server stores a blank remark for the other moves.
+    if (payload.remark) formData.append('remark', payload.remark);
     if (payload.captureMethod) formData.append('captureMethod', payload.captureMethod);
     (payload.files ?? []).forEach(f => formData.append('images', f));
     return apiFetch<ApiResponse<Ticket>>(`/tickets/${id}/status-updates`, { method: 'POST', body: formData })

@@ -65,6 +65,11 @@ export const startSlaSweep = () => {
         // ne() means "not equal" - skip tickets that are already CLOSED, since
         // a closed ticket doesn't need to be marked overdue anymore.
         ne(tickets.status, 'CLOSED'),
+        // Work finished and waiting on PC's approval: the assignee's clock has stopped, so the
+        // wait for a decision must not turn a ticket completed in time into a "Delayed" one. A
+        // ticket that was already late when it was completed keeps the flag (set while it was
+        // still In Progress), which is exactly what PC should see at the approval step.
+        ne(tickets.status, 'PENDING_APPROVAL'),
         // Skip soft-deleted tickets — otherwise a deleted ticket would keep getting flagged
         // overdue and re-notified forever, since deleting it never touches tatDueAt/isOverdue.
         isNull(tickets.deletedAt),

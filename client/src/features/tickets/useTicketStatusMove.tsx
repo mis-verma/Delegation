@@ -38,6 +38,13 @@ export const useTicketStatusMove = () => {
       return;
     }
 
+    // Only On Hold asks why. In Progress and Completed (which sends it to PC for approval) are one
+    // tap, so a drag onto those columns goes straight through, still recorded in the ticket's history.
+    if (toStatus !== 'ON_HOLD') {
+      moveMutation.mutate({ id: ticket.id, payload: { status: toStatus } });
+      return;
+    }
+
     setPendingMove({ ticket, toStatus });
   };
 

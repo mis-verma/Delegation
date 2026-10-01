@@ -151,7 +151,7 @@ const TicketTimelineComponent = ({ tickets, onOpen }: TicketTimelineProps) => {
                           </span>
                           <span className="text-[10px] font-medium truncate">
                             {overdue ? (
-                              <span className="text-danger font-semibold">Overdue</span>
+                              <span className="text-danger font-semibold">Delayed</span>
                             ) : (
                               <span className="text-text-muted">{ownerName(ticket)}</span>
                             )}

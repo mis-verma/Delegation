@@ -77,8 +77,9 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
 
   // One status control for everyone who can change status. Verifiers get every status; everyone
   // else gets the three work moves (In Progress / On Hold / Completed) until the ticket is waiting
-  // on review or closed. Every restricted target opens the same remark popup (remark required,
-  // optional proof photos), the same gate a board drag goes through. This replaces the old
+  // on review or closed. Only On Hold opens the remark popup (remark required, optional proof
+  // photos), the same gate a board drag goes through; In Progress and Completed are one tap, and
+  // Completed hands the ticket straight to PC for approval. This replaces the old
   // always-open "Update Status" panel, which pinned a textarea and six buttons over half the sheet.
   const [quickStatusPick, setQuickStatusPick] = useState<RestrictedStatus | null>(null);
   const [quickStatusPhotos, setQuickStatusPhotos] = useState<File[]>([]);
@@ -100,7 +101,10 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
     .filter(s => s.value !== ticket.status && s.value !== 'CLOSED');
 
   const handlePickStatus = (next: TicketStatus) => {
-    if ((RESTRICTED_STATUSES as readonly string[]).includes(next)) setQuickStatusPick(next as RestrictedStatus);
+    // Only On Hold asks why. In Progress and Completed (which sends it to PC for approval) are one
+    // tap with no pop-up.
+    if (next === 'ON_HOLD') setQuickStatusPick(next);
+    else if ((RESTRICTED_STATUSES as readonly string[]).includes(next)) statusUpdateMut.mutate({ status: next as RestrictedStatus });
     else updateMut.mutate({ id: ticket.id, payload: { status: next } });
   };
 
@@ -196,7 +200,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                 <IconChip
                   icon={CalendarDays}
                   tone={isOverdue ? 'bg-danger' : 'bg-primary-700'}
-                  label={`${isOverdue ? 'Overdue · ' : 'Due '}${new Date(ticket.tatDueAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`}
+                  label={`${isOverdue ? 'Delayed · ' : 'Due '}${new Date(ticket.tatDueAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`}
                   title="SLA deadline"
                   className={isOverdue ? 'border-danger/30 text-danger' : undefined}
                 />

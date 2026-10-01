@@ -96,8 +96,13 @@ export const verifyTicketSchema = z.object({
 // here (not an enum) since it arrives as a multipart form field.
 export const statusUpdateSchema = z.object({
     status : z.enum(RESTRICTED_STATUSES),
-    remark : z.string().trim().min(1, "A remark is required"),
+    // Only On Hold needs an explanation (why it's stuck, and when work resumes). In Progress and
+    // Completed (sent for approval) are a single tap with no remark.
+    remark : z.string().trim().optional(),
     captureMethod : z.enum(["LIVE", "GALLERY"]).optional(),
+}).refine(v => v.status !== "ON_HOLD" || !!v.remark, {
+    message : "A remark is required when putting a ticket on hold.",
+    path : ["remark"],
 })
 
 export type CreateTicketInput = z.infer<typeof createTicketSchema>;

@@ -641,7 +641,9 @@ export const ticketService = {
       changedBy: user.sub,
       fromStatus: before.status,
       toStatus: input.status,
-      remark: input.remark,
+      // Empty (not null: the column is NOT NULL) when the move needed no explanation. Readers
+      // already skip a blank remark.
+      remark: input.remark ?? "",
     })
 
     if (files.length) {
@@ -682,7 +684,7 @@ export const ticketService = {
     }
 
     if (input.status === "ON_HOLD" && before.status !== "ON_HOLD") {
-      await notifySafely(() => notificationService.notifyTicketOnHold(notificationTarget(afterRow!), input.remark, user.sub));
+      await notifySafely(() => notificationService.notifyTicketOnHold(notificationTarget(afterRow!), input.remark ?? "", user.sub));
     }
 
     return populated;

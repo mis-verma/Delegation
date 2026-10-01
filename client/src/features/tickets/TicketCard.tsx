@@ -111,7 +111,7 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, index = 0 }: Tic
             icon={CalendarDays}
             tone={isOverdue ? 'bg-danger' : 'bg-primary-700'}
             label={dueLabel(ticket.tatDueAt)}
-            title={isOverdue ? 'Overdue' : 'Target resolution date'}
+            title={isOverdue ? 'Delayed: past its target time' : 'Target resolution date'}
             className={isOverdue ? 'border-danger/30 text-danger' : undefined}
           />
         )}
