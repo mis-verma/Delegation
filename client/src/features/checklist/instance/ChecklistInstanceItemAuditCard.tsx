@@ -35,8 +35,10 @@ interface ChecklistInstanceItemAuditCardProps {
   isLocked:       boolean;
 }
 
-const personName = (submission: ChecklistInstanceItemSubmission) =>
-  `${submission.userId?.firstName ?? ''} ${submission.userId?.lastName ?? ''}`.trim() || 'Unknown person';
+const personName = (submission: ChecklistInstanceItemSubmission) => {
+  const name = `${submission.userId?.firstName ?? ''} ${submission.userId?.lastName ?? ''}`.trim() || 'Unknown person';
+  return submission.userId?.isActive === false ? `${name} (left)` : name;
+};
 
 // Pick a person, then fill in just their row. An auditor walks the floor one person at a time, so
 // the card shows one person's checklist at a time too, and moves on by itself after each Submit.

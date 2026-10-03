@@ -44,6 +44,8 @@ export type ChecklistInstanceItemSubmissionUser = {
   firstName: string;
   lastName:  string | null;
   storeId:   string | null;
+  /** false once the person has left (deactivated): their name is shown with "(left)". */
+  isActive?: boolean;
 };
 
 export type ChecklistInstanceItemSubmission = {
@@ -220,6 +222,33 @@ export type ChecklistInstanceSummary = {
 
 /** One submitted audit row for the History page: what an auditor recorded about ONE person on one
  *  AUDIT item of one run. ADMIN/PC get every store, MANAGER/SENIOR only their own department. */
+/** Someone who has been deactivated, with what their checklist history looks like. */
+export type FormerPerson = {
+  id:             string;
+  firstName:      string;
+  lastName:       string | null;
+  role:           string;
+  departmentName: string | null;
+  storeName:      string | null;
+  /** When their account was deactivated. */
+  leftAt:         string;
+  runsAssigned:   number;
+  runsWorked:     number;
+  auditsOnThem:   number;
+};
+
+/** One checklist run a person was part of. `theirs` = questions they completed themselves. */
+export type PersonRun = {
+  id:                 string;
+  title:              string;
+  storeName:          string | null;
+  periodStart:        string;
+  verificationStatus: ChecklistVerificationStatus;
+  total:              number;
+  done:               number;
+  theirs:             number;
+};
+
 export type AuditHistoryRow = {
   id:              string;
   itemLabel:       string;
@@ -233,6 +262,7 @@ export type AuditHistoryRow = {
   storeName:       string | null;
   personFirstName: string;
   personLastName:  string | null;
+  personIsActive:  boolean;
   accessories:    ChecklistInstanceItemSubmissionAccessory[];
   images:         Pick<ChecklistInstanceItemSubmissionImage, 'id' | 'url' | 'originalFilename' | 'captureMethod' | 'createdAt'>[];
 };
@@ -274,7 +304,15 @@ export const checklistInstanceApi = {
       })}`,
     ).then(r => ({ ...r, data: normalizeInstances(r.data) })),
 
-  getAuditHistory: (filter: { storeId?: string; from?: string; to?: string } = {}, paging: PageParams = {}) =>
+  getFormerPeople: () =>
+    apiFetch<ApiResponse<FormerPerson[]>>('/checklist-instances/former-people').then(r => r.data),
+
+  getPersonRuns: (userId: string, paging: PageParams = {}) =>
+    apiFetch<ApiResponse<PersonRun[]> & { meta: ChecklistInstancePage }>(
+      `/checklist-instances/former-people/${userId}/runs${buildQuery({ ...paging })}`,
+    ),
+
+  getAuditHistory: (filter: { storeId?: string; personId?: string; from?: string; to?: string } = {}, paging: PageParams = {}) =>
     apiFetch<ApiResponse<AuditHistoryRow[]> & { meta: ChecklistInstancePage }>(
       `/checklist-instances/audit-history${buildQuery({ ...filter, ...paging })}`,
     ),

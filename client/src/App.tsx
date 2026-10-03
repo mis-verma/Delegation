@@ -52,6 +52,7 @@ const AppearanceSettings = lazy(() => import('./features/settings/AppearanceSett
 const DirectoryPage = lazy(() => import('./features/admin/directory').then(m => ({ default: m.DirectoryPage })));
 const OrgStructurePage = lazy(() => import('./features/admin/orgStructure').then(m => ({ default: m.OrgStructurePage })));
 const ReportsPage = lazy(() => import('./features/reports').then(m => ({ default: m.ReportsPage })));
+const FormerPeoplePage = lazy(() => import('./features/checklist/former').then(m => ({ default: m.FormerPeoplePage })));
 const SystemHealthPage = lazy(() => import('./features/admin/health').then(m => ({ default: m.SystemHealthPage })));
 const AuditLogPage = lazy(() => import('./features/admin/auditLog').then(m => ({ default: m.AuditLogPage })));
 const HolidaysPage = lazy(() => import('./features/admin/holidays').then(m => ({ default: m.HolidaysPage })));
@@ -322,6 +323,7 @@ const router = createBrowserRouter([
               { path: '/admin/audit-log', element: <AuditLogPage /> },
               { path: '/admin/system-health', element: <SystemHealthPage /> },
               { path: '/admin/holidays', element: <HolidaysPage /> },
+              { path: '/admin/checklist-former', element: <FormerPeoplePage /> },
               { path: '/admin/checklist-weekly', element: <ChecklistWeeklyReport /> },
               { path: '/admin/presence', element: <PresenceOverview /> },
               { path: '/admin/settings', element: <SettingsPage /> },

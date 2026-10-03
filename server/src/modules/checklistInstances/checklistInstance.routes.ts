@@ -20,6 +20,8 @@ checklistInstanceRouter.get("/pending-verification", checklistInstanceController
 // Dashboard's "Needs your approval" card — a lightweight preview (title/store/waiting-since only,
 // no full hydrateInstances) distinct from the paginated queue above, gated ADMIN/PC to match it.
 checklistInstanceRouter.get("/pending-approval-preview", requireRole("ADMIN", "PC"), checklistInstanceController.pendingApprovalPreview)
+checklistInstanceRouter.get("/former-people", requireRole("ADMIN", "PC"), checklistInstanceController.formerPeople)
+checklistInstanceRouter.get("/former-people/:userId/runs", requireRole("ADMIN", "PC"), checklistInstanceController.personRuns)
 checklistInstanceRouter.get("/", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), checklistInstanceController.list)
 checklistInstanceRouter.get("/summary", checklistInstanceController.summary)
 checklistInstanceRouter.get("/reports/weekly", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), checklistInstanceController.weeklyReport)

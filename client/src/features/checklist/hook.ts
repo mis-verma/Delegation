@@ -218,7 +218,7 @@ export const useMyChecklistInstancesQuery = (
 // prefix on purpose, so submitting or reopening any audit row invalidates it along with everything
 // else on that prefix. The server scopes it by role (ADMIN/PC all, MANAGER/SENIOR their department).
 export const useAuditHistoryQuery = (
-  filter: { storeId?: string; from?: string; to?: string } = {},
+  filter: { storeId?: string; personId?: string; from?: string; to?: string } = {},
   paging: { page?: number; limit?: number } = {},
 ) => {
   const { token } = useAuth();
@@ -226,6 +226,26 @@ export const useAuditHistoryQuery = (
     queryKey: [...KEYS.auditHistory(), filter, paging],
     queryFn: () => checklistInstanceApi.getAuditHistory(filter, paging),
     enabled: !!token,
+    retry: handleQueryRetry,
+  });
+};
+
+export const useFormerPeopleQuery = () => {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: ['checklist-instances', 'former-people'],
+    queryFn: () => checklistInstanceApi.getFormerPeople(),
+    enabled: !!token,
+    retry: handleQueryRetry,
+  });
+};
+
+export const usePersonRunsQuery = (userId: string | null, page: number) => {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: ['checklist-instances', 'former-people', userId, 'runs', page],
+    queryFn: () => checklistInstanceApi.getPersonRuns(userId!, { page, limit: 15 }),
+    enabled: !!token && !!userId,
     retry: handleQueryRetry,
   });
 };

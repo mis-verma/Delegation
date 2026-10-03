@@ -11,6 +11,8 @@ import {
     checklistDefinitions,
     users,
     stores,
+    departments,
+    auditLogs,
     holidays,
     CHECKLIST_RECURRENCES,
     CHECKLIST_VERIFICATION_STATUSES,
@@ -117,7 +119,7 @@ const hydrateInstances = async (instanceRows: (typeof checklistInstances.$inferS
 
     const submissionUserIds = [...new Set(submissions.map((s) => s.userId))]
     const submissionUsers = submissionUserIds.length
-        ? await db.select({ id: users.id, firstName: users.firstName, lastName: users.lastName, storeId: users.storeId }).from(users).where(inArray(users.id, submissionUserIds))
+        ? await db.select({ id: users.id, firstName: users.firstName, lastName: users.lastName, storeId: users.storeId, isActive: users.isActive }).from(users).where(inArray(users.id, submissionUserIds))
         : []
     const submissionUserById = new Map(submissionUsers.map((u) => [u.id, u]))
 
@@ -878,9 +880,10 @@ export const checklistInstanceService = {
      * they have no department. The route is closed to everyone else, an audited person included:
      * what an auditor wrote about someone is for the people who oversee the audit.
      */
-    async auditHistory(user: AccessTokenPayload, filter: { from?: string; to?: string; storeId?: string; page?: number; limit?: number }) {
+    async auditHistory(user: AccessTokenPayload, filter: { from?: string; to?: string; storeId?: string; personId?: string; page?: number; limit?: number }) {
         const p = paginate(filter.page, filter.limit)
         const conditions = [eq(checklistInstanceItemSubmissions.isDone, true), parentNotDeletedExpr]
+        if (filter.personId) conditions.push(eq(checklistInstanceItemSubmissions.userId, filter.personId))
         if (filter.storeId) conditions.push(eq(checklistInstances.storeId, filter.storeId))
         if (filter.from) conditions.push(gte(checklistInstances.periodStart, new Date(filter.from)))
         if (filter.to) conditions.push(lte(checklistInstances.periodStart, new Date(filter.to)))
@@ -910,6 +913,7 @@ export const checklistInstanceService = {
             storeName: stores.name,
             personFirstName: users.firstName,
             personLastName: users.lastName,
+            personIsActive: users.isActive,
         })
             .from(checklistInstanceItemSubmissions)
             .innerJoin(checklistInstanceItems, eq(checklistInstanceItems.id, checklistInstanceItemSubmissions.itemId))
@@ -939,6 +943,95 @@ export const checklistInstanceService = {
             })),
         }))
         return { data, meta: buildMeta(p, total) }
+    },
+
+    /**
+     * Former people: everyone deactivated, with what their checklist history looks like, so it can
+     * be found after they have left. Admin / PC only (the route enforces it). `leftAt` is when the
+     * account was deactivated through offboarding, else when it was last touched.
+     */
+    async formerPeople() {
+        const people = await db.select({
+            id: users.id,
+            firstName: users.firstName,
+            lastName: users.lastName,
+            role: users.role,
+            departmentName: departments.name,
+            storeName: stores.name,
+            updatedAt: users.updatedAt,
+        })
+            .from(users)
+            .leftJoin(departments, eq(departments.id, users.departmentId))
+            .leftJoin(stores, eq(stores.id, users.storeId))
+            .where(eq(users.isActive, false))
+        if (!people.length) return []
+        const ids = people.map((p) => p.id)
+
+        const [worked, assigned, audited, left] = await Promise.all([
+            db.select({ userId: checklistInstanceItems.completedBy, n: sql<number>`COUNT(DISTINCT ${checklistInstanceItems.instanceId})` })
+                .from(checklistInstanceItems).where(inArray(checklistInstanceItems.completedBy, ids)).groupBy(checklistInstanceItems.completedBy),
+            db.select({ userId: checklistInstanceAssignees.userId, n: sql<number>`COUNT(DISTINCT ${checklistInstanceAssignees.instanceId})` })
+                .from(checklistInstanceAssignees).where(inArray(checklistInstanceAssignees.userId, ids)).groupBy(checklistInstanceAssignees.userId),
+            db.select({ userId: checklistInstanceItemSubmissions.userId, n: sql<number>`COUNT(*)` })
+                .from(checklistInstanceItemSubmissions)
+                .where(and(inArray(checklistInstanceItemSubmissions.userId, ids), eq(checklistInstanceItemSubmissions.isDone, true)))
+                .groupBy(checklistInstanceItemSubmissions.userId),
+            db.select({ userId: auditLogs.entityId, at: sql<Date>`MAX(${auditLogs.createdAt})`.mapWith(auditLogs.createdAt) })
+                .from(auditLogs).where(and(eq(auditLogs.entityType, "User"), eq(auditLogs.action, "OFFBOARD"), inArray(auditLogs.entityId, ids)))
+                .groupBy(auditLogs.entityId),
+        ])
+        const count = (rows: { userId: string | null; n: number }[]) => new Map(rows.map((r) => [r.userId, Number(r.n)]))
+        const workedBy = count(worked), assignedBy = count(assigned), auditedBy = count(audited)
+        const leftBy = new Map(left.map((r) => [r.userId, r.at]))
+
+        return people.map((p) => ({
+            id: p.id,
+            firstName: p.firstName,
+            lastName: p.lastName,
+            role: p.role,
+            departmentName: p.departmentName,
+            storeName: p.storeName,
+            leftAt: leftBy.get(p.id) ?? p.updatedAt,
+            runsAssigned: assignedBy.get(p.id) ?? 0,
+            runsWorked: workedBy.get(p.id) ?? 0,
+            auditsOnThem: auditedBy.get(p.id) ?? 0,
+        })).sort((a, b) => b.leftAt.getTime() - a.leftAt.getTime())
+    },
+
+    /** One former (or current) person's checklist runs: ones they were assigned or that they completed items on. */
+    async personRuns(personId: string, filter: { page?: number; limit?: number }) {
+        const p = paginate(filter.page, filter.limit)
+        const mine = sql`(
+            EXISTS (SELECT 1 FROM ${checklistInstanceAssignees} a WHERE a.instanceId = ${checklistInstances.id} AND a.userId = ${personId})
+            OR EXISTS (SELECT 1 FROM ${checklistInstanceItems} i WHERE i.instanceId = ${checklistInstances.id} AND i.completedBy = ${personId})
+        )`
+        const where = and(mine, parentNotDeletedExpr)
+
+        const [countRow] = await db.select({ n: sql<number>`COUNT(*)` }).from(checklistInstances).where(where)
+        const total = Number(countRow?.n ?? 0)
+
+        const rows = await db.select({
+            id: checklistInstances.id,
+            title: checklistInstances.title,
+            storeName: stores.name,
+            periodStart: checklistInstances.periodStart,
+            verificationStatus: checklistInstances.verificationStatus,
+            total: sql<number>`COUNT(${checklistInstanceItems.id})`,
+            done: sql<number>`COALESCE(SUM(${checklistInstanceItems.isDone}), 0)`,
+            theirs: sql<number>`COALESCE(SUM(CASE WHEN ${checklistInstanceItems.completedBy} = ${personId} THEN 1 ELSE 0 END), 0)`,
+        })
+            .from(checklistInstances)
+            .leftJoin(stores, eq(stores.id, checklistInstances.storeId))
+            .leftJoin(checklistInstanceItems, eq(checklistInstanceItems.instanceId, checklistInstances.id))
+            .where(where)
+            .groupBy(checklistInstances.id, checklistInstances.title, stores.name, checklistInstances.periodStart, checklistInstances.verificationStatus)
+            .orderBy(desc(checklistInstances.periodStart), desc(checklistInstances.id))
+            .limit(p.limit).offset(p.offset)
+
+        return {
+            data: rows.map((r) => ({ ...r, total: Number(r.total), done: Number(r.done), theirs: Number(r.theirs) })),
+            meta: buildMeta(p, total),
+        }
     },
 
     /**

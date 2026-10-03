@@ -87,9 +87,22 @@ export const checklistInstanceController = {
             from,
             to,
             storeId: req.query.storeId as string | undefined,
+            personId: req.query.personId as string | undefined,
             page,
             limit,
         })
+        res.json({ success: true, ...result })
+    }),
+
+    // GET /checklist-instances/former-people (ADMIN/PC): deactivated people and their checklist footprint
+    formerPeople: asyncHandler(async (_req: Request, res: Response) => {
+        res.json({ success: true, data: await checklistInstanceService.formerPeople() })
+    }),
+
+    // GET /checklist-instances/former-people/:userId/runs?page=&limit= (ADMIN/PC)
+    personRuns: asyncHandler(async (req: Request, res: Response) => {
+        const { page, limit } = listChecklistInstancesQuerySchema.parse(req.query)
+        const result = await checklistInstanceService.personRuns(req.params.userId, { page, limit })
         res.json({ success: true, ...result })
     }),
 

@@ -30,6 +30,9 @@ export function getAdminBreadcrumbs(pathname: string): BreadcrumbTrailItem[] | n
   if (pathname.startsWith('/admin/checklist-weekly')) {
     return [DASHBOARD, ADMIN_ROOT, { label: 'Weekly Report' }];
   }
+  if (pathname.startsWith('/admin/checklist-former')) {
+    return [DASHBOARD, ADMIN_ROOT, { label: 'Former People' }];
+  }
   if (pathname.startsWith('/admin/system-health')) {
     return [DASHBOARD, ADMIN_ROOT, { label: 'System Health' }];
   }

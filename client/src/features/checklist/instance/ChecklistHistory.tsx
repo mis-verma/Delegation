@@ -30,9 +30,12 @@ const lastDays = (n: number): DateRangeValue => {
   return { from, to };
 };
 
-const personName = (row: AuditHistoryRow) => `${row.personFirstName} ${row.personLastName ?? ''}`.trim();
+const personName = (row: AuditHistoryRow) => {
+  const name = `${row.personFirstName} ${row.personLastName ?? ''}`.trim();
+  return row.personIsActive === false ? `${name} (left)` : name;
+};
 
-const AuditRowCard = ({ row }: { row: AuditHistoryRow }) => {
+export const AuditRowCard = ({ row }: { row: AuditHistoryRow }) => {
   const missing = row.accessories.filter(a => !a.checked).length;
   return (
     <article className="flex flex-col gap-3 p-3.5 sm:p-4 rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface">
