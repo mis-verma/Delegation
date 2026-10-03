@@ -16,6 +16,10 @@ function cn(...inputs: ClassValue[]) {
 export const ENTITY_CARD_CLASS =
   'group relative flex flex-col justify-between p-4 sm:p-5 bg-surface rounded-2xl border border-border/60 transition-colors duration-150 hover:border-primary-300';
 
+// The same card chrome without the hover and padding: for static panels, headers, tiles and item cards
+// that sit next to entity cards, so every surface shares one radius and border.
+export const PANEL_CLASS = 'bg-surface rounded-2xl border border-border/60';
+
 // Loading placeholder shaped exactly like a real Users/Departments/Stores card (ENTITY_CARD_CLASS's
 // own padding/radius/border, not a hand-drifted approximation) — the three lists used to each
 // define their own skeleton with a different padding/height that didn't quite match the card that

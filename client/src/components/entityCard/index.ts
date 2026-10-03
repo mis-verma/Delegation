@@ -1,5 +1,6 @@
 export {
   ENTITY_CARD_CLASS,
+  PANEL_CLASS,
   EntityCardSkeleton,
   EntityIconTile,
   StatusPill,

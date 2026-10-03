@@ -1,4 +1,4 @@
-import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useAuth } from '../../context/AuthContext';
 import {
@@ -41,6 +41,8 @@ export const useChecklistDefinitionsQuery = (filters: Omit<ListChecklistDefiniti
     getNextPageParam: (lastPage) => (lastPage.meta?.hasNext ? lastPage.meta.page + 1 : undefined),
     enabled: !!token,
     retry: handleQueryRetry,
+    // Changing a filter keeps the old list on screen until the new one lands, instead of flashing skeletons.
+    placeholderData: keepPreviousData,
   });
 };
 
@@ -204,13 +206,15 @@ export const useMyChecklistInstancesQuery = (
     to?: string;
   } = {},
   paging: { page?: number; limit?: number } = {},
+  options: { enabled?: boolean } = {},
 ) => {
   const { token } = useAuth();
   return useQuery({
     queryKey: [...KEYS.myInstances(filter.status), filter, paging],
     queryFn: () => checklistInstanceApi.getMine(filter, paging).then(r => r.data),
-    enabled: !!token,
+    enabled: !!token && (options.enabled ?? true),
     retry: handleQueryRetry,
+    placeholderData: keepPreviousData,
   });
 };
 
@@ -220,13 +224,15 @@ export const useMyChecklistInstancesQuery = (
 export const useAuditHistoryQuery = (
   filter: { storeId?: string; personId?: string; from?: string; to?: string } = {},
   paging: { page?: number; limit?: number } = {},
+  options: { enabled?: boolean } = {},
 ) => {
   const { token } = useAuth();
   return useQuery({
     queryKey: [...KEYS.auditHistory(), filter, paging],
     queryFn: () => checklistInstanceApi.getAuditHistory(filter, paging),
-    enabled: !!token,
+    enabled: !!token && (options.enabled ?? true),
     retry: handleQueryRetry,
+    placeholderData: keepPreviousData,
   });
 };
 
@@ -247,6 +253,7 @@ export const usePersonRunsQuery = (userId: string | null, page: number) => {
     queryFn: () => checklistInstanceApi.getPersonRuns(userId!, { page, limit: 15 }),
     enabled: !!token && !!userId,
     retry: handleQueryRetry,
+    placeholderData: keepPreviousData,
   });
 };
 
@@ -281,18 +288,21 @@ export const useWeeklyReportQuery = (weekStart: string, storeId?: string) => {
     queryFn: () => checklistInstanceApi.getWeeklyReport(weekStart, storeId).then(r => r.data),
     enabled: !!token,
     retry: handleQueryRetry,
+    placeholderData: keepPreviousData,
   });
 };
 
 export const useChecklistInstancesBoardQuery = (
   filter: { storeId?: string; assigneeId?: string; status?: ChecklistInstanceStatus; from?: string; to?: string; includeDeleted?: boolean; page?: number; limit?: number } = {},
+  options: { enabled?: boolean } = {},
 ) => {
   const { token } = useAuth();
   return useQuery({
     queryKey: KEYS.instancesBoard(filter),
     queryFn: () => checklistInstanceApi.list(filter),
-    enabled: !!token,
+    enabled: !!token && (options.enabled ?? true),
     retry: handleQueryRetry,
+    placeholderData: keepPreviousData,
   });
 };
 

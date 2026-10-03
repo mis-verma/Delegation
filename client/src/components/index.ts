@@ -34,6 +34,7 @@ export { Combobox } from './combobox';
 export type { ComboboxOption } from './combobox';
 export {
   ENTITY_CARD_CLASS,
+  PANEL_CLASS,
   EntityCardSkeleton,
   EntityIconTile,
   StatusPill,
@@ -76,3 +77,8 @@ export type { FilterOption, FilterPerson } from './filterRow';
 export { OptionsDialog, SortOptionRow } from './optionsDialog';
 export { StatusRemarkDialog } from './statusRemarkDialog';
 export { ConfirmDialogProvider, useConfirm } from './confirmDialog';
+export { InlineError } from './inlineError';
+export { NoticeBanner } from './noticeBanner';
+export { PageHeader } from './pageHeader';
+export { PeriodStepper } from './periodStepper';
+export { ToggleChip, AddChip } from './toggleChip';
