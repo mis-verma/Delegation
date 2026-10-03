@@ -18,8 +18,10 @@ checklistInstanceRouter.get("/audit-history", requireRole("ADMIN", "PC", "MANAGE
 // router (same "No role gate on setItemDone" convention as the item router below).
 checklistInstanceRouter.get("/pending-verification", checklistInstanceController.listPendingVerification)
 // Dashboard's "Needs your approval" card — a lightweight preview (title/store/waiting-since only,
-// no full hydrateInstances) distinct from the paginated queue above, gated ADMIN/PC to match it.
-checklistInstanceRouter.get("/pending-approval-preview", requireRole("ADMIN", "PC"), checklistInstanceController.pendingApprovalPreview)
+// no full hydrateInstances) distinct from the paginated queue above. No role gate for the same
+// reason as that queue: the service scopes it (ADMIN/PC all, MANAGER/SENIOR their department, a
+// named reviewer their runs), and anyone else simply gets an empty list.
+checklistInstanceRouter.get("/pending-approval-preview", checklistInstanceController.pendingApprovalPreview)
 // Verification queue's "Decisions" feed; scoped per role in the service. Before "/:id".
 checklistInstanceRouter.get("/decisions", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), checklistInstanceController.decisions)
 checklistInstanceRouter.get("/former-people",requireRole("ADMIN", "PC"), checklistInstanceController.formerPeople)

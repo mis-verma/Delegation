@@ -1,6 +1,6 @@
 import { type Request , type Response } from "express"
 import { ticketService } from "./ticket.service.js"
-import { createTicketSchema , paginatioinSchema, updateTicketSchema , tatReportQuerySchema, ownerStatsQuerySchema, verifyTicketSchema, statusUpdateSchema } from "./ticket.validation.js"
+import { createTicketSchema , paginatioinSchema, updateTicketSchema , tatReportQuerySchema, ownerStatsQuerySchema, verifyTicketSchema, statusUpdateSchema, ticketSummaryQuerySchema } from "./ticket.validation.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
 import { resolveReportScope } from "../../utils/reportScope.js"
 
@@ -17,13 +17,15 @@ export const ticketController = {
     }),
 
     summary : asyncHandler(async (req : Request , res : Response) => {
-        const data = await ticketService.summary(req.user!);
+        const { scope } = ticketSummaryQuerySchema.parse(req.query);
+        const data = await ticketService.summary(req.user!, scope);
         res.json({ success : true , data })
     }),
 
+    // `data` is at most 8 rows; `meta.total` is the real number awaiting approval.
     pendingApproval : asyncHandler(async (req : Request , res : Response) => {
-        const data = await ticketService.pendingApproval();
-        res.json({ success : true , data })
+        const { data, meta } = await ticketService.pendingApproval();
+        res.json({ success : true , data, meta })
     }),
 
     create : asyncHandler( async (req : Request , res : Response) => {

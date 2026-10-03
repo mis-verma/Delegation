@@ -104,7 +104,9 @@ export const StatCard = ({
   const isInteractive = isLink || Boolean(onClick);
 
 
-  const hasTrend = trend != null && trend.label !== '—';
+  // A trend with no label, or one that only says there is nothing to compare, is not a trend: show
+  // no badge rather than a fake "0%".
+  const hasTrend = trend != null && trend.label !== '' && trend.label !== '—' && trend.label !== 'No data';
   const isFlat = hasTrend && Number.parseFloat(trend.label) === 0;
   const trendMood: TrendMood = !hasTrend || isFlat ? 'flat' : trend.direction === 'up' !== lowerIsBetter ? 'good' : 'bad';
   const TrendIcon = isFlat ? Minus : trend?.direction === 'up' ? ArrowUpRight : ArrowDownRight;

@@ -33,7 +33,7 @@ export const DashboardLayoutToolbar = ({ isCustomizing, onStart, onReset, onDone
     >
       <div className="flex items-center gap-2 text-xs font-display font-semibold text-primary-700 dark:text-primary-300">
         <LayoutGrid size={14} strokeWidth={2.25} className="text-primary-600 dark:text-primary-300 shrink-0" />
-        Customizing layout — drag a card by its grip, or set its size
+        Drag a card by its grip to reorder, or set its size
       </div>
       <div className="flex items-center gap-2">
         <button

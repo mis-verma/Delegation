@@ -19,6 +19,8 @@ import type { ConfirmSmartTaskPayload } from "../../api/task";
 import { taskBulkImportApi } from "../../api/taskBulkImport";
 import type { TaskBulkImportPublishPayload } from "../../api/taskBulkImport";
 import { toast } from "sonner";
+import type { SummaryScope } from "../../api/http";
+import type { DashboardQueryOptions } from "../../lib/dashboardQuery";
 
 const TASK_KEYS = {
     // The cache key includes which user's tasks we're looking at, so "my tasks" and "some other
@@ -39,7 +41,7 @@ const TASK_KEYS = {
 // enforced server-side in task.service.ts; a non-admin passing a userId here is just ignored).
 // `enabled` lets a caller (e.g. the header's quick search) defer the fetch until it's actually
 // needed, instead of every mount pulling the full list regardless of whether it's used yet.
-export const useTasksQuery = (userId?: string, enabled = true, tagIds?: string[]) => {
+export const useTasksQuery = (userId?: string, enabled = true, tagIds?: string[], options?: DashboardQueryOptions) => {
     const { token } = useAuth();
     return useQuery({
         queryKey: TASK_KEYS.all(userId, tagIds),
@@ -50,33 +52,37 @@ export const useTasksQuery = (userId?: string, enabled = true, tagIds?: string[]
         select: (page) => page.data,
         enabled:  !!token && enabled,
         retry: handleQueryRetry,
+        ...options,
     });
 };
 
-// The sidebar's "Delegation" count badge and its hover breakdown — a real server-side aggregate
-// (task.service.ts#summary), not a client-side reduce over useTasksQuery's own 200-row page,
-// which would silently undercount past that cap and would also pull the whole list just to count
-// it on every route (the sidebar renders everywhere).
-export const useTaskSummaryQuery = (enabled = true) => {
+// Server-side delegation counts (task.service.ts#summary), not a client-side reduce over
+// useTasksQuery's own 200-row page, which would silently undercount past that cap and would also
+// pull the whole list just to count it. `scope` picks the slice: 'mine' (assigned to me, the
+// sidebar badge's default) or 'visible' (everything this role can see; org-wide for ADMIN/PC).
+// The scope is part of the key, so the two never share a cache entry.
+export const useTaskSummaryQuery = (scope: SummaryScope = 'mine', enabled = true, options?: DashboardQueryOptions) => {
     const { token } = useAuth();
     return useQuery({
-        queryKey: ['tasks', 'summary'] as const,
-        queryFn: () => taskApi.getSummary(),
+        queryKey: ['tasks', 'summary', scope] as const,
+        queryFn: () => taskApi.getSummary(scope),
         enabled: !!token && enabled,
         retry: handleQueryRetry,
+        ...options,
     });
 };
 
 // Dashboard's "Needs your approval" card — `enabled` is the caller's own role check (ADMIN/PC
 // only), same convention as useTaskSummaryQuery's own `enabled` param, so a USER/MANAGER never
-// fires a request the route would 403 anyway.
-export const useTaskPendingApprovalQuery = (enabled = true) => {
+// fires a request the route would 403 anyway. Returns the oldest few rows plus the real queue size.
+export const useTaskPendingApprovalQuery = (enabled = true, options?: DashboardQueryOptions) => {
     const { token } = useAuth();
     return useQuery({
         queryKey: ['tasks', 'pending-approval'] as const,
         queryFn: () => taskApi.getPendingApproval(),
         enabled: !!token && enabled,
         retry: handleQueryRetry,
+        ...options,
     });
 };
 

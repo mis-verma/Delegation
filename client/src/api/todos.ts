@@ -22,6 +22,8 @@ export type UpdateTodoPayload = { text?: string; completed?: boolean; dueDate?: 
 export type TodoSummary = {
     total: number;
     newToday: number;
+    /** Open work: due (on track) plus overdue. */
+    pending: number;
     due: number;
     overdue: number;
     completed: number;

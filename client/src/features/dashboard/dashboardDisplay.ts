@@ -3,6 +3,9 @@ import type { Task } from '../../api/task';
 import type { Todo } from '../../api/todos';
 import type { ChecklistInstance } from '../../api/checklistInstances';
 import { instanceDeadline } from '../checklist/checklistDisplay';
+import { formatPoints } from '../admin/analytics/analyticsDisplay';
+import { PANEL_CLASS } from '../../components/entityCard';
+import type { DrilldownRow } from './DrilldownModal';
 
 // The shared surface every Dashboard card sits on — one definition instead of the same substring
 // retyped in eight different files, so a future change to the card's own look (like the richer
@@ -14,7 +17,9 @@ import { instanceDeadline } from '../checklist/checklistDisplay';
 // while the grid cell around it silently grew, so two cards sharing a row could still end at
 // different lines. Harmless on a card that isn't in that grid (nothing else reads a shared class
 // as "must fill its parent" unless the parent actually gives it a height to fill).
-export const DASHBOARD_CARD_CLASS = 'rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface h-full';
+// Built on PANEL_CLASS so every dashboard card shares one radius, border and surface with the rest
+// of the app (no dashboard-only dark-mode border override).
+export const DASHBOARD_CARD_CLASS = `${PANEL_CLASS} h-full`;
 
 // Mirrors taskDisplay.tsx's STATUS_CONFIG badge classes exactly — the feed sits on the same
 // dashboard as the KPI modal that already uses those tokens, so the same task's status color
@@ -41,6 +46,18 @@ export const formatRelativeTime = (isoDate: string) => {
   if (days === 1) return 'Yesterday';
   if (days < 7) return `${days}d ago`;
   return new Date(isoDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+};
+
+// "Today" / "Tomorrow" / "Mon, Oct 12" for an upcoming date, so a list of deadlines reads as
+// days away rather than a column of bare calendar dates. Compares local calendar days, not 24h
+// spans, so 11pm tonight and 1am tomorrow land on different labels.
+export const relativeDayLabel = (isoDate: string, now: number): string => {
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const days = Math.round((startOfDay(new Date(isoDate)) - startOfDay(new Date(now))) / 86_400_000);
+  if (days === 0) return 'Today';
+  if (days === 1) return 'Tomorrow';
+  if (days === -1) return 'Yesterday';
+  return new Date(isoDate).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 };
 
 export const greeting = () => {
@@ -88,14 +105,47 @@ export const trendFrom = (current: number, previous: number): Trend => {
   };
 };
 
-// Difference between two already-percentage values (e.g. two months' completion rates) —
-// a plain point delta, not a percent-of-a-percent, so "76% vs 72%" reads as "+4%" not "+5.6%".
-export const pointDelta = (current: number, previous: number): Trend => {
-  const diff = current - previous;
-  return {
-    direction: diff >= 0 ? 'up' : 'down',
-    label: `${diff >= 0 ? '+' : ''}${diff.toFixed(1)}%`
-  };
+// Difference between two already-percentage values (e.g. two months' completion rates) as a plain
+// point delta, not a percent-of-a-percent: "76% vs 72%" is +4 points, not +5.6%. Callers pass null
+// for "no data" (a period with zero items has no rate, which is not the same as 0%); either side
+// null gives null so no fake delta is shown. Returned unrounded; formatDelta rounds for display.
+export const pointDelta = (current: number | null, previous: number | null): number | null => {
+  if (current == null || previous == null) return null;
+  if (!Number.isFinite(current) || !Number.isFinite(previous)) return null;
+  return current - previous;
+};
+
+// '+4 pts' / '-3 pts' / '' (nothing to show). A delta that rounds to zero reads '0 pts' so a
+// genuinely flat score is not mistaken for missing data.
+export const formatDelta = (delta: number | null): string => (delta == null ? '' : formatPoints(delta));
+
+// Open delegation that has passed its due date. Draft, pending-approval and done work never counts
+// as overdue (the assignee has handed it off or it is not live yet), and no due date means no deadline.
+export const isTaskOverdue = (task: Pick<Task, 'status' | 'dueDate'>, now: number): boolean => {
+  if (task.status === 'done' || task.status === 'draft' || task.status === 'pending_approval') return false;
+  if (!task.dueDate) return false;
+  return new Date(task.dueDate).getTime() < now;
+};
+
+// A delegation as a preview-modal row: one mapping for every dashboard card that opens a list of
+// tasks, so the status and overdue flag can never disagree between two cards.
+export const taskDrilldownRow = (task: Task, now: number): DrilldownRow => ({
+  id: task.id,
+  title: task.title,
+  link: `/tasks?open=${task.id}`,
+  createdAt: task.createdAt,
+  completed: task.status === 'done',
+  overdue: isTaskOverdue(task, now),
+});
+
+// "Late" for a ticket: still open and past its TAT (the server's isOverdue), or closed after its
+// TAT due time. Same definition the ticket reports use, so a dashboard chip matches the report.
+export const isTicketLate = (ticket: Pick<Ticket, 'status' | 'isOverdue' | 'closedAt' | 'tatDueAt'>): boolean => {
+  if (ticket.status === 'CLOSED') {
+    if (!ticket.closedAt || !ticket.tatDueAt) return false;
+    return new Date(ticket.closedAt).getTime() > new Date(ticket.tatDueAt).getTime();
+  }
+  return ticket.isOverdue;
 };
 
 // Granularities the server's compliance-report aggregation already buckets by (see
@@ -295,6 +345,11 @@ export interface ActivityWorkItem {
   createdAt: string;
   completed: boolean;
   overdue: boolean;
+  /** Missed its deadline: still open past due, or finished after it (delegations use verifiedAt,
+   *  else updatedAt, as the finish time; tickets use closedAt vs the TAT). Falls back to `overdue`
+   *  when absent. The on-time rate counts only items that are done or late, never open work that
+   *  is not yet due. */
+  late?: boolean;
   // Everyone who owns/is assigned to this item — a task/ticket has an owner plus one or more
   // assignees, a checklist instance can have several assignees, a todo has none client-side (it's
   // implicitly "mine"). Kept as an array (not a single userId) so the Compliance card's "Person"
@@ -330,7 +385,10 @@ export const buildActivityItems = (
     category: 'delegation',
     createdAt: t.createdAt,
     completed: t.status === 'done',
-    overdue: t.status !== 'done' && !!t.dueDate && new Date(t.dueDate).getTime() < now,
+    overdue: isTaskOverdue(t, now),
+    late:
+      isTaskOverdue(t, now) ||
+      (t.status === 'done' && !!t.dueDate && new Date(t.verifiedAt ?? t.updatedAt).getTime() > new Date(t.dueDate).getTime()),
     // additionalAssigneeIds is typed as always an array, but real records have been seen missing
     // it entirely — spreading a null/undefined value throws "is not iterable" at runtime, so it's
     // defaulted defensively here rather than trusting the type.
@@ -346,6 +404,7 @@ export const buildActivityItems = (
     createdAt: t.createdAt,
     completed: t.status === 'CLOSED',
     overdue: t.isOverdue,
+    late: isTicketLate(t),
     userIds: [t.userId, t.assigneeId].filter((id): id is string => !!id),
     departmentId: t.departmentId,
     storeId: t.storeId,

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { apiFetch } from './http';
+import { apiFetch, type SummaryScope, type PendingApprovalPreview } from './http';
 import { arrayField, withArrayDefaults, normalizeWith } from './normalize';
 import { taskChecklistDefaults, type TaskChecklist } from './taskChecklist';
 import type { Tag } from './tags';
@@ -170,6 +170,8 @@ export type TaskListPage = { data: Task[]; meta: ListMeta };
 export type TaskSummary = {
     total: number;
     newToday: number;
+    /** Open work: due (on track) plus overdue. */
+    pending: number;
     due: number;
     overdue: number;
     completed: number;
@@ -236,11 +238,12 @@ export const taskApi = {
 
     getOne: (id: string) => apiFetch<ApiResponse<Task>>(`/tasks/${id}`).then(r => normalizeTask(r.data)),
 
-    getSummary: (): Promise<TaskSummary> =>
-        apiFetch<ApiResponse<TaskSummary>>('/tasks/summary').then(r => r.data),
+    getSummary: (scope: SummaryScope = 'mine'): Promise<TaskSummary> =>
+        apiFetch<ApiResponse<TaskSummary>>(`/tasks/summary?scope=${scope}`).then(r => r.data),
 
-    getPendingApproval: (): Promise<TaskPendingApproval[]> =>
-        apiFetch<ApiResponse<TaskPendingApproval[]>>('/tasks/pending-approval').then(r => r.data),
+    getPendingApproval: (): Promise<PendingApprovalPreview<TaskPendingApproval>> =>
+        apiFetch<ApiResponse<TaskPendingApproval[]> & { meta?: { total: number } }>('/tasks/pending-approval')
+            .then(r => ({ rows: r.data, total: r.meta?.total ?? r.data.length })),
 
     create: (payload: CreateTaskPayload) =>
         apiFetch<ApiResponse<Task>>('/tasks', { method: 'POST', body: JSON.stringify(payload) }).then(r => normalizeTask(r.data)),

@@ -35,7 +35,7 @@ export const PinnedBreakdown = ({ title, onClose, variant = 'pinned', className 
           type="button"
           onClick={onClose}
           aria-label="Close breakdown"
-          className="p-1 -m-1 rounded-md text-text-light hover:text-text hover:bg-surface-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 transition-colors duration-200 cursor-pointer"
+          className="flex items-center justify-center size-11 -my-3 -mr-3 rounded-md text-text-light hover:text-text hover:bg-surface-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 transition-colors duration-200 cursor-pointer"
         >
           <X size={14} />
         </button>

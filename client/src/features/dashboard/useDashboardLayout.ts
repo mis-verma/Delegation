@@ -1,15 +1,28 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { arrayMove } from '@dnd-kit/sortable';
 import { useAuth } from '../../context/AuthContext';
 import {
   DEFAULT_CARD_ORDER,
   DEFAULT_CARD_SIZES,
   ADMIN_ONLY_CARDS,
+  LAYOUT_VERSION,
+  LEGACY_V1_DEFAULT_ORDER,
+  LEGACY_V1_ADMIN_ONLY,
   type DashboardCardId,
   type DashboardCardSize,
 } from './dashboardLayout';
 
 interface StoredLayout {
+  /** Absent on layouts saved before versioning existed (those are version 1). */
+  version?: number;
+  order: DashboardCardId[];
+  sizes: Partial<Record<DashboardCardId, DashboardCardSize>>;
+}
+
+interface LoadedLayout {
+  version: number;
+  /** Every id as it was saved, including ones this version no longer has. Only used to recognise
+   *  an untouched old default. */
+  rawOrder: string[];
   order: DashboardCardId[];
   sizes: Partial<Record<DashboardCardId, DashboardCardSize>>;
 }
@@ -19,14 +32,17 @@ const STORAGE_PREFIX = 'tm-dashboard-layout';
 const isDashboardCardId = (value: unknown): value is DashboardCardId =>
   typeof value === 'string' && (DEFAULT_CARD_ORDER as readonly string[]).includes(value);
 
-const loadStoredLayout = (key: string): StoredLayout | null => {
+const loadStoredLayout = (key: string): LoadedLayout | null => {
   try {
     const raw = localStorage.getItem(key);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<StoredLayout>;
     if (!Array.isArray(parsed.order)) return null;
+    const rawOrder = (parsed.order as unknown[]).filter((id): id is string => typeof id === 'string');
     return {
-      order: parsed.order.filter(isDashboardCardId),
+      version: typeof parsed.version === 'number' ? parsed.version : 1,
+      rawOrder,
+      order: rawOrder.filter(isDashboardCardId),
       sizes: parsed.sizes && typeof parsed.sizes === 'object' ? parsed.sizes : {},
     };
   } catch {
@@ -36,6 +52,14 @@ const loadStoredLayout = (key: string): StoredLayout | null => {
   }
 };
 
+// Drag-reorder without pulling @dnd-kit into the home bundle just for this helper.
+const moveItem = <T,>(list: readonly T[], from: number, to: number): T[] => {
+  const next = [...list];
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
+};
+
 /**
  * Drag-to-reorder and small/big sizing for the dashboard's card grid — gated behind an explicit
  * `isCustomizing` mode (HomePage only shows drag handles/size toggles while it's on) so the
@@ -43,6 +67,9 @@ const loadStoredLayout = (key: string): StoredLayout | null => {
  *
  * Saved per signed-in account, not per browser — a chosen layout is a personal preference tied to
  * who's logged in, not a device setting like the theme toggle.
+ *
+ * Versioned: when the default order changes (LAYOUT_VERSION), a saved layout that is still exactly
+ * the previous default is moved to the new default, and one the user rearranged keeps their order.
  */
 export const useDashboardLayout = (isOrgWideRole: boolean) => {
   const { user } = useAuth();
@@ -64,9 +91,18 @@ export const useDashboardLayout = (isOrgWideRole: boolean) => {
     return [...kept, ...missing];
   }, [visibleCards]);
 
+  // True when a v1 layout is just the old default for this viewer's role, i.e. the user never
+  // rearranged anything and so has no custom order worth preserving.
+  const isUntouchedLegacyDefault = useCallback((rawOrder: string[]): boolean => {
+    const legacyForRole = LEGACY_V1_DEFAULT_ORDER.filter((id) => isOrgWideRole || !LEGACY_V1_ADMIN_ONLY.has(id));
+    return rawOrder.length === legacyForRole.length && rawOrder.every((id, i) => id === legacyForRole[i]);
+  }, [isOrgWideRole]);
+
   const [order, setOrder] = useState<DashboardCardId[]>(() => {
     const stored = loadStoredLayout(storageKey);
-    return stored ? reconcile(stored.order) : [...visibleCards];
+    if (!stored) return [...visibleCards];
+    if (stored.version < LAYOUT_VERSION && isUntouchedLegacyDefault(stored.rawOrder)) return [...visibleCards];
+    return reconcile(stored.order);
   });
   const [sizes, setSizes] = useState<Record<DashboardCardId, DashboardCardSize>>(() => {
     const stored = loadStoredLayout(storageKey);
@@ -88,7 +124,7 @@ export const useDashboardLayout = (isOrgWideRole: boolean) => {
 
   useEffect(() => {
     try {
-      localStorage.setItem(storageKey, JSON.stringify({ order, sizes } satisfies StoredLayout));
+      localStorage.setItem(storageKey, JSON.stringify({ version: LAYOUT_VERSION, order, sizes } satisfies StoredLayout));
     } catch {
       // A layout that can't be saved just resets on the next reload — not worth failing anything
       // over (private window, full storage, disabled site data).
@@ -100,7 +136,7 @@ export const useDashboardLayout = (isOrgWideRole: boolean) => {
       const from = prev.indexOf(activeId);
       const to = prev.indexOf(overId);
       if (from === -1 || to === -1 || from === to) return prev;
-      return arrayMove(prev, from, to);
+      return moveItem(prev, from, to);
     });
   }, []);
 

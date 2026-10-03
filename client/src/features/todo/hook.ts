@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient, type QueryClient } from "@tansta
 import { useAuth } from "@/context/AuthContext";
 import { todoApi, type Todo, type CreateTodoPayload, type UpdateTodoPayload } from "@/api/todos";
 import { toast } from "sonner";
+import type { DashboardQueryOptions } from "@/lib/dashboardQuery";
 
 const errorMessage = (err: unknown, fallback: string) => (err instanceof Error ? err.message : fallback);
 
@@ -23,24 +24,26 @@ const beginOptimistic = async (queryClient: QueryClient, patch: (todos: Todo[]) 
 
 // `enabled` lets a caller (e.g. the header's quick search) defer the fetch until it's actually
 // needed, instead of every mount pulling the full list regardless of whether it's used yet.
-export const useTodosQuery = (enabled = true) => {
+export const useTodosQuery = (enabled = true, options?: DashboardQueryOptions) => {
     const { token } = useAuth();
     return useQuery({
         queryKey: TODO_KEY.all,
         queryFn: () => todoApi.getAll().then(r => r.data),
         enabled: !!token && enabled,
+        ...options,
     });
 };
 
-// The sidebar's "To-Do" count badge and its hover breakdown — a real server-side aggregate
-// (todo.service.ts#summary) rather than a client-side reduce over useTodosQuery, so the sidebar
-// doesn't need the whole list just to count it on every route (it renders everywhere).
-export const useTodoSummaryQuery = (enabled = true) => {
+// Server-side todo counts (todo.service.ts#summary) rather than a client-side reduce over
+// useTodosQuery, so the sidebar and the dashboard don't need the whole list just to count it.
+// Todos are always strictly per-user, so there is no scope to pick.
+export const useTodoSummaryQuery = (enabled = true, options?: DashboardQueryOptions) => {
     const { token } = useAuth();
     return useQuery({
         queryKey: ["todos", "summary"] as const,
         queryFn: () => todoApi.getSummary(),
         enabled: !!token && enabled,
+        ...options,
     });
 };
 

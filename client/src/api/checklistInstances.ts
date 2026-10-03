@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { apiFetch } from './http';
+import { apiFetch, type PendingApprovalPreview } from './http';
 import { arrayField, withArrayDefaults, normalizeWith } from './normalize';
 import type { ApiResponse, ChecklistRecurrence, ChecklistItemType, ChecklistConditionalAction } from './checklistDefinitions';
 import type { CaptureMethod } from './ticket';
@@ -396,8 +396,9 @@ export const checklistInstanceApi = {
       })}`,
     ),
 
-  getPendingApprovalPreview: (): Promise<ChecklistPendingApproval[]> =>
-    apiFetch<ApiResponse<ChecklistPendingApproval[]>>('/checklist-instances/pending-approval-preview').then(r => r.data),
+  getPendingApprovalPreview: (): Promise<PendingApprovalPreview<ChecklistPendingApproval>> =>
+    apiFetch<ApiResponse<ChecklistPendingApproval[]> & { meta?: { total: number } }>('/checklist-instances/pending-approval-preview')
+      .then(r => ({ rows: r.data, total: r.meta?.total ?? r.data.length })),
 
   getOne: (id: string) =>
     apiFetch<ApiResponse<ChecklistInstance>>(`/checklist-instances/${id}`)

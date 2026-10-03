@@ -2,7 +2,8 @@ import { db } from "../../config/db.js"
 import { tasks, taskAdditionalAssignees, taskAttachments, taskChecklists, taskChecklistItems, taskImages, taskStatusUpdates, tags, taskTags, taskReviewers, TASK_STATUSES } from "../../db/schema/index.js"
 import { users } from "../../db/schema/core.js"
 import { eq, and, or, inArray, asc, desc, sql, isNull, isNotNull, ne, type SQL } from "drizzle-orm"
-import { cached, cacheKey } from "../../config/queryCache.js"
+import { cached, cacheKey, invalidateQuick } from "../../config/queryCache.js"
+import { orgDayStartUtc } from "../../utils/orgDay.js"
 import { createId } from "@paralleldrive/cuid2"
 import { AppError } from "../../utils/AppError.js"
 import { assertChecklistsResolved } from "../../utils/checklistGate.js"
@@ -288,12 +289,25 @@ export type TaskPendingApprovalRow = {
 // (minus `draft`, which only Tasks genuinely have) in their own summary() methods.
 export type TaskSummaryRow = {
     total: number;
+    /** Open work: due + overdue. Drafts and finished tasks are not pending. */
+    pending: number;
     newToday: number;
     due: number;
     overdue: number;
     completed: number;
     draft: number;
 };
+
+export type TaskSummaryScope = "mine" | "visible";
+
+const TASK_SUMMARY_PREFIX = "task-summary";
+// Short on purpose: the numbers also move with the clock (a due date passing) and with writers that
+// don't go through this service (bulk import), neither of which can invalidate anything.
+const SUMMARY_TTL_SECONDS = 10;
+
+// Called by every mutation that can change a count. Wipes every user's cached summary, since one
+// task moves numbers for its creator, assignees and every manager/admin who can see it.
+const dropTaskSummaries = () => invalidateQuick(`${TASK_SUMMARY_PREFIX}:`);
 
 // One grouped SQL aggregate behind ownerStats below — `column` is what to GROUP BY (a department/
 // assignee id column, or NULL for one ungrouped org-wide row when `grouped` is false).
@@ -489,6 +503,7 @@ export const taskService = {
         }, task);
 
         await auditService.record({ entityType: "Task", entityId: task!.id, action: "CREATE", actorId: user.sub, after: task });
+        await dropTaskSummaries();
 
         return task!;
     },
@@ -587,6 +602,7 @@ export const taskService = {
         }
 
         await auditService.record({ entityType: "Task", entityId: task.id, action: "CREATE", actorId: user.sub, after: task });
+        await dropTaskSummaries();
 
         return task;
     },
@@ -749,6 +765,8 @@ export const taskService = {
             after: { ...task, tagIds: afterTagIds },
         });
 
+        await dropTaskSummaries();
+
         // Includes the history: the client writes this response straight into its detail cache,
         // so returning the bare row would momentarily blank the Activity feed's status entries.
         // Labels too: without them the detail cache lost its chips after every field edit.
@@ -831,6 +849,7 @@ export const taskService = {
         // decision an audit is most likely to be asked about, and folding it into the generic
         // UPDATE stream would make it indistinguishable from an ordinary field edit.
         await auditService.record({ entityType: "Task", entityId: id, action: "VERIFY", actorId: user.sub, after: updated });
+        await dropTaskSummaries();
 
         return { ...updated!, statusUpdates: await loadStatusUpdates(id) };
     },
@@ -861,6 +880,7 @@ export const taskService = {
         // `before` is the pre-delete row — same DELETE audit shape as when this was a hard delete,
         // even though the row itself now lives on with deletedAt set.
         await auditService.record({ entityType: "Task", entityId: id, action: "DELETE", actorId: user.sub, before: task });
+        await dropTaskSummaries();
 
         return task;
     },
@@ -888,6 +908,7 @@ export const taskService = {
         }, restored);
 
         await auditService.record({ entityType: "Task", entityId: id, action: "UPDATE", actorId: user.sub, before: task, after: restored });
+        await dropTaskSummaries();
 
         return restored;
     },
@@ -1011,24 +1032,50 @@ export const taskService = {
     // the whole org's count the moment someone had elevated access would stop meaning "what's on my
     // plate" and would also be a much heavier query running on literally every page load (the
     // sidebar renders on every route).
-    async summary(user: AccessTokenPayload): Promise<TaskSummaryRow> {
-        const additionalIds = await additionalAssigneeTaskIds(user.sub);
-        const mineCondition = additionalIds.length
-            ? or(selfAndDepartmentCondition(user), inArray(tasks.id, additionalIds))
-            : selfAndDepartmentCondition(user);
-        const where = and(NOT_DELETED, mineCondition);
+    //
+    // Without `scope` this is exactly that badge (every category, subtasks included, so the sidebar
+    // never changes). The dashboard passes a scope instead and gets numbers over real delegations
+    // only (category 'delegation', no subtasks, no drafts), computed here rather than from a capped
+    // list in the browser:
+    //   mine    - assigned to me, as the assignee or an additional assignee
+    //   visible - everything the caller's role can see (buildVisibilityCondition: ADMIN/PC the org,
+    //             MANAGER their department, everyone else their own work)
+    // `pending` is every open delegation (due + overdue); `overdue` is open work past its due date,
+    // so a task waiting on a reviewer (pending_approval) is never overdue.
+    async summary(user: AccessTokenPayload, scope?: TaskSummaryScope): Promise<TaskSummaryRow> {
+        // Short TTL plus explicit invalidation from every mutation below (dropTaskSummaries). The TTL
+        // covers what has no hook: bulk import, the clock passing a due date.
+        return cached(cacheKey(TASK_SUMMARY_PREFIX, scope ?? "default", user.sub), SUMMARY_TTL_SECONDS, async () => {
+            let where: SQL | undefined;
+            if (!scope) {
+                const additionalIds = await additionalAssigneeTaskIds(user.sub);
+                const mineCondition = additionalIds.length
+                    ? or(selfAndDepartmentCondition(user), inArray(tasks.id, additionalIds))
+                    : selfAndDepartmentCondition(user);
+                where = and(NOT_DELETED, mineCondition);
+            } else {
+                // EXISTS, not an id list: the additional-assignee table only grows.
+                const scopeCondition = scope === "mine"
+                    ? or(
+                        eq(tasks.assigneeId, user.sub),
+                        sql`EXISTS (SELECT 1 FROM ${taskAdditionalAssignees} ta WHERE ta.taskId = ${tasks.id} AND ta.userId = ${user.sub})`,
+                    )
+                    : await buildVisibilityCondition(user);
+                where = and(
+                    NOT_DELETED,
+                    eq(tasks.category, "delegation"),
+                    isNull(tasks.parentTaskId),
+                    ne(tasks.status, "draft"),
+                    scopeCondition,
+                );
+            }
 
-        // 30s cache, same short TTL and reasoning as checklistInstance.service.ts#summary — this
-        // moves whenever anyone touches a task anywhere, so there's no single invalidation moment
-        // to hook, and a badge that's up to half a minute stale is a fair trade against a real
-        // aggregate query running on every page load.
-        return cached(cacheKey("task-summary", user.sub), 30, async () => {
             const [row] = await db.select({
                 total: sql<number>`COUNT(*)`,
                 draft: sql<number>`SUM(CASE WHEN ${tasks.status} = 'draft' THEN 1 ELSE 0 END)`,
                 completed: sql<number>`SUM(CASE WHEN ${tasks.status} = 'done' THEN 1 ELSE 0 END)`,
                 overdue: sql<number>`SUM(CASE WHEN ${tasks.status} NOT IN ('done', 'draft', 'pending_approval') AND ${tasks.dueDate} IS NOT NULL AND ${tasks.dueDate} < ${utcSql(new Date())} THEN 1 ELSE 0 END)`,
-                newToday: sql<number>`SUM(CASE WHEN ${tasks.createdAt} >= CURDATE() THEN 1 ELSE 0 END)`,
+                newToday: sql<number>`SUM(CASE WHEN ${tasks.createdAt} >= ${utcSql(orgDayStartUtc())} THEN 1 ELSE 0 END)`,
             }).from(tasks).where(where);
 
             const total = Number(row?.total ?? 0);
@@ -1041,6 +1088,7 @@ export const taskService = {
             const active = total - draft - completed;
             return {
                 total: total - draft,
+                pending: active,
                 newToday: Number(row?.newToday ?? 0),
                 due: active - overdue,
                 overdue,
@@ -1057,8 +1105,14 @@ export const taskService = {
     // on the schema but nothing ever writes it), so this over-fetches a small pool by createdAt,
     // looks up each row's real transition time from TaskStatusUpdate, and re-sorts by that. Same
     // batch-fetch-then-map shape ticket.service.ts#pendingApproval uses, not a derived-table join.
-    async pendingApproval(limit = 8): Promise<TaskPendingApprovalRow[]> {
+    //
+    // `meta.total` is the real number awaiting approval (COUNT over the same filter), because the
+    // card shows at most `limit` rows and its badge used to count those rows instead.
+    async pendingApproval(limit = 8): Promise<{ data: TaskPendingApprovalRow[]; meta: { total: number } }> {
         const POOL = 40;
+        const pendingWhere = and(eq(tasks.status, "pending_approval"), NOT_DELETED);
+        const [countRow] = await db.select({ total: sql<number>`COUNT(*)` }).from(tasks).where(pendingWhere);
+        const total = Number(countRow?.total ?? 0);
         const rows = await db.select({
             id: tasks.id,
             title: tasks.title,
@@ -1068,11 +1122,11 @@ export const taskService = {
         })
             .from(tasks)
             .leftJoin(users, eq(tasks.userId, users.id))
-            .where(and(eq(tasks.status, "pending_approval"), NOT_DELETED))
+            .where(pendingWhere)
             .orderBy(asc(tasks.createdAt))
             .limit(POOL);
 
-        if (rows.length === 0) return [];
+        if (rows.length === 0) return { data: [], meta: { total } };
 
         const ids = rows.map((r) => r.id);
         const sinceRows = await db.select({
@@ -1087,7 +1141,7 @@ export const taskService = {
             .groupBy(taskStatusUpdates.taskId);
         const sinceById = new Map(sinceRows.map((r) => [r.taskId, r.since]));
 
-        return rows
+        const data = rows
             .map((r) => ({
                 id: r.id,
                 title: r.title,
@@ -1096,6 +1150,7 @@ export const taskService = {
             }))
             .sort((a, b) => new Date(a.waitingSince).getTime() - new Date(b.waitingSince).getTime())
             .slice(0, limit);
+        return { data, meta: { total } };
     },
 
 };

@@ -100,3 +100,11 @@ export const apiFetch = async <T>(path: string, options: RequestInit = {}): Prom
   if (!res.ok) throw new ApiError(data?.message ?? 'Request failed', res.status);
   return data as T;
 };
+
+/** Which slice of the work a summary counts: `mine` is work assigned to the signed-in user,
+ *  `visible` is everything their role can see (org-wide for ADMIN/PC, department for HODs). */
+export type SummaryScope = 'mine' | 'visible';
+
+/** A pending-approval preview: the oldest few rows plus the true queue size, so a card can say
+ *  "+12 more" instead of implying the preview is the whole queue. */
+export type PendingApprovalPreview<T> = { rows: T[]; total: number };

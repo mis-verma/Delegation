@@ -1,16 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Cell } from 'recharts';
 import { BarChart3, ChevronRight, Plus } from 'lucide-react';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { PinnedBreakdown, BreakdownHint } from './PinnedBreakdown';
 import { DrilldownModal } from './DrilldownModal';
-import { Button } from '../../components';
+import { EmptyState } from '../../components';
 import {
   lastActivityBuckets,
   countItemsInRange,
   itemsInRange,
   ACTIVITY_BUCKET_COUNT,
+  ACTIVITY_GROUP_RANGE_LABEL,
   ACTIVITY_CATEGORY_ORDER,
   ACTIVITY_CATEGORY_LABEL,
   ACTIVITY_CATEGORY_COLOR,
@@ -62,6 +63,9 @@ const NarrowCursor = ({ x = 0, y = 0, width = 0, height = 0 }: NarrowCursorProps
   />
 );
 
+const datumTotal = (datum: ActivityDatum, order: readonly ActivityCategory[]) =>
+  order.reduce((sum, c) => sum + datum[c], 0);
+
 // Shared by the hover tooltip and the tap-to-pin panel below the chart, so mobile (no hover) gets
 // the exact same breakdown a desktop user sees on hover, not a stripped-down version. Only shows
 // rows for categories the filter above the chart currently has active.
@@ -69,7 +73,7 @@ const NarrowCursor = ({ x = 0, y = 0, width = 0, height = 0 }: NarrowCursorProps
 // `onCategoryClick` is only ever passed by the tap-to-pin panel, never the hover tooltip — a
 // hover tooltip disappears the instant the pointer moves toward it, so nothing inside one can be
 // clickable in practice.
-const BreakdownRows = ({
+const BreakdownRows = memo(({
   datum,
   activeCategories,
   onCategoryClick,
@@ -78,36 +82,34 @@ const BreakdownRows = ({
   activeCategories: ReadonlySet<ActivityCategory>;
   onCategoryClick?: (category: ActivityCategory) => void;
 }) => (
-  <>
-    <div className="flex flex-col gap-1.5">
-      {ACTIVITY_CATEGORY_ORDER.filter((category) => activeCategories.has(category)).map((category) => {
-        const clickable = !!onCategoryClick && datum[category] > 0;
-        const RowTag = clickable ? 'button' : 'div';
-        return (
-          // min-h-11 (44px) — same tap-target fix as ActivityComplianceGauges' BreakdownRatioRows;
-          // this row became a button when the drill-down modal was added and needs the same floor.
-          <RowTag
-            key={category}
-            type={clickable ? 'button' : undefined}
-            onClick={clickable ? () => onCategoryClick!(category) : undefined}
-            className={`flex items-center justify-between gap-4 text-[13px] w-full min-h-11 rounded-lg -mx-2 px-2 transition-colors duration-200 ${
-              clickable ? 'cursor-pointer text-left hover:bg-surface-hover' : ''
-            }`}
-          >
-            <div className="flex items-center gap-1.5 text-text-secondary">
-              <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: ACTIVITY_CATEGORY_COLOR[category] }} />
-              {ACTIVITY_CATEGORY_LABEL[category]}
-            </div>
-            <span className="flex items-center gap-2.5 shrink-0">
-              <span className="font-display font-bold text-text tabular-nums">{datum[category]}</span>
-              {clickable && <ChevronRight size={14} strokeWidth={2.5} className="text-text-light" />}
-            </span>
-          </RowTag>
-        );
-      })}
-    </div>
-  </>
-);
+  <div className="flex flex-col gap-1.5">
+    {ACTIVITY_CATEGORY_ORDER.filter((category) => activeCategories.has(category)).map((category) => {
+      const clickable = !!onCategoryClick && datum[category] > 0;
+      const RowTag = clickable ? 'button' : 'div';
+      return (
+        // min-h-11 (44px): this row is a button in the pinned panel and needs the touch floor.
+        <RowTag
+          key={category}
+          type={clickable ? 'button' : undefined}
+          onClick={clickable ? () => onCategoryClick!(category) : undefined}
+          className={`flex items-center justify-between gap-4 text-sm w-full min-h-11 rounded-lg -mx-2 px-2 transition-colors duration-200 ${
+            clickable ? 'cursor-pointer text-left hover:bg-surface-hover' : ''
+          }`}
+        >
+          <div className="flex items-center gap-1.5 text-text-secondary">
+            <span aria-hidden="true" className="size-2 rounded-full shrink-0" style={{ backgroundColor: ACTIVITY_CATEGORY_COLOR[category] }} />
+            {ACTIVITY_CATEGORY_LABEL[category]}
+          </div>
+          <span className="flex items-center gap-2.5 shrink-0">
+            <span className="font-display font-bold text-text tabular-nums">{datum[category]}</span>
+            {clickable && <ChevronRight size={14} strokeWidth={2.5} className="text-text-light" aria-hidden="true" />}
+          </span>
+        </RowTag>
+      );
+    })}
+  </div>
+));
+BreakdownRows.displayName = 'BreakdownRows';
 
 interface TotalLabelProps {
   x?: string | number;
@@ -125,7 +127,7 @@ const makeTotalLabel = (data: readonly ActivityDatum[], activeOrder: readonly Ac
   function TotalLabel({ x, y, width, index }: TotalLabelProps) {
     const nx = Number(x), ny = Number(y), nw = Number(width);
     if (!Number.isFinite(nx) || !Number.isFinite(ny) || !Number.isFinite(nw) || index == null) return null;
-    const total = activeOrder.reduce((sum, c) => sum + data[index][c], 0);
+    const total = datumTotal(data[index], activeOrder);
     if (total === 0) return null;
     return (
       <text
@@ -147,7 +149,7 @@ const makeTotalLabel = (data: readonly ActivityDatum[], activeOrder: readonly Ac
 // then one per non-zero category (count over label) — instead of a titled panel of 44px rows. Equal
 // grid columns mean it never wraps, however many categories there are. Closes on a tap outside
 // the chart or on the same bar again (see ActivityTrendChart).
-const CompactBreakdown = ({
+const CompactBreakdown = memo(({
   datum,
   activeCategories,
   onCategoryClick,
@@ -157,7 +159,7 @@ const CompactBreakdown = ({
   onCategoryClick: (category: ActivityCategory) => void;
 }) => {
   const shown = ACTIVITY_CATEGORY_ORDER.filter((c) => activeCategories.has(c) && datum[c] > 0);
-  const total = shown.reduce((sum, c) => sum + datum[c], 0);
+  const total = datumTotal(datum, shown);
   return (
     <div
       role="status"
@@ -166,7 +168,7 @@ const CompactBreakdown = ({
     >
       <div className="flex flex-col items-center justify-center gap-0.5 min-h-12 px-1 rounded-xl bg-primary-700 text-white">
         <span className="text-sm font-display font-bold tabular-nums leading-none">{total}</span>
-        <span className="text-[10px] font-medium text-white/75 leading-none">{datum.label}</span>
+        <span className="text-xs font-medium text-white/75 leading-none">{datum.label}</span>
       </div>
       {shown.map((category) => (
         <button
@@ -182,12 +184,13 @@ const CompactBreakdown = ({
             <span aria-hidden="true" className="size-1.5 rounded-full shrink-0" style={{ backgroundColor: ACTIVITY_CATEGORY_COLOR[category] }} />
             {datum[category]}
           </span>
-          <span className="max-w-full truncate text-[10px] font-medium text-text-muted leading-none">{ACTIVITY_CATEGORY_LABEL[category]}</span>
+          <span className="max-w-full truncate text-xs font-medium text-text-muted leading-none">{ACTIVITY_CATEGORY_LABEL[category]}</span>
         </button>
       ))}
     </div>
   );
-};
+});
+CompactBreakdown.displayName = 'CompactBreakdown';
 
 const ChartTooltip = ({ active, payload, activeCategories }: ChartTooltipProps) => {
   const datum = payload?.[0]?.payload;
@@ -199,46 +202,6 @@ const ChartTooltip = ({ active, payload, activeCategories }: ChartTooltipProps) 
     </PinnedBreakdown>
   );
 };
-
-/**
- * Both "nothing to plot" cases — no category selected, and no activity in the window — share this
- * shell, but only the second is a genuine empty state worth a way out: "no category selected" is a
- * filter the viewer just set two seconds ago (the toggle is right above), not something to create
- * your way out of, so it keeps the plain icon + line. "No activity yet" gets the CTA.
- */
-const ChartEmptyState = ({
-  message,
-  tinted,
-  action,
-}: {
-  message: string;
-  tinted: boolean;
-  action?: { label: string; onClick: () => void };
-}) => (
-  <div
-    className={`flex flex-col items-center justify-center rounded-2xl border border-dashed gap-3 px-5 animate-in fade-in duration-500 ${
-      tinted ? 'border-border-hover bg-primary-500/[0.03]' : 'border-border/60 bg-surface/30'
-    }`}
-    style={{ height: ACTIVITY_CHART_HEIGHT }}
-  >
-    {tinted ? (
-      <div className="flex items-center justify-center size-11 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 text-white shadow-sm shadow-primary-900/20">
-        <BarChart3 size={19} />
-      </div>
-    ) : (
-      <div className="p-3 rounded-full bg-surface border border-border/40">
-        <BarChart3 size={20} className="text-text-light" />
-      </div>
-    )}
-    <p className={`text-sm text-center max-w-[26rem] ${tinted ? 'font-display font-bold text-text' : 'font-medium text-text-muted'}`}>{message}</p>
-    {action && (
-      <Button size="sm" className="rounded-full mt-1" onClick={action.onClick}>
-        <Plus size={13} strokeWidth={2.75} />
-        {action.label}
-      </Button>
-    )}
-  </div>
-);
 
 export const ActivityTrendChart = ({ items, activeCategories, groupBy }: ActivityTrendChartProps) => {
   const navigate = useNavigate();
@@ -291,7 +254,7 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
   // Every bucket gets a soft full-height track (the tallest bar's height) drawn behind its bar,
   // empty days included, so a short day reads against the period's scale instead of as a sliver.
   const chartData = useMemo(() => {
-    const max = Math.max(1, ...data.map((d) => ACTIVITY_CATEGORY_ORDER.reduce((sum, c) => sum + d[c], 0)));
+    const max = Math.max(1, ...data.map((d) => datumTotal(d, ACTIVITY_CATEGORY_ORDER)));
     return data.map((d) => ({ ...d, track: max }));
   }, [data]);
   const categoryTotals = useMemo(() => {
@@ -301,17 +264,41 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
   }, [data]);
   const windowTotal = activeOrder.reduce((sum, c) => sum + categoryTotals[c], 0);
 
+  // Built once per data change rather than a fresh function every render, which made Recharts
+  // remount every label.
+  const renderTotalLabel = useMemo(() => makeTotalLabel(data, activeOrder), [data, activeOrder]);
+
+  // Text alternative for the picture: the headline total and the busiest bucket.
+  const rangeText = ACTIVITY_GROUP_RANGE_LABEL[groupBy];
+  const peak = useMemo(() => {
+    let best = { label: '', total: 0 };
+    for (const d of data) {
+      const total = datumTotal(d, activeOrder);
+      if (total > best.total) best = { label: d.label, total };
+    }
+    return best;
+  }, [data, activeOrder]);
+  const chartSummary = `Bar chart of items created in the ${rangeText}: ${windowTotal} ${windowTotal === 1 ? 'item' : 'items'}${
+    peak.total > 0 ? `, peak ${peak.label} ${peak.total}` : ''
+  }.`;
+
   if (activeOrder.length === 0) {
-    return <ChartEmptyState tinted={false} message="No categories selected — pick one above to see its trend" />;
+    return (
+      <div className="flex flex-col [&>*]:h-full" style={{ height: ACTIVITY_CHART_HEIGHT }}>
+        <EmptyState icon={BarChart3} size="compact" title="No categories selected" description="Pick at least one category to see the trend." />
+      </div>
+    );
   }
 
   if (!hasData) {
     return (
-      <ChartEmptyState
-        tinted
-        message="No activity in this period yet"
-        action={{ label: 'New delegation', onClick: () => navigate('/tasks?create=1') }}
-      />
+      <div className="flex flex-col [&>*]:h-full [&>*]:py-6" style={{ height: ACTIVITY_CHART_HEIGHT }}>
+        <EmptyState
+          icon={BarChart3}
+          title="No items created in this period yet"
+          action={{ label: 'New delegation', icon: Plus, onClick: () => navigate('/tasks?create=1') }}
+        />
+      </div>
     );
   }
 
@@ -334,24 +321,14 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
 
   return (
     <div ref={rootRef} className="flex flex-col gap-3 sm:gap-4 w-full">
-      {/* The inline "Completion" bar that used to live here is gone — that number now has its own
-          proper home in the Compliance card's ring gauge, so it doesn't need a second, redundant
-          restatement squeezed above the chart. */}
-
-      {/* Recharts' built-in "accessibility layer" wraps the chart in its own focusable
-          <div tabIndex={0}>, which the browser then outlines by default on click — a stray black
-          box around the whole chart. It's redundant here anyway: the sr-only buttons below
-          already give keyboard users the same tap-to-pin breakdown, so the built-in layer (whose
-          own per-bar keyboard handling we don't use) is turned off at the source instead of
-          fighting its focus outline with CSS. */}
-      {/* Phones: the headline first (how much happened in this window), then one cell per category
-          with its colour, count and name, which doubles as the chart's legend. Desktop has the
-          category filter chips above the chart for that. */}
+      {/* Phones: the headline first (how much was created in this window), then one cell per
+          category with its colour, count and name, which doubles as the chart's legend. Desktop
+          has the category filter chips above the chart for that. */}
       {isMobile && (
         <div className="flex flex-col gap-2.5">
           <div className="flex items-baseline gap-1.5">
             <span className="text-3xl font-display font-bold text-text tabular-nums leading-none">{windowTotal}</span>
-            <span className="text-xs font-medium text-text-muted">items in this period</span>
+            <span className="text-xs font-medium text-text-muted">items created in the {rangeText}</span>
           </div>
           <div className="grid grid-cols-2 gap-1.5">
             {activeOrder.map((category) => (
@@ -367,16 +344,19 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
         </div>
       )}
 
-      <div className="w-full cursor-pointer" style={{ height: ACTIVITY_CHART_HEIGHT }}>
+      {/* The picture is one labelled image for assistive tech. Recharts' built-in accessibility
+          layer stays off: it wraps the chart in its own focusable <div tabIndex={0}> that the
+          browser outlines on click, and a focusable child inside role="img" is not announced
+          anyway. The sr-only table and buttons below are the keyboard and screen-reader route. */}
+      <div role="img" aria-label={chartSummary} className="w-full cursor-pointer" style={{ height: ACTIVITY_CHART_HEIGHT }}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={chartData}
             accessibilityLayer={false}
             // The right/left gutters stay at 0 — the axis below reserves its own width when it's
-            // shown, and an extra `left` offset (this once carried `left: -20`) shifts the plot
-            // area far enough on a narrow mobile card to clip the first bar against the edge.
-            // `top` grew from 10 to 24 to leave room for the new total-count label sitting just
-            // above the tallest bar, which the old margin clipped against the card's own edge.
+            // shown, and an extra `left` offset shifts the plot area far enough on a narrow mobile
+            // card to clip the first bar against the edge. `top` leaves room for the total-count
+            // label sitting just above the tallest bar.
             margin={{ top: 24, right: 10, left: 0, bottom: 0 }}
             barCategoryGap="40%"
             onClick={(state) => {
@@ -387,7 +367,6 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
               if (Number.isInteger(index)) setSelectedIndex((prev) => (prev === index ? null : index));
             }}
           >
-            {/* Added a subtle grid to anchor the data visually */}
             <CartesianGrid
               vertical={false}
               stroke="var(--color-border)"
@@ -396,9 +375,7 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
             />
 
             {/* Each category bar fills with a two-stop vertical gradient of its own flat token
-                color rather than one solid fill — the same "flat reads as dull" fix applied to the
-                gauges and KPI tiles, here as a lighter highlight along the top of each segment
-                fading into its real tone, which is what gives a stacked bar actual depth. */}
+                color: a lighter highlight along the top of each segment fading into its real tone. */}
             <defs>
               {ACTIVITY_CATEGORY_ORDER.map((category) => (
                 <linearGradient key={category} id={`activity-bar-${category}`} x1="0" y1="0" x2="0" y2="1">
@@ -412,17 +389,13 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
               dataKey="label"
               tickLine={false}
               axisLine={false}
-              tick={{ fill: 'var(--color-text-muted)', fontSize: 11, fontWeight: 600 }}
+              tick={{ fill: 'var(--color-text-muted)', fontSize: 12, fontWeight: 600 }}
               dy={12}
             />
 
-            {/* Until now the chart had no value axis at all, so a bar's actual magnitude was
-                unreadable without hovering or tapping it — the grid lines were decorative rather
-                than measurable. Hidden on mobile, where the axis gutter costs more plot width than
-                the reading is worth (the tap-to-pin panel below covers that case), and integer-only
-                because these are item counts: Recharts would otherwise label a 0-3 range "0, 0.75,
-                1.5…". `width={28}` is just enough for the two-digit counts this chart realistically
-                shows while keeping the bars centred. */}
+            {/* Value axis hidden on mobile, where the gutter costs more plot width than the reading
+                is worth (the tap-to-pin panel below covers that case), and integer-only because
+                these are item counts. */}
             {!isMobile && (
               <YAxis
                 tickLine={false}
@@ -430,27 +403,21 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
                 width={28}
                 allowDecimals={false}
                 tickCount={yTickCount}
-                tick={{ fill: 'var(--color-text-muted)', fontSize: 11, fontWeight: 600 }}
+                tick={{ fill: 'var(--color-text-muted)', fontSize: 12, fontWeight: 600 }}
               />
             )}
 
             {/* Stays mounted on phones but renders nothing there — the chart's onClick reads
-                `activeTooltipIndex`, which Recharts only tracks while a Tooltip exists. On touch the
-                visible tooltip popped up on tap and lingered on top of the chart, duplicating the
-                pinned breakdown below. */}
+                `activeTooltipIndex`, which Recharts only tracks while a Tooltip exists. */}
             <Tooltip
               cursor={isMobile ? false : <NarrowCursor />}
               content={(props) => (isMobile ? null : <ChartTooltip {...props} activeCategories={activeCategories} />)}
               isAnimationActive={false} // Prevents jitter on fast hovering
             />
 
-            {/* Stacked Bars — one per active category, in a fixed order, so the stack doesn't
-                reshuffle as categories are toggled. Opacity reflects the tapped/selected bar once
-                one is picked, so selection reads clearly against the rest of the chart. A
-                surface-colored stroke outlines every segment — with all four categories sharing
-                one navy family (see ACTIVITY_CATEGORY_COLOR), adjacent segments were otherwise
-                nearly impossible to tell apart inside one stacked bar; the stroke gives each one a
-                crisp edge regardless of how close its neighbor's tone is. */}
+            {/* Stacked bars — one per active category, in a fixed order, so the stack doesn't
+                reshuffle as categories are toggled. A surface-colored stroke outlines every segment
+                so adjacent navy tones stay distinguishable. */}
             <XAxis xAxisId="track" dataKey="label" hide />
             <Bar
               xAxisId="track"
@@ -475,7 +442,7 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
                   barSize={mobileBarSize}
                   stroke="var(--color-surface)"
                   strokeWidth={2}
-                  label={isTopOfStack ? makeTotalLabel(data, activeOrder) : undefined}
+                  label={isTopOfStack ? renderTotalLabel : undefined}
                 >
                   {data.map((d, i) => (
                     <Cell key={d.label} fill={`url(#activity-bar-${category})`} fillOpacity={cellOpacity(i)} className="transition-all duration-300" />
@@ -487,31 +454,53 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
         </ResponsiveContainer>
       </div>
 
+      {/* The same numbers as a plain table for screen readers. */}
+      <table className="sr-only">
+        <caption>Items created in the {rangeText}, by period</caption>
+        <thead>
+          <tr>
+            <th scope="col">Period</th>
+            {activeOrder.map((category) => (
+              <th key={category} scope="col">{ACTIVITY_CATEGORY_LABEL[category]}</th>
+            ))}
+            <th scope="col">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((d) => (
+            <tr key={d.label}>
+              <th scope="row">{d.label}</th>
+              {activeOrder.map((category) => (
+                <td key={category}>{d[category]}</td>
+              ))}
+              <td>{datumTotal(d, activeOrder)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
       {/* Keyboard-accessible proxy for the same pin interaction the mouse gets via the chart's
-          onClick — Recharts doesn't expose per-bar focus/keyboard handling, so without this a
-          keyboard-only user could pin a breakdown on the gauges and Compare Dashboard chips but
-          not here. Hidden until focused so it doesn't visually duplicate the x-axis labels for
-          mouse/touch users. */}
-      {/* No negative margin pulling this row up into the chart — the parent's `gap-4` owns the
-          spacing, and the row is zero-height until something in it takes focus anyway. */}
+          onClick. Hidden until focused so it doesn't visually duplicate the x-axis labels. */}
       <div className="flex flex-wrap gap-1">
-        {data.map((d, i) => (
-          <button
-            key={d.label}
-            type="button"
-            onClick={() => setSelectedIndex((prev) => (prev === i ? null : i))}
-            aria-pressed={selectedIndex === i}
-            className="sr-only focus:not-sr-only focus:relative focus:z-10 focus:px-2.5 focus:py-1 focus:rounded-md focus:border focus:border-border focus:bg-surface focus:text-[11px] focus:font-medium focus:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 outline-none"
-          >
-            {d.label}: see breakdown
-          </button>
-        ))}
+        {data.map((d, i) => {
+          const total = datumTotal(d, activeOrder);
+          return (
+            <button
+              key={d.label}
+              type="button"
+              onClick={() => setSelectedIndex((prev) => (prev === i ? null : i))}
+              aria-pressed={selectedIndex === i}
+              className="sr-only focus:not-sr-only focus:relative focus:z-10 focus:px-2.5 focus:py-1 focus:rounded-md focus:border focus:border-border focus:bg-surface focus:text-xs focus:font-medium focus:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 outline-none"
+            >
+              {d.label}: {total} {total === 1 ? 'item' : 'items'}
+            </button>
+          );
+        })}
       </div>
 
       {/* Tap-to-pin breakdown — same data the hover tooltip shows, kept visible after the tap so
-          it works on touch devices (no hover) and doesn't disappear the moment a finger lifts.
-          Its rows are clickable here (never on the hover tooltip — see BreakdownRows) since a
-          pinned panel actually stays put long enough to be clicked. */}
+          it works on touch devices (no hover). Its rows are clickable here (never on the hover
+          tooltip — see BreakdownRows) since a pinned panel stays put long enough to be clicked. */}
       {selectedDatum && isMobile ? (
         <CompactBreakdown
           datum={selectedDatum}
@@ -530,7 +519,7 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
         <DrilldownModal
           open
           onClose={() => setDrilldownCategory(null)}
-          title={`${ACTIVITY_CATEGORY_LABEL[drilldownCategory]} — ${data[selectedIndex].label}`}
+          title={`${ACTIVITY_CATEGORY_LABEL[drilldownCategory]}: ${data[selectedIndex].label}`}
           rows={itemsInRange(items, drilldownCategory, buckets[selectedIndex].start, buckets[selectedIndex].end)}
           viewAllHref={
             drilldownCategory === 'delegation' ? '/tasks'

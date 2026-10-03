@@ -65,6 +65,12 @@ export const listTasksQuerySchema = z.object({
     limit : z.coerce.number().int().min(1).max(200).optional().default(200),
 })
 
+// GET /tasks/summary. No scope = the sidebar badge's own "mine" (creator, assignee or additional
+// assignee, every category). 'mine' / 'visible' are the dashboard's delegation-only numbers.
+export const taskSummaryQuerySchema = z.object({
+    scope : z.enum(["mine", "visible"]).optional(),
+})
+
 export const parseTaskTextSchema = z.object({
     // Smart Add's free-form input (typed or transcribed) — capped well above any real message so
     // a malicious caller can't force extractTaskFromText to send a huge payload to the AI provider.

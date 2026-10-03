@@ -28,6 +28,10 @@ interface RadialGaugeProps {
   ticks?: number;
   /** Arc only: a round knob at the end of the fill. */
   showKnob?: boolean;
+  /** Text alternative, e.g. "Done rate 82%, 41 of 50". When given the gauge is exposed as an
+   * image with this label and its children are hidden from assistive tech, so pass the full
+   * reading here. Leave unset when the children already carry readable text. */
+  ariaLabel?: string;
 }
 
 export const RadialGauge = ({
@@ -45,6 +49,7 @@ export const RadialGauge = ({
   thickness = 8,
   ticks = 0,
   showKnob = false,
+  ariaLabel,
 }: RadialGaugeProps) => {
   // useId() ids contain colons (":r4a:") — safe as an `id` attribute, but referencing them via
   // url(#:r4a:-gradient) in `stroke`/`filter` fails to resolve in some browsers, which silently
@@ -128,6 +133,8 @@ export const RadialGauge = ({
 
   return (
     <div
+      role={ariaLabel ? 'img' : undefined}
+      aria-label={ariaLabel}
       // overflow-hidden keeps the arc self-contained: nothing can leak past this box regardless of
       // what wraps the gauge.
       className={cn("relative shrink-0 flex items-center justify-center overflow-hidden", className)}

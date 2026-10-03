@@ -1,476 +1,302 @@
-import { useId, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useMemo, useState } from 'react';
+import { Link } from 'react-router';
 import { ClipboardList, TicketCheck, ListChecks, ListTodo, type LucideIcon } from 'lucide-react';
-import { StatusBreakdownCard, type StatusBreakdownVariant } from './StatusBreakdownCard';
+import { StatusBreakdownCard } from './StatusBreakdownCard';
 import { DrilldownModal, type DrilldownRow } from './DrilldownModal';
 import { AdminChromeAccents } from '../admin/AdminChromeAccents';
 import { Skeleton } from '../../components/skeleton';
-import { useChecklistInstanceSummaryQuery, useMyChecklistInstancesQuery } from '../checklist/hook';
+import { useNow } from '../../lib/useNow';
 import { isInstanceOverdue } from '../checklist/checklistDisplay';
+import { isTaskOverdue, isTicketLate, taskDrilldownRow } from './dashboardDisplay';
+import type { DashboardSummaries } from './useDashboardSummaries';
 import type { Task } from '../../api/task';
 import type { Ticket } from '../../api/ticket';
 import type { Todo } from '../../api/todos';
+import type { ChecklistInstance } from '../../api/checklistInstances';
 
-export interface WorkflowStats {
-  pending: number;
-  approvals: number;
-  completed: number;
-  assigned: number;
-}
+type ModuleKey = 'delegation' | 'tickets' | 'checklist' | 'todo';
+type DrillKind = 'pending' | 'completed' | 'newToday' | 'overdue';
 
 interface KpiStripProps {
-  tickets: Ticket[];
-  /** Same task list `workflowStats` was computed from — org-wide for ADMIN/PC, "mine" otherwise —
-   *  so a stat's preview modal always lists exactly the records that produced its count. */
-  tasks: Task[];
-  /** Always "mine" — todos have no org-wide dashboard query yet, so this card stays personally
-   *  scoped even for an admin (same caveat ActivityComplianceGauges' scope filters already carry
-   *  for todos). */
-  todos: Todo[];
-  isPending: boolean;
-  workflowStats: WorkflowStats;
+  /** Server-side counts, one source per number group, each with its own loading and error state. */
+  summaries: DashboardSummaries['kpi'];
+  /** Recent records, used only to fill the preview behind a tapped figure. The numbers themselves
+   *  never come from these (they are capped lists); a preview says so when it is showing fewer
+   *  rows than the figure counts. */
+  taskList: Task[];
+  ticketList: Ticket[];
+  todoList: Todo[];
+  checklistList: ChecklistInstance[];
 }
 
-interface Drilldown {
-  title: string;
+interface ModuleView {
+  key: ModuleKey;
   icon: LucideIcon;
-  rows: DrilldownRow[];
-  viewAllHref: string;
-  viewAllLabel: string;
-  cappedNote?: string;
+  title: string;
+  noun: string;
+  href: string;
+  /** What the headline Total box counts: "Total", or "Today" for the checklist tile. */
+  totalLabel: string;
+  isPending: boolean;
+  isError: boolean;
+  onRetry: () => void;
+  total: number | null;
+  pending: number | null;
+  completed: number | null;
+  newToday: number | null;
+  overdue: number;
 }
 
-const taskRow = (t: Task): DrilldownRow => ({
-  id: t.id,
-  title: t.title,
-  link: `/tasks?open=${t.id}`,
-  createdAt: t.createdAt,
-  completed: t.status === 'done',
-  overdue: t.status !== 'done' && !!t.dueDate && new Date(t.dueDate).getTime() < Date.now(),
-});
+// Where "View all" in each preview lands, per module and per kind of figure.
+const VIEW_ALL_HREF: Record<ModuleKey, Record<DrillKind, string>> = {
+  delegation: { pending: '/tasks?quickFilter=pending', completed: '/tasks?quickFilter=completed', newToday: '/tasks', overdue: '/tasks?quickFilter=delayed' },
+  tickets: { pending: '/tickets?quickFilter=pending', completed: '/tickets?quickFilter=completed', newToday: '/tickets', overdue: '/tickets?quickFilter=delayed' },
+  checklist: { pending: '/checklists?status=pending', completed: '/checklists?status=completed', newToday: '/checklists', overdue: '/checklists?status=overdue' },
+  todo: { pending: '/todo?quickFilter=pending', completed: '/todo?quickFilter=completed', newToday: '/todo', overdue: '/todo?quickFilter=delayed' },
+};
+
+const DRILL_LABEL: Record<DrillKind, string> = { pending: 'Pending', completed: 'Completed', newToday: 'New today', overdue: 'Overdue' };
+
+const startOfToday = (now: number) => { const d = new Date(now); d.setHours(0, 0, 0, 0); return d.getTime(); };
 
 const ticketRow = (t: Ticket): DrilldownRow => ({
-  id: t.id,
-  title: t.title,
-  link: `/tickets?open=${t.id}`,
-  createdAt: t.createdAt,
-  completed: t.status === 'CLOSED',
-  overdue: t.isOverdue,
+  id: t.id, title: t.title, link: `/tickets?open=${t.id}`, createdAt: t.createdAt,
+  completed: t.status === 'CLOSED', overdue: t.status !== 'CLOSED' && isTicketLate(t),
 });
 
-const todoRow = (t: Todo): DrilldownRow => ({
-  id: t.id,
-  title: t.text,
-  // Todos have no standalone detail view or `?open=` deep link — same as dashboardDisplay.ts's
-  // ActivityWorkItem mapping for todos — so this points at the list page, not one specific item.
-  link: '/todo',
-  createdAt: t.createdAt,
-  completed: t.completed,
-  overdue: !t.completed && !!t.dueDate && new Date(t.dueDate).getTime() < Date.now(),
+// Todos have no standalone detail view or `?open=` deep link, so a row points at the list page.
+const todoRow = (t: Todo, now: number): DrilldownRow => ({
+  id: t.id, title: t.text, link: '/todo', createdAt: t.createdAt,
+  completed: t.completed, overdue: !t.completed && !!t.dueDate && new Date(t.dueDate).getTime() < now,
 });
+
+const isChecklistDone = (c: ChecklistInstance) => c.items.length > 0 && c.items.every((i) => i.isDone);
+
+const checklistRow = (c: ChecklistInstance): DrilldownRow => {
+  const completed = isChecklistDone(c);
+  return { id: c.id, title: c.title, link: `/checklists/${c.id}`, createdAt: c.generatedAt, completed, overdue: isInstanceOverdue(c, completed) };
+};
 
 /**
- * Mirrors StatusBreakdownCard's real structure — same shell, same header divider, same right-hand
- * total box — so what loads in looks like what was loading. It takes the same `variant` as the
- * real card for exactly that reason: with a navy hero followed by two surface cards, a skeleton
- * row of three identical placeholders would visibly re-colour as the data arrived.
- *
- * On the navy shell the shared Skeleton's `bg-surface-active` default is overridden to
- * `bg-white/10` so the placeholders read against the dark ground.
+ * Mirrors StatusBreakdownCard's real structure (same shell, header divider and right-hand total
+ * box) so what loads in looks like what was loading. On the navy shell the shared Skeleton's
+ * default fill is overridden to `bg-white/10` so the placeholders read against the dark ground.
  */
-const KpiCardSkeleton = ({ variant }: { variant: StatusBreakdownVariant }) => {
-  const isNavy = variant === 'navy';
-  const block = isNavy ? 'bg-white/10' : '';
-
-  return (
-    <div
-      className={`relative flex flex-col overflow-hidden rounded-2xl border ${
-        isNavy
-          ? 'border-transparent bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700'
-          : 'border-border/60 dark:border-white/[0.06] bg-surface'
-      }`}
-    >
-      {/* Clipped to the header strip itself, same fix as the real StatusBreakdownCard — otherwise
-          the ring's bottom arc reaches past the header and crosses the Total placeholder below. */}
-      <div className={`relative z-10 flex items-center gap-2 px-4 py-3.5 border-b overflow-hidden ${isNavy ? 'border-white/10' : 'border-border/60'}`}>
-        {isNavy && <AdminChromeAccents scale="compact" />}
-        <Skeleton className={`size-4 rounded shrink-0 ${block}`} />
-        <Skeleton className={`h-4 w-28 rounded-md ${block}`} />
+const KpiCardSkeleton = () => (
+  <div
+    className="relative flex flex-col overflow-hidden rounded-2xl border border-transparent bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700"
+    role="status"
+    aria-label="Loading"
+  >
+    <div className="relative z-10 flex items-center gap-2 px-4 min-h-11 border-b border-white/10 overflow-hidden">
+      <AdminChromeAccents scale="compact" />
+      <Skeleton className="size-4 rounded shrink-0 bg-white/10" />
+      <Skeleton className="h-4 w-28 rounded-md bg-white/10" />
+    </div>
+    <div className="relative z-10 flex items-stretch gap-3 p-3">
+      <div className="flex-1 flex flex-col justify-center gap-3 px-1">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="flex items-center justify-between gap-4">
+            <Skeleton className="h-3.5 w-20 rounded bg-white/10" />
+            <Skeleton className="h-3.5 w-6 rounded bg-white/10" />
+          </div>
+        ))}
       </div>
-
-      <div className="relative z-10 flex items-stretch gap-3 p-3">
-        <div className="flex-1 flex flex-col justify-center gap-3 px-1">
-          {[0, 1].map((i) => (
-            <div key={i} className="flex items-center justify-between gap-4">
-              <Skeleton className={`h-3.5 w-20 rounded ${block}`} />
-              <Skeleton className={`h-3.5 w-6 rounded ${block}`} />
-            </div>
-          ))}
-        </div>
-        <div
-          className={`flex flex-col items-center justify-center gap-1.5 w-24 sm:w-28 shrink-0 rounded-xl border ${
-            isNavy ? 'border-white/15 bg-white/5' : 'border-border/60 bg-surface-hover/50'
-          }`}
-        >
-          <Skeleton className={`h-7 w-12 rounded-md ${block}`} />
-          <Skeleton className={`h-3 w-10 rounded ${block}`} />
-        </div>
+      <div className="flex flex-col items-center justify-center gap-1.5 w-24 sm:w-28 shrink-0 rounded-xl border border-white/15 bg-white/5">
+        <Skeleton className="h-7 w-12 rounded-md bg-white/10" />
+        <Skeleton className="h-3 w-10 rounded bg-white/10" />
       </div>
     </div>
-  );
-};
+  </div>
+);
 
-// Items created per day over the last 7 days (oldest first), for a tile's sparkline.
-const lastSevenDays = (dates: string[]) => {
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
-  start.setDate(start.getDate() - 6);
-  const counts = Array<number>(7).fill(0);
-  for (const iso of dates) {
-    const day = Math.floor((new Date(iso).getTime() - start.getTime()) / 86_400_000);
-    if (day >= 0 && day < 7) counts[day] += 1;
+interface MobileTileProps {
+  view: ModuleView;
+}
+
+// Mobile: the headline is what is still open, with the total beside it as the secondary figure, and
+// a tap goes straight to that pending list. No toggle, no breakdown: the full card lives at `sm:`.
+const MobileTile = ({ view }: MobileTileProps) => {
+  const shell = 'relative overflow-hidden flex flex-col gap-2 p-3 rounded-2xl min-h-24 bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700 text-white text-left';
+
+  if (view.isPending) {
+    return <Skeleton className="min-h-24 rounded-2xl" />;
   }
-  return counts;
-};
 
-/**
- * Tiny 7-day line with a soft fill under it, drawn in gold on the navy tile. Plain SVG, no chart
- * library: it's 64x28 and never needs axes or tooltips. A flat week draws a flat line near the
- * bottom rather than nothing, so every tile keeps the same shape.
- */
-const Sparkline = ({ values }: { values: number[] }) => {
-  const id = useId().replace(/:/g, '');
-  const w = 64;
-  const h = 28;
-  const max = Math.max(1, ...values);
-  const pts = values.map((v, i) => [(i / (values.length - 1)) * w, h - 3 - (v / max) * (h - 7)] as const);
-  const line = pts.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
-  const area = `${line} L${w},${h} L0,${h} Z`;
-  const [lx, ly] = pts[pts.length - 1];
-  return (
-    <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h} aria-hidden="true" className="shrink-0 overflow-visible text-coral-300">
-      <defs>
-        <linearGradient id={`${id}-fill`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="currentColor" stopOpacity={0.35} />
-          <stop offset="100%" stopColor="currentColor" stopOpacity={0} />
-        </linearGradient>
-      </defs>
-      <path d={area} fill={`url(#${id}-fill)`} />
-      <path d={line} fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx={lx} cy={ly} r={2.4} fill="currentColor" stroke="white" strokeWidth={1} />
-    </svg>
+  const head = (
+    <span className="flex items-center gap-2 min-w-0">
+      <span className="flex items-center justify-center size-7 rounded-lg bg-white/15 shrink-0">
+        <view.icon size={14} strokeWidth={2.5} aria-hidden="true" />
+      </span>
+      <span className="text-xs font-display font-semibold text-white/90">{view.title}</span>
+    </span>
   );
-};
 
-// All four KPI cards share the navy hero treatment, at the user's explicit request — Delegation,
-// Tickets, Checklist and Todo read as one uniform row instead of one dark card standing out
-// against three quiet ones.
-const CARD_VARIANTS: readonly StatusBreakdownVariant[] = ['navy', 'navy', 'navy', 'navy'];
-
-export const KpiStrip = ({ tickets, tasks, todos, isPending, workflowStats }: KpiStripProps) => {
-  const navigate = useNavigate();
-  const { data: checklistSummary } = useChecklistInstanceSummaryQuery({ mine: true });
-  // Same capped "recent" window RecentActivity uses on this page — enough for a preview modal's
-  // rows, not a second unbounded checklist list living inside a popup.
-  const { data: checklistInstances = [] } = useMyChecklistInstancesQuery({}, { limit: 25 });
-  const [drilldown, setDrilldown] = useState<Drilldown | null>(null);
-
-  if (isPending) {
+  if (view.isError || view.pending == null) {
     return (
-      <div className="flex flex-col gap-3">
-        <div className="grid sm:hidden grid-cols-2 gap-2.5">
-          {CARD_VARIANTS.map((_, i) => (
-            <Skeleton key={i} className="h-[84px] rounded-2xl" />
-          ))}
-        </div>
-        <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-4 gap-3.5 md:gap-5">
-          {CARD_VARIANTS.map((variant, i) => (
-            <KpiCardSkeleton key={i} variant={variant} />
-          ))}
-        </div>
-      </div>
+      <button type="button" onClick={view.onRetry} className={`${shell} cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400`}>
+        {head}
+        <span className="text-sm font-display font-bold">No data</span>
+        <span className="text-[11px] font-display font-medium text-white/70">Tap to retry</span>
+      </button>
     );
   }
 
-  // --- Derived Metrics ---
+  return (
+    <Link
+      to={VIEW_ALL_HREF[view.key].pending}
+      aria-label={`${view.title}: ${view.pending} pending${view.total != null ? `, ${view.total} ${view.totalLabel.toLowerCase()}` : ''}${view.overdue > 0 ? `, ${view.overdue} overdue` : ''}`}
+      className={`${shell} transition-transform duration-150 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background`}
+    >
+      {head}
+      <span className="flex items-baseline gap-1.5">
+        <span className="text-3xl font-display font-bold tabular-nums leading-none">{view.pending}</span>
+        <span className="text-[11px] font-display font-medium text-white/70">pending</span>
+      </span>
+      <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        {view.total != null && (
+          <span className="text-[11px] font-display font-medium text-white/70 tabular-nums">
+            of {view.total} {view.totalLabel === 'Total' ? 'total' : 'today'}
+          </span>
+        )}
+        {view.overdue > 0 && (
+          <span className="inline-flex items-center h-5 px-1.5 rounded-full bg-danger text-white text-[10px] font-display font-bold tabular-nums">
+            {view.overdue} overdue
+          </span>
+        )}
+      </span>
+    </Link>
+  );
+};
 
-  // "New today" — same local calendar day as right now, not a rolling 24h window, so the count
-  // resets at midnight the way a person reading "today" would expect rather than slowly draining
-  // as the day goes on.
-  const today = new Date();
-  const isToday = (dateString: string) => {
-    const d = new Date(dateString);
-    return d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
-  };
+export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistList }: KpiStripProps) => {
+  const now = useNow();
+  const [openDrill, setOpenDrill] = useState<{ key: ModuleKey; kind: DrillKind } | null>(null);
+  const { tasks, tickets, todos, checklist, checklistToday } = summaries;
 
-  // Tickets: OPEN/IN_PROGRESS/PENDING_APPROVAL/ON_HOLD map to 'Due'. CLOSED maps to 'Completed'.
-  const dueTickets = tickets.filter(t => t.status !== 'CLOSED');
-  const completedTickets = tickets.filter(t => t.status === 'CLOSED');
-  const newTicketsToday = tickets.filter(t => isToday(t.createdAt));
+  const views = useMemo<ModuleView[]>(() => {
+    const t = tasks.data;
+    const k = tickets.data;
+    const d = todos.data;
+    const c = checklist.data;
+    const ct = checklistToday.data;
+    return [
+      {
+        key: 'delegation', icon: ClipboardList, title: 'Delegation', noun: 'delegations', href: '/tasks', totalLabel: 'Total',
+        isPending: tasks.isPending, isError: tasks.isError, onRetry: tasks.onRetry,
+        total: t?.total ?? null, pending: t?.pending ?? null, completed: t?.completed ?? null, newToday: t?.newToday ?? null, overdue: t?.overdue ?? 0,
+      },
+      {
+        key: 'tickets', icon: TicketCheck, title: 'Tickets', noun: 'tickets', href: '/tickets', totalLabel: 'Total',
+        isPending: tickets.isPending, isError: tickets.isError, onRetry: tickets.onRetry,
+        total: k?.total ?? null, pending: k?.pending ?? null, completed: k?.completed ?? null, newToday: k?.newToday ?? null, overdue: k?.overdue ?? 0,
+      },
+      {
+        // Pending/New today are all-time and Completed/Total are today's, exactly as the My
+        // checklists page counts them, so the tile and the page it opens always agree.
+        key: 'checklist', icon: ListChecks, title: 'Checklist', noun: 'checklists', href: '/checklists', totalLabel: 'Today',
+        isPending: checklist.isPending || checklistToday.isPending, isError: checklist.isError || checklistToday.isError,
+        onRetry: () => { if (checklist.isError) checklist.onRetry(); if (checklistToday.isError) checklistToday.onRetry(); },
+        total: ct?.total ?? null, pending: c?.pending ?? null, completed: ct?.completed ?? null, newToday: c?.newToday ?? null, overdue: c?.overdue ?? 0,
+      },
+      {
+        // Always the viewer's own todos, even for an admin: todos have no org-wide view.
+        key: 'todo', icon: ListTodo, title: 'Todo', noun: 'todos', href: '/todo', totalLabel: 'Total',
+        isPending: todos.isPending, isError: todos.isError, onRetry: todos.onRetry,
+        total: d?.total ?? null, pending: d?.pending ?? null, completed: d?.completed ?? null, newToday: d?.newToday ?? null, overdue: d?.overdue ?? 0,
+      },
+    ];
+  }, [tasks, tickets, todos, checklist, checklistToday]);
 
-  const dueTasks = tasks.filter(t => t.status === 'todo' || t.status === 'in_progress' || t.status === 'pending_approval');
-  const completedTasks = tasks.filter(t => t.status === 'done');
-  const newTasksToday = tasks.filter(t => isToday(t.createdAt));
+  const drilldown = useMemo(() => {
+    if (!openDrill) return null;
+    const { key, kind } = openDrill;
+    const view = views.find((v) => v.key === key)!;
+    const today = startOfToday(now);
+    const isNew = (iso: string) => new Date(iso).getTime() >= today;
 
-  const dueTodos = todos.filter(t => !t.completed);
-  const completedTodos = todos.filter(t => t.completed);
-  const newTodosToday = todos.filter(t => isToday(t.createdAt));
+    let rows: DrilldownRow[];
+    if (key === 'delegation') {
+      const pick = {
+        pending: (x: Task) => x.status !== 'done' && x.status !== 'draft',
+        completed: (x: Task) => x.status === 'done',
+        newToday: (x: Task) => isNew(x.createdAt),
+        overdue: (x: Task) => isTaskOverdue(x, now),
+      }[kind];
+      rows = taskList.filter(pick).map((x) => taskDrilldownRow(x, now));
+    } else if (key === 'tickets') {
+      const pick = {
+        pending: (x: Ticket) => x.status !== 'CLOSED',
+        completed: (x: Ticket) => x.status === 'CLOSED',
+        newToday: (x: Ticket) => isNew(x.createdAt),
+        overdue: (x: Ticket) => x.status !== 'CLOSED' && isTicketLate(x),
+      }[kind];
+      rows = ticketList.filter(pick).map(ticketRow);
+    } else if (key === 'checklist') {
+      const pick = {
+        pending: (x: ChecklistInstance) => !isChecklistDone(x),
+        completed: (x: ChecklistInstance) => isChecklistDone(x),
+        newToday: (x: ChecklistInstance) => isNew(x.generatedAt),
+        overdue: (x: ChecklistInstance) => isInstanceOverdue(x, isChecklistDone(x)),
+      }[kind];
+      rows = checklistList.filter(pick).map(checklistRow);
+    } else {
+      const pick = {
+        pending: (x: Todo) => !x.completed,
+        completed: (x: Todo) => x.completed,
+        newToday: (x: Todo) => isNew(x.createdAt),
+        overdue: (x: Todo) => !x.completed && !!x.dueDate && new Date(x.dueDate).getTime() < now,
+      }[kind];
+      rows = todoList.filter(pick).map((x) => todoRow(x, now));
+    }
 
-  const dueChecklists = checklistInstances.filter(c => c.items.length === 0 || c.items.some(i => !i.isDone));
-  const completedChecklists = checklistInstances.filter(c => c.items.length > 0 && c.items.every(i => i.isDone));
-  const newChecklistsToday = checklistInstances.filter(c => isToday(c.generatedAt));
-  const checklistRow = (c: (typeof checklistInstances)[number]): DrilldownRow => {
-    const total = c.items.length;
-    const done = c.items.filter(i => i.isDone).length;
-    const completed = total > 0 && done === total;
+    const counted = { pending: view.pending, completed: view.completed, newToday: view.newToday, overdue: view.overdue }[kind];
     return {
-      id: c.id,
-      title: c.title,
-      link: `/checklists/${c.id}`,
-      createdAt: c.generatedAt,
-      completed,
-      // Was `new Date(c.cutoffTime).getTime() < Date.now()` — cutoffTime is a bare "HH:mm" string,
-      // not a full timestamp, so that parsed to Invalid Date/NaN and could never actually fire.
-      overdue: isInstanceOverdue(c, completed),
+      title: `${DRILL_LABEL[kind]} ${view.noun}`,
+      icon: view.icon,
+      rows,
+      viewAllHref: VIEW_ALL_HREF[key][kind],
+      viewAllLabel: `View all in ${view.title}`,
+      // The preview is built from the most recent records, so say so when the figure counts more.
+      cappedNote: counted != null && counted > rows.length ? `Showing the ${rows.length} most recent of ${counted}.` : undefined,
     };
-  };
-
-  // Mobile summary: the two numbers that matter at a glance (how many, how many still due) for all
-  // four modules at once, in a 2x2 grid that fits a phone without scrolling. Replaces a horizontal
-  // chip strip that always sliced its last chip off at the screen edge, plus a "Show breakdown"
-  // toggle hiding the full cards — the Completed/New today breakdown lives on each module's own page.
-  const mobileTiles: { key: string; icon: LucideIcon; title: string; total: number; due: number; href: string; trend: number[] }[] = [
-    { key: 'delegation', icon: ClipboardList, title: 'Delegation', total: workflowStats.assigned, due: workflowStats.pending + workflowStats.approvals, href: '/tasks', trend: lastSevenDays(tasks.map((t) => t.createdAt)) },
-    { key: 'tickets', icon: TicketCheck, title: 'Tickets', total: tickets.length, due: dueTickets.length, href: '/tickets', trend: lastSevenDays(tickets.map((t) => t.createdAt)) },
-    { key: 'checklist', icon: ListChecks, title: 'Checklist', total: checklistSummary?.total ?? 0, due: checklistSummary?.pending ?? 0, href: '/checklists', trend: lastSevenDays(checklistInstances.map((c) => c.generatedAt)) },
-    { key: 'todo', icon: ListTodo, title: 'Todo', total: todos.length, due: dueTodos.length, href: '/todo', trend: lastSevenDays(todos.map((t) => t.createdAt)) },
-  ];
+  }, [openDrill, views, now, taskList, ticketList, todoList, checklistList]);
 
   return (
     <div className="flex flex-col gap-3">
       <div className="grid sm:hidden grid-cols-2 gap-2.5">
-        {mobileTiles.map((tile) => (
-          <button
-            key={tile.key}
-            type="button"
-            onClick={() => navigate(tile.href)}
-            aria-label={`${tile.title}: ${tile.total} total, ${tile.due} due`}
-            className="relative overflow-hidden flex flex-col gap-2.5 p-3 rounded-2xl bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700 text-white text-left cursor-pointer transition-transform duration-150 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-          >
-            {/* Soft gold glow in the corner, same accent family as the sparkline. */}
-            <span aria-hidden="true" className="absolute -top-8 -right-8 size-20 rounded-full bg-coral-400/15 blur-2xl pointer-events-none" />
-            <span className="relative flex items-center gap-2 min-w-0">
-              <span className="flex items-center justify-center size-7 rounded-lg bg-white/15 ring-1 ring-white/10 shrink-0">
-                <tile.icon size={14} strokeWidth={2.5} />
-              </span>
-              <span className="text-xs font-display font-semibold text-white/90 truncate">{tile.title}</span>
-            </span>
-            <span className="relative flex items-end justify-between gap-2">
-              <span className="flex flex-col gap-1.5 min-w-0">
-                <span className="text-2xl font-display font-bold tabular-nums leading-none">{tile.total}</span>
-                <span className="self-start inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-white/12 text-[10px] font-display font-semibold text-white/85 tabular-nums whitespace-nowrap">
-                  <span aria-hidden="true" className="size-1.5 rounded-full bg-coral-300" />
-                  {tile.due} due
-                </span>
-              </span>
-              <Sparkline values={tile.trend} />
-            </span>
-          </button>
-        ))}
+        {views.map((view) => <MobileTile key={view.key} view={view} />)}
       </div>
 
-      <div className="hidden sm:contents">
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 md:gap-5">
-
-      {/* Delegation Card */}
-      <StatusBreakdownCard
-        variant={CARD_VARIANTS[0]}
-        icon={ClipboardList}
-        title="Delegation"
-        total={workflowStats.assigned}
-        onOpen={() => navigate('/tasks')}
-        rows={[
-          {
-            label: 'Due',
-            value: workflowStats.pending + workflowStats.approvals,
-            onClick: () => setDrilldown({
-              title: 'Due delegations',
-              icon: ClipboardList,
-              rows: dueTasks.map(taskRow),
-              viewAllHref: '/tasks?quickFilter=pending',
-              viewAllLabel: 'View all in Delegations',
-            }),
-          },
-          {
-            label: 'Completed',
-            value: workflowStats.completed,
-            onClick: () => setDrilldown({
-              title: 'Completed delegations',
-              icon: ClipboardList,
-              rows: completedTasks.map(taskRow),
-              viewAllHref: '/tasks?status=done',
-              viewAllLabel: 'View all in Delegations',
-            }),
-          },
-          {
-            label: 'New today',
-            value: newTasksToday.length,
-            onClick: () => setDrilldown({
-              title: 'New delegations today',
-              icon: ClipboardList,
-              rows: newTasksToday.map(taskRow),
-              viewAllHref: '/tasks',
-              viewAllLabel: 'View all in Delegations',
-            }),
-          },
-        ]}
-      />
-
-      {/* Tickets Card */}
-      <StatusBreakdownCard
-        variant={CARD_VARIANTS[1]}
-        icon={TicketCheck}
-        title="Tickets"
-        total={tickets.length}
-        onOpen={() => navigate('/tickets')}
-        rows={[
-          {
-            label: 'Due',
-            value: dueTickets.length,
-            onClick: () => setDrilldown({
-              title: 'Due tickets',
-              icon: TicketCheck,
-              rows: dueTickets.map(ticketRow),
-              viewAllHref: '/tickets?quickFilter=pending',
-              viewAllLabel: 'View all in Tickets',
-            }),
-          },
-          {
-            label: 'Completed',
-            value: completedTickets.length,
-            onClick: () => setDrilldown({
-              title: 'Completed tickets',
-              icon: TicketCheck,
-              rows: completedTickets.map(ticketRow),
-              viewAllHref: '/tickets?quickFilter=completed',
-              viewAllLabel: 'View all in Tickets',
-            }),
-          },
-          {
-            label: 'New today',
-            value: newTicketsToday.length,
-            onClick: () => setDrilldown({
-              title: 'New tickets today',
-              icon: TicketCheck,
-              rows: newTicketsToday.map(ticketRow),
-              viewAllHref: '/tickets',
-              viewAllLabel: 'View all in Tickets',
-            }),
-          },
-        ]}
-      />
-
-      {/* Checklist Card */}
-      <StatusBreakdownCard
-        variant={CARD_VARIANTS[2]}
-        icon={ListChecks}
-        title="Checklist"
-        total={checklistSummary?.total ?? 0}
-        onOpen={() => navigate('/checklists')}
-        rows={[
-          {
-            label: 'Due',
-            value: checklistSummary?.pending ?? 0,
-            onClick: () => setDrilldown({
-              title: 'Due checklists',
-              icon: ListChecks,
-              rows: dueChecklists.map(checklistRow),
-              viewAllHref: '/checklists?status=due',
-              viewAllLabel: 'View all in Checklist',
-              cappedNote: (checklistSummary?.pending ?? 0) > dueChecklists.length
-                ? `Showing your ${dueChecklists.length} most recent — ${checklistSummary!.pending} total are due.`
-                : undefined,
-            }),
-          },
-          {
-            label: 'Completed',
-            value: checklistSummary?.completed ?? 0,
-            onClick: () => setDrilldown({
-              title: 'Completed checklists',
-              icon: ListChecks,
-              rows: completedChecklists.map(checklistRow),
-              viewAllHref: '/checklists?status=completed',
-              viewAllLabel: 'View all in Checklist',
-              cappedNote: (checklistSummary?.completed ?? 0) > completedChecklists.length
-                ? `Showing your ${completedChecklists.length} most recent — ${checklistSummary!.completed} total are completed.`
-                : undefined,
-            }),
-          },
-          {
-            label: 'New today',
-            value: newChecklistsToday.length,
-            onClick: () => setDrilldown({
-              title: 'New checklists today',
-              icon: ListChecks,
-              rows: newChecklistsToday.map(checklistRow),
-              viewAllHref: '/checklists',
-              viewAllLabel: 'View all in Checklist',
-            }),
-          },
-        ]}
-      />
-
-      {/* Todo Card — always personally-scoped (see the `todos` prop doc), so an admin sees only
-          their own todos here even though Delegation/Tickets go org-wide for them. */}
-      <StatusBreakdownCard
-        variant={CARD_VARIANTS[3]}
-        icon={ListTodo}
-        title="Todo"
-        total={todos.length}
-        onOpen={() => navigate('/todo')}
-        rows={[
-          {
-            label: 'Due',
-            value: dueTodos.length,
-            onClick: () => setDrilldown({
-              title: 'Due todos',
-              icon: ListTodo,
-              rows: dueTodos.map(todoRow),
-              viewAllHref: '/todo?quickFilter=pending',
-              viewAllLabel: 'View all in Todo',
-            }),
-          },
-          {
-            label: 'Completed',
-            value: completedTodos.length,
-            onClick: () => setDrilldown({
-              title: 'Completed todos',
-              icon: ListTodo,
-              rows: completedTodos.map(todoRow),
-              viewAllHref: '/todo?quickFilter=completed',
-              viewAllLabel: 'View all in Todo',
-            }),
-          },
-          {
-            label: 'New today',
-            value: newTodosToday.length,
-            onClick: () => setDrilldown({
-              title: 'New todos today',
-              icon: ListTodo,
-              rows: newTodosToday.map(todoRow),
-              viewAllHref: '/todo',
-              viewAllLabel: 'View all in Todo',
-            }),
-          },
-        ]}
-      />
-    </div>
+      <div className="hidden sm:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 md:gap-5">
+        {views.map((view) => {
+          if (view.isPending) return <KpiCardSkeleton key={view.key} />;
+          const open = (kind: DrillKind) => () => setOpenDrill({ key: view.key, kind });
+          return (
+            <StatusBreakdownCard
+              key={view.key}
+              variant="navy"
+              icon={view.icon}
+              title={view.title}
+              href={view.href}
+              total={view.isError ? null : view.total}
+              totalLabel={view.totalLabel}
+              error={view.isError ? { message: `Couldn't load ${view.noun}.`, onRetry: view.onRetry } : undefined}
+              overdue={{ value: view.overdue, onClick: open('overdue') }}
+              rows={[
+                { label: 'Pending', value: view.pending, onClick: open('pending') },
+                { label: 'Completed', value: view.completed, onClick: open('completed') },
+                { label: 'New today', value: view.newToday, onClick: open('newToday') },
+              ]}
+            />
+          );
+        })}
       </div>
 
       {drilldown && (
         <DrilldownModal
           open
-          onClose={() => setDrilldown(null)}
+          onClose={() => setOpenDrill(null)}
           title={drilldown.title}
           icon={drilldown.icon}
           rows={drilldown.rows}

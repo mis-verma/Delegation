@@ -120,31 +120,45 @@ export const checklistInstanceController = {
         res.json({ success: true, ...result })
     }),
 
+    // GET /checklist-instances/pending-approval-preview
+    // `{ success, data: rows (at most 8), meta: { total } }`: total is the real count waiting in the
+    // caller's scope (ADMIN/PC all, MANAGER/SENIOR their department, plus any run they are a named
+    // reviewer on). No role gate on the route, the service scopes, same as /pending-verification.
     pendingApprovalPreview: asyncHandler(async (req: Request, res: Response) => {
-        const data = await checklistInstanceService.pendingApprovalPreview()
-        res.json({ success: true, data })
+        const { data, meta } = await checklistInstanceService.pendingApprovalPreview(req.user!)
+        res.json({ success: true, data, meta })
     }),
 
-    // GET /checklist-instances/summary?mine=1|storeId=&assigneeId=&assigneeIds=&definitionId=&includeDeleted=
+    // GET /checklist-instances/summary?mine=1|scope=visible|storeId=&assigneeId=&assigneeIds=&definitionId=&includeDeleted=
     // The counts the compliance board and dashboard cards used to compute by downloading every
     // instance. `mine=1` scopes to the caller, which is what the dashboard cards want.
+    // `scope=visible` is the role's own reach: ADMIN/PC the org, MANAGER/SENIOR runs with an assignee
+    // in their department (no department = zeros, never org-wide), everyone else their own runs.
+    // Without either, behaviour is as it always was (ADMIN/PC org-wide, everyone else their own).
     summary: asyncHandler(async (req: Request, res: Response) => {
         const { definitionId, storeId, assigneeId, mine } = req.query
         const scopedToSelf = mine === "1" || mine === "true"
         // Only ADMIN/PC may ask for org-wide numbers; everyone else is pinned to their own, so
         // this can't be used to read another store's compliance by dropping `mine`.
         const isOrgWide = req.user!.role === "ADMIN" || req.user!.role === "PC"
+        const isDeptHead = req.user!.role === "MANAGER" || req.user!.role === "SENIOR"
+        const wantsVisible = req.query.scope === "visible" && !scopedToSelf
+        const useDepartment = wantsVisible && isDeptHead
         const data = await checklistInstanceService.summary({
             definitionId: definitionId as string | undefined,
             storeId: storeId as string | undefined,
-            assigneeId: assigneeId as string | undefined,
+            // The single-person filter outranks the pinned userId inside the service, so it is only
+            // honoured for ADMIN/PC; for anyone else it would have read another person's numbers.
+            assigneeId: isOrgWide ? (assigneeId as string | undefined) : undefined,
             assigneeIds: parseIdsParam(req.query.assigneeIds),
             recurrence: req.query.recurrence as InstanceRecurrence | undefined,
             verificationStatus: req.query.verificationStatus as InstanceVerificationStatus | undefined,
-            departmentId: req.query.departmentId as string | undefined,
+            // A department head's own department always wins over a client-supplied one; with no
+            // department the id below matches nothing, so it fails closed.
+            departmentId: useDepartment ? (req.user!.departmentId ?? "no-department") : (req.query.departmentId as string | undefined),
             from: req.query.from as string | undefined,
             to: req.query.to as string | undefined,
-            userId: scopedToSelf || !isOrgWide ? req.user!.sub : undefined,
+            userId: scopedToSelf || (!isOrgWide && !useDepartment) ? req.user!.sub : undefined,
             // Opt-in, not automatic (see `list` above's own comment) — a deleted checklist's
             // instances shouldn't inflate the Compliance Board's counts by default, only when the
             // viewer explicitly asks to include deleted-checklist history.

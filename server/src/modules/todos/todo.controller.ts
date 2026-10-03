@@ -1,11 +1,12 @@
 import type { Request, Response } from "express"
 import { todoService } from "./todo.service.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
-import { createTodoSchema, updateTodoSchema } from "./todo.validation.js"
+import { createTodoSchema, updateTodoSchema, listTodosQuerySchema } from "./todo.validation.js"
 
 export const todoController = {
     list: asyncHandler(async (req: Request, res: Response) => {
-        const todos = await todoService.listForUser(req.user!.sub)
+        const { limit } = listTodosQuerySchema.parse(req.query)
+        const todos = await todoService.listForUser(req.user!.sub, limit)
         res.json({ success: true, data: todos })
     }),
 

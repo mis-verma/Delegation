@@ -15,6 +15,7 @@ import type { ChecklistInstanceItemSubmissionAccessory } from '../../api/checkli
 import type { CaptureMethod } from '../../api/ticket';
 import { checklistBulkImportApi, type BulkImportPublishPayload } from '../../api/checklistBulkImport';
 import { useEntityMutation, errorMessage, handleQueryRetry } from '../../lib/queryHelpers';
+import type { DashboardQueryOptions } from '../../lib/dashboardQuery';
 
 const KEYS = {
   definitions:            (filters: ListChecklistDefinitionsParams) => ['checklist-definitions', filters] as const,
@@ -172,25 +173,32 @@ export const useChecklistInstanceSummaryQuery = (
     to?: string;
     includeDeleted?: boolean;
   } = {},
+  /** keepPrevious: keep showing the last counts while a changed filter (e.g. another period) loads. */
+  options: DashboardQueryOptions & { enabled?: boolean; keepPrevious?: boolean } = {},
 ) => {
   const { token } = useAuth();
+  const { enabled = true, keepPrevious = false, ...queryOptions } = options;
   return useQuery({
     queryKey: ['checklist-instances', 'summary', filter],
     queryFn: () => checklistInstanceApi.getSummary(filter).then(r => r.data),
-    enabled: !!token,
+    enabled: !!token && enabled,
     retry: handleQueryRetry,
+    placeholderData: keepPrevious ? keepPreviousData : undefined,
+    ...queryOptions,
   });
 };
 
-// Dashboard's "Needs your approval" card — `enabled` is the caller's own role check (ADMIN/PC
-// only), same convention as the task/ticket summary hooks' `enabled` param.
-export const useChecklistPendingApprovalQuery = (enabled = true) => {
+// Dashboard's "Needs your approval" card — `enabled` is the caller's own role check (ADMIN/PC and
+// the department heads who can approve), same convention as the task/ticket summary hooks'
+// `enabled` param. Returns the oldest few rows plus the real queue size.
+export const useChecklistPendingApprovalQuery = (enabled = true, options?: DashboardQueryOptions) => {
   const { token } = useAuth();
   return useQuery({
     queryKey: ['checklist-instances', 'pending-approval-preview'] as const,
     queryFn: () => checklistInstanceApi.getPendingApprovalPreview(),
     enabled: !!token && enabled,
     retry: handleQueryRetry,
+    ...options,
   });
 };
 
@@ -206,15 +214,17 @@ export const useMyChecklistInstancesQuery = (
     to?: string;
   } = {},
   paging: { page?: number; limit?: number } = {},
-  options: { enabled?: boolean } = {},
+  options: DashboardQueryOptions & { enabled?: boolean } = {},
 ) => {
   const { token } = useAuth();
+  const { enabled = true, ...queryOptions } = options;
   return useQuery({
     queryKey: [...KEYS.myInstances(filter.status), filter, paging],
     queryFn: () => checklistInstanceApi.getMine(filter, paging).then(r => r.data),
-    enabled: !!token && (options.enabled ?? true),
+    enabled: !!token && enabled,
     retry: handleQueryRetry,
     placeholderData: keepPreviousData,
+    ...queryOptions,
   });
 };
 

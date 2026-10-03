@@ -8,6 +8,7 @@ import { RouteFallback } from '../../components/skeleton';
 import { PullToRefresh } from '../../components/pullToRefresh';
 import { PageMaintenance } from '../../components/error/PageMaintenance';
 import { isPathUnderMaintenance, maintenancePageLabel } from '../../lib/maintenance';
+import { invalidateDashboardQueries } from '../../lib/dashboardQuery';
 
 export const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -60,7 +61,14 @@ export const Dashboard = () => {
   const maintenanceMatch = isPathUnderMaintenance(location.pathname);
   const pageUnderMaintenance = maintenanceMatch && !isAdmin;
 
-  const handleRefresh = useCallback(() => queryClient.invalidateQueries(), [queryClient]);
+  // On the home dashboard a pull refreshes just the queries the dashboard reads (tasks, tickets,
+  // todos, checklists, events), not every cached query in the app. Other pages keep the broad
+  // refresh: their own lists live under keys the dashboard does not know about.
+  const isHome = location.pathname === '/';
+  const handleRefresh = useCallback(
+    () => (isHome ? invalidateDashboardQueries(queryClient) : queryClient.invalidateQueries()),
+    [isHome, queryClient],
+  );
 
   return (
     <div
@@ -90,7 +98,7 @@ export const Dashboard = () => {
                 >
                   <Construction size={15} className="text-warning shrink-0" />
                   <span>
-                    This page is under maintenance for everyone else — you can see it because you&rsquo;re an admin.
+                    This page is under maintenance for everyone else. You can see it because you&rsquo;re an admin.
                   </span>
                 </div>
               )}

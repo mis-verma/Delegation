@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { apiFetch } from './http';
+import { apiFetch, type SummaryScope, type PendingApprovalPreview } from './http';
 import { arrayField, withArrayDefaults, normalizeWith } from './normalize';
 import type { Tag } from './tags';
 
@@ -130,6 +130,8 @@ export type Ticket = {
   departmentId:   string | null;
   createdAt:      string;
   updatedAt:      string;
+  /** When the ticket was closed; null while open. */
+  closedAt:       string | null;
   assignee:       { id: string; email: string; firstName: string; role: string } | null;
   checklists:     Checklist[];
   attachments:    TicketAttachment[];
@@ -183,6 +185,8 @@ export type VerifyTicketPayload = { action: 'APPROVE' | 'REJECT'; note?: string 
 export type TicketSummary = {
   total:     number;
   newToday:  number;
+  /** Open work: due (on track) plus overdue. */
+  pending:   number;
   due:       number;
   overdue:   number;
   completed: number;
@@ -254,11 +258,12 @@ export const ticketApi = {
   getOne: (id: string) =>
     apiFetch<ApiResponse<Ticket>>(`/tickets/${id}`).then(r => ({ ...r, data: normalizeTicket(r.data) })),
 
-  getSummary: (): Promise<TicketSummary> =>
-    apiFetch<ApiResponse<TicketSummary>>('/tickets/summary').then(r => r.data),
+  getSummary: (scope: SummaryScope = 'mine'): Promise<TicketSummary> =>
+    apiFetch<ApiResponse<TicketSummary>>(`/tickets/summary?scope=${scope}`).then(r => r.data),
 
-  getPendingApproval: (): Promise<TicketPendingApproval[]> =>
-    apiFetch<ApiResponse<TicketPendingApproval[]>>('/tickets/pending-approval').then(r => r.data),
+  getPendingApproval: (): Promise<PendingApprovalPreview<TicketPendingApproval>> =>
+    apiFetch<ApiResponse<TicketPendingApproval[]> & { meta?: { total: number } }>('/tickets/pending-approval')
+      .then(r => ({ rows: r.data, total: r.meta?.total ?? r.data.length })),
 
   create: (payload: CreateTicketPayload) =>
     apiFetch<ApiResponse<Ticket>>('/tickets', { method: 'POST', body: JSON.stringify(payload) }).then(r => ({ ...r, data: normalizeTicket(r.data) })),

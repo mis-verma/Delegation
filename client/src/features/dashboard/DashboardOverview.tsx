@@ -1,35 +1,20 @@
-import { KpiStrip, type WorkflowStats } from './KpiStrip';
+import { KpiStrip } from './KpiStrip';
+import type { DashboardSummaries } from './useDashboardSummaries';
 import type { Task } from '../../api/task';
 import type { Ticket } from '../../api/ticket';
 import type { Todo } from '../../api/todos';
+import type { ChecklistInstance } from '../../api/checklistInstances';
 
 interface DashboardOverviewProps {
-  isPending: boolean;
-  tickets: Ticket[];
-  tasks: Task[];
-  todos: Todo[];
-  workflowStats: WorkflowStats;
+  summaries: DashboardSummaries['kpi'];
+  taskList: Task[];
+  ticketList: Ticket[];
+  todoList: Todo[];
+  checklistList: ChecklistInstance[];
 }
 
-export const DashboardOverview = ({
-  isPending,
-  tickets,
-  tasks,
-  todos,
-  workflowStats
-}: DashboardOverviewProps) => {
-  return (
-    <section
-      aria-label="Dashboard Overview"
-      className="w-full relative z-10 animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out fill-mode-both"
-    >
-      <KpiStrip
-        tickets={tickets}
-        tasks={tasks}
-        todos={todos}
-        isPending={isPending}
-        workflowStats={workflowStats}
-      />
-    </section>
-  );
-};
+export const DashboardOverview = ({ summaries, taskList, ticketList, todoList, checklistList }: DashboardOverviewProps) => (
+  <section aria-label="Dashboard overview" className="w-full relative z-10">
+    <KpiStrip summaries={summaries} taskList={taskList} ticketList={ticketList} todoList={todoList} checklistList={checklistList} />
+  </section>
+);

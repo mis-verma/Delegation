@@ -57,6 +57,12 @@ export const paginatioinSchema = z.object({
     sla : z.enum(["overdue_open", "closed_late", "closed_on_time"]).optional(),
 })
 
+// GET /tickets/summary. 'mine' (default) = raised by or assigned to the caller, which is what the
+// sidebar badge shows; 'visible' = everything the caller's role can see.
+export const ticketSummaryQuerySchema = z.object({
+    scope : z.enum(["mine", "visible"]).optional(),
+})
+
 export const tatReportQuerySchema = z.object({
     // 'none' = one bucket named 'range' covering the whole from/to window. 'hour' is gone: with no
     // from/to the server defaults to the last 12 buckets (last 30 days for day), never unbounded.

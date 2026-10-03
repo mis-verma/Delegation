@@ -1,13 +1,17 @@
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router';
-import { ClipboardCheck, ShieldCheck, Sparkles, TrendingUp, TrendingDown, Minus, Download, FileSpreadsheet, FileText, type LucideIcon } from 'lucide-react';
+import { memo, useCallback, useMemo, useState } from 'react';
+import { Link, useNavigate } from 'react-router';
+import { ClipboardCheck, ShieldCheck, Sparkles, Download, FileSpreadsheet, FileText, Info, type LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
-import { RadialGauge, EntityIconTile } from '../../components';
+import { RadialGauge, EntityIconTile, Button } from '../../components';
 import { Modal } from '../../components/modal';
-import { useIsMobile } from '../../lib/useMediaQuery';
+import { useIsMobile, useMediaQuery } from '../../lib/useMediaQuery';
+import { useNow } from '../../lib/useNow';
 import { BreakdownRatioRows } from './PinnedBreakdown';
 import { DrilldownList, DrilldownViewAllButton } from './DrilldownModal';
+import { DeltaBadge } from './RateDelta';
+import { isTrendReady } from './trendGate';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../../components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '../../components/ui/dropdown-menu';
 import { csvBlob, xlsxBlob, downloadBlob, stampedFilename, type TableRows } from '../../lib/exportTable';
 import { useDepartmentsQuery, useStoresQuery, useAssignableUsersQuery } from '../tickets/hook';
@@ -24,7 +28,6 @@ import {
   type ActivityCategory,
   type ActivityWorkItem,
   type RateTone,
-  type Trend,
 } from './dashboardDisplay';
 
 // Sentinel for "no scope picked" — Radix Select's Item can't take an empty-string value, and
@@ -46,10 +49,28 @@ const CATEGORY_VIEW_ALL_HREF: Record<ActivityCategory, string> = {
   todo: '/todo',
 };
 
+export type CategoryScope = 'org' | 'mine';
+
+// Delegations and tickets reach this card org-wide; checklist runs and todos are only ever loaded
+// for the signed-in user. Saying so per category stops a blended number reading as an org figure.
+const DEFAULT_CATEGORY_SCOPE: Record<ActivityCategory, CategoryScope> = {
+  delegation: 'org',
+  ticket: 'org',
+  checklist: 'mine',
+  todo: 'mine',
+};
+
+const SCOPE_LABEL: Record<CategoryScope, string> = { org: 'Org', mine: 'Mine' };
+
 interface ActivityComplianceGaugesProps {
   items: ActivityWorkItem[];
   activeCategories: ReadonlySet<ActivityCategory>;
   groupBy: ActivityGroupBy;
+  /** Org-wide checklist item figure (items done of items in total). When given it replaces the
+   *  signed-in user's own checklist runs in the Done rate; when absent the card uses `items`. */
+  orgChecklistRate?: { done: number; total: number } | null;
+  /** Per-category "Org" or "Mine" tag. Anything not listed keeps the default for that category. */
+  categoryScope?: Partial<Record<ActivityCategory, CategoryScope>>;
 }
 
 type GaugeKey = 'completion' | 'onTime';
@@ -61,18 +82,25 @@ interface CategoryBreakdownRow {
 }
 
 interface GaugeProps {
+  gaugeKey: GaugeKey;
   icon: LucideIcon;
   label: string;
+  /** One-line plain definition shown in the info popover. */
+  definition: string;
   percent: number | null;
-  count: number;
-  total: number;
-  trend: Trend | null;
+  /** "41 of 50 created" style caption under the label. */
+  caption: string;
+  /** Denominator behind the percent; tiny volumes keep a neutral tone. */
+  volume: number;
+  delta: number | null;
+  deltaTitle: string;
   isSelected: boolean;
-  onToggle: () => void;
+  size: number;
+  onToggle: (key: GaugeKey) => void;
 }
 
-// Only the icon and trend badge carry tone color now — the card itself stays one neutral surface
-// regardless of performance, so the two gauges don't turn the card into a traffic-light panel.
+// Only the icon carries tone color now — the card itself stays one neutral surface regardless of
+// performance, so the two gauges don't turn the card into a traffic-light panel.
 const TONE_ACCENT: Record<RateTone, string> = {
   success: 'text-success',
   warning: 'text-warning',
@@ -80,86 +108,92 @@ const TONE_ACCENT: Record<RateTone, string> = {
   neutral: 'text-text-muted',
 };
 
-const Gauge = ({ icon: Icon, label, percent, count, total, trend, isSelected, onToggle }: GaugeProps) => {
+// Late = open past its deadline or finished after it. Items without a `late` flag fall back to the
+// plain overdue flag. An item that is neither done nor late is simply not due yet.
+const isLate = (i: ActivityWorkItem) => i.late ?? i.overdue;
+const isDue = (i: ActivityWorkItem) => i.completed || isLate(i);
+
+const percentOf = (count: number, of: number) => (of > 0 ? Math.round((count / of) * 100) : null);
+
+const Gauge = memo(({ gaugeKey, icon: Icon, label, definition, percent, caption, volume, delta, deltaTitle, isSelected, size, onToggle }: GaugeProps) => {
   const isNull = percent == null;
-  const accentColor = isNull ? 'text-text-muted' : TONE_ACCENT[rateTone(percent, total)];
-  // pointDelta() always signs its label ("+0.0%", never a bare "0%"), so a genuinely flat trend
-  // has to be detected by parsing the number back out rather than string-matching the label.
-  const isFlatTrend = trend != null && Number.parseFloat(trend.label) === 0;
-  const TrendIcon = trend == null ? null : isFlatTrend ? Minus : trend.direction === 'up' ? TrendingUp : TrendingDown;
-  const isMobile = useIsMobile();
-  // 176 on desktop, two full circles side by side. Phones get a compact 96 so the pair still fits
-  // 2-up — stacked one per row they took most of a screen's height for two numbers.
-  const gaugeSize = isMobile ? 96 : 176;
+  const hasCaption = !isNull && caption !== '';
+  const accentColor = isNull ? 'text-text-muted' : TONE_ACCENT[rateTone(percent, volume)];
 
   return (
     <div
-      role="button"
-      tabIndex={0}
-      onClick={onToggle}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onToggle(); } }}
-      aria-pressed={isSelected}
-      aria-label={`${label}, ${isNull ? 'no data' : `${percent}%`}. Tap for the per-category breakdown.`}
-      className={`group relative flex flex-col items-center justify-center gap-3 sm:gap-4 w-full p-3 sm:p-6 rounded-3xl border-2 bg-surface-hover/30 transition-all duration-300 overflow-hidden cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
-        isSelected ? 'border-primary-500' : 'border-transparent hover:border-border/60'
+      className={`relative flex flex-col items-center gap-2 w-full p-3 sm:p-6 rounded-2xl border-2 bg-surface-hover/30 transition-colors duration-200 motion-reduce:transition-none ${
+        isSelected ? 'border-primary-500' : 'border-transparent hover:border-border'
       }`}
     >
-      {/* Trend badge — how this rate moved against the equivalent prior window, so the number
-          reads as "getting better/worse" at a glance instead of a static snapshot. In normal flow
-          below the label on phones (order-last) — pinned to the corner of a 2-up tile, it sat on
-          top of the ring. */}
-      {TrendIcon && trend && (
-        <div
-          className={`order-last flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-display font-bold tabular-nums ${
-            isFlatTrend
-              ? 'bg-surface text-text-muted border border-border/50'
-              : trend.direction === 'up'
-                ? 'bg-success/10 text-success'
-                : 'bg-danger/10 text-danger'
-          }`}
-        >
-          <TrendIcon size={12} strokeWidth={2.75} />
-          {trend.label}
-        </div>
-      )}
-
-      {/* Gauge Container with subtle hover lift */}
-      <div className="relative z-10 transform transition-transform duration-500 group-hover:-translate-y-1 group-hover:scale-105">
-        {/* Fill is always the brand navy, not the tone color — the tone (success/warning/danger)
-            still drives the card's tint and the trend badge, but the chart itself stays on the
-            same navy palette the rest of the dashboard (bar chart, sidebar) uses. */}
-        <RadialGauge percent={percent ?? 0} size={gaugeSize} variant="circle" gradientFrom="var(--color-primary-700, #213e6a)" gradientTo="var(--color-primary-700, #213e6a)">
-          <div className="flex flex-col items-center justify-center animate-in zoom-in duration-500">
-            <span className={`text-lg sm:text-2xl font-display font-black tracking-tighter ${isNull ? 'text-text-muted/50' : 'text-text'}`}>
-              {isNull ? '—' : `${percent}%`}
-            </span>
-          </div>
+      {/* A real button with the whole reading in its label — the ring is a picture of it. The
+          info button below is a sibling, not a child, so no button is nested inside another. */}
+      <button
+        type="button"
+        onClick={() => onToggle(gaugeKey)}
+        aria-haspopup="dialog"
+        aria-label={`${label}: ${isNull ? 'No data' : `${percent}%`}${hasCaption ? `, ${caption}` : ''}. Open the breakdown by category.`}
+        className="flex flex-col items-center gap-3 sm:gap-4 w-full min-h-11 rounded-xl outline-none cursor-pointer focus-visible:ring-2 focus-visible:ring-primary-500/40"
+      >
+        {/* Fill is always the brand navy, not the tone color; the tone only tints the icon. */}
+        <RadialGauge percent={percent ?? 0} size={size} variant="circle" gradientFrom="var(--color-primary-700, #213e6a)" gradientTo="var(--color-primary-700, #213e6a)">
+          <span className={`font-display font-black tracking-tight ${isNull ? 'text-xs sm:text-sm text-text-muted' : 'text-lg sm:text-2xl text-text'}`}>
+            {isNull ? 'No data' : `${percent}%`}
+          </span>
         </RadialGauge>
-      </div>
 
-      {/* Label, Icon & raw count — the count is what makes the percentage trustworthy at a
-          glance ("3 of 4" reads very differently from "300 of 400" even at the same 75%). */}
-      <div className="relative z-10 flex flex-col items-center gap-1 sm:mt-1 text-center">
-        <div className="flex items-center gap-2">
-          <div className={`hidden sm:flex items-center justify-center size-7 rounded-lg bg-surface shadow-sm border border-border/50 transition-colors ${accentColor} group-hover:border-current/30`}>
-            <Icon size={14} strokeWidth={2.5} />
-          </div>
-          <span className="text-xs sm:text-[13px] font-display font-bold text-text-secondary group-hover:text-text transition-colors leading-tight">
-            {label}
+        <span className="flex flex-col items-center gap-1 text-center">
+          <span className="flex items-center gap-2">
+            <span className={`hidden sm:flex items-center justify-center size-7 rounded-lg bg-surface border border-border/50 ${accentColor}`}>
+              <Icon size={14} strokeWidth={2.5} aria-hidden="true" />
+            </span>
+            <span className="text-xs sm:text-sm font-display font-bold text-text-secondary leading-tight">{label}</span>
           </span>
-        </div>
-        {!isNull && (
-          <span className="text-[11px] font-display font-medium text-text-light tabular-nums">
-            {count} of {total}
-          </span>
-        )}
-      </div>
+          {/* The raw count is what makes the percentage trustworthy: "3 of 4" reads very
+              differently from "300 of 400" at the same 75%. */}
+          {hasCaption && <span className="text-xs font-display font-medium text-text-muted tabular-nums">{caption}</span>}
+        </span>
+      </button>
+
+      <DeltaBadge delta={isNull ? null : delta} title={deltaTitle} />
+
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            aria-label={`What ${label} means`}
+            className="absolute top-1 right-1 flex items-center justify-center size-8 pointer-coarse:size-11 rounded-full text-text-muted hover:text-text hover:bg-surface-hover outline-none cursor-pointer transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-primary-500/40"
+          >
+            <Info size={14} aria-hidden="true" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-64 text-xs font-display text-text-secondary leading-relaxed">
+          {definition}
+        </PopoverContent>
+      </Popover>
     </div>
   );
-};
+});
+Gauge.displayName = 'Gauge';
 
-export const ActivityComplianceGauges = ({ items, activeCategories, groupBy }: ActivityComplianceGaugesProps) => {
+const ScopeTag = memo(({ label, scope }: { label: string; scope: CategoryScope }) => (
+  <span className="inline-flex items-center gap-1.5 h-6 px-2 rounded-full border border-border/60 bg-surface text-xs font-display font-medium text-text-secondary">
+    {label}
+    <span className="font-bold text-text">{SCOPE_LABEL[scope]}</span>
+  </span>
+));
+ScopeTag.displayName = 'ScopeTag';
+
+const DONE_RATE_DEFINITION = 'Done rate: items finished out of items created in this period.';
+const NOT_OVERDUE_DEFINITION = 'Not overdue: share of items not past their due date.';
+
+export const ActivityComplianceGauges = ({ items, activeCategories, groupBy, orgChecklistRate = null, categoryScope }: ActivityComplianceGaugesProps) => {
   const navigate = useNavigate();
+  const now = useNow();
+  const isMobile = useIsMobile();
+  // The scope filters and Export only exist from `sm` up, so nothing they need is fetched on a
+  // phone. Their lists (departments, stores, people) are cached org-wide data.
+  const showFilters = useMediaQuery('(min-width: 640px)');
   const [selected, setSelected] = useState<GaugeKey | null>(null);
   const [drilldownCategory, setDrilldownCategory] = useState<ActivityCategory | null>(null);
 
@@ -168,16 +202,18 @@ export const ActivityComplianceGauges = ({ items, activeCategories, groupBy }: A
   // practical stand-in for "HOD-wise": an HOD is just a MANAGER who heads a single department
   // (there's no separate HOD field anywhere in the data model), so scoping to their department
   // already shows their compliance.
-  const [departmentId, setDepartmentId] = useState<string | null>(null);
-  const [storeId, setStoreId] = useState<string | null>(null);
-  const [personId, setPersonId] = useState<string | null>(null);
-  const { data: departmentsData = [] } = useDepartmentsQuery();
-  const { data: storesData = [] } = useStoresQuery();
-  const { data: peopleData = [] } = useAssignableUsersQuery();
-  // The API doesn't guarantee alphabetical order (and doesn't need to — every other consumer of
-  // these hooks renders its own checkbox list or table, not a scannable dropdown) — sorted here,
-  // once, rather than making an admin hunt through an arbitrarily-ordered list of every department/
-  // store/person in the org to find the one they want.
+  const [pickedDepartmentId, setDepartmentId] = useState<string | null>(null);
+  const [pickedStoreId, setStoreId] = useState<string | null>(null);
+  const [pickedPersonId, setPersonId] = useState<string | null>(null);
+  // Hidden filters must not keep narrowing the numbers after the window shrinks to a phone width.
+  const departmentId = showFilters ? pickedDepartmentId : null;
+  const storeId = showFilters ? pickedStoreId : null;
+  const personId = showFilters ? pickedPersonId : null;
+  const { data: departmentsData = [] } = useDepartmentsQuery(showFilters);
+  const { data: storesData = [] } = useStoresQuery(showFilters);
+  const { data: peopleData = [] } = useAssignableUsersQuery(undefined, undefined, undefined, showFilters);
+  // The API doesn't guarantee alphabetical order — sorted here, once, rather than making an admin
+  // hunt through an arbitrarily-ordered list of every department/store/person in the org.
   const departments = useMemo(() => [...departmentsData].sort((a, b) => a.name.localeCompare(b.name)), [departmentsData]);
   const stores = useMemo(() => [...storesData].sort((a, b) => a.name.localeCompare(b.name)), [storesData]);
   const people = useMemo(
@@ -206,16 +242,23 @@ export const ActivityComplianceGauges = ({ items, activeCategories, groupBy }: A
     setDrilldownCategory(null);
   }
 
-  const { completionRate, onTimeRate, completed, onTime, total, completionBreakdown, onTimeBreakdown, completionTrend, onTimeTrend, scoped } = useMemo(() => {
-    const buckets = lastActivityBuckets(groupBy, ACTIVITY_BUCKET_COUNT[groupBy]);
+  const {
+    doneRate, notOverdueRate, doneCount, doneTotal, onTimeCount, dueTotal,
+    doneBreakdown, notOverdueBreakdown, doneDelta, notOverdueDelta, trendReady, scoped,
+  } = useMemo(() => {
+    const buckets = lastActivityBuckets(groupBy, ACTIVITY_BUCKET_COUNT[groupBy], new Date(now));
     const start = buckets[0].start;
     const end = buckets[buckets.length - 1].end;
     // The equivalent window immediately before the one shown — same duration, shifted back — so
-    // the trend badge compares "this last 7 days" against "the 7 days before that", not an
-    // arbitrary lookback.
+    // the change badge compares "these 7 days" against "the 7 days before", not an arbitrary
+    // lookback.
     const windowMs = end.getTime() - start.getTime();
     const prevStart = new Date(start.getTime() - windowMs);
     const prevEnd = start;
+    // The last bucket (today, this month...) is only partly over while the window before it is
+    // complete, so a change badge is held back until that bucket is at least half done.
+    const currentBucket = buckets[buckets.length - 1];
+    const ready = isTrendReady(currentBucket.start.getTime(), currentBucket.end.getTime(), now);
 
     const activeOrder = ACTIVITY_CATEGORY_ORDER.filter((c) => activeCategories.has(c));
     const inRange = (createdAt: string, rangeStart: Date, rangeEnd: Date) => {
@@ -225,45 +268,59 @@ export const ActivityComplianceGauges = ({ items, activeCategories, groupBy }: A
     const scoped = scopedItems.filter((i) => activeCategories.has(i.category) && inRange(i.createdAt, start, end));
     const prevScoped = scopedItems.filter((i) => activeCategories.has(i.category) && inRange(i.createdAt, prevStart, prevEnd));
 
-    const rateOf = (list: typeof items, pick: (i: ActivityWorkItem) => boolean) =>
-      list.length > 0 ? Math.round((list.filter(pick).length / list.length) * 100) : null;
+    // An org checklist figure, when HomePage supplies one, stands in for the user's own runs.
+    const orgChecklist = activeCategories.has('checklist') ? orgChecklistRate : null;
+    const useOrgChecklist = orgChecklist != null;
+    const base = useOrgChecklist ? scoped.filter((i) => i.category !== 'checklist') : scoped;
+    const prevBase = useOrgChecklist ? prevScoped.filter((i) => i.category !== 'checklist') : prevScoped;
 
-    const completed = scoped.filter((i) => i.completed).length;
-    const overdue = scoped.filter((i) => i.overdue).length;
-    const total = scoped.length;
+    const rates = (list: ActivityWorkItem[], extra: { done: number; total: number }) => {
+      const doneN = list.filter((i) => i.completed).length + extra.done;
+      const totalN = list.length + extra.total;
+      const due = list.filter(isDue);
+      const onTimeN = due.filter((i) => !isLate(i)).length;
+      return { doneN, totalN, onTimeN, dueN: due.length, doneRate: percentOf(doneN, totalN), onTimeRate: percentOf(onTimeN, due.length) };
+    };
+    const orgExtra = orgChecklist ? { done: orgChecklist.done, total: orgChecklist.total } : { done: 0, total: 0 };
+    const current = rates(base, orgExtra);
+    // The org figure is for the current window only, so it is left out of the comparison too.
+    const previous = rates(prevBase, { done: 0, total: 0 });
+    const comparable = !useOrgChecklist;
 
-    const completionRate = total > 0 ? Math.round((completed / total) * 100) : null;
-    const onTimeRate = total > 0 ? Math.round(((total - overdue) / total) * 100) : null;
-    const prevCompletionRate = rateOf(prevScoped, (i) => i.completed);
-    const prevOnTimeRate = rateOf(prevScoped, (i) => !i.overdue);
-
-    const completionBreakdown: CategoryBreakdownRow[] = activeOrder.map((category) => {
+    const doneBreakdown: CategoryBreakdownRow[] = activeOrder.map((category) => {
+      if (category === 'checklist' && orgChecklist) return { label: ACTIVITY_CATEGORY_LABEL[category], count: orgChecklist.done, total: orgChecklist.total };
       const categoryItems = scoped.filter((i) => i.category === category);
       return { label: ACTIVITY_CATEGORY_LABEL[category], count: categoryItems.filter((i) => i.completed).length, total: categoryItems.length };
     });
-    const onTimeBreakdown: CategoryBreakdownRow[] = activeOrder.map((category) => {
-      const categoryItems = scoped.filter((i) => i.category === category);
-      return { label: ACTIVITY_CATEGORY_LABEL[category], count: categoryItems.length - categoryItems.filter((i) => i.overdue).length, total: categoryItems.length };
+    const notOverdueBreakdown: CategoryBreakdownRow[] = activeOrder.map((category) => {
+      const due = category === 'checklist' && useOrgChecklist ? [] : scoped.filter((i) => i.category === category && isDue(i));
+      return { label: ACTIVITY_CATEGORY_LABEL[category], count: due.filter((i) => !isLate(i)).length, total: due.length };
     });
 
     return {
-      completed,
-      total,
-      onTime: total - overdue,
-      completionRate,
-      onTimeRate,
-      completionBreakdown,
-      onTimeBreakdown,
-      completionTrend: completionRate != null && prevCompletionRate != null ? pointDelta(completionRate, prevCompletionRate) : null,
-      onTimeTrend: onTimeRate != null && prevOnTimeRate != null ? pointDelta(onTimeRate, prevOnTimeRate) : null,
+      doneRate: current.doneRate,
+      notOverdueRate: current.onTimeRate,
+      doneCount: current.doneN,
+      doneTotal: current.totalN,
+      onTimeCount: current.onTimeN,
+      dueTotal: current.dueN,
+      doneBreakdown,
+      notOverdueBreakdown,
+      doneDelta: ready && comparable ? pointDelta(current.doneRate, previous.doneRate) : null,
+      notOverdueDelta: ready && comparable ? pointDelta(current.onTimeRate, previous.onTimeRate) : null,
+      trendReady: ready,
       // Kept for drill-down — the exact same time+scope-filtered set the rates above were computed
       // from, so a clicked breakdown row lists precisely the records behind its number.
       scoped,
     };
-  }, [scopedItems, activeCategories, groupBy]);
+  }, [scopedItems, activeCategories, groupBy, now, orgChecklistRate]);
 
-  const activeBreakdown = selected === 'completion' ? completionBreakdown : selected === 'onTime' ? onTimeBreakdown : null;
-  const activeLabel = selected === 'completion' ? 'Completion' : selected === 'onTime' ? 'On-time Compliance' : null;
+  const handleToggle = useCallback((key: GaugeKey) => setSelected((prev) => (prev === key ? null : key)), []);
+
+  const activeBreakdown = selected === 'completion' ? doneBreakdown : selected === 'onTime' ? notOverdueBreakdown : null;
+  const activeLabel = selected === 'completion' ? 'Done rate' : selected === 'onTime' ? 'Not overdue' : null;
+  const rangeText = ACTIVITY_GROUP_RANGE_LABEL[groupBy];
+  const deltaTitle = `vs the ${rangeText.replace('last ', '')} before`;
 
   const departmentName = departments.find((d) => d.id === departmentId)?.name ?? 'All departments';
   const storeName = stores.find((s) => s.id === storeId)?.name ?? 'All stores';
@@ -272,61 +329,68 @@ export const ActivityComplianceGauges = ({ items, activeCategories, groupBy }: A
     return person ? `${person.firstName}${person.lastName ? ` ${person.lastName}` : ''}` : 'All people';
   })();
 
+  const activeList = ACTIVITY_CATEGORY_ORDER.filter((c) => activeCategories.has(c));
+  const isNarrowed = activeList.length < ACTIVITY_CATEGORY_ORDER.length;
+  const scopeOf = (c: ActivityCategory): CategoryScope => categoryScope?.[c] ?? DEFAULT_CATEGORY_SCOPE[c];
+
   // Built from the same numbers the gauges are rendering, not a re-query — an export that
   // disagrees with the card the user is looking at is worse than no export. Percentages go out as
   // numbers so they stay sortable/averageable in a spreadsheet, and a category with nothing in it
   // exports a blank rather than a misleading 0% (the card shows "No data" for the same case).
   const buildExportRows = (): TableRows => {
-    const pct = (count: number, of: number) => (of > 0 ? Math.round((count / of) * 100) : null);
-    const activeLabels = ACTIVITY_CATEGORY_ORDER.filter((c) => activeCategories.has(c)).map((c) => ACTIVITY_CATEGORY_LABEL[c]);
+    const activeLabels = activeList.map((c) => ACTIVITY_CATEGORY_LABEL[c]);
 
     return [
-      ['Compliance export'],
+      ['Completion and on-time export'],
       ['Generated', new Date().toLocaleString()],
-      ['Window', `Trailing ${ACTIVITY_GROUP_RANGE_LABEL[groupBy]}`],
+      ['Window', `Items created in the ${rangeText}`],
       ['Department', departmentName],
       ['Store', storeName],
       ['Person', personName],
       ['Categories included', activeLabels.join(', ')],
+      ['Scope', activeList.map((c) => `${ACTIVITY_CATEGORY_LABEL[c]}: ${SCOPE_LABEL[scopeOf(c)]}`).join(', ')],
       // Only Ticket carries all three scope dimensions, so a scoped export drops whatever lacks
       // the dimension — the same caveat the card shows on screen travels with the file.
       ...(departmentId || storeId || personId
-        ? [['Note', 'Scoped view — items without the filtered dimension (e.g. Todos) are excluded from these totals.']]
+        ? [['Note', 'Scoped view. Items without the filtered dimension (for example Todos) are left out of these totals.']]
         : []),
+      ['Note', 'Not overdue counts only items that are finished or past their due date. Open items not yet due are left out.'],
       [],
-      ['Category', 'Total', 'Completed', 'Completion %', 'On time', 'On-time %'],
-      ...completionBreakdown.map((row, i) => {
-        const onTimeCount = onTimeBreakdown[i]?.count ?? 0;
-        return [row.label, row.total, row.count, pct(row.count, row.total), onTimeCount, pct(onTimeCount, row.total)];
+      ['Category', 'Created', 'Done', 'Done rate %', 'Due items', 'Not overdue', 'Not overdue %'],
+      ...doneBreakdown.map((row, i) => {
+        const due = notOverdueBreakdown[i];
+        return [row.label, row.total, row.count, percentOf(row.count, row.total), due?.total ?? 0, due?.count ?? 0, percentOf(due?.count ?? 0, due?.total ?? 0)];
       }),
-      ['All categories', total, completed, completionRate, onTime, onTimeRate],
+      ['All categories', doneTotal, doneCount, doneRate, dueTotal, onTimeCount, notOverdueRate],
     ];
   };
 
   const handleExport = (format: 'csv' | 'xlsx') => {
     const rows = buildExportRows();
-    const blob = format === 'csv' ? csvBlob(rows) : xlsxBlob(rows, 'Compliance');
-    downloadBlob(blob, stampedFilename('compliance', format));
-    toast.success(`Compliance exported as ${format.toUpperCase()}`);
+    const blob = format === 'csv' ? csvBlob(rows) : xlsxBlob(rows, 'Completion and on-time');
+    downloadBlob(blob, stampedFilename('completion-and-on-time', format));
+    toast.success(`Exported as ${format.toUpperCase()}`);
   };
+
+  const gaugeSize = isMobile ? 96 : 176;
+  // Same list the numbers came from, narrowed to what the open gauge counts (due items only for
+  // Not overdue), so the drill-down never lists an item the percentage ignored.
+  const drilldownRows = drilldownCategory
+    ? scoped.filter((i) => i.category === drilldownCategory && (selected === 'onTime' ? isDue(i) : true))
+    : [];
 
   return (
     // `@container` drives the wide-width split below off this card's own measured width rather
     // than the viewport, so it behaves correctly regardless of the sidebar's state.
     <section aria-labelledby="compliance-heading" className={`@container ${DASHBOARD_CARD_CLASS} p-4 sm:p-6 lg:p-7 flex flex-col gap-5`}>
-      {/* Same icon-tile + title + subtitle header every other Dashboard card (Activity Overview,
-          Compare Dashboard, Delegation Score) uses — this used to be a small badge meant to read
-          as a side-panel of the bar chart's own card; now that it's a standalone card in its own
-          right, it gets the same header weight as its siblings instead of looking like a lesser
-          fragment. */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <EntityIconTile icon={Sparkles} tone="coral" />
           <div>
-            <h2 id="compliance-heading" className="text-base sm:text-lg font-display font-bold text-text tracking-tight leading-tight">Compliance</h2>
-            <p className="hidden sm:block text-xs font-medium text-text-muted mt-0.5">
-              Completion and on-time compliance rate, trailing {ACTIVITY_GROUP_RANGE_LABEL[groupBy]}
-            </p>
+            <h2 id="compliance-heading" className="text-base sm:text-lg font-display font-bold text-text tracking-tight leading-tight">Completion and on-time</h2>
+            {/* Shown on every screen size: the range is what tells a reader these are items
+                created in the window, not everything finished in it. */}
+            <p className="text-xs font-medium text-text-muted mt-0.5">Of items created in the {rangeText}</p>
           </div>
         </div>
 
@@ -334,42 +398,47 @@ export const ActivityComplianceGauges = ({ items, activeCategories, groupBy }: A
             current window. Generated in the browser (see lib/exportTable) rather than through the
             server's /reports export, because these figures are computed here and a server-side
             recomputation could hand back numbers that don't match the gauges. */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              aria-label="Export compliance data"
-              className="hidden sm:inline-flex items-center justify-center gap-1.5 shrink-0 self-start sm:self-auto h-9 px-3 rounded-xl border border-border/60 bg-surface-hover/50 text-xs font-display font-semibold text-text-secondary hover:bg-surface-hover hover:border-border hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 ease-in-out cursor-pointer"
-            >
-              <Download size={14} strokeWidth={2.5} />
-              Export
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-48">
-            <DropdownMenuItem onClick={() => handleExport('csv')} className="gap-2">
-              <FileText size={14} />
-              CSV (.csv)
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleExport('xlsx')} className="gap-2">
-              <FileSpreadsheet size={14} />
-              Excel (.xlsx)
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {showFilters && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" aria-label="Export completion and on-time data" className="shrink-0 self-start sm:self-auto">
+                <Download size={14} strokeWidth={2.5} aria-hidden="true" />
+                Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-48">
+              <DropdownMenuItem onClick={() => handleExport('csv')} className="gap-2">
+                <FileText size={14} />
+                CSV (.csv)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport('xlsx')} className="gap-2">
+                <FileSpreadsheet size={14} />
+                Excel (.xlsx)
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
-      {/* One compact row, not a two-column layout with its own rail — the previous 17rem sidebar
-          of three selects next to a taller gauges+breakdown column left a block of dead space under
-          the selects on every screen wide enough to split them apart. Wrapping in a single row
-          scales with however many filters are active instead of reserving a fixed-width column
-          for them. Desktop-only — three selects plus the scope note were the single biggest chunk of
-          this card's height on a phone, for filters most viewers leave on "All" anyway. */}
-      <div className="hidden sm:contents">
+      {/* Which categories feed these numbers and whose work each one covers. */}
+      <div className="flex flex-wrap items-center gap-1.5" aria-label="What these numbers cover">
+        {isNarrowed && (
+          <span className="inline-flex items-center h-6 px-2 rounded-full bg-primary-500/10 text-xs font-display font-bold text-primary-700 dark:text-primary-300">
+            Filtered: {activeList.map((c) => ACTIVITY_CATEGORY_LABEL[c]).join(', ')}
+          </span>
+        )}
+        {activeList.map((c) => (
+          <ScopeTag key={c} label={ACTIVITY_CATEGORY_LABEL[c]} scope={scopeOf(c)} />
+        ))}
+      </div>
+
+      {/* One compact row of scope selects. Mounted from `sm` up only, so a phone never fetches the
+          department, store and people lists for filters it cannot see. */}
+      {showFilters && (
         <div className="flex flex-wrap items-center gap-2">
           <Select value={departmentId ?? ALL} onValueChange={(v) => setDepartmentId(v === ALL ? null : v)}>
-            {/* aria-label, not just the placeholder — once a department is picked, SelectValue shows
-                its name ("Engineering"), which on its own gives a screen reader no indication this
-                trigger is the *department* filter rather than the store or person one. */}
+            {/* aria-label, not just the placeholder: once a department is picked, SelectValue shows
+                its name, which on its own does not say this trigger is the department filter. */}
             <SelectTrigger size="sm" className="w-auto min-w-[8.5rem]" aria-label="Filter by department">
               <SelectValue placeholder="All departments" />
             </SelectTrigger>
@@ -405,74 +474,81 @@ export const ActivityComplianceGauges = ({ items, activeCategories, groupBy }: A
             </SelectContent>
           </Select>
 
-          {/* Only Ticket carries all three scope dimensions — narrowing by any of them silently drops
-              categories that don't have it (Task has no store, Todo/checklist have no department,
-              Todo has no owner at all) rather than matching them against the wrong thing. Surfaced
-              here so a shrunk total reads as "expected" rather than "is this broken". Inline now
-              instead of its own paragraph below the selects — one more thing the concise row folds
-              in rather than stacking. */}
+          {/* Only Ticket carries all three scope dimensions — narrowing by any of them drops
+              categories that don't have it rather than matching them against the wrong thing.
+              Surfaced here so a shrunk total reads as expected rather than broken. */}
           {(departmentId || storeId || personId) && (
-            <p className="text-[11px] font-medium text-text-light basis-full sm:basis-auto">
-              Scoped — excludes items with no matching {[departmentId && 'department', storeId && 'store', personId && 'assignee'].filter(Boolean).join('/')}.
+            <p className="text-xs font-medium text-text-muted basis-full sm:basis-auto">
+              Scoped: leaves out items with no {[departmentId && 'department', storeId && 'store', personId && 'assignee'].filter(Boolean).join(' or ')}.
             </p>
           )}
         </div>
-      </div>
+      )}
 
-      {/* Gauges — a centered pair, capped so they read as a cluster of circles rather than
-          drifting apart on a wide monitor. Tapping one now opens the breakdown straight in a modal
-          (see below) instead of an always-reserved panel under the gauges, which is what let this
-          whole card shrink down to just its header + filter row + rings when nothing is selected. */}
+      {/* Gauges: a centered pair, capped so they read as a cluster of circles rather than drifting
+          apart on a wide monitor. Tapping one opens the breakdown in a modal. */}
       <div className="flex justify-center">
-        {/* 2-up at every width — the mobile gauge is small enough now, and the trend badge flows
-            below the label there instead of pinning to the tile's corner, so there's no overlap. */}
         <div className="grid grid-cols-2 gap-2.5 sm:gap-6 w-full max-w-xl">
           <Gauge
+            gaugeKey="completion"
             icon={ClipboardCheck}
-            label="Completion"
-            percent={completionRate}
-            count={completed}
-            total={total}
-            trend={completionTrend}
+            label="Done rate"
+            definition={DONE_RATE_DEFINITION}
+            percent={doneRate}
+            caption={`${doneCount} of ${doneTotal} done`}
+            volume={doneTotal}
+            delta={doneDelta}
+            deltaTitle={deltaTitle}
             isSelected={selected === 'completion'}
-            onToggle={() => setSelected((prev) => (prev === 'completion' ? null : 'completion'))}
+            size={gaugeSize}
+            onToggle={handleToggle}
           />
           <Gauge
+            gaugeKey="onTime"
             icon={ShieldCheck}
-            label="On-time Compliance"
-            percent={onTimeRate}
-            count={onTime}
-            total={total}
-            trend={onTimeTrend}
+            label="Not overdue"
+            definition={NOT_OVERDUE_DEFINITION}
+            percent={notOverdueRate}
+            caption={`${onTimeCount} of ${dueTotal} due`}
+            volume={dueTotal}
+            delta={notOverdueDelta}
+            deltaTitle={deltaTitle}
             isSelected={selected === 'onTime'}
-            onToggle={() => setSelected((prev) => (prev === 'onTime' ? null : 'onTime'))}
+            size={gaugeSize}
+            onToggle={handleToggle}
           />
         </div>
       </div>
 
+      {!trendReady && (
+        <p className="text-xs font-medium text-text-muted text-center">Change vs the last period shows once this one is half over.</p>
+      )}
+
+      {activeCategories.has('checklist') && (
+        <p className="text-xs font-medium text-text-muted text-center">
+          Checklist compliance (good answers) is in{' '}
+          <Link to="/admin/checklist-compliance" className="font-bold text-text-secondary underline underline-offset-2 hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 rounded-sm">
+            Admin &gt; Checklist Compliance
+          </Link>
+          .
+        </p>
+      )}
+
       {/* Tapping a ring opens its full breakdown, then picking a category inside drills one level
-          further into the item list — both views live in this ONE Modal (never two stacked
-          Dialogs) so that second step is an instant content swap, not a close-one/open-another
-          animation pair that reads as a double delay. `drilldownCategory` layers on top of
-          `selected` rather than replacing it, so the gauge context (`activeLabel`) stays valid
-          across the swap and the modal only fully closes when the viewer actually dismisses it. */}
+          further into the item list. Both views live in this ONE Modal (never two stacked
+          Dialogs) so that second step is an instant content swap. */}
       {activeBreakdown && activeLabel && (
         <Modal
           open={selected !== null}
           onClose={() => { setSelected(null); setDrilldownCategory(null); }}
-          title={drilldownCategory ? `${ACTIVITY_CATEGORY_LABEL[drilldownCategory]} — ${activeLabel}` : `${activeLabel} breakdown`}
-          description={`Trailing ${ACTIVITY_GROUP_RANGE_LABEL[groupBy]}`}
-          // One fixed size/spacing across both views (was sm→md with a gap-5→gap-3 spacing swap on
-          // drill-in) — the modal was visibly resizing and re-padding itself under the user between
-          // the two steps of what's supposed to be one instant content swap. 'md' is also what
-          // DrilldownModal (the KPI cards' equivalent "explain this stat" modal) already uses, and
-          // is wide enough that the title never clips — at 'sm' "On-time Compliance breakdown"
-          // ellipsized mid-word.
+          title={drilldownCategory ? `${ACTIVITY_CATEGORY_LABEL[drilldownCategory]}: ${activeLabel}` : `${activeLabel} by category`}
+          description={`Items created in the ${rangeText}`}
+          // One fixed size/spacing across both views, so the modal doesn't resize under the user
+          // between the two steps.
           size="md"
           bodyClassName="gap-3"
-          // Same reasoning as DrilldownModal: this sits on top of the exact gauge it's explaining,
-          // so being able to drag it aside to compare against the chart underneath is worth having
-          // here too — it was the one dashboard "explain this stat" modal without it.
+          // This sits on top of the exact gauge it is explaining, so being able to drag it aside
+          // to compare against the chart underneath is worth having.
           draggable
           footer={
             drilldownCategory && (
@@ -486,22 +562,24 @@ export const ActivityComplianceGauges = ({ items, activeCategories, groupBy }: A
         >
           {drilldownCategory ? (
             <DrilldownList
-              rows={scoped.filter((i) => i.category === drilldownCategory)}
+              rows={drilldownRows}
               onSelect={(link) => { setSelected(null); setDrilldownCategory(null); navigate(link); }}
             />
           ) : (
             <>
               <div className="flex items-center gap-4 pb-1">
-                <div className="flex items-center justify-center size-16 rounded-full border-4 border-primary-700/90 shrink-0">
-                  <span className="text-lg font-display font-black text-text tabular-nums">
-                    {selected === 'completion' ? completionRate : onTimeRate}%
+                <div className="flex items-center justify-center size-16 rounded-full border-4 border-primary-700/90 shrink-0 text-center">
+                  <span className="font-display font-black text-text tabular-nums text-base">
+                    {(selected === 'completion' ? doneRate : notOverdueRate) != null ? `${selected === 'completion' ? doneRate : notOverdueRate}%` : 'None'}
                   </span>
                 </div>
                 <div className="flex flex-col gap-0.5">
                   <p className="text-sm font-display font-bold text-text">
-                    {selected === 'completion' ? completed : onTime} of {total}
+                    {selected === 'completion' ? `${doneCount} of ${doneTotal} done` : `${onTimeCount} of ${dueTotal} due items on time`}
                   </p>
-                  <p className="text-[11px] font-medium text-text-light">Across every active category below</p>
+                  <p className="text-xs font-medium text-text-muted">
+                    {selected === 'completion' ? DONE_RATE_DEFINITION : NOT_OVERDUE_DEFINITION}
+                  </p>
                 </div>
               </div>
               <div className="flex flex-col gap-1 border-t border-border/50 pt-3">

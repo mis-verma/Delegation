@@ -1,6 +1,6 @@
 import type { Request , Response } from "express"
 import { taskService } from "./task.service.js"
-import { createTaskSchema , updateTaskSchema, verifyTaskSchema, complianceReportQuerySchema, listTasksQuerySchema, taskOwnerStatsQuerySchema } from "./task.validation.js"
+import { createTaskSchema , updateTaskSchema, verifyTaskSchema, complianceReportQuerySchema, listTasksQuerySchema, taskOwnerStatsQuerySchema, taskSummaryQuerySchema } from "./task.validation.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
 import { resolveReportScope, resolveDepartmentIdsForStore } from "../../utils/reportScope.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
@@ -66,13 +66,15 @@ export const taskController = {
     }),
 
     summary : asyncHandler(async (req : Request , res : Response) => {
-        const data = await taskService.summary(req.user!);
+        const { scope } = taskSummaryQuerySchema.parse(req.query);
+        const data = await taskService.summary(req.user!, scope);
         res.json({ success : true, data })
     }),
 
+    // `data` is at most 8 rows; `meta.total` is the real number awaiting approval.
     pendingApproval : asyncHandler(async (req : Request , res : Response) => {
-        const data = await taskService.pendingApproval();
-        res.json({ success : true, data })
+        const { data, meta } = await taskService.pendingApproval();
+        res.json({ success : true, data, meta })
     }),
 
     ownerStats : asyncHandler(async (req : Request , res : Response) => {

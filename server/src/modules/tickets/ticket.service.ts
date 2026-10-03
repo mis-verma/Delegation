@@ -16,7 +16,8 @@ import {
 } from "../../db/schema/index.js"
 import { eq, and, or, inArray, desc, asc, sql, isNull, gte, lte, ne, isNotNull, type SQL } from "drizzle-orm"
 import { env } from "../../config/env.js"
-import { cached, cacheKey } from "../../config/queryCache.js"
+import { cached, cacheKey, invalidateQuick } from "../../config/queryCache.js"
+import { orgDayStartUtc } from "../../utils/orgDay.js"
 import { AppError } from "../../utils/AppError.js"
 import { assertChecklistsResolved } from "../../utils/checklistGate.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
@@ -415,11 +416,24 @@ export type TicketPendingApprovalRow = {
 // status), so the sidebar's per-entity badge can treat every summary response uniformly.
 export type TicketSummaryRow = {
   total: number
+  /** Everything not closed: due + overdue. */
+  pending: number
   newToday: number
   due: number
   overdue: number
   completed: number
 }
+
+export type TicketSummaryScope = "mine" | "visible"
+
+const TICKET_SUMMARY_PREFIX = "ticket-summary"
+// Short on purpose: the SLA sweep flips isOverdue and bulk import writes rows, and neither of those
+// can invalidate anything.
+const SUMMARY_TTL_SECONDS = 10
+
+// Called by every mutation that can change a count. Wipes every user's cached summary, since one
+// ticket moves numbers for its raiser, assignee and every manager/admin who can see it.
+const dropTicketSummaries = () => invalidateQuick(`${TICKET_SUMMARY_PREFIX}:`)
 
 // One grouped SQL aggregate behind ownerStats below — `column` is what to GROUP BY (a department/
 // store/assignee id column, or NULL for one ungrouped org-wide row when `grouped` is false). The
@@ -576,6 +590,7 @@ export const ticketService = {
       await notifySafely(() => notificationService.notifyTicketAssigned(notificationTarget(afterRow!)))
     }
 
+    await dropTicketSummaries()
     return populated;
   },
 
@@ -684,6 +699,7 @@ export const ticketService = {
       await notifySafely(() => notificationService.notifyPendingVerification(notificationTarget(afterRow!)));
     }
 
+    await dropTicketSummaries()
     return populated;
   },
 
@@ -762,6 +778,7 @@ export const ticketService = {
       await notifySafely(() => notificationService.notifyTicketOnHold(notificationTarget(afterRow!), input.remark ?? "", user.sub));
     }
 
+    await dropTicketSummaries()
     return populated;
   },
 
@@ -814,6 +831,7 @@ export const ticketService = {
     const populated = await getPopulatedTicket(id)
     emitTicketEvent("ticket:updated", roomTarget(afterRow!), populated);
     await notifySafely(() => notificationService.notifyVerificationResult(notificationTarget(afterRow!), input.action, input.note))
+    await dropTicketSummaries()
     return populated;
   },
 
@@ -839,6 +857,7 @@ export const ticketService = {
       actorId: user.sub,
       before: ticket,
     })
+    await dropTicketSummaries()
     return ticket;
   },
 
@@ -969,17 +988,26 @@ export const ticketService = {
   // see a whole department/store/org. Same reasoning as task.service.ts#summary: those roles
   // already get an org-wide view from the dashboard/admin pages, and a personal nav badge that
   // ballooned the moment someone had elevated access would stop meaning "what's on my plate".
-  async summary(user: AccessTokenPayload): Promise<TicketSummaryRow> {
-    const mine = or(eq(tickets.assigneeId, user.sub), eq(tickets.userId, user.sub))!
-    const where = and(NOT_DELETED, mine)
+  //
+  // `scope` picks what is counted: 'mine' (the default, and the badge's own rule) is tickets
+  // assigned to or raised by the caller; 'visible' is everything the caller's role can see
+  // (visibilityFilter: ADMIN/PC the org, MANAGER their department and store, SENIOR their store,
+  // USER/AGENT their own). `pending` is every ticket not closed (due + overdue); `overdue` is the
+  // SLA flag on a ticket that is still open.
+  async summary(user: AccessTokenPayload, scope: TicketSummaryScope = "mine"): Promise<TicketSummaryRow> {
+    // Short TTL plus explicit invalidation from every mutation below (dropTicketSummaries). The TTL
+    // covers what has no hook: bulk import and the SLA sweep flipping isOverdue.
+    return cached(cacheKey(TICKET_SUMMARY_PREFIX, scope, user.sub), SUMMARY_TTL_SECONDS, async () => {
+      const scopeCondition = scope === "visible"
+        ? await visibilityFilter(user)
+        : or(eq(tickets.assigneeId, user.sub), eq(tickets.userId, user.sub))
+      const where = and(NOT_DELETED, scopeCondition)
 
-    // Same 30s cache/reasoning as task.service.ts#summary and checklistInstance.service.ts#summary.
-    return cached(cacheKey("ticket-summary", user.sub), 30, async () => {
       const [row] = await db.select({
         total: sql<number>`COUNT(*)`,
         completed: sql<number>`SUM(CASE WHEN ${tickets.status} = 'CLOSED' THEN 1 ELSE 0 END)`,
         overdue: sql<number>`SUM(CASE WHEN ${tickets.isOverdue} AND ${tickets.status} <> 'CLOSED' THEN 1 ELSE 0 END)`,
-        newToday: sql<number>`SUM(CASE WHEN ${tickets.createdAt} >= CURDATE() THEN 1 ELSE 0 END)`,
+        newToday: sql<number>`SUM(CASE WHEN ${tickets.createdAt} >= ${utcSql(orgDayStartUtc())} THEN 1 ELSE 0 END)`,
       }).from(tickets).where(where)
 
       const total = Number(row?.total ?? 0)
@@ -987,6 +1015,7 @@ export const ticketService = {
       const overdue = Number(row?.overdue ?? 0)
       return {
         total,
+        pending: total - completed,
         newToday: Number(row?.newToday ?? 0),
         due: total - completed - overdue,
         overdue,
@@ -1002,8 +1031,14 @@ export const ticketService = {
   // ordered by createdAt, looks up each row's real transition time from TicketStatusUpdate, and
   // re-sorts by that. Same batch-fetch-then-map shape as populateTickets above, not a derived-
   // table join, since a pending-approval queue is realistically a handful of rows, not thousands.
-  async pendingApproval(limit = 8): Promise<TicketPendingApprovalRow[]> {
+  //
+  // `meta.total` is the real number awaiting approval (COUNT over the same filter): the card shows
+  // at most `limit` rows, and its badge used to count those rows instead.
+  async pendingApproval(limit = 8): Promise<{ data: TicketPendingApprovalRow[]; meta: { total: number } }> {
     const POOL = 40
+    const pendingWhere = and(eq(tickets.status, "PENDING_APPROVAL"), NOT_DELETED)
+    const [countRow] = await db.select({ total: sql<number>`COUNT(*)` }).from(tickets).where(pendingWhere)
+    const total = Number(countRow?.total ?? 0)
     const rows = await db.select({
       id: tickets.id,
       title: tickets.title,
@@ -1013,11 +1048,11 @@ export const ticketService = {
     })
       .from(tickets)
       .leftJoin(users, eq(tickets.userId, users.id))
-      .where(and(eq(tickets.status, "PENDING_APPROVAL"), NOT_DELETED))
+      .where(pendingWhere)
       .orderBy(asc(tickets.createdAt))
       .limit(POOL)
 
-    if (rows.length === 0) return []
+    if (rows.length === 0) return { data: [], meta: { total } }
 
     const ids = rows.map((r) => r.id)
     const sinceRows = await db.select({
@@ -1032,7 +1067,7 @@ export const ticketService = {
       .groupBy(ticketStatusUpdates.ticketId)
     const sinceById = new Map(sinceRows.map((r) => [r.ticketId, r.since]))
 
-    return rows
+    const data = rows
       .map((r) => ({
         id: r.id,
         title: r.title,
@@ -1044,5 +1079,6 @@ export const ticketService = {
       }))
       .sort((a, b) => new Date(a.waitingSince).getTime() - new Date(b.waitingSince).getTime())
       .slice(0, limit)
+    return { data, meta: { total } }
   },
 }

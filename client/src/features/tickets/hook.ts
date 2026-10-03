@@ -21,6 +21,8 @@ import { departmentApi } from "../../api/departments";
 import { storeApi } from "../../api/stores";
 import { checklistTemplateApi } from "../../api/checklistTemplates";
 import { handleQueryRetry, useEntityMutation, patchEntityInCache, errorMessage } from '../../lib/queryHelpers';
+import type { SummaryScope } from '../../api/http';
+import type { DashboardQueryOptions } from '../../lib/dashboardQuery';
 
 const KEYS = {
   // `limit` belongs in the key. Without it `useTicketsQuery(1, 100)` (the dashboard/analytics
@@ -33,39 +35,43 @@ const KEYS = {
 
 // `enabled` lets a caller (e.g. the header's quick search) defer the fetch until it's actually
 // needed, instead of every mount pulling a page of tickets regardless of whether it's used yet.
-export const useTicketsQuery = (page = 1, limit = 20, assigneeId?: string, enabled = true) => {
+export const useTicketsQuery = (page = 1, limit = 20, assigneeId?: string, enabled = true, options?: DashboardQueryOptions) => {
   const { token } = useAuth();
   return useQuery({
     queryKey: KEYS.all(page, limit, assigneeId),
     queryFn: () => ticketApi.getAll(page, limit, undefined, assigneeId),
     enabled: !!token && enabled,
     retry: handleQueryRetry,
+    ...options,
   });
 };
 
-// The sidebar's "Tickets" count badge and its hover breakdown — a real server-side aggregate
-// (ticket.service.ts#summary), not a client-side reduce over useTicketsQuery's own capped page,
-// and one that doesn't require pulling the whole list just to count it on every route (the
-// sidebar renders everywhere).
-export const useTicketSummaryQuery = (enabled = true) => {
+// Server-side ticket counts (ticket.service.ts#summary), not a client-side reduce over
+// useTicketsQuery's own capped page, and one that doesn't require pulling the whole list just to
+// count it. `scope` picks the slice: 'mine' (raised by or assigned to me, the sidebar badge's
+// default) or 'visible' (everything this role can see). Scope is part of the key.
+export const useTicketSummaryQuery = (scope: SummaryScope = 'mine', enabled = true, options?: DashboardQueryOptions) => {
   const { token } = useAuth();
   return useQuery({
-    queryKey: ['tickets', 'summary'] as const,
-    queryFn: () => ticketApi.getSummary(),
+    queryKey: ['tickets', 'summary', scope] as const,
+    queryFn: () => ticketApi.getSummary(scope),
     enabled: !!token && enabled,
     retry: handleQueryRetry,
+    ...options,
   });
 };
 
 // Dashboard's "Needs your approval" card — `enabled` is the caller's own role check (ADMIN/PC
-// only), same convention as useTicketSummaryQuery's own `enabled` param.
-export const useTicketPendingApprovalQuery = (enabled = true) => {
+// only), same convention as useTicketSummaryQuery's own `enabled` param. Returns the oldest few
+// rows plus the real queue size.
+export const useTicketPendingApprovalQuery = (enabled = true, options?: DashboardQueryOptions) => {
   const { token } = useAuth();
   return useQuery({
     queryKey: ['tickets', 'pending-approval'] as const,
     queryFn: () => ticketApi.getPendingApproval(),
     enabled: !!token && enabled,
     retry: handleQueryRetry,
+    ...options,
   });
 };
 

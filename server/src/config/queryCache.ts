@@ -109,6 +109,26 @@ export const invalidate = async (prefix: string) => {
     }
 }
 
+// How long a mutation will wait for cache invalidation before moving on. The client refetches the
+// moment the response lands, so invalidating in the background could race it and hand back the old
+// number; but a slow Redis must never stall a write, so the wait is capped (the TTL is the backstop).
+const INVALIDATE_WAIT_MS = 400
+
+/**
+ * `invalidate` for several prefixes at once, awaited for at most INVALIDATE_WAIT_MS. Never throws.
+ * Use from mutations that change a cached count, right before responding.
+ */
+export const invalidateQuick = async (...prefixes: string[]): Promise<void> => {
+    if (!prefixes.length) return
+    let timer: NodeJS.Timeout | undefined
+    const timeout = new Promise<void>((resolve) => { timer = setTimeout(resolve, INVALIDATE_WAIT_MS) })
+    try {
+        await Promise.race([Promise.all(prefixes.map((p) => invalidate(p))), timeout])
+    } finally {
+        clearTimeout(timer)
+    }
+}
+
 /** Namespaced so `invalidate('lookup:stores')` can't accidentally match another module's keys. */
 export const cacheKey = (...parts: (string | number | undefined)[]) =>
     parts.filter((p) => p !== undefined && p !== "").join(":")

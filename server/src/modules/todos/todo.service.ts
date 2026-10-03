@@ -3,7 +3,9 @@ import { todos } from "../../db/schema/task.js"
 import { eq, and, desc, sql } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
 import { AppError } from "../../utils/AppError.js"
-import { cached, cacheKey } from "../../config/queryCache.js"
+import { cached, cacheKey, invalidateQuick } from "../../config/queryCache.js"
+import { orgDayStartUtc } from "../../utils/orgDay.js"
+import { utcSql } from "../checklistInstances/checklistReportRange.js"
 import type { CreateTodoInput, UpdateTodoInput } from "./todo.validation.js"
 
 // Same shape task.service.ts's TaskSummaryRow uses (minus `draft` — todos have no draft concept,
@@ -11,32 +13,44 @@ import type { CreateTodoInput, UpdateTodoInput } from "./todo.validation.js"
 // uniformly.
 export type TodoSummaryRow = {
     total: number
+    /** Not completed: due + overdue. */
+    pending: number
     newToday: number
     due: number
     overdue: number
     completed: number
 }
 
+const TODO_SUMMARY_PREFIX = "todo-summary"
+// Short because a todo's overdue state moves with the clock, which nothing can invalidate.
+const SUMMARY_TTL_SECONDS = 10
+// One person's cached summary. The keys are `todo-summary:<userId>`, and ids are fixed-length, so the
+// prefix can't match anyone else's.
+const dropTodoSummary = (userId: string) => invalidateQuick(cacheKey(TODO_SUMMARY_PREFIX, userId))
+
 export const todoService = {
-    async listForUser(userId: string) {
-        return db.select().from(todos).where(eq(todos.userId, userId)).orderBy(desc(todos.createdAt))
+    // `limit` is optional so the old callers (the to-do page) keep getting everything; the dashboard
+    // passes a small one and takes its counts from summary() instead of counting the list.
+    async listForUser(userId: string, limit?: number) {
+        const query = db.select().from(todos).where(eq(todos.userId, userId)).orderBy(desc(todos.createdAt))
+        return limit ? query.limit(limit) : query
     },
 
-    // Backs the sidebar's "To-Do" count badge and its hover breakdown. Todos are already always
-    // strictly per-user (no department/org visibility concept to narrow, unlike Task/Ticket), so
-    // there's no separate "mine vs everything I can see" distinction to make here.
+    // Backs the sidebar's "To-Do" count badge and its hover breakdown, and the dashboard's To-do
+    // numbers. Todos are already always strictly per-user (no department/org visibility concept to
+    // narrow, unlike Task/Ticket), so there's no separate "mine vs everything I can see" distinction
+    // to make here.
     async summary(userId: string): Promise<TodoSummaryRow> {
-        // Same 30s cache/reasoning as task.service.ts#summary and
-        // checklistInstance.service.ts#summary.
-        return cached(cacheKey("todo-summary", userId), 30, async () => {
+        return cached(cacheKey(TODO_SUMMARY_PREFIX, userId), SUMMARY_TTL_SECONDS, async () => {
             const [row] = await db.select({
                 total: sql<number>`COUNT(*)`,
                 completed: sql<number>`SUM(CASE WHEN ${todos.completed} THEN 1 ELSE 0 END)`,
                 // Matches the client's own todoRow overdue rule (KpiStrip.tsx): incomplete AND a
                 // due date that's already passed. A todo with no due date at all can never be
-                // overdue, only due.
-                overdue: sql<number>`SUM(CASE WHEN NOT ${todos.completed} AND ${todos.dueDate} IS NOT NULL AND ${todos.dueDate} < NOW() THEN 1 ELSE 0 END)`,
-                newToday: sql<number>`SUM(CASE WHEN ${todos.createdAt} >= CURDATE() THEN 1 ELSE 0 END)`,
+                // overdue, only due. "Now" is a bound UTC string, not NOW(), so the DB session zone
+                // can't disagree with how the due date was stored.
+                overdue: sql<number>`SUM(CASE WHEN NOT ${todos.completed} AND ${todos.dueDate} IS NOT NULL AND ${todos.dueDate} < ${utcSql(new Date())} THEN 1 ELSE 0 END)`,
+                newToday: sql<number>`SUM(CASE WHEN ${todos.createdAt} >= ${utcSql(orgDayStartUtc())} THEN 1 ELSE 0 END)`,
             }).from(todos).where(eq(todos.userId, userId))
 
             const total = Number(row?.total ?? 0)
@@ -44,6 +58,7 @@ export const todoService = {
             const overdue = Number(row?.overdue ?? 0)
             return {
                 total,
+                pending: total - completed,
                 newToday: Number(row?.newToday ?? 0),
                 due: total - completed - overdue,
                 overdue,
@@ -65,6 +80,7 @@ export const todoService = {
             ...(input.priority !== undefined ? { priority: input.priority } : {}),
         });
         const [todo] = await db.select().from(todos).where(eq(todos.id, id)).limit(1);
+        await dropTodoSummary(userId)
         return todo
     },
 
@@ -82,6 +98,7 @@ export const todoService = {
         }).where(eq(todos.id, id));
 
         const [todo] = await db.select().from(todos).where(eq(todos.id, id)).limit(1);
+        await dropTodoSummary(userId)
         return todo
     },
 
@@ -89,5 +106,6 @@ export const todoService = {
         const [existing] = await db.select().from(todos).where(and(eq(todos.id, id), eq(todos.userId, userId))).limit(1);
         if (!existing) throw AppError.notFound('Todo not found')
         await db.delete(todos).where(eq(todos.id, id));
+        await dropTodoSummary(userId)
     },
 }
