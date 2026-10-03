@@ -36,7 +36,7 @@ export const BuilderStepper = ({
         <span className="text-sm font-display font-bold text-text">{steps[current]?.label}</span>
         <span className="text-[11px] font-display font-medium text-text-muted tabular-nums">Step {current + 1} of {steps.length}</span>
       </div>
-      <ol className="flex items-center gap-1.5">
+      <ol className="flex items-center gap-2">
         {steps.map((step, index) => {
           const isLocked = index > maxReached && !allUnlocked;
           const isCurrent = index === current;
@@ -50,7 +50,7 @@ export const BuilderStepper = ({
                 disabled={isLocked}
                 aria-current={isCurrent ? 'step' : undefined}
                 aria-label={`Step ${index + 1}: ${step.label}`}
-                className="flex items-center w-full h-6 cursor-pointer disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 rounded-full"
+                className="flex items-center w-full h-11 cursor-pointer disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 rounded-full"
               >
                 <span
                   className={[
@@ -107,7 +107,7 @@ export const BuilderStepper = ({
                   className={[
                     'flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-display font-bold transition-all duration-200',
                     isLocked && 'bg-surface-hover text-text-light border border-border',
-                    !isLocked && isCurrent && 'bg-primary-700 text-white ring-4 ring-primary-500/20 shadow-xs scale-105',
+                    !isLocked && isCurrent && 'bg-primary-700 text-white ring-4 ring-primary-500/20 scale-105',
                     !isLocked && !isCurrent && isValid && 'bg-primary-700 text-white group-hover:scale-105',
                     !isLocked && !isCurrent && !isValid && 'bg-warning/15 text-warning border-2 border-warning/50 font-semibold group-hover:bg-warning/20',
                   ]

@@ -83,17 +83,25 @@ const NAV: AdminNavItem[] = [
 // this used to be. A soft tinted pill marks the current page instead of a solid white-on-navy one,
 // which reads calmer/more professional than a loud fill against a light rail.
 const NAV_LINK_BASE =
-  "group relative flex flex-1 min-w-0 items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-300 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 active:scale-[0.98]";
+  "group relative flex flex-1 min-w-0 items-center gap-3 px-3 py-2.5 min-h-11 lg:min-h-0 rounded-xl text-[13px] font-medium transition-all duration-300 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 active:scale-[0.98]";
 const NAV_LINK_ACTIVE = "bg-primary-50 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300 font-semibold";
 const NAV_LINK_INACTIVE = "text-text-secondary hover:bg-surface-hover hover:text-text";
 const NAV_ICON_ACTIVE = "text-primary-600 dark:text-primary-300";
 const NAV_ICON_INACTIVE = "text-text-light group-hover:text-text-muted";
 const CHILD_LINK_BASE =
-  "relative flex items-center min-w-0 rounded-lg px-3 py-2 text-[12.5px] font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500";
+  "relative flex items-center min-w-0 min-h-11 lg:min-h-0 rounded-lg px-3 py-2 text-[12.5px] font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500";
 const CHILD_LINK_ACTIVE = "bg-primary-50 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300 font-semibold";
 const CHILD_LINK_INACTIVE = "text-text-muted hover:bg-surface-hover hover:text-text";
 
 const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+
+// Path-segment match, so '/admin/holidays' never matches a sibling like '/admin/holidays-old'.
+const matchesPath = (pathname: string, to: string) => pathname === to || pathname.startsWith(`${to}/`);
+
+// The one child that is "current": longest matching `to` wins, so a detail page such as
+// /admin/scheduled-checklists/:id or /builder still lights up its own child, not nothing.
+const activeChildTo = (children: AdminNavChild[] | undefined, pathname: string) =>
+  children?.filter((child) => matchesPath(pathname, child.to)).sort((a, b) => b.to.length - a.to.length)[0]?.to;
 
 export const AdminLayout = () => {
   const { logout, user } = useAuth();
@@ -217,7 +225,8 @@ export const AdminLayout = () => {
     const hasChildren = !!children?.length;
     const showLabel = isDrawer || sidebarOpen;
     const isExpanded = expandedKeys.has(to);
-    const hasActiveChild = children?.some((child) => location.pathname.startsWith(child.to)) ?? false;
+    const activeChild = activeChildTo(children, location.pathname);
+    const hasActiveChild = !!activeChild;
     // Same active-match rule NavLink applies internally for its `end` prop — computed here instead
     // of read from NavLink's own render-prop, because that render-prop path (and NavLink's
     // function-form `className`) doesn't survive being passed through Radix's `asChild`/Slot below
@@ -349,7 +358,7 @@ export const AdminLayout = () => {
               >
                 <p className="px-2.5 py-1.5 text-xs font-display font-bold text-text-muted">{label}</p>
                 {children!.map((child, childIndex) => {
-                  const isChildActive = location.pathname === child.to;
+                  const isChildActive = child.to === activeChild;
                   return (
                     <NavLink
                       key={child.to}
@@ -381,7 +390,7 @@ export const AdminLayout = () => {
                         }
                       }}
                       className={({ isActive: _isActive }) => cn(
-                        "flex items-center min-w-0 rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500",
+                        "flex items-center min-w-0 min-h-11 lg:min-h-0 rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500",
                         isChildActive ? "bg-surface-hover text-text" : "text-text-secondary hover:bg-surface-hover hover:text-text"
                       )}
                     >
@@ -399,7 +408,7 @@ export const AdminLayout = () => {
               onClick={() => toggleExpanded(to)}
               aria-label={isExpanded ? `Collapse ${label}` : `Expand ${label}`}
               aria-expanded={isExpanded}
-              className="shrink-0 p-1.5 rounded-lg text-text-light hover:text-text hover:bg-surface-hover transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+              className="shrink-0 flex items-center justify-center size-11 lg:size-8 rounded-lg text-text-light hover:text-text hover:bg-surface-hover transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
             >
               <ChevronDown
                 size={15}
@@ -422,10 +431,10 @@ export const AdminLayout = () => {
               isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
             )}
           >
-            <div className="min-h-0">
-              <div className="flex flex-col gap-0.5 mt-1 mb-1.5 ml-[19px] pl-3 border-l border-border">
+            <div className="min-h-0 pl-[19px]">
+              <div className="flex flex-col gap-0.5 pt-1 pb-1.5 pl-3 border-l border-border">
                 {children!.map((child) => {
-                  const isChildActive = location.pathname === child.to;
+                  const isChildActive = child.to === activeChild;
                   return (
                     <NavLink
                       key={child.to}
@@ -474,10 +483,9 @@ export const AdminLayout = () => {
           aria-modal="true"
           aria-label="Navigation menu"
           className={cn(
-            "md:hidden fixed top-0 bottom-0 left-0 z-50 w-72 max-w-[80vw] h-full flex flex-col rounded-r-3xl bg-surface border-r border-border px-4 pt-8 pb-6 transition-[translate,box-shadow] duration-300 ease-in-out focus:outline-none",
-            // Shadow only while open, same as the main Sidebar's drawer — parked off-screen, its
-            // blur still bled a grey band onto the left edge of the visible page.
-            sidebarOpen ? "translate-x-0 shadow-xl" : "-translate-x-full shadow-none pointer-events-none"
+            "md:hidden fixed top-0 bottom-0 left-0 z-50 w-72 max-w-[80vw] h-full flex flex-col rounded-r-3xl bg-surface border-r border-border px-4 pt-8 pb-6 transition-[translate] duration-300 ease-in-out focus:outline-none",
+            // Flat edge (border only, no shadow), per the app's card convention.
+            sidebarOpen ? "translate-x-0" : "-translate-x-full pointer-events-none"
           )}
         >
           {/* No brand mark here anymore — the header already carries the "Admin" context (its
@@ -512,7 +520,7 @@ export const AdminLayout = () => {
                 onClick={logout}
                 aria-label="Log out"
                 title="Log out"
-                className="shrink-0 inline-flex items-center justify-center size-9 rounded-lg text-text-muted hover:bg-danger/10 hover:text-danger transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+                className="shrink-0 inline-flex items-center justify-center size-11 lg:size-9 rounded-lg text-text-muted hover:bg-danger/10 hover:text-danger transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
               >
                 <LogOut className="w-[17px] h-[17px]" strokeWidth={1.75} />
               </button>
@@ -525,7 +533,7 @@ export const AdminLayout = () => {
             each other read as busier and less professional than one calm surface. */}
         <aside
           className={cn(
-            "hidden md:flex relative flex-col shrink-0 m-3 rounded-2xl bg-surface border border-border shadow-xs",
+            "hidden md:flex relative flex-col shrink-0 m-3 rounded-2xl bg-surface border border-border",
             "transition-all duration-300 ease-in-out overflow-hidden py-6",
             sidebarOpen ? "w-64 px-4" : "w-[84px] px-3"
           )}
@@ -566,7 +574,7 @@ export const AdminLayout = () => {
                 onClick={logout}
                 aria-label="Log out"
                 title="Log out"
-                className="shrink-0 inline-flex items-center justify-center size-9 rounded-lg text-text-muted hover:bg-danger/10 hover:text-danger transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+                className="shrink-0 inline-flex items-center justify-center size-11 lg:size-9 rounded-lg text-text-muted hover:bg-danger/10 hover:text-danger transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
               >
                 <LogOut className="w-[17px] h-[17px]" strokeWidth={1.75} />
               </button>
@@ -581,11 +589,11 @@ export const AdminLayout = () => {
           {/* max-w-(--container-width), not max-w-7xl — matches the same token every other page
               in the app (Dashboard, Tasks, Tickets, Team Overview, Verification Queue) centers on,
               instead of sitting narrower with bigger side margins than its siblings. */}
-          <div className="max-w-(--container-width) mx-auto w-full p-3 sm:p-5 lg:p-8 pb-44 md:pb-8">
+          <div className="flex flex-col gap-4 max-w-(--container-width) mx-auto w-full p-3 sm:p-5 lg:p-8 pb-44 md:pb-8">
 
             {/* Breadcrumbs — always rooted at "Dashboard" so every admin page has a one-click way
                 back to the regular user dashboard, per the section-level trail in adminBreadcrumbs.ts */}
-            {breadcrumbs && <Breadcrumbs items={breadcrumbs} className="mb-4" />}
+            {breadcrumbs && <Breadcrumbs items={breadcrumbs} />}
 
             {/* Route Transitions */}
             {/* Keying on the pathname remounts this node per navigation, replaying the entrance

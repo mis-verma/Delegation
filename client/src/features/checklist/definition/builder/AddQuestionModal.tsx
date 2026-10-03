@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Plus, Type, SlidersHorizontal } from 'lucide-react';
-import { Modal, Button } from '../../../../components';
+import { Modal, Button, Input } from '../../../../components';
 import { useConfirm } from '@/components/confirmDialog';
 import { DETAIL_HEADING_CLASS } from '../../../tasks/taskFormFieldStyles';
 import { ItemTypeConfigFields, itemDraftProblem } from './ItemTypeConfigFields';
@@ -75,10 +75,10 @@ export const AddQuestionModal = ({
       draggable
       footer={
         <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2 w-full">
-          <Button type="button" variant="outline" size="md" onClick={handleClose} className="w-full sm:w-auto">
+          <Button type="button" variant="outline" size="md" onClick={handleClose} className="w-full sm:w-auto pointer-coarse:h-11">
             Cancel
           </Button>
-          <Button type="button" variant="primary" size="md" onClick={() => handleSubmit()} disabled={!canConfirm} className="w-full sm:w-auto">
+          <Button type="button" variant="primary" size="md" onClick={() => handleSubmit()} disabled={!canConfirm} className="w-full sm:w-auto pointer-coarse:h-11">
             <Plus size={15} />
             <span>Add question</span>
           </Button>
@@ -86,21 +86,18 @@ export const AddQuestionModal = ({
       }
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-5 py-1">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="quick-add-label" className={DETAIL_HEADING_CLASS}>
-            <Type size={14} className="text-text-light" />
-            Question <span className="text-danger">*</span>
-          </label>
-          <input
-            id="quick-add-label"
-            autoFocus
-            type="text"
-            value={draft.label}
-            onChange={(e) => patchDraft({ label: e.target.value })}
-            placeholder="e.g. Is the cash drawer counted and locked?"
-            className="w-full h-11 px-3.5 text-[15px] font-display font-medium text-text rounded-xl border border-transparent bg-surface-hover/50 placeholder:font-normal placeholder:text-text-light transition-colors duration-150 hover:bg-surface-hover focus:bg-surface focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
-          />
-        </div>
+        <Input
+          id="quick-add-label"
+          autoFocus
+          type="text"
+          icon={Type}
+          label={<>Question <span className="text-danger">*</span></>}
+          labelClassName={`${DETAIL_HEADING_CLASS} tracking-normal font-medium px-0 text-xs sm:text-sm`}
+          value={draft.label}
+          onChange={(e) => patchDraft({ label: e.target.value })}
+          placeholder="e.g. Is the cash drawer counted and locked?"
+          className="h-11 rounded-lg px-3.5 text-[15px] font-display font-medium border-transparent bg-surface-hover/50 placeholder:font-normal hover:bg-surface-hover focus:bg-surface"
+        />
 
         <div className="flex flex-col gap-2.5">
           <span className={DETAIL_HEADING_CLASS}>

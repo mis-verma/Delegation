@@ -1,8 +1,7 @@
-import { useState, type ReactNode } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
-import { Building2, Loader2, UsersRound } from 'lucide-react';
-import { UserMultiSelect } from '../../components';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../../components/ui/select';
+import { Building2, ChevronDown, UsersRound } from 'lucide-react';
+import { Button, Dropdown, UserMultiSelect } from '../../components';
 import { userApi } from '../../api/users';
 import { useDepartmentsQuery } from './hook';
 
@@ -18,6 +17,8 @@ interface UserBulkPickerProps {
   everyoneLabel?: string;
 }
 
+const LOAD_ERROR = "Couldn't load people. Try again.";
+
 // Shared by ChecklistAssigneesField (who fills a checklist in) and AuditFields' auditor picker
 // (who audits one AUDIT item) — same underlying need: pick a handful of specific people out of a
 // store or department, with a bulk shortcut for "basically everyone here" so a real store roster
@@ -26,7 +27,7 @@ interface UserBulkPickerProps {
 // stays individually togglable afterward via the checkbox list below.
 export const UserBulkPicker = ({ storeIds, selected, onChange, emptyHint, everyoneLabel = 'Select everyone at this store' }: UserBulkPickerProps) => {
   const { data: allDepartments = [] } = useDepartmentsQuery();
-  const departments = allDepartments.filter((d) => d.isActive);
+  const departments = useMemo(() => allDepartments.filter((d) => d.isActive), [allDepartments]);
   const [loadingDeptId, setLoadingDeptId] = useState<string | null>(null);
   const [loadingEveryone, setLoadingEveryone] = useState(false);
 
@@ -42,6 +43,8 @@ export const UserBulkPicker = ({ storeIds, selected, onChange, emptyHint, everyo
       } else {
         toast.info(`Everyone in ${deptName} is already selected`);
       }
+    } catch {
+      toast.error(LOAD_ERROR);
     } finally {
       setLoadingDeptId(null);
     }
@@ -58,40 +61,36 @@ export const UserBulkPicker = ({ storeIds, selected, onChange, emptyHint, everyo
       } else {
         toast.info('Everyone at this store is already selected');
       }
+    } catch {
+      toast.error(LOAD_ERROR);
     } finally {
       setLoadingEveryone(false);
     }
   };
 
+  const departmentItems = departments.map((d) => ({ label: d.name, onClick: () => { void selectAllInDepartment(d.id); } }));
+
   return (
     <div className="flex flex-col gap-1.5 w-full">
       {/* Bulk-select shortcuts — both only ADD into the checkbox list below, same as each other. */}
       <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={selectEveryone}
-          disabled={loadingEveryone}
-          className="press-feedback flex items-center gap-1.5 h-8 px-3 rounded-md border border-border bg-surface text-xs font-display font-medium text-text-secondary hover:bg-surface-hover hover:border-border/80 hover:text-text transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
-        >
-          {loadingEveryone ? <Loader2 size={13} className="animate-spin text-text-muted" /> : <UsersRound size={13} className="text-text-muted shrink-0" />}
+        <Button variant="outline" size="sm" onClick={selectEveryone} isLoading={loadingEveryone}>
+          {!loadingEveryone && <UsersRound size={13} className="text-text-muted shrink-0" />}
           <span>{everyoneLabel}</span>
-        </button>
+        </Button>
 
         {departments.length > 0 && (
-          <div className="flex items-center gap-2">
-            <Select value="" onValueChange={selectAllInDepartment}>
-              <SelectTrigger size="sm" className="w-auto min-w-[13rem] h-8 rounded-md text-xs font-display font-medium" disabled={!!loadingDeptId}>
-                <Building2 size={13} className="text-text-muted shrink-0" />
-                <SelectValue placeholder="Select all in a department…" />
-              </SelectTrigger>
-              <SelectContent>
-                {departments.map((d) => (
-                  <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {loadingDeptId && <Loader2 size={13} className="animate-spin text-text-muted" />}
-          </div>
+          <Dropdown
+            align="start"
+            items={departmentItems}
+            trigger={
+              <Button variant="outline" size="sm" isLoading={!!loadingDeptId}>
+                {!loadingDeptId && <Building2 size={13} className="text-text-muted shrink-0" />}
+                <span>Select all in a department</span>
+                <ChevronDown size={13} className="text-text-muted shrink-0" />
+              </Button>
+            }
+          />
         )}
       </div>
 

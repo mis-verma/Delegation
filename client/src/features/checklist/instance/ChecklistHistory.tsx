@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
-import { Link } from 'react-router';
-import { AlertCircle, Ban, Check, ClipboardCheck, History, ListChecks, SearchX, Store, User } from 'lucide-react';
+import { memo, useCallback, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Ban, Check, ClipboardCheck, History, ListChecks, SearchX, Store, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-  DateRangePicker, EmptyState, PageNav, SelectDropdown, Skeleton, StatusChip, type DateRangeValue,
+  DateRangePicker, EmptyState, ImageLightbox, InlineError, PageHeader, PageNav, PANEL_CLASS, SelectDropdown, Skeleton,
+  type DateRangeValue,
 } from '../../../components';
 import { useAuth } from '../../../context/AuthContext';
 import { ADMIN_AREA_ROLES } from '../../../api/auth';
@@ -12,11 +13,9 @@ import { UPLOADS_BASE } from '../../../lib/uploadsBase';
 import { endOfDay } from '../../../lib/dateRange';
 import { useAuditHistoryQuery, useChecklistInstancesBoardQuery, useStoresQuery } from '../hook';
 import { AccessoryTile } from './ChecklistInstanceItemAuditCard';
-import {
-  formatDate, formatTimeOnly, instanceProgressBarClass, instanceProgressToneClass, isInstanceOverdue,
-  VERIFICATION_BADGE_VARIANT, VERIFICATION_STATUS_LABEL,
-} from '../checklistDisplay';
-import type { AuditHistoryRow, ChecklistInstance } from '../../../api/checklistInstances';
+import { ChecklistInstanceRow } from './ChecklistInstanceRow';
+import { formatDate, formatTimeOnly } from '../checklistDisplay';
+import type { AuditHistoryRow } from '../../../api/checklistInstances';
 
 const PAGE_SIZE = 20;
 const noop = () => {};
@@ -29,16 +28,19 @@ const lastDays = (n: number): DateRangeValue => {
   const from = startOfDay(new Date(to.getFullYear(), to.getMonth(), to.getDate() - (n - 1)));
   return { from, to };
 };
+const ALL_TIME: DateRangeValue = { from: null, to: null };
 
 const personName = (row: AuditHistoryRow) => {
   const name = `${row.personFirstName} ${row.personLastName ?? ''}`.trim();
   return row.personIsActive === false ? `${name} (left)` : name;
 };
 
-export const AuditRowCard = ({ row }: { row: AuditHistoryRow }) => {
+export const AuditRowCard = memo(({ row }: { row: AuditHistoryRow }) => {
   const missing = row.accessories.filter(a => !a.checked).length;
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
+  const closePreview = useCallback(() => setPreviewSrc(null), []);
   return (
-    <article className="flex flex-col gap-3 p-3.5 sm:p-4 rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface">
+    <article className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-3.5 sm:p-4')}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex flex-col gap-0.5">
           <h3 className="flex items-center gap-1.5 text-sm font-semibold text-text">
@@ -91,12 +93,19 @@ export const AuditRowCard = ({ row }: { row: AuditHistoryRow }) => {
         <ul className="flex flex-wrap gap-2">
           {row.images.map(img => (
             <li key={img.id}>
-              <img
-                src={`${UPLOADS_BASE}${img.url}`}
-                alt={img.originalFilename ?? `Photo from the audit of ${personName(row)}`}
-                loading="lazy"
-                className="size-16 rounded-lg border border-border object-cover bg-surface-hover"
-              />
+              <button
+                type="button"
+                onClick={() => setPreviewSrc(`${UPLOADS_BASE}${img.url}`)}
+                aria-label="View photo larger"
+                className="block rounded-lg outline-none cursor-pointer transition-colors hover:opacity-90 focus-visible:ring-2 focus-visible:ring-primary-500/40"
+              >
+                <img
+                  src={`${UPLOADS_BASE}${img.url}`}
+                  alt={img.originalFilename ?? `Photo from the audit of ${personName(row)}`}
+                  loading="lazy"
+                  className="size-16 rounded-lg border border-border object-cover bg-surface-hover"
+                />
+              </button>
             </li>
           ))}
         </ul>
@@ -108,54 +117,33 @@ export const AuditRowCard = ({ row }: { row: AuditHistoryRow }) => {
           <p className="text-sm text-text-secondary whitespace-pre-wrap break-words">{row.remarks}</p>
         </div>
       )}
+      {previewSrc && createPortal(<ImageLightbox src={previewSrc} onClose={closePreview} />, document.body)}
     </article>
   );
-};
+});
+AuditRowCard.displayName = 'AuditRowCard';
 
-const ChecklistRow = ({ instance, storeName }: { instance: ChecklistInstance; storeName: string }) => {
-  const total = instance.items.length;
-  const done = instance.items.filter(i => i.isDone).length;
-  const isComplete = total > 0 && done === total;
-  const overdue = isInstanceOverdue(instance, isComplete);
-  const progress = total ? Math.round((done / total) * 100) : 0;
 
-  return (
-    <Link
-      to={`/checklists/${instance.id}`}
-      className="flex flex-col gap-3 p-4 rounded-lg border border-border bg-surface hover:border-border-hover transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
-    >
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-display font-bold text-text line-clamp-2 leading-snug">{instance.title}</p>
-          <p className="flex items-center gap-2 mt-1 text-xs text-text-muted font-display flex-wrap">
-            <span className="inline-flex items-center gap-1"><Store size={11} aria-hidden />{storeName}</span>
-            <span>{formatDate(instance.periodStart)}</span>
-          </p>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <StatusChip status={isComplete ? 'completed' : overdue ? 'overdue' : 'due'} />
-          <Badge variant={VERIFICATION_BADGE_VARIANT[instance.verificationStatus]}>
-            {VERIFICATION_STATUS_LABEL[instance.verificationStatus]}
-          </Badge>
-        </div>
-      </div>
-      <div className="flex items-center gap-2">
-        <div className="h-1.5 flex-1 bg-surface-hover rounded-full overflow-hidden border border-border/50">
-          <div className={`h-full rounded-full ${instanceProgressBarClass(overdue, isComplete)}`} style={{ width: `${progress}%` }} />
-        </div>
-        <span className={`text-xs font-display font-medium shrink-0 tabular-nums ${instanceProgressToneClass(overdue, isComplete)}`}>
-          {done}/{total}
-        </span>
-      </div>
-    </Link>
-  );
-};
-
+// Same card shape as a history row, so nothing shifts when the real rows arrive.
 const ListSkeleton = () => (
-  <div className="flex flex-col gap-3">
-    {[0, 1, 2].map(i => <Skeleton key={i} className="h-28 w-full rounded-2xl" />)}
+  <div className="flex flex-col gap-3" aria-hidden>
+    {[0, 1, 2].map(i => (
+      <div key={i} className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-3.5 sm:p-4')}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-2 flex-1 min-w-0">
+            <Skeleton className="h-4 w-1/2" />
+            <Skeleton className="h-3 w-2/3" />
+          </div>
+          <Skeleton className="h-7 w-24 rounded-full shrink-0" />
+        </div>
+        <Skeleton className="h-1.5 w-full rounded-full" />
+      </div>
+    ))}
   </div>
 );
+
+const TAB_TRIGGER_CLASS =
+  'min-h-11 sm:min-h-8 px-3.5 text-xs border border-transparent data-[state=active]:border-border data-[state=active]:shadow-none';
 
 /**
  * Where past days go. Audit results and finished/unfinished checklists used to pile up at the
@@ -176,122 +164,119 @@ export const ChecklistHistory = () => {
   // the new one. Done in the setters, not an effect, so the stale page never renders.
   const setRange = (value: DateRangeValue) => { setRangeState(value); setPage(1); };
   const setStoreId = (value: string) => { setStoreIdState(value); setPage(1); };
-  const changeTab = (next: Tab) => { setTab(next); setPage(1); };
+  const changeTab = (next: string) => { setTab(next as Tab); setPage(1); };
+  const clearFilters = () => { setRangeState(ALL_TIME); setStoreIdState(''); setPage(1); };
 
   const from = range.from ? startOfDay(range.from).toISOString() : undefined;
   const to = range.to ? endOfDay(range.to).toISOString() : undefined;
 
-  const { data: stores = [] } = useStoresQuery();
+  const { data: stores = [], isLoading: storesLoading } = useStoresQuery();
   const storeNameById = useMemo(() => new Map(stores.map(s => [s.id, s.name])), [stores]);
+  const storeOptions = useMemo(
+    () => [{ value: '', label: 'All stores' }, ...stores.map(s => ({ value: s.id, label: s.name }))],
+    [stores],
+  );
 
+  // Only the visible tab's query runs: the other tab's list isn't fetched until it's opened.
   const audits = useAuditHistoryQuery(
     { storeId: storeId || undefined, from, to },
     { page, limit: PAGE_SIZE },
+    { enabled: tab === 'audits' },
   );
-  const checklists = useChecklistInstancesBoardQuery({
-    storeId: storeId || undefined, from, to, page, limit: PAGE_SIZE,
-  });
+  const checklists = useChecklistInstancesBoardQuery(
+    { storeId: storeId || undefined, from, to, page, limit: PAGE_SIZE },
+    { enabled: tab === 'checklists' },
+  );
 
   const active = tab === 'audits' ? audits : checklists;
-  const rows = tab === 'audits' ? (audits.data?.data ?? []) : (checklists.data?.data ?? []);
+  const auditRows = audits.data?.data;
+  const checklistRows = checklists.data?.data;
+  const rowCount = (tab === 'audits' ? auditRows : checklistRows)?.length ?? 0;
   const totalPages = active.data?.meta.totalPages ?? 1;
+  const hasFilters = !!range.from || !!range.to || !!storeId;
+  // keepPreviousData keeps the old page on screen while a new filter loads: dim it, don't blank it.
+  const refreshing = active.isPlaceholderData;
 
-  return (
-    <div className="flex flex-col gap-6 max-w-5xl mx-auto w-full">
-      <div className="flex items-start gap-3">
-        <span className="flex items-center justify-center size-10 rounded-xl bg-primary-500/10 dark:bg-primary-500/15 text-primary-600 dark:text-primary-300 shrink-0">
-          <History size={20} aria-hidden />
-        </span>
-        <div>
-          <h1 className="font-display text-2xl font-bold text-text">Checklist History</h1>
-          <p className="text-sm text-text-muted mt-0.5">
-            {orgWide
-              ? 'Past audits and checklists across every store.'
-              : 'Past audits and checklists for the people in your department.'}
-          </p>
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-4 p-4 sm:p-5 rounded-xl border border-border bg-surface">
-        <div role="tablist" aria-label="History type" className="inline-flex self-start p-1 rounded-lg bg-surface-hover/70 border border-border/60">
-          {([
-            { key: 'audits', label: 'Audits', icon: ClipboardCheck },
-            { key: 'checklists', label: 'Checklists', icon: ListChecks },
-          ] as const).map(t => (
-            <button
-              key={t.key}
-              type="button"
-              role="tab"
-              aria-selected={tab === t.key}
-              onClick={() => changeTab(t.key)}
-              className={cn(
-                'inline-flex items-center gap-1.5 h-9 px-3.5 rounded-md text-xs font-display font-semibold transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40',
-                tab === t.key ? 'bg-surface text-text border border-border' : 'text-text-muted hover:text-text border border-transparent',
-              )}
-            >
-              <t.icon size={14} aria-hidden />
-              {t.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="flex flex-col gap-1.5 w-full sm:w-64">
-            <label className="text-xs font-display font-medium text-text-secondary">Dates</label>
-            <DateRangePicker value={range} onChange={setRange} placeholder="All time" placeholderIsValue />
-          </div>
-          <div className="flex flex-col gap-1.5 w-full sm:w-48">
-            <label className="text-xs font-display font-medium text-text-secondary">Store</label>
-            <SelectDropdown
-              value={storeId}
-              onChange={setStoreId}
-              options={[{ value: '', label: 'All stores' }, ...stores.map(s => ({ value: s.id, label: s.name }))]}
-              aria-label="Filter by store"
-            />
-          </div>
-        </div>
-      </div>
-
-      {active.isPending && <ListSkeleton />}
+  const panel = (
+    <>
+      {active.isPending && !active.isError && <ListSkeleton />}
 
       {active.isError && (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-danger/10 text-danger text-sm font-display">
-          <AlertCircle size={15} />
-          <span className="flex-1">We couldn't load the history.</span>
-          <button
-            type="button"
-            onClick={() => active.refetch()}
-            className="shrink-0 px-3 py-1.5 rounded-md text-xs font-display font-semibold border border-danger/30 hover:bg-danger/10 cursor-pointer transition-colors outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
-          >
-            Retry
-          </button>
-        </div>
+        <InlineError message="We couldn't load the history. Check your connection and try again." onRetry={() => active.refetch()} />
       )}
 
-      {!active.isPending && !active.isError && rows.length === 0 && (
+      {!active.isPending && !active.isError && rowCount === 0 && (
         <EmptyState
           icon={SearchX}
           title={tab === 'audits' ? 'No audits in this range' : 'No checklists in this range'}
           description="Try a wider date range or another store."
+          action={hasFilters ? { label: 'Clear filters', onClick: clearFilters } : undefined}
         />
       )}
 
-      {tab === 'audits' && (
-        <div className="flex flex-col gap-3">
-          {(audits.data?.data ?? []).map(row => <AuditRowCard key={row.id} row={row} />)}
-        </div>
-      )}
-      {tab === 'checklists' && (
-        <div className="flex flex-col gap-3">
-          {(checklists.data?.data ?? []).map(instance => (
-            <ChecklistRow key={instance.id} instance={instance} storeName={storeNameById.get(instance.storeId) ?? 'Store'} />
-          ))}
+      {rowCount > 0 && (
+        <div className={cn('flex flex-col gap-3 transition-opacity', refreshing && 'opacity-60')}>
+          {tab === 'audits'
+            ? auditRows?.map(row => <AuditRowCard key={row.id} row={row} />)
+            : checklistRows?.map(instance => (
+              <ChecklistInstanceRow
+                key={instance.id}
+                instance={instance}
+                storeName={storeNameById.get(instance.storeId) ?? (storesLoading ? '' : 'Unknown store')}
+              />
+            ))}
         </div>
       )}
 
       {!active.isPending && !active.isError && totalPages > 1 && (
         <PageNav page={page} totalPages={totalPages} onPageChange={setPage} />
       )}
+    </>
+  );
+
+  return (
+    <div className="flex flex-col gap-6 w-full max-w-5xl mx-auto">
+      <PageHeader
+        icon={History}
+        title="History"
+        subtitle={orgWide
+          ? 'Past audits and checklists across every store.'
+          : 'Past audits and checklists for the people in your department.'}
+      />
+
+      <Tabs value={tab} onValueChange={changeTab} className="gap-6">
+        <div className={cn(PANEL_CLASS, 'flex flex-col gap-4 p-4 sm:p-5')}>
+          <TabsList aria-label="History type" className="self-start">
+            <TabsTrigger value="audits" className={TAB_TRIGGER_CLASS}>
+              <ClipboardCheck size={14} aria-hidden />
+              Audits
+            </TabsTrigger>
+            <TabsTrigger value="checklists" className={TAB_TRIGGER_CLASS}>
+              <ListChecks size={14} aria-hidden />
+              Checklists
+            </TabsTrigger>
+          </TabsList>
+
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex flex-col gap-1.5 w-full sm:w-64">
+              <span className="text-xs font-display font-medium text-text-secondary">Dates</span>
+              <DateRangePicker value={range} onChange={setRange} placeholder="All time" placeholderIsValue />
+            </div>
+            <div className="flex flex-col gap-1.5 w-full sm:w-48">
+              <span className="text-xs font-display font-medium text-text-secondary">Store</span>
+              <SelectDropdown
+                value={storeId}
+                onChange={setStoreId}
+                options={storeOptions}
+                aria-label="Filter by store"
+              />
+            </div>
+          </div>
+        </div>
+
+        <TabsContent value="audits" className="flex flex-col gap-4">{panel}</TabsContent>
+        <TabsContent value="checklists" className="flex flex-col gap-4">{panel}</TabsContent>
+      </Tabs>
     </div>
   );
 };

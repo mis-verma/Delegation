@@ -1,7 +1,9 @@
-import { useState } from 'react';
-import { Star, Loader2 } from 'lucide-react';
+import { memo, useState } from 'react';
+import { Star } from 'lucide-react';
 import { useSetChecklistInstanceItemDoneMutation } from '../hook';
 import { ChecklistItemCardHeader } from './ChecklistItemCardHeader';
+import { ItemCardShell } from './ItemCardShell';
+import { ItemError } from './ItemError';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 
 interface ChecklistInstanceItemRatingCardProps {
@@ -14,8 +16,9 @@ interface ChecklistInstanceItemRatingCardProps {
 // RATING counterpart to ChecklistInstanceItemNumberEntryCard — same numericValue field, rendered
 // as stars (1..ratingScale) instead of a free-form number input. Picking a star submits
 // immediately, matching the plain STANDARD item's "click to toggle" snappiness rather than
-// requiring a separate save step.
-export const ChecklistInstanceItemRatingCard = ({ item, instanceId, canWork, isLocked }: ChecklistInstanceItemRatingCardProps) => {
+// requiring a separate save step. The stars fill at once (the hook updates the card optimistically),
+// so there is no spinner.
+export const ChecklistInstanceItemRatingCard = memo(function ChecklistInstanceItemRatingCard({ item, instanceId, canWork, isLocked }: ChecklistInstanceItemRatingCardProps) {
   const setItemDone = useSetChecklistInstanceItemDoneMutation(instanceId);
   const [hovered, setHovered] = useState<number | null>(null);
   const scale = item.ratingScale ?? 5;
@@ -27,7 +30,7 @@ export const ChecklistInstanceItemRatingCard = ({ item, instanceId, canWork, isL
   };
 
   return (
-    <div className={`flex flex-col gap-3 p-3.5 sm:p-4 rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface ${isLocked ? 'opacity-75' : ''}`}>
+    <ItemCardShell isLocked={isLocked}>
       <ChecklistItemCardHeader
         item={item}
         interactive={canWork && !isLocked}
@@ -35,38 +38,36 @@ export const ChecklistInstanceItemRatingCard = ({ item, instanceId, canWork, isL
         onReopen={() => setItemDone.mutate({ itemId: item.id, isDone: false, numericValue: item.numericValue ?? undefined })}
       />
 
-      {setItemDone.isError && (
-        <p className="text-xs text-danger">
-          {setItemDone.error instanceof Error ? setItemDone.error.message : "Couldn't save that rating."}
-        </p>
-      )}
+      <ItemError error={setItemDone.error} fallback="Couldn't save that rating." />
 
-      <div className="flex items-center gap-1" onMouseLeave={() => setHovered(null)}>
-        {Array.from({ length: scale }, (_, i) => i + 1).map((value) => {
-          const filled = value <= (hovered ?? item.numericValue ?? 0);
-          return (
-            <button
-              key={value}
-              type="button"
-              disabled={!interactive}
-              onClick={() => submit(value)}
-              onMouseEnter={() => interactive && setHovered(value)}
-              aria-label={`Rate ${value} out of ${scale}`}
-              className={`rounded-md transition-transform outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 ${interactive ? 'cursor-pointer hover:scale-110' : 'cursor-not-allowed'}`}
-            >
-              <Star
-                size={22}
-                className={filled ? 'text-warning fill-warning' : 'text-border'}
-                strokeWidth={1.5}
-              />
-            </button>
-          );
-        })}
-        {setItemDone.isPending && <Loader2 size={14} className="animate-spin text-text-muted ml-1" />}
+      <div className="flex items-center gap-2">
+        <div className="flex items-center" aria-busy={setItemDone.isPending} onMouseLeave={() => setHovered(null)}>
+          {Array.from({ length: scale }, (_, i) => i + 1).map((value) => {
+            const filled = value <= (hovered ?? item.numericValue ?? 0);
+            return (
+              <button
+                key={value}
+                type="button"
+                disabled={!interactive}
+                onClick={() => submit(value)}
+                onMouseEnter={() => interactive && setHovered(value)}
+                aria-label={`Rate ${value} out of ${scale}`}
+                // 44px hit area on touch; the star itself stays 22px.
+                className={`flex items-center justify-center size-11 sm:size-8 rounded-md transition-transform outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 ${interactive ? 'cursor-pointer hover:scale-110' : 'cursor-not-allowed'}`}
+              >
+                <Star
+                  size={22}
+                  className={filled ? 'text-warning fill-warning' : 'text-border'}
+                  strokeWidth={1.5}
+                />
+              </button>
+            );
+          })}
+        </div>
         {item.numericValue != null && (
-          <span className="text-xs font-display text-text-muted ml-2">{item.numericValue}/{scale}</span>
+          <span className="text-xs font-display text-text-muted">{item.numericValue}/{scale}</span>
         )}
       </div>
-    </div>
+    </ItemCardShell>
   );
-};
+});

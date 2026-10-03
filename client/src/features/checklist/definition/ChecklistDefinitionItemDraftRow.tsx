@@ -1,5 +1,7 @@
-import type { ReactNode } from 'react';
+import { memo, type ReactNode } from 'react';
 import { AlertCircle } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { PANEL_CLASS } from '../../../components';
 import { ItemTypeConfigFields, itemDraftProblem, patchForTypeSwitch } from './builder/ItemTypeConfigFields';
 import { QuestionTypeMenu } from './builder/QuestionTypeMenu';
 import { GROUP_TILE, questionTypeOf, type QuestionTypeEntry } from './builder/questionTypes';
@@ -100,7 +102,9 @@ interface ChecklistDefinitionItemDraftRowProps {
 // One question, as one card: its type tile, the question itself typed straight into the header,
 // the type chip, then only the settings this type needs. Replaces a card that repeated the label
 // "What should staff do or answer?" and a 16-button type switcher on every single question.
-export const ChecklistDefinitionItemDraftRow = ({
+// Memoised: with a stable `onChange` (keyed by draft.key) and an unchanged `draft`, typing in one
+// question leaves every other card alone.
+const ChecklistDefinitionItemDraftRowImpl = ({
   index,
   draft,
   onChange,
@@ -114,19 +118,22 @@ export const ChecklistDefinitionItemDraftRow = ({
   const TypeIcon = type.icon;
   // A blank label is a real error state (the item would be dropped on save), flagged right here.
   const isLabelBlank = !draft.label.trim();
-  const problem = isLabelBlank ? 'Type the question staff will see — without one it won’t be saved.' : itemDraftProblem(draft);
+  const problem = isLabelBlank ? 'Type the question staff will see. Without one it won’t be saved.' : itemDraftProblem(draft);
   const pickType = (entry: QuestionTypeEntry) => patch(patchForEntry(draft, entry));
 
   return (
     <article
       aria-label={`Question ${index + 1}`}
-      className={`group/q flex flex-col rounded-2xl border bg-surface transition-colors duration-150 ${
-        problem ? 'border-danger/40' : 'border-border hover:border-border-hover focus-within:border-primary-400/70'
-      } ${className}`}
+      className={cn(
+        PANEL_CLASS,
+        'group/q flex flex-col transition-colors duration-150',
+        problem ? 'border-danger/40' : 'hover:border-border-hover focus-within:border-primary-400/70',
+        className,
+      )}
     >
       <div className="flex items-start gap-1 sm:gap-3 p-2.5 pr-1.5 sm:p-4 sm:pr-2">
         {leading}
-        <span className={`hidden sm:flex items-center justify-center size-10 rounded-xl shrink-0 ${GROUP_TILE[type.group]}`} aria-hidden="true">
+        <span className={`hidden sm:flex items-center justify-center size-10 rounded-lg shrink-0 ${GROUP_TILE[type.group]}`} aria-hidden="true">
           <TypeIcon size={18} strokeWidth={2.25} />
         </span>
 
@@ -138,6 +145,9 @@ export const ChecklistDefinitionItemDraftRow = ({
               <label htmlFor={`item-label-${draft.key}`} className="text-[11px] font-display font-medium text-text-muted tabular-nums">
                 Question {index + 1}
               </label>
+              {/* Deliberate raw textarea (not the shared Textarea): it auto-grows with
+                  field-sizing-content and reads as borderless inline text until hovered or focused,
+                  which the shared boxed field can't do. */}
               <textarea
                 id={`item-label-${draft.key}`}
                 rows={1}
@@ -170,3 +180,5 @@ export const ChecklistDefinitionItemDraftRow = ({
     </article>
   );
 };
+
+export const ChecklistDefinitionItemDraftRow = memo(ChecklistDefinitionItemDraftRowImpl);

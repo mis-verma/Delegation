@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { QuickFilterStats, statusTiles } from '../../../components/quickFilterStats';
 
 // Same four-tile shape Delegation and Tickets both use — "Pending" is the broad not-yet-done
@@ -29,9 +30,13 @@ interface MyChecklistsQuickStatsProps {
   active: MyChecklistsQuickFilterKey | null;
   onToggle: (key: MyChecklistsQuickFilterKey) => void;
   onClear: () => void;
+  /** The summary counts are still loading: tiles show placeholders instead of a false "0". */
   isLoading?: boolean;
 }
 
-export const MyChecklistsQuickStats = ({ counts, total, active, onToggle, onClear, isLoading }: MyChecklistsQuickStatsProps) => (
+// Memoized: the page re-renders on every keystroke-level state change (options sheet, view toggle),
+// and the tiles only depend on these few props.
+export const MyChecklistsQuickStats = memo(({ counts, total, active, onToggle, onClear, isLoading }: MyChecklistsQuickStatsProps) => (
   <QuickFilterStats tiles={TILES} counts={counts} active={active} onToggle={onToggle} total={total} onClearFilter={onClear} totalLabel="Assigned to you" itemLabel="checklists" variant="navy" isLoading={isLoading} />
-);
+));
+MyChecklistsQuickStats.displayName = 'MyChecklistsQuickStats';

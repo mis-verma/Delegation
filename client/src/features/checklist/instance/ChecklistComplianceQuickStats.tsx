@@ -1,3 +1,4 @@
+import { InlineError } from '../../../components/inlineError';
 import { QuickFilterStats, statusTiles } from '../../../components/quickFilterStats';
 
 export type ComplianceQuickFilterKey = 'all' | 'completed' | 'pending' | 'overdue';
@@ -14,13 +15,31 @@ const TILES = statusTiles<ComplianceQuickFilterKey>(['all', 'completed', 'pendin
   pending: 'Not yet complete',
 });
 
+const NO_COUNTS: ComplianceQuickFilterCounts = { all: 0, completed: 0, pending: 0, overdue: 0 };
+
 interface ChecklistComplianceQuickStatsProps {
-  counts: ComplianceQuickFilterCounts;
+  /** Undefined until the summary arrives (or when it failed): never rendered as zeros. */
+  counts: ComplianceQuickFilterCounts | undefined;
   active: ComplianceQuickFilterKey;
   onToggle: (key: ComplianceQuickFilterKey) => void;
   isLoading?: boolean;
+  isError?: boolean;
+  onRetry?: () => void;
 }
 
-export const ChecklistComplianceQuickStats = ({ counts, active, onToggle, isLoading }: ChecklistComplianceQuickStatsProps) => (
-  <QuickFilterStats tiles={TILES} counts={counts} active={active} onToggle={onToggle} itemLabel="checklists" variant="navy" isLoading={isLoading} />
-);
+export const ChecklistComplianceQuickStats = ({ counts, active, onToggle, isLoading, isError, onRetry }: ChecklistComplianceQuickStatsProps) => {
+  // A failed summary used to read as a confident "0 0 0 0". Say it failed instead.
+  if (isError && !counts) return <InlineError message="We couldn't load the checklist counts." onRetry={onRetry} />;
+
+  return (
+    <QuickFilterStats
+      tiles={TILES}
+      counts={counts ?? NO_COUNTS}
+      active={active}
+      onToggle={onToggle}
+      itemLabel="checklists"
+      variant="navy"
+      isLoading={isLoading || !counts}
+    />
+  );
+};

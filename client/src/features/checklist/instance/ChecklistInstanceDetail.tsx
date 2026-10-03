@@ -1,7 +1,10 @@
-import { useState, type ReactElement } from 'react';
-import { useParams, useNavigate, Link } from 'react-router';
-import { ArrowLeft, AlertCircle, ShieldCheck, ShieldAlert, ShieldQuestion, CornerUpLeft, AlertTriangle, Pencil, Clock, Layers, ClipboardX } from 'lucide-react';
-import { Skeleton, StatusChip, IconChip } from '../../../components';
+import { memo, useCallback, useMemo, useState, type ReactElement } from 'react';
+import { useParams, useNavigate } from 'react-router';
+import { ArrowLeft, ShieldAlert, ShieldQuestion, CornerUpLeft, AlertTriangle, Pencil, Clock, Layers, ClipboardX } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import {
+  Button, ChecklistProgressBar, IconChip, InlineError, NoticeBanner, PANEL_CLASS, Skeleton, StatusChip, VerificationNoteBanner,
+} from '../../../components';
 import { useChecklistInstanceQuery } from '../hook';
 import { ApiError } from '../../../api/http';
 import { ChecklistInstanceItemCard } from './ChecklistInstanceItemCard';
@@ -20,9 +23,11 @@ import { ChecklistInstanceItemCashTallyCard } from './ChecklistInstanceItemCashT
 import { ItemRemarksField } from './ItemRemarksField';
 import { NotApplicableItemCard } from './NotApplicableItemCard';
 import { ChecklistReviewBar } from './ChecklistReviewBar';
-import { runScores, answerVerdict } from '../checklistCompliance';
-import { complianceToneClass } from '../checklistDisplay';
-import { formatDate, formatDateTime, instanceProgressBarClass, instanceProgressToneClass, isInstanceOverdue, isInstanceNotYetOpen, RECURRENCE_LABEL, VERIFICATION_STATUS_LABEL, VERIFICATION_CHIP } from '../checklistDisplay';
+import { answerVerdict } from '../checklistCompliance';
+import {
+  complianceToneClass, formatDate, formatDateTime, getInstanceView, instanceProgressToneClass, isInstanceNotYetOpen,
+  RECURRENCE_LABEL, VERIFICATION_STATUS_LABEL, VERIFICATION_CHIP,
+} from '../checklistDisplay';
 import { useAuth } from '../../../context/AuthContext';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 
@@ -85,6 +90,110 @@ const ITEM_CARD_RENDERERS: Record<ChecklistInstanceItem['itemType'], (item: Chec
   ),
 };
 
+interface DetailItemRowProps {
+  item: ChecklistInstanceItem;
+  instanceId: string;
+  canWork: boolean;
+  isLocked: boolean;
+  currentUserId: string | undefined;
+  /** An overdue run asks for a remark on every item. */
+  overdue: boolean;
+  /** Render the section heading above this item. */
+  showHeader: boolean;
+  isFirst: boolean;
+  selecting: boolean;
+  picked: boolean;
+  onTogglePicked: (itemId: string) => void;
+}
+
+// One question in the list. Memoized so ticking one item, or flipping the reviewer's pick mode,
+// re-renders only the rows whose own props changed instead of every card on the page. React Query
+// keeps untouched `item` objects referentially equal between refetches, so the memo holds.
+const DetailItemRow = memo(({
+  item, instanceId, canWork, isLocked, currentUserId, overdue, showHeader, isFirst, selecting, picked, onTogglePicked,
+}: DetailItemRowProps) => {
+  const canEdit = canWork && !isLocked;
+  const verdictIsBad = answerVerdict(item) === 'bad';
+  return (
+    <>
+      {showHeader && (
+        <div className={`flex items-center gap-2 ${isFirst ? '' : 'pt-2'}`}>
+          <Layers size={12} className="text-text-light shrink-0" aria-hidden />
+          <h2 className="text-xs font-display font-bold text-text-secondary whitespace-nowrap">
+            {item.section ?? 'Ungrouped'}
+          </h2>
+          <div className="h-px flex-1 bg-border/60" />
+        </div>
+      )}
+      <div className="flex flex-col gap-1.5">
+        {selecting && (
+          <label className={`flex items-center gap-2.5 px-3.5 min-h-11 rounded-lg border text-xs font-display font-semibold cursor-pointer transition-colors duration-150 ${picked ? 'border-danger/40 bg-danger/10 text-danger' : 'border-border/60 bg-surface text-text-secondary hover:bg-surface-hover'}`}>
+            <input
+              type="checkbox"
+              checked={picked}
+              onChange={() => onTogglePicked(item.id)}
+              className="size-4 accent-danger cursor-pointer"
+            />
+            Send this question back
+          </label>
+        )}
+        {verdictIsBad && (
+          <NoticeBanner tone="warning" icon={AlertTriangle} className="items-center p-2.5 px-3.5 font-medium">
+            Not an acceptable answer
+          </NoticeBanner>
+        )}
+        {!item.isDone && item.sendBackNote && (
+          <NoticeBanner tone="danger" icon={CornerUpLeft} className="p-2.5 px-3.5">
+            Sent back: {item.sendBackNote}
+          </NoticeBanner>
+        )}
+        {item.isNotApplicable ? (
+          <NotApplicableItemCard item={item} instanceId={instanceId} canEdit={canEdit} />
+        ) : (
+          ITEM_CARD_RENDERERS[item.itemType](item, { instanceId, canWork, isLocked, currentUserId })
+        )}
+        {/* Shown for done items too, and read-only for reviewers: a remark used to vanish
+            the moment its item was ticked, so nobody reviewing ever saw it. Audit
+            questions get the same Add remark / Not applicable row as every other type. */}
+        <ItemRemarksField item={item} instanceId={instanceId} required={overdue} canEdit={canEdit} />
+      </div>
+    </>
+  );
+});
+DetailItemRow.displayName = 'DetailItemRow';
+
+// Mirrors the loaded page: back row, header card, then item cards. Heights come from content
+// (min-h only), so it doesn't fight the real thing when it swaps in.
+const DetailSkeleton = () => (
+  <div className="flex flex-col gap-6 w-full max-w-4xl mx-auto" aria-hidden>
+    <div className="flex items-center justify-between gap-3">
+      <Skeleton className="h-8 pointer-coarse:h-11 w-20 rounded-md" />
+    </div>
+    <div className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-4 sm:p-5')}>
+      <div className="flex flex-col gap-1.5">
+        <Skeleton className="h-6 w-2/3" />
+        <Skeleton className="h-3 w-1/2" />
+      </div>
+      <div className="flex items-center gap-1.5">
+        <Skeleton className="h-7 w-20 rounded-full" />
+        <Skeleton className="h-7 w-28 rounded-full" />
+      </div>
+      <div className="flex flex-col gap-2 pt-1">
+        <Skeleton className="h-5 w-full" />
+        <Skeleton className="h-2 w-full rounded-full" />
+      </div>
+    </div>
+    <div className="flex flex-col gap-3">
+      {[0, 1, 2, 3].map((i) => (
+        <div key={i} className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-4 min-h-24')}>
+          <Skeleton className="h-4 w-1/2" />
+          <Skeleton className="h-8 w-full" />
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
 // Shared between a user's own "My Checklists" link and the admin oversight link from
 // ChecklistDefinitionDetail — the server authorizes both (ADMIN or an assignee of the instance).
 export const ChecklistInstanceDetail = () => {
@@ -95,22 +204,17 @@ export const ChecklistInstanceDetail = () => {
   // Reviewer's send-back picking: which questions are ticked while the review bar is in pick mode.
   const [selecting, setSelecting] = useState(false);
   const [picked, setPicked] = useState<Set<string>>(() => new Set());
-  const togglePicked = (itemId: string) =>
+  const togglePicked = useCallback((itemId: string) =>
     setPicked(prev => {
       const next = new Set(prev);
       if (next.has(itemId)) next.delete(itemId); else next.add(itemId);
       return next;
-    });
-  const stopSelecting = () => { setSelecting(false); setPicked(new Set()); };
+    }), []);
+  const startSelecting = useCallback(() => setSelecting(true), []);
+  const stopSelecting = useCallback(() => { setSelecting(false); setPicked(new Set()); }, []);
+  const selectedIds = useMemo(() => [...picked], [picked]);
 
-  if (isPending) {
-    return (
-      <div className="flex flex-col gap-4 max-w-4xl">
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-40 w-full rounded-xl" />
-      </div>
-    );
-  }
+  if (isPending) return <DetailSkeleton />;
 
   // Same reasoning as ChecklistDefinitionDetail/ChecklistBuilder's own "was deleted" state — an
   // old notification or bookmark pointing at an instance id that's gone (or was never real) hits
@@ -121,44 +225,31 @@ export const ChecklistInstanceDetail = () => {
     return (
       <div className="w-full max-w-4xl mx-auto py-16 flex flex-col items-center gap-3 text-center">
         <span className="flex items-center justify-center size-12 rounded-lg border border-border/60 bg-muted/60 text-text-muted">
-          <ClipboardX className="size-6" strokeWidth={2.25} />
+          <ClipboardX className="size-6" strokeWidth={2.25} aria-hidden />
         </span>
         <h1 className="text-base font-display font-bold text-text">This checklist run is no longer available</h1>
         <p className="text-sm font-display text-text-muted max-w-sm">
           It may have been part of a checklist that's since been deleted.
         </p>
-        <Link
-          to="/checklists"
-          className="mt-1 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-display font-semibold border border-border bg-surface hover:bg-surface-hover transition-colors"
-        >
-          <ArrowLeft size={13} />
+        <Button variant="outline" size="sm" onClick={() => navigate('/checklists')}>
+          <ArrowLeft size={13} aria-hidden />
           Back to My Checklists
-        </Link>
+        </Button>
       </div>
     );
   }
 
   if (isError || !instance) {
     return (
-      <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-danger/10 text-danger text-sm font-display max-w-4xl">
-        <AlertCircle size={15} />
-        <span className="flex-1">We couldn't load this checklist.</span>
-        <button
-          type="button"
-          onClick={() => refetch()}
-          className="shrink-0 px-3 py-1.5 rounded-md text-xs font-display font-semibold border border-danger/30 hover:bg-danger/10 cursor-pointer transition-colors outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
-        >
-          Retry
-        </button>
+      <div className="w-full max-w-4xl mx-auto">
+        <InlineError message="We couldn't load this checklist. Check your connection and try again." onRetry={() => refetch()} />
       </div>
     );
   }
 
-  const rawTotal = instance.items.length;
-  const isComplete = rawTotal > 0 && instance.items.every(i => i.isDone);
   // Completion leaves "not applicable" questions out of both sides; compliance scores only the
-  // answered questions that have a good-answer rule.
-  const { done, total, completion: progress, compliance, scored, good } = runScores(instance.items);
+  // answered questions that have a good-answer rule. Same numbers the list cards show.
+  const { done, total, progress, isComplete, overdue, chipStatus, compliance, scored, good } = getInstanceView(instance);
   // PC has full parity with ADMIN throughout this app.
   const isAdminOrPC = user?.role === 'ADMIN' || user?.role === 'PC';
   const canWork = isAdminOrPC || (!!user && instance.assigneeIds.includes(user.id));
@@ -167,41 +258,43 @@ export const ChecklistInstanceDetail = () => {
   const canReview =
     instance.verificationStatus === 'PENDING_APPROVAL' &&
     !!user && (isAdminOrPC || user.role === 'MANAGER' || user.role === 'SENIOR' || instance.reviewerIds.includes(user.id));
-  const overdue = isInstanceOverdue(instance, isComplete);
   const notYetOpen = isInstanceNotYetOpen(instance);
   // Only show section headers when the checklist actually has any — most checklists were built
   // before this feature (or never use it) and should keep rendering as one plain flat list.
   const hasSections = instance.items.some(i => i.section);
+  const verification = VERIFICATION_CHIP[instance.verificationStatus];
+  const verificationNote = instance.verificationNote;
+  const showBanners =
+    notYetOpen ||
+    (instance.verificationStatus === 'PENDING_APPROVAL' && !canReview) ||
+    (instance.verificationStatus === 'APPROVED' && !!verificationNote) ||
+    instance.verificationStatus === 'REJECTED';
 
   return (
-    <div className="flex flex-col gap-6 max-w-4xl">
+    <div className="flex flex-col gap-6 w-full max-w-4xl mx-auto">
       {/* Back on the left, Edit template (admins) on the right. */}
       <div className="flex items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          aria-label="Back"
-          className="inline-flex items-center gap-1.5 h-9 pl-2 pr-3 -ml-2 rounded-full text-sm font-display font-medium text-text-secondary hover:text-text hover:bg-surface-hover transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]"
-        >
-          <ArrowLeft size={17} />
-          <span>Back</span>
-        </button>
+        <Button variant="ghost" size="sm" onClick={() => navigate(-1)} aria-label="Back">
+          <ArrowLeft size={15} aria-hidden />
+          Back
+        </Button>
 
         {isAdminOrPC && (
-          <Link
-            to={`/admin/scheduled-checklists/builder/${instance.definitionId}`}
-            className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full text-xs font-display font-semibold text-text-secondary border border-border/60 dark:border-white/[0.08] bg-surface hover:border-primary-400 hover:text-text transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(`/admin/scheduled-checklists/builder/${instance.definitionId}`)}
             title="Edit this checklist's template. Changes apply to future runs, not this one."
           >
-            <Pencil size={13} />
-            <span>Edit template</span>
-          </Link>
+            <Pencil size={13} aria-hidden />
+            Edit template
+          </Button>
         )}
       </div>
 
       {/* Header: title, how often and the period, status + approval chips, then progress. Same
-          chip language as the list cards; the gold tile and the "% done" badge are gone. */}
-      <div className="flex flex-col gap-3 p-4 sm:p-5 rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface">
+          chip language as the list cards. */}
+      <div className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-4 sm:p-5')}>
         <div className="flex flex-col gap-1">
           <h1 className="text-lg sm:text-xl font-display font-semibold text-text tracking-tight leading-snug">{instance.title}</h1>
           <p className="text-xs font-medium text-text-muted">
@@ -210,13 +303,16 @@ export const ChecklistInstanceDetail = () => {
         </div>
 
         <div className="flex items-center gap-1.5 flex-wrap">
-          <StatusChip status={isComplete ? 'completed' : overdue ? 'overdue' : 'due'} />
+          <StatusChip status={chipStatus} />
           {(isComplete || instance.verificationStatus !== 'NOT_SUBMITTED') && (
             <IconChip
-              icon={VERIFICATION_CHIP[instance.verificationStatus].icon}
-              tone={VERIFICATION_CHIP[instance.verificationStatus].tone}
+              icon={verification.icon}
+              tone={verification.tone}
               label={VERIFICATION_STATUS_LABEL[instance.verificationStatus]}
             />
+          )}
+          {isLocked && instance.verifiedAt && (
+            <span className="text-xs font-medium text-text-muted">on {formatDateTime(instance.verifiedAt)}</span>
           )}
         </div>
 
@@ -237,98 +333,62 @@ export const ChecklistInstanceDetail = () => {
               <span className="text-xs font-semibold text-text">{done} of {total} done</span>
             </span>
           </div>
-          <div className="h-2 bg-surface-hover rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-500 ${instanceProgressBarClass(overdue, isComplete)}`}
-              style={{ width: `${progress}%` }}
-            />
-          </div>
+          <ChecklistProgressBar done={done} total={total} tone={overdue ? 'danger' : 'auto'} bare />
         </div>
       </div>
 
-      {notYetOpen && (
-        <div className="flex items-center gap-2.5 p-3.5 rounded-2xl bg-surface-hover/60 border border-border/60 text-text-secondary text-xs font-display">
-          <Clock size={16} className="shrink-0" />
-          This checklist opens at {instance.opensTime}. Items can't be ticked off before then.
-        </div>
-      )}
+      {showBanners && (
+        <div className="flex flex-col gap-3">
+          {notYetOpen && (
+            <NoticeBanner tone="neutral" icon={Clock}>
+              This checklist opens at {instance.opensTime}. Items can't be ticked off before then.
+            </NoticeBanner>
+          )}
 
-      {instance.verificationStatus === 'PENDING_APPROVAL' && !canReview && (
-        <div className="flex items-center gap-2.5 p-3.5 rounded-2xl bg-primary-500/10 border border-primary-500/25 text-primary-600 dark:text-primary-300 text-xs font-display">
-          <ShieldQuestion size={16} className="shrink-0" />
-          Everything's ticked off. Waiting for approval.
-        </div>
-      )}
+          {instance.verificationStatus === 'PENDING_APPROVAL' && !canReview && (
+            <NoticeBanner tone="info" icon={ShieldQuestion}>
+              Everything's ticked off. Waiting for approval.
+            </NoticeBanner>
+          )}
 
-      {instance.verificationStatus === 'APPROVED' && (
-        <div className="flex items-center gap-2.5 p-3.5 rounded-2xl bg-success/10 border border-success/25 text-success text-xs font-display">
-          <ShieldCheck size={16} className="shrink-0" />
-          Verified{instance.verifiedAt ? ` on ${formatDateTime(instance.verifiedAt)}` : ''}.
-          {instance.verificationNote ? ` "${instance.verificationNote}"` : ''}
-        </div>
-      )}
+          {instance.verificationStatus === 'APPROVED' && (
+            <VerificationNoteBanner note={verificationNote} approved verifiedBy={instance.verifiedBy} />
+          )}
 
-      {instance.verificationStatus === 'REJECTED' && (
-        <div className="flex items-start gap-2.5 p-3.5 rounded-2xl bg-danger/10 border border-danger/25 text-danger text-xs font-display">
-          <ShieldAlert size={16} className="shrink-0 mt-0.5" />
-          <span>
-            Sent back for changes{instance.verificationNote ? `: "${instance.verificationNote}"` : '.'} Fix
-            what's flagged and check it off again to resubmit.
-          </span>
+          {instance.verificationStatus === 'REJECTED' && (
+            verificationNote ? (
+              <>
+                <VerificationNoteBanner note={verificationNote} approved={false} />
+                <NoticeBanner tone="warning" icon={CornerUpLeft}>
+                  Fix what's flagged and check it off again to resubmit.
+                </NoticeBanner>
+              </>
+            ) : (
+              <NoticeBanner tone="danger" icon={ShieldAlert}>
+                Sent back for changes. Fix what's flagged and check it off again to resubmit.
+              </NoticeBanner>
+            )
+          )}
         </div>
       )}
 
       <div className="flex flex-col gap-3">
-        {instance.items.map((item, idx) => {
-          const showHeader = hasSections && (idx === 0 || instance.items[idx - 1].section !== item.section);
-          return (
-            <div key={item.id} className="contents">
-              {showHeader && (
-                <div className={`flex items-center gap-2 ${idx === 0 ? '' : 'pt-2'}`}>
-                  <Layers size={12} className="text-text-light shrink-0" />
-                  <h3 className="text-xs font-display font-bold text-text-secondary whitespace-nowrap">
-                    {item.section ?? 'Ungrouped'}
-                  </h3>
-                  <div className="h-px flex-1 bg-border/60" />
-                </div>
-              )}
-              <div className="flex flex-col gap-1.5">
-                {selecting && (
-                  <label className={`flex items-center gap-2.5 px-3.5 min-h-11 rounded-lg border text-xs font-display font-semibold cursor-pointer transition-colors duration-150 ${picked.has(item.id) ? 'border-danger/40 bg-danger/10 text-danger' : 'border-border/60 bg-surface text-text-secondary hover:bg-surface-hover'}`}>
-                    <input
-                      type="checkbox"
-                      checked={picked.has(item.id)}
-                      onChange={() => togglePicked(item.id)}
-                      className="size-4 accent-danger cursor-pointer"
-                    />
-                    Send this question back
-                  </label>
-                )}
-                {answerVerdict(item) === 'bad' && (
-                  <div className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-warning/10 border border-warning/25 text-warning text-xs font-display font-medium">
-                    <AlertTriangle size={13} className="shrink-0" />
-                    Not an acceptable answer
-                  </div>
-                )}
-                {!item.isDone && item.sendBackNote && (
-                  <div className="flex items-start gap-2 px-3.5 py-2.5 rounded-lg bg-danger/10 border border-danger/25 text-danger text-xs font-display">
-                    <CornerUpLeft size={13} className="shrink-0 mt-0.5" />
-                    <span>Sent back: {item.sendBackNote}</span>
-                  </div>
-                )}
-                {item.isNotApplicable ? (
-                  <NotApplicableItemCard item={item} instanceId={instanceId} canEdit={canWork && !isLocked} />
-                ) : (
-                  ITEM_CARD_RENDERERS[item.itemType](item, { instanceId, canWork, isLocked, currentUserId: user?.id })
-                )}
-                {/* Shown for done items too, and read-only for reviewers: a remark used to vanish
-                    the moment its item was ticked, so nobody reviewing ever saw it. Audit
-                    questions get the same Add remark / Not applicable row as every other type. */}
-                <ItemRemarksField item={item} instanceId={instanceId} required={overdue} canEdit={canWork && !isLocked} />
-              </div>
-            </div>
-          );
-        })}
+        {instance.items.map((item, idx) => (
+          <DetailItemRow
+            key={item.id}
+            item={item}
+            instanceId={instanceId}
+            canWork={canWork}
+            isLocked={isLocked}
+            currentUserId={user?.id}
+            overdue={overdue}
+            showHeader={hasSections && (idx === 0 || instance.items[idx - 1].section !== item.section)}
+            isFirst={idx === 0}
+            selecting={selecting}
+            picked={picked.has(item.id)}
+            onTogglePicked={togglePicked}
+          />
+        ))}
       </div>
 
       {canReview && (
@@ -336,8 +396,8 @@ export const ChecklistInstanceDetail = () => {
           instanceId={instanceId}
           selecting={selecting}
           selectedCount={picked.size}
-          selectedIds={[...picked]}
-          onStartSelecting={() => setSelecting(true)}
+          selectedIds={selectedIds}
+          onStartSelecting={startSelecting}
           onStopSelecting={stopSelecting}
           onSent={stopSelecting}
         />

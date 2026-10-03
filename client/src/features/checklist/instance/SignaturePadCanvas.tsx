@@ -1,5 +1,6 @@
-import { useRef, useState, type PointerEvent } from 'react';
+import { memo, useRef, useState, type PointerEvent } from 'react';
 import { RotateCcw } from 'lucide-react';
+import { Button } from '../../../components';
 
 // Roughly a short scribble on the 480px-wide canvas — enough to rule out taps and dots.
 const MIN_INK_PX = 40;
@@ -13,7 +14,7 @@ interface SignaturePadCanvasProps {
 // Shared drawing surface for SIGNATURE and DUAL_SIGNATURE — pointer events cover mouse, touch,
 // and stylus in one handler set, so it works the same on a store tablet as a desktop browser.
 // Emits a PNG data URL once a stroke is drawn, null again after Clear.
-export const SignaturePadCanvas = ({ label, disabled, onChange }: SignaturePadCanvasProps) => {
+export const SignaturePadCanvas = memo(function SignaturePadCanvas({ label, disabled, onChange }: SignaturePadCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawingRef = useRef(false);
   const [hasDrawn, setHasDrawn] = useState(false);
@@ -83,21 +84,17 @@ export const SignaturePadCanvas = ({ label, disabled, onChange }: SignaturePadCa
 
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 min-h-8">
         <span className="text-xs font-display font-medium text-text-secondary">{label}</span>
         {hasDrawn && !disabled && (
-          <button
-            type="button"
-            onClick={clear}
-            className="flex items-center gap-1 text-[11px] font-display text-text-muted hover:text-warning transition-colors cursor-pointer"
-          >
-            <RotateCcw size={11} /> Clear
-          </button>
+          <Button variant="ghost" size="sm" onClick={clear}>
+            <RotateCcw size={12} aria-hidden /> Clear
+          </Button>
         )}
       </div>
       {/* Themed mat around the canvas's own fixed white "paper" — keeps a dark-mode page from
           bordering straight onto an unframed white rectangle. */}
-      <div className="rounded-md border border-border bg-surface p-1.5">
+      <div className="rounded-lg border border-border bg-surface p-1.5">
         <canvas
           ref={canvasRef}
           width={480}
@@ -111,4 +108,4 @@ export const SignaturePadCanvas = ({ label, disabled, onChange }: SignaturePadCa
       </div>
     </div>
   );
-};
+});

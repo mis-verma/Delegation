@@ -1,5 +1,5 @@
 import { Type, AlignLeft, Palette } from 'lucide-react';
-import { Input } from '../../../../components';
+import { Input, Textarea } from '../../../../components';
 import { DETAIL_HEADING_CLASS } from '../../../tasks/taskFormFieldStyles';
 import { CHECKLIST_ICON_MAP, CHECKLIST_ICON_KEYS } from '../checklistIconMap';
 import type { ChecklistIcon } from '../../../../api/checklistDefinitions';
@@ -26,35 +26,29 @@ export const ChecklistDetailsFields = ({
   onIconChange,
 }: ChecklistDetailsFieldsProps) => (
   <div className="flex flex-col gap-5">
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor="checklist-name" className={DETAIL_HEADING_CLASS}>
-        <Type size={14} className="text-text-light" />
-        Name <span className="text-danger">*</span>
-      </label>
-      <Input
-        id="checklist-name"
-        placeholder="e.g. Store opening check"
-        value={name}
-        onChange={(e) => onNameChange(e.target.value)}
-        className={QUIET_FIELD_CLASS}
-        autoFocus
-      />
-    </div>
+    <Input
+      id="checklist-name"
+      label={<>Name <span className="text-danger">*</span></>}
+      icon={Type}
+      labelClassName={DETAIL_HEADING_CLASS}
+      placeholder="e.g. Store opening check"
+      value={name}
+      onChange={(e) => onNameChange(e.target.value)}
+      className={QUIET_FIELD_CLASS}
+      autoFocus
+    />
 
-    <div className="flex flex-col gap-1.5">
-      <label htmlFor="checklist-description" className={DETAIL_HEADING_CLASS}>
-        <AlignLeft size={14} className="text-text-light" />
-        Description
-      </label>
-      <textarea
-        id="checklist-description"
-        rows={3}
-        placeholder="What it's for, and anything staff should know before they start"
-        value={description}
-        onChange={(e) => onDescriptionChange(e.target.value)}
-        className={`w-full px-3.5 py-2.5 text-base sm:text-sm text-text rounded-xl border resize-y placeholder:text-text-light transition-colors duration-150 focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 ${QUIET_FIELD_CLASS}`}
-      />
-    </div>
+    <Textarea
+      id="checklist-description"
+      label="Description"
+      icon={AlignLeft}
+      labelClassName={DETAIL_HEADING_CLASS}
+      rows={3}
+      placeholder="What it's for, and anything staff should know before they start"
+      value={description}
+      onChange={(e) => onDescriptionChange(e.target.value)}
+      className={QUIET_FIELD_CLASS}
+    />
 
     <div className="flex flex-col gap-2">
       <span className={DETAIL_HEADING_CLASS}>
@@ -73,9 +67,9 @@ export const ChecklistDetailsFields = ({
               aria-checked={isSelected}
               aria-label={`Use ${key} icon`}
               onClick={() => onIconChange(key)}
-              className={`flex items-center justify-center size-10 rounded-xl border cursor-pointer transition-all duration-150 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
+              className={`flex items-center justify-center size-11 sm:size-10 rounded-xl border cursor-pointer transition-all duration-150 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
                 isSelected
-                  ? 'border-coral-500 bg-coral-500/15 text-coral-700 dark:text-coral-300 ring-2 ring-coral-500/20'
+                  ? 'border-primary-500 bg-primary-500/10 text-primary-700 dark:text-primary-300'
                   : 'border-border/70 bg-surface text-text-muted hover:border-primary-400 hover:text-text'
               }`}
             >

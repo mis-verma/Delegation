@@ -1,8 +1,10 @@
-import { useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { memo, useState } from 'react';
 import { useSetChecklistInstanceItemDoneMutation } from '../hook';
 import { DatePicker } from '../../../components';
 import { ChecklistItemCardHeader } from './ChecklistItemCardHeader';
+import { ItemCardShell } from './ItemCardShell';
+import { ItemError } from './ItemError';
+import { ItemActionButton } from './ItemActionButton';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 
 interface ChecklistInstanceItemDateTimeCardProps {
@@ -12,7 +14,7 @@ interface ChecklistInstanceItemDateTimeCardProps {
   isLocked:   boolean;
 }
 
-export const ChecklistInstanceItemDateTimeCard = ({ item, instanceId, canWork, isLocked }: ChecklistInstanceItemDateTimeCardProps) => {
+export const ChecklistInstanceItemDateTimeCard = memo(function ChecklistInstanceItemDateTimeCard({ item, instanceId, canWork, isLocked }: ChecklistInstanceItemDateTimeCardProps) {
   const setItemDone = useSetChecklistInstanceItemDoneMutation(instanceId);
   // Was a raw <input type="datetime-local"> — the shared DatePicker (used everywhere else a date
   // is picked in this app) works in real Date objects directly, so no timezone-string conversion
@@ -22,7 +24,7 @@ export const ChecklistInstanceItemDateTimeCard = ({ item, instanceId, canWork, i
   const canSubmit = interactive && draft != null;
 
   return (
-    <div className={`flex flex-col gap-3 p-3.5 sm:p-4 rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface ${isLocked ? 'opacity-75' : ''}`}>
+    <ItemCardShell isLocked={isLocked}>
       <ChecklistItemCardHeader
         item={item}
         interactive={interactive}
@@ -35,11 +37,7 @@ export const ChecklistInstanceItemDateTimeCard = ({ item, instanceId, canWork, i
           disabled, after the item (or the whole instance) locks. Only the Save button and the
           save-error message are for the still-editable case. */}
       <div className="flex flex-col gap-2">
-        {interactive && setItemDone.isError && (
-          <p className="text-xs text-danger">
-            {setItemDone.error instanceof Error ? setItemDone.error.message : "Couldn't save that answer."}
-          </p>
-        )}
+        {interactive && <ItemError error={setItemDone.error} fallback="Couldn't save that answer." />}
 
         <div className="flex flex-col sm:flex-row sm:items-center gap-2">
           <DatePicker
@@ -51,17 +49,17 @@ export const ChecklistInstanceItemDateTimeCard = ({ item, instanceId, canWork, i
             className="w-full sm:w-64"
           />
           {interactive && !item.isDone && (
-            <button
+            <ItemActionButton
+              className="shrink-0"
               onClick={() => canSubmit && setItemDone.mutate({ itemId: item.id, isDone: true, dateValue: draft!.toISOString() })}
-              disabled={!canSubmit || setItemDone.isPending}
-              className="flex items-center justify-center gap-1.5 text-xs font-display font-medium px-2.5 py-1.5 rounded-md border border-primary-500/50 text-primary-600 hover:bg-primary-500/10 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+              disabled={!canSubmit}
+              isLoading={setItemDone.isPending}
             >
-              {setItemDone.isPending && <Loader2 size={12} className="animate-spin" />}
               Save
-            </button>
+            </ItemActionButton>
           )}
         </div>
       </div>
-    </div>
+    </ItemCardShell>
   );
-};
+});

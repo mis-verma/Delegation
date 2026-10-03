@@ -1,13 +1,15 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { AlertCircle, ClipboardCheck, X, Store, ChevronRight, Clock, AlarmClock, ArrowDownAZ, Repeat, User, LayoutList, Table2, Kanban, Rows3, ArrowUpDown, Building2, ShieldCheck, Users } from 'lucide-react';
 import { useSearchParams } from 'react-router';
-import { Skeleton, PageNav, ViewToggle, EmptyState, type ViewTab } from '../../../components';
+import { Skeleton, PageNav, ViewToggle, EmptyState, FilterPill, InlineError, PANEL_CLASS, type ViewTab } from '../../../components';
 import {
   OptionsSheet, OptionSection, OptionSegmented, OptionSelect, ChoiceChip, ChoiceIcon, ChoiceWrap, ChoiceClear,
 } from '../../../components/optionsSheet';
 import { avatarColorClass } from '../../../lib/avatarColors';
 import { getInitials } from '../../../lib/getInitials';
 import { toggleValue } from '../../../lib/toggleValue';
+import { useMediaQuery } from '../../../lib/useMediaQuery';
+import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '../../../context/AuthContext';
 import { OWN_SCOPE_ROLES } from '../../../api/auth';
@@ -17,7 +19,7 @@ import { toFilterPeople } from '../../../lib/filterPeople';
 import { ChecklistInstanceCard } from './ChecklistInstanceCard';
 import { ChecklistInstanceTable } from './ChecklistInstanceTable';
 import { ChecklistInstanceBoard } from './ChecklistInstanceBoard';
-import { MyChecklistsQuickStats, type MyChecklistsQuickFilterKey } from './MyChecklistsQuickStats';
+import { MyChecklistsQuickStats, type MyChecklistsQuickFilterKey, type MyChecklistsQuickFilterCounts } from './MyChecklistsQuickStats';
 import { RECURRENCE_LABEL, VERIFICATION_STATUS_LABEL, VERIFICATION_CHIP, todayPeriodBoundIso } from '../checklistDisplay';
 import type { ChecklistInstance, ChecklistInstanceStatus, ChecklistVerificationStatus } from '../../../api/checklistInstances';
 import type { ChecklistRecurrence } from '../../../api/checklistDefinitions';
@@ -59,6 +61,65 @@ const QUICK_FILTER_LABEL: Record<MyChecklistsQuickFilterKey, string> = {
 
 const PAGE_SIZE = 50;
 
+// The Table view is hidden below `sm` (its toggle is too), so a phone is always on Board.
+const NARROW_QUERY = '(max-width: 639px)';
+
+// Loading placeholders shaped like what replaces them, per view, so nothing jumps on arrival.
+const CardSkeleton = () => (
+  <div className={cn(PANEL_CLASS, 'flex flex-col gap-2.5 p-3.5')} aria-hidden>
+    <div className="flex flex-col gap-1.5">
+      <Skeleton className="h-4 w-3/4" />
+      <Skeleton className="h-3 w-1/2" />
+    </div>
+    <div className="flex items-center gap-1.5">
+      <Skeleton className="h-7 w-20 rounded-full" />
+      <Skeleton className="h-7 w-28 rounded-full" />
+    </div>
+    <div className="flex items-center gap-2.5">
+      <Skeleton className="h-1.5 flex-1 rounded-full" />
+      <Skeleton className="h-4 w-14" />
+    </div>
+  </div>
+);
+
+const InstancesSkeleton = ({ view }: { view: View }) => {
+  if (view === 'board') {
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+        {[2, 1, 1].map((cards, col) => (
+          <div key={col} className="flex flex-col gap-2.5 lg:gap-3 lg:rounded-2xl lg:border lg:border-border/60 lg:p-2.5">
+            <div className="flex items-center justify-between gap-2 px-0.5 lg:px-2 lg:py-1.5">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-6 w-8 rounded-full" />
+            </div>
+            {Array.from({ length: cards }).map((_, i) => <CardSkeleton key={i} />)}
+          </div>
+        ))}
+      </div>
+    );
+  }
+  if (view === 'table') {
+    return (
+      <div className={cn(PANEL_CLASS, 'w-full overflow-hidden')} aria-hidden>
+        <div className="bg-primary-800 px-3 py-3"><Skeleton className="h-4 w-24 bg-white/20" /></div>
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-4 px-3 py-2.5 border-b border-border/40 last:border-b-0">
+            <Skeleton className="h-4 flex-1" />
+            <Skeleton className="h-6 w-20 rounded-full" />
+            <Skeleton className="h-6 w-28 rounded-full hidden md:block" />
+            <Skeleton className="h-4 w-24 hidden lg:block" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {Array.from({ length: 6 }).map((_, i) => <CardSkeleton key={i} />)}
+    </div>
+  );
+};
+
 export const MyChecklists = () => {
   const [page, setPage] = useState(1);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -81,25 +142,19 @@ export const MyChecklists = () => {
 
   // One-time-read-from-URL seed, same as `quickFilter` above.
   const [storeId, setStoreId] = useState<string>(() => searchParams.get('store') ?? '');
-  const { data: stores } = useStoresQuery();
+  const { data: stores, isLoading: storesLoading } = useStoresQuery();
   const storeOptions = useMemo(() => (stores ?? []).filter((s) => s.isActive).map((s) => ({ id: s.id, name: s.name })), [stores]);
   const storeNameById = useMemo(() => new Map(storeOptions.map((s) => [s.id, s.name])), [storeOptions]);
 
   // Board first: it groups by status (Due/Overdue/Completed) at a glance, which is what actually
   // matters day to day — List's default grouping (Recurrence) says nothing about urgency, and
   // Table is denser but built for scanning many rows, not spotting what's overdue right now.
-  const [view, setView] = useState<View>('board');
-  // The toggle that would switch this back is hidden below `sm` (see its own comment) — if
-  // someone picked List/Table on a wider screen and then narrows the window/rotates a tablet
-  // past that breakpoint, this falls back to Board rather than stranding them on a view they can
-  // no longer reach the control for.
-  useEffect(() => {
-    const mq = window.matchMedia('(max-width: 639px)');
-    const fallToBoard = () => { if (mq.matches) setView('board'); };
-    fallToBoard();
-    mq.addEventListener('change', fallToBoard);
-    return () => mq.removeEventListener('change', fallToBoard);
-  }, []);
+  // The toggle that would switch this back is hidden below `sm`: if someone picked List/Table on a
+  // wider screen and then narrows the window past that breakpoint, they get Board rather than a
+  // view they can no longer reach the control for. Derived, so there's no effect and no flash.
+  const [pickedView, setView] = useState<View>('board');
+  const isNarrow = useMediaQuery(NARROW_QUERY);
+  const view: View = isNarrow ? 'board' : pickedView;
   const [sort, setSort] = useState<SortKey>('recent');
   const [groupBy, setGroupBy] = useState<GroupByKey>('recurrence');
   const [recurrence, setRecurrence] = useState<ChecklistRecurrence | ''>('');
@@ -121,7 +176,7 @@ export const MyChecklists = () => {
   // Department filter are left out for them — the list of colleagues isn't even requested.
   const { user } = useAuth();
   const ownScopeOnly = !!user && OWN_SCOPE_ROLES.includes(user.role);
-  const { data: assignableUsers } = useAssignableUsersQuery(undefined, undefined, undefined, !ownScopeOnly);
+  const { data: assignableUsers, isLoading: peopleLoading } = useAssignableUsersQuery(undefined, undefined, undefined, !ownScopeOnly);
   const people = useMemo(() => toFilterPeople(assignableUsers), [assignableUsers]);
   const peopleNameById = useMemo(() => new Map(people.map((p) => [p.id, p.name])), [people]);
 
@@ -138,29 +193,35 @@ export const MyChecklists = () => {
     from: serverStatus === 'COMPLETED' ? todayBound : undefined,
     to: serverStatus === 'COMPLETED' ? todayBound : undefined,
   };
-  const { data: allInstances = [], isPending, isError, refetch } = useMyChecklistInstancesQuery(instanceFilter, { page, limit: PAGE_SIZE });
+  // `isPending` is only true when there is no data at all (keepPreviousData holds the last page
+  // while a new filter loads), so skeletons show on first load and the list just dims after that.
+  const { data: allInstances = [], isPending, isError, isPlaceholderData, refetch } = useMyChecklistInstancesQuery(instanceFilter, { page, limit: PAGE_SIZE });
 
   const activeOptionsCount = (storeId ? 1 : 0) + (recurrence ? 1 : 0) + (verificationStatus ? 1 : 0) + (departmentId ? 1 : 0) + (assigneeIds.length > 0 ? 1 : 0);
-  const clearOptions = () => { setSort('recent'); setRecurrence(''); setVerificationStatus(''); setDepartmentId(''); setAssigneeIds([]); changeStore(''); };
-
-  const toggleQuickFilter = (key: MyChecklistsQuickFilterKey) => {
-    setQuickFilter((prev) => (prev === key ? null : key));
-    // Page 4 of the old filter is meaningless against the new one, and usually past its end.
-    setPage(1);
-    setSearchParams((prev) => { const p = new URLSearchParams(prev); p.delete('status'); return p; });
-  };
 
   const changeStore = (id: string) => {
     setStoreId(id);
     setPage(1);
     setSearchParams((prev) => { const p = new URLSearchParams(prev); p.delete('store'); return p; });
   };
+  const clearOptions = () => { setSort('recent'); setRecurrence(''); setVerificationStatus(''); setDepartmentId(''); setAssigneeIds([]); setPage(1); changeStore(''); };
+
+  const toggleQuickFilter = useCallback((key: MyChecklistsQuickFilterKey) => {
+    setQuickFilter((prev) => (prev === key ? null : key));
+    // Page 4 of the old filter is meaningless against the new one, and usually past its end.
+    setPage(1);
+    setSearchParams((prev) => { const p = new URLSearchParams(prev); p.delete('status'); return p; });
+  }, [setSearchParams]);
+  const clearQuickFilter = useCallback(() => setQuickFilter(null), []);
+
+  // Everything the empty state can undo in one go: the status tile and every option.
+  const clearAllFilters = () => { clearOptions(); setQuickFilter(null); };
 
   // From the database, not from `allInstances.length`. Counting the fetched array is what forced
   // /mine to return every instance ever assigned; with the tiles independent of the list, the list
   // can page later without the numbers above it quietly turning into page sizes. Also scoped by
   // `storeId` so the tile counts and pagination total match the filtered list, not the whole roster.
-  const { data: summary } = useChecklistInstanceSummaryQuery({
+  const { data: summary, isPending: summaryIsPending } = useChecklistInstanceSummaryQuery({
     mine: true,
     storeId: storeId || undefined,
     recurrence: recurrence || undefined,
@@ -173,7 +234,7 @@ export const MyChecklists = () => {
   // still-open checklist vanish from your own list most days of the week. Completed is the one
   // number that's safe (and better) to reset daily: an all-time "completed" count only ever
   // climbs for a recurring checklist, so it stops meaning anything as a "your day" number.
-  const { data: todaySummary } = useChecklistInstanceSummaryQuery({
+  const { data: todaySummary, isPending: todaySummaryIsPending } = useChecklistInstanceSummaryQuery({
     mine: true,
     storeId: storeId || undefined,
     recurrence: recurrence || undefined,
@@ -183,12 +244,15 @@ export const MyChecklists = () => {
     from: todayBound,
     to: todayBound,
   });
-  const counts: Record<MyChecklistsQuickFilterKey, number> = {
+  // The counts default to 0 until the summaries land; the tiles and the overdue banner wait for them
+  // rather than showing (or hiding) numbers that aren't true yet.
+  const summaryPending = summaryIsPending || todaySummaryIsPending;
+  const counts = useMemo<MyChecklistsQuickFilterCounts>(() => ({
     pending: summary?.pending ?? 0,
     completed: todaySummary?.completed ?? 0,
     due: summary?.due ?? 0,
     overdue: summary?.overdue ?? 0,
-  };
+  }), [summary, todaySummary]);
 
   // assigneeIds narrowing now happens server-side (both here and in the summary query above), so
   // this only needs to re-sort the page the server already scoped.
@@ -231,69 +295,78 @@ export const MyChecklists = () => {
   // Grouped by Recurrence (default), Store, or Person — same "Group by" toggle Tickets' Options
   // dialog offers (Department/Person there). Person is the one case a single instance can land in
   // more than one group at once — a shared checklist (e.g. "Store Opening Walkthrough") has every
-  // one of its assignees as a real group membership, not just one.
-  const grouped = new Map<string, ChecklistInstance[]>();
-  const addTo = (key: string, instance: ChecklistInstance) => {
-    if (!grouped.has(key)) grouped.set(key, []);
-    grouped.get(key)!.push(instance);
-  };
-  for (const instance of instances) {
-    if (groupBy === 'person') {
-      if (!instance.assigneeIds.length) addTo('Unassigned', instance);
-      else for (const id of instance.assigneeIds) addTo(peopleNameById.get(id) ?? 'Unknown', instance);
-    } else if (groupBy === 'store') {
-      addTo(instance.storeId ? (storeNameById.get(instance.storeId) ?? 'Unknown store') : 'No store', instance);
-    } else {
-      addTo(RECURRENCE_LABEL[instance.recurrence], instance);
+  // one of its assignees as a real group membership, not just one. While stores/people are still
+  // loading, an unresolved name reads "Loading" instead of a wrong "Unknown".
+  const grouped = useMemo(() => {
+    if (view !== 'list') return [];
+    const groups = new Map<string, ChecklistInstance[]>();
+    const addTo = (key: string, instance: ChecklistInstance) => {
+      const group = groups.get(key);
+      if (group) group.push(instance); else groups.set(key, [instance]);
+    };
+    for (const instance of instances) {
+      if (groupBy === 'person') {
+        if (!instance.assigneeIds.length) addTo('Unassigned', instance);
+        else for (const id of instance.assigneeIds) addTo(peopleNameById.get(id) ?? (peopleLoading ? 'Loading people' : 'Unknown'), instance);
+      } else if (groupBy === 'store') {
+        addTo(instance.storeId ? (storeNameById.get(instance.storeId) ?? (storesLoading ? 'Loading stores' : 'Unknown store')) : 'No store', instance);
+      } else {
+        addTo(RECURRENCE_LABEL[instance.recurrence], instance);
+      }
     }
-  }
+    return [...groups.entries()];
+  }, [view, instances, groupBy, peopleNameById, storeNameById, peopleLoading, storesLoading]);
+
+  const hasActiveFilters = !!quickFilter || activeOptionsCount > 0;
+  // Showing the previous page while the next one loads: keep it, but make it read as stale.
+  const refreshing = isPlaceholderData;
 
   return (
-    // Was `max-w-5xl` with no `mx-auto` — a 1024px cap, left-aligned, while every other top-level
-    // page uses the shared 1536px container and centres. Moving between Delegation and Checklists
-    // visibly jumped the content ~500px narrower and slammed it against the left edge.
-    <div className="flex flex-col gap-6 mx-auto w-full max-w-(--container-width) transition-all duration-300">
-      {/* Same header treatment as Delegation, Tickets and To-Do: no visible title block — the nav
-          item that got you here already says My Checklists. The heading stays as the page's one
-          accessibility landmark; the count that used to sit in a lead "Total" tile is now this
-          plain today-scoped line instead (see MyChecklistsQuickStats' `total` prop comment). */}
-      <h1 className="sr-only">My Checklists</h1>
-      <p className="text-sm font-display text-text-muted -mb-2">
-        <span className="font-semibold text-text">{todaySummary?.total ?? 0}</span> assigned to you today
-      </p>
+    // Same shared container as Delegation, Tickets and To-Do, centred. Moving between those pages
+    // and this one must not shift the content's width or edge.
+    <div className="flex flex-col gap-6 mx-auto w-full max-w-(--container-width)">
+      <div className="flex flex-col gap-3">
+        {/* Same header treatment as Delegation, Tickets and To-Do: no visible title block, the nav
+            item that got you here already says My Checklists. The heading stays as the page's one
+            accessibility landmark; the count that used to sit in a lead "Total" tile is now this
+            plain today-scoped line instead (see MyChecklistsQuickStats' `total` prop comment). */}
+        <h1 className="sr-only">My Checklists</h1>
+        <div className="flex items-center gap-1.5 text-sm font-display text-text-muted">
+          {todaySummary ? <span className="font-semibold text-text tabular-nums">{todaySummary.total}</span> : <Skeleton className="h-4 w-5" />}
+          assigned to you today
+        </div>
 
-      {/* Persistent (not a dismissable toast) for as long as anything is overdue — the "banner"
-          rung of the app's escalating overdue design, one step down from the full-screen
-          interstitial (OverdueChecklistInterstitial, mounted app-wide) and one step up from the
-          quiet red "Overdue" tile below, which was easy to miss among three other same-sized tiles. */}
-      {/* Stays up while anything is overdue: one step up from the red Overdue tile, one step down
-          from the full-screen overdue interstitial. One short line, tap to see them. */}
-      {counts.overdue > 0 && quickFilter !== 'overdue' && (
-        <button
-          type="button"
-          onClick={() => { setQuickFilter('overdue'); setPage(1); setSearchParams((prev) => { const p = new URLSearchParams(prev); p.delete('status'); return p; }); }}
-          className="w-full flex items-center gap-2.5 pl-2 pr-3 py-2 rounded-2xl border border-danger/25 bg-danger/10 text-left transition-colors duration-150 cursor-pointer hover:bg-danger/15 active:bg-danger/15 outline-none focus-visible:ring-2 focus-visible:ring-danger/40 [-webkit-tap-highlight-color:transparent]"
-        >
-          <span className="flex items-center justify-center size-8 rounded-full bg-danger text-white shrink-0">
-            <AlertCircle size={16} strokeWidth={2.5} />
-          </span>
-          <span className="flex-1 min-w-0 text-sm font-display font-semibold text-danger">
-            {counts.overdue} {counts.overdue === 1 ? 'checklist is' : 'checklists are'} overdue
-          </span>
-          <span className="flex items-center gap-0.5 text-xs font-display font-semibold text-danger shrink-0">
-            View
-            <ChevronRight size={15} strokeWidth={2.5} />
-          </span>
-        </button>
-      )}
+        {/* Stays up while anything is overdue: one step up from the red Overdue tile, one step down
+            from the full-screen overdue interstitial (OverdueChecklistInterstitial, mounted
+            app-wide). One short line, tap to see them. Held back until the summary has loaded so it
+            never flashes in or out on a count that is still the 0 default. */}
+        {!summaryPending && counts.overdue > 0 && quickFilter !== 'overdue' && (
+          <button
+            type="button"
+            onClick={() => toggleQuickFilter('overdue')}
+            className="w-full flex items-center gap-2.5 pl-2 pr-3 py-2 min-h-11 rounded-2xl border border-danger/25 bg-danger/10 text-left transition-colors duration-150 cursor-pointer hover:bg-danger/15 active:bg-danger/15 outline-none focus-visible:ring-2 focus-visible:ring-danger/40 [-webkit-tap-highlight-color:transparent]"
+          >
+            <span className="flex items-center justify-center size-8 rounded-full bg-danger text-white shrink-0">
+              <AlertCircle size={16} strokeWidth={2.5} aria-hidden />
+            </span>
+            <span className="flex-1 min-w-0 text-sm font-display font-semibold text-danger">
+              {counts.overdue} {counts.overdue === 1 ? 'checklist is' : 'checklists are'} overdue
+            </span>
+            <span className="flex items-center gap-0.5 text-xs font-display font-semibold text-danger shrink-0">
+              View
+              <ChevronRight size={15} strokeWidth={2.5} aria-hidden />
+            </span>
+          </button>
+        )}
 
-      <MyChecklistsQuickStats
-        counts={counts}
-        active={quickFilter}
-        onToggle={toggleQuickFilter}
-        onClear={() => setQuickFilter(null)}
-        isLoading={isPending}
-      />
+        <MyChecklistsQuickStats
+          counts={counts}
+          active={quickFilter}
+          onToggle={toggleQuickFilter}
+          onClear={clearQuickFilter}
+          isLoading={summaryPending}
+        />
+      </div>
 
       {/* Same "Store scope box + Options button" pair Delegation and Tickets both put in their own
           toolbar row — Store as a permanent, always-visible box (it's the one org-scope dimension
@@ -311,32 +384,23 @@ export const MyChecklists = () => {
         </div>
 
         {quickFilter && (
-          // Opacity-tinted, not the raw `-50`/`-200` swatches this used to be, with no dark:
-          // variant at all — this pill rendered as a stark white-on-white box in dark theme.
-          <span className="flex items-center gap-1.5 pl-3 pr-1.5 py-1 text-xs font-display font-medium rounded-full bg-primary-500/10 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300 border border-primary-500/30">
+          <FilterPill active icon={X} onClick={clearQuickFilter}>
+            <span className="sr-only">Clear status filter: </span>
             Showing: {QUICK_FILTER_LABEL[quickFilter]}
-            <button
-              type="button"
-              onClick={() => setQuickFilter(null)}
-              aria-label="Clear status filter"
-              className="p-1.5 rounded-full hover:bg-primary-500/15 dark:hover:bg-primary-500/25 transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
-            >
-              <X size={12} />
-            </button>
-          </span>
+          </FilterPill>
         )}
 
-          {/* `sm:ml-auto`, not a bare `ml-auto` — same fix as Tickets/Tasks: the auto-margin was
-              shifting this Store+Options cluster off the left edge on mobile for no benefit,
-              since there's no primary action to balance against on this page. */}
-        {/* Store used to be its own dropdown beside Options; it's a filter like the rest, so it
-            lives in the sheet now and the toolbar is just Options, same as the other list pages. */}
+        {/* `sm:ml-auto`, not a bare `ml-auto` — same fix as Tickets/Tasks: the auto-margin was
+            shifting this Store+Options cluster off the left edge on mobile for no benefit,
+            since there's no primary action to balance against on this page. Store used to be its
+            own dropdown beside Options; it's a filter like the rest, so it lives in the sheet now
+            and the toolbar is just Options, same as the other list pages. */}
         <div className="flex items-center gap-2.5 shrink-0 sm:ml-auto">
           <OptionsSheet
             isOpen={showOptions}
             setIsOpen={setShowOptions}
             activeCount={activeOptionsCount}
-            subtitle={`${instances.length} of ${summary?.total ?? 0} checklists`}
+            subtitle={summary ? `${instances.length} of ${summary.total} checklists` : `${instances.length} checklists`}
             onReset={clearOptions}
             canReset={activeOptionsCount > 0 || sort !== 'recent'}
             showLabel={`Show ${instances.length} ${instances.length === 1 ? 'checklist' : 'checklists'}`}
@@ -448,69 +512,61 @@ export const MyChecklists = () => {
         </div>
       </div>
 
-      {isPending && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-28 w-full rounded-xl" />
-          ))}
-        </div>
-      )}
+      <div className={cn('flex flex-col gap-6 transition-opacity duration-200', refreshing && 'opacity-60')}>
+        {isPending && <InstancesSkeleton view={view} />}
 
-      {isError && (
-        <div role="alert" className="flex items-center gap-3 px-4 py-3.5 rounded-xl border border-danger/20 bg-danger/10 text-danger text-sm font-display">
-          <AlertCircle size={18} className="shrink-0" />
-          <span className="flex-1">We couldn't load your checklists. Check your connection and try again.</span>
-          <button
-            type="button"
-            onClick={() => refetch()}
-            className="shrink-0 px-3 py-1.5 rounded-md text-xs font-display font-semibold border border-danger/30 hover:bg-danger/10 cursor-pointer transition-colors outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
-          >
-            Retry
-          </button>
-        </div>
-      )}
+        {isError && (
+          <InlineError message="We couldn't load your checklists. Check your connection and try again." onRetry={() => refetch()} />
+        )}
 
-      {!isPending && !isError && instances.length === 0 && (
-        <EmptyState
-          icon={ClipboardCheck}
-          title={quickFilter ? `No checklists match "${QUICK_FILTER_LABEL[quickFilter]}"`
-            : storeId ? 'No checklists for this store'
-            : departmentId ? 'No checklists shared with this department'
-            : assigneeIds.length ? 'No checklists shared with this person'
-            : 'No checklists assigned to you yet'}
-          description={quickFilter || storeId || departmentId || assigneeIds.length ? 'Try clearing the filter to see all your checklists.' : "Once you're assigned a recurring checklist, it will show up here."}
-        />
-      )}
+        {!isPending && !isError && instances.length === 0 && (
+          <EmptyState
+            icon={ClipboardCheck}
+            title={quickFilter ? `No checklists match "${QUICK_FILTER_LABEL[quickFilter]}"`
+              : storeId ? 'No checklists for this store'
+              : departmentId ? 'No checklists shared with this department'
+              : assigneeIds.length ? 'No checklists shared with this person'
+              : 'No checklists assigned to you yet'}
+            description={hasActiveFilters ? 'Try clearing the filter to see all your checklists.' : "Once you're assigned a recurring checklist, it will show up here."}
+            action={hasActiveFilters ? { label: 'Clear filters', onClick: clearAllFilters } : undefined}
+          />
+        )}
 
-      {!isPending && !isError && instances.length > 0 && view === 'list' && (
-        <div className="flex flex-col gap-6">
-          {[...grouped.entries()].map(([groupLabel, group]) => (
-            <div key={groupLabel} className="flex flex-col gap-3">
-              <div className="flex items-center gap-2">
-                <h3 className="text-xs font-display font-bold text-text">
-                  {groupLabel}
-                </h3>
-                <Badge variant="neutral">{group.length}</Badge>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {group.map(instance => <ChecklistInstanceCard key={instance.id} instance={instance} />)}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+        {!isPending && !isError && instances.length > 0 && view === 'list' && (
+          <div className="flex flex-col gap-6">
+            {grouped.map(([groupLabel, group]) => (
+              <section key={groupLabel} aria-label={groupLabel} className="flex flex-col gap-3">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xs font-display font-bold text-text">
+                    {groupLabel}
+                  </h2>
+                  <Badge variant="neutral">{group.length}</Badge>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {group.map(instance => <ChecklistInstanceCard key={instance.id} instance={instance} />)}
+                </div>
+              </section>
+            ))}
+          </div>
+        )}
 
-      {!isPending && !isError && instances.length > 0 && view === 'board' && (
-        <ChecklistInstanceBoard instances={instances} />
-      )}
+        {!isPending && !isError && instances.length > 0 && view === 'board' && (
+          <ChecklistInstanceBoard instances={instances} />
+        )}
 
-      {!isPending && !isError && instances.length > 0 && view === 'table' && (
-        <ChecklistInstanceTable instances={instances} storeNameById={storeNameById} peopleNameById={peopleNameById} />
-      )}
+        {!isPending && !isError && instances.length > 0 && view === 'table' && (
+          <ChecklistInstanceTable
+            instances={instances}
+            storeNameById={storeNameById}
+            peopleNameById={peopleNameById}
+            lookupsPending={storesLoading || peopleLoading}
+          />
+        )}
 
-      {!isPending && !isError && totalPages > 1 && (
-        <PageNav page={page} totalPages={totalPages} onPageChange={setPage} />
-      )}
+        {!isPending && !isError && totalPages > 1 && (
+          <PageNav page={page} totalPages={totalPages} onPageChange={setPage} />
+        )}
+      </div>
     </div>
   );
 };

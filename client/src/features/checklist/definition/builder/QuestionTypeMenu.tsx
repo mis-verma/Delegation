@@ -11,7 +11,7 @@ interface QuestionTypeMenuProps {
 }
 
 // The question's type as one chip that opens a grouped menu — replaces the 16-button type wall
-// every question card used to carry (≈1000px tall per card on a phone).
+// every question card used to carry (about 1000px tall per card on a phone).
 export const QuestionTypeMenu = ({ draft, onPick }: QuestionTypeMenuProps) => {
   const current = questionTypeOf(draft);
   const Icon = current.icon;
@@ -22,7 +22,7 @@ export const QuestionTypeMenu = ({ draft, onPick }: QuestionTypeMenuProps) => {
         <button
           type="button"
           aria-label={`Question type: ${current.label}. Change type`}
-          className="inline-flex items-center gap-1.5 h-8 pl-1 pr-2.5 rounded-full border border-border/70 bg-surface text-xs font-display font-semibold text-text-secondary cursor-pointer transition-colors duration-150 hover:border-primary-400 hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 data-[state=open]:border-primary-400"
+          className="inline-flex items-center gap-1.5 h-11 sm:h-8 pl-1 pr-2.5 rounded-full border border-border/70 bg-surface text-xs font-display font-semibold text-text-secondary cursor-pointer transition-colors duration-150 hover:border-primary-400 hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 data-[state=open]:border-primary-400"
         >
           <span className={`flex items-center justify-center size-6 rounded-full ${GROUP_TILE[current.group]}`}>
             <Icon size={13} strokeWidth={2.5} />

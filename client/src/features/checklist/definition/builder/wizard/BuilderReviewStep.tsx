@@ -1,10 +1,8 @@
-import type { ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import {
   Pencil,
-  AlertCircle,
   AlertTriangle,
   CheckCircle2,
-  Loader2,
   Store,
   Repeat,
   Calendar,
@@ -14,16 +12,18 @@ import {
   ListChecks,
   UserCheck,
   ShieldCheck,
+  Layers,
 } from 'lucide-react';
-import { Button, formatWeekdays } from '../../../../../components';
+import { Button, InlineError, NoticeBanner, PANEL_CLASS, Skeleton, formatWeekdays } from '../../../../../components';
 import { Badge } from '@/components/ui/badge';
-import { useStoresQuery } from '../../../hook';
-import { useAssignableUsersQuery } from '../../../../tickets/hook';
+import { cn } from '@/lib/utils';
+import { useStoresQuery, useAssignableUsersQuery } from '../../../hook';
 import { RECURRENCE_LABEL, formatDate } from '../../../checklistDisplay';
 import { isOvernightWindow } from '../BuilderSchedulePanel';
+import { RESPONSE_MODE_TITLE } from '../BuilderAssignPanel';
 import type { ItemDraft } from '../../ChecklistDefinitionItemDraftRow';
 import { questionTypeOf } from '../questionTypes';
-import type { ChecklistRecurrence } from '../../../../../api/checklistDefinitions';
+import type { ChecklistRecurrence, ChecklistResponseMode } from '../../../../../api/checklistDefinitions';
 
 interface BuilderReviewStepProps {
   name: string;
@@ -34,6 +34,7 @@ interface BuilderReviewStepProps {
   opensTime: string;
   cutoffTime: string;
   activeWeekdays: number[];
+  responseMode: ChecklistResponseMode;
   itemDrafts: ItemDraft[];
   assigneeIds: string[];
   reviewerIds: string[];
@@ -65,6 +66,7 @@ const safeFormatDate = (dateStr: string): string => {
   }
 };
 
+// A Button (not a hand-rolled chip) so it gets the shared 44px touch height for free.
 const EditButton = ({
   onClick,
   sectionName,
@@ -72,18 +74,16 @@ const EditButton = ({
   onClick: () => void;
   sectionName: string;
 }) => (
-  <button
-    type="button"
+  <Button
+    variant="outline"
+    size="sm"
     onClick={onClick}
     aria-label={`Edit ${sectionName} section`}
-    // No dark: variant on any of these used to mean this button (repeated once per Review
-    // section) kept its light-mode colors — pale bg, dark-navy-on-white border — in dark theme
-    // too, instead of the rest of the app's opacity-tinted "adapts to either theme" convention.
-    className="inline-flex items-center gap-1.5 text-xs font-display font-medium px-2.5 py-1 rounded-md text-primary-700 dark:text-primary-300 bg-primary-500/10 dark:bg-primary-500/15 hover:bg-primary-500/15 dark:hover:bg-primary-500/20 hover:text-primary-800 dark:hover:text-primary-200 border border-primary-200/60 dark:border-primary-800/40 transition-colors duration-150 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+    className="gap-1.5 text-primary-700 dark:text-primary-300 border-primary-500/30 hover:border-primary-500/50 hover:bg-primary-500/10"
   >
     <Pencil size={11} className="shrink-0" />
     <span>Edit</span>
-  </button>
+  </Button>
 );
 
 const SectionCard = ({
@@ -101,14 +101,8 @@ const SectionCard = ({
   badgeText?: string;
   children: ReactNode;
 }) => (
-  <div
-    className={`flex flex-col rounded-2xl border bg-surface p-4 transition-colors ${
-      valid
-        ? 'border-border/80 hover:border-border'
-        : 'border-warning/40 bg-warning/5 ring-1 ring-warning/20'
-    }`}
-  >
-    <div className="flex items-center justify-between gap-2 pb-3 mb-3 border-b border-border/50">
+  <div className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-4', !valid && 'border-warning/40 bg-warning/5')}>
+    <div className="flex items-center justify-between gap-2 pb-3 border-b border-border/50">
       <div className="flex items-center gap-2">
         <span
           className={`p-1.5 rounded-lg text-xs ${
@@ -141,6 +135,29 @@ const SectionCard = ({
   </div>
 );
 
+type UserPool = ReturnType<typeof useAssignableUsersQuery>['data'];
+
+const resolveNames = (ids: string[], pool: UserPool) =>
+  ids.map((id) => {
+    const u = pool?.find((a) => a.id === id);
+    if (!u) return 'Unknown user';
+    const full = `${u.firstName} ${u.lastName ?? ''}`.trim();
+    return full || u.email;
+  });
+
+const Caption =({ children }: { children: ReactNode }) => (
+  <span className="flex items-center gap-1 text-[11px] font-medium text-text-muted">{children}</span>
+);
+
+// Stand-in for a names line while its query is still loading, so the card never says
+// "Unknown store" / "Unknown user" for a name that just hasn't arrived yet.
+const NamesSkeleton = () => (
+  <div className="flex flex-col gap-1.5" aria-busy="true">
+    <Skeleton className="h-3.5 w-3/4 rounded" />
+    <Skeleton className="h-3.5 w-1/2 rounded" />
+  </div>
+);
+
 export const BuilderReviewStep = ({
   name,
   description,
@@ -150,6 +167,7 @@ export const BuilderReviewStep = ({
   opensTime,
   cutoffTime,
   activeWeekdays,
+  responseMode,
   itemDrafts,
   assigneeIds,
   reviewerIds,
@@ -161,32 +179,29 @@ export const BuilderReviewStep = ({
   onSubmit,
   submitError,
 }: BuilderReviewStepProps) => {
-  const { data: stores = [] } = useStoresQuery();
-  // Every selected store, not just the first — a checklist can span multiple stores, and an
+  const storesQuery = useStoresQuery();
+  // Every selected store, not just the first: a checklist can span multiple stores, and an
   // assignee added via a later store's "select everyone" bulk-add otherwise resolved to nothing
   // here and rendered as "Unknown user" even though they're a perfectly valid assignee.
-  const { data: assignableUsers = [] } = useAssignableUsersQuery(
-    undefined,
-    undefined,
-    storeIds
-  );
+  const assignableQuery = useAssignableUsersQuery(undefined, undefined, storeIds);
   // Reviewers aren't necessarily store-scoped (a checklist can be reviewed by someone outside its
   // own stores, e.g. a corporate/compliance reviewer), so their names can't be resolved off the
-  // store-scoped assignableUsers list above — an ADMIN/PC caller with no scope args at all gets
+  // store-scoped assignableUsers list above. An ADMIN/PC caller with no scope args at all gets
   // every active user back (see user.service.ts's listAssignable), which is what this needs.
-  const { data: allActiveUsers = [] } = useAssignableUsersQuery();
+  const allActiveQuery = useAssignableUsersQuery();
 
-  const selectedStores = storeIds
-    .map((id) => stores.find((s) => s.id === id)?.name ?? 'Unknown store');
-  const namedItems = itemDrafts.filter((d) => d.label.trim());
-  const resolveName = (id: string, pool: typeof assignableUsers) => {
-    const u = pool.find((a) => a.id === id);
-    if (!u) return 'Unknown user';
-    const full = `${u.firstName} ${u.lastName ?? ''}`.trim();
-    return full || u.email;
-  };
-  const assignees = assigneeIds.map((id) => resolveName(id, assignableUsers));
-  const reviewers = reviewerIds.map((id) => resolveName(id, allActiveUsers));
+  const stores = storesQuery.data;
+  const assignableUsers = assignableQuery.data;
+  const allActiveUsers = allActiveQuery.data;
+
+  const selectedStores = useMemo(
+    () => (stores ? storeIds.map((id) => stores.find((s) => s.id === id)?.name ?? 'Unknown store') : []),
+    [stores, storeIds],
+  );
+  const namedItems = useMemo(() => itemDrafts.filter((d) => d.label.trim()), [itemDrafts]);
+
+  const assignees = useMemo(() => resolveNames(assigneeIds, assignableUsers), [assigneeIds, assignableUsers]);
+  const reviewers = useMemo(() => resolveNames(reviewerIds, allActiveUsers), [reviewerIds, allActiveUsers]);
 
   const incompleteSections = sectionValidity
     .map((valid, i) => (valid ? null : { index: i, label: SECTION_CONFIG[i].label }))
@@ -194,7 +209,7 @@ export const BuilderReviewStep = ({
 
   return (
     <div className="flex flex-col gap-4 sm:gap-6 w-full max-w-5xl mx-auto">
-      {/* Grid of Sections — the step frame above already carries the "Review & Create" heading. */}
+      {/* Grid of Sections. The step frame above already carries the "Review & Create" heading. */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* 1. Basics */}
         <SectionCard
@@ -203,18 +218,14 @@ export const BuilderReviewStep = ({
           valid={sectionValidity[0]}
           onEdit={() => onEditSection(0)}
         >
-          <div className="space-y-1">
-            <span className="text-[11px] font-medium text-text-muted">
-              Checklist Title
-            </span>
+          <div className="flex flex-col gap-1">
+            <Caption>Checklist Title</Caption>
             <p className="text-sm font-display font-semibold text-text">
               {name.trim() || <span className="italic text-text-muted">Untitled checklist</span>}
             </p>
           </div>
-          <div className="space-y-1">
-            <span className="text-[11px] font-medium text-text-muted">
-              Description
-            </span>
+          <div className="flex flex-col gap-1">
+            <Caption>Description</Caption>
             <p className="text-xs font-display text-text-secondary leading-relaxed line-clamp-3">
               {description.trim() || <span className="italic text-text-muted">No description provided.</span>}
             </p>
@@ -234,12 +245,16 @@ export const BuilderReviewStep = ({
               <Store size={13} className="text-text-muted shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
                 <span className="text-text-muted">Stores: </span>
-                {selectedStores.length > 0 ? (
+                {storeIds.length === 0 ? (
+                  <span className="italic text-warning font-normal">No stores selected</span>
+                ) : storesQuery.isPending ? (
+                  <Skeleton className="inline-block h-3.5 w-32 align-middle rounded" />
+                ) : storesQuery.isError ? (
+                  <span className="text-danger">Couldn’t load store names</span>
+                ) : (
                   <span className="font-medium text-text">
                     {selectedStores.join(', ')}
                   </span>
-                ) : (
-                  <span className="italic text-warning font-normal">No stores selected</span>
                 )}
               </div>
             </div>
@@ -275,7 +290,7 @@ export const BuilderReviewStep = ({
                     {opensTime || 'Anytime'} &rarr; {cutoffTime || 'End of day'}
                   </span>
                   {/* Cutoff earlier than open time rolls the deadline to the next calendar day
-                      (checklistDisplay.ts's instanceDeadline) — called out here so publishing
+                      (checklistDisplay.ts's instanceDeadline), called out here so publishing
                       this schedule doesn't silently land a day later than it visually reads. */}
                   {isOvernightWindow(opensTime, cutoffTime) && (
                     <span className="text-text-muted"> (cuts off the next day)</span>
@@ -307,7 +322,7 @@ export const BuilderReviewStep = ({
             >
               {namedItems.map((item, index) => (
                 <li
-                  key={index}
+                  key={item.key}
                   className="flex items-center justify-between gap-2 pt-1.5 first:pt-0 text-xs font-display"
                 >
                   <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -340,22 +355,30 @@ export const BuilderReviewStep = ({
           onEdit={() => onEditSection(3)}
         >
           <div className="flex flex-col gap-3">
-            <div className="space-y-1">
-              <span className="text-[11px] font-medium text-text-muted flex items-center gap-1">
-                <UserCheck size={11} /> Assigned to
-              </span>
-              <p className="text-xs font-display text-text-secondary">
-                {assignees.length ? (
-                  assignees.join(', ')
-                ) : (
-                  <span className="italic text-text-muted">No individual users selected</span>
-                )}
-              </p>
+            <div className="flex flex-col gap-1">
+              <Caption><UserCheck size={11} /> Assigned to</Caption>
+              {assignableQuery.isPending ? (
+                <NamesSkeleton />
+              ) : assignableQuery.isError ? (
+                <InlineError message="We couldn't load the people." onRetry={() => assignableQuery.refetch()} />
+              ) : (
+                <p className="text-xs font-display text-text-secondary">
+                  {assignees.length ? (
+                    assignees.join(', ')
+                  ) : (
+                    <span className="italic text-text-muted">No individual users selected</span>
+                  )}
+                </p>
+              )}
+            </div>
+            <div className="flex flex-col gap-1">
+              <Caption><Layers size={11} /> Who fills it</Caption>
+              <p className="text-xs font-display font-medium text-text">{RESPONSE_MODE_TITLE[responseMode]}</p>
             </div>
           </div>
         </SectionCard>
 
-        {/* 5. Reviewers — its own card now that it's its own step; always "valid" (no minimum
+        {/* 5. Reviewers: its own card now that it's its own step; always "valid" (no minimum
             required, see BuilderReviewersPanel) so this never shows the warning treatment. */}
         <SectionCard
           title="Reviewers"
@@ -363,78 +386,61 @@ export const BuilderReviewStep = ({
           valid
           onEdit={() => onEditSection(4)}
         >
-          <div className="space-y-1">
-            <span className="text-[11px] font-medium text-text-muted flex items-center gap-1">
-              <ShieldCheck size={11} /> Approves or sends back a filled-in run
-            </span>
-            <p className="text-xs font-display text-text-secondary">
-              {reviewers.length ? (
-                reviewers.join(', ')
-              ) : (
+          <div className="flex flex-col gap-1">
+            <Caption><ShieldCheck size={11} /> Approves or sends back a filled-in run</Caption>
+            {reviewerIds.length === 0 ? (
+              <p className="text-xs font-display text-text-secondary">
                 <span className="italic text-text-muted">
-                  No one extra picked — PC/Admin and each assignee's department head can still review.
+                  No one extra picked. PC/Admin and each assignee's department head can still review.
                 </span>
-              )}
-            </p>
+              </p>
+            ) : allActiveQuery.isPending ? (
+              <NamesSkeleton />
+            ) : allActiveQuery.isError ? (
+              <InlineError message="We couldn't load the people." onRetry={() => allActiveQuery.refetch()} />
+            ) : (
+              <p className="text-xs font-display text-text-secondary">{reviewers.join(', ')}</p>
+            )}
           </div>
         </SectionCard>
       </div>
 
       {/* Submission Error Banner */}
-      {submitError && (
-        <div
-          role="alert"
-          className="flex items-start gap-2.5 px-4 py-3 rounded-lg bg-danger/10 border border-danger/20 text-danger text-sm font-display"
-        >
-          <AlertCircle size={16} className="shrink-0 mt-0.5" />
-          <div className="flex-1">{submitError}</div>
-        </div>
-      )}
+      {submitError && <InlineError message={submitError} />}
 
       {/* Action Footer & Incomplete Step Helper */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-4 border-t border-border/60">
-        <div>
-          {!canSubmit && incompleteSections.length > 0 ? (
-            <div className="flex items-center gap-2 text-xs font-display text-warning">
-              <AlertTriangle size={14} className="shrink-0" />
-              <span>
-                Please complete missing fields in:{' '}
-                {incompleteSections.map((s, idx) => (
-                  <button
-                    key={s.index}
-                    type="button"
-                    onClick={() => onEditSection(s.index)}
-                    className="font-semibold underline hover:text-warning-hover cursor-pointer"
-                  >
-                    {s.label}
-                    {idx < incompleteSections.length - 1 ? ', ' : ''}
-                  </button>
-                ))}
-              </span>
+        {!canSubmit && incompleteSections.length > 0 ? (
+          <NoticeBanner tone="warning" icon={AlertTriangle} className="sm:flex-1">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span>Complete the missing fields in:</span>
+              {incompleteSections.map((s) => (
+                <Button
+                  key={s.index}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onEditSection(s.index)}
+                  className="text-warning border-warning/30 hover:border-warning/50 hover:bg-warning/10"
+                >
+                  {s.label}
+                </Button>
+              ))}
             </div>
-          ) : (
-            <p className="flex items-center gap-1.5 text-xs font-display text-success">
-              <CheckCircle2 size={14} className="shrink-0" /> Everything looks good to go.
-            </p>
-          )}
-        </div>
+          </NoticeBanner>
+        ) : (
+          <p className="flex items-center gap-1.5 text-xs font-display text-success">
+            <CheckCircle2 size={14} className="shrink-0" /> Everything looks good to go.
+          </p>
+        )}
 
         <Button
           variant="primary"
           onClick={onSubmit}
-          disabled={!canSubmit || isSubmitting}
-          className="gap-2 rounded-lg px-5 py-2 font-display font-medium shadow-xs"
+          isLoading={isSubmitting}
+          disabled={!canSubmit}
+          className="w-full sm:w-auto sm:shrink-0 pointer-coarse:h-11"
         >
-          {isSubmitting ? (
-            <>
-              <Loader2 size={14} className="animate-spin" />
-              <span>Saving...</span>
-            </>
-          ) : isEditing ? (
-            'Save changes'
-          ) : (
-            'Create checklist'
-          )}
+          {isSubmitting ? 'Saving...' : isEditing ? 'Save Changes' : 'Create Checklist'}
         </Button>
       </div>
     </div>

@@ -1,7 +1,9 @@
-import { useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { memo, useState } from 'react';
 import { useSetChecklistInstanceItemDoneMutation } from '../hook';
 import { ChecklistItemCardHeader } from './ChecklistItemCardHeader';
+import { ItemCardShell } from './ItemCardShell';
+import { ItemError } from './ItemError';
+import { ItemActionButton } from './ItemActionButton';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 import { SignaturePadCanvas } from './SignaturePadCanvas';
 
@@ -12,7 +14,7 @@ interface ChecklistInstanceItemSignatureCardProps {
   isLocked:   boolean;
 }
 
-export const ChecklistInstanceItemSignatureCard = ({ item, instanceId, canWork, isLocked }: ChecklistInstanceItemSignatureCardProps) => {
+export const ChecklistInstanceItemSignatureCard = memo(function ChecklistInstanceItemSignatureCard({ item, instanceId, canWork, isLocked }: ChecklistInstanceItemSignatureCardProps) {
   const setItemDone = useSetChecklistInstanceItemDoneMutation(instanceId);
   // Starts empty (the pad always does) — seeding it with the saved signature meant that after a
   // Reopen, Save was enabled on a blank pad and quietly resubmitted the old signature.
@@ -21,7 +23,7 @@ export const ChecklistInstanceItemSignatureCard = ({ item, instanceId, canWork, 
   const label = item.signatureLabels?.[0] || 'Signature';
 
   return (
-    <div className={`flex flex-col gap-3 p-3.5 sm:p-4 rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface ${isLocked ? 'opacity-75' : ''}`}>
+    <ItemCardShell isLocked={isLocked}>
       <ChecklistItemCardHeader
         item={item}
         interactive={interactive}
@@ -33,27 +35,23 @@ export const ChecklistInstanceItemSignatureCard = ({ item, instanceId, canWork, 
           visible to a reviewer/approver after the item (or the whole instance) locks. Only the
           capture UI (blank pad + Save) is for the still-editable case. */}
       {item.isDone && item.signatureValue ? (
-        <div className="w-full max-w-sm rounded-md border border-border bg-surface p-1.5">
-          <img src={item.signatureValue} alt={label} className="w-full h-[140px] object-contain rounded-sm bg-white" />
+        <div className="w-full max-w-sm rounded-lg border border-border bg-surface p-1.5">
+          <img src={item.signatureValue} alt={label} loading="lazy" className="w-full h-[140px] object-contain rounded-sm bg-white" />
         </div>
       ) : interactive ? (
         <div className="flex flex-col gap-2">
-          {setItemDone.isError && (
-            <p className="text-xs text-danger">
-              {setItemDone.error instanceof Error ? setItemDone.error.message : "Couldn't save that signature."}
-            </p>
-          )}
+          <ItemError error={setItemDone.error} fallback="Couldn't save that signature." />
           <SignaturePadCanvas label={label} disabled={item.isDone} onChange={setDraft} />
-          <button
+          <ItemActionButton
+            className="self-start"
             onClick={() => draft && setItemDone.mutate({ itemId: item.id, isDone: true, signatureValue: draft })}
-            disabled={!draft || setItemDone.isPending}
-            className="w-fit flex items-center gap-1.5 text-xs font-display font-medium px-2.5 py-1.5 rounded-md border border-primary-500/50 text-primary-600 hover:bg-primary-500/10 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!draft}
+            isLoading={setItemDone.isPending}
           >
-            {setItemDone.isPending && <Loader2 size={12} className="animate-spin" />}
             Save
-          </button>
+          </ItemActionButton>
         </div>
       ) : null}
-    </div>
+    </ItemCardShell>
   );
-};
+});

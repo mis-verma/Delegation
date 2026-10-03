@@ -1,7 +1,10 @@
-import { useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { memo, useId, useState } from 'react';
 import { useSetChecklistInstanceItemDoneMutation } from '../hook';
+import { Input } from '../../../components';
 import { ChecklistItemCardHeader } from './ChecklistItemCardHeader';
+import { ItemCardShell } from './ItemCardShell';
+import { ItemError } from './ItemError';
+import { ItemActionButton } from './ItemActionButton';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 
 interface ChecklistInstanceItemNumberEntryCardProps {
@@ -15,7 +18,8 @@ interface ChecklistInstanceItemNumberEntryCardProps {
 // The server (checklistInstance.service.ts's assertNumberEntrySatisfied) is the source of truth
 // for the min/max check; this only mirrors it locally so the button can be disabled before a
 // round trip, not to replace the server-side validation.
-export const ChecklistInstanceItemNumberEntryCard = ({ item, instanceId, canWork, isLocked }: ChecklistInstanceItemNumberEntryCardProps) => {
+export const ChecklistInstanceItemNumberEntryCard = memo(function ChecklistInstanceItemNumberEntryCard({ item, instanceId, canWork, isLocked }: ChecklistInstanceItemNumberEntryCardProps) {
+  const inputId = useId();
   const setItemDone = useSetChecklistInstanceItemDoneMutation(instanceId);
   const [draftValue, setDraftValue] = useState(item.numericValue != null ? String(item.numericValue) : '');
 
@@ -33,14 +37,14 @@ export const ChecklistInstanceItemNumberEntryCard = ({ item, instanceId, canWork
   ].filter(Boolean).join(' · ');
 
   return (
-    <div className={`flex flex-col gap-3 p-3.5 sm:p-4 rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface ${isLocked ? 'opacity-75' : ''}`}>
+    <ItemCardShell isLocked={isLocked}>
       <ChecklistItemCardHeader
         item={item}
         interactive={interactive}
         reopenPending={setItemDone.isPending}
         onReopen={() => setItemDone.mutate({ itemId: item.id, isDone: false, numericValue: parsed ?? undefined })}
         subtitle={(rangeHint || item.numberEntryUnit) && (
-          <p className="text-[11px] text-text-muted font-display mt-0.5">
+          <p className="text-[11px] text-text-muted font-display">
             {[rangeHint, item.numberEntryUnit].filter(Boolean).join(' · ')}
           </p>
         )}
@@ -51,32 +55,31 @@ export const ChecklistInstanceItemNumberEntryCard = ({ item, instanceId, canWork
           just disabled, after the item (or the whole instance) locks. Only the Save button and
           the save-error message are for the still-editable case. */}
       <div className="flex flex-col gap-2">
-        {interactive && setItemDone.isError && (
-          <p className="text-xs text-danger">
-            {setItemDone.error instanceof Error ? setItemDone.error.message : "Couldn't save that reading."}
-          </p>
-        )}
+        {interactive && <ItemError error={setItemDone.error} fallback="Couldn't save that reading." />}
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <input
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <Input
+            id={inputId}
+            label="Reading"
+            labelClassName="sr-only"
             type="number"
             value={draftValue}
             onChange={(e) => setDraftValue(e.target.value)}
             disabled={!interactive || item.isDone}
             placeholder="Enter value"
-            className="w-32 px-2.5 py-1.5 text-sm font-display bg-surface text-text rounded-md border border-border focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all disabled:opacity-60"
+            suffix={item.numberEntryUnit ? <span className="text-xs font-display text-text-muted">{item.numberEntryUnit}</span> : undefined}
+            containerClassName="w-44"
+            className={item.numberEntryUnit ? 'h-11 sm:h-9 rounded-lg pr-14' : 'h-11 sm:h-9 rounded-lg'}
           />
-          {item.numberEntryUnit && <span className="text-xs font-display text-text-muted">{item.numberEntryUnit}</span>}
 
           {interactive && !item.isDone && (
-            <button
+            <ItemActionButton
               onClick={() => parsed != null && setItemDone.mutate({ itemId: item.id, isDone: true, numericValue: parsed })}
-              disabled={!canSubmit || setItemDone.isPending}
-              className="flex items-center gap-1.5 text-xs font-display font-medium px-2.5 py-1.5 rounded-md border border-primary-500/50 text-primary-600 hover:bg-primary-500/10 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed ml-auto"
+              disabled={!canSubmit}
+              isLoading={setItemDone.isPending}
             >
-              {setItemDone.isPending && <Loader2 size={12} className="animate-spin" />}
               Save reading
-            </button>
+            </ItemActionButton>
           )}
         </div>
 
@@ -84,6 +87,6 @@ export const ChecklistInstanceItemNumberEntryCard = ({ item, instanceId, canWork
           <p className="text-xs text-warning">That's outside the allowed range{rangeHint ? ` (${rangeHint})` : ''}.</p>
         )}
       </div>
-    </div>
+    </ItemCardShell>
   );
-};
+});

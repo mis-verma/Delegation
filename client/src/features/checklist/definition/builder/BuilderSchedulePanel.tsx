@@ -1,7 +1,7 @@
-import type { ReactNode } from 'react';
-import { Store, Repeat, CalendarDays, Clock, AlertCircle, Moon, Check, Loader2 } from 'lucide-react';
-import { DatePicker, TimePicker, WeekdayPicker, formatWeekdays } from '../../../../components';
-import { useStoresQuery } from '../../../tickets/hook';
+import { useMemo, type ReactNode } from 'react';
+import { Store, Repeat, CalendarDays, Clock, AlertCircle, Moon, Check } from 'lucide-react';
+import { Button, DatePicker, InlineError, Skeleton, TimePicker, ToggleChip, WeekdayPicker, formatWeekdays } from '../../../../components';
+import { useStoresQuery } from '../../hook';
 import { DETAIL_HEADING_CLASS, CHIP_TRIGGER_CLASS } from '../../../tasks/taskFormFieldStyles';
 import type { ChecklistRecurrence } from '../../../../api/checklistDefinitions';
 
@@ -54,24 +54,6 @@ interface BuilderSchedulePanelProps {
   className?: string;
 }
 
-// One pill toggle — the same rounded-full chip language as the delegation / ticket forms'
-// Details row, so picking stores and a cadence feels like picking a priority or a department.
-const ToggleChip = ({ on, onClick, children, label }: { on: boolean; onClick: () => void; children: ReactNode; label?: string }) => (
-  <button
-    type="button"
-    aria-pressed={on}
-    aria-label={label}
-    onClick={onClick}
-    className={`inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full border text-[13px] font-display font-semibold cursor-pointer select-none transition-all duration-150 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
-      on
-        ? 'border-primary-600 bg-primary-600 text-white dark:border-primary-400 dark:bg-primary-400 dark:text-primary-900'
-        : 'border-border/70 bg-surface text-text-secondary hover:border-primary-400 hover:text-text'
-    }`}
-  >
-    {children}
-  </button>
-);
-
 const Section = ({ icon: Icon, title, aside, children }: { icon: typeof Store; title: string; aside?: ReactNode; children: ReactNode }) => (
   <section className="flex flex-col gap-2.5">
     <div className="flex items-center justify-between gap-2">
@@ -100,8 +82,8 @@ export const BuilderSchedulePanel = ({
   onActiveWeekdaysChange,
   className = '',
 }: BuilderSchedulePanelProps) => {
-  const { data: stores, isLoading: storesLoading } = useStoresQuery();
-  const activeStores = (stores ?? []).filter((s) => s.isActive !== false);
+  const { data: stores, isPending: storesPending, isError: storesError, refetch: refetchStores } = useStoresQuery();
+  const activeStores = useMemo(() => (stores ?? []).filter((s) => s.isActive !== false), [stores]);
   const hasTimeMismatch = hasScheduleTimeMismatch(opensTime, cutoffTime);
   const isOvernight = isOvernightWindow(opensTime, cutoffTime);
 
@@ -115,19 +97,25 @@ export const BuilderSchedulePanel = ({
         icon={Store}
         title="Stores"
         aside={activeStores.length > 1 && (
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => onStoreIdsChange(allSelected ? [] : activeStores.map((s) => s.id))}
-            className="text-xs font-display font-semibold text-primary-700 dark:text-primary-300 cursor-pointer hover:underline underline-offset-2 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+            className="text-primary-700 dark:text-primary-300"
           >
             {allSelected ? 'Clear all' : 'Select all'}
-          </button>
+          </Button>
         )}
       >
-        {storesLoading ? (
-          <span className="flex items-center gap-2 text-xs font-display text-text-muted"><Loader2 size={13} className="animate-spin" /> Loading stores…</span>
+        {storesPending ? (
+          // Same pill shape and wrap as the real chips, so the row doesn't jump when they arrive.
+          <div className="flex flex-wrap gap-2" aria-busy="true">
+            {['w-28', 'w-36', 'w-24', 'w-32'].map((w, i) => <Skeleton key={i} className={`min-h-11 sm:min-h-8 rounded-full ${w}`} />)}
+          </div>
+        ) : storesError ? (
+          <InlineError message="We couldn't load the stores." onRetry={() => refetchStores()} />
         ) : activeStores.length === 0 ? (
-          <span className="text-xs font-display text-text-muted">No stores yet — add one in People &amp; Teams.</span>
+          <span className="text-xs font-display text-text-muted">No stores yet. Add one in People &amp; Teams.</span>
         ) : (
           <div className="flex flex-wrap gap-2" role="group" aria-label="Stores that run this checklist">
             {activeStores.map((s) => {
@@ -141,16 +129,18 @@ export const BuilderSchedulePanel = ({
             })}
           </div>
         )}
-        {storeIds.length === 0 && !storesLoading && activeStores.length > 0 && (
+        {storeIds.length === 0 && !storesPending && !storesError && activeStores.length > 0 && (
           <p className="text-xs font-display text-text-muted">Pick at least one store.</p>
         )}
       </Section>
 
       <Section icon={Repeat} title="Repeats">
-        <div role="radiogroup" aria-label="How often it repeats" className="flex flex-wrap gap-2">
+        <div role="group" aria-label="How often it repeats" className="flex flex-wrap gap-2">
           {RECURRENCE_OPTIONS.map((opt) => (
-            <ToggleChip key={opt.value} on={recurrence === opt.value} onClick={() => onRecurrenceChange(opt.value)} label={`${opt.label} — ${opt.description}`}>
+            <ToggleChip key={opt.value} on={recurrence === opt.value} onClick={() => onRecurrenceChange(opt.value)}>
               {opt.label}
+              {/* Read out as "Daily: Repeats every day"; the shared chip has no aria-label prop. */}
+              <span className="sr-only">: {opt.description}</span>
             </ToggleChip>
           ))}
         </div>
@@ -172,7 +162,7 @@ export const BuilderSchedulePanel = ({
               value={parseDateStr(startDate)}
               onChange={(d) => onStartDateChange(d ? toDateStr(d) : '')}
               placeholder={recurrence === 'ONE_TIME' ? 'Due date' : 'Start date'}
-              triggerClassName={`${CHIP_TRIGGER_CLASS} h-9 text-[13px] ${startDate ? 'pr-10' : ''}`}
+              triggerClassName={`${CHIP_TRIGGER_CLASS} h-11 sm:h-9 text-[13px] ${startDate ? 'pr-10' : ''}`}
             />
           </div>
           <TimePicker
@@ -181,7 +171,7 @@ export const BuilderSchedulePanel = ({
             value={opensTime}
             onChange={onOpensTimeChange}
             placeholder="any time"
-            triggerClassName={`${CHIP_TRIGGER_CLASS} h-9 text-[13px]`}
+            triggerClassName={`${CHIP_TRIGGER_CLASS} h-11 sm:h-9 text-[13px]`}
           />
           <TimePicker
             popover
@@ -189,7 +179,7 @@ export const BuilderSchedulePanel = ({
             value={cutoffTime}
             onChange={onCutoffTimeChange}
             placeholder="any time"
-            triggerClassName={`${CHIP_TRIGGER_CLASS} h-9 text-[13px]`}
+            triggerClassName={`${CHIP_TRIGGER_CLASS} h-11 sm:h-9 text-[13px]`}
           />
         </div>
         {!startDate && <p className="text-xs font-display text-text-muted">Pick a start date to continue.</p>}
@@ -201,7 +191,7 @@ export const BuilderSchedulePanel = ({
         ) : isOvernight ? (
           <p className="flex items-center gap-1.5 text-xs font-display text-text-secondary">
             <Moon size={13} className="shrink-0 text-text-light" />
-            Overnight — closes at {cutoffTime} the next morning.
+            Overnight: closes at {cutoffTime} the next morning.
           </p>
         ) : null}
       </Section>

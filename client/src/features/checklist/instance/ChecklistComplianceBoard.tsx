@@ -1,17 +1,21 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { runScores } from '../checklistCompliance';
-import { useWindowVirtualizer } from '@tanstack/react-virtual';
-import { PageNav } from '../../../components';
+import { memo, useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { Store, AlertCircle, AlertTriangle, SearchX, SlidersHorizontal } from 'lucide-react';
-import { Skeleton, SelectDropdown, StatusChip, EmptyState, type DateRangeValue } from '../../../components';
-import { Badge } from '@/components/ui/badge';
-import { useStoresQuery, useAssignableUsersQuery, useChecklistInstancesBoardQuery, useChecklistInstanceSummaryQuery } from '../hook';
+import { AlertTriangle, Check, ClipboardCheck, Clock, Minus, SearchX, SlidersHorizontal, Store, type LucideIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-  formatDate, formatDeadlineTime, instanceProgressStatus, VERIFICATION_STATUS_LABEL, VERIFICATION_BADGE_VARIANT,
-  instanceProgressToneClass, instanceProgressBarClass, isInstanceOverdue, isFlaggedAnswer,
+  Button, ChecklistProgressBar, Combobox, ENTITY_CARD_CLASS, EmptyState, IconChip, InlineError, PageHeader, PageNav,
+  PANEL_CLASS, Skeleton, StatusChip, Switch, type DateRangeValue,
+} from '../../../components';
+import { runScores } from '../checklistCompliance';
+import {
+  useStoresQuery, useAssignableUsersQuery, useChecklistInstancesBoardQuery, useChecklistInstanceSummaryQuery, useFormerPeopleQuery,
+} from '../hook';
+import {
+  formatDate, formatDeadlineTime, instanceProgressStatus, VERIFICATION_STATUS_LABEL, VERIFICATION_CHIP,
+  instanceProgressToneClass, isInstanceOverdue, isFlaggedAnswer,
 } from '../checklistDisplay';
-import { ChecklistComplianceQuickStats, type ComplianceQuickFilterKey } from './ChecklistComplianceQuickStats';
+import { ChecklistComplianceQuickStats, type ComplianceQuickFilterKey, type ComplianceQuickFilterCounts } from './ChecklistComplianceQuickStats';
 import { GroupByControl, type GroupBy } from '../../admin/analytics/GroupByControl';
 import { ChecklistInstanceKpiSection } from '../../admin/analytics/ChecklistInstanceKpiSection';
 import { endOfDay } from '../../../lib/dateRange';
@@ -23,109 +27,146 @@ const STATUS_OPTIONS: { value: '' | ChecklistInstanceStatus; label: string }[] =
   { value: 'COMPLETED', label: 'Completed' },
 ];
 
+const FIELD_LABEL = 'text-xs font-display font-medium text-text-secondary';
+// One control height for every control in the filter panel (Button lg, Combobox, Tabs, switch row).
+const CONTROL_H = 'h-11';
+
 interface ComplianceRowProps {
   instance: ChecklistInstance;
-  storeName: string;
+  /** null while the stores list is still loading, so the row never claims "Unknown store" too early. */
+  storeName: string | null;
   nameById: Map<string, string>;
+  namesLoading: boolean;
 }
+
+const PERSON_TONE: Record<'flag' | 'done' | 'started' | 'idle', { icon: LucideIcon; tone: string }> = {
+  flag: { icon: AlertTriangle, tone: 'bg-danger' },
+  done: { icon: Check, tone: 'bg-success' },
+  started: { icon: Clock, tone: 'bg-warning' },
+  idle: { icon: Minus, tone: 'bg-text-light' },
+};
 
 // One instance's roll-up: overall progress, plus a per-assignee breakdown of how many of this
 // shared instance's items *that specific person* personally completed (via each item's
-// completedBy) — the closest honest signal this schema supports for "did this person do their
+// completedBy), the closest honest signal this schema supports for "did this person do their
 // part," since items are completable by any assignee, not owned individually.
-const ComplianceRow = ({ instance, storeName, nameById }: ComplianceRowProps) => {
-  const rawDone = instance.items.filter(i => i.isDone).length;
-  const status = instanceProgressStatus(rawDone, instance.items.length);
-  const done = rawDone;
-  const total = instance.items.length;
-  // Percent leaves "not applicable" questions out of both sides; the counts below stay raw.
-  const progress = runScores(instance.items).completion;
-  const overdue = isInstanceOverdue(instance, status === 'COMPLETED');
+const ComplianceRow = memo(({ instance, storeName, nameById, namesLoading }: ComplianceRowProps) => {
+  // One pass over the items instead of a filter per assignee, per metric.
+  const stats = useMemo(() => {
+    const total = instance.items.length;
+    let done = 0;
+    let flagged = 0;
+    const byPerson = new Map<string, { completed: number; flagged: number }>();
+    for (const item of instance.items) {
+      if (item.isDone) done += 1;
+      const isFlagged = isFlaggedAnswer(item);
+      if (isFlagged) flagged += 1;
+      if (item.completedBy) {
+        const entry = byPerson.get(item.completedBy) ?? { completed: 0, flagged: 0 };
+        entry.completed += 1;
+        if (isFlagged) entry.flagged += 1;
+        byPerson.set(item.completedBy, entry);
+      }
+    }
+    // Percent leaves "not applicable" questions out of both sides; the counts stay raw.
+    return { total, done, flagged, byPerson, progress: runScores(instance.items).completion };
+  }, [instance.items]);
+
+  const { total, done, flagged, byPerson, progress } = stats;
+  const status = instanceProgressStatus(done, total);
+  const complete = status === 'COMPLETED';
+  const overdue = isInstanceOverdue(instance, complete);
   const deadlineTime = formatDeadlineTime(instance);
-  const flaggedItems = instance.items.filter(isFlaggedAnswer);
+  const verification = VERIFICATION_CHIP[instance.verificationStatus];
 
   return (
     <Link
       to={`/checklists/${instance.id}`}
-      className="flex flex-col gap-3 p-4 rounded-lg border border-border bg-surface hover:border-border-hover transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+      className={cn(ENTITY_CARD_CLASS, 'gap-3 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40')}
     >
-      <div className="flex items-start justify-between gap-3 flex-wrap">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-display font-bold text-text truncate">{instance.title}</p>
-          <div className="flex items-center gap-2 mt-1 text-xs text-text-muted font-display flex-wrap">
-            <span className="flex items-center gap-1"><Store size={11} /> {storeName}</span>
-            <span>{formatDate(instance.periodStart)} – {formatDate(instance.periodEnd)}</span>
-            {status !== 'COMPLETED' && deadlineTime && <span>· Due {deadlineTime}</span>}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex flex-col gap-1 min-w-0 flex-1">
+          <p className="text-sm font-display font-bold text-text line-clamp-2 leading-snug">{instance.title}</p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-muted font-display">
+            {storeName && <span className="flex items-center gap-1"><Store size={11} aria-hidden /> {storeName}</span>}
+            <span>{formatDate(instance.periodStart)} to {formatDate(instance.periodEnd)}</span>
+            {!complete && deadlineTime && <span>Due {deadlineTime}</span>}
           </div>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Badge variant={VERIFICATION_BADGE_VARIANT[instance.verificationStatus]}>
-            {VERIFICATION_STATUS_LABEL[instance.verificationStatus]}
-          </Badge>
+        <div className="flex flex-wrap items-center gap-2">
+          <IconChip icon={verification.icon} tone={verification.tone} label={VERIFICATION_STATUS_LABEL[instance.verificationStatus]} />
           {overdue && <StatusChip status="overdue" />}
-          {flaggedItems.length > 0 && (
-            <Badge variant="destructive" className="gap-1 bg-danger/10 text-danger">
-              <AlertTriangle size={11} />
-              {flaggedItems.length} flagged
-            </Badge>
-          )}
+          {flagged > 0 && <IconChip icon={AlertTriangle} tone="bg-danger" label={`${flagged} flagged`} />}
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
-        <div className="h-1.5 flex-1 bg-surface-hover rounded-full overflow-hidden border border-border/50">
-          <div
-            className={`h-full rounded-full transition-all duration-500 ${instanceProgressBarClass(overdue, status === 'COMPLETED')}`}
-            style={{ width: `${progress}%` }}
-          />
-        </div>
+      <div className="flex items-center gap-2.5">
+        <ChecklistProgressBar done={progress} total={100} bare thin tone={overdue && !complete ? 'danger' : 'auto'} className="flex-1" />
         <span className="flex items-baseline gap-1.5 shrink-0 tabular-nums font-display">
-          <span className={`text-sm font-bold ${instanceProgressToneClass(overdue, status === 'COMPLETED')}`}>{progress}%</span>
+          <span className={cn('text-sm font-bold', instanceProgressToneClass(overdue, complete))}>{progress}%</span>
           <span className="text-[11px] font-medium text-text-muted">{done}/{total}</span>
         </span>
       </div>
 
       {instance.assigneeIds.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 pt-1 border-t border-dashed border-border/60">
+        <div className="flex flex-wrap gap-2 pt-3 border-t border-dashed border-border/60">
           {instance.assigneeIds.map(id => {
-            const completedByThem = instance.items.filter(i => i.completedBy === id).length;
-            // A flagged answer only ever attributes to whoever actually completed that item — the
-            // same honest-signal limitation the surrounding comment already calls out for plain
+            const theirs = byPerson.get(id);
+            const completedByThem = theirs?.completed ?? 0;
+            // A flagged answer only ever attributes to whoever actually completed that item, the
+            // same honest-signal limitation the comment above already calls out for plain
             // completion counts (a shared instance has no per-item "owner" beyond completedBy).
-            const flaggedByThem = instance.items.filter(i => i.completedBy === id && isFlaggedAnswer(i)).length;
-            const allDone = total > 0 && completedByThem === total;
-            const started = completedByThem > 0;
-            const hasFlag = flaggedByThem > 0;
+            const flaggedByThem = theirs?.flagged ?? 0;
+            const look = PERSON_TONE[flaggedByThem > 0 ? 'flag' : total > 0 && completedByThem === total ? 'done' : completedByThem > 0 ? 'started' : 'idle'];
+            const name = nameById.get(id) ?? (namesLoading ? '...' : 'Unknown');
             return (
-              <Badge
+              <IconChip
                 key={id}
-                variant={hasFlag ? 'destructive' : allDone ? 'success' : started ? 'warning' : 'neutral'}
-                className={`gap-1 text-[11px] ${hasFlag ? 'bg-danger/10 text-danger' : allDone ? 'bg-success/10' : started ? 'bg-warning/10' : 'bg-surface-hover'}`}
-              >
-                {hasFlag && <AlertTriangle size={10} className="shrink-0" />}
-                {nameById.get(id) ?? 'Unknown'} · {completedByThem}/{total}
-                {hasFlag && ` · ${flaggedByThem} flagged`}
-              </Badge>
+                icon={look.icon}
+                tone={look.tone}
+                label={`${name} · ${completedByThem}/${total}${flaggedByThem > 0 ? ` · ${flaggedByThem} flagged` : ''}`}
+              />
             );
           })}
         </div>
       )}
     </Link>
   );
-};
+});
+ComplianceRow.displayName = 'ComplianceRow';
 
-// Admin-only dashboard answering "who has/hasn't filled their checklist" — dynamically filterable
-// by store and by person. Spans every checklist definition's generated instances (unlike
-// ChecklistDefinitionDetail, which only shows instances for one definition at a time).
+// Same shape as a real row (title + chips, bar, assignee chips) so nothing jumps when data lands.
+const ComplianceRowSkeleton = () => (
+  <div className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-4 sm:p-5 min-h-36')}>
+    <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-col gap-2 flex-1">
+        <Skeleton className="h-4 w-2/3 max-w-72" />
+        <Skeleton className="h-3 w-1/2 max-w-56" />
+      </div>
+      <Skeleton className="h-7 w-24 rounded-full" />
+    </div>
+    <Skeleton className="h-1.5 w-full rounded-full" />
+    <div className="flex gap-2 pt-3 border-t border-dashed border-border/60">
+      <Skeleton className="h-7 w-32 rounded-full" />
+      <Skeleton className="h-7 w-28 rounded-full" />
+    </div>
+  </div>
+);
+
+const personName = (p: { firstName: string; lastName: string | null; email?: string }) =>
+  `${p.firstName} ${p.lastName ?? ''}`.trim() || p.email || 'Unknown';
+
 // The board spans every store org-wide, so it's the one list here that realistically reaches
-// thousands of rows. 50 keeps the window virtualizer's job small and the hydration bounded.
+// thousands of rows. Paging at 50 keeps what renders (and hydrates) bounded.
 const PAGE_SIZE = 50;
 
+// Admin-only dashboard answering "who has/hasn't filled their checklist", dynamically filterable
+// by store and by person. Spans every checklist definition's generated instances (unlike
+// ChecklistDefinitionDetail, which only shows instances for one definition at a time).
 export const ChecklistComplianceBoard = () => {
-  // Trend + rate-tile report, same component the Overview page's own Audits tab uses — reused
+  // Trend + rate-tile report, same component the Overview page's own Audits tab uses, reused
   // (not rebuilt) so this page reads as a report at a glance instead of opening straight onto the
-  // per-instance/per-person list below, which on its own just looks like a roster of checklists
-  // and people rather than anything you'd call "compliance reporting."
+  // per-instance/per-person list below.
   const [groupBy, setGroupBy] = useState<GroupBy>('month');
   const [range, setRangeState] = useState<DateRangeValue>({ from: null, to: null });
   const reportFrom = range.from ? range.from.toISOString() : undefined;
@@ -134,21 +175,21 @@ export const ChecklistComplianceBoard = () => {
   const [storeId, setStoreIdState] = useState('');
   const [assigneeId, setAssigneeIdState] = useState('');
   const [status, setStatusState] = useState<'' | ChecklistInstanceStatus>('');
-  // Off by default — a deleted checklist's history is kept for audit purposes, but shouldn't
+  // Off by default: a deleted checklist's history is kept for audit purposes, but shouldn't
   // clutter the board every viewer sees day to day; this is the explicit "show me anyway" switch.
-  const [includeDeleted, setIncludeDeleted] = useState(false);
-  // Layered on top of the store/person/status filters above, same as TicketList's quickFilter —
-  // click a tile to narrow the list further, click it again (or "Instances") to clear.
+  const [includeDeleted, setIncludeDeletedState] = useState(false);
+  // Layered on top of the store/person/status filters above, same as TicketList's quickFilter:
+  // click a tile to narrow the list further, click it again (or "Total") to clear.
   const [quickFilter, setQuickFilter] = useState<ComplianceQuickFilterKey>('all');
   const [page, setPage] = useState(1);
 
   // Every filter resets the page, because page 4 of the old result set is meaningless against the
-  // new one and usually past its end. Done in the setters rather than an effect watching them —
+  // new one and usually past its end. Done in the setters rather than an effect watching them,
   // an effect would render the stale page once before correcting itself.
   const setStoreId = (value: string) => { setStoreIdState(value); setPage(1); };
   const setAssigneeId = (value: string) => { setAssigneeIdState(value); setPage(1); };
   const setStatus = (value: '' | ChecklistInstanceStatus) => { setStatusState(value); setPage(1); };
-  const toggleIncludeDeleted = () => { setIncludeDeleted((v) => !v); setPage(1); };
+  const setIncludeDeleted = (value: boolean) => { setIncludeDeletedState(value); setPage(1); };
   const setRange = (value: DateRangeValue) => { setRangeState(value); setPage(1); };
   const setLastMonth = () => {
     const now = new Date();
@@ -161,31 +202,48 @@ export const ChecklistComplianceBoard = () => {
     setQuickFilter((prev) => (key === 'all' || prev === key ? 'all' : key));
     setPage(1);
   };
+  const hasFilters = !!(storeId || assigneeId || status || includeDeleted || range.from || range.to || quickFilter !== 'all');
+  const clearFilters = () => {
+    setStoreIdState('');
+    setAssigneeIdState('');
+    setStatusState('');
+    setIncludeDeletedState(false);
+    setRangeState({ from: null, to: null });
+    setQuickFilter('all');
+    setPage(1);
+  };
 
-  const { data: stores = [] } = useStoresQuery();
+  const { data: stores = [], isPending: storesPending } = useStoresQuery();
   // Scoped to the selected store, for the Person filter's own option list.
   const { data: people = [] } = useAssignableUsersQuery(undefined, storeId || undefined);
   // Unscoped roster so assignee chips resolve to real names even for instances outside whichever
   // store is currently selected in the filter above.
-  const { data: allPeople = [] } = useAssignableUsersQuery();
+  const { data: allPeople = [], isPending: allPeoplePending } = useAssignableUsersQuery();
+  // Deactivated people are not in the assignable roster, but their name still has to read right on
+  // old runs. Failure here just means no "(left)" tag, never a broken page.
+  const { data: formerPeople = [], isPending: formerPending } = useFormerPeopleQuery();
 
   const nameById = useMemo(() => {
     const map = new Map<string, string>();
-    for (const p of allPeople) map.set(p.id, `${p.firstName} ${p.lastName ?? ''}`.trim() || p.email);
+    for (const p of allPeople) map.set(p.id, personName(p));
+    for (const p of formerPeople) map.set(p.id, `${personName(p)} (left)`);
     return map;
-  }, [allPeople]);
+  }, [allPeople, formerPeople]);
   const storeNameById = useMemo(() => new Map(stores.map(s => [s.id, s.name])), [stores]);
+  const namesLoading = allPeoplePending || formerPending;
 
-  // The tile and the Status dropdown narrow the same dimension, so they resolve to one server
-  // `status` — the tile wins when set. All of this used to be a client-side pass over the full
-  // list, which is why the endpoint had to return every matching instance.
+  const storeOptions = useMemo(() => stores.map(s => ({ value: s.id, label: s.name })), [stores]);
+  const personOptions = useMemo(() => people.map(p => ({ value: p.id, label: personName(p) })), [people]);
+
+  // The tile and the Status control narrow the same dimension, so they resolve to one server
+  // `status`, the tile wins when set.
   const effectiveStatus: ChecklistInstanceStatus | undefined =
     quickFilter === 'completed' ? 'COMPLETED'
     : quickFilter === 'pending' ? 'OPEN'
     : quickFilter === 'overdue' ? 'OVERDUE'
     : (status || undefined);
 
-  const { data: instancePage, isPending, isError, refetch } = useChecklistInstancesBoardQuery({
+  const { data: instancePage, isPending, isError, isFetching, refetch } = useChecklistInstancesBoardQuery({
     storeId: storeId || undefined,
     assigneeId: assigneeId || undefined,
     status: effectiveStatus,
@@ -195,195 +253,148 @@ export const ChecklistComplianceBoard = () => {
     page,
     limit: PAGE_SIZE,
   });
-  const visibleInstances = instancePage?.data ?? [];
+  const visibleInstances = instancePage?.data;
   const totalPages = instancePage?.meta.totalPages ?? 1;
 
-  // Counted by the database rather than by reducing the fetched page. These four numbers were the
-  // reason this endpoint had to return every matching instance: a tile that says "23" derived from
-  // `instances.length` silently becomes the page size the moment the list paginates. With them
-  // coming from /summary, the list below is free to page without the tiles lying.
-  const { data: counts } = useChecklistInstanceSummaryQuery({
+  // Counted by the database rather than by reducing the fetched page: a tile that says "23"
+  // derived from the page would silently become the page size the moment the list paginates.
+  const { data: counts, isPending: summaryPending, isError: summaryError, refetch: refetchSummary } = useChecklistInstanceSummaryQuery({
     storeId: storeId || undefined,
     assigneeId: assigneeId || undefined,
     from: reportFrom,
     to: reportTo,
     includeDeleted,
   });
-  const summary: Record<ComplianceQuickFilterKey, number> = {
-    all: counts?.total ?? 0,
-    completed: counts?.completed ?? 0,
-    pending: counts?.pending ?? 0,
-    overdue: counts?.overdue ?? 0,
-  };
-
-  // This board spans every store's checklist instances org-wide (unlike the per-user MyChecklists
-  // page), so it's the one list here that can realistically reach hundreds of rows. Windowed
-  // instead of a fixed-height inner scroll container since the list scrolls with the page itself —
-  // row height varies (the assignee-chip row wraps differently per instance), hence
-  // `measureElement` rather than a fixed estimateSize.
-  const listRef = useRef<HTMLDivElement>(null);
-  // Reading listRef.current directly in the hook call (the pattern TanStack Virtual's own docs
-  // show) trips React's "no ref reads during render" rule — measuring in a layout effect instead
-  // keeps the ref read out of render entirely.
-  const [scrollMargin, setScrollMargin] = useState(0);
-  useLayoutEffect(() => {
-    setScrollMargin(listRef.current?.offsetTop ?? 0);
-  }, []);
-  const rowVirtualizer = useWindowVirtualizer({
-    count: visibleInstances.length,
-    estimateSize: () => 132,
-    overscan: 6,
-    scrollMargin,
-  });
+  const summary = useMemo<ComplianceQuickFilterCounts | undefined>(
+    () => counts && { all: counts.total, completed: counts.completed, pending: counts.pending, overdue: counts.overdue },
+    [counts],
+  );
 
   return (
-    <div className="flex flex-col gap-6 max-w-5xl mx-auto w-full">
-      <div>
-        <h1 className="font-display text-2xl font-bold text-text">Checklist Compliance</h1>
-        <p className="text-sm text-text-muted mt-0.5">
-          Completion and quality trends, plus who's filled their checklist and who hasn't.
-        </p>
-      </div>
+    <div className="flex flex-col gap-6 w-full max-w-5xl mx-auto">
+      <PageHeader
+        icon={ClipboardCheck}
+        title="Checklist Compliance"
+        subtitle="Completion and quality trends, plus who's filled their checklist and who hasn't."
+      />
 
-      {/* One filter panel for the whole page — date range/grouping used to float in the page
-          header while store/person/status sat unboxed further down, two disconnected-looking
-          control clusters even though both now scope the same data. Everything that narrows
-          what's shown below lives here now. */}
-      <div className="flex flex-col gap-4 p-4 sm:p-5 rounded-xl border border-border bg-surface">
+      {/* One filter panel for the whole page: everything that narrows what's shown below lives here. */}
+      <section aria-label="Filters" className={cn(PANEL_CLASS, 'flex flex-col gap-4 p-4 sm:p-5')}>
         <div className="flex items-center gap-2">
-          <span className="flex items-center justify-center p-1 rounded-md bg-primary-100 dark:bg-primary-900/60 text-primary-700 dark:text-primary-300 shrink-0">
-            <SlidersHorizontal size={13} />
+          <span className="flex items-center justify-center size-7 rounded-lg bg-primary-500/10 text-primary-700 dark:text-primary-300 shrink-0">
+            <SlidersHorizontal size={14} aria-hidden />
           </span>
-          <span className="text-xs font-display font-bold text-text">Filters</span>
+          <h2 className="text-sm font-display font-bold text-text">Filters</h2>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={setLastMonth}
-            className="h-9 px-3 rounded-lg text-xs font-display font-semibold border border-border bg-surface text-text-secondary hover:bg-surface-hover hover:text-primary-600 hover:border-primary-200 transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
-          >
+        <div className="flex flex-wrap items-center gap-3">
+          <Button variant="outline" size="lg" className="px-4 text-sm" onClick={setLastMonth}>
             Last month
-          </button>
+          </Button>
           <GroupByControl groupBy={groupBy} onGroupByChange={setGroupBy} range={range} onRangeChange={setRange} />
         </div>
 
-        <div className="flex flex-wrap items-end gap-3 pt-3 border-t border-dashed border-border/60">
-          <div className="flex flex-col gap-1.5 w-full sm:w-48">
-            <label className="text-xs font-display font-medium text-text-secondary">Store</label>
-            <SelectDropdown
+        <div className="flex flex-wrap items-end gap-3 pt-4 border-t border-dashed border-border/60">
+          <div className="flex flex-col gap-1.5 w-full sm:w-52">
+            <label htmlFor="compliance-store" className={FIELD_LABEL}>Store</label>
+            <Combobox
+              id="compliance-store"
               value={storeId}
               onChange={setStoreId}
-              options={[{ value: '', label: 'All stores' }, ...stores.map(s => ({ value: s.id, label: s.name }))]}
-              aria-label="Filter by store"
+              options={storeOptions}
+              emptyOptionLabel="All stores"
+              isLoading={storesPending}
+              className={cn(CONTROL_H, 'rounded-xl')}
             />
           </div>
-          <div className="flex flex-col gap-1.5 w-full sm:w-48">
-            <label className="text-xs font-display font-medium text-text-secondary">Person</label>
-            <SelectDropdown
+          <div className="flex flex-col gap-1.5 w-full sm:w-52">
+            <label htmlFor="compliance-person" className={FIELD_LABEL}>Person</label>
+            <Combobox
+              id="compliance-person"
               value={assigneeId}
               onChange={setAssigneeId}
-              options={[
-                { value: '', label: 'All people' },
-                ...people.map(p => ({ value: p.id, label: `${p.firstName} ${p.lastName ?? ''}`.trim() })),
-              ]}
-              aria-label="Filter by person"
+              options={personOptions}
+              emptyOptionLabel="All people"
+              className={cn(CONTROL_H, 'rounded-xl')}
             />
           </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-display font-medium text-text-secondary">Status</label>
-            <div className="flex items-center gap-1 h-11 p-1 rounded-full border border-border bg-surface">
-              {STATUS_OPTIONS.map(opt => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setStatus(opt.value)}
-                  aria-pressed={status === opt.value}
-                  className={`px-3 py-1.5 rounded-full text-xs font-display font-medium transition-all duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
-                    status === opt.value ? 'bg-primary-700 text-white shadow-sm' : 'text-text-secondary hover:bg-surface-hover'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
+          <div className="flex flex-col gap-1.5 w-full sm:w-fit">
+            <span id="compliance-status-label" className={FIELD_LABEL}>Status</span>
+            <Tabs value={status} onValueChange={(v) => setStatus(v as '' | ChecklistInstanceStatus)}>
+              <TabsList aria-labelledby="compliance-status-label" className={cn(CONTROL_H, 'w-full sm:w-fit')}>
+                {STATUS_OPTIONS.map(opt => (
+                  <TabsTrigger key={opt.value || 'all'} value={opt.value} className="h-full text-xs">
+                    {opt.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
           </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-display font-medium text-text-secondary">History</label>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={includeDeleted}
-              onClick={toggleIncludeDeleted}
-              className={`flex items-center gap-2 h-11 px-3 rounded-full border text-xs font-display font-medium transition-colors duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
-                includeDeleted ? 'border-primary-500/60 bg-primary-500/10 text-primary-700 dark:text-primary-300' : 'border-border bg-surface text-text-secondary hover:bg-surface-hover'
-              }`}
-            >
-              <span className={`relative inline-flex h-4 w-7 shrink-0 rounded-full transition-colors duration-200 ${includeDeleted ? 'bg-primary-600' : 'bg-border'}`}>
-                <span className={`absolute top-0.5 left-0.5 size-3 rounded-full bg-white shadow-sm transition-transform duration-200 ${includeDeleted ? 'translate-x-3' : ''}`} />
-              </span>
-              <span>Show deleted checklists</span>
-            </button>
-          </div>
+          <label
+            htmlFor="compliance-include-deleted"
+            className={cn(
+              CONTROL_H,
+              'flex items-center gap-2.5 px-3 rounded-xl border text-xs font-display font-medium cursor-pointer transition-colors duration-150',
+              includeDeleted
+                ? 'border-primary-500/50 bg-primary-500/10 text-primary-700 dark:text-primary-300'
+                : 'border-border bg-surface text-text-secondary hover:border-border-hover',
+            )}
+          >
+            <Switch id="compliance-include-deleted" checked={includeDeleted} onChange={setIncludeDeleted} />
+            Show deleted checklists
+          </label>
         </div>
-      </div>
+      </section>
 
-      {/* isOrgWideRole=false here on purpose — these cards' click destination on the Overview page
+      {/* isOrgWideRole=false here on purpose: these cards' click destination on the Overview page
           is this exact page, so on this page itself there's nowhere further to send a click; the
           real per-instance rows they'd otherwise link to already render directly below. */}
       <ChecklistInstanceKpiSection groupBy={groupBy} from={reportFrom} to={reportTo} isOrgWideRole={false} includeDeleted={includeDeleted} />
 
-      <div className="flex items-center gap-3 pt-2 border-t border-border/60">
+      <div className="flex items-center gap-3 pt-4 border-t border-border/60">
         <h2 className="text-sm font-display font-bold text-text shrink-0">Who's done what</h2>
         <p className="text-xs font-display text-text-muted">Reflects the filters above.</p>
       </div>
 
-      <ChecklistComplianceQuickStats counts={summary} active={quickFilter} onToggle={toggleQuickFilter} isLoading={isPending} />
+      <ChecklistComplianceQuickStats
+        counts={summary}
+        active={quickFilter}
+        onToggle={toggleQuickFilter}
+        isLoading={summaryPending}
+        isError={summaryError}
+        onRetry={() => refetchSummary()}
+      />
 
       {isPending && (
-        <div className="flex flex-col gap-2">
-          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28 w-full rounded-xl" />)}
+        <div className="flex flex-col gap-3">
+          {Array.from({ length: 4 }).map((_, i) => <ComplianceRowSkeleton key={i} />)}
         </div>
       )}
 
-      {isError && (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-danger/10 text-danger text-sm font-display">
-          <AlertCircle size={15} />
-          <span className="flex-1">We couldn't load this data. Try again.</span>
-          <button
-            type="button"
-            onClick={() => refetch()}
-            className="shrink-0 px-3 py-1.5 rounded-md text-xs font-display font-semibold border border-danger/30 hover:bg-danger/10 cursor-pointer transition-colors outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
-          >
-            Retry
-          </button>
-        </div>
+      {isError && <InlineError message="We couldn't load the checklists. Check your connection and try again." onRetry={() => refetch()} />}
+
+      {!isPending && !isError && visibleInstances?.length === 0 && (
+        <EmptyState
+          icon={SearchX}
+          title="Nothing matches these filters"
+          description={hasFilters ? 'Try a wider date range, another store or another person.' : 'No checklists have been generated yet.'}
+          action={hasFilters ? { label: 'Clear filters', onClick: clearFilters } : undefined}
+        />
       )}
 
-      {!isPending && !isError && visibleInstances.length === 0 && (
-        <EmptyState size="compact" icon={SearchX} title="Nothing matches these filters." />
-      )}
-
-      {visibleInstances.length > 0 && (
-        <div ref={listRef} className="relative w-full" style={{ height: rowVirtualizer.getTotalSize() }}>
-          {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-            const instance = visibleInstances[virtualRow.index];
-            return (
-              <div
-                key={instance.id}
-                data-index={virtualRow.index}
-                ref={rowVirtualizer.measureElement}
-                className="absolute top-0 left-0 w-full pb-3"
-                style={{ transform: `translateY(${virtualRow.start - rowVirtualizer.options.scrollMargin}px)` }}
-              >
-                <ComplianceRow
-                  instance={instance}
-                  storeName={storeNameById.get(instance.storeId) ?? 'Unknown store'}
-                  nameById={nameById}
-                />
-              </div>
-            );
-          })}
+      {!!visibleInstances?.length && (
+        // keepPreviousData keeps the old page on screen while the next one loads: dim it so the
+        // change reads as "updating" instead of the screen silently freezing.
+        <div className={cn('flex flex-col gap-3 transition-opacity duration-200', isFetching && 'opacity-60')} aria-busy={isFetching}>
+          {visibleInstances.map((instance) => (
+            <ComplianceRow
+              key={instance.id}
+              instance={instance}
+              storeName={storesPending ? null : (storeNameById.get(instance.storeId) ?? 'Unknown store')}
+              nameById={nameById}
+              namesLoading={namesLoading}
+            />
+          ))}
         </div>
       )}
 

@@ -78,6 +78,8 @@ export type ChecklistDefinition = {
   activeWeekdays: number[] | null;
   /** Who a run belongs to: everyone (shared), one per department, or one per person. */
   responseMode: ChecklistResponseMode;
+  /** Departments the assigned people belong to, for the card. Read-only: derived on the server. */
+  departmentNames: string[];
   version: number;
   createdBy: string;
   items: ChecklistDefinitionItem[];
@@ -208,6 +210,7 @@ const definitionItemDefaults = withArrayDefaults({
 const definitionDefaults = withArrayDefaults({
   storeIds: arrayField(z.string()),
   assigneeIds: arrayField(z.string()),
+  departmentNames: arrayField(z.string()),
   reviewerIds: arrayField(z.string()),
   assigneeRoles: arrayField(z.string()),
   items: arrayField(definitionItemDefaults),

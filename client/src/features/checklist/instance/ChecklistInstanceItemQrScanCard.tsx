@@ -1,8 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useId, useRef, useState } from 'react';
 import jsQR from 'jsqr';
-import { Loader2, ScanLine, AlertCircle, X } from 'lucide-react';
+import { ScanLine, X } from 'lucide-react';
 import { useSetChecklistInstanceItemDoneMutation } from '../hook';
+import { Button, Input } from '../../../components';
 import { ChecklistItemCardHeader } from './ChecklistItemCardHeader';
+import { ItemCardShell } from './ItemCardShell';
+import { ItemError } from './ItemError';
+import { ItemActionButton } from './ItemActionButton';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 
 interface ChecklistInstanceItemQrScanCardProps {
@@ -12,12 +16,15 @@ interface ChecklistInstanceItemQrScanCardProps {
   isLocked:   boolean;
 }
 
+const READOUT_CLASS = 'text-xs font-display px-3 py-2 rounded-lg bg-surface-hover border border-border/60 text-text-secondary w-fit max-w-full break-all';
+
 // Live camera QR/barcode scanning: jsQR only decodes QR codes (not 1D formats like Code128/EAN),
 // which is what the reference design's scan icon calls for — grabs frames from a hidden <video>
 // onto an offscreen <canvas> every animation frame and runs jsQR against the pixel data until it
 // finds a code. A manual text-entry fallback covers devices without a camera, or a denied
 // permission, without blocking the item.
-export const ChecklistInstanceItemQrScanCard = ({ item, instanceId, canWork, isLocked }: ChecklistInstanceItemQrScanCardProps) => {
+export const ChecklistInstanceItemQrScanCard = memo(function ChecklistInstanceItemQrScanCard({ item, instanceId, canWork, isLocked }: ChecklistInstanceItemQrScanCardProps) {
+  const codeInputId = useId();
   const setItemDone = useSetChecklistInstanceItemDoneMutation(instanceId);
   const [scannedValue, setScannedValue] = useState(item.textValue ?? '');
   const [isScanning, setIsScanning] = useState(false);
@@ -66,7 +73,7 @@ export const ChecklistInstanceItemQrScanCard = ({ item, instanceId, canWork, isL
   const startScan = async () => {
     setError(null);
     if (!navigator.mediaDevices?.getUserMedia) {
-      setError("Can't access the camera on this device — enter the code by hand instead.");
+      setError("Can't access the camera on this device. Enter the code by hand instead.");
       setManualEntry(true);
       return;
     }
@@ -80,13 +87,13 @@ export const ChecklistInstanceItemQrScanCard = ({ item, instanceId, canWork, isL
       setIsScanning(true);
       rafRef.current = requestAnimationFrame(tick);
     } catch {
-      setError('Camera permission denied — enter the code manually instead.');
+      setError('Camera permission denied. Enter the code manually instead.');
       setManualEntry(true);
     }
   };
 
   return (
-    <div className={`flex flex-col gap-3 p-3.5 sm:p-4 rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface ${isLocked ? 'opacity-75' : ''}`}>
+    <ItemCardShell isLocked={isLocked}>
       <ChecklistItemCardHeader
         item={item}
         interactive={interactive}
@@ -98,31 +105,26 @@ export const ChecklistInstanceItemQrScanCard = ({ item, instanceId, canWork, isL
           visible to a reviewer/approver after the item (or the whole instance) locks. Only the
           scan/manual-entry/save controls are for the still-editable case. */}
       {scannedValue && !interactive && (
-        <p className="text-xs font-display px-2.5 py-1.5 rounded-md bg-background border border-border/60 text-text-secondary w-fit max-w-full break-all">
-          Scanned: {scannedValue}
-        </p>
+        <p className={READOUT_CLASS}>Scanned: {scannedValue}</p>
       )}
 
       {interactive && (
         <div className="flex flex-col gap-2">
-          {setItemDone.isError && (
-            <p className="text-xs text-danger">
-              {setItemDone.error instanceof Error ? setItemDone.error.message : "Couldn't save that code."}
-            </p>
-          )}
-          {error && <p className="flex items-center gap-1.5 text-xs text-danger"><AlertCircle size={12} /> {error}</p>}
+          <ItemError error={setItemDone.error} fallback="Couldn't save that code." />
+          <ItemError error={error} fallback="Couldn't use the camera." />
 
           {/* Always mounted while the item is open (just hidden until scanning) — startScan()
               attaches the camera stream to videoRef BEFORE flipping isScanning, so when this only
               rendered once isScanning was true the ref was still null, the stream went nowhere
               and the scanner sat on a black box forever. */}
           {!item.isDone && (
-            <div className={`relative w-full max-w-sm rounded-md overflow-hidden border border-border bg-black ${isScanning ? '' : 'hidden'}`}>
+            <div className={`relative w-full max-w-sm rounded-lg overflow-hidden border border-border bg-black ${isScanning ? '' : 'hidden'}`}>
               <video ref={videoRef} muted playsInline className="w-full h-[220px] object-cover" />
               <div className="absolute inset-6 border-2 border-primary-400/80 rounded-lg pointer-events-none" />
               <button
+                type="button"
                 onClick={stopScan}
-                className="absolute top-2 right-2 flex items-center justify-center size-9 rounded-full bg-black/60 text-white cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                className="absolute top-2 right-2 flex items-center justify-center size-11 sm:size-9 rounded-full bg-black/60 text-white cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                 aria-label="Cancel scan"
               >
                 <X size={16} />
@@ -133,48 +135,44 @@ export const ChecklistInstanceItemQrScanCard = ({ item, instanceId, canWork, isL
 
           {!item.isDone && !isScanning && (
             <div className="flex items-center gap-2 flex-wrap">
-              <button
-                onClick={startScan}
-                className="flex items-center gap-1.5 text-xs font-display font-medium px-2.5 py-1.5 rounded-md border border-border text-text-secondary hover:bg-surface-hover cursor-pointer transition-colors"
-              >
-                <ScanLine size={12} /> {scannedValue ? 'Scan again' : 'Scan with camera'}
-              </button>
-              <button
-                onClick={() => setManualEntry(v => !v)}
-                className="text-[11px] font-display text-text-muted hover:text-text underline decoration-dotted cursor-pointer"
-              >
+              <Button size="sm" variant="outline" onClick={startScan}>
+                <ScanLine size={13} aria-hidden /> {scannedValue ? 'Scan again' : 'Scan with camera'}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setManualEntry(v => !v)} aria-expanded={manualEntry}>
                 {manualEntry ? 'Hide manual entry' : 'Enter code manually'}
-              </button>
+              </Button>
             </div>
           )}
 
           {scannedValue && (
-            <p className="text-xs font-display px-2.5 py-1.5 rounded-md bg-background border border-border/60 text-text-secondary w-fit max-w-full break-all">
-              Scanned: {scannedValue}
-            </p>
+            <p className={READOUT_CLASS}>Scanned: {scannedValue}</p>
           )}
 
           {!item.isDone && manualEntry && (
-            <input
+            <Input
+              id={codeInputId}
+              label="Code"
+              labelClassName="sr-only"
               value={scannedValue}
               onChange={(e) => setScannedValue(e.target.value)}
               placeholder="Type the code…"
-              className="w-full max-w-xs px-2.5 py-1.5 text-sm font-display bg-surface text-text rounded-md border border-border focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all"
+              containerClassName="max-w-xs"
+              className="h-11 sm:h-9 rounded-lg"
             />
           )}
 
           {!item.isDone && (
-            <button
+            <ItemActionButton
+              className="self-start"
               onClick={() => scannedValue.trim() && setItemDone.mutate({ itemId: item.id, isDone: true, textValue: scannedValue.trim() })}
-              disabled={!scannedValue.trim() || setItemDone.isPending}
-              className="w-fit flex items-center gap-1.5 text-xs font-display font-medium px-2.5 py-1.5 rounded-md border border-primary-500/50 text-primary-600 hover:bg-primary-500/10 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!scannedValue.trim()}
+              isLoading={setItemDone.isPending}
             >
-              {setItemDone.isPending && <Loader2 size={12} className="animate-spin" />}
               Save
-            </button>
+            </ItemActionButton>
           )}
         </div>
       )}
-    </div>
+    </ItemCardShell>
   );
-};
+});

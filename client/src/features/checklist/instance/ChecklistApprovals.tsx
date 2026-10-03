@@ -1,113 +1,103 @@
-import { useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { ShieldCheck, Check, X, Loader2, Repeat, CheckCircle2 } from 'lucide-react';
-import { Button, GradientIconTile, EmptyState } from '../../../components';
+import { ShieldCheck, Repeat, CheckCircle2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Button, ENTITY_CARD_CLASS, EmptyState, InlineError, PageHeader, Skeleton } from '../../../components';
 import { usePendingVerificationChecklistInstancesQuery, useVerifyChecklistInstanceMutation } from '../hook';
 import { formatDate } from '../checklistDisplay';
+import { ReviewActions, SendBackForm } from './ReviewActions';
 import type { ChecklistInstance } from '../../../api/checklistInstances';
 
 const PAGE_SIZE = 20;
+
+// Same card shape for the real row and its skeleton, so nothing shifts when the data arrives.
+const ROW_CLASS = cn(ENTITY_CARD_CLASS, 'justify-start gap-4 sm:p-4');
 
 // HOD (MANAGER) equivalent of VerificationQueue's ungrouped Checklists section, scoped to a
 // single department — the server already narrows `pending-verification` to instances whose
 // assignees belong to the caller's own department for a MANAGER, so this page needs no
 // department filter of its own. Deliberately excludes Tickets/Delegations: those stay ADMIN-only
 // (see App.tsx's AdminOnlyRoute), this page never widens their access.
-const ApprovalRow = ({ instance }: { instance: ChecklistInstance }) => {
+const ApprovalRow = memo(({ instance }: { instance: ChecklistInstance }) => {
   const navigate = useNavigate();
   const verifyMut = useVerifyChecklistInstanceMutation();
-  const [rejecting, setRejecting] = useState(false);
+  const [sendingBack, setSendingBack] = useState(false);
   const [note, setNote] = useState('');
+  const { id } = instance;
+  const { mutate } = verifyMut;
+
+  const openDetail = () => navigate(`/checklists/${id}`);
+  const cancel = () => { setSendingBack(false); setNote(''); };
+  const startSendBack = () => setSendingBack(true);
+  const approve = () => mutate({ id, payload: { action: 'APPROVE' } });
+  const sendBack = () => mutate({ id, payload: { action: 'REJECT', note: note.trim() } });
+
+  // verifyMut.variables tells which of the two requests is the one in flight.
+  const approving = verifyMut.isPending && verifyMut.variables?.payload.action === 'APPROVE';
+  const sending = verifyMut.isPending && verifyMut.variables?.payload.action === 'REJECT';
 
   return (
-    <div className="group flex flex-col p-4 rounded-lg border border-border/60 bg-surface/60 hover:bg-surface/90 hover:border-border-hover transition-all duration-200">
+    <div className={ROW_CLASS}>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <button
           type="button"
-          onClick={() => navigate(`/checklists/${instance.id}`)}
+          onClick={openDetail}
           className="group/info flex items-start sm:items-center gap-3.5 min-w-0 flex-1 text-left cursor-pointer outline-none rounded-lg focus-visible:ring-2 focus-visible:ring-primary-500/40"
         >
-          <div className="flex items-center justify-center text-primary-500 shrink-0">
-            <Repeat size={18} />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-display font-medium text-text truncate group-hover/info:text-primary-600 dark:group-hover/info:text-primary-400 transition-colors">
+          <Repeat size={18} className="text-primary-500 shrink-0" aria-hidden />
+          <span className="flex flex-col gap-0.5 flex-1 min-w-0">
+            <span className="text-sm font-display font-medium text-text truncate group-hover/info:text-primary-600 dark:group-hover/info:text-primary-400 transition-colors">
               {instance.title}
-            </p>
-            <p className="text-xs font-display text-text-muted truncate mt-0.5">
+            </span>
+            <span className="text-xs font-display text-text-muted truncate">
               {formatDate(instance.periodStart)} – {formatDate(instance.periodEnd)} · every item checked off
-            </p>
-          </div>
+            </span>
+          </span>
         </button>
 
-        {!rejecting && (
-          <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1.5 border-danger/30 text-danger hover:bg-danger/10 hover:border-danger/50 hover:text-danger transition-colors"
-              disabled={verifyMut.isPending}
-              onClick={() => setRejecting(true)}
-            >
-              <X size={14} />
-              <span className="hidden sm:inline">Reject</span>
-            </Button>
-            <Button
-              size="sm"
-              variant="primary"
-              className="gap-1.5 bg-success hover:bg-success/90 shadow-sm shadow-success/20"
-              disabled={verifyMut.isPending}
-              onClick={() => verifyMut.mutate({ id: instance.id, payload: { action: 'APPROVE' } })}
-            >
-              {verifyMut.isPending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-              Approve
-            </Button>
+        {!sendingBack && (
+          <div className="self-start sm:self-auto">
+            <ReviewActions onSendBack={startSendBack} onApprove={approve} busy={verifyMut.isPending} approving={approving} />
           </div>
         )}
       </div>
 
-      {rejecting && (
-        <div className="flex flex-col gap-3 pt-4 mt-4 border-t border-border/50 animate-in fade-in slide-in-from-top-2 duration-200">
-          <textarea
+      {sendingBack && (
+        <div className="flex flex-col gap-3 pt-4 border-t border-border/50 animate-in fade-in slide-in-from-top-2 duration-200">
+          <SendBackForm
             autoFocus
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
+            note={note}
+            onNoteChange={setNote}
+            onCancel={cancel}
+            onSubmit={sendBack}
+            canSubmit={note.trim().length > 0}
+            isSending={sending}
+            busy={verifyMut.isPending}
+            submitLabel="Send back for changes"
             placeholder="What needs fixing before this can be approved?"
-            rows={2}
-            className="w-full px-3.5 py-2.5 text-sm bg-surface/50 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-danger/20 focus:border-danger/50 resize-none transition-all placeholder:text-text-muted/50"
           />
-          <div className="flex items-center justify-end gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={verifyMut.isPending}
-              onClick={() => { setRejecting(false); setNote(''); }}
-              className="text-text-muted hover:text-text"
-            >
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              variant="primary"
-              className="bg-danger hover:bg-danger/90 shadow-sm shadow-danger/20"
-              disabled={verifyMut.isPending || !note.trim()}
-              onClick={() => verifyMut.mutate({ id: instance.id, payload: { action: 'REJECT', note: note.trim() } })}
-            >
-              {verifyMut.isPending ? <Loader2 size={14} className="animate-spin" /> : 'Send back for changes'}
-            </Button>
-          </div>
         </div>
       )}
     </div>
   );
-};
+});
+ApprovalRow.displayName = 'ApprovalRow';
 
+// Mirrors ApprovalRow: same card, a 18px icon, two text lines and the two action buttons.
 const SkeletonRow = () => (
-  <div className="flex items-center gap-3.5 p-4 rounded-2xl border border-border/40 bg-surface/30 animate-pulse">
-    <div className="size-10 rounded-lg bg-border/50 shrink-0" />
-    <div className="flex-1 space-y-2.5 py-1">
-      <div className="h-4 bg-border/60 rounded w-1/3 sm:w-1/4" />
-      <div className="h-3 bg-border/40 rounded w-1/2 sm:w-1/3" />
+  <div className={ROW_CLASS} aria-hidden>
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex items-center gap-3.5 flex-1 min-w-0">
+        <Skeleton className="size-[18px] rounded-md shrink-0" />
+        <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+          <Skeleton className="h-4 w-1/2 sm:w-1/3" />
+          <Skeleton className="h-3 w-2/3 sm:w-1/2" />
+        </div>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <Skeleton className="h-8 pointer-coarse:h-11 w-24 rounded-md" />
+        <Skeleton className="h-8 pointer-coarse:h-11 w-24 rounded-md" />
+      </div>
     </div>
   </div>
 );
@@ -116,41 +106,40 @@ export const ChecklistApprovals = () => {
   // Infinite, not a growing flat `limit` — that used to refetch every already-loaded row from
   // offset 0 on each "Load more" click (5 clicks to reach 100 rows transferred 300
   // row-equivalents). useInfiniteQuery fetches and caches each page exactly once.
-  const { data, isPending, fetchNextPage, hasNextPage } = usePendingVerificationChecklistInstancesQuery(PAGE_SIZE);
+  const { data, isPending, isError, refetch, fetchNextPage, hasNextPage, isFetchingNextPage } =
+    usePendingVerificationChecklistInstancesQuery(PAGE_SIZE);
   const instances = useMemo(() => data?.pages.flatMap((p) => p.data) ?? [], [data]);
-  const hasMore = hasNextPage;
   const total = data?.pages[0]?.meta?.total ?? instances.length;
 
+  // Never claim "completely clear" until the queue has actually loaded.
+  const subtitle = isPending
+    ? <span className="block h-4 w-56 animate-pulse rounded-md bg-surface-active" aria-hidden />
+    : isError && !data
+      ? 'The queue could not be loaded.'
+      : total === 0
+        ? 'Your department is completely clear'
+        : `${total} checklist${total !== 1 ? 's' : ''} from your department waiting on review`;
+
   return (
-    <div className="flex flex-col gap-6 w-full max-w-(--container-width) mx-auto">
-      <div className="flex items-center gap-4">
-        <GradientIconTile icon={ShieldCheck} size="lg" />
-        <div>
-          <h1 className="text-2xl font-display font-bold text-text tracking-tight">Team checklist approvals</h1>
-          <p className="text-sm font-display text-text-muted mt-0.5">
-            {total === 0
-              ? 'Your department is completely clear'
-              : `${total} checklist${total !== 1 ? 's' : ''} from your department waiting on review`}
-          </p>
-        </div>
-      </div>
+    <div className="flex flex-col gap-6 w-full max-w-5xl mx-auto">
+      <PageHeader icon={ShieldCheck} title="Team Checklist Approvals" subtitle={subtitle} />
+
+      {isError && (
+        <InlineError message="We couldn't load the approvals queue. Check your connection and try again." onRetry={() => refetch()} />
+      )}
 
       <div className="flex flex-col gap-3">
         {isPending && (<><SkeletonRow /><SkeletonRow /></>)}
-        {!isPending && instances.length === 0 && (
+        {!isPending && !isError && instances.length === 0 && (
           <EmptyState icon={CheckCircle2} tone="success" title="All caught up" description="Nothing waiting on you right now." />
         )}
         {instances.map((instance) => <ApprovalRow key={instance.id} instance={instance} />)}
       </div>
 
-      {!isPending && hasMore && (
-        <button
-          type="button"
-          onClick={() => fetchNextPage()}
-          className="self-center inline-flex items-center gap-1.5 h-9 px-4 rounded-xl border border-border/60 bg-surface text-xs font-display font-semibold text-text-secondary hover:bg-surface-hover hover:border-border hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 transition-all duration-200 cursor-pointer"
-        >
+      {!isPending && hasNextPage && (
+        <Button variant="outline" size="sm" className="self-center" isLoading={isFetchingNextPage} onClick={() => fetchNextPage()}>
           Load more ({total - instances.length} remaining)
-        </button>
+        </Button>
       )}
     </div>
   );

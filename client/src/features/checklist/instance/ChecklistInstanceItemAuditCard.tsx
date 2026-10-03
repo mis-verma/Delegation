@@ -1,9 +1,9 @@
-import { useId, useState, type ReactNode } from 'react';
-import { Ban, Camera, Check, CheckCheck, ImageUp, Loader2, RotateCcw, X, type LucideIcon } from 'lucide-react';
-import { Button } from '../../../components';
+import { memo, useId, useState, type ReactNode } from 'react';
+import { Ban, Camera, Check, CheckCheck, ImageUp, RotateCcw, X } from 'lucide-react';
+import { Button, ChecklistProgressBar, Textarea } from '../../../components';
+import { Badge } from '../../../components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '../../../components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { UPLOADS_BASE } from '../../../lib/uploadsBase';
 import { avatarColorClass } from '../../../lib/avatarColors';
 import { getInitials } from '../../../lib/getInitials';
 import {
@@ -15,6 +15,10 @@ import {
   useStoresQuery,
 } from '../hook';
 import { ChecklistItemCardHeader } from './ChecklistItemCardHeader';
+import { ItemCardShell } from './ItemCardShell';
+import { ItemError } from './ItemError';
+import { EvidenceThumb } from './EvidenceThumb';
+import { CaptureButton, UploadingHint } from './CaptureButton';
 import { useCanReopen } from './useCanReopen';
 import { formatTimeOnly } from '../checklistDisplay';
 import type {
@@ -42,7 +46,7 @@ const personName = (submission: ChecklistInstanceItemSubmission) => {
 
 // Pick a person, then fill in just their row. An auditor walks the floor one person at a time, so
 // the card shows one person's checklist at a time too, and moves on by itself after each Submit.
-export const ChecklistInstanceItemAuditCard = ({ item, instanceId, canWork, currentUserId, isLocked }: ChecklistInstanceItemAuditCardProps) => {
+export const ChecklistInstanceItemAuditCard = memo(function ChecklistInstanceItemAuditCard({ item, instanceId, canWork, currentUserId, isLocked }: ChecklistInstanceItemAuditCardProps) {
   const pickerLabelId = useId();
   const { data: stores } = useStoresQuery();
   const storeName = (id: string | null) => (id ? stores?.find(s => s.id === id)?.name ?? null : null);
@@ -66,7 +70,7 @@ export const ChecklistInstanceItemAuditCard = ({ item, instanceId, canWork, curr
   };
 
   return (
-    <div className={cn('flex flex-col gap-4 p-3.5 sm:p-4 rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface', isLocked && 'opacity-75')}>
+    <ItemCardShell isLocked={isLocked} className="gap-4">
       <ChecklistItemCardHeader
         item={item}
         interactive={false}
@@ -110,31 +114,16 @@ export const ChecklistInstanceItemAuditCard = ({ item, instanceId, canWork, curr
           )}
         </>
       )}
-    </div>
+    </ItemCardShell>
   );
-};
+});
 
-const AuditProgress = ({ done, total }: { done: number; total: number }) => {
-  const complete = done === total;
-  return (
-    <div className="flex items-center gap-2 mt-1.5">
-      <div
-        role="progressbar"
-        aria-label="People submitted"
-        aria-valuemin={0}
-        aria-valuemax={total}
-        aria-valuenow={done}
-        className="h-1.5 w-24 sm:w-32 rounded-full bg-surface-active overflow-hidden"
-      >
-        <div
-          className={cn('h-full w-full origin-left transition-transform duration-500 ease-out motion-reduce:transition-none', complete ? 'bg-success' : 'bg-primary-500')}
-          style={{ transform: `scaleX(${total ? done / total : 0})` }}
-        />
-      </div>
-      <span className="text-xs text-text-muted tabular-nums">{done} of {total} submitted</span>
-    </div>
-  );
-};
+const AuditProgress = ({ done, total }: { done: number; total: number }) => (
+  <div className="flex items-center gap-2">
+    <ChecklistProgressBar done={done} total={total} bare thin className="w-24 sm:w-32" />
+    <span className="text-xs text-text-muted tabular-nums">{done} of {total} submitted</span>
+  </div>
+);
 
 const PersonAvatar = ({ name, done, notApplicable = false, size }: { name: string; done: boolean; notApplicable?: boolean; size: 'chip' | 'panel' }) => {
   // At chip size a corner badge lands on top of the initials, so a finished person's chip swaps
@@ -198,9 +187,9 @@ const PersonChip = ({ name, done, notApplicable, active, isMe, onSelect }: {
         ? 'border-primary-600 dark:border-primary-400 bg-primary-500/10 dark:bg-primary-500/15 text-primary-800 dark:text-primary-100'
         : done
           ? notApplicable
-            ? 'border-border/60 dark:border-white/[0.08] bg-surface text-text-muted hover:border-border-hover'
+            ? 'border-border/60 bg-surface text-text-muted hover:border-border-hover'
             : 'border-success/40 bg-surface text-text-secondary hover:border-success/70'
-          : 'border-border/60 dark:border-white/[0.08] bg-surface text-text-secondary hover:border-primary-400/60',
+          : 'border-border/60 bg-surface text-text-secondary hover:border-primary-400/60',
     )}
   >
     <PersonAvatar name={name} done={done} notApplicable={notApplicable} size="chip" />
@@ -234,7 +223,7 @@ export const AccessoryTile = ({ name, checked, missing, interactive, onToggle }:
       ? 'border-success/50 bg-success/10 dark:bg-success/15 text-text'
       : missing
         ? 'border-danger/30 bg-surface text-text-secondary'
-        : 'border-border/60 dark:border-white/[0.08] bg-surface text-text-secondary',
+        : 'border-border/60 bg-surface text-text-secondary',
     interactive && 'cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.97]',
     interactive && !checked && 'hover:border-border-hover hover:bg-surface-hover',
   );
@@ -274,32 +263,6 @@ export const AccessoryTile = ({ name, checked, missing, interactive, onToggle }:
     </button>
   );
 };
-
-const CaptureButton = ({ icon: Icon, label, live, onFiles }: {
-  icon: LucideIcon; label: string; live: boolean; onFiles: (files: FileList | null) => void;
-}) => (
-  <label
-    className={cn(
-      'inline-flex items-center justify-center gap-2 h-11 sm:h-9 px-3.5 rounded-lg border text-sm sm:text-xs font-medium cursor-pointer select-none',
-      'transition-[background-color,border-color,transform] duration-150 ease-out active:scale-[0.97] [-webkit-tap-highlight-color:transparent]',
-      'focus-within:ring-2 focus-within:ring-primary-500/40',
-      live
-        ? 'border-primary-500/50 text-primary-600 dark:text-primary-300 hover:bg-primary-500/10'
-        : 'border-border/60 dark:border-white/[0.08] text-text-secondary hover:border-border-hover hover:bg-surface-hover',
-    )}
-  >
-    <Icon size={15} aria-hidden />
-    {label}
-    <input
-      type="file"
-      accept="image/*"
-      capture={live ? 'environment' : undefined}
-      multiple
-      className="sr-only"
-      onChange={e => { onFiles(e.target.files); e.target.value = ''; }}
-    />
-  </label>
-);
 
 interface SubmissionPanelProps {
   item:        ChecklistInstanceItem;
@@ -398,7 +361,7 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
   return (
     <section
       aria-label={`Audit for ${name}`}
-      className="flex flex-col gap-4 pt-4 border-t border-border/60 dark:border-white/[0.06] animate-in fade-in slide-in-from-bottom-1 duration-200 ease-out"
+      className="flex flex-col gap-4 pt-4 border-t border-border/60 animate-in fade-in slide-in-from-bottom-1 duration-200 ease-out"
     >
       <div className="flex items-center gap-3">
         <PersonAvatar name={name} done={submission.isDone} notApplicable={isNa} size="panel" />
@@ -409,19 +372,17 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
           {storeName && <p className="text-xs text-text-muted truncate">{storeName}</p>}
         </div>
         {submission.isDone && isNa ? (
-          <span className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full bg-surface-hover text-xs font-medium text-text-secondary shrink-0">
-            <Ban size={12} strokeWidth={2.5} aria-hidden />
+          <Badge variant="neutral">
+            <Ban strokeWidth={2.5} aria-hidden />
             Not applicable
-          </span>
+          </Badge>
         ) : submission.isDone ? (
-          <span className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full bg-success/10 dark:bg-success/15 text-xs font-medium text-text-secondary shrink-0 tabular-nums">
-            <Check size={12} strokeWidth={3} className="text-success" aria-hidden />
+          <Badge variant="success" className="tabular-nums">
+            <Check strokeWidth={3} aria-hidden />
             Submitted{submission.completedAt ? ` ${formatTimeOnly(submission.completedAt)}` : ''}
-          </span>
+          </Badge>
         ) : !interactive ? (
-          <span className="inline-flex items-center h-7 px-2.5 rounded-full bg-surface-hover text-xs font-medium text-text-muted shrink-0">
-            Pending
-          </span>
+          <Badge variant="neutral">Pending</Badge>
         ) : null}
       </div>
 
@@ -472,50 +433,25 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
           {images.length > 0 && (
             <ul className="flex flex-wrap gap-2">
               {images.map(img => (
-                <li key={img.id} className="relative">
-                  <img
-                    src={`${UPLOADS_BASE}${img.url}`}
-                    alt={img.originalFilename ?? `Photo of ${name}`}
-                    loading="lazy"
-                    className="size-16 rounded-lg border border-border object-cover bg-surface-hover"
+                <li key={img.id}>
+                  <EvidenceThumb
+                    image={img}
+                    fallbackAlt={`Photo of ${name}`}
+                    onDelete={editable ? deleteImage.mutate : undefined}
+                    deleting={deleteImage.isPending}
                   />
-                  <span className={cn(
-                    'absolute -top-1 -left-1 px-1 rounded-full text-[9px] font-semibold text-white',
-                    img.captureMethod === 'LIVE' ? 'bg-success' : 'bg-text-muted',
-                  )}>
-                    {img.captureMethod === 'LIVE' ? 'Live' : 'Gallery'}
-                  </span>
-                  <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-1 rounded-full bg-black/70 text-[9px] font-medium text-white whitespace-nowrap tabular-nums">
-                    {formatTimeOnly(img.createdAt)}
-                  </span>
-                  {editable && (
-                    <button
-                      type="button"
-                      onClick={() => deleteImage.mutate(img.id)}
-                      disabled={deleteImage.isPending}
-                      aria-label="Delete photo"
-                      className="absolute -top-2 -right-2 size-6 rounded-full bg-surface border border-border flex items-center justify-center text-text-muted hover:text-danger hover:border-danger/40 transition-colors duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-danger/40 after:absolute after:-inset-2 after:content-['']"
-                    >
-                      <X size={11} aria-hidden />
-                    </button>
-                  )}
                 </li>
               ))}
             </ul>
           )}
           {editable && (
             <div className="flex flex-wrap items-center gap-2">
-              <CaptureButton icon={Camera} label="Take photo" live onFiles={files => handleFiles(files, 'LIVE')} />
+              <CaptureButton icon={Camera} label="Take photo" live accept="image/*" onFiles={files => handleFiles(files, 'LIVE')} />
               {/* A live-only question rejects gallery uploads server-side, so there's no Gallery button to fail. */}
               {!item.requiresLivePhoto && (
-                <CaptureButton icon={ImageUp} label="Gallery" live={false} onFiles={files => handleFiles(files, 'GALLERY')} />
+                <CaptureButton icon={ImageUp} label="Gallery" live={false} accept="image/*" onFiles={files => handleFiles(files, 'GALLERY')} />
               )}
-              {uploadImages.isPending && (
-                <span className="inline-flex items-center gap-1.5 text-xs text-text-muted">
-                  <Loader2 size={13} className="animate-spin" aria-hidden />
-                  Uploading…
-                </span>
-              )}
+              {uploadImages.isPending && <UploadingHint />}
             </div>
           )}
         </div>
@@ -531,13 +467,15 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
               </Button>
             )}
           />
-          <textarea
+          <Textarea
+            id={`remarks-${submission.id}`}
+            label={`Remarks for ${name}`}
+            labelClassName="sr-only"
             value={remarksDraft}
             onChange={e => setRemarksDraft(e.target.value)}
-            aria-label={`Remarks for ${name}`}
             placeholder="Were they present today? Note anything missing or out of place…"
             rows={2}
-            className="w-full min-h-[4.5rem] px-3 py-2.5 rounded-lg border border-border/60 dark:border-white/[0.08] bg-surface text-base sm:text-sm text-text placeholder:text-text-muted resize-y transition-[border-color,box-shadow] duration-150 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+            className="min-h-[4.5rem] px-3 py-2.5 rounded-lg resize-y"
           />
         </div>
       ) : submission.remarks ? (
@@ -549,7 +487,7 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
 
       {editable && (
         <div className="flex flex-col gap-2">
-          {errorText && <p role="alert" className="text-xs text-danger">{errorText}</p>}
+          <ItemError error={errorText} fallback="Couldn't save that. Try again." />
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2">
             {photosNeeded > 0 && (
               <p className="text-xs text-text-muted text-center sm:text-left sm:flex-1">
@@ -585,20 +523,19 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
             <DialogDescription className="text-xs">{name}</DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-1.5">
-            <label htmlFor={`na-reason-${submission.id}`} className="text-[11px] font-display font-medium text-text-muted">
-              Say why they can't be checked today. They count as done and the reviewer sees your reason.
-            </label>
-            <textarea
+            <Textarea
               id={`na-reason-${submission.id}`}
+              label="Say why they can't be checked today. They count as done and the reviewer sees your reason."
+              labelClassName="font-medium"
               autoFocus
               value={naReason}
               onChange={e => setNaReason(e.target.value)}
               rows={3}
               maxLength={1000}
               placeholder="e.g. On leave today"
-              className="px-2.5 py-1.5 text-sm font-display bg-surface text-text rounded-md border border-border resize-none placeholder:text-text-light focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-colors duration-150"
+              className="min-h-0 px-3 py-2 rounded-lg resize-none"
             />
-            {errorText && <p role="alert" className="text-xs text-danger">{errorText}</p>}
+            <ItemError error={errorText} fallback="Couldn't save that. Try again." />
           </div>
           <DialogFooter>
             <DialogClose asChild>

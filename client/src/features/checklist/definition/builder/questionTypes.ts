@@ -49,7 +49,7 @@ export const QUESTION_GROUPS: { id: QuestionGroup; label: string }[] = [
 // Opacity tints, not raw -50 swatches, so the tiles sit right on both light and dark surfaces.
 export const GROUP_TILE: Record<QuestionGroup, string> = {
   basic: 'bg-primary-500/10 text-primary-700 dark:bg-primary-400/15 dark:text-primary-200',
-  media: 'bg-coral-500/15 text-coral-700 dark:bg-coral-400/15 dark:text-coral-300',
+  media: 'bg-warning/15 text-warning',
   verify: 'bg-success/12 text-success dark:bg-success/15',
 };
 

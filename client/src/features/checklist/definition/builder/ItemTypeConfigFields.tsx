@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
-import { Camera, Video, MapPin, Info, Star, Plus, X } from 'lucide-react';
-import { AccessoriesListEditor } from '../../../../components';
+import { Video, MapPin, Info, Star, X } from 'lucide-react';
+import { AccessoriesListEditor, AddChip, Button, Input, Switch, ToggleChip } from '../../../../components';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserBulkPicker } from '../../UserBulkPicker';
 import { ConditionalLogicPanel } from './ConditionalLogicPanel';
 import type { ChecklistItemType } from '../../../../api/checklistDefinitions';
@@ -14,42 +15,28 @@ export interface ItemTypeFieldsProps {
 }
 
 // ─── Shared field primitives ────────────────────────────────────────────────────────────────
-// One label style, one input style, one switch — so every question type's settings read as the
+// One label style, one input style, one switch: so every question type's settings read as the
 // same form rather than a different mini-widget per type.
 
 const LABEL = 'text-[11px] font-display font-medium text-text-muted';
-const INPUT =
-  'h-9 px-3 text-sm font-display bg-surface text-text rounded-lg border border-border tabular-nums ' +
-  'placeholder:text-text-light hover:border-border-hover transition-colors duration-150 ' +
-  'focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20';
+// The shared Input is a tall (h-12) rounded-xl field. These settings sit inside a question card, so
+// they use a compact 36px field (44px on touch) and keep the caption style used by the other labels.
+const INPUT = 'h-11 sm:h-9 rounded-lg px-3 font-display tabular-nums';
+const INPUT_LABEL = 'font-display font-medium tracking-normal px-0';
 
 // Per-question ids: several questions are open at once, so a fixed id ("number-min") made every
 // label focus the first question's input.
 const fid = (draft: ItemDraft, name: string) => `${name}-${draft.key}`;
 
-const Field = ({ id, label, children, className = '' }: { id: string; label: string; children: ReactNode; className?: string }) => (
-  <div className={`flex flex-col gap-1 ${className}`}>
-    <label htmlFor={id} className={LABEL}>{label}</label>
-    {children}
-  </div>
-);
-
-const Switch = ({ checked, onChange, label, hint }: { checked: boolean; onChange: (v: boolean) => void; label: string; hint?: string }) => (
-  <button
-    type="button"
-    role="switch"
-    aria-checked={checked}
-    onClick={() => onChange(!checked)}
-    className="group flex items-center gap-2.5 w-fit text-left cursor-pointer rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
-  >
-    <span className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors duration-200 ${checked ? 'bg-primary-600 dark:bg-primary-400' : 'bg-border group-hover:bg-border-hover'}`}>
-      <span className={`absolute top-0.5 left-0.5 size-4 rounded-full bg-white shadow-sm transition-transform duration-200 ease-out ${checked ? 'translate-x-4' : ''}`} />
-    </span>
-    <span className="flex flex-col">
+// The shared Switch is just the control, so it gets a clickable label (and a 44px touch row) here.
+const SwitchField = ({ id, checked, onChange, label, hint }: { id: string; checked: boolean; onChange: (v: boolean) => void; label: string; hint?: string }) => (
+  <div className="flex items-center gap-2.5 w-fit">
+    <Switch id={id} checked={checked} onChange={onChange} />
+    <label htmlFor={id} className="flex flex-col justify-center min-h-11 sm:min-h-0 cursor-pointer">
       <span className="text-[13px] font-display font-medium text-text">{label}</span>
       {hint && <span className="text-[11px] font-display text-text-muted">{hint}</span>}
-    </span>
-  </button>
+    </label>
+  </div>
 );
 
 const Note = ({ icon: Icon = Info, children }: { icon?: typeof Info; children: ReactNode }) => (
@@ -64,31 +51,34 @@ const Note = ({ icon: Icon = Info, children }: { icon?: typeof Info; children: R
 const PhotoCountFields = ({ draft, onChange, noun }: ItemTypeFieldsProps & { noun: 'photos' | 'videos' }) => (
   <div className="flex flex-col gap-3">
     <div className="flex flex-wrap items-end gap-3">
-      <Field id={fid(draft, 'min')} label={`Minimum ${noun}`}>
-        <input
-          id={fid(draft, 'min')}
-          type="number"
-          inputMode="numeric"
-          min={noun === 'videos' ? 1 : 0}
-          value={draft.requiredImageCount}
-          onChange={(e) => onChange({ requiredImageCount: e.target.value })}
-          className={`w-24 ${INPUT}`}
-        />
-      </Field>
-      <Field id={fid(draft, 'max')} label="Maximum">
-        <input
-          id={fid(draft, 'max')}
-          type="number"
-          inputMode="numeric"
-          min={0}
-          value={draft.maxImageCount}
-          onChange={(e) => onChange({ maxImageCount: e.target.value })}
-          placeholder="No limit"
-          className={`w-24 ${INPUT}`}
-        />
-      </Field>
+      <Input
+        id={fid(draft, 'min')}
+        label={`Minimum ${noun}`}
+        labelClassName={INPUT_LABEL}
+        containerClassName="w-24"
+        className={INPUT}
+        type="number"
+        inputMode="numeric"
+        min={noun === 'videos' ? 1 : 0}
+        value={draft.requiredImageCount}
+        onChange={(e) => onChange({ requiredImageCount: e.target.value })}
+      />
+      <Input
+        id={fid(draft, 'max')}
+        label="Maximum"
+        labelClassName={INPUT_LABEL}
+        containerClassName="w-24"
+        className={INPUT}
+        type="number"
+        inputMode="numeric"
+        min={0}
+        value={draft.maxImageCount}
+        onChange={(e) => onChange({ maxImageCount: e.target.value })}
+        placeholder="No limit"
+      />
     </div>
-    <Switch
+    <SwitchField
+      id={fid(draft, 'live')}
       checked={draft.requiresLivePhoto}
       onChange={(v) => onChange({ requiresLivePhoto: v })}
       label={noun === 'videos' ? 'Record live only' : 'Live camera only'}
@@ -103,13 +93,9 @@ const StandardFields = (props: ItemTypeFieldsProps) => {
   const { draft, onChange } = props;
   if (Number(draft.requiredImageCount) > 0) return <PhotoCountFields {...props} noun="photos" />;
   return (
-    <button
-      type="button"
-      onClick={() => onChange({ requiredImageCount: '1' })}
-      className="inline-flex items-center gap-1.5 w-fit h-8 px-3 rounded-full border border-dashed border-border text-xs font-display font-medium text-text-secondary cursor-pointer transition-colors duration-150 hover:border-primary-400 hover:text-primary-700 dark:hover:text-primary-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
-    >
-      <Camera size={13} /> Also ask for a photo
-    </button>
+    <div className="w-fit">
+      <AddChip onClick={() => onChange({ requiredImageCount: '1' })}>Also ask for a photo</AddChip>
+    </div>
   );
 };
 
@@ -131,9 +117,9 @@ const AuditFields = ({ draft, onChange, storeIds }: ItemTypeFieldsProps) => (
           </span>
         )}
       </div>
-      {/* Same bulk-pick UI as the Assign step — a real-world audit (e.g. a uniform/ID check) often
+      {/* Same bulk-pick UI as the Assign step: a real-world audit (e.g. a uniform/ID check) often
           covers a whole team, not one or two people picked by hand. Whoever's assigned to run this
-          checklist works through everyone picked here themselves — this isn't a list of separate
+          checklist works through everyone picked here themselves; this isn't a list of separate
           self-reporters. */}
       <UserBulkPicker
         storeIds={storeIds ?? []}
@@ -176,50 +162,54 @@ const NumberFields = ({ draft, onChange }: ItemTypeFieldsProps) => {
   return (
     <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:items-end gap-3">
       {isCash && (
-        <Field id={fid(draft, 'expected')} label="Expected amount" className="col-span-2 sm:col-span-1">
-          <input
-            id={fid(draft, 'expected')}
-            type="number"
-            inputMode="decimal"
-            min={0}
-            value={draft.cashExpectedAmount}
-            onChange={(e) => onChange({ cashExpectedAmount: e.target.value })}
-            placeholder="e.g. 5000"
-            className={`w-full sm:w-36 ${INPUT}`}
-          />
-        </Field>
+        <Input
+          id={fid(draft, 'expected')}
+          label="Expected amount"
+          labelClassName={INPUT_LABEL}
+          containerClassName="col-span-2 sm:col-span-1 sm:w-36"
+          className={INPUT}
+          type="number"
+          inputMode="decimal"
+          min={0}
+          value={draft.cashExpectedAmount}
+          onChange={(e) => onChange({ cashExpectedAmount: e.target.value })}
+          placeholder="e.g. 5000"
+        />
       )}
-      <Field id={fid(draft, 'unit')} label="Unit">
-        <input
-          id={fid(draft, 'unit')}
-          value={draft.numberEntryUnit}
-          onChange={(e) => onChange({ numberEntryUnit: e.target.value })}
-          placeholder={isCash ? '₹' : 'kg, °C, pcs'}
-          className={`w-full sm:w-24 ${INPUT}`}
-        />
-      </Field>
-      <Field id={fid(draft, 'nmin')} label="Lowest allowed">
-        <input
-          id={fid(draft, 'nmin')}
-          type="number"
-          inputMode="decimal"
-          value={draft.numberEntryMin}
-          onChange={(e) => onChange({ numberEntryMin: e.target.value })}
-          placeholder="Any"
-          className={`w-full sm:w-28 ${INPUT}`}
-        />
-      </Field>
-      <Field id={fid(draft, 'nmax')} label="Highest allowed">
-        <input
-          id={fid(draft, 'nmax')}
-          type="number"
-          inputMode="decimal"
-          value={draft.numberEntryMax}
-          onChange={(e) => onChange({ numberEntryMax: e.target.value })}
-          placeholder="Any"
-          className={`w-full sm:w-28 ${INPUT}`}
-        />
-      </Field>
+      <Input
+        id={fid(draft, 'unit')}
+        label="Unit"
+        labelClassName={INPUT_LABEL}
+        containerClassName="sm:w-24"
+        className={INPUT}
+        value={draft.numberEntryUnit}
+        onChange={(e) => onChange({ numberEntryUnit: e.target.value })}
+        placeholder={isCash ? '₹' : 'kg, °C, pcs'}
+      />
+      <Input
+        id={fid(draft, 'nmin')}
+        label="Lowest allowed"
+        labelClassName={INPUT_LABEL}
+        containerClassName="sm:w-28"
+        className={INPUT}
+        type="number"
+        inputMode="decimal"
+        value={draft.numberEntryMin}
+        onChange={(e) => onChange({ numberEntryMin: e.target.value })}
+        placeholder="Any"
+      />
+      <Input
+        id={fid(draft, 'nmax')}
+        label="Highest allowed"
+        labelClassName={INPUT_LABEL}
+        containerClassName="sm:w-28"
+        className={INPUT}
+        type="number"
+        inputMode="decimal"
+        value={draft.numberEntryMax}
+        onChange={(e) => onChange({ numberEntryMax: e.target.value })}
+        placeholder="Any"
+      />
       {isCash && (
         <p className="col-span-2 text-[11px] font-display text-text-muted sm:basis-full">
           If the count doesn’t match, staff must give a reason.
@@ -231,30 +221,27 @@ const NumberFields = ({ draft, onChange }: ItemTypeFieldsProps) => {
 
 const RATING_SCALES = ['3', '5', '10'];
 
+// Radix tabs give the radio-style arrow-key behaviour for free; the active segment is a border
+// change rather than the tabs' default drop shadow.
 const RatingFields = ({ draft, onChange }: ItemTypeFieldsProps) => (
-  <div className="flex flex-col gap-1.5">
+  <Tabs value={draft.ratingScale} onValueChange={(ratingScale) => onChange({ ratingScale })} className="w-fit gap-1.5">
     <span className={LABEL}>Out of</span>
-    <div role="radiogroup" aria-label="Rating scale" className="inline-flex w-fit items-center gap-0.5 rounded-full bg-surface-hover p-0.5">
+    <TabsList aria-label="Rating scale" className="rounded-full p-0.5 gap-0.5">
       {RATING_SCALES.map((scale) => {
         const selected = draft.ratingScale === scale;
         return (
-          <button
+          <TabsTrigger
             key={scale}
-            type="button"
-            role="radio"
-            aria-checked={selected}
-            onClick={() => onChange({ ratingScale: scale })}
-            className={`flex items-center gap-1 h-8 px-3.5 rounded-full text-xs font-display font-semibold cursor-pointer transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
-              selected ? 'bg-surface text-text shadow-sm' : 'text-text-muted hover:text-text'
-            }`}
+            value={scale}
+            className="min-h-11 sm:min-h-8 py-0 px-3.5 rounded-full text-xs font-semibold border border-transparent data-[state=active]:border-border data-[state=active]:shadow-none"
           >
-            <Star size={12} className={selected ? 'fill-coral-500 text-coral-500' : ''} />
+            <Star size={12} className={selected ? 'fill-warning text-warning' : ''} />
             {scale}
-          </button>
+          </TabsTrigger>
         );
       })}
-    </div>
-  </div>
+    </TabsList>
+  </Tabs>
 );
 
 const GpsFields = ({ draft, onChange }: ItemTypeFieldsProps) => {
@@ -263,38 +250,62 @@ const GpsFields = ({ draft, onChange }: ItemTypeFieldsProps) => {
     return (
       <div className="flex flex-col gap-2">
         <Note icon={MapPin}>Records where staff are when they answer.</Note>
-        <button
-          type="button"
-          onClick={() => onChange({ gpsRadiusMeters: '100' })}
-          className="inline-flex items-center gap-1.5 w-fit h-8 px-3 rounded-full border border-dashed border-border text-xs font-display font-medium text-text-secondary cursor-pointer transition-colors duration-150 hover:border-primary-400 hover:text-primary-700 dark:hover:text-primary-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
-        >
-          <Plus size={13} /> Only accept near a set spot
-        </button>
+        <div className="w-fit">
+          <AddChip onClick={() => onChange({ gpsRadiusMeters: '100' })}>Only accept near a set spot</AddChip>
+        </div>
       </div>
     );
   }
   return (
     <div className="flex flex-col gap-2.5">
       <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:items-end gap-3">
-        <Field id={fid(draft, 'lat')} label="Latitude">
-          <input id={fid(draft, 'lat')} type="number" step="any" inputMode="decimal" value={draft.gpsTargetLat}
-            onChange={(e) => onChange({ gpsTargetLat: e.target.value })} placeholder="30.9045" className={`w-full sm:w-32 ${INPUT}`} />
-        </Field>
-        <Field id={fid(draft, 'lng')} label="Longitude">
-          <input id={fid(draft, 'lng')} type="number" step="any" inputMode="decimal" value={draft.gpsTargetLng}
-            onChange={(e) => onChange({ gpsTargetLng: e.target.value })} placeholder="77.0967" className={`w-full sm:w-32 ${INPUT}`} />
-        </Field>
-        <Field id={fid(draft, 'radius')} label="Within (metres)">
-          <input id={fid(draft, 'radius')} type="number" min={1} inputMode="numeric" value={draft.gpsRadiusMeters}
-            onChange={(e) => onChange({ gpsRadiusMeters: e.target.value })} placeholder="100" className={`w-full sm:w-28 ${INPUT}`} />
-        </Field>
-        <button
-          type="button"
+        <Input
+          id={fid(draft, 'lat')}
+          label="Latitude"
+          labelClassName={INPUT_LABEL}
+          containerClassName="sm:w-32"
+          className={INPUT}
+          type="number"
+          step="any"
+          inputMode="decimal"
+          value={draft.gpsTargetLat}
+          onChange={(e) => onChange({ gpsTargetLat: e.target.value })}
+          placeholder="30.9045"
+        />
+        <Input
+          id={fid(draft, 'lng')}
+          label="Longitude"
+          labelClassName={INPUT_LABEL}
+          containerClassName="sm:w-32"
+          className={INPUT}
+          type="number"
+          step="any"
+          inputMode="decimal"
+          value={draft.gpsTargetLng}
+          onChange={(e) => onChange({ gpsTargetLng: e.target.value })}
+          placeholder="77.0967"
+        />
+        <Input
+          id={fid(draft, 'radius')}
+          label="Within (metres)"
+          labelClassName={INPUT_LABEL}
+          containerClassName="sm:w-28"
+          className={INPUT}
+          type="number"
+          min={1}
+          inputMode="numeric"
+          value={draft.gpsRadiusMeters}
+          onChange={(e) => onChange({ gpsRadiusMeters: e.target.value })}
+          placeholder="100"
+        />
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => onChange({ gpsTargetLat: '', gpsTargetLng: '', gpsRadiusMeters: '' })}
-          className="self-end inline-flex items-center gap-1 h-9 px-2.5 rounded-lg text-xs font-display font-medium text-text-muted cursor-pointer hover:text-danger hover:bg-danger/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+          className="self-end col-span-2 sm:col-span-1 hover:text-danger hover:bg-danger/10"
         >
           <X size={13} /> Remove spot
-        </button>
+        </Button>
       </div>
       <Note icon={MapPin}>Tip: open the store in Google Maps, long-press it and copy the two numbers.</Note>
     </div>
@@ -302,15 +313,16 @@ const GpsFields = ({ draft, onChange }: ItemTypeFieldsProps) => {
 };
 
 const QrFields = ({ draft, onChange }: ItemTypeFieldsProps) => (
-  <Field id={fid(draft, 'qr')} label="Code it must match (optional)">
-    <input
-      id={fid(draft, 'qr')}
-      value={draft.qrExpectedValue}
-      onChange={(e) => onChange({ qrExpectedValue: e.target.value })}
-      placeholder="Leave blank to accept any code"
-      className={`w-full sm:max-w-sm ${INPUT}`}
-    />
-  </Field>
+  <Input
+    id={fid(draft, 'qr')}
+    label="Code it must match (optional)"
+    labelClassName={INPUT_LABEL}
+    containerClassName="sm:max-w-sm"
+    className={INPUT}
+    value={draft.qrExpectedValue}
+    onChange={(e) => onChange({ qrExpectedValue: e.target.value })}
+    placeholder="Leave blank to accept any code"
+  />
 );
 
 const OptionsFields = ({ draft, onChange }: ItemTypeFieldsProps) => (
@@ -339,18 +351,6 @@ const ConditionalFields = ({ draft, onChange }: ItemTypeFieldsProps) => {
 // What counts as a GOOD answer. Scored into the checklist's compliance %, separately from whether
 // the question was completed. Left empty, the question simply isn't scored.
 
-const CHIP =
-  'inline-flex items-center h-8 px-3 rounded-full border text-xs font-display font-medium cursor-pointer transition-colors duration-150 ' +
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40';
-const chipTone = (on: boolean) =>
-  on
-    ? 'border-success/40 bg-success/10 text-success'
-    : 'border-border bg-surface text-text-secondary hover:border-border-hover hover:text-text';
-
-const Chip = ({ on, onClick, children }: { on: boolean; onClick: () => void; children: ReactNode }) => (
-  <button type="button" aria-pressed={on} onClick={onClick} className={`${CHIP} ${chipTone(on)}`}>{children}</button>
-);
-
 const AcceptableFields = ({ draft, onChange }: ItemTypeFieldsProps) => {
   const { itemType, acceptableAnswers: accepted } = draft;
   let body: ReactNode;
@@ -360,9 +360,9 @@ const AcceptableFields = ({ draft, onChange }: ItemTypeFieldsProps) => {
     const pick = (v: 'YES' | 'NO') => onChange({ acceptableAnswers: accepted[0] === v ? [] : [v] });
     body = (
       <div className="flex flex-wrap gap-2">
-        <Chip on={accepted.length === 0} onClick={() => onChange({ acceptableAnswers: [] })}>Not scored</Chip>
-        <Chip on={accepted[0] === 'YES'} onClick={() => pick('YES')}>{yes} is good</Chip>
-        <Chip on={accepted[0] === 'NO'} onClick={() => pick('NO')}>{no} is good</Chip>
+        <ToggleChip tone="good" on={accepted.length === 0} onClick={() => onChange({ acceptableAnswers: [] })}>Not scored</ToggleChip>
+        <ToggleChip tone="good" on={accepted[0] === 'YES'} onClick={() => pick('YES')}>{yes} is good</ToggleChip>
+        <ToggleChip tone="good" on={accepted[0] === 'NO'} onClick={() => pick('NO')}>{no} is good</ToggleChip>
       </div>
     );
   } else if (itemType === 'MULTIPLE_CHOICE' || itemType === 'DROPDOWN') {
@@ -371,20 +371,36 @@ const AcceptableFields = ({ draft, onChange }: ItemTypeFieldsProps) => {
       onChange({ acceptableAnswers: accepted.includes(o) ? accepted.filter(a => a !== o) : [...accepted, o] });
     body = (
       <div className="flex flex-wrap gap-2">
-        {draft.options.map(o => <Chip key={o} on={accepted.includes(o)} onClick={() => toggle(o)}>{o}</Chip>)}
+        {draft.options.map(o => <ToggleChip key={o} tone="good" on={accepted.includes(o)} onClick={() => toggle(o)}>{o}</ToggleChip>)}
       </div>
     );
   } else if (itemType === 'NUMBER_ENTRY' || itemType === 'RATING') {
     body = (
       <div className="flex flex-wrap items-end gap-3">
-        <Field id={fid(draft, 'good-min')} label={itemType === 'RATING' ? 'Good from (stars)' : 'Good from'}>
-          <input id={fid(draft, 'good-min')} type="number" inputMode="decimal" value={draft.acceptableMin}
-            onChange={(e) => onChange({ acceptableMin: e.target.value })} placeholder="Any" className={`w-28 ${INPUT}`} />
-        </Field>
-        <Field id={fid(draft, 'good-max')} label="Good up to">
-          <input id={fid(draft, 'good-max')} type="number" inputMode="decimal" value={draft.acceptableMax}
-            onChange={(e) => onChange({ acceptableMax: e.target.value })} placeholder="Any" className={`w-28 ${INPUT}`} />
-        </Field>
+        <Input
+          id={fid(draft, 'good-min')}
+          label={itemType === 'RATING' ? 'Good from (stars)' : 'Good from'}
+          labelClassName={INPUT_LABEL}
+          containerClassName="w-28"
+          className={INPUT}
+          type="number"
+          inputMode="decimal"
+          value={draft.acceptableMin}
+          onChange={(e) => onChange({ acceptableMin: e.target.value })}
+          placeholder="Any"
+        />
+        <Input
+          id={fid(draft, 'good-max')}
+          label="Good up to"
+          labelClassName={INPUT_LABEL}
+          containerClassName="w-28"
+          className={INPUT}
+          type="number"
+          inputMode="decimal"
+          value={draft.acceptableMax}
+          onChange={(e) => onChange({ acceptableMax: e.target.value })}
+          placeholder="Any"
+        />
       </div>
     );
   } else {
@@ -392,7 +408,7 @@ const AcceptableFields = ({ draft, onChange }: ItemTypeFieldsProps) => {
   }
 
   return (
-    <div className="flex flex-col gap-2 pt-3 mt-1 border-t border-border/50">
+    <div className="flex flex-col gap-2 pt-3 border-t border-border/50">
       <span className={LABEL}>Good answer (for the compliance %)</span>
       {body}
       <Note>Not applicable answers are never scored. Leave it unscored if any answer is fine.</Note>
@@ -419,7 +435,7 @@ const FIELDS_BY_TYPE: Partial<Record<ChecklistItemType, FieldRenderer>> = {
   YES_NO: ConditionalFields,
   PASS_FAIL: ConditionalFields,
   SIGNATURE: note('Staff sign on the screen.'),
-  DUAL_SIGNATURE: note('Two people sign on the screen — usually the employee, then the supervisor.'),
+  DUAL_SIGNATURE: note('Two people sign on the screen, usually the employee and then the supervisor.'),
   TEXT_BOX: note('Staff type a short answer.'),
   DATE_TIME: note('Staff pick a date and time.'),
 };
@@ -429,13 +445,13 @@ export const ItemTypeConfigFields = (props: ItemTypeFieldsProps) => {
   return Renderer ? <>{Renderer(props)}<AcceptableFields {...props} /></> : null;
 };
 
-// The exports below are colocated with the component like ui/badge.tsx's own badgeVariants export —
+// The exports below are colocated with the component like ui/badge.tsx's own badgeVariants export;
 // only affects Fast Refresh granularity (a full reload instead of a hot-swap when this file
 // changes), not runtime correctness.
 const PHOTO_TYPES: ItemDraft['itemType'][] = ['STANDARD', 'VIDEO_UPLOAD', 'AUDIT'];
 const num = (v: string) => (v.trim() === '' ? null : Number(v));
 
-// What's wrong with this question, in words an admin can act on — or null when it's ready. Mirrors
+// What's wrong with this question, in words an admin can act on, or null when it's ready. Mirrors
 // the server's zod rules (checklistDefinition.validation.ts) so a bad setting is caught on the
 // question itself instead of as a generic error at the final Save.
 // eslint-disable-next-line react-refresh/only-export-components
@@ -447,7 +463,7 @@ export const itemDraftProblem = (draft: ItemDraft): string | null => {
     const min = num(draft.requiredImageCount) ?? 0;
     const max = num(draft.maxImageCount);
     if (draft.itemType === 'VIDEO_UPLOAD' && min < 1) return 'A video question needs at least 1 video.';
-    if (max != null && min > max) return "Minimum can't be more than the maximum — staff could never finish it.";
+    if (max != null && min > max) return "Minimum can't be more than the maximum, or staff could never finish it.";
   }
   if (draft.itemType === 'NUMBER_ENTRY' || draft.itemType === 'CASH_TALLY') {
     const min = num(draft.numberEntryMin);
@@ -477,7 +493,7 @@ export const itemDraftProblem = (draft: ItemDraft): string | null => {
 // eslint-disable-next-line react-refresh/only-export-components
 export const isItemDraftComplete = (draft: ItemDraft): boolean => itemDraftProblem(draft) === null;
 
-// Switching an item's type used to change only `itemType`, carrying every other setting along —
+// Switching an item's type used to change only `itemType`, carrying every other setting along,
 // e.g. a Photo item switched to Text box still required 1 photo, with no upload button shown to
 // staff, so it could never be completed. This resets whatever the new type can't use.
 // eslint-disable-next-line react-refresh/only-export-components

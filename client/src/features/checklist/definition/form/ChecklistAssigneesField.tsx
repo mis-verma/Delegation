@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { Link } from 'react-router';
 import { Users, UserCheck } from 'lucide-react';
 import { UserBulkPicker } from '../../UserBulkPicker';
@@ -18,14 +19,16 @@ export const ChecklistAssigneesField = ({
   onChange,
   className = '',
 }: ChecklistAssigneesFieldProps) => {
+  const labelId = useId();
   return (
-    <div className={`flex flex-col gap-1.5 w-full ${className}`}>
+    <div role="group" aria-labelledby={labelId} className={`flex flex-col gap-1.5 w-full ${className}`}>
       {/* Field Header & Count Badge */}
       <div className="flex items-center justify-between gap-2">
-        <label className={`${LABEL_CLASS} flex items-center gap-1.5 cursor-pointer`}>
+        {/* A caption for the checkbox list below, not a label for one control, so a span. */}
+        <span id={labelId} className={LABEL_CLASS}>
           <Users size={14} className="text-text-muted shrink-0" />
           <span>Assigned Users</span>
-        </label>
+        </span>
 
         {selected.length > 0 && (
           <span className="text-[11px] font-display font-medium text-text-muted flex items-center gap-1">

@@ -1,6 +1,7 @@
-import { useRef, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { UploadCloud, FileSpreadsheet, AlertCircle, X, ChevronLeft, PartyPopper } from 'lucide-react';
-import { Modal, Button, DatePicker, TimePicker, Combobox } from '../../../../components';
+import { Modal, Button, DatePicker, TimePicker, Combobox, InlineError, NoticeBanner } from '../../../../components';
+import { cn } from '@/lib/utils';
 import {
   useChecklistBulkImportPreviewMutation,
   useChecklistBulkImportPublishMutation,
@@ -26,6 +27,8 @@ type ReviewRow = {
   excluded: boolean;
 };
 
+type Option = { value: string; label: string };
+
 const ACCEPTED_EXTENSIONS = '.csv,.xlsx,.xls,.pdf';
 
 // Empty = must fix before continuing (danger ring). Fuzzy = auto-matched, worth a second look
@@ -40,13 +43,83 @@ const pad2 = (n: number) => String(n).padStart(2, '0');
 const toDateStr = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 const parseDateStr = (v: string) => (v ? new Date(`${v}T00:00:00`) : null);
 
+const TH_CLASS = 'text-left font-display font-semibold text-text-muted text-[11px] px-3 py-2';
+
+interface ReviewRowViewProps {
+  row: ReviewRow;
+  checklistOptions: Option[];
+  storeOptions: Option[];
+  userOptions: Option[];
+  onChange: (rowIndex: number, patch: Partial<ReviewRow>) => void;
+}
+
+// One row of the review table. Memoized, and fed only stable props (`onChange` is a useCallback,
+// untouched rows keep their object identity through updateRow), so editing one row re-renders that
+// row's three Comboboxes and nothing else.
+const ReviewRowView = memo(function ReviewRowView({ row, checklistOptions, storeOptions, userOptions, onChange }: ReviewRowViewProps) {
+  const { rowIndex } = row;
+  const rowNumber = rowIndex + 1;
+  return (
+    <tr className={cn('border-b border-border/60 last:border-b-0', row.excluded && 'opacity-40')}>
+      <td className="px-3 py-2 align-top">
+        <label htmlFor={`bulk-row-${rowIndex}-checklist`} className="sr-only">Checklist for row {rowNumber}</label>
+        <Combobox
+          id={`bulk-row-${rowIndex}-checklist`}
+          value={row.checklistDefinitionId}
+          onChange={(v) => onChange(rowIndex, { checklistDefinitionId: v, checklistConfidence: 'exact' })}
+          options={checklistOptions}
+          placeholder={row.raw.checklistName || 'Select checklist'}
+          disabled={row.excluded}
+          className={fieldRing(row.checklistDefinitionId, row.checklistConfidence)}
+        />
+      </td>
+      <td className="px-3 py-2 align-top">
+        <label htmlFor={`bulk-row-${rowIndex}-store`} className="sr-only">Store for row {rowNumber}</label>
+        <Combobox
+          id={`bulk-row-${rowIndex}-store`}
+          value={row.storeId}
+          onChange={(v) => onChange(rowIndex, { storeId: v, storeConfidence: 'exact' })}
+          options={storeOptions}
+          placeholder={row.raw.storeName || 'Select store'}
+          disabled={row.excluded}
+          className={fieldRing(row.storeId, row.storeConfidence)}
+        />
+      </td>
+      <td className="px-3 py-2 align-top">
+        <label htmlFor={`bulk-row-${rowIndex}-person`} className="sr-only">Person for row {rowNumber}</label>
+        <Combobox
+          id={`bulk-row-${rowIndex}-person`}
+          value={row.userId}
+          onChange={(v) => onChange(rowIndex, { userId: v, userConfidence: 'exact' })}
+          options={userOptions}
+          placeholder={row.raw.personName || 'Select person'}
+          disabled={row.excluded}
+          className={fieldRing(row.userId, row.userConfidence)}
+        />
+      </td>
+      <td className="px-3 py-2 align-top text-center">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-8 pointer-coarse:w-11 px-0 hover:text-danger hover:bg-danger/10"
+          onClick={() => onChange(rowIndex, { excluded: !row.excluded })}
+          title={row.excluded ? 'Include row' : 'Exclude row'}
+          aria-label={row.excluded ? `Include row ${rowNumber}` : `Exclude row ${rowNumber}`}
+        >
+          <X size={14} />
+        </Button>
+      </td>
+    </tr>
+  );
+});
+
 export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportModalProps) => {
   const [step, setStep] = useState<Step>('upload');
   const [dragOver, setDragOver] = useState(false);
   const [rows, setRows] = useState<ReviewRow[]>([]);
-  const [checklistOptions, setChecklistOptions] = useState<{ value: string; label: string }[]>([]);
-  const [storeOptions, setStoreOptions] = useState<{ value: string; label: string }[]>([]);
-  const [userOptions, setUserOptions] = useState<{ value: string; label: string }[]>([]);
+  const [checklistOptions, setChecklistOptions] = useState<Option[]>([]);
+  const [storeOptions, setStoreOptions] = useState<Option[]>([]);
+  const [userOptions, setUserOptions] = useState<Option[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [startDate, setStartDate] = useState('');
   const [opensTime, setOpensTime] = useState('');
@@ -65,6 +138,9 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
     setOpensTime('');
     setCutoffTime('');
     setSummary(null);
+    // Otherwise a failed upload's error banner would greet the next time the modal opens.
+    previewMutation.reset();
+    publishMutation.reset();
   };
 
   const handleClose = () => {
@@ -102,12 +178,17 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
     if (file) handleFile(file);
   };
 
-  const includedRows = rows.filter((r) => !r.excluded);
-  const unresolvedCount = includedRows.filter((r) => !r.checklistDefinitionId || !r.storeId || !r.userId).length;
+  const includedRows = useMemo(() => rows.filter((r) => !r.excluded), [rows]);
+  const unresolvedCount = useMemo(
+    () => includedRows.filter((r) => !r.checklistDefinitionId || !r.storeId || !r.userId).length,
+    [includedRows],
+  );
   const canContinueFromReview = includedRows.length > 0 && unresolvedCount === 0;
 
-  const updateRow = (rowIndex: number, patch: Partial<ReviewRow>) =>
+  // Functional update + untouched rows keep their identity, so memoized ReviewRowViews skip re-rendering.
+  const updateRow = useCallback((rowIndex: number, patch: Partial<ReviewRow>) => {
     setRows((prev) => prev.map((r) => (r.rowIndex === rowIndex ? { ...r, ...patch } : r)));
+  }, []);
 
   const handlePublish = () => {
     publishMutation.mutate(
@@ -140,7 +221,7 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
                 <p className="text-[11px] font-display text-warning flex items-center gap-1">
                   <AlertCircle size={12} className="shrink-0" />
                   {includedRows.length === 0
-                    ? "You've excluded every row — include at least one to continue."
+                    ? "You've excluded every row. Include at least one to continue."
                     : `Match a checklist, store, and person for ${unresolvedCount} more row${unresolvedCount === 1 ? '' : 's'} to continue.`}
                 </p>
               )}
@@ -165,54 +246,54 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
     >
       {step === 'upload' && (
         <div className="flex flex-col gap-3">
-        {previewMutation.isError && (
-          <div role="alert" className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-danger/10 text-danger text-xs font-display">
-            <AlertCircle size={14} className="shrink-0" />
-            {previewMutation.error instanceof Error ? previewMutation.error.message : "We couldn't read that file — make sure it has the right columns and try again."}
-          </div>
-        )}
-        <label
-          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={onDrop}
-          className={`flex flex-col items-center justify-center gap-3 py-14 px-6 rounded-xl border-2 border-dashed cursor-pointer text-center transition-colors ${
-            dragOver ? 'border-primary-500 bg-primary-500/5' : 'border-border/80 hover:border-primary-400'
-          } ${previewMutation.isPending ? 'pointer-events-none opacity-60' : ''}`}
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept={ACCEPTED_EXTENSIONS}
-            className="sr-only"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
-          />
-          <span className="flex items-center justify-center size-12 rounded-2xl bg-muted/60 text-text-muted border border-border/60">
-            <FileSpreadsheet className="size-6" />
-          </span>
-          <div>
-            <p className="text-sm font-display font-semibold text-text">
-              {previewMutation.isPending ? 'Reading file…' : 'Drop a file here, or click to browse'}
-            </p>
-            <p className="text-xs font-display text-text-muted mt-1">
-              CSV or Excel works best · PDFs are okay too, but less reliable
-            </p>
-            <p className="text-[11px] font-display text-text-light mt-2">
-              Your file should have columns for Checklist Name, Store, and Person (email or name). Department is optional and just for reference.
-            </p>
-          </div>
-        </label>
+          {previewMutation.isError && (
+            <InlineError
+              message={previewMutation.error instanceof Error ? previewMutation.error.message : "We couldn't read that file. Make sure it has the right columns and try again."}
+            />
+          )}
+          <label
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={onDrop}
+            className={cn(
+              'flex flex-col items-center justify-center gap-3 py-14 px-6 rounded-2xl border-2 border-dashed cursor-pointer text-center transition-colors',
+              dragOver ? 'border-primary-500 bg-primary-500/5' : 'border-border/80 hover:border-primary-400',
+              previewMutation.isPending && 'pointer-events-none opacity-60',
+            )}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={ACCEPTED_EXTENSIONS}
+              className="sr-only"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
+            />
+            <span className="flex items-center justify-center size-12 rounded-xl bg-muted/60 text-text-muted border border-border/60">
+              <FileSpreadsheet className="size-6" />
+            </span>
+            <div className="flex flex-col gap-1.5">
+              <p className="text-sm font-display font-semibold text-text">
+                {previewMutation.isPending ? 'Reading file…' : 'Drop a file here, or click to browse'}
+              </p>
+              <p className="text-xs font-display text-text-muted">
+                CSV or Excel works best · PDFs are okay too, but less reliable
+              </p>
+              <p className="text-[11px] font-display text-text-light">
+                Your file should have columns for Checklist Name, Store, and Person (email or name). Department is optional and just for reference.
+              </p>
+            </div>
+          </label>
         </div>
       )}
 
       {step === 'review' && (
         <div className="flex flex-col gap-3">
           {warnings.length > 0 && (
-            <div className="flex items-start gap-2.5 p-3 rounded-lg border border-warning/30 bg-warning/10 text-xs font-display text-warning">
-              <AlertCircle size={14} className="shrink-0 mt-0.5" />
+            <NoticeBanner tone="warning" icon={AlertCircle}>
               <div className="flex flex-col gap-0.5">
                 {warnings.map((w, i) => <span key={i}>{w}</span>)}
               </div>
-            </div>
+            </NoticeBanner>
           )}
 
           <p className="text-xs font-display text-text-muted">
@@ -223,57 +304,22 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/30">
-                  <th className="text-left font-display font-semibold text-text-muted text-[11px] px-3 py-2">Checklist</th>
-                  <th className="text-left font-display font-semibold text-text-muted text-[11px] px-3 py-2">Store</th>
-                  <th className="text-left font-display font-semibold text-text-muted text-[11px] px-3 py-2">Person</th>
-                  <th className="w-10" />
+                  <th className={TH_CLASS}>Checklist</th>
+                  <th className={TH_CLASS}>Store</th>
+                  <th className={TH_CLASS}>Person</th>
+                  <th className="w-10"><span className="sr-only">Include or exclude</span></th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.rowIndex} className={`border-b border-border/60 last:border-b-0 ${row.excluded ? 'opacity-40' : ''}`}>
-                    <td className="px-3 py-2 align-top">
-                      <Combobox
-                        value={row.checklistDefinitionId}
-                        onChange={(v) => updateRow(row.rowIndex, { checklistDefinitionId: v, checklistConfidence: 'exact' })}
-                        options={checklistOptions}
-                        placeholder={row.raw.checklistName || 'Select checklist'}
-                        disabled={row.excluded}
-                        className={fieldRing(row.checklistDefinitionId, row.checklistConfidence)}
-                      />
-                    </td>
-                    <td className="px-3 py-2 align-top">
-                      <Combobox
-                        value={row.storeId}
-                        onChange={(v) => updateRow(row.rowIndex, { storeId: v, storeConfidence: 'exact' })}
-                        options={storeOptions}
-                        placeholder={row.raw.storeName || 'Select store'}
-                        disabled={row.excluded}
-                        className={fieldRing(row.storeId, row.storeConfidence)}
-                      />
-                    </td>
-                    <td className="px-3 py-2 align-top">
-                      <Combobox
-                        value={row.userId}
-                        onChange={(v) => updateRow(row.rowIndex, { userId: v, userConfidence: 'exact' })}
-                        options={userOptions}
-                        placeholder={row.raw.personName || 'Select person'}
-                        disabled={row.excluded}
-                        className={fieldRing(row.userId, row.userConfidence)}
-                      />
-                    </td>
-                    <td className="px-3 py-2 align-top text-center">
-                      <button
-                        type="button"
-                        onClick={() => updateRow(row.rowIndex, { excluded: !row.excluded })}
-                        title={row.excluded ? 'Include row' : 'Exclude row'}
-                        aria-label={row.excluded ? 'Include row' : 'Exclude row'}
-                        className="p-1.5 rounded-md text-text-light hover:text-danger hover:bg-danger/10 transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
-                      >
-                        <X size={14} />
-                      </button>
-                    </td>
-                  </tr>
+                  <ReviewRowView
+                    key={row.rowIndex}
+                    row={row}
+                    checklistOptions={checklistOptions}
+                    storeOptions={storeOptions}
+                    userOptions={userOptions}
+                    onChange={updateRow}
+                  />
                 ))}
               </tbody>
             </table>
@@ -284,29 +330,28 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
       {step === 'schedule' && (
         <div className="flex flex-col gap-4">
           {publishMutation.isError && (
-            <div role="alert" className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-danger/10 text-danger text-xs font-display">
-              <AlertCircle size={14} className="shrink-0" />
-              {publishMutation.error instanceof Error ? publishMutation.error.message : "Couldn't publish this batch — try again."}
-            </div>
+            <InlineError
+              message={publishMutation.error instanceof Error ? publishMutation.error.message : "Couldn't publish this batch. Try again."}
+            />
           )}
 
           <p className="text-xs font-display text-text-muted">
-            Optional — leave blank to keep each checklist's own existing schedule. Set these to apply one shared start date/time window across every checklist touched by this batch.
+            Optional. Leave these blank to keep each checklist's own schedule. Set them to apply one shared start date and time window to every checklist in this batch.
           </p>
 
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-display font-semibold text-text px-1">Effective Start Date</label>
-            <DatePicker value={parseDateStr(startDate)} onChange={(d) => setStartDate(d ? toDateStr(d) : '')} placeholder="Keep existing" triggerClassName="h-12 rounded-xl px-4" />
+          <div role="group" aria-labelledby="bulk-start-date-label" className="flex flex-col gap-1.5">
+            <span id="bulk-start-date-label" className="text-xs font-display font-semibold text-text px-1">Effective Start Date</span>
+            <DatePicker value={parseDateStr(startDate)} onChange={(d) => setStartDate(d ? toDateStr(d) : '')} placeholder="Keep existing" triggerClassName="h-11 rounded-xl px-4" />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-display font-semibold text-text-muted px-1">Available From (Opens)</label>
-              <TimePicker value={opensTime} onChange={setOpensTime} placeholder="Keep existing" triggerClassName="h-12 rounded-xl px-4" />
+            <div role="group" aria-labelledby="bulk-opens-label" className="flex flex-col gap-1.5">
+              <span id="bulk-opens-label" className="text-[11px] font-display font-semibold text-text-muted px-1">Available From (Opens)</span>
+              <TimePicker value={opensTime} onChange={setOpensTime} placeholder="Keep existing" />
             </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-display font-semibold text-text-muted px-1">Cut-off By (Closes)</label>
-              <TimePicker value={cutoffTime} onChange={setCutoffTime} placeholder="Keep existing" triggerClassName="h-12 rounded-xl px-4" />
+            <div role="group" aria-labelledby="bulk-cutoff-label" className="flex flex-col gap-1.5">
+              <span id="bulk-cutoff-label" className="text-[11px] font-display font-semibold text-text-muted px-1">Cut-off By (Closes)</span>
+              <TimePicker value={cutoffTime} onChange={setCutoffTime} placeholder="Keep existing" />
             </div>
           </div>
         </div>
@@ -314,7 +359,7 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
 
       {step === 'done' && summary && (
         <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
-          <span className="flex items-center justify-center size-12 rounded-2xl bg-success/10 text-success border border-success/20">
+          <span className="flex items-center justify-center size-12 rounded-xl bg-success/10 text-success border border-success/20">
             <PartyPopper className="size-6" />
           </span>
           <p className="text-sm font-display font-semibold text-text">All set!</p>
@@ -325,8 +370,8 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
           </p>
 
           {summary.failed.length > 0 && (
-            <div className="w-full max-w-sm text-left mt-2">
-              <p className="text-xs font-display font-semibold text-danger flex items-center gap-1.5 mb-1.5">
+            <div className="flex flex-col gap-1.5 w-full max-w-sm text-left">
+              <p className="text-xs font-display font-semibold text-danger flex items-center gap-1.5">
                 <AlertCircle size={13} /> {summary.failed.length} checklist{summary.failed.length === 1 ? '' : 's'} failed
               </p>
               <ul className="flex flex-col gap-1 text-[11px] font-display text-text-muted max-h-32 overflow-y-auto">

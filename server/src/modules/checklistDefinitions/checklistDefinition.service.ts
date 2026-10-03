@@ -7,6 +7,7 @@ import {
     checklistDefinitionItems,
     checklistDefinitionItemAuditUsers,
     users,
+    departments,
     type CHECKLIST_RECURRENCES,
 } from "../../db/schema/index.js"
 import { eq, and, asc, inArray, notInArray, isNull, sql } from "drizzle-orm"
@@ -157,6 +158,17 @@ const hydrateDefinitions = async (definitionRows: (typeof checklistDefinitions.$
         assigneeIdsByDefinition.set(link.definitionId, list)
     }
 
+    // The departments the checklist's people belong to: shown on the card so it is clear which teams
+    // it is for. Derived from the assignees, not stored, so it can never drift from who is assigned.
+    const assigneeIdList = [...new Set(assigneeLinks.map((l) => l.userId))]
+    const assigneeDepartments = assigneeIdList.length
+        ? await db.select({ userId: users.id, departmentName: departments.name })
+            .from(users)
+            .innerJoin(departments, eq(departments.id, users.departmentId))
+            .where(inArray(users.id, assigneeIdList))
+        : []
+    const departmentByUser = new Map(assigneeDepartments.map((r) => [r.userId, r.departmentName]))
+
     const reviewerLinks = await db.select().from(checklistDefinitionReviewers).where(inArray(checklistDefinitionReviewers.definitionId, definitionIds))
     const reviewerIdsByDefinition = new Map<string, string[]>()
     for (const link of reviewerLinks) {
@@ -187,6 +199,7 @@ const hydrateDefinitions = async (definitionRows: (typeof checklistDefinitions.$
         ...definition,
         storeIds: storeIdsByDefinition.get(definition.id) ?? [],
         assigneeIds: assigneeIdsByDefinition.get(definition.id) ?? [],
+        departmentNames: [...new Set((assigneeIdsByDefinition.get(definition.id) ?? []).map((id) => departmentByUser.get(id)).filter((n): n is string => !!n))].sort((a, b) => a.localeCompare(b)),
         reviewerIds: reviewerIdsByDefinition.get(definition.id) ?? [],
         items: itemsByDefinition.get(definition.id) ?? [],
         currentRate: stats.get(definition.id)?.currentRate ?? null,

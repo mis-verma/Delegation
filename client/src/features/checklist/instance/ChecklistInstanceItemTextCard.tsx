@@ -1,7 +1,10 @@
-import { useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { memo, useId, useState } from 'react';
 import { useSetChecklistInstanceItemDoneMutation } from '../hook';
+import { Input } from '../../../components';
 import { ChecklistItemCardHeader } from './ChecklistItemCardHeader';
+import { ItemCardShell } from './ItemCardShell';
+import { ItemError } from './ItemError';
+import { ItemActionButton } from './ItemActionButton';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 
 interface ChecklistInstanceItemTextCardProps {
@@ -11,14 +14,15 @@ interface ChecklistInstanceItemTextCardProps {
   isLocked:   boolean;
 }
 
-export const ChecklistInstanceItemTextCard = ({ item, instanceId, canWork, isLocked }: ChecklistInstanceItemTextCardProps) => {
+export const ChecklistInstanceItemTextCard = memo(function ChecklistInstanceItemTextCard({ item, instanceId, canWork, isLocked }: ChecklistInstanceItemTextCardProps) {
+  const inputId = useId();
   const setItemDone = useSetChecklistInstanceItemDoneMutation(instanceId);
   const [draft, setDraft] = useState(item.textValue ?? '');
   const interactive = canWork && !isLocked;
   const canSubmit = interactive && draft.trim().length > 0;
 
   return (
-    <div className={`flex flex-col gap-3 p-3.5 sm:p-4 rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface ${isLocked ? 'opacity-75' : ''}`}>
+    <ItemCardShell isLocked={isLocked}>
       <ChecklistItemCardHeader
         item={item}
         interactive={interactive}
@@ -36,33 +40,33 @@ export const ChecklistInstanceItemTextCard = ({ item, instanceId, canWork, isLoc
 
       {interactive && (
         <div className="flex flex-col gap-2">
-          {setItemDone.isError && (
-            <p className="text-xs text-danger">
-              {setItemDone.error instanceof Error ? setItemDone.error.message : "Couldn't save that answer."}
-            </p>
-          )}
+          <ItemError error={setItemDone.error} fallback="Couldn't save that answer." />
 
           <div className="flex items-center gap-2">
-            <input
+            <Input
+              id={inputId}
+              label="Answer"
+              labelClassName="sr-only"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               disabled={item.isDone}
               placeholder="Type an answer…"
-              className="flex-1 px-2.5 py-1.5 text-sm font-display bg-surface text-text rounded-md border border-border focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all disabled:opacity-60"
+              containerClassName="flex-1 min-w-0"
+              className="h-11 sm:h-9 rounded-lg"
             />
             {!item.isDone && (
-              <button
+              <ItemActionButton
+                className="shrink-0"
                 onClick={() => canSubmit && setItemDone.mutate({ itemId: item.id, isDone: true, textValue: draft.trim() })}
-                disabled={!canSubmit || setItemDone.isPending}
-                className="flex items-center gap-1.5 text-xs font-display font-medium px-2.5 py-1.5 rounded-md border border-primary-500/50 text-primary-600 hover:bg-primary-500/10 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                disabled={!canSubmit}
+                isLoading={setItemDone.isPending}
               >
-                {setItemDone.isPending && <Loader2 size={12} className="animate-spin" />}
                 Save
-              </button>
+              </ItemActionButton>
             )}
           </div>
         </div>
       )}
-    </div>
+    </ItemCardShell>
   );
-};
+});

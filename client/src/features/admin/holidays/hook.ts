@@ -1,4 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback } from 'react';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useAuth } from '../../../context/AuthContext';
 import { holidayApi, type NewHoliday } from '../../../api/holidays';
@@ -14,6 +15,8 @@ export const useHolidaysQuery = (year: number) => {
     queryFn: () => holidayApi.getByYear(year).then(r => r.data),
     enabled: !!token,
     retry: handleQueryRetry,
+    // Stepping to another year keeps the current list on screen (dimmed) instead of flashing skeletons.
+    placeholderData: keepPreviousData,
   });
 };
 
@@ -21,11 +24,11 @@ export const useHolidaysQuery = (year: number) => {
 // reload along with the holiday list.
 const useRefreshAfterChange = () => {
   const queryClient = useQueryClient();
-  return () => {
+  return useCallback(() => {
     queryClient.invalidateQueries({ queryKey: KEY });
     queryClient.invalidateQueries({ queryKey: ['checklist-instances'] });
     queryClient.invalidateQueries({ queryKey: ['checklist-definitions'] });
-  };
+  }, [queryClient]);
 };
 
 const runsNote = (removed: number) =>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { AddQuestionModal } from './AddQuestionModal';
 import { QUESTION_TYPES, QUESTION_GROUPS, GROUP_TILE, type QuestionTypeEntry } from './questionTypes';
@@ -18,7 +18,7 @@ interface QuestionTypePaletteProps {
 // Every question type as a tappable tile, grouped (Answers / Proof & signatures / Verification).
 // Two columns everywhere: in the desktop sidebar it keeps all 17 types on one screen, and on a
 // phone it replaces what used to be a 17-row list pushing the questions off screen.
-export const QuestionTypePalette = ({ onAdd, storeIds }: QuestionTypePaletteProps) => {
+export const QuestionTypePalette = memo(function QuestionTypePalette({ onAdd, storeIds }: QuestionTypePaletteProps) {
   const [active, setActive] = useState<QuestionTypeEntry | null>(null);
 
   return (
@@ -40,7 +40,7 @@ export const QuestionTypePalette = ({ onAdd, storeIds }: QuestionTypePaletteProp
                   type="button"
                   onClick={() => setActive(entry)}
                   aria-label={`Add a ${entry.label} question`}
-                  className="flex items-center gap-2 min-h-11 pl-1.5 pr-1.5 py-1.5 rounded-xl border border-transparent text-left text-[13px] font-display font-medium text-text-secondary cursor-pointer transition-all duration-150 hover:bg-surface-hover hover:border-border hover:text-text active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+                  className="flex items-center gap-2 min-h-11 pl-1.5 pr-1.5 py-1.5 rounded-lg border border-transparent text-left text-[13px] font-display font-medium text-text-secondary cursor-pointer transition-all duration-150 hover:bg-surface-hover hover:border-border hover:text-text active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
                 >
                   <span className={`flex items-center justify-center size-8 rounded-lg shrink-0 ${GROUP_TILE[entry.group]}`}>
                     <Icon size={16} strokeWidth={2.25} />
@@ -63,4 +63,4 @@ export const QuestionTypePalette = ({ onAdd, storeIds }: QuestionTypePaletteProp
       )}
     </div>
   );
-};
+});

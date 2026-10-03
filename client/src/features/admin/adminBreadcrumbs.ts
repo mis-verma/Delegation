@@ -22,7 +22,9 @@ export function getAdminBreadcrumbs(pathname: string): BreadcrumbTrailItem[] | n
     return [DASHBOARD, { label: 'Overview' }];
   }
   if (pathname.startsWith('/admin/scheduled-checklists')) {
-    return [DASHBOARD, ADMIN_ROOT, { label: 'Checklists' }];
+    // The sidebar group is "Checklists", but this page is the recurring-checklist list, and its
+    // crumb and h1 must read the same as the sidebar child.
+    return [DASHBOARD, ADMIN_ROOT, { label: 'Recurring Checklists' }];
   }
   if (pathname.startsWith('/admin/checklist-compliance')) {
     return [DASHBOARD, ADMIN_ROOT, { label: 'Checklist Compliance' }];

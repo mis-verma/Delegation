@@ -1,6 +1,8 @@
 import { CircleDashed, Eye, ShieldCheck, ShieldX, type LucideIcon } from 'lucide-react';
 import type { ChecklistRecurrence } from '../../api/checklistDefinitions';
 import type { ChecklistVerificationStatus, ChecklistInstanceItem } from '../../api/checklistInstances';
+import type { StatusChipStatus } from '../../components/statusChip';
+import { runScores } from './checklistCompliance';
 
 // Shared display lookups/helpers for the checklist feature — used by ChecklistDefinitionList,
 // ChecklistDefinitionDetail, ChecklistInstanceDetail, and MyChecklists. Previously each of those
@@ -20,24 +22,31 @@ export const RECURRENCE_LABEL: Record<ChecklistRecurrence, string> = {
 // them back a day for anyone whose browser clock sits behind UTC. Pinning timeZone: 'UTC' makes
 // the displayed date match the label exactly, for every viewer, regardless of local system time.
 
+// Formatters are built once at module level: constructing an Intl formatter is far more expensive
+// than calling .format(), and these run once per card/row on every render of a list.
+const DATE_LONG_FMT = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+const DATE_SHORT_FMT = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
+const DATE_LOCAL_FMT = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+const TIME_LOCAL_FMT = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
+const DEADLINE_FMT = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'UTC' });
+
 // e.g. "Jan 5, 2026" — used where the year matters (definition/instance detail pages).
-export const formatDate = (iso: string) =>
-  new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+export const formatDate = (iso: string) => DATE_LONG_FMT.format(new Date(iso));
 
 // e.g. "Jan 5" — used in tighter card layouts (MyChecklists) where the year is implied.
-export const formatDateShort = (iso: string) =>
-  new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
+export const formatDateShort = (iso: string) => DATE_SHORT_FMT.format(new Date(iso));
 
 // completedAt/generatedAt/image createdAt are real timestamps (not calendar-day labels like
 // periodStart/periodEnd above), so these render in the viewer's own local time zone rather than
 // pinning UTC — "2:45 PM" should mean 2:45 PM for whoever's looking at it.
 // e.g. "Aug 31, 2026 · 2:45 PM" — completion/verification timestamps on item and instance cards.
-export const formatDateTime = (iso: string) =>
-  `${new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} · ${new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
+export const formatDateTime = (iso: string) => {
+  const date = new Date(iso);
+  return `${DATE_LOCAL_FMT.format(date)} · ${TIME_LOCAL_FMT.format(date)}`;
+};
 
 // e.g. "2:45 PM" — compact caption under an individual evidence photo/video thumbnail.
-export const formatTimeOnly = (iso: string) =>
-  new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+export const formatTimeOnly = (iso: string) => TIME_LOCAL_FMT.format(new Date(iso));
 
 // Derived from item completion, not stored on the instance — mirrors what ChecklistInstanceCard's
 // `isComplete` check already computed inline, generalized to the third "some done" bucket used by
@@ -56,17 +65,11 @@ export const INSTANCE_STATUS_LABEL: Record<InstanceProgressStatus, string> = {
   COMPLETED: 'Completed',
 };
 
-export const INSTANCE_STATUS_STYLE: Record<InstanceProgressStatus, string> = {
-  TODO: 'bg-surface-hover text-text-muted border-border',
-  IN_PROGRESS: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
-  COMPLETED: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
-};
-
 export const VERIFICATION_STATUS_LABEL: Record<ChecklistVerificationStatus, string> = {
   NOT_SUBMITTED: 'Not submitted',
   PENDING_APPROVAL: 'Pending approval',
   APPROVED: 'Verified',
-  REJECTED: 'Rejected',
+  REJECTED: 'Sent back',
 };
 
 // Icon-chip look for each verification status (solid icon circle + label), for cards and the
@@ -204,9 +207,7 @@ export const formatDeadlineTime = (instance: InstanceWindow): string | null => {
   if (!instance.cutoffTime) return null;
   // Shifted back to the local wall clock and printed in UTC, so it reads exactly what the admin
   // typed ("7:00 AM") for every viewer.
-  return new Date(instanceDeadline(instance) + ORG_TZ_OFFSET_MS).toLocaleString(undefined, {
-    month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'UTC',
-  });
+  return DEADLINE_FMT.format(new Date(instanceDeadline(instance) + ORG_TZ_OFFSET_MS));
 };
 
 // An instance is overdue once its deadline has passed without every item being done — mirrors
@@ -219,6 +220,49 @@ export const isInstanceOverdue = (instance: InstanceWindow, isComplete: boolean)
 export const isInstanceNotYetOpen = (instance: Pick<InstanceWindow, 'periodStart' | 'opensTime'>) => {
   const opensAt = instanceOpensAt(instance);
   return opensAt != null && Date.now() < opensAt;
+};
+
+export type InstanceView = {
+  /** Applicable questions done / applicable questions (N/A excluded). */
+  done: number;
+  total: number;
+  /** 0-100, N/A excluded. */
+  progress: number;
+  /** Every question is done or marked not applicable (same rule the server uses). */
+  isComplete: boolean;
+  overdue: boolean;
+  chipStatus: Extract<StatusChipStatus, 'completed' | 'overdue' | 'due'>;
+  /** To do / in progress / completed, derived from the same N/A-aware counts. */
+  progressStatus: InstanceProgressStatus;
+  /** null when no answered question has an acceptable-answer rule. */
+  compliance: number | null;
+  scored: number;
+  good: number;
+  /** The real cutoff ("Jan 5, 7:00 AM"), or null when the run has no cutoffTime. */
+  deadlineTime: string | null;
+};
+
+type ViewableInstance = InstanceWindow & { items: ChecklistInstanceItem[] };
+
+// One place that turns a run into the numbers every screen shows (card, row, board, table, history,
+// detail), so the same run reads the same everywhere. Not cached: `overdue` depends on the clock.
+export const getInstanceView = (instance: ViewableInstance): InstanceView => {
+  const scores = runScores(instance.items);
+  const isComplete = instance.items.length > 0 && instance.items.every(i => i.isDone || i.isNotApplicable);
+  const overdue = isInstanceOverdue(instance, isComplete);
+  return {
+    done: scores.done,
+    total: scores.total,
+    progress: scores.completion,
+    isComplete,
+    overdue,
+    chipStatus: isComplete ? 'completed' : overdue ? 'overdue' : 'due',
+    progressStatus: isComplete ? 'COMPLETED' : scores.done > 0 ? 'IN_PROGRESS' : 'TODO',
+    compliance: scores.compliance,
+    scored: scores.scored,
+    good: scores.good,
+    deadlineTime: formatDeadlineTime(instance),
+  };
 };
 
 type FlaggableItem = Pick<ChecklistInstanceItem, 'itemType' | 'booleanAnswer' | 'yesActions' | 'noActions'>;

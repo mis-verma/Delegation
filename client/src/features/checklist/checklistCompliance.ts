@@ -50,17 +50,29 @@ export type RunScores = {
 };
 
 export const runScores = (items: Scorable[]): RunScores => {
-  const applicable = items.filter(i => !i.isNotApplicable);
-  const done = applicable.filter(i => i.isDone).length;
-  const verdicts = items.map(answerVerdict).filter((v): v is AnswerVerdict => v !== null);
-  const good = verdicts.filter(v => v === 'good').length;
+  // One pass: this runs once per card/row on every list render.
+  let total = 0;
+  let done = 0;
+  let scored = 0;
+  let good = 0;
+  for (const item of items) {
+    if (!item.isNotApplicable) {
+      total += 1;
+      if (item.isDone) done += 1;
+    }
+    const verdict = answerVerdict(item);
+    if (verdict !== null) {
+      scored += 1;
+      if (verdict === 'good') good += 1;
+    }
+  }
   return {
     done,
-    total: applicable.length,
+    total,
     // A run made only of "not applicable" questions has nothing left to do.
-    completion: applicable.length ? Math.round((done / applicable.length) * 100) : items.length ? 100 : 0,
-    compliance: verdicts.length ? Math.round((good / verdicts.length) * 100) : null,
-    scored: verdicts.length,
+    completion: total ? Math.round((done / total) * 100) : items.length ? 100 : 0,
+    compliance: scored ? Math.round((good / scored) * 100) : null,
+    scored,
     good,
   };
 };

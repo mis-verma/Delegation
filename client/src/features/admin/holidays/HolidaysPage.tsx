@@ -1,6 +1,9 @@
-import { useMemo, useState, type FormEvent } from 'react';
-import { CalendarOff, CalendarPlus, ChevronLeft, ChevronRight, Info, Trash2, Wand2 } from 'lucide-react';
-import { Button, EmptyState, GradientIconTile, Skeleton } from '../../../components';
+import { memo, useCallback, useMemo, useState, type FormEvent } from 'react';
+import { CalendarOff, CalendarPlus, Info, Trash2, Wand2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import {
+  Button, DatePicker, EmptyState, InlineError, Input, NoticeBanner, PageHeader, PANEL_CLASS, PeriodStepper, Skeleton,
+} from '../../../components';
 import { useConfirm } from '@/components/confirmDialog';
 import { todayPeriodBoundIso } from '../../checklist/checklistDisplay';
 import { useCreateHolidayMutation, useCreateHolidaysMutation, useDeleteHolidayMutation, useHolidaysQuery } from './hook';
@@ -16,48 +19,93 @@ const FIXED_NATIONAL = [
   { month: '10', day: '02', name: 'Gandhi Jayanti' },
 ];
 
-const dayNumber = (date: string) => Date.parse(`${date}T00:00:00Z`) / DAY_MS;
-const formatDay = (date: string) =>
-  new Date(`${date}T00:00:00Z`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+// Hoisted: constructing an Intl formatter per row per render is the costly part.
+const FULL_DAY = new Intl.DateTimeFormat(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+const WEEKDAY = new Intl.DateTimeFormat(undefined, { weekday: 'long', timeZone: 'UTC' });
+const MONTH_SHORT = new Intl.DateTimeFormat(undefined, { month: 'short', timeZone: 'UTC' });
+const MONTH_LONG = new Intl.DateTimeFormat(undefined, { month: 'long', timeZone: 'UTC' });
 
-const whenLabel = (date: string, today: string) => {
-  const diff = Math.round(dayNumber(date) - dayNumber(today));
-  if (diff === 0) return 'Today';
-  if (diff === 1) return 'Tomorrow';
-  if (diff > 1) return `In ${diff} days`;
-  return null;
+const asUtc = (date: string) => new Date(`${date}T00:00:00Z`);
+const dayNumber = (date: string) => asUtc(date).getTime() / DAY_MS;
+
+// The date picker works in local Dates; the API and the list work in plain YYYY-MM-DD strings.
+const toDateKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const fromDateKey = (key: string) => {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, m - 1, d);
 };
 
-const HolidayRow = ({ holiday, today, onDelete, busy }: { holiday: Holiday; today: string; onDelete: (h: Holiday) => void; busy: boolean }) => {
-  const when = whenLabel(holiday.date, today);
-  const past = holiday.date < today;
+const daysUntil = (date: string, today: string) => Math.round(dayNumber(date) - dayNumber(today));
+const whenLabel = (diff: number) => (diff === 0 ? 'Today' : diff === 1 ? 'Tomorrow' : diff > 1 ? `In ${diff} days` : null);
+
+const HolidayRow = memo(({ holiday, today, onDelete, busy }: { holiday: Holiday; today: string; onDelete: (h: Holiday) => void; busy: boolean }) => {
+  const diff = daysUntil(holiday.date, today);
+  const past = diff < 0;
+  const soon = diff >= 0 && diff <= 7;
+  const when = whenLabel(diff);
+  const day = asUtc(holiday.date);
   return (
-    <li className={`flex items-center gap-3 p-3.5 rounded-lg border border-border/60 bg-surface ${past ? 'opacity-70' : ''}`}>
-      <span className="flex items-center justify-center size-10 rounded-xl bg-primary-500/10 dark:bg-primary-500/15 text-primary-600 dark:text-primary-300 shrink-0">
-        <CalendarOff size={18} aria-hidden />
-      </span>
+    <li className={cn(PANEL_CLASS, 'flex items-center gap-3.5 p-3 sm:p-3.5 transition-colors duration-150 hover:border-border-hover', past && 'opacity-60')}>
+      {/* A calendar leaf: the month on top, the day number big, so a list of dates scans at a glance. */}
+      <div
+        aria-hidden
+        className={cn(
+          'flex flex-col items-center justify-center size-14 rounded-xl border shrink-0 leading-none',
+          soon ? 'border-primary-500/40 bg-primary-500/10' : 'border-border/60 bg-surface-hover',
+        )}
+      >
+        <span className={cn('text-[10px] font-display font-semibold', soon ? 'text-primary-700 dark:text-primary-300' : 'text-text-muted')}>
+          {MONTH_SHORT.format(day)}
+        </span>
+        <span className="text-xl font-display font-bold tabular-nums text-text pt-0.5">{day.getUTCDate()}</span>
+      </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-display font-semibold text-text leading-snug">{holiday.name}</p>
-        <p className="text-xs text-text-muted">{formatDay(holiday.date)}</p>
+        <p className="text-xs font-display text-text-muted">{WEEKDAY.format(day)}</p>
       </div>
       {when && (
-        <span className="hidden sm:inline-flex items-center h-6 px-2.5 rounded-full bg-primary-500/10 dark:bg-primary-500/15 text-[11px] font-display font-semibold text-primary-700 dark:text-primary-300 shrink-0">
+        <span className={cn(
+          'hidden sm:inline-flex items-center h-6 px-2.5 rounded-full text-xs font-display font-semibold shrink-0',
+          soon ? 'bg-primary-500/10 text-primary-700 dark:text-primary-300' : 'bg-surface-hover text-text-secondary',
+        )}>
           {when}
         </span>
       )}
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="sm"
         onClick={() => onDelete(holiday)}
         disabled={busy}
         aria-label={`Remove ${holiday.name}`}
         title="Remove this holiday"
-        className="flex items-center justify-center size-11 sm:size-9 rounded-lg text-text-light hover:text-danger hover:bg-danger/10 transition-colors duration-150 cursor-pointer disabled:opacity-50 outline-none focus-visible:ring-2 focus-visible:ring-danger/40 shrink-0"
+        className="size-11 sm:size-8 px-0 shrink-0 text-text-light hover:text-danger hover:bg-danger/10"
       >
         <Trash2 size={16} aria-hidden />
-      </button>
+      </Button>
     </li>
   );
-};
+});
+HolidayRow.displayName = 'HolidayRow';
+
+// Same card shape as a real row, so the list does not jump when the holidays land.
+const HolidayRowSkeleton = () => (
+  <div className={cn(PANEL_CLASS, 'flex items-center gap-3.5 p-3 sm:p-3.5')}>
+    <Skeleton className="size-14 rounded-xl shrink-0" />
+    <div className="flex flex-col gap-1.5 flex-1">
+      <Skeleton className="h-3.5 w-1/3 max-w-40" />
+      <Skeleton className="h-3 w-1/4 max-w-24" />
+    </div>
+  </div>
+);
+
+const Stat = ({ value, label }: { value: string; label: string }) => (
+  <div className={cn(PANEL_CLASS, 'flex flex-col gap-0.5 p-3.5')}>
+    <span className="text-xl font-display font-bold text-text tabular-nums leading-tight">{value}</span>
+    <span className="text-xs font-display text-text-muted">{label}</span>
+  </div>
+);
+
+const FIELD_LABEL = 'text-xs font-display font-medium text-text-secondary';
 
 /**
  * Company-wide days off (national holidays). On a holiday the daily checklist generator creates no
@@ -67,17 +115,35 @@ const HolidayRow = ({ holiday, today, onDelete, busy }: { holiday: Holiday; toda
 export const HolidaysPage = () => {
   const confirm = useConfirm();
   const today = useMemo(() => todayPeriodBoundIso().slice(0, 10), []);
-  const [year, setYear] = useState(() => Number(today.slice(0, 4)));
+  const thisYear = useMemo(() => Number(today.slice(0, 4)), [today]);
+  const [year, setYear] = useState(thisYear);
   const [date, setDate] = useState('');
   const [name, setName] = useState('');
 
-  const { data: holidays = [], isPending, isError, refetch } = useHolidaysQuery(year);
+  const { data: holidays, isPending, isError, isFetching, refetch } = useHolidaysQuery(year);
   const createOne = useCreateHolidayMutation();
   const createMany = useCreateHolidaysMutation();
-  const remove = useDeleteHolidayMutation();
+  const { mutate: removeHoliday, isPending: removing } = useDeleteHolidayMutation();
 
-  const upcoming = holidays.filter(h => h.date >= today);
-  const past = holidays.filter(h => h.date < today).reverse();
+  // The year as one calendar-ordered list, grouped under its month.
+  const months = useMemo(() => {
+    const groups: { key: string; label: string; items: Holiday[] }[] = [];
+    for (const h of [...(holidays ?? [])].sort((a, b) => a.date.localeCompare(b.date))) {
+      const key = h.date.slice(0, 7);
+      let group = groups[groups.length - 1];
+      if (!group || group.key !== key) {
+        group = { key, label: MONTH_LONG.format(asUtc(h.date)), items: [] };
+        groups.push(group);
+      }
+      group.items.push(h);
+    }
+    return groups;
+  }, [holidays]);
+
+  const next = useMemo(() => (holidays ?? []).filter(h => h.date >= today).sort((a, b) => a.date.localeCompare(b.date))[0] ?? null, [holidays, today]);
+  const total = holidays?.length ?? 0;
+  const remaining = useMemo(() => (holidays ?? []).filter(h => h.date >= today).length, [holidays, today]);
+  const dateValue = useMemo(() => (date ? fromDateKey(date) : null), [date]);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -88,135 +154,123 @@ export const HolidaysPage = () => {
   const addNational = () =>
     createMany.mutate(FIXED_NATIONAL.map(h => ({ date: `${year}-${h.month}-${h.day}`, name: h.name })));
 
-  const handleDelete = async (holiday: Holiday) => {
+  const handleDelete = useCallback(async (holiday: Holiday) => {
     const ok = await confirm({
       title: `Remove ${holiday.name}?`,
-      description: `${formatDay(holiday.date)} becomes a normal working day again, and daily checklists are created for it.`,
+      description: `${FULL_DAY.format(asUtc(holiday.date))} becomes a normal working day again, and daily checklists are created for it.`,
       confirmLabel: 'Remove holiday',
       cancelLabel: 'Keep it',
       variant: 'danger',
     });
-    if (ok) remove.mutate(holiday.id);
-  };
+    if (ok) removeHoliday(holiday.id);
+  }, [confirm, removeHoliday]);
 
-  const inputClass = 'h-11 sm:h-10 px-3 rounded-lg border border-border/60 bg-surface text-base sm:text-sm text-text placeholder:text-text-muted transition-[border-color,box-shadow] duration-150 outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20';
+  const goPrevYear = useCallback(() => setYear(y => y - 1), []);
+  const goNextYear = useCallback(() => setYear(y => y + 1), []);
+  const goThisYear = useCallback(() => setYear(thisYear), [thisYear]);
+
+  const nextDiff = next ? daysUntil(next.date, today) : null;
 
   return (
-    <div className="flex flex-col gap-6 max-w-3xl">
-      <div className="flex items-center gap-3">
-        <GradientIconTile icon={CalendarOff} />
-        <div>
-          <h1 className="text-xl font-display font-bold text-text">Holidays</h1>
-          <p className="text-sm text-text-muted mt-0.5">Days off for everyone. No daily checklists are created on these days.</p>
-        </div>
+    <div className="flex flex-col gap-6 w-full max-w-5xl mx-auto">
+      <PageHeader
+        icon={CalendarOff}
+        title="Holidays"
+        subtitle="Days off for everyone. No daily checklists are created on these days."
+        actions={
+          <PeriodStepper
+            label={String(year)}
+            onPrev={goPrevYear}
+            onNext={goNextYear}
+            prevLabel="Previous year"
+            nextLabel="Next year"
+            todayLabel={year !== thisYear ? 'This year' : undefined}
+            onToday={goThisYear}
+          />
+        }
+      />
+
+      <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
+        <Stat value={String(total)} label={`Holidays in ${year}`} />
+        <Stat value={String(remaining)} label="Still to come" />
+        <Stat
+          value={next ? (nextDiff === 0 ? 'Today' : nextDiff === 1 ? 'Tomorrow' : `${nextDiff} days`) : 'None'}
+          label={next ? `Until ${next.name}` : 'Nothing coming up'}
+        />
       </div>
 
-      <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-primary-500/10 dark:bg-primary-500/15 border border-primary-500/20 text-xs font-display text-text-secondary leading-relaxed">
-        <Info size={15} className="text-primary-600 dark:text-primary-300 shrink-0 mt-0.5" aria-hidden />
-        <span>
-          Nobody can miss a checklist that doesn't exist, so scores don't drop. One a person has already started that
-          day stays. Adding a date that has passed also clears that day's unfilled checklists.
-        </span>
-      </div>
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_21rem] lg:items-start">
+        <div className="flex flex-col gap-6 min-w-0 order-2 lg:order-1">
+          {isPending && (
+            <div className="flex flex-col gap-2.5">
+              {[0, 1, 2].map(i => <HolidayRowSkeleton key={i} />)}
+            </div>
+          )}
 
-      <form onSubmit={submit} className="flex flex-col gap-3 p-4 sm:p-5 rounded-xl border border-border bg-surface">
-        <div className="flex items-center gap-2">
-          <CalendarPlus size={16} className="text-text-light" aria-hidden />
-          <span className="text-sm font-display font-semibold text-text">Add a holiday</span>
-        </div>
-        <div className="flex flex-col sm:flex-row sm:items-end gap-3">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="holiday-date" className="text-xs font-display font-medium text-text-secondary">Date</label>
-            <input id="holiday-date" type="date" value={date} onChange={e => setDate(e.target.value)} className={inputClass} />
+          {isError && <InlineError message="We couldn't load the holidays. Check your connection and try again." onRetry={() => refetch()} />}
+
+          {!isPending && !isError && !isFetching && total === 0 && (
+            <EmptyState
+              icon={CalendarOff}
+              title={`No holidays added for ${year}`}
+              description="Add one here, or start with the national holidays."
+              action={{ label: `Add the national holidays for ${year}`, onClick: addNational, icon: Wand2 }}
+            />
+          )}
+
+          {/* keepPreviousData keeps the old year on screen while the next loads: dim it meanwhile. */}
+          <div className={cn('flex flex-col gap-6 transition-opacity duration-200', isFetching && !isPending && 'opacity-60')}>
+            {months.map(group => (
+              <section key={group.key} aria-label={group.label} className="flex flex-col gap-2.5">
+                <h2 className="text-sm font-display font-semibold text-text-secondary">{group.label}</h2>
+                <ul className="flex flex-col gap-2">
+                  {group.items.map(h => <HolidayRow key={h.id} holiday={h} today={today} onDelete={handleDelete} busy={removing} />)}
+                </ul>
+              </section>
+            ))}
           </div>
-          <div className="flex flex-col gap-1.5 flex-1 min-w-0">
-            <label htmlFor="holiday-name" className="text-xs font-display font-medium text-text-secondary">Name</label>
-            <input
+        </div>
+
+        <aside className="flex flex-col gap-4 order-1 lg:order-2 lg:sticky lg:top-4">
+          <form onSubmit={submit} className={cn(PANEL_CLASS, 'flex flex-col gap-4 p-4 sm:p-5')}>
+            <div className="flex items-center gap-2">
+              <CalendarPlus size={16} className="text-text-light" aria-hidden />
+              <h2 className="text-sm font-display font-semibold text-text">Add a holiday</h2>
+            </div>
+            <div role="group" aria-labelledby="holiday-date-label" className="flex flex-col gap-1.5">
+              <span id="holiday-date-label" className={FIELD_LABEL}>Date</span>
+              <DatePicker value={dateValue} onChange={d => setDate(d ? toDateKey(d) : '')} placeholder="Pick a date" triggerClassName="h-11 rounded-xl" />
+            </div>
+            <Input
               id="holiday-name"
+              label="Name"
+              labelClassName="text-xs font-display font-medium tracking-normal text-text-secondary px-0"
               value={name}
               onChange={e => setName(e.target.value)}
               maxLength={100}
               placeholder="e.g. Diwali"
-              className={inputClass}
+              className="h-11"
             />
-          </div>
-          <Button type="submit" variant="primary" disabled={!date || !name.trim()} isLoading={createOne.isPending} className="h-11 sm:h-10">
-            Add holiday
-          </Button>
-        </div>
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2 pt-3 border-t border-dashed border-border/60">
-          <Button type="button" variant="outline" size="sm" onClick={addNational} isLoading={createMany.isPending} className="self-start">
-            <Wand2 size={14} aria-hidden />
-            Add the national holidays for {year}
-          </Button>
-          <p className="text-[11px] text-text-muted leading-relaxed">
-            Republic Day (26 Jan), Independence Day (15 Aug), Gandhi Jayanti (2 Oct). Festival dates change every year, so add those yourself.
-          </p>
-        </div>
-      </form>
+            <Button type="submit" variant="primary" size="lg" disabled={!date || !name.trim()} isLoading={createOne.isPending}>
+              Add holiday
+            </Button>
+            <div className="flex flex-col gap-2.5 pt-4 border-t border-dashed border-border/60">
+              <Button type="button" variant="outline" size="sm" onClick={addNational} isLoading={createMany.isPending} className="self-start">
+                <Wand2 size={14} aria-hidden />
+                Add national holidays for {year}
+              </Button>
+              <p className="text-[11px] font-display text-text-muted leading-relaxed">
+                Republic Day (26 Jan), Independence Day (15 Aug), Gandhi Jayanti (2 Oct). Festival dates change every year, so add those yourself.
+              </p>
+            </div>
+          </form>
 
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-display font-bold text-text">{year}</h2>
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => setYear(y => y - 1)}
-            aria-label="Previous year"
-            className="flex items-center justify-center size-11 sm:size-9 rounded-lg border border-border bg-surface text-text-secondary hover:bg-surface-hover cursor-pointer transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
-          >
-            <ChevronLeft size={16} aria-hidden />
-          </button>
-          <button
-            type="button"
-            onClick={() => setYear(y => y + 1)}
-            aria-label="Next year"
-            className="flex items-center justify-center size-11 sm:size-9 rounded-lg border border-border bg-surface text-text-secondary hover:bg-surface-hover cursor-pointer transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
-          >
-            <ChevronRight size={16} aria-hidden />
-          </button>
-        </div>
+          <NoticeBanner tone="info" icon={Info}>
+            Nobody can miss a checklist that does not exist, so scores do not drop. One a person has already started that
+            day stays. Adding a date that has passed also clears that day's unfilled checklists.
+          </NoticeBanner>
+        </aside>
       </div>
-
-      {isPending && (
-        <div className="flex flex-col gap-2.5">
-          {[0, 1, 2].map(i => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
-        </div>
-      )}
-
-      {isError && (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-danger/10 text-danger text-sm font-display">
-          <span className="flex-1">We couldn't load the holidays.</span>
-          <button
-            type="button"
-            onClick={() => refetch()}
-            className="shrink-0 px-3 py-1.5 rounded-md text-xs font-display font-semibold border border-danger/30 hover:bg-danger/10 cursor-pointer transition-colors outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
-          >
-            Retry
-          </button>
-        </div>
-      )}
-
-      {!isPending && !isError && holidays.length === 0 && (
-        <EmptyState icon={CalendarOff} title={`No holidays added for ${year}`} description="Add one above, or use the national holidays button." />
-      )}
-
-      {upcoming.length > 0 && (
-        <section aria-label="Upcoming holidays" className="flex flex-col gap-2.5">
-          <p className="text-xs font-display font-semibold text-text-secondary">Upcoming</p>
-          <ul className="flex flex-col gap-2">
-            {upcoming.map(h => <HolidayRow key={h.id} holiday={h} today={today} onDelete={handleDelete} busy={remove.isPending} />)}
-          </ul>
-        </section>
-      )}
-
-      {past.length > 0 && (
-        <section aria-label="Past holidays" className="flex flex-col gap-2.5">
-          <p className="text-xs font-display font-semibold text-text-secondary">Past</p>
-          <ul className="flex flex-col gap-2">
-            {past.map(h => <HolidayRow key={h.id} holiday={h} today={today} onDelete={handleDelete} busy={remove.isPending} />)}
-          </ul>
-        </section>
-      )}
     </div>
   );
 };

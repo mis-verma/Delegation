@@ -17,6 +17,12 @@ const MODES: { value: ChecklistResponseMode; title: string; hint: string; icon: 
   { value: 'PER_USER', title: 'One per person', hint: 'Everyone chosen fills in their own copy.', icon: <User size={16} /> },
 ];
 
+// Plain-language name of each response mode, shared with the Review step's "Who fills it" row.
+// eslint-disable-next-line react-refresh/only-export-components
+export const RESPONSE_MODE_TITLE: Record<ChecklistResponseMode, string> = Object.fromEntries(
+  MODES.map((m) => [m.value, m.title]),
+) as Record<ChecklistResponseMode, string>;
+
 // Who fills this checklist in, and how many copies of it there are each time it comes round — real
 // people only. The "Assign by role" chips that used to sit above this were a fixed list of made-up
 // roles (Store Manager, Cashier…) that assigned nobody, so they're gone. Reviewers are their own
@@ -35,7 +41,7 @@ export const BuilderAssignPanel = ({ storeIds, assigneeIds, onAssigneeIdsChange,
               role="radio"
               aria-checked={on}
               onClick={() => onResponseModeChange(m.value)}
-              className={`flex flex-col items-start gap-1.5 p-3.5 text-left rounded-xl border cursor-pointer transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
+              className={`flex flex-col items-start gap-1.5 p-3.5 text-left rounded-2xl border cursor-pointer transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
                 on
                   ? 'border-primary-500/60 bg-primary-500/10'
                   : 'border-border/60 bg-surface hover:border-border-hover'

@@ -1,0 +1,89 @@
+import { useId } from 'react';
+import { Check, CornerUpLeft } from 'lucide-react';
+import { Button, Textarea } from '../../../components';
+
+// The approve / send-back controls a reviewer sees on a checklist waiting for approval. The review
+// queue (ChecklistApprovals) and the detail page's review bar (ChecklistReviewBar) used to carry two
+// hand-built copies of this with different labels, shadows and spinners; both render these now.
+
+interface ReviewActionsProps {
+  /** Send back opens whatever the caller uses to collect a note (inline form, or pick mode). */
+  onSendBack: () => void;
+  onApprove: () => void;
+  /** Any review request in flight: both buttons lock so a reviewer can't fire two at once. */
+  busy: boolean;
+  /** Specifically the approve request, which puts the spinner on the Approve button. */
+  approving: boolean;
+}
+
+export const ReviewActions = ({ onSendBack, onApprove, busy, approving }: ReviewActionsProps) => (
+  <div className="flex items-center gap-2 shrink-0">
+    <Button
+      size="sm"
+      variant="outline"
+      className="border-danger/30 text-danger hover:bg-danger/10 hover:border-danger/50 hover:text-danger"
+      disabled={busy}
+      onClick={onSendBack}
+    >
+      <CornerUpLeft size={14} aria-hidden />
+      Send back
+    </Button>
+    <Button
+      size="sm"
+      className="bg-success text-white hover:bg-success/90 hover:text-white"
+      disabled={busy}
+      isLoading={approving}
+      onClick={onApprove}
+    >
+      {!approving && <Check size={14} aria-hidden />}
+      Approve
+    </Button>
+  </div>
+);
+
+interface SendBackFormProps {
+  note: string;
+  onNoteChange: (value: string) => void;
+  onCancel: () => void;
+  onSubmit: () => void;
+  /** Whether the send button is enabled (caller decides what "enough" is: a note, a picked question...). */
+  canSubmit: boolean;
+  /** The send-back request is in flight. */
+  isSending: boolean;
+  /** Any review request in flight, so Cancel locks too. */
+  busy: boolean;
+  submitLabel: string;
+  placeholder: string;
+  maxLength?: number;
+  autoFocus?: boolean;
+}
+
+// Note box plus Cancel / confirm, the second half of the send-back flow in both places.
+export const SendBackForm = ({
+  note, onNoteChange, onCancel, onSubmit, canSubmit, isSending, busy, submitLabel, placeholder, maxLength, autoFocus,
+}: SendBackFormProps) => {
+  const id = useId();
+  return (
+    <>
+      <Textarea
+        id={id}
+        label="What needs fixing"
+        labelClassName="sr-only"
+        autoFocus={autoFocus}
+        value={note}
+        onChange={(e) => onNoteChange(e.target.value)}
+        placeholder={placeholder}
+        rows={2}
+        maxLength={maxLength}
+        className="min-h-0 py-2.5 resize-none"
+      />
+      <div className="flex items-center justify-end gap-2">
+        <Button size="sm" variant="outline" disabled={busy} onClick={onCancel}>Cancel</Button>
+        <Button size="sm" variant="danger" disabled={!canSubmit || busy} isLoading={isSending} onClick={onSubmit}>
+          {!isSending && <CornerUpLeft size={14} aria-hidden />}
+          {submitLabel}
+        </Button>
+      </div>
+    </>
+  );
+};

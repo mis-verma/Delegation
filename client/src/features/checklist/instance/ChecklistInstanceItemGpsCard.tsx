@@ -1,7 +1,11 @@
-import { useState } from 'react';
-import { Loader2, MapPin, LocateFixed, AlertCircle } from 'lucide-react';
+import { memo, useState } from 'react';
+import { MapPin, LocateFixed } from 'lucide-react';
 import { useSetChecklistInstanceItemDoneMutation } from '../hook';
+import { Button } from '../../../components';
 import { ChecklistItemCardHeader } from './ChecklistItemCardHeader';
+import { ItemCardShell } from './ItemCardShell';
+import { ItemError } from './ItemError';
+import { ItemActionButton } from './ItemActionButton';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 
 interface ChecklistInstanceItemGpsCardProps {
@@ -22,7 +26,7 @@ const haversineMeters = (lat1: number, lng1: number, lat2: number, lng2: number)
   return 2 * EARTH_RADIUS_METERS * Math.asin(Math.sqrt(a));
 };
 
-export const ChecklistInstanceItemGpsCard = ({ item, instanceId, canWork, isLocked }: ChecklistInstanceItemGpsCardProps) => {
+export const ChecklistInstanceItemGpsCard = memo(function ChecklistInstanceItemGpsCard({ item, instanceId, canWork, isLocked }: ChecklistInstanceItemGpsCardProps) {
   const setItemDone = useSetChecklistInstanceItemDoneMutation(instanceId);
   const [captured, setCaptured] = useState<{ lat: number; lng: number; accuracy: number } | null>(
     item.gpsLat != null && item.gpsLng != null ? { lat: item.gpsLat, lng: item.gpsLng, accuracy: item.gpsAccuracy ?? 0 } : null,
@@ -56,15 +60,15 @@ export const ChecklistInstanceItemGpsCard = ({ item, instanceId, canWork, isLock
       (error) => {
         setIsCapturing(false);
         setCaptureError(error.code === error.PERMISSION_DENIED
-          ? 'Location permission denied — allow it in your browser settings and try again.'
-          : "Couldn't get your location — try again.");
+          ? 'Location permission denied. Allow it in your browser settings and try again.'
+          : "Couldn't get your location. Try again.");
       },
       { enableHighAccuracy: true, timeout: 15000 },
     );
   };
 
   return (
-    <div className={`flex flex-col gap-3 p-3.5 sm:p-4 rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface ${isLocked ? 'opacity-75' : ''}`}>
+    <ItemCardShell isLocked={isLocked}>
       <ChecklistItemCardHeader
         item={item}
         interactive={interactive}
@@ -79,7 +83,7 @@ export const ChecklistInstanceItemGpsCard = ({ item, instanceId, canWork, isLock
           visible to a reviewer/approver after the item (or the whole instance) locks. Only the
           capture/save controls are for the still-editable case. */}
       {captured && (
-        <div className="flex flex-col gap-1 px-2.5 py-2 rounded-md bg-background border border-border/60 text-xs font-display text-text-secondary">
+        <div className="flex flex-col gap-1 px-3 py-2 rounded-lg bg-surface-hover border border-border/60 text-xs font-display text-text-secondary">
           <span className="flex items-center gap-1.5"><MapPin size={12} className="text-primary-500" /> {captured.lat.toFixed(6)}, {captured.lng.toFixed(6)} (±{Math.round(captured.accuracy)}m)</span>
           {hasTarget && distance != null && (
             <span className={withinRadius === false ? 'text-danger' : 'text-success'}>
@@ -91,39 +95,27 @@ export const ChecklistInstanceItemGpsCard = ({ item, instanceId, canWork, isLock
 
       {interactive && (
         <div className="flex flex-col gap-2">
-          {setItemDone.isError && (
-            <p className="text-xs text-danger">
-              {setItemDone.error instanceof Error ? setItemDone.error.message : "Couldn't save that location."}
-            </p>
-          )}
-          {!item.isDone && captureError && (
-            <p className="flex items-center gap-1.5 text-xs text-danger"><AlertCircle size={12} /> {captureError}</p>
-          )}
+          <ItemError error={setItemDone.error} fallback="Couldn't save that location." />
+          {!item.isDone && <ItemError error={captureError} fallback="Couldn't get your location." />}
 
           {!item.isDone && (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={capture}
-                disabled={isCapturing}
-                className="flex items-center gap-1.5 text-xs font-display font-medium px-2.5 py-1.5 rounded-md border border-border text-text-secondary hover:bg-surface-hover cursor-pointer transition-colors disabled:opacity-50"
-              >
-                {isCapturing ? <Loader2 size={12} className="animate-spin" /> : <LocateFixed size={12} />}
+            <div className="flex flex-wrap items-center gap-2">
+              <Button size="sm" variant="outline" onClick={capture} isLoading={isCapturing}>
+                {!isCapturing && <LocateFixed size={13} aria-hidden />}
                 {captured ? 'Recapture location' : 'Capture location'}
-              </button>
+              </Button>
               {captured && (
-                <button
+                <ItemActionButton
                   onClick={() => setItemDone.mutate({ itemId: item.id, isDone: true, gpsLat: captured.lat, gpsLng: captured.lng, gpsAccuracy: captured.accuracy })}
-                  disabled={setItemDone.isPending}
-                  className="flex items-center gap-1.5 text-xs font-display font-medium px-2.5 py-1.5 rounded-md border border-primary-500/50 text-primary-600 hover:bg-primary-500/10 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  isLoading={setItemDone.isPending}
                 >
-                  {setItemDone.isPending && <Loader2 size={12} className="animate-spin" />}
                   Save
-                </button>
+                </ItemActionButton>
               )}
             </div>
           )}
         </div>
       )}
-    </div>
+    </ItemCardShell>
   );
-};
+});

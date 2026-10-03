@@ -1,4 +1,4 @@
-import { useState, type Dispatch, type SetStateAction } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -19,6 +19,8 @@ import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Trash2, Copy, Plus, X, Pencil, Check, Layers, ChevronUp, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { useConfirm } from '@/components/confirmDialog';
+import { cn } from '@/lib/utils';
+import { Button, Input } from '../../../../components';
 import { ChecklistDefinitionItemDraftRow, type ItemDraft } from '../ChecklistDefinitionItemDraftRow';
 import {
   UNGROUPED, MAX_CHECKLIST_ITEMS, type SectionId,
@@ -39,9 +41,11 @@ interface BuilderItemsListProps {
 }
 
 // One draggable row: a grip handle + the existing draft row + a delete button, wrapped for
-// @dnd-kit/sortable. Position comes from `transform`/`transition`, not layout — same rule as
+// @dnd-kit/sortable. Position comes from `transform`/`transition`, not layout, same rule as
 // every other drag surface in the app (TaskBoard, TicketBoard).
-const SortableItemRow = ({
+// Memoised, with handlers that take the draft's key instead of a per-row closure: one keystroke in
+// a question re-renders only that question.
+const SortableItemRowImpl = ({
   draft,
   index,
   onChange,
@@ -52,8 +56,8 @@ const SortableItemRow = ({
   draft: ItemDraft;
   index: number;
   onChange: (key: string, patch: Partial<ItemDraft>) => void;
-  onRemove: () => void;
-  onDuplicate: () => void;
+  onRemove: (key: string) => void;
+  onDuplicate: (key: string) => void;
   storeIds?: string[];
 }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: draft.key });
@@ -70,7 +74,7 @@ const SortableItemRow = ({
       });
       if (!ok) return;
     }
-    onRemove();
+    onRemove(draft.key);
   };
 
   return (
@@ -89,7 +93,7 @@ const SortableItemRow = ({
             type="button"
             {...attributes}
             {...listeners}
-            className="flex items-center justify-center shrink-0 w-7 h-10 -ml-1 rounded-lg text-text-light hover:text-text-secondary hover:bg-surface-hover transition-colors cursor-grab active:cursor-grabbing touch-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+            className="flex items-center justify-center shrink-0 w-11 sm:w-7 h-11 sm:h-10 -ml-1 rounded-lg text-text-light hover:text-text-secondary hover:bg-surface-hover transition-colors cursor-grab active:cursor-grabbing touch-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
             aria-label="Drag to reorder"
           >
             <GripVertical size={16} />
@@ -99,29 +103,37 @@ const SortableItemRow = ({
           // Stacked, so the card's content column keeps its width. Remove stays where it always
           // was (top); Duplicate sits under it.
           <div className="flex flex-col gap-1 shrink-0">
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={handleRemove}
-              className="flex items-center justify-center shrink-0 size-10 rounded-lg text-text-light hover:text-danger hover:bg-danger/10 transition-colors duration-150 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-danger/50"
+              className="size-10 px-0 pointer-coarse:size-11 text-text-light hover:text-danger hover:bg-danger/10"
               aria-label="Remove question"
             >
               <Trash2 size={16} />
-            </button>
-            <button
-              type="button"
-              onClick={onDuplicate}
-              className="flex items-center justify-center shrink-0 size-10 rounded-lg text-text-light hover:text-primary-700 dark:hover:text-primary-300 hover:bg-primary-500/10 transition-colors duration-150 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => onDuplicate(draft.key)}
+              className="size-10 px-0 pointer-coarse:size-11 text-text-light hover:text-primary-700 dark:hover:text-primary-300 hover:bg-primary-500/10"
               aria-label="Duplicate question"
               title="Duplicate question"
             >
               <Copy size={16} />
-            </button>
+            </Button>
           </div>
         }
       />
     </div>
   );
 };
+
+const SortableItemRow = memo(SortableItemRowImpl);
+
+// Icon-only section actions: 32px on desktop, 44px on touch (Button's own coarse-pointer rule only
+// raises the height, so the width is raised here).
+const SECTION_ACTION = 'size-8 px-0 pointer-coarse:size-11 text-text-light hover:text-text-secondary';
 
 // A section container is both a SortableContext (for the items already inside it) and its own
 // droppable region (via useDroppable) — the second is what lets a drag land on a section that
@@ -156,13 +168,19 @@ const SectionContainer = ({
   // the sections list, or entirely for the fixed Ungrouped bucket.
   onMoveUp?: () => void;
   onMoveDown?: () => void;
-  renderRow: (draft: ItemDraft) => React.ReactNode;
+  renderRow: (draft: ItemDraft) => ReactNode;
   /** No header at all — the lone Ungrouped bucket when no sections exist yet. */
   bare?: boolean;
 }) => {
   const { setNodeRef, isOver } = useDroppable({ id });
   const [renaming, setRenaming] = useState(false);
   const [draftName, setDraftName] = useState(title);
+
+  // A string signature of the section's question keys keeps SortableContext's `items` array the
+  // same object while only a question's text changes. A new array every keystroke would re-render
+  // every sortable row through its context.
+  const keySig = items.map((d) => d.key).join('|');
+  const itemKeys = useMemo(() => (keySig ? keySig.split('|') : []), [keySig]);
 
   const trimmedDraft = draftName.trim();
   const isDuplicate = trimmedDraft !== title && otherSectionNames.includes(trimmedDraft);
@@ -177,34 +195,40 @@ const SectionContainer = ({
   return (
     <div
       data-section-name={title}
-      className={`flex flex-col gap-3 rounded-2xl scroll-mt-24 transition-colors duration-150 ${isOver ? 'bg-primary-500/5 ring-2 ring-primary-400/40 ring-offset-4 ring-offset-surface' : ''}`}
+      className={`flex flex-col gap-3 rounded-2xl scroll-mt-24 transition-colors duration-150 ${isOver ? 'bg-primary-500/5 outline-2 outline-primary-400/40 outline-offset-4' : ''}`}
     >
-      {!bare && <div className="flex items-center justify-between gap-2 pb-1 border-b border-border/60">
+      {!bare && <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 pb-1 border-b border-border/60">
         <div className="flex items-center gap-2 min-w-0">
           {renaming ? (
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-1">
-                <input
+                <Input
                   autoFocus
+                  label="Section name"
+                  labelClassName="sr-only"
+                  containerClassName="w-40"
                   value={draftName}
                   onChange={(e) => setDraftName(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') commitRename();
                     if (e.key === 'Escape') { setDraftName(title); setRenaming(false); }
                   }}
-                  className={`w-40 px-2 py-1 text-xs font-display font-bold bg-surface text-text rounded-md border focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 ${
-                    isDuplicate ? 'border-danger' : 'border-primary-400'
-                  }`}
+                  aria-invalid={isDuplicate}
+                  className={cn(
+                    'h-11 sm:h-8 rounded-md px-2 text-base sm:text-xs font-display font-bold',
+                    isDuplicate ? 'border-danger focus:border-danger' : 'border-primary-400',
+                  )}
                 />
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={commitRename}
                   disabled={!canCommitRename}
-                  className="p-1 text-success hover:bg-success/10 rounded-md cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-success/50"
+                  className="size-8 px-0 pointer-coarse:size-11 text-success hover:text-success hover:bg-success/10"
                   aria-label="Save section name"
                 >
-                  <Check size={13} />
-                </button>
+                  <Check size={14} />
+                </Button>
               </div>
               {isDuplicate && <span className="text-[10px] font-display text-danger">You already have a section with that name</span>}
             </div>
@@ -212,7 +236,7 @@ const SectionContainer = ({
             <button
               type="button"
               onClick={onSelect}
-              className="flex items-center gap-1.5 py-1 text-sm font-display font-semibold text-text hover:text-primary-700 dark:hover:text-primary-300 cursor-pointer truncate rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+              className="flex items-center gap-1.5 min-h-11 sm:min-h-0 py-1 text-sm font-display font-semibold text-text hover:text-primary-700 dark:hover:text-primary-300 cursor-pointer truncate rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
               title="Set as target for new items"
             >
               <Layers size={14} className={isActive ? 'text-primary-600 dark:text-primary-300' : 'text-text-light'} />
@@ -226,34 +250,22 @@ const SectionContainer = ({
         </div>
 
         {onRename && !renaming && (
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button
-              type="button"
-              onClick={onMoveUp}
-              disabled={!onMoveUp}
-              className="p-2 text-text-light hover:text-text-secondary hover:bg-surface-hover rounded-md cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
-              aria-label={`Move ${title} section up`}
-            >
-              <ChevronUp size={12} />
-            </button>
-            <button
-              type="button"
-              onClick={onMoveDown}
-              disabled={!onMoveDown}
-              className="p-2 text-text-light hover:text-text-secondary hover:bg-surface-hover rounded-md cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
-              aria-label={`Move ${title} section down`}
-            >
-              <ChevronDown size={12} />
-            </button>
-            <button type="button" onClick={() => setRenaming(true)} className="p-2 text-text-light hover:text-text-secondary hover:bg-surface-hover rounded-md cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50" aria-label={`Rename ${title}`}>
-              <Pencil size={12} />
-            </button>
-            <button type="button" onClick={onDuplicate} className="p-2 text-text-light hover:text-text-secondary hover:bg-surface-hover rounded-md cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50" aria-label={`Duplicate ${title} section`} title="Duplicate section and its questions">
-              <Copy size={12} />
-            </button>
-            <button type="button" onClick={onDelete} className="p-2 text-text-light hover:text-danger hover:bg-danger/10 rounded-md cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-danger/50" aria-label={`Delete ${title} section`}>
-              <X size={12} />
-            </button>
+          <div className="flex items-center gap-1 shrink-0">
+            <Button variant="ghost" size="sm" onClick={onMoveUp} disabled={!onMoveUp} className={SECTION_ACTION} aria-label={`Move ${title} section up`}>
+              <ChevronUp size={14} />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onMoveDown} disabled={!onMoveDown} className={SECTION_ACTION} aria-label={`Move ${title} section down`}>
+              <ChevronDown size={14} />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setRenaming(true)} className={SECTION_ACTION} aria-label={`Rename ${title}`}>
+              <Pencil size={13} />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onDuplicate} className={SECTION_ACTION} aria-label={`Duplicate ${title} section`} title="Duplicate section and its questions">
+              <Copy size={13} />
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onDelete} className={cn(SECTION_ACTION, 'hover:text-danger hover:bg-danger/10')} aria-label={`Delete ${title} section`}>
+              <X size={14} />
+            </Button>
           </div>
         )}
       </div>}
@@ -265,7 +277,7 @@ const SectionContainer = ({
           itself (append-to-end) instead of the specific row the pointer is actually over — e.g.
           dropping at the top of a populated section would silently land at the bottom instead. */}
       <div className="flex flex-col gap-2.5 min-h-[3.25rem]">
-        <SortableContext items={items.map((d) => d.key)} strategy={verticalListSortingStrategy}>
+        <SortableContext items={itemKeys} strategy={verticalListSortingStrategy}>
           {items.length === 0 ? (
             <div
               ref={setNodeRef}
@@ -295,6 +307,26 @@ const collisionDetection: CollisionDetection = (args) => {
   return withinPointer.length > 0 ? withinPointer : rectIntersection(args);
 };
 
+// Hoisted so useSensor's memo holds between renders. A fresh options object each render would hand
+// DndContext new sensors (and so a new context value) on every keystroke.
+const MOUSE_SENSOR_OPTIONS = { activationConstraint: { distance: DRAG_SLOP_PX } };
+const TOUCH_SENSOR_OPTIONS = { activationConstraint: { delay: 220, tolerance: 6 } };
+// Without the sortable-aware coordinate getter, arrow keys move a virtual pointer by a fixed
+// pixel step that may not land inside any row/container rect. This is what makes arrow keys
+// actually jump between sortable positions like mouse/touch drags do.
+const KEYBOARD_SENSOR_OPTIONS = { coordinateGetter: sortableKeyboardCoordinates };
+
+// The new card/section mounts after the click handler returns, so look it up on the next frame:
+// scroll it into view, and for a question put the cursor in its text so the copy can be reworded
+// straight away.
+const revealAfterRender = (find: () => HTMLElement | null, focus: boolean) =>
+  requestAnimationFrame(() => {
+    const el = find();
+    if (!el) return;
+    el.scrollIntoView({ block: focus ? 'center' : 'start', behavior: 'smooth' });
+    if (focus) el.focus({ preventScroll: true });
+  });
+
 export const BuilderItemsList = ({
   itemDrafts,
   setItemDrafts,
@@ -310,17 +342,21 @@ export const BuilderItemsList = ({
   const [activeKey, setActiveKey] = useState<string | null>(null);
 
   const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: DRAG_SLOP_PX } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 6 } }),
-    // Without the sortable-aware coordinate getter, arrow keys move a virtual pointer by a fixed
-    // pixel step that may not land inside any row/container rect — this is what makes arrow keys
-    // actually jump between sortable positions like mouse/touch drags do.
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    useSensor(MouseSensor, MOUSE_SENSOR_OPTIONS),
+    useSensor(TouchSensor, TOUCH_SENSOR_OPTIONS),
+    useSensor(KeyboardSensor, KEYBOARD_SENSOR_OPTIONS),
   );
 
-  const containerOrder: SectionId[] = containerOrderFor(sections);
-  const groups = groupBySection(itemDrafts, sections);
+  const containerOrder = useMemo<SectionId[]>(() => containerOrderFor(sections), [sections]);
+  const groups = useMemo(() => groupBySection(itemDrafts, sections), [itemDrafts, sections]);
+  // Row numbers from one pass, instead of an itemDrafts.indexOf(draft) scan per row (O(n^2)).
+  const indexByKey = useMemo(() => new Map(itemDrafts.map((d, i) => [d.key, i] as const)), [itemDrafts]);
   const activeDraft = activeKey ? itemDrafts.find((d) => d.key === activeKey) : undefined;
+
+  // The latest list for handlers that must stay referentially stable (memoised rows get them as
+  // props). Updated after commit, and only ever read from event handlers.
+  const itemDraftsRef = useRef(itemDrafts);
+  useEffect(() => { itemDraftsRef.current = itemDrafts; });
 
   const isDuplicateSectionName = newSectionName.trim().length > 0 && sections.includes(newSectionName.trim());
 
@@ -347,29 +383,18 @@ export const BuilderItemsList = ({
 
   // True (after telling the person why) when adding `count` more questions would pass the server's
   // per-checklist limit.
-  const wouldExceedItemLimit = (count: number) => {
-    if (itemDrafts.length + count <= MAX_CHECKLIST_ITEMS) return false;
+  const wouldExceedItemLimit = useCallback((count: number) => {
+    if (itemDraftsRef.current.length + count <= MAX_CHECKLIST_ITEMS) return false;
     toast.error(`A checklist can have at most ${MAX_CHECKLIST_ITEMS} questions.`);
     return true;
-  };
+  }, []);
 
-  // The new card/section mounts after the click handler returns, so look it up on the next frame:
-  // scroll it into view, and for a question put the cursor in its text so the copy can be reworded
-  // straight away.
-  const revealAfterRender = (find: () => HTMLElement | null, focus: boolean) =>
-    requestAnimationFrame(() => {
-      const el = find();
-      if (!el) return;
-      el.scrollIntoView({ block: focus ? 'center' : 'start', behavior: 'smooth' });
-      if (focus) el.focus({ preventScroll: true });
-    });
-
-  // The copy goes straight after the original, in the same section — which also keeps every
+  // The copy goes straight after the original, in the same section, which also keeps every
   // section's questions contiguous, as the saved order needs.
-  const handleDuplicateItem = (key: string) => {
-    const at = itemDrafts.findIndex((d) => d.key === key);
-    if (at < 0 || wouldExceedItemLimit(1)) return;
-    const copy = cloneItemDraft(itemDrafts[at]);
+  const handleDuplicateItem = useCallback((key: string) => {
+    const original = itemDraftsRef.current.find((d) => d.key === key);
+    if (!original || wouldExceedItemLimit(1)) return;
+    const copy = cloneItemDraft(original);
     setItemDrafts((prev) => {
       const i = prev.findIndex((d) => d.key === key);
       if (i < 0) return prev;
@@ -379,7 +404,7 @@ export const BuilderItemsList = ({
     });
     toast.success('Question duplicated');
     revealAfterRender(() => document.getElementById(`item-label-${copy.key}`), true);
-  };
+  }, [setItemDrafts, wouldExceedItemLimit]);
 
   // A new section right after the original, holding copies of all its questions.
   const handleDuplicateSection = (name: string) => {
@@ -399,7 +424,7 @@ export const BuilderItemsList = ({
     revealAfterRender(() => document.querySelector<HTMLElement>(`[data-section-name="${window.CSS.escape(copyName)}"]`), false);
   };
 
-  // Section blocks display in `sections` array order, so swapping two entries reorders them —
+  // Section blocks display in `sections` array order, so swapping two entries reorders them,
   // but the saved item order comes from flattening `itemDrafts` in that same order (see
   // itemSections.ts), so it must be re-flattened here too, or the visual reorder wouldn't be
   // reflected in what actually gets saved until some unrelated item drag happened to touch it.
@@ -423,7 +448,8 @@ export const BuilderItemsList = ({
     const overId = over.id as string;
     if (activeItemKey === overId) return;
 
-    const liveGroups = groupBySection(itemDrafts, sections);
+    // Shallow copy of the memoised groups: the entries below are replaced, never mutated in place.
+    const liveGroups: Record<SectionId, ItemDraft[]> = { ...groups };
     const sourceContainer = containerOrder.find((id) => liveGroups[id].some((d) => d.key === activeItemKey));
     if (!sourceContainer) return;
 
@@ -435,8 +461,8 @@ export const BuilderItemsList = ({
 
     if (sourceContainer === targetContainer) {
       // Same-container reorder: use dnd-kit's own arrayMove against the ORIGINAL (pre-removal)
-      // array, computed the same way SortableContext computes it for the live drag preview —
-      // splicing the active item out first and THEN searching for the over-item's index (as the
+      // array, computed the same way SortableContext computes it for the live drag preview.
+      // Splicing the active item out first and THEN searching for the over-item's index (as the
       // cross-container branch below does) searches a shortened array, landing one slot off from
       // where the preview showed the item hovering.
       const original = liveGroups[sourceContainer];
@@ -461,17 +487,17 @@ export const BuilderItemsList = ({
     setItemDrafts(containerOrder.flatMap((id) => liveGroups[id] ?? []));
   };
 
-  const renderRow = (draft: ItemDraft) => (
+  const renderRow = useCallback((draft: ItemDraft) => (
     <SortableItemRow
       key={draft.key}
       draft={draft}
-      index={itemDrafts.indexOf(draft)}
+      index={indexByKey.get(draft.key) ?? 0}
       onChange={onUpdateDraft}
-      onRemove={() => onRemoveItem(draft.key)}
-      onDuplicate={() => handleDuplicateItem(draft.key)}
+      onRemove={onRemoveItem}
+      onDuplicate={handleDuplicateItem}
       storeIds={storeIds}
     />
-  );
+  ), [indexByKey, onUpdateDraft, onRemoveItem, handleDuplicateItem, storeIds]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -514,7 +540,7 @@ export const BuilderItemsList = ({
 
         <DragOverlay>
           {activeDraft && (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-primary-400 bg-surface shadow-lg shadow-black/10 rotate-1 scale-[1.02] cursor-grabbing">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-primary-400 bg-surface rotate-1 scale-[1.02] cursor-grabbing">
               <GripVertical size={14} className="text-text-light shrink-0" />
               <span className="text-sm font-display font-medium text-text truncate">
                 {activeDraft.label.trim() || 'Untitled item'}
@@ -524,27 +550,31 @@ export const BuilderItemsList = ({
         </DragOverlay>
       </DndContext>
 
-      {/* Sections are optional grouping ("Opening", "Closing") — a single quiet row under the
+      {/* Sections are optional grouping ("Opening", "Closing"): a single quiet row under the
           questions instead of a dashed toolbar above them. */}
       <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-2 h-10 pl-3 pr-1 rounded-xl border border-dashed border-border focus-within:border-primary-400 focus-within:border-solid transition-colors">
+        <div className="flex items-center gap-2 min-h-11 sm:min-h-10 pl-3 pr-1 rounded-lg border border-dashed border-border focus-within:border-primary-400 focus-within:border-solid transition-colors">
           <Layers size={14} className="text-text-light shrink-0" />
-          <input
+          <Input
+            label="New section name"
+            labelClassName="sr-only"
+            containerClassName="flex-1 min-w-0"
             value={newSectionName}
             onChange={(e) => setNewSectionName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleAddSection()}
             placeholder="New section, e.g. Opening"
-            aria-label="New section name"
-            className="flex-1 min-w-0 bg-transparent text-sm font-display text-text placeholder:text-text-light focus:outline-none"
+            // Borderless: the dashed row around it is the field's frame.
+            className="h-10 border-0 rounded-none bg-transparent px-0 text-sm font-display"
           />
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={handleAddSection}
             disabled={!newSectionName.trim() || isDuplicateSectionName}
-            className="inline-flex items-center gap-1 h-8 px-3 rounded-lg text-xs font-display font-semibold text-primary-700 dark:text-primary-300 cursor-pointer hover:bg-primary-500/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+            className="shrink-0 text-primary-700 dark:text-primary-300 hover:text-primary-700 dark:hover:text-primary-300 hover:bg-primary-500/10"
           >
             <Plus size={13} /> Add section
-          </button>
+          </Button>
         </div>
         {isDuplicateSectionName && <span className="px-3 text-[11px] font-display text-danger">You already have a section with that name.</span>}
       </div>

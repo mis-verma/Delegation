@@ -1,6 +1,8 @@
-import { useState } from 'react';
-import { History, AlertCircle } from 'lucide-react';
-import { PageNav, EmptyState, GradientIconTile, Skeleton } from '../../../components';
+import { useCallback, useState } from 'react';
+import { History } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PageNav, EmptyState, InlineError, PageHeader, PANEL_CLASS, Skeleton } from '../../../components';
 import { useAuditLogsQuery } from './hook';
 import { useUsersQuery } from '../hook';
 import { AuditLogFilters } from './AuditLogFilters';
@@ -17,66 +19,56 @@ const TABS: { value: AuditGroup | ''; label: string }[] = [
   { value: 'settings', label: 'Settings' },
 ];
 
+// Radix tab values can't usefully be empty, so "Everything" travels as 'all' and maps back here.
+const ALL = 'all';
+
 export const AuditLogPage = () => {
   const [filter, setFilter] = useState<AuditLogFilter>({ page: 1, limit: 30 });
-  const { data, isPending, isError } = useAuditLogsQuery(filter);
+  // keepPrevious: paging or filtering keeps the old rows on screen (dimmed) instead of flashing skeletons.
+  const { data, isPending, isError, isFetching, refetch } = useAuditLogsQuery(filter, { keepPrevious: true });
   const { data: users } = useUsersQuery();
   const resolvers = useAuditIdResolvers(true);
 
-  const patchFilter = (patch: Partial<AuditLogFilter>) =>
-    setFilter((prev) => ({ ...prev, ...patch, page: 1 }));
+  const patchFilter = useCallback((patch: Partial<AuditLogFilter>) =>
+    setFilter((prev) => ({ ...prev, ...patch, page: 1 })), []);
 
   return (
-    <div className="flex flex-col gap-6 max-w-4xl">
-      <div className="flex items-center gap-3">
-        <GradientIconTile icon={History} />
-        <div>
-          <h1 className="text-xl font-display font-bold text-text">Audit Log</h1>
-          <p className="text-sm text-text-muted mt-0.5">
-            Every change recorded across the app — who did what, and when.
-          </p>
-        </div>
-      </div>
+    <div className="flex flex-col gap-6 w-full max-w-5xl mx-auto">
+      <PageHeader
+        icon={History}
+        title="Audit Log"
+        subtitle="Every change recorded across the app: who did what, and when."
+      />
 
-      <div role="tablist" aria-label="Section" className="flex gap-1.5 overflow-x-auto pb-0.5 -mx-1 px-1">
-        {TABS.map(tab => {
-          const on = (filter.group ?? '') === tab.value;
-          return (
-            <button
-              key={tab.value || 'all'}
-              type="button"
-              role="tab"
-              aria-selected={on}
-              onClick={() => patchFilter({ group: tab.value || undefined, entityType: undefined })}
-              className={`shrink-0 h-9 px-3.5 rounded-full border text-xs font-display font-semibold cursor-pointer transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
-                on ? 'border-primary-500/50 bg-primary-500/10 text-primary-700 dark:text-primary-300' : 'border-border/60 bg-surface text-text-secondary hover:border-border-hover hover:text-text'
-              }`}
-            >
-              {tab.label}
-            </button>
-          );
-        })}
+      {/* Scrolls sideways on a narrow screen rather than wrapping the tab strip into two rows. */}
+      <div className="overflow-x-auto">
+        <Tabs
+          value={filter.group || ALL}
+          onValueChange={(value) => patchFilter({ group: value === ALL ? undefined : (value as AuditGroup), entityType: undefined })}
+        >
+          <TabsList aria-label="Section" className="max-w-none">
+            {TABS.map(tab => (
+              <TabsTrigger key={tab.value || ALL} value={tab.value || ALL} className="shrink-0 min-h-11 sm:min-h-8">
+                {tab.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
       </div>
 
       <AuditLogFilters filter={filter} onChange={patchFilter} users={users} />
 
-      {isError && (
-        <div className="flex items-center gap-2.5 p-3 rounded-xl bg-danger/10 border border-danger/20 text-xs text-danger font-display">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          Failed to load the audit log. Please check your connection and try again.
-        </div>
-      )}
+      {isError && <InlineError message="We couldn't load the audit log. Check your connection and try again." onRetry={() => refetch()} />}
 
       {isPending && (
-        // Row-shaped, matching AuditLogRow's own card layout — the same "skeleton mirrors the
-        // real layout" convention list pages use elsewhere (e.g. TicketList's TicketListSkeleton)
-        // rather than a generic centered spinner.
+        // Row-shaped, matching AuditLogRow's own card layout (same "skeleton mirrors the real
+        // layout" convention list pages use elsewhere) rather than a generic centered spinner.
         <div className="flex flex-col gap-2.5">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-3.5">
+            <div key={i} className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-3.5 min-h-24')}>
               <div className="flex items-center gap-2">
-                <Skeleton className="h-5 w-24 rounded-full" />
-                <Skeleton className="h-5 w-20 rounded-full" />
+                <Skeleton className="h-6 w-24 rounded-full" />
+                <Skeleton className="h-6 w-20 rounded-full" />
                 <Skeleton className="h-4 w-24 rounded-full ml-auto" />
               </div>
               <Skeleton className="h-4 w-40" />
@@ -90,12 +82,15 @@ export const AuditLogPage = () => {
           icon={History}
           title="No history found"
           description="No changes match the current filters yet."
+          action={filter.group || filter.entityType || filter.from || filter.to || filter.actorId || filter.action
+            ? { label: 'Clear filters', onClick: () => setFilter({ page: 1, limit: filter.limit }) }
+            : undefined}
         />
       )}
 
       {!isPending && !isError && !!data?.data.length && (
         <>
-          <div className="flex flex-col gap-2.5">
+          <div className={cn('flex flex-col gap-2.5 transition-opacity duration-200', isFetching && 'opacity-60')} aria-busy={isFetching}>
             {data.data.map((log) => (
               <AuditLogRow key={log.id} log={log} resolvers={resolvers} />
             ))}

@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { ShieldCheck, UserCheck } from 'lucide-react';
 import { UserMultiSelect } from '../../../../components';
 import { useDepartmentsQuery } from '../../hook';
@@ -28,14 +29,16 @@ export const ChecklistReviewersField = ({
   className = '',
 }: ChecklistReviewersFieldProps) => {
   const { data: allDepartments = [] } = useDepartmentsQuery();
+  const labelId = useId();
 
   return (
-    <div className={`flex flex-col gap-1.5 w-full ${className}`}>
+    <div role="group" aria-labelledby={labelId} className={`flex flex-col gap-1.5 w-full ${className}`}>
       <div className="flex items-center justify-between gap-2">
-        <label className={`${LABEL_CLASS} flex items-center gap-1.5 cursor-pointer`}>
+        {/* A caption for the checkbox list below, not a label for one control, so a span. */}
+        <span id={labelId} className={LABEL_CLASS}>
           <ShieldCheck size={14} className="text-text-muted shrink-0" />
           <span>Reviewers <span className="text-text-muted/70 font-medium">(Optional)</span></span>
-        </label>
+        </span>
 
         {selected.length > 0 && (
           <span className="text-[11px] font-display font-medium text-text-muted flex items-center gap-1">
@@ -54,7 +57,7 @@ export const ChecklistReviewersField = ({
 
       <p className="text-[11px] font-display text-text-muted">
         Starts with PC pre-selected. Anyone you add here can approve or reject this checklist's
-        runs — on top of PC/Admin, and the department head of anyone assigned. Look for the
+        runs, on top of PC/Admin and the department head of anyone assigned. Look for the
         "HOD" badge to add a department head directly.
       </p>
     </div>
