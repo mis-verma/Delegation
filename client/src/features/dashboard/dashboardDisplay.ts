@@ -84,7 +84,7 @@ export const trendFrom = (current: number, previous: number): Trend => {
   const pct = ((current - previous) / previous) * 100;
   return { 
     direction: pct >= 0 ? 'up' : 'down', 
-    label: `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%` 
+    label: `${pct >= 0 ? '+' : ''}${Math.round(pct)}%`
   };
 };
 

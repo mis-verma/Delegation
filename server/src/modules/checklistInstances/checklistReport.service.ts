@@ -201,7 +201,7 @@ export const checklistReportService = {
         const window = resolveReportWindow(query.groupBy, query.from, query.to)
         if (!scope) return zeroFill([], query.groupBy, window, emptyBucket)
 
-        const conditions = filterConditions(scope, window, query.includeDeleted === true, false)
+        const conditions = filterConditions(scope, window, query.includeDeleted === true, true)
         const bucketExpr = query.groupBy === "none"
             ? sql.raw(`'${RANGE_BUCKET}'`)
             : sql`DATE_FORMAT(r.periodStart, ${REPORT_DATE_FORMATS[query.groupBy]})`

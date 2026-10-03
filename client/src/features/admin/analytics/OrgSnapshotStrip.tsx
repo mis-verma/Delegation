@@ -19,7 +19,6 @@ interface OrgSnapshotStripProps {
 }
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
-const PLACEHOLDER = '—';
 
 // The shape of the organisation, as the last thing on the Overview: how many stores, departments
 // and people are active, and how many departments have a lead. Every figure counts active records
@@ -56,6 +55,8 @@ const OrgSnapshotStripBase = ({ stores, departments, users, isPending, isError, 
   }, [stores, departments, users]);
 
   const unavailable = isPending || isError;
+  // Written out, never a bare dash standing in for a number.
+  const PLACEHOLDER = isError ? 'No data' : 'Loading';
   const caption = (text: string) => (isError ? "Couldn't load" : isPending ? undefined : text);
   const inactiveNote = (count: number) => (count > 0 ? `${count} inactive` : 'All active');
 

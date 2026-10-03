@@ -23,7 +23,8 @@ import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { CreateTicketInput, UpdateTicketInput, VerifyTicketInput, StatusUpdateInput } from "./ticket.validation.js"
 import { auditService } from "../audit/audit.service.js"
 import { emitTicketEvent } from "../../sockets/ticketEvent.js"
-import { DATE_FORMATS } from "../../utils/dateBucket.js"
+import { resolveReportRange, bucketSql, utcSql, type ReportGroupBy } from "../checklistInstances/checklistReportRange.js"
+import { resolveReportScope } from "../../utils/reportScope.js"
 import { notificationService, notifySafely } from "../notifications/notification.service.js"
 import { settingsService } from "../settings/settings.service.js"
 
@@ -49,124 +50,6 @@ const deriveTatDueAt = (tatHours: number | null, fromDate: Date): Date | null =>
 // clears an existing flag (already late stays late).
 const overdueAtHandOver = (alreadyOverdue: boolean, tatDueAt: Date | null, now: Date): boolean =>
   alreadyOverdue || (tatDueAt !== null && tatDueAt.getTime() < now.getTime())
-
-// ---------------------------------------------------------------------------------------------
-// Shared report plumbing (also imported by task.service.ts so tickets and delegations bucket,
-// default and zero-fill identically).
-// ---------------------------------------------------------------------------------------------
-
-export type ReportGroupBy = "day" | "week" | "month" | "year" | "none"
-
-const MS_MINUTE = 60_000
-const MS_DAY = 86_400_000
-// Hard ceiling on a returned series so a huge explicit range at day granularity can't produce an
-// unbounded response; the oldest buckets are dropped first.
-const MAX_REPORT_BUCKETS = 800
-
-// Org-local offset ahead of UTC, in whole minutes (same env var the checklist engine uses).
-const orgOffsetMinutes = (): number => {
-  const n = Math.trunc(Number(env.CHECKLIST_TIMEZONE_OFFSET_MINUTES))
-  return Number.isFinite(n) ? n : 0
-}
-
-// "Local-as-UTC" helpers: shifting an instant by the org offset and then reading it with the UTC
-// getters yields the org's wall-clock fields.
-const pad2 = (n: number) => String(n).padStart(2, "0")
-
-const bucketStartLocal = (localMs: number, groupBy: Exclude<ReportGroupBy, "none">): number => {
-  const d = new Date(localMs)
-  const y = d.getUTCFullYear()
-  const m = d.getUTCMonth()
-  const day = d.getUTCDate()
-  if (groupBy === "year") return Date.UTC(y, 0, 1)
-  if (groupBy === "month") return Date.UTC(y, m, 1)
-  if (groupBy === "week") {
-    const sinceMonday = (d.getUTCDay() + 6) % 7
-    return Date.UTC(y, m, day - sinceMonday)
-  }
-  return Date.UTC(y, m, day)
-}
-
-const nextBucketLocal = (startLocal: number, groupBy: Exclude<ReportGroupBy, "none">): number => {
-  const d = new Date(startLocal)
-  if (groupBy === "year") return Date.UTC(d.getUTCFullYear() + 1, 0, 1)
-  if (groupBy === "month") return Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1)
-  if (groupBy === "week") return startLocal + 7 * MS_DAY
-  return startLocal + MS_DAY
-}
-
-const prevBucketLocal = (startLocal: number, groupBy: Exclude<ReportGroupBy, "none">): number => {
-  const d = new Date(startLocal)
-  if (groupBy === "year") return Date.UTC(d.getUTCFullYear() - 1, 0, 1)
-  if (groupBy === "month") return Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - 1, 1)
-  if (groupBy === "week") return startLocal - 7 * MS_DAY
-  return startLocal - MS_DAY
-}
-
-// Same string MySQL's DATE_FORMAT produces for DATE_FORMATS[groupBy] ('%x-W%v' is the ISO week:
-// the year/week of the bucket's Thursday).
-const bucketKeyLocal = (startLocal: number, groupBy: Exclude<ReportGroupBy, "none">): string => {
-  const d = new Date(startLocal)
-  if (groupBy === "year") return String(d.getUTCFullYear())
-  if (groupBy === "month") return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}`
-  if (groupBy === "week") {
-    const thursday = new Date(startLocal + 3 * MS_DAY)
-    const isoYear = thursday.getUTCFullYear()
-    const dayOfYear = Math.floor((thursday.getTime() - Date.UTC(isoYear, 0, 1)) / MS_DAY)
-    return `${isoYear}-W${pad2(Math.floor(dayOfYear / 7) + 1)}`
-  }
-  return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`
-}
-
-export type ReportRange = { from: Date; to: Date; buckets: string[] }
-
-// Resolves the window a bucketed report covers and the contiguous list of bucket keys inside it.
-// No from/to -> the last 12 buckets (last 30 days for day, and for 'none'), never unbounded.
-// 'none' collapses the whole window into one bucket named 'range'.
-export const resolveReportRange = (groupBy: ReportGroupBy, from?: string, to?: string, now: Date = new Date()): ReportRange => {
-  const offsetMs = orgOffsetMinutes() * MS_MINUTE
-  const unit: Exclude<ReportGroupBy, "none"> = groupBy === "none" ? "day" : groupBy
-  const defaultBuckets = groupBy === "day" || groupBy === "none" ? 30 : 12
-
-  let toDate = to ? new Date(to) : now
-  let fromDate: Date
-  if (from) {
-    fromDate = new Date(from)
-  } else {
-    let start = bucketStartLocal(toDate.getTime() + offsetMs, unit)
-    for (let i = 1; i < defaultBuckets; i++) start = prevBucketLocal(start, unit)
-    fromDate = new Date(start - offsetMs)
-  }
-  if (fromDate.getTime() > toDate.getTime()) toDate = fromDate
-
-  if (groupBy === "none") return { from: fromDate, to: toDate, buckets: ["range"] }
-
-  const lastStart = bucketStartLocal(toDate.getTime() + offsetMs, unit)
-  let cursor = bucketStartLocal(fromDate.getTime() + offsetMs, unit)
-  const starts: number[] = []
-  while (cursor <= lastStart) {
-    starts.push(cursor)
-    cursor = nextBucketLocal(cursor, unit)
-  }
-  if (starts.length > MAX_REPORT_BUCKETS) {
-    starts.splice(0, starts.length - MAX_REPORT_BUCKETS)
-    const firstInstant = new Date(starts[0]! - offsetMs)
-    if (firstInstant.getTime() > fromDate.getTime()) fromDate = firstInstant
-  }
-  return { from: fromDate, to: toDate, buckets: starts.map((s) => bucketKeyLocal(s, unit)) }
-}
-
-// SQL for "which bucket does this datetime column fall in", in the org's local calendar. The offset
-// is an integer from env (never user input), so it is safe to inline.
-export const bucketSql = (groupBy: ReportGroupBy, column: SQL): SQL =>
-  groupBy === "none"
-    ? sql.raw("'range'")
-    : sql`DATE_FORMAT(DATE_ADD(${column}, INTERVAL ${sql.raw(String(orgOffsetMinutes()))} MINUTE), ${DATE_FORMATS[groupBy]})`
-
-// DATETIME columns hold UTC wall-clock strings (Drizzle writes them via toISOString). Passing a raw
-// JS Date into a sql`` template instead makes mysql2 format it in Node's local timezone, so the
-// bound could silently shift by the server's UTC offset. This formats the UTC string explicitly.
-export const utcSql = (date: Date): SQL => sql`${date.toISOString().slice(0, 19).replace("T", " ")}`
 
 const round1 = (n: number) => Math.round(n * 10) / 10
 
@@ -515,6 +398,8 @@ export type OwnerStatsRow = {
   closedLate: number
   /** Distinct tickets behind this row (created OR closed in the window), for minimum-volume rules. */
   volume: number
+  /** The server never invents a default window: no from/to means all time. Clients send explicit dates. */
+  windowDefaulted: false
 }
 
 // Same shape task.service.ts's own PendingApprovalRow uses — the dashboard's "Needs your
@@ -591,6 +476,7 @@ const ownerStatsByColumn = async (
     closedOnTime: Number(r.closedOnTime),
     closedLate: Number(r.closedLate),
     volume: Number(r.volume),
+    windowDefaulted: false as const,
   }))
 }
 
@@ -611,6 +497,13 @@ export const ticketService = {
     // Same definitions the reports use, so a tile's drill-down lists exactly the tickets it counted:
     // overdue = flagged overdue and still open; closed on time/late = closedAt vs tatDueAt among
     // closed tickets that have a TAT.
+    // The reports narrow by resolveReportScope (MANAGER: own department, SENIOR: own store), so the
+    // drill-down applies the same scope or a manager's list total would not match the tile.
+    if (sla) {
+      const scope = resolveReportScope(user, {})
+      if (scope.departmentId) conditions.push(eq(tickets.departmentId, scope.departmentId))
+      if (scope.storeId) conditions.push(eq(tickets.storeId, scope.storeId))
+    }
     if (sla === "overdue_open") conditions.push(eq(tickets.isOverdue, true), ne(tickets.status, "CLOSED"))
     if (sla === "closed_late") conditions.push(isNotNull(tickets.closedAt), isNotNull(tickets.tatDueAt), sql`${tickets.closedAt} > ${tickets.tatDueAt}`)
     if (sla === "closed_on_time") conditions.push(isNotNull(tickets.closedAt), isNotNull(tickets.tatDueAt), sql`${tickets.closedAt} <= ${tickets.tatDueAt}`)
@@ -1026,12 +919,12 @@ export const ticketService = {
       const created = createdByBucket.get(bucket)
       const createdCount = created?.createdCount ?? 0
       const closedCount = closed?.closedCount ?? 0
-      // closed / created, unclamped (above 100 means the backlog shrank). null only when nothing was
-      // created AND nothing was closed; closed-with-none-created reads as closed x 100 (a missing
-      // denominator counts as 1) rather than hiding the closures.
-      const completionRate = createdCount === 0 && closedCount === 0
+      // closed / created, unclamped (above 100 means the backlog shrank). null whenever nothing was
+      // created in the bucket: there is no denominator, so closures without raised tickets stay in
+      // closedCount instead of reading as closed x 100.
+      const completionRate = createdCount === 0
         ? null
-        : round1((closedCount / Math.max(createdCount, 1)) * 100)
+        : round1((closedCount / createdCount) * 100)
       return {
         bucket,
         createdCount,

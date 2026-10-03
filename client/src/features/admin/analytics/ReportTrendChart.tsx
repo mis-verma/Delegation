@@ -13,8 +13,10 @@ export interface TrendSeries {
 
 export type TrendGroupBy = 'day' | 'week' | 'month' | 'year' | 'none';
 
-/** Only the most recent buckets are drawn: a 40-bucket daily series is unreadable on a phone. */
-const MAX_POINTS = 24;
+/** Only the most recent buckets are drawn: a long series is unreadable on a phone. A daily series
+ *  keeps a full month; week, month and year stay at 24. */
+const MAX_POINTS_DAY = 31;
+const MAX_POINTS_OTHER = 24;
 
 // The report endpoints name the single whole-range bucket 'range' (groupBy=none), whatever grouping
 // the page asked for, so the label has to follow the bucket, not the control.
@@ -66,19 +68,23 @@ export interface ReportTrendChartProps {
   /** Used for the x axis and tooltip labels, e.g. 'month' turns "2026-10" into "Oct 2026". */
   groupBy: TrendGroupBy;
   valueSuffix?: string;
-  /** Each end can be a number or 'auto'. Rates pass [0, 100]; a count or duration passes [0, 'auto'] so
-   *  nothing is clipped. */
-  yDomain?: [number | 'auto', number | 'auto'];
+  /** Each end can be a number, 'auto', or a function of the data's own min or max. Rates pass
+   *  [0, 100]; a count or duration passes [0, 'auto'] so nothing is clipped. */
+  yDomain?: [number | 'auto' | ((value: number) => number), number | 'auto' | ((value: number) => number)];
 }
 
-// Renders a plain dot on every point except the last, and a bigger dot with a soft halo ring on
-// the last one — a quiet way to say "this is where things stand right now" without a separate
-// label crowding the chart. `key` is spread from `dotProps` (React needs it on the element it's
-// applied to, not passed a second time) so the halo circle underneath doesn't warn about a
-// missing key when Recharts renders one dot per data point.
-const makeEndpointDot = (color: string, lastIndex: number) => (dotProps: DotItemDotProps) => {
+// Draws a bigger dot with a soft halo ring on the last point — a quiet way to say "this is where
+// things stand right now" without a separate label crowding the chart. A point with an empty bucket
+// on both sides would have no line to hang on (empty buckets leave a gap), so it gets a small plain
+// dot. `key` is on the element Recharts renders per data point so React does not warn about it.
+const makeEndpointDot = (color: string, lastIndex: number, isolated: ReadonlySet<number>) => (dotProps: DotItemDotProps) => {
   const { cx, cy, index } = dotProps;
-  if (cx == null || cy == null || index !== lastIndex) return <g key={`dot-${index}`} />;
+  if (cx == null || cy == null) return <g key={`dot-${index}`} />;
+  if (index !== lastIndex) {
+    return isolated.has(index as number)
+      ? <circle key={`dot-${index}`} cx={cx} cy={cy} r={3} fill={color} />
+      : <g key={`dot-${index}`} />;
+  }
   return (
     <g key={`dot-${index}`}>
       <circle cx={cx} cy={cy} r={7} fill={color} fillOpacity={0.18} />
@@ -88,8 +94,24 @@ const makeEndpointDot = (color: string, lastIndex: number) => (dotProps: DotItem
 };
 
 export const ReportTrendChart = ({ data, series, groupBy, valueSuffix = '', yDomain }: ReportTrendChartProps) => {
-  const points = useMemo(() => data.slice(-MAX_POINTS), [data]);
+  const points = useMemo(() => data.slice(-(groupBy === 'day' ? MAX_POINTS_DAY : MAX_POINTS_OTHER)), [data, groupBy]);
   const hasValues = useMemo(() => points.some((row) => series.some((s) => row[s.key] != null)), [points, series]);
+
+  // Per series, the points whose neighbours are both empty (or missing).
+  const isolatedBySeries = useMemo(() => {
+    const result = new Map<string, Set<number>>();
+    for (const s of series) {
+      const isolated = new Set<number>();
+      points.forEach((row, i) => {
+        if (row[s.key] == null) return;
+        const before = i > 0 ? points[i - 1][s.key] : null;
+        const after = i < points.length - 1 ? points[i + 1][s.key] : null;
+        if (before == null && after == null) isolated.add(i);
+      });
+      result.set(s.key, isolated);
+    }
+    return result;
+  }, [points, series]);
 
   const formatLabel = useMemo(() => (bucket: string) => labelFor(bucket, groupBy), [groupBy]);
 
@@ -182,9 +204,8 @@ export const ReportTrendChart = ({ data, series, groupBy, valueSuffix = '', yDom
                 stroke={s.color}
                 strokeWidth={2.5}
                 fill={`url(#trend-fill-${s.key})`}
-                dot={makeEndpointDot(s.color, points.length - 1)}
+                dot={makeEndpointDot(s.color, points.length - 1, isolatedBySeries.get(s.key) ?? new Set())}
                 activeDot={{ r: 5, fill: s.color, stroke: 'var(--color-surface)', strokeWidth: 2 }}
-                connectNulls
               />
             ))}
           </AreaChart>

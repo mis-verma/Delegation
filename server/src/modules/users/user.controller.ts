@@ -3,7 +3,7 @@ import { userService } from './user.service.js'
 import { userOffboardingService } from './userOffboarding.service.js'
 import { asyncHandler } from '../../utils/asyncHandler.js'
 import { AppError } from '../../utils/AppError.js'
-import { createUserSchema, updateUserSchema, listUsersQuerySchema, resetUserPasswordSchema, updateOwnProfileSchema, changeOwnPasswordSchema, offboardUserSchema } from './user.validation.js'
+import { createUserSchema, updateUserSchema, listUsersQuerySchema, resetUserPasswordSchema, updateOwnProfileSchema, changeOwnPasswordSchema, offboardUserSchema, bulkUpdateUsersSchema } from './user.validation.js'
 
 // Controllers are the layer that talks directly to Express (reads the request, sends the
 // response). They don't contain business logic themselves - they just call into the
@@ -147,6 +147,16 @@ export const userController = {
         // for whoever is logged in - the service needs this to figure out scoping rules (see
         // user.service.ts `listAssignable` for the department/store scoping logic for MANAGERs).
         const users = await userService.listAssignable(req.user!, departmentId, storeId, storeIds);
-        res.json({ success : true, data : users})
+        // Email addresses are only for ADMIN/PC; everyone else's picker needs just names and roles.
+        const canSeeEmail = req.user!.role === 'ADMIN' || req.user!.role === 'PC';
+        const data = canSeeEmail ? users : users.map(({ email: _email, ...rest }) => rest);
+        res.json({ success : true, data })
+    }),
+
+    // PATCH /users/bulk { ids, departmentId?, storeId?, role? } -> move many people in one transaction
+    bulkUpdate : asyncHandler(async (req : Request , res : Response) => {
+        const input = bulkUpdateUsersSchema.parse(req.body);
+        const result = await userService.bulkUpdate(input, req.user!.sub);
+        res.json({ success : true , data : result })
     })
 }

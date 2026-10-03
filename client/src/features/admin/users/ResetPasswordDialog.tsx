@@ -1,0 +1,25 @@
+import { KeyRound } from 'lucide-react';
+import { Modal } from '../../../components';
+import type { AdminUser } from '../../../api/admin';
+import { ResetPasswordSection } from './PasswordPanels';
+import { fullName } from './userDisplay';
+
+interface ResetPasswordDialogProps {
+  user: AdminUser;
+  onClose: () => void;
+}
+
+// The "Reset password" item in a person's menu: just the password section, in its own small dialog,
+// so resetting a password never means opening the whole profile form.
+export const ResetPasswordDialog = ({ user, onClose }: ResetPasswordDialogProps) => (
+  <Modal
+    open
+    onClose={onClose}
+    size="md"
+    icon={<KeyRound className="w-5 h-5" />}
+    title={`Reset password for ${fullName(user)}`}
+    description="Set a new password, then share it with them."
+  >
+    <ResetPasswordSection userId={user.id} email={user.email} defaultExpanded onFinished={onClose} />
+  </Modal>
+);

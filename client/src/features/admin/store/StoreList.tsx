@@ -1,17 +1,33 @@
-import { useState, useMemo, lazy, Suspense } from 'react';
-import { Plus, Store as StoreIcon, AlertCircle, Inbox } from 'lucide-react';
-import { Button, Loader, FormLoadError, PageNav, EntityStatusFilter, EntityCardSkeleton, type EntityStatusFilterValue, useConfirm } from '../../../components';
-import { useStoresQuery } from '../../tickets/hook';
+import { useState, useMemo, useCallback, lazy, Suspense } from 'react';
+import { Plus, Store as StoreIcon } from 'lucide-react';
+import {
+  Button,
+  EmptyState,
+  EntityCardSkeleton,
+  EntityStatusFilter,
+  FormChunkFallback,
+  FormLoadError,
+  InlineError,
+  PageNav,
+  useConfirm,
+  type EntityStatusFilterValue,
+} from '../../../components';
+import { useDepartmentsQuery, useStoresQuery } from '../../tickets/hook';
 import { useUsersQuery, useUpdateStoreMutation, useDeleteStoreMutation } from '../hook';
+import { countPeopleBy, hasPeople, peopleText } from '../orgCounts';
 import { StoreCard } from './StoreCard';
 import type { Store } from '../../../api/stores';
 
 const PAGE_SIZE = 24;
+const SKELETON_COUNT = 6;
+const GRID_CLASS = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3';
 
-// Lazy-loaded modal chunk — matches UserForm/DepartmentForm's own code-splitting (and its
-// chunk-load-failure fallback), which this was the one entity form left out of.
+// Named so hovering/focusing "New store" can start the chunk download early.
+const loadStoreForm = () => import('./StoreForm');
+
+// Lazy-loaded modal chunk, same code-splitting (and chunk-load-failure fallback) as UserForm/DepartmentForm.
 const StoreForm = lazy(() =>
-  import('./StoreForm').then(module => ({ default: module.StoreForm })).catch(() => ({
+  loadStoreForm().then(module => ({ default: module.StoreForm })).catch(() => ({
     default: FormLoadError,
   }))
 );
@@ -22,22 +38,29 @@ export const StoreList = () => {
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<EntityStatusFilterValue>('all');
 
-  // Filtering/pagination moved client-side (full roster, not a server page) so the Active/
-  // Inactive split can be seen and filtered at all.
+  // Filtering/pagination is client-side (full roster, not a server page) so the Active/Inactive
+  // split can be seen and filtered at all.
   const { data: allStores, isPending, isError, refetch } = useStoresQuery();
   const stores = useMemo(() => allStores ?? [], [allStores]);
-  const { data: users } = useUsersQuery();
+  const { data: users, isError: usersError, refetch: refetchUsers } = useUsersQuery();
+  const { data: departments } = useDepartmentsQuery();
   const updateMut = useUpdateStoreMutation();
   const deleteMut = useDeleteStoreMutation();
+  const { mutate: updateStore } = updateMut;
+  const { mutate: deleteStore } = deleteMut;
   const confirm = useConfirm();
 
-  const memberCounts = useMemo(() => {
+  // undefined until the roster arrives, so a card never claims "0 staff" while it is still loading.
+  const memberCounts = useMemo(() => (users ? countPeopleBy(users, 'storeId') : undefined), [users]);
+
+  const departmentCountByStore = useMemo(() => {
+    if (!departments) return undefined;
     const counts = new Map<string, number>();
-    (users ?? []).forEach(u => {
-      if (u.storeId) counts.set(u.storeId, (counts.get(u.storeId) ?? 0) + 1);
+    departments.forEach(d => {
+      if (d.storeId) counts.set(d.storeId, (counts.get(d.storeId) ?? 0) + 1);
     });
     return counts;
-  }, [users]);
+  }, [departments]);
 
   const statusCounts = useMemo(() => ({
     all: stores.length,
@@ -59,105 +82,142 @@ export const StoreList = () => {
     setPage(1);
   };
 
-  const toggleActive = (id: string, isActive: boolean) => {
-    updateMut.mutate({ id, payload: { isActive: !isActive } });
-  };
+  const toggleActive = useCallback(async (store: Store) => {
+    if (store.isActive) {
+      const ok = await confirm({
+        title: `Deactivate ${store.name}?`,
+        description: 'It will be hidden from pickers and left out of checklist reports. People and past records stay as they are.',
+        confirmLabel: 'Deactivate',
+        variant: 'danger',
+      });
+      if (!ok) return;
+    }
+    updateStore({ id: store.id, payload: { isActive: !store.isActive } });
+  }, [confirm, updateStore]);
 
-  const closeForm = () => {
-    setShowForm(false);
-    setEditingStore(null);
-  };
+  const handleDelete = useCallback(async (store: Store) => {
+    const people = memberCounts?.get(store.id);
+    const deptCount = departmentCountByStore?.get(store.id) ?? 0;
+    const peopleKnown = !!memberCounts && !!departmentCountByStore;
 
-  const handleDelete = async (store: Store) => {
+    // Not empty: deleting would strand departments and people, so the only forward step is deactivating.
+    if ((people && hasPeople(people)) || deptCount > 0) {
+      const parts: string[] = [];
+      if (deptCount > 0) parts.push(`${deptCount} ${deptCount === 1 ? 'department' : 'departments'}`);
+      if (people && hasPeople(people)) parts.push(peopleText(people));
+      const held = `${store.name} still has ${parts.join(' and ')}. Move them first.`;
+      if (store.isActive) {
+        const ok = await confirm({
+          title: `${store.name} is not empty`,
+          description: `${held} Or deactivate the store to hide it from pickers.`,
+          confirmLabel: 'Deactivate instead',
+          cancelLabel: 'Close',
+        });
+        if (ok) updateStore({ id: store.id, payload: { isActive: false } });
+      } else {
+        await confirm({
+          title: `${store.name} is not empty`,
+          description: held,
+          confirmLabel: 'Got it',
+          cancelLabel: 'Close',
+        });
+      }
+      return;
+    }
+
     const ok = await confirm({
       title: `Delete ${store.name}?`,
-      description: 'This permanently removes the store. This cannot be undone.',
+      description: peopleKnown
+        ? 'No departments or people are tied to this store. This permanently removes it and cannot be undone.'
+        : 'This permanently removes the store and cannot be undone. If departments or people are still tied to it, we will let you know.',
       confirmLabel: 'Delete',
       variant: 'danger',
     });
-    if (ok) deleteMut.mutate(store.id);
-  };
+    if (ok) deleteStore(store.id);
+  }, [memberCounts, departmentCountByStore, confirm, updateStore, deleteStore]);
+
+  const closeForm = useCallback(() => {
+    setShowForm(false);
+    setEditingStore(null);
+  }, []);
 
   const activeModal = showForm || editingStore;
 
-  // Single-function state renderer — matches UserList/DepartmentList's pattern instead of four
-  // independent top-level conditionals, where it's harder to see at a glance that the branches
-  // are mutually exclusive (and a future edit to one guard's condition without updating the
-  // others could show two panels at once).
   const renderContent = () => {
+    // Skeleton only while there is nothing to show; a background refetch keeps the list on screen.
     if (isPending) return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
-        {Array.from({ length: 3 }).map((_, i) => <EntityCardSkeleton key={i} />)}
+      <div className={GRID_CLASS}>
+        {Array.from({ length: SKELETON_COUNT }).map((_, i) => <EntityCardSkeleton key={i} />)}
       </div>
     );
 
-    if (isError) return (
-      <div className="flex items-center gap-3 p-4 rounded-xl bg-danger/10 border border-danger/20 text-danger text-sm font-display font-medium">
-        <AlertCircle className="w-5 h-5 shrink-0" />
-        <p className="flex-1">Failed to load stores. Please check your connection and try again.</p>
-        <button
-          type="button"
-          onClick={() => refetch()}
-          className="shrink-0 px-3 py-1.5 rounded-md text-xs font-display font-semibold border border-danger/30 hover:bg-danger/10 cursor-pointer transition-colors outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
-        >
-          Retry
-        </button>
-      </div>
+    if (isError && !allStores) return (
+      <InlineError message="Couldn't load stores. Check your connection and try again." onRetry={() => refetch()} />
     );
 
-    if (filteredStores.length === 0) return (
-      <section className="flex flex-col items-center justify-center py-20 px-4 rounded-3xl border-2 border-dashed border-border bg-surface-hover/40 text-center">
-        <div className="flex items-center justify-center mb-5 size-14 rounded-full bg-surface border border-border text-text-muted">
-          <Inbox className="w-6 h-6" strokeWidth={1.5} />
-        </div>
-        <h3 className="text-lg font-display font-bold text-text mb-2">
-          {statusFilter === 'all' ? 'No stores yet' : `No ${statusFilter} stores`}
-        </h3>
-        <p className="text-sm text-text-muted max-w-sm mb-8">
-          {statusFilter === 'all'
-            ? 'Add your first store before creating recurring checklists — every checklist template deploys to one or more stores.'
-            : 'Switch to "All" to see everyone, or adjust the filter.'}
-        </p>
-        {statusFilter === 'all' && (
-          <button
-            type="button"
-            onClick={() => setShowForm(true)}
-            className="press-feedback inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-display font-bold rounded-xl shadow-sm bg-surface text-text-secondary border border-border transition-all duration-300 hover:bg-surface-hover hover:text-primary-600 hover:border-primary-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-          >
-            <StoreIcon className="w-3.5 h-3.5" />
-            Create store
-          </button>
-        )}
-      </section>
-    );
+    if (filteredStores.length === 0) {
+      return statusFilter === 'all' ? (
+        <EmptyState
+          icon={StoreIcon}
+          title="No stores yet"
+          description="Add your first store before setting up recurring checklists. Every checklist runs in one or more stores."
+          action={{ label: 'New store', icon: Plus, onClick: () => setShowForm(true) }}
+        />
+      ) : (
+        <EmptyState
+          icon={StoreIcon}
+          title={`No ${statusFilter} stores`}
+          description="No store matches this filter right now."
+          action={{ label: 'Show all stores', onClick: () => changeStatusFilter('all') }}
+        />
+      );
+    }
 
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3">
-        {pageStores.map(s => (
-          <StoreCard
-            key={s.id}
-            store={s}
-            memberCount={memberCounts.get(s.id) ?? 0}
-            isUpdating={updateMut.isPending && updateMut.variables?.id === s.id}
-            isDeleting={deleteMut.isPending && deleteMut.variables === s.id}
-            onToggleActive={toggleActive}
-            onEdit={setEditingStore}
-            onDelete={() => handleDelete(s)}
-          />
-        ))}
+      <div className={GRID_CLASS}>
+        {pageStores.map(s => {
+          const count = memberCounts?.get(s.id);
+          return (
+            <StoreCard
+              key={s.id}
+              store={s}
+              activeCount={memberCounts ? (count?.active ?? 0) : usersError ? null : undefined}
+              inactiveCount={count?.inactive ?? 0}
+              isUpdating={updateMut.isPending && updateMut.variables?.id === s.id}
+              isDeleting={deleteMut.isPending && deleteMut.variables === s.id}
+              onToggleActive={toggleActive}
+              onEdit={setEditingStore}
+              onDelete={handleDelete}
+            />
+          );
+        })}
       </div>
     );
   };
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <EntityStatusFilter value={statusFilter} onChange={changeStatusFilter} counts={statusCounts} />
-        <Button variant="primary" size="sm" onClick={() => setShowForm(true)}>
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={() => setShowForm(true)}
+          onMouseEnter={loadStoreForm}
+          onFocus={loadStoreForm}
+        >
           <Plus className="w-3.5 h-3.5" />
           New store
         </Button>
       </div>
+
+      {/* A failed refresh never hides the list; it just says so. */}
+      {isError && allStores && (
+        <InlineError message="Couldn't refresh stores. Showing the last list we loaded." onRetry={() => refetch()} />
+      )}
+      {usersError && !users && (
+        <InlineError message="Staff counts aren't loading." onRetry={() => refetchUsers()} />
+      )}
 
       {renderContent()}
 
@@ -166,11 +226,7 @@ export const StoreList = () => {
       )}
 
       {activeModal && (
-        <Suspense fallback={
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in">
-            <Loader size="xl" variant="primary" />
-          </div>
-        }>
+        <Suspense fallback={<FormChunkFallback />}>
           <StoreForm onClose={closeForm} store={editingStore ?? undefined} />
         </Suspense>
       )}

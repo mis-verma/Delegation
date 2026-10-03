@@ -35,6 +35,9 @@ userRouter.get("/", userController.list)
 // GET /presence -> who's online right now + everyone's last-active time (admin/PC only).
 // Registered before /:id so "presence" is matched as this literal path, never as :id = "presence".
 userRouter.get("/presence", userController.presence)
+// PATCH /bulk -> change department/store/role of many people at once (admin/PC only).
+// Registered before the /:id routes so "bulk" is matched as this literal path, never as :id = "bulk".
+userRouter.patch("/bulk", userController.bulkUpdate)
 // GET /:id -> look up a single user by their Mongo _id (admin/PC only)
 userRouter.get("/:id", userController.getOne)
 // POST / -> create a brand new user account (admin/PC only)

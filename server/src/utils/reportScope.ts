@@ -32,20 +32,11 @@ export const resolveReportScope = (user: AccessTokenPayload, requested: ReportSc
     return {};
 };
 
-// Department optionally belongs to a Store (Department.storeId — see models/Department.ts).
-// These two helpers use that link to give a report scoped to the *other* dimension a real
-// answer instead of an org-wide fallback: a SENIOR (store-scoped) can't filter Task directly
-// (it has no storeId), so we resolve every department in their store instead; a MANAGER
-// (department-scoped) can't filter a store-only table directly, so we resolve their department's
-// home store instead. Both fail closed: an unknown store has no departments (empty list) and a
-// department with no home store resolves to NO_SCOPE_ID, never to "no filter".
+// Department optionally belongs to a Store (Department.storeId). A SENIOR (store-scoped) can't
+// filter Task directly (it has no storeId), so we resolve every department in their store instead.
+// Fails closed: an unknown store has no departments (empty list), never "no filter".
 
 export const resolveDepartmentIdsForStore = async (storeId: string): Promise<string[]> => {
     const rows = await db.select({ id: departments.id }).from(departments).where(eq(departments.storeId, storeId));
     return rows.map((d) => d.id);
-};
-
-export const resolveStoreIdForDepartment = async (departmentId: string): Promise<string> => {
-    const [department] = await db.select({ storeId: departments.storeId }).from(departments).where(eq(departments.id, departmentId)).limit(1);
-    return department?.storeId ?? NO_SCOPE_ID;
 };

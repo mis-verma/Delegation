@@ -1,15 +1,31 @@
 import path from "node:path";
 import fs from "node:fs";
 import { db } from "../../config/db.js";
-import { users, refreshTokens, passwordResetTokens, notifications } from "../../db/schema/core.js";
-import { eq, and, or, desc, asc, sql, isNull, inArray } from "drizzle-orm";
+import { users, departments, stores, refreshTokens, passwordResetTokens, notifications } from "../../db/schema/core.js";
+import { eq, and, or, desc, asc, sql, inArray } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 import { AppError } from "../../utils/AppError.js";
 import { auditService } from "../audit/audit.service.js";
 import { hashPassword, comparePassword, deriveDefaultRank } from "../../utils/password.js";
-import { AccessTokenPayload } from "../../middleware/auth/auth.js";
+import { AccessTokenPayload, passwordChangeStamp } from "../../middleware/auth/auth.js";
 import { presenceService } from "../presence/presence.service.js";
-import type { CreateUserInput, UpdateUserInput, UpdateOwnProfileInput } from "./user.validation.js";
+import { disconnectUserSockets } from "../../sockets/socket.js";
+import type { CreateUserInput, UpdateUserInput, UpdateOwnProfileInput, BulkUpdateUsersInput } from "./user.validation.js";
+import { assertPhoneAvailable } from "./phone.js";
+import { mapDuplicateUserError } from "./dbErrors.js";
+import {
+    assertCanDeactivate,
+    assertAnotherActiveAdmin,
+    lockAdmins,
+    revokeSessions,
+    spendResetLinks,
+    LAST_ADMIN_MESSAGE,
+} from "./userGuards.js";
+import { userOffboardingService } from "./userOffboarding.service.js";
+import { refreshLiveChecklistsForUsers } from "./userChecklistSync.js";
+
+// The offboarding flow imports these from here, so they stay exported from this module.
+export { assertCanDeactivate, revokeSessions };
 
 // Drizzle wraps the driver's error: the MySQL code sits on `.cause`. 1451 = a row somewhere still
 // points at this one (the delete is blocked by a foreign key).
@@ -17,23 +33,6 @@ const isReferencedError = (err: unknown) => {
     const e = err as { code?: string; cause?: { code?: string } } | null;
     return e?.code === 'ER_ROW_IS_REFERENCED_2' || e?.cause?.code === 'ER_ROW_IS_REFERENCED_2';
 };
-
-// Switching someone off must never lock the organisation out or let an admin do it to themselves.
-// Shared by the plain PATCH below and the offboarding flow.
-export const assertCanDeactivate = async (id: string, role: string, actorId: string) => {
-    if (id === actorId) throw AppError.badRequest("You can't deactivate your own account.");
-    if (role !== 'ADMIN') return;
-    const [others] = await db.select({ n: sql<number>`count(*)` }).from(users)
-        .where(and(eq(users.role, 'ADMIN'), eq(users.isActive, true), sql`${users.id} <> ${id}`));
-    if (!Number(others?.n ?? 0)) throw AppError.badRequest('This is the last active admin. Make someone else an admin first.');
-};
-
-// Ends every session of a person who has been switched off, so a stolen or still-open login stops
-// working immediately (the access token is re-checked against isActive on every request anyway).
-export const revokeSessions = (id: string) =>
-    db.update(refreshTokens)
-        .set({ revokedAt: new Date(), updatedAt: new Date() })
-        .where(and(eq(refreshTokens.userId, id), isNull(refreshTokens.revokedAt)));
 
 // An assertion function narrowing `T | undefined` (a plain row is now `undefined` when missing,
 // not Mongoose's `null`) to `T`, throwing AppError.notFound otherwise.
@@ -58,6 +57,7 @@ const publicUserColumns = {
     phone: users.phone,
     avatarUrl: users.avatarUrl,
     weekOffDays: users.weekOffDays,
+    deactivatedAt: users.deactivatedAt,
     createdAt: users.createdAt,
     updatedAt: users.updatedAt,
 };
@@ -67,13 +67,81 @@ const getSafeById = async (id: string) => {
     return user;
 };
 
+// What an audit row records about a person. Never includes the password hash.
+const userSnapshot = (u: {
+    email: string; role: string; isActive: boolean; firstName: string; lastName: string | null; gender: string | null;
+    phone: string | null; departmentId: string | null; storeId: string | null; weekOffDays: number[] | null; rank?: number | null;
+}) => ({
+    email: u.email,
+    role: u.role,
+    isActive: u.isActive,
+    firstName: u.firstName,
+    lastName: u.lastName,
+    gender: u.gender,
+    phone: u.phone,
+    departmentId: u.departmentId,
+    storeId: u.storeId,
+    weekOffDays: u.weekOffDays,
+    rank: u.rank ?? null,
+});
+
+const sameDays = (a: number[] | null | undefined, b: number[] | null | undefined) =>
+    JSON.stringify([...(a ?? [])].sort()) === JSON.stringify([...(b ?? [])].sort());
+
+// A department or store id that doesn't exist would otherwise surface as a raw foreign-key error.
+const assertOrgRefs = async (departmentId?: string | null, storeId?: string | null) => {
+    if (departmentId) {
+        const [d] = await db.select({ id: departments.id }).from(departments).where(eq(departments.id, departmentId)).limit(1);
+        if (!d) throw AppError.badRequest("That department doesn't exist.");
+    }
+    if (storeId) {
+        const [s] = await db.select({ id: stores.id }).from(stores).where(eq(stores.id, storeId)).limit(1);
+        if (!s) throw AppError.badRequest("That store doesn't exist.");
+    }
+};
+
+// Best-effort removal of an avatar file from /uploads/avatars. Always called AFTER the database
+// change that stops referencing it has succeeded, so a failed update never loses the picture.
+const unlinkAvatarFile = (avatarUrl: string | null | undefined) => {
+    if (!avatarUrl) return;
+    const filePath = path.resolve(process.cwd(), "uploads", "avatars", path.basename(avatarUrl));
+    fs.unlink(filePath, (err) => {
+        if (err && err.code !== "ENOENT") console.error("Failed to delete avatar file from disk:", err);
+    });
+};
+
+// The one place a password changes (own change and admin reset): new hash + the moment of change
+// (which kills still-live access tokens), every session ended, outstanding reset links spent, and
+// the audit row, all in ONE transaction. If the audit write fails, the password does not change.
+const applyPasswordChange = async (
+    id: string,
+    passwordHash: string,
+    audit: { actorId: string; email: string },
+) => {
+    await db.transaction(async (tx) => {
+        await tx.update(users).set({ passwordHash, passwordChangedAt: passwordChangeStamp(), updatedAt: new Date() }).where(eq(users.id, id));
+        await revokeSessions(id, tx);
+        await spendResetLinks(id, tx);
+        await auditService.recordInTx(tx, {
+            entityType: "User",
+            entityId: id,
+            action: "PASSWORD_RESET",
+            actorId: audit.actorId,
+            before: { email: audit.email },
+        });
+    });
+    disconnectUserSockets(id);
+};
+
 export const userService = {
     // page/limit are optional — pass both to get a paginated slice (the admin directory list),
     // omit both to get the full roster unchanged (every other caller: OrgStructure's tree, etc.).
     async list(page?: number, limit?: number) {
+        // id as a tiebreaker: rows created in the same second would otherwise swap places between
+        // pages and show up twice or not at all.
         if (page && limit) {
             const [rows, totalRows] = await Promise.all([
-                db.select(publicUserColumns).from(users).orderBy(desc(users.createdAt)).offset((page - 1) * limit).limit(limit),
+                db.select(publicUserColumns).from(users).orderBy(desc(users.createdAt), asc(users.id)).offset((page - 1) * limit).limit(limit),
                 db.select({ count: sql<number>`count(*)` }).from(users),
             ]);
             const total = Number(totalRows[0]?.count ?? 0);
@@ -83,7 +151,7 @@ export const userService = {
             };
         }
 
-        const data = await db.select(publicUserColumns).from(users).orderBy(desc(users.createdAt));
+        const data = await db.select(publicUserColumns).from(users).orderBy(desc(users.createdAt), asc(users.id));
         return { data };
     },
 
@@ -94,28 +162,36 @@ export const userService = {
     },
 
     async create(input: CreateUserInput, actorId: string) {
-        // Mongoose's schema-level `lowercase: true, trim: true` on email ran automatically on
-        // save — replicate that normalization explicitly here (same as auth.service.ts register).
+        // The schema already trims and lowercases the email; this keeps the service safe for
+        // callers that bypass it.
         const email = input.email.trim().toLowerCase();
         const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
         if (existing) throw AppError.conflict('Email already registered');
+        await assertPhoneAvailable(input.phone);
+        await assertOrgRefs(input.departmentId, input.storeId);
 
         const passwordHash = await hashPassword(input.password);
         const rank = deriveDefaultRank(input.role);
         const id = createId();
 
-        await db.insert(users).values({
-            id,
-            email,
-            passwordHash,
-            firstName: input.firstName,
-            lastName: input.lastName,
-            role: input.role,
-            departmentId: input.departmentId ?? null,
-            storeId: input.storeId ?? null,
-            gender: input.gender ?? null,
-            rank,
-        });
+        try {
+            await db.insert(users).values({
+                id,
+                email,
+                passwordHash,
+                firstName: input.firstName,
+                lastName: input.lastName ?? null,
+                role: input.role,
+                departmentId: input.departmentId ?? null,
+                storeId: input.storeId ?? null,
+                gender: input.gender ?? null,
+                phone: input.phone ?? null,
+                rank,
+            });
+        } catch (err) {
+            // Two creates racing for the same email/phone: the unique index wins, the loser gets a clean 409.
+            throw mapDuplicateUserError(err);
+        }
 
         // Re-select (through the passwordHash-free column list) rather than constructing the
         // return value by hand, so `createdAt`/`updatedAt` DB defaults are reflected accurately.
@@ -127,7 +203,7 @@ export const userService = {
             entityId: user.id,
             action: "CREATE",
             actorId,
-            after: { email: user.email, role: user.role, isActive: user.isActive }
+            after: userSnapshot(user),
         });
 
         return user;
@@ -137,13 +213,23 @@ export const userService = {
         const before = await getSafeById(id);
         assertFound(before);
 
-        // Password changes aren't handled through this endpoint (see user.validation.ts), so
-        // there's no passwordHash to touch here — just the plain profile/admin-management fields.
-        const { email, ...rest } = input;
-        const normalizedEmail = email !== undefined ? email.trim().toLowerCase() : undefined;
-        const deactivating = input.isActive === false && before.isActive;
-        if (deactivating) await assertCanDeactivate(id, before.role, actorId);
+        const newRole = input.role ?? before.role;
+        const roleChanged = newRole !== before.role;
+        // Changing your own role could strip your own admin rights (or grant yourself more).
+        if (roleChanged && id === actorId) throw AppError.badRequest("You can't change your own role.");
 
+        const deactivating = input.isActive === false && before.isActive;
+        const reactivating = input.isActive === true && !before.isActive;
+        if (deactivating) {
+            // Quick fail for the obvious cases; the last-admin check is repeated inside the transaction.
+            if (id === actorId) throw AppError.badRequest("You can't deactivate your own account.");
+            // A plain switch-off would orphan open tickets, tasks, checklists and categories. That
+            // takes the hand-over flow (POST /users/:id/offboard), which moves the work first.
+            const summary = await userOffboardingService.summary(id);
+            if (summary.hasOpenWork) throw AppError.badRequest("Use Deactivate with hand-over: this person still has open work.");
+        }
+
+        const normalizedEmail = input.email !== undefined ? input.email.trim().toLowerCase() : undefined;
         // Same pre-check create() does — without it, changing a user's email to one already in
         // use hits the DB's unique index instead, which throws a raw ER_DUP_ENTRY the caller sees
         // as a generic 500-ish error rather than a clean, expected 409.
@@ -151,30 +237,128 @@ export const userService = {
             const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, normalizedEmail)).limit(1);
             if (existing) throw AppError.conflict('Email already registered');
         }
+        if (input.phone) await assertPhoneAvailable(input.phone, id);
+        await assertOrgRefs(input.departmentId, input.storeId);
 
-        await db.update(users)
-            .set({
-                ...rest,
-                ...(normalizedEmail !== undefined ? { email: normalizedEmail } : {}),
-                updatedAt: new Date(),
-            })
-            .where(eq(users.id, id));
+        const set: Partial<typeof users.$inferInsert> = { updatedAt: new Date() };
+        if (normalizedEmail !== undefined) set.email = normalizedEmail;
+        if (input.firstName !== undefined) set.firstName = input.firstName;
+        if (input.lastName !== undefined) set.lastName = input.lastName;
+        if (input.gender !== undefined) set.gender = input.gender;
+        if (input.departmentId !== undefined) set.departmentId = input.departmentId;
+        if (input.storeId !== undefined) set.storeId = input.storeId;
+        if (input.weekOffDays !== undefined) set.weekOffDays = input.weekOffDays;
+        if (input.phone !== undefined) set.phone = input.phone;
+        if (input.isActive !== undefined) set.isActive = input.isActive;
+        if (roleChanged) {
+            set.role = newRole;
+            // A new role means the old role's default rank no longer fits, unless one was given.
+            set.rank = deriveDefaultRank(newRole, input.rank);
+        } else if (input.rank !== undefined) {
+            set.rank = input.rank;
+        }
+        if (deactivating) set.deactivatedAt = new Date();
+        if (reactivating) set.deactivatedAt = null;
 
-        if (deactivating) await revokeSessions(id);
+        // Role, activation and deactivation changes are the ones that must never happen without a
+        // trail, so their audit row is written in the same transaction and a failure rolls it back.
+        const sensitive = roleChanged || deactivating || reactivating;
+        const leavesAdmin = before.role === 'ADMIN' && before.isActive && roleChanged;
 
-        const user = await getSafeById(id);
+        let user: Awaited<ReturnType<typeof getSafeById>>;
+        try {
+            user = await db.transaction(async (tx) => {
+                if (leavesAdmin) await assertAnotherActiveAdmin(tx, [id]);
+                if (deactivating) await assertCanDeactivate(id, before.role, actorId, tx);
+
+                await tx.update(users).set(set).where(eq(users.id, id));
+                if (deactivating) await revokeSessions(id, tx);
+
+                const [updated] = await tx.select(publicUserColumns).from(users).where(eq(users.id, id)).limit(1);
+                assertFound(updated);
+                if (sensitive) {
+                    await auditService.recordInTx(tx, {
+                        entityType: "User", entityId: id, action: "UPDATE", actorId,
+                        before: userSnapshot(before), after: userSnapshot(updated),
+                    });
+                }
+                return updated;
+            });
+        } catch (err) {
+            throw mapDuplicateUserError(err);
+        }
         assertFound(user);
 
-        await auditService.record({
-            entityType: "User",
-            entityId: id,
-            action: "UPDATE",
-            actorId,
-            before: { email: before.email, role: before.role, isActive: before.isActive, weekOffDays: before.weekOffDays },
-            after: { email: user.email, role: user.role, isActive: user.isActive, weekOffDays: user.weekOffDays }
-        });
+        if (!sensitive) {
+            await auditService.record({
+                entityType: "User", entityId: id, action: "UPDATE", actorId,
+                before: userSnapshot(before), after: userSnapshot(user),
+            });
+        }
+
+        // Anything that changes what a live socket may see (rooms are built from role, department
+        // and store) or whether the person may be connected at all drops their sockets now.
+        if (roleChanged || user.departmentId !== before.departmentId || user.storeId !== before.storeId || user.isActive !== before.isActive) {
+            disconnectUserSockets(id);
+        }
+
+        // Week-off days, department and store decide who gets which of today's checklist runs.
+        if (!sameDays(user.weekOffDays, before.weekOffDays) || user.departmentId !== before.departmentId || user.storeId !== before.storeId) {
+            await refreshLiveChecklistsForUsers([id], `updating ${id}`);
+        }
 
         return user;
+    },
+
+    // Moves many people at once (department, store and/or role). One transaction, the same guards
+    // as update() (own role, last admin, rank recompute), one audit row per person who changed.
+    async bulkUpdate(input: BulkUpdateUsersInput, actorId: string) {
+        const { ids, departmentId, storeId, role } = input;
+        await assertOrgRefs(departmentId, storeId);
+
+        const { changed, orgChanged } = await db.transaction(async (tx) => {
+            const rows = await tx.select(publicUserColumns).from(users).where(inArray(users.id, ids)).for("update");
+            if (rows.length !== ids.length) throw AppError.notFound("Some of the selected people no longer exist. Refresh the list and try again.");
+
+            if (role !== undefined) {
+                const me = rows.find((r) => r.id === actorId);
+                if (me && me.role !== role) throw AppError.badRequest("You can't change your own role.");
+                // Every active admin in the selection is being demoted: someone outside it must stay.
+                if (role !== "ADMIN" && rows.some((r) => r.role === "ADMIN" && r.isActive)) {
+                    const admins = await lockAdmins(tx);
+                    if (!admins.some((a) => a.isActive && !ids.includes(a.id))) throw AppError.badRequest(LAST_ADMIN_MESSAGE);
+                }
+            }
+
+            const changed: string[] = [];
+            const orgChanged: string[] = [];
+            for (const before of rows) {
+                const set: Partial<typeof users.$inferInsert> = {};
+                if (departmentId !== undefined && departmentId !== before.departmentId) set.departmentId = departmentId;
+                if (storeId !== undefined && storeId !== before.storeId) set.storeId = storeId;
+                if (role !== undefined && role !== before.role) {
+                    set.role = role;
+                    set.rank = deriveDefaultRank(role);
+                }
+                if (!Object.keys(set).length) continue;
+                set.updatedAt = new Date();
+
+                await tx.update(users).set(set).where(eq(users.id, before.id));
+                const after = { ...before, ...set } as typeof before;
+                await auditService.recordInTx(tx, {
+                    entityType: "User", entityId: before.id, action: "UPDATE", actorId,
+                    before: userSnapshot(before), after: userSnapshot(after),
+                });
+                changed.push(before.id);
+                if (set.departmentId !== undefined || set.storeId !== undefined) orgChanged.push(before.id);
+            }
+            return { changed, orgChanged };
+        });
+
+        for (const id of changed) disconnectUserSockets(id);
+        await refreshLiveChecklistsForUsers(orgChanged, "a bulk move");
+
+        return { updated: changed.length };
     },
 
     // A user editing their own profile — same shape of update as `update` above, just scoped to
@@ -184,7 +368,13 @@ export const userService = {
         const before = await getSafeById(id);
         assertFound(before);
 
-        await db.update(users).set({ ...input, updatedAt: new Date() }).where(eq(users.id, id));
+        if (input.phone) await assertPhoneAvailable(input.phone, id);
+
+        try {
+            await db.update(users).set({ ...input, updatedAt: new Date() }).where(eq(users.id, id));
+        } catch (err) {
+            throw mapDuplicateUserError(err);
+        }
 
         const user = await getSafeById(id);
         assertFound(user);
@@ -194,15 +384,19 @@ export const userService = {
             entityId: id,
             action: "UPDATE",
             actorId: id,
-            before: { firstName: before.firstName, lastName: before.lastName, phone: before.phone, weekOffDays: before.weekOffDays },
-            after: { firstName: user.firstName, lastName: user.lastName, phone: user.phone, weekOffDays: user.weekOffDays },
+            before: userSnapshot(before),
+            after: userSnapshot(user),
         });
+
+        if (!sameDays(user.weekOffDays, before.weekOffDays)) {
+            await refreshLiveChecklistsForUsers([id], `${id} changing their week off`);
+        }
 
         return user;
     },
 
     // A user changing their own password — has to prove they know the current one first, unlike
-    // resetPassword above (an admin setting someone else's password directly with no such check).
+    // resetPassword below (an admin setting someone else's password directly with no such check).
     async changeOwnPassword(id: string, currentPassword: string, newPassword: string) {
         const [user] = await db.select().from(users).where(eq(users.id, id)).limit(1);
         assertFound(user, 'User not found');
@@ -210,23 +404,9 @@ export const userService = {
         const valid = await comparePassword(currentPassword, user.passwordHash);
         if (!valid) throw AppError.badRequest('Current password is incorrect');
 
-        const passwordHash = await hashPassword(newPassword);
-        await db.update(users).set({ passwordHash, updatedAt: new Date() }).where(eq(users.id, id));
-
-        // Same reasoning as the admin-initiated reset above: changing a password is exactly the
-        // moment a stolen refresh token should stop working, so every existing session — this
-        // one's included — is revoked. The client signs back in with the new password right after.
-        await db.update(refreshTokens)
-            .set({ revokedAt: new Date(), updatedAt: new Date() })
-            .where(and(eq(refreshTokens.userId, id), isNull(refreshTokens.revokedAt)));
-
-        await auditService.record({
-            entityType: "User",
-            entityId: id,
-            action: "PASSWORD_RESET",
-            actorId: id,
-            before: { email: user.email },
-        });
+        // Changing a password is exactly the moment a stolen refresh token should stop working, so
+        // every existing session — this one's included — ends. The client signs back in right after.
+        await applyPasswordChange(id, await hashPassword(newPassword), { actorId: id, email: user.email });
     },
 
     // Real delete is only for an account with no history (one created by mistake). Anyone who has
@@ -241,10 +421,21 @@ export const userService = {
 
         try {
             await db.transaction(async (tx) => {
+                // Deleting an active admin counts as taking an admin away.
+                if (user.role === 'ADMIN' && user.isActive) await assertAnotherActiveAdmin(tx, [id]);
+
                 await tx.delete(refreshTokens).where(eq(refreshTokens.userId, id));
                 await tx.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, id));
                 await tx.delete(notifications).where(eq(notifications.recipientId, id));
                 await tx.delete(users).where(eq(users.id, id));
+
+                await auditService.recordInTx(tx, {
+                    entityType: "User",
+                    entityId: id,
+                    action: "DELETE",
+                    actorId,
+                    before: userSnapshot(user),
+                });
             });
         } catch (err) {
             if (isReferencedError(err)) {
@@ -256,13 +447,9 @@ export const userService = {
             throw err;
         }
 
-        await auditService.record({
-            entityType: "User",
-            entityId: id,
-            action: "DELETE",
-            actorId,
-            before: { email: user.email, role: user.role }
-        });
+        // Only after the delete has committed: the picture is no longer referenced by anyone.
+        unlinkAvatarFile(user.avatarUrl);
+        disconnectUserSockets(id);
 
         return user;
     },
@@ -274,38 +461,26 @@ export const userService = {
         const user = await getSafeById(id);
         assertFound(user);
 
-        const passwordHash = await hashPassword(newPassword);
-        await db.update(users).set({ passwordHash, updatedAt: new Date() }).where(eq(users.id, id));
-
-        // Same reasoning as the self-service reset: kick out any existing sessions, since this is
-        // exactly the moment a stolen refresh token should stop working too.
-        await db.update(refreshTokens)
-            .set({ revokedAt: new Date(), updatedAt: new Date() })
-            .where(and(eq(refreshTokens.userId, id), isNull(refreshTokens.revokedAt)));
-
-        await auditService.record({
-            entityType: "User",
-            entityId: id,
-            action: "PASSWORD_RESET",
-            actorId,
-            before: { email: user.email },
-        });
+        await applyPasswordChange(id, await hashPassword(newPassword), { actorId, email: user.email });
     },
 
-    // Replaces this user's profile picture. Best-effort deletes the previous file from disk (same
-    // approach as taskImage.service.ts's remove()) so replacing a photo doesn't leave orphans.
+    // Replaces this user's profile picture. The previous file is deleted only after the database
+    // points at the new one, so a failed update never leaves the user with no picture at all.
     async setAvatar(id: string, url: string, actorId: string) {
         const user = await getSafeById(id);
-        assertFound(user);
-
-        if (user.avatarUrl) {
-            const oldPath = path.resolve(process.cwd(), "uploads", "avatars", path.basename(user.avatarUrl));
-            fs.unlink(oldPath, (err) => {
-                if (err) console.error("Failed to delete old avatar file from disk:", err);
-            });
+        if (!user) {
+            // The upload is already on disk; nobody references it, so drop it.
+            unlinkAvatarFile(url);
+            throw AppError.notFound('User not found');
         }
 
-        await db.update(users).set({ avatarUrl: url, updatedAt: new Date() }).where(eq(users.id, id));
+        try {
+            await db.update(users).set({ avatarUrl: url, updatedAt: new Date() }).where(eq(users.id, id));
+        } catch (err) {
+            unlinkAvatarFile(url);
+            throw err;
+        }
+        if (user.avatarUrl && user.avatarUrl !== url) unlinkAvatarFile(user.avatarUrl);
 
         const updated = await getSafeById(id);
         assertFound(updated);
@@ -327,12 +502,8 @@ export const userService = {
         assertFound(user);
         if (!user.avatarUrl) return user;
 
-        const oldPath = path.resolve(process.cwd(), "uploads", "avatars", path.basename(user.avatarUrl));
-        fs.unlink(oldPath, (err) => {
-            if (err) console.error("Failed to delete avatar file from disk:", err);
-        });
-
         await db.update(users).set({ avatarUrl: null, updatedAt: new Date() }).where(eq(users.id, id));
+        unlinkAvatarFile(user.avatarUrl);
 
         const updated = await getSafeById(id);
         assertFound(updated);
@@ -379,6 +550,8 @@ export const userService = {
             conditions.push(or(...onConditions)!)
         }
 
+        // The controller drops `email` for callers who are not ADMIN/PC; internal callers (the bulk
+        // importers match people by email) still get it from here.
         return db.select({
             id: users.id,
             firstName: users.firstName,
@@ -389,7 +562,7 @@ export const userService = {
         })
             .from(users)
             .where(and(...conditions))
-            .orderBy(asc(users.firstName));
+            .orderBy(asc(users.firstName), asc(users.lastName), asc(users.id));
     },
 
     // Who's online right now (Redis, live) plus when everyone was last seen (DB, durable) — the

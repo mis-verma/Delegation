@@ -1,17 +1,34 @@
 import { z } from "zod"
 import { ROLES, GENDERS } from "../../db/schema/core.js"
 import { objectId } from "../../utils/index.js"
+import { phoneSchema } from "./phone.js"
+
+// ONE password rule for every place a password is set: admin create, admin reset, own change,
+// register and the emailed reset link. 72 is bcrypt's limit (it ignores anything past 72 bytes).
+export const passwordSchema = z.string()
+    .min(8, "Password must be at least 8 characters")
+    .max(72, "Password must be at most 72 characters")
+    .regex(/[A-Z]/, "Password must contain an uppercase letter")
+    .regex(/[0-9]/, "Password must contain a number")
+    .refine((v) => Buffer.byteLength(v, "utf8") <= 72, "Password must be at most 72 characters")
+
+const nameSchema = z.string().trim().min(1, "Name is required").max(191)
+// Empty means "no last name" (null), so a cleared field really clears it.
+const lastNameSchema = z.string().trim().max(191).transform((v) => (v === "" ? null : v))
+export const emailSchema = z.string().trim().toLowerCase().email().max(191)
 
 export const createUserSchema = z.object({
-    email: z.string().email(),
-    password: z.string().min(8, 'Password must be at least 8 characters'),
-    firstName: z.string().min(1),
-    lastName: z.string().optional(),
+    email: emailSchema,
+    password: passwordSchema,
+    firstName: nameSchema,
+    lastName: lastNameSchema.optional(),
     role: z.enum(ROLES),
     departmentId: objectId.optional(),
     storeId: objectId.optional(),
     // Picks which uniform checklist an audit gives this person (see ChecklistDefinitionItem).
     gender: z.enum(GENDERS).optional(),
+    // Digits only once parsed; "" becomes null (see phone.ts).
+    phone: phoneSchema.optional(),
 });
 
 // Password changes aren't handled through this update endpoint (see user.service.ts's
@@ -31,6 +48,8 @@ export const updateUserSchema = createUserSchema.omit({ password: true, departme
     // null clears it (back to "not set").
     gender: z.enum(GENDERS).nullable().optional(),
     weekOffDays: weekOffDays.optional(),
+    // Explicit rank wins over the role's default when the role changes.
+    rank: z.number().int().min(1).max(10).optional(),
 });
 
 export type CreateUserInput = z.infer<typeof createUserSchema>;
@@ -39,16 +58,17 @@ export type UpdateUserInput = z.infer<typeof updateUserSchema>;
 // Admin-initiated password reset (not the self-service email-token flow in auth.service.ts) —
 // an ADMIN/PC sets a user's password directly, e.g. when someone's locked out.
 export const resetUserPasswordSchema = z.object({
-    password: z.string().min(8, 'Password must be at least 8 characters'),
+    password: passwordSchema,
 });
 
 // A user editing their own profile — deliberately narrower than updateUserSchema: no role,
 // department, store, isActive, or email. Email is left out of self-service entirely (it's the
 // login identifier, so changing it needs its own verification flow, not a plain profile field).
 export const updateOwnProfileSchema = z.object({
-    firstName: z.string().trim().min(1, 'First name is required').optional(),
-    lastName: z.string().trim().optional(),
-    phone: z.string().trim().optional(),
+    firstName: nameSchema.optional(),
+    lastName: lastNameSchema.optional(),
+    // "" clears the phone (null); anything else must be a valid number and is stored as digits.
+    phone: phoneSchema.optional(),
     // Self-service on purpose: staff set their own weekly off so they don't get checklists that day.
     weekOffDays: weekOffDays.optional(),
 });
@@ -58,7 +78,7 @@ export type UpdateOwnProfileInput = z.infer<typeof updateOwnProfileSchema>;
 // else's password directly), this one has to prove they know the current one first.
 export const changeOwnPasswordSchema = z.object({
     currentPassword: z.string().min(1, 'Current password is required'),
-    newPassword: z.string().min(8, 'Password must be at least 8 characters'),
+    newPassword: passwordSchema,
 });
 export type ChangeOwnPasswordInput = z.infer<typeof changeOwnPasswordSchema>;
 
@@ -77,3 +97,14 @@ export const offboardUserSchema = z.object({
     transferToUserId: z.string().min(1).optional(),
 });
 export type OffboardUserInput = z.infer<typeof offboardUserSchema>;
+
+// PATCH /users/bulk: move many people at once. At least one change is required; ids are deduped.
+export const bulkUpdateUsersSchema = z.object({
+    ids: z.array(z.string().min(1)).min(1).max(100).transform((ids) => [...new Set(ids)]),
+    departmentId: objectId.nullable().optional(),
+    storeId: objectId.nullable().optional(),
+    role: z.enum(ROLES).optional(),
+}).refine((v) => v.departmentId !== undefined || v.storeId !== undefined || v.role !== undefined, {
+    message: "Choose at least one change: department, store or role",
+});
+export type BulkUpdateUsersInput = z.infer<typeof bulkUpdateUsersSchema>;

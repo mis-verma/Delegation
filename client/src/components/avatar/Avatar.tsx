@@ -25,6 +25,9 @@ const DOT_SIZE_CLASS: Record<keyof typeof SIZE_CLASS, string> = {
   xl: 'size-3.5',
 };
 
+// Pixel size of each SIZE_CLASS step, so the <img> reserves its box before the photo arrives.
+const IMG_PX: Record<keyof typeof SIZE_CLASS, number> = { sm: 32, md: 40, lg: 48, xl: 80 };
+
 // Shared photo-or-initials avatar — a real <img> when `src` is set, the same gradient-circle
 // initials treatment every card in the app already used inline otherwise (see UserCard.tsx,
 // AdminHeader.tsx) as the fallback, now in one place instead of reimplemented per component.
@@ -33,6 +36,10 @@ export const Avatar = ({ name, src, size = 'md', className, online }: AvatarProp
     <img
       src={src}
       alt={name}
+      width={IMG_PX[size]}
+      height={IMG_PX[size]}
+      loading="lazy"
+      decoding="async"
       className={cn(
         'rounded-full object-cover shrink-0 shadow-sm ring-1 ring-primary-500/10',
         SIZE_CLASS[size],

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { keepPreviousData, useIsFetching, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../../context/AuthContext';
 import { taskApi } from '../../../api/task';
@@ -146,18 +146,34 @@ export const useRecentActivityFeed = () => {
  */
 export const useAnalyticsRefresh = () => {
   const queryClient = useQueryClient();
-  const fetchingCount = useIsFetching({ queryKey: ANALYTICS_QUERY_KEY });
+  // Subscribes this hook to fetch start/end, which is exactly when the newest dataUpdatedAt can
+  // change, so reading the cache during render below stays current.
+  useIsFetching({ queryKey: ANALYTICS_QUERY_KEY });
+  // True only while a Refresh the viewer asked for is running, so the "Updating" announcement is
+  // not read out every time a background refetch (a socket invalidation, a tab change) happens.
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // useIsFetching re-renders this hook whenever a fetch starts or ends, which is exactly when the
-  // newest dataUpdatedAt can change, so reading the cache during render stays current.
   const updatedAt = queryClient
     .getQueryCache()
     .findAll({ queryKey: ANALYTICS_QUERY_KEY })
     .reduce((latest, q) => (q.state.status === 'success' && q.state.dataUpdatedAt > latest ? q.state.dataUpdatedAt : latest), 0);
 
-  return {
-    updatedAt: updatedAt > 0 ? updatedAt : null,
-    isRefreshing: fetchingCount > 0,
-    refresh: () => queryClient.invalidateQueries({ queryKey: ANALYTICS_QUERY_KEY }),
-  };
+  const refresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      // The name lookups the page also shows (the scope notice, ranking rows, the organisation
+      // counts) live outside the analytics namespace, so they are refreshed alongside it. Keys
+      // match useDepartmentsQuery, useStoresQuery and useUsersQuery.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ANALYTICS_QUERY_KEY }),
+        queryClient.invalidateQueries({ queryKey: ['departments'] }),
+        queryClient.invalidateQueries({ queryKey: ['stores'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
+      ]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [queryClient]);
+
+  return { updatedAt: updatedAt > 0 ? updatedAt : null, isRefreshing, refresh };
 };

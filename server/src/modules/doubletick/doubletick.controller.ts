@@ -1,9 +1,7 @@
 import type { Request, Response } from "express";
 import { extractTaskFromText, resolveAssignee, resolveDueDate, priorityForCreatorRank } from "../tasks/ai/providers/task.ai.service.js"
 import { taskService } from "../tasks/task.service.js";
-import { db } from "../../config/db.js";
-import { users } from "../../db/schema/index.js";
-import { and, eq } from "drizzle-orm";
+import { findActiveUserByPhone } from "../users/phone.js";
 import { transcribeVoiceNote } from "../whatsapp/transcription.service.js";
 import { sendDoubleTickMessage, verifyDoubleTickAuth, downloadDoubleTickAudio } from "./doubletick.service.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
@@ -101,9 +99,8 @@ export const doubletickController = {
             return;
         }
 
-        const [sender] = await db.select().from(users)
-            .where(and(eq(users.phone, from), eq(users.isActive, true)))
-            .limit(1);
+        // Matched on digits only (last 10), so "+91 98765-43210" in a profile still matches the sender id.
+        const sender = await findActiveUserByPhone(from);
         if (!sender) {
             await sendDoubleTickMessage(from, "This number isn't registered in Task Matrix. Ask an admin to add it to your profile first.");
             return;

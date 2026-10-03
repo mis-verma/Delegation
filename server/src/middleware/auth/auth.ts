@@ -19,7 +19,16 @@ import { eq } from "drizzle-orm";
 // 2. JWT PAYLOAD TYPE DEFINITION
 // Define the shape of the decoded data hidden inside the JWT access token
 // 'sub' stands for Subject (usually the User's MongoDB ObjectId string)
-export type AccessTokenPayload = { sub: string; role: Role; departmentId?: string; storeId?: string };
+export type AccessTokenPayload = { sub: string; role: Role; departmentId?: string; storeId?: string; iat?: number };
+
+// The value written to User.passwordChangedAt. Cut to whole seconds on purpose: JWT `iat` has
+// second precision and DATETIME(0) rounds, so keeping a fractional part could reject a token that
+// was legitimately issued right after the change (e.g. the sign-in that follows a reset).
+export const passwordChangeStamp = () => new Date(Math.floor(Date.now() / 1000) * 1000);
+
+// True when this token was issued before the user's last password change.
+export const tokenPredatesPasswordChange = (iat: number | undefined, passwordChangedAt: Date | null | undefined) =>
+    !!passwordChangedAt && (typeof iat !== 'number' || iat < Math.floor(passwordChangedAt.getTime() / 1000));
 
 // 3. EXPRESS REQUEST DECLARATION MERGING
 // Open the global namespace scope to inject custom types into third-party libraries
@@ -68,10 +77,15 @@ export const authenticate = asyncHandler(async (req: Request, _res: Response, ne
         isActive: users.isActive,
         departmentId: users.departmentId,
         storeId: users.storeId,
+        passwordChangedAt: users.passwordChangedAt,
     }).from(users).where(eq(users.id, payload.sub)).limit(1);
 
     if (!currentUser || !currentUser.isActive) {
         return next(AppError.unauthorized('Account is no longer active'));
+    }
+    // A password change/reset ends every access token issued before it, not just the refresh sessions.
+    if (tokenPredatesPasswordChange(payload.iat, currentUser.passwordChangedAt)) {
+        return next(AppError.unauthorized('Password was changed. Please sign in again.'));
     }
 
     req.user = {

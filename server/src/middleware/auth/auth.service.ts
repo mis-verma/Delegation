@@ -22,6 +22,17 @@ import { sendMail } from '../../config/mailer.js';
 import { hashPassword, comparePassword, deriveDefaultRank } from '../../utils/password.js';
 // TypeScript type describing the shape of a validated login request body.
 import type { LoginInput, RegisterInput, ResetPasswordInput } from './auth.validation.js';
+import { passwordChangeStamp } from './auth.js';
+import { auditService } from '../../modules/audit/audit.service.js';
+import { mapDuplicateUserError } from '../../modules/users/dbErrors.js';
+import { disconnectUserSockets } from '../../sockets/socket.js';
+
+// Ends every live session of one user (reuse detection below, and any other "log them out
+// everywhere" case): all their still-valid refresh tokens are revoked in one statement.
+const revokeAllSessions = (userId: string) =>
+  db.update(refreshTokens)
+    .set({ revokedAt: new Date(), updatedAt: new Date() })
+    .where(and(eq(refreshTokens.userId, userId), isNull(refreshTokens.revokedAt)));
 
 // A precomputed bcrypt hash of a value nobody will ever actually submit as a password — login()
 // compares against this when no user was found, so a bcrypt.compare() (~100ms) always runs either
@@ -129,15 +140,20 @@ export const authService = {
     // column, so mysql2's `insertId` (which only makes sense for AUTO_INCREMENT PKs) can't be
     // used to recover it — generate it up front instead, so we already have it after the insert.
     const newId = createId();
-    await db.insert(users).values({
-      id: newId,
-      email,
-      firstName: input.firstName,
-      lastName: input.lastName,
-      passwordHash,
-      role,
-      rank: deriveDefaultRank(role),
-    });
+    try {
+      await db.insert(users).values({
+        id: newId,
+        email,
+        firstName: input.firstName,
+        lastName: input.lastName || null,
+        passwordHash,
+        role,
+        rank: deriveDefaultRank(role),
+      });
+    } catch (err) {
+      // Two sign-ups racing for the same address: the unique index wins, the loser gets a clean 409.
+      throw mapDuplicateUserError(err);
+    }
     // We already know every field we need — no round-trip re-select required.
     const user: UserRow = {
       id: newId, email, passwordHash, role,
@@ -184,11 +200,18 @@ export const authService = {
     // the DB (we never store raw tokens, so we can't look them up directly).
     const tokenHash = hashToken(rawToken);
     const [stored] = await db.select().from(refreshTokens).where(eq(refreshTokens.tokenHash, tokenHash)).limit(1);
-    // Reject if: the token doesn't exist, it was already revoked (e.g. from a previous
-    // refresh/logout), or it has simply expired based on its stored expiry date.
-    if (!stored || stored.revokedAt || stored.expiresAt < new Date()) {
+    // Reject if the token doesn't exist.
+    if (!stored) throw AppError.unauthorized('Invalid refresh token');
+
+    // REUSE DETECTION: a token that was already rotated (or logged out) is being presented again.
+    // Whoever holds it either stole it or is the real owner racing a thief, and we can't tell which,
+    // so every session of this user ends and they have to sign in again.
+    if (stored.revokedAt) {
+      await revokeAllSessions(stored.userId);
       throw AppError.unauthorized('Invalid refresh token');
     }
+    // Plain expiry.
+    if (stored.expiresAt < new Date()) throw AppError.unauthorized('Invalid refresh token');
 
     // Look up the user this token belongs to, and make sure their account is still active.
     const [user] = await db.select().from(users).where(eq(users.id, stored.userId)).limit(1);
@@ -197,7 +220,16 @@ export const authService = {
     // Revoke (invalidate) the OLD refresh token now that it's being used - this is "refresh token
     // rotation": each refresh token can only be used once, which limits the damage if a token were
     // ever stolen (the thief and the real user can't both keep using the same one indefinitely).
-    await db.update(refreshTokens).set({ revokedAt: new Date(), updatedAt: new Date() }).where(eq(refreshTokens.id, stored.id));
+    // The revoke is a compare-and-set (`revokedAt IS NULL`) and must affect exactly one row: of two
+    // simultaneous requests carrying the same token only one wins, the other is treated as reuse.
+    const now = new Date();
+    const [revoked] = await db.update(refreshTokens)
+      .set({ revokedAt: now, updatedAt: now })
+      .where(and(eq(refreshTokens.id, stored.id), isNull(refreshTokens.revokedAt)));
+    if (revoked.affectedRows !== 1) {
+      await revokeAllSessions(stored.userId);
+      throw AppError.unauthorized('Invalid refresh token');
+    }
 
     // Issue a brand new access token...
     const accessToken = signAccessToken(user);
@@ -276,15 +308,30 @@ export const authService = {
     if (!user || !user.isActive) throw AppError.badRequest('Invalid or expired reset link');
 
     const passwordHash = await hashPassword(input.password);
-    await db.update(users).set({ passwordHash, updatedAt: new Date() }).where(eq(users.id, user.id));
+    await db.transaction(async (tx) => {
+      const now = new Date();
+      // One-time use, claimed first and atomically: of two requests carrying the same link only
+      // one gets to change the password.
+      const [claimed] = await tx.update(passwordResetTokens)
+        .set({ usedAt: now, updatedAt: now })
+        .where(and(eq(passwordResetTokens.id, stored.id), isNull(passwordResetTokens.usedAt)));
+      if (claimed.affectedRows !== 1) throw AppError.badRequest('Invalid or expired reset link');
 
-    // One-time use: mark this token spent so the same link can't be replayed.
-    await db.update(passwordResetTokens).set({ usedAt: new Date(), updatedAt: new Date() }).where(eq(passwordResetTokens.id, stored.id));
+      await tx.update(users).set({ passwordHash, passwordChangedAt: passwordChangeStamp(), updatedAt: now }).where(eq(users.id, user.id));
 
-    // Revoke every other active session too - if someone else had a stolen refresh token, this
-    // password reset is exactly the moment to kick them out.
-    await db.update(refreshTokens)
-      .set({ revokedAt: new Date(), updatedAt: new Date() })
-      .where(and(eq(refreshTokens.userId, user.id), isNull(refreshTokens.revokedAt)));
+      // Any other reset link still outstanding for this account dies with the old password.
+      await tx.update(passwordResetTokens)
+        .set({ usedAt: now, updatedAt: now })
+        .where(and(eq(passwordResetTokens.userId, user.id), isNull(passwordResetTokens.usedAt)));
+
+      // Revoke every active session too - if someone else had a stolen refresh token, this
+      // password reset is exactly the moment to kick them out.
+      await tx.update(refreshTokens)
+        .set({ revokedAt: now, updatedAt: now })
+        .where(and(eq(refreshTokens.userId, user.id), isNull(refreshTokens.revokedAt)));
+
+      await auditService.recordInTx(tx, { entityType: 'User', entityId: user.id, action: 'PASSWORD_RESET', actorId: user.id, before: { email: user.email, via: 'emailed link' } });
+    });
+    disconnectUserSockets(user.id);
   },
 };

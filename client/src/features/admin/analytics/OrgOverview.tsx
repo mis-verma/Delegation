@@ -16,7 +16,7 @@ import { PerformanceLeadersCard } from './PerformanceLeadersCard';
 import { StoresPerformanceSection } from './StoresPerformanceSection';
 import { TeamLeaderboardRail } from './TeamLeaderboardRail';
 import { useAnalyticsRefresh, useRecentActivityFeed } from './useAnalyticsQueries';
-import { parseDateParam, toDateParam } from './analyticsDisplay';
+import { defaultWindow, parseDateParam, toDateParam } from './analyticsDisplay';
 import { RecentActivity } from '../../dashboard/RecentActivity';
 import { endOfDay } from '../../../lib/dateRange';
 import type { Department } from '../../../api/departments';
@@ -99,10 +99,12 @@ const ScopeNotice = memo(({ role, departmentId, storeId, departments, stores, is
       </NoticeBanner>
     );
   }
-  if (role === 'SENIOR' && !store && !department) {
+  // The server returns no rows at all for a SENIOR missing either one, so say which is missing.
+  if (role === 'SENIOR' && (!storeId || !departmentId)) {
+    const missing = !storeId && !departmentId ? 'store or department' : !storeId ? 'store' : 'department';
     return (
       <NoticeBanner tone="warning" icon={AlertTriangle}>
-        No store or department is assigned to your account, so there are no numbers to show yet. Ask an admin to set one.
+        No {missing} is assigned to your account, so there are no numbers to show yet. Ask an admin to set one.
       </NoticeBanner>
     );
   }
@@ -111,7 +113,7 @@ const ScopeNotice = memo(({ role, departmentId, storeId, departments, stores, is
     <NoticeBanner tone="info" icon={Info}>
       {role === 'MANAGER'
         ? `You are seeing numbers for the ${department?.name} department only.`
-        : `You are seeing tickets for ${store?.name ?? 'your store'}${department ? ` and checklists for the ${department.name} department` : ''}.`}
+        : `You are seeing tickets and delegations for ${store?.name ?? 'your store'}, and checklists for the ${department?.name ?? 'your'} department.`}
     </NoticeBanner>
   );
 });
@@ -125,12 +127,15 @@ interface OverviewTabsProps {
   groupBy: GroupBy;
   from?: string;
   to?: string;
+  /** The explicit window (picked range, or the default one) for the cross-store ranking tab. */
+  windowFrom: string;
+  windowTo: string;
   isOrgWideRole: boolean;
 }
 
 // Owns the selected tab, so switching tabs re-renders only this block and never the summary or
 // snapshot strips above and below it.
-const OverviewTabs = memo(({ groupBy, from, to, isOrgWideRole }: OverviewTabsProps) => {
+const OverviewTabs = memo(({ groupBy, from, to, windowFrom, windowTo, isOrgWideRole }: OverviewTabsProps) => {
   const headingId = useId();
   const [params] = useSearchParams();
   const patch = useSearchPatch();
@@ -140,7 +145,7 @@ const OverviewTabs = memo(({ groupBy, from, to, isOrgWideRole }: OverviewTabsPro
   const section: SectionValue = tabs.find((t) => t.value === requested)?.value ?? DEFAULT_SECTION;
 
   return (
-    <section id={SECTIONS_ANCHOR_ID} aria-labelledby={headingId} className="flex flex-col gap-4 scroll-mt-4 sm:scroll-mt-44">
+    <section id={SECTIONS_ANCHOR_ID} aria-labelledby={headingId} className="flex flex-col gap-4 scroll-mt-4 lg:scroll-mt-44">
       <h2 id={headingId} className="sr-only">Performance by area</h2>
       <Tabs value={section} onValueChange={(v) => patch({ tab: v === DEFAULT_SECTION ? null : v })}>
         {/* Four equal columns on a phone: the icon drops out and a long label wraps to two lines
@@ -169,7 +174,7 @@ const OverviewTabs = memo(({ groupBy, from, to, isOrgWideRole }: OverviewTabsPro
         </TabsContent>
         {isOrgWideRole && (
           <TabsContent value="stores" className="pt-4 sm:pt-6">
-            <StoresPerformanceSection groupBy={groupBy} from={from} to={to} />
+            <StoresPerformanceSection from={windowFrom} to={windowTo} />
           </TabsContent>
         )}
       </Tabs>
@@ -183,13 +188,19 @@ OverviewTabs.displayName = 'OverviewTabs';
 // ---------------------------------------------------------------------------------------------
 
 // A failed request used to fall through to the "Quiet around here" empty state, which says nothing
-// has happened when the truth is the list never loaded.
+// has happened when the truth is the list never loaded. When only one of the two sources (tickets,
+// delegations) failed, the other half still shows, with a notice that the list is incomplete.
 const RecentActivitySection = memo(() => {
   const { feed, isPending, isError, refetch } = useRecentActivityFeed();
   if (isError && feed.length === 0) {
     return <InlineError message="Could not load recent activity." onRetry={() => void refetch()} />;
   }
-  return <RecentActivity feed={feed} isPending={isPending} />;
+  return (
+    <div className="flex flex-col gap-3">
+      {isError && <InlineError message="Some activity is missing" onRetry={() => void refetch()} />}
+      <RecentActivity feed={feed} isPending={isPending} />
+    </div>
+  );
 });
 RecentActivitySection.displayName = 'RecentActivitySection';
 
@@ -220,6 +231,14 @@ export const OrgOverview = () => {
   // to the end of that day or the last day would be dropped from the query.
   const from = useMemo(() => range.from?.toISOString(), [range]);
   const to = useMemo(() => (range.to ? endOfDay(range.to).toISOString() : undefined), [range]);
+
+  // The ONE window the ranking sections (leaders, leaderboard, stores table) share: the picked
+  // range, or else the last 12 buckets of the grouping (30 days for Day), the same span the control
+  // bar names. Without it ticket and delegation figures were all-time while store checklists were
+  // the last 30 days.
+  const fallbackWindow = useMemo(() => defaultWindow(groupBy), [groupBy]);
+  const windowFrom = from ?? fallbackWindow.from;
+  const windowTo = to ?? fallbackWindow.to;
 
   const handleGroupBy = useCallback((next: GroupBy) => patch({ by: next === DEFAULT_GROUP_BY ? null : next }), [patch]);
   const handleRange = useCallback(
@@ -296,13 +315,13 @@ export const OrgOverview = () => {
       {orgWide && (
         <div className="@container">
           <div className="grid grid-cols-1 gap-4 sm:gap-6 @3xl:grid-cols-2">
-            <PerformanceLeadersCard groupBy={groupBy} from={from} to={to} onViewFull={jumpToStores} />
-            <TeamLeaderboardRail from={from} to={to} />
+            <PerformanceLeadersCard from={windowFrom} to={windowTo} onViewFull={jumpToStores} />
+            <TeamLeaderboardRail from={windowFrom} to={windowTo} />
           </div>
         </div>
       )}
 
-      <OverviewTabs groupBy={groupBy} from={from} to={to} isOrgWideRole={orgWide} />
+      <OverviewTabs groupBy={groupBy} from={from} to={to} windowFrom={windowFrom} windowTo={windowTo} isOrgWideRole={orgWide} />
 
       <RecentActivitySection />
 

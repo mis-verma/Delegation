@@ -78,18 +78,22 @@ interface StatusPillProps {
   isUpdating: boolean;
   onToggle: () => void;
   ariaLabel: string;
+  /** Word for the off state. Users say "Deactivated"; Departments and Stores keep "Inactive". */
+  inactiveLabel?: string;
 }
 
 // Identical Active/Inactive toggle used by all three entity cards.
-export const StatusPill = ({ active, isUpdating, onToggle, ariaLabel }: StatusPillProps) => (
+export const StatusPill = ({ active, isUpdating, onToggle, ariaLabel, inactiveLabel = 'Inactive' }: StatusPillProps) => (
   <button
     type="button"
     onClick={onToggle}
     disabled={isUpdating}
     aria-label={ariaLabel}
+    aria-pressed={active}
     className={cn(
-      'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold shrink-0 cursor-pointer transition-all duration-200 active:scale-95',
-      'focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-50/50',
+      // 44px tall on touch, back to the compact pill from sm up.
+      'flex items-center gap-2 min-h-11 sm:min-h-8 px-3 sm:px-2.5 py-1 rounded-full text-[11px] font-semibold shrink-0 cursor-pointer transition-all duration-200 active:scale-95',
+      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50',
       active
         ? 'bg-success/10 text-success ring-1 ring-success/20 hover:bg-success/15'
         : 'bg-surface-hover text-text-muted ring-1 ring-border hover:bg-surface-active',
@@ -101,7 +105,7 @@ export const StatusPill = ({ active, isUpdating, onToggle, ariaLabel }: StatusPi
     ) : (
       <span className={cn("size-1.5 rounded-full shrink-0", active ? "bg-success" : "bg-text-light")} />
     )}
-    {active ? 'Active' : 'Inactive'}
+    {active ? 'Active' : inactiveLabel}
   </button>
 );
 
@@ -123,6 +127,8 @@ interface EntityStatusFilterProps {
   value: EntityStatusFilterValue;
   onChange: (value: EntityStatusFilterValue) => void;
   counts: { all: number; active: number; inactive: number };
+  /** Word for the third segment. Users say "Deactivated"; Departments and Stores keep "Inactive". */
+  inactiveLabel?: string;
 }
 
 // Shared "who's active, who's isn't" segmented filter for the Users/Departments/Stores lists —
@@ -135,15 +141,15 @@ interface EntityStatusFilterProps {
 // unrelated controls stacked directly on top of each other read as one repeated widget with no
 // hierarchy between "which entity type" and "which status". Tabs' own default selected style (a
 // light bg-surface chip) reads as clearly secondary next to that bolder navy row.
-export const EntityStatusFilter = ({ value, onChange, counts }: EntityStatusFilterProps) => (
+export const EntityStatusFilter = ({ value, onChange, counts, inactiveLabel = 'Inactive' }: EntityStatusFilterProps) => (
   <Tabs value={value} onValueChange={(v) => onChange(v as EntityStatusFilterValue)}>
     <TabsList className="rounded-full p-1 gap-1 h-auto w-fit">
       {([
         { key: 'all' as const, label: 'All' },
         { key: 'active' as const, label: 'Active' },
-        { key: 'inactive' as const, label: 'Inactive' },
+        { key: 'inactive' as const, label: inactiveLabel },
       ]).map(({ key, label }) => (
-        <TabsTrigger key={key} value={key} className="gap-1.5 px-3 py-1.5 rounded-full font-display font-bold">
+        <TabsTrigger key={key} value={key} className="gap-2 min-h-11 sm:min-h-8 px-3 py-1.5 rounded-full font-display font-bold">
           {label}
           <span className={cn('text-[10px] font-semibold tabular-nums', value === key ? 'text-text-secondary' : 'text-text-light')}>
             {counts[key]}
@@ -166,12 +172,16 @@ interface EntityCardActionsProps {
   duplicateLabel?: string;
 }
   
+// 44px square on touch, the compact 32px icon button from sm up.
+const ACTION_BTN_CLASS =
+  'flex items-center justify-center size-11 sm:size-8 rounded-lg text-text-muted cursor-pointer transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 active:scale-90';
+
 export const EntityCardActions = ({ onEdit, onDelete, isDeleting, editLabel, deleteLabel, onDuplicate, duplicateLabel }: EntityCardActionsProps) => (
-  <div className="flex items-center gap-1">
+  <div className="flex items-center gap-2">
     <button
       type="button"
       onClick={onEdit}
-      className="p-2 rounded-lg text-text-muted transition-all duration-200 hover:bg-primary-50 hover:text-primary-600 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-50/50 active:scale-90"
+      className={ACTION_BTN_CLASS + ' hover:bg-primary-500/10 hover:text-primary-600 dark:hover:text-primary-400'}
       aria-label={editLabel}
     >
       <Pencil className="size-4" strokeWidth={2.5} />
@@ -181,7 +191,7 @@ export const EntityCardActions = ({ onEdit, onDelete, isDeleting, editLabel, del
       <button
         type="button"
         onClick={onDuplicate}
-        className="p-2 rounded-lg text-text-muted transition-all duration-200 hover:bg-primary-50 hover:text-primary-600 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary-50/50 active:scale-90"
+        className={ACTION_BTN_CLASS + ' hover:bg-primary-500/10 hover:text-primary-600 dark:hover:text-primary-400'}
         aria-label={duplicateLabel}
         title={duplicateLabel}
       >
@@ -194,7 +204,8 @@ export const EntityCardActions = ({ onEdit, onDelete, isDeleting, editLabel, del
       onClick={onDelete}
       disabled={isDeleting}
       className={cn(
-        'p-2 rounded-lg text-text-muted transition-all duration-200 hover:bg-danger/10 hover:text-danger focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-danger/10 active:scale-90',
+        ACTION_BTN_CLASS,
+        'hover:bg-danger/10 hover:text-danger focus-visible:ring-danger/40',
         isDeleting && 'opacity-50 cursor-not-allowed active:scale-100'
       )}
       aria-label={deleteLabel}

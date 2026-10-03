@@ -11,7 +11,7 @@ import type { ConfirmSmartTaskInput, CreateTaskInput, UpdateTaskInput, VerifyTas
 import { notificationService, notifySafely } from "../notifications/notification.service.js"
 import { auditService } from "../audit/audit.service.js"
 import { emitTaskEvent } from "../../sockets/taskEvent.js"
-import { resolveReportRange, bucketSql, utcSql, type ReportGroupBy } from "../tickets/ticket.service.js"
+import { resolveReportRange, bucketSql, utcSql, type ReportGroupBy } from "../checklistInstances/checklistReportRange.js"
 
 // NOTE on populate-heavy reads: the conventions doc recommends Drizzle's relational query API
 // (`db.query.tasks.findFirst({ with: {...} })`) for these, but that API compiles every "many"
@@ -271,6 +271,8 @@ export type TaskOwnerStatsRow = {
     total: number;
     done: number;
     overdueCount: number;
+    /** The server never invents a default window: no from/to means all time. Clients send explicit dates. */
+    windowDefaulted: false;
 };
 
 // Dashboard's "Needs your approval" card — ticket.service.ts's TicketPendingApprovalRow has the
@@ -335,6 +337,7 @@ const taskOwnerStatsByColumn = async (
         total: Number(r.total),
         done: Number(r.done),
         overdueCount: Number(r.overdueCount),
+        windowDefaulted: false as const,
     }));
 };
 
@@ -915,8 +918,9 @@ export const taskService = {
                 : sql`1 = 0`);
         }
         if (userId) conditions.push(sql`(t.userId = ${userId} OR t.assigneeId = ${userId} OR taa.userId IS NOT NULL)`);
-        // A soft-deleted or draft delegation's checklist items must not count toward compliance.
-        conditions.push(sql`t.deletedAt IS NULL`, sql`t.status <> 'draft'`);
+        // Same population as ownerStats (taskOwnerStatsByColumn): top-level delegations only, never
+        // issues or subtasks. A soft-deleted or draft delegation's checklist items must not count.
+        conditions.push(sql`t.deletedAt IS NULL`, sql`t.status <> 'draft'`, sql`t.category = 'delegation'`, sql`t.parentTaskId IS NULL`);
 
         const whereClause = sql`WHERE ${sql.join(conditions, sql` AND `)}`;
 
@@ -927,9 +931,9 @@ export const taskService = {
                 ${bucketSql(groupBy, sql`tci.createdAt`)} AS bucket,
                 COUNT(*) AS totalItems,
                 SUM(tci.isDone) AS doneItems,
-                SUM(tci.requiredImageCount > 0) AS itemsRequiringPhotos,
+                SUM(tci.isDone = 1 AND tci.requiredImageCount > 0) AS itemsRequiringPhotos,
                 SUM(
-                    CASE WHEN tci.requiredImageCount > 0
+                    CASE WHEN tci.isDone = 1 AND tci.requiredImageCount > 0
                         AND (CASE WHEN tci.requiresLivePhoto THEN COALESCE(img.liveCount, 0) ELSE COALESCE(img.totalCount, 0) END) >= tci.requiredImageCount
                     THEN 1 ELSE 0 END
                 ) AS photoCompliantItems

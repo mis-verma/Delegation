@@ -12,6 +12,7 @@ import { asyncHandler } from "./asyncHandler.js"
 import { AppError } from "./AppError.js"
 import { db } from "../config/db.js"
 import { cached, invalidate, cacheKey } from "../config/queryCache.js"
+import { auditService } from "../modules/audit/audit.service.js"
 
 // This is a "router factory": a function that BUILDS and returns an Express Router,
 // instead of a router being hand-written directly.
@@ -42,8 +43,42 @@ const listQuerySchema = z.object({
 // key not declared on the schema (id/createdAt/updatedAt included), which is what stops a caller
 // mass-assigning those on create or overwriting them on update, on top of catching a missing
 // `name` as a clean 400 instead of a raw NOT NULL constraint error surfacing as a masked 500.
-export const createLookupRouter = (table: LookupTable, bodySchema: z.AnyZodObject) => {
+// Optional extras for a lookup router.
+//  entityType     when set, create/update/delete each write an audit row (actor = the logged-in admin,
+//                 before/after = the row), the same trail Department already keeps.
+//  deleteBlockers called before a delete; returns a plain sentence when other records still point at
+//                 the row (the delete is then refused with a 409 carrying that sentence), or null.
+export type LookupOptions = {
+    entityType?: string
+    deleteBlockers?: (row: { id: string; name: string }) => Promise<string | null>
+}
+
+// Builds the "Sales still has 12 people and 3 open tickets. Move them or deactivate it instead."
+// sentence shared by the department and store delete guards. Zero counts are left out; returns
+// null when nothing references the row.
+export const describeBlockers = (name: string, parts: { count: number; one: string; many: string }[]): string | null => {
+    const present = parts.filter((p) => p.count > 0).map((p) => `${p.count} ${p.count === 1 ? p.one : p.many}`)
+    if (!present.length) return null
+    const list = present.length === 1 ? present[0] : `${present.slice(0, -1).join(", ")} and ${present[present.length - 1]}`
+    return `${name} still has ${list}. Move them or deactivate it instead.`
+}
+
+// A unique-index race that slipped past the name pre-check (MySQL ER_DUP_ENTRY, code on `.cause`).
+const isDuplicateEntry = (err: unknown) => {
+    const e = err as { code?: string; cause?: { code?: string } } | null
+    return e?.code === "ER_DUP_ENTRY" || e?.cause?.code === "ER_DUP_ENTRY"
+}
+const isStillReferenced = (err: unknown) => {
+    const e = err as { code?: string; cause?: { code?: string } } | null
+    return e?.code === "ER_ROW_IS_REFERENCED_2" || e?.cause?.code === "ER_ROW_IS_REFERENCED_2"
+}
+
+export const createLookupRouter = (table: LookupTable, bodySchema: z.AnyZodObject, options: LookupOptions = {}) => {
     const updateSchema = bodySchema.partial()
+    const audit = (req: { user?: { sub: string } }, entityId: string, action: string, before: unknown, after: unknown) =>
+        options.entityType && req.user
+            ? auditService.record({ entityType: options.entityType, entityId, action, actorId: req.user.sub, before, after })
+            : Promise.resolve()
     // Lookup rows change a few times a year and are read on nearly every page (every dropdown,
     // the org tree, filter bars), so they cache well.
     //
@@ -105,11 +140,17 @@ export const createLookupRouter = (table: LookupTable, bodySchema: z.AnyZodObjec
         // Otherwise, create the new row using whatever fields the schema whitelisted.
         // The id is DB/schema-generated (cuid `$defaultFn`), so we insert first, then
         // re-select by name (unique) to hand back the full row including generated columns.
-        await db.insert(table).values(input)
+        try {
+            await db.insert(table).values(input)
+        } catch (err) {
+            if (isDuplicateEntry(err)) throw AppError.conflict("Name already exists")
+            throw err
+        }
         const [item] = await db.select().from(table).where(eq(table.name, input.name)).limit(1);
         // 201 = "Created" - the conventional success status code for a successful POST
         // that creates a new resource.
         await dropCache()
+        if (item) await audit(req, item.id, "CREATE", undefined, item)
         res.status(201).json({ success: true, data: item })
     }))
 
@@ -124,13 +165,20 @@ export const createLookupRouter = (table: LookupTable, bodySchema: z.AnyZodObjec
             const [existing] = await db.select().from(table).where(eq(table.name, input.name)).limit(1);
             if (existing && existing.id !== req.params.id) throw AppError.conflict("Name already exists")
         }
+        const [before] = await db.select().from(table).where(eq(table.id, req.params.id)).limit(1);
+        // If no row was found with that id, throw a 404 instead of silently sending back nothing.
+        if (!before) throw AppError.notFound("Not Found")
         // Drizzle's update doesn't return the updated row on MySQL, so update then re-select.
-        await db.update(table).set({ ...input, updatedAt: new Date() }).where(eq(table.id, req.params.id));
+        try {
+            await db.update(table).set({ ...input, updatedAt: new Date() }).where(eq(table.id, req.params.id));
+        } catch (err) {
+            if (isDuplicateEntry(err)) throw AppError.conflict("Name already exists")
+            throw err
+        }
         const [item] = await db.select().from(table).where(eq(table.id, req.params.id)).limit(1);
-        // If no row was found with that id, `item` will be undefined - throw a 404 instead
-        // of silently sending back nothing.
         if (!item) throw AppError.notFound("Not Found")
         await dropCache()
+        await audit(req, item.id, "UPDATE", before, item)
         res.json({ success: true, data: item })
     }))
 
@@ -139,8 +187,19 @@ export const createLookupRouter = (table: LookupTable, bodySchema: z.AnyZodObjec
         const [existing] = await db.select().from(table).where(eq(table.id, req.params.id)).limit(1);
         // If nothing was found, treat it as "not found" rather than pretending the delete succeeded.
         if (!existing) throw AppError.notFound("Not Found")
-        await db.delete(table).where(eq(table.id, req.params.id));
+        // Refuse (with a plain sentence) while people, tickets etc. still point at this row.
+        const blocked = await options.deleteBlockers?.({ id: existing.id, name: String(existing.name) })
+        if (blocked) throw AppError.conflict(blocked)
+        try {
+            await db.delete(table).where(eq(table.id, req.params.id));
+        } catch (err) {
+            if (isStillReferenced(err)) {
+                throw AppError.conflict(`${String(existing.name)} is still used by other records, so it can't be deleted. Deactivate it instead.`)
+            }
+            throw err
+        }
         await dropCache()
+        await audit(req, existing.id, "DELETE", existing, undefined)
         // Note: response shape here is `{ delete: true }` (not `deleted`) - kept as-is,
         // just flagging it in case it looks like a typo when reading the frontend code
         // that consumes this response.

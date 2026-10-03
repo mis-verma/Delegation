@@ -42,10 +42,6 @@ export const formatDuration = (hours: number | null | undefined): string => {
   return `${Math.round(h / 24)} d`;
 };
 
-/** A whole number with en-IN digit grouping: 12345 -> "12,345". */
-export const formatCount = (value: number | null | undefined): string =>
-  value == null || !Number.isFinite(value) ? NO_DATA : value.toLocaleString(ANALYTICS_LOCALE);
-
 // ---------------------------------------------------------------------------------------------
 // Period labels
 // ---------------------------------------------------------------------------------------------
@@ -124,7 +120,24 @@ export const defaultWindowLabel = (groupBy: DisplayGroupBy): string => {
   return 'Last 12 months';
 };
 
-const endOfLocalDay =(y: number, m: number, d: number) => new Date(y, m, d, 23, 59, 59, 999);
+const endOfLocalDay = (y: number, m: number, d: number) => new Date(y, m, d, 23, 59, 59, 999);
+
+/**
+ * The one explicit window every section shares when no range is picked: the last 12 buckets of the
+ * chosen grouping (30 days for Day), ending at the close of today. Same span `defaultWindowLabel`
+ * names, so the label and the numbers can never disagree.
+ */
+export const defaultWindow = (groupBy: DisplayGroupBy, now: Date = new Date()): { from: string; to: string } => {
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const d = now.getDate();
+  let from: Date;
+  if (groupBy === 'day') from = new Date(y, m, d - 29);
+  else if (groupBy === 'week') from = new Date(y, m, d - ((now.getDay() + 6) % 7) - 11 * 7);
+  else if (groupBy === 'year') from = new Date(y - 11, 0, 1);
+  else from = new Date(y, m - 11, 1);
+  return { from: from.toISOString(), to: endOfLocalDay(y, m, d).toISOString() };
+};
 
 /**
  * The calendar window a report bucket covers, as ISO strings (browser-local days), so a tile that
@@ -185,25 +198,43 @@ export const rateTrend = (current: number, previous: number): Trend => {
 
 /**
  * Closed-on-time rate for one ticket bucket: of the closed tickets that have a TAT, the share
- * closed by their deadline. Tickets without a TAT are not in the denominator when the server says
- * how many there are (closedWithTatCount); older responses fall back to every closed ticket.
+ * closed by their deadline. Tickets without a TAT are not in the denominator (closedWithTatCount).
  */
 export const slaMetRate = (row?: TatReportRow): number | null => {
   if (!row) return null;
-  const denominator = row.closedWithTatCount ?? row.closedCount;
+  const denominator = row.closedWithTatCount;
   if (!denominator || denominator <= 0) return null;
   const late = Math.min(row.closedLateCount ?? 0, denominator);
   return Math.round((1 - late / denominator) * 100);
 };
 
+// The report rows carry only the bucket label, so the grouping is read back from its shape.
+const groupByOfBucket = (bucket: string): DisplayGroupBy | null => {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(bucket)) return 'day';
+  if (/^\d{4}-W\d{1,2}$/.test(bucket)) return 'week';
+  if (/^\d{4}-\d{2}$/.test(bucket)) return 'month';
+  if (/^\d{4}$/.test(bucket)) return 'year';
+  return null;
+};
+
+/** True while the bucket's last day is still ahead of `now`: its total is only part of a period. */
+const isBucketOpen = (bucket: string, now: Date): boolean => {
+  const unit = groupByOfBucket(bucket);
+  const range = unit ? bucketRange(bucket, unit) : null;
+  return range != null && new Date(range.to).getTime() > now.getTime();
+};
+
 /**
  * The newest bucket's value and how it moved from the bucket before it. A single bucket (the
- * whole-range result) or a missing previous value gives no trend badge at all.
+ * whole-range result) or a missing previous value gives no trend badge at all. A count for a bucket
+ * that has not finished yet is not compared with a full previous bucket (that would always read as a
+ * drop), so it gets no badge either.
  */
 export const latestWithTrend = (
   rows: ReportRow[] | undefined,
   key: string,
   kind: 'rate' | 'count' = 'count',
+  now: Date = new Date(),
 ): { value: number | null; trend: Trend } => {
   if (!rows || rows.length === 0) return { value: null, trend: NO_TREND };
 
@@ -211,6 +242,7 @@ export const latestWithTrend = (
   const value = (latest[key] as number | null | undefined) ?? null;
   if (value == null) return { value: null, trend: NO_TREND };
   if (latest.bucket === RANGE_BUCKET) return { value, trend: NO_TREND };
+  if (kind === 'count' && isBucketOpen(latest.bucket, now)) return { value, trend: NO_TREND };
 
   const previous = rows.length > 1 ? rows[rows.length - 2] : undefined;
   const previousValue = previous?.[key] as number | null | undefined;

@@ -56,7 +56,7 @@ export const RadialGauge = ({
   // <linearGradient> + url(#id) reference added a second point of failure (id resolution) on top
   // of the color itself for no visual benefit; a literal stroke color has no id to fail to
   // resolve. The url()-based gradient is kept only for callers that pass genuinely different
-  // colors (e.g. ComplianceGaugeRail's two-tone arcs).
+  // colors (a two-tone arc).
   const isSolidColor = gradientFrom === gradientTo;
 
   const isCircle = variant === 'circle';

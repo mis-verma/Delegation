@@ -1,7 +1,13 @@
+import { sql, type SQL } from "drizzle-orm"
 import { env } from "../../config/env.js"
 
-// Date-range and bucket helpers for the analytics report endpoints. Pure functions, no DB access,
-// so any report (checklist, ticket, task) can share them.
+// Date-range and bucket helpers for the analytics report endpoints, shared by the checklist, ticket
+// and task reports. Two families live here:
+//  - resolveReportWindow / bucketSeries / zeroFill: org-local DAY windows ('YYYY-MM-DD'), used by the
+//    checklist reports (periodStart is already an org-local day).
+//  - resolveReportRange / bucketSql / utcSql: UTC INSTANT windows plus the SQL that buckets a
+//    DATETIME column in the org's local calendar, used by the ticket and task reports.
+// Both produce the same bucket labels (REPORT_DATE_FORMATS), so a series lines up whichever is used.
 //
 // ChecklistInstance.periodStart is the org-LOCAL calendar day written as UTC midnight (see
 // utils/period.ts). So every range here is a pair of org-local 'YYYY-MM-DD' strings, and an ISO
@@ -146,3 +152,117 @@ export const zeroFill = <T extends { bucket: string }>(rows: T[], groupBy: Repor
     const byBucket = new Map(rows.map((r) => [r.bucket, r]))
     return series.map((bucket) => byBucket.get(bucket) ?? makeEmpty(bucket))
 }
+
+// ---------------------------------------------------------------------------------------------
+// Instant-based range (ticket and task reports). Moved here unchanged from ticket.service.ts.
+// ---------------------------------------------------------------------------------------------
+
+const MS_MINUTE = 60_000
+// Hard ceiling on a returned series so a huge explicit range at day granularity can't produce an
+// unbounded response; the oldest buckets are dropped first.
+const MAX_REPORT_BUCKETS = 800
+
+// Org-local offset ahead of UTC, in whole minutes (same env var the checklist engine uses).
+const orgOffsetMinutes = (): number => {
+    const offset = Math.trunc(Number(env.CHECKLIST_TIMEZONE_OFFSET_MINUTES))
+    return Number.isFinite(offset) ? offset : 0
+}
+
+type BucketUnit = Exclude<ReportGroupBy, "none">
+
+// "Local-as-UTC" helpers: shifting an instant by the org offset and then reading it with the UTC
+// getters yields the org's wall-clock fields.
+const bucketStartLocal = (localMs: number, groupBy: BucketUnit): number => {
+    const d = new Date(localMs)
+    const y = d.getUTCFullYear()
+    const m = d.getUTCMonth()
+    const day = d.getUTCDate()
+    if (groupBy === "year") return Date.UTC(y, 0, 1)
+    if (groupBy === "month") return Date.UTC(y, m, 1)
+    if (groupBy === "week") {
+        const sinceMonday = (d.getUTCDay() + 6) % 7
+        return Date.UTC(y, m, day - sinceMonday)
+    }
+    return Date.UTC(y, m, day)
+}
+
+const nextBucketLocal = (startLocal: number, groupBy: BucketUnit): number => {
+    const d = new Date(startLocal)
+    if (groupBy === "year") return Date.UTC(d.getUTCFullYear() + 1, 0, 1)
+    if (groupBy === "month") return Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1)
+    if (groupBy === "week") return startLocal + 7 * DAY_MS
+    return startLocal + DAY_MS
+}
+
+const prevBucketLocal = (startLocal: number, groupBy: BucketUnit): number => {
+    const d = new Date(startLocal)
+    if (groupBy === "year") return Date.UTC(d.getUTCFullYear() - 1, 0, 1)
+    if (groupBy === "month") return Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - 1, 1)
+    if (groupBy === "week") return startLocal - 7 * DAY_MS
+    return startLocal - DAY_MS
+}
+
+// Same string MySQL's DATE_FORMAT produces for REPORT_DATE_FORMATS[groupBy] ('%x-W%v' is the ISO
+// week: the year/week of the bucket's Thursday).
+const bucketKeyLocal = (startLocal: number, groupBy: BucketUnit): string => {
+    const d = new Date(startLocal)
+    if (groupBy === "year") return String(d.getUTCFullYear())
+    if (groupBy === "month") return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}`
+    if (groupBy === "week") {
+        const thursday = new Date(startLocal + 3 * DAY_MS)
+        const isoYear = thursday.getUTCFullYear()
+        const dayOfYear = Math.floor((thursday.getTime() - Date.UTC(isoYear, 0, 1)) / DAY_MS)
+        return `${isoYear}-W${pad2(Math.floor(dayOfYear / 7) + 1)}`
+    }
+    return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`
+}
+
+export type ReportRange = { from: Date; to: Date; buckets: string[] }
+
+// Resolves the window a bucketed report covers and the contiguous list of bucket keys inside it.
+// No from/to -> the last 12 buckets (last 30 days for day, and for 'none'), never unbounded.
+// 'none' collapses the whole window into one bucket named 'range'.
+export const resolveReportRange = (groupBy: ReportGroupBy, from?: string, to?: string, now: Date = new Date()): ReportRange => {
+    const offsetMs = orgOffsetMinutes() * MS_MINUTE
+    const unit: BucketUnit = groupBy === "none" ? "day" : groupBy
+    const defaultBuckets = groupBy === "day" || groupBy === "none" ? 30 : 12
+
+    let toDate = to ? new Date(to) : now
+    let fromDate: Date
+    if (from) {
+        fromDate = new Date(from)
+    } else {
+        let start = bucketStartLocal(toDate.getTime() + offsetMs, unit)
+        for (let i = 1; i < defaultBuckets; i++) start = prevBucketLocal(start, unit)
+        fromDate = new Date(start - offsetMs)
+    }
+    if (fromDate.getTime() > toDate.getTime()) toDate = fromDate
+
+    if (groupBy === "none") return { from: fromDate, to: toDate, buckets: [RANGE_BUCKET] }
+
+    const lastStart = bucketStartLocal(toDate.getTime() + offsetMs, unit)
+    let cursor = bucketStartLocal(fromDate.getTime() + offsetMs, unit)
+    const starts: number[] = []
+    while (cursor <= lastStart) {
+        starts.push(cursor)
+        cursor = nextBucketLocal(cursor, unit)
+    }
+    if (starts.length > MAX_REPORT_BUCKETS) {
+        starts.splice(0, starts.length - MAX_REPORT_BUCKETS)
+        const firstInstant = new Date(starts[0]! - offsetMs)
+        if (firstInstant.getTime() > fromDate.getTime()) fromDate = firstInstant
+    }
+    return { from: fromDate, to: toDate, buckets: starts.map((s) => bucketKeyLocal(s, unit)) }
+}
+
+// SQL for "which bucket does this datetime column fall in", in the org's local calendar. The offset
+// is an integer from env (never user input), so it is safe to inline.
+export const bucketSql = (groupBy: ReportGroupBy, column: SQL): SQL =>
+    groupBy === "none"
+        ? sql.raw(`'${RANGE_BUCKET}'`)
+        : sql`DATE_FORMAT(DATE_ADD(${column}, INTERVAL ${sql.raw(String(orgOffsetMinutes()))} MINUTE), ${REPORT_DATE_FORMATS[groupBy]})`
+
+// DATETIME columns hold UTC wall-clock strings (Drizzle writes them via toISOString). Passing a raw
+// JS Date into a sql`` template instead makes mysql2 format it in Node's local timezone, so the
+// bound could silently shift by the server's UTC offset. This formats the UTC string explicitly.
+export const utcSql = (date: Date): SQL => sql`${date.toISOString().slice(0, 19).replace("T", " ")}`

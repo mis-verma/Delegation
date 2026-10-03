@@ -38,17 +38,41 @@ const GROUP_CONDITIONS: Record<AuditGroup, SQL> = {
 // other parts of the app call auditService.record(...) to save a snapshot of what changed and who did it.
 // This is valuable because later, if something looks wrong, an admin can look at the audit log and see
 // exactly who changed a record, when, and what the data looked like before and after - accountability + debugging.
+type AuditParams = {
+    entityType : string; // e.g. "Ticket", "User" - what kind of thing changed
+    entityId : string; // the id of the specific record that changed
+    action : string; // e.g. "CREATE", "UPDATE", "DELETE" - what kind of change happened
+    actorId : string; // the id of the user who made the change (for accountability - "who did this?")
+    before?:unknown; // a snapshot of the data before the change (optional, e.g. not applicable on CREATE)
+    after?:unknown; // a snapshot of the data after the change (optional, e.g. not applicable on DELETE)
+    source?: string; // where it came from: "APP" (default for a real user), "SYSTEM", "WHATSAPP"
+}
+
+// The transaction handle db.transaction() passes to its callback.
+export type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
 export const auditService = {
+    // Writes the audit row INSIDE the caller's transaction. Unlike record(), a failure is NOT
+    // swallowed: it propagates, so the surrounding change rolls back with it. Used for the changes
+    // that must never happen without a trail (role, password, deactivate, delete).
+    async recordInTx(tx : DbTransaction, params : AuditParams){
+        const [actor] = await tx.select({ firstName: users.firstName, lastName: users.lastName }).from(users).where(eq(users.id, params.actorId)).limit(1)
+        const actorName = actor ? `${actor.firstName}${actor.lastName ? ` ${actor.lastName}` : ""}` : params.actorId.slice(0, 191)
+        await tx.insert(auditLogs).values({
+            id: createId(),
+            entityType : params.entityType,
+            entityId : params.entityId,
+            action : params.action,
+            actorId : params.actorId,
+            actorName,
+            source : params.source ?? (actor ? "APP" : "SYSTEM"),
+            before : params.before ?? null,
+            after : params.after ?? null,
+        });
+    },
+
     // Records one audit log entry describing a single change to a single entity.
-    async record( params : {
-        entityType : string; // e.g. "Ticket", "User" - what kind of thing changed
-        entityId : string; // the id of the specific record that changed
-        action : string; // e.g. "CREATE", "UPDATE", "DELETE" - what kind of change happened
-        actorId : string; // the id of the user who made the change (for accountability - "who did this?")
-        before?:unknown; // a snapshot of the data before the change (optional, e.g. not applicable on CREATE)
-        after?:unknown; // a snapshot of the data after the change (optional, e.g. not applicable on DELETE)
-        source?: string; // where it came from: "APP" (default for a real user), "SYSTEM", "WHATSAPP"
-    }){
+    async record( params : AuditParams ){
         try{
             // Write the actor's name down now so the log still reads "Priya Sharma" after the account
             // is renamed or removed. A non-user actor (a job, "system") is recorded as is.

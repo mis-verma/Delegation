@@ -4,12 +4,9 @@ import { Trophy, AlertTriangle, Building2, Store, ArrowRight } from 'lucide-reac
 import { Button, InlineError, PANEL_CLASS, Skeleton } from '../../../components';
 import { MIN_RANK_VOLUME, NEEDS_ATTENTION_BELOW, rankRows, useOwnerRankings, type RankedRow } from './useOwnerRankings';
 import { formatPercent } from './analyticsDisplay';
-import type { GroupBy } from './GroupByControl';
 
 interface PerformanceLeadersCardProps {
-  /** Kept so existing callers still compile. The ranking now covers the whole from/to window, so
-   *  the grouping no longer changes it. */
-  groupBy?: GroupBy;
+  /** The window every ranking covers: the picked range, or the page's default window. */
   from?: string;
   to?: string;
   /** Jumps straight to the full ranked table (the Stores tab below) instead of this card

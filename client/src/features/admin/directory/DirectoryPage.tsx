@@ -1,12 +1,12 @@
 import { useSearchParams } from 'react-router';
 import { Contact, Users, Building2, Store } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { PageHeader } from '../../../components';
 import { UserList } from '../users';
 import { DepartmentList } from '../department';
 import { StoreList } from '../store';
 import { useUsersQuery, useDepartmentsQuery } from '../hook';
 import { useStoresQuery } from '../../tickets/hook';
-import { StatCard } from '../../dashboard';
 
 const TABS = [
   { value: 'users', label: 'Users', icon: Users },
@@ -17,13 +17,21 @@ const TABS = [
 type TabValue = (typeof TABS)[number]['value'];
 
 // One home for the three entities that make up the org ladder (see Org Structure for the
-// read-only combined view of how they relate) — each tab is the existing, self-contained
+// read-only combined view of how they relate): each tab is the existing, self-contained
 // List component as-is, just no longer scattered across three separate sidebar pages.
 const isTabValue = (v: string | null): v is TabValue => TABS.some((t) => t.value === v);
 
+// "42 active, 6 deactivated", or "All active" when nobody is switched off.
+const summarize = (rows: { isActive: boolean }[] | undefined, offWord: string) => {
+  if (!rows) return null;
+  const off = rows.filter((r) => !r.isActive).length;
+  return off > 0 ? `${rows.length - off} active, ${off} ${offWord}` : 'All active';
+};
+
 // Deep-linkable via ?tab= (e.g. the owner-facing dashboard's snapshot tiles jump straight to
-// the Departments/Stores tab instead of always landing on Users) — kept in the URL, not local
-// state, so the link is shareable and survives a refresh.
+// the Departments/Stores tab instead of always landing on Users). Kept in the URL, not local
+// state, so the link is shareable and survives a refresh. The Users tab keeps its own search and
+// filters in the same query string, so changing tab leaves them untouched.
 export const DirectoryPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
@@ -43,88 +51,46 @@ export const DirectoryPage = () => {
     departments: departments?.length,
     stores: stores?.length,
   };
-  const totalCount = (users?.length ?? 0) + (departments?.length ?? 0) + (stores?.length ?? 0);
 
-  const activeCaption = (rows: { isActive: boolean }[] | undefined) => {
-    if (!rows) return undefined;
-    const inactive = rows.filter((r) => !r.isActive).length;
-    return inactive > 0 ? `${rows.length - inactive} active, ${inactive} inactive` : 'All active';
-  };
+  const summary = tab === 'users' ? summarize(users, 'deactivated')
+    : tab === 'departments' ? summarize(departments, 'inactive')
+      : summarize(stores, 'inactive');
 
   return (
-    <div className="flex flex-col gap-5 w-full">
-      <header className="flex items-start gap-4 pb-5 border-b border-border">
-        <div className="flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-br from-primary-500/10 to-primary-700/10 dark:from-primary-500/20 dark:to-primary-700/20 text-primary-600 dark:text-primary-400 ring-1 ring-primary-500/20 shadow-sm shrink-0">
-          <Contact className="w-5 h-5" />
-        </div>
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-xl sm:text-2xl font-display font-bold tracking-tight text-text">People &amp; Teams</h1>
-            <span className="flex items-center justify-center px-2.5 py-0.5 text-xs font-display font-bold bg-surface-hover text-text-secondary rounded-full border border-border">
-              {totalCount}
-            </span>
-          </div>
-          <p className="text-xs sm:text-sm font-display text-text-muted max-w-lg leading-relaxed">
-            Manage users, departments, and stores in one place.
-          </p>
-        </div>
-      </header>
+    <div className="flex flex-col gap-5 w-full max-w-5xl mx-auto">
+      <PageHeader icon={Contact} title="People & Teams" subtitle="Manage users, departments and stores." />
 
-      {/* At-a-glance counts for the three entities behind the tabs below — each tile jumps
-          straight to its tab, same "stat tile as a shortcut" convention as the Overview page's
-          own summary strip, instead of the numbers only being visible after clicking in. */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard
-          icon={Users}
-          label="People"
-          value={counts.users ?? '—'}
-          caption={activeCaption(users)}
-          onClick={() => setTab('users')}
-        />
-        <StatCard
-          icon={Building2}
-          label="Departments"
-          value={counts.departments ?? '—'}
-          caption={activeCaption(departments)}
-          onClick={() => setTab('departments')}
-        />
-        <StatCard
-          icon={Store}
-          label="Stores"
-          value={counts.stores ?? '—'}
-          caption={activeCaption(stores)}
-          onClick={() => setTab('stores')}
-        />
-      </div>
-
-      <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)}>
-        {/* Scrolls horizontally instead of clipping the last tab on narrow phones — AdminLayout's
+      <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)} className="gap-4">
+        {/* Scrolls horizontally instead of clipping the last tab on narrow phones: AdminLayout's
             <main> is overflow-x-hidden, so this row needs its own scroll container. */}
-        <div className="overflow-x-auto">
-          <TabsList className="rounded-full gap-1 h-auto w-fit">
-            {TABS.map(({ value, label, icon: Icon }) => (
-              <TabsTrigger
-                key={value}
-                value={value}
-                className="gap-1.5 px-3.5 py-1.5 text-sm rounded-full font-display"
-              >
-                <Icon className="w-3.5 h-3.5" />
-                {label}
-                {counts[value] !== undefined && (
-                  <span className="text-xs font-medium opacity-70">{counts[value]}</span>
-                )}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <div className="overflow-x-auto max-w-full">
+            <TabsList className="rounded-full gap-1 h-auto w-fit">
+              {TABS.map(({ value, label, icon: Icon }) => (
+                <TabsTrigger
+                  key={value}
+                  value={value}
+                  className="gap-1.5 min-h-11 sm:min-h-8 px-3.5 py-1.5 text-sm rounded-full font-display"
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  {label}
+                  {counts[value] !== undefined && (
+                    <span className="text-xs font-medium opacity-70">{counts[value]}</span>
+                  )}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
+          {summary && <p className="text-xs font-display text-text-muted">{summary}</p>}
         </div>
 
-        <TabsContent value="users" className="pt-4">
+        <TabsContent value="users">
           <UserList />
         </TabsContent>
-        <TabsContent value="departments" className="pt-4">
+        <TabsContent value="departments">
           <DepartmentList />
         </TabsContent>
-        <TabsContent value="stores" className="pt-4">
+        <TabsContent value="stores">
           <StoreList />
         </TabsContent>
       </Tabs>

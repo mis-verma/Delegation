@@ -119,7 +119,8 @@ const formatUpdated = (ms: number) => new Date(ms).toLocaleTimeString(ANALYTICS_
 /**
  * One place that says which time window the page is showing and lets you change it: the grouping,
  * a preset or custom range, what that resolves to, and when the numbers were last fetched. Sticks
- * to the top of the page from sm up; on a phone it scrolls away so it never eats the screen.
+ * to the top of the page from lg up; below that it scrolls away so it never eats a phone or a
+ * landscape screen.
  */
 export const AnalyticsControlBar = ({ groupBy, onGroupByChange, range, onRangeChange, updatedAt, isRefreshing, onRefresh }: AnalyticsControlBarProps) => {
   const { shown, handleChange } = useCompleteRangeOnly(range, onRangeChange);
@@ -138,7 +139,7 @@ export const AnalyticsControlBar = ({ groupBy, onGroupByChange, range, onRangeCh
   const groupLabel = GROUP_BY_OPTIONS.find((o) => o.value === groupBy)?.label.toLowerCase() ?? groupBy;
 
   return (
-    <div className="sm:sticky sm:top-0 z-20 flex flex-col gap-3 rounded-2xl border border-border/60 bg-background/95 backdrop-blur p-3">
+    <div className="lg:sticky lg:top-0 z-20 flex flex-col gap-3 rounded-2xl border border-border/60 bg-background/95 backdrop-blur p-3">
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
         <GroupByTabs groupBy={groupBy} onGroupByChange={onGroupByChange} />
 

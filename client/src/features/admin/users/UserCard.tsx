@@ -1,99 +1,100 @@
-import { Building2, Clock } from 'lucide-react';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-import { ENTITY_CARD_CLASS, StatusPill, EntityCardActions, Avatar } from '../../../components';
-import type { AdminUser, UserPresence } from '../../../api/admin';
-import { ROLE_STYLES, ROLE_LABEL } from '../roleBadge';
-import { presenceLabel } from '../presenceDisplay';
+import { memo } from 'react';
+import { Clock, Phone } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { ENTITY_CARD_CLASS, Avatar } from '../../../components';
+import type { AdminUser } from '../../../api/admin';
+import { isDepartmentHead } from '../roleBadge';
 import { resolveAvatarUrl } from '../../../lib/uploadsBase';
 import { formatRelativeTime } from '../../dashboard/dashboardDisplay';
+import { UserActionsMenu, type UserActionHandlers } from './UserActionsMenu';
+import { DeactivatedChip, DepartmentHeadChip, DepartmentLabel, RoleChip, StoreLabel } from './UserBits';
+import { deactivatedLabel, fullName } from './userDisplay';
 
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
-
-interface UserCardProps {
+interface UserCardProps extends UserActionHandlers {
   user: AdminUser;
-  /** Resolved from user.departmentId by the parent list — undefined when unassigned. */
+  /** Resolved from user.departmentId by the parent list; undefined when unassigned. */
   departmentName?: string;
-  /** Undefined while the presence query is still loading — the dot/label just don't render yet
-   *  rather than guessing "offline" for what might actually be "active now". */
-  presence?: UserPresence;
-  isUpdating: boolean;
-  isDeleting: boolean;
-  onToggleActive: (id: string, isActive: boolean) => void;
-  onEdit: (user: AdminUser) => void;
-  onDelete: (id: string) => void;
+  storeName?: string;
+  /** Undefined while presence is still loading, so the dot and label stay hidden instead of
+   *  guessing "offline" for someone who may be active right now. */
+  online?: boolean;
+  /** "Active now", "Active 2h ago" or "Never active". Empty while presence is loading. */
+  presenceText: string;
+  busy: boolean;
+  isSelf: boolean;
 }
 
-export const UserCard = ({ user, departmentName, presence, isUpdating, isDeleting, onToggleActive, onEdit, onDelete }: UserCardProps) => (
-  <article
-    className={cn(
-      ENTITY_CARD_CLASS,
-      // Inactive accounts read as visibly muted (not just a small text pill) so a scan of the
-      // grid shows who's active/inactive at a glance, not just on close reading of each card.
-      !user.isActive && 'opacity-65 saturate-50',
-      isDeleting && 'opacity-50 pointer-events-none grayscale-[0.3]'
-    )}
-  >
-    <div>
-      <header className="flex items-start justify-between gap-2.5 mb-2.5">
+const UserCardComponent = ({
+  user, departmentName, storeName, online, presenceText, busy, isSelf,
+  onEdit, onResetPassword, onDeactivate, onReactivate, onDelete,
+}: UserCardProps) => {
+  const name = fullName(user);
+
+  return (
+    <article className={cn(ENTITY_CARD_CLASS, 'gap-3', busy && 'pointer-events-none')}>
+      <header className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2.5 min-w-0">
-          {/* Same 32px footprint as EntityIconTile, shaped as an avatar circle instead — the
-              consistent "leading visual" pattern shared with Department/Store cards, adapted for
-              a person. Real photo when the user has one, initials otherwise. */}
-          <Avatar name={`${user.firstName} ${user.lastName ?? ''}`} src={resolveAvatarUrl(user.avatarUrl)} size="sm" online={presence?.online} />
-          <div className="min-w-0 space-y-0.5">
-            <h3 className="text-sm font-display font-bold text-text truncate group-hover:text-primary-600 transition-colors duration-300">
-              {user.firstName} {user.lastName ?? ''}
+          <Avatar name={name} src={resolveAvatarUrl(user.avatarUrl)} size="sm" online={online} />
+          <div className="flex flex-col min-w-0">
+            {/* The title is the card's one primary action. Its ::after stretches over the whole
+                card, so a click anywhere opens Edit while the menu and phone stay above it. */}
+            <h3 className="min-w-0">
+              <button
+                type="button"
+                onClick={() => onEdit(user)}
+                className={cn(
+                  'text-left text-sm font-display font-bold truncate max-w-full cursor-pointer outline-none transition-colors duration-200',
+                  'after:absolute after:inset-0 after:rounded-2xl focus-visible:after:ring-2 focus-visible:after:ring-primary-500/50',
+                  user.isActive ? 'text-text group-hover:text-primary-600 dark:group-hover:text-primary-400' : 'text-text-muted',
+                )}
+              >
+                {name}
+              </button>
             </h3>
-            <p className="text-xs font-display font-medium text-text-muted truncate" title={user.email}>
-              {user.email}
-            </p>
+            <p className="text-xs font-display text-text-muted truncate" title={user.email}>{user.email}</p>
           </div>
         </div>
 
-        <StatusPill
-          active={user.isActive}
-          isUpdating={isUpdating}
-          onToggle={() => onToggleActive(user.id, user.isActive)}
-          ariaLabel={`${user.isActive ? 'Deactivate' : 'Activate'} ${user.firstName}`}
+        <UserActionsMenu
+          user={user}
+          isBusy={busy}
+          isSelf={isSelf}
+          onEdit={onEdit}
+          onResetPassword={onResetPassword}
+          onDeactivate={onDeactivate}
+          onReactivate={onReactivate}
+          onDelete={onDelete}
         />
       </header>
 
       <div className="flex flex-wrap items-center gap-1.5">
-        <div className="flex items-center gap-1 text-[11px] font-display font-medium text-text-muted bg-surface-hover px-1.5 py-1 rounded-md border border-border/50 w-fit">
-          <Building2 className="w-3 h-3 text-text-light shrink-0" />
-          {/* No max-w cap — the row already wraps (`flex-wrap` above), and at 150px even the
-              placeholder text ("No department assigned") was clipping to an ellipsis. */}
-          <span className={cn(!departmentName && 'italic text-text-light')}>
-            {departmentName ?? 'No department assigned'}
-          </span>
-        </div>
-        <div className="flex items-center gap-1 text-[11px] font-display font-medium text-text-light" title={new Date(user.createdAt).toLocaleDateString()}>
-          <Clock className="w-3 h-3 shrink-0" />
-          Joined {formatRelativeTime(user.createdAt)}
-        </div>
-        {presence && (
-          <span className={cn('text-[11px] font-display font-medium', presence.online ? 'text-success' : 'text-text-light')}>
-            {presenceLabel(presence)}
+        <RoleChip role={user.role} />
+        {isDepartmentHead(user.role) && <DepartmentHeadChip />}
+        {!user.isActive && <DeactivatedChip label={deactivatedLabel(user)} />}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <DepartmentLabel name={departmentName} />
+        <StoreLabel name={storeName} />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-2.5 border-t border-border/60 text-[11px] font-display font-medium text-text-light">
+        {user.phone && (
+          <span className="inline-flex items-center gap-1 text-text-muted">
+            <Phone className="size-3 shrink-0" aria-hidden />
+            {user.phone}
           </span>
         )}
+        <span className="inline-flex items-center gap-1" title={new Date(user.createdAt).toLocaleDateString()}>
+          <Clock className="size-3 shrink-0" aria-hidden />
+          Joined {formatRelativeTime(user.createdAt)}
+        </span>
+        {user.isActive && presenceText && (
+          <span className={online ? 'text-success' : undefined}>{presenceText}</span>
+        )}
       </div>
-    </div>
+    </article>
+  );
+};
 
-    <footer className="flex items-center justify-between pt-2.5 mt-3 border-t border-border/60">
-      <span className={cn('text-[11px] font-display font-bold px-1.5 py-0.5 rounded-md border', ROLE_STYLES[user.role])}>
-        {ROLE_LABEL[user.role]}
-      </span>
-
-      <EntityCardActions
-        onEdit={() => onEdit(user)}
-        onDelete={() => onDelete(user.id)}
-        isDeleting={isDeleting}
-        editLabel={`Edit ${user.firstName}`}
-        deleteLabel={`Delete ${user.firstName}`}
-      />
-    </footer>
-  </article>
-);
+export const UserCard = memo(UserCardComponent);

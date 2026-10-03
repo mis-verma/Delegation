@@ -210,6 +210,16 @@ const buildQuery = (params: Record<string, string | number | boolean | undefined
   return query ? `?${query}` : '';
 };
 
+// The checklist report endpoints filter on calendar days (a run's periodStart is a day label), so
+// they want plain 'YYYY-MM-DD', not an instant. A caller holding a local-midnight ISO string (the
+// picked day) gets back the same local day it picked; an already-plain date passes through.
+const toDayParam = (value: string): string => {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
 // assigneeIds/items are the fields this feature's own crash risk hinges on — TicketCard-style
 // consumers (getChecklistProgress, instanceProgressStatus) iterate `.items` and the dashboard's
 // Compliance card filters on `.assigneeIds`, both assuming an array that the type declares but a
@@ -471,13 +481,15 @@ export const checklistInstanceApi = {
   getComplianceReport: (groupBy: ComplianceReportGroupBy = 'month', storeId?: string, from?: string, to?: string, includeDeleted?: boolean) => {
     const params = new URLSearchParams({ groupBy });
     if (storeId) params.set('storeId', storeId);
-    if (from) params.set('from', from);
-    if (to) params.set('to', to);
+    if (from) params.set('from', toDayParam(from));
+    if (to) params.set('to', toDayParam(to));
     if (includeDeleted) params.set('includeDeleted', '1');
     return apiFetch<ApiResponse<ComplianceReportRow[]>>(`/checklist-instances/reports/compliance?${params.toString()}`);
   },
 
   /** One grouped query for every store: ADMIN/PC see all active stores, MANAGER/SENIOR their own scope. */
   getComplianceByStore: (from?: string, to?: string) =>
-    apiFetch<ApiResponse<ChecklistStoreComplianceRow[]>>(`/checklist-instances/reports/by-store${buildQuery({ from, to })}`),
+    apiFetch<ApiResponse<ChecklistStoreComplianceRow[]>>(
+      `/checklist-instances/reports/by-store${buildQuery({ from: from ? toDayParam(from) : undefined, to: to ? toDayParam(to) : undefined })}`,
+    ),
 };

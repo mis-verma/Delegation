@@ -1,27 +1,42 @@
+import { useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Store as StoreIcon, AlertCircle } from 'lucide-react';
-import { Input, Button, Modal } from '../../../components';
+import { Store as StoreIcon } from 'lucide-react';
+import { Input, Button, Modal, InlineError } from '../../../components';
 import { useCreateStoreMutation, useUpdateStoreMutation } from '../hook';
+import { useStoresQuery } from '../../tickets/hook';
+import { isDuplicateName } from '../orgCounts';
+import { useDiscardGuard } from '../useDiscardGuard';
 import type { Store } from '../../../api/stores';
 
-const storeSchema = z.object({
-  name: z.string().min(1, 'Store name is required'),
-  code: z.string().optional(),
-  address: z.string().optional(),
-});
+// Built per render of the form so the duplicate-name check can read the cached store list.
+const buildStoreSchema = (existing: Store[] | undefined, ignoreId: string | undefined) =>
+  z.object({
+    name: z
+      .string()
+      .trim()
+      .min(1, 'Store name is required')
+      .max(80, 'Keep the name under 80 characters')
+      .superRefine((value, ctx) => {
+        if (isDuplicateName(existing, value, ignoreId)) {
+          ctx.addIssue({ code: 'custom', message: `A store called ${value} already exists` });
+        }
+      }),
+    code: z.string().trim().toUpperCase().max(32, 'Keep the code under 32 characters'),
+    address: z.string().trim().max(500, 'Keep the address under 500 characters'),
+  });
 
-type StoreFields = z.infer<typeof storeSchema>;
+type StoreFields = z.infer<ReturnType<typeof buildStoreSchema>>;
 
 interface StoreFormProps {
   onClose: () => void;
   store?: Store;
   /** Called with the newly-created store right after a successful create (not fired when
-   *  editing) — lets a caller opening this as a nested "quick create" (e.g. from UserForm's
+   *  editing). Lets a caller opening this as a nested "quick create" (e.g. from UserForm's
    *  store Combobox) auto-select the result instead of the admin re-picking it themselves. */
   onCreated?: (store: Store) => void;
-  /** Seeds the name field — e.g. whatever the admin had already typed into a Combobox's search
+  /** Seeds the name field, e.g. whatever the admin had already typed into a Combobox's search
    *  box before hitting "Create new store". */
   prefillName?: string;
 }
@@ -32,28 +47,40 @@ export const StoreForm = ({ onClose, store, onCreated, prefillName }: StoreFormP
   const updateMutation = useUpdateStoreMutation();
   const mutation = isEditing ? updateMutation : createMutation;
 
+  const { data: stores } = useStoresQuery();
+  const schema = useMemo(() => buildStoreSchema(stores, store?.id), [stores, store?.id]);
+
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useForm<StoreFields>({
-    resolver: zodResolver(storeSchema),
+    resolver: zodResolver(schema),
     defaultValues: { name: store?.name || prefillName || '', code: store?.code || '', address: store?.address || '' },
   });
 
   const isPending = mutation.isPending;
+  const requestClose = useDiscardGuard(isDirty, isPending, onClose);
 
   const onSubmit = (data: StoreFields) => {
     if (isEditing && store) {
-      updateMutation.mutate({ id: store.id, payload: data }, { onSuccess: onClose });
+      // An emptied code/address is sent as '' (the payload type and the server schema both reject
+      // null); the server stores it as blank and every screen treats blank as "not set".
+      updateMutation.mutate(
+        { id: store.id, payload: { name: data.name, code: data.code, address: data.address } },
+        { onSuccess: onClose }
+      );
     } else {
-      createMutation.mutate(data, { onSuccess: (created) => { onCreated?.(created); onClose(); } });
+      createMutation.mutate(
+        { name: data.name, code: data.code || undefined, address: data.address || undefined },
+        { onSuccess: (created) => { onCreated?.(created); onClose(); } }
+      );
     }
   };
 
   const footer = (
     <>
-      <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={isPending}>
+      <Button type="button" variant="outline" size="sm" onClick={requestClose} disabled={isPending}>
         Cancel
       </Button>
       <Button type="submit" form="store-form" variant="primary" size="sm" isLoading={isPending}>
@@ -65,30 +92,27 @@ export const StoreForm = ({ onClose, store, onCreated, prefillName }: StoreFormP
   return (
     <Modal
       open
-      onClose={() => !isPending && onClose()}
+      onClose={requestClose}
       // Non-modal so this also works correctly when opened nested inside another Modal (e.g. a
-      // "create new store" quick-add from UserForm's store Combobox) — same reasoning as
+      // "create new store" quick-add from UserForm's store Combobox), same reasoning as
       // DatePicker/DateRangePicker.
       modal={false}
       icon={<StoreIcon className="w-5 h-5" />}
       title={isEditing ? 'Edit store' : 'New store'}
-      description="Stores are where checklists actually run — each recurring checklist gets deployed to one or more."
+      description="Stores are where checklists run. Each recurring checklist is deployed to one or more of them."
       footer={footer}
     >
       <form id="store-form" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
         <fieldset disabled={isPending} className="flex flex-col gap-4 disabled:opacity-60">
           <Input id="name" label="Store name" placeholder="e.g. Karol Bagh" autoFocus error={errors.name?.message} {...register('name')} />
-          <Input id="code" label="Code (optional)" placeholder="e.g. KB01" error={errors.code?.message} {...register('code')} />
+          <Input id="code" label="Code (optional)" placeholder="e.g. KB01" autoCapitalize="characters" error={errors.code?.message} {...register('code')} />
           <Input id="address" label="Address (optional)" placeholder="e.g. 12 Main Market, Karol Bagh" error={errors.address?.message} {...register('address')} />
         </fieldset>
 
         {mutation.isError && (
-          <div className="flex items-center gap-2 text-xs text-danger font-display bg-danger/10 p-2.5 rounded-lg">
-            <AlertCircle size={14} className="shrink-0" />
-            <span>
-              {mutation.error instanceof Error ? mutation.error.message : `Failed to ${isEditing ? 'update' : 'create'} store.`}
-            </span>
-          </div>
+          <InlineError
+            message={mutation.error instanceof Error ? mutation.error.message : `Couldn't ${isEditing ? 'save this store' : 'create this store'}. Try again.`}
+          />
         )}
       </form>
     </Modal>

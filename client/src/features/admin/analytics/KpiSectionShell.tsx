@@ -2,7 +2,7 @@ import { lazy, Suspense, useId } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { StatCard, type Trend } from '../../dashboard';
 import { ActiveRangeBadge, EntityIconTile, InlineError, PANEL_CLASS, Skeleton } from '../../../components';
-import { describeLatestPeriod, NO_TREND, statCaption } from './analyticsDisplay';
+import { defaultWindowLabel, describeLatestPeriod, NO_TREND, statCaption } from './analyticsDisplay';
 import type { ReportTrendChartProps } from './ReportTrendChart';
 
 // The chart pulls in recharts, which is by far the heaviest thing on this page, so it loads on its
@@ -75,7 +75,7 @@ export const KpiSectionShell = ({ icon: Icon, title, description, isPending, isE
           </div>
         </div>
 
-        <ActiveRangeBadge from={from} to={to} />
+        <ActiveRangeBadge from={from} to={to} emptyLabel={defaultWindowLabel(chart.groupBy)} />
       </header>
 
       {isError ? (

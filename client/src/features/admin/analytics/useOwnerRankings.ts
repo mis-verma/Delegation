@@ -39,7 +39,7 @@ export interface RankedRow {
 
 // The owner stats endpoint also returns the on-time counts. They are optional here so this file
 // keeps compiling whichever build of the API types is in place.
-type TicketOwnerRow = OwnerStatsRow & { closedWithTat?: number; closedOnTime?: number };
+type TicketOwnerRow = OwnerStatsRow & { closedWithTat?: number; closedOnTime?: number; closedInPeriod?: number };
 
 const pct = (part: number, whole: number): number | null => (whole > 0 ? (part / whole) * 100 : null);
 
@@ -57,12 +57,14 @@ export const weightedOverall = (parts: { rate: number | null; volume: number }[]
 };
 
 const ticketMetrics = (row: TicketOwnerRow | undefined) => {
-  if (!row || row.total === 0) return { openIssues: 0, avgTat: null, slaMet: null, ticketCompletion: null, ticketVolume: 0 };
+  // Nothing raised AND nothing closed in the window: no figures at all. A window where tickets were
+  // only closed (raised earlier) still has a real average time and on-time rate.
+  if (!row || (row.total === 0 && !row.closedInPeriod)) return { openIssues: 0, avgTat: null, slaMet: null, ticketCompletion: null, ticketVolume: 0 };
   return {
     openIssues: row.total - row.closed,
     avgTat: row.avgTatHours,
     slaMet: pct(row.closedOnTime ?? 0, row.closedWithTat ?? 0),
-    ticketCompletion: pct(row.closed, row.total),
+    ticketCompletion: row.total > 0 ? pct(row.closed, row.total) : null,
     ticketVolume: row.total,
   };
 };

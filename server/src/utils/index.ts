@@ -26,4 +26,4 @@ export { DATE_FORMATS, type DateBucket } from "./dateBucket.js"
 export { lazyClient } from "./lazyClient.js"
 // Re-export the shared report department/store scope resolver (see reportScope.ts) so
 // consumers can do `import { resolveReportScope } from "../utils"`.
-export { resolveReportScope, resolveDepartmentIdsForStore, resolveStoreIdForDepartment, type ReportScope } from "./reportScope.js"
+export { resolveReportScope, resolveDepartmentIdsForStore, type ReportScope } from "./reportScope.js"

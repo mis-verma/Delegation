@@ -1,64 +1,67 @@
-import { memo, useMemo, useState } from 'react';
+import { memo, useId, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronDown, Layers, Store as StoreIcon, Users } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { EntityIconTile, MetricPill, AvatarStack } from '../../../components';
 import { resolveAvatarUrl } from '../../../lib/uploadsBase';
-import type { DepartmentNode } from './orgStructureDisplay';
-import { readDraggedUser } from './orgStructureDisplay';
+import type { DepartmentNode, OrgMovePatch } from './orgStructureDisplay';
+import { fullName, isDepartmentHead, isLeavingDropTarget, readDraggedUser } from './orgStructureDisplay';
 import { UserRow } from './UserRow';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+const HEADER_CHIP = 'shrink-0 inline-flex items-center gap-1 text-[10px] font-display font-bold px-2 py-0.5 rounded-full border';
+
 interface DepartmentSectionProps {
   node: DepartmentNode;
   isOpen: boolean;
   forceOpen: boolean;
-  /** Takes the department's own id — lets callers pass one stable, id-accepting callback down
+  /** Takes the department's own id, so callers can pass one stable, id-accepting callback down
    *  instead of a fresh per-item closure on every render (see StoreSection/OrgStructurePage). */
   onToggle: (id: string) => void;
-  /** Shown only in the "Unassigned Departments" bucket, where the store link itself is the point. */
+  /** Shown only in the "Departments without a store" bucket, where the store link itself is the point. */
   showUnassignedStoreHint?: boolean;
   /** Reassigns a dragged person into this department. Omit to render read-only (no drop target,
-   *  no draggable rows) — used nowhere today but keeps this component usable outside an editable
-   *  org view without extra props. */
-  onDropUser?: (userId: string, patch: { departmentId: string | null; storeId?: string | null }) => void;
-  /** Passed straight through to each UserRow — see OrgStructurePage for why these two stay
+   *  no draggable rows). */
+  onDropUser?: (userId: string, patch: OrgMovePatch) => void;
+  /** Passed straight through to each UserRow, see OrgStructurePage for why these two stay
    *  reference-stable across renders. Omit alongside onDropUser to render rows non-draggable. */
   onUserDragStart?: (user: DepartmentNode['users'][number]) => void;
   onUserDragEnd?: () => void;
 }
 
 // Memoized: without this, expanding/collapsing one department (or a sibling store) re-renders
-// every department section — and every user row inside it — across the whole org tree.
+// every department section, and every user row inside it, across the whole org tree.
 export const DepartmentSection = memo(({ node, isOpen, forceOpen, onToggle, showUnassignedStoreHint, onDropUser, onUserDragStart, onUserDragEnd }: DepartmentSectionProps) => {
   const open = isOpen || forceOpen;
+  const panelId = useId();
   const [isDropTarget, setIsDropTarget] = useState(false);
+  const { department, heads } = node;
   const people = useMemo(
-    () => node.users.map((u) => ({ name: `${u.firstName} ${u.lastName ?? ''}`, src: resolveAvatarUrl(u.avatarUrl) })),
+    () => node.users.filter((u) => u.isActive).map((u) => ({ name: fullName(u), src: resolveAvatarUrl(u.avatarUrl) })),
     [node.users]
   );
+  const headLabel = heads.length > 0 ? `Head: ${fullName(heads[0])}${heads.length > 1 ? ` +${heads.length - 1}` : ''}` : null;
 
   return (
     <div
+      data-org-dept=""
       onDragOver={(e) => {
         if (!onDropUser) return;
         e.preventDefault();
         e.stopPropagation();
         e.dataTransfer.dropEffect = 'move';
       }}
-      onDragEnter={(e) => {
-        if (!onDropUser) return;
-        e.stopPropagation();
-        setIsDropTarget(true);
+      // enter/leave are left to bubble: the parent store reads them (via data-org-dept) to drop its
+      // own highlight while the pointer is over this department.
+      onDragEnter={() => {
+        if (onDropUser) setIsDropTarget(true);
       }}
       onDragLeave={(e) => {
-        if (!onDropUser) return;
-        e.stopPropagation();
-        setIsDropTarget(false);
+        if (onDropUser && isLeavingDropTarget(e)) setIsDropTarget(false);
       }}
       onDrop={(e) => {
         if (!onDropUser) return;
@@ -66,28 +69,43 @@ export const DepartmentSection = memo(({ node, isOpen, forceOpen, onToggle, show
         e.stopPropagation();
         setIsDropTarget(false);
         const dragged = readDraggedUser(e);
-        if (!dragged || dragged.departmentId === node.department.id) return;
-        onDropUser(dragged.id, { departmentId: node.department.id });
+        if (!dragged || dragged.departmentId === department.id) return;
+        // A department that belongs to a store carries the person to that store too.
+        onDropUser(dragged.id, { departmentId: department.id, ...(department.storeId ? { storeId: department.storeId } : {}) });
       }}
       className={cn(
         'rounded-xl border overflow-hidden transition-colors duration-200',
         isDropTarget
-          ? 'border-primary-400 bg-primary-50/60 dark:bg-primary-500/15 ring-2 ring-primary-500/30'
+          ? 'border-primary-400 bg-primary-500/10 dark:bg-primary-500/15 ring-2 ring-primary-500/30'
           : 'border-border/70 bg-surface-hover/30 hover:border-primary-200 hover:bg-surface'
       )}
     >
       <button
         type="button"
-        onClick={forceOpen ? undefined : () => onToggle(node.department.id)}
-        className="flex w-full flex-wrap items-center gap-2.5 px-3 py-2.5 text-left transition-colors duration-200 hover:bg-surface-hover cursor-pointer disabled:cursor-default"
-        disabled={forceOpen}
+        onClick={forceOpen ? undefined : () => onToggle(department.id)}
+        aria-expanded={open}
+        aria-controls={panelId}
+        // aria-disabled, not disabled: while a search holds every branch open the button must stay focusable.
+        aria-disabled={forceOpen || undefined}
+        className={cn(
+          'flex w-full min-h-11 flex-wrap items-center gap-x-2.5 gap-y-1.5 px-3 py-2.5 text-left transition-colors duration-200 hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40',
+          forceOpen ? 'cursor-default' : 'cursor-pointer'
+        )}
       >
         <EntityIconTile icon={Layers} tone="primary" />
-        <span className="text-sm font-display font-bold text-text truncate">{node.department.name}</span>
+        <span className="text-sm font-display font-bold text-text truncate">{department.name}</span>
+        {!department.isActive && (
+          <span className={cn(HEADER_CHIP, 'border-border bg-surface-hover text-text-muted')}>Deactivated</span>
+        )}
         {showUnassignedStoreHint && (
-          <span className="flex items-center gap-1 text-[10px] font-display font-bold px-2 py-0.5 rounded-full shrink-0 bg-warning/10 text-warning">
-            <StoreIcon className="w-3 h-3" /> No store
+          <span className={cn(HEADER_CHIP, 'border-warning/30 bg-warning/10 text-warning')}>
+            <StoreIcon className="w-3 h-3" aria-hidden /> No store
           </span>
+        )}
+        {headLabel ? (
+          <span className="shrink-0 text-xs font-display text-text-muted truncate max-w-48">{headLabel}</span>
+        ) : (
+          <span className={cn(HEADER_CHIP, 'border-warning/30 bg-warning/10 text-warning')}>No head</span>
         )}
         <div className="ml-auto flex items-center gap-2 shrink-0">
           {isDropTarget ? (
@@ -96,17 +114,18 @@ export const DepartmentSection = memo(({ node, isOpen, forceOpen, onToggle, show
             <>
               <AvatarStack people={people} max={3} size="sm" className="hidden sm:flex" />
               <MetricPill icon={Users}>
-                {node.users.length} {node.users.length === 1 ? 'member' : 'members'}
+                {node.activeCount} {node.activeCount === 1 ? 'member' : 'members'}
               </MetricPill>
             </>
           )}
-          <ChevronDown className={cn('w-3.5 h-3.5 text-text-light shrink-0 transition-transform duration-300', open && 'rotate-180')} />
+          <ChevronDown className={cn('w-3.5 h-3.5 text-text-light shrink-0 transition-transform duration-300', open && 'rotate-180')} aria-hidden />
         </div>
       </button>
 
       <AnimatePresence initial={false}>
         {open && (
           <motion.div
+            id={panelId}
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
@@ -115,10 +134,17 @@ export const DepartmentSection = memo(({ node, isOpen, forceOpen, onToggle, show
           >
             <div className="flex flex-col gap-0.5 px-2 pb-2.5 pt-0.5 border-t border-border/60 mx-1">
               {node.users.length === 0 ? (
-                <p className="px-3 py-2.5 text-xs font-display text-text-light italic">No members in this department yet.</p>
+                <p className="px-3 py-2.5 text-xs font-display text-text-muted">No active members in this department yet.</p>
               ) : (
                 node.users.map((u) => (
-                  <UserRow key={u.id} user={u} onDragStart={onUserDragStart} onDragEnd={onUserDragEnd} />
+                  <UserRow
+                    key={u.id}
+                    user={u}
+                    isHead={isDepartmentHead(u)}
+                    storeMismatch={node.storeMismatch.get(u.id)}
+                    onDragStart={onUserDragStart}
+                    onDragEnd={onUserDragEnd}
+                  />
                 ))
               )}
             </div>

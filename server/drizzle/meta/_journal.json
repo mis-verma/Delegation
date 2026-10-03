@@ -260,6 +260,13 @@
       "when": 1791021289821,
       "tag": "0036_approval_flow",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "5",
+      "when": 1791023702024,
+      "tag": "0037_people_hardening",
+      "breakpoints": true
     }
   ]
 }

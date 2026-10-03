@@ -39,6 +39,14 @@ const envSchema = z.object({
     COOKIE_SECURE: z.coerce.boolean().default(false),
     COOKIE_SAMESITE: z.enum(['lax', 'strict', 'none']).default('lax'),
 
+    // POST /auth/register is closed by default: accounts are created by an admin. Set to "true" to
+    // let anyone sign themselves up (they start as a plain USER with no department/store).
+    // Parsed from the string explicitly: z.coerce.boolean() would treat "false" as true.
+    ALLOW_SELF_REGISTRATION: z.preprocess(
+        (v) => (typeof v === 'string' ? ['true', '1', 'yes', 'on'].includes(v.trim().toLowerCase()) : v),
+        z.boolean(),
+    ).default(false),
+
     AWS_REGION: z.string().default('us-east-1'),
     AWS_S3_BUCKET: z.string().default(''),
     AWS_ACCESS_KEY_ID: z.string().default(''),

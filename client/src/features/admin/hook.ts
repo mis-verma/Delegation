@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../context/AuthContext";
-import { adminApi, type CreateUserPayload, type UpdateUserPayload } from "../../api/admin";
+import { adminApi, type AdminUser, type BulkUpdateUsersPayload, type CreateUserPayload, type UpdateUserPayload } from "../../api/admin";
 import { departmentApi, type CreateDepartmentPayload, type UpdateDepartmentPayload } from "../../api/departments";
 import { storeApi, type CreateStorePayload, type UpdateStorePayload } from "../../api/stores";
 import {
@@ -87,7 +87,39 @@ export const useUsersQuery = (enabled: boolean = true) => {
         queryFn: () => adminApi.getAll().then(r => r.data),
         enabled: !!token && enabled,
         retry: handleQueryRetry,
+        // Every user mutation invalidates this list itself, so there is no need to refetch the
+        // whole roster each time the window regains focus.
+        staleTime: 5 * 60_000,
+        refetchOnWindowFocus: false,
     });
+};
+
+// Optimistic edits to the roster cache. Only the exact roster key is touched, never the
+// per-user detail entries that share its prefix.
+type RosterContext = { previous: AdminUser[] | undefined } | undefined;
+type Client = ReturnType<typeof useQueryClient>;
+
+const patchRoster = (queryClient: Client, apply: (users: AdminUser[]) => AdminUser[]) =>
+    queryClient.setQueryData<AdminUser[]>(USER_KEYS.all, (old) => (old ? apply(old) : old));
+
+const snapshotRoster = async (queryClient: Client): Promise<RosterContext> => {
+    await queryClient.cancelQueries({ queryKey: USER_KEYS.all });
+    return { previous: queryClient.getQueryData<AdminUser[]>(USER_KEYS.all) };
+};
+
+const restoreRoster = (queryClient: Client, context: RosterContext) => {
+    if (context?.previous) queryClient.setQueryData(USER_KEYS.all, context.previous);
+};
+
+// Drops undefined values so a payload key left out (or sent as undefined) never blanks a field.
+const definedEntries = <T extends object>(payload: T): Partial<T> =>
+    Object.fromEntries(Object.entries(payload).filter(([, v]) => v !== undefined)) as Partial<T>;
+
+// People pickers elsewhere (tasks, tickets, checklists) read the assignable list, which can change
+// whenever someone is added, moved, switched off or removed.
+const invalidateUserLists = (queryClient: Client) => {
+    queryClient.invalidateQueries({ queryKey: USER_KEYS.all });
+    queryClient.invalidateQueries({ queryKey: ['assignable-users'] });
 };
 
 // Polled rather than pushed over the socket — presence changing a few seconds late is fine for
@@ -129,17 +161,56 @@ export const useCreateUserMutation = () => {
     });
 };
 
-export const useUpdateUserMutation = () => {
+type UpdateUserOptions = {
+    /** Toast text on success; a function gets the saved user. Defaults to "User updated". */
+    successMessage?: string | ((updated: AdminUser) => string);
+};
+
+export const useUpdateUserMutation = (options?: UpdateUserOptions) => {
     const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: ({ id, payload }: { id: string; payload: UpdateUserPayload }) =>
-            adminApi.update(id, payload).then(r => r.data),
+    return useMutation<AdminUser, unknown, { id: string; payload: UpdateUserPayload }, RosterContext>({
+        mutationFn: ({ id, payload }) => adminApi.update(id, payload).then(r => r.data),
+        onMutate: async ({ id, payload }) => {
+            const context = await snapshotRoster(queryClient);
+            const patch = definedEntries(payload) as Partial<AdminUser>;
+            patchRoster(queryClient, (users) => users.map(u => (u.id === id ? { ...u, ...patch } : u)));
+            return context;
+        },
         onSuccess: (updated) => {
             queryClient.setQueryData(USER_KEYS.detail(updated.id), updated);
-            queryClient.invalidateQueries({ queryKey: USER_KEYS.all });
-            toast.success('User updated');
+            patchRoster(queryClient, (users) => users.map(u => (u.id === updated.id ? updated : u)));
+            invalidateUserLists(queryClient);
+            const message = options?.successMessage;
+            toast.success(typeof message === 'function' ? message(updated) : (message ?? 'User updated'));
         },
-        onError: (err) => toast.error(errorMessage(err, 'Failed to update user')),
+        onError: (err, _vars, context) => {
+            restoreRoster(queryClient, context);
+            toast.error(errorMessage(err, 'Failed to update user'));
+        },
+    });
+};
+
+// Move several people at once. Optimistic like a single edit, rolled back if the server refuses.
+export const useBulkUpdateUsersMutation = () => {
+    const queryClient = useQueryClient();
+    return useMutation<{ updated: number }, unknown, BulkUpdateUsersPayload & { successMessage?: string }, RosterContext>({
+        mutationFn: ({ ids, departmentId, storeId, role }) =>
+            adminApi.bulkUpdate({ ids, departmentId, storeId, role }).then(r => r.data),
+        onMutate: async ({ ids, departmentId, storeId, role }) => {
+            const context = await snapshotRoster(queryClient);
+            const patch = definedEntries({ departmentId, storeId, role }) as Partial<AdminUser>;
+            const selected = new Set(ids);
+            patchRoster(queryClient, (users) => users.map(u => (selected.has(u.id) ? { ...u, ...patch } : u)));
+            return context;
+        },
+        onSuccess: (result, { successMessage }) => {
+            invalidateUserLists(queryClient);
+            toast.success(successMessage ?? `Updated ${result.updated} ${result.updated === 1 ? 'person' : 'people'}`);
+        },
+        onError: (err, _vars, context) => {
+            restoreRoster(queryClient, context);
+            toast.error(errorMessage(err, "Couldn't update these people"));
+        },
     });
 };
 
@@ -157,12 +228,20 @@ export const useOffboardingQuery = (id: string, enabled: boolean) => {
 
 export const useOffboardUserMutation = () => {
     const queryClient = useQueryClient();
-    return useMutation({
-        mutationFn: ({ id, transferToUserId }: { id: string; transferToUserId?: string }) =>
+    return useMutation<Awaited<ReturnType<typeof adminApi.offboard>>['data'], unknown, { id: string; transferToUserId?: string }, RosterContext>({
+        mutationFn: ({ id, transferToUserId }) =>
             adminApi.offboard(id, { transferToUserId }).then(r => r.data),
+        onMutate: async ({ id }) => {
+            const context = await snapshotRoster(queryClient);
+            const deactivatedAt = new Date().toISOString();
+            patchRoster(queryClient, (users) => users.map(u => (u.id === id ? { ...u, isActive: false, deactivatedAt } : u)));
+            return context;
+        },
         onSuccess: (_data, { id }) => {
-            queryClient.invalidateQueries({ queryKey: USER_KEYS.all });
+            invalidateUserLists(queryClient);
             queryClient.invalidateQueries({ queryKey: USER_KEYS.detail(id) });
+            // Categories list who receives their tickets, and that may have just changed hands.
+            queryClient.invalidateQueries({ queryKey: ['categories'] });
             // Their tickets, tasks and checklists changed hands too.
             queryClient.invalidateQueries({ queryKey: ['tickets'] });
             queryClient.invalidateQueries({ queryKey: ['tasks'] });
@@ -170,7 +249,10 @@ export const useOffboardUserMutation = () => {
             queryClient.invalidateQueries({ queryKey: ['checklist-definitions'] });
             toast.success('Deactivated', { description: 'They can no longer log in. Their name stays on old records.' });
         },
-        onError: (err) => toast.error(errorMessage(err, "Couldn't deactivate this person")),
+        onError: (err, _vars, context) => {
+            restoreRoster(queryClient, context);
+            toast.error(errorMessage(err, "Couldn't deactivate this person"));
+        },
     });
 };
 
@@ -180,7 +262,7 @@ export const useDeleteUserMutation = () => {
         mutationFn: (id: string) => adminApi.delete(id),
         onSuccess: (_data, id) => {
             queryClient.removeQueries({ queryKey: USER_KEYS.detail(id) });
-            queryClient.invalidateQueries({ queryKey: USER_KEYS.all });
+            invalidateUserLists(queryClient);
             toast.success('User deleted');
         },
         onError: (err) => toast.error(errorMessage(err, 'Failed to delete user')),
@@ -253,6 +335,8 @@ export const useUpdateDepartmentMutation = () => {
             departmentApi.update(id, payload).then(r => r.data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: DEPARTMENT_KEY.all });
+            // People carry a department id, so the roster is out of date too.
+            queryClient.invalidateQueries({ queryKey: USER_KEYS.all });
             toast.success('Department updated');
         },
         onError: (err) => toast.error(errorMessage(err, 'Failed to update department')),
@@ -265,6 +349,7 @@ export const useDeleteDepartmentMutation = () => {
         mutationFn: (id: string) => departmentApi.delete(id),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: DEPARTMENT_KEY.all });
+            queryClient.invalidateQueries({ queryKey: USER_KEYS.all });
             toast.success('Department deleted');
         },
         onError: (err) => toast.error(errorMessage(err, 'Failed to delete department')),
@@ -295,6 +380,8 @@ export const useUpdateStoreMutation = () => {
             storeApi.update(id, payload).then(r => r.data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: STORE_KEY.all });
+            // People carry a store id, so the roster is out of date too.
+            queryClient.invalidateQueries({ queryKey: USER_KEYS.all });
             toast.success('Store updated');
         },
         onError: (err) => toast.error(errorMessage(err, 'Failed to update store')),
@@ -307,6 +394,7 @@ export const useDeleteStoreMutation = () => {
         mutationFn: (id: string) => storeApi.delete(id),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: STORE_KEY.all });
+            queryClient.invalidateQueries({ queryKey: USER_KEYS.all });
             toast.success('Store deleted');
         },
         onError: (err) => toast.error(errorMessage(err, 'Failed to delete store')),

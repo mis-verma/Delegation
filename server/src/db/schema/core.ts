@@ -134,10 +134,16 @@ export const users = mysqlTable(
     // Weekly day(s) off, 0 = Sunday … 6 = Saturday. On those days the daily checklist generator
     // leaves this person off that day's run (and skips the run if nobody's left). Null = none.
     weekOffDays: json('weekOffDays').$type<number[]>(),
+    // Set on every password change/reset. authenticate() rejects an access token issued before it,
+    // so a password change also kills any still-live access token, not just the refresh sessions.
+    passwordChangedAt: datetime('passwordChangedAt', { mode: 'date' }),
+    // Set when isActive goes false (PATCH or offboard), cleared on reactivation.
+    deactivatedAt: datetime('deactivatedAt', { mode: 'date' }),
     createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
     updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
   },
   (table) => [
+    index('User_role_isActive_idx').on(table.role, table.isActive),
     uniqueIndex('User_email_key').on(table.email),
     // Mongoose had `unique: true, sparse: true`; MySQL unique indexes already
     // allow multiple NULLs, so a plain unique index reproduces "sparse" semantics.

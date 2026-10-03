@@ -12,6 +12,7 @@ import { loginSchema, registerSchema, forgotPasswordSchema, resetPasswordSchema 
 // A wrapper that catches errors thrown inside async route handlers and forwards them to
 // Express's error-handling middleware (errorHandler.ts), so we don't need try/catch everywhere.
 import { asyncHandler } from "../../utils/asyncHandler.js";
+import { AppError } from "../../utils/AppError.js";
 
 // The name of the cookie we use to store the refresh token in the browser.
 const REFRESH_COOKIE = 'refreshToken';
@@ -65,6 +66,8 @@ export const authController = {
     // Handles POST /auth/register - creates a brand new self-signed-up account (always role "USER")
     // and immediately logs it in, same as a fresh login would.
     register: asyncHandler(async (req: Request, res: Response) => {
+        // Closed by default: accounts are created by an admin (see ALLOW_SELF_REGISTRATION in env.ts).
+        if (!env.ALLOW_SELF_REGISTRATION) throw AppError.forbidden('Registration is closed. Ask an admin for an account.');
         const input = registerSchema.parse(req.body);
         const result = await authService.register(input);
         res.status(201);

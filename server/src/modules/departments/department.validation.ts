@@ -2,7 +2,7 @@ import { z } from "zod"
 import { objectId } from "../../utils/index.js"
 
 export const createDepartmentSchema = z.object({
-    name: z.string().min(1),
+    name: z.string().trim().min(1, "Name is required").max(191),
     isActive: z.boolean().optional(),
     storeId: objectId.optional(),
 })

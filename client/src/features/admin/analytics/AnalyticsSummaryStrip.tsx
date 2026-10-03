@@ -1,6 +1,5 @@
 import { memo, useId, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router';
 import { AlertTriangle, ClipboardCheck, ListChecks, ShieldCheck, type LucideIcon } from 'lucide-react';
 import { StatCard, type Trend } from '../../dashboard';
 import { DrilldownModal, type DrilldownRow } from '../../dashboard/DrilldownModal';
@@ -56,16 +55,23 @@ export interface StatTileProps {
   iconBgTint?: string;
   isLoading?: boolean;
   onClick?: () => void;
-  href?: string;
 }
+
+// Written placeholders for a tile that has no figure: never a bare dash standing in for a value.
+const NO_DATA_VALUE = 'No data';
+const LOADING_VALUE = 'Loading';
 
 const MOBILE_TILE_BASE = `${PANEL_CLASS} flex flex-col gap-1 p-3.5 text-left min-w-0`;
 const MOBILE_TILE_INTERACTIVE =
   'cursor-pointer transition-colors duration-150 motion-reduce:transition-none hover:border-primary-300 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50';
 
-const MobileStatTile = ({ label, value, caption, trend, lowerIsBetter = false, isLoading, onClick, href }: StatTileProps) => {
+const MobileStatTile = ({ label, value, caption, trend, lowerIsBetter = false, isLoading, onClick }: StatTileProps) => {
   const hasTrend = trend != null && trend.label !== '—';
+  // A change of zero is neither good nor bad, same as StatCard.
+  const isFlat = hasTrend && Number.parseFloat(trend.label) === 0;
   const isGood = trend ? (trend.direction === 'up') !== lowerIsBetter : true;
+  const trendClass = isFlat ? 'text-text-muted' : isGood ? 'text-success' : 'text-danger';
+  const isPlaceholder = value === NO_DATA_VALUE || value === LOADING_VALUE;
   const body = (
     <>
       <span className="text-xs font-display font-semibold text-text-muted leading-snug break-words">{label}</span>
@@ -73,25 +79,18 @@ const MobileStatTile = ({ label, value, caption, trend, lowerIsBetter = false, i
         <Skeleton className="h-7 w-14 rounded-md" />
       ) : (
         <span
-          className={`text-2xl font-display font-bold leading-none tabular-nums ${value === '—' ? 'text-text-light/60' : 'text-text'}`}
+          className={`${isPlaceholder ? 'text-xl' : 'text-2xl'} font-display font-bold leading-none tabular-nums ${isPlaceholder ? 'text-text-muted' : 'text-text'}`}
         >
           {typeof value === 'number' ? value.toLocaleString('en-IN') : value}
         </span>
       )}
       {hasTrend && (
-        <span className={`text-xs font-display font-semibold tabular-nums ${isGood ? 'text-success' : 'text-danger'}`}>{trend.label}</span>
+        <span className={`text-xs font-display font-semibold tabular-nums ${trendClass}`}>{trend.label}</span>
       )}
       {caption && <span className="text-xs font-display text-text-muted leading-snug line-clamp-2">{caption}</span>}
     </>
   );
 
-  if (href) {
-    return (
-      <Link to={href} className={`${MOBILE_TILE_BASE} ${MOBILE_TILE_INTERACTIVE} sm:hidden`}>
-        {body}
-      </Link>
-    );
-  }
   if (onClick) {
     return (
       <button type="button" onClick={onClick} className={`${MOBILE_TILE_BASE} ${MOBILE_TILE_INTERACTIVE} sm:hidden`}>
@@ -179,13 +178,17 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
 
   // Fetched only once a tile is opened, with the same definitions the figures use (the server's
   // sla filter), so the list is exactly the tickets that were counted.
+  // The window is part of the key (and a precondition) for the on-time list only: the overdue list
+  // has no period, so it must not refetch when the page's window changes, and the on-time list must
+  // not run before its window is known (it would list every closed ticket).
+  const isOnTime = drilldownKind === 'on-time';
   const drilldown = useQuery({
-    queryKey: ['analytics', 'ticket-drilldown', drilldownKind, onTimeWindow?.from, onTimeWindow?.to],
+    queryKey: ['analytics', 'ticket-drilldown', drilldownKind, isOnTime ? onTimeWindow?.from : null, isOnTime ? onTimeWindow?.to : null],
     queryFn: () =>
-      drilldownKind === 'on-time'
+      isOnTime
         ? ticketApi.getAll(1, DRILLDOWN_FETCH_LIMIT, 'CLOSED', undefined, undefined, onTimeWindow?.from, onTimeWindow?.to, 'closedAt', 'closed_on_time')
         : ticketApi.getAll(1, DRILLDOWN_FETCH_LIMIT, undefined, undefined, undefined, undefined, undefined, undefined, 'overdue_open'),
-    enabled: !!token && drilldownKind != null,
+    enabled: !!token && drilldownKind != null && (!isOnTime || onTimeWindow != null),
     retry: handleQueryRetry,
   });
   const drilldownRows = useMemo(() => drilldown.data?.data.map(ticketRow) ?? [], [drilldown.data]);
@@ -214,7 +217,7 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
             icon={AlertTriangle}
             iconTint="text-warning"
             label="Overdue now"
-            value={overdue.isPending || overdue.isError ? '—' : (overdueCount ?? 0)}
+            value={overdue.isError ? NO_DATA_VALUE : overdue.isPending ? LOADING_VALUE : (overdueCount ?? 0)}
             isLoading={overdue.isPending}
             caption={overdue.isPending || overdue.isError ? statCaption({ isPending: overdue.isPending, isError: overdue.isError, hasData: false, noDataText: '' }) : 'Open tickets past their deadline'}
             trend={NO_TREND}
@@ -225,7 +228,7 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
             icon={ShieldCheck}
             iconTint="text-success"
             label="Closed on time"
-            value={onTime.value != null ? formatPercent(onTime.value) : '—'}
+            value={onTime.value != null ? formatPercent(onTime.value) : tickets.isPending ? LOADING_VALUE : NO_DATA_VALUE}
             isLoading={tickets.isPending}
             trend={onTime.trend}
             caption={
@@ -239,7 +242,7 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
             icon={ClipboardCheck}
             iconTint="text-primary-600 dark:text-primary-400"
             label="Store checklists completion"
-            value={storeChecklists.value != null ? formatPercent(storeChecklists.value) : '—'}
+            value={storeChecklists.value != null ? formatPercent(storeChecklists.value) : instances.isPending ? LOADING_VALUE : NO_DATA_VALUE}
             isLoading={instances.isPending}
             trend={storeChecklists.trend}
             caption={
@@ -253,7 +256,7 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
             icon={ListChecks}
             iconTint="text-primary-600 dark:text-primary-400"
             label="Delegation checklist items"
-            value={delegationItems.value != null ? formatPercent(delegationItems.value) : '—'}
+            value={delegationItems.value != null ? formatPercent(delegationItems.value) : tasks.isPending ? LOADING_VALUE : NO_DATA_VALUE}
             isLoading={tasks.isPending}
             trend={delegationItems.trend}
             caption={

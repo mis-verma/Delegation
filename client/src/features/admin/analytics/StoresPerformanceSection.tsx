@@ -4,11 +4,10 @@ import { Trophy, AlertTriangle, Building2 } from 'lucide-react';
 import { EmptyState, InlineError, PANEL_CLASS, ENTITY_CARD_CLASS, Skeleton } from '../../../components';
 import { MIN_RANK_VOLUME, NEEDS_ATTENTION_BELOW, rankRows, useOwnerRankings, type RankedRow } from './useOwnerRankings';
 import { useChecklistInstanceComplianceReportQuery } from './useAnalyticsQueries';
-import { formatDuration, formatPercent } from './analyticsDisplay';
-import type { GroupBy } from './GroupByControl';
+import { formatDuration, formatPercent, statCaption } from './analyticsDisplay';
 
 interface StoresPerformanceSectionProps {
-  groupBy: GroupBy;
+  /** The window the whole page is showing: the picked range, or the page's default window. */
   from?: string;
   to?: string;
 }
@@ -175,17 +174,17 @@ const RankedTable = ({ title, subtitle, rows, isPending, isError, isFetching, on
 // delegations for a department, tickets and store checklists for a store), weighted by how many
 // items sit behind each. Delegations have a department but no store, and checklist runs have a
 // store but no department, so no single blend can cover all three for either cut.
-export const StoresPerformanceSection = ({ groupBy, from, to }: StoresPerformanceSectionProps) => {
+export const StoresPerformanceSection = ({ from, to }: StoresPerformanceSectionProps) => {
   const {
     departmentRows, storeRows, departmentsPending, storesPending, departmentsError, storesError,
     departmentsFetching, storesFetching, retryDepartments, retryStores,
   } = useOwnerRankings(from, to);
 
-  // Page-level context for the store table. Same hook, and so the same request, as the store
-  // checklist figures elsewhere on this page.
-  const { data: auditRows, isPending: auditPending, isError: auditError } = useChecklistInstanceComplianceReportQuery(groupBy, from, to);
-  const latestAudit = auditRows?.[auditRows.length - 1];
-  const checklistCompletion = latestAudit?.completionRate ?? null;
+  // Page-level context for the store table: one figure over the same window as every row below it
+  // ('none' = a single bucket for the whole from/to), not the newest bucket of a grouped series.
+  const { data: auditRows, isPending: auditPending, isError: auditError } = useChecklistInstanceComplianceReportQuery('none', from, to);
+  const checklistCompletion = auditRows?.[auditRows.length - 1]?.completionRate ?? null;
+  const checklistCaption = statCaption({ isPending: auditPending, isError: auditError, hasData: checklistCompletion != null, noDataText: 'No data' });
 
   return (
     <div className="flex flex-col gap-5">
@@ -196,7 +195,7 @@ export const StoresPerformanceSection = ({ groupBy, from, to }: StoresPerformanc
         <p className="text-xs font-display font-semibold text-text-secondary shrink-0">
           Store checklist completion:{' '}
           <span className={auditError ? 'text-danger' : `tabular-nums ${rateToneClass(checklistCompletion)}`}>
-            {auditError ? 'could not load' : auditPending ? 'Loading' : formatPercent(checklistCompletion)}
+            {checklistCaption || formatPercent(checklistCompletion)}
           </span>
         </p>
       </div>

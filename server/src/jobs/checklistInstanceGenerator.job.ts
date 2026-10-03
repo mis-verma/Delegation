@@ -114,9 +114,11 @@ export const loadDefinitionsForGeneration = async (definitionIds: string[]): Pro
     const storeLinks = await db.select({ definitionId: checklistDefinitionStores.definitionId, storeId: checklistDefinitionStores.storeId })
         .from(checklistDefinitionStores)
         .where(inArray(checklistDefinitionStores.definitionId, definitionIds))
+    // Inactive (deactivated/offboarded) people never get a run, so they are dropped at load time.
     const assigneeLinks = await db.select({ definitionId: checklistDefinitionAssignees.definitionId, userId: checklistDefinitionAssignees.userId })
         .from(checklistDefinitionAssignees)
-        .where(inArray(checklistDefinitionAssignees.definitionId, definitionIds))
+        .innerJoin(users, eq(users.id, checklistDefinitionAssignees.userId))
+        .where(and(inArray(checklistDefinitionAssignees.definitionId, definitionIds), eq(users.isActive, true)))
     const reviewerLinks = await db.select({ definitionId: checklistDefinitionReviewers.definitionId, userId: checklistDefinitionReviewers.userId })
         .from(checklistDefinitionReviewers)
         .where(inArray(checklistDefinitionReviewers.definitionId, definitionIds))
@@ -301,7 +303,7 @@ export const buildScopeResolver = async (definition: GenerationDefinition): Prom
     }
     const people = definition.assigneeIds.length
         ? await db.select({ id: users.id, firstName: users.firstName, lastName: users.lastName, departmentId: users.departmentId, storeId: users.storeId })
-            .from(users).where(inArray(users.id, definition.assigneeIds))
+            .from(users).where(and(inArray(users.id, definition.assigneeIds), eq(users.isActive, true)))
         : []
     const departmentIds = [...new Set(people.map((p) => p.departmentId).filter((id): id is string => !!id))]
     const departmentRows = departmentIds.length
@@ -398,8 +400,9 @@ const applyWorkingDayRules = async (definition: GenerationDefinition, period: Pe
     if (definition.activeWeekdays && !definition.activeWeekdays.includes(weekday)) return null
     if (!definition.assigneeIds.length) return definition
 
-    const people = await db.select({ id: users.id, weekOffDays: users.weekOffDays }).from(users).where(inArray(users.id, definition.assigneeIds))
-    const offToday = new Set(people.filter((p) => (p.weekOffDays ?? []).includes(weekday)).map((p) => p.id))
+    const people = await db.select({ id: users.id, weekOffDays: users.weekOffDays, isActive: users.isActive }).from(users).where(inArray(users.id, definition.assigneeIds))
+    // A deactivated person is treated like someone who is off: they never get a run.
+    const offToday = new Set(people.filter((p) => !p.isActive || (p.weekOffDays ?? []).includes(weekday)).map((p) => p.id))
     if (!offToday.size) return definition
 
     const working = definition.assigneeIds.filter((id) => !offToday.has(id))

@@ -11,7 +11,10 @@ export type AdminUser = {
     departmentId: string | null;
     storeId: string | null;
     isActive: boolean;
+    /** When they were deactivated (null while active). */
+    deactivatedAt?: string | null;
     avatarUrl: string | null;
+    phone?: string | null;
     /** Picks which uniform checklist an audit gives this person; null = not set (main list). */
     gender?: Gender | null;
     /** Weekly day(s) off, 0 = Sunday … 6 = Saturday — no daily checklists on these days. */
@@ -30,9 +33,13 @@ export type CreateUserPayload = {
     departmentId?: string;
     storeId?: string;
     gender?: Gender;
+    phone?: string;
+    weekOffDays?: number[];
 };
 
-export type UpdateUserPayload = Partial<Omit<CreateUserPayload, "password" | "departmentId" | "storeId" | "gender">> & {
+export type UpdateUserPayload = Partial<Omit<CreateUserPayload, "password" | "departmentId" | "storeId" | "gender" | "phone">> & {
+    /** null clears it. */
+    phone?: string | null;
     isActive?: boolean;
     departmentId?: string | null;
     storeId?: string | null;
@@ -40,6 +47,13 @@ export type UpdateUserPayload = Partial<Omit<CreateUserPayload, "password" | "de
     gender?: Gender | null;
     weekOffDays?: number[];
 };
+export type BulkUpdateUsersPayload = {
+    ids: string[];
+    departmentId?: string | null;
+    storeId?: string | null;
+    role?: Role;
+};
+
 export type ApiResponse<T> = { success: boolean; data: T };
 
 export type PaginatedResponse<T> = {
@@ -79,6 +93,10 @@ export const adminApi = {
 
     update: (id: string, payload: UpdateUserPayload) =>
         apiFetch<ApiResponse<AdminUser>>(`/users/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),
+
+    /** Move several people at once (department, store or role). Admin/PC only. */
+    bulkUpdate: (payload: BulkUpdateUsersPayload) =>
+        apiFetch<ApiResponse<{ updated: number }>>("/users/bulk", { method: "PATCH", body: JSON.stringify(payload) }),
 
     delete: (id: string) =>
         apiFetch<ApiResponse<{ deleted: boolean }>>(`/users/${id}`, { method: "DELETE" }),

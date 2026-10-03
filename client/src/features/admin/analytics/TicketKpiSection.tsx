@@ -64,15 +64,16 @@ export const TicketKpiSection = ({ groupBy, from, to, isOrgWideRole }: TicketKpi
         {
           icon: AlertTriangle,
           iconTint: 'text-warning',
-          // Open right now and past the due time. Tickets that were closed late are counted in the
-          // next tile instead, so the two never overlap.
-          label: 'Overdue',
+          // Raised in the period, and open and past due right now. Tickets that were closed late are
+          // counted in the next tile instead, so the two never overlap. Named so it is not mistaken
+          // for the "Overdue now" figure at the top of the page, which ignores the period.
+          label: 'Raised this period, now overdue',
           value: overdue.value ?? 0,
           hasData: overdue.value != null,
           noDataText: NOTHING_COUNTED,
           trend: overdue.trend,
           lowerIsBetter: true,
-          caption: 'Open and past due',
+          caption: 'Still open and past due',
           href: `${base}?quickFilter=delayed`,
         },
         {
@@ -93,8 +94,9 @@ export const TicketKpiSection = ({ groupBy, from, to, isOrgWideRole }: TicketKpi
         groupBy,
         series: [{ key: 'completionRate', label: 'Closed vs raised', color: 'var(--color-primary-500)' }],
         valueSuffix: '%',
-        // A ratio of closed to raised can pass 100, so the top of the axis follows the data.
-        yDomain: [0, 'auto'],
+        // A ratio of closed to raised can pass 100, so the top of the axis follows the data, but
+        // never past 200% (a gap where nothing was raised comes back as no value, not 0%).
+        yDomain: [0, (max: number) => Math.min(Math.max(Math.ceil(max / 10) * 10, 100), 200)],
       }}
     />
   );

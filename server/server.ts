@@ -15,6 +15,8 @@ import { startChecklistOverdueNotifier } from "./src/jobs/checklistOverdueNotifi
 import { startChecklistDraftReminder, startChecklistApprovalReminder } from "./src/jobs/checklistDraftReminder.job.js";
 import { startTaskDeadlineReminder } from "./src/jobs/taskDeadlineReminder.job.js";
 import { startAuditRetention } from "./src/jobs/auditRetention.job.js";
+import { startAuthTokenPurge } from "./src/jobs/authTokenPurge.job.js";
+import { presenceService } from "./src/modules/presence/presence.service.js";
 import { startNotificationRetention } from "./src/jobs/notificationRetention.job.js";
 import { startInboundMessageRetention } from "./src/jobs/inboundMessageRetention.job.js";
 import { startPendingConversationRetention } from "./src/jobs/pendingConversationRetention.job.js";
@@ -48,6 +50,9 @@ class ServerBootstrap {
       startChecklistApprovalReminder();
       startTaskDeadlineReminder();
       startAuditRetention();
+      startAuthTokenPurge();
+      // Presence keys left over from the previous process are stale; live sockets re-register on their next heartbeat.
+      void presenceService.clearStale();
       startNotificationRetention();
       startInboundMessageRetention();
       startPendingConversationRetention();
