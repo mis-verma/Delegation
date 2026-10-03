@@ -1,4 +1,4 @@
-import { CircleDashed, Eye, ShieldCheck, ShieldX, type LucideIcon } from 'lucide-react';
+import { CircleDashed, Eye, Send, ShieldCheck, ShieldX, type LucideIcon } from 'lucide-react';
 import type { ChecklistRecurrence } from '../../api/checklistDefinitions';
 import type { ChecklistVerificationStatus, ChecklistInstanceItem } from '../../api/checklistInstances';
 import type { StatusChipStatus } from '../../components/statusChip';
@@ -79,6 +79,14 @@ export const VERIFICATION_CHIP: Record<ChecklistVerificationStatus, { icon: Luci
   PENDING_APPROVAL: { icon: Eye, tone: 'bg-primary-600' },
   APPROVED: { icon: ShieldCheck, tone: 'bg-success' },
   REJECTED: { icon: ShieldX, tone: 'bg-danger' },
+};
+
+// What the approval chip says. Once every question is done but the run has not been sent yet, it
+// prompts the next step ("Ready to submit") instead of the flat "Not submitted".
+export const verificationChipFor = (status: ChecklistVerificationStatus, isComplete: boolean): { icon: LucideIcon; tone: string; label: string } => {
+  if (isComplete && status === 'NOT_SUBMITTED') return { icon: Send, tone: 'bg-warning', label: 'Ready to submit' };
+  if (isComplete && status === 'REJECTED') return { icon: Send, tone: 'bg-warning', label: 'Fixed, submit again' };
+  return { ...VERIFICATION_CHIP[status], label: VERIFICATION_STATUS_LABEL[status] };
 };
 
 // Shared mapping from the verification workflow status to a `Badge` tone — every place that
@@ -238,11 +246,13 @@ export type InstanceView = {
   compliance: number | null;
   scored: number;
   good: number;
+  /** The approval chip (icon, tone, label), including the "Ready to submit" prompt. */
+  verification: { icon: LucideIcon; tone: string; label: string };
   /** The real cutoff ("Jan 5, 7:00 AM"), or null when the run has no cutoffTime. */
   deadlineTime: string | null;
 };
 
-type ViewableInstance = InstanceWindow & { items: ChecklistInstanceItem[] };
+type ViewableInstance = InstanceWindow & { items: ChecklistInstanceItem[]; verificationStatus: ChecklistVerificationStatus };
 
 // One place that turns a run into the numbers every screen shows (card, row, board, table, history,
 // detail), so the same run reads the same everywhere. Not cached: `overdue` depends on the clock.
@@ -261,6 +271,7 @@ export const getInstanceView = (instance: ViewableInstance): InstanceView => {
     compliance: scores.compliance,
     scored: scores.scored,
     good: scores.good,
+    verification: verificationChipFor(instance.verificationStatus, isComplete),
     deadlineTime: formatDeadlineTime(instance),
   };
 };

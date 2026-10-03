@@ -19,6 +19,7 @@ import { ChecklistComplianceQuickStats, type ComplianceQuickFilterKey, type Comp
 import { GroupByControl, type GroupBy } from '../../admin/analytics/GroupByControl';
 import { ChecklistInstanceKpiSection } from '../../admin/analytics/ChecklistInstanceKpiSection';
 import { endOfDay } from '../../../lib/dateRange';
+import { ChecklistReportButton } from '../report/ChecklistReportButton';
 import type { ChecklistInstance, ChecklistInstanceStatus } from '../../../api/checklistInstances';
 
 const STATUS_OPTIONS: { value: '' | ChecklistInstanceStatus; label: string }[] = [
@@ -276,6 +277,7 @@ export const ChecklistComplianceBoard = () => {
         icon={ClipboardCheck}
         title="Checklist Compliance"
         subtitle="Completion and quality trends, plus who's filled their checklist and who hasn't."
+        actions={<ChecklistReportButton />}
       />
 
       {/* One filter panel for the whole page: everything that narrows what's shown below lives here. */}

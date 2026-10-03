@@ -8,8 +8,6 @@ import {
   getInstanceView,
   instanceProgressToneClass,
   RECURRENCE_LABEL,
-  VERIFICATION_STATUS_LABEL,
-  VERIFICATION_CHIP,
 } from '../checklistDisplay';
 import type { ChecklistInstance } from '../../../api/checklistInstances';
 
@@ -20,8 +18,7 @@ interface ChecklistInstanceCardProps {
 // Memoized: MyChecklists re-renders on every filter/sort/option change and the list can run to 50
 // cards, all of which keep the same `instance` object between those renders.
 export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardProps) => {
-  const { done, total, progress, isComplete, overdue, chipStatus, compliance, deadlineTime } = getInstanceView(instance);
-  const verification = VERIFICATION_CHIP[instance.verificationStatus];
+  const { done, total, progress, isComplete, overdue, chipStatus, compliance, deadlineTime, verification } = getInstanceView(instance);
   const showVerification = isComplete || instance.verificationStatus !== 'NOT_SUBMITTED';
 
   return (
@@ -40,7 +37,7 @@ export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardPr
       <div className="flex items-center gap-1.5 flex-wrap">
         <StatusChip status={chipStatus} />
         {showVerification && (
-          <IconChip icon={verification.icon} tone={verification.tone} label={VERIFICATION_STATUS_LABEL[instance.verificationStatus]} />
+          <IconChip icon={verification.icon} tone={verification.tone} label={verification.label} />
         )}
       </div>
 

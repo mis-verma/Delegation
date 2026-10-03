@@ -4,6 +4,7 @@ import { ChecklistItemIconTile } from './ChecklistItemIconTile';
 import { ITEM_TYPE_ICON } from './checklistItemIcon';
 import { formatDateTime } from '../checklistDisplay';
 import { useCanReopen } from './useCanReopen';
+import { useAuth } from '../../../context/AuthContext';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 
 interface ChecklistItemCardHeaderProps {
@@ -25,6 +26,8 @@ interface ChecklistItemCardHeaderProps {
 // `onReopen` callback). The text column spaces its lines with gap, so a subtitle needs no margin.
 export const ChecklistItemCardHeader = ({ item, interactive, onReopen, reopenPending, subtitle }: ChecklistItemCardHeaderProps) => {
   const canReopen = useCanReopen();
+  const { user } = useAuth();
+  const by = item.completedByName ? ` by ${item.completedBy === user?.id ? 'you' : item.completedByName}` : '';
   return (
     <div className="flex items-start gap-3">
       <ChecklistItemIconTile icon={ITEM_TYPE_ICON[item.itemType]} done={item.isDone} />
@@ -32,7 +35,7 @@ export const ChecklistItemCardHeader = ({ item, interactive, onReopen, reopenPen
         <p className="text-sm font-display font-medium leading-snug text-text">{item.label}</p>
         {subtitle}
         {item.isDone && item.completedAt && (
-          <p className="text-xs text-text-muted font-display">Completed {formatDateTime(item.completedAt)}</p>
+          <p className="text-xs text-text-muted font-display">Completed {formatDateTime(item.completedAt)}{by}</p>
         )}
       </div>
       {interactive && item.isDone && onReopen && canReopen && (

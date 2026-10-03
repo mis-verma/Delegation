@@ -27,6 +27,7 @@ checklistInstanceRouter.get("/summary", checklistInstanceController.summary)
 checklistInstanceRouter.get("/reports/weekly", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), checklistInstanceController.weeklyReport)
 checklistInstanceRouter.get("/reports/compliance", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), checklistInstanceController.complianceReport)
 checklistInstanceRouter.get("/:id", checklistInstanceController.getOne)
+checklistInstanceRouter.patch("/:id/submit", checklistInstanceController.submit)
 checklistInstanceRouter.patch("/:id/verify", checklistInstanceController.verify)
 checklistInstanceRouter.patch("/:id/send-back", checklistInstanceController.sendBack)
 

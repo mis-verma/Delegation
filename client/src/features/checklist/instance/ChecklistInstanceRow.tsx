@@ -9,8 +9,6 @@ import {
   formatDateTime,
   getInstanceView,
   instanceProgressToneClass,
-  VERIFICATION_CHIP,
-  VERIFICATION_STATUS_LABEL,
 } from '../checklistDisplay';
 import type { ChecklistInstance } from '../../../api/checklistInstances';
 
@@ -30,8 +28,7 @@ const ROW_CLASS = cn(ENTITY_CARD_CLASS, 'justify-start outline-none focus-visibl
 // One row in ChecklistDefinitionDetail's grouped instance list and in the History checklists tab.
 // The row-view sibling of ChecklistInstanceCard (used by MyChecklists' grid instead).
 export const ChecklistInstanceRow = memo(({ instance, storeName }: ChecklistInstanceRowProps) => {
-  const { done, total, progress, isComplete, overdue, chipStatus, progressStatus, deadlineTime } = getInstanceView(instance);
-  const verification = VERIFICATION_CHIP[instance.verificationStatus];
+  const { done, total, progress, isComplete, overdue, chipStatus, progressStatus, deadlineTime, verification } = getInstanceView(instance);
 
   if (storeName !== undefined) {
     return (
@@ -46,7 +43,7 @@ export const ChecklistInstanceRow = memo(({ instance, storeName }: ChecklistInst
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <StatusChip status={chipStatus} />
-            <IconChip icon={verification.icon} tone={verification.tone} label={VERIFICATION_STATUS_LABEL[instance.verificationStatus]} />
+            <IconChip icon={verification.icon} tone={verification.tone} label={verification.label} />
           </div>
         </div>
         <div className="flex items-center gap-2.5">
@@ -88,7 +85,7 @@ export const ChecklistInstanceRow = memo(({ instance, storeName }: ChecklistInst
           <Badge variant={isComplete ? 'success' : 'warning'}>
             {isComplete ? 'Done' : `${progress}% done`}
           </Badge>
-          <IconChip icon={verification.icon} tone={verification.tone} label={VERIFICATION_STATUS_LABEL[instance.verificationStatus]} />
+          <IconChip icon={verification.icon} tone={verification.tone} label={verification.label} />
         </div>
       </div>
 

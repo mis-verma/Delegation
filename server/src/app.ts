@@ -34,6 +34,7 @@ import { checklistInstanceItemSubmissionImageRouter } from "./modules/checklistI
 import { notificationRouter } from "./modules/notifications/notification.routes.js"
 import { settingsRouter } from "./modules/settings/settings.routes.js"
 import { reportRouter } from "./modules/reports/report.routes.js"
+import { checklistReportRouter } from "./modules/checklistReports/checklistReport.routes.js"
 import { eventRouter } from "./modules/events/event.routes.js"
 import { smartTaskConversationRouter } from "./modules/smartTaskConversations/smartTaskConversation.routes.js"
 import { todoRouter } from "./modules/todos/todo.routes.js"
@@ -196,6 +197,7 @@ class App {
 
         this.app.use("/notifications", notificationRouter)
         this.app.use("/reports", reportRouter)
+        this.app.use("/checklist-reports", checklistReportRouter)
         this.app.use("/events", eventRouter)
         this.app.use("/smart-task-conversations", smartTaskConversationRouter)
         this.app.use("/todos", todoRouter)

@@ -165,6 +165,12 @@ export const checklistInstanceController = {
         res.json({ success: true, data: instance })
     }),
 
+    // PATCH /checklist-instances/:id/submit: the person who filled it in (or ADMIN/PC) sends it for review
+    submit: asyncHandler(async (req: Request, res: Response) => {
+        const instance = await checklistInstanceService.submit(req.params.id, req.user!)
+        res.json({ success: true, data: instance })
+    }),
+
     // PATCH /checklist-instances/:id/send-back — same access as verify; reopens only the chosen questions
     sendBack: asyncHandler(async (req: Request, res: Response) => {
         const input = sendBackChecklistInstanceSchema.parse(req.body)

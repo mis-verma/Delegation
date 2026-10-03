@@ -5,8 +5,6 @@ import {
   formatDateShort,
   getInstanceView,
   RECURRENCE_LABEL,
-  VERIFICATION_CHIP,
-  VERIFICATION_STATUS_LABEL,
 } from '../checklistDisplay';
 import type { ChecklistInstance } from '../../../api/checklistInstances';
 
@@ -41,8 +39,7 @@ interface TableRowProps {
 
 const TableRow = memo(({ instance, storeName, assignees, assigneeCount, storePending, assigneesPending }: TableRowProps) => {
   const navigate = useNavigate();
-  const { done, total, isComplete, chipStatus, deadlineTime } = getInstanceView(instance);
-  const verification = VERIFICATION_CHIP[instance.verificationStatus];
+  const { done, total, isComplete, chipStatus, deadlineTime, verification } = getInstanceView(instance);
   const href = `/checklists/${instance.id}`;
 
   // The whole row is the click target. The title stays a real link for keyboard and middle-click;
@@ -65,7 +62,7 @@ const TableRow = memo(({ instance, storeName, assignees, assigneeCount, storePen
       </td>
 
       <td className={CELL_CLASS}>
-        <IconChip icon={verification.icon} tone={verification.tone} label={VERIFICATION_STATUS_LABEL[instance.verificationStatus]} />
+        <IconChip icon={verification.icon} tone={verification.tone} label={verification.label} />
       </td>
 
       <td className={`${CELL_CLASS} whitespace-nowrap`}>

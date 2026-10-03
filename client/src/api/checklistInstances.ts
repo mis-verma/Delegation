@@ -69,6 +69,8 @@ export type ChecklistInstanceItem = {
   isDone:             boolean;
   completedAt:        string | null;
   completedBy:        string | null;
+  /** Name of whoever ticked this question, so a reviewer can see who did it. */
+  completedByName:    string | null;
   requiredImageCount: number;
   maxImageCount:      number | null;
   requiresLivePhoto:  boolean;
@@ -132,6 +134,10 @@ export type ChecklistInstance = {
   periodEnd:        string;
   generatedAt:      string;
   verificationStatus: ChecklistVerificationStatus;
+  /** When the person filling it in pressed Submit (and who). Null until then. */
+  submittedAt:        string | null;
+  submittedBy:        string | null;
+  submittedByName:    string | null;
   verifiedBy:         string | null;
   verifiedAt:         string | null;
   verificationNote:   string | null;
@@ -408,6 +414,10 @@ export const checklistInstanceApi = {
       method: 'PATCH',
       body: JSON.stringify(payload),
     }).then(r => ({ ...r, data: normalizeInstance(r.data) })),
+
+  submit: (id: string) =>
+    apiFetch<ApiResponse<ChecklistInstance>>(`/checklist-instances/${id}/submit`, { method: 'PATCH' })
+      .then(r => ({ ...r, data: normalizeInstance(r.data) })),
 
   sendBack: (id: string, payload: SendBackChecklistInstancePayload) =>
     apiFetch<ApiResponse<ChecklistInstance>>(`/checklist-instances/${id}/send-back`, {

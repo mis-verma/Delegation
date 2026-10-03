@@ -20,7 +20,7 @@ import { ItemError } from './ItemError';
 import { EvidenceThumb } from './EvidenceThumb';
 import { CaptureButton, UploadingHint } from './CaptureButton';
 import { useCanReopen } from './useCanReopen';
-import { formatTimeOnly } from '../checklistDisplay';
+import { formatDateTime } from '../checklistDisplay';
 import type {
   ChecklistInstanceItem,
   ChecklistInstanceItemSubmission,
@@ -379,7 +379,7 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
         ) : submission.isDone ? (
           <Badge variant="success" className="tabular-nums">
             <Check strokeWidth={3} aria-hidden />
-            Submitted{submission.completedAt ? ` ${formatTimeOnly(submission.completedAt)}` : ''}
+            Submitted{submission.completedAt ? ` ${formatDateTime(submission.completedAt)}` : ''}
           </Badge>
         ) : !interactive ? (
           <Badge variant="neutral">Pending</Badge>

@@ -89,12 +89,63 @@ const notifyDraftInstances = async () => {
     }
 }
 
+// A checklist where every question is done but nobody pressed Submit: after an hour, one nudge.
+const notifyUnsubmittedInstances = async () => {
+    if (env.CHECKLIST_DRAFT_REMINDER_HOURS <= 0) return
+
+    const rows = await db.select({
+        id: checklistInstances.id,
+        title: checklistInstances.title,
+        storeId: checklistInstances.storeId,
+    })
+        .from(checklistInstances)
+        .innerJoin(checklistInstanceItems, eq(checklistInstanceItems.instanceId, checklistInstances.id))
+        .where(and(
+            isNull(checklistInstances.submitReminderSentAt),
+            // Recent runs only: an old finished-but-unsent run is not worth a late nudge.
+            sql`${checklistInstances.periodEnd} >= DATE_SUB(NOW(), INTERVAL 3 DAY)`,
+            inArray(checklistInstances.verificationStatus, ["NOT_SUBMITTED", "REJECTED"]),
+        ))
+        .groupBy(checklistInstances.id, checklistInstances.title, checklistInstances.storeId)
+        .having(sql`COUNT(*) > 0
+            AND SUM(CASE WHEN ${checklistInstanceItems.isDone} THEN 1 ELSE 0 END) = COUNT(*)
+            AND MAX(${checklistInstanceItems.completedAt}) <= DATE_SUB(NOW(), INTERVAL 1 HOUR)`)
+        .limit(REMINDER_BATCH_SIZE)
+    if (!rows.length) return
+
+    const assigneeLinks = await db.select().from(checklistInstanceAssignees).where(inArray(checklistInstanceAssignees.instanceId, rows.map((r) => r.id)))
+    const assigneeIdsByInstance = new Map<string, string[]>()
+    for (const link of assigneeLinks) {
+        const list = assigneeIdsByInstance.get(link.instanceId) ?? []
+        list.push(link.userId)
+        assigneeIdsByInstance.set(link.instanceId, list)
+    }
+
+    const notifiedIds: string[] = []
+    for (const row of rows) {
+        try {
+            await notificationService.notifyChecklistSubmitReminder({ _id: row.id, title: row.title, storeId: row.storeId, assigneeIds: assigneeIdsByInstance.get(row.id) ?? [] })
+            notifiedIds.push(row.id)
+        } catch (err) {
+            console.error(`Checklist submit reminder failed for instance ${row.id}:`, err)
+        }
+    }
+    if (notifiedIds.length) {
+        await db.update(checklistInstances).set({ submitReminderSentAt: new Date() }).where(inArray(checklistInstances.id, notifiedIds))
+    }
+}
+
 // Runs once immediately (so a server restart doesn't wait up to an hour to catch up), then hourly
 // at :30 — offset from the instance generator's (:00) and overdue notifier's (:15) own sweeps so
 // none of the three tick at the same moment for no reason.
+const sweep = async () => {
+    await notifyDraftInstances()
+    await notifyUnsubmittedInstances()
+}
+
+// The scheduled run returns the promise so a failure reaches the System Health heartbeat instead of
+// being swallowed here.
 export const startChecklistDraftReminder = () => {
-    notifyDraftInstances().catch((err) => console.error("Initial checklist draft reminder sweep failed:", err))
-    scheduleJob("checklist-draft-reminder", "30 * * * *", 60, () => {
-        notifyDraftInstances().catch((err) => console.error("Checklist draft reminder sweep failed:", err))
-    })
+    sweep().catch((err) => console.error("Initial checklist draft reminder sweep failed:", err))
+    scheduleJob("checklist-draft-reminder", "30 * * * *", 60, sweep)
 }

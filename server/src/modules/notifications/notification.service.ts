@@ -324,6 +324,18 @@ export const notificationService = {
     });
   },
 
+  // Everything on the checklist is done, but nobody pressed Submit yet: one nudge to the people filling it in.
+  async notifyChecklistSubmitReminder(instance: VerifiableChecklistInstance) {
+    const assigneeIds = (instance.assigneeIds ?? []).map((id) => id.toString());
+    if (!assigneeIds.length) return [];
+    return notificationService.notifyMany(assigneeIds, {
+      type: 'CHECKLIST_DRAFT_REMINDER',
+      title: 'Submit your checklist',
+      message: `"${instance.title}" is finished but not submitted. Submit it so it can be reviewed.`,
+      checklistInstanceId: instance._id.toString(),
+    });
+  },
+
   // Returns the most recent 50 notifications for a given user, newest first - used to populate the notifications dropdown/list in the UI
   async listForUser(userId: string) {
     return db

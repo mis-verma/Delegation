@@ -54,6 +54,11 @@ export const checklistInstances = mysqlTable(
     verificationStatus: mysqlEnum('verificationStatus', CHECKLIST_VERIFICATION_STATUSES)
       .notNull()
       .default('NOT_SUBMITTED'),
+    // When the person filling it in pressed Submit (everything done, sent for review), and who. Null
+    // until then, and cleared again if the run is reopened. Ticking the last question no longer
+    // submits by itself: the person confirms with one button.
+    submittedAt: datetime('submittedAt', { mode: 'date' }),
+    submittedBy: varchar('submittedBy', { length: 191 }).references(() => users.id),
     verifiedBy: varchar('verifiedBy', { length: 191 }).references(() => users.id),
     verifiedAt: datetime('verifiedAt', { mode: 'date' }),
     verificationNote: text('verificationNote'),
@@ -75,6 +80,9 @@ export const checklistInstances = mysqlTable(
     // legitimately fire for the same instance (draft reminder first, overdue notice later if it's
     // still incomplete).
     draftReminderSentAt: datetime('draftReminderSentAt', { mode: 'date' }),
+    // Same one-shot convention for "every question is done but it was never submitted": the person
+    // gets one nudge to press Submit, so a finished checklist does not sit there unseen by the reviewer.
+    submitReminderSentAt: datetime('submitReminderSentAt', { mode: 'date' }),
     createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
     updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
   },

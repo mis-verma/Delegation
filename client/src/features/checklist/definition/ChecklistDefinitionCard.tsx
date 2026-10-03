@@ -124,7 +124,7 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
         deleteMutation.isPending && 'opacity-50 pointer-events-none',
       )}
     >
-      <div className="flex items-start gap-3">
+      <div className="flex items-start justify-between gap-3">
         {selectionMode ? (
           <span
             aria-hidden
@@ -138,21 +138,6 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
         ) : (
           <EntityIconTile icon={Icon} tone="coral" />
         )}
-
-        <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-          <h3 className="min-w-0">
-            {selectionMode ? (
-              <button type="button" aria-pressed={selected} onClick={handleToggleSelected} className={cn(TITLE_CLASS, STRETCH_CLASS)}>
-                {name}
-              </button>
-            ) : (
-              <Link to={`/admin/scheduled-checklists/${id}`} className={cn(TITLE_CLASS, STRETCH_CLASS, 'block')}>
-                {name}
-              </Link>
-            )}
-          </h3>
-          <p className="text-xs font-display text-text-muted leading-snug">{meta}</p>
-        </div>
 
         {/* Sits above the stretched title link (z-10), so these stay individually clickable and
             reachable by keyboard. Hidden entirely in selection mode so a stray tap cannot
@@ -180,6 +165,21 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
             {definition.isActive ? 'Active' : 'Paused'}
           </Badge>
         )}
+      </div>
+
+      <div className="flex flex-col gap-1 min-w-0">
+        <h3 className="min-w-0">
+          {selectionMode ? (
+            <button type="button" aria-pressed={selected} onClick={handleToggleSelected} className={cn(TITLE_CLASS, STRETCH_CLASS)}>
+              {name}
+            </button>
+          ) : (
+            <Link to={`/admin/scheduled-checklists/${id}`} className={cn(TITLE_CLASS, STRETCH_CLASS, 'block')}>
+              {name}
+            </Link>
+          )}
+        </h3>
+        <p className="text-xs font-display text-text-muted leading-snug">{meta}</p>
       </div>
 
       {/* Who it is for: the departments of the people assigned, then (only when it is not one shared

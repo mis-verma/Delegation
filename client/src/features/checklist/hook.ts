@@ -488,6 +488,15 @@ export const useVerifyChecklistInstanceMutation = () =>
     errorFallback: "Couldn't verify checklist",
   });
 
+export const useSubmitChecklistInstanceMutation = () =>
+  useEntityMutation({
+    mutationFn: (id: string) => checklistInstanceApi.submit(id).then(r => r.data),
+    setDetailData: (updated) => ({ key: KEYS.instanceDetail(updated.id), data: updated }),
+    invalidateKeys: [['checklist-instances']],
+    successMessage: 'Submitted for approval',
+    errorFallback: "Couldn't submit this checklist",
+  });
+
 export const useSendBackChecklistInstanceMutation = () =>
   useEntityMutation({
     mutationFn: ({ id, payload }: { id: string; payload: SendBackChecklistInstancePayload }) =>

@@ -43,7 +43,7 @@ export const NotApplicableItemCard = memo(function NotApplicableItemCard({ item,
                 Not applicable
               </Badge>
               {item.completedAt && (
-                <span className="text-[11px] font-medium text-text-muted">Marked {formatDateTime(item.completedAt)}</span>
+                <span className="text-[11px] font-medium text-text-muted">Marked {formatDateTime(item.completedAt)}{item.completedByName ? ` by ${item.completedByName}` : ''}</span>
               )}
             </div>
           </div>

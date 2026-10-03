@@ -23,10 +23,11 @@ import { ChecklistInstanceItemCashTallyCard } from './ChecklistInstanceItemCashT
 import { ItemRemarksField } from './ItemRemarksField';
 import { NotApplicableItemCard } from './NotApplicableItemCard';
 import { ChecklistReviewBar } from './ChecklistReviewBar';
+import { ChecklistSubmitBar } from './ChecklistSubmitBar';
 import { answerVerdict } from '../checklistCompliance';
 import {
   complianceToneClass, formatDate, formatDateTime, getInstanceView, instanceProgressToneClass, isInstanceNotYetOpen,
-  RECURRENCE_LABEL, VERIFICATION_STATUS_LABEL, VERIFICATION_CHIP,
+  RECURRENCE_LABEL,
 } from '../checklistDisplay';
 import { useAuth } from '../../../context/AuthContext';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
@@ -249,7 +250,7 @@ export const ChecklistInstanceDetail = () => {
 
   // Completion leaves "not applicable" questions out of both sides; compliance scores only the
   // answered questions that have a good-answer rule. Same numbers the list cards show.
-  const { done, total, progress, isComplete, overdue, chipStatus, compliance, scored, good } = getInstanceView(instance);
+  const { done, total, progress, isComplete, overdue, chipStatus, compliance, scored, good, verification } = getInstanceView(instance);
   // PC has full parity with ADMIN throughout this app.
   const isAdminOrPC = user?.role === 'ADMIN' || user?.role === 'PC';
   const canWork = isAdminOrPC || (!!user && instance.assigneeIds.includes(user.id));
@@ -259,10 +260,14 @@ export const ChecklistInstanceDetail = () => {
     instance.verificationStatus === 'PENDING_APPROVAL' &&
     !!user && (isAdminOrPC || user.role === 'MANAGER' || user.role === 'SENIOR' || instance.reviewerIds.includes(user.id));
   const notYetOpen = isInstanceNotYetOpen(instance);
+  // Everything is done and it has not been sent yet (or it was sent back and is now fixed): the
+  // person filling it in confirms with one Submit button.
+  const canSubmit =
+    canWork && isComplete && !notYetOpen &&
+    (instance.verificationStatus === 'NOT_SUBMITTED' || instance.verificationStatus === 'REJECTED');
   // Only show section headers when the checklist actually has any — most checklists were built
   // before this feature (or never use it) and should keep rendering as one plain flat list.
   const hasSections = instance.items.some(i => i.section);
-  const verification = VERIFICATION_CHIP[instance.verificationStatus];
   const verificationNote = instance.verificationNote;
   const showBanners =
     notYetOpen ||
@@ -308,8 +313,13 @@ export const ChecklistInstanceDetail = () => {
             <IconChip
               icon={verification.icon}
               tone={verification.tone}
-              label={VERIFICATION_STATUS_LABEL[instance.verificationStatus]}
+              label={verification.label}
             />
+          )}
+          {instance.submittedAt && instance.verificationStatus !== 'NOT_SUBMITTED' && instance.verificationStatus !== 'REJECTED' && (
+            <span className="text-xs font-medium text-text-muted">
+              Submitted {formatDateTime(instance.submittedAt)}{instance.submittedByName ? ` by ${instance.submittedByName}` : ''}
+            </span>
           )}
           {isLocked && instance.verifiedAt && (
             <span className="text-xs font-medium text-text-muted">on {formatDateTime(instance.verifiedAt)}</span>
@@ -347,7 +357,7 @@ export const ChecklistInstanceDetail = () => {
 
           {instance.verificationStatus === 'PENDING_APPROVAL' && !canReview && (
             <NoticeBanner tone="info" icon={ShieldQuestion}>
-              Everything's ticked off. Waiting for approval.
+              Submitted{instance.submittedByName ? ` by ${instance.submittedByName}` : ''}{instance.submittedAt ? ` on ${formatDateTime(instance.submittedAt)}` : ''}. Waiting for approval.
             </NoticeBanner>
           )}
 
@@ -360,12 +370,12 @@ export const ChecklistInstanceDetail = () => {
               <>
                 <VerificationNoteBanner note={verificationNote} approved={false} />
                 <NoticeBanner tone="warning" icon={CornerUpLeft}>
-                  Fix what's flagged and check it off again to resubmit.
+                  Fix what's flagged, then submit it again.
                 </NoticeBanner>
               </>
             ) : (
               <NoticeBanner tone="danger" icon={ShieldAlert}>
-                Sent back for changes. Fix what's flagged and check it off again to resubmit.
+                Sent back for changes. Fix what's flagged, then submit it again.
               </NoticeBanner>
             )
           )}
@@ -390,6 +400,10 @@ export const ChecklistInstanceDetail = () => {
           />
         ))}
       </div>
+
+      {canSubmit && (
+        <ChecklistSubmitBar instanceId={instanceId} total={total} resubmit={instance.verificationStatus === 'REJECTED'} />
+      )}
 
       {canReview && (
         <ChecklistReviewBar

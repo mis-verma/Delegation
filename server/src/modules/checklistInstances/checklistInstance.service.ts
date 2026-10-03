@@ -138,10 +138,21 @@ const hydrateInstances = async (instanceRows: (typeof checklistInstances.$inferS
         submissionsByItem.set(submission.itemId, list)
     }
 
+    // Who ticked each question and who submitted the run, as names, so a reviewer can see who did what.
+    const nameUserIds = [...new Set([
+        ...items.map((i) => i.completedBy).filter((id): id is string => !!id),
+        ...instanceRows.map((i) => i.submittedBy).filter((id): id is string => !!id),
+    ])]
+    const nameRows = nameUserIds.length
+        ? await db.select({ id: users.id, firstName: users.firstName, lastName: users.lastName }).from(users).where(inArray(users.id, nameUserIds))
+        : []
+    const nameById = new Map(nameRows.map((u) => [u.id, `${u.firstName}${u.lastName ? ` ${u.lastName}` : ""}`]))
+
     const itemsByInstance = new Map<string, any[]>()
     for (const item of items) {
         const mapped = {
             ...stripSecretItemFields(item),
+            completedByName: item.completedBy ? (nameById.get(item.completedBy) ?? null) : null,
             images: imagesByItem.get(item.id) ?? [],
             submissions: submissionsByItem.get(item.id) ?? [],
         }
@@ -154,6 +165,7 @@ const hydrateInstances = async (instanceRows: (typeof checklistInstances.$inferS
         ...instance,
         assigneeIds: assigneeIdsByInstance.get(instance.id) ?? [],
         reviewerIds: reviewerIdsByInstance.get(instance.id) ?? [],
+        submittedByName: instance.submittedBy ? (nameById.get(instance.submittedBy) ?? null) : null,
         items: itemsByInstance.get(instance.id) ?? [],
     }))
 }
@@ -601,21 +613,15 @@ export const syncVerificationStatus = async (instanceId: string) => {
     const [instance] = await db.select().from(checklistInstances).where(eq(checklistInstances.id, instanceId)).limit(1)
     if (!instance) return
 
-    // Only NOT_SUBMITTED and REJECTED are "hasn't been through review yet" states — auto-promoting
-    // to PENDING_APPROVAL from those is the intended behavior (first submission, or resubmission
-    // after a reject). APPROVED must NOT be disturbed by this: an item toggle that re-fires this
-    // sync while the instance is already approved must not silently knock it back down.
-    if (allDone && (instance.verificationStatus === "NOT_SUBMITTED" || instance.verificationStatus === "REJECTED")) {
-        await db.update(checklistInstances).set({ verificationStatus: "PENDING_APPROVAL", updatedAt: new Date() }).where(eq(checklistInstances.id, instanceId))
-        const assigneeLinks = await db.select({ userId: checklistInstanceAssignees.userId }).from(checklistInstanceAssignees).where(eq(checklistInstanceAssignees.instanceId, instanceId))
-        notificationService
-            .notifyChecklistPendingVerification({ _id: instance.id, title: instance.title, storeId: instance.storeId, assigneeIds: assigneeLinks.map(l => l.userId) })
-            .catch((err) => console.error("Failed to notify PC of pending checklist:", err))
-    } else if (!allDone && (instance.verificationStatus === "PENDING_APPROVAL" || instance.verificationStatus === "APPROVED")) {
-        // APPROVED only reaches here via an ADMIN reopening an item (assertInstanceEditable blocks
-        // everyone else) — the approval no longer covers what's on the run, so it goes back for
-        // a fresh review instead of staying "Approved" over changed answers.
-        await db.update(checklistInstances).set({ verificationStatus: "NOT_SUBMITTED", updatedAt: new Date() }).where(eq(checklistInstances.id, instanceId))
+    // Finishing the last question no longer sends the run for review by itself: the person confirms
+    // with Submit (see submit() below), so nothing leaves their hands by accident. This only keeps a
+    // submitted run honest: once something on it is reopened (an admin reopen, a live edit adding a
+    // question), it is no longer "everything done", so it goes back to not submitted and has to be
+    // submitted again. A run that was sent back (REJECTED) stays that way until it is resubmitted.
+    if (!allDone && (instance.verificationStatus === "PENDING_APPROVAL" || instance.verificationStatus === "APPROVED")) {
+        await db.update(checklistInstances)
+            .set({ verificationStatus: "NOT_SUBMITTED", submittedAt: null, submittedBy: null, updatedAt: new Date() })
+            .where(eq(checklistInstances.id, instanceId))
     }
 }
 
@@ -1399,6 +1405,45 @@ export const checklistInstanceService = {
             storeName: r.storeName ?? null,
             waitingSince: r.updatedAt.toISOString(),
         }))
+    },
+
+    /**
+     * Submit a finished checklist for review. The person who filled it in (any assignee, or an
+     * ADMIN/PC) presses Submit once every question is done: the run moves to "waiting for approval"
+     * and the store's PCs are told. Also how a run that was sent back is resubmitted after the
+     * flagged questions are fixed.
+     */
+    async submit(id: string, user: AccessTokenPayload) {
+        const [instance] = await db.select().from(checklistInstances).where(eq(checklistInstances.id, id)).limit(1)
+        if (!instance) throw AppError.notFound("Checklist instance not found")
+        const assigneeLinks = await db.select({ userId: checklistInstanceAssignees.userId }).from(checklistInstanceAssignees).where(eq(checklistInstanceAssignees.instanceId, id))
+        const assigneeIds = assigneeLinks.map((l) => l.userId)
+        assertCanAccess({ assigneeIds }, user)
+
+        if (instance.verificationStatus !== "NOT_SUBMITTED" && instance.verificationStatus !== "REJECTED") {
+            throw AppError.badRequest(instance.verificationStatus === "APPROVED" ? "This checklist is already approved." : "This checklist has already been submitted.")
+        }
+        const items = await db.select({ isDone: checklistInstanceItems.isDone }).from(checklistInstanceItems).where(eq(checklistInstanceItems.instanceId, id))
+        const open = items.filter((i) => !i.isDone).length
+        if (!items.length || open > 0) {
+            throw AppError.badRequest(open === 1 ? "1 question is still open. Finish it, then submit." : `${open} questions are still open. Finish them, then submit.`)
+        }
+
+        const now = new Date()
+        await db.update(checklistInstances)
+            .set({ verificationStatus: "PENDING_APPROVAL", submittedAt: now, submittedBy: user.sub, updatedAt: now })
+            .where(eq(checklistInstances.id, id))
+
+        notificationService
+            .notifyChecklistPendingVerification({ _id: instance.id, title: instance.title, storeId: instance.storeId, assigneeIds })
+            .catch((err) => console.error("Failed to notify PC of pending checklist:", err))
+        await auditService.record({
+            entityType: "ChecklistInstance", entityId: id, action: "SUBMIT", actorId: user.sub,
+            before: { verificationStatus: instance.verificationStatus },
+            after: { verificationStatus: "PENDING_APPROVAL", submittedAt: now },
+        })
+        emitChecklistEvent("checklist-instance:updated", { storeId: instance.storeId }, { instanceId: id })
+        return getPopulatedInstanceById(id)
     },
 
     /**
