@@ -51,6 +51,9 @@ const definitionItemShape = z.object({
     signatureLabels: z.array(z.string().min(1)).optional(),
     qrExpectedValue: z.string().trim().min(1).max(191).nullable().optional(),
     cashExpectedAmount: z.number().min(0).nullable().optional(),
+    acceptableAnswers: z.array(z.string().min(1)).nullable().optional(),
+    acceptableMin: z.number().nullable().optional(),
+    acceptableMax: z.number().nullable().optional(),
     yesActions: z.array(z.enum(CHECKLIST_CONDITIONAL_ACTIONS)).optional(),
     noActions: z.array(z.enum(CHECKLIST_CONDITIONAL_ACTIONS)).optional(),
 }).refine(item => item.itemType !== "AUDIT" || (item.auditUserIds?.length ?? 0) >= 1, {

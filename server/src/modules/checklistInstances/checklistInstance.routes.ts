@@ -22,9 +22,11 @@ checklistInstanceRouter.get("/pending-verification", checklistInstanceController
 checklistInstanceRouter.get("/pending-approval-preview", requireRole("ADMIN", "PC"), checklistInstanceController.pendingApprovalPreview)
 checklistInstanceRouter.get("/", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), checklistInstanceController.list)
 checklistInstanceRouter.get("/summary", checklistInstanceController.summary)
+checklistInstanceRouter.get("/reports/weekly", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), checklistInstanceController.weeklyReport)
 checklistInstanceRouter.get("/reports/compliance", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), checklistInstanceController.complianceReport)
 checklistInstanceRouter.get("/:id", checklistInstanceController.getOne)
 checklistInstanceRouter.patch("/:id/verify", checklistInstanceController.verify)
+checklistInstanceRouter.patch("/:id/send-back", checklistInstanceController.sendBack)
 
 // Mounted at /checklist-instance-items in app.ts. No role gate on setItemDone/images — the
 // service authorizes based on whether the requester is ADMIN or one of the parent instance's

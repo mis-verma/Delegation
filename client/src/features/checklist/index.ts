@@ -6,3 +6,4 @@ export { ChecklistInstanceDetail } from './instance/ChecklistInstanceDetail';
 export { ChecklistComplianceBoard } from './instance/ChecklistComplianceBoard';
 export { ChecklistApprovals } from './instance/ChecklistApprovals';
 export { ChecklistHistory } from './instance/ChecklistHistory';
+export { ChecklistWeeklyReport } from './instance/ChecklistWeeklyReport';

@@ -56,6 +56,7 @@ const TASK_ADMIN_CHILDREN: NavChild[] = [
 
 const CHECKLIST_APPROVALS_CHILD: NavChild = { to: '/checklists/approvals', label: 'Team Approvals' };
 const CHECKLIST_HISTORY_CHILD: NavChild = { to: '/checklists/history', label: 'History' };
+const CHECKLIST_WEEKLY_CHILD: NavChild = { to: '/checklists/weekly', label: 'Weekly report' };
 
 const NAV: NavItem[] = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -174,7 +175,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
         // History: ADMIN/PC (every store) and department heads (their department). Approvals: the
         // department heads, who sign off their own department's checklists.
         ...(isAdmin || isPC || isManager || isSenior
-          ? { children: [CHECKLIST_HISTORY_CHILD, ...(isManager || isSenior ? [CHECKLIST_APPROVALS_CHILD] : [])] }
+          ? { children: [CHECKLIST_HISTORY_CHILD, CHECKLIST_WEEKLY_CHILD, ...(isManager || isSenior ? [CHECKLIST_APPROVALS_CHILD] : [])] }
           : {}),
       };
     }

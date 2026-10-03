@@ -65,6 +65,7 @@ const ChecklistBuilder = lazy(() => import('./features/checklist').then(m => ({ 
 const ChecklistComplianceBoard = lazy(() => import('./features/checklist').then(m => ({ default: m.ChecklistComplianceBoard })));
 const ChecklistApprovals = lazy(() => import('./features/checklist').then(m => ({ default: m.ChecklistApprovals })));
 const ChecklistHistory = lazy(() => import('./features/checklist').then(m => ({ default: m.ChecklistHistory })));
+const ChecklistWeeklyReport = lazy(() => import('./features/checklist').then(m => ({ default: m.ChecklistWeeklyReport })));
 
 const ProtectedRoute = () => {
   const { token, user } = useAuth();
@@ -255,6 +256,7 @@ const router = createBrowserRouter([
             element: <HistoryRoute />,
             children: [
               { path: '/checklists/history', element: <ChecklistHistory /> },
+              { path: '/checklists/weekly', element: <ChecklistWeeklyReport /> },
             ],
           },
           {
@@ -318,6 +320,7 @@ const router = createBrowserRouter([
               { path: '/admin/reports', element: <ReportsPage /> },
               { path: '/admin/audit-log', element: <AuditLogPage /> },
               { path: '/admin/holidays', element: <HolidaysPage /> },
+              { path: '/admin/checklist-weekly', element: <ChecklistWeeklyReport /> },
               { path: '/admin/presence', element: <PresenceOverview /> },
               { path: '/admin/settings', element: <SettingsPage /> },
             ],

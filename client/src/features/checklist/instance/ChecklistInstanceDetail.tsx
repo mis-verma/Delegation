@@ -1,6 +1,6 @@
-import type { ReactElement } from 'react';
+import { useState, type ReactElement } from 'react';
 import { useParams, useNavigate, Link } from 'react-router';
-import { ArrowLeft, AlertCircle, ShieldCheck, ShieldAlert, ShieldQuestion, Pencil, Clock, Layers, ClipboardX } from 'lucide-react';
+import { ArrowLeft, AlertCircle, ShieldCheck, ShieldAlert, ShieldQuestion, CornerUpLeft, AlertTriangle, Pencil, Clock, Layers, ClipboardX } from 'lucide-react';
 import { Skeleton, StatusChip, IconChip } from '../../../components';
 import { useChecklistInstanceQuery } from '../hook';
 import { ApiError } from '../../../api/http';
@@ -19,6 +19,9 @@ import { ChecklistInstanceItemQrScanCard } from './ChecklistInstanceItemQrScanCa
 import { ChecklistInstanceItemCashTallyCard } from './ChecklistInstanceItemCashTallyCard';
 import { ItemRemarksField } from './ItemRemarksField';
 import { NotApplicableItemCard } from './NotApplicableItemCard';
+import { ChecklistReviewBar } from './ChecklistReviewBar';
+import { runScores, answerVerdict } from '../checklistCompliance';
+import { complianceToneClass } from '../checklistDisplay';
 import { formatDate, formatDateTime, instanceProgressBarClass, instanceProgressToneClass, isInstanceOverdue, isInstanceNotYetOpen, RECURRENCE_LABEL, VERIFICATION_STATUS_LABEL, VERIFICATION_CHIP } from '../checklistDisplay';
 import { useAuth } from '../../../context/AuthContext';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
@@ -89,6 +92,16 @@ export const ChecklistInstanceDetail = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data: instance, isPending, isError, error, refetch } = useChecklistInstanceQuery(instanceId);
+  // Reviewer's send-back picking: which questions are ticked while the review bar is in pick mode.
+  const [selecting, setSelecting] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(() => new Set());
+  const togglePicked = (itemId: string) =>
+    setPicked(prev => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId); else next.add(itemId);
+      return next;
+    });
+  const stopSelecting = () => { setSelecting(false); setPicked(new Set()); };
 
   if (isPending) {
     return (
@@ -141,14 +154,19 @@ export const ChecklistInstanceDetail = () => {
     );
   }
 
-  const total = instance.items.length;
-  const done = instance.items.filter(i => i.isDone).length;
-  const progress = total ? Math.round((done / total) * 100) : 0;
+  const rawTotal = instance.items.length;
+  const isComplete = rawTotal > 0 && instance.items.every(i => i.isDone);
+  // Completion leaves "not applicable" questions out of both sides; compliance scores only the
+  // answered questions that have a good-answer rule.
+  const { done, total, completion: progress, compliance, scored, good } = runScores(instance.items);
   // PC has full parity with ADMIN throughout this app.
   const isAdminOrPC = user?.role === 'ADMIN' || user?.role === 'PC';
   const canWork = isAdminOrPC || (!!user && instance.assigneeIds.includes(user.id));
   const isLocked = instance.verificationStatus === 'APPROVED';
-  const isComplete = total > 0 && done === total;
+  // Same people who can approve; the server still checks the department for a MANAGER/SENIOR.
+  const canReview =
+    instance.verificationStatus === 'PENDING_APPROVAL' &&
+    !!user && (isAdminOrPC || user.role === 'MANAGER' || user.role === 'SENIOR' || instance.reviewerIds.includes(user.id));
   const overdue = isInstanceOverdue(instance, isComplete);
   const notYetOpen = isInstanceNotYetOpen(instance);
   // Only show section headers when the checklist actually has any — most checklists were built
@@ -203,8 +221,17 @@ export const ChecklistInstanceDetail = () => {
         </div>
 
         <div className="flex flex-col gap-1.5 pt-1">
+          {compliance !== null && (
+            <div className="flex items-baseline justify-between gap-2 pb-1">
+              <span className="text-xs font-medium text-text-muted">Compliance</span>
+              <span className="flex items-baseline gap-2 tabular-nums">
+                <span className={`text-lg font-display font-bold leading-none ${complianceToneClass(compliance)}`}>{compliance}%</span>
+                <span className="text-xs font-semibold text-text">{good} of {scored} answered well</span>
+              </span>
+            </div>
+          )}
           <div className="flex items-baseline justify-between gap-2">
-            <span className="text-xs font-medium text-text-muted">Progress</span>
+            <span className="text-xs font-medium text-text-muted">Completion</span>
             <span className="flex items-baseline gap-2 tabular-nums">
               <span className={`text-lg font-display font-bold leading-none ${instanceProgressToneClass(overdue, isComplete)}`}>{progress}%</span>
               <span className="text-xs font-semibold text-text">{done} of {total} done</span>
@@ -226,7 +253,7 @@ export const ChecklistInstanceDetail = () => {
         </div>
       )}
 
-      {instance.verificationStatus === 'PENDING_APPROVAL' && (
+      {instance.verificationStatus === 'PENDING_APPROVAL' && !canReview && (
         <div className="flex items-center gap-2.5 p-3.5 rounded-2xl bg-primary-500/10 border border-primary-500/25 text-primary-600 dark:text-primary-300 text-xs font-display">
           <ShieldQuestion size={16} className="shrink-0" />
           Everything's ticked off. Waiting for approval.
@@ -246,7 +273,7 @@ export const ChecklistInstanceDetail = () => {
           <ShieldAlert size={16} className="shrink-0 mt-0.5" />
           <span>
             Sent back for changes{instance.verificationNote ? `: "${instance.verificationNote}"` : '.'} Fix
-            what's flagged and check everything off again to resubmit.
+            what's flagged and check it off again to resubmit.
           </span>
         </div>
       )}
@@ -266,6 +293,29 @@ export const ChecklistInstanceDetail = () => {
                 </div>
               )}
               <div className="flex flex-col gap-1.5">
+                {selecting && (
+                  <label className={`flex items-center gap-2.5 px-3.5 min-h-11 rounded-lg border text-xs font-display font-semibold cursor-pointer transition-colors duration-150 ${picked.has(item.id) ? 'border-danger/40 bg-danger/10 text-danger' : 'border-border/60 bg-surface text-text-secondary hover:bg-surface-hover'}`}>
+                    <input
+                      type="checkbox"
+                      checked={picked.has(item.id)}
+                      onChange={() => togglePicked(item.id)}
+                      className="size-4 accent-danger cursor-pointer"
+                    />
+                    Send this question back
+                  </label>
+                )}
+                {answerVerdict(item) === 'bad' && (
+                  <div className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-warning/10 border border-warning/25 text-warning text-xs font-display font-medium">
+                    <AlertTriangle size={13} className="shrink-0" />
+                    Not an acceptable answer
+                  </div>
+                )}
+                {!item.isDone && item.sendBackNote && (
+                  <div className="flex items-start gap-2 px-3.5 py-2.5 rounded-lg bg-danger/10 border border-danger/25 text-danger text-xs font-display">
+                    <CornerUpLeft size={13} className="shrink-0 mt-0.5" />
+                    <span>Sent back: {item.sendBackNote}</span>
+                  </div>
+                )}
                 {item.isNotApplicable ? (
                   <NotApplicableItemCard item={item} instanceId={instanceId} canEdit={canWork && !isLocked} />
                 ) : (
@@ -280,6 +330,18 @@ export const ChecklistInstanceDetail = () => {
           );
         })}
       </div>
+
+      {canReview && (
+        <ChecklistReviewBar
+          instanceId={instanceId}
+          selecting={selecting}
+          selectedCount={picked.size}
+          selectedIds={[...picked]}
+          onStartSelecting={() => setSelecting(true)}
+          onStopSelecting={stopSelecting}
+          onSent={stopSelecting}
+        />
+      )}
     </div>
   );
 };

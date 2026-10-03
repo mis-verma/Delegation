@@ -27,6 +27,9 @@ export function getAdminBreadcrumbs(pathname: string): BreadcrumbTrailItem[] | n
   if (pathname.startsWith('/admin/checklist-compliance')) {
     return [DASHBOARD, ADMIN_ROOT, { label: 'Checklist Compliance' }];
   }
+  if (pathname.startsWith('/admin/checklist-weekly')) {
+    return [DASHBOARD, ADMIN_ROOT, { label: 'Weekly Report' }];
+  }
   if (pathname.startsWith('/admin/holidays')) {
     return [DASHBOARD, ADMIN_ROOT, { label: 'Holidays' }];
   }

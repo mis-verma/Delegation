@@ -97,10 +97,16 @@ export type ChecklistInstanceItem = {
   // ChecklistDefinitionItem's model. See checklistInstanceArrayDefaults below for null->[] defaults.
   yesActions:         ChecklistConditionalAction[];
   noActions:          ChecklistConditionalAction[];
+  /** "Good answer" rule for the compliance %; null = this question isn't scored. */
+  acceptableAnswers:  string[] | null;
+  acceptableMin:      number | null;
+  acceptableMax:      number | null;
   conditionalReasonValue: string | null;
   remarks:            string | null;
   /** Marked "Not applicable": counts as done, reason is in `remarks`. */
   isNotApplicable:    boolean;
+  /** Why a reviewer sent this question back; cleared once it's completed again. */
+  sendBackNote:       string | null;
   issueId:            string | null;
   instanceId:         string;
   images:             ChecklistInstanceImage[];
@@ -130,6 +136,7 @@ export type ChecklistInstance = {
   items:            ChecklistInstanceItem[];
 };
 
+export type SendBackChecklistInstancePayload = { itemIds: string[]; note: string };
 export type VerifyChecklistInstancePayload = { action: 'APPROVE' | 'REJECT'; note?: string };
 
 export type ComplianceReportGroupBy = 'hour' | 'day' | 'week' | 'month' | 'year';
@@ -240,6 +247,16 @@ export type ChecklistPendingApproval = {
   waitingSince: string;
 };
 
+export type WeeklyCellState = 'done' | 'late' | 'missed' | 'open' | 'holiday' | 'off' | 'upcoming';
+export type WeeklyCell = { date: string; state: WeeklyCellState; runId: string | null; done: number; total: number };
+export type WeeklyReport = {
+  weekStart: string;
+  days: string[];
+  holidays: Record<string, string>;
+  rows: { definitionId: string; name: string; storeId: string; storeName: string; cells: WeeklyCell[]; rate: number | null }[];
+  summary: { due: number; onTime: number; late: number; missed: number; rate: number | null };
+};
+
 export const checklistInstanceApi = {
   getMine: (
     filter: {
@@ -307,6 +324,10 @@ export const checklistInstanceApi = {
     apiFetch<ApiResponse<ChecklistInstance>>(`/checklist-instances/${id}`)
       .then(r => ({ ...r, data: normalizeInstance(r.data) })),
 
+  /** Weekly fill report: one row per daily checklist per store, one cell per weekday. `weekStart` is the Monday. */
+  getWeeklyReport: (weekStart: string, storeId?: string) =>
+    apiFetch<ApiResponse<WeeklyReport>>(`/checklist-instances/reports/weekly${buildQuery({ weekStart, storeId })}`),
+
   getForDefinition: (definitionId: string, paging: PageParams = {}) =>
     apiFetch<ApiResponse<ChecklistInstance[]> & { meta: ChecklistInstancePage }>(
       `/checklist-instances${buildQuery({ definitionId, ...paging })}`,
@@ -346,6 +367,12 @@ export const checklistInstanceApi = {
 
   verify: (id: string, payload: VerifyChecklistInstancePayload) =>
     apiFetch<ApiResponse<ChecklistInstance>>(`/checklist-instances/${id}/verify`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }).then(r => ({ ...r, data: normalizeInstance(r.data) })),
+
+  sendBack: (id: string, payload: SendBackChecklistInstancePayload) =>
+    apiFetch<ApiResponse<ChecklistInstance>>(`/checklist-instances/${id}/send-back`, {
       method: 'PATCH',
       body: JSON.stringify(payload),
     }).then(r => ({ ...r, data: normalizeInstance(r.data) })),

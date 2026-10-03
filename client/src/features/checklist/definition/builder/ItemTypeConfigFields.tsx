@@ -335,6 +335,71 @@ const ConditionalFields = ({ draft, onChange }: ItemTypeFieldsProps) => {
   );
 };
 
+// ─── Acceptable answer ──────────────────────────────────────────────────────────────────────
+// What counts as a GOOD answer. Scored into the checklist's compliance %, separately from whether
+// the question was completed. Left empty, the question simply isn't scored.
+
+const CHIP =
+  'inline-flex items-center h-8 px-3 rounded-full border text-xs font-display font-medium cursor-pointer transition-colors duration-150 ' +
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40';
+const chipTone = (on: boolean) =>
+  on
+    ? 'border-success/40 bg-success/10 text-success'
+    : 'border-border bg-surface text-text-secondary hover:border-border-hover hover:text-text';
+
+const Chip = ({ on, onClick, children }: { on: boolean; onClick: () => void; children: ReactNode }) => (
+  <button type="button" aria-pressed={on} onClick={onClick} className={`${CHIP} ${chipTone(on)}`}>{children}</button>
+);
+
+const AcceptableFields = ({ draft, onChange }: ItemTypeFieldsProps) => {
+  const { itemType, acceptableAnswers: accepted } = draft;
+  let body: ReactNode;
+
+  if (itemType === 'YES_NO' || itemType === 'PASS_FAIL') {
+    const [yes, no] = itemType === 'YES_NO' ? ['Yes', 'No'] : ['Pass', 'Fail'];
+    const pick = (v: 'YES' | 'NO') => onChange({ acceptableAnswers: accepted[0] === v ? [] : [v] });
+    body = (
+      <div className="flex flex-wrap gap-2">
+        <Chip on={accepted.length === 0} onClick={() => onChange({ acceptableAnswers: [] })}>Not scored</Chip>
+        <Chip on={accepted[0] === 'YES'} onClick={() => pick('YES')}>{yes} is good</Chip>
+        <Chip on={accepted[0] === 'NO'} onClick={() => pick('NO')}>{no} is good</Chip>
+      </div>
+    );
+  } else if (itemType === 'MULTIPLE_CHOICE' || itemType === 'DROPDOWN') {
+    if (draft.options.length < 2) return null;
+    const toggle = (o: string) =>
+      onChange({ acceptableAnswers: accepted.includes(o) ? accepted.filter(a => a !== o) : [...accepted, o] });
+    body = (
+      <div className="flex flex-wrap gap-2">
+        {draft.options.map(o => <Chip key={o} on={accepted.includes(o)} onClick={() => toggle(o)}>{o}</Chip>)}
+      </div>
+    );
+  } else if (itemType === 'NUMBER_ENTRY' || itemType === 'RATING') {
+    body = (
+      <div className="flex flex-wrap items-end gap-3">
+        <Field id={fid(draft, 'good-min')} label={itemType === 'RATING' ? 'Good from (stars)' : 'Good from'}>
+          <input id={fid(draft, 'good-min')} type="number" inputMode="decimal" value={draft.acceptableMin}
+            onChange={(e) => onChange({ acceptableMin: e.target.value })} placeholder="Any" className={`w-28 ${INPUT}`} />
+        </Field>
+        <Field id={fid(draft, 'good-max')} label="Good up to">
+          <input id={fid(draft, 'good-max')} type="number" inputMode="decimal" value={draft.acceptableMax}
+            onChange={(e) => onChange({ acceptableMax: e.target.value })} placeholder="Any" className={`w-28 ${INPUT}`} />
+        </Field>
+      </div>
+    );
+  } else {
+    return null;
+  }
+
+  return (
+    <div className="flex flex-col gap-2 pt-3 mt-1 border-t border-border/50">
+      <span className={LABEL}>Good answer (for the compliance %)</span>
+      {body}
+      <Note>Not applicable answers are never scored. Leave it unscored if any answer is fine.</Note>
+    </div>
+  );
+};
+
 const note = (text: string) => () => <Note>{text}</Note>;
 
 type FieldRenderer = (props: ItemTypeFieldsProps) => ReactNode;
@@ -361,7 +426,7 @@ const FIELDS_BY_TYPE: Partial<Record<ChecklistItemType, FieldRenderer>> = {
 
 export const ItemTypeConfigFields = (props: ItemTypeFieldsProps) => {
   const Renderer = FIELDS_BY_TYPE[props.draft.itemType];
-  return Renderer ? <>{Renderer(props)}</> : null;
+  return Renderer ? <>{Renderer(props)}<AcceptableFields {...props} /></> : null;
 };
 
 // The exports below are colocated with the component like ui/badge.tsx's own badgeVariants export —
@@ -388,6 +453,11 @@ export const itemDraftProblem = (draft: ItemDraft): string | null => {
     const min = num(draft.numberEntryMin);
     const max = num(draft.numberEntryMax);
     if (min != null && max != null && min > max) return "The lowest allowed can't be more than the highest.";
+  }
+  if (draft.itemType === 'NUMBER_ENTRY' || draft.itemType === 'RATING') {
+    const min = num(draft.acceptableMin);
+    const max = num(draft.acceptableMax);
+    if (min != null && max != null && min > max) return "The lowest good answer can't be more than the highest.";
   }
   if (draft.itemType === 'CASH_TALLY' && (num(draft.cashExpectedAmount) ?? 0) < 0) return "Expected amount can't be negative.";
   if (draft.itemType === 'GPS') {
@@ -419,6 +489,11 @@ export const patchForTypeSwitch = (draft: ItemDraft, itemType: ItemDraft['itemTy
     patch.requiresLivePhoto = false;
   } else if (itemType === 'VIDEO_UPLOAD' && (num(draft.requiredImageCount) ?? 0) < 1) {
     patch.requiredImageCount = '1';
+  }
+  if (itemType !== draft.itemType) {
+    patch.acceptableAnswers = [];
+    patch.acceptableMin = '';
+    patch.acceptableMax = '';
   }
   if (itemType !== 'YES_NO' && itemType !== 'PASS_FAIL') {
     patch.yesActions = [];

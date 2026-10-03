@@ -1,6 +1,6 @@
 import type { Request, Response } from "express"
 import { checklistInstanceService, type InstanceRecurrence, type InstanceVerificationStatus } from "./checklistInstance.service.js"
-import { setChecklistInstanceItemDoneSchema, verifyChecklistInstanceSchema, checklistInstanceComplianceReportQuerySchema, listChecklistInstancesQuerySchema, listPendingVerificationQuerySchema } from "./checklistInstance.validation.js"
+import { setChecklistInstanceItemDoneSchema, verifyChecklistInstanceSchema, sendBackChecklistInstanceSchema, checklistInstanceComplianceReportQuerySchema, listChecklistInstancesQuerySchema, listPendingVerificationQuerySchema, weeklyReportQuerySchema } from "./checklistInstance.validation.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
 import { resolveReportScope, resolveStoreIdForDepartment } from "../../utils/reportScope.js"
 
@@ -126,6 +126,12 @@ export const checklistInstanceController = {
         res.json({ success: true, data })
     }),
 
+    // GET /checklist-instances/reports/weekly?weekStart=YYYY-MM-DD&storeId= (ADMIN/PC all, MANAGER/SENIOR own department)
+    weeklyReport: asyncHandler(async (req: Request, res: Response) => {
+        const { weekStart, storeId } = weeklyReportQuerySchema.parse(req.query)
+        res.json({ success: true, data: await checklistInstanceService.weeklyReport(req.user!, weekStart, storeId) })
+    }),
+
     getOne: asyncHandler(async (req: Request, res: Response) => {
         const instance = await checklistInstanceService.getById(req.params.id, req.user!)
         res.json({ success: true, data: instance })
@@ -143,6 +149,13 @@ export const checklistInstanceController = {
     verify: asyncHandler(async (req: Request, res: Response) => {
         const input = verifyChecklistInstanceSchema.parse(req.body)
         const instance = await checklistInstanceService.verify(req.params.id, input, req.user!)
+        res.json({ success: true, data: instance })
+    }),
+
+    // PATCH /checklist-instances/:id/send-back — same access as verify; reopens only the chosen questions
+    sendBack: asyncHandler(async (req: Request, res: Response) => {
+        const input = sendBackChecklistInstanceSchema.parse(req.body)
+        const instance = await checklistInstanceService.sendBack(req.params.id, input, req.user!)
         res.json({ success: true, data: instance })
     }),
 

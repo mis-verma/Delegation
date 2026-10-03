@@ -52,6 +52,9 @@ const toItemDraft = (item: ChecklistDefinitionItem): ItemDraft => ({
   gpsRadiusMeters: item.gpsRadiusMeters != null ? String(item.gpsRadiusMeters) : '',
   qrExpectedValue: item.qrExpectedValue ?? '',
   cashExpectedAmount: item.cashExpectedAmount != null ? String(item.cashExpectedAmount) : '',
+  acceptableAnswers: item.acceptableAnswers ?? [],
+  acceptableMin: item.acceptableMin != null ? String(item.acceptableMin) : '',
+  acceptableMax: item.acceptableMax != null ? String(item.acceptableMax) : '',
   yesActions: item.yesActions ?? [],
   noActions: item.noActions ?? [],
 });
@@ -63,6 +66,25 @@ const copiedChecklistName = (name: string) => `${name.slice(0, 191 - ' (copy)'.l
 const SIGNATURE_LABELS: Record<string, string[]> = {
   SIGNATURE: ['Signature'],
   DUAL_SIGNATURE: ['Employee', 'Supervisor'],
+};
+
+// The "good answer" rule, only for the types that can be scored. A choice rule drops options the
+// question no longer offers, so renaming an option can't leave a rule nothing can match.
+const acceptablePayload = (d: ItemDraft) => {
+  if (d.itemType === 'YES_NO' || d.itemType === 'PASS_FAIL') {
+    return d.acceptableAnswers.length ? { acceptableAnswers: d.acceptableAnswers } : {};
+  }
+  if (d.itemType === 'MULTIPLE_CHOICE' || d.itemType === 'DROPDOWN') {
+    const kept = d.acceptableAnswers.filter(a => d.options.includes(a));
+    return kept.length ? { acceptableAnswers: kept } : {};
+  }
+  if (d.itemType === 'NUMBER_ENTRY' || d.itemType === 'RATING') {
+    return {
+      ...(d.acceptableMin.trim() ? { acceptableMin: Number(d.acceptableMin) } : {}),
+      ...(d.acceptableMax.trim() ? { acceptableMax: Number(d.acceptableMax) } : {}),
+    };
+  }
+  return {};
 };
 
 const buildItemPayloads = (itemDrafts: ItemDraft[]): CreateChecklistDefinitionItemPayload[] =>
@@ -98,6 +120,7 @@ const buildItemPayloads = (itemDrafts: ItemDraft[]): CreateChecklistDefinitionIt
       } : {}),
       ...(d.itemType === 'QR_SCAN' ? { qrExpectedValue: d.qrExpectedValue.trim() || undefined } : {}),
       ...(d.itemType === 'CASH_TALLY' ? { cashExpectedAmount: d.cashExpectedAmount.trim() ? Number(d.cashExpectedAmount) : undefined } : {}),
+      ...acceptablePayload(d),
       ...(d.itemType === 'SIGNATURE' || d.itemType === 'DUAL_SIGNATURE' ? { signatureLabels: SIGNATURE_LABELS[d.itemType] } : {}),
       ...((d.yesActions.length || d.noActions.length) && (d.itemType === 'YES_NO' || d.itemType === 'PASS_FAIL') ? {
         yesActions: d.yesActions,

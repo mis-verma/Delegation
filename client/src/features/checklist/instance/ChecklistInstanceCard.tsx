@@ -1,4 +1,6 @@
 import { Link } from 'react-router';
+import { runScores } from '../checklistCompliance';
+import { complianceToneClass } from '../checklistDisplay';
 import { StatusChip } from '@/components/statusChip';
 import { IconChip } from '../../../components';
 import {
@@ -19,10 +21,10 @@ interface ChecklistInstanceCardProps {
 
 
 export const ChecklistInstanceCard = ({ instance }: ChecklistInstanceCardProps) => {
-  const total = instance.items.length;
-  const done = instance.items.filter(i => i.isDone).length;
-  const progress = total ? Math.round((done / total) * 100) : 0;
-  const isComplete = total > 0 && done === total;
+  const rawTotal = instance.items.length;
+  const isComplete = rawTotal > 0 && instance.items.every(i => i.isDone);
+  // "Not applicable" questions are neutral: out of both the done count and the total.
+  const { done, total, completion: progress, compliance } = runScores(instance.items);
   const overdue = isInstanceOverdue(instance, isComplete);
   const deadlineTime = formatDeadlineTime(instance);
   const verification = VERIFICATION_CHIP[instance.verificationStatus];
@@ -62,6 +64,11 @@ export const ChecklistInstanceCard = ({ instance }: ChecklistInstanceCardProps) 
           <span className="text-[11px] text-text-muted font-medium">{done}/{total}</span>
         </span>
       </div>
+      {compliance !== null && (
+        <p className="text-[11px] font-medium text-text-muted">
+          Compliance <span className={`font-display font-bold tabular-nums ${complianceToneClass(compliance)}`}>{compliance}%</span>
+        </p>
+      )}
     </Link>
   );
 };

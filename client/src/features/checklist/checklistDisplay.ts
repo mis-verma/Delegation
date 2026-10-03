@@ -242,3 +242,7 @@ export const isFlaggedAnswer = (item: FlaggableItem) => {
   if (item.booleanAnswer === 'YES') return item.yesActions.length > 0;
   return false;
 };
+
+// Colour for a compliance %: green when healthy, amber when slipping, red when poor.
+export const complianceToneClass = (percent: number): string =>
+  percent >= 90 ? 'text-success' : percent >= 70 ? 'text-warning' : 'text-danger';

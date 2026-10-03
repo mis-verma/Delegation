@@ -164,6 +164,10 @@ export const checklistInstanceItems = mysqlTable(
     secondSignatureValue: text('secondSignatureValue'), 
     qrExpectedValue: varchar('qrExpectedValue', { length: 191 }),
     cashExpectedAmount: float('cashExpectedAmount'),
+    // Copied from the checklist question (see ChecklistDefinitionItem.acceptableAnswers).
+    acceptableAnswers: json('acceptableAnswers').$type<string[]>(),
+    acceptableMin: float('acceptableMin'),
+    acceptableMax: float('acceptableMax'),
     // Mirrors ChecklistDefinitionItem's two-branch model — copied in at generation time (see
     // checklistInstanceGenerator.job.ts) so this instance keeps the rule even if the definition
     // is edited later.
@@ -178,6 +182,9 @@ export const checklistInstanceItems = mysqlTable(
     // done for progress and approval, skips the item's own value/photo rules, and always carries
     // a reason in `remarks` so the reviewer sees why it was skipped.
     isNotApplicable: boolean('isNotApplicable').notNull().default(false),
+    // Why a reviewer sent THIS question back (see sendBack in checklistInstance.service.ts). Shown on
+    // the question until it is completed again, which clears it.
+    sendBackNote: text('sendBackNote'),
     // The checklist question this run's question was stamped from (ChecklistDefinitionItem.id). It
     // lets an edit to the checklist reach a run that's already started: the run's question is found
     // again even if it was renamed or moved, instead of looking like one question removed and

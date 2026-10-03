@@ -182,6 +182,12 @@ export const checklistDefinitionItems = mysqlTable(
     signatureLabels: json('signatureLabels').$type<string[]>(),
     qrExpectedValue: varchar('qrExpectedValue', { length: 191 }),
     cashExpectedAmount: float('cashExpectedAmount'),
+    // "Acceptable answer": what counts as a GOOD answer, for the compliance %. Separate from whether
+    // the question was completed. YES_NO/PASS_FAIL: ["YES"] or ["NO"]; choice types: the good
+    // options; NUMBER_ENTRY/RATING: acceptableMin/Max (either may be empty). No rule = not scored.
+    acceptableAnswers: json('acceptableAnswers').$type<string[]>(),
+    acceptableMin: float('acceptableMin'),
+    acceptableMax: float('acceptableMax'),
     // Two independent action sets, one per possible Yes/No answer — a single item can require
     // e.g. a photo when answered Yes AND a reason when answered No, both active at once. An empty/
     // null array means no rule for that branch.

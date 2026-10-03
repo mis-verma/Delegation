@@ -50,6 +50,12 @@ export const verifyChecklistInstanceSchema = z.object({
     path: ["note"],
 })
 
+// Reviewer sends back only the listed questions (not the whole checklist), with what to fix.
+export const sendBackChecklistInstanceSchema = z.object({
+    itemIds: z.array(z.string().min(1)).min(1, "Pick at least one question.").max(200),
+    note: z.string().trim().min(1, "Say what needs fixing.").max(1000),
+})
+
 export type SetChecklistInstanceItemDoneInput = z.infer<typeof setChecklistInstanceItemDoneSchema>
 export type UploadChecklistInstanceImageInput = z.infer<typeof uploadChecklistInstanceImageSchema>
 export type VerifyChecklistInstanceInput = z.infer<typeof verifyChecklistInstanceSchema>
@@ -83,4 +89,10 @@ export const listChecklistInstancesQuerySchema = z.object({
 export const listPendingVerificationQuerySchema = z.object({
     page: z.coerce.number().int().min(1).optional(),
     limit: z.coerce.number().int().min(1).max(200).optional(),
+})
+
+// Monday of the week to report on (org-local YYYY-MM-DD); anything that is not a real day is a 400.
+export const weeklyReportQuerySchema = z.object({
+    weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date like 2026-09-28").refine((d) => !Number.isNaN(Date.parse(d+"T00:00:00Z")), "That is not a real date"),
+    storeId: z.string().min(1).optional(),
 })

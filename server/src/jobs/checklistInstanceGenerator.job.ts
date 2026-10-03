@@ -64,6 +64,9 @@ type GenerationItem = {
     signatureLabels: string[] | null
     qrExpectedValue: string | null
     cashExpectedAmount: number | null
+    acceptableAnswers: string[] | null
+    acceptableMin: number | null
+    acceptableMax: number | null
     yesActions: (typeof checklistDefinitionItems.$inferSelect)["yesActions"]
     noActions: (typeof checklistDefinitionItems.$inferSelect)["noActions"]
     auditUserIds: string[]
@@ -203,6 +206,9 @@ const definitionConfig = (item: GenerationItem) => ({
     signatureLabels: item.signatureLabels,
     qrExpectedValue: item.qrExpectedValue,
     cashExpectedAmount: item.cashExpectedAmount,
+    acceptableAnswers: item.acceptableAnswers,
+    acceptableMin: item.acceptableMin,
+    acceptableMax: item.acceptableMax,
     yesActions: item.yesActions,
     noActions: item.noActions,
 })

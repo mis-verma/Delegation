@@ -35,6 +35,7 @@ export const cloneItemDraft = (draft: ItemDraft, patch: Partial<ItemDraft> = {})
   accessoriesFemale: [...draft.accessoriesFemale],
   accessoriesMale: [...draft.accessoriesMale],
   options: [...draft.options],
+  acceptableAnswers: [...draft.acceptableAnswers],
   yesActions: [...draft.yesActions],
   noActions: [...draft.noActions],
   ...patch,

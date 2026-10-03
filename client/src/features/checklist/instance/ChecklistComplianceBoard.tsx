@@ -1,4 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { runScores } from '../checklistCompliance';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { PageNav } from '../../../components';
 import { Link } from 'react-router';
@@ -33,10 +34,12 @@ interface ComplianceRowProps {
 // completedBy) — the closest honest signal this schema supports for "did this person do their
 // part," since items are completable by any assignee, not owned individually.
 const ComplianceRow = ({ instance, storeName, nameById }: ComplianceRowProps) => {
+  const rawDone = instance.items.filter(i => i.isDone).length;
+  const status = instanceProgressStatus(rawDone, instance.items.length);
+  const done = rawDone;
   const total = instance.items.length;
-  const done = instance.items.filter(i => i.isDone).length;
-  const status = instanceProgressStatus(done, total);
-  const progress = total ? Math.round((done / total) * 100) : 0;
+  // Percent leaves "not applicable" questions out of both sides; the counts below stay raw.
+  const progress = runScores(instance.items).completion;
   const overdue = isInstanceOverdue(instance, status === 'COMPLETED');
   const deadlineTime = formatDeadlineTime(instance);
   const flaggedItems = instance.items.filter(isFlaggedAnswer);

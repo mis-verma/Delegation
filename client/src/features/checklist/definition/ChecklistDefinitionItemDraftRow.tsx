@@ -31,6 +31,11 @@ export type ItemDraft = {
   gpsRadiusMeters: string;
   qrExpectedValue: string;
   cashExpectedAmount: string;
+  // "Good answer" rule for the compliance %. Yes/No and choice types use acceptableAnswers; number
+  // and rating use the min/max range. All empty = the question isn't scored.
+  acceptableAnswers: string[];
+  acceptableMin: string;
+  acceptableMax: string;
   // Two independent action sets — one per possible Yes/No answer — so both can be armed on the
   // same item at once (e.g. Yes requires a photo AND No requires a reason).
   yesActions: ChecklistConditionalAction[];
@@ -60,6 +65,9 @@ export const emptyItemDraft = (): ItemDraft => ({
   gpsRadiusMeters: '',
   qrExpectedValue: '',
   cashExpectedAmount: '',
+  acceptableAnswers: [],
+  acceptableMin: '',
+  acceptableMax: '',
   yesActions: [],
   noActions: [],
 });

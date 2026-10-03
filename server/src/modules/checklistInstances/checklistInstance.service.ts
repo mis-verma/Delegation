@@ -11,6 +11,7 @@ import {
     checklistDefinitions,
     users,
     stores,
+    holidays,
     CHECKLIST_RECURRENCES,
     CHECKLIST_VERIFICATION_STATUSES,
 } from "../../db/schema/index.js"
@@ -940,6 +941,122 @@ export const checklistInstanceService = {
         return { data, meta: buildMeta(p, total) }
     },
 
+    /**
+     * Weekly fill report: one row per daily checklist per store, one cell per weekday (Mon-Sun).
+     * A cell is how a day's run went: done on time, done late, missed (past its cutoff and not
+     * filled), still open, a holiday, or no run (day off / not yet). Counts only, no hydration.
+     * ADMIN/PC see every store; MANAGER/SENIOR only runs whose assignees sit in their department.
+     * The week rate is runs filled on time / runs that were due, so open, off and holiday days
+     * never pull it down. `weekStart` is the Monday, as an org-local YYYY-MM-DD.
+     */
+    async weeklyReport(user: AccessTokenPayload, weekStart: string, storeId?: string) {
+        const startMs = Date.parse(`${weekStart}T00:00:00.000Z`)
+        const days = Array.from({ length: 7 }, (_, i) => new Date(startMs + i * 86_400_000).toISOString().slice(0, 10))
+        const empty = { weekStart, days, holidays: {} as Record<string, string>, rows: [], summary: { due: 0, onTime: 0, late: 0, missed: 0, rate: null as number | null } }
+
+        const conditions = [
+            eq(checklistInstances.recurrence, "DAILY"),
+            gte(checklistInstances.periodStart, new Date(startMs)),
+            lte(checklistInstances.periodStart, new Date(startMs + 6 * 86_400_000)),
+            parentNotDeletedExpr,
+        ]
+        if (storeId) conditions.push(eq(checklistInstances.storeId, storeId))
+        if (user.role !== "ADMIN" && user.role !== "PC") {
+            if (!isHod(user) || !user.departmentId) return empty
+            const ids = await instanceIdsForDepartment(user.departmentId)
+            if (!ids.length) return empty
+            conditions.push(inArray(checklistInstances.id, ids))
+        }
+
+        const runs = await db.select({
+            id: checklistInstances.id,
+            definitionId: checklistInstances.definitionId,
+            title: checklistInstances.title,
+            storeId: checklistInstances.storeId,
+            periodStart: checklistInstances.periodStart,
+            periodEnd: checklistInstances.periodEnd,
+            cutoffTime: checklistInstances.cutoffTime,
+            total: sql<number>`COUNT(${checklistInstanceItems.id})`,
+            done: sql<number>`COALESCE(SUM(${checklistInstanceItems.isDone}), 0)`,
+            lastDoneAt: sql<Date | null>`MAX(${checklistInstanceItems.completedAt})`.mapWith(checklistInstanceItems.completedAt),
+        })
+            .from(checklistInstances)
+            .leftJoin(checklistInstanceItems, eq(checklistInstanceItems.instanceId, checklistInstances.id))
+            .where(and(...conditions))
+            .groupBy(
+                checklistInstances.id, checklistInstances.definitionId, checklistInstances.title, checklistInstances.storeId,
+                checklistInstances.periodStart, checklistInstances.periodEnd, checklistInstances.cutoffTime,
+            )
+        if (!runs.length) return empty
+
+        const holidayRows = await db.select({ date: holidays.date, name: holidays.name }).from(holidays).where(inArray(holidays.date, days))
+        const holidayByDate = Object.fromEntries(holidayRows.map((h) => [h.date, h.name]))
+        const storeIds = [...new Set(runs.map((r) => r.storeId))]
+        const storeNames = new Map((await db.select({ id: stores.id, name: stores.name }).from(stores).where(inArray(stores.id, storeIds))).map((s) => [s.id, s.name]))
+
+        const offsetMs = env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000
+        const now = Date.now()
+        const today = new Date(now + offsetMs).toISOString().slice(0, 10)
+        // periodStart is the org-local day written as UTC midnight, so "day + cutoff" minus the org's
+        // offset is the real instant it's due. No cutoff = the end of that day.
+        const deadlineOf = (r: { periodStart: Date; periodEnd: Date; cutoffTime: string | null }) => {
+            if (!r.cutoffTime) return r.periodEnd.getTime() - offsetMs
+            const [h, m] = r.cutoffTime.split(":").map(Number)
+            return r.periodStart.getTime() + (h * 60 + m) * 60_000 - offsetMs
+        }
+
+        type CellState = "done" | "late" | "missed" | "open" | "holiday" | "off" | "upcoming"
+        const grouped = new Map<string, { definitionId: string; name: string; storeId: string; byDay: Map<string, typeof runs[number]> }>()
+        for (const r of runs) {
+            const key = `${r.definitionId}|${r.storeId}`
+            const g = grouped.get(key) ?? { definitionId: r.definitionId, name: r.title, storeId: r.storeId, byDay: new Map() }
+            g.byDay.set(r.periodStart.toISOString().slice(0, 10), r)
+            g.name = r.title
+            grouped.set(key, g)
+        }
+
+        const totals = { due: 0, onTime: 0, late: 0, missed: 0 }
+        const rows = [...grouped.values()].map((g) => {
+            let due = 0, onTime = 0
+            const cells = days.map((date) => {
+                const r = g.byDay.get(date)
+                if (!r) {
+                    const state: CellState = holidayByDate[date] ? "holiday" : date > today ? "upcoming" : "off"
+                    return { date, state, runId: null as string | null, done: 0, total: 0 }
+                }
+                const total = Number(r.total), done = Number(r.done)
+                const complete = total > 0 && done === total
+                const deadline = deadlineOf(r)
+                let state: CellState
+                if (complete) state = r.lastDoneAt && r.lastDoneAt.getTime() > deadline ? "late" : "done"
+                else state = now > deadline ? "missed" : "open"
+                if (state === "done" || state === "late" || state === "missed") due++
+                if (state === "done") onTime++
+                if (state === "done") totals.onTime++
+                else if (state === "late") totals.late++
+                else if (state === "missed") totals.missed++
+                return { date, state, runId: r.id, done, total }
+            })
+            totals.due += due
+            return {
+                definitionId: g.definitionId,
+                name: g.name,
+                storeId: g.storeId,
+                storeName: storeNames.get(g.storeId) ?? "Store",
+                cells,
+                rate: due ? Math.round((onTime / due) * 100) : null,
+            }
+        }).sort((a, b) => a.name.localeCompare(b.name) || a.storeName.localeCompare(b.storeName))
+
+        return {
+            weekStart,
+            days,
+            holidays: holidayByDate,
+            rows,
+            summary: { ...totals, rate: totals.due ? Math.round((totals.onTime / totals.due) * 100) : null },
+        }
+    },
+
     async getById(id: string, user: AccessTokenPayload) {
         const instance = await getPopulatedInstanceById(id)
         if (!instance) throw AppError.notFound("Checklist instance not found")
@@ -1056,6 +1173,8 @@ export const checklistInstanceService = {
         // Any save that isn't an explicit N/A (a real completion or a reopen) clears the flag, so
         // reopening an N/A item puts it back to a normal, answerable step.
         patch.isNotApplicable = markingNotApplicable
+        // Completing a question again answers whatever the reviewer sent it back for.
+        if (isDone) patch.sendBackNote = null
 
         // Validators need to see the patched values (e.g. a just-submitted conditionalReasonValue)
         // the same way the original code validated against the already-`.save()`d in-memory
@@ -1183,6 +1302,63 @@ export const checklistInstanceService = {
             storeName: r.storeName ?? null,
             waitingSince: r.updatedAt.toISOString(),
         }))
+    },
+
+    /**
+     * Send back only the questions that weren't done properly, instead of the whole checklist. The
+     * reviewer (same people who can approve: ADMIN/PC, the department's MANAGER/SENIOR, a named
+     * reviewer) picks the questions and says what to fix. Only those reopen, for whoever fills the
+     * checklist in; an audit question reopens all its people. Everything else stays done, the run goes
+     * back to "sent back" and returns to review once the reopened questions are completed again
+     * (syncVerificationStatus). A reviewer action, so it bypasses the "only an admin can reopen" rule.
+     */
+    async sendBack(id: string, input: { itemIds: string[]; note: string }, user: AccessTokenPayload) {
+        const [instance] = await db.select().from(checklistInstances).where(eq(checklistInstances.id, id)).limit(1)
+        if (!instance) throw AppError.notFound("Checklist instance not found")
+        if (instance.verificationStatus !== "PENDING_APPROVAL") {
+            throw AppError.badRequest("Only a checklist that's waiting for approval can have questions sent back.")
+        }
+
+        const assigneeLinks = await db.select({ userId: checklistInstanceAssignees.userId }).from(checklistInstanceAssignees).where(eq(checklistInstanceAssignees.instanceId, id))
+        const assigneeDepartmentIds = await getDepartmentIdsForUserIds(assigneeLinks.map((l) => l.userId))
+        const reviewerLinks = await db.select({ userId: checklistInstanceReviewers.userId }).from(checklistInstanceReviewers).where(eq(checklistInstanceReviewers.instanceId, id))
+        assertCanVerify(assigneeDepartmentIds, reviewerLinks.map((l) => l.userId), user)
+
+        const wanted = [...new Set(input.itemIds)]
+        const items = await db.select().from(checklistInstanceItems)
+            .where(and(eq(checklistInstanceItems.instanceId, id), inArray(checklistInstanceItems.id, wanted)))
+        if (items.length !== wanted.length) throw AppError.badRequest("Some of those questions aren't on this checklist.")
+
+        const now = new Date()
+        const note = input.note.trim()
+        await db.transaction(async (tx) => {
+            await tx.update(checklistInstanceItems).set({
+                isDone: false, isNotApplicable: false, completedAt: null, completedBy: null, sendBackNote: note, updatedAt: now,
+            }).where(inArray(checklistInstanceItems.id, wanted))
+            const auditItemIds = items.filter((i) => i.itemType === "AUDIT").map((i) => i.id)
+            if (auditItemIds.length) {
+                await tx.update(checklistInstanceItemSubmissions).set({ isDone: false, isNotApplicable: false, completedAt: null, updatedAt: now })
+                    .where(inArray(checklistInstanceItemSubmissions.itemId, auditItemIds))
+            }
+            await tx.update(checklistInstances).set({
+                verificationStatus: "REJECTED",
+                verificationNote: note,
+                rejectionCount: sql`${checklistInstances.rejectionCount} + 1`,
+                updatedAt: now,
+            }).where(eq(checklistInstances.id, id))
+        })
+
+        const labels = items.map((i) => i.label).join(", ")
+        notificationService
+            .notifyChecklistVerificationResult({ _id: instance.id, title: instance.title, assigneeIds: assigneeLinks.map((l) => l.userId) }, "REJECT", `${labels}: ${note}`)
+            .catch((err) => console.error("Failed to notify checklist send-back:", err))
+        await auditService.record({
+            entityType: "ChecklistInstance", entityId: id, action: "SEND_BACK", actorId: user.sub,
+            before: { verificationStatus: instance.verificationStatus },
+            after: { verificationStatus: "REJECTED", sentBackItemIds: wanted, note },
+        })
+        emitChecklistEvent("checklist-instance:updated", { storeId: instance.storeId }, { instanceId: id })
+        return getPopulatedInstanceById(id)
     },
 
     async verify(id: string, input: VerifyChecklistInstanceInput, user: AccessTokenPayload) {

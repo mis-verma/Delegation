@@ -9,7 +9,7 @@ import {
   type ChecklistRecurrence,
   type LiveRunsSummary,
 } from '../../api/checklistDefinitions';
-import { checklistInstanceApi, type ChecklistInstance, type ChecklistInstanceStatus, type ChecklistVerificationStatus, type VerifyChecklistInstancePayload } from '../../api/checklistInstances';
+import { checklistInstanceApi, type ChecklistInstance, type ChecklistInstanceStatus, type ChecklistVerificationStatus, type VerifyChecklistInstancePayload, type SendBackChecklistInstancePayload } from '../../api/checklistInstances';
 import { checklistInstanceItemSubmissionApi } from '../../api/checklistInstanceItemSubmissions';
 import type { ChecklistInstanceItemSubmissionAccessory } from '../../api/checklistInstances';
 import type { CaptureMethod } from '../../api/ticket';
@@ -254,6 +254,16 @@ export const useInstancesForDefinitionQuery = (definitionId: string, paging: { p
 // status filters are picked, across every checklist definition (not scoped to one, unlike
 // useInstancesForDefinitionQuery above).
 /** Returns the whole `{ data, meta }` page — the board needs `meta.totalPages` for its pager. */
+export const useWeeklyReportQuery = (weekStart: string, storeId?: string) => {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: ['checklist-instances', 'weekly-report', weekStart, storeId ?? ''],
+    queryFn: () => checklistInstanceApi.getWeeklyReport(weekStart, storeId).then(r => r.data),
+    enabled: !!token,
+    retry: handleQueryRetry,
+  });
+};
+
 export const useChecklistInstancesBoardQuery = (
   filter: { storeId?: string; assigneeId?: string; status?: ChecklistInstanceStatus; from?: string; to?: string; includeDeleted?: boolean; page?: number; limit?: number } = {},
 ) => {
@@ -446,6 +456,16 @@ export const useVerifyChecklistInstanceMutation = () =>
     invalidateKeys: [['checklist-instances']],
     successMessage: (updated) => (updated.verificationStatus === 'APPROVED' ? 'Checklist verified' : 'Checklist sent back'),
     errorFallback: "Couldn't verify checklist",
+  });
+
+export const useSendBackChecklistInstanceMutation = () =>
+  useEntityMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: SendBackChecklistInstancePayload }) =>
+      checklistInstanceApi.sendBack(id, payload).then(r => r.data),
+    setDetailData: (updated) => ({ key: KEYS.instanceDetail(updated.id), data: updated }),
+    invalidateKeys: [['checklist-instances']],
+    successMessage: 'Sent back to the team',
+    errorFallback: "Couldn't send those questions back",
   });
 
 export { useDepartmentsQuery, useStoresQuery, useAssignableUsersQuery } from '../tickets/hook';

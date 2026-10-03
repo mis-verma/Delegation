@@ -44,6 +44,10 @@ export type ChecklistDefinitionItem = {
   signatureLabels: string[];
   qrExpectedValue: string | null;
   cashExpectedAmount: number | null;
+  /** "Good answer" rule for the compliance %: YES/NO, the good options, or a good number range. */
+  acceptableAnswers: string[] | null;
+  acceptableMin: number | null;
+  acceptableMax: number | null;
   // Two independent action sets — one per possible Yes/No answer — so an item can require e.g. a
   // photo when answered Yes AND a reason when answered No, both active at once.
   yesActions: ChecklistConditionalAction[];
@@ -121,6 +125,9 @@ export type CreateChecklistDefinitionItemPayload = {
   signatureLabels?: string[];
   qrExpectedValue?: string;
   cashExpectedAmount?: number;
+  acceptableAnswers?: string[];
+  acceptableMin?: number;
+  acceptableMax?: number;
   yesActions?: ChecklistConditionalAction[];
   noActions?: ChecklistConditionalAction[];
 };
