@@ -1,8 +1,9 @@
 import type { Request, Response } from "express"
 import { checklistInstanceService, type InstanceRecurrence, type InstanceVerificationStatus } from "./checklistInstance.service.js"
-import { setChecklistInstanceItemDoneSchema, verifyChecklistInstanceSchema, sendBackChecklistInstanceSchema, checklistInstanceComplianceReportQuerySchema, listChecklistInstancesQuerySchema, listPendingVerificationQuerySchema, weeklyReportQuerySchema } from "./checklistInstance.validation.js"
+import { setChecklistInstanceItemDoneSchema, verifyChecklistInstanceSchema, sendBackChecklistInstanceSchema, checklistInstanceComplianceReportQuerySchema, checklistInstanceByStoreReportQuerySchema, listChecklistInstancesQuerySchema, listPendingVerificationQuerySchema, weeklyReportQuerySchema } from "./checklistInstance.validation.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
-import { resolveReportScope, resolveStoreIdForDepartment } from "../../utils/reportScope.js"
+import { resolveChecklistReportScope } from "./checklistReportScope.js"
+import { checklistReportService } from "./checklistReport.service.js"
 
 // "Assigned with" (MyChecklists' Options) sends a comma-separated list of user ids — a single
 // scalar query param, same convention as every other filter on this controller, rather than
@@ -179,22 +180,27 @@ export const checklistInstanceController = {
     }),
 
     // GET /checklist-instances/reports/compliance?groupBy=&storeId=&from=&to=
-    // ADMIN/PC may pass any storeId (or none, for org-wide). SENIOR is forced to their own
-    // store regardless of what's in the query — a SENIOR must never be able to read another
-    // store's data by passing a different storeId. MANAGER has no store of their own, but their
-    // department can optionally have a home store (Department.storeId) — resolve it so a
-    // department head's checklist view isn't just org-wide.
+    // ADMIN/PC may pass any storeId (or none, for org-wide). MANAGER/SENIOR (both are department
+    // heads) only see runs that have an assignee in their own department, the same rule History
+    // uses; a head with no department fails CLOSED and gets an empty series, never org-wide rows.
     complianceReport: asyncHandler(async (req: Request, res: Response) => {
         const query = checklistInstanceComplianceReportQuerySchema.parse(req.query)
-        const { storeId: baseStoreId } = resolveReportScope(req.user!, { storeId: query.storeId })
-        const storeId = req.user!.role === "MANAGER" && req.user!.departmentId
-            ? await resolveStoreIdForDepartment(req.user!.departmentId)
-            : baseStoreId;
-        // Opt-in, ADMIN/PC only — same "show me deleted-checklist history anyway" toggle as
+        const scope = resolveChecklistReportScope(req.user!, query.storeId)
+        // Opt-in, ADMIN/PC only: same "show me deleted-checklist history anyway" toggle as
         // list/summary above, off by default so this org-wide trend doesn't include it silently.
         const isOrgWide = req.user!.role === "ADMIN" || req.user!.role === "PC"
         const includeDeleted = isOrgWide && (req.query.includeDeleted === "1" || req.query.includeDeleted === "true")
-        const data = await checklistInstanceService.complianceReport(query.groupBy, storeId, query.from, query.to, includeDeleted)
+        const data = await checklistInstanceService.complianceReport(scope, { groupBy: query.groupBy, from: query.from, to: query.to, includeDeleted })
+        res.json({ success: true, data })
+    }),
+
+    // GET /checklist-instances/reports/by-store?from=&to=
+    // One row per active store. ADMIN/PC: every store. MANAGER/SENIOR: only runs with an assignee in
+    // their department (same scope as the trend report above). Empty, never org-wide, when unscoped.
+    byStoreReport: asyncHandler(async (req: Request, res: Response) => {
+        const query = checklistInstanceByStoreReportQuerySchema.parse(req.query)
+        const scope = resolveChecklistReportScope(req.user!)
+        const data = await checklistReportService.byStoreReport(scope, query)
         res.json({ success: true, data })
     }),
 }

@@ -6,8 +6,8 @@ import { resolveReportScope } from "../../utils/reportScope.js"
 
 export const ticketController = {
     list : asyncHandler( async ( req : Request , res : Response) => {
-        const { page , limit, status, assigneeId, overdue, from, to, dateField } = paginatioinSchema.parse(req.query);
-        const result = await ticketService.list(req.user!, page , limit, status, assigneeId, overdue, from, to, dateField)
+        const { page , limit, status, assigneeId, overdue, from, to, dateField, sla } = paginatioinSchema.parse(req.query);
+        const result = await ticketService.list(req.user!, page , limit, status, assigneeId, overdue, from, to, dateField, sla)
         res.json({ success : true , ...result})
     }),
 

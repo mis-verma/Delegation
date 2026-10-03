@@ -148,7 +148,7 @@ export const usePublishDraftTaskMutation = () =>
 // Checklist completion rate over time — role-scoped server-side (ADMIN/PC get the org-wide
 // or department view, everyone else only ever sees their own tasks). Powers the dashboard's
 // Monthly Target gauge, and (via departmentId/userId) the Team Overview drill-down.
-export const useComplianceReportQuery = (groupBy: 'hour' | 'day' | 'week' | 'month' | 'year' = 'month', from?: string, to?: string, departmentId?: string, userId?: string) => {
+export const useComplianceReportQuery = (groupBy: 'day' | 'week' | 'month' | 'year' = 'month', from?: string, to?: string, departmentId?: string, userId?: string) => {
     const { token } = useAuth();
     return useQuery({
         queryKey: ['tasks', 'compliance', groupBy, from, to, departmentId, userId],

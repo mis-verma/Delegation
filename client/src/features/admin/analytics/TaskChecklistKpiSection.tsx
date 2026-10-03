@@ -1,71 +1,72 @@
 import { ClipboardCheck, Camera } from 'lucide-react';
-import { useNavigate } from 'react-router';
 import { KpiSectionShell } from './KpiSectionShell';
-import { ReportTrendChart } from './ReportTrendChart';
 import { useTaskComplianceReportQuery } from './useAnalyticsQueries';
-import { latestWithTrend } from './analyticsDisplay';
+import { latestWithTrend, formatPercent } from './analyticsDisplay';
 import type { GroupBy } from './GroupByControl';
 
 interface TaskChecklistKpiSectionProps {
   groupBy: GroupBy;
   from?: string;
   to?: string;
-  /** /tasks/team (this card's click destination) is PC/ADMIN-gated — see the onClick comment
-   *  below for why a plain navigate is the right destination here at all. */
+  /** /tasks/team (the org-wide destination) is PC/ADMIN-gated. */
   isOrgWideRole: boolean;
 }
 
+const NOTHING_COUNTED = 'Nothing counted in this period';
+
 export const TaskChecklistKpiSection = ({ groupBy, from, to, isOrgWideRole }: TaskChecklistKpiSectionProps) => {
-  const navigate = useNavigate();
-  const { data: rows, isPending, isError } = useTaskComplianceReportQuery(groupBy, from, to);
+  const { data: rows, isPending, isError, isFetching, refetch } = useTaskComplianceReportQuery(groupBy, from, to);
   const completion = latestWithTrend(rows, 'completionRate', 'rate');
   const quality = latestWithTrend(rows, 'qualityRate', 'rate');
-  // Both cards are rates averaged across every delegation's own checklist items — no literal
-  // per-item record list exists to open in a DrilldownModal without fabricating one (same call
-  // AnalyticsSummaryStrip's own "Checklist completion"/"Proof compliance" cards already made).
-  // /tasks/team is the real record list these rates are computed from, so that's the honest
-  // destination — gated to ADMIN/PC since that's the only role that can reach it.
-  const onClick = isOrgWideRole ? () => navigate('/tasks/team') : undefined;
+  // Both figures are rates over the checklist items inside delegations, so there is no single
+  // record list to open. The delegation list they come from is the honest destination: the team
+  // view for ADMIN/PC, the viewer's own reach for everyone else.
+  const href = isOrgWideRole ? '/tasks/team' : '/tasks';
 
   return (
     <KpiSectionShell
       icon={ClipboardCheck}
-      title="Delegation Checklists"
-      description="Checklist-item completion and photo-quality compliance across every delegation."
+      title="Delegations"
+      description="How many checklist items inside delegations are done, and how many of the ones that need a photo have one."
       isPending={isPending}
       isError={isError}
-      errorMessage="Failed to load delegation checklist data."
+      isFetching={isFetching}
+      errorMessage="Could not load the delegation figures."
+      onRetry={() => void refetch()}
       from={from}
       to={to}
       cards={[
         {
           icon: ClipboardCheck,
           iconTint: 'text-primary-600 dark:text-primary-400',
-          label: 'Completion rate',
-          value: completion.value != null ? `${completion.value}%` : '—',
+          label: 'Delegation checklist items',
+          value: formatPercent(completion.value),
+          hasData: completion.value != null,
+          noDataText: NOTHING_COUNTED,
           trend: completion.trend,
-          onClick,
+          href,
         },
         {
           icon: Camera,
           iconTint: 'text-success',
-          label: 'Photo quality rate',
-          value: quality.value != null ? `${quality.value}%` : '—',
+          label: 'Photo quality',
+          value: formatPercent(quality.value),
+          hasData: quality.value != null,
+          noDataText: 'No items need a photo yet',
           trend: quality.trend,
-          onClick,
+          href,
         },
       ]}
-      chart={
-        <ReportTrendChart
-          data={rows ?? []}
-          series={[
-            { key: 'completionRate', label: 'Completion %', color: 'var(--color-primary-500)' },
-            { key: 'qualityRate', label: 'Quality %', color: 'var(--color-success)' },
-          ]}
-          valueSuffix="%"
-          yDomain={[0, 100]}
-        />
-      }
+      chart={{
+        data: rows ?? [],
+        groupBy,
+        series: [
+          { key: 'completionRate', label: 'Items done', color: 'var(--color-primary-500)' },
+          { key: 'qualityRate', label: 'Photo quality', color: 'var(--color-success)' },
+        ],
+        valueSuffix: '%',
+        yDomain: [0, 100],
+      }}
     />
   );
 };

@@ -14,9 +14,11 @@ interface ReviewActionsProps {
   busy: boolean;
   /** Specifically the approve request, which puts the spinner on the Approve button. */
   approving: boolean;
+  /** Number of questions the reviewer ticked to send back on their own. */
+  pickedCount?: number;
 }
 
-export const ReviewActions = ({ onSendBack, onApprove, busy, approving }: ReviewActionsProps) => (
+export const ReviewActions = ({ onSendBack, onApprove, busy, approving, pickedCount = 0 }: ReviewActionsProps) => (
   <div className="flex items-center gap-2 shrink-0">
     <Button
       size="sm"
@@ -26,12 +28,13 @@ export const ReviewActions = ({ onSendBack, onApprove, busy, approving }: Review
       onClick={onSendBack}
     >
       <CornerUpLeft size={14} aria-hidden />
-      Send back
+      {pickedCount > 0 ? `Send back ${pickedCount} ${pickedCount === 1 ? 'question' : 'questions'}` : 'Send back'}
     </Button>
     <Button
       size="sm"
       className="bg-success text-white hover:bg-success/90 hover:text-white"
-      disabled={busy}
+      disabled={busy || pickedCount > 0}
+      title={pickedCount > 0 ? 'Untick the questions first, or send them back' : undefined}
       isLoading={approving}
       onClick={onApprove}
     >

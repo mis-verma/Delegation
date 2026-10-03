@@ -72,7 +72,9 @@ export const parseTaskTextSchema = z.object({
 })
 
 export const complianceReportQuerySchema = z.object({
-    groupBy : z.enum(["hour", "day", "week", "month", "year"]).default("day"),
+    // 'none' = one bucket named 'range' for the whole from/to window. 'hour' is gone: with no
+    // from/to the server defaults to the last 12 buckets (last 30 days for day), never unbounded.
+    groupBy : z.enum(["day", "week", "month", "year", "none"]).default("day"),
     departmentId : objectId.optional(),
     // Lets an ADMIN/PC drill into one specific person's checklist completion (e.g. the Team
     // Overview page) — ignored for a non-privileged caller, who's always scoped to themselves

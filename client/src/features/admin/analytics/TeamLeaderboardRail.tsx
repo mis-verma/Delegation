@@ -1,9 +1,15 @@
-import { useMemo } from 'react';
-import { Trophy, AlertCircle } from 'lucide-react';
-import { PersonRow, EntityIconTile, Skeleton } from '../../../components';
+import { memo, useId, useMemo } from 'react';
+import { Trophy } from 'lucide-react';
+import { PersonRow, EntityIconTile, EmptyState, InlineError, PANEL_CLASS, Skeleton } from '../../../components';
 import { useDepartmentsQuery } from '../../tickets/hook';
 import { useUsersQuery } from '../hook';
 import { useTicketOwnerStatsQuery, useTaskOwnerStatsQuery } from './useAnalyticsQueries';
+import { formatPercent } from './analyticsDisplay';
+import { MIN_RANK_VOLUME } from './useOwnerRankings';
+
+/** How hard each overdue item pulls a score down, relative to what finishing an item earns. */
+const OVERDUE_PENALTY_PER_100 = 20;
+const LEADERBOARD_SIZE = 5;
 
 interface LeaderRow {
   id: string;
@@ -13,91 +19,93 @@ interface LeaderRow {
 }
 
 interface TeamLeaderboardRailProps {
-  /** Scopes the leaderboard to the same window the page's date-range control set — this rail
-   *  used to ignore it entirely (always all-time), sitting right next to ComplianceGaugeRail
-   *  which does react to the same control, with nothing indicating this one was exempt. */
+  /** Scopes the leaderboard to the same window the page's date-range control set. */
   from?: string;
   to?: string;
 }
 
-// Top-5 org-wide performers by a simple completed-vs-overdue score — moved here from
-// StoresPerformanceSection (same computation, same real data) so it's visible at a glance on the
-// overview page instead of only inside the Stores tab.
-export const TeamLeaderboardRail = ({ from, to }: TeamLeaderboardRailProps) => {
-  const { data: departments = [] } = useDepartmentsQuery();
-  // Real per-user GROUP BY aggregates, not a client-side reduce over a capped page — that
-  // silently mis-scored (or zeroed out) anyone whose tickets/tasks weren't among the org's
-  // newest 100/200 (see ticket.service.ts#ownerStats and task.service.ts#ownerStats). Also moves
-  // the date-range scoping server-side instead of the client's own `inRange` filter.
-  const { data: ticketRows = [], isPending: ticketsPending, isError: ticketsError } = useTicketOwnerStatsQuery('user', from, to);
-  const { data: taskRows = [], isPending: tasksPending, isError: tasksError } = useTaskOwnerStatsQuery('user', from, to);
-  const { data: users = [], isPending: usersPending, isError: usersError } = useUsersQuery(true);
-  const isPending = ticketsPending || tasksPending || usersPending;
-  const isError = ticketsError || tasksError || usersError;
+const LeaderboardRow = memo(({ row, index }: { row: LeaderRow; index: number }) => (
+  <PersonRow index={index} name={row.name} subtitle={row.departmentName} metric={formatPercent(row.score)} />
+));
 
-  const ticketsByUser = useMemo(() => new Map(ticketRows.map((r) => [r.ownerId, r])), [ticketRows]);
-  const tasksByUser = useMemo(() => new Map(taskRows.map((r) => [r.ownerId, r])), [taskRows]);
+// Top 5 people by completed work, less a penalty for work that is overdue and still open. Needs at
+// least MIN_RANK_VOLUME items in the window, and only active people appear.
+export const TeamLeaderboardRail = ({ from, to }: TeamLeaderboardRailProps) => {
+  const headingId = useId();
+  const { data: departments } = useDepartmentsQuery();
+  // Real per-user GROUP BY aggregates, not a reduce over a capped page. The date range is applied
+  // server-side, so this rail follows the same window as everything else on the page.
+  const ticketsQuery = useTicketOwnerStatsQuery('user', from, to);
+  const tasksQuery = useTaskOwnerStatsQuery('user', from, to);
+  const usersQuery = useUsersQuery(true);
+  const isPending = ticketsQuery.isPending || tasksQuery.isPending || usersQuery.isPending;
+  const isError = ticketsQuery.isError || tasksQuery.isError || usersQuery.isError;
+  const isFetching = ticketsQuery.isFetching || tasksQuery.isFetching || usersQuery.isFetching;
+
+  const ticketRows = ticketsQuery.data;
+  const taskRows = tasksQuery.data;
+  const users = usersQuery.data;
+
+  const ticketsByUser = useMemo(() => new Map((ticketRows ?? []).map((r) => [r.ownerId, r])), [ticketRows]);
+  const tasksByUser = useMemo(() => new Map((taskRows ?? []).map((r) => [r.ownerId, r])), [taskRows]);
+  const departmentNames = useMemo(() => new Map((departments ?? []).map((d) => [d.id, d.name])), [departments]);
 
   const leaderboard: LeaderRow[] = useMemo(() => {
-    const departmentName = (id: string | null) => departments.find((d) => d.id === id)?.name ?? '—';
+    const rows: LeaderRow[] = [];
+    for (const u of users ?? []) {
+      if (u.isActive === false) continue;
+      const tasks = tasksByUser.get(u.id);
+      const tickets = ticketsByUser.get(u.id);
+      const total = (tasks?.total ?? 0) + (tickets?.total ?? 0);
+      if (total < MIN_RANK_VOLUME) continue;
 
-    return users
-      .map((u) => {
-        const myTaskStats = tasksByUser.get(u.id);
-        const myTicketStats = ticketsByUser.get(u.id);
-        const taskTotal = myTaskStats?.total ?? 0;
-        const ticketTotal = myTicketStats?.total ?? 0;
-        const totalWork = taskTotal + ticketTotal;
-        if (totalWork === 0) return null;
+      const completed = (tasks?.done ?? 0) + (tickets?.closed ?? 0);
+      const openOverdue = (tasks?.overdueCount ?? 0) + (tickets?.overdueCount ?? 0);
+      const score = Math.max(0, (completed / total) * 100 - (openOverdue / total) * OVERDUE_PENALTY_PER_100);
 
-        const completed = (myTaskStats?.done ?? 0) + (myTicketStats?.closed ?? 0);
-        const overdue = (myTaskStats?.overdueCount ?? 0) + (myTicketStats?.overdueCount ?? 0);
+      rows.push({
+        id: u.id,
+        name: `${u.firstName} ${u.lastName ?? ''}`.trim(),
+        departmentName: (u.departmentId && departmentNames.get(u.departmentId)) || 'No department',
+        score,
+      });
+    }
+    return rows.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name)).slice(0, LEADERBOARD_SIZE);
+  }, [users, tasksByUser, ticketsByUser, departmentNames]);
 
-        const score = Math.round(Math.max(0, (completed / totalWork) * 100 - (overdue / totalWork) * 20));
-
-        return {
-          id: u.id,
-          name: `${u.firstName} ${u.lastName ?? ''}`.trim(),
-          departmentName: departmentName(u.departmentId),
-          score,
-        };
-      })
-      .filter((row): row is LeaderRow => row !== null)
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 5);
-  }, [users, tasksByUser, ticketsByUser, departments]);
+  const retry = () => {
+    for (const q of [ticketsQuery, tasksQuery, usersQuery]) if (q.isError) void q.refetch();
+  };
 
   return (
-    // flex-1, not a natural-height card — this sits in a right rail next to a taller sibling
-    // column (Compliance gauges above it, tabs+chart column beside it); growing to fill the
-    // stretched row height means its own content centers in real space instead of the card
-    // stopping short and leaving a block of bare page background beneath it.
-    <div className="rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface p-5 flex flex-col gap-1 flex-1">
-      <div className="flex items-center gap-2.5 mb-2">
+    // flex-1, not a natural-height card: this sits in a right rail next to a taller column, and
+    // growing to fill that height keeps the content centred instead of leaving bare page below it.
+    <section aria-labelledby={headingId} className={`${PANEL_CLASS} p-4 sm:p-5 flex flex-col gap-3 flex-1`}>
+      <div className="flex items-center gap-2.5">
         <EntityIconTile icon={Trophy} tone="coral" className="size-8 rounded-lg" />
-        <h3 className="text-sm font-display font-bold tracking-wide text-text">Leaderboard</h3>
+        <h2 id={headingId} className="text-sm font-display font-bold text-text">Leaderboard</h2>
       </div>
 
       {isError ? (
-        // Used to fall through to the same "No activity yet." empty state as a genuinely quiet
-        // org — indistinguishable from a failed request.
-        <div className="flex-1 flex items-start gap-2.5 p-3 bg-danger/10 border border-danger/30 rounded-lg">
-          <AlertCircle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
-          <p className="text-xs font-display font-medium text-danger">Couldn&rsquo;t load the leaderboard. Try refreshing.</p>
-        </div>
+        <InlineError message="Could not load the leaderboard." onRetry={retry} />
       ) : isPending ? (
         <div className="flex flex-col gap-2 py-1">
           {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-11 rounded-lg" />)}
         </div>
       ) : leaderboard.length === 0 ? (
-        <p className="flex-1 flex items-center justify-center text-sm font-display text-text-muted text-center">No activity yet.</p>
+        <EmptyState
+          size="compact"
+          icon={Trophy}
+          title="No one is ranked yet"
+          description={`People need at least ${MIN_RANK_VOLUME} tickets or delegations in the period.`}
+        />
       ) : (
-        <div className="flex-1 flex flex-col justify-center gap-1">
+        <div className={`flex-1 flex flex-col justify-center gap-1 transition-opacity motion-reduce:transition-none ${isFetching ? 'opacity-60' : ''}`}>
           {leaderboard.map((row, index) => (
-            <PersonRow key={row.id} index={index} name={row.name} subtitle={row.departmentName} metric={`${row.score}%`} />
+            <LeaderboardRow key={row.id} row={row} index={index} />
           ))}
         </div>
       )}
-    </div>
+    </section>
   );
 };

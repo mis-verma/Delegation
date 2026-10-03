@@ -6,17 +6,22 @@ import type { ChecklistInstanceItem } from '../../api/checklistInstances';
 //  - Compliance: of the answered questions that have an "acceptable answer" rule, how many were
 //    answered well (e.g. the question wanted Yes and they said No = not compliant). Questions with
 //    no rule, not-applicable ones and unanswered ones are not scored at all.
+//    A question a reviewer sent back counts as a FAILED check even if it was redone well later and
+//    even if it has no rule: it was not done right the first time, so it stays deducted.
 
 export type AnswerVerdict = 'good' | 'bad';
 
 type Scorable = Pick<
   ChecklistInstanceItem,
-  'itemType' | 'isDone' | 'isNotApplicable' | 'booleanAnswer' | 'textValue' | 'numericValue' | 'acceptableAnswers' | 'acceptableMin' | 'acceptableMax'
+  'itemType' | 'isDone' | 'isNotApplicable' | 'sendBackCount' | 'booleanAnswer' | 'textValue' | 'numericValue' | 'acceptableAnswers' | 'acceptableMin' | 'acceptableMax'
 >;
 
 // null = this question isn't scored (no rule, not answered yet, or not applicable).
 export const answerVerdict = (item: Scorable): AnswerVerdict | null => {
-  if (!item.isDone || item.isNotApplicable) return null;
+  if (item.isNotApplicable) return null;
+  // Sent back by a reviewer at least once: a failed check, whatever the current answer is.
+  if (item.sendBackCount > 0) return 'bad';
+  if (!item.isDone) return null;
   const accepted = item.acceptableAnswers ?? [];
   switch (item.itemType) {
     case 'YES_NO':

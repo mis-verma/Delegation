@@ -1,8 +1,10 @@
-import { useMemo } from 'react';
-import { Trophy, AlertTriangle, AlertCircle } from 'lucide-react';
-import { Skeleton } from '../../../components';
-import { useOwnerRankings, type RankedRow } from './useOwnerRankings';
+import { memo, useId, useMemo } from 'react';
+import { Link } from 'react-router';
+import { Trophy, AlertTriangle, Building2 } from 'lucide-react';
+import { EmptyState, InlineError, PANEL_CLASS, ENTITY_CARD_CLASS, Skeleton } from '../../../components';
+import { MIN_RANK_VOLUME, NEEDS_ATTENTION_BELOW, rankRows, useOwnerRankings, type RankedRow } from './useOwnerRankings';
 import { useChecklistInstanceComplianceReportQuery } from './useAnalyticsQueries';
+import { formatDuration, formatPercent } from './analyticsDisplay';
 import type { GroupBy } from './GroupByControl';
 
 interface StoresPerformanceSectionProps {
@@ -11,231 +13,220 @@ interface StoresPerformanceSectionProps {
   to?: string;
 }
 
-const rankBadges = (rows: RankedRow[]) => {
-  const scored = rows.filter((r) => r.overall != null);
-  const topId = scored.length >= 2 ? [...scored].sort((a, b) => (b.overall! - a.overall!))[0]?.id : null;
-  const lowId = scored.length >= 2 ? [...scored].sort((a, b) => (a.overall! - b.overall!))[0]?.id : null;
-  return { topId, lowId };
+// Colour follows the figure, but the figure is always written out too, so it never relies on colour alone.
+const GOOD_FROM = 80;
+const rateToneClass = (rate: number | null) => {
+  if (rate == null) return 'text-text-muted';
+  if (rate >= GOOD_FROM) return 'text-success';
+  if (rate >= NEEDS_ATTENTION_BELOW) return 'text-warning';
+  return 'text-danger';
 };
+
+const BADGE_BASE = 'inline-flex items-center gap-1 text-xs font-display font-bold px-1.5 py-0.5 rounded border whitespace-nowrap';
 
 const RankBadge = ({ isTop, isLow }: { isTop: boolean; isLow: boolean }) => {
   if (isTop) {
     return (
-      <span className="inline-flex items-center gap-1 text-[10px] font-display font-bold px-1.5 py-0.5 rounded bg-gradient-to-br from-success/10 to-success/20 border border-success/25 text-success">
-        <Trophy size={10} /> Top
+      <span className={`${BADGE_BASE} bg-success/10 border-success/25 text-success`}>
+        <Trophy size={12} aria-hidden="true" /> Top
       </span>
     );
   }
   if (isLow) {
     return (
-      <span className="inline-flex items-center gap-1 text-[10px] font-display font-bold px-1.5 py-0.5 rounded bg-gradient-to-br from-danger/10 to-danger/20 border border-danger/25 text-danger">
-        <AlertTriangle size={10} /> Needs attention
+      <span className={`${BADGE_BASE} bg-danger/10 border-danger/25 text-danger`}>
+        <AlertTriangle size={12} aria-hidden="true" /> Needs attention
       </span>
     );
   }
   return null;
 };
 
-const RankedTable = ({ title, subtitle, rows, isPending, isError, emptyLabel, nameColumnLabel, secondaryLabel }: {
+interface RankedRowProps {
+  row: RankedRow;
+  isTop: boolean;
+  isLow: boolean;
+  to: string;
+}
+
+const HEAD_CELL = 'font-display font-semibold text-xs text-text-muted px-4 py-3 whitespace-nowrap';
+const NUMBER_CELL = 'px-4 py-3 text-right font-display tabular-nums';
+
+const RankedTableRow = memo(({ row, isTop, isLow, to }: RankedRowProps) => (
+  <tr className="border-t border-border/60 hover:bg-surface-hover/50 transition-colors motion-reduce:transition-none">
+    <th scope="row" className="px-4 py-3 text-left font-display font-medium text-text">
+      <div className="flex items-center gap-2 flex-wrap">
+        <Link to={to} className="rounded hover:text-primary-700 dark:hover:text-primary-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50">
+          {row.name}
+        </Link>
+        <RankBadge isTop={isTop} isLow={isLow} />
+      </div>
+    </th>
+    <td className={`${NUMBER_CELL} font-bold ${rateToneClass(row.overall)}`}>{formatPercent(row.overall)}</td>
+    <td className={`${NUMBER_CELL} ${rateToneClass(row.ticketCompletion)}`}>{formatPercent(row.ticketCompletion)}</td>
+    <td className={`${NUMBER_CELL} ${rateToneClass(row.secondaryRate)}`}>{formatPercent(row.secondaryRate)}</td>
+    <td className={`${NUMBER_CELL} text-text`}>{row.openIssues}</td>
+    <td className={`${NUMBER_CELL} text-text`}>{formatDuration(row.avgTat)}</td>
+    <td className={`${NUMBER_CELL} ${rateToneClass(row.slaMet)}`}>{formatPercent(row.slaMet)}</td>
+  </tr>
+));
+
+const Metric = ({ label, value, toneClass = 'text-text' }: { label: string; value: string | number; toneClass?: string }) => (
+  <div className="flex flex-col gap-0.5">
+    <span className="font-display text-xs text-text-muted">{label}</span>
+    <span className={`font-display font-medium tabular-nums text-sm ${toneClass}`}>{value}</span>
+  </div>
+);
+
+const RankedCard = memo(({ row, isTop, isLow, to, secondaryLabel }: RankedRowProps & { secondaryLabel: string }) => (
+  <Link to={to} className={`${ENTITY_CARD_CLASS} gap-3 min-h-11`}>
+    <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-col items-start gap-1 min-w-0">
+        <p className="font-display font-medium text-text text-sm line-clamp-2 leading-snug">{row.name}</p>
+        <RankBadge isTop={isTop} isLow={isLow} />
+      </div>
+      <span className={`shrink-0 text-sm font-display font-bold tabular-nums ${rateToneClass(row.overall)}`}>{formatPercent(row.overall)}</span>
+    </div>
+    <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+      <Metric label="Tickets closed" value={formatPercent(row.ticketCompletion)} toneClass={rateToneClass(row.ticketCompletion)} />
+      <Metric label={secondaryLabel} value={formatPercent(row.secondaryRate)} toneClass={rateToneClass(row.secondaryRate)} />
+      <Metric label="Open tickets" value={row.openIssues} />
+      <Metric label="Avg time to close" value={formatDuration(row.avgTat)} />
+      <Metric label="Closed on time" value={formatPercent(row.slaMet)} toneClass={rateToneClass(row.slaMet)} />
+    </div>
+  </Link>
+));
+
+interface RankedTableProps {
   title: string;
   subtitle: string;
   rows: RankedRow[];
   isPending: boolean;
   isError: boolean;
+  isFetching: boolean;
+  onRetry: () => void;
   emptyLabel: string;
   nameColumnLabel: string;
   secondaryLabel: string;
-}) => {
-  // Best "Overall" first — "who's top, who's low" reads directly off row order instead of
-  // requiring a mental sort of an unordered list.
-  const sorted = useMemo(() => [...rows].sort((a, b) => (b.overall ?? -Infinity) - (a.overall ?? -Infinity)), [rows]);
-  const { topId, lowId } = rankBadges(sorted);
+  /** Where each row opens: the directory tab that lists this kind of entity. */
+  to: string;
+}
+
+const RankedTable = ({ title, subtitle, rows, isPending, isError, isFetching, onRetry, emptyLabel, nameColumnLabel, secondaryLabel, to }: RankedTableProps) => {
+  const headingId = useId();
+  // Best overall first, so who is top and who is low reads straight off the row order.
+  const { sorted, topId, lowId } = useMemo(() => rankRows(rows), [rows]);
 
   return (
-    <div className="flex flex-col gap-2">
+    <section aria-labelledby={headingId} className="flex flex-col gap-2">
       <div className="px-1">
-        <p className="text-sm font-display font-bold text-text">{title}</p>
+        <h2 id={headingId} className="text-sm font-display font-bold text-text">{title}</h2>
         <p className="text-xs font-display font-medium text-text-muted">{subtitle}</p>
       </div>
 
-      <div className="rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface overflow-hidden">
-        {isError ? (
-          // Used to fall straight through to the empty-table state ("No department/store data
-          // yet.") on a failed request — identical to a genuinely empty org, with no way to tell
-          // the two apart.
-          <div className="flex items-start gap-3 p-5">
-            <AlertCircle className="w-4 h-4 text-danger shrink-0 mt-0.5" />
-            <p className="text-sm font-display font-medium text-danger">Couldn&rsquo;t load this table. Try refreshing.</p>
+      {isError ? (
+        <InlineError message={`Could not load the ${title.toLowerCase()} ranking.`} onRetry={onRetry} />
+      ) : isPending ? (
+        <div className={`${PANEL_CLASS} flex flex-col gap-3 p-4 sm:p-5`}>
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-10 rounded-lg" />)}
+        </div>
+      ) : sorted.length === 0 ? (
+        <div className={`${PANEL_CLASS} p-4 sm:p-5`}>
+          <EmptyState size="compact" icon={Building2} title={emptyLabel} description="Rows appear here once there is activity to rank." />
+        </div>
+      ) : (
+        <div className={`transition-opacity motion-reduce:transition-none ${isFetching ? 'opacity-60' : ''}`}>
+          <div className={`${PANEL_CLASS} hidden md:block overflow-x-auto`}>
+            <table className="w-full text-sm">
+              <caption className="sr-only">{title} ranked by overall score, best first</caption>
+              <thead>
+                <tr className="bg-surface-hover/60">
+                  <th scope="col" className={`${HEAD_CELL} text-left`}>{nameColumnLabel}</th>
+                  <th scope="col" className={`${HEAD_CELL} text-right`}>Overall</th>
+                  <th scope="col" className={`${HEAD_CELL} text-right`}>Tickets closed</th>
+                  <th scope="col" className={`${HEAD_CELL} text-right`}>{secondaryLabel}</th>
+                  <th scope="col" className={`${HEAD_CELL} text-right`}>Open tickets</th>
+                  <th scope="col" className={`${HEAD_CELL} text-right`}>Avg time to close</th>
+                  <th scope="col" className={`${HEAD_CELL} text-right`}>Closed on time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.map((row) => (
+                  <RankedTableRow key={row.id} row={row} isTop={row.id === topId} isLow={row.id === lowId} to={to} />
+                ))}
+              </tbody>
+            </table>
           </div>
-        ) : isPending ? (
-          <div className="flex flex-col gap-3 p-5">
-            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-10 rounded-lg" />)}
-          </div>
-        ) : (
-          <>
-            <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-gradient-to-r from-primary-800 to-primary-600 text-white">
-                    <th className="text-left font-display font-medium px-5 py-3 whitespace-nowrap">{nameColumnLabel}</th>
-                    <th className="text-right font-display font-medium px-5 py-3 whitespace-nowrap">Overall</th>
-                    <th className="text-right font-display font-medium px-5 py-3 whitespace-nowrap">Tickets</th>
-                    <th className="text-right font-display font-medium px-5 py-3 whitespace-nowrap">{secondaryLabel}</th>
-                    <th className="text-right font-display font-medium px-5 py-3 whitespace-nowrap">Open issues</th>
-                    <th className="text-right font-display font-medium px-5 py-3 whitespace-nowrap">Avg TAT</th>
-                    <th className="text-right font-display font-medium px-5 py-3 whitespace-nowrap">SLA met</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sorted.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="px-5 py-10 text-center text-text-muted font-display">{emptyLabel}</td>
-                    </tr>
-                  ) : (
-                    sorted.map((row) => (
-                      <tr key={row.id} className="border-t border-border/60 hover:bg-surface-hover/50 transition-colors">
-                        <td className="px-5 py-3 font-display font-medium text-text whitespace-nowrap">
-                          <div className="flex items-center gap-2">
-                            {row.name}
-                            <RankBadge isTop={row.id === topId} isLow={row.id === lowId} />
-                          </div>
-                        </td>
-                        <td className="px-5 py-3 text-right font-display font-bold tabular-nums text-text">
-                          {row.overall != null ? `${row.overall}%` : '—'}
-                        </td>
-                        <td className="px-5 py-3 text-right font-display tabular-nums text-text">
-                          {row.ticketCompletion != null ? `${row.ticketCompletion}%` : '—'}
-                        </td>
-                        <td className="px-5 py-3 text-right font-display tabular-nums text-text">
-                          {row.secondaryRate != null ? `${row.secondaryRate}%` : '—'}
-                        </td>
-                        <td className="px-5 py-3 text-right font-display tabular-nums text-text">{row.openIssues}</td>
-                        <td className="px-5 py-3 text-right font-display tabular-nums text-text">
-                          {row.avgTat != null ? `${row.avgTat}h` : '—'}
-                        </td>
-                        <td className="px-5 py-3 text-right font-display tabular-nums text-text">
-                          {row.slaMet != null ? `${row.slaMet}%` : '—'}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
 
-            {/* Mobile: card stack instead of a cramped scrolling table */}
-            <div className="md:hidden divide-y divide-border/60">
-              {sorted.length === 0 ? (
-                <p className="px-5 py-10 text-center text-text-muted font-display text-sm">{emptyLabel}</p>
-              ) : (
-                sorted.map((row) => (
-                  <div key={row.id} className="p-4 flex flex-col gap-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <p className="font-display font-medium text-text text-sm truncate">{row.name}</p>
-                        <RankBadge isTop={row.id === topId} isLow={row.id === lowId} />
-                      </div>
-                      <span className="text-sm font-display font-bold tabular-nums text-text shrink-0">
-                        {row.overall != null ? `${row.overall}%` : '—'}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="font-display text-text-muted tracking-wide text-[10px]">Tickets</span>
-                        <span className="font-display font-medium tabular-nums text-text">
-                          {row.ticketCompletion != null ? `${row.ticketCompletion}%` : '—'}
-                        </span>
-                      </div>
-                      <div className="flex flex-col gap-0.5">
-                        <span className="font-display text-text-muted tracking-wide text-[10px]">{secondaryLabel}</span>
-                        <span className="font-display font-medium tabular-nums text-text">
-                          {row.secondaryRate != null ? `${row.secondaryRate}%` : '—'}
-                        </span>
-                      </div>
-                      <div className="flex flex-col gap-0.5">
-                        <span className="font-display text-text-muted tracking-wide text-[10px]">Open issues</span>
-                        <span className="font-display font-medium tabular-nums text-text">{row.openIssues}</span>
-                      </div>
-                      <div className="flex flex-col gap-0.5">
-                        <span className="font-display text-text-muted tracking-wide text-[10px]">Avg TAT</span>
-                        <span className="font-display font-medium tabular-nums text-text">
-                          {row.avgTat != null ? `${row.avgTat}h` : '—'}
-                        </span>
-                      </div>
-                      <div className="flex flex-col gap-0.5">
-                        <span className="font-display text-text-muted tracking-wide text-[10px]">SLA met</span>
-                        <span className="font-display font-medium tabular-nums text-text">
-                          {row.slaMet != null ? `${row.slaMet}%` : '—'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </>
-        )}
-      </div>
-    </div>
+          {/* Phone: a stack of cards instead of a cramped scrolling table. */}
+          <div className="md:hidden flex flex-col gap-3">
+            {sorted.map((row) => (
+              <RankedCard key={row.id} row={row} isTop={row.id === topId} isLow={row.id === lowId} to={to} secondaryLabel={secondaryLabel} />
+            ))}
+          </div>
+        </div>
+      )}
+    </section>
   );
 };
 
-// The owner-level view: real numbers, ranked, with who's-top/who's-low called out directly —
-// both cut by department (who manages the work) and by store (where the work happens). Each
-// row's "Overall" score is a genuine combination of every work type that dimension actually
-// carries — Tickets + Delegations for a department, Tickets + Checklists for a store — not a
-// single proxy number standing in for all three. The two cuts combine different pairs because
-// that's what the data model actually supports: Task has a department but no store, Checklist
-// instances have a store but no department (see ChecklistDefinition) — there's no dimension both
-// Delegations and Checklists carry at once to combine all three into either table honestly.
-// The same ranking (useOwnerRankings) also backs a compact glance card directly on the Overview
-// dashboard itself (PerformanceLeadersCard) — this tab is the drill-in for the full ranked table.
+// The owner-level view: real numbers, ranked, with who is top and who needs attention called out.
+// Each row's "Overall" figure blends every kind of work that cut actually carries (tickets and
+// delegations for a department, tickets and store checklists for a store), weighted by how many
+// items sit behind each. Delegations have a department but no store, and checklist runs have a
+// store but no department, so no single blend can cover all three for either cut.
 export const StoresPerformanceSection = ({ groupBy, from, to }: StoresPerformanceSectionProps) => {
-  const { departmentRows, storeRows, departmentsPending, storesPending, departmentsError, storesError } = useOwnerRankings(groupBy, from, to);
+  const {
+    departmentRows, storeRows, departmentsPending, storesPending, departmentsError, storesError,
+    departmentsFetching, storesFetching, retryDepartments, retryStores,
+  } = useOwnerRankings(from, to);
 
-  // Org-wide audit score, kept as page-level context — see the per-store real figures below for
-  // the actual per-row breakdown; this is just "how's checklist compliance doing overall." Same
-  // hook (and so the same cache key/request) the org-wide audit KPI elsewhere on this page already
-  // uses — this used to be its own inline useQuery with a different key ('org-wide' literal vs.
-  // the shared key), so the two fired as two independent requests for the exact same data.
+  // Page-level context for the store table. Same hook, and so the same request, as the store
+  // checklist figures elsewhere on this page.
   const { data: auditRows, isPending: auditPending, isError: auditError } = useChecklistInstanceComplianceReportQuery(groupBy, from, to);
   const latestAudit = auditRows?.[auditRows.length - 1];
-  const auditScore = latestAudit?.completionRate != null ? Math.round(latestAudit.completionRate) : null;
+  const checklistCompletion = latestAudit?.completionRate ?? null;
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex items-center justify-between gap-3 px-1">
-        <p className="text-xs font-display font-medium text-text-muted">
-          "Overall" blends ticket and delegation completion for departments, or ticket and checklist completion for stores — best performers first
+      <div className="flex items-start justify-between gap-x-4 gap-y-1 flex-wrap px-1">
+        <p className="text-xs font-display font-medium text-text-muted max-w-xl">
+          Overall blends ticket completion with delegation completion for departments, or with checklist completion for stores. Best first. Needs at least {MIN_RANK_VOLUME} items to be ranked.
         </p>
         <p className="text-xs font-display font-semibold text-text-secondary shrink-0">
-          Org-wide audit score:{' '}
-          <span className={auditError ? 'text-danger' : 'text-text tabular-nums'}>
-            {auditError ? "couldn't load" : auditPending ? '…' : auditScore != null ? `${auditScore}%` : '—'}
+          Store checklist completion:{' '}
+          <span className={auditError ? 'text-danger' : `tabular-nums ${rateToneClass(checklistCompletion)}`}>
+            {auditError ? 'could not load' : auditPending ? 'Loading' : formatPercent(checklistCompletion)}
           </span>
         </p>
       </div>
 
       <RankedTable
         title="Departments"
-        subtitle="Blends ticket and delegation completion"
+        subtitle="Tickets and delegations"
         rows={departmentRows}
         isPending={departmentsPending}
         isError={departmentsError}
-        emptyLabel="No department data yet."
+        isFetching={departmentsFetching}
+        onRetry={retryDepartments}
+        emptyLabel="No department data yet"
         nameColumnLabel="Department"
-        secondaryLabel="Delegations"
+        secondaryLabel="Delegations done"
+        to="/admin/directory?tab=departments"
       />
 
       <RankedTable
         title="Stores"
-        subtitle="Blends ticket and checklist completion"
+        subtitle="Tickets and store checklists"
         rows={storeRows}
         isPending={storesPending}
         isError={storesError}
-        emptyLabel="No store data yet."
+        isFetching={storesFetching}
+        onRetry={retryStores}
+        emptyLabel="No store data yet"
         nameColumnLabel="Store"
-        secondaryLabel="Checklist"
+        secondaryLabel="Checklists done"
+        to="/admin/directory?tab=stores"
       />
     </div>
   );

@@ -26,11 +26,22 @@ export const setChecklistInstanceItemDoneSchema = z.object({
 
 // Mirrors task.validation.ts's complianceReportQuerySchema — same groupBy/storeId/from/to
 // shape, so the client can drive both reports from one shared control.
+// from/to: an ISO datetime (the instant is converted to the org-local day it falls on, see
+// checklistReportRange.ts) or a plain org-local YYYY-MM-DD. groupBy 'none' = one bucket for the
+// whole range; there is no 'hour' bucket. Without from/to the range is the last 12 buckets
+// (week/month/year) or 30 days (day/none), never unbounded.
+const reportBoundary = z.union([z.string().datetime({ offset: true }), z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use an ISO date or datetime")])
+
 export const checklistInstanceComplianceReportQuerySchema = z.object({
-    groupBy: z.enum(["hour", "day", "week", "month", "year"]).default("day"),
+    groupBy: z.enum(["day", "week", "month", "year", "none"]).default("day"),
     storeId: objectId.optional(),
-    from: z.string().optional(),
-    to: z.string().optional(),
+    from: reportBoundary.optional(),
+    to: reportBoundary.optional(),
+})
+
+export const checklistInstanceByStoreReportQuerySchema = z.object({
+    from: reportBoundary.optional(),
+    to: reportBoundary.optional(),
 })
 
 // Same idea as checklistImages/checklistImage.validation.ts — the files themselves are validated

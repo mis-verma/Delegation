@@ -1,11 +1,12 @@
-import { memo, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { ShieldCheck, Repeat, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, Repeat, CheckCircle2, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button, ENTITY_CARD_CLASS, EmptyState, InlineError, PageHeader, Skeleton } from '../../../components';
-import { usePendingVerificationChecklistInstancesQuery, useVerifyChecklistInstanceMutation } from '../hook';
+import { usePendingVerificationChecklistInstancesQuery, useVerifyChecklistInstanceMutation, useSendBackChecklistInstanceMutation } from '../hook';
 import { formatDate } from '../checklistDisplay';
 import { ReviewActions, SendBackForm } from './ReviewActions';
+import { InstanceReviewPanel } from './InstanceReviewPanel';
 import type { ChecklistInstance } from '../../../api/checklistInstances';
 
 const PAGE_SIZE = 20;
@@ -21,20 +22,37 @@ const ROW_CLASS = cn(ENTITY_CARD_CLASS, 'justify-start gap-4 sm:p-4');
 const ApprovalRow = memo(({ instance }: { instance: ChecklistInstance }) => {
   const navigate = useNavigate();
   const verifyMut = useVerifyChecklistInstanceMutation();
+  const sendBackMut = useSendBackChecklistInstanceMutation();
   const [sendingBack, setSendingBack] = useState(false);
   const [note, setNote] = useState('');
+  const [expanded, setExpanded] = useState(false);
+  // Questions the reviewer ticked to send back on their own; empty means "the whole checklist".
+  const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set());
+  const togglePicked = useCallback((itemId: string) =>
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId); else next.add(itemId);
+      return next;
+    }), []);
   const { id } = instance;
   const { mutate } = verifyMut;
+  const busy = verifyMut.isPending || sendBackMut.isPending;
 
   const openDetail = () => navigate(`/checklists/${id}`);
   const cancel = () => { setSendingBack(false); setNote(''); };
   const startSendBack = () => setSendingBack(true);
   const approve = () => mutate({ id, payload: { action: 'APPROVE' } });
-  const sendBack = () => mutate({ id, payload: { action: 'REJECT', note: note.trim() } });
+  const sendBack = () => {
+    if (picked.size > 0) {
+      sendBackMut.mutate({ id, payload: { itemIds: [...picked], note: note.trim() } }, { onSuccess: () => setPicked(new Set()) });
+    } else {
+      mutate({ id, payload: { action: 'REJECT', note: note.trim() } });
+    }
+  };
 
   // verifyMut.variables tells which of the two requests is the one in flight.
   const approving = verifyMut.isPending && verifyMut.variables?.payload.action === 'APPROVE';
-  const sending = verifyMut.isPending && verifyMut.variables?.payload.action === 'REJECT';
+  const sending = (verifyMut.isPending && verifyMut.variables?.payload.action === 'REJECT') || sendBackMut.isPending;
 
   return (
     <div className={ROW_CLASS}>
@@ -56,11 +74,27 @@ const ApprovalRow = memo(({ instance }: { instance: ChecklistInstance }) => {
         </button>
 
         {!sendingBack && (
-          <div className="self-start sm:self-auto">
-            <ReviewActions onSendBack={startSendBack} onApprove={approve} busy={verifyMut.isPending} approving={approving} />
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setExpanded((v) => !v)}
+              aria-expanded={expanded}
+              className="gap-1"
+            >
+              <ChevronDown size={14} className={cn('transition-transform duration-200', expanded && 'rotate-180')} aria-hidden />
+              {expanded ? 'Hide questions' : 'Review questions'}
+            </Button>
+            <ReviewActions onSendBack={startSendBack} onApprove={approve} busy={busy} approving={approving} pickedCount={picked.size} />
           </div>
         )}
       </div>
+
+      {expanded && (
+        <div className="pt-4 border-t border-border/50 animate-in fade-in slide-in-from-top-2 duration-200">
+          <InstanceReviewPanel items={instance.items} selected={picked} onToggle={togglePicked} disabled={busy} />
+        </div>
+      )}
 
       {sendingBack && (
         <div className="flex flex-col gap-3 pt-4 border-t border-border/50 animate-in fade-in slide-in-from-top-2 duration-200">
@@ -72,9 +106,9 @@ const ApprovalRow = memo(({ instance }: { instance: ChecklistInstance }) => {
             onSubmit={sendBack}
             canSubmit={note.trim().length > 0}
             isSending={sending}
-            busy={verifyMut.isPending}
-            submitLabel="Send back for changes"
-            placeholder="What needs fixing before this can be approved?"
+            busy={busy}
+            submitLabel={picked.size > 0 ? `Send back ${picked.size} ${picked.size === 1 ? 'question' : 'questions'}` : 'Send back for changes'}
+            placeholder={picked.size > 0 ? 'What needs fixing on these questions?' : 'What needs fixing before this can be approved?'}
           />
         </div>
       )}

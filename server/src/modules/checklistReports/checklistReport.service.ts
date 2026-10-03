@@ -64,6 +64,7 @@ export const REPORT_NOTES = [
     "A department counts a shared checklist once, even when two of its people are assigned. People is the number of people in the department who had a checklist in this period.",
     "Questions done, Not applicable and Compliance % go by who actually completed each question. Not applicable questions are not counted in Questions done.",
     "Compliance % is the share of answers inside the accepted range, out of Answers checked. Only completed questions with an accepted-answer rule are checked.",
+    "A question a reviewer sent back counts as a failed check for the person who had done it, even if it was redone well, and even if it has no accepted-answer rule.",
     "Completed on time means every question was done by the cutoff time. A checklist with no cutoff is due at the end of its day.",
     "Completion % and On-time % are measured against all checklists assigned in the period, including ones that are still open.",
 ]
@@ -94,14 +95,25 @@ const boolScored = sql`(${item.itemType} IN ('YES_NO','PASS_FAIL') AND JSON_LENG
 const textScored = sql`(${item.itemType} IN ('MULTIPLE_CHOICE','DROPDOWN') AND JSON_LENGTH(${item.acceptableAnswers}) > 0 AND ${item.textValue} IS NOT NULL AND ${item.textValue} <> '')`
 const numScored = sql`(${item.itemType} IN ('NUMBER_ENTRY','RATING') AND (${item.acceptableMin} IS NOT NULL OR ${item.acceptableMax} IS NOT NULL) AND ${item.numericValue} IS NOT NULL)`
 
-const scoredExpr = sql<number>`SUM(CASE WHEN ${item.isDone} = 1 AND ${item.isNotApplicable} = 0 AND (${boolScored} OR ${textScored} OR ${numScored}) THEN 1 ELSE 0 END)`
+// A question a reviewer sent back (sendBackCount > 0) is a FAILED check whatever its answer is now,
+// even if redone well later and even if it has no accepted-answer rule: it was not right first time.
+// It stays scored, and counts as not good, on the person who had done it (sentBackFrom).
+const sentBack = sql`(${item.sendBackCount} > 0 AND ${item.isNotApplicable} = 0)`
+const ruleScored = sql`(${item.isDone} = 1 AND ${item.isNotApplicable} = 0 AND (${boolScored} OR ${textScored} OR ${numScored}))`
+
+const scoredExpr = sql<number>`SUM(CASE WHEN ${sentBack} THEN 1 WHEN ${ruleScored} THEN 1 ELSE 0 END)`
 const goodExpr = sql<number>`SUM(CASE
+    WHEN ${sentBack} THEN 0
     WHEN ${item.isDone} = 1 AND ${item.isNotApplicable} = 0 AND ${boolScored} AND JSON_CONTAINS(${item.acceptableAnswers}, JSON_QUOTE(${item.booleanAnswer})) THEN 1
     WHEN ${item.isDone} = 1 AND ${item.isNotApplicable} = 0 AND ${textScored} AND JSON_CONTAINS(${item.acceptableAnswers}, JSON_QUOTE(${item.textValue})) THEN 1
     WHEN ${item.isDone} = 1 AND ${item.isNotApplicable} = 0 AND ${numScored}
         AND (${item.acceptableMin} IS NULL OR ${item.numericValue} >= ${item.acceptableMin})
         AND (${item.acceptableMax} IS NULL OR ${item.numericValue} <= ${item.acceptableMax}) THEN 1
     ELSE 0 END)`
+
+// Who a question is credited to: whoever completed it, except a sent-back question, which is credited
+// (as a failure) to the person who had done it when it was sent back.
+const creditedUser = sql<string | null>`(CASE WHEN ${item.sendBackCount} > 0 AND ${item.sentBackFrom} IS NOT NULL THEN ${item.sentBackFrom} ELSE ${item.completedBy} END)`
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -245,16 +257,16 @@ export const checklistReportService = {
                 .where(departmentId ? and(runWhere, eq(users.departmentId, departmentId)) : runWhere),
             // Item-level numbers by the person who completed each question.
             db.select({
-                userId: item.completedBy,
-                done: sql<number>`SUM(CASE WHEN ${item.isNotApplicable} = 0 THEN 1 ELSE 0 END)`,
-                na: sql<number>`SUM(CASE WHEN ${item.isNotApplicable} = 1 THEN 1 ELSE 0 END)`,
+                userId: creditedUser,
+                done: sql<number>`SUM(CASE WHEN ${item.isDone} = 1 AND ${item.isNotApplicable} = 0 THEN 1 ELSE 0 END)`,
+                na: sql<number>`SUM(CASE WHEN ${item.isDone} = 1 AND ${item.isNotApplicable} = 1 THEN 1 ELSE 0 END)`,
                 scored: scoredExpr,
                 good: goodExpr,
             })
                 .from(item)
                 .innerJoin(checklistInstances, eq(checklistInstances.id, item.instanceId))
-                .where(and(runWhere, eq(item.isDone, true), sql`${item.completedBy} IS NOT NULL`))
-                .groupBy(item.completedBy),
+                .where(and(runWhere, sql`((${item.isDone} = 1 AND ${item.completedBy} IS NOT NULL) OR ${item.sendBackCount} > 0)`))
+                .groupBy(creditedUser),
             db.select({ id: departments.id, name: departments.name }).from(departments),
             db.select({ id: stores.id, name: stores.name }).from(stores),
         ])

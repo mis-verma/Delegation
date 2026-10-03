@@ -13,22 +13,21 @@ export interface QuickAction {
 
 interface QuickActionsGridProps {
   actions: readonly QuickAction[];
-  /** Defaults suit both callers this ships with (Admin Overview, the user Dashboard) — override
+  /** Defaults suit the user Dashboard, the only caller today. Override
    *  only if a third caller needs different copy. */
   title?: string;
   description?: string;
 }
 
-// A plain component now, not a fixed admin-only action list — OrgOverview.tsx and HomePage.tsx
-// each pass their own `actions`, so the same shell (icon tile, header, action tiles) is shared
-// instead of duplicated for the user-facing dashboard's own version of this card.
+// A plain component, not a fixed action list: the caller passes its own `actions`, so the same shell
+// (icon tile, header, action tiles) can be reused. The admin Overview dropped it because the
+// sidebar already links to every one of those pages.
 // Header/shell matches every other Dashboard card's shared convention (RecentActivity,
 // UpcomingEvents: DASHBOARD_CARD_CLASS + the same px-4 sm:px-5 py-4 border-b/backdrop-blur-xl
 // header band).
 //
-// The tiles are a wrapping row that grows, not a fixed-column grid. This card renders at two very
-// different widths — half the page beside Activity Overview on the user Dashboard, full width on
-// Admin Overview — and a column count tuned for one crammed or stranded tiles at the other (4
+// The tiles are a wrapping row that grows, not a fixed-column grid. This card can render at very
+// different widths (half the page beside Activity Overview on the user Dashboard, or full width) and a column count tuned for one crammed or stranded tiles at the other (4
 // columns in the half-width case left each tile ~180px, and the fifth sat alone on its own row).
 // With a minimum tile width instead, the card fits as many as it honestly can per row and lets the
 // last row's tiles grow into the leftover space, so there's never a stray gap. The list is also

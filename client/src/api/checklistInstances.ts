@@ -111,6 +111,8 @@ export type ChecklistInstanceItem = {
   isNotApplicable:    boolean;
   /** Why a reviewer sent this question back; cleared once it's completed again. */
   sendBackNote:       string | null;
+  /** How many times a reviewer sent this question back. Counts as a failed compliance check. */
+  sendBackCount:      number;
   issueId:            string | null;
   instanceId:         string;
   images:             ChecklistInstanceImage[];
@@ -147,7 +149,8 @@ export type ChecklistInstance = {
 export type SendBackChecklistInstancePayload = { itemIds: string[]; note: string };
 export type VerifyChecklistInstancePayload = { action: 'APPROVE' | 'REJECT'; note?: string };
 
-export type ComplianceReportGroupBy = 'hour' | 'day' | 'week' | 'month' | 'year';
+// 'none' returns one bucket named 'range' covering the whole from/to window.
+export type ComplianceReportGroupBy = 'day' | 'week' | 'month' | 'year' | 'none';
 
 // Same shape as task.ts's ComplianceReportRow — the recurring-checklist sibling report, bucketed
 // by each instance's periodStart rather than item createdAt (see checklistInstance.service.ts).
@@ -172,6 +175,26 @@ export type ComplianceReportRow = {
   submittedInstances: number;
   firstAttemptApproved: number;
   approvalRate: number | null;
+  /** Answers inside their acceptable-answer rule / answers checked; null when nothing is scored. */
+  complianceRate: number | null;
+  /** How many answers carry an acceptable-answer rule and were checked. */
+  scoredAnswers: number;
+  /** Runs whose deadline has passed (or that are fully done): the only runs completion counts. */
+  dueRuns: number;
+  /** Runs not yet due and still open. Optional until every server build returns it. */
+  pendingRuns?: number;
+};
+
+/** One row of the per-store comparison (GET /checklist-instances/reports/by-store). */
+export type ChecklistStoreComplianceRow = {
+  storeId: string;
+  storeName: string;
+  completionRate: number | null;
+  qualityRate: number | null;
+  approvalRate: number | null;
+  complianceRate: number | null;
+  dueRuns: number;
+  items: number;
 };
 
 // Accepts numbers too, since page/limit are numeric — they were being stringified at the call
@@ -446,4 +469,8 @@ export const checklistInstanceApi = {
     if (includeDeleted) params.set('includeDeleted', '1');
     return apiFetch<ApiResponse<ComplianceReportRow[]>>(`/checklist-instances/reports/compliance?${params.toString()}`);
   },
+
+  /** One grouped query for every store: ADMIN/PC see all active stores, MANAGER/SENIOR their own scope. */
+  getComplianceByStore: (from?: string, to?: string) =>
+    apiFetch<ApiResponse<ChecklistStoreComplianceRow[]>>(`/checklist-instances/reports/by-store${buildQuery({ from, to })}`),
 };

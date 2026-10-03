@@ -1,7 +1,8 @@
-import { useMemo } from 'react';
+import { memo, useId, useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { Store, Building2, Users, ShieldCheck } from 'lucide-react';
-import { StatCard } from '../../dashboard';
+import { InlineError } from '../../../components';
+import { StatTile } from './AnalyticsSummaryStrip';
 import type { AdminUser } from '../../../api/admin';
 import type { Department } from '../../../api/departments';
 import type { Store as StoreType } from '../../../api/stores';
@@ -11,90 +12,106 @@ interface OrgSnapshotStripProps {
   departments: Department[];
   users: AdminUser[];
   isPending: boolean;
-  /** A failed request used to fall through `stores ?? []` etc. into "0 Stores", "0 Departments" —
-   *  reading as a genuinely empty org rather than a request that failed. Swaps every tile's value
-   *  to '—' and its caption to a plain-text failure note instead (StatCard has no error/danger
-   *  variant of its own to reach for here — this is the caption slot doing double duty). */
+  /** A failed request used to fall through `stores ?? []` into "0 Stores", reading as an empty org
+   *  rather than a request that failed. Shows a retryable error and keeps every tile off a number. */
   isError: boolean;
+  onRetry?: () => void;
 }
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+const PLACEHOLDER = '—';
 
-// The owner-level "how big is my org, right now" glance — total stores, departments, headcount
-// (with how many joined recently), and how many departments actually have a lead (MANAGER, this
-// app's HOD) assigned. All four were previously only knowable by opening People & Teams and
-// counting rows by hand; now it's the first thing on the dashboard, each tile deep-linking
-// straight to the relevant tab.
-export const OrgSnapshotStrip = ({ stores, departments, users, isPending, isError }: OrgSnapshotStripProps) => {
+// The shape of the organisation, as the last thing on the Overview: how many stores, departments
+// and people are active, and how many departments have a lead. Every figure counts active records
+// only, so a closed store or a person who has left does not inflate it. Each tile opens the matching
+// tab of People & Teams.
+const OrgSnapshotStripBase = ({ stores, departments, users, isPending, isError, onRetry }: OrgSnapshotStripProps) => {
+  const headingId = useId();
   const navigate = useNavigate();
 
   const stats = useMemo(() => {
-    const activeStores = stores.filter((s) => s.isActive).length;
-    const activeDepartments = departments.filter((d) => d.isActive).length;
+    const activeStores = stores.filter((s) => s.isActive);
+    const activeDepartments = departments.filter((d) => d.isActive);
+    const activeUsers = users.filter((u) => u.isActive);
 
-    // "now" only needs to be approximately current for this 30-day window — see
-    // TeamLeaderboardRail.tsx for the same pattern.
+    // "now" only needs to be approximately current for this 30-day window.
     // eslint-disable-next-line react-hooks/purity
     const now = Date.now();
-    const newHires = users.filter((u) => now - new Date(u.createdAt).getTime() <= THIRTY_DAYS_MS).length;
+    const newHires = activeUsers.filter((u) => now - new Date(u.createdAt).getTime() <= THIRTY_DAYS_MS).length;
 
-    // MANAGER is this app's Head of Department (HOD) — see the ROLE_RANK comment in the schema.
-    const departmentsWithHod = new Set(
-      users.filter((u) => u.role === 'MANAGER' && u.departmentId).map((u) => u.departmentId)
-    );
-    const hodCovered = departments.filter((d) => departmentsWithHod.has(d.id)).length;
-    const hodMissing = departments.length - hodCovered;
+    // MANAGER is this app's Head of Department (HOD), see the ROLE_RANK comment in the schema.
+    const departmentsWithHod = new Set(activeUsers.filter((u) => u.role === 'MANAGER' && u.departmentId).map((u) => u.departmentId));
+    const hodCovered = activeDepartments.filter((d) => departmentsWithHod.has(d.id)).length;
 
-    return { activeStores, activeDepartments, newHires, hodCovered, hodMissing };
+    return {
+      activeStores: activeStores.length,
+      inactiveStores: stores.length - activeStores.length,
+      activeDepartments: activeDepartments.length,
+      inactiveDepartments: departments.length - activeDepartments.length,
+      activeUsers: activeUsers.length,
+      newHires,
+      hodCovered,
+      hodMissing: activeDepartments.length - hodCovered,
+    };
   }, [stores, departments, users]);
 
+  const unavailable = isPending || isError;
+  const caption = (text: string) => (isError ? "Couldn't load" : isPending ? undefined : text);
+  const inactiveNote = (count: number) => (count > 0 ? `${count} inactive` : 'All active');
+
   return (
-    // Single column on phones — at grid-cols-2, "Departments with a lead" has no room to breathe
-    // next to its icon; two-up only once there's enough width for it (sm), four-up on desktop.
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-      {/* Real icon tints, not the neutral-gray default every tile used before — Stores gets the
-          same coral (gold) EntityIconTile already uses for physical stores elsewhere in the app,
-          Departments/Employees stay in the primary navy family, and the coverage tile's color
-          actually reports its own status (green once every department has a lead, amber while
-          any are still missing one) rather than looking identical whether coverage is complete or
-          not. */}
-      <StatCard
-        icon={Store}
-        label="Stores"
-        value={isError ? '—' : isPending ? '—' : stores.length}
-        caption={isError ? "Couldn't load" : isPending ? undefined : `${stats.activeStores} active`}
-        iconBgTint="bg-coral-50 dark:bg-coral-500/10"
-        iconTint="text-coral-600 dark:text-coral-400"
-        onClick={() => navigate('/admin/directory?tab=stores')}
-      />
-      <StatCard
-        icon={Building2}
-        label="Departments"
-        value={isError ? '—' : isPending ? '—' : departments.length}
-        caption={isError ? "Couldn't load" : isPending ? undefined : `${stats.activeDepartments} active`}
-        iconBgTint="bg-primary-50 dark:bg-primary-500/10"
-        iconTint="text-primary-600 dark:text-primary-400"
-        onClick={() => navigate('/admin/directory?tab=departments')}
-      />
-      <StatCard
-        icon={Users}
-        label="Employees"
-        value={isError ? '—' : isPending ? '—' : users.length}
-        caption={isError ? "Couldn't load" : isPending || stats.newHires === 0 ? undefined : `${stats.newHires} new in last 30 days`}
-        trend={!isError && !isPending && stats.newHires > 0 ? { direction: 'up', label: `+${stats.newHires}` } : undefined}
-        iconBgTint="bg-primary-50 dark:bg-primary-500/10"
-        iconTint="text-primary-600 dark:text-primary-400"
-        onClick={() => navigate('/admin/directory?tab=users')}
-      />
-      <StatCard
-        icon={ShieldCheck}
-        label="Departments with a lead"
-        value={isError ? '—' : isPending ? '—' : `${stats.hodCovered}/${departments.length}`}
-        caption={isError ? "Couldn't load" : isPending ? undefined : stats.hodMissing > 0 ? `${stats.hodMissing} need a lead assigned` : 'Fully covered'}
-        iconBgTint={!isError && !isPending && stats.hodMissing === 0 ? 'bg-success/10' : 'bg-warning/10'}
-        iconTint={!isError && !isPending && stats.hodMissing === 0 ? 'text-success' : 'text-warning'}
-        onClick={() => navigate('/admin/directory?tab=departments')}
-      />
-    </div>
+    <section aria-labelledby={headingId} className="flex flex-col gap-3 sm:gap-4">
+      <h2 id={headingId} className="text-lg sm:text-xl font-display font-bold text-text">Your organisation</h2>
+
+      {isError && <InlineError message="Could not load the organisation counts." onRetry={onRetry} />}
+
+      <div className="@container">
+        {/* Two-up tiles on a phone; four across only once the column itself is wide enough. */}
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 @4xl:grid-cols-4">
+          <StatTile
+            icon={Store}
+            label="Stores"
+            value={unavailable ? PLACEHOLDER : stats.activeStores}
+            isLoading={isPending}
+            caption={caption(inactiveNote(stats.inactiveStores))}
+            iconBgTint="bg-coral-50 dark:bg-coral-500/10"
+            iconTint="text-coral-600 dark:text-coral-400"
+            onClick={() => navigate('/admin/directory?tab=stores')}
+          />
+          <StatTile
+            icon={Building2}
+            label="Departments"
+            value={unavailable ? PLACEHOLDER : stats.activeDepartments}
+            isLoading={isPending}
+            caption={caption(inactiveNote(stats.inactiveDepartments))}
+            iconBgTint="bg-primary-50 dark:bg-primary-500/10"
+            iconTint="text-primary-600 dark:text-primary-400"
+            onClick={() => navigate('/admin/directory?tab=departments')}
+          />
+          <StatTile
+            icon={Users}
+            label="Employees"
+            value={unavailable ? PLACEHOLDER : stats.activeUsers}
+            isLoading={isPending}
+            caption={caption(stats.newHires > 0 ? `${stats.newHires} joined in the last 30 days` : 'No new joiners in 30 days')}
+            iconBgTint="bg-primary-50 dark:bg-primary-500/10"
+            iconTint="text-primary-600 dark:text-primary-400"
+            onClick={() => navigate('/admin/directory?tab=users')}
+          />
+          <StatTile
+            icon={ShieldCheck}
+            label="Departments with a lead"
+            value={unavailable ? PLACEHOLDER : `${stats.hodCovered} of ${stats.activeDepartments}`}
+            isLoading={isPending}
+            caption={caption(stats.hodMissing > 0 ? `${stats.hodMissing} still need a lead` : 'Every department has one')}
+            iconBgTint={!unavailable && stats.hodMissing === 0 ? 'bg-success/10' : 'bg-warning/10'}
+            iconTint={!unavailable && stats.hodMissing === 0 ? 'text-success' : 'text-warning'}
+            onClick={() => navigate('/admin/directory?tab=departments')}
+          />
+        </div>
+      </div>
+    </section>
   );
 };
+
+export const OrgSnapshotStrip = memo(OrgSnapshotStripBase);

@@ -85,7 +85,7 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
   ];
 
   return (
-    <header className="relative shrink-0 mx-3 mt-3 rounded-2xl bg-surface border border-border shadow-xs">
+    <header className="relative shrink-0 mx-3 mt-3 rounded-2xl bg-surface border border-border">
       <div className="flex items-center gap-3 sm:gap-4 h-16 px-3 sm:px-5">
         {/* Left: sidebar toggle + dynamic "you are here" title (the brand mark already lives in
             the sidebar, so this slot carries context instead of repeating it) */}
@@ -168,7 +168,7 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
               trigger={
                 <button
                   title={user.name}
-                  aria-label={`Account menu — ${user.name}${user.role ? `, ${titleCase(user.role)}` : ''}`}
+                  aria-label={`Account menu, ${user.name}${user.role ? `, ${titleCase(user.role)}` : ''}`}
                   className="flex items-center gap-2.5 h-11 px-1.5 sm:pl-1 sm:pr-3 rounded-full sm:bg-surface-hover sm:border sm:border-border text-text-secondary cursor-pointer transition-all duration-200 hover:bg-surface-active hover:text-text active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 group"
                 >
                   <span className="relative flex items-center justify-center size-8 rounded-full bg-primary-100 dark:bg-primary-500/20 text-primary-700 dark:text-primary-300 font-bold text-[11px] shrink-0 group-hover:scale-105 transition-transform">

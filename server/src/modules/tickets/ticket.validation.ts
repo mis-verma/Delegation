@@ -51,10 +51,16 @@ export const paginatioinSchema = z.object({
     // match tatReport's own closedAt-scoped bucketing (see ticket.service.ts#tatReport) — the stat
     // card's percentage and its drilldown's row set now describe the exact same population.
     dateField : z.enum(["createdAt", "closedAt"]).optional().default("createdAt"),
+    // Drill-down for the SLA tiles, using the same definitions as the reports: overdue_open =
+    // overdue right now and not closed; closed_late / closed_on_time = closedAt vs tatDueAt among
+    // closed tickets that have a TAT.
+    sla : z.enum(["overdue_open", "closed_late", "closed_on_time"]).optional(),
 })
 
 export const tatReportQuerySchema = z.object({
-    groupBy : z.enum(["hour", "day", "week", "month", "year"]).default("day"),
+    // 'none' = one bucket named 'range' covering the whole from/to window. 'hour' is gone: with no
+    // from/to the server defaults to the last 12 buckets (last 30 days for day), never unbounded.
+    groupBy : z.enum(["day", "week", "month", "year", "none"]).default("day"),
     // Client sends computeRange()'s toISOString() output — matching createTaskSchema's
     // startDate/dueDate convention here catches a malformed value as a clean 400 instead of
     // an Invalid Date silently reaching the raw SQL template in tatReport().

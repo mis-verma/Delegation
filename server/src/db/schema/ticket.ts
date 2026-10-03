@@ -74,6 +74,12 @@ export const tickets = mysqlTable(
     index('Ticket_storeId_createdAt_idx').on(table.storeId, table.createdAt),
     // Every read path filters on this — see ticket.service.ts's NOT_DELETED.
     index('Ticket_deletedAt_idx').on(table.deletedAt),
+    // Analytics reports bucket closed tickets by closedAt and open ones by createdAt, org-wide or
+    // per store / department.
+    index('Ticket_closedAt_idx').on(table.closedAt),
+    index('Ticket_createdAt_idx').on(table.createdAt),
+    index('Ticket_storeId_closedAt_idx').on(table.storeId, table.closedAt),
+    index('Ticket_departmentId_closedAt_idx').on(table.departmentId, table.closedAt),
   ],
 );
 

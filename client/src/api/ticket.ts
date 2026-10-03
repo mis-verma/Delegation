@@ -7,14 +7,25 @@ export type Priority       = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 export type AssignmentMode = 'AUTO' | 'MANUAL';
 export type TicketStatus   = 'OPEN' | 'IN_PROGRESS' | 'PENDING_APPROVAL' | 'CLOSED' | 'ON_HOLD';
 
-export type TatReportGroupBy = "hour" | "day" | "week" | "month" | "year"
+// 'none' = one bucket named 'range' for the whole from/to window. 'hour' is no longer accepted by
+// the server; it stays in the union only until features/tickets/hook.ts stops referencing it.
+export type TatReportGroupBy = "day" | "week" | "month" | "year" | "none"
+
+/** Server-side SLA filters on GET /tickets, the same definitions the reports use. */
+export type TicketSlaFilter = 'overdue_open' | 'closed_late' | 'closed_on_time';
 
 export type TatReportRow = {
   bucket : string;
   createdCount : number;
   closedCount : number;
   avgTatHours : number | null;
+  /** Currently overdue and still open (not CLOSED). */
   overdueCount : number;
+  /** Closed tickets whose closedAt is after their TAT due time. */
+  closedLateCount : number;
+  /** Closed tickets that have a TAT: the denominator for "closed on time". Optional until every
+   *  server build returns it; without it the UI falls back to closedCount. */
+  closedWithTatCount? : number;
   completionRate : number | null;
 }
 
@@ -227,7 +238,7 @@ const ticketArrayDefaults = withArrayDefaults({
 const normalizeTicket = (raw: unknown) => normalizeWith<Ticket>(ticketArrayDefaults, raw);
 
 export const ticketApi = {
-  getAll: (page = 1, limit = 20, status?: TicketStatus, assigneeId?: string, overdue?: boolean, from?: string, to?: string, dateField?: 'createdAt' | 'closedAt') => {
+  getAll: (page = 1, limit = 20, status?: TicketStatus, assigneeId?: string, overdue?: boolean, from?: string, to?: string, dateField?: 'createdAt' | 'closedAt', sla?: TicketSlaFilter) => {
     const params = new URLSearchParams({ page: String(page), limit: String(limit) });
     if (status) params.set('status', status);
     if (assigneeId) params.set('assigneeId', assigneeId);
@@ -235,6 +246,7 @@ export const ticketApi = {
     if (from) params.set('from', from);
     if (to) params.set('to', to);
     if (dateField) params.set('dateField', dateField);
+    if (sla) params.set('sla', sla);
     return apiFetch<PaginatedResponse<Ticket>>(`/tickets?${params.toString()}`)
       .then(r => ({ ...r, data: r.data.map(normalizeTicket) }));
   },

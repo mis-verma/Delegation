@@ -1,88 +1,101 @@
-import { TicketCheck, Timer, AlertTriangle } from 'lucide-react';
-import { useNavigate } from 'react-router';
+import { TicketCheck, Timer, AlertTriangle, Clock } from 'lucide-react';
 import { KpiSectionShell } from './KpiSectionShell';
-import { ReportTrendChart } from './ReportTrendChart';
 import { useTicketTatReportQuery } from './useAnalyticsQueries';
-import { latestWithTrend } from './analyticsDisplay';
+import { latestWithTrend, formatPercent, formatDuration } from './analyticsDisplay';
 import type { GroupBy } from './GroupByControl';
 
 interface TicketKpiSectionProps {
   groupBy: GroupBy;
   from?: string;
   to?: string;
-  /** /admin/tickets (this card's click destination) is PC/ADMIN-gated. */
+  /** /admin/tickets (the org-wide destination) is PC/ADMIN-gated; everyone else uses /tickets,
+   *  which the server already limits to what that person can see. */
   isOrgWideRole: boolean;
 }
 
+const NOTHING_COUNTED = 'Nothing counted in this period';
+
 export const TicketKpiSection = ({ groupBy, from, to, isOrgWideRole }: TicketKpiSectionProps) => {
-  const navigate = useNavigate();
-  const { data: rows, isPending, isError } = useTicketTatReportQuery(groupBy, from, to);
+  const { data: rows, isPending, isError, isFetching, refetch } = useTicketTatReportQuery(groupBy, from, to);
   const closeRate = latestWithTrend(rows, 'completionRate', 'rate');
-  const avgTat = latestWithTrend(rows, 'avgTatHours', 'count');
+  const avgTime = latestWithTrend(rows, 'avgTatHours', 'count');
   const overdue = latestWithTrend(rows, 'overdueCount', 'count');
-  // Each bucket here only carries a formatted label (e.g. "2026-09"), not real start/end
-  // timestamps, so there's no safe way to reconstruct the exact date window a DrilldownModal
-  // fetch would need to match "closed AND overdue-at-close, this specific bucket" without risking
-  // a subtly wrong result — a plain navigate to the real ticket list is the honest destination
-  // for all three cards here, same call as the KPI sections above.
-  const onClick = isOrgWideRole ? () => navigate('/admin/tickets') : undefined;
+  const closedLate = latestWithTrend(rows, 'closedLateCount', 'count');
+
+  // The ticket list reads ?quickFilter= (pending / completed / due / delayed). It has no date or
+  // "closed late" filter yet, so those two tiles open the nearest list instead of the exact set.
+  const base = isOrgWideRole ? '/admin/tickets' : '/tickets';
 
   return (
     <KpiSectionShell
       icon={TicketCheck}
-      title="Complaints (Tickets)"
-      description="Close rate is closed-this-period ÷ raised-this-period — a throughput ratio, not a per-ticket cohort rate, since a ticket can be raised in one period and closed in another."
+      title="Tickets"
+      description="Tickets closed compared with tickets raised in each period. The ratio can pass 100% when older tickets get closed."
       isPending={isPending}
       isError={isError}
-      errorMessage="Failed to load ticket data."
+      isFetching={isFetching}
+      errorMessage="Could not load the ticket figures."
+      onRetry={() => void refetch()}
       from={from}
       to={to}
       cards={[
         {
           icon: TicketCheck,
           iconTint: 'text-primary-600 dark:text-primary-400',
-          label: 'Close rate',
-          value: closeRate.value != null ? `${closeRate.value}%` : '—',
+          label: 'Closed vs raised',
+          value: formatPercent(closeRate.value),
+          hasData: closeRate.value != null,
+          noDataText: NOTHING_COUNTED,
           trend: closeRate.trend,
-          onClick,
+          href: `${base}?quickFilter=completed`,
         },
         {
           icon: Timer,
           iconTint: 'text-coral-600 dark:text-coral-400',
-          label: 'Avg TAT',
-          value: avgTat.value != null ? `${avgTat.value}h` : '—',
-          trend: avgTat.trend,
-          // A rising turnaround time means tickets are taking longer — the arrow follows the
-          // number, but green belongs on the downward move here.
+          // Elapsed time from raised to closed, for tickets closed in the period. Lower is better.
+          label: 'Avg time to close',
+          value: formatDuration(avgTime.value),
+          hasData: avgTime.value != null,
+          noDataText: 'No tickets closed in this period',
+          trend: avgTime.trend,
           lowerIsBetter: true,
-          onClick,
+          href: base,
         },
         {
           icon: AlertTriangle,
           iconTint: 'text-warning',
-          // Passed as a raw number, not a template string — StatCard formats numbers (thousands
-          // separators); pre-stringifying it here opted this card out of that for no reason.
+          // Open right now and past the due time. Tickets that were closed late are counted in the
+          // next tile instead, so the two never overlap.
           label: 'Overdue',
-          value: overdue.value ?? '—',
+          value: overdue.value ?? 0,
+          hasData: overdue.value != null,
+          noDataText: NOTHING_COUNTED,
           trend: overdue.trend,
           lowerIsBetter: true,
-          // Distinguishes this from the "Overdue" card in the summary strip above, which is a
-          // different measurement despite the identical label: that one is a live, org-wide count
-          // across every ticket (open or closed) in range; this one is scoped to tickets that were
-          // both closed AND overdue-at-close, within only the latest bucket of the selected
-          // grouping — the same population `tatReport` buckets everything else in this section by.
-          caption: 'Closed overdue, latest period',
-          onClick,
+          caption: 'Open and past due',
+          href: `${base}?quickFilter=delayed`,
+        },
+        {
+          icon: Clock,
+          iconTint: 'text-danger',
+          label: 'Closed late',
+          value: closedLate.value ?? 0,
+          hasData: closedLate.value != null,
+          noDataText: NOTHING_COUNTED,
+          trend: closedLate.trend,
+          lowerIsBetter: true,
+          caption: 'Closed after the due time',
+          href: `${base}?quickFilter=completed`,
         },
       ]}
-      chart={
-        <ReportTrendChart
-          data={rows ?? []}
-          series={[{ key: 'completionRate', label: 'Close rate %', color: 'var(--color-primary-500)' }]}
-          valueSuffix="%"
-          yDomain={[0, 100]}
-        />
-      }
+      chart={{
+        data: rows ?? [],
+        groupBy,
+        series: [{ key: 'completionRate', label: 'Closed vs raised', color: 'var(--color-primary-500)' }],
+        valueSuffix: '%',
+        // A ratio of closed to raised can pass 100, so the top of the axis follows the data.
+        yDomain: [0, 'auto'],
+      }}
     />
   );
 };

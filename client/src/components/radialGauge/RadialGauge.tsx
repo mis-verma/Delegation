@@ -128,12 +128,8 @@ export const RadialGauge = ({
 
   return (
     <div
-      // overflow-hidden here (not just left to whatever card wraps this) is the load-bearing fix:
-      // the SVG below deliberately uses overflow-visible so its drop-shadow glow isn't clipped
-      // right at the arc's edge, but that glow's filter region (140% of the SVG's own box) was
-      // escaping past this component entirely into the surrounding page whenever the wrapping
-      // card didn't happen to have its own overflow-hidden — self-contained here means it can
-      // never leak regardless of what wraps it.
+      // overflow-hidden keeps the arc self-contained: nothing can leak past this box regardless of
+      // what wraps the gauge.
       className={cn("relative shrink-0 flex items-center justify-center overflow-hidden", className)}
       style={{ width: size, height: size }}
     >
@@ -194,11 +190,8 @@ export const RadialGauge = ({
             style={{ transform: 'rotate(150deg)', transformOrigin: '50px 50px' }}
           />
 
-          {/* Active Fill Track — the glow used to be an SVG <filter>/<feDropShadow>, but a filter
-              reference that fails to resolve doesn't just drop the shadow, it drops the whole
-              element per spec, which is exactly what was making the arc vanish while the percent
-              label still rendered fine. A plain CSS drop-shadow (via style, not an SVG filter
-              primitive) gives the same soft glow without that failure mode. */}
+          {/* Active Fill Track — flat colour, no glow. It used to carry a drop-shadow filter; the app
+              has no shadows, and a filter that failed to resolve dropped the whole arc. */}
           {percent > 0 && (
             <circle
               cx="50"
@@ -218,7 +211,6 @@ export const RadialGauge = ({
                 // color painted here — no id/url() resolution involved at all for the common
                 // solid-color case.
                 stroke: isSolidColor ? gradientFrom : `url(#${gradientId})`,
-                filter: `drop-shadow(0 3px 3px color-mix(in srgb, ${gradientFrom} 25%, transparent))`,
               }}
               className="transition-all duration-1000 ease-[cubic-bezier(0.32,0.72,0,1)] origin-center"
             />

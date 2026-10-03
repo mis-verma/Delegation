@@ -257,7 +257,8 @@ export const taskApi = {
     restore: (id: string) =>
         apiFetch<ApiResponse<Task>>(`/tasks/${id}/restore`, { method: 'PATCH' }).then(r => normalizeTask(r.data)),
 
-    getComplianceReport: (groupBy: 'hour' | 'day' | 'week' | 'month' | 'year' = 'month', from?: string, to?: string, departmentId?: string, userId?: string) => {
+    // 'none' = one bucket named 'range' for the whole from/to window.
+    getComplianceReport: (groupBy: 'day' | 'week' | 'month' | 'year' | 'none' = 'month', from?: string, to?: string, departmentId?: string, userId?: string) => {
         const params = new URLSearchParams({ groupBy });
         if (from) params.set('from', from);
         if (to) params.set('to', to);

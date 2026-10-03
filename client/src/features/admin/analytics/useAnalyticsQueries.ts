@@ -1,64 +1,84 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
+import { keepPreviousData, useIsFetching, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../../context/AuthContext';
 import { taskApi } from '../../../api/task';
 import { ticketApi } from '../../../api/ticket';
 import { checklistInstanceApi } from '../../../api/checklistInstances';
 import { handleQueryRetry } from '../../../lib/queryHelpers';
+import { RECENT_ACTIVITY_FEED_SIZE } from '../../dashboard/RecentActivity';
+import type { FeedItem } from '../../dashboard/dashboardDisplay';
 import type { Role } from '../../../api/auth';
 import type { OwnerStatsScope } from '../../../api/ticket';
 import type { TaskOwnerStatsScope } from '../../../api/task';
 import type { GroupBy } from './GroupByControl';
 
-// Anyone who can view the merged Overview/Analytics page — org-wide for ADMIN/PC, department-
+/** The Day/Week/Month/Year choice, or 'none' for one bucket that covers the whole from/to range. */
+export type ReportGroupBy = GroupBy | 'none';
+
+// Anyone who can view the merged Overview/Analytics page: org-wide for ADMIN/PC, department-
 // scoped for MANAGER, store-scoped for SENIOR (each report scopes itself server-side off the
 // caller's token, see reportScope.ts on the server).
 const ORG_REPORT_ROLES: Role[] = ['ADMIN', 'PC', 'MANAGER', 'SENIOR'];
 const canViewOrgReports = (role?: Role) => !!role && ORG_REPORT_ROLES.includes(role);
 
-export const useTaskComplianceReportQuery = (groupBy: GroupBy, from?: string, to?: string) => {
+/** Every report on this page shares one cache namespace, so a single invalidation refreshes all. */
+export const ANALYTICS_QUERY_KEY = ['analytics'] as const;
+
+// One set of cache rules for every query on the page. Keep the previous numbers on screen while a
+// new period loads (the sections dim them instead of flashing a skeleton), do not refetch just
+// because the tab regained focus, and treat a minute-old answer as fresh: these are aggregates, not
+// a live feed. Retry skips 4xx, which no retry can fix.
+const REPORT_OPTIONS = {
+  placeholderData: keepPreviousData,
+  retry: handleQueryRetry,
+  staleTime: 60_000,
+  refetchOnWindowFocus: false,
+} as const;
+
+export const useTaskComplianceReportQuery = (groupBy: ReportGroupBy, from?: string, to?: string) => {
   const { token, user } = useAuth();
   return useQuery({
     queryKey: ['analytics', 'task-compliance', groupBy, from, to],
     queryFn: () => taskApi.getComplianceReport(groupBy, from, to).then((r) => r.data),
     enabled: !!token && canViewOrgReports(user?.role),
-    retry: handleQueryRetry,
+    ...REPORT_OPTIONS,
   });
 };
 
-export const useTicketTatReportQuery = (groupBy: GroupBy, from?: string, to?: string) => {
+export const useTicketTatReportQuery = (groupBy: ReportGroupBy, from?: string, to?: string) => {
   const { token, user } = useAuth();
   return useQuery({
     queryKey: ['analytics', 'ticket-tat', groupBy, from, to],
     queryFn: () => ticketApi.getTatReport(groupBy, from, to).then((r) => r.data),
     enabled: !!token && canViewOrgReports(user?.role),
-    retry: handleQueryRetry,
+    ...REPORT_OPTIONS,
   });
 };
 
-export const useChecklistInstanceComplianceReportQuery = (groupBy: GroupBy, from?: string, to?: string, includeDeleted?: boolean) => {
+export const useChecklistInstanceComplianceReportQuery = (groupBy: ReportGroupBy, from?: string, to?: string, includeDeleted?: boolean) => {
   const { token, user } = useAuth();
   return useQuery({
     queryKey: ['analytics', 'checklist-instance-compliance', groupBy, from, to, includeDeleted],
     queryFn: () => checklistInstanceApi.getComplianceReport(groupBy, undefined, from, to, includeDeleted).then((r) => r.data),
     enabled: !!token && canViewOrgReports(user?.role),
-    retry: handleQueryRetry,
+    ...REPORT_OPTIONS,
   });
 };
 
-// Backs the department/store ranking tables, the team leaderboard, and the org-wide on-time/
-// overdue stat cards — see ticket.service.ts#ownerStats and api/ticket.ts#getOwnerStats for why
-// this replaced reducing over a single newest-100-tickets page client-side.
+// Backs the department/store ranking tables, the team leaderboard, and the org-wide overdue stat:
+// see ticket.service.ts#ownerStats and api/ticket.ts#getOwnerStats for why this replaced reducing
+// over a single newest-100-tickets page client-side.
 export const useTicketOwnerStatsQuery = (scope: OwnerStatsScope, from?: string, to?: string) => {
   const { token, user } = useAuth();
   return useQuery({
     queryKey: ['analytics', 'ticket-owner-stats', scope, from, to],
     queryFn: () => ticketApi.getOwnerStats(scope, from, to).then((r) => r.data),
     enabled: !!token && canViewOrgReports(user?.role),
-    retry: handleQueryRetry,
+    ...REPORT_OPTIONS,
   });
 };
 
-// Same real GROUP BY aggregate approach as useTicketOwnerStatsQuery above, for delegations — see
+// Same real GROUP BY aggregate approach as useTicketOwnerStatsQuery above, for delegations: see
 // task.service.ts#ownerStats. Backs the department "Delegations" rate and the team leaderboard's
 // per-user task counts, replacing a client-side reduce over the newest-200-tasks-org-wide page.
 export const useTaskOwnerStatsQuery = (scope: TaskOwnerStatsScope, from?: string, to?: string) => {
@@ -67,6 +87,77 @@ export const useTaskOwnerStatsQuery = (scope: TaskOwnerStatsScope, from?: string
     queryKey: ['analytics', 'task-owner-stats', scope, from, to],
     queryFn: () => taskApi.getOwnerStats(scope, from, to).then((r) => r.data),
     enabled: !!token && canViewOrgReports(user?.role),
-    retry: handleQueryRetry,
+    ...REPORT_OPTIONS,
   });
+};
+
+// ---------------------------------------------------------------------------------------------
+// Recent activity feed
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * The newest tickets and delegations, merged. Each side asks the server for just the rows the feed
+ * shows (the feed used to pull 100 tickets and every task the viewer could see, then throw most
+ * away), and the merge is memoised so it only reruns when one of the two lists changes.
+ */
+export const useRecentActivityFeed = () => {
+  const { token } = useAuth();
+  const tickets = useQuery({
+    queryKey: ['analytics', 'recent-tickets', RECENT_ACTIVITY_FEED_SIZE],
+    queryFn: () => ticketApi.getAll(1, RECENT_ACTIVITY_FEED_SIZE),
+    enabled: !!token,
+    ...REPORT_OPTIONS,
+  });
+  const tasks = useQuery({
+    queryKey: ['analytics', 'recent-tasks', RECENT_ACTIVITY_FEED_SIZE],
+    queryFn: () => taskApi.getAll(undefined, undefined, 1, RECENT_ACTIVITY_FEED_SIZE),
+    enabled: !!token,
+    ...REPORT_OPTIONS,
+  });
+
+  const ticketRows = tickets.data?.data;
+  const taskRows = tasks.data?.data;
+  const feed = useMemo<FeedItem[]>(
+    () =>
+      [
+        ...(ticketRows ?? []).map((t): FeedItem => ({ kind: 'ticket', id: t.id, title: t.title, status: t.status, createdAt: t.createdAt })),
+        ...(taskRows ?? []).map((t): FeedItem => ({ kind: 'task', id: t.id, title: t.title, status: t.status, createdAt: t.createdAt })),
+      ]
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, RECENT_ACTIVITY_FEED_SIZE),
+    [ticketRows, taskRows],
+  );
+
+  return {
+    feed,
+    isPending: tickets.isPending || tasks.isPending,
+    isError: tickets.isError || tasks.isError,
+    refetch: () => Promise.all([tickets.refetch(), tasks.refetch()]),
+  };
+};
+
+// ---------------------------------------------------------------------------------------------
+// Refresh
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * "Updated 10:42" plus a Refresh action for the whole page. `updatedAt` is the newest successful
+ * report fetch in the shared analytics cache; `refresh` invalidates that whole namespace.
+ */
+export const useAnalyticsRefresh = () => {
+  const queryClient = useQueryClient();
+  const fetchingCount = useIsFetching({ queryKey: ANALYTICS_QUERY_KEY });
+
+  // useIsFetching re-renders this hook whenever a fetch starts or ends, which is exactly when the
+  // newest dataUpdatedAt can change, so reading the cache during render stays current.
+  const updatedAt = queryClient
+    .getQueryCache()
+    .findAll({ queryKey: ANALYTICS_QUERY_KEY })
+    .reduce((latest, q) => (q.state.status === 'success' && q.state.dataUpdatedAt > latest ? q.state.dataUpdatedAt : latest), 0);
+
+  return {
+    updatedAt: updatedAt > 0 ? updatedAt : null,
+    isRefreshing: fetchingCount > 0,
+    refresh: () => queryClient.invalidateQueries({ queryKey: ANALYTICS_QUERY_KEY }),
+  };
 };

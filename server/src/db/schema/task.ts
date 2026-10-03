@@ -112,6 +112,8 @@ export const tasks = mysqlTable(
     index('Task_status_createdAt_idx').on(table.status, table.createdAt),
     index('Task_category_status_createdAt_idx').on(table.category, table.status, table.createdAt),
     index('Task_parentTaskId_idx').on(table.parentTaskId),
+    // Org-wide analytics range scans by creation date.
+    index('Task_createdAt_idx').on(table.createdAt),
     // Mongoose also indexed {additionalAssigneeIds:1,createdAt:-1}; that array
     // now lives in the taskAdditionalAssignees junction table below, so the
     // equivalent index is on that table's userId column instead.
@@ -253,7 +255,11 @@ export const taskChecklistItems = mysqlTable(
     createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
     updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
   },
-  (table) => [index('TaskChecklistItem_taskChecklistId_idx').on(table.taskChecklistId)],
+  (table) => [
+    index('TaskChecklistItem_taskChecklistId_idx').on(table.taskChecklistId),
+    // The task compliance report buckets checklist items by createdAt.
+    index('TaskChecklistItem_createdAt_idx').on(table.createdAt),
+  ],
 );
 
 // ---------------------------------------------------------------------------

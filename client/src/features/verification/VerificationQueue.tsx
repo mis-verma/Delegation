@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import {
   ShieldCheck,
@@ -22,7 +22,8 @@ import { Breadcrumbs, type BreadcrumbTrailItem } from '../../components/breadcru
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../../components/ui/select';
 import { useTicketsByStatusQuery, useVerifyTicketMutation, useDepartmentsQuery, useStoresQuery, useAssignableUsersQuery } from '../tickets/hook';
 import { useTasksByStatusQuery, useVerifyTaskMutation, useTaskQuery } from '../tasks/hook';
-import { usePendingVerificationChecklistInstancesQuery, useVerifyChecklistInstanceMutation } from '../checklist/hook';
+import { usePendingVerificationChecklistInstancesQuery, useVerifyChecklistInstanceMutation, useSendBackChecklistInstanceMutation } from '../checklist/hook';
+import { InstanceReviewPanel } from '../checklist/instance/InstanceReviewPanel';
 import { formatDate } from '../checklist/checklistDisplay';
 import { ChecklistCompletionPreview } from './ChecklistCompletionPreview';
 import { summarizeChecklists } from './checklistSummary';
@@ -84,11 +85,18 @@ interface QueueRowProps {
   /** Done/total/missing-photo rollup, shown as a compact badge even before the row is expanded —
    *  the thing a verifier used to have to open the row (or leave the queue) to find out. */
   summary?: { total: number; done: number; missingPhotos: number };
+  /** Checklist runs only: questions the reviewer ticked to send back on their own. While any are
+   *  ticked, the correction button sends just those (with a note) instead of the whole checklist,
+   *  and Approve steps aside so a half-reviewed checklist cannot be approved by accident. */
+  itemSendBack?: { count: number; onSend: (note: string) => void };
 }
 
-const QueueRow = ({ icon, title, subtitle, onOpen, onApprove, onReject, isPending, selection, expanded, onToggleExpanded, preview, summary }: QueueRowProps) => {
+const QueueRow = ({ icon, title, subtitle, onOpen, onApprove, onReject, isPending, selection, expanded, onToggleExpanded, preview, summary, itemSendBack }: QueueRowProps) => {
   const [rejecting, setRejecting] = useState(false);
+  // Fixed when the panel opens: whether this correction is for the ticked questions or the whole checklist.
+  const [sendingItems, setSendingItems] = useState(false);
   const [note, setNote] = useState('');
+  const pickedCount = itemSendBack?.count ?? 0;
 
   // A flagged item both opens the correction panel and appends a reference to it into the note,
   // rather than making the verifier retype what they just read in the preview above. Re-flagging
@@ -167,19 +175,21 @@ const QueueRow = ({ icon, title, subtitle, onOpen, onApprove, onReject, isPendin
               variant="outline"
               className="gap-1.5 border-danger/30 text-danger hover:bg-danger/10 hover:border-danger/50 hover:text-danger transition-colors"
               disabled={isPending}
-              onClick={() => setRejecting(true)}
+              onClick={() => { setSendingItems(pickedCount > 0); setRejecting(true); }}
             >
               <X size={14} />
-              {/* Not a hard reject — this sends the item back to its assignee to fix and resubmit
-                  (see task.service.ts#verify / ticket.service.ts#verify), so it's labeled for what
-                  it actually does rather than reading as a terminal rejection. */}
-              <span className="hidden sm:inline">Request Correction</span>
+              {/* Sends the work back to whoever did it to fix and resubmit (see task.service.ts#verify /
+                  ticket.service.ts#verify). With questions ticked it sends only those. */}
+              <span className={pickedCount > 0 ? '' : 'hidden sm:inline'}>
+                {pickedCount > 0 ? `Send back ${pickedCount} ${pickedCount === 1 ? 'question' : 'questions'}` : itemSendBack ? 'Send back all' : 'Request Correction'}
+              </span>
             </Button>
             <Button
               size="sm"
               variant="primary"
-              className="gap-1.5 bg-success hover:bg-success/90 shadow-sm shadow-success/20"
-              disabled={isPending}
+              className="gap-1.5 bg-success text-white hover:bg-success/90 hover:text-white"
+              disabled={isPending || pickedCount > 0}
+              title={pickedCount > 0 ? 'Untick the questions first, or send them back' : undefined}
               onClick={() => onApprove()}
             >
               {isPending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
@@ -203,7 +213,7 @@ const QueueRow = ({ icon, title, subtitle, onOpen, onApprove, onReject, isPendin
             autoFocus
             value={note}
             onChange={e => setNote(e.target.value)}
-            placeholder="Please detail what needs to be fixed before approval..."
+            placeholder={sendingItems ? "What needs fixing on these questions?" : "Please detail what needs to be fixed before approval..."}
             rows={2}
             className="w-full px-3.5 py-2.5 text-sm bg-surface/50 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-danger/20 focus:border-danger/50 resize-none transition-all placeholder:text-text-muted/50"
           />
@@ -212,7 +222,7 @@ const QueueRow = ({ icon, title, subtitle, onOpen, onApprove, onReject, isPendin
               size="sm"
               variant="outline"
               disabled={isPending}
-              onClick={() => { setRejecting(false); setNote(''); }}
+              onClick={() => { setRejecting(false); setSendingItems(false); setNote(''); }}
               className="text-text-muted hover:text-text"
             >
               Cancel
@@ -220,11 +230,11 @@ const QueueRow = ({ icon, title, subtitle, onOpen, onApprove, onReject, isPendin
             <Button
               size="sm"
               variant="primary"
-              className="bg-danger hover:bg-danger/90 shadow-sm shadow-danger/20"
-              disabled={isPending || !note.trim()}
-              onClick={() => onReject(note.trim())}
+              className="bg-danger text-white hover:bg-danger/90 hover:text-white"
+              disabled={isPending || !note.trim() || (sendingItems && pickedCount === 0)}
+              onClick={() => (sendingItems && itemSendBack ? itemSendBack.onSend(note.trim()) : onReject(note.trim()))}
             >
-              {isPending ? <Loader2 size={14} className="animate-spin" /> : 'Send Back for Revision'}
+              {isPending ? <Loader2 size={14} className="animate-spin" /> : sendingItems ? `Send back ${pickedCount} ${pickedCount === 1 ? 'question' : 'questions'}` : 'Send Back for Revision'}
             </Button>
           </div>
         </div>
@@ -301,18 +311,38 @@ const TaskRow = ({ task, selection }: { task: Task; selection?: QueueRowProps['s
 const ChecklistRow = ({ instance }: { instance: ChecklistInstance }) => {
   const navigate = useNavigate();
   const verifyMut = useVerifyChecklistInstanceMutation();
+  const sendBackMut = useSendBackChecklistInstanceMutation();
   const [expanded, setExpanded] = useState(false);
-  const previewChecklists = instance.items ? [{ id: instance.id, title: instance.title, items: instance.items }] : [];
+  // Questions the reviewer ticked to send back on their own, kept per row.
+  const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set());
+  const togglePicked = useCallback((itemId: string) =>
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId); else next.add(itemId);
+      return next;
+    }), []);
+  const items = instance.items;
+  const previewChecklists = useMemo(() => (items ? [{ id: instance.id, title: instance.title, items }] : []), [instance.id, instance.title, items]);
+  const itemSendBack = useMemo(() => ({
+    count: picked.size,
+    onSend: (note: string) => sendBackMut.mutate(
+      { id: instance.id, payload: { itemIds: [...picked], note } },
+      { onSuccess: () => setPicked(new Set()) },
+    ),
+  }), [picked, instance.id, sendBackMut]);
   return (
     <QueueRow
       icon={<Repeat size={18} />}
       title={instance.title}
       subtitle={`${formatDate(instance.periodStart)} – ${formatDate(instance.periodEnd)} · every item checked off`}
-      isPending={verifyMut.isPending}
+      isPending={verifyMut.isPending || sendBackMut.isPending}
       expanded={expanded}
       onToggleExpanded={() => setExpanded((v) => !v)}
       summary={summarizeChecklists(previewChecklists)}
-      preview={(flag) => <ChecklistCompletionPreview checklists={previewChecklists} isLoading={false} onFlagItem={(item) => flag(item.label)} />}
+      preview={() => (
+        <InstanceReviewPanel items={items ?? []} selected={picked} onToggle={togglePicked} disabled={verifyMut.isPending || sendBackMut.isPending} />
+      )}
+      itemSendBack={itemSendBack}
       onOpen={() => navigate(`/checklists/${instance.id}`)}
       onApprove={(note) => verifyMut.mutate({ id: instance.id, payload: { action: 'APPROVE', note } })}
       onReject={(note) => verifyMut.mutate({ id: instance.id, payload: { action: 'REJECT', note } })}

@@ -1,0 +1,240 @@
+import { db } from "../../config/db.js"
+import { env } from "../../config/env.js"
+import { sql, type SQL } from "drizzle-orm"
+import {
+    checklistInstances,
+    checklistInstanceAssignees,
+    checklistInstanceItems,
+    checklistInstanceImages,
+    checklistInstanceItemSubmissions,
+    checklistInstanceItemSubmissionImages,
+    checklistDefinitions,
+    users,
+    stores,
+} from "../../db/schema/index.js"
+import { GATED_BOOLEAN_ITEM_EXPR, FLAGGED_BOOLEAN_ANSWER_EXPR } from "../../utils/checklistBooleanFlags.js"
+import { REPORT_DATE_FORMATS, RANGE_BUCKET, resolveReportWindow, zeroFill, type ReportGroupBy } from "./checklistReportRange.js"
+import type { ChecklistReportScope } from "./checklistReportScope.js"
+
+// Analytics over checklist runs: the trend report (one row per time bucket) and the by-store report
+// (one row per active store). Both read the SAME per-run aggregate (runAggregateSql), then group it
+// once more, so the two can never disagree on a rule.
+//
+// Rules (product decisions D3, D8, D11):
+//  - Completion is item based, but Not applicable items are left out of the done count AND the
+//    total, and only DUE runs count. A run is due when its deadline has passed or it is already
+//    fully done. A run that has not started and is not yet due is not a miss.
+//  - Photo quality looks only at items that are done, not N/A, and require photos. An AUDIT item's
+//    photos live on its submissions (ChecklistInstanceItemSubmissionImage), so those count too.
+//  - Compliance (separate from completion): scored answers = items with an acceptable-answer rule
+//    that were answered (done, not N/A), PLUS every non-N/A item a reviewer sent back at least once
+//    (sendBackCount > 0), rule or no rule. Good = a scored item whose answer is inside its rule
+//    AND that was never sent back. A sent-back question stays a failed check even when it was
+//    redone well later: first-attempt quality. Mirrors client checklistCompliance.ts answerVerdict.
+//  - Approval rate = approved on first attempt / DECIDED runs (approved, or rejected at least once).
+//    Runs still waiting for a decision are reported separately as pendingRuns.
+
+const ROUND = (n: number, d: number) => (d ? Math.round((n / d) * 1000) / 10 : null)
+
+// Org-local "now" and a run's org-local deadline, as wall-clock datetimes (same rule as
+// checklistInstance.service.ts's deadlineExpr / localNowExpr, but on the `ci` alias used here).
+const LOCAL_NOW = sql`DATE_ADD(UTC_TIMESTAMP(), INTERVAL ${env.CHECKLIST_TIMEZONE_OFFSET_MINUTES} MINUTE)`
+const RUN_DEADLINE = sql`(CASE
+    WHEN ci.cutoffTime IS NULL THEN TIMESTAMP(DATE(ci.periodEnd))
+    WHEN ci.opensTime IS NOT NULL AND ci.cutoffTime < ci.opensTime
+        THEN TIMESTAMP(DATE_ADD(DATE(ci.periodStart), INTERVAL 1 DAY), CONCAT(ci.cutoffTime, ':00'))
+    ELSE TIMESTAMP(DATE(ci.periodStart), CONCAT(ci.cutoffTime, ':00'))
+END)`
+
+// Item is done and applicable.
+const ANSWERED = sql`(cii.isDone = 1 AND cii.isNotApplicable = 0)`
+
+// Answered item that has an acceptable-answer rule to be judged against.
+const RULE_SCORED = sql`(${ANSWERED} AND (
+    (cii.itemType IN ('YES_NO', 'PASS_FAIL') AND COALESCE(JSON_LENGTH(cii.acceptableAnswers), 0) > 0 AND cii.booleanAnswer IS NOT NULL)
+    OR (cii.itemType IN ('MULTIPLE_CHOICE', 'DROPDOWN') AND COALESCE(JSON_LENGTH(cii.acceptableAnswers), 0) > 0 AND cii.textValue IS NOT NULL AND cii.textValue <> '')
+    OR (cii.itemType IN ('NUMBER_ENTRY', 'RATING') AND (cii.acceptableMin IS NOT NULL OR cii.acceptableMax IS NOT NULL) AND cii.numericValue IS NOT NULL)
+))`
+
+// Only meaningful when RULE_SCORED is true: the answer sits inside the rule.
+const RULE_OK = sql`(CASE
+    WHEN cii.itemType IN ('YES_NO', 'PASS_FAIL') THEN JSON_CONTAINS(cii.acceptableAnswers, JSON_QUOTE(cii.booleanAnswer))
+    WHEN cii.itemType IN ('MULTIPLE_CHOICE', 'DROPDOWN') THEN JSON_CONTAINS(cii.acceptableAnswers, JSON_QUOTE(cii.textValue))
+    ELSE (cii.acceptableMin IS NULL OR cii.numericValue >= cii.acceptableMin) AND (cii.acceptableMax IS NULL OR cii.numericValue <= cii.acceptableMax)
+END)`
+
+// D11: a reviewer send-back is a failed check, scored even without a rule.
+const SENT_BACK = sql`(cii.isNotApplicable = 0 AND cii.sendBackCount > 0)`
+const SCORED = sql`(${RULE_SCORED} OR ${SENT_BACK})`
+const GOOD = sql`(${RULE_SCORED} AND cii.sendBackCount = 0 AND ${RULE_OK})`
+
+// Photos on one item that count towards its requirement: its own photos plus, for an AUDIT item,
+// the photos on its submissions. Correlated, so it is only evaluated for the (few) done items that
+// require photos, never for the whole image table.
+const ITEM_PHOTO_COUNT = sql`(
+    (SELECT COUNT(*) FROM ${checklistInstanceImages} im
+        WHERE im.checklistInstanceItemId = cii.id AND (cii.requiresLivePhoto = 0 OR im.captureMethod = 'LIVE'))
+    + (CASE WHEN cii.itemType = 'AUDIT' THEN
+        (SELECT COUNT(*) FROM ${checklistInstanceItemSubmissionImages} si
+            JOIN ${checklistInstanceItemSubmissions} su ON su.id = si.submissionId
+            WHERE su.itemId = cii.id AND (cii.requiresLivePhoto = 0 OR si.captureMethod = 'LIVE'))
+       ELSE 0 END)
+)`
+const PHOTO_ITEM = sql`(${ANSWERED} AND cii.requiredImageCount > 0)`
+const PHOTO_OK = sql`(CASE WHEN ${PHOTO_ITEM} AND ${ITEM_PHOTO_COUNT} >= cii.requiredImageCount THEN 1 ELSE 0 END)`
+
+export type ChecklistReportQuery = {
+    groupBy: ReportGroupBy
+    from?: string
+    to?: string
+    /** ADMIN/PC only: also include runs of soft-deleted checklists. */
+    includeDeleted?: boolean
+}
+
+const filterConditions = (
+    scope: ChecklistReportScope,
+    window: { fromDate: string; toExclusive: string },
+    includeDeleted: boolean,
+    activeStoresOnly: boolean,
+): SQL[] => {
+    // periodStart is the org-local day (as UTC midnight) and the window is org-local days, so a
+    // plain date comparison is exact whatever time zone the caller's browser sits in.
+    const conditions: SQL[] = [sql`ci.periodStart >= ${window.fromDate}`, sql`ci.periodStart < ${window.toExclusive}`]
+    if (!includeDeleted) conditions.push(sql`d.deletedAt IS NULL`)
+    if (activeStoresOnly) conditions.push(sql`st.isActive = 1`)
+    if (scope.storeId) conditions.push(sql`ci.storeId = ${scope.storeId}`)
+    if (scope.departmentId) {
+        // Same rule as instanceIdsForDepartment: a run belongs to a department when one of its
+        // assignees sits in it.
+        conditions.push(sql`EXISTS (
+            SELECT 1 FROM ${checklistInstanceAssignees} a
+            JOIN ${users} u ON u.id = a.userId
+            WHERE a.instanceId = ci.id AND u.departmentId = ${scope.departmentId}
+        )`)
+    }
+    return conditions
+}
+
+// One row per run with that run's counts. Item facts are summed per run; grouping by bucket or by
+// store happens one level up.
+const runAggregateSql = (conditions: SQL[]) => sql`
+    SELECT
+        ci.id AS id,
+        ci.storeId AS storeId,
+        ci.periodStart AS periodStart,
+        ci.verificationStatus AS verificationStatus,
+        ci.rejectionCount AS rejectionCount,
+        CASE WHEN ${RUN_DEADLINE} < ${LOCAL_NOW} OR MIN(cii.isDone) = 1 THEN 1 ELSE 0 END AS isDue,
+        SUM(cii.isNotApplicable = 0) AS applicableItems,
+        SUM(${ANSWERED}) AS doneItems,
+        SUM(CASE WHEN ${PHOTO_ITEM} THEN 1 ELSE 0 END) AS photoItems,
+        SUM(${PHOTO_OK}) AS photoOkItems,
+        SUM(CASE WHEN ${ANSWERED} AND ${GATED_BOOLEAN_ITEM_EXPR} THEN 1 ELSE 0 END) AS gatedItems,
+        SUM(CASE WHEN ${ANSWERED} AND ${FLAGGED_BOOLEAN_ANSWER_EXPR} THEN 1 ELSE 0 END) AS flaggedItems,
+        SUM(CASE WHEN ${SCORED} THEN 1 ELSE 0 END) AS scoredItems,
+        SUM(CASE WHEN ${GOOD} THEN 1 ELSE 0 END) AS goodItems
+    FROM ${checklistInstances} ci
+    JOIN ${checklistInstanceItems} cii ON cii.instanceId = ci.id
+    JOIN ${checklistDefinitions} d ON d.id = ci.definitionId
+    JOIN ${stores} st ON st.id = ci.storeId
+    WHERE ${sql.join(conditions, sql` AND `)}
+    GROUP BY ci.id, ci.storeId, ci.periodStart, ci.verificationStatus, ci.rejectionCount, ci.periodEnd, ci.cutoffTime, ci.opensTime
+`
+
+// The numbers both reports derive their rates from, as aggregate expressions over the run rows `r`.
+const GROUP_METRICS = sql`
+    COALESCE(SUM(CASE WHEN r.isDue = 1 THEN r.applicableItems END), 0) AS totalItems,
+    COALESCE(SUM(CASE WHEN r.isDue = 1 THEN r.doneItems END), 0) AS doneItems,
+    COALESCE(SUM(r.isDue), 0) AS dueRuns,
+    COALESCE(SUM(r.photoItems), 0) AS photoItems,
+    COALESCE(SUM(r.photoOkItems), 0) AS photoOkItems,
+    COALESCE(SUM(r.gatedItems), 0) AS gatedItems,
+    COALESCE(SUM(r.flaggedItems), 0) AS flaggedItems,
+    COALESCE(SUM(r.scoredItems), 0) AS scoredItems,
+    COALESCE(SUM(r.goodItems), 0) AS goodItems,
+    COUNT(CASE WHEN r.verificationStatus IN ('PENDING_APPROVAL', 'APPROVED', 'REJECTED') OR r.rejectionCount > 0 THEN 1 END) AS submittedRuns,
+    COUNT(CASE WHEN r.verificationStatus = 'APPROVED' OR r.rejectionCount > 0 THEN 1 END) AS decidedRuns,
+    COUNT(CASE WHEN r.verificationStatus = 'APPROVED' AND r.rejectionCount = 0 THEN 1 END) AS firstAttemptApproved,
+    COUNT(CASE WHEN r.verificationStatus = 'PENDING_APPROVAL' AND r.rejectionCount = 0 THEN 1 END) AS pendingRuns
+`
+
+type MetricRow = Record<string, unknown>
+const n = (v: unknown) => Number(v ?? 0)
+
+const metricsOf = (r: MetricRow) => ({
+    totalItems: n(r.totalItems),
+    doneItems: n(r.doneItems),
+    completionRate: ROUND(n(r.doneItems), n(r.totalItems)),
+    dueRuns: n(r.dueRuns),
+    itemsRequiringPhotos: n(r.photoItems),
+    qualityRate: ROUND(n(r.photoOkItems), n(r.photoItems)),
+    // Share of answered gated Yes/No-style items whose answer landed on the flagged branch: higher
+    // is worse. null when nothing in the group was gated with a conditional action.
+    gatedBooleanItems: n(r.gatedItems),
+    issueRate: ROUND(n(r.flaggedItems), n(r.gatedItems)),
+    scoredAnswers: n(r.scoredItems),
+    complianceRate: ROUND(n(r.goodItems), n(r.scoredItems)),
+    submittedInstances: n(r.submittedRuns),
+    decidedRuns: n(r.decidedRuns),
+    firstAttemptApproved: n(r.firstAttemptApproved),
+    pendingRuns: n(r.pendingRuns),
+    approvalRate: ROUND(n(r.firstAttemptApproved), n(r.decidedRuns)),
+})
+
+const emptyBucket = (bucket: string) => ({ bucket, ...metricsOf({}) })
+
+export const checklistReportService = {
+    /**
+     * Trend report. `scope` null means the caller may see nothing (a head with no department): the
+     * answer is an empty series, never an unfiltered query.
+     */
+    async complianceReport(scope: ChecklistReportScope | null, query: ChecklistReportQuery) {
+        const window = resolveReportWindow(query.groupBy, query.from, query.to)
+        if (!scope) return zeroFill([], query.groupBy, window, emptyBucket)
+
+        const conditions = filterConditions(scope, window, query.includeDeleted === true, false)
+        const bucketExpr = query.groupBy === "none"
+            ? sql.raw(`'${RANGE_BUCKET}'`)
+            : sql`DATE_FORMAT(r.periodStart, ${REPORT_DATE_FORMATS[query.groupBy]})`
+
+        // db.execute() on the mysql2 driver resolves to the raw tuple [rows, fields], not a row array.
+        const [rows] = await db.execute(sql`
+            SELECT ${bucketExpr} AS bucket, ${GROUP_METRICS}
+            FROM (${runAggregateSql(conditions)}) r
+            GROUP BY bucket
+            ORDER BY bucket ASC
+        `)
+
+        const buckets = (rows as unknown as MetricRow[]).map((r) => ({ bucket: String(r.bucket), ...metricsOf(r) }))
+        return zeroFill(buckets, query.groupBy, window, emptyBucket)
+    },
+
+    /** One row per ACTIVE store that had runs in the range, from a single grouped query. */
+    async byStoreReport(scope: ChecklistReportScope | null, query: { from?: string; to?: string }) {
+        if (!scope) return []
+        const window = resolveReportWindow("none", query.from, query.to)
+        const conditions = filterConditions(scope, window, false, true)
+
+        const [rows] = await db.execute(sql`
+            SELECT r.storeId AS storeId, st.name AS storeName, ${GROUP_METRICS}
+            FROM (${runAggregateSql(conditions)}) r
+            JOIN ${stores} st ON st.id = r.storeId
+            GROUP BY r.storeId, st.name
+            ORDER BY st.name ASC
+        `)
+
+        return (rows as unknown as MetricRow[]).map((r) => {
+            const m = metricsOf(r)
+            return {
+                storeId: String(r.storeId),
+                storeName: String(r.storeName),
+                completionRate: m.completionRate,
+                qualityRate: m.qualityRate,
+                approvalRate: m.approvalRate,
+                complianceRate: m.complianceRate,
+                dueRuns: m.dueRuns,
+                items: m.totalItems,
+            }
+        })
+    },
+}

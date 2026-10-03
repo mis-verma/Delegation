@@ -1,9 +1,8 @@
 import { db } from "../../config/db.js"
 import { tasks, taskAdditionalAssignees, taskAttachments, taskChecklists, taskChecklistItems, taskImages, taskStatusUpdates, tags, taskTags, taskReviewers, TASK_STATUSES } from "../../db/schema/index.js"
 import { users } from "../../db/schema/core.js"
-import { eq, and, or, inArray, asc, desc, sql, isNull, isNotNull, ne } from "drizzle-orm"
+import { eq, and, or, inArray, asc, desc, sql, isNull, isNotNull, ne, type SQL } from "drizzle-orm"
 import { cached, cacheKey } from "../../config/queryCache.js"
-import { DATE_FORMATS } from "../../utils/dateBucket.js"
 import { createId } from "@paralleldrive/cuid2"
 import { AppError } from "../../utils/AppError.js"
 import { assertChecklistsResolved } from "../../utils/checklistGate.js"
@@ -12,7 +11,7 @@ import type { ConfirmSmartTaskInput, CreateTaskInput, UpdateTaskInput, VerifyTas
 import { notificationService, notifySafely } from "../notifications/notification.service.js"
 import { auditService } from "../audit/audit.service.js"
 import { emitTaskEvent } from "../../sockets/taskEvent.js"
-import type { DateBucket } from "../../utils/index.js"
+import { resolveReportRange, bucketSql, utcSql, type ReportGroupBy } from "../tickets/ticket.service.js"
 
 // NOTE on populate-heavy reads: the conventions doc recommends Drizzle's relational query API
 // (`db.query.tasks.findFirst({ with: {...} })`) for these, but that API compiles every "many"
@@ -295,17 +294,28 @@ export type TaskSummaryRow = {
 };
 
 // One grouped SQL aggregate behind ownerStats below — `column` is what to GROUP BY (a department/
-// assignee/raiser id column, or NULL for one ungrouped org-wide row when `grouped` is false).
+// assignee id column, or NULL for one ungrouped org-wide row when `grouped` is false).
 // Mirrors ticket.service.ts#ownerStatsByColumn.
+//
+// What counts as a delegation here: not soft-deleted, not a draft (private scratch), category
+// 'delegation' (issues are reported elsewhere) and not a subtask (its parent already counts).
+// Overdue = still open and past due: not done, not draft, and not pending_approval (the work is
+// finished and waiting on a reviewer, so the assignee's clock has stopped). "Now" is a bound UTC
+// string, not NOW(), so Node and the DB session timezone can never disagree.
 const taskOwnerStatsByColumn = async (
-    column: ReturnType<typeof sql>,
-    conditions: ReturnType<typeof sql>[],
+    column: SQL,
+    conditions: SQL[],
     grouped: boolean,
 ): Promise<TaskOwnerStatsRow[]> => {
-    // t.deletedAt IS NULL always applies, not just when a caller happens to pass its own
-    // conditions — a soft-deleted delegation must never contribute to these owner-level stats.
-    const where = sql`WHERE t.deletedAt IS NULL${conditions.length ? sql` AND ${sql.join(conditions, sql` AND `)}` : sql``}`;
+    const where = sql`WHERE ${sql.join([
+        sql`t.deletedAt IS NULL`,
+        sql`t.status <> 'draft'`,
+        sql`t.category = 'delegation'`,
+        sql`t.parentTaskId IS NULL`,
+        ...conditions,
+    ], sql` AND `)}`;
     const groupBy = grouped ? sql`GROUP BY ownerId` : sql``;
+    const now = utcSql(new Date());
 
     // db.execute() on the mysql2 driver resolves to the raw mysql2 result tuple [rows, fields],
     // NOT a plain row array — must destructure element 0 (see complianceReport above).
@@ -313,14 +323,14 @@ const taskOwnerStatsByColumn = async (
         SELECT
             ${column} AS ownerId,
             COUNT(*) AS total,
-            SUM(t.status = 'done') AS done,
-            SUM(t.status != 'done' AND t.dueDate IS NOT NULL AND t.dueDate < NOW()) AS overdueCount
+            COALESCE(SUM(t.status = 'done'), 0) AS done,
+            COALESCE(SUM(t.status NOT IN ('done', 'draft', 'pending_approval') AND t.dueDate IS NOT NULL AND t.dueDate < ${now}), 0) AS overdueCount
         FROM Task t
         ${where}
         ${groupBy}
     `);
 
-    return (rows as unknown as any[]).map((r) => ({
+    return (rows as unknown as Record<string, unknown>[]).map((r) => ({
         ownerId: r.ownerId != null ? String(r.ownerId) : null,
         total: Number(r.total),
         done: Number(r.done),
@@ -882,13 +892,18 @@ export const taskService = {
     // Ported from a MongoDB aggregation pipeline (TaskChecklistItem -> TaskChecklist -> Task,
     // joined to TaskImage) to raw SQL, since the pipeline's conditional "qualifying photo count"
     // logic ($cond/$filter/$size) doesn't map onto Prisma-/Drizzle-style query builders cleanly.
-    // Shape/semantics preserved exactly: per time bucket, how many checklist items were done, and
-    // of those requiring a photo, how many met their photo-evidence requirement (LIVE-only if
-    // requiresLivePhoto, otherwise any capture method).
-    async complianceReport(groupBy: DateBucket, departmentId?: string, from?: string, to?: string, userId?: string, departmentIds?: string[]) {
-        const conditions: ReturnType<typeof sql>[] = [];
-        if (from) conditions.push(sql`tci.createdAt >= ${new Date(from)}`);
-        if (to) conditions.push(sql`tci.createdAt <= ${new Date(to)}`);
+    // Per time bucket: how many checklist items were done, and of those requiring a photo, how many
+    // met their photo-evidence requirement (LIVE-only if requiresLivePhoto, otherwise any capture
+    // method). Items of draft delegations and of soft-deleted ones never count. Buckets are the
+    // org's local calendar (same offset the checklist engine uses), every bucket of the requested
+    // window is present (zero-filled), groupBy 'none' = one bucket 'range', and no from/to means
+    // the last 12 buckets (30 days for day) rather than all of history.
+    async complianceReport(groupBy: ReportGroupBy, departmentId?: string, from?: string, to?: string, userId?: string, departmentIds?: string[]) {
+        const range = resolveReportRange(groupBy, from, to);
+        const conditions: SQL[] = [
+            sql`tci.createdAt >= ${utcSql(range.from)}`,
+            sql`tci.createdAt <= ${utcSql(range.to)}`,
+        ];
         if (departmentId) conditions.push(sql`t.departmentId = ${departmentId}`);
         // A SENIOR has no department of their own — this matches every department that belongs
         // to their store instead (see reportScope.ts's resolveDepartmentIdsForStore). Checked
@@ -900,8 +915,8 @@ export const taskService = {
                 : sql`1 = 0`);
         }
         if (userId) conditions.push(sql`(t.userId = ${userId} OR t.assigneeId = ${userId} OR taa.userId IS NOT NULL)`);
-        // A soft-deleted delegation's checklist items must not count toward compliance either.
-        conditions.push(sql`t.deletedAt IS NULL`);
+        // A soft-deleted or draft delegation's checklist items must not count toward compliance.
+        conditions.push(sql`t.deletedAt IS NULL`, sql`t.status <> 'draft'`);
 
         const whereClause = sql`WHERE ${sql.join(conditions, sql` AND `)}`;
 
@@ -909,7 +924,7 @@ export const taskService = {
         // [rows, fields], NOT a plain row array — must destructure element 0.
         const [rows] = await db.execute(sql`
             SELECT
-                DATE_FORMAT(tci.createdAt, ${DATE_FORMATS[groupBy]}) AS bucket,
+                ${bucketSql(groupBy, sql`tci.createdAt`)} AS bucket,
                 COUNT(*) AS totalItems,
                 SUM(tci.isDone) AS doneItems,
                 SUM(tci.requiredImageCount > 0) AS itemsRequiringPhotos,
@@ -928,27 +943,48 @@ export const taskService = {
             LEFT JOIN TaskAdditionalAssignee taa ON taa.taskId = t.id AND taa.userId = ${userId ?? null}
             ${whereClause}
             GROUP BY bucket
-            ORDER BY bucket ASC
         `);
 
-        return (rows as unknown as any[]).map((r) => ({
-            bucket: r.bucket as string,
-            totalItems: Number(r.totalItems),
-            doneItems: Number(r.doneItems),
-            completionRate: Number(r.totalItems) ? Math.round((Number(r.doneItems) / Number(r.totalItems)) * 1000) / 10 : null,
-            itemsRequiringPhotos: Number(r.itemsRequiringPhotos),
-            qualityRate: Number(r.itemsRequiringPhotos) ? Math.round((Number(r.photoCompliantItems) / Number(r.itemsRequiringPhotos)) * 1000) / 10 : null,
-        }));
+        const byBucket = new Map<string, { totalItems: number; doneItems: number; itemsRequiringPhotos: number; photoCompliantItems: number }>(
+            (rows as unknown as Record<string, unknown>[]).map((r) => [String(r.bucket), {
+                totalItems: Number(r.totalItems),
+                doneItems: Number(r.doneItems),
+                itemsRequiringPhotos: Number(r.itemsRequiringPhotos),
+                photoCompliantItems: Number(r.photoCompliantItems),
+            }]),
+        );
+
+        return range.buckets.map((bucket) => {
+            const r = byBucket.get(bucket);
+            const totalItems = r?.totalItems ?? 0;
+            const doneItems = r?.doneItems ?? 0;
+            const itemsRequiringPhotos = r?.itemsRequiringPhotos ?? 0;
+            const photoCompliantItems = r?.photoCompliantItems ?? 0;
+            return {
+                bucket,
+                totalItems,
+                doneItems,
+                completionRate: totalItems ? Math.round((doneItems / totalItems) * 1000) / 10 : null,
+                itemsRequiringPhotos,
+                qualityRate: itemsRequiringPhotos ? Math.round((photoCompliantItems / itemsRequiringPhotos) * 1000) / 10 : null,
+            };
+        });
     },
 
     // Real GROUP BY aggregate for the admin "Delegations" rankings/leaderboard — replaces a
     // client-side reduce over `useTasksQuery()`'s newest-200-tasks-org-wide page, which silently
     // mis-scored (or zeroed out) any department/user whose tasks weren't among those 200, and
     // ignored the page's own date-range filter entirely. Mirrors ticket.service.ts#ownerStats.
+    //
+    // Totals are delegations created in the window (see taskOwnerStatsByColumn for what counts).
+    // scope 'user' credits the ASSIGNEE only, in a single grouped query: a person is judged on work
+    // handed to them, not on delegations they merely raised, and the old assignee + raiser +
+    // self-assigned merge (three queries) is gone. `total` is the volume the client's
+    // minimum-volume rule reads.
     async ownerStats(scope: "department" | "user" | "org", from?: string, to?: string, departmentId?: string, departmentIds?: string[]): Promise<TaskOwnerStatsRow[]> {
-        const baseConditions: ReturnType<typeof sql>[] = [];
-        if (from) baseConditions.push(sql`t.createdAt >= ${new Date(from)}`);
-        if (to) baseConditions.push(sql`t.createdAt <= ${new Date(to)}`);
+        const baseConditions: SQL[] = [];
+        if (from) baseConditions.push(sql`t.createdAt >= ${utcSql(new Date(from))}`);
+        if (to) baseConditions.push(sql`t.createdAt <= ${utcSql(new Date(to))}`);
         // Same store->department resolution as complianceReport above: Task has no storeId, so a
         // SENIOR's scope arrives as a resolved department id list instead.
         if (departmentIds !== undefined) {
@@ -961,36 +997,7 @@ export const taskService = {
 
         if (scope === "department") return taskOwnerStatsByColumn(sql`t.departmentId`, baseConditions, true);
         if (scope === "org") return taskOwnerStatsByColumn(sql`NULL`, baseConditions, false);
-
-        // user: credit both the primary assignee and the raiser, same dual-credit merge as
-        // ticketService.ownerStats('user', ...) — including the same self-assigned-subtraction
-        // fix: a task where assigneeId === userId is a row in both grouped result sets, so a
-        // third query isolates just those self-assigned tasks and nets them back out to single
-        // credit instead of leaving them double-counted. Deliberately excludes
-        // TaskAdditionalAssignee — matches the simpler "assignee or raiser" rule the leaderboard
-        // used before this fix, not an expansion of scope.
-        const [assigneeRows, raiserRows, selfAssignedRows] = await Promise.all([
-            taskOwnerStatsByColumn(sql`t.assigneeId`, [...baseConditions, sql`t.assigneeId IS NOT NULL`], true),
-            taskOwnerStatsByColumn(sql`t.userId`, baseConditions, true),
-            taskOwnerStatsByColumn(sql`t.assigneeId`, [...baseConditions, sql`t.assigneeId = t.userId`], true),
-        ]);
-        const merged = new Map<string, TaskOwnerStatsRow>();
-        const accumulate = (rows: TaskOwnerStatsRow[], sign: 1 | -1) => {
-            for (const row of rows) {
-                if (row.ownerId == null) continue;
-                const existing = merged.get(row.ownerId) ?? { ownerId: row.ownerId, total: 0, done: 0, overdueCount: 0 };
-                merged.set(row.ownerId, {
-                    ownerId: row.ownerId,
-                    total: existing.total + sign * row.total,
-                    done: existing.done + sign * row.done,
-                    overdueCount: existing.overdueCount + sign * row.overdueCount,
-                });
-            }
-        };
-        accumulate(assigneeRows, 1);
-        accumulate(raiserRows, 1);
-        accumulate(selfAssignedRows, -1);
-        return [...merged.values()];
+        return taskOwnerStatsByColumn(sql`t.assigneeId`, [...baseConditions, sql`t.assigneeId IS NOT NULL`], true);
     },
 
     // Backs the sidebar's "Delegation" count badge and its hover breakdown — deliberately "mine"
@@ -1016,7 +1023,7 @@ export const taskService = {
                 total: sql<number>`COUNT(*)`,
                 draft: sql<number>`SUM(CASE WHEN ${tasks.status} = 'draft' THEN 1 ELSE 0 END)`,
                 completed: sql<number>`SUM(CASE WHEN ${tasks.status} = 'done' THEN 1 ELSE 0 END)`,
-                overdue: sql<number>`SUM(CASE WHEN ${tasks.status} NOT IN ('done', 'draft') AND ${tasks.dueDate} IS NOT NULL AND ${tasks.dueDate} < NOW() THEN 1 ELSE 0 END)`,
+                overdue: sql<number>`SUM(CASE WHEN ${tasks.status} NOT IN ('done', 'draft', 'pending_approval') AND ${tasks.dueDate} IS NOT NULL AND ${tasks.dueDate} < ${utcSql(new Date())} THEN 1 ELSE 0 END)`,
                 newToday: sql<number>`SUM(CASE WHEN ${tasks.createdAt} >= CURDATE() THEN 1 ELSE 0 END)`,
             }).from(tasks).where(where);
 

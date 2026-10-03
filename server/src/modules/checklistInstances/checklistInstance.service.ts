@@ -26,11 +26,10 @@ import { cached, cacheKey } from "../../config/queryCache.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { VerifyChecklistInstanceInput } from "./checklistInstance.validation.js"
 import type { Role } from "../../db/schema/core.js"
-import { DATE_FORMATS } from "../../utils/dateBucket.js"
-import type { DateBucket } from "../../utils/index.js"
-import { GATED_BOOLEAN_ITEM_EXPR, FLAGGED_BOOLEAN_ANSWER_EXPR } from "../../utils/checklistBooleanFlags.js"
 import { emitChecklistEvent } from "../../sockets/checklistEvent.js"
 import { env } from "../../config/env.js"
+import { checklistReportService, type ChecklistReportQuery } from "./checklistReport.service.js"
+import type { ChecklistReportScope } from "./checklistReportScope.js"
 
 // OVERDUE is a subset of OPEN (unfinished *and* past its period end), not a third
 // independent state — the compliance board and MyChecklists both offer it as a filter, and
@@ -1474,6 +1473,15 @@ export const checklistInstanceService = {
         const now = new Date()
         const note = input.note.trim()
         await db.transaction(async (tx) => {
+            // Each send-back is a failed check for compliance (see the compliance report): the count
+            // stays even after the question is redone well. `sentBackFrom` remembers who had done it,
+            // so the failure lands on them in the person report. Two statements on purpose: the person
+            // has to be read before completedBy is cleared, and the order of SET clauses within one
+            // statement is not something to rely on.
+            await tx.update(checklistInstanceItems).set({
+                sendBackCount: sql`${checklistInstanceItems.sendBackCount} + 1`,
+                sentBackFrom: sql`COALESCE(${checklistInstanceItems.completedBy}, ${checklistInstanceItems.sentBackFrom})`,
+            }).where(inArray(checklistInstanceItems.id, wanted))
             await tx.update(checklistInstanceItems).set({
                 isDone: false, isNotApplicable: false, completedAt: null, completedBy: null, sendBackNote: note, updatedAt: now,
             }).where(inArray(checklistInstanceItems.id, wanted))
@@ -1581,81 +1589,12 @@ export const checklistInstanceService = {
         return result!
     },
 
-    // GET /checklist-instances/reports/compliance?groupBy=&storeId=&from=&to= (ADMIN only).
-    // Mirrors taskService.complianceReport's shape/pipeline exactly, but buckets by the parent
-    // instance's periodStart rather than the item's own createdAt — periodStart is the
-    // semantically correct "which operational period does this belong to" field; createdAt is
-    // just whenever the cron job happened to stamp the item out (could lag on a backfill run).
-    // `includeDeleted` mirrors instanceConditions' own flag (see parentNotDeletedExpr's comment) —
-    // off by default so a deleted checklist's history doesn't inflate the org-wide trend/rate
-    // cards, same as the board/summary it sits above. Can't reuse parentNotDeletedExpr itself
-    // here: that fragment refers to the unaliased `ChecklistInstance` table, but this query
-    // aliases it `ci` — MySQL requires the alias once one's assigned in the same statement.
-    async complianceReport(groupBy: DateBucket, storeId?: string, from?: string, to?: string, includeDeleted = false) {
-        const conditions: ReturnType<typeof sql>[] = [];
-        if (!includeDeleted) {
-            conditions.push(sql`NOT EXISTS (SELECT 1 FROM ${checklistDefinitions} d WHERE d.id = ci.definitionId AND d.deletedAt IS NOT NULL)`);
-        }
-        if (storeId) conditions.push(sql`ci.storeId = ${storeId}`);
-        if (from) conditions.push(sql`ci.periodStart >= ${new Date(from)}`);
-        if (to) conditions.push(sql`ci.periodStart <= ${new Date(to)}`);
-        const whereClause = conditions.length ? sql`WHERE ${sql.join(conditions, sql` AND `)}` : sql``;
-
-        // db.execute() on the mysql2 driver resolves to the raw mysql2 tuple [rows, fields],
-        // NOT a plain row array — must destructure element 0 (see task.service.ts#complianceReport).
-        //
-        // doneItems is naturally dampened by a rejection now: verify()'s REJECT path resets every
-        // item on the instance back to isDone=false, so a rejected-and-not-yet-fixed checklist's
-        // items simply don't count toward completion until the assignee actually redoes them —
-        // no extra WHERE clause needed here for that.
-        //
-        // submittedInstances/firstAttemptApproved are instance-level counts (COUNT DISTINCT ci.id)
-        // computed inside the same item-level GROUP BY — safe because every item of one instance
-        // shares that instance's periodStart, so an instance can never straddle two buckets.
-        // firstAttemptApproved only counts an APPROVED instance whose rejectionCount is still 0 —
-        // one that was ever sent back and later fixed no longer counts as "first attempt," even
-        // though it's now approved.
-        const [rows] = await db.execute(sql`
-            SELECT
-                DATE_FORMAT(ci.periodStart, ${DATE_FORMATS[groupBy]}) AS bucket,
-                COUNT(*) AS totalItems,
-                SUM(cii.isDone) AS doneItems,
-                SUM(cii.requiredImageCount > 0) AS itemsRequiringPhotos,
-                SUM(
-                    CASE WHEN cii.requiredImageCount > 0
-                        AND (CASE WHEN cii.requiresLivePhoto THEN COALESCE(img.liveCount, 0) ELSE COALESCE(img.totalCount, 0) END) >= cii.requiredImageCount
-                    THEN 1 ELSE 0 END
-                ) AS photoCompliantItems,
-                SUM(CASE WHEN ${GATED_BOOLEAN_ITEM_EXPR} THEN 1 ELSE 0 END) AS gatedBooleanItems,
-                SUM(CASE WHEN ${FLAGGED_BOOLEAN_ANSWER_EXPR} THEN 1 ELSE 0 END) AS flaggedItems,
-                COUNT(DISTINCT CASE WHEN ci.verificationStatus IN ('PENDING_APPROVAL', 'APPROVED', 'REJECTED') OR ci.rejectionCount > 0 THEN ci.id END) AS submittedInstances,
-                COUNT(DISTINCT CASE WHEN ci.verificationStatus = 'APPROVED' AND ci.rejectionCount = 0 THEN ci.id END) AS firstAttemptApproved
-            FROM ChecklistInstanceItem cii
-            JOIN ChecklistInstance ci ON ci.id = cii.instanceId
-            LEFT JOIN (
-                SELECT checklistInstanceItemId, COUNT(*) AS totalCount, SUM(captureMethod = 'LIVE') AS liveCount
-                FROM ChecklistInstanceImage GROUP BY checklistInstanceItemId
-            ) img ON img.checklistInstanceItemId = cii.id
-            ${whereClause}
-            GROUP BY bucket
-            ORDER BY bucket ASC
-        `);
-
-        return (rows as unknown as any[]).map((r) => ({
-            bucket: r.bucket as string,
-            totalItems: Number(r.totalItems),
-            doneItems: Number(r.doneItems),
-            completionRate: Number(r.totalItems) ? Math.round((Number(r.doneItems) / Number(r.totalItems)) * 1000) / 10 : null,
-            itemsRequiringPhotos: Number(r.itemsRequiringPhotos),
-            qualityRate: Number(r.itemsRequiringPhotos) ? Math.round((Number(r.photoCompliantItems) / Number(r.itemsRequiringPhotos)) * 1000) / 10 : null,
-            // Share of gated Yes/No-style items whose answer landed on the flagged branch —
-            // higher is worse (pair with `lowerIsBetter` wherever it's shown), null when nothing
-            // in this bucket was actually gated with a conditional action.
-            gatedBooleanItems: Number(r.gatedBooleanItems),
-            issueRate: Number(r.gatedBooleanItems) ? Math.round((Number(r.flaggedItems) / Number(r.gatedBooleanItems)) * 1000) / 10 : null,
-            submittedInstances: Number(r.submittedInstances),
-            firstAttemptApproved: Number(r.firstAttemptApproved),
-            approvalRate: Number(r.submittedInstances) ? Math.round((Number(r.firstAttemptApproved) / Number(r.submittedInstances)) * 1000) / 10 : null,
-        }));
+    // GET /checklist-instances/reports/compliance. The SQL, the rules (due runs only, N/A left out,
+    // compliance incl. reviewer send-backs) and the zero-filled bucket series live in
+    // checklistReport.service.ts, shared with the by-store report. `scope` null = the caller may
+    // see nothing (fails closed, see checklistReportScope.ts).
+    async complianceReport(scope: ChecklistReportScope | null, query: ChecklistReportQuery) {
+        return checklistReportService.complianceReport(scope, query)
     },
+
 }

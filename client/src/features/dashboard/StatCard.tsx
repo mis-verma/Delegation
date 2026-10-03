@@ -1,18 +1,29 @@
+import type { ReactNode } from 'react';
+import { Link } from 'react-router';
 import { ArrowDownRight, ArrowUpRight, Minus, type LucideIcon } from 'lucide-react';
 import { Badge, type badgeVariants } from '../../components/ui/badge';
+import { Skeleton } from '../../components/skeleton';
 import type { VariantProps } from 'class-variance-authority';
 
 interface StatCardProps {
   label: string;
   value: number | string;
   trend?: { direction: 'up' | 'down'; label: string };
- 
+
   lowerIsBetter?: boolean;
   icon?: LucideIcon;
   iconTint?: string;
   iconBgTint?: string;
   caption?: string;
   onClick?: () => void;
+  /** Renders the whole card as a real link (middle-click, open in new tab, right-click all work)
+   *  with an arrow that appears on hover/focus. Wins over `onClick` when both are given. */
+  href?: string;
+  /** Replaces the big number with a placeholder while the first request is still in flight. */
+  isLoading?: boolean;
+  /** Tighter padding and a smaller number below `sm`, so a grid of these reads as a 2-up set of
+   *  tiles on a phone instead of a wall of big cards. Unchanged from `sm` up. */
+  compact?: boolean;
   highlight?: boolean;
   decorative?: boolean;
 }
@@ -79,11 +90,18 @@ export const StatCard = ({
   iconBgTint,
   caption,
   onClick,
+  href,
+  isLoading = false,
+  compact = false,
   highlight = false,
   decorative = false,
   lowerIsBetter = false,
 }: StatCardProps) => {
-  const isInteractive = Boolean(onClick);
+  const isLink = Boolean(href);
+  // "No data" is the written placeholder; it is set smaller than a real figure so it does not shout.
+  const isNoData = value === 'No data';
+  const isPlaceholder = isNoData || value === '—';
+  const isInteractive = isLink || Boolean(onClick);
 
 
   const hasTrend = trend != null && trend.label !== '—';
@@ -97,28 +115,25 @@ export const StatCard = ({
   const ringClass = derivedTintKey ? TINT_TO_RING[derivedTintKey] : 'border-border/50';
   const iconHoverClass = isInteractive ? (derivedTintKey || iconBgTint ? 'group-hover:brightness-110' : 'group-hover:border-border/60 group-hover:bg-surface-hover') : '';
 
-  return (
-    <div
-      onClick={onClick}
-      role={isInteractive ? 'button' : undefined}
-      tabIndex={isInteractive ? 0 : undefined}
-      onKeyDown={isInteractive ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick!(); } } : undefined}
-      className={`group relative isolate flex flex-col gap-3 rounded-2xl p-5 sm:p-6 transition-all duration-300 [clip-path:inset(0_round_1rem)] ${
-        highlight
-          ? decorative
-            ? 'bg-gradient-to-br from-primary-900 via-primary-800 to-primary-600 shadow-md shadow-primary-900/30 overflow-hidden'
-            : 'bg-gradient-to-br from-primary-600 to-primary-500 shadow-md shadow-primary-600/25'
-          : 'border border-border/60 bg-surface dark:border-white/[0.06] overflow-hidden'
-      } ${
-        isInteractive
-          ? highlight
-            ? 'cursor-pointer outline-none hover:shadow-lg hover:-translate-y-1 active:translate-y-0 focus-visible:ring-2 focus-visible:ring-white/50 focus-visible:ring-offset-2 focus-visible:ring-offset-primary-600'
-           
-            : 'cursor-pointer outline-none hover:border-border-hover hover:-translate-y-1 active:translate-y-0 focus-visible:ring-2 focus-visible:ring-primary-500/50'
-          : ''
-      }`}
-    >
-      
+  // No box-shadow and no lift/scale on hover: an interactive card just changes its border colour
+  // (same recipe as ENTITY_CARD_CLASS), and the focus ring sits inside the box because the
+  // clip-path below would trim an outer one.
+  const rootClass = `group relative isolate flex flex-col gap-3 rounded-2xl ${compact ? 'p-3.5 sm:p-6' : 'p-5 sm:p-6'} transition-colors duration-200 motion-reduce:transition-none [clip-path:inset(0_round_1rem)] ${
+    highlight
+      ? decorative
+        ? 'bg-gradient-to-br from-primary-900 via-primary-800 to-primary-600 overflow-hidden'
+        : 'bg-gradient-to-br from-primary-600 to-primary-500'
+      : 'border border-border/60 bg-surface dark:border-white/[0.06] overflow-hidden'
+  } ${
+    isInteractive
+      ? highlight
+        ? 'cursor-pointer outline-none hover:brightness-110 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/60'
+        : 'cursor-pointer outline-none hover:border-primary-300 focus-visible:border-primary-300 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/50'
+      : ''
+  }`;
+
+  const body: ReactNode = (
+    <>
       {highlight && decorative && (
         <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-2xl" aria-hidden="true">
           <span className="absolute -top-9 -right-7 size-28 rounded-full border border-white/10 opacity-70" />
@@ -130,46 +145,51 @@ export const StatCard = ({
           overflow-hidden nor an explicit clip-path actually clipped the escaping portion, so it
           painted straight through the card's own border instead of staying tucked behind it.
           Keeping the ring's whole box inside the card sidesteps that outright rather than relying
-          on a clip that isn't reliably honored here. */}
+          on a clip that isn't reliably honored here. Hidden on compact tiles below `sm`: at that
+          size it wraps the icon and overpowers it (see client/CLAUDE.md, decorative scale). */}
       {!highlight && (
-        <span aria-hidden="true" className={`absolute top-2 right-2 size-16 rounded-full border ${ringClass} pointer-events-none`} />
+        <span aria-hidden="true" className={`absolute top-2 right-2 size-16 rounded-full border ${ringClass} pointer-events-none ${compact ? 'max-sm:hidden' : ''}`} />
       )}
 
-      <div className="flex items-start justify-between gap-4 relative z-10">
+      <div className="flex items-start justify-between gap-3 sm:gap-4 relative z-10">
         <div className="flex flex-col gap-1.5 min-w-0">
-          
+
           <span className={`text-xs font-display font-semibold tracking-wide break-words ${highlight ? 'text-white/80' : 'text-text-muted'}`}>
             {label}
           </span>
-          
-          <p
-            // The "—" placeholder (no data yet) at this size/weight rendered as a solid black bar —
-            // technically correct, but it reads like a broken/glitched element rather than an
-            // intentional empty state. Muting its color (not its size/weight, so nothing reflows
-            // once real data arrives) keeps the placeholder legible as a placeholder.
-            className={`font-display text-3xl sm:text-4xl font-bold tracking-tight leading-none tabular-nums ${
-              value === '—'
-                ? highlight ? 'text-white/35' : 'text-text-light/60'
-                : highlight ? 'text-white' : 'text-text'
-            }`}
-            title={typeof value === 'number' && Math.abs(value) >= COMPACT_THRESHOLD ? value.toLocaleString() : undefined}
-          >
-            {formatValue(value)}
-          </p>
+
+          {isLoading ? (
+            <Skeleton className={`rounded-md ${compact ? 'h-7 sm:h-9' : 'h-9'} w-16`} />
+          ) : (
+            <p
+              // The "—" placeholder (no data yet) at this size/weight rendered as a solid black bar —
+              // technically correct, but it reads like a broken/glitched element rather than an
+              // intentional empty state. Muting its color (not its size/weight, so nothing reflows
+              // once real data arrives) keeps the placeholder legible as a placeholder.
+              className={`font-display ${isNoData ? (compact ? 'text-xl' : 'text-2xl') : compact ? 'text-2xl' : 'text-3xl'} ${isNoData ? 'sm:text-2xl' : 'sm:text-4xl'} font-bold tracking-tight leading-none tabular-nums ${
+                isPlaceholder
+                  ? highlight ? 'text-white/50' : isNoData ? 'text-text-muted' : 'text-text-light/60'
+                  : highlight ? 'text-white' : 'text-text'
+              }`}
+              title={typeof value === 'number' && Math.abs(value) >= COMPACT_THRESHOLD ? value.toLocaleString() : undefined}
+            >
+              {formatValue(value)}
+            </p>
+          )}
         </div>
 
         {Icon && (
           <div
-            className={`flex items-center justify-center size-10 rounded-xl border transition-all duration-300 shrink-0 ${
+            className={`flex items-center justify-center ${compact ? 'size-8 sm:size-10' : 'size-10'} rounded-xl border transition-colors duration-200 motion-reduce:transition-none shrink-0 ${
               highlight
                 ? 'bg-white/15 border-white/20'
                 : `${iconBgClass} ${iconBorderClass} ${iconHoverClass}`
             }`}
           >
-            <Icon 
-              size={18} 
-              className={`transition-transform duration-300 ${isInteractive ? 'group-hover:scale-110' : ''} ${highlight ? 'text-white' : (iconTint ?? 'text-text-muted')}`} 
-              strokeWidth={2.5} 
+            <Icon
+              size={18}
+              className={highlight ? 'text-white' : (iconTint ?? 'text-text-muted')}
+              strokeWidth={2.5}
             />
           </div>
         )}
@@ -179,19 +199,47 @@ export const StatCard = ({
         {hasTrend && (
           <Badge
             variant={highlight ? 'outline' : TREND_VARIANT[trendMood]}
-            className={`text-[11px] tabular-nums ${highlight ? TREND_STYLE_HIGHLIGHT[trendMood] : TREND_STYLE[trendMood]}`}
+            className={`text-xs tabular-nums ${highlight ? TREND_STYLE_HIGHLIGHT[trendMood] : TREND_STYLE[trendMood]}`}
           >
-            <TrendIcon size={12} strokeWidth={3} />
+            <TrendIcon size={12} strokeWidth={3} aria-hidden="true" />
             {trend.label}
           </Badge>
         )}
 
         {caption && (
-          <span className={`text-[12px] font-medium ${highlight ? 'text-white/70' : 'text-text-muted/80'}`}>
+          <span className={`text-xs font-medium ${highlight ? 'text-white/70' : 'text-text-muted'}`}>
             {caption}
           </span>
         )}
+
+        {isLink && (
+          <ArrowUpRight
+            size={16}
+            aria-hidden="true"
+            className={`ml-auto shrink-0 opacity-0 transition-opacity duration-200 motion-reduce:transition-none group-hover:opacity-100 group-focus-visible:opacity-100 ${highlight ? 'text-white' : 'text-primary-600 dark:text-primary-400'}`}
+          />
+        )}
       </div>
+    </>
+  );
+
+  if (href) {
+    return (
+      <Link to={href} aria-label={`${label}: ${formatValue(value)}. View details`} className={rootClass}>
+        {body}
+      </Link>
+    );
+  }
+
+  return (
+    <div
+      onClick={onClick}
+      role={isInteractive ? 'button' : undefined}
+      tabIndex={isInteractive ? 0 : undefined}
+      onKeyDown={isInteractive ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick!(); } } : undefined}
+      className={rootClass}
+    >
+      {body}
     </div>
   );
 };

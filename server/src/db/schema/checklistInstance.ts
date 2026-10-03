@@ -94,6 +94,8 @@ export const checklistInstances = mysqlTable(
       table.scopeKey,
     ),
     index('ChecklistInstance_periodStart_idx').on(table.periodStart),
+    // Per-store analytics: store + period range.
+    index('ChecklistInstance_storeId_periodStart_idx').on(table.storeId, table.periodStart),
     // listPendingVerification filters on this column on every PC/Admin/HOD queue poll — without
     // it that query is a full table scan of ChecklistInstance as the table grows.
     index('ChecklistInstance_verificationStatus_idx').on(table.verificationStatus),
@@ -197,6 +199,13 @@ export const checklistInstanceItems = mysqlTable(
     // Why a reviewer sent THIS question back (see sendBack in checklistInstance.service.ts). Shown on
     // the question until it is completed again, which clears it.
     sendBackNote: text('sendBackNote'),
+    // How many times a reviewer has sent THIS question back. Never reset when the question is
+    // redone: the compliance reports count a question with sendBackCount > 0 as a failed check even
+    // if the second attempt was fine (first-attempt quality).
+    sendBackCount: int('sendBackCount').notNull().default(0),
+    // The user who had completed the question when it was last sent back (who got it wrong). No FK
+    // on purpose: it is history, and must survive that user being removed.
+    sentBackFrom: varchar('sentBackFrom', { length: 191 }),
     // The checklist question this run's question was stamped from (ChecklistDefinitionItem.id). It
     // lets an edit to the checklist reach a run that's already started: the run's question is found
     // again even if it was renamed or moved, instead of looking like one question removed and

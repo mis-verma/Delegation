@@ -3,6 +3,15 @@ import { taskService } from "./task.service.js"
 import { createTaskSchema , updateTaskSchema, verifyTaskSchema, complianceReportQuerySchema, listTasksQuerySchema, taskOwnerStatsQuerySchema } from "./task.validation.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
 import { resolveReportScope, resolveDepartmentIdsForStore } from "../../utils/reportScope.js"
+import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
+
+// Task has no storeId, so a SENIOR is scoped through every department that belongs to their store
+// (undefined for every other role = no department-list filter). Fails closed: a SENIOR with no
+// store gets an empty list, which the service turns into "no rows", never an org-wide view.
+const seniorDepartmentIds = async (user: AccessTokenPayload): Promise<string[] | undefined> => {
+    if (user.role !== "SENIOR") return undefined;
+    return user.storeId ? resolveDepartmentIdsForStore(user.storeId) : [];
+};
 
 export const taskController = {
     list : asyncHandler(async ( req : Request , res : Response) => {
@@ -51,11 +60,7 @@ export const taskController = {
         const { departmentId } = resolveReportScope(req.user!, { departmentId: query.departmentId });
         const isDeptOrOrgScoped = role === "MANAGER" || role === "SENIOR";
         const userId = isPrivileged ? query.userId : isDeptOrOrgScoped ? undefined : req.user!.sub;
-        // Task has no storeId, so a SENIOR resolves through every department that belongs to
-        // their store instead of falling back to org-wide (see reportScope.ts).
-        const departmentIds = role === "SENIOR" && req.user!.storeId
-            ? await resolveDepartmentIdsForStore(req.user!.storeId)
-            : undefined;
+        const departmentIds = await seniorDepartmentIds(req.user!);
         const data = await taskService.complianceReport(query.groupBy, departmentId, query.from, query.to, userId, departmentIds);
         res.json({ success : true, data })
     }),
@@ -72,13 +77,8 @@ export const taskController = {
 
     ownerStats : asyncHandler(async (req : Request , res : Response) => {
         const query = taskOwnerStatsQuerySchema.parse(req.query);
-        const role = req.user!.role;
         const { departmentId } = resolveReportScope(req.user!, { departmentId: query.departmentId });
-        // Task has no storeId, so a SENIOR resolves through every department that belongs to
-        // their store instead (same as complianceReport above).
-        const departmentIds = role === "SENIOR" && req.user!.storeId
-            ? await resolveDepartmentIdsForStore(req.user!.storeId)
-            : undefined;
+        const departmentIds = await seniorDepartmentIds(req.user!);
         const data = await taskService.ownerStats(query.scope, query.from, query.to, departmentId, departmentIds);
         res.json({ success : true, data })
     }),

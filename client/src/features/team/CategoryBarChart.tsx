@@ -25,9 +25,9 @@ export const CategoryBarChart = ({ bars }: { bars: CategoryBar[] }) => {
         <span className="flex items-center justify-center size-9 rounded-full bg-surface text-text-light border border-border/60">
           <BarChart3 size={16} strokeWidth={2} />
         </span>
-        <p className="text-xs font-display font-semibold text-text-muted">Nothing recorded this period</p>
-        <p className="text-[11px] font-display text-text-light max-w-xs">
-          Delegations, issues, tickets, and to-do checklist activity will break down here once there's some.
+        <p className="text-xs font-display font-semibold text-text-muted">No delegation, issue, or ticket activity in this period</p>
+        <p className="text-xs font-display text-text-muted max-w-xs">
+          Once some is created, it breaks down by type here.
         </p>
       </div>
     );
@@ -47,7 +47,7 @@ export const CategoryBarChart = ({ bars }: { bars: CategoryBar[] }) => {
             className="group flex flex-1 flex-col items-center gap-2 h-full cursor-pointer outline-none disabled:cursor-default"
           >
             <span className={`text-xs font-display font-medium tabular-nums ${hasData ? 'text-text' : 'text-text-light'}`}>
-              {hasData ? `${rate}%` : '—'}
+              {hasData ? `${rate}%` : 'n/a'}
             </span>
 
             {/* A category with nothing recorded gets a short flat track, not the same tall empty
@@ -67,8 +67,8 @@ export const CategoryBarChart = ({ bars }: { bars: CategoryBar[] }) => {
               )}
             </div>
 
-            <span className={`text-[11px] font-display font-medium ${hasData ? 'text-text-secondary' : 'text-text-light'}`}>{bar.label}</span>
-            <span className="text-[10px] font-display text-text-muted tabular-nums">{bar.done}/{bar.total}</span>
+            <span className={`text-xs font-display font-medium ${hasData ? 'text-text-secondary' : 'text-text-light'}`}>{bar.label}</span>
+            <span className="text-xs font-display text-text-muted tabular-nums">{bar.done}/{bar.total}</span>
           </button>
         );
       })}

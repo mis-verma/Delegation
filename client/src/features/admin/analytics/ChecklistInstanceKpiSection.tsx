@@ -1,97 +1,127 @@
-import { Repeat, Camera, ShieldCheck, AlertTriangle } from 'lucide-react';
-import { useNavigate } from 'react-router';
+import { Repeat, Camera, ShieldCheck, AlertTriangle, ListChecks, CheckCheck } from 'lucide-react';
 import { KpiSectionShell } from './KpiSectionShell';
-import { ReportTrendChart } from './ReportTrendChart';
 import { useChecklistInstanceComplianceReportQuery } from './useAnalyticsQueries';
-import { latestWithTrend } from './analyticsDisplay';
+import { latestWithTrend, formatPercent } from './analyticsDisplay';
 import type { GroupBy } from './GroupByControl';
 
 interface ChecklistInstanceKpiSectionProps {
   groupBy: GroupBy;
   from?: string;
   to?: string;
-  /** /admin/checklist-compliance (this card's click destination) is PC/ADMIN-gated. */
+  /** /admin/checklist-compliance (the org-wide destination) is PC/ADMIN-gated. */
   isOrgWideRole: boolean;
-  /** Off by default (server-side too) — include a deleted checklist's historical instances in
-   *  these rates/trend instead of hiding them. Passed down from the Compliance Board's own
-   *  "Show deleted checklists" toggle when this section is embedded there. */
+  /** Off by default (server-side too) so a deleted checklist's historical runs stay out of these
+   *  rates. Passed down from the Compliance Board's own "Show deleted checklists" toggle when this
+   *  section is embedded there. */
   includeDeleted?: boolean;
 }
 
+const NOTHING_COUNTED = 'Nothing counted in this period';
+
 export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole, includeDeleted }: ChecklistInstanceKpiSectionProps) => {
-  const navigate = useNavigate();
-  const { data: rows, isPending, isError } = useChecklistInstanceComplianceReportQuery(groupBy, from, to, includeDeleted);
+  const { data: rows, isPending, isError, isFetching, refetch } = useChecklistInstanceComplianceReportQuery(groupBy, from, to, includeDeleted);
   const completion = latestWithTrend(rows, 'completionRate', 'rate');
+  const compliance = latestWithTrend(rows, 'complianceRate', 'rate');
   const quality = latestWithTrend(rows, 'qualityRate', 'rate');
   const approval = latestWithTrend(rows, 'approvalRate', 'rate');
   const issues = latestWithTrend(rows, 'issueRate', 'rate');
-  // All three are rates bucketed across every instance, not a literal record list — the real
-  // per-instance rows these are computed from live on the Checklist Compliance board, the same
-  // destination AnalyticsSummaryStrip's own "Proof compliance" card already points at.
-  const onClick = isOrgWideRole ? () => navigate('/admin/checklist-compliance') : undefined;
+  const dueRuns = latestWithTrend(rows, 'dueRuns', 'count');
+
+  // Every figure is a rate across all runs in the period, not a list of records. The per-run rows
+  // live on the compliance board (ADMIN/PC) or the history page (managers and senior staff).
+  const href = isOrgWideRole ? '/admin/checklist-compliance' : '/checklists/history';
 
   return (
     <KpiSectionShell
       icon={Repeat}
-      title="Recurring Checklists"
-      description="Completion, photo-evidence compliance, PC first-attempt approval, and flagged Yes/No answers for scheduled checklist instances, bucketed by each instance's period."
+      title="Store checklists"
+      description="How much of each period's checklist work was finished on time, answered inside the accepted range, backed by photos and approved the first time. Runs that are not due yet are left out."
       isPending={isPending}
       isError={isError}
-      errorMessage="Failed to load recurring checklist data."
+      isFetching={isFetching}
+      errorMessage="Could not load the store checklist figures."
+      onRetry={() => void refetch()}
       from={from}
       to={to}
       cards={[
         {
           icon: Repeat,
           iconTint: 'text-primary-600 dark:text-primary-400',
-          label: 'Completion rate',
-          value: completion.value != null ? `${completion.value}%` : '—',
+          label: 'Completion',
+          value: formatPercent(completion.value),
+          hasData: completion.value != null,
+          noDataText: NOTHING_COUNTED,
           trend: completion.trend,
-          onClick,
+          href,
+        },
+        {
+          icon: CheckCheck,
+          iconTint: 'text-primary-600 dark:text-primary-400',
+          // Answers that landed inside their accepted-answer rule, out of the answers that have one.
+          label: 'Answer compliance',
+          value: formatPercent(compliance.value),
+          hasData: compliance.value != null,
+          noDataText: 'No answers with a rule yet',
+          trend: compliance.trend,
+          href,
         },
         {
           icon: Camera,
           iconTint: 'text-success',
-          label: 'Photo quality rate',
-          value: quality.value != null ? `${quality.value}%` : '—',
+          label: 'Photo quality',
+          value: formatPercent(quality.value),
+          hasData: quality.value != null,
+          noDataText: NOTHING_COUNTED,
           trend: quality.trend,
-          onClick,
+          href,
         },
         {
           icon: ShieldCheck,
           iconTint: 'text-coral-600 dark:text-coral-400',
-          // "First attempt" — an instance the PC ever rejected no longer counts here, even once
-          // it's later fixed and approved (see checklistInstance.service.ts#complianceReport).
-          label: 'PC approval rate (first attempt)',
-          value: approval.value != null ? `${approval.value}%` : '—',
+          // A run the reviewer ever sent back stops counting here, even once it is fixed and approved.
+          label: 'Approved first time',
+          value: formatPercent(approval.value),
+          hasData: approval.value != null,
+          noDataText: 'Nothing submitted yet',
           trend: approval.trend,
-          onClick,
+          href,
         },
         {
           icon: AlertTriangle,
           iconTint: 'text-danger',
-          // Share of gated Yes/No-style answers (one branch wired with a conditional action) that
-          // landed on the flagged branch — rising is bad news, same treatment as Overdue.
+          // Share of Yes/No answers that landed on the flagged branch. Rising is bad news.
           label: 'Flagged answers',
-          value: issues.value != null ? `${issues.value}%` : '—',
+          value: formatPercent(issues.value),
+          hasData: issues.value != null,
+          noDataText: NOTHING_COUNTED,
           trend: issues.trend,
           lowerIsBetter: true,
-          onClick,
+          href,
+        },
+        {
+          icon: ListChecks,
+          iconTint: 'text-primary-600 dark:text-primary-400',
+          label: 'Runs counted',
+          value: dueRuns.value ?? 0,
+          hasData: dueRuns.value != null,
+          noDataText: NOTHING_COUNTED,
+          trend: dueRuns.trend,
+          caption: 'Runs past their deadline',
+          href,
         },
       ]}
-      chart={
-        <ReportTrendChart
-          data={rows ?? []}
-          series={[
-            { key: 'completionRate', label: 'Completion %', color: 'var(--color-primary-500)' },
-            { key: 'qualityRate', label: 'Quality %', color: 'var(--color-success)' },
-            { key: 'approvalRate', label: 'PC approval %', color: 'var(--color-coral-500)' },
-            { key: 'issueRate', label: 'Flagged %', color: 'var(--color-danger)' },
-          ]}
-          valueSuffix="%"
-          yDomain={[0, 100]}
-        />
-      }
+      chart={{
+        data: rows ?? [],
+        groupBy,
+        series: [
+          { key: 'completionRate', label: 'Completion', color: 'var(--color-primary-500)' },
+          { key: 'complianceRate', label: 'Answer compliance', color: 'var(--color-warning)' },
+          { key: 'qualityRate', label: 'Photo quality', color: 'var(--color-success)' },
+          { key: 'approvalRate', label: 'Approved first time', color: 'var(--color-coral-500)' },
+        ],
+        valueSuffix: '%',
+        yDomain: [0, 100],
+      }}
     />
   );
 };
