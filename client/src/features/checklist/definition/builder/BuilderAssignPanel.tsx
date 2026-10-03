@@ -1,5 +1,7 @@
 import { Building2, User, Users } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
+import { NoticeBanner } from '../../../../components';
+import { useAssignableUsersQuery } from '../../hook';
 import { ChecklistAssigneesField } from '../form/ChecklistAssigneesField';
 import type { ChecklistResponseMode } from '../../../../api/checklistDefinitions';
 
@@ -12,7 +14,7 @@ interface BuilderAssignPanelProps {
 }
 
 const MODES: { value: ChecklistResponseMode; title: string; hint: string; icon: ReactNode }[] = [
-  { value: 'SHARED', title: 'One shared checklist', hint: 'One per store. Anyone chosen can fill it in.', icon: <Users size={16} /> },
+  { value: 'SHARED', title: 'One shared checklist', hint: 'One per store. When one person finishes it, it is done for everyone. The others do not have to fill it.', icon: <Users size={16} /> },
   { value: 'PER_DEPARTMENT', title: 'One per department', hint: 'Each department among the people chosen fills its own.', icon: <Building2 size={16} /> },
   { value: 'PER_USER', title: 'One per person', hint: 'Everyone chosen fills in their own copy.', icon: <User size={16} /> },
 ];
@@ -27,7 +29,21 @@ export const RESPONSE_MODE_TITLE: Record<ChecklistResponseMode, string> = Object
 // people only. The "Assign by role" chips that used to sit above this were a fixed list of made-up
 // roles (Store Manager, Cashier…) that assigned nobody, so they're gone. Reviewers are their own
 // step (BuilderReviewersPanel).
-export const BuilderAssignPanel = ({ storeIds, assigneeIds, onAssigneeIdsChange, responseMode, onResponseModeChange }: BuilderAssignPanelProps) => (
+// What the choice means in numbers, for the people picked so far, so "how many copies" is not abstract.
+const copiesSummary = (mode: ChecklistResponseMode, people: number, departments: number) => {
+  if (people === 0) return 'Pick the people below to see how many copies this makes.';
+  if (mode === 'SHARED') return `One copy for each store. ${people} ${people === 1 ? 'person' : 'people'} can fill it; the first to finish completes it for everyone.`;
+  if (mode === 'PER_USER') return `${people} copies each time it comes round: every person fills and submits their own, and each is reviewed on its own.`;
+  return `${departments} ${departments === 1 ? 'copy' : 'copies'} each time it comes round: one per department, shared by the people in that department.`;
+};
+
+export const BuilderAssignPanel = ({ storeIds, assigneeIds, onAssigneeIdsChange, responseMode, onResponseModeChange }: BuilderAssignPanelProps) => {
+  const { data: users } = useAssignableUsersQuery(undefined, undefined, storeIds);
+  const departmentCount = useMemo(() => {
+    const picked = new Set(assigneeIds);
+    return new Set((users ?? []).filter(u => picked.has(u.id)).map(u => u.departmentId ?? 'none')).size;
+  }, [users, assigneeIds]);
+  return (
   <div className="flex flex-col gap-6">
     <fieldset className="flex flex-col gap-2.5">
       <legend className="text-sm font-display font-semibold text-text pb-1">How many copies?</legend>
@@ -56,7 +72,9 @@ export const BuilderAssignPanel = ({ storeIds, assigneeIds, onAssigneeIdsChange,
           );
         })}
       </div>
+      <NoticeBanner tone="info" icon={Users}>{copiesSummary(responseMode, assigneeIds.length, departmentCount)}</NoticeBanner>
     </fieldset>
     <ChecklistAssigneesField storeIds={storeIds} selected={assigneeIds} onChange={onAssigneeIdsChange} />
   </div>
-);
+  );
+};

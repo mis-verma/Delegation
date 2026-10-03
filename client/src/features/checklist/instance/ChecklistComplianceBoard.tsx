@@ -40,7 +40,8 @@ interface ComplianceRowProps {
   namesLoading: boolean;
 }
 
-const PERSON_TONE: Record<'flag' | 'done' | 'started' | 'idle', { icon: LucideIcon; tone: string }> = {
+const PERSON_TONE: Record<'flag' | 'done' | 'started' | 'idle' | 'covered', { icon: LucideIcon; tone: string }> = {
+  covered: { icon: Check, tone: 'bg-text-muted' },
   flag: { icon: AlertTriangle, tone: 'bg-danger' },
   done: { icon: Check, tone: 'bg-success' },
   started: { icon: Clock, tone: 'bg-warning' },
@@ -76,6 +77,12 @@ const ComplianceRow = memo(({ instance, storeName, nameById, namesLoading }: Com
   const { total, done, flagged, byPerson, progress } = stats;
   const status = instanceProgressStatus(done, total);
   const complete = status === 'COMPLETED';
+  // Who actually filled it in, most questions first. When the checklist is finished, an assignee who
+  // filled nothing is "covered" (someone else did it for the whole team), not pending.
+  const fillers = useMemo(
+    () => [...byPerson.entries()].sort((a, b) => b[1].completed - a[1].completed).map(([id]) => nameById.get(id) ?? 'a teammate'),
+    [byPerson, nameById],
+  );
   const overdue = isInstanceOverdue(instance, complete);
   const deadlineTime = formatDeadlineTime(instance);
   const verification = VERIFICATION_CHIP[instance.verificationStatus];
@@ -118,14 +125,16 @@ const ComplianceRow = memo(({ instance, storeName, nameById, namesLoading }: Com
             // same honest-signal limitation the comment above already calls out for plain
             // completion counts (a shared instance has no per-item "owner" beyond completedBy).
             const flaggedByThem = theirs?.flagged ?? 0;
-            const look = PERSON_TONE[flaggedByThem > 0 ? 'flag' : total > 0 && completedByThem === total ? 'done' : completedByThem > 0 ? 'started' : 'idle'];
+            const covered = complete && completedByThem === 0;
+            const look = PERSON_TONE[flaggedByThem > 0 ? 'flag' : covered ? 'covered' : total > 0 && completedByThem === total ? 'done' : completedByThem > 0 ? 'started' : 'idle'];
             const name = nameById.get(id) ?? (namesLoading ? '...' : 'Unknown');
             return (
               <IconChip
                 key={id}
                 icon={look.icon}
                 tone={look.tone}
-                label={`${name} · ${completedByThem}/${total}${flaggedByThem > 0 ? ` · ${flaggedByThem} flagged` : ''}`}
+                label={covered ? `${name} · not needed` : `${name} · ${completedByThem}/${total}${flaggedByThem > 0 ? ` · ${flaggedByThem} flagged` : ''}`}
+                title={covered ? `Already completed by ${fillers.join(' and ')}. One person filling it covers everyone.` : undefined}
               />
             );
           })}

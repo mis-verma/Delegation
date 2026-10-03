@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import { Link } from 'react-router';
 import { cn } from '@/lib/utils';
 import { ChecklistProgressBar, ENTITY_CARD_CLASS, IconChip, StatusChip } from '../../../components';
@@ -9,6 +9,7 @@ import {
   instanceProgressToneClass,
   RECURRENCE_LABEL,
 } from '../checklistDisplay';
+import { useAuth } from '../../../context/AuthContext';
 import type { ChecklistInstance } from '../../../api/checklistInstances';
 
 interface ChecklistInstanceCardProps {
@@ -20,6 +21,18 @@ interface ChecklistInstanceCardProps {
 export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardProps) => {
   const { done, total, progress, isComplete, overdue, chipStatus, compliance, deadlineTime, verification } = getInstanceView(instance);
   const showVerification = isComplete || instance.verificationStatus !== 'NOT_SUBMITTED';
+  const { user } = useAuth();
+  // A shared checklist is done once ONE assignee finishes it. If that was someone else, say so, so
+  // this person does not think they still have to fill it.
+  const doneByOthers = useMemo(() => {
+    if (!isComplete || !user) return null;
+    const names = new Set<string>();
+    for (const item of instance.items) {
+      if (item.completedBy === user.id) return null;
+      if (item.completedByName) names.add(item.completedByName);
+    }
+    return names.size ? [...names].slice(0, 2).join(' and ') : null;
+  }, [isComplete, user, instance.items]);
 
   return (
     <Link
@@ -54,6 +67,9 @@ export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardPr
           <span className="text-[11px] text-text-muted font-medium">{done}/{total}</span>
         </span>
       </div>
+      {doneByOthers && (
+        <p className="text-[11px] font-medium text-text-muted">Done by {doneByOthers}. You do not need to fill it.</p>
+      )}
       {compliance !== null && (
         <p className="text-[11px] font-medium text-text-muted">
           Compliance <span className={`font-display font-bold tabular-nums ${complianceToneClass(compliance)}`}>{compliance}%</span>
