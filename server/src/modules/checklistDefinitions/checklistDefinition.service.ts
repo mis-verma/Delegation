@@ -302,6 +302,7 @@ export const checklistDefinitionService = {
                 cutoffTime: input.cutoffTime ?? null,
                 assigneeRoles: input.assigneeRoles ?? [],
                 icon: input.icon,
+                responseMode: input.responseMode ?? "SHARED",
                 // Daily checklists skip Sunday unless the admin picks their own working days.
                 activeWeekdays: input.recurrence === "DAILY" ? (input.activeWeekdays === undefined ? DEFAULT_WORKING_WEEKDAYS : input.activeWeekdays) : null,
                 createdBy: user.sub,
@@ -415,6 +416,8 @@ export const checklistDefinitionService = {
                 cutoffTime: input.cutoffTime ?? null,
                 assigneeRoles: input.assigneeRoles ?? [],
                 icon: input.icon,
+                // Omitted (an older client) keeps the current mode.
+                ...(input.responseMode ? { responseMode: input.responseMode } : {}),
                 // Omitted (an older client) keeps whatever days were already set.
                 ...(input.recurrence !== "DAILY" ? { activeWeekdays: null } : input.activeWeekdays !== undefined ? { activeWeekdays: input.activeWeekdays } : {}),
                 version: existing.version + 1,

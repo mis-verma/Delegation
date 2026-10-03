@@ -14,9 +14,11 @@ export const AuditLogRow = ({ log, resolvers }: { log: AuditLog; resolvers?: Aud
   const action = actionConfig(log.action);
   const rows = diffAuditLog(log.before, log.after, resolvers);
 
-  const actorInitials = log.actor
-    ? `${log.actor.firstName[0] ?? ''}`.toUpperCase()
-    : '?';
+  // The name written down at the time wins, so an entry still reads right after the person is
+  // renamed or removed. Older entries fall back to the account, then to "System".
+  const actorName = log.actorName && log.source !== 'SYSTEM' ? log.actorName : log.actor ? [log.actor.firstName, log.actor.lastName].filter(Boolean).join(' ') : 'System';
+  const actorInitials = actorName[0]?.toUpperCase() ?? '?';
+  const sourceLabel = log.source === 'WHATSAPP' ? 'via WhatsApp' : log.source === 'SYSTEM' && log.actor ? 'automatic' : null;
 
   return (
     <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-3.5 transition-colors hover:border-border-hover">
@@ -28,7 +30,8 @@ export const AuditLogRow = ({ log, resolvers }: { log: AuditLog; resolvers?: Aud
           <span className="flex items-center justify-center size-5 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 text-white text-[9px] font-black shrink-0 ring-1 ring-primary-700/50">
             {actorInitials}
           </span>
-          {log.actor ? log.actor.firstName : 'System'}
+          {actorName}
+          {sourceLabel && <span className="font-medium text-text-muted">{sourceLabel}</span>}
         </span>
 
         <span className="ml-auto text-[11px] font-semibold text-text-muted tabular-nums">

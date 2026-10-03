@@ -5,7 +5,7 @@
 // ever looks at instances that are NOT yet overdue (once the deadline passes, that job takes
 // over) and that have real progress on them (an untouched instance isn't a "forgotten draft," it
 // just hasn't been started — nothing to remind anyone to finish).
-import cron from "node-cron"
+import { scheduleJob } from '../utils/jobTracker.js';
 import { and, eq, inArray, isNull, sql } from "drizzle-orm"
 import { db } from "../config/db.js"
 import { checklistInstances, checklistInstanceAssignees, checklistInstanceItems } from "../db/schema/index.js"
@@ -94,7 +94,7 @@ const notifyDraftInstances = async () => {
 // none of the three tick at the same moment for no reason.
 export const startChecklistDraftReminder = () => {
     notifyDraftInstances().catch((err) => console.error("Initial checklist draft reminder sweep failed:", err))
-    cron.schedule("30 * * * *", () => {
+    scheduleJob("checklist-draft-reminder", "30 * * * *", 60, () => {
         notifyDraftInstances().catch((err) => console.error("Checklist draft reminder sweep failed:", err))
     })
 }

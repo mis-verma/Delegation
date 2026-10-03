@@ -1,6 +1,6 @@
 import { db } from "../../config/db.js";
 import { auditLogs, users } from "../../db/schema/core.js";
-import { eq, and, desc, gte, lte, sql, type SQL } from "drizzle-orm";
+import { eq, and, desc, gte, lte, sql, like, inArray, type SQL } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 
 const DEFAULT_PAGE_SIZE = 50
@@ -22,6 +22,17 @@ const buildMeta = (p: { page: number; limit: number }, total: number) => ({
     hasNext: p.page * p.limit < total,
 })
 
+// The Audit Log page's tabs: each is a family of entity types.
+export const AUDIT_GROUPS = ["checklists", "tickets", "tasks", "people", "settings"] as const
+export type AuditGroup = (typeof AUDIT_GROUPS)[number]
+const GROUP_CONDITIONS: Record<AuditGroup, SQL> = {
+    checklists: like(auditLogs.entityType, "Checklist%"),
+    tickets: like(auditLogs.entityType, "Ticket%"),
+    tasks: inArray(auditLogs.entityType, ["Task", "Project"]),
+    people: inArray(auditLogs.entityType, ["User", "Department", "Store"]),
+    settings: inArray(auditLogs.entityType, ["Settings", "Holiday", "Category", "Event"]),
+}
+
 // The audit service is the "write it down" part of our compliance trail.
 // Whenever something important happens (a Ticket is created/updated/deleted, a User's role changes, etc.)
 // other parts of the app call auditService.record(...) to save a snapshot of what changed and who did it.
@@ -36,8 +47,13 @@ export const auditService = {
         actorId : string; // the id of the user who made the change (for accountability - "who did this?")
         before?:unknown; // a snapshot of the data before the change (optional, e.g. not applicable on CREATE)
         after?:unknown; // a snapshot of the data after the change (optional, e.g. not applicable on DELETE)
+        source?: string; // where it came from: "APP" (default for a real user), "SYSTEM", "WHATSAPP"
     }){
         try{
+            // Write the actor's name down now so the log still reads "Priya Sharma" after the account
+            // is renamed or removed. A non-user actor (a job, "system") is recorded as is.
+            const [actor] = await db.select({ firstName: users.firstName, lastName: users.lastName }).from(users).where(eq(users.id, params.actorId)).limit(1)
+            const actorName = actor ? `${actor.firstName}${actor.lastName ? ` ${actor.lastName}` : ""}` : params.actorId.slice(0, 191)
             // AuditLog.id is a client-generated cuid (see src/db/schema/core.ts) — generate it
             // up front, matching the convention used everywhere else in the migration.
             // save a new AuditLog row with all the details of this change
@@ -47,6 +63,8 @@ export const auditService = {
                 entityId : params.entityId,
                 action : params.action,
                 actorId : params.actorId,
+                actorName,
+                source : params.source ?? (actor ? "APP" : "SYSTEM"),
                 before : params.before ?? null, // if no "before" was given, store null instead of undefined
                 after : params.after ?? null, // if no "after" was given, store null instead of undefined
             });
@@ -69,6 +87,8 @@ export const auditService = {
         entityId?: string;
         actorId?: string;
         action?: string;
+        group?: AuditGroup;
+        source?: string;
         from?: string;
         to?: string;
         page?: number;
@@ -79,6 +99,8 @@ export const auditService = {
         if (filters.entityId) conditions.push(eq(auditLogs.entityId, filters.entityId));
         if (filters.actorId) conditions.push(eq(auditLogs.actorId, filters.actorId));
         if (filters.action) conditions.push(eq(auditLogs.action, filters.action));
+        if (filters.source) conditions.push(eq(auditLogs.source, filters.source));
+        if (filters.group) conditions.push(GROUP_CONDITIONS[filters.group]);
         if (filters.from) conditions.push(gte(auditLogs.createdAt, new Date(filters.from)));
         if (filters.to) conditions.push(lte(auditLogs.createdAt, new Date(filters.to)));
         const where = conditions.length ? and(...conditions) : undefined;
@@ -98,6 +120,8 @@ export const auditService = {
                     entityId: auditLogs.entityId,
                     action: auditLogs.action,
                     actorId: auditLogs.actorId,
+                    actorName: auditLogs.actorName,
+                    source: auditLogs.source,
                     before: auditLogs.before,
                     after: auditLogs.after,
                     createdAt: auditLogs.createdAt,

@@ -291,11 +291,42 @@ export const auditLogs = mysqlTable(
     actorId: varchar('actorId', { length: 191 }).notNull(),
     before: json('before').$type<unknown>(),
     after: json('after').$type<unknown>(),
+    // Who did it, written down at the time: the name still reads correctly after the account is
+    // renamed, deactivated or deleted. Null on rows from before this column existed.
+    actorName: varchar('actorName', { length: 191 }),
+    // Where the change came from: 'APP' (a person using the app), 'SYSTEM' (a background job or
+    // other non-user actor), 'WHATSAPP'. Null on older rows.
+    source: varchar('source', { length: 32 }),
     createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
     updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
   },
-  (table) => [index('AuditLog_entityType_entityId_idx').on(table.entityType, table.entityId)],
+  (table) => [
+    index('AuditLog_entityType_entityId_idx').on(table.entityType, table.entityId),
+    // The Audit Log page sorts by date and filters by person / action / section; without these each
+    // of those is a full scan of a table that only ever grows.
+    index('AuditLog_createdAt_idx').on(table.createdAt),
+    index('AuditLog_actorId_createdAt_idx').on(table.actorId, table.createdAt),
+    index('AuditLog_action_createdAt_idx').on(table.action, table.createdAt),
+  ],
 );
+
+// ---------------------------------------------------------------------------
+// JobRun: heartbeat of each background job (see utils/jobTracker.ts), one row per job name
+// ---------------------------------------------------------------------------
+export const jobRuns = mysqlTable('JobRun', {
+  name: varchar('name', { length: 100 }).primaryKey(),
+  schedule: varchar('schedule', { length: 64 }).notNull(),
+  // How often it should run: the health page calls a job late once it is well past this.
+  expectedEveryMinutes: int('expectedEveryMinutes').notNull(),
+  lastStartedAt: datetime('lastStartedAt', { mode: 'date' }).notNull(),
+  lastFinishedAt: datetime('lastFinishedAt', { mode: 'date' }).notNull(),
+  lastDurationMs: int('lastDurationMs').notNull().default(0),
+  lastStatus: mysqlEnum('lastStatus', ['OK', 'FAILED']).notNull(),
+  lastError: text('lastError'),
+  runCount: int('runCount').notNull().default(0),
+  failCount: int('failCount').notNull().default(0),
+  lastFailedAt: datetime('lastFailedAt', { mode: 'date' }),
+});
 
 // ---------------------------------------------------------------------------
 // Project — lightweight grouping of tasks with an owner and members

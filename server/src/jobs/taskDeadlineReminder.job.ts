@@ -1,4 +1,4 @@
-import cron from 'node-cron';
+import { scheduleJob } from '../utils/jobTracker.js';
 import { and, asc, eq, ne, isNull, isNotNull, inArray, sql } from 'drizzle-orm';
 import { db } from '../config/db.js';
 import { tasks, taskAdditionalAssignees, users } from '../db/schema/index.js';
@@ -23,7 +23,7 @@ export const startTaskDeadlineReminder = () => {
   // mutually exclusive instead.
   let isRunning = false;
 
-  cron.schedule('*/5 * * * *', async () => {
+  scheduleJob("task-deadline-reminder", '*/5 * * * *', 5, async () => {
     if (isRunning) {
       console.warn('Task deadline reminder: previous run still in progress, skipping this tick.');
       return;

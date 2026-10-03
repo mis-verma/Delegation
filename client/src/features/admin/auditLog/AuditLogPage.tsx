@@ -6,7 +6,16 @@ import { useUsersQuery } from '../hook';
 import { AuditLogFilters } from './AuditLogFilters';
 import { AuditLogRow } from './AuditLogRow';
 import { useAuditIdResolvers } from './useAuditIdResolvers';
-import type { AuditLogFilter } from '../../../api/auditLogs';
+import type { AuditGroup, AuditLogFilter } from '../../../api/auditLogs';
+
+const TABS: { value: AuditGroup | ''; label: string }[] = [
+  { value: '', label: 'Everything' },
+  { value: 'checklists', label: 'Checklists' },
+  { value: 'tickets', label: 'Tickets' },
+  { value: 'tasks', label: 'Delegations' },
+  { value: 'people', label: 'People' },
+  { value: 'settings', label: 'Settings' },
+];
 
 export const AuditLogPage = () => {
   const [filter, setFilter] = useState<AuditLogFilter>({ page: 1, limit: 30 });
@@ -27,6 +36,26 @@ export const AuditLogPage = () => {
             Every change recorded across the app — who did what, and when.
           </p>
         </div>
+      </div>
+
+      <div role="tablist" aria-label="Section" className="flex gap-1.5 overflow-x-auto pb-0.5 -mx-1 px-1">
+        {TABS.map(tab => {
+          const on = (filter.group ?? '') === tab.value;
+          return (
+            <button
+              key={tab.value || 'all'}
+              type="button"
+              role="tab"
+              aria-selected={on}
+              onClick={() => patchFilter({ group: tab.value || undefined, entityType: undefined })}
+              className={`shrink-0 h-9 px-3.5 rounded-full border text-xs font-display font-semibold cursor-pointer transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
+                on ? 'border-primary-500/50 bg-primary-500/10 text-primary-700 dark:text-primary-300' : 'border-border/60 bg-surface text-text-secondary hover:border-border-hover hover:text-text'
+              }`}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
       <AuditLogFilters filter={filter} onChange={patchFilter} users={users} />

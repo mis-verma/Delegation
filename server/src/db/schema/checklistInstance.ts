@@ -45,6 +45,9 @@ export const checklistInstances = mysqlTable(
     opensTime: varchar('opensTime', { length: 5 }), 
     cutoffTime: varchar('cutoffTime', { length: 5 }), 
     periodKey: varchar('periodKey', { length: 191 }).notNull(),
+    // Which slice of the checklist's people this run belongs to: '' for a shared run, 'dept:<id>' or
+    // 'user:<id>' when the checklist's response mode gives each department / person their own run.
+    scopeKey: varchar('scopeKey', { length: 191 }).notNull().default(''),
     periodStart: datetime('periodStart', { mode: 'date' }).notNull(),
     periodEnd: datetime('periodEnd', { mode: 'date' }).notNull(),
     generatedAt: datetime('generatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
@@ -76,10 +79,11 @@ export const checklistInstances = mysqlTable(
     updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
   },
   (table) => [
-    uniqueIndex('ChecklistInstance_definitionId_storeId_periodKey_key').on(
+    uniqueIndex('ChecklistInstance_definitionId_storeId_periodKey_scopeKey_key').on(
       table.definitionId,
       table.storeId,
       table.periodKey,
+      table.scopeKey,
     ),
     index('ChecklistInstance_periodStart_idx').on(table.periodStart),
     // listPendingVerification filters on this column on every PC/Admin/HOD queue poll — without

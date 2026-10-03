@@ -1,6 +1,6 @@
 // node-cron lets us run a function automatically on a repeating schedule,
 // kind of like a built-in alarm clock for our server code.
-import cron from 'node-cron';
+import { scheduleJob } from '../utils/jobTracker.js';
 import { and, asc, eq, lt, ne, inArray, isNull } from 'drizzle-orm';
 import { db } from '../config/db.js';
 import { tickets } from '../db/schema/index.js';
@@ -35,7 +35,7 @@ export const startSlaSweep = () => {
   // hour, every day, every month, every day of the week" - i.e. this job
   // wakes up and runs once every 5 minutes, forever, for as long as the
   // server process is alive.
-  cron.schedule('*/5 * * * *', async () => {
+  scheduleJob("ticket-sla-sweep", '*/5 * * * *', 5, async () => {
     if (isRunning) {
       console.warn('SLA sweep: previous run still in progress, skipping this tick.');
       return;

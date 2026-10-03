@@ -16,12 +16,19 @@ export const AUDIT_ACTIONS = [
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
+export const AUDIT_GROUPS = ['checklists', 'tickets', 'tasks', 'people', 'settings'] as const;
+export type AuditGroup = (typeof AUDIT_GROUPS)[number];
+
 export type AuditLog = {
   id: string;
   entityType: string;
   entityId: string;
   action: string;
   actorId: string;
+  /** The person's name as it was when they made the change; stays right after a rename or removal. */
+  actorName: string | null;
+  /** 'APP', 'SYSTEM' or 'WHATSAPP'; null on older entries. */
+  source: string | null;
   before: Record<string, unknown> | null;
   after: Record<string, unknown> | null;
   createdAt: string;
@@ -42,6 +49,9 @@ export type AuditLogFilter = {
   entityId?: string;
   actorId?: string;
   action?: string;
+  /** One tab of the Audit Log page: a family of sections. */
+  group?: AuditGroup;
+  source?: string;
   from?: string;
   to?: string;
   page?: number;

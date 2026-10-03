@@ -1,4 +1,4 @@
-import cron from 'node-cron';
+import { scheduleJob } from '../utils/jobTracker.js';
 import { lt } from 'drizzle-orm';
 import { db } from '../config/db.js';
 import { notifications } from '../db/schema/core.js';
@@ -23,7 +23,7 @@ const MAX_BATCHES_PER_RUN = 50;
 export const startNotificationRetention = () => {
     // 03:30 daily — same quiet window as auditRetention (03:15) and ahead of the checklist
     // generator's morning run, offset 15 minutes so the two sweeps don't overlap.
-    cron.schedule('30 3 * * *', async () => {
+    scheduleJob("notification-retention", '30 3 * * *', 1440, async () => {
         const days = settingsService.getCached().notificationRetentionDays;
         if (days <= 0) return;
 

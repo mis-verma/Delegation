@@ -211,6 +211,20 @@
       "when": 1791003069459,
       "tag": "0029_checklist_acceptable_answers",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "5",
+      "when": 1791003826783,
+      "tag": "0030_checklist_response_mode",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "5",
+      "when": 1791004445561,
+      "tag": "0031_audit_snapshot_job_runs",
+      "breakpoints": true
     }
   ]
 }

@@ -17,6 +17,8 @@ export type ChecklistIcon =
 
 export type ChecklistConditionalAction = 'REQUIRE_PHOTO' | 'ASK_REASON' | 'CREATE_ISSUE' | 'NOTIFY_AREA_MANAGER';
 
+export type ChecklistResponseMode = 'SHARED' | 'PER_DEPARTMENT' | 'PER_USER';
+
 export type ChecklistDefinitionItem = {
   id: string;
   label: string;
@@ -74,6 +76,8 @@ export type ChecklistDefinition = {
   icon: ChecklistIcon;
   /** DAILY only: weekdays a run is created on (0 = Sunday … 6 = Saturday). Null = every day. */
   activeWeekdays: number[] | null;
+  /** Who a run belongs to: everyone (shared), one per department, or one per person. */
+  responseMode: ChecklistResponseMode;
   version: number;
   createdBy: string;
   items: ChecklistDefinitionItem[];
@@ -145,6 +149,7 @@ export type CreateChecklistDefinitionPayload = {
   assigneeRoles?: ChecklistAssigneeRole[];
   icon?: ChecklistIcon;
   activeWeekdays?: number[] | null;
+  responseMode?: ChecklistResponseMode;
   items: CreateChecklistDefinitionItemPayload[];
 };
 

@@ -1,7 +1,7 @@
 // Recurrence engine for the Checklist feature: sweeps active ChecklistDefinitions and stamps
 // out a fresh, completable ChecklistInstance whenever a definition's current period hasn't been
 // generated yet. See utils/period.ts for the period-math this relies on.
-import cron from "node-cron"
+import { scheduleJob } from '../utils/jobTracker.js';
 import { createId } from "@paralleldrive/cuid2"
 import { eq, and, inArray, asc, lte, isNull } from "drizzle-orm"
 import { db } from "../config/db.js"
@@ -22,8 +22,9 @@ import {
     checklistInstanceItemSubmissionImages,
     users,
     holidays,
+    departments,
 } from "../db/schema/index.js"
-import type { ChecklistRecurrence } from "../db/schema/checklistDefinition.js"
+import type { ChecklistRecurrence, ChecklistResponseMode } from "../db/schema/checklistDefinition.js"
 import type { Gender } from "../db/schema/core.js"
 import { getCurrentPeriod, type Period } from "../utils/period.js"
 import { env } from "../config/env.js"
@@ -80,6 +81,7 @@ export type GenerationDefinition = {
     opensTime: string | null
     cutoffTime: string | null
     activeWeekdays: number[] | null
+    responseMode: ChecklistResponseMode
     storeIds: string[]
     assigneeIds: string[]
     reviewerIds: string[]
@@ -155,6 +157,7 @@ export const loadDefinitionsForGeneration = async (definitionIds: string[]): Pro
             opensTime: row.opensTime,
             cutoffTime: row.cutoffTime,
             activeWeekdays: row.activeWeekdays ?? null,
+            responseMode: row.responseMode,
             storeIds: (storesByDef.get(row.id) ?? []).map((l) => l.storeId),
             assigneeIds: (assigneesByDef.get(row.id) ?? []).map((l) => l.userId),
             reviewerIds: (reviewersByDef.get(row.id) ?? []).map((l) => l.userId),
@@ -279,6 +282,53 @@ const stampInstanceContents = async (tx: Tx, instanceId: string, definition: Gen
     await stampItems(tx, instanceId, definition.items)
 }
 
+// One slice of a checklist's people at one store: what a single run is for.
+export type RunScope = { key: string; assigneeIds: string[]; title: string }
+
+const scopedTitle = (name: string, label: string) => `${name} · ${label}`.slice(0, 191)
+
+// How a definition's (working) assignees split into runs at a store, by its response mode:
+//  SHARED         one run for everyone (key '')
+//  PER_USER       one run per person
+//  PER_DEPARTMENT one run per department among the assignees (people with no department share one)
+// With more than one store, a person who belongs to a store only gets that store's runs; a person
+// with no store of their own gets a run at every store. Built once per generation/sync pass.
+export const buildScopeResolver = async (definition: GenerationDefinition): Promise<(storeId: string) => RunScope[]> => {
+    if (definition.responseMode === "SHARED") {
+        return () => [{ key: "", assigneeIds: definition.assigneeIds, title: definition.name }]
+    }
+    const people = definition.assigneeIds.length
+        ? await db.select({ id: users.id, firstName: users.firstName, lastName: users.lastName, departmentId: users.departmentId, storeId: users.storeId })
+            .from(users).where(inArray(users.id, definition.assigneeIds))
+        : []
+    const departmentIds = [...new Set(people.map((p) => p.departmentId).filter((id): id is string => !!id))]
+    const departmentRows = departmentIds.length
+        ? await db.select({ id: departments.id, name: departments.name }).from(departments).where(inArray(departments.id, departmentIds))
+        : []
+    const departmentName = new Map(departmentRows.map((d) => [d.id, d.name]))
+
+    return (storeId) => {
+        const here = definition.storeIds.length > 1 ? people.filter((p) => !p.storeId || p.storeId === storeId) : people
+        if (definition.responseMode === "PER_USER") {
+            return here.map((p) => ({
+                key: `user:${p.id}`,
+                assigneeIds: [p.id],
+                title: scopedTitle(definition.name, `${p.firstName}${p.lastName ? ` ${p.lastName}` : ""}`),
+            }))
+        }
+        const byDepartment = new Map<string, string[]>()
+        for (const p of here) {
+            const key = p.departmentId ?? "none"
+            byDepartment.set(key, [...(byDepartment.get(key) ?? []), p.id])
+        }
+        return [...byDepartment].map(([key, ids]) => ({
+            key: `dept:${key}`,
+            assigneeIds: ids,
+            title: scopedTitle(definition.name, key === "none" ? "No department" : (departmentName.get(key) ?? "Department")),
+        }))
+    }
+}
+
 // Stamps out the currently-due ChecklistInstance for one (definition, store) pair. Caller is
 // responsible for the "already generated for this period?" check — see generateInstanceForDefinition,
 // which does that once for every store up front instead of once per store here.
@@ -294,6 +344,7 @@ const generateInstanceForStore = async (
     storeId: string,
     period: Period,
     now: Date,
+    scope: RunScope,
 ): Promise<{ id: string } | null> => {
     const instanceId = createId()
     try {
@@ -301,9 +352,10 @@ const generateInstanceForStore = async (
             await tx.insert(checklistInstances).values({
                 id: instanceId,
                 definitionId: definition.id,
-                title: definition.name,
+                title: scope.title,
                 recurrence: definition.recurrence,
                 storeId,
+                scopeKey: scope.key,
                 opensTime: definition.opensTime,
                 cutoffTime: definition.cutoffTime,
                 periodKey: period.periodKey,
@@ -312,11 +364,11 @@ const generateInstanceForStore = async (
                 generatedAt: now,
             })
 
-            await stampInstanceContents(tx, instanceId, definition)
+            await stampInstanceContents(tx, instanceId, { ...definition, assigneeIds: scope.assigneeIds })
         })
     } catch (err: any) {
         // Duplicate-key race between this run and a concurrent tick for the same period —
-        // the unique (definitionId, storeId, periodKey) index already guarantees only one wins.
+        // the unique (definitionId, storeId, periodKey, scopeKey) index already guarantees only one wins.
         if (err?.code === "ER_DUP_ENTRY") return null
         throw err
     }
@@ -371,30 +423,31 @@ export const generateInstanceForDefinition = async (definition: GenerationDefini
 
     // One query covering every store this definition is live in, instead of one
     // "already generated?" existence check per store.
-    const alreadyGeneratedRows = await db.select({ storeId: checklistInstances.storeId })
+    const alreadyGeneratedRows = await db.select({ storeId: checklistInstances.storeId, scopeKey: checklistInstances.scopeKey })
         .from(checklistInstances)
         .where(and(
             eq(checklistInstances.definitionId, definition.id),
             inArray(checklistInstances.storeId, definition.storeIds),
             eq(checklistInstances.periodKey, period.periodKey),
         ))
-    const alreadyGeneratedSet = new Set(alreadyGeneratedRows.map((r) => r.storeId))
-    const pendingStoreIds = definition.storeIds.filter((storeId) => !alreadyGeneratedSet.has(storeId))
-    if (!pendingStoreIds.length) return []
+    const alreadyGenerated = new Set(alreadyGeneratedRows.map((r) => `${r.storeId}|${r.scopeKey}`))
+    const scopesAt = await buildScopeResolver(definition)
 
     const created: { id: string }[] = []
-    for (const storeId of pendingStoreIds) {
-        // Each store is isolated in its own try/catch — one store's failure (bad data, a
-        // transient DB error) must not stop the rest of this definition's stores from getting
-        // their instance this tick.
-        try {
-            const instance = await generateInstanceForStore(definition, storeId, period, now)
-            if (instance) {
-                created.push(instance)
-                emitChecklistEvent("checklist-instance:created", { storeId }, { instanceId: instance.id, definitionId: definition.id })
+    for (const storeId of definition.storeIds) {
+        for (const scope of scopesAt(storeId)) {
+            if (alreadyGenerated.has(`${storeId}|${scope.key}`)) continue
+            // Each run is isolated in its own try/catch: one failure (bad data, a transient DB
+            // error) must not stop the rest of this definition's runs from being created this tick.
+            try {
+                const instance = await generateInstanceForStore(definition, storeId, period, now, scope)
+                if (instance) {
+                    created.push(instance)
+                    emitChecklistEvent("checklist-instance:created", { storeId }, { instanceId: instance.id, definitionId: definition.id })
+                }
+            } catch (err) {
+                console.error(`Checklist instance generation failed for definition ${definition.id}, store ${storeId}, scope ${scope.key || "shared"}:`, err)
             }
-        } catch (err) {
-            console.error(`Checklist instance generation failed for definition ${definition.id}, store ${storeId}:`, err)
         }
     }
 
@@ -659,6 +712,7 @@ export const syncLiveInstances = async (definition: GenerationDefinition, now: D
     const period = getCurrentPeriod(definition.recurrence, definition.startDate, now, env.CHECKLIST_TIMEZONE_OFFSET_MINUTES)
     if (!period) return summary
     const working = await applyWorkingDayRules(definition, period)
+    const scopesAt = working ? await buildScopeResolver(working) : null
 
     const runs = await db.select({ id: checklistInstances.id }).from(checklistInstances).where(and(
         eq(checklistInstances.definitionId, definition.id),
@@ -673,35 +727,40 @@ export const syncLiveInstances = async (definition: GenerationDefinition, now: D
                     .where(eq(checklistInstances.id, id)).for("update").limit(1)
                 if (!run) return null
 
+                // This run's slice of the people (its department / person), or null when the edit
+                // no longer gives it one: then it's handled like a store taken out of the checklist.
+                const scope = scopesAt?.(run.storeId).find((sc) => sc.key === run.scopeKey)
+                const scoped = working && scope ? { ...working, assigneeIds: scope.assigneeIds, name: scope.title } : null
+
                 if (await runHasProgress(tx, run)) {
                     // Sent for review or approved: nobody may change what a reviewer is looking at.
                     const editable = run.verificationStatus === "NOT_SUBMITTED" || run.verificationStatus === "REJECTED"
-                    if (!editable || !working || !definition.storeIds.includes(run.storeId)) {
+                    if (!editable || !scoped || !definition.storeIds.includes(run.storeId)) {
                         return { kind: "kept" as const, storeId: run.storeId }
                     }
-                    await mergeIntoStartedRun(tx, run, working, now)
+                    await mergeIntoStartedRun(tx, run, scoped, now)
                     return { kind: "updated" as const, storeId: run.storeId }
                 }
 
                 // The edit took this store out (or made today a day off) and nobody started it:
                 // the empty run has no reason to exist any more.
-                if (!working || !definition.storeIds.includes(run.storeId)) {
+                if (!scoped || !definition.storeIds.includes(run.storeId)) {
                     await tx.delete(checklistInstances).where(eq(checklistInstances.id, id))
                     return { kind: "refreshed" as const, storeId: run.storeId }
                 }
 
                 await tx.update(checklistInstances).set({
-                    title: working.name,
-                    recurrence: working.recurrence,
-                    opensTime: working.opensTime,
-                    cutoffTime: working.cutoffTime,
+                    title: scoped.name,
+                    recurrence: scoped.recurrence,
+                    opensTime: scoped.opensTime,
+                    cutoffTime: scoped.cutoffTime,
                     updatedAt: now,
                 }).where(eq(checklistInstances.id, id))
                 await tx.delete(checklistInstanceAssignees).where(eq(checklistInstanceAssignees.instanceId, id))
                 await tx.delete(checklistInstanceReviewers).where(eq(checklistInstanceReviewers.instanceId, id))
                 // Cascades to the old items' images, submissions, accessories and submission images.
                 await tx.delete(checklistInstanceItems).where(eq(checklistInstanceItems.instanceId, id))
-                await stampInstanceContents(tx, id, working)
+                await stampInstanceContents(tx, id, scoped)
                 return { kind: "refreshed" as const, storeId: run.storeId }
             })
             if (!outcome) continue
@@ -793,7 +852,7 @@ const generateDueInstances = async () => {
 // polling buys nothing, while hourly stays cheap and tolerates brief downtime near midnight.
 export const startChecklistInstanceGenerator = () => {
     generateDueInstances().catch((err) => console.error("Initial checklist instance generation failed:", err))
-    cron.schedule("0 * * * *", () => {
+    scheduleJob("checklist-generator", "0 * * * *", 60, () => {
         generateDueInstances().catch((err) => console.error("Checklist instance sweep failed:", err))
     })
 }

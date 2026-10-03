@@ -2,6 +2,7 @@ import { z } from "zod"
 import {
     CHECKLIST_RECURRENCES,
     CHECKLIST_ASSIGNEE_ROLES,
+    CHECKLIST_RESPONSE_MODES,
     CHECKLIST_ICONS,
     CHECKLIST_ITEM_TYPES,
     CHECKLIST_CONDITIONAL_ACTIONS,
@@ -96,6 +97,7 @@ const checklistDefinitionFields = {
     reviewerIds: dedupedIdArray.optional(),
     assigneeRoles: z.array(z.enum(CHECKLIST_ASSIGNEE_ROLES)).optional(),
     icon: z.enum(CHECKLIST_ICONS).optional(),
+    responseMode: z.enum(CHECKLIST_RESPONSE_MODES).optional(),
     // DAILY only (ignored otherwise): 0 = Sunday … 6 = Saturday. Null/omitted = every day.
     activeWeekdays: z.array(z.number().int().min(0).max(6)).min(1, "Pick at least one working day").max(7)
         .transform((d) => [...new Set(d)].sort()).nullable().optional(),

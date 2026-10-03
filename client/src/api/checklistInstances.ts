@@ -253,7 +253,7 @@ export type WeeklyReport = {
   weekStart: string;
   days: string[];
   holidays: Record<string, string>;
-  rows: { definitionId: string; name: string; storeId: string; storeName: string; cells: WeeklyCell[]; rate: number | null }[];
+  rows: { definitionId: string; scopeKey: string; name: string; storeId: string; storeName: string; cells: WeeklyCell[]; rate: number | null }[];
   summary: { due: number; onTime: number; late: number; missed: number; rate: number | null };
 };
 

@@ -1,4 +1,4 @@
-import cron from 'node-cron';
+import { scheduleJob } from '../utils/jobTracker.js';
 import { lt } from 'drizzle-orm';
 import { db } from '../config/db.js';
 import { processedInboundMessages } from '../db/schema/index.js';
@@ -19,7 +19,7 @@ const MAX_BATCHES_PER_RUN = 50;
 export const startInboundMessageRetention = () => {
     // 03:45 daily — after auditRetention (03:15) and notificationRetention (03:30), same quiet
     // window, staggered so the three sweeps don't overlap.
-    cron.schedule('45 3 * * *', async () => {
+    scheduleJob("inbound-message-retention", '45 3 * * *', 1440, async () => {
         const days = settingsService.getCached().inboundMessageRetentionDays;
         if (days <= 0) return;
 

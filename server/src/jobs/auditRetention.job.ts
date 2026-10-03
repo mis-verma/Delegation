@@ -1,4 +1,4 @@
-import cron from 'node-cron';
+import { scheduleJob } from '../utils/jobTracker.js';
 import { and, lt, notLike } from 'drizzle-orm';
 import { db } from '../config/db.js';
 import { auditLogs } from '../db/schema/core.js';
@@ -26,7 +26,7 @@ const MAX_BATCHES_PER_RUN = 50;
 export const startAuditRetention = () => {
     // 03:15 daily — off the hour so it doesn't pile onto every other job that picked midnight,
     // and in the quiet window before the checklist generator's morning run.
-    cron.schedule('15 3 * * *', async () => {
+    scheduleJob("audit-retention", '15 3 * * *', 1440, async () => {
         const days = settingsService.getCached().auditRetentionDays;
         if (days <= 0) return;
 

@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { AppError } from '../../utils/AppError.js';
 import { env } from '../../config/env.js';
+import { recordServerError } from '../../modules/health/errorBuffer.js';
 
 // mysql2 errors are plain objects with a `code`/`errno` (not a class hierarchy like Mongoose's
 // driver errors), so we type-guard on shape instead of `instanceof`.
@@ -21,7 +22,7 @@ const asMySqlError = (err: unknown): MySqlError | undefined => {
   return isMySqlError(cause) ? cause : undefined;
 };
 
-export const errorHandler = (err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+export const errorHandler = (err: unknown, req: Request, res: Response, _next: NextFunction) => {
 
   // If a response was already sent — e.g. a webhook handler that acks immediately with
   // res.sendStatus(200) before doing async work, then hits an error in that later work — there's
@@ -84,6 +85,7 @@ export const errorHandler = (err: unknown, _req: Request, res: Response, _next: 
   // E. UNHANDLED INTERNAL SYSTEM ERRORS (FALLBACK)
   // Safely log the unhandled system error (like a database connection failure or syntax crash) to the server console
   console.error(err);
+  recordServerError(req.method, req.originalUrl.split('?')[0], err);
 
   // Send a generic 500 status to the client, dynamically hiding or exposing the stack trace/message based on production environments
   return res.status(500).json({

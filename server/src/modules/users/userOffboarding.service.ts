@@ -15,7 +15,7 @@ import {
 } from "../../db/schema/index.js"
 import { AppError } from "../../utils/AppError.js"
 import { auditService } from "../audit/audit.service.js"
-import { loadDefinitionForGeneration, syncLiveInstances } from "../../jobs/checklistInstanceGenerator.job.js"
+import { generateInstanceForDefinition, loadDefinitionForGeneration, syncLiveInstances } from "../../jobs/checklistInstanceGenerator.job.js"
 import { assertCanDeactivate, revokeSessions } from "./user.service.js"
 
 // What someone still holds when they leave. Deactivating (never deleting) keeps their name on every
@@ -168,7 +168,12 @@ export const userOffboardingService = {
         for (const definitionId of touched) {
             try {
                 const generation = await loadDefinitionForGeneration(definitionId)
-                if (generation) await syncLiveInstances(generation, new Date())
+                if (generation) {
+                    const now = new Date()
+                    await syncLiveInstances(generation, now)
+                    // A per-person / per-department checklist gets today's run for the new assignee too.
+                    await generateInstanceForDefinition(generation, now)
+                }
             } catch (err) {
                 console.error(`Updating today's runs after offboarding ${userId} failed for ${definitionId}:`, err)
             }

@@ -10,6 +10,7 @@ import {
   Repeat,
   ChevronDown,
   History,
+  HeartPulse,
   Radio,
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
@@ -73,6 +74,7 @@ const NAV: AdminNavItem[] = [
   // Separate from Reports on purpose — that's an export tool, this is a browsable "who changed
   // what, when" trail over the generic AuditLog table every module already writes to.
   { to: '/admin/audit-log', icon: History, label: 'Audit Log', end: false },
+  { to: '/admin/system-health', icon: HeartPulse, label: 'System Health', end: false },
   { to: '/admin/settings', icon: Settings, label: 'Settings', end: false },
 ];
 

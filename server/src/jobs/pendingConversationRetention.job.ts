@@ -1,4 +1,4 @@
-import cron from 'node-cron';
+import { scheduleJob } from '../utils/jobTracker.js';
 import { lt } from 'drizzle-orm';
 import { db } from '../config/db.js';
 import { pendingTaskConversations } from '../db/schema/index.js';
@@ -15,7 +15,7 @@ export const startPendingConversationRetention = () => {
     // this runs far more often than the once-daily audit/notification/inbound-message sweeps
     // (which trim much larger, slower-growing tables) rather than leaving abandoned conversations
     // to linger for up to a day.
-    cron.schedule('*/10 * * * *', async () => {
+    scheduleJob("pending-conversation-retention", '*/10 * * * *', 10, async () => {
         const now = new Date();
         let removed = 0;
 

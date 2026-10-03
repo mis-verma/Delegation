@@ -1,7 +1,7 @@
 // Hourly sweep that finds ChecklistInstance rows which just crossed their deadline still
 // incomplete and haven't been flagged yet, notifies their assignees + the store's PCs (escalation),
 // then stamps `overdueNotifiedAt` so the same instance is never re-notified on a later tick.
-import cron from "node-cron"
+import { scheduleJob } from '../utils/jobTracker.js';
 import { and, inArray, isNull, sql } from "drizzle-orm"
 import { db } from "../config/db.js"
 import { checklistInstances, checklistInstanceAssignees, checklistInstanceItems } from "../db/schema/index.js"
@@ -83,7 +83,7 @@ const notifyOverdueInstances = async () => {
 // same moment for no reason.
 export const startChecklistOverdueNotifier = () => {
     notifyOverdueInstances().catch((err) => console.error("Initial checklist overdue notification sweep failed:", err))
-    cron.schedule("15 * * * *", () => {
+    scheduleJob("checklist-overdue-notifier", "15 * * * *", 60, () => {
         notifyOverdueInstances().catch((err) => console.error("Checklist overdue notification sweep failed:", err))
     })
 }

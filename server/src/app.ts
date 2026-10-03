@@ -12,6 +12,7 @@ import { errorHandler } from "./middleware/errorHandler/errorHandler.js"
 import { StoreRouter } from "./modules/stores/store.routes.js"
 import { departmentRouter } from "./modules/departments/department.routes.js"
 import { holidayRouter } from "./modules/holidays/holiday.routes.js"
+import { systemHealthRouter } from "./modules/health/health.routes.js"
 import { categoryRouter } from "./modules/categories/category.routes.js"
 import { taskRouter } from "./modules/tasks/task.routes.js"
 import { tagRouter } from "./modules/tags/tag.routes.js"
@@ -156,6 +157,7 @@ class App {
         this.app.use('/stores', StoreRouter);
         this.app.use('/departments', departmentRouter);
         this.app.use('/holidays', holidayRouter);
+        this.app.use('/system-health', systemHealthRouter);
         this.app.use('/categories', categoryRouter);
 
         this.app.use('/tasks/ai', createAiLimiter(rateLimitStoreFactory?.('ai')));

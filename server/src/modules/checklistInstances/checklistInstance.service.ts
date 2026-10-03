@@ -973,6 +973,7 @@ export const checklistInstanceService = {
             definitionId: checklistInstances.definitionId,
             title: checklistInstances.title,
             storeId: checklistInstances.storeId,
+            scopeKey: checklistInstances.scopeKey,
             periodStart: checklistInstances.periodStart,
             periodEnd: checklistInstances.periodEnd,
             cutoffTime: checklistInstances.cutoffTime,
@@ -984,7 +985,7 @@ export const checklistInstanceService = {
             .leftJoin(checklistInstanceItems, eq(checklistInstanceItems.instanceId, checklistInstances.id))
             .where(and(...conditions))
             .groupBy(
-                checklistInstances.id, checklistInstances.definitionId, checklistInstances.title, checklistInstances.storeId,
+                checklistInstances.id, checklistInstances.definitionId, checklistInstances.title, checklistInstances.storeId, checklistInstances.scopeKey,
                 checklistInstances.periodStart, checklistInstances.periodEnd, checklistInstances.cutoffTime,
             )
         if (!runs.length) return empty
@@ -1006,10 +1007,12 @@ export const checklistInstanceService = {
         }
 
         type CellState = "done" | "late" | "missed" | "open" | "holiday" | "off" | "upcoming"
-        const grouped = new Map<string, { definitionId: string; name: string; storeId: string; byDay: Map<string, typeof runs[number]> }>()
+        const grouped = new Map<string, { definitionId: string; scopeKey: string; name: string; storeId: string; byDay: Map<string, typeof runs[number]> }>()
         for (const r of runs) {
-            const key = `${r.definitionId}|${r.storeId}`
-            const g = grouped.get(key) ?? { definitionId: r.definitionId, name: r.title, storeId: r.storeId, byDay: new Map() }
+            // A per-person / per-department checklist has one row per person / department (its title
+            // already says who), a shared one has a single row per store.
+            const key = `${r.definitionId}|${r.storeId}|${r.scopeKey}`
+            const g = grouped.get(key) ?? { definitionId: r.definitionId, scopeKey: r.scopeKey, name: r.title, storeId: r.storeId, byDay: new Map() }
             g.byDay.set(r.periodStart.toISOString().slice(0, 10), r)
             g.name = r.title
             grouped.set(key, g)
@@ -1040,6 +1043,7 @@ export const checklistInstanceService = {
             totals.due += due
             return {
                 definitionId: g.definitionId,
+                scopeKey: g.scopeKey,
                 name: g.name,
                 storeId: g.storeId,
                 storeName: storeNames.get(g.storeId) ?? "Store",

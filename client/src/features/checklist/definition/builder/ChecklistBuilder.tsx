@@ -18,6 +18,7 @@ import { QuestionTypePalette } from './QuestionTypePalette';
 import { isItemDraftComplete } from './ItemTypeConfigFields';
 import { BuilderSchedulePanel, hasScheduleTimeMismatch } from './BuilderSchedulePanel';
 import { BuilderAssignPanel } from './BuilderAssignPanel';
+import type { ChecklistResponseMode } from '../../../../api/checklistDefinitions';
 import { BuilderReviewersPanel } from './BuilderReviewersPanel';
 import { BuilderStepper } from './wizard/BuilderStepper';
 import { BuilderStepFrame } from './wizard/BuilderStepFrame';
@@ -179,6 +180,7 @@ export const ChecklistBuilder = () => {
   // DAILY only — Mon–Sat by default (Sunday off), matching the server default for new checklists.
   const [activeWeekdays, setActiveWeekdays] = useState<number[]>(DEFAULT_WORKING_WEEKDAYS);
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
+  const [responseMode, setResponseMode] = useState<ChecklistResponseMode>('SHARED');
   // Additive on top of the role-based verify rule — see ChecklistReviewersField.
   const [reviewerIds, setReviewerIds] = useState<string[]>([]);
   const [itemDrafts, setItemDrafts] = useState<ItemDraft[]>([]);
@@ -213,13 +215,13 @@ export const ChecklistBuilder = () => {
   // thing that quietly goes stale the next time a field is added.
   const snapshotKey = (f: {
     name: string; description: string; icon: ChecklistIcon; storeIds: string[]; recurrence: ChecklistRecurrence;
-    startDate: string; opensTime: string; cutoffTime: string; activeWeekdays: number[]; assigneeIds: string[];
+    startDate: string; opensTime: string; cutoffTime: string; activeWeekdays: number[]; responseMode: ChecklistResponseMode; assigneeIds: string[];
     reviewerIds: string[]; itemDrafts: ItemDraft[]; sections: string[];
   }) => JSON.stringify(f);
   type BuilderSnapshot = Parameters<typeof snapshotKey>[0];
   const [baseline, setBaseline] = useState(() => snapshotKey({
     name: '', description: '', icon: 'store', storeIds: [], recurrence: 'DAILY', startDate: '',
-    opensTime: '', cutoffTime: '', activeWeekdays: DEFAULT_WORKING_WEEKDAYS, assigneeIds: [], reviewerIds: [], itemDrafts: [], sections: [],
+    opensTime: '', cutoffTime: '', activeWeekdays: DEFAULT_WORKING_WEEKDAYS, responseMode: 'SHARED', assigneeIds: [], reviewerIds: [], itemDrafts: [], sections: [],
   }));
 
   // Pre-fills every field from a saved checklist — to edit it, or as the starting point of a copy.
@@ -253,6 +255,7 @@ export const ChecklistBuilder = () => {
     setCutoffTime(def.cutoffTime ?? '');
     setActiveWeekdays(weekdays);
     setAssigneeIds(def.assigneeIds);
+    setResponseMode(def.responseMode ?? 'SHARED');
     setReviewerIds(def.reviewerIds);
     setItemDrafts(hydratedItemDrafts);
     setSections(seenSections);
@@ -270,6 +273,7 @@ export const ChecklistBuilder = () => {
       opensTime: def.opensTime ?? '',
       cutoffTime: def.cutoffTime ?? '',
       activeWeekdays: weekdays,
+      responseMode: def.responseMode ?? 'SHARED',
       assigneeIds: def.assigneeIds,
       reviewerIds: def.reviewerIds,
       itemDrafts: hydratedItemDrafts,
@@ -306,7 +310,7 @@ export const ChecklistBuilder = () => {
 
   const isDirty = snapshotKey({
     name, description, icon, storeIds, recurrence, startDate, opensTime, cutoffTime, activeWeekdays,
-    assigneeIds, reviewerIds, itemDrafts, sections,
+    responseMode, assigneeIds, reviewerIds, itemDrafts, sections,
   }) !== baseline;
 
   // Escape hatch for "I just saved, don't warn me on the way out" — handleSubmit's onSuccess
@@ -320,7 +324,7 @@ export const ChecklistBuilder = () => {
     justSavedRef.current = true;
     setBaseline(snapshotKey({
       name, description, icon, storeIds, recurrence, startDate, opensTime, cutoffTime, activeWeekdays,
-      assigneeIds, reviewerIds, itemDrafts, sections,
+      responseMode, assigneeIds, reviewerIds, itemDrafts, sections,
     }));
   };
 
@@ -426,6 +430,7 @@ export const ChecklistBuilder = () => {
       opensTime: opensTime || undefined,
       cutoffTime: cutoffTime || undefined,
       activeWeekdays: recurrence === 'DAILY' ? activeWeekdays : null,
+      responseMode,
       assigneeIds,
       reviewerIds: reviewerIds.length ? reviewerIds : undefined,
       // Role labels are retired — saving clears any old ones so cards stop showing them.
@@ -576,6 +581,8 @@ export const ChecklistBuilder = () => {
         storeIds={storeIds}
         assigneeIds={assigneeIds}
         onAssigneeIdsChange={setAssigneeIds}
+        responseMode={responseMode}
+        onResponseModeChange={setResponseMode}
       />
     </BuilderStepFrame>,
 

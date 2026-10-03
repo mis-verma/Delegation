@@ -18,6 +18,12 @@ import { users, stores } from './core.js';
 
 export const CHECKLIST_RECURRENCES = ['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'YEARLY', 'ONE_TIME'] as const;
 export type ChecklistRecurrence = (typeof CHECKLIST_RECURRENCES)[number];
+// Who a run belongs to. SHARED: one run per store that every assignee can work on (the original
+// behaviour). PER_DEPARTMENT: one run per store and department among the assignees. PER_USER: one run
+// per store and person, so every person fills their own copy.
+export const CHECKLIST_RESPONSE_MODES = ['SHARED', 'PER_DEPARTMENT', 'PER_USER'] as const;
+export type ChecklistResponseMode = (typeof CHECKLIST_RESPONSE_MODES)[number];
+
 export const CHECKLIST_ASSIGNEE_ROLES = [
   'STORE_MANAGER',
   'FLOOR_MANAGER',
@@ -80,6 +86,7 @@ export const checklistDefinitions = mysqlTable(
     isActive: boolean('isActive').notNull().default(true),
     assigneeRoles: json('assigneeRoles').$type<(typeof CHECKLIST_ASSIGNEE_ROLES)[number][]>(),
     icon: mysqlEnum('icon', CHECKLIST_ICONS).notNull().default('store'),
+    responseMode: mysqlEnum('responseMode', CHECKLIST_RESPONSE_MODES).notNull().default('SHARED'),
     // DAILY only: which weekdays a run is created on (0 = Sunday … 6 = Saturday, same as
     // Date#getDay). Null means every day. New daily checklists default to Mon–Sat.
     activeWeekdays: json('activeWeekdays').$type<number[]>(),

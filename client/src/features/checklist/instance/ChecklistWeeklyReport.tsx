@@ -165,7 +165,7 @@ export const ChecklistWeeklyReport = () => {
             </thead>
             <tbody>
               {rows.map(row => (
-                <tr key={`${row.definitionId}-${row.storeId}`} className="border-b border-border/60 last:border-0">
+                <tr key={`${row.definitionId}-${row.storeId}-${row.scopeKey}`} className="border-b border-border/60 last:border-0">
                   <th scope="row" className="sticky left-0 z-10 bg-surface px-4 py-2 font-normal">
                     <span className="block text-sm font-display font-semibold text-text leading-snug line-clamp-2">{row.name}</span>
                     <span className="block text-xs text-text-muted">{row.storeName}</span>
