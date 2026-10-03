@@ -12,7 +12,7 @@ import { disconnectQueryCache, warmQueryCache } from "./src/config/queryCache.js
 import { startSlaSweep } from "./src/jobs/slaSweep.job.js";
 import { startChecklistInstanceGenerator } from "./src/jobs/checklistInstanceGenerator.job.js";
 import { startChecklistOverdueNotifier } from "./src/jobs/checklistOverdueNotifier.job.js";
-import { startChecklistDraftReminder } from "./src/jobs/checklistDraftReminder.job.js";
+import { startChecklistDraftReminder, startChecklistApprovalReminder } from "./src/jobs/checklistDraftReminder.job.js";
 import { startTaskDeadlineReminder } from "./src/jobs/taskDeadlineReminder.job.js";
 import { startAuditRetention } from "./src/jobs/auditRetention.job.js";
 import { startNotificationRetention } from "./src/jobs/notificationRetention.job.js";
@@ -45,6 +45,7 @@ class ServerBootstrap {
       startChecklistInstanceGenerator();
       startChecklistOverdueNotifier();
       startChecklistDraftReminder();
+      startChecklistApprovalReminder();
       startTaskDeadlineReminder();
       startAuditRetention();
       startNotificationRetention();

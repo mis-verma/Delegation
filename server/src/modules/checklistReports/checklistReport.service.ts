@@ -64,6 +64,7 @@ export const REPORT_NOTES = [
     "A department counts a shared checklist once, even when two of its people are assigned. People is the number of people in the department who had a checklist in this period.",
     "Questions done, Not applicable and Compliance % go by who actually completed each question. Not applicable questions are not counted in Questions done.",
     "Compliance % is the share of answers inside the accepted range, out of Answers checked. Only completed questions with an accepted-answer rule are checked.",
+    "A critical question counts double in Compliance %, for or against. Answers checked still counts it once.",
     "A question a reviewer sent back counts as a failed check for the person who had done it, even if it was redone well, and even if it has no accepted-answer rule.",
     "Completed on time means every question was done by the cutoff time. A checklist with no cutoff is due at the end of its day.",
     "Completion % and On-time % are measured against all checklists assigned in the period, including ones that are still open.",
@@ -111,6 +112,19 @@ const goodExpr = sql<number>`SUM(CASE
         AND (${item.acceptableMax} IS NULL OR ${item.numericValue} <= ${item.acceptableMax}) THEN 1
     ELSE 0 END)`
 
+// A critical question counts double in Compliance %: weighted twins of scoredExpr/goodExpr above
+// (Answers checked stays the raw count).
+const weightExpr = sql`(CASE WHEN ${item.isCritical} = 1 THEN 2 ELSE 1 END)`
+const weightedScoredExpr = sql<number>`SUM(CASE WHEN ${sentBack} THEN ${weightExpr} WHEN ${ruleScored} THEN ${weightExpr} ELSE 0 END)`
+const weightedGoodExpr = sql<number>`SUM(CASE
+    WHEN ${sentBack} THEN 0
+    WHEN ${item.isDone} = 1 AND ${item.isNotApplicable} = 0 AND ${boolScored} AND JSON_CONTAINS(${item.acceptableAnswers}, JSON_QUOTE(${item.booleanAnswer})) THEN ${weightExpr}
+    WHEN ${item.isDone} = 1 AND ${item.isNotApplicable} = 0 AND ${textScored} AND JSON_CONTAINS(${item.acceptableAnswers}, JSON_QUOTE(${item.textValue})) THEN ${weightExpr}
+    WHEN ${item.isDone} = 1 AND ${item.isNotApplicable} = 0 AND ${numScored}
+        AND (${item.acceptableMin} IS NULL OR ${item.numericValue} >= ${item.acceptableMin})
+        AND (${item.acceptableMax} IS NULL OR ${item.numericValue} <= ${item.acceptableMax}) THEN ${weightExpr}
+    ELSE 0 END)`
+
 // Who a question is credited to: whoever completed it, except a sent-back question, which is credited
 // (as a failure) to the person who had done it when it was sent back.
 const creditedUser = sql<string | null>`(CASE WHEN ${item.sendBackCount} > 0 AND ${item.sentBackFrom} IS NOT NULL THEN ${item.sentBackFrom} ELSE ${item.completedBy} END)`
@@ -139,7 +153,7 @@ type RunFlags = { complete: boolean; onTime: boolean; missed: boolean; submitted
 
 const emptyRunAcc = () => ({ assigned: 0, completed: 0, onTime: 0, missed: 0, submitted: 0, approved: 0, sentBack: 0 })
 type RunAcc = ReturnType<typeof emptyRunAcc>
-const emptyItemAcc = () => ({ done: 0, na: 0, scored: 0, good: 0 })
+const emptyItemAcc = () => ({ done: 0, na: 0, scored: 0, good: 0, wScored: 0, wGood: 0 })
 type ItemAcc = ReturnType<typeof emptyItemAcc>
 
 const addRun = (acc: RunAcc, f: RunFlags) => {
@@ -157,6 +171,8 @@ const addItems = (into: ItemAcc, from: ItemAcc) => {
     into.na += from.na
     into.scored += from.scored
     into.good += from.good
+    into.wScored += from.wScored
+    into.wGood += from.wGood
 }
 
 const toMetrics = (r: RunAcc, i: ItemAcc): ReportMetrics => ({
@@ -172,7 +188,7 @@ const toMetrics = (r: RunAcc, i: ItemAcc): ReportMetrics => ({
     questionsDone: i.done,
     notApplicable: i.na,
     answersChecked: i.scored,
-    compliancePct: pct(i.good, i.scored),
+    compliancePct: pct(i.wGood, i.wScored),
 })
 
 // Worst completion first so the people who need a conversation are at the top; a missing
@@ -262,6 +278,8 @@ export const checklistReportService = {
                 na: sql<number>`SUM(CASE WHEN ${item.isDone} = 1 AND ${item.isNotApplicable} = 1 THEN 1 ELSE 0 END)`,
                 scored: scoredExpr,
                 good: goodExpr,
+                wScored: weightedScoredExpr,
+                wGood: weightedGoodExpr,
             })
                 .from(item)
                 .innerJoin(checklistInstances, eq(checklistInstances.id, item.instanceId))
@@ -334,7 +352,7 @@ export const checklistReportService = {
         for (const r of itemRows) {
             const person = r.userId ? peopleById.get(r.userId) : undefined
             if (!person) continue
-            const acc: ItemAcc = { done: Number(r.done), na: Number(r.na), scored: Number(r.scored), good: Number(r.good) }
+            const acc: ItemAcc = { done: Number(r.done), na: Number(r.na), scored: Number(r.scored), good: Number(r.good), wScored: Number(r.wScored), wGood: Number(r.wGood) }
             addItems(person.items, acc)
             addItems(deptByKey.get(person.row.departmentId ?? NO_DEPARTMENT_KEY)!.items, acc)
         }

@@ -102,6 +102,14 @@ export const listPendingVerificationQuerySchema = z.object({
     limit: z.coerce.number().int().min(1).max(200).optional(),
 })
 
+// GET /checklist-instances/decisions: from/to are an ISO datetime or an org-local YYYY-MM-DD (the whole
+// day is included for `to`). Without them the window is today, org-local.
+export const decisionsQuerySchema = z.object({
+    from: reportBoundary.optional(),
+    to: reportBoundary.optional(),
+    limit: z.coerce.number().int().min(1).max(200).optional(),
+})
+
 // Monday of the week to report on (org-local YYYY-MM-DD); anything that is not a real day is a 400.
 export const weeklyReportQuerySchema = z.object({
     weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date like 2026-09-28").refine((d) => !Number.isNaN(Date.parse(d+"T00:00:00Z")), "That is not a real date"),

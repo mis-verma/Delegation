@@ -33,6 +33,7 @@ const definitionItemShape = z.object({
     requiredImageCount: z.number().int().min(0).optional(),
     maxImageCount: z.number().int().min(0).nullable().optional(),
     requiresLivePhoto: z.boolean().optional(),
+    isCritical: z.boolean().optional(),
     itemType: z.enum(CHECKLIST_ITEM_TYPES).optional(),
     auditUserIds: dedupedIdArray.optional(),
     // Nullable: a stored AUDIT item with no accessories comes back as null, and the builder sends

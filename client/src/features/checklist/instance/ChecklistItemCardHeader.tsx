@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { RotateCcw } from 'lucide-react';
+import { Flag, RotateCcw } from 'lucide-react';
+import { IconChip } from '../../../components';
 import { ChecklistItemIconTile } from './ChecklistItemIconTile';
 import { ITEM_TYPE_ICON } from './checklistItemIcon';
 import { formatDateTime } from '../checklistDisplay';
@@ -33,6 +34,9 @@ export const ChecklistItemCardHeader = ({ item, interactive, onReopen, reopenPen
       <ChecklistItemIconTile icon={ITEM_TYPE_ICON[item.itemType]} done={item.isDone} />
       <div className="flex-1 min-w-0 flex flex-col gap-0.5">
         <p className="text-sm font-display font-medium leading-snug text-text">{item.label}</p>
+        {item.isCritical && (
+          <IconChip icon={Flag} tone="bg-danger" label="Critical" title="Critical question: a bad answer counts double against compliance" className="w-fit" />
+        )}
         {subtitle}
         {item.isDone && item.completedAt && (
           <p className="text-xs text-text-muted font-display">Completed {formatDateTime(item.completedAt)}{by}</p>

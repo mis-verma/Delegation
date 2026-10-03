@@ -440,9 +440,21 @@ const FIELDS_BY_TYPE: Partial<Record<ChecklistItemType, FieldRenderer>> = {
   DATE_TIME: note('Staff pick a date and time.'),
 };
 
+// Any question can be marked critical: it counts double in the compliance %, and a bad answer is
+// flagged to the reviewer.
+const CriticalField = ({ draft, onChange }: ItemTypeFieldsProps) => (
+  <SwitchField
+    id={fid(draft, 'critical')}
+    checked={draft.isCritical}
+    onChange={(v) => onChange({ isCritical: v })}
+    label="Critical question"
+    hint="A bad answer counts double against compliance and is flagged to the reviewer"
+  />
+);
+
 export const ItemTypeConfigFields = (props: ItemTypeFieldsProps) => {
   const Renderer = FIELDS_BY_TYPE[props.draft.itemType];
-  return Renderer ? <>{Renderer(props)}<AcceptableFields {...props} /></> : null;
+  return Renderer ? <>{Renderer(props)}<AcceptableFields {...props} /><CriticalField {...props} /></> : null;
 };
 
 // The exports below are colocated with the component like ui/badge.tsx's own badgeVariants export;

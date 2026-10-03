@@ -39,6 +39,7 @@ const toItemDraft = (item: ChecklistDefinitionItem): ItemDraft => ({
   requiredImageCount: String(item.requiredImageCount),
   maxImageCount: item.maxImageCount != null ? String(item.maxImageCount) : '',
   requiresLivePhoto: item.requiresLivePhoto,
+  isCritical: item.isCritical ?? false,
   itemType: item.itemType,
   auditUserIds: item.auditUserIds,
   accessories: item.accessories,
@@ -101,6 +102,7 @@ const buildItemPayloads = (itemDrafts: ItemDraft[]): CreateChecklistDefinitionIt
       requiredImageCount: Number(d.requiredImageCount) || 0,
       maxImageCount: d.maxImageCount ? Number(d.maxImageCount) : undefined,
       requiresLivePhoto: d.requiresLivePhoto,
+      isCritical: d.isCritical,
       itemType: d.itemType,
       ...(d.itemType === 'AUDIT' ? {
         auditUserIds: d.auditUserIds,

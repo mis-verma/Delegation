@@ -83,6 +83,11 @@ export const checklistInstances = mysqlTable(
     // Same one-shot convention for "every question is done but it was never submitted": the person
     // gets one nudge to press Submit, so a finished checklist does not sit there unseen by the reviewer.
     submitReminderSentAt: datetime('submitReminderSentAt', { mode: 'date' }),
+    // One-shot stamps for the approval chase (checklistDraftReminder.job.ts): a reminder to the
+    // reviewers after 24h in PENDING_APPROVAL, an escalation to Admin/PC after 48h. Both are cleared
+    // when the run leaves PENDING_APPROVAL so a resubmission can chase again.
+    approvalReminderSentAt: datetime('approvalReminderSentAt', { mode: 'date' }),
+    approvalEscalatedAt: datetime('approvalEscalatedAt', { mode: 'date' }),
     createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
     updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
   },
@@ -155,6 +160,8 @@ export const checklistInstanceItems = mysqlTable(
     requiredImageCount: int('requiredImageCount').notNull().default(0),
     maxImageCount: int('maxImageCount'),
     requiresLivePhoto: boolean('requiresLivePhoto').notNull().default(false),
+    // Copied from ChecklistDefinitionItem.isCritical: counts double in compliance.
+    isCritical: boolean('isCritical').notNull().default(false),
     itemType: mysqlEnum('itemType', CHECKLIST_ITEM_TYPES).notNull().default('STANDARD'),
     accessories: json('accessories').$type<string[]>(),
     numberEntryUnit: varchar('numberEntryUnit', { length: 191 }),

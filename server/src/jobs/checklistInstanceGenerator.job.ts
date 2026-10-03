@@ -50,6 +50,7 @@ type GenerationItem = {
     requiredImageCount: number
     maxImageCount: number | null
     requiresLivePhoto: boolean
+    isCritical: boolean
     itemType: (typeof checklistDefinitionItems.$inferSelect)["itemType"]
     accessories: string[] | null
     accessoriesFemale: string[] | null
@@ -192,6 +193,7 @@ const definitionConfig = (item: GenerationItem) => ({
     requiredImageCount: item.requiredImageCount,
     maxImageCount: item.maxImageCount,
     requiresLivePhoto: item.requiresLivePhoto,
+    isCritical: item.isCritical,
     // Definition items commonly leave this null (only some items use accessory
     // checkboxes) — the client's ChecklistInstanceItem type declares this a plain
     // string[] (never null), and ChecklistInstanceItemAuditCard.tsx reads

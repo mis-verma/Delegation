@@ -507,6 +507,16 @@ export const useSendBackChecklistInstanceMutation = () =>
     errorFallback: "Couldn't send those questions back",
   });
 
+// ADMIN only: an approved run goes back to the review queue.
+export const useReopenApprovalMutation = () =>
+  useEntityMutation({
+    mutationFn: (id: string) => checklistInstanceApi.reopenApproval(id).then(r => r.data),
+    setDetailData: (updated) => ({ key: KEYS.instanceDetail(updated.id), data: updated }),
+    invalidateKeys: [['checklist-instances']],
+    successMessage: 'Approval reopened',
+    errorFallback: "Couldn't reopen this approval",
+  });
+
 export { useDepartmentsQuery, useStoresQuery, useAssignableUsersQuery } from '../tickets/hook';
 // Templates are a separate one-off feature (see ChecklistDefinition model comment), but the
 // definition form lets admins import a template's step labels as a starting point.

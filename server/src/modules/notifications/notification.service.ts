@@ -1,7 +1,7 @@
 // Drizzle client + table/type definitions — replaces the old Mongoose Notification/User models.
 import { db } from '../../config/db.js';
 import { notifications, users } from '../../db/schema/core.js';
-import { eq, and, or, desc } from 'drizzle-orm';
+import { eq, and, or, desc, inArray } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
 import { AppError } from '../../utils/AppError.js'; // helper for creating consistent HTTP error objects (e.g. 404 Not Found)
 import { getIO } from '../../sockets/socket.js'; // gives us access to the Socket.IO server so we can push notifications to the browser in real time
@@ -63,6 +63,14 @@ type VerifiableEntity = {
 // so if they have the app open, the notification appears instantly without needing to refresh.
 const emitToUser = (userId: string, notification: unknown) => {
   getIO().to(`user:${userId}`).emit('notification:new', notification);
+};
+
+// "1 day", "2 days", "5 hours": how long a run has been waiting, in plain words.
+const formatWaiting = (hours: number) => {
+  const days = Math.floor(hours / 24);
+  if (days >= 1) return `${days} day${days === 1 ? '' : 's'}`;
+  const h = Math.max(1, Math.floor(hours));
+  return `${h} hour${h === 1 ? '' : 's'}`;
 };
 
 // The notification service is the in-app notification system: it creates notification records in the
@@ -235,6 +243,60 @@ export const notificationService = {
       type: 'CHECKLIST_PENDING_VERIFICATION',
       title: 'Checklist awaiting verification',
       message: `"${instance.title}" is ready for your review.`,
+      checklistInstanceId: instance._id.toString(),
+    });
+  },
+
+  // One reminder (checklistDraftReminder.job.ts) once a run has sat in PENDING_APPROVAL for a day.
+  // Goes to the run's own reviewers; when none were named, to the head(s) of the assignees'
+  // departments (MANAGER/SENIOR in that department) and the store's PCs, the people who could
+  // approve it anyway. Same type as the original "ready for your review" notification.
+  async notifyChecklistApprovalReminder(instance: VerifiableChecklistInstance & { reviewerIds?: any[]; hoursWaiting: number }) {
+    let recipientIds = (instance.reviewerIds ?? []).map((id) => id.toString());
+    if (!recipientIds.length) {
+      const assigneeIds = (instance.assigneeIds ?? []).map((id) => id.toString());
+      if (assigneeIds.length) {
+        const rows = await db.select({ departmentId: users.departmentId }).from(users).where(inArray(users.id, assigneeIds));
+        const departmentIds = [...new Set(rows.map((r) => r.departmentId).filter((d): d is string => !!d))];
+        if (departmentIds.length) {
+          const heads = await db
+            .select({ id: users.id })
+            .from(users)
+            .where(and(inArray(users.role, ['MANAGER', 'SENIOR']), inArray(users.departmentId, departmentIds), eq(users.isActive, true)));
+          recipientIds.push(...heads.map((h) => h.id));
+        }
+      }
+      if (instance.storeId) {
+        const pcs = await db
+          .select({ id: users.id })
+          .from(users)
+          .where(and(eq(users.role, 'PC'), eq(users.storeId, instance.storeId.toString()), eq(users.isActive, true)));
+        recipientIds.push(...pcs.map((p) => p.id));
+      }
+    }
+    if (!recipientIds.length) return [];
+
+    return notificationService.notifyMany(recipientIds, {
+      type: 'CHECKLIST_PENDING_VERIFICATION',
+      title: 'Checklist waiting for approval',
+      message: `"${instance.title}" has been waiting for approval for ${formatWaiting(instance.hoursWaiting)}.`,
+      checklistInstanceId: instance._id.toString(),
+    });
+  },
+
+  // Second and last chase, after two days: tells every Admin and PC.
+  async notifyChecklistApprovalEscalation(instance: VerifiableChecklistInstance & { hoursWaiting: number }) {
+    const people = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(inArray(users.role, ['ADMIN', 'PC']), eq(users.isActive, true)));
+    const recipientIds = people.map((p) => p.id);
+    if (!recipientIds.length) return [];
+
+    return notificationService.notifyMany(recipientIds, {
+      type: 'CHECKLIST_PENDING_VERIFICATION',
+      title: 'Checklist still waiting for approval',
+      message: `"${instance.title}" has been waiting for approval for ${formatWaiting(instance.hoursWaiting)} and nobody has reviewed it yet.`,
       checklistInstanceId: instance._id.toString(),
     });
   },

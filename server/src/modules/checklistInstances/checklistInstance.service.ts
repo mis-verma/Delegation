@@ -17,7 +17,7 @@ import {
     CHECKLIST_RECURRENCES,
     CHECKLIST_VERIFICATION_STATUSES,
 } from "../../db/schema/index.js"
-import { eq, and, inArray, desc, asc, sql, gte, lte } from "drizzle-orm"
+import { eq, and, inArray, desc, asc, sql, gte, lte, lt } from "drizzle-orm"
 import { AppError } from "../../utils/AppError.js"
 import { notificationService } from "../notifications/notification.service.js"
 import { ticketService } from "../tickets/ticket.service.js"
@@ -30,6 +30,7 @@ import { emitChecklistEvent } from "../../sockets/checklistEvent.js"
 import { env } from "../../config/env.js"
 import { checklistReportService, type ChecklistReportQuery } from "./checklistReport.service.js"
 import type { ChecklistReportScope } from "./checklistReportScope.js"
+import { orgLocalDate } from "./checklistReportRange.js"
 
 // OVERDUE is a subset of OPEN (unfinished *and* past its period end), not a third
 // independent state — the compliance board and MyChecklists both offer it as a filter, and
@@ -619,7 +620,7 @@ export const syncVerificationStatus = async (instanceId: string) => {
     // submitted again. A run that was sent back (REJECTED) stays that way until it is resubmitted.
     if (!allDone && (instance.verificationStatus === "PENDING_APPROVAL" || instance.verificationStatus === "APPROVED")) {
         await db.update(checklistInstances)
-            .set({ verificationStatus: "NOT_SUBMITTED", submittedAt: null, submittedBy: null, updatedAt: new Date() })
+            .set({ verificationStatus: "NOT_SUBMITTED", submittedAt: null, submittedBy: null, approvalReminderSentAt: null, approvalEscalatedAt: null, updatedAt: new Date() })
             .where(eq(checklistInstances.id, instanceId))
     }
 }
@@ -645,6 +646,22 @@ const assertCanVerify = (assigneeDepartmentIds: Set<string>, reviewerIds: string
     if (reviewerIds.includes(user.sub)) return
     const canVerify = CAN_VERIFY_BY_ROLE[user.role]?.(assigneeDepartmentIds, user) ?? false
     if (!canVerify) throw AppError.forbidden()
+}
+
+// The decisions feed (checklistInstanceService.decisions): audit actions on a run that a reviewer or
+// the person filling it in took. See the audit records in submit/sendBack/verify above.
+const DECISION_ACTIONS = ["APPROVE", "REJECT", "SEND_BACK", "SUBMIT"] as const
+const DECISIONS_MAX = 200
+export type ChecklistDecision = {
+    id: string
+    instanceId: string
+    title: string
+    storeName: string | null
+    action: (typeof DECISION_ACTIONS)[number]
+    at: string
+    actorName: string
+    note: string | null
+    itemCount: number | null
 }
 
 export type InstanceRecurrence = (typeof CHECKLIST_RECURRENCES)[number]
@@ -1430,7 +1447,7 @@ export const checklistInstanceService = {
 
         const now = new Date()
         await db.update(checklistInstances)
-            .set({ verificationStatus: "PENDING_APPROVAL", submittedAt: now, submittedBy: user.sub, updatedAt: now })
+            .set({ verificationStatus: "PENDING_APPROVAL", submittedAt: now, submittedBy: user.sub, approvalReminderSentAt: null, approvalEscalatedAt: null, updatedAt: now })
             .where(eq(checklistInstances.id, id))
 
         notificationService
@@ -1493,6 +1510,8 @@ export const checklistInstanceService = {
             await tx.update(checklistInstances).set({
                 verificationStatus: "REJECTED",
                 verificationNote: note,
+                approvalReminderSentAt: null,
+                approvalEscalatedAt: null,
                 rejectionCount: sql`${checklistInstances.rejectionCount} + 1`,
                 updatedAt: now,
             }).where(eq(checklistInstances.id, id))
@@ -1539,6 +1558,8 @@ export const checklistInstanceService = {
                 verifiedBy: user.sub,
                 verifiedAt: now,
                 verificationNote: input.note ?? null,
+                approvalReminderSentAt: null,
+                approvalEscalatedAt: null,
                 updatedAt: now,
             }).where(eq(checklistInstances.id, id))
         } else {
@@ -1552,6 +1573,8 @@ export const checklistInstanceService = {
                 await tx.update(checklistInstances).set({
                     verificationStatus: "REJECTED",
                     verificationNote: input.note ?? null,
+                    approvalReminderSentAt: null,
+                    approvalEscalatedAt: null,
                     rejectionCount: sql`${checklistInstances.rejectionCount} + 1`,
                     updatedAt: now,
                 }).where(eq(checklistInstances.id, id))
@@ -1587,6 +1610,116 @@ export const checklistInstanceService = {
         const result = await getPopulatedInstanceById(id)
         emitChecklistEvent("checklist-instance:updated", { storeId: instance.storeId }, { instanceId: id })
         return result!
+    },
+
+    /**
+     * ADMIN only: puts an APPROVED run back in the review queue (PENDING_APPROVAL) and clears who
+     * approved it and their note, for the case where an approval was a mistake. Audit-logged.
+     */
+    async reopenApproval(id: string, user: AccessTokenPayload) {
+        if (user.role !== "ADMIN") throw AppError.forbidden("Only an admin can reopen an approval.")
+        const [instance] = await db.select().from(checklistInstances).where(eq(checklistInstances.id, id)).limit(1)
+        if (!instance) throw AppError.notFound("Checklist instance not found")
+        if (instance.verificationStatus !== "APPROVED") {
+            throw AppError.badRequest("Only an approved checklist can be reopened for approval.")
+        }
+
+        const now = new Date()
+        await db.update(checklistInstances).set({
+            verificationStatus: "PENDING_APPROVAL",
+            verifiedBy: null,
+            verifiedAt: null,
+            verificationNote: null,
+            approvalReminderSentAt: null,
+            approvalEscalatedAt: null,
+            updatedAt: now,
+        }).where(and(eq(checklistInstances.id, id), eq(checklistInstances.verificationStatus, "APPROVED")))
+
+        await auditService.record({
+            entityType: "ChecklistInstance", entityId: id, action: "REOPEN_APPROVAL", actorId: user.sub,
+            before: { verificationStatus: instance.verificationStatus, verifiedBy: instance.verifiedBy, verifiedAt: instance.verifiedAt, verificationNote: instance.verificationNote },
+            after: { verificationStatus: "PENDING_APPROVAL" },
+        })
+        emitChecklistEvent("checklist-instance:updated", { storeId: instance.storeId }, { instanceId: id })
+        return getPopulatedInstanceById(id)
+    },
+
+    /**
+     * Decisions feed: who submitted, approved, rejected or sent back which run, newest first, read
+     * from the audit trail. Default window is today (org-local). ADMIN/PC see every run; MANAGER/
+     * SENIOR only runs with an assignee in their own department, and nothing when they have no
+     * department. A run that no longer exists (or belongs to a deleted checklist) is skipped.
+     */
+    async decisions(user: AccessTokenPayload, query: { from?: string; to?: string; limit?: number } = {}): Promise<ChecklistDecision[]> {
+        const orgWide = user.role === "ADMIN" || user.role === "PC"
+        if (!orgWide && (!isHod(user) || !user.departmentId)) return []
+
+        const limit = Math.min(DECISIONS_MAX, Math.max(1, Math.trunc(query.limit ?? DECISIONS_MAX) || DECISIONS_MAX))
+        const offsetMs = env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000
+        // A plain YYYY-MM-DD is an org-local day: it starts at local midnight (minus the offset to get
+        // the real instant). `to` as a plain day includes that whole day. An ISO instant is used as is.
+        const isDay = (v: string) => /^\d{4}-\d{2}-\d{2}$/.test(v)
+        const dayStart = (v: string) => Date.parse(`${v}T00:00:00.000Z`) - offsetMs
+        const fromMs = query.from ? (isDay(query.from) ? dayStart(query.from) : Date.parse(query.from)) : dayStart(orgLocalDate(Date.now()))
+        const toMs = query.to ? (isDay(query.to) ? dayStart(query.to) + 86_400_000 : Date.parse(query.to)) : null
+        if (Number.isNaN(fromMs) || (toMs !== null && Number.isNaN(toMs))) throw AppError.badRequest("Use an ISO date or datetime.")
+
+        const conditions = [
+            eq(auditLogs.entityType, "ChecklistInstance"),
+            inArray(auditLogs.action, [...DECISION_ACTIONS]),
+            gte(auditLogs.createdAt, new Date(fromMs)),
+            parentNotDeletedExpr,
+        ]
+        if (toMs !== null) conditions.push(lt(auditLogs.createdAt, new Date(toMs)))
+        if (!orgWide) {
+            // Same rule as instanceIdsForDepartment, as a subquery so a long history is not a giant id list.
+            conditions.push(sql`EXISTS (
+                SELECT 1 FROM ${checklistInstanceAssignees} a
+                JOIN ${users} u ON u.id = a.userId
+                WHERE a.instanceId = ${checklistInstances.id} AND u.departmentId = ${user.departmentId!}
+            )`)
+        }
+
+        const rows = await db.select({
+            id: auditLogs.id,
+            instanceId: checklistInstances.id,
+            title: checklistInstances.title,
+            storeName: stores.name,
+            action: auditLogs.action,
+            at: auditLogs.createdAt,
+            actorName: auditLogs.actorName,
+            actorFirstName: users.firstName,
+            actorLastName: users.lastName,
+            after: auditLogs.after,
+        })
+            .from(auditLogs)
+            .innerJoin(checklistInstances, eq(checklistInstances.id, auditLogs.entityId))
+            .leftJoin(stores, eq(stores.id, checklistInstances.storeId))
+            .leftJoin(users, eq(users.id, auditLogs.actorId))
+            .where(and(...conditions))
+            .orderBy(desc(auditLogs.createdAt))
+            .limit(limit)
+
+        return rows.map((r) => {
+            let after: unknown = r.after
+            if (typeof after === "string") {
+                try { after = JSON.parse(after) } catch { after = null }
+            }
+            const a = (after && typeof after === "object" ? after : {}) as { note?: unknown; verificationNote?: unknown; sentBackItemIds?: unknown }
+            const rawNote = r.action === "SEND_BACK" ? a.note : r.action === "SUBMIT" ? null : a.verificationNote
+            const note = typeof rawNote === "string" && rawNote.trim() ? rawNote.trim() : null
+            return {
+                id: r.id,
+                instanceId: r.instanceId,
+                title: r.title,
+                storeName: r.storeName ?? null,
+                action: r.action as ChecklistDecision["action"],
+                at: r.at.toISOString(),
+                actorName: r.actorName ?? (r.actorFirstName ? `${r.actorFirstName}${r.actorLastName ? ` ${r.actorLastName}` : ""}` : "Unknown"),
+                note,
+                itemCount: r.action === "SEND_BACK" && Array.isArray(a.sentBackItemIds) ? a.sentBackItemIds.length : null,
+            }
+        })
     },
 
     // GET /checklist-instances/reports/compliance. The SQL, the rules (due runs only, N/A left out,

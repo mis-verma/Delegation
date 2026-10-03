@@ -17,6 +17,8 @@ export type ItemDraft = {
   requiredImageCount: string;
   maxImageCount: string;
   requiresLivePhoto: boolean;
+  // Critical question: counts double in compliance, a bad answer is flagged to the reviewer.
+  isCritical: boolean;
   itemType: ChecklistItemType;
   auditUserIds: string[];
   accessories: string[];
@@ -52,6 +54,7 @@ export const emptyItemDraft = (): ItemDraft => ({
   requiredImageCount: '0',
   maxImageCount: '',
   requiresLivePhoto: false,
+  isCritical: false,
   itemType: 'STANDARD',
   auditUserIds: [],
   accessories: [],

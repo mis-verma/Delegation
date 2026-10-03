@@ -74,6 +74,8 @@ export type ChecklistInstanceItem = {
   requiredImageCount: number;
   maxImageCount:      number | null;
   requiresLivePhoto:  boolean;
+  /** Critical question: a bad answer counts double in compliance and is flagged to the reviewer. */
+  isCritical:         boolean;
   itemType:           ChecklistItemType;
   accessories:        string[];
   numberEntryUnit:    string | null;
@@ -447,6 +449,11 @@ export const checklistInstanceApi = {
       method: 'PATCH',
       body: JSON.stringify(payload),
     }).then(r => ({ ...r, data: normalizeInstance(r.data) })),
+
+  /** ADMIN only: puts an APPROVED run back into the review queue (PENDING_APPROVAL). */
+  reopenApproval: (id: string) =>
+    apiFetch<ApiResponse<ChecklistInstance>>(`/checklist-instances/${id}/reopen-approval`, { method: 'PATCH' })
+      .then(r => ({ ...r, data: normalizeInstance(r.data) })),
 
   uploadImages: (itemId: string, files: File[], captureMethod: CaptureMethod) => {
     const formData = new FormData();

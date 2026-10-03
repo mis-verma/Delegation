@@ -20,7 +20,9 @@ checklistInstanceRouter.get("/pending-verification", checklistInstanceController
 // Dashboard's "Needs your approval" card — a lightweight preview (title/store/waiting-since only,
 // no full hydrateInstances) distinct from the paginated queue above, gated ADMIN/PC to match it.
 checklistInstanceRouter.get("/pending-approval-preview", requireRole("ADMIN", "PC"), checklistInstanceController.pendingApprovalPreview)
-checklistInstanceRouter.get("/former-people", requireRole("ADMIN", "PC"), checklistInstanceController.formerPeople)
+// Verification queue's "Decisions" feed; scoped per role in the service. Before "/:id".
+checklistInstanceRouter.get("/decisions", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), checklistInstanceController.decisions)
+checklistInstanceRouter.get("/former-people",requireRole("ADMIN", "PC"), checklistInstanceController.formerPeople)
 checklistInstanceRouter.get("/former-people/:userId/runs", requireRole("ADMIN", "PC"), checklistInstanceController.personRuns)
 checklistInstanceRouter.get("/", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), checklistInstanceController.list)
 checklistInstanceRouter.get("/summary", checklistInstanceController.summary)
@@ -31,6 +33,7 @@ checklistInstanceRouter.get("/:id", checklistInstanceController.getOne)
 checklistInstanceRouter.patch("/:id/submit", checklistInstanceController.submit)
 checklistInstanceRouter.patch("/:id/verify", checklistInstanceController.verify)
 checklistInstanceRouter.patch("/:id/send-back", checklistInstanceController.sendBack)
+checklistInstanceRouter.patch("/:id/reopen-approval", requireRole("ADMIN"), checklistInstanceController.reopenApproval)
 
 // Mounted at /checklist-instance-items in app.ts. No role gate on setItemDone/images — the
 // service authorizes based on whether the requester is ADMIN or one of the parent instance's

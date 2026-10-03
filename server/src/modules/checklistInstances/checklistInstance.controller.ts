@@ -1,6 +1,6 @@
 import type { Request, Response } from "express"
 import { checklistInstanceService, type InstanceRecurrence, type InstanceVerificationStatus } from "./checklistInstance.service.js"
-import { setChecklistInstanceItemDoneSchema, verifyChecklistInstanceSchema, sendBackChecklistInstanceSchema, checklistInstanceComplianceReportQuerySchema, checklistInstanceByStoreReportQuerySchema, listChecklistInstancesQuerySchema, listPendingVerificationQuerySchema, weeklyReportQuerySchema } from "./checklistInstance.validation.js"
+import { setChecklistInstanceItemDoneSchema, verifyChecklistInstanceSchema, sendBackChecklistInstanceSchema, checklistInstanceComplianceReportQuerySchema, checklistInstanceByStoreReportQuerySchema, listChecklistInstancesQuerySchema, listPendingVerificationQuerySchema, weeklyReportQuerySchema, decisionsQuerySchema } from "./checklistInstance.validation.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
 import { resolveChecklistReportScope } from "./checklistReportScope.js"
 import { checklistReportService } from "./checklistReport.service.js"
@@ -93,6 +93,19 @@ export const checklistInstanceController = {
             limit,
         })
         res.json({ success: true, ...result })
+    }),
+
+    // GET /checklist-instances/decisions?from=&to=&limit= (ADMIN/PC all, MANAGER/SENIOR own department).
+    // Today's submit/approve/reject/send-back actions by default, newest first.
+    decisions: asyncHandler(async (req: Request, res: Response) => {
+        const query = decisionsQuerySchema.parse(req.query)
+        res.json({ success: true, data: await checklistInstanceService.decisions(req.user!, query) })
+    }),
+
+    // PATCH /checklist-instances/:id/reopen-approval (ADMIN only): APPROVED back to PENDING_APPROVAL
+    reopenApproval: asyncHandler(async (req: Request, res: Response) => {
+        const instance = await checklistInstanceService.reopenApproval(req.params.id, req.user!)
+        res.json({ success: true, data: instance })
     }),
 
     // GET /checklist-instances/former-people (ADMIN/PC): deactivated people and their checklist footprint

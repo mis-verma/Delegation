@@ -8,13 +8,15 @@ import type { ChecklistInstanceItem } from '../../api/checklistInstances';
 //    no rule, not-applicable ones and unanswered ones are not scored at all.
 //    A question a reviewer sent back counts as a FAILED check even if it was redone well later and
 //    even if it has no rule: it was not done right the first time, so it stays deducted.
+//    A critical question (isCritical) counts DOUBLE: its scored weight and good weight are both x2,
+//    so one failed critical hurts the % twice as much. `scored`/`good` stay raw counts (captions).
 
 export type AnswerVerdict = 'good' | 'bad';
 
 type Scorable = Pick<
   ChecklistInstanceItem,
   'itemType' | 'isDone' | 'isNotApplicable' | 'sendBackCount' | 'booleanAnswer' | 'textValue' | 'numericValue' | 'acceptableAnswers' | 'acceptableMin' | 'acceptableMax'
->;
+> & { isCritical?: boolean };
 
 // null = this question isn't scored (no rule, not answered yet, or not applicable).
 export const answerVerdict = (item: Scorable): AnswerVerdict | null => {
@@ -50,8 +52,11 @@ export type RunScores = {
   completion: number;
   /** null when no answered question has an acceptable-answer rule. */
   compliance: number | null;
+  /** Raw counts of scored / good answers (for captions); the % above is weighted, critical x2. */
   scored: number;
   good: number;
+  /** Critical questions whose verdict is 'bad' (answered badly or sent back). */
+  criticalFailed: number;
 };
 
 export const runScores = (items: Scorable[]): RunScores => {
@@ -60,6 +65,9 @@ export const runScores = (items: Scorable[]): RunScores => {
   let done = 0;
   let scored = 0;
   let good = 0;
+  let weightedScored = 0;
+  let weightedGood = 0;
+  let criticalFailed = 0;
   for (const item of items) {
     if (!item.isNotApplicable) {
       total += 1;
@@ -67,8 +75,15 @@ export const runScores = (items: Scorable[]): RunScores => {
     }
     const verdict = answerVerdict(item);
     if (verdict !== null) {
+      const weight = item.isCritical ? 2 : 1;
       scored += 1;
-      if (verdict === 'good') good += 1;
+      weightedScored += weight;
+      if (verdict === 'good') {
+        good += 1;
+        weightedGood += weight;
+      } else if (item.isCritical) {
+        criticalFailed += 1;
+      }
     }
   }
   return {
@@ -76,8 +91,9 @@ export const runScores = (items: Scorable[]): RunScores => {
     total,
     // A run made only of "not applicable" questions has nothing left to do.
     completion: total ? Math.round((done / total) * 100) : items.length ? 100 : 0,
-    compliance: scored ? Math.round((good / scored) * 100) : null,
+    compliance: weightedScored ? Math.round((weightedGood / weightedScored) * 100) : null,
     scored,
     good,
+    criticalFailed,
   };
 };

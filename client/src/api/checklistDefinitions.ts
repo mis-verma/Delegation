@@ -29,6 +29,8 @@ export type ChecklistDefinitionItem = {
   requiredImageCount: number;
   maxImageCount: number | null;
   requiresLivePhoto: boolean;
+  /** Critical question: counts double in compliance, a bad answer is flagged to the reviewer. */
+  isCritical: boolean;
   itemType: ChecklistItemType;
   auditUserIds: string[];
   accessories: string[];
@@ -115,6 +117,7 @@ export type CreateChecklistDefinitionItemPayload = {
   requiredImageCount?: number;
   maxImageCount?: number;
   requiresLivePhoto?: boolean;
+  isCritical?: boolean;
   itemType?: ChecklistItemType;
   auditUserIds?: string[];
   accessories?: string[];

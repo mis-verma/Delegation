@@ -31,6 +31,8 @@ import type { ChecklistReportScope } from "./checklistReportScope.js"
 //    (sendBackCount > 0), rule or no rule. Good = a scored item whose answer is inside its rule
 //    AND that was never sent back. A sent-back question stays a failed check even when it was
 //    redone well later: first-attempt quality. Mirrors client checklistCompliance.ts answerVerdict.
+//    A critical question (isCritical) counts double: its scored weight and good weight are both x2
+//    in the rate (scoredAnswers stays the raw count).
 //  - Approval rate = approved on first attempt / DECIDED runs (approved, or rejected at least once).
 //    Runs still waiting for a decision are reported separately as pendingRuns.
 
@@ -67,6 +69,9 @@ END)`
 const SENT_BACK = sql`(cii.isNotApplicable = 0 AND cii.sendBackCount > 0)`
 const SCORED = sql`(${RULE_SCORED} OR ${SENT_BACK})`
 const GOOD = sql`(${RULE_SCORED} AND cii.sendBackCount = 0 AND ${RULE_OK})`
+// A critical question counts double in the compliance rate (scored weight and good weight both x2).
+// scoredItems/goodItems stay raw counts (scoredAnswers); the rate uses the weighted sums below.
+const WEIGHT = sql`(CASE WHEN cii.isCritical = 1 THEN 2 ELSE 1 END)`
 
 // Photos on one item that count towards its requirement: its own photos plus, for an AUDIT item,
 // the photos on its submissions. Correlated, so it is only evaluated for the (few) done items that
@@ -132,7 +137,9 @@ const runAggregateSql = (conditions: SQL[]) => sql`
         SUM(CASE WHEN ${ANSWERED} AND ${GATED_BOOLEAN_ITEM_EXPR} THEN 1 ELSE 0 END) AS gatedItems,
         SUM(CASE WHEN ${ANSWERED} AND ${FLAGGED_BOOLEAN_ANSWER_EXPR} THEN 1 ELSE 0 END) AS flaggedItems,
         SUM(CASE WHEN ${SCORED} THEN 1 ELSE 0 END) AS scoredItems,
-        SUM(CASE WHEN ${GOOD} THEN 1 ELSE 0 END) AS goodItems
+        SUM(CASE WHEN ${GOOD} THEN 1 ELSE 0 END) AS goodItems,
+        SUM(CASE WHEN ${SCORED} THEN ${WEIGHT} ELSE 0 END) AS weightedScoredItems,
+        SUM(CASE WHEN ${GOOD} THEN ${WEIGHT} ELSE 0 END) AS weightedGoodItems
     FROM ${checklistInstances} ci
     JOIN ${checklistInstanceItems} cii ON cii.instanceId = ci.id
     JOIN ${checklistDefinitions} d ON d.id = ci.definitionId
@@ -152,6 +159,8 @@ const GROUP_METRICS = sql`
     COALESCE(SUM(r.flaggedItems), 0) AS flaggedItems,
     COALESCE(SUM(r.scoredItems), 0) AS scoredItems,
     COALESCE(SUM(r.goodItems), 0) AS goodItems,
+    COALESCE(SUM(r.weightedScoredItems), 0) AS weightedScoredItems,
+    COALESCE(SUM(r.weightedGoodItems), 0) AS weightedGoodItems,
     COUNT(CASE WHEN r.verificationStatus IN ('PENDING_APPROVAL', 'APPROVED', 'REJECTED') OR r.rejectionCount > 0 THEN 1 END) AS submittedRuns,
     COUNT(CASE WHEN r.verificationStatus = 'APPROVED' OR r.rejectionCount > 0 THEN 1 END) AS decidedRuns,
     COUNT(CASE WHEN r.verificationStatus = 'APPROVED' AND r.rejectionCount = 0 THEN 1 END) AS firstAttemptApproved,
@@ -173,7 +182,7 @@ const metricsOf = (r: MetricRow) => ({
     gatedBooleanItems: n(r.gatedItems),
     issueRate: ROUND(n(r.flaggedItems), n(r.gatedItems)),
     scoredAnswers: n(r.scoredItems),
-    complianceRate: ROUND(n(r.goodItems), n(r.scoredItems)),
+    complianceRate: ROUND(n(r.weightedGoodItems), n(r.weightedScoredItems)),
     submittedInstances: n(r.submittedRuns),
     decidedRuns: n(r.decidedRuns),
     firstAttemptApproved: n(r.firstAttemptApproved),
