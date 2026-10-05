@@ -1,0 +1,1 @@
+export { ColorIconTile } from './ColorIconTile';

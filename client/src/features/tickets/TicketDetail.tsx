@@ -320,8 +320,8 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
               <div className="min-w-0 sm:flex-1 sm:basis-72 sm:max-w-md">
                 <TicketVerificationActions
                   isPending={verifyMut.isPending}
-                  onApprove={() => verifyMut.mutate({ id: ticket.id, payload: { action: 'APPROVE' } })}
-                  onReject={note => verifyMut.mutate({ id: ticket.id, payload: { action: 'REJECT', note } })}
+                  onApprove={() => verifyMut.mutate({ id: ticket.id, payload: { action: 'APPROVE' } }, { onSuccess: onClose })}
+                  onReject={note => verifyMut.mutate({ id: ticket.id, payload: { action: 'REJECT', note } }, { onSuccess: onClose })}
                 />
               </div>
             )}

@@ -214,6 +214,14 @@ export const ChecklistInstanceDetail = () => {
   const startSelecting = useCallback(() => setSelecting(true), []);
   const stopSelecting = useCallback(() => { setSelecting(false); setPicked(new Set()); }, []);
   const selectedIds = useMemo(() => [...picked], [picked]);
+  // After approving or sending back, return to the page the reviewer came from (the queue, the
+  // approvals list, a notification's source). Opened from a bookmark with no history, fall back to the
+  // queue that fits their role.
+  const goBackAfterDecision = () => {
+    const hasHistory = typeof window !== 'undefined' && typeof window.history.state?.idx === 'number' && window.history.state.idx > 0;
+    if (hasHistory) navigate(-1);
+    else navigate(user?.role === 'ADMIN' || user?.role === 'PC' ? '/verify' : '/checklists/approvals', { replace: true });
+  };
 
   if (isPending) return <DetailSkeleton />;
 
@@ -426,6 +434,7 @@ export const ChecklistInstanceDetail = () => {
           onStartSelecting={startSelecting}
           onStopSelecting={stopSelecting}
           onSent={stopSelecting}
+          onDecided={goBackAfterDecision}
         />
       )}
     </div>

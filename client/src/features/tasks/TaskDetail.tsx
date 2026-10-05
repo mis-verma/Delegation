@@ -135,7 +135,7 @@ const TaskFooter = ({ task, isPC, isVerifier, nextStatus, onAdvance, isAdvancing
           TicketDetail already gives the same decision (TicketVerificationActions). */}
       {needsDecision && (
         <div className="pb-4 mb-4 border-b border-border/60">
-          <TaskVerifyActions task={task} />
+          <TaskVerifyActions task={task} onDecided={onClose} />
         </div>
       )}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-4">

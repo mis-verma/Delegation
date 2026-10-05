@@ -1,7 +1,7 @@
 import { memo, type KeyboardEvent } from 'react';
 import { Store as StoreIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { EntityCardActions, EntityIconTile, Skeleton, StatusPill } from '../../../components';
+import { ColorIconTile, EntityCardActions, Skeleton, StatusPill } from '../../../components';
 import type { Store } from '../../../api/stores';
 import type { PeopleCount } from '../orgCounts';
 
@@ -72,7 +72,7 @@ const StoreTableComponent = ({
               >
                 <td className={cn(CELL_CLASS, 'sticky left-0 bg-surface z-10 max-w-[22rem]')}>
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <EntityIconTile icon={StoreIcon} tone="coral" className="size-8 rounded-lg" />
+                    <ColorIconTile icon={StoreIcon} name={s.name} size="sm" />
                     <span
                       className={cn('text-sm font-display font-bold truncate', s.isActive ? 'text-text' : 'text-text-secondary')}
                       title={s.name}

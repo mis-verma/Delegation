@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { Building2, Store, Users } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { ENTITY_CARD_CLASS, EntityIconTile, StatusPill, EntityCardActions, Skeleton } from '../../../components';
+import { ENTITY_CARD_CLASS, ColorIconTile, StatusPill, EntityCardActions, Skeleton } from '../../../components';
 import type { Department } from '../../../api/departments';
 
 function cn(...inputs: ClassValue[]) {
@@ -42,7 +42,7 @@ export const DepartmentCard = memo(({
   <article className={cn(ENTITY_CARD_CLASS, 'justify-start gap-3.5', isDeleting && 'opacity-50 pointer-events-none')}>
     <header className="flex items-start justify-between gap-2.5">
       <div className="flex items-center gap-3 min-w-0">
-        <EntityIconTile icon={Building2} />
+        <ColorIconTile icon={Building2} name={department.name} />
         <div className="min-w-0 flex flex-col gap-0.5">
           <div className="flex items-center gap-1.5 min-w-0">
             <h3

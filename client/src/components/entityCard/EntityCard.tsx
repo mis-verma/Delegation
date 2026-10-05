@@ -1,8 +1,10 @@
 import type { LucideIcon } from 'lucide-react';
-import { Pencil, Copy, Trash2 } from 'lucide-react';
+import { Pencil, Copy, Trash2, MoreVertical } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { Loader } from '../loaders/Loader';
+import { Switch } from '../switch';
+import { Dropdown } from '../dropdown';
 import { Skeleton } from '../skeleton';
 import { Tabs, TabsList, TabsTrigger } from '../ui/tabs';
 
@@ -85,32 +87,22 @@ interface StatusPillProps {
   inactiveLabel?: string;
 }
 
-// Identical Active/Inactive toggle used by all three entity cards.
+// The Active/Inactive control on the Department and Store cards and rows: a real switch with its
+// state spelled out beside it (the old dot pill read as a label, not something you can press).
 export const StatusPill = ({ active, isUpdating, onToggle, ariaLabel, inactiveLabel = 'Inactive' }: StatusPillProps) => (
-  <button
-    type="button"
-    onClick={onToggle}
-    disabled={isUpdating}
-    // The label already says what a press does ("Pause X" / "Resume X"). aria-pressed on top of it
-    // announced the opposite state ("Pause X, pressed"), so the toggle state is left out here.
-    aria-label={ariaLabel}
-    className={cn(
-      // 44px tall on touch, back to the compact pill from sm up.
-      'flex items-center gap-2 min-h-11 sm:min-h-8 px-3 sm:px-2.5 py-1 rounded-full text-[11px] font-semibold shrink-0 cursor-pointer transition-all duration-200 active:scale-95',
-      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50',
-      active
-        ? 'bg-success/10 text-success ring-1 ring-success/20 hover:bg-success/15'
-        : 'bg-surface-hover text-text-muted ring-1 ring-border hover:bg-surface-active',
-      isUpdating && 'opacity-70 cursor-not-allowed active:scale-100'
-    )}
-  >
+  <label className="flex items-center gap-2 min-h-11 sm:min-h-9 shrink-0 cursor-pointer">
+    <span className={cn('text-xs font-display font-semibold', active ? 'text-text-secondary' : 'text-text-muted')}>
+      {active ? 'Active' : inactiveLabel}
+    </span>
     {isUpdating ? (
-      <Loader size="sm" variant={active ? 'primary' : 'slate'} className="size-3" />
+      <span className="flex h-6 w-11 items-center justify-center">
+        <Loader size="sm" variant="slate" className="size-4" />
+      </span>
     ) : (
-      <span className={cn("size-1.5 rounded-full shrink-0", active ? "bg-success" : "bg-text-light")} />
+      <Switch checked={active} onChange={() => onToggle()} />
     )}
-    {active ? 'Active' : inactiveLabel}
-  </button>
+    <span className="sr-only">{ariaLabel}</span>
+  </label>
 );
 
 interface MetricPillProps {
@@ -176,49 +168,25 @@ interface EntityCardActionsProps {
   duplicateLabel?: string;
 }
   
-// 44px square on touch, the compact 32px icon button from sm up.
-const ACTION_BTN_CLASS =
-  'flex items-center justify-center size-11 sm:size-8 rounded-lg text-text-muted cursor-pointer transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 active:scale-90';
-
+// One "more actions" menu instead of a row of pencil, copy and trash icons: Edit, Duplicate (when the
+// thing can be copied) and Delete (red, after a divider). 44px target on touch, 36px with a mouse.
 export const EntityCardActions = ({ onEdit, onDelete, isDeleting, editLabel, deleteLabel, onDuplicate, duplicateLabel }: EntityCardActionsProps) => (
-  <div className="flex items-center gap-2">
-    <button
-      type="button"
-      onClick={onEdit}
-      className={ACTION_BTN_CLASS + ' hover:bg-primary-500/10 hover:text-primary-600 dark:hover:text-primary-400'}
-      aria-label={editLabel}
-    >
-      <Pencil className="size-4" strokeWidth={2.5} />
-    </button>
-
-    {onDuplicate && (
+  <Dropdown
+    align="end"
+    items={[
+      { label: editLabel, icon: Pencil, onClick: onEdit },
+      ...(onDuplicate ? [{ label: duplicateLabel ?? 'Duplicate', icon: Copy, onClick: onDuplicate }] : []),
+      { label: deleteLabel, icon: Trash2, variant: 'destructive' as const, separatorBefore: true, onClick: onDelete },
+    ]}
+    trigger={
       <button
         type="button"
-        onClick={onDuplicate}
-        className={ACTION_BTN_CLASS + ' hover:bg-primary-500/10 hover:text-primary-600 dark:hover:text-primary-400'}
-        aria-label={duplicateLabel}
-        title={duplicateLabel}
+        disabled={isDeleting}
+        aria-label={`More actions: ${editLabel}`}
+        className="flex items-center justify-center size-11 sm:size-9 shrink-0 rounded-lg text-text-muted hover:text-text hover:bg-surface-hover transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        <Copy className="size-4" strokeWidth={2.5} />
+        {isDeleting ? <Loader size="sm" variant="rose" className="size-4" /> : <MoreVertical className="size-4" strokeWidth={2.25} aria-hidden />}
       </button>
-    )}
-
-    <button
-      type="button"
-      onClick={onDelete}
-      disabled={isDeleting}
-      className={cn(
-        ACTION_BTN_CLASS,
-        'hover:bg-danger/10 hover:text-danger focus-visible:ring-danger/40',
-        isDeleting && 'opacity-50 cursor-not-allowed active:scale-100'
-      )}
-      aria-label={deleteLabel}
-    >
-      {isDeleting ? (
-        <Loader size="sm" variant="rose" className="size-4" />
-      ) : (
-        <Trash2 className="size-4" strokeWidth={2.5} />
-      )}
-    </button>
-  </div>
+    }
+  />
 );

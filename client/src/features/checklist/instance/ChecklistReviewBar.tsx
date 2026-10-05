@@ -15,12 +15,14 @@ type Props = {
   /** Called after a successful send-back so the page can clear its selection. */
   onSent: () => void;
   selectedIds: string[];
+  /** After an approve or a send-back went through: the page takes the reviewer back to where they came from. */
+  onDecided?: () => void;
 };
 
 // Reviewer's decision bar for a checklist waiting on approval. Approve is one tap. "Send back"
 // switches the page into pick mode: tick only the questions that weren't done properly, say what to
 // fix, and just those go back to whoever fills the checklist in. Everything else stays done.
-export const ChecklistReviewBar = ({ instanceId, selectedCount, selecting, onStartSelecting, onStopSelecting, onSent, selectedIds }: Props) => {
+export const ChecklistReviewBar = ({ instanceId, selectedCount, selecting, onStartSelecting, onStopSelecting, onSent, selectedIds, onDecided }: Props) => {
   const verifyMut = useVerifyChecklistInstanceMutation();
   const sendBackMut = useSendBackChecklistInstanceMutation();
   const [note, setNote] = useState('');
@@ -30,7 +32,7 @@ export const ChecklistReviewBar = ({ instanceId, selectedCount, selecting, onSta
   const send = () => {
     sendBackMut.mutate(
       { id: instanceId, payload: { itemIds: selectedIds, note: note.trim() } },
-      { onSuccess: () => { setNote(''); onSent(); } },
+      { onSuccess: () => { setNote(''); onSent(); onDecided?.(); } },
     );
   };
 
@@ -73,7 +75,7 @@ export const ChecklistReviewBar = ({ instanceId, selectedCount, selecting, onSta
           </p>
           <ReviewActions
             onSendBack={onStartSelecting}
-            onApprove={() => verifyMut.mutate({ id: instanceId, payload: { action: 'APPROVE' } })}
+            onApprove={() => verifyMut.mutate({ id: instanceId, payload: { action: 'APPROVE' } }, { onSuccess: onDecided })}
             busy={busy}
             approving={verifyMut.isPending}
           />

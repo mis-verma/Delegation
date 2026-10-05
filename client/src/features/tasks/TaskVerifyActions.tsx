@@ -10,6 +10,9 @@ interface TaskVerifyActionsProps {
    *  buttons crowd out the assignee info next to them. TaskDetail's sheet footer has plenty
    *  of room, so it keeps the labeled default. */
   compact?: boolean;
+  /** Runs after an approve or send-back went through, so a detail sheet can close and drop the
+   *  reviewer back on the list they came from. */
+  onDecided?: () => void;
 }
 
 const iconButtonClass = (tone: 'success' | 'danger') =>
@@ -22,7 +25,7 @@ const iconButtonClass = (tone: 'success' | 'danger') =>
 // Shared by TaskBoard's card footer and TaskDetail's sheet footer — PC/Admin/manager/reviewer
 // approve/reject controls shown once a task is pending_approval. Reject requires a short note
 // (enforced server-side), so it expands into a small textarea instead of firing immediately.
-export const TaskVerifyActions = ({ task, compact = false }: TaskVerifyActionsProps) => {
+export const TaskVerifyActions = ({ task, compact = false, onDecided }: TaskVerifyActionsProps) => {
   const verifyMut = useVerifyTaskMutation();
   // Shared with TicketVerificationActions — same two-phase flow and same "a reason is required"
   // rule, which the server enforces too. Rendering below is unchanged.
@@ -64,7 +67,7 @@ export const TaskVerifyActions = ({ task, compact = false }: TaskVerifyActionsPr
                 aria-label="Send back"
                 title="Send back"
                 disabled={verifyMut.isPending || !canSubmitReject}
-                onClick={() => verifyMut.mutate({ id: task.id, payload: { action: 'REJECT', note: trimmedNote } })}
+                onClick={() => verifyMut.mutate({ id: task.id, payload: { action: 'REJECT', note: trimmedNote } }, { onSuccess: onDecided })}
                 className={iconButtonClass('danger')}
               >
                 {verifyMut.isPending ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} strokeWidth={2.5} />}
@@ -76,7 +79,7 @@ export const TaskVerifyActions = ({ task, compact = false }: TaskVerifyActionsPr
                 variant="primary"
                 className="flex-1 bg-danger hover:bg-danger/90 text-white font-bold shadow-md shadow-danger/20 py-2.5 rounded-xl transition-all outline-none focus-visible:ring-2 focus-visible:ring-danger focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={verifyMut.isPending || !canSubmitReject}
-                onClick={() => verifyMut.mutate({ id: task.id, payload: { action: 'REJECT', note: trimmedNote } })}
+                onClick={() => verifyMut.mutate({ id: task.id, payload: { action: 'REJECT', note: trimmedNote } }, { onSuccess: onDecided })}
               >
                 {verifyMut.isPending ? <Loader2 size={18} className="animate-spin" /> : 'Send back'}
               </Button>
@@ -103,7 +106,7 @@ export const TaskVerifyActions = ({ task, compact = false }: TaskVerifyActionsPr
           aria-label="Approve"
           title="Approve"
           disabled={verifyMut.isPending}
-          onClick={() => verifyMut.mutate({ id: task.id, payload: { action: 'APPROVE' } })}
+          onClick={() => verifyMut.mutate({ id: task.id, payload: { action: 'APPROVE' } }, { onSuccess: onDecided })}
           className={iconButtonClass('success')}
         >
           {verifyMut.isPending ? <Loader2 size={13} className="animate-spin" /> : <ShieldCheck size={13} strokeWidth={2.5} />}
@@ -128,7 +131,7 @@ export const TaskVerifyActions = ({ task, compact = false }: TaskVerifyActionsPr
         variant="primary"
         className="flex-1 gap-2 bg-success hover:bg-success/90 text-white font-bold shadow-md shadow-success/20 py-2.5 rounded-xl transition-all outline-none focus-visible:ring-2 focus-visible:ring-success focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-95"
         disabled={verifyMut.isPending}
-        onClick={() => verifyMut.mutate({ id: task.id, payload: { action: 'APPROVE' } })}
+        onClick={() => verifyMut.mutate({ id: task.id, payload: { action: 'APPROVE' } }, { onSuccess: onDecided })}
       >
         {verifyMut.isPending ? (
           <Loader2 size={18} className="animate-spin" />

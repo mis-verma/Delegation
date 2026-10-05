@@ -15,7 +15,8 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { Link, useParams, useNavigate } from 'react-router';
-import { Skeleton, Breadcrumbs, Button, EmptyState, InlineError, EntityIconTile, StatusPill, PANEL_CLASS, formatWeekdays } from '../../../components';
+import { Skeleton, Breadcrumbs, Button, EmptyState, InlineError, Loader, Switch, PANEL_CLASS, formatWeekdays } from '../../../components';
+import { ChecklistIconTile } from './ChecklistIconTile';
 import { IconChip } from '../../../components/iconChip';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -240,7 +241,7 @@ export const ChecklistDefinitionDetail = () => {
       <div className={cn(PANEL_CLASS, 'flex flex-col gap-4 p-5 sm:p-6')}>
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3.5 min-w-0">
-            <EntityIconTile icon={CHECKLIST_ICON_MAP[definition.icon]} tone="coral" />
+            <ChecklistIconTile icon={CHECKLIST_ICON_MAP[definition.icon]} name={definition.name} />
             <div className="flex flex-col gap-1 min-w-0">
               <h1 className="text-lg sm:text-xl font-display font-bold text-text tracking-tight leading-snug line-clamp-2 break-words">
                 {definition.name}
@@ -259,13 +260,17 @@ export const ChecklistDefinitionDetail = () => {
 
           {/* Same pause/resume toggle as the card; read-only roles just see the state. */}
           {canManage ? (
-            <StatusPill
-              active={definition.isActive}
-              isUpdating={setActiveMutation.isPending}
-              onToggle={() => setActiveMutation.mutate({ id: definition.id, isActive: !definition.isActive })}
-              ariaLabel={`${definition.isActive ? 'Pause' : 'Resume'} ${definition.name}`}
-              inactiveLabel="Paused"
-            />
+            <label className="flex items-center gap-2 min-h-11 sm:min-h-9 shrink-0 cursor-pointer">
+              <span className={cn('text-xs font-display font-semibold', definition.isActive ? 'text-text-secondary' : 'text-text-muted')}>
+                {definition.isActive ? 'Active' : 'Paused'}
+              </span>
+              {setActiveMutation.isPending ? (
+                <span className="flex h-6 w-11 items-center justify-center"><Loader size="sm" variant="slate" className="size-4" /></span>
+              ) : (
+                <Switch checked={definition.isActive} onChange={(next) => setActiveMutation.mutate({ id: definition.id, isActive: next })} />
+              )}
+              <span className="sr-only">{definition.isActive ? 'Pause' : 'Resume'} {definition.name}</span>
+            </label>
           ) : (
             <Badge variant={definition.isActive ? 'success' : 'neutral'} className="shrink-0">
               {definition.isActive ? 'Active' : 'Paused'}

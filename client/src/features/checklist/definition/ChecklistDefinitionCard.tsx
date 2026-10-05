@@ -1,7 +1,7 @@
 import { memo, useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Camera, MapPin, PenLine, Wallet, ScanLine, ListChecks, Check, type LucideIcon } from 'lucide-react';
-import { EntityIconTile, StatusPill, EntityCardActions, ChecklistProgressBar, DepartmentChip, ENTITY_CARD_CLASS, formatWeekdays } from '../../../components';
+import { Camera, MapPin, PenLine, Wallet, ScanLine, ListChecks, Check, Copy, MoreVertical, Pencil, Trash2, type LucideIcon } from 'lucide-react';
+import { Dropdown, Loader, Switch, ChecklistProgressBar, DepartmentChip, ENTITY_CARD_CLASS, formatWeekdays } from '../../../components';
 import { IconChip } from '../../../components/iconChip';
 import { Badge } from '@/components/ui/badge';
 import { useConfirm } from '@/components/confirmDialog';
@@ -10,6 +10,7 @@ import { RECURRENCE_LABEL, smallRateToneClass, smallInverseRateToneClass, rateBa
 import { useSetChecklistDefinitionActiveMutation, useDeleteChecklistDefinitionMutation } from '../hook';
 import { useAuth } from '../../../context/AuthContext';
 import { CHECKLIST_ICON_MAP } from './checklistIconMap';
+import { ChecklistIconTile } from './ChecklistIconTile';
 import { RESPONSE_MODE_ICON, RESPONSE_MODE_LABEL } from './form/formConstants';
 import type { ChecklistDefinition, ChecklistItemType } from '../../../api/checklistDefinitions';
 
@@ -134,28 +135,46 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
             <Check size={16} strokeWidth={3} />
           </span>
         ) : (
-          <EntityIconTile icon={Icon} tone="coral" />
+          <ChecklistIconTile icon={Icon} name={name} />
         )}
 
         {/* Sits above the stretched title link (z-10), so these stay individually clickable and
             reachable by keyboard. Hidden entirely in selection mode so a stray tap cannot
             pause/edit/delete instead of just selecting the card. */}
         {selectionMode ? null : canManage ? (
-          <div className="relative z-10 flex flex-wrap items-center justify-end gap-2 min-w-0">
-            <StatusPill
-              active={definition.isActive}
-              isUpdating={setActiveMutation.isPending}
-              onToggle={() => setActiveMutation.mutate({ id, isActive: !definition.isActive })}
-              ariaLabel={`${definition.isActive ? 'Pause' : 'Resume'} ${name}`}
-            />
-            <EntityCardActions
-              onEdit={() => navigate(`/admin/scheduled-checklists/builder/${id}`)}
-              onDuplicate={() => navigate(`/admin/scheduled-checklists/builder?copyFrom=${id}`)}
-              onDelete={handleDelete}
-              isDeleting={deleteMutation.isPending}
-              editLabel={`Edit ${name} in builder`}
-              duplicateLabel={`Duplicate ${name}`}
-              deleteLabel={`Delete ${name}`}
+          <div className="relative z-10 flex items-center justify-end gap-1 min-w-0">
+            {/* A real switch instead of the old dot pill: on = running, off = paused. */}
+            <label className="flex items-center gap-2 min-h-11 sm:min-h-9 pl-1 pr-1 cursor-pointer">
+              <span className={cn('text-xs font-display font-semibold', definition.isActive ? 'text-text-secondary' : 'text-text-muted')}>
+                {definition.isActive ? 'Active' : 'Paused'}
+              </span>
+              {setActiveMutation.isPending ? (
+                <span className="flex h-6 w-11 items-center justify-center"><Loader size="sm" variant="slate" className="size-4" /></span>
+              ) : (
+                <Switch
+                  checked={definition.isActive}
+                  onChange={(next) => setActiveMutation.mutate({ id, isActive: next })}
+                />
+              )}
+              <span className="sr-only">{definition.isActive ? 'Pause' : 'Resume'} {name}</span>
+            </label>
+            <Dropdown
+              align="end"
+              items={[
+                { label: 'Edit in builder', icon: Pencil, onClick: () => navigate(`/admin/scheduled-checklists/builder/${id}`) },
+                { label: 'Duplicate', icon: Copy, onClick: () => navigate(`/admin/scheduled-checklists/builder?copyFrom=${id}`) },
+                { label: 'Delete', icon: Trash2, variant: 'destructive', separatorBefore: true, onClick: handleDelete },
+              ]}
+              trigger={
+                <button
+                  type="button"
+                  aria-label={`More actions for ${name}`}
+                  disabled={deleteMutation.isPending}
+                  className="flex items-center justify-center size-11 sm:size-9 shrink-0 rounded-lg text-text-muted hover:text-text hover:bg-surface-hover transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-50"
+                >
+                  <MoreVertical className="size-4" strokeWidth={2.25} aria-hidden />
+                </button>
+              }
             />
           </div>
         ) : (
