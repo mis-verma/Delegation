@@ -113,7 +113,7 @@ export const SystemHealthPage = () => {
   const biggestTableMb = health?.database.biggestTables[0]?.sizeMb || 1;
 
   return (
-    <div className="flex flex-col gap-6 w-full max-w-4xl mx-auto">
+    <div className="flex flex-col gap-6 w-full">
       <PageHeader
         icon={HeartPulse}
         title="System Health"

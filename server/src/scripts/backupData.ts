@@ -1,53 +1,24 @@
-// One-off command-line script (run like: `npm run backup:data`) that dumps every row from the
-// Ticket, Delegation (Task), and recurring Checklist tables to timestamped JSON files under
-// server/backups/<timestamp>/<group>/<table>.json — a local rollback point to take before running
-// any destructive script against these domains (see wipeChecklists.ts). Read-only: never deletes
-// or modifies anything in the database.
+// Command-line backup (run like: `npm run backup:data`; on the live server `node dist/src/scripts/backupData.js`).
+// Dumps every row of the Ticket, Delegation (Task) and recurring Checklist tables to JSON under
+// server/backups/<timestamp>/<group>/<table>.json, a rollback point to take before any destructive
+// script (see wipeChecklists.ts). The same code runs automatically every night (jobs/dataBackup.job.ts).
+// Read-only: never deletes or modifies anything in the database. Pass --offsite to also copy it to S3.
 import 'dotenv/config'
-import { mkdirSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
-import { getTableName } from 'drizzle-orm'
-import type { AnyMySqlTable } from 'drizzle-orm/mysql-core'
-import { connectDB, disconnectDB, db } from '../config/db.js'
-import {
-  tickets, ticketStatusUpdates, ticketAttachments, ticketComments,
-  checklists, checklistItems, checklistImages, checklistTemplates, checklistTemplateItems,
-  tasks, taskAdditionalAssignees, taskDependencies, taskTags, taskAttachments,
-  taskChecklists, taskChecklistItems, taskImages, taskComments, taskCommentAttachments,
-  checklistDefinitions, checklistDefinitionStores, checklistDefinitionAssignees,
-  checklistDefinitionItems, checklistDefinitionItemAuditUsers,
-  checklistInstances, checklistInstanceAssignees, checklistInstanceItems,
-  checklistInstanceItemSubmissions, checklistInstanceItemSubmissionAccessories,
-  checklistInstanceImages, checklistInstanceItemSubmissionImages,
-} from '../db/schema/index.js'
-
-// Grouped by the same three domains the user asked to back up. Table lists are heterogeneous
-// mysqlTable shapes, hence AnyMySqlTable — this is a throwaway dump script, not app code, so a
-// loose type here is fine rather than writing a distinct branch per table.
-const GROUPS: Record<string, AnyMySqlTable[]> = {
-  ticket: [tickets, ticketStatusUpdates, ticketAttachments, ticketComments, checklists, checklistItems, checklistImages, checklistTemplates, checklistTemplateItems],
-  delegation: [tasks, taskAdditionalAssignees, taskDependencies, taskTags, taskAttachments, taskChecklists, taskChecklistItems, taskImages, taskComments, taskCommentAttachments],
-  checklist: [checklistDefinitions, checklistDefinitionStores, checklistDefinitionAssignees, checklistDefinitionItems, checklistDefinitionItemAuditUsers, checklistInstances, checklistInstanceAssignees, checklistInstanceItems, checklistInstanceItemSubmissions, checklistInstanceItemSubmissionAccessories, checklistInstanceImages, checklistInstanceItemSubmissionImages],
-}
+import { connectDB, disconnectDB } from '../config/db.js'
+import { copyBackupToS3, runDataBackup } from '../utils/dataBackup.js'
 
 const run = async () => {
   await connectDB()
 
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-')
-  const outDir = join(process.cwd(), 'backups', stamp)
+  const backup = await runDataBackup()
+  for (const d of backup.detail) console.log(`${d.group}/${d.table}: ${d.rows} row(s)`)
+  console.log(`\nBackup written to ${backup.dir}`)
 
-  for (const [group, groupTables] of Object.entries(GROUPS)) {
-    const groupDir = join(outDir, group)
-    mkdirSync(groupDir, { recursive: true })
-    for (const table of groupTables) {
-      const rows = await db.select().from(table)
-      const name = getTableName(table)
-      writeFileSync(join(groupDir, `${name}.json`), JSON.stringify(rows, null, 2))
-      console.log(`${group}/${name}: ${rows.length} row(s)`)
-    }
+  if (process.argv.includes('--offsite')) {
+    const copied = await copyBackupToS3(backup)
+    console.log(copied === null ? 'No S3 bucket configured (AWS_S3_BUCKET and keys), so nothing was copied off the server.' : `${copied} files copied to S3 under backups/${backup.name}/`)
   }
 
-  console.log(`\nBackup written to ${outDir}`)
   await disconnectDB()
   process.exit(0)
 }
