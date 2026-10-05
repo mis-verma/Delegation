@@ -20,7 +20,7 @@ export const Skeleton = React.forwardRef<HTMLDivElement, SkeletonProps>(
           // bg-surface-active (not the raw slate-* this used before) tracks the app's own
           // elevation ramp, which in dark mode is a real step up from bg-surface — the old
           // slate-800/80 was barely distinguishable from a dark card's background.
-          "animate-pulse rounded-md bg-surface-active transition-colors duration-300",
+          "skeleton-shimmer rounded-md bg-surface-active transition-colors duration-300",
           className
         )}
         {...props}

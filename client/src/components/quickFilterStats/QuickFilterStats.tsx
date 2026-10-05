@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import { AdminChromeAccents } from '../../features/admin/AdminChromeAccents';
 import { Skeleton } from '../skeleton';
+import { CountUp } from '../countUp';
 import { statusTiles } from './statusTiles';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -168,7 +169,7 @@ export function QuickFilterStats<K extends string>({
                   : 'border-border bg-surface text-text-secondary',
               )}
             >
-              <span className={cn('text-base font-bold tabular-nums leading-none', isSelected ? 'text-white' : 'text-text')}>{count}</span>
+              <span className={cn('text-base font-bold tabular-nums leading-none', isSelected ? 'text-white' : 'text-text')}>{typeof count === 'number' ? <CountUp value={count} /> : count}</span>
               <span className={cn('max-w-full line-clamp-2 text-center text-[10px] font-semibold tracking-tight leading-tight', isSelected ? 'text-white/80' : 'text-text-muted')}>{label}</span>
             </button>
           );
@@ -230,7 +231,7 @@ export function QuickFilterStats<K extends string>({
 
               <div className="relative z-10 min-w-0">
                 <p className="text-2xl font-bold tracking-tight text-white leading-none tabular-nums">
-                  {count}
+                  {typeof count === 'number' ? <CountUp value={count} /> : count}
                 </p>
                 {/* No `truncate` — these labels are short (1-3 words), but a 2-up mobile grid still
                     isn't wide enough for some of them ("Due Soon", "Assigned to you") at this font
@@ -281,7 +282,7 @@ export function QuickFilterStats<K extends string>({
 
             <div className="min-w-0 flex-1">
               <p className={cn("text-2xl font-bold tracking-tight leading-none tabular-nums transition-colors", isActive ? "text-text" : "text-text-secondary group-hover:text-text")}>
-                {count}
+                {typeof count === 'number' ? <CountUp value={count} /> : count}
               </p>
               {/* See the hero tile's identical comment above — same wrap-not-truncate fix. The
                   share of the total rides on the label line, so "31 Delayed" also says how big a

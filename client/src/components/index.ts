@@ -73,6 +73,7 @@ export { DepartmentChip } from './departmentChip';
 export { StoreChip } from './storeChip';
 export { RoleChip } from './roleChip';
 export { ColorIconTile } from './colorIconTile';
+export { CountUp } from './countUp';
 export { PresenceChip } from './presenceChip';
 export { TagChip } from './tagChip';
 export { VerificationNoteBanner } from './verificationBanner';

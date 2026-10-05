@@ -310,6 +310,7 @@ export const VerificationQueue = () => {
               attentionAvailable={showChecklists}
               filtersActive={filtersActive}
               onClear={clearFilters}
+              shownCount={params.tab === 'tickets' ? ticketCount : params.tab === 'delegations' ? taskCount : params.tab === 'checklists' ? checklistCount : (counts?.all ?? null)}
             />
           </div>
 

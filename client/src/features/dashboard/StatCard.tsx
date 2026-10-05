@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { ArrowDownRight, ArrowUpRight, Minus, type LucideIcon } from 'lucide-react';
 import { Badge, type badgeVariants } from '../../components/ui/badge';
 import { Skeleton } from '../../components/skeleton';
+import { CountUp } from '../../components/countUp';
 import type { VariantProps } from 'class-variance-authority';
 
 interface StatCardProps {
@@ -175,7 +176,7 @@ export const StatCard = ({
               }`}
               title={typeof value === 'number' && Math.abs(value) >= COMPACT_THRESHOLD ? value.toLocaleString() : undefined}
             >
-              {formatValue(value)}
+              {typeof value === 'number' && Number.isFinite(value) ? <CountUp value={value} format={formatValue} /> : formatValue(value)}
             </p>
           )}
         </div>

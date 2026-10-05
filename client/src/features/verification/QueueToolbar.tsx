@@ -1,12 +1,11 @@
-import { Search, X, ShieldAlert } from 'lucide-react';
-import { Button, ToggleChip } from '../../components';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../../components/ui/select';
+import { useState } from 'react';
+import { AlarmClock, Building2, CalendarClock, CalendarPlus, Clock, ShieldAlert, ShieldCheck, Store, Search, User, X, ArrowUpDown } from 'lucide-react';
+import { Combobox } from '../../components';
+import { OptionsSheet, OptionSection, OptionSelect, OptionSegmented, ChoiceChip, ChoiceIcon, ChoiceWrap, ChoiceClear } from '../../components/optionsSheet';
 import { cn } from '@/lib/utils';
 import type { QueueLookups } from './useChecklistQueue';
 import type { QueueParams, QueueParamsPatch } from './useQueueParams';
-import { AGE_OPTIONS, ALL, SORT_OPTIONS, UNASSIGNED, type AgeFilter, type SortKey } from './verificationModel';
-
-const TRIGGER = 'w-full sm:w-auto sm:min-w-[8.5rem] pointer-coarse:data-[size=sm]:h-11';
+import { AGE_OPTIONS, SORT_OPTIONS, UNASSIGNED, type AgeFilter, type SortKey } from './verificationModel';
 
 interface QueueToolbarProps {
   params: QueueParams;
@@ -16,105 +15,181 @@ interface QueueToolbarProps {
   attentionAvailable: boolean;
   filtersActive: boolean;
   onClear: () => void;
+  /** How many items the current filters leave, for the sheet's "Show N" button. */
+  shownCount?: number | null;
 }
 
-// Search, sort and the Store / Department / Person / Age filters. Everything is written to the URL.
-export const QueueToolbar = ({ params, patch, lookups, attentionAvailable, filtersActive, onClear }: QueueToolbarProps) => (
-  <div className="flex flex-col gap-3">
-    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-      <label className="relative flex-1 min-w-0 sm:max-w-sm">
-        <span className="sr-only">Search by title, person or store</span>
-        <Search size={15} aria-hidden className="absolute left-3 top-1/2 -translate-y-1/2 text-text-light pointer-events-none" />
-        <input
-          type="search"
-          value={params.q}
-          onChange={(e) => patch({ q: e.target.value })}
-          placeholder="Search title, person or store"
-          className={cn(
-            'w-full h-11 sm:h-9 pl-9 pr-9 rounded-lg border border-border bg-surface-hover text-sm font-display text-text placeholder:text-text-light',
-            'transition-colors duration-200 outline-none hover:border-border-hover focus:bg-surface focus:border-primary-400 focus-visible:ring-2 focus-visible:ring-primary-500/30',
-            '[&::-webkit-search-cancel-button]:appearance-none',
+const SORT_LABEL = Object.fromEntries(SORT_OPTIONS.map((o) => [o.value, o.label])) as Record<SortKey, string>;
+const SORT_ICON: Record<SortKey, typeof Clock> = { oldest: Clock, overdue: AlarmClock, compliance: ShieldCheck, newest: CalendarPlus };
+
+const AGE_SEGMENTS = AGE_OPTIONS.map((o) => ({
+  value: o.value,
+  label: o.value === 'any' ? 'Any age' : `${o.value}+ days`,
+  icon: o.value === 'any' ? Clock : CalendarClock,
+}));
+
+/** One removable chip for an applied filter. */
+const AppliedChip = ({ label, onRemove }: { label: string; onRemove: () => void }) => (
+  <span className="flex items-center gap-1 h-8 pl-3 pr-1 rounded-full border border-primary-500/30 bg-primary-500/10 text-xs font-display font-medium text-primary-700 dark:text-primary-300">
+    <span className="truncate max-w-[12rem]">{label}</span>
+    <button
+      type="button"
+      onClick={onRemove}
+      aria-label={`Remove filter: ${label}`}
+      className="relative flex items-center justify-center size-6 shrink-0 rounded-full text-primary-700/70 dark:text-primary-300/70 hover:bg-primary-500/15 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-coarse:after:absolute pointer-coarse:after:-inset-2.5"
+    >
+      <X size={13} aria-hidden />
+    </button>
+  </span>
+);
+
+// Search, plus ONE Options button that holds everything else (sort, store, department, person, age,
+// needs attention). What is applied shows as chips under the search box, each one removable.
+// Everything is written to the URL.
+export const QueueToolbar = ({ params, patch, lookups, attentionAvailable, filtersActive, onClear, shownCount }: QueueToolbarProps) => {
+  const [open, setOpen] = useState(false);
+
+  const attention = params.attention && attentionAvailable;
+  const storeName = params.store ? lookups.stores.find((s) => s.id === params.store)?.name ?? 'Store' : null;
+  const deptName = params.dept ? (params.dept === UNASSIGNED ? 'No department' : lookups.departments.find((d) => d.id === params.dept)?.name ?? 'Department') : null;
+  const personName = params.person ? lookups.people.find((p) => p.id === params.person)?.name ?? 'Person' : null;
+  const ageLabel = params.age !== 'any' ? AGE_SEGMENTS.find((a) => a.value === params.age)?.label ?? null : null;
+
+  const activeCount = (params.store ? 1 : 0) + (params.dept ? 1 : 0) + (params.person ? 1 : 0) + (params.age !== 'any' ? 1 : 0) + (attention ? 1 : 0);
+  const showLabel = shownCount == null ? 'Show results' : `Show ${shownCount} ${shownCount === 1 ? 'item' : 'items'}`;
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <label className="relative flex-1 min-w-0 sm:max-w-sm">
+          <span className="sr-only">Search by title, person or store</span>
+          <Search size={15} aria-hidden className="absolute left-3 top-1/2 -translate-y-1/2 text-text-light pointer-events-none" />
+          <input
+            type="search"
+            value={params.q}
+            onChange={(e) => patch({ q: e.target.value })}
+            placeholder="Search title, person or store"
+            className={cn(
+              'w-full h-11 sm:h-9 pl-9 pr-9 rounded-lg border border-border bg-surface-hover text-base sm:text-sm font-display text-text placeholder:text-text-light',
+              'transition-colors duration-200 outline-none hover:border-border-hover focus:bg-surface focus:border-primary-400 focus-visible:ring-2 focus-visible:ring-primary-500/30',
+              '[&::-webkit-search-cancel-button]:appearance-none',
+            )}
+          />
+          {params.q && (
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={() => patch({ q: '' })}
+              className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center justify-center size-11 sm:size-9 rounded-lg text-text-muted hover:text-text transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+            >
+              <X size={14} aria-hidden />
+            </button>
           )}
-        />
-        {params.q && (
-          <button
-            type="button"
-            aria-label="Clear search"
-            onClick={() => patch({ q: '' })}
-            className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center justify-center size-11 sm:size-9 rounded-lg text-text-muted hover:text-text transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
-          >
-            <X size={14} aria-hidden />
-          </button>
-        )}
-      </label>
+        </label>
 
-      <Select value={params.sort} onValueChange={(v) => patch({ sort: v as SortKey })}>
-        <SelectTrigger size="sm" className={TRIGGER} aria-label="Sort checklists">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {SORT_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-        </SelectContent>
-      </Select>
-    </div>
+        <OptionsSheet
+          isOpen={open}
+          setIsOpen={setOpen}
+          activeCount={activeCount}
+          subtitle={filtersActive ? 'Showing a narrowed view' : 'Everything waiting for you'}
+          onReset={() => { onClear(); patch({ sort: 'oldest' }); }}
+          canReset={filtersActive || params.sort !== 'oldest'}
+          showLabel={showLabel}
+        >
+          <OptionSection icon={ArrowUpDown} label="Sort by">
+            <OptionSelect labels={SORT_LABEL} icons={SORT_ICON} value={params.sort} onChange={(sort) => patch({ sort })} />
+          </OptionSection>
 
-    <div className="grid grid-cols-2 sm:flex sm:flex-wrap sm:items-center gap-2">
-      <Select value={params.store ?? ALL} onValueChange={(v) => patch({ store: v === ALL ? null : v })}>
-        <SelectTrigger size="sm" className={TRIGGER} aria-label="Filter by store">
-          <SelectValue placeholder="All stores" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ALL}>All stores</SelectItem>
-          {lookups.stores.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-        </SelectContent>
-      </Select>
+          <OptionSection icon={Clock} label="How long waiting">
+            <OptionSegmented
+              options={AGE_SEGMENTS}
+              value={params.age}
+              onChange={(age: AgeFilter) => patch({ age })}
+            />
+          </OptionSection>
 
-      <Select value={params.dept ?? ALL} onValueChange={(v) => patch({ dept: v === ALL ? null : v })}>
-        <SelectTrigger size="sm" className={TRIGGER} aria-label="Filter by department">
-          <SelectValue placeholder="All departments" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ALL}>All departments</SelectItem>
-          {lookups.departments.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
-          <SelectItem value={UNASSIGNED}>No department</SelectItem>
-        </SelectContent>
-      </Select>
+          {lookups.stores.length > 0 && (
+            <OptionSection icon={Store} label="Store" aside={params.store ? <ChoiceClear onClick={() => patch({ store: null })} /> : undefined}>
+              <ChoiceWrap>
+                {lookups.stores.map((s) => (
+                  <ChoiceChip
+                    key={s.id}
+                    active={params.store === s.id}
+                    onClick={() => patch({ store: params.store === s.id ? null : s.id })}
+                    lead={<ChoiceIcon icon={Store} tone="bg-primary-600" />}
+                  >
+                    {s.name}
+                  </ChoiceChip>
+                ))}
+              </ChoiceWrap>
+            </OptionSection>
+          )}
 
-      <Select value={params.person ?? ALL} onValueChange={(v) => patch({ person: v === ALL ? null : v })}>
-        <SelectTrigger size="sm" className={TRIGGER} aria-label="Filter by person">
-          <SelectValue placeholder="All people" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ALL}>All people</SelectItem>
-          {lookups.people.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-        </SelectContent>
-      </Select>
+          <OptionSection icon={Building2} label="Department" aside={params.dept ? <ChoiceClear onClick={() => patch({ dept: null })} /> : undefined}>
+            <ChoiceWrap>
+              {lookups.departments.map((d) => (
+                <ChoiceChip
+                  key={d.id}
+                  active={params.dept === d.id}
+                  onClick={() => patch({ dept: params.dept === d.id ? null : d.id })}
+                  lead={<ChoiceIcon icon={Building2} tone="bg-primary-600" />}
+                >
+                  {d.name}
+                </ChoiceChip>
+              ))}
+              <ChoiceChip
+                active={params.dept === UNASSIGNED}
+                onClick={() => patch({ dept: params.dept === UNASSIGNED ? null : UNASSIGNED })}
+              >
+                No department
+              </ChoiceChip>
+            </ChoiceWrap>
+          </OptionSection>
 
-      <Select value={params.age} onValueChange={(v) => patch({ age: v as AgeFilter })}>
-        <SelectTrigger size="sm" className={TRIGGER} aria-label="Filter by age">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {AGE_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-        </SelectContent>
-      </Select>
+          <OptionSection icon={User} label="Person" aside={params.person ? <ChoiceClear onClick={() => patch({ person: null })} /> : undefined}>
+            <Combobox
+              value={params.person ?? ''}
+              onChange={(v) => patch({ person: v || null })}
+              options={lookups.people.map((p) => ({ value: p.id, label: p.name }))}
+              emptyOptionLabel="All people"
+              placeholder="Search people..."
+            />
+          </OptionSection>
 
-      <ToggleChip
-        on={params.attention && attentionAvailable}
-        disabled={!attentionAvailable}
-        onClick={() => patch({ attention: !params.attention })}
-        className="col-span-2 sm:col-span-1 justify-center"
-      >
-        <ShieldAlert size={13} aria-hidden />
-        Needs attention only
-      </ToggleChip>
+          <OptionSection icon={ShieldAlert} label="Checklists">
+            <ChoiceWrap>
+              <ChoiceChip
+                active={attention}
+                onClick={() => attentionAvailable && patch({ attention: !params.attention })}
+                lead={<ChoiceIcon icon={ShieldAlert} tone="bg-warning" />}
+              >
+                Needs attention only
+              </ChoiceChip>
+            </ChoiceWrap>
+            {!attentionAvailable && (
+              <p className="text-xs font-display text-text-muted">Only applies to checklists. Switch to All or Checklists to use it.</p>
+            )}
+          </OptionSection>
+        </OptionsSheet>
+      </div>
 
       {filtersActive && (
-        <Button size="sm" variant="ghost" className="col-span-2 sm:col-span-1" onClick={onClear}>
-          <X size={13} aria-hidden />
-          Clear filters
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {storeName && <AppliedChip label={storeName} onRemove={() => patch({ store: null })} />}
+          {deptName && <AppliedChip label={deptName} onRemove={() => patch({ dept: null })} />}
+          {personName && <AppliedChip label={personName} onRemove={() => patch({ person: null })} />}
+          {ageLabel && <AppliedChip label={ageLabel} onRemove={() => patch({ age: 'any' })} />}
+          {attention && <AppliedChip label="Needs attention" onRemove={() => patch({ attention: false })} />}
+          {params.q.trim() && <AppliedChip label={`Search: ${params.q.trim()}`} onRemove={() => patch({ q: '' })} />}
+          <button
+            type="button"
+            onClick={onClear}
+            className="h-8 px-2.5 rounded-lg text-xs font-display font-medium text-text-muted hover:text-danger hover:bg-danger/10 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+          >
+            Clear all
+          </button>
+        </div>
       )}
     </div>
-  </div>
-);
+  );
+};
