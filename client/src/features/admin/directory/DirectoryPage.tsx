@@ -57,8 +57,8 @@ export const DirectoryPage = () => {
       : summarize(stores, 'inactive');
 
   return (
-    <div className="flex flex-col gap-5 w-full max-w-5xl mx-auto">
-      <PageHeader icon={Contact} title="People & Teams" subtitle="Manage users, departments and stores." />
+    <div className="flex flex-col gap-5 w-full">
+      <PageHeader icon={Contact} title="People & Teams" subtitle="Add people, place them in departments and stores, and choose what each person can see." />
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)} className="gap-4">
         {/* Scrolls horizontally instead of clipping the last tab on narrow phones: AdminLayout's

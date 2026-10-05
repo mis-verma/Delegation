@@ -1,7 +1,6 @@
 import { memo, useEffect, useRef } from 'react';
 import { ArrowDown, ArrowUp, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { PANEL_CLASS } from '../../../components';
 import type { AdminUser, UserPresence } from '../../../api/admin';
 import { presenceLabel } from '../presenceDisplay';
 import { UserRow } from './UserRow';
@@ -24,7 +23,8 @@ interface UserTableProps extends UserActionHandlers {
 }
 
 // Solid navy header, same treatment as every other dense table in the product (see TicketTable).
-const HEAD_CLASS = 'px-3 py-2.5 text-left text-xs font-semibold text-white tracking-tight whitespace-nowrap';
+const HEAD_ROW_CLASS = 'bg-primary-800';
+const HEAD_CLASS = 'px-3 py-3 text-left text-xs font-semibold text-white tracking-tight whitespace-nowrap';
 
 const COLUMNS: { key: UserSortKey; label: string }[] = [
   { key: 'role', label: 'Role' },
@@ -64,11 +64,11 @@ const UserTableComponent = ({
   const ariaSort = (key: UserSortKey) => (sort === key ? (dir === 'asc' ? 'ascending' : 'descending') : 'none');
 
   return (
-    <div className={cn(PANEL_CLASS, 'w-full overflow-x-auto')}>
+    <div className="w-full overflow-x-auto rounded-lg border border-border/60">
       <table className="w-full min-w-[60rem] border-collapse">
-        <thead className="bg-primary-800">
+        <thead className={HEAD_ROW_CLASS}>
           <tr>
-            <th scope="col" className={cn(HEAD_CLASS, 'w-10')}>
+            <th scope="col" className={cn(HEAD_CLASS, 'w-14 min-w-14 sticky left-0 z-10', HEAD_ROW_CLASS)}>
               <label className="flex items-center justify-center size-8 cursor-pointer">
                 <input
                   ref={headCheckbox}
@@ -80,7 +80,7 @@ const UserTableComponent = ({
                 />
               </label>
             </th>
-            <th scope="col" aria-sort={ariaSort('name')} className={HEAD_CLASS}>
+            <th scope="col" aria-sort={ariaSort('name')} className={cn(HEAD_CLASS, 'sticky left-14 z-10', HEAD_ROW_CLASS)}>
               <SortHeader label="Name" active={sort === 'name'} dir={dir} onClick={() => onSort('name')} />
             </th>
             {COLUMNS.map((c) => (
@@ -118,6 +118,8 @@ const UserTableComponent = ({
           })}
         </tbody>
       </table>
+
+      <p className="sr-only" aria-live="polite">{users.length} {users.length === 1 ? 'person' : 'people'}, sorted.</p>
     </div>
   );
 };

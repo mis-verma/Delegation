@@ -21,6 +21,7 @@ interface UserRowProps extends UserActionHandlers {
 }
 
 const CELL_CLASS = 'px-3 py-2.5 align-middle text-xs text-text-secondary';
+const NOT_SET = <span className="text-text-light">Not set</span>;
 
 const UserRowComponent = ({
   user, departmentName, storeName, online, presenceText, selected, busy, isSelf, onToggleSelect,
@@ -30,15 +31,24 @@ const UserRowComponent = ({
 
   return (
     <tr
-      // Clicking anywhere on the row opens Edit; the name button is the keyboard route to it.
+      // Clicking anywhere on the row opens Edit. The row itself is focusable, like TicketTable's,
+      // and only reacts to keys pressed on the row (not on the checkbox or action menu inside it).
       onClick={() => onEdit(user)}
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.target !== e.currentTarget) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onEdit(user);
+        }
+      }}
       className={cn(
-        'border-b border-border/40 last:border-b-0 cursor-pointer transition-colors duration-200 hover:bg-surface-hover/60',
+        'border-b border-border/40 last:border-b-0 cursor-pointer transition-colors duration-200 ease-in-out hover:bg-surface-hover/60 focus-visible:bg-surface-hover/60 focus-visible:outline-none',
         selected && 'bg-primary-500/5 dark:bg-primary-500/10',
         busy && 'pointer-events-none',
       )}
     >
-      <td className={cn(CELL_CLASS, 'w-10')} onClick={(e) => e.stopPropagation()}>
+      <td className={cn(CELL_CLASS, 'w-14 min-w-14 sticky left-0 z-10 bg-surface')} onClick={(e) => e.stopPropagation()}>
         <label className="flex items-center justify-center size-8 cursor-pointer">
           <input
             type="checkbox"
@@ -50,20 +60,13 @@ const UserRowComponent = ({
         </label>
       </td>
 
-      <td className={cn(CELL_CLASS, 'min-w-[14rem]')}>
+      <td className={cn(CELL_CLASS, 'min-w-[14rem] max-w-[22rem] sticky left-14 z-10 bg-surface')}>
         <div className="flex items-center gap-2.5 min-w-0">
           <Avatar name={name} src={resolveAvatarUrl(user.avatarUrl)} size="sm" online={online} />
           <div className="flex flex-col min-w-0">
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); onEdit(user); }}
-              className={cn(
-                'text-left text-sm font-display font-bold truncate cursor-pointer outline-none rounded-sm focus-visible:ring-2 focus-visible:ring-primary-500/50',
-                user.isActive ? 'text-text' : 'text-text-muted',
-              )}
-            >
+            <span className={cn('text-sm font-display font-bold truncate', user.isActive ? 'text-text' : 'text-text-muted')}>
               {name}
-            </button>
+            </span>
             <span className="text-xs text-text-muted truncate" title={user.email}>{user.email}</span>
           </div>
         </div>
@@ -77,11 +80,11 @@ const UserRowComponent = ({
       </td>
 
       <td className={cn(CELL_CLASS, 'whitespace-nowrap')}>
-        {departmentName ?? <span className="italic text-text-light">None</span>}
+        {departmentName ?? NOT_SET}
       </td>
 
       <td className={cn(CELL_CLASS, 'whitespace-nowrap')}>
-        {storeName ?? <span className="italic text-text-light">None</span>}
+        {storeName ?? NOT_SET}
       </td>
 
       <td className={cn(CELL_CLASS, 'whitespace-nowrap')}>
@@ -96,7 +99,7 @@ const UserRowComponent = ({
       </td>
 
       <td className={cn(CELL_CLASS, 'whitespace-nowrap text-text-muted', online && 'text-success')}>
-        {user.isActive && presenceText ? presenceText : <span className="text-text-light">-</span>}
+        {!user.isActive ? <span className="text-text-light">-</span> : presenceText || 'Never'}
       </td>
 
       <td className={cn(CELL_CLASS, 'w-12')} onClick={(e) => e.stopPropagation()}>

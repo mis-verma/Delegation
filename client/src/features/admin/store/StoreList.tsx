@@ -1,10 +1,12 @@
 import { useState, useMemo, useCallback, lazy, Suspense } from 'react';
-import { Plus, Store as StoreIcon } from 'lucide-react';
+import { Plus, Store as StoreIcon, ArrowDownAZ, Users, Building2, type LucideIcon } from 'lucide-react';
+import { OptionSection, OptionSelect } from '../../../components/optionsSheet';
+import { useMediaQuery } from '../../../lib/useMediaQuery';
+import { OrgStatusSection, OrgTableSkeleton, OrgToolbar } from '../directory/OrgToolbar';
+import { useDirectoryView } from '../directory/useDirectoryView';
 import {
-  Button,
   EmptyState,
   EntityCardSkeleton,
-  EntityStatusFilter,
   FormChunkFallback,
   FormLoadError,
   InlineError,
@@ -16,7 +18,12 @@ import { useDepartmentsQuery, useStoresQuery } from '../../tickets/hook';
 import { useUsersQuery, useUpdateStoreMutation, useDeleteStoreMutation } from '../hook';
 import { countPeopleBy, hasPeople, peopleText } from '../orgCounts';
 import { StoreCard } from './StoreCard';
+import { StoreTable } from './StoreTable';
 import type { Store } from '../../../api/stores';
+
+type SortKey = 'name' | 'staff' | 'departments';
+const SORT_LABEL: Record<SortKey, string> = { name: 'Name A-Z', staff: 'Staff, most first', departments: 'Departments, most first' };
+const SORT_ICON: Record<SortKey, LucideIcon> = { name: ArrowDownAZ, staff: Users, departments: Building2 };
 
 const PAGE_SIZE = 24;
 const SKELETON_COUNT = 6;
@@ -37,6 +44,12 @@ export const StoreList = () => {
   const [editingStore, setEditingStore] = useState<Store | null>(null);
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<EntityStatusFilterValue>('all');
+  const [searchText, setSearchText] = useState('');
+  const [sort, setSort] = useState<SortKey>('name');
+  const [view, setView] = useDirectoryView();
+  // Phones always get cards, whatever the shared view says.
+  const isNarrow = useMediaQuery('(max-width: 639px)');
+  const showTable = view === 'table' && !isNarrow;
 
   // Filtering/pagination is client-side (full roster, not a server page) so the Active/Inactive
   // split can be seen and filtered at all.
@@ -69,9 +82,24 @@ export const StoreList = () => {
   }), [stores]);
 
   const filteredStores = useMemo(() => {
-    if (statusFilter === 'all') return stores;
-    return stores.filter(s => s.isActive === (statusFilter === 'active'));
-  }, [stores, statusFilter]);
+    const q = searchText.trim().toLowerCase();
+    const matched = stores.filter(st => {
+      if (statusFilter !== 'all' && st.isActive !== (statusFilter === 'active')) return false;
+      if (!q) return true;
+      return [st.name, st.code, st.address].some(v => (v ?? '').toLowerCase().includes(q));
+    });
+    return matched.sort((a, b) => {
+      if (sort === 'staff' && memberCounts) {
+        const diff = (memberCounts.get(b.id)?.active ?? 0) - (memberCounts.get(a.id)?.active ?? 0);
+        if (diff !== 0) return diff;
+      }
+      if (sort === 'departments' && departmentCountByStore) {
+        const diff = (departmentCountByStore.get(b.id) ?? 0) - (departmentCountByStore.get(a.id) ?? 0);
+        if (diff !== 0) return diff;
+      }
+      return a.name.localeCompare(b.name);
+    });
+  }, [stores, statusFilter, searchText, sort, memberCounts, departmentCountByStore]);
 
   const totalPages = Math.max(1, Math.ceil(filteredStores.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -81,6 +109,27 @@ export const StoreList = () => {
     setStatusFilter(value);
     setPage(1);
   };
+  const changeSearch = (value: string) => {
+    setSearchText(value);
+    setPage(1);
+  };
+  const changeSort = (value: SortKey) => {
+    setSort(value);
+    setPage(1);
+  };
+  const clearFilters = () => {
+    setSearchText('');
+    setStatusFilter('all');
+    setPage(1);
+  };
+  const resetOptions = () => {
+    setStatusFilter('all');
+    setSort('name');
+    setPage(1);
+  };
+
+  const narrowed = searchText.trim() !== '' || statusFilter !== 'all';
+  const resultText = narrowed ? `${filteredStores.length} of ${stores.length} stores` : null;
 
   const toggleActive = useCallback(async (store: Store) => {
     if (store.isActive) {
@@ -145,7 +194,7 @@ export const StoreList = () => {
 
   const renderContent = () => {
     // Skeleton only while there is nothing to show; a background refetch keeps the list on screen.
-    if (isPending) return (
+    if (isPending) return showTable ? <OrgTableSkeleton /> : (
       <div className={GRID_CLASS}>
         {Array.from({ length: SKELETON_COUNT }).map((_, i) => <EntityCardSkeleton key={i} />)}
       </div>
@@ -156,7 +205,7 @@ export const StoreList = () => {
     );
 
     if (filteredStores.length === 0) {
-      return statusFilter === 'all' ? (
+      return stores.length === 0 ? (
         <EmptyState
           icon={StoreIcon}
           title="No stores yet"
@@ -166,9 +215,25 @@ export const StoreList = () => {
       ) : (
         <EmptyState
           icon={StoreIcon}
-          title={`No ${statusFilter} stores`}
-          description="No store matches this filter right now."
-          action={{ label: 'Show all stores', onClick: () => changeStatusFilter('all') }}
+          title="No stores match"
+          description="Try a different search or clear the filters."
+          action={{ label: 'Clear filters', onClick: clearFilters }}
+        />
+      );
+    }
+
+    if (showTable) {
+      return (
+        <StoreTable
+          stores={pageStores}
+          memberCounts={memberCounts}
+          membersFailed={usersError}
+          departmentCountByStore={departmentCountByStore}
+          updatingId={updateMut.isPending ? updateMut.variables?.id : undefined}
+          deletingId={deleteMut.isPending ? deleteMut.variables : undefined}
+          onToggleActive={toggleActive}
+          onEdit={setEditingStore}
+          onDelete={handleDelete}
         />
       );
     }
@@ -197,19 +262,29 @@ export const StoreList = () => {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <EntityStatusFilter value={statusFilter} onChange={changeStatusFilter} counts={statusCounts} />
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={() => setShowForm(true)}
-          onMouseEnter={loadStoreForm}
-          onFocus={loadStoreForm}
-        >
-          <Plus className="w-3.5 h-3.5" />
-          New store
-        </Button>
-      </div>
+      <OrgToolbar
+        searchLabel="Search stores"
+        searchPlaceholder="Search stores"
+        searchText={searchText}
+        onSearchText={changeSearch}
+        view={view}
+        onView={setView}
+        newLabel="New store"
+        onNew={() => setShowForm(true)}
+        onPreloadForm={loadStoreForm}
+        activeCount={statusFilter === 'all' ? 0 : 1}
+        subtitle={`${filteredStores.length} of ${stores.length} stores`}
+        showLabel={`Show ${filteredStores.length} ${filteredStores.length === 1 ? 'store' : 'stores'}`}
+        canReset={statusFilter !== 'all' || sort !== 'name'}
+        onReset={resetOptions}
+        resultText={resultText}
+        onClearFilters={clearFilters}
+      >
+        <OrgStatusSection value={statusFilter} onChange={changeStatusFilter} counts={statusCounts} />
+        <OptionSection icon={ArrowDownAZ} label="Sort by">
+          <OptionSelect labels={SORT_LABEL} icons={SORT_ICON} value={sort} onChange={changeSort} />
+        </OptionSection>
+      </OrgToolbar>
 
       {/* A failed refresh never hides the list; it just says so. */}
       {isError && allStores && (

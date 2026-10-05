@@ -1,8 +1,9 @@
 import { useState, useMemo, useCallback, lazy, Suspense } from "react";
-import { Plus, Inbox } from "lucide-react";
+import { Plus, Inbox, ArrowDownAZ, Users, type LucideIcon } from "lucide-react";
 
 import type { Department } from "../../../api/departments";
 import { DepartmentCard } from "./DepartmentCard";
+import { DepartmentTable } from "./DepartmentTable";
 import {
   useUsersQuery,
   useUpdateDepartmentMutation,
@@ -10,11 +11,13 @@ import {
 } from "../hook";
 import { useDepartmentsQuery, useStoresQuery } from "../../tickets/hook";
 import { countPeopleBy, hasPeople, peopleText } from "../orgCounts";
+import { OptionSection, OptionSelect } from "../../../components/optionsSheet";
+import { useMediaQuery } from "../../../lib/useMediaQuery";
+import { OrgStatusSection, OrgTableSkeleton, OrgToolbar } from "../directory/OrgToolbar";
+import { useDirectoryView } from "../directory/useDirectoryView";
 import {
-  Button,
   EmptyState,
   EntityCardSkeleton,
-  EntityStatusFilter,
   FormChunkFallback,
   FormLoadError,
   InlineError,
@@ -22,6 +25,10 @@ import {
   useConfirm,
   type EntityStatusFilterValue,
 } from "../../../components";
+
+type SortKey = "name" | "members";
+const SORT_LABEL: Record<SortKey, string> = { name: "Name A-Z", members: "Members, most first" };
+const SORT_ICON: Record<SortKey, LucideIcon> = { name: ArrowDownAZ, members: Users };
 
 const PAGE_SIZE = 24;
 const SKELETON_COUNT = 6;
@@ -41,6 +48,12 @@ export const DepartmentList = () => {
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<EntityStatusFilterValue>('all');
+  const [searchText, setSearchText] = useState('');
+  const [sort, setSort] = useState<SortKey>('name');
+  const [view, setView] = useDirectoryView();
+  // Phones always get cards, whatever the shared view says.
+  const isNarrow = useMediaQuery('(max-width: 639px)');
+  const showTable = view === 'table' && !isNarrow;
 
   // Filtering/pagination is client-side (full roster, not a server page) so the Active/Inactive
   // split can be seen and filtered at all.
@@ -60,10 +73,30 @@ export const DepartmentList = () => {
     inactive: departments.filter(d => !d.isActive).length,
   }), [departments]);
 
+  // undefined until the roster arrives, so a card never claims "0 members" while it is still loading.
+  const memberCounts = useMemo(() => (users ? countPeopleBy(users, 'departmentId') : undefined), [users]);
+
+  const storeNameById = useMemo(() => {
+    const names = new Map<string, string>();
+    (stores ?? []).forEach(s => names.set(s.id, s.name));
+    return names;
+  }, [stores]);
+
   const filteredDepartments = useMemo(() => {
-    if (statusFilter === 'all') return departments;
-    return departments.filter(d => d.isActive === (statusFilter === 'active'));
-  }, [departments, statusFilter]);
+    const q = searchText.trim().toLowerCase();
+    const matched = departments.filter(d => {
+      if (statusFilter !== 'all' && d.isActive !== (statusFilter === 'active')) return false;
+      if (!q) return true;
+      return d.name.toLowerCase().includes(q) || (d.storeId ? (storeNameById.get(d.storeId) ?? '').toLowerCase().includes(q) : false);
+    });
+    return matched.sort((a, b) => {
+      if (sort === 'members' && memberCounts) {
+        const diff = (memberCounts.get(b.id)?.active ?? 0) - (memberCounts.get(a.id)?.active ?? 0);
+        if (diff !== 0) return diff;
+      }
+      return a.name.localeCompare(b.name);
+    });
+  }, [departments, statusFilter, searchText, sort, memberCounts, storeNameById]);
 
   const totalPages = Math.max(1, Math.ceil(filteredDepartments.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -73,15 +106,27 @@ export const DepartmentList = () => {
     setStatusFilter(value);
     setPage(1);
   };
+  const changeSearch = (value: string) => {
+    setSearchText(value);
+    setPage(1);
+  };
+  const changeSort = (value: SortKey) => {
+    setSort(value);
+    setPage(1);
+  };
+  const clearFilters = () => {
+    setSearchText('');
+    setStatusFilter('all');
+    setPage(1);
+  };
+  const resetOptions = () => {
+    setStatusFilter('all');
+    setSort('name');
+    setPage(1);
+  };
 
-  // undefined until the roster arrives, so a card never claims "0 members" while it is still loading.
-  const memberCounts = useMemo(() => (users ? countPeopleBy(users, 'departmentId') : undefined), [users]);
-
-  const storeNameById = useMemo(() => {
-    const names = new Map<string, string>();
-    (stores ?? []).forEach(s => names.set(s.id, s.name));
-    return names;
-  }, [stores]);
+  const narrowed = searchText.trim() !== '' || statusFilter !== 'all';
+  const resultText = narrowed ? `${filteredDepartments.length} of ${departments.length} departments` : null;
 
   const toggleActive = useCallback(async (department: Department) => {
     if (department.isActive) {
@@ -141,6 +186,7 @@ export const DepartmentList = () => {
   const renderContent = () => {
     // Skeleton only while there is nothing to show; a background refetch keeps the list on screen.
     if (isPending) {
+      if (showTable) return <OrgTableSkeleton />;
       return (
         <div className={GRID_CLASS}>
           {Array.from({ length: SKELETON_COUNT }).map((_, i) => <EntityCardSkeleton key={i} />)}
@@ -153,7 +199,7 @@ export const DepartmentList = () => {
     }
 
     if (filteredDepartments.length === 0) {
-      return statusFilter === 'all' ? (
+      return departments.length === 0 ? (
         <EmptyState
           icon={Inbox}
           title="No departments yet"
@@ -163,9 +209,25 @@ export const DepartmentList = () => {
       ) : (
         <EmptyState
           icon={Inbox}
-          title={`No ${statusFilter} departments`}
-          description="No department matches this filter right now."
-          action={{ label: 'Show all departments', onClick: () => changeStatusFilter('all') }}
+          title="No departments match"
+          description="Try a different search or clear the filters."
+          action={{ label: 'Clear filters', onClick: clearFilters }}
+        />
+      );
+    }
+
+    if (showTable) {
+      return (
+        <DepartmentTable
+          departments={pageDepartments}
+          storeNameById={stores ? storeNameById : undefined}
+          memberCounts={memberCounts}
+          membersFailed={usersError}
+          updatingId={updateMut.isPending ? updateMut.variables?.id : undefined}
+          deletingId={deleteMut.isPending ? deleteMut.variables : undefined}
+          onToggleActive={toggleActive}
+          onEdit={setEditingDepartment}
+          onDelete={handleDelete}
         />
       );
     }
@@ -197,21 +259,29 @@ export const DepartmentList = () => {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <EntityStatusFilter value={statusFilter} onChange={changeStatusFilter} counts={statusCounts} />
-
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={() => setShowForm(true)}
-          onMouseEnter={loadDepartmentForm}
-          onFocus={loadDepartmentForm}
-          className="group"
-        >
-          <Plus className="w-3.5 h-3.5 transition-transform duration-300 group-hover:rotate-90" />
-          New department
-        </Button>
-      </div>
+      <OrgToolbar
+        searchLabel="Search departments"
+        searchPlaceholder="Search departments"
+        searchText={searchText}
+        onSearchText={changeSearch}
+        view={view}
+        onView={setView}
+        newLabel="New department"
+        onNew={() => setShowForm(true)}
+        onPreloadForm={loadDepartmentForm}
+        activeCount={statusFilter === 'all' ? 0 : 1}
+        subtitle={`${filteredDepartments.length} of ${departments.length} departments`}
+        showLabel={`Show ${filteredDepartments.length} ${filteredDepartments.length === 1 ? 'department' : 'departments'}`}
+        canReset={statusFilter !== 'all' || sort !== 'name'}
+        onReset={resetOptions}
+        resultText={resultText}
+        onClearFilters={clearFilters}
+      >
+        <OrgStatusSection value={statusFilter} onChange={changeStatusFilter} counts={statusCounts} />
+        <OptionSection icon={ArrowDownAZ} label="Sort by">
+          <OptionSelect labels={SORT_LABEL} icons={SORT_ICON} value={sort} onChange={changeSort} />
+        </OptionSection>
+      </OrgToolbar>
 
       {/* A failed refresh never hides the list; it just says so. */}
       {isError && allDepartments && (

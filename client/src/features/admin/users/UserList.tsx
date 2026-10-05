@@ -225,22 +225,22 @@ export const UserList = () => {
     if (isPending) return view === 'table' ? <UserTableSkeleton /> : <UserGridSkeleton />;
 
     if (!hasData) {
-      return <InlineError message="We couldn’t load your people. Check your connection and try again." onRetry={() => refetch()} />;
+      return <InlineError message="We couldn’t load your people just now. Check your connection and try again." onRetry={() => refetch()} />;
     }
 
     if (filtered.length === 0) {
       return users.length === 0 ? (
         <EmptyState
           icon={Users}
-          title="No users yet"
+          title="No people yet"
           description="Add the first person to get started."
-          action={{ label: 'Create user', icon: Plus, onClick: () => setShowForm(true) }}
+          action={{ label: 'Add a person', icon: Plus, onClick: () => setShowForm(true) }}
         />
       ) : (
         <EmptyState
           icon={SearchX}
           title="No one matches"
-          description="Try a different search, or clear the filters to see everyone."
+          description="Try a different search or clear the filters."
           action={{ label: 'Clear filters', onClick: list.clearFilters }}
         />
       );
@@ -298,6 +298,8 @@ export const UserList = () => {
         onClear={list.clearFilters}
         departmentOptions={departmentOptions}
         storeOptions={storeOptions}
+        shownCount={filtered.length}
+        totalPeople={users.length}
         resultText={resultText}
         onNew={() => setShowForm(true)}
         onPreloadForm={preloadForm}
