@@ -44,8 +44,8 @@ const toItemDraft = (item: ChecklistDefinitionItem): ItemDraft => ({
   auditUserIds: item.auditUserIds,
   accessories: item.accessories,
   accessoriesFemale: item.accessoriesFemale,
-  accessoriesFemaleSaree: item.accessoriesFemaleSaree,
   accessoriesMale: item.accessoriesMale,
+  accessoriesByType: item.accessoriesByType ?? {},
   numberEntryUnit: item.numberEntryUnit ?? '',
   numberEntryMin: item.numberEntryMin != null ? String(item.numberEntryMin) : '',
   numberEntryMax: item.numberEntryMax != null ? String(item.numberEntryMax) : '',
@@ -91,6 +91,11 @@ const acceptablePayload = (d: ItemDraft) => {
   return {};
 };
 
+// Only the dress types this question has a real list for are stored: an added type left empty is
+// dropped, so it never shadows the gender list with a blank one.
+const storedTypeLists = (byType: Record<string, string[]>): Record<string, string[]> =>
+  Object.fromEntries(Object.entries(byType).filter(([, list]) => list.length > 0));
+
 const buildItemPayloads = (itemDrafts: ItemDraft[]): CreateChecklistDefinitionItemPayload[] =>
   itemDrafts
     .filter(d => d.label.trim())
@@ -109,8 +114,8 @@ const buildItemPayloads = (itemDrafts: ItemDraft[]): CreateChecklistDefinitionIt
         auditUserIds: d.auditUserIds,
         accessories: d.accessories,
         accessoriesFemale: d.accessoriesFemale,
-        accessoriesFemaleSaree: d.accessoriesFemaleSaree,
         accessoriesMale: d.accessoriesMale,
+        accessoriesByType: storedTypeLists(d.accessoriesByType),
       } : {}),
       ...(d.itemType === 'NUMBER_ENTRY' || d.itemType === 'CASH_TALLY' ? {
         numberEntryUnit: d.numberEntryUnit.trim() || undefined,

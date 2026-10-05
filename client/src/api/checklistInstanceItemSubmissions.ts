@@ -7,6 +7,10 @@ import type {
   ChecklistInstanceItemSubmissionImage,
 } from './checklistInstances';
 
+export type ChecklistInstanceItemSubmissionDressTypeResult = ChecklistInstanceItemSubmission & {
+  dressTypeId: string | null;
+};
+
 export const checklistInstanceItemSubmissionApi = {
   /** `notApplicable` marks this one person as not checkable today; it needs a reason in `remarks`. */
   setDone: (id: string, isDone: boolean, options: { notApplicable?: boolean; remarks?: string } = {}) =>
@@ -19,6 +23,14 @@ export const checklistInstanceItemSubmissionApi = {
     apiFetch<ApiResponse<ChecklistInstanceItemSubmission>>(`/checklist-instance-item-submissions/${id}/accessories`, {
       method: 'PATCH',
       body: JSON.stringify({ accessories }),
+    }),
+
+  /** Picks what this person is wearing today. `null` = the usual (gender/main) list. Swaps their
+   *  accessory rows for that type's list, all unticked; remarks and photos stay. */
+  setDressType: (id: string, dressTypeId: string | null) =>
+    apiFetch<ApiResponse<ChecklistInstanceItemSubmissionDressTypeResult>>(`/checklist-instance-item-submissions/${id}/dress-type`, {
+      method: 'PATCH',
+      body: JSON.stringify({ dressTypeId }),
     }),
 
   updateRemarks: (id: string, remarks: string | null) =>

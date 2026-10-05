@@ -34,7 +34,7 @@ const GROUP_CONDITIONS: Record<AuditGroup, SQL> = {
     tickets: like(auditLogs.entityType, "Ticket%"),
     tasks: inArray(auditLogs.entityType, ["Task", "Project"]),
     people: inArray(auditLogs.entityType, ["User", "Department", "Store"]),
-    settings: inArray(auditLogs.entityType, ["Settings", "Holiday", "Category", "Event"]),
+    settings: inArray(auditLogs.entityType, ["Settings", "Holiday", "DressType", "Category", "Event"]),
 }
 
 // The audit service is the "write it down" part of our compliance trail.

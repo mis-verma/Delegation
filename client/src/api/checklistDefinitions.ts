@@ -36,9 +36,10 @@ export type ChecklistDefinitionItem = {
   accessories: string[];
   /** AUDIT only: separate lists for female / male people; empty = use `accessories`. */
   accessoriesFemale: string[];
-  /** AUDIT only: a woman whose dress code is Saree gets this list; empty = she gets `accessoriesFemale`. */
-  accessoriesFemaleSaree: string[];
   accessoriesMale: string[];
+  /** AUDIT only: one list per dress type, keyed by dress type id. A person with that type is checked
+   *  against its list; a missing or empty one falls back to their gender's list, then `accessories`. */
+  accessoriesByType: Record<string, string[]> | null;
   numberEntryUnit: string | null;
   numberEntryMin: number | null;
   numberEntryMax: number | null;
@@ -124,8 +125,8 @@ export type CreateChecklistDefinitionItemPayload = {
   auditUserIds?: string[];
   accessories?: string[];
   accessoriesFemale?: string[];
-  accessoriesFemaleSaree?: string[];
   accessoriesMale?: string[];
+  accessoriesByType?: Record<string, string[]>;
   numberEntryUnit?: string;
   numberEntryMin?: number;
   numberEntryMax?: number;
@@ -206,8 +207,9 @@ const definitionItemDefaults = withArrayDefaults({
   auditUserIds: arrayField(z.string()),
   accessories: arrayField(z.string()),
   accessoriesFemale: arrayField(z.string()),
-  accessoriesFemaleSaree: arrayField(z.string()),
   accessoriesMale: arrayField(z.string()),
+  // Not an array: a missing or malformed map reads as "no type lists" instead of crashing the builder.
+  accessoriesByType: z.record(z.string(), z.array(z.string())).nullable().catch(null),
   options: arrayField(z.string()),
   signatureLabels: arrayField(z.string()),
   yesActions: arrayField(z.string()),

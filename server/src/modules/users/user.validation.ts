@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { ROLES, GENDERS, DRESS_CODES } from "../../db/schema/core.js"
+import { ROLES, GENDERS } from "../../db/schema/core.js"
 import { objectId } from "../../utils/index.js"
 import { phoneSchema } from "./phone.js"
 
@@ -27,9 +27,9 @@ export const createUserSchema = z.object({
     storeId: objectId.optional(),
     // Picks which uniform checklist an audit gives this person (see ChecklistDefinitionItem).
     gender: z.enum(GENDERS).optional(),
-    // Women only: which dress style an audit checks (null = the usual female list). The service
-    // drops it for anyone who is not female.
-    dressCode: z.enum(DRESS_CODES).nullable().optional(),
+    // Which dress type an audit checks this person against (Admin > Dress types). null = none, so
+    // they get the gender / main list. No gender restriction here: the client filters the picker.
+    dressTypeId: z.string().min(1).max(191).nullable().optional(),
     // Digits only once parsed; "" becomes null (see phone.ts).
     phone: phoneSchema.optional(),
 });

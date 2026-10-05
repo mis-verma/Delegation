@@ -2,6 +2,7 @@ import type { Request, Response } from "express"
 import { checklistInstanceItemSubmissionService } from "./checklistInstanceItemSubmission.service.js"
 import {
     setChecklistInstanceItemSubmissionDoneSchema,
+    setChecklistInstanceItemSubmissionDressTypeSchema,
     updateChecklistInstanceItemSubmissionAccessoriesSchema,
     updateChecklistInstanceItemSubmissionRemarksSchema,
 } from "./checklistInstanceItemSubmission.validation.js"
@@ -22,6 +23,13 @@ export const checklistInstanceItemSubmissionController = {
     updateAccessories: asyncHandler(async (req: Request, res: Response) => {
         const input = updateChecklistInstanceItemSubmissionAccessoriesSchema.parse(req.body)
         const submission = await checklistInstanceItemSubmissionService.updateAccessories(req.params.id, input.accessories, req.user!)
+        res.json({ success: true, data: submission })
+    }),
+
+    // PATCH /checklist-instance-item-submissions/:id/dress-type
+    setDressType: asyncHandler(async (req: Request, res: Response) => {
+        const input = setChecklistInstanceItemSubmissionDressTypeSchema.parse(req.body)
+        const submission = await checklistInstanceItemSubmissionService.setDressType(req.params.id, input.dressTypeId, req.user!)
         res.json({ success: true, data: submission })
     }),
 

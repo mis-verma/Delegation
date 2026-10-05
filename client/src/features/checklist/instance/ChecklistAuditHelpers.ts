@@ -1,4 +1,7 @@
-import type { ChecklistInstanceItemSubmission, ChecklistInstanceItemSubmissionUser } from '../../../api/checklistInstances';
+import type {
+  ChecklistAuditDressTypeOption,
+  ChecklistInstanceItemSubmission,
+} from '../../../api/checklistInstances';
 
 export type AuditStatus = 'new' | 'progress' | 'done' | 'flagged' | 'na';
 
@@ -8,6 +11,8 @@ export interface AuditPerson {
   isMe:   boolean;
   store:  string | null;
   status: AuditStatus;
+  /** What they are wearing for this audit, shown as quiet text in the people list. */
+  dressType: string | null;
 }
 
 // Where one person stands, read off what the server already holds (ticks, photos, remarks). A
@@ -19,10 +24,14 @@ export const auditStatus = (s: ChecklistInstanceItemSubmission): AuditStatus => 
   return started ? 'progress' : 'new';
 };
 
-// The uniform that applies to this person, stated only when it is known. A woman with no dress code
-// set gets the usual female list, a man or an unknown gender gets nothing (never guessed).
-export const uniformLabel = (user: Pick<ChecklistInstanceItemSubmissionUser, 'gender' | 'dressCode'> | null | undefined): string | null => {
-  if (user?.gender !== 'FEMALE') return null;
-  return user.dressCode === 'SAREE' ? 'Saree' : 'Coat, pant and heels';
-};
+// The dress type this person is checked against, stated only when one is set (never guessed).
+export const uniformLabel = (submission: Pick<ChecklistInstanceItemSubmission, 'dressType'> | null | undefined): string | null =>
+  submission?.dressType?.name ?? null;
 
+// Types this person can wear: no gender on the type means anyone; an unknown gender on the person
+// shows every type rather than hiding one they might need.
+export const dressTypeChoices = (
+  options: ChecklistAuditDressTypeOption[] | undefined,
+  gender: 'FEMALE' | 'MALE' | null | undefined,
+): ChecklistAuditDressTypeOption[] =>
+  (options ?? []).filter(o => !o.gender || !gender || o.gender === gender);

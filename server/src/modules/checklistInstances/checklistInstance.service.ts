@@ -9,7 +9,9 @@ import {
     checklistInstanceItemSubmissionAccessories,
     checklistInstanceItemSubmissionImages,
     checklistDefinitions,
+    checklistDefinitionItems,
     users,
+    dressTypes,
     stores,
     departments,
     auditLogs,
@@ -121,9 +123,38 @@ const hydrateInstances = async (instanceRows: (typeof checklistInstances.$inferS
 
     const submissionUserIds = [...new Set(submissions.map((s) => s.userId))]
     const submissionUsers = submissionUserIds.length
-        ? await db.select({ id: users.id, firstName: users.firstName, lastName: users.lastName, storeId: users.storeId, isActive: users.isActive, gender: users.gender, dressCode: users.dressCode }).from(users).where(inArray(users.id, submissionUserIds))
+        ? await db.select({ id: users.id, firstName: users.firstName, lastName: users.lastName, storeId: users.storeId, isActive: users.isActive, gender: users.gender }).from(users).where(inArray(users.id, submissionUserIds))
         : []
     const submissionUserById = new Map(submissionUsers.map((u) => [u.id, u]))
+
+    // Dress types for the audit questions, resolved in two batched reads:
+    //  - each submission's OWN type as { id, name } (what it is checked against today, which may
+    //    differ from the person's profile), and
+    //  - per AUDIT question, the active types the question has a non-empty list for (the picker's
+    //    options), read off the live definition question via definitionItemId.
+    const auditItems = items.filter((i) => i.itemType === "AUDIT")
+    const definitionItemIds = [...new Set(auditItems.map((i) => i.definitionItemId).filter((id): id is string => !!id))]
+    const typeListRows = definitionItemIds.length
+        ? await db.select({ id: checklistDefinitionItems.id, accessoriesByType: checklistDefinitionItems.accessoriesByType }).from(checklistDefinitionItems).where(inArray(checklistDefinitionItems.id, definitionItemIds))
+        : []
+    const typeIdsByDefinitionItem = new Map(typeListRows.map((r) => [
+        r.id,
+        Object.entries(r.accessoriesByType ?? {}).filter(([, list]) => Array.isArray(list) && list.length > 0).map(([typeId]) => typeId),
+    ]))
+    const wantedTypeIds = [...new Set([
+        ...submissions.map((s) => s.dressTypeId).filter((id): id is string => !!id),
+        ...[...typeIdsByDefinitionItem.values()].flat(),
+    ])]
+    const dressTypeRows = wantedTypeIds.length
+        ? await db.select({ id: dressTypes.id, name: dressTypes.name, gender: dressTypes.gender, isActive: dressTypes.isActive }).from(dressTypes).where(inArray(dressTypes.id, wantedTypeIds))
+        : []
+    const dressTypeById = new Map(dressTypeRows.map((t) => [t.id, t]))
+    const dressTypeOptionsFor = (definitionItemId: string | null) =>
+        (definitionItemId ? typeIdsByDefinitionItem.get(definitionItemId) ?? [] : [])
+            .map((typeId) => dressTypeById.get(typeId))
+            .filter((t): t is NonNullable<typeof t> => !!t && t.isActive)
+            .map((t) => ({ id: t.id, name: t.name, gender: t.gender }))
+            .sort((x, y) => x.name.localeCompare(y.name))
 
     const submissionsByItem = new Map<string, any[]>()
     for (const submission of submissions) {
@@ -132,6 +163,10 @@ const hydrateInstances = async (instanceRows: (typeof checklistInstances.$inferS
             // Mirrors the original `.populate({ path: "userId", select: "firstName lastName storeId" })`
             // — same field name, populated in place, only the fields the UI needs.
             userId: submissionUserById.get(submission.userId) ?? null,
+            // What this person is checked against today (their own pick, not the profile's).
+            dressType: submission.dressTypeId && dressTypeById.has(submission.dressTypeId)
+                ? { id: submission.dressTypeId, name: dressTypeById.get(submission.dressTypeId)!.name }
+                : null,
             accessories: (accessoriesBySubmission.get(submission.id) ?? []).map((a) => ({ id: a.id, name: a.name, checked: a.checked })),
             images: submissionImagesBySubmission.get(submission.id) ?? [],
         }
@@ -157,6 +192,8 @@ const hydrateInstances = async (instanceRows: (typeof checklistInstances.$inferS
             completedByName: item.completedBy ? (nameById.get(item.completedBy) ?? null) : null,
             images: imagesByItem.get(item.id) ?? [],
             submissions: submissionsByItem.get(item.id) ?? [],
+            // AUDIT only: the dress types the auditor may pick between (empty = no picker).
+            ...(item.itemType === "AUDIT" ? { dressTypeOptions: dressTypeOptionsFor(item.definitionItemId) } : {}),
         }
         const list = itemsByInstance.get(item.instanceId) ?? []
         list.push(mapped)

@@ -55,6 +55,7 @@ const ReportsPage = lazy(() => import('./features/reports').then(m => ({ default
 const FormerPeoplePage = lazy(() => import('./features/checklist/former').then(m => ({ default: m.FormerPeoplePage })));
 const SystemHealthPage = lazy(() => import('./features/admin/health').then(m => ({ default: m.SystemHealthPage })));
 const AuditLogPage = lazy(() => import('./features/admin/auditLog').then(m => ({ default: m.AuditLogPage })));
+const DressTypesPage = lazy(() => import('./features/admin/dressTypes').then(m => ({ default: m.DressTypesPage })));
 const HolidaysPage = lazy(() => import('./features/admin/holidays').then(m => ({ default: m.HolidaysPage })));
 const PresenceOverview = lazy(() => import('./features/admin/presence').then(m => ({ default: m.PresenceOverview })));
 const SettingsPage = lazy(() => import('./features/admin/SettingsPage').then(m => ({ default: m.SettingsPage })));
@@ -321,6 +322,7 @@ const router = createBrowserRouter([
               { path: '/admin/audit-log', element: <AuditLogPage /> },
               { path: '/admin/system-health', element: <SystemHealthPage /> },
               { path: '/admin/holidays', element: <HolidaysPage /> },
+              { path: '/admin/dress-types', element: <DressTypesPage /> },
               { path: '/admin/checklist-former', element: <FormerPeoplePage /> },
               { path: '/admin/checklist-weekly', element: <ChecklistWeeklyReport /> },
               { path: '/admin/presence', element: <PresenceOverview /> },

@@ -12,6 +12,11 @@ export const updateChecklistInstanceItemSubmissionAccessoriesSchema = z.object({
     accessories: z.array(z.object({ name: z.string().min(1), checked: z.boolean() })),
 })
 
+export const setChecklistInstanceItemSubmissionDressTypeSchema = z.object({
+    // null = "Standard": the person's gender list, then the question's main list.
+    dressTypeId: z.string().min(1).max(191).nullable(),
+})
+
 export const updateChecklistInstanceItemSubmissionRemarksSchema = z.object({
     remarks: z.string().max(2000).nullable(),
 })

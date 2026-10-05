@@ -1,7 +1,7 @@
 import path from "node:path";
 import fs from "node:fs";
 import { db } from "../../config/db.js";
-import { users, departments, stores, refreshTokens, passwordResetTokens, notifications } from "../../db/schema/core.js";
+import { users, departments, stores, dressTypes, refreshTokens, passwordResetTokens, notifications } from "../../db/schema/core.js";
 import { eq, and, or, desc, asc, sql, inArray } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 import { AppError } from "../../utils/AppError.js";
@@ -50,7 +50,7 @@ const publicUserColumns = {
     lastName: users.lastName,
     role: users.role,
     gender: users.gender,
-    dressCode: users.dressCode,
+    dressTypeId: users.dressTypeId,
     departmentId: users.departmentId,
     storeId: users.storeId,
     isActive: users.isActive,
@@ -71,7 +71,7 @@ const getSafeById = async (id: string) => {
 
 // What an audit row records about a person. Never includes the password hash.
 const userSnapshot = (u: {
-    email: string; role: string; isActive: boolean; firstName: string; lastName: string | null; gender: string | null; dressCode: string | null;
+    email: string; role: string; isActive: boolean; firstName: string; lastName: string | null; gender: string | null; dressTypeId: string | null;
     phone: string | null; departmentId: string | null; storeId: string | null; weekOffDays: number[] | null; rank?: number | null;
 }) => ({
     email: u.email,
@@ -80,7 +80,7 @@ const userSnapshot = (u: {
     firstName: u.firstName,
     lastName: u.lastName,
     gender: u.gender,
-    dressCode: u.dressCode,
+    dressTypeId: u.dressTypeId,
     phone: u.phone,
     departmentId: u.departmentId,
     storeId: u.storeId,
@@ -92,7 +92,7 @@ const sameDays = (a: number[] | null | undefined, b: number[] | null | undefined
     JSON.stringify([...(a ?? [])].sort()) === JSON.stringify([...(b ?? [])].sort());
 
 // A department or store id that doesn't exist would otherwise surface as a raw foreign-key error.
-const assertOrgRefs = async (departmentId?: string | null, storeId?: string | null) => {
+const assertOrgRefs = async (departmentId?: string | null, storeId?: string | null, dressTypeId?: string | null) => {
     if (departmentId) {
         const [d] = await db.select({ id: departments.id }).from(departments).where(eq(departments.id, departmentId)).limit(1);
         if (!d) throw AppError.badRequest("That department doesn't exist.");
@@ -100,6 +100,10 @@ const assertOrgRefs = async (departmentId?: string | null, storeId?: string | nu
     if (storeId) {
         const [s] = await db.select({ id: stores.id }).from(stores).where(eq(stores.id, storeId)).limit(1);
         if (!s) throw AppError.badRequest("That store doesn't exist.");
+    }
+    if (dressTypeId) {
+        const [t] = await db.select({ id: dressTypes.id }).from(dressTypes).where(eq(dressTypes.id, dressTypeId)).limit(1);
+        if (!t) throw AppError.badRequest("That dress type doesn't exist.");
     }
 };
 
@@ -173,7 +177,7 @@ export const userService = {
         const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
         if (existing) throw AppError.conflict('Email already registered');
         await assertPhoneAvailable(input.phone);
-        await assertOrgRefs(input.departmentId, input.storeId);
+        await assertOrgRefs(input.departmentId, input.storeId, input.dressTypeId);
 
         const passwordHash = await hashPassword(input.password);
         const rank = deriveDefaultRank(input.role);
@@ -192,7 +196,7 @@ export const userService = {
                 departmentId: input.departmentId ?? null,
                 storeId: input.storeId ?? null,
                 gender: input.gender ?? null,
-                dressCode: input.gender === "FEMALE" ? (input.dressCode ?? null) : null,
+                dressTypeId: input.dressTypeId ?? null,
                 phone: input.phone ?? null,
                 rank,
             });
@@ -246,20 +250,14 @@ export const userService = {
             if (existing) throw AppError.conflict('Email already registered');
         }
         if (input.phone) await assertPhoneAvailable(input.phone, id);
-        await assertOrgRefs(input.departmentId, input.storeId);
+        await assertOrgRefs(input.departmentId, input.storeId, input.dressTypeId);
 
         const set: Partial<typeof users.$inferInsert> = { updatedAt: new Date() };
         if (normalizedEmail !== undefined) set.email = normalizedEmail;
         if (input.firstName !== undefined) set.firstName = input.firstName;
         if (input.lastName !== undefined) set.lastName = input.lastName;
         if (input.gender !== undefined) set.gender = input.gender;
-        // A dress code only means something for a woman: any other (or cleared) gender stores null.
-        const finalGender = input.gender !== undefined ? input.gender : before.gender;
-        if (finalGender !== "FEMALE") {
-            if (before.dressCode !== null) set.dressCode = null;
-        } else if (input.dressCode !== undefined) {
-            set.dressCode = input.dressCode;
-        }
+        if (input.dressTypeId !== undefined) set.dressTypeId = input.dressTypeId;
         if (input.departmentId !== undefined) set.departmentId = input.departmentId;
         if (input.storeId !== undefined) set.storeId = input.storeId;
         if (input.weekOffDays !== undefined) set.weekOffDays = input.weekOffDays;

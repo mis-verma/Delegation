@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import {
   useSetChecklistInstanceItemSubmissionDoneMutation,
   useUpdateChecklistInstanceItemSubmissionAccessoriesMutation,
+  useSetChecklistInstanceItemSubmissionDressTypeMutation,
   useUpdateChecklistInstanceItemSubmissionRemarksMutation,
   useUploadChecklistInstanceItemSubmissionImagesMutation,
   useDeleteChecklistInstanceItemSubmissionImageMutation,
@@ -18,8 +19,8 @@ import { ItemError } from './ItemError';
 import { EvidenceThumb } from './EvidenceThumb';
 import { UploadingHint } from './CaptureButton';
 import { AuditAvatar, AuditPeopleList, AuditPersonPicker, AuditStatusChip } from './ChecklistAuditPeople';
-import { auditStatus, uniformLabel, type AuditPerson } from './ChecklistAuditHelpers';
-import { AuditCaptureButton, AuditSectionHeader, AuditTickRow, AuditUniformChip } from './ChecklistAuditTicks';
+import { auditStatus, dressTypeChoices, uniformLabel, type AuditPerson } from './ChecklistAuditHelpers';
+import { AuditCaptureButton, AuditDressTypePicker, AuditSectionHeader, AuditTickRow, AuditUniformChip } from './ChecklistAuditTicks';
 import { useCanReopen } from './useCanReopen';
 import { formatDateTime } from '../checklistDisplay';
 import type {
@@ -95,6 +96,7 @@ export const ChecklistInstanceItemAuditCard = memo(function ChecklistInstanceIte
     isMe:   !!currentUserId && s.userId?.id === currentUserId,
     store:  storeName(s.userId?.storeId ?? null),
     status: auditStatus(s),
+    dressType: uniformLabel(s),
   }));
 
   return (
@@ -220,6 +222,7 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
   const setDone = useSetChecklistInstanceItemSubmissionDoneMutation(instanceId);
   const updateAccessories = useUpdateChecklistInstanceItemSubmissionAccessoriesMutation(instanceId);
   const updateRemarks = useUpdateChecklistInstanceItemSubmissionRemarksMutation(instanceId);
+  const setDressType = useSetChecklistInstanceItemSubmissionDressTypeMutation(instanceId);
   const uploadImages = useUploadChecklistInstanceItemSubmissionImagesMutation(instanceId);
   const deleteImage = useDeleteChecklistInstanceItemSubmissionImageMutation(instanceId);
   // A submitted person stays submitted: only an admin can reopen their row.
@@ -238,10 +241,16 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
   const [accessoriesDraft, setAccessoriesDraft] = useState(submission.accessories);
 
   const name = personName(submission);
-  const uniform = uniformLabel(submission.userId);
+  const uniform = uniformLabel(submission);
   const status = auditStatus(submission);
   const editable = interactive && !submission.isDone;
   const images = submission.images ?? [];
+  const typeChoices = dressTypeChoices(item.dressTypeOptions, submission.userId?.gender);
+  const typeId = submission.dressType?.id ?? null;
+  const typeSwapping = setDressType.isPending;
+  // The selector replaces the header chip while it can show the current type itself.
+  const showTypePicker = editable && !submission.isNotApplicable && typeChoices.length > 0;
+  const typeShownInPicker = showTypePicker && (typeId === null || typeChoices.some(o => o.id === typeId));
   const qualifying = item.requiresLivePhoto ? images.filter(i => i.captureMethod === 'LIVE').length : images.length;
   const photosNeeded = Math.max(item.requiredImageCount - qualifying, 0);
   const checkedCount = accessoriesDraft.filter(a => a.checked).length;
@@ -253,8 +262,15 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
       onError: () => setAccessoriesDraft(submission.accessories),
     });
   };
+  const pickDressType = (dressTypeId: string | null) => {
+    if (!editable || typeSwapping) return;
+    // The server swaps in the new type's list, all unticked; show it as soon as it lands.
+    setDressType.mutate({ id: submission.id, dressTypeId }, {
+      onSuccess: data => setAccessoriesDraft(data.accessories),
+    });
+  };
   const toggleAccessory = (accessoryName: string) => {
-    if (!editable) return;
+    if (!editable || typeSwapping) return;
     saveAccessories(accessoriesDraft.map(a => (a.name === accessoryName ? { ...a, checked: !a.checked } : a)));
   };
   // Most people pass most checks — tick everything in one tap, then untick whatever's missing.
@@ -329,7 +345,7 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
             {name}{isMe && <span className="font-medium text-text-muted"> (You)</span>}
           </p>
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            {uniform && <AuditUniformChip label={uniform} />}
+            {uniform && !typeShownInPicker && <AuditUniformChip label={uniform} />}
             {storeName && <span className="text-xs text-text-muted truncate">{storeName}</span>}
             {submission.isDone && isNa ? (
               <Badge variant="neutral">
@@ -350,8 +366,20 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
         </div>
       </div>
 
+      {showTypePicker && (
+        <AuditDressTypePicker
+          options={typeChoices}
+          currentId={typeId}
+          pendingId={setDressType.variables?.dressTypeId ?? null}
+          pending={typeSwapping}
+          disabled={updateAccessories.isPending}
+          warn={checkedCount > 0 || images.length > 0}
+          onPick={pickDressType}
+        />
+      )}
+
       {accessoriesDraft.length > 0 && !isNa && (
-        <div className="flex flex-col gap-2">
+        <div className={cn('flex flex-col gap-2 transition-opacity duration-150', typeSwapping && 'opacity-50 pointer-events-none')} aria-busy={typeSwapping}>
           <AuditSectionHeader
             label="What they have"
             meta={`${checkedCount} of ${accessoriesDraft.length} ticked`}

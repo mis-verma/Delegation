@@ -24,9 +24,10 @@ export type ItemDraft = {
   accessories: string[];
   // AUDIT only: separate lists for female / male people (empty = they get `accessories`).
   accessoriesFemale: string[];
-  // AUDIT only: women whose dress code is Saree (empty = they get accessoriesFemale).
-  accessoriesFemaleSaree: string[];
   accessoriesMale: string[];
+  // AUDIT only: one list per added dress type, keyed by dress type id. A key with an empty list is
+  // a type added but not filled in yet; it is dropped on save.
+  accessoriesByType: Record<string, string[]>;
   numberEntryUnit: string;
   numberEntryMin: string;
   numberEntryMax: string;
@@ -61,8 +62,8 @@ export const emptyItemDraft = (): ItemDraft => ({
   auditUserIds: [],
   accessories: [],
   accessoriesFemale: [],
-  accessoriesFemaleSaree: [],
   accessoriesMale: [],
+  accessoriesByType: {},
   numberEntryUnit: '',
   numberEntryMin: '',
   numberEntryMax: '',

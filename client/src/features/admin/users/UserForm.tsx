@@ -16,7 +16,9 @@ import { resolveAvatarUrl } from '../../../lib/uploadsBase';
 import { ApiError } from '../../../api/http';
 import { DepartmentForm } from '../department/DepartmentForm';
 import { StoreForm } from '../store/StoreForm';
-import type { AdminUser, DressCode, Role, UpdateUserPayload } from '../../../api/admin';
+import { DressTypeFormDialog } from '../dressTypes/DressTypeFormDialog';
+import { useDressTypesQuery } from '../dressTypes/hook';
+import type { AdminUser, Role, UpdateUserPayload } from '../../../api/admin';
 import { ROLE_META, ROLE_ORDER, isDepartmentHead } from '../roleBadge';
 import { FormField, FormSection } from './FormField';
 import { PasswordSharedPanel, PasswordVisibilityToggle, ResetPasswordSection } from './PasswordPanels';
@@ -43,8 +45,8 @@ const buildUserSchema = (isEditing: boolean) =>
       // Picks which uniform list an audit checks this person against. '' = not set: they get the
       // question's main list.
       gender: z.enum(['', 'FEMALE', 'MALE']),
-      // Women only. '' = not set: she gets the usual female list (coat, pant and heels).
-      dressCode: z.enum(['', 'WESTERN', 'SAREE']),
+      // An admin-defined dress type. '' = none: they get their gender's list.
+      dressTypeId: z.string(),
       // Weekly day(s) off: no daily checklists for this person on these days.
       weekOffDays: z.array(z.number()).max(6, 'Leave at least one working day'),
     })
@@ -141,14 +143,26 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
       departmentId: user?.departmentId ?? prefill?.departmentId ?? '',
       storeId: user?.storeId ?? '',
       gender: user?.gender ?? '',
-      dressCode: user?.gender === 'FEMALE' ? (user.dressCode ?? '') : '',
+      dressTypeId: user?.dressTypeId ?? '',
       weekOffDays: user?.weekOffDays ? [...user.weekOffDays] : [],
       password: '',
     },
   });
 
-  const [role, departmentId, storeId, passwordValue, genderValue] = useWatch({ control, name: ['role', 'departmentId', 'storeId', 'password', 'gender'] });
+  const [role, departmentId, storeId, passwordValue, genderValue, dressTypeValue] = useWatch({ control, name: ['role', 'departmentId', 'storeId', 'password', 'gender', 'dressTypeId'] });
   const isPending = mutation.isPending || isSubmitting;
+
+  // Dress types that fit the chosen gender (a type for anyone always fits). The one already picked
+  // stays listed even if it was switched off or no longer fits, so the field never shows blank.
+  const { data: dressTypes, isLoading: isDressTypesLoading } = useDressTypesQuery();
+  const dressTypeOptions = useMemo(
+    () =>
+      (dressTypes ?? [])
+        .filter((t) => t.id === dressTypeValue || (t.isActive && (!genderValue || !t.gender || t.gender === genderValue)))
+        .map((t) => ({ value: t.id, label: t.gender ? `${t.name} (${t.gender === 'FEMALE' ? 'Women' : 'Men'})` : t.name })),
+    [dressTypes, genderValue, dressTypeValue],
+  );
+  const [creatingDressType, setCreatingDressType] = useState<string | null>(null);
 
   // Closing from any route (X, Esc, overlay, Cancel) goes through here, so unsaved edits are never
   // lost to a stray click. Nothing to lose once the account exists and only the password panel shows.
@@ -186,8 +200,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
     const departmentPayload = data.departmentId || undefined;
     const storePayload = data.storeId || undefined;
     const phone = data.phone?.trim() || undefined;
-    // Only a woman has a dress code; any other gender saves none.
-    const dressCode: DressCode | null = data.gender === 'FEMALE' && data.dressCode ? data.dressCode : null;
+    const dressTypeId = data.dressTypeId || null;
 
     if (isEditing && user) {
       // Send only what actually changed. The form used to resend everything, so an old phone number
@@ -202,7 +215,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
       if ((departmentPayload ?? null) !== (user.departmentId ?? null)) payload.departmentId = departmentPayload ?? null;
       if ((storePayload ?? null) !== (user.storeId ?? null)) payload.storeId = storePayload ?? null;
       if ((data.gender || null) !== (user.gender ?? null)) payload.gender = data.gender || null;
-      if (dressCode !== (user.dressCode ?? null)) payload.dressCode = dressCode;
+      if (dressTypeId !== (user.dressTypeId ?? null)) payload.dressTypeId = dressTypeId;
       if (JSON.stringify([...data.weekOffDays].sort()) !== JSON.stringify([...(user.weekOffDays ?? [])].sort())) payload.weekOffDays = data.weekOffDays;
 
       if (Object.keys(payload).length === 0) {
@@ -231,7 +244,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
         departmentId: departmentPayload,
         storeId: storePayload,
         gender: data.gender || undefined,
-        dressCode: dressCode ?? undefined,
+        dressTypeId: dressTypeId ?? undefined,
         weekOffDays: data.weekOffDays.length > 0 ? data.weekOffDays : undefined,
       },
       {
@@ -466,7 +479,14 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
                       <Combobox
                         id="gender"
                         value={field.value}
-                        onChange={(value) => field.onChange(value)}
+                        onChange={(value) => {
+                          field.onChange(value);
+                          // A type made for the other gender no longer fits: clear it.
+                          const picked = dressTypes?.find((t) => t.id === getValues('dressTypeId'));
+                          if (picked?.gender && value && picked.gender !== value) {
+                            setValue('dressTypeId', '', { shouldDirty: true });
+                          }
+                        }}
                         placeholder="Not set"
                         emptyOptionLabel="Not set"
                         options={[{ value: 'FEMALE', label: 'Female' }, { value: 'MALE', label: 'Male' }]}
@@ -475,29 +495,30 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
                   />
                 </FormField>
 
-                {genderValue === 'FEMALE' && (
-                  <FormField
-                    htmlFor="dressCode"
-                    label="Dress code (optional)"
-                    icon={Shirt}
-                    hint="Picks which uniform list an audit checks. Not set uses the coat, pant and heels list."
-                  >
-                    <Controller
-                      control={control}
-                      name="dressCode"
-                      render={({ field }) => (
-                        <Combobox
-                          id="dressCode"
-                          value={field.value}
-                          onChange={(value) => field.onChange(value)}
-                          placeholder="Not set"
-                          emptyOptionLabel="Not set"
-                          options={[{ value: 'WESTERN', label: 'Coat, pant and heels' }, { value: 'SAREE', label: 'Saree' }]}
-                        />
-                      )}
-                    />
-                  </FormField>
-                )}
+                <FormField
+                  htmlFor="dressTypeId"
+                  label="Dress type (optional)"
+                  icon={Shirt}
+                  hint="An audit checks them against this type's list. No type uses their gender's list."
+                >
+                  <Controller
+                    control={control}
+                    name="dressTypeId"
+                    render={({ field }) => (
+                      <Combobox
+                        id="dressTypeId"
+                        value={field.value}
+                        onChange={field.onChange}
+                        isLoading={isDressTypesLoading}
+                        placeholder="No type"
+                        emptyOptionLabel="No type"
+                        options={dressTypeOptions}
+                        onCreateNew={(query) => setCreatingDressType(query)}
+                        createNewLabel="Create new type"
+                      />
+                    )}
+                  />
+                </FormField>
 
                 <FormField
                   label="Week off"
@@ -538,6 +559,15 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
 
       {editingStoreId && stores?.find((s) => s.id === editingStoreId) && (
         <StoreForm nested store={stores.find((s) => s.id === editingStoreId)} onClose={() => setEditingStoreId(null)} />
+      )}
+
+      {creatingDressType !== null && (
+        <DressTypeFormDialog
+          nested
+          prefillName={creatingDressType}
+          onClose={() => setCreatingDressType(null)}
+          onCreated={(created) => setValue('dressTypeId', created.id, { shouldValidate: true, shouldDirty: true })}
+        />
       )}
 
       {creatingStore !== null && (

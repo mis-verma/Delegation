@@ -47,9 +47,10 @@ export type ChecklistInstanceItemSubmissionUser = {
   /** false once the person has left (deactivated): their name is shown with "(left)". */
   isActive?: boolean;
   gender?:   'FEMALE' | 'MALE' | null;
-  /** What a woman wears to work (decides her uniform list): null = the usual female list. */
-  dressCode?: 'WESTERN' | 'SAREE' | null;
 };
+
+/** A dress type the checker can pick for one person on one AUDIT question. */
+export type ChecklistAuditDressTypeOption = { id: string; name: string; gender: 'FEMALE' | 'MALE' | null };
 
 export type ChecklistInstanceItemSubmission = {
   id:          string;
@@ -62,6 +63,8 @@ export type ChecklistInstanceItemSubmission = {
   isNotApplicable: boolean;
   completedAt: string | null;
   images:      ChecklistInstanceItemSubmissionImage[];
+  /** What this person is wearing for this audit (their own pick, defaulting to their profile). Null = the usual list. */
+  dressType?:  { id: string; name: string } | null;
 };
 
 export type ChecklistInstanceItem = {
@@ -122,6 +125,8 @@ export type ChecklistInstanceItem = {
   instanceId:         string;
   images:             ChecklistInstanceImage[];
   submissions:        ChecklistInstanceItemSubmission[];
+  /** AUDIT items: dress types that have their own list on this question. Empty/absent = no selector. */
+  dressTypeOptions?:  ChecklistAuditDressTypeOption[];
 };
 
 export type ChecklistInstance = {

@@ -6,12 +6,17 @@ import {
     checklistInstanceItemSubmissionAccessories,
     checklistInstances,
     checklistInstanceAssignees,
+    dressTypes,
+    users,
 } from "../../db/schema/index.js"
 import { and, eq, sql } from "drizzle-orm"
+import { createId } from "@paralleldrive/cuid2"
 import { AppError } from "../../utils/AppError.js"
 import { syncVerificationStatus, assertInstanceOpen, assertInstanceEditable } from "../checklistInstances/checklistInstance.service.js"
 import { assertRunNotMissed } from "../checklistInstances/checklistMissedRun.js"
 import { emitChecklistEvent } from "../../sockets/checklistEvent.js"
+import { auditService } from "../audit/audit.service.js"
+import { accessoriesForPerson, loadAuditListSource, typeHasList } from "../../jobs/checklistInstanceGenerator.job.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { UpdateChecklistInstanceItemSubmissionAccessoriesInput, UpdateChecklistInstanceItemSubmissionRemarksInput } from "./checklistInstanceItemSubmission.validation.js"
 
@@ -111,6 +116,57 @@ export const checklistInstanceItemSubmissionService = {
 
         const rows = await db.select().from(checklistInstanceItemSubmissionAccessories).where(eq(checklistInstanceItemSubmissionAccessories.submissionId, id))
         return { ...submission, accessories: rows }
+    },
+
+    // Picks which dress type this ONE person is checked against today (null = "Standard": their
+    // gender list, then the question's main list). Their tick-list is rebuilt from the right list,
+    // unticked; remarks and photos stay. Only while the person is still open, and only a type the
+    // question actually has a list for.
+    async setDressType(id: string, dressTypeId: string | null, user: AccessTokenPayload) {
+        const { submission, item } = await loadSubmissionAndItem(id)
+        await assertCanAccess(item.instanceId, user)
+        await assertSubmissionRunEditable(item.instanceId, user)
+        if (submission.isDone) throw AppError.badRequest("Reopen this person before changing the type.")
+        if (!item.definitionItemId) throw AppError.badRequest("This audit can't change the type.")
+        const source = await loadAuditListSource(item.definitionItemId)
+        if (!source) throw AppError.badRequest("This audit can't change the type.")
+
+        let type: { id: string; name: string } | null = null
+        if (dressTypeId) {
+            const [row] = await db.select({ id: dressTypes.id, name: dressTypes.name, isActive: dressTypes.isActive }).from(dressTypes).where(eq(dressTypes.id, dressTypeId)).limit(1)
+            if (!row || !row.isActive) throw AppError.badRequest("That dress type doesn't exist or is switched off.")
+            if (!typeHasList(source, dressTypeId)) throw AppError.badRequest("This question has no list for that dress type.")
+            type = { id: row.id, name: row.name }
+        }
+
+        const [person] = await db.select({ gender: users.gender }).from(users).where(eq(users.id, submission.userId)).limit(1)
+        const names = accessoriesForPerson(source, { gender: person?.gender ?? null, dressTypeId: type?.id ?? null })
+
+        const rows = await db.transaction(async (tx) => {
+            await tx.update(checklistInstanceItemSubmissions).set({ dressTypeId: type?.id ?? null, updatedAt: new Date() }).where(eq(checklistInstanceItemSubmissions.id, id))
+            await tx.delete(checklistInstanceItemSubmissionAccessories).where(eq(checklistInstanceItemSubmissionAccessories.submissionId, id))
+            if (names.length) {
+                await tx.insert(checklistInstanceItemSubmissionAccessories).values(names.map((name) => ({ id: createId(), submissionId: id, name, checked: false })))
+            }
+            await auditService.recordInTx(tx, {
+                entityType: "ChecklistInstanceItem",
+                entityId: item.id,
+                action: "UPDATE",
+                actorId: user.sub,
+                before: { submissionId: id, userId: submission.userId, dressTypeId: submission.dressTypeId },
+                after: { submissionId: id, userId: submission.userId, dressTypeId: type?.id ?? null },
+            })
+            return tx.select().from(checklistInstanceItemSubmissionAccessories).where(eq(checklistInstanceItemSubmissionAccessories.submissionId, id))
+        })
+
+        const [instance] = await db.select({ storeId: checklistInstances.storeId }).from(checklistInstances).where(eq(checklistInstances.id, item.instanceId)).limit(1)
+        if (instance) emitChecklistEvent("checklist-instance:updated", { storeId: instance.storeId }, { instanceId: item.instanceId })
+        return {
+            ...submission,
+            dressTypeId: type?.id ?? null,
+            dressType: type,
+            accessories: rows.map((a) => ({ id: a.id, name: a.name, checked: a.checked })),
+        }
     },
 
     async updateRemarks(id: string, remarks: UpdateChecklistInstanceItemSubmissionRemarksInput["remarks"], user: AccessTokenPayload) {

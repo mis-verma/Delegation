@@ -13,7 +13,7 @@ import {
   foreignKey,
 } from 'drizzle-orm/mysql-core';
 import { createId } from '@paralleldrive/cuid2';
-import { users, stores } from './core.js';
+import { users, stores, dressTypes } from './core.js';
 import { CAPTURE_METHODS } from './task.js';
 import { tickets } from './ticket.js';
 import {
@@ -241,6 +241,10 @@ export const checklistInstanceItemSubmissions = mysqlTable(
     // "Can't be checked today" (absent, on leave): counts as submitted so the audit can finish, skips
     // the ticks and photos, and always carries the reason in `remarks`. Only with isDone = true.
     isNotApplicable: boolean('isNotApplicable').notNull().default(false),
+    // Which dress type this person is being checked against today (DressType.id). Stamped from the
+    // person's profile when the run is built (only if that type has a list on the question), and
+    // changeable by whoever fills the audit in. Null = "Standard": the gender list, then the main list.
+    dressTypeId: varchar('dressTypeId', { length: 191 }).references(() => dressTypes.id, { onDelete: 'set null' }),
     completedAt: datetime('completedAt', { mode: 'date' }),
     createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
     updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),

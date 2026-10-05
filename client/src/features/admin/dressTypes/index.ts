@@ -1,0 +1,1 @@
+export { DressTypesPage } from './DressTypesPage';

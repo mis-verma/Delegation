@@ -41,6 +41,9 @@ export function getAdminBreadcrumbs(pathname: string): BreadcrumbTrailItem[] | n
   if (pathname.startsWith('/admin/holidays')) {
     return [DASHBOARD, ADMIN_ROOT, { label: 'Holidays' }];
   }
+  if (pathname.startsWith('/admin/dress-types')) {
+    return [DASHBOARD, ADMIN_ROOT, { label: 'Dress Types' }];
+  }
   if (pathname.startsWith('/admin/checklist-templates')) {
     return [DASHBOARD, ADMIN_ROOT, { label: 'Task Templates' }];
   }

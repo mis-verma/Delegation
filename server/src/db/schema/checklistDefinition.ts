@@ -180,10 +180,10 @@ export const checklistDefinitionItems = mysqlTable(
     // matches their gender (User.gender); when that list is empty, or their gender isn't set, they
     // get the main `accessories` list above.
     accessoriesFemale: json('accessoriesFemale').$type<string[]>(),
-    // A woman whose User.dressCode is SAREE gets this list instead of accessoriesFemale (coat, pant,
-    // heels); when it is empty she falls back to accessoriesFemale.
-    accessoriesFemaleSaree: json('accessoriesFemaleSaree').$type<string[]>(),
     accessoriesMale: json('accessoriesMale').$type<string[]>(),
+    // AUDIT only: a list per dress type (key = DressType id). A person whose User.dressTypeId has a
+    // non-empty list here gets it instead of their gender list; otherwise the gender/main list applies.
+    accessoriesByType: json('accessoriesByType').$type<Record<string, string[]>>(),
     numberEntryUnit: varchar('numberEntryUnit', { length: 191 }),
     numberEntryMin: float('numberEntryMin'),
     numberEntryMax: float('numberEntryMax'),

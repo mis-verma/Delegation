@@ -74,7 +74,9 @@ const PersonRow = ({ person, active, onSelect }: { person: AuditPerson; active: 
       <span className="text-[15px] sm:text-sm font-semibold leading-snug text-text truncate">
         {person.name}{person.isMe && <span className="font-medium text-text-muted"> (You)</span>}
       </span>
-      {person.store && <span className="text-xs text-text-muted truncate">{person.store}</span>}
+      {(person.store || person.dressType) && (
+        <span className="text-xs text-text-muted truncate">{[person.store, person.dressType].filter(Boolean).join(' · ')}</span>
+      )}
     </span>
     <AuditStatusChip status={person.status} />
   </button>

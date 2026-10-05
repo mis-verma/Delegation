@@ -56,6 +56,7 @@ const CHECKLIST_CHILDREN: AdminNavChild[] = [
   { to: '/admin/checklist-compliance', label: 'Checklist Compliance' },
   { to: '/admin/checklist-weekly', label: 'Weekly Report' },
   { to: '/admin/holidays', label: 'Holidays' },
+  { to: '/admin/dress-types', label: 'Dress Types' },
   { to: '/admin/checklist-former', label: 'Former People' },
   { to: '/admin/checklist-templates', label: 'Task Templates' },
 ];

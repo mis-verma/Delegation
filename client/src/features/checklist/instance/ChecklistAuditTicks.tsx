@@ -1,11 +1,70 @@
-import type { ReactNode } from 'react';
-import { Check, Shirt, X, type LucideIcon } from 'lucide-react';
+import { useId, type ReactNode } from 'react';
+import { Check, Loader2, Shirt, X, type LucideIcon } from 'lucide-react';
 import { IconChip } from '../../../components';
 import { cn } from '@/lib/utils';
 
 export const AuditUniformChip = ({ label }: { label: string }) => (
   <IconChip icon={Shirt} label={label} title="Uniform that applies" />
 );
+
+interface AuditDressTypePickerProps {
+  /** Types this person can wear, already filtered by gender. */
+  options:   { id: string; name: string }[];
+  /** The type picked for this person; null = the usual list. */
+  currentId: string | null;
+  /** Id being saved right now (null = "Usual"); only meaningful while `pending`. */
+  pendingId: string | null;
+  pending:   boolean;
+  /** Stops all chips (e.g. while ticks are still saving). */
+  disabled?: boolean;
+  /** Shows the one-line "this clears your ticks" hint. */
+  warn:      boolean;
+  onPick:    (id: string | null) => void;
+}
+
+// "What are they wearing?" as a wrapping set of single-choice chips: Usual plus one per type. A
+// group of aria-pressed buttons rather than a radiogroup, so arrow keys never switch the type (and
+// clear the ticks) by accident: each chip is its own tab stop and needs Enter or Space.
+export const AuditDressTypePicker = ({ options, currentId, pendingId, pending, disabled, warn, onPick }: AuditDressTypePickerProps) => {
+  const labelId = useId();
+  const chips: { id: string | null; name: string }[] = [{ id: null, name: 'Usual' }, ...options];
+  return (
+    <div className="flex flex-col gap-2">
+      <p id={labelId} className="text-[13px] sm:text-xs font-semibold text-text-secondary">What are they wearing?</p>
+      <div role="group" aria-labelledby={labelId} aria-busy={pending} className="flex flex-wrap gap-2">
+        {chips.map(chip => {
+          const active = chip.id === currentId;
+          const saving = pending && chip.id === pendingId;
+          return (
+            <button
+              key={chip.id ?? 'usual'}
+              type="button"
+              aria-pressed={active}
+              disabled={disabled || (pending && !saving)}
+              onClick={() => { if (!active && !pending) onPick(chip.id); }}
+              className={cn(
+                'inline-flex items-center justify-center gap-1.5 h-11 sm:h-9 px-3.5 sm:px-3 rounded-lg border text-[15px] sm:text-sm font-medium select-none',
+                'cursor-pointer outline-none transition-[background-color,border-color,color,opacity] duration-150 ease-out [-webkit-tap-highlight-color:transparent]',
+                'focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:cursor-not-allowed disabled:opacity-50',
+                active || saving
+                  ? 'border-primary-600 dark:border-primary-400 bg-primary-500/10 dark:bg-primary-500/15 text-primary-900 dark:text-primary-200'
+                  : 'border-border/60 bg-surface text-text-secondary hover:border-border-hover hover:bg-surface-hover',
+              )}
+            >
+              {saving ? (
+                <Loader2 className="size-4 sm:size-3.5 animate-spin motion-reduce:animate-none" aria-hidden />
+              ) : active ? (
+                <Check className="size-4 sm:size-3.5" strokeWidth={3} aria-hidden />
+              ) : null}
+              {chip.name}
+            </button>
+          );
+        })}
+      </div>
+      {warn && <p className="text-xs text-text-muted">Changing the type clears this person's ticks.</p>}
+    </div>
+  );
+};
 
 // Label on the left, optional count beside it, optional action on the right. The fixed min height
 // keeps headers with and without an action level.

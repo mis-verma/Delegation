@@ -27,10 +27,6 @@ export const ROLES = ['ADMIN', 'APPROVAL_MANAGER', 'SENIOR', 'MANAGER', 'AGENT',
 // separate female and male list). Null = not set: that person gets the question's main list.
 export const GENDERS = ['FEMALE', 'MALE'] as const;
 export type Gender = (typeof GENDERS)[number];
-// What a woman wears to work, which decides which uniform checklist an audit gives her. Empty (null)
-// means the question's normal female list. Only meaningful for gender FEMALE.
-export const DRESS_CODES = ['WESTERN', 'SAREE'] as const;
-export type DressCode = (typeof DRESS_CODES)[number];
 export type Role = (typeof ROLES)[number];
 export const EVENT_TYPES = ['DEADLINE', 'ANNOUNCEMENT', 'BROADCAST'] as const;
 
@@ -89,6 +85,26 @@ export const holidays = mysqlTable(
 );
 
 // ---------------------------------------------------------------------------
+// DressType — a named way of dressing for work ("Saree", "Coat, pant and heels", "Formal shirt").
+// Admin-defined, any number. An AUDIT question can carry a tick-list per type
+// (ChecklistDefinitionItem.accessoriesByType, keyed by this id) and a person's User.dressTypeId
+// picks which one they are checked against. `gender` only narrows the picker on the client
+// (null = offered to anyone); the server stores whatever it is sent.
+// ---------------------------------------------------------------------------
+export const dressTypes = mysqlTable(
+  'DressType',
+  {
+    id: varchar('id', { length: 191 }).primaryKey().$defaultFn(() => createId()),
+    name: varchar('name', { length: 80 }).notNull(),
+    gender: mysqlEnum('gender', GENDERS),
+    isActive: boolean('isActive').notNull().default(true),
+    createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
+    updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
+  },
+  (table) => [uniqueIndex('DressType_name_key').on(table.name)],
+);
+
+// ---------------------------------------------------------------------------
 // Department — org unit, optionally scoped to a "home" store
 // ---------------------------------------------------------------------------
 export const departments = mysqlTable(
@@ -123,7 +139,9 @@ export const users = mysqlTable(
     lastName: varchar('lastName', { length: 191 }),
     role: mysqlEnum('role', ROLES).notNull().default('USER'),
     gender: mysqlEnum('gender', GENDERS),
-    dressCode: mysqlEnum('dressCode', DRESS_CODES),
+    // What this person wears to work (Admin > Dress types). Decides which tick-list an audit gives
+    // them; null = fall back to the gender list. Set to null if the type is deleted.
+    dressTypeId: varchar('dressTypeId', { length: 191 }).references(() => dressTypes.id, { onDelete: 'set null' }),
     departmentId: varchar('departmentId', { length: 191 }).references(() => departments.id),
     storeId: varchar('storeId', { length: 191 }).references(() => stores.id),
     isActive: boolean('isActive').notNull().default(true),

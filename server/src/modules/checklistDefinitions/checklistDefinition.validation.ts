@@ -19,6 +19,21 @@ const timeOfDay = z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Expected HH:m
 const dedupedIdArray = z.array(z.string().min(1)).max(500, "Too many ids").transform((ids) => [...new Set(ids)])
 const uniqueIdArray = (message: string) => dedupedIdArray.pipe(z.array(z.string()).min(1, message))
 
+// AUDIT only: one tick-list per dress type (key = DressType id). Each entry is trimmed, blank ones
+// dropped and repeats removed; a type left with no entries is dropped altogether (it would fall back
+// to the gender list anyway). Empty / missing -> null.
+const accessoryName = z.string().max(191, "Keep each item under 192 characters").transform((v) => v.trim())
+const accessoriesByTypeSchema = z
+    .record(
+        z.string().min(1).max(191),
+        z.array(accessoryName).max(40, "At most 40 items per dress type").transform((names) => [...new Set(names.filter((n) => n !== ""))]),
+    )
+    .refine((m) => Object.keys(m).length <= 12, "At most 12 dress types per question")
+    .transform((m) => {
+        const kept = Object.entries(m).filter(([, names]) => names.length > 0)
+        return kept.length ? Object.fromEntries(kept) : null
+    })
+
 const definitionItemShape = z.object({
     // The builder sends back the id of every question it loaded. On an update the service keeps that
     // id (when it really belongs to this checklist) so today's runs stay linked to their question;
@@ -39,10 +54,10 @@ const definitionItemShape = z.object({
     // Nullable: a stored AUDIT item with no accessories comes back as null, and the builder sends
     // it straight back on save — rejecting null made every such checklist impossible to re-save.
     accessories: z.array(z.string().min(1)).nullable().optional().transform((v) => v ?? undefined),
-    // AUDIT only: a separate list for female / female in a saree / male people (empty or missing = use `accessories`).
+    // AUDIT only: a separate list for female / male people (empty or missing = use `accessories`).
     accessoriesFemale: z.array(z.string().min(1)).nullable().optional().transform((v) => v ?? undefined),
-    accessoriesFemaleSaree: z.array(z.string().min(1)).nullable().optional().transform((v) => v ?? undefined),
     accessoriesMale: z.array(z.string().min(1)).nullable().optional().transform((v) => v ?? undefined),
+    accessoriesByType: accessoriesByTypeSchema.nullable().optional().transform((v) => v ?? undefined),
     numberEntryUnit: z.string().trim().min(1).max(191).nullable().optional(),
     numberEntryMin: z.number().nullable().optional(),
     numberEntryMax: z.number().nullable().optional(),

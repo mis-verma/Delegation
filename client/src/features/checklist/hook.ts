@@ -453,7 +453,33 @@ export const useUpdateChecklistInstanceItemSubmissionAccessoriesMutation = (inst
     errorFallback: "Couldn't update accessories",
   });
 
-export const useUpdateChecklistInstanceItemSubmissionRemarksMutation = (instanceId: string) =>
+// Switches what one person is wearing. The server swaps their accessory rows for the new type's
+// list (all unticked), so the cached submission is patched from the response right away; the
+// refetch after it just confirms. Errors toast the server's plain-text reason.
+export const useSetChecklistInstanceItemSubmissionDressTypeMutation = (instanceId: string) => {
+  const queryClient = useQueryClient();
+  const instanceKey = KEYS.instanceDetail(instanceId);
+  return useMutation({
+    mutationFn: ({ id, dressTypeId }: { id: string; dressTypeId: string | null }) =>
+      checklistInstanceItemSubmissionApi.setDressType(id, dressTypeId).then(r => r.data),
+    onSuccess: (data, { id }) => {
+      queryClient.setQueryData<ChecklistInstance>(instanceKey, (current) => current && ({
+        ...current,
+        items: current.items.map(item => (item.submissions?.some(s => s.id === id)
+          ? {
+              ...item,
+              submissions: item.submissions.map(s =>
+                s.id === id ? { ...s, dressType: data.dressType ?? null, accessories: data.accessories } : s),
+            }
+          : item)),
+      }));
+      queryClient.invalidateQueries({ queryKey: instanceKey });
+    },
+    onError: (err) => toast.error(errorMessage(err, "Couldn't change the dress type")),
+  });
+};
+
+export const useUpdateChecklistInstanceItemSubmissionRemarksMutation =(instanceId: string) =>
   useEntityMutation({
     mutationFn: ({ id, remarks }: { id: string; remarks: string | null }) =>
       checklistInstanceItemSubmissionApi.updateRemarks(id, remarks).then(r => r.data),

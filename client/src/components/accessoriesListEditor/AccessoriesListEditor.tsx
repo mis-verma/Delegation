@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent } from 'react';
+import { useState, type KeyboardEvent, type ReactNode } from 'react';
 import { Plus, X } from 'lucide-react';
 
 interface AccessoriesListEditorProps {
@@ -6,6 +6,8 @@ interface AccessoriesListEditorProps {
   placeholder?: string;
   accessories:  string[];
   onChange:     (accessories: string[]) => void;
+  /** Small control shown on the right of the label row (e.g. a "Copy items from" menu). */
+  labelAction?: ReactNode;
 }
 
 // An editable list of short named entries — the options of a choice question, or the things an
@@ -16,6 +18,7 @@ export const AccessoriesListEditor = ({
   placeholder = 'Type and press Enter',
   accessories,
   onChange,
+  labelAction,
 }: AccessoriesListEditorProps) => {
   const [draft, setDraft] = useState('');
   const trimmed = draft.trim();
@@ -40,7 +43,14 @@ export const AccessoriesListEditor = ({
 
   return (
     <div className="flex flex-col gap-1.5 w-full">
-      <span className="text-[11px] font-display font-medium text-text-muted">{label}</span>
+      {labelAction ? (
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[11px] font-display font-medium text-text-muted">{label}</span>
+          {labelAction}
+        </div>
+      ) : (
+        <span className="text-[11px] font-display font-medium text-text-muted">{label}</span>
+      )}
       <div className="flex flex-wrap items-center gap-1.5 min-h-10 p-1.5 rounded-xl border border-border bg-surface transition-colors duration-150 focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-500/20">
         {accessories.map((name) => (
           <span
