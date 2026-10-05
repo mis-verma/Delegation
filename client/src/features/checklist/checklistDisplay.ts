@@ -135,6 +135,21 @@ export const inverseRateBarClass = (rate: number) => {
   return 'bg-danger';
 };
 
+// Same bands as rateToneClass/inverseRateToneClass, but for SMALL (12-14px) text: the amber
+// token (#f59e0b) is under 3:1 on a white card, so the middle band falls back to the secondary
+// text colour there. Large numbers and bars keep the amber versions above.
+export const smallRateToneClass = (rate: number) => {
+  if (rate >= 80) return 'text-success';
+  if (rate >= 50) return 'text-text-secondary';
+  return 'text-danger';
+};
+
+export const smallInverseRateToneClass = (rate: number) => {
+  if (rate <= 20) return 'text-success';
+  if (rate <= 50) return 'text-text-secondary';
+  return 'text-danger';
+};
+
 // A single instance's own progress bar/text should read "on track" vs. "actually a problem" —
 // which is about the deadline, not the raw fill%. Complete is always success; overdue-and-not-
 // complete is the only case that should read as danger; everything else (partially filled, still
@@ -166,6 +181,16 @@ type InstanceWindow = {
 // value as the server's CHECKLIST_TIMEZONE_OFFSET_MINUTES default. Without this every opening
 // gate and deadline landed 5½ hours late ("opens 09:00" really opened at 14:30).
 const ORG_TZ_OFFSET_MS = 330 * 60_000;
+
+// The org-local (India) calendar day of an instant, as "YYYY-MM-DD" — same day maths the server's
+// generator uses, so "starts after today" reads the same on every checklist screen.
+export const orgDayKey = (ms: number): string => new Date(ms + ORG_TZ_OFFSET_MS).toISOString().slice(0, 10);
+
+// Weekday (0 = Sunday) of the org-local day an instant falls on.
+export const orgWeekday = (ms: number = Date.now()): number => new Date(ms + ORG_TZ_OFFSET_MS).getUTCDay();
+
+// "1 store" / "3 stores".
+export const plural = (n: number, one: string): string => `${n} ${one}${n === 1 ? '' : 's'}`;
 
 // Today's periodStart bound, as the `from`/`to` filter (checklistInstance.service.ts's
 // instanceConditions) expects it: an ISO string matching periodStart's own UTC-midnight-labeled

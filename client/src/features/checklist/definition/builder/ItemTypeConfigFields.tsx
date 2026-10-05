@@ -1,10 +1,12 @@
-import type { ReactNode } from 'react';
-import { Video, MapPin, Info, Star, X } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { Video, MapPin, Info, Star, X, AlertTriangle } from 'lucide-react';
 import { AccessoriesListEditor, AddChip, Button, Input, Switch, ToggleChip } from '../../../../components';
 import { AuditUniformLists } from './AuditUniformLists';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserBulkPicker } from '../../UserBulkPicker';
 import { ConditionalLogicPanel } from './ConditionalLogicPanel';
+import { HiddenPeopleNotice } from './HiddenPeopleNotice';
+import { peopleCount, splitByVisible } from './useStorePeople';
 import type { ChecklistItemType } from '../../../../api/checklistDefinitions';
 import type { ItemDraft } from '../ChecklistDefinitionItemDraftRow';
 
@@ -13,6 +15,9 @@ export interface ItemTypeFieldsProps {
   onChange: (patch: Partial<ItemDraft>) => void;
   /** Every store this checklist targets, so an auditor can come from any of them. */
   storeIds?: string[];
+  /** Active people of the checklist's stores. Picked auditors outside it are flagged and left out
+   *  of the count. Omit when there is nothing to compare against (the add-question pop-up). */
+  validPersonIds?: ReadonlySet<string> | null;
 }
 
 // ─── Shared field primitives ────────────────────────────────────────────────────────────────
@@ -60,6 +65,7 @@ const PhotoCountFields = ({ draft, onChange, noun }: ItemTypeFieldsProps & { nou
         className={INPUT}
         type="number"
         inputMode="numeric"
+        step={1}
         min={noun === 'videos' ? 1 : 0}
         value={draft.requiredImageCount}
         onChange={(e) => onChange({ requiredImageCount: e.target.value })}
@@ -72,6 +78,7 @@ const PhotoCountFields = ({ draft, onChange, noun }: ItemTypeFieldsProps & { nou
         className={INPUT}
         type="number"
         inputMode="numeric"
+        step={1}
         min={0}
         value={draft.maxImageCount}
         onChange={(e) => onChange({ maxImageCount: e.target.value })}
@@ -107,31 +114,50 @@ const VideoFields = (props: ItemTypeFieldsProps) => (
   </div>
 );
 
-const AuditFields = ({ draft, onChange, storeIds }: ItemTypeFieldsProps) => (
+const hasNoAuditList = (d: ItemDraft) =>
+  d.accessories.length === 0 && d.accessoriesFemale.length === 0 && d.accessoriesMale.length === 0
+  && Object.values(d.accessoriesByType).every((list) => list.length === 0);
+
+const AuditFields = ({ draft, onChange, storeIds, validPersonIds }: ItemTypeFieldsProps) => {
+  const { shown, hidden } = splitByVisible(draft.auditUserIds, validPersonIds ?? null);
+  return (
   <div className="flex flex-col gap-4">
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between gap-2">
         <span className={LABEL}>Who gets audited?</span>
-        {draft.auditUserIds.length > 0 && (
+        {shown.length > 0 && (
           <span className="text-[11px] font-display font-medium text-text-muted">
-            {draft.auditUserIds.length} {draft.auditUserIds.length === 1 ? 'person' : 'people'}
+            {peopleCount(shown.length)}
           </span>
         )}
       </div>
+      {hidden.length > 0 && (
+        <HiddenPeopleNotice
+          message={`${peopleCount(hidden.length)} ${hidden.length === 1 ? 'is' : 'are'} not in the selected stores.`}
+          onRemove={() => onChange({ auditUserIds: shown })}
+        />
+      )}
       {/* Same bulk-pick UI as the Assign step: a real-world audit (e.g. a uniform/ID check) often
           covers a whole team, not one or two people picked by hand. Whoever's assigned to run this
           checklist works through everyone picked here themselves; this isn't a list of separate
           self-reporters. */}
       <UserBulkPicker
         storeIds={storeIds ?? []}
-        selected={draft.auditUserIds}
-        onChange={(ids) => onChange({ auditUserIds: ids })}
+        selected={shown}
+        onChange={(ids) => onChange({ auditUserIds: [...hidden, ...ids] })}
         everyoneLabel="Select everyone at this store"
       />
     </div>
     <AuditUniformLists draft={draft} onChange={onChange} />
+    {hasNoAuditList(draft) && (
+      <p className="flex items-center gap-1.5 text-xs font-display font-medium text-warning">
+        <AlertTriangle size={13} className="shrink-0" aria-hidden />
+        Nobody has anything to tick yet.
+      </p>
+    )}
   </div>
-);
+  );
+};
 
 const NumberFields = ({ draft, onChange }: ItemTypeFieldsProps) => {
   const isCash = draft.itemType === 'CASH_TALLY';
@@ -222,12 +248,15 @@ const RatingFields = ({ draft, onChange }: ItemTypeFieldsProps) => (
 
 const GpsFields = ({ draft, onChange }: ItemTypeFieldsProps) => {
   const hasTarget = draft.gpsTargetLat.trim() !== '' || draft.gpsTargetLng.trim() !== '' || draft.gpsRadiusMeters.trim() !== '';
-  if (!hasTarget) {
+  // Stays open while the three fields are all empty mid-edit (the radius backspaced out, say);
+  // only "Remove spot" closes it.
+  const [open, setOpen] = useState(hasTarget);
+  if (!hasTarget && !open) {
     return (
       <div className="flex flex-col gap-2">
         <Note icon={MapPin}>Records where staff are when they answer.</Note>
         <div className="w-fit">
-          <AddChip onClick={() => onChange({ gpsRadiusMeters: '100' })}>Only accept near a set spot</AddChip>
+          <AddChip onClick={() => { setOpen(true); onChange({ gpsRadiusMeters: '100' }); }}>Only accept near a set spot</AddChip>
         </div>
       </div>
     );
@@ -277,8 +306,8 @@ const GpsFields = ({ draft, onChange }: ItemTypeFieldsProps) => {
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => onChange({ gpsTargetLat: '', gpsTargetLng: '', gpsRadiusMeters: '' })}
-          className="self-end col-span-2 sm:col-span-1 hover:text-danger hover:bg-danger/10"
+          onClick={() => { setOpen(false); onChange({ gpsTargetLat: '', gpsTargetLng: '', gpsRadiusMeters: '' }); }}
+          className="h-11 sm:h-9 pointer-coarse:h-11 self-end col-span-2 sm:col-span-1 hover:text-danger hover:bg-danger/10"
         >
           <X size={13} /> Remove spot
         </Button>
@@ -418,13 +447,19 @@ const FIELDS_BY_TYPE: Partial<Record<ChecklistItemType, FieldRenderer>> = {
 
 // Any question can be marked critical: it counts double in the compliance %, and a bad answer is
 // flagged to the reviewer.
+// Types that take a good-answer rule (mirrors the server's SCORABLE_TYPES). The rest are never
+// scored, so a critical flag there only matters once a reviewer sends the question back.
+const SCORABLE_TYPES: ChecklistItemType[] = ['YES_NO', 'PASS_FAIL', 'MULTIPLE_CHOICE', 'DROPDOWN', 'NUMBER_ENTRY', 'RATING'];
+
 const CriticalField = ({ draft, onChange }: ItemTypeFieldsProps) => (
   <SwitchField
     id={fid(draft, 'critical')}
     checked={draft.isCritical}
     onChange={(v) => onChange({ isCritical: v })}
     label="Critical question"
-    hint="A bad answer counts double against compliance and is flagged to the reviewer"
+    hint={SCORABLE_TYPES.includes(draft.itemType)
+      ? 'A bad answer counts double against compliance and is flagged to the reviewer'
+      : 'Counts double if a reviewer sends it back'}
   />
 );
 
@@ -436,20 +471,27 @@ export const ItemTypeConfigFields = (props: ItemTypeFieldsProps) => {
 // The exports below are colocated with the component like ui/badge.tsx's own badgeVariants export;
 // only affects Fast Refresh granularity (a full reload instead of a hot-swap when this file
 // changes), not runtime correctness.
-const PHOTO_TYPES: ItemDraft['itemType'][] = ['STANDARD', 'VIDEO_UPLOAD', 'AUDIT'];
+// The types that show photo/video counters. An Audit question keeps its own rule (a checked person
+// always needs at least one photo, enforced by the server), so it has no setting here.
+const PHOTO_TYPES: ItemDraft['itemType'][] = ['STANDARD', 'VIDEO_UPLOAD'];
 const num = (v: string) => (v.trim() === '' ? null : Number(v));
 
 // What's wrong with this question, in words an admin can act on, or null when it's ready. Mirrors
 // the server's zod rules (checklistDefinition.validation.ts) so a bad setting is caught on the
 // question itself instead of as a generic error at the final Save.
 // eslint-disable-next-line react-refresh/only-export-components
-export const itemDraftProblem = (draft: ItemDraft): string | null => {
+export const itemDraftProblem = (draft: ItemDraft, validPersonIds?: ReadonlySet<string> | null): string | null => {
   if (draft.label.trim().length > 191) return 'Keep the question under 191 characters.';
-  if (draft.itemType === 'AUDIT' && draft.auditUserIds.length === 0) return 'Pick at least one person to audit.';
+  if (draft.itemType === 'AUDIT' && splitByVisible(draft.auditUserIds, validPersonIds ?? null).shown.length === 0) {
+    return draft.auditUserIds.length > 0 ? 'Pick at least one person from the selected stores to audit.' : 'Pick at least one person to audit.';
+  }
   if ((draft.itemType === 'MULTIPLE_CHOICE' || draft.itemType === 'DROPDOWN') && draft.options.length < 2) return 'Add at least two options.';
   if (PHOTO_TYPES.includes(draft.itemType)) {
     const min = num(draft.requiredImageCount) ?? 0;
     const max = num(draft.maxImageCount);
+    const noun = draft.itemType === 'VIDEO_UPLOAD' ? 'video' : 'photo';
+    if (!Number.isInteger(min) || min < 0) return `The minimum ${noun} count must be a whole number, 0 or more.`;
+    if (max != null && (!Number.isInteger(max) || max < 0)) return `The maximum ${noun} count must be a whole number, 0 or more.`;
     if (draft.itemType === 'VIDEO_UPLOAD' && min < 1) return 'A video question needs at least 1 video.';
     if (max != null && min > max) return "Minimum can't be more than the maximum, or staff could never finish it.";
   }
@@ -462,6 +504,19 @@ export const itemDraftProblem = (draft: ItemDraft): string | null => {
     const min = num(draft.acceptableMin);
     const max = num(draft.acceptableMax);
     if (min != null && max != null && min > max) return "The lowest good answer can't be more than the highest.";
+    if (draft.itemType === 'RATING') {
+      const scale = num(draft.ratingScale);
+      if (scale != null && (!Number.isInteger(scale) || scale < 2 || scale > 10)) return 'The rating scale must be a whole number from 2 to 10.';
+      if (scale != null && ((min != null && (min < 1 || min > scale)) || (max != null && (max < 1 || max > scale)))) {
+        return `Good answers must be between 1 and ${scale} stars.`;
+      }
+    } else {
+      const lo = num(draft.numberEntryMin);
+      const hi = num(draft.numberEntryMax);
+      if (lo != null && hi != null && ((min != null && (min < lo || min > hi)) || (max != null && (max < lo || max > hi)))) {
+        return `Good answers must be between ${lo} and ${hi}, the range staff can enter.`;
+      }
+    }
   }
   if (draft.itemType === 'CASH_TALLY' && (num(draft.cashExpectedAmount) ?? 0) < 0) return "Expected amount can't be negative.";
   if (draft.itemType === 'GPS') {
@@ -479,7 +534,7 @@ export const itemDraftProblem = (draft: ItemDraft): string | null => {
 };
 
 // eslint-disable-next-line react-refresh/only-export-components
-export const isItemDraftComplete = (draft: ItemDraft): boolean => itemDraftProblem(draft) === null;
+export const isItemDraftComplete = (draft: ItemDraft, validPersonIds?: ReadonlySet<string> | null): boolean => itemDraftProblem(draft, validPersonIds) === null;
 
 // Switching an item's type used to change only `itemType`, carrying every other setting along,
 // e.g. a Photo item switched to Text box still required 1 photo, with no upload button shown to
@@ -487,6 +542,7 @@ export const isItemDraftComplete = (draft: ItemDraft): boolean => itemDraftProbl
 // eslint-disable-next-line react-refresh/only-export-components
 export const patchForTypeSwitch = (draft: ItemDraft, itemType: ItemDraft['itemType']): Partial<ItemDraft> => {
   const patch: Partial<ItemDraft> = { itemType };
+  // Audit is not a photo type here (it has no counters), so switching to it clears them too.
   if (!PHOTO_TYPES.includes(itemType)) {
     patch.requiredImageCount = '0';
     patch.maxImageCount = '';

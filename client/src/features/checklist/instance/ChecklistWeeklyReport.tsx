@@ -4,7 +4,8 @@ import { CalendarCheck2, CalendarOff, Check, Clock, Minus, SearchX, X } from 'lu
 import { cn } from '@/lib/utils';
 import { Combobox, EmptyState, InlineError, PageHeader, PANEL_CLASS, PeriodStepper, Skeleton } from '../../../components';
 import { useStoresQuery, useWeeklyReportQuery } from '../hook';
-import { rateToneClass, todayPeriodBoundIso } from '../checklistDisplay';
+import { rateToneClass } from '../checklistDisplay';
+import { useOrgToday } from '../useOrgToday';
 import type { WeeklyCell, WeeklyCellState, WeeklyReport } from '../../../api/checklistInstances';
 
 type WeeklyReportRow = WeeklyReport['rows'][number];
@@ -58,7 +59,7 @@ const Cell = memo(({ cell, name }: { cell: WeeklyCell; name: string }) => {
 
   if (!cell.runId) {
     return (
-      <span className={cn(CELL_BOX, 'text-text-light')} title={`${shortDate(cell.date)}: ${s.label}`} aria-label={label}>
+      <span role="img" className={cn(CELL_BOX, 'text-text-light')} title={`${shortDate(cell.date)}: ${s.label}`} aria-label={label}>
         {cell.state === 'holiday' ? <Ring percent={0} tone={s.tone} dashed><CalendarOff size={12} /></Ring> : <Minus size={14} aria-hidden />}
       </span>
     );
@@ -134,7 +135,8 @@ const ReportSkeleton = () => (
 );
 
 export const ChecklistWeeklyReport = () => {
-  const today = useMemo(() => todayPeriodBoundIso().slice(0, 10), []);
+  // Kept fresh: a tab left open past midnight rolls over instead of highlighting yesterday.
+  const today = useOrgToday();
   const thisMonday = useMemo(() => mondayOf(today), [today]);
   const [weekStart, setWeekStart] = useState(thisMonday);
   const [storeId, setStoreId] = useState('');
@@ -147,6 +149,7 @@ export const ChecklistWeeklyReport = () => {
   const goToday = useCallback(() => setWeekStart(thisMonday), [thisMonday]);
 
   const rows = data?.rows;
+  const holidayDays = useMemo(() => (data ? data.days.filter(d => data.holidays[d]) : []), [data]);
   const summary = data?.summary;
   const range = `${shortDate(weekStart)} to ${shortDate(addDays(weekStart, 6))}, ${addDays(weekStart, 6).slice(0, 4)}`;
   const summaryTiles = useMemo(() => summary && [
@@ -164,7 +167,7 @@ export const ChecklistWeeklyReport = () => {
       : undefined;
 
   return (
-    <div className="flex flex-col gap-5 w-full max-w-5xl mx-auto">
+    <div className="flex flex-col gap-5 w-full">
       <PageHeader icon={CalendarCheck2} title="Weekly Report" subtitle="Who filled their daily checklists, day by day." />
 
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -212,9 +215,14 @@ export const ChecklistWeeklyReport = () => {
               ))}
             </dl>
           )}
+          {summary && summary.due === 0 && (
+            <p className="text-xs font-display text-text-muted">Nothing was due this week.</p>
+          )}
 
-          <div className={cn(PANEL_CLASS, 'overflow-x-auto')}>
+          {/* A scroll area has to be reachable and named for keyboard and screen-reader users. */}
+          <div role="region" aria-label="Weekly fill matrix, scrolls sideways" tabIndex={0} className={cn(PANEL_CLASS, 'overflow-x-auto outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40')}>
             <table className="w-full border-collapse text-left">
+              <caption className="sr-only">Daily checklist fill status, week of {range}</caption>
               <thead>
                 <tr className="border-b border-border">
                   <th scope="col" className="sticky left-0 z-10 bg-surface px-4 py-3 text-xs font-display font-semibold text-text-secondary min-w-48">Checklist</th>
@@ -235,6 +243,12 @@ export const ChecklistWeeklyReport = () => {
               </tbody>
             </table>
           </div>
+
+          {holidayDays.length > 0 && (
+            <p className="text-xs font-display text-text-muted">
+              Holiday: {holidayDays.map(d => `${shortDate(d)}, ${data.holidays[d]}`).join(' · ')}
+            </p>
+          )}
 
           <ul className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-text-muted font-display" aria-label="Legend">
             {(['done', 'late', 'missed', 'open', 'holiday'] as WeeklyCellState[]).map(k => {

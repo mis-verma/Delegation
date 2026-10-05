@@ -36,6 +36,11 @@ const DressTypeRow = memo(({ type, busy, onToggleActive, onEdit, onDelete }: Row
         <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
           <IconChip icon={false} label={type.gender ? GENDER_LABEL[type.gender] : 'Anyone'} />
           <span className="text-xs font-display text-text-muted tabular-nums">{peopleText(type.peopleCount)}</span>
+          {type.auditQuestionCount > 0 && (
+            <span className="text-xs font-display text-text-muted tabular-nums">
+              {type.auditQuestionCount} audit {type.auditQuestionCount === 1 ? 'question' : 'questions'}
+            </span>
+          )}
         </div>
       </div>
     </div>
@@ -131,9 +136,12 @@ export const DressTypesPage = () => {
       }
       return;
     }
+    const questions = type.auditQuestionCount;
     const ok = await confirm({
       title: `Delete ${type.name}?`,
-      description: 'Nobody has this type, and audit questions stop using it. This cannot be undone.',
+      description: questions > 0
+        ? `${type.name} is on ${questions} audit ${questions === 1 ? 'question' : 'questions'}. Their list for it is lost. This cannot be undone.`
+        : 'Nobody has this type and no audit question uses it. This cannot be undone.',
       confirmLabel: 'Delete',
       variant: 'danger',
     });
@@ -154,7 +162,7 @@ export const DressTypesPage = () => {
         title="Dress Types"
         subtitle="Types of dress an audit can check, like Saree or Coat and pant. Each has its own list of items on the question."
         actions={
-          <Button variant="primary" size="md" onClick={() => setShowForm(true)}>
+          <Button variant="primary" size="md" className="pointer-coarse:h-11" onClick={() => setShowForm(true)}>
             <Plus size={15} aria-hidden /> New type
           </Button>
         }

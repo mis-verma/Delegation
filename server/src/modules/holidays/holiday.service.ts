@@ -4,7 +4,8 @@ import { asc, eq, inArray, like } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
 import { AppError } from "../../utils/AppError.js"
 import { auditService } from "../audit/audit.service.js"
-import { dropUntouchedDailyRunsOn } from "../../jobs/checklistInstanceGenerator.job.js"
+import { dropUntouchedDailyRunsOn, previewDailyRunsOn } from "../../jobs/checklistInstanceGenerator.job.js"
+import { orgLocalDate } from "../checklistInstances/checklistReportRange.js"
 import type { CreateHolidayInput } from "./holiday.validation.js"
 
 // Company-wide days off. The generator reads the table directly (checklistInstanceGenerator.job.ts's
@@ -48,11 +49,21 @@ export const holidayService = {
         return { created: fresh.length, skipped: unique.length - fresh.length, removedRuns }
     },
 
+    // Dry run for the "add a holiday" confirmation: how many of that day's daily runs nobody has started
+    // (adding the holiday removes these, from history too when the date is in the past) and how many
+    // someone has started (these stay). Writes nothing.
+    async preview(date: string) {
+        return previewDailyRunsOn(date)
+    },
+
+    // `backfilled` tells the client what to promise: the generator only creates runs for today, never
+    // for days gone by, so removing a past holiday does not bring its runs back (false); removing
+    // today's or a future one lets the next sweep generate the run again (true).
     async remove(id: string, actorId: string) {
         const [holiday] = await db.select().from(holidays).where(eq(holidays.id, id)).limit(1)
         if (!holiday) throw AppError.notFound("Holiday not found")
         await db.delete(holidays).where(eq(holidays.id, id))
         await auditService.record({ entityType: "Holiday", entityId: id, action: "DELETE", actorId, before: holiday })
-        return holiday
+        return { holiday, backfilled: holiday.date >= orgLocalDate(Date.now()) }
     },
 }

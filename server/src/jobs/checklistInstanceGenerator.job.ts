@@ -29,7 +29,7 @@ import type { Gender } from "../db/schema/core.js"
 import { getCurrentPeriod, type Period } from "../utils/period.js"
 import { env } from "../config/env.js"
 import { emitChecklistEvent } from "../sockets/checklistEvent.js"
-import { syncVerificationStatus } from "../modules/checklistInstances/checklistInstance.service.js"
+import { syncVerificationStatus, dropChecklistSummaries } from "../modules/checklistInstances/checklistInstance.service.js"
 
 // Caps how many due checklist definitions get processed in a single hourly sweep, same rationale
 // as the batch caps in slaSweep.job.ts/taskDeadlineReminder.job.ts. In practice the number of
@@ -836,12 +836,17 @@ export const dropUntouchedDailyRunsOn = async (dateStr: string): Promise<number>
         .where(and(eq(checklistInstances.recurrence, "DAILY"), eq(checklistInstances.periodStart, dayStart)))
 
     let removed = 0
+    // Whose cached board/dashboard numbers just changed (read before the delete cascades the links away).
+    const affectedAssignees = new Set<string>()
     for (const { id, storeId } of runs) {
         try {
             const gone = await db.transaction(async (tx) => {
                 const [run] = await tx.select().from(checklistInstances).where(eq(checklistInstances.id, id)).for("update").limit(1)
                 if (!run || await runHasProgress(tx, run)) return false
+                const links = await tx.select({ userId: checklistInstanceAssignees.userId }).from(checklistInstanceAssignees)
+                    .where(eq(checklistInstanceAssignees.instanceId, id))
                 await tx.delete(checklistInstances).where(eq(checklistInstances.id, id))
+                for (const l of links) affectedAssignees.add(l.userId)
                 return true
             })
             if (gone) {
@@ -853,7 +858,27 @@ export const dropUntouchedDailyRunsOn = async (dateStr: string): Promise<number>
             console.error(`Removing holiday run ${id} failed:`, err)
         }
     }
+    // Without this the board's cached summary kept counting the runs just removed until its TTL ran out.
+    if (removed > 0) await dropChecklistSummaries([...affectedAssignees]).catch((err) => console.error("Clearing checklist summary cache after a holiday failed:", err))
     return removed
+}
+
+// Dry run of dropUntouchedDailyRunsOn for the "add a holiday" confirmation: how many of that day's
+// DAILY runs nobody has started (these would be removed) and how many someone has (these stay).
+// Writes nothing.
+export const previewDailyRunsOn = async (dateStr: string): Promise<{ untouchedRuns: number; startedRuns: number }> => {
+    const dayStart = new Date(`${dateStr}T00:00:00.000Z`)
+    const runs = await db.select().from(checklistInstances)
+        .where(and(eq(checklistInstances.recurrence, "DAILY"), eq(checklistInstances.periodStart, dayStart)))
+    let untouchedRuns = 0
+    let startedRuns = 0
+    await db.transaction(async (tx) => {
+        for (const run of runs) {
+            if (await runHasProgress(tx, run)) startedRuns++
+            else untouchedRuns++
+        }
+    })
+    return { untouchedRuns, startedRuns }
 }
 
 const generateDueInstances = async () => {

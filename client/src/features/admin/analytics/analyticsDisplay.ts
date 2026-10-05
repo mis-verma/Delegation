@@ -173,8 +173,21 @@ export const bucketRange = (bucket: string, groupBy: DisplayGroupBy): { from: st
   return { from: new Date(y, 0, 1).toISOString(), to: endOfLocalDay(y, 11, 31).toISOString() };
 };
 
+/**
+ * The rows up to the newest bucket that actually has data. A report zero-fills the current period,
+ * so on the first day of a month its bucket reads "0 runs due" and every tile built from it would
+ * say "Nothing counted". A row only counts as empty when it reports `dueRuns: 0` (rows without that
+ * field, like tickets, are never trimmed), and a report that is empty throughout is left alone.
+ */
+const withoutEmptyTail = <T extends ReportRow>(rows: T[]): T[] => {
+  let end = rows.length;
+  while (end > 0 && rows[end - 1].dueRuns === 0 && rows[end - 1].bucket !== RANGE_BUCKET) end -= 1;
+  return end === 0 ? rows : rows.slice(0, end);
+};
+
 /** "Oct 2026 vs Sep 2026" for the latest-versus-previous tiles; "Selected period" for a whole range. */
-export const describeLatestPeriod = (rows: ReportRow[] | undefined, groupBy: DisplayGroupBy): { label: string; isWholeRange: boolean } => {
+export const describeLatestPeriod = (allRows: ReportRow[] | undefined, groupBy: DisplayGroupBy): { label: string; isWholeRange: boolean } => {
+  const rows = allRows && withoutEmptyTail(allRows);
   const latest = rows?.[rows.length - 1];
   if (!rows || !latest) return { label: '', isWholeRange: false };
   if (latest.bucket === RANGE_BUCKET) return { label: formatBucket(RANGE_BUCKET, 'none'), isWholeRange: true };
@@ -231,12 +244,15 @@ const isBucketOpen = (bucket: string, now: Date): boolean => {
  * drop), so it gets no badge either.
  */
 export const latestWithTrend = (
-  rows: ReportRow[] | undefined,
+  allRows: ReportRow[] | undefined,
   key: string,
   kind: 'rate' | 'count' = 'count',
   now: Date = new Date(),
 ): { value: number | null; trend: Trend } => {
-  if (!rows || rows.length === 0) return { value: null, trend: NO_TREND };
+  if (!allRows || allRows.length === 0) return { value: null, trend: NO_TREND };
+  // A trailing bucket with no runs due (day one of a period) is skipped: the tiles show the last
+  // bucket that has numbers, and the one before it for the trend.
+  const rows = withoutEmptyTail(allRows);
 
   const latest = rows[rows.length - 1];
   const value = (latest[key] as number | null | undefined) ?? null;

@@ -38,7 +38,10 @@ const DAY_MS = 86_400_000;
 const FIELD_LABEL = 'text-xs font-display font-medium text-text-secondary';
 const CONTROL_H = 'h-11';
 // One column template for the header, the rows and the skeleton so they always line up.
-const PREVIEW_GRID = 'grid grid-cols-[minmax(0,1fr)_3.25rem_3.75rem_3.5rem_4rem] sm:grid-cols-[minmax(0,1fr)_4.5rem_5.5rem_5rem_6rem] items-center gap-2 px-3';
+// Below sm only Name, Completion and Compliance show (Assigned and On time are in the download), so
+// the phone template has three columns and the wide one has five.
+const PREVIEW_GRID = 'grid grid-cols-[minmax(0,1fr)_4.5rem_5rem] sm:grid-cols-[minmax(0,1fr)_4.5rem_5.5rem_5rem_6rem] items-center gap-2 px-3';
+const SM_ONLY = 'hidden sm:block';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const toYmd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -46,7 +49,7 @@ const fromYmd = (s: string) => {
   const [y, m, d] = s.split('-').map(Number);
   return new Date(y, m - 1, d);
 };
-const formatDay = (s: string) => fromYmd(s).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+const formatDay = (s: string) => fromYmd(s).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 
 const presetRange = (key: Exclude<PeriodKey, 'custom'>, now = new Date()): { from: string; to: string } => {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -72,11 +75,14 @@ const presetRange = (key: Exclude<PeriodKey, 'custom'>, now = new Date()): { fro
   }
 };
 
-const PercentCell = ({ value }: { value: number | null }) =>
+const PercentCell = ({ value, className }: { value: number | null; className?: string }) =>
   value === null ? (
-    <span className="text-right text-xs font-display text-text-light" aria-label="No data">-</span>
+    <span className={cn('text-right text-xs font-display text-text-light', className)}>
+      <span aria-hidden>-</span>
+      <span className="sr-only">No data</span>
+    </span>
   ) : (
-    <span className={cn('text-right text-xs font-display font-semibold tabular-nums', rateToneClass(value))}>{value}%</span>
+    <span className={cn('text-right text-xs font-display font-semibold tabular-nums', rateToneClass(value), className)}>{value}%</span>
   );
 
 interface PreviewRow {
@@ -94,9 +100,9 @@ const PreviewTable = ({ rows, total, noun, isRefreshing }: { rows: PreviewRow[];
     <div className={cn('rounded-lg border border-border/60 overflow-hidden transition-opacity duration-200', isRefreshing && 'opacity-60')}>
       <div className={cn(PREVIEW_GRID, 'py-2 bg-surface-hover/60 border-b border-border/60 text-[11px] font-display font-medium text-text-muted')}>
         <span>Name</span>
-        <span className="text-right">Assigned</span>
-        <span className="text-right">Completed</span>
-        <span className="text-right">On time</span>
+        <span className={cn('text-right', SM_ONLY)}>Assigned</span>
+        <span className="text-right">Completion</span>
+        <span className={cn('text-right', SM_ONLY)}>On time</span>
         <span className="text-right">Compliance</span>
       </div>
       <ul className="divide-y divide-border/40">
@@ -106,9 +112,9 @@ const PreviewTable = ({ rows, total, noun, isRefreshing }: { rows: PreviewRow[];
               <span className="text-xs font-display font-medium text-text line-clamp-1">{r.name}</span>
               <span className="text-[11px] font-display text-text-muted line-clamp-1">{r.sub}</span>
             </span>
-            <span className="text-right text-xs font-display text-text-secondary tabular-nums">{r.assigned}</span>
+            <span className={cn('text-right text-xs font-display text-text-secondary tabular-nums', SM_ONLY)}>{r.assigned}</span>
             <PercentCell value={r.completionPct} />
-            <PercentCell value={r.onTimePct} />
+            <PercentCell value={r.onTimePct} className={SM_ONLY} />
             <PercentCell value={r.compliancePct} />
           </li>
         ))}
@@ -129,9 +135,9 @@ const PreviewSkeleton = () => (
       {Array.from({ length: PREVIEW_ROWS }, (_, i) => (
         <li key={i} className={cn(PREVIEW_GRID, 'h-11')}>
           <Skeleton className="h-3.5 w-3/4" />
-          <Skeleton className="h-3.5 w-6 justify-self-end" />
+          <Skeleton className={cn('h-3.5 w-6 justify-self-end', SM_ONLY)} />
           <Skeleton className="h-3.5 w-8 justify-self-end" />
-          <Skeleton className="h-3.5 w-8 justify-self-end" />
+          <Skeleton className={cn('h-3.5 w-8 justify-self-end', SM_ONLY)} />
           <Skeleton className="h-3.5 w-8 justify-self-end" />
         </li>
       ))}
@@ -178,7 +184,9 @@ export const ChecklistReportDialog = ({ onClose }: ChecklistReportDialogProps) =
     groupBy,
   };
 
-  const preview = useChecklistReportPreview(params, rangeValid);
+  // The preview always asks for both tables and picks one on screen, so switching "Report by" never
+  // refetches (the choice only matters for the download).
+  const preview = useChecklistReportPreview({ ...params, groupBy: 'both' }, rangeValid);
   const download = useChecklistReportDownload();
 
   const report = rangeValid ? preview.data : undefined;

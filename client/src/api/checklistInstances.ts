@@ -288,6 +288,14 @@ export type FormerPerson = {
   auditsOnThem:   number;
 };
 
+/** The light shape of a former person, for name lookups and pickers. */
+export type FormerPersonName = {
+  id:        string;
+  firstName: string;
+  lastName:  string | null;
+  email:     string;
+};
+
 /** One checklist run a person was part of. `theirs` = questions they completed themselves. */
 export type PersonRun = {
   id:                 string;
@@ -358,6 +366,10 @@ export const checklistInstanceApi = {
   getFormerPeople: () =>
     apiFetch<ApiResponse<FormerPerson[]>>('/checklist-instances/former-people').then(r => r.data),
 
+  /** Just id + name for every former person: a light call for name lookups (no per-person aggregates). */
+  getFormerPeopleNames: () =>
+    apiFetch<ApiResponse<FormerPersonName[]>>('/checklist-instances/former-people/names').then(r => r.data),
+
   getPersonRuns: (userId: string, paging: PageParams = {}) =>
     apiFetch<ApiResponse<PersonRun[]> & { meta: ChecklistInstancePage }>(
       `/checklist-instances/former-people/${userId}/runs${buildQuery({ ...paging })}`,
@@ -383,7 +395,7 @@ export const checklistInstanceApi = {
     recurrence?: ChecklistRecurrence;
     verificationStatus?: ChecklistVerificationStatus;
     departmentId?: string;
-    /** Restricts to instances whose period falls in [from, to] — ISO strings. */
+    /** Restricts to instances whose period falls in [from, to]. ISO strings or plain YYYY-MM-DD; always sent as plain days. */
     from?: string;
     to?: string;
     /** ADMIN/PC only, opt-in — includes instances whose checklist has since been deleted (kept
@@ -400,8 +412,8 @@ export const checklistInstanceApi = {
         recurrence: filter.recurrence,
         verificationStatus: filter.verificationStatus,
         departmentId: filter.departmentId,
-        from: filter.from,
-        to: filter.to,
+        from: filter.from ? toDayParam(filter.from) : undefined,
+        to: filter.to ? toDayParam(filter.to) : undefined,
         includeDeleted: filter.includeDeleted ? '1' : undefined,
       })}`,
     ),
@@ -427,7 +439,11 @@ export const checklistInstanceApi = {
   // combination of filters the admin has picked (store and/or person, plus status).
   list: (filter: { storeId?: string; assigneeId?: string; status?: ChecklistInstanceStatus; from?: string; to?: string; includeDeleted?: boolean } & PageParams = {}) =>
     apiFetch<ApiResponse<ChecklistInstance[]> & { meta: ChecklistInstancePage }>(
-      `/checklist-instances${buildQuery(filter)}`,
+      `/checklist-instances${buildQuery({
+        ...filter,
+        from: filter.from ? toDayParam(filter.from) : undefined,
+        to: filter.to ? toDayParam(filter.to) : undefined,
+      })}`,
     ).then(r => ({ ...r, data: normalizeInstances(r.data) })),
 
   getPendingVerification: (paging: PageParams = {}) =>

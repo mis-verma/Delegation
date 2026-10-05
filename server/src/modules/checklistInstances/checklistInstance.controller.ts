@@ -1,6 +1,6 @@
 import type { Request, Response } from "express"
 import { checklistInstanceService, type InstanceRecurrence, type InstanceVerificationStatus } from "./checklistInstance.service.js"
-import { setChecklistInstanceItemDoneSchema, verifyChecklistInstanceSchema, sendBackChecklistInstanceSchema, checklistInstanceComplianceReportQuerySchema, checklistInstanceByStoreReportQuerySchema, listChecklistInstancesQuerySchema, listPendingVerificationQuerySchema, weeklyReportQuerySchema, decisionsQuerySchema } from "./checklistInstance.validation.js"
+import { setChecklistInstanceItemDoneSchema, verifyChecklistInstanceSchema, sendBackChecklistInstanceSchema, checklistInstanceComplianceReportQuerySchema, checklistInstanceByStoreReportQuerySchema, listChecklistInstancesQuerySchema, listPendingVerificationQuerySchema, weeklyReportQuerySchema, decisionsQuerySchema, summaryQuerySchema } from "./checklistInstance.validation.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
 import { resolveChecklistReportScope } from "./checklistReportScope.js"
 import { checklistReportService } from "./checklistReport.service.js"
@@ -113,6 +113,12 @@ export const checklistInstanceController = {
         res.json({ success: true, data: await checklistInstanceService.formerPeople() })
     }),
 
+    // GET /checklist-instances/former-people/names (ADMIN/PC): `{ success, data: { id, firstName, lastName, email }[] }`,
+    // just enough to show "(left)" names without running the four footprint aggregates above.
+    formerPeopleNames: asyncHandler(async (_req: Request, res: Response) => {
+        res.json({ success: true, data: await checklistInstanceService.formerPeopleNames() })
+    }),
+
     // GET /checklist-instances/former-people/:userId/runs?page=&limit= (ADMIN/PC)
     personRuns: asyncHandler(async (req: Request, res: Response) => {
         const { page, limit } = listChecklistInstancesQuerySchema.parse(req.query)
@@ -137,6 +143,8 @@ export const checklistInstanceController = {
     // Without either, behaviour is as it always was (ADMIN/PC org-wide, everyone else their own).
     summary: asyncHandler(async (req: Request, res: Response) => {
         const { definitionId, storeId, assigneeId, mine } = req.query
+        // ISO instant or YYYY-MM-DD; anything else is a 400 instead of an Invalid Date in the SQL.
+        const { from, to } = summaryQuerySchema.parse(req.query)
         const scopedToSelf = mine === "1" || mine === "true"
         // Only ADMIN/PC may ask for org-wide numbers; everyone else is pinned to their own, so
         // this can't be used to read another store's compliance by dropping `mine`.
@@ -156,8 +164,8 @@ export const checklistInstanceController = {
             // A department head's own department always wins over a client-supplied one; with no
             // department the id below matches nothing, so it fails closed.
             departmentId: useDepartment ? (req.user!.departmentId ?? "no-department") : (req.query.departmentId as string | undefined),
-            from: req.query.from as string | undefined,
-            to: req.query.to as string | undefined,
+            from,
+            to,
             userId: scopedToSelf || (!isOrgWide && !useDepartment) ? req.user!.sub : undefined,
             // Opt-in, not automatic (see `list` above's own comment) — a deleted checklist's
             // instances shouldn't inflate the Compliance Board's counts by default, only when the

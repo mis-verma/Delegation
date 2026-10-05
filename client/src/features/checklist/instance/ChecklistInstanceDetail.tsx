@@ -166,7 +166,7 @@ DetailItemRow.displayName = 'DetailItemRow';
 // Mirrors the loaded page: back row, header card, then item cards. Heights come from content
 // (min-h only), so it doesn't fight the real thing when it swaps in.
 const DetailSkeleton = () => (
-  <div className="flex flex-col gap-6 w-full max-w-4xl mx-auto" aria-hidden>
+  <div className="flex flex-col gap-6 w-full" aria-hidden>
     <div className="flex items-center justify-between gap-3">
       <Skeleton className="h-8 pointer-coarse:h-11 w-20 rounded-md" />
     </div>
@@ -224,7 +224,7 @@ export const ChecklistInstanceDetail = () => {
   const isDeleted = error instanceof ApiError && error.status === 404;
   if (isDeleted) {
     return (
-      <div className="w-full max-w-4xl mx-auto py-16 flex flex-col items-center gap-3 text-center">
+      <div className="w-full py-16 flex flex-col items-center gap-3 text-center">
         <span className="flex items-center justify-center size-12 rounded-lg border border-border/60 bg-muted/60 text-text-muted">
           <ClipboardX className="size-6" strokeWidth={2.25} aria-hidden />
         </span>
@@ -242,7 +242,7 @@ export const ChecklistInstanceDetail = () => {
 
   if (isError || !instance) {
     return (
-      <div className="w-full max-w-4xl mx-auto">
+      <div className="w-full">
         <InlineError message="We couldn't load this checklist. Check your connection and try again." onRetry={() => refetch()} />
       </div>
     );
@@ -280,7 +280,7 @@ export const ChecklistInstanceDetail = () => {
     instance.verificationStatus === 'REJECTED';
 
   return (
-    <div className="flex flex-col gap-6 w-full max-w-4xl mx-auto">
+    <div className="flex flex-col gap-6 w-full">
       {/* Back on the left, Edit template (admins) on the right. */}
       <div className="flex items-center justify-between gap-3">
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)} aria-label="Back">

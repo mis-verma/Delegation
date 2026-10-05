@@ -99,6 +99,8 @@ interface ChecklistDefinitionItemDraftRowProps {
   draft: ItemDraft;
   onChange: (key: string, patch: Partial<ItemDraft>) => void;
   storeIds?: string[];
+  /** Active people of the checklist's stores, for flagging picked auditors that are no longer shown. */
+  validPersonIds?: ReadonlySet<string> | null;
   /** Drag handle, rendered at the card's top-left. */
   leading?: ReactNode;
   /** Card actions (remove), rendered at the top-right. */
@@ -116,6 +118,7 @@ const ChecklistDefinitionItemDraftRowImpl = ({
   draft,
   onChange,
   storeIds,
+  validPersonIds,
   leading,
   trailing,
   className = '',
@@ -125,7 +128,8 @@ const ChecklistDefinitionItemDraftRowImpl = ({
   const TypeIcon = type.icon;
   // A blank label is a real error state (the item would be dropped on save), flagged right here.
   const isLabelBlank = !draft.label.trim();
-  const problem = isLabelBlank ? 'Type the question staff will see. Without one it won’t be saved.' : itemDraftProblem(draft);
+  const problem = isLabelBlank ? 'Type the question staff will see. Without one it won’t be saved.' : itemDraftProblem(draft, validPersonIds);
+  const problemId = `item-problem-${draft.key}`;
   const pickType = (entry: QuestionTypeEntry) => patch(patchForEntry(draft, entry));
 
   return (
@@ -138,18 +142,25 @@ const ChecklistDefinitionItemDraftRowImpl = ({
         className,
       )}
     >
-      <div className="flex items-start gap-1 sm:gap-3 p-2.5 pr-1.5 sm:p-4 sm:pr-2">
-        {leading}
-        <span className={`hidden sm:flex items-center justify-center size-10 rounded-lg shrink-0 ${GROUP_TILE[type.group]}`} aria-hidden="true">
+      {/* One grid, so the same single set of controls reads as a top strip on a phone (drag handle,
+          "Question N", Duplicate/Remove, with the content below at full card width) and as the
+          familiar left handle / tile / content / right actions row from sm up. */}
+      <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] items-start gap-x-1 gap-y-2 sm:gap-x-3 p-2.5 sm:p-4 sm:pr-2">
+        <div className="col-start-1 row-start-1 flex items-center">{leading}</div>
+        <span className="col-start-2 row-start-1 self-center sm:hidden text-[11px] font-display font-medium text-text-muted tabular-nums" aria-hidden="true">
+          Question {index + 1}
+        </span>
+        <span className={`hidden sm:flex col-start-2 row-start-1 items-center justify-center size-10 rounded-lg ${GROUP_TILE[type.group]}`} aria-hidden="true">
           <TypeIcon size={18} strokeWidth={2.25} />
         </span>
 
         {/* Settings live in the same column as the question, so they line up under it by
             structure rather than by a guessed left padding. */}
-        <div className="flex flex-col gap-3 flex-1 min-w-0">
+        <div className="col-span-3 row-start-2 sm:col-span-1 sm:col-start-3 sm:row-start-1 flex flex-col gap-3 min-w-0">
           <div className="flex items-start gap-3">
             <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-              <label htmlFor={`item-label-${draft.key}`} className="text-[11px] font-display font-medium text-text-muted tabular-nums">
+              {/* Below sm the visible "Question N" is the strip above; this one stays for screen readers. */}
+              <label htmlFor={`item-label-${draft.key}`} className="sr-only sm:not-sr-only text-[11px] font-display font-medium text-text-muted tabular-nums">
                 Question {index + 1}
               </label>
               {/* Deliberate raw textarea (not the shared Textarea): it auto-grows with
@@ -162,6 +173,7 @@ const ChecklistDefinitionItemDraftRowImpl = ({
                 onChange={(e) => patch({ label: e.target.value })}
                 placeholder="Type the question staff will see"
                 aria-invalid={isLabelBlank}
+                aria-describedby={problem ? problemId : undefined}
                 className="w-full resize-none field-sizing-content min-h-7 -mx-1.5 px-1.5 py-0.5 rounded-md bg-transparent text-[15px] leading-snug font-display font-semibold text-text placeholder:font-medium placeholder:text-text-light hover:bg-surface-hover/60 focus:bg-surface-hover/60 focus:outline-none transition-colors duration-150"
               />
             </div>
@@ -173,16 +185,16 @@ const ChecklistDefinitionItemDraftRowImpl = ({
           <div className="sm:hidden">
             <QuestionTypeMenu draft={draft} onPick={pickType} />
           </div>
-          <ItemTypeConfigFields draft={draft} onChange={patch} storeIds={storeIds} />
+          <ItemTypeConfigFields draft={draft} onChange={patch} storeIds={storeIds} validPersonIds={validPersonIds} />
           {problem && (
-            <p role="alert" className="flex items-start gap-1.5 text-xs font-display font-medium text-danger">
+            <p id={problemId} role="alert" className="flex items-start gap-1.5 text-xs font-display font-medium text-danger">
               <AlertCircle size={13} className="shrink-0 mt-px" />
               {problem}
             </p>
           )}
         </div>
 
-        {trailing}
+        <div className="col-start-3 row-start-1 sm:col-start-4 justify-self-end">{trailing}</div>
       </div>
     </article>
   );

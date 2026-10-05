@@ -32,6 +32,10 @@ export const setChecklistInstanceItemDoneSchema = z.object({
 // (week/month/year) or 30 days (day/none), never unbounded.
 const reportBoundary = z.union([z.string().datetime({ offset: true }), z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use an ISO date or datetime")])
 
+// Same boundary for the list/summary endpoints, but a cleared filter arrives as "from=" and means
+// "no filter". Garbage is a 400 here instead of an Invalid Date reaching the SQL.
+const optionalBoundary = z.preprocess((v) => (typeof v === "string" && v.trim() === "" ? undefined : v), reportBoundary.optional())
+
 export const checklistInstanceComplianceReportQuerySchema = z.object({
     groupBy: z.enum(["day", "week", "month", "year", "none"]).default("day"),
     storeId: objectId.optional(),
@@ -91,9 +95,16 @@ export type ChecklistInstanceComplianceReportQuery = z.infer<typeof checklistIns
 export const listChecklistInstancesQuerySchema = z.object({
     page: z.coerce.number().int().min(1).optional(),
     limit: z.coerce.number().int().min(1).max(200).optional(),
-    from: z.string().optional(),
-    to: z.string().optional(),
+    // ISO instant or plain YYYY-MM-DD, read as org-local days by the service (asOrgDay).
+    from: optionalBoundary,
+    to: optionalBoundary,
     status: z.enum(["OPEN", "DUE", "COMPLETED", "OVERDUE"]).optional(),
+})
+
+// GET /checklist-instances/summary: only from/to need checking, the rest is scoped in the controller.
+export const summaryQuerySchema = z.object({
+    from: optionalBoundary,
+    to: optionalBoundary,
 })
 
 // GET /checklist-instances/pending-verification's own query shape. Used to also take `status`,
@@ -114,6 +125,9 @@ export const decisionsQuerySchema = z.object({
 
 // Monday of the week to report on (org-local YYYY-MM-DD); anything that is not a real day is a 400.
 export const weeklyReportQuerySchema = z.object({
-    weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date like 2026-09-28").refine((d) => !Number.isNaN(Date.parse(d+"T00:00:00Z")), "That is not a real date"),
+    weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date like 2026-09-28")
+        .refine((d) => !Number.isNaN(Date.parse(d + "T00:00:00Z")), "That is not a real date")
+        // Mondays only: a mid-week start would silently show a week that is not Monday to Sunday.
+        .refine((d) => Number.isNaN(Date.parse(d + "T00:00:00Z")) || new Date(d + "T00:00:00Z").getUTCDay() === 1, "Pick a Monday."),
     storeId: z.string().min(1).optional(),
 })

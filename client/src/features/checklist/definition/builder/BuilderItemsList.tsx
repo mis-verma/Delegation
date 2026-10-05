@@ -23,10 +23,11 @@ import { cn } from '@/lib/utils';
 import { Button, Input } from '../../../../components';
 import { ChecklistDefinitionItemDraftRow, type ItemDraft } from '../ChecklistDefinitionItemDraftRow';
 import {
-  UNGROUPED, MAX_CHECKLIST_ITEMS, type SectionId,
+  UNGROUPED, MAX_CHECKLIST_ITEMS, MAX_SECTION_NAME_LENGTH, type SectionId,
   groupBySection, containerOrderFor, normalizeItemOrder, cloneItemDraft, copiedSectionName,
 } from '../itemSections';
 import { DRAG_SLOP_PX } from '../../../../lib/dragSlop';
+import { revealAfterRender, questionFieldOf } from './reveal';
 
 interface BuilderItemsListProps {
   itemDrafts: ItemDraft[];
@@ -38,6 +39,7 @@ interface BuilderItemsListProps {
   activeSection: string | null;
   setActiveSection: Dispatch<SetStateAction<string | null>>;
   storeIds?: string[];
+  validPersonIds?: ReadonlySet<string> | null;
 }
 
 // One draggable row: a grip handle + the existing draft row + a delete button, wrapped for
@@ -52,6 +54,7 @@ const SortableItemRowImpl = ({
   onRemove,
   onDuplicate,
   storeIds,
+  validPersonIds,
 }: {
   draft: ItemDraft;
   index: number;
@@ -59,6 +62,7 @@ const SortableItemRowImpl = ({
   onRemove: (key: string) => void;
   onDuplicate: (key: string) => void;
   storeIds?: string[];
+  validPersonIds?: ReadonlySet<string> | null;
 }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: draft.key });
   // A configured question (options, auditors, GPS target…) used to vanish on one mis-tap.
@@ -88,21 +92,22 @@ const SortableItemRowImpl = ({
         draft={draft}
         onChange={onChange}
         storeIds={storeIds}
+        validPersonIds={validPersonIds}
         leading={
           <button
             type="button"
             {...attributes}
             {...listeners}
             className="flex items-center justify-center shrink-0 w-11 sm:w-7 h-11 sm:h-10 -ml-1 rounded-lg text-text-light hover:text-text-secondary hover:bg-surface-hover transition-colors cursor-grab active:cursor-grabbing touch-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
-            aria-label="Drag to reorder"
+            aria-label={`Drag question ${index + 1} to reorder`}
           >
             <GripVertical size={16} />
           </button>
         }
         trailing={
-          // Stacked, so the card's content column keeps its width. Remove stays where it always
-          // was (top); Duplicate sits under it.
-          <div className="flex flex-col gap-1 shrink-0">
+          // Side by side in the card's top strip on a phone, stacked beside the content from sm up
+          // so the content column keeps its width. Remove first, Duplicate after it.
+          <div className="flex flex-row sm:flex-col gap-1 pointer-coarse:gap-2 shrink-0">
             <Button
               variant="ghost"
               size="sm"
@@ -230,14 +235,14 @@ const SectionContainer = ({
                   <Check size={14} />
                 </Button>
               </div>
-              {isDuplicate && <span className="text-[10px] font-display text-danger">You already have a section with that name</span>}
+              {isDuplicate && <span className="text-[11px] font-display text-danger">You already have a section with that name</span>}
             </div>
           ) : (
             <button
               type="button"
               onClick={onSelect}
               className="flex items-center gap-1.5 min-h-11 sm:min-h-0 py-1 text-sm font-display font-semibold text-text hover:text-primary-700 dark:hover:text-primary-300 cursor-pointer truncate rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
-              title="Set as target for new items"
+              title="Add new questions to this section"
             >
               <Layers size={14} className={isActive ? 'text-primary-600 dark:text-primary-300' : 'text-text-light'} />
               <span className="truncate">{title}</span>
@@ -245,12 +250,12 @@ const SectionContainer = ({
           )}
           <span className="text-xs font-display text-text-muted tabular-nums shrink-0">{items.length}</span>
           {isActive && !renaming && (
-            <span className="inline-flex items-center h-5 px-2 rounded-full bg-primary-500/10 text-[10px] font-display font-semibold text-primary-700 dark:text-primary-300 shrink-0">New questions go here</span>
+            <span className="inline-flex items-center h-5 px-2 rounded-full bg-primary-500/10 text-[11px] font-display font-semibold text-primary-700 dark:text-primary-300 shrink-0">New questions go here</span>
           )}
         </div>
 
         {onRename && !renaming && (
-          <div className="flex items-center gap-1 shrink-0">
+          <div className="flex items-center gap-1 pointer-coarse:gap-2 shrink-0">
             <Button variant="ghost" size="sm" onClick={onMoveUp} disabled={!onMoveUp} className={SECTION_ACTION} aria-label={`Move ${title} section up`}>
               <ChevronUp size={14} />
             </Button>
@@ -282,7 +287,7 @@ const SectionContainer = ({
             <div
               ref={setNodeRef}
               className={`flex items-center justify-center py-6 px-4 text-center rounded-2xl border border-dashed text-xs font-display transition-colors ${
-                isOver ? 'border-primary-400 bg-primary-500/5 text-primary-600' : 'border-border/70 text-text-muted'
+                isOver ? 'border-primary-400 bg-primary-500/5 text-primary-700 dark:text-primary-300' : 'border-border/70 text-text-muted'
               }`}
             >
               {bare ? 'No questions yet. Pick a type to add the first one.' : 'Drag a question here, or pick this section and add one.'}
@@ -316,17 +321,6 @@ const TOUCH_SENSOR_OPTIONS = { activationConstraint: { delay: 220, tolerance: 6 
 // actually jump between sortable positions like mouse/touch drags do.
 const KEYBOARD_SENSOR_OPTIONS = { coordinateGetter: sortableKeyboardCoordinates };
 
-// The new card/section mounts after the click handler returns, so look it up on the next frame:
-// scroll it into view, and for a question put the cursor in its text so the copy can be reworded
-// straight away.
-const revealAfterRender = (find: () => HTMLElement | null, focus: boolean) =>
-  requestAnimationFrame(() => {
-    const el = find();
-    if (!el) return;
-    el.scrollIntoView({ block: focus ? 'center' : 'start', behavior: 'smooth' });
-    if (focus) el.focus({ preventScroll: true });
-  });
-
 export const BuilderItemsList = ({
   itemDrafts,
   setItemDrafts,
@@ -337,7 +331,9 @@ export const BuilderItemsList = ({
   activeSection,
   setActiveSection,
   storeIds,
+  validPersonIds,
 }: BuilderItemsListProps) => {
+  const confirm = useConfirm();
   const [newSectionName, setNewSectionName] = useState('');
   const [activeKey, setActiveKey] = useState<string | null>(null);
 
@@ -375,9 +371,23 @@ export const BuilderItemsList = ({
     if (activeSection === oldName) setActiveSection(nextName);
   };
 
-  const handleDeleteSection = (name: string) => {
-    setSections((prev) => prev.filter((s) => s !== name));
-    setItemDrafts((prev) => prev.map((d) => (d.section === name ? { ...d, section: null } : d)));
+  const handleDeleteSection = async (name: string) => {
+    const count = itemDraftsRef.current.filter((d) => d.section === name).length;
+    if (count > 0) {
+      const ok = await confirm({
+        title: `Delete the "${name}" section?`,
+        description: `Its ${count} ${count === 1 ? 'question stays' : 'questions stay'} on the checklist and moves to No section.`,
+        confirmLabel: 'Delete section',
+        cancelLabel: 'Keep it',
+        variant: 'danger',
+      });
+      if (!ok) return;
+    }
+    const nextSections = sections.filter((s) => s !== name);
+    setSections(nextSections);
+    // Re-flattened too: the moved questions now belong to the No section block, and the saved order
+    // is the flat list, so leaving them where they sat would save a different order than shown.
+    setItemDrafts((prev) => normalizeItemOrder(prev.map((d) => (d.section === name ? { ...d, section: null } : d)), nextSections));
     if (activeSection === name) setActiveSection(null);
   };
 
@@ -403,7 +413,7 @@ export const BuilderItemsList = ({
       return next;
     });
     toast.success('Question duplicated');
-    revealAfterRender(() => document.getElementById(`item-label-${copy.key}`), true);
+    revealAfterRender(() => questionFieldOf(copy.key), true);
   }, [setItemDrafts, wouldExceedItemLimit]);
 
   // A new section right after the original, holding copies of all its questions.
@@ -496,8 +506,9 @@ export const BuilderItemsList = ({
       onRemove={onRemoveItem}
       onDuplicate={handleDuplicateItem}
       storeIds={storeIds}
+      validPersonIds={validPersonIds}
     />
-  ), [indexByKey, onUpdateDraft, onRemoveItem, handleDuplicateItem, storeIds]);
+  ), [indexByKey, onUpdateDraft, onRemoveItem, handleDuplicateItem, storeIds, validPersonIds]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -543,7 +554,7 @@ export const BuilderItemsList = ({
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-primary-400 bg-surface rotate-1 scale-[1.02] cursor-grabbing">
               <GripVertical size={14} className="text-text-light shrink-0" />
               <span className="text-sm font-display font-medium text-text truncate">
-                {activeDraft.label.trim() || 'Untitled item'}
+                {activeDraft.label.trim() || 'Untitled question'}
               </span>
             </div>
           )}
@@ -561,6 +572,7 @@ export const BuilderItemsList = ({
             containerClassName="flex-1 min-w-0"
             value={newSectionName}
             onChange={(e) => setNewSectionName(e.target.value)}
+            maxLength={MAX_SECTION_NAME_LENGTH}
             onKeyDown={(e) => e.key === 'Enter' && handleAddSection()}
             placeholder="New section, e.g. Opening"
             // Borderless: the dashed row around it is the field's frame.

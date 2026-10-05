@@ -22,6 +22,30 @@ const asMySqlError = (err: unknown): MySqlError | undefined => {
   return isMySqlError(cause) ? cause : undefined;
 };
 
+// 'storeIds' -> 'Store ids' is close enough; 'items.2.options' -> 'Question 3, options'.
+const humaniseSegment = (segment: string): string =>
+  segment.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ').toLowerCase();
+
+const describeZodError = (err: ZodError): string => {
+  const issue = err.issues[0];
+  if (!issue) return 'Some details are not valid. Please check the form and try again.';
+  const path = issue.path;
+  const parts: string[] = [];
+  let rest = path;
+  // A numeric index straight after a list name ('items.2') reads as the question's position.
+  if (path[0] === 'items' && typeof path[1] === 'number') {
+    parts.push(`Question ${path[1] + 1}`);
+    rest = path.slice(2);
+  }
+  const named = rest.filter((p): p is string => typeof p === 'string').map(humaniseSegment);
+  const withIndexes = rest.map((p) => (typeof p === 'number' ? `#${p + 1}` : humaniseSegment(p)));
+  // Keep list positions out of the wording unless there is nothing else to name the field with.
+  const field = named.length ? named.join(' ') : withIndexes.join(' ');
+  if (field) parts.push(parts.length ? field : field.charAt(0).toUpperCase() + field.slice(1));
+  const message = issue.message || 'is not valid';
+  return parts.length ? `${parts.join(', ')}: ${message}` : message;
+};
+
 export const errorHandler = (err: unknown, req: Request, res: Response, _next: NextFunction) => {
 
   // If a response was already sent — e.g. a webhook handler that acks immediately with
@@ -43,8 +67,9 @@ export const errorHandler = (err: unknown, req: Request, res: Response, _next: N
   // B. ZOD REQUEST VALIDATION ERRORS
   // Check if the incoming request payload failed a Zod schema validation parse check
   if (err instanceof ZodError) {
-    // Return a 400 Bad Request along with clean, mapped key-value errors via .flatten().fieldErrors
-    return res.status(400).json({ success: false, message: 'Validation failed', errors: err.flatten().fieldErrors });
+    // 400 Bad Request. `message` carries the first problem in plain words, because the client only
+    // shows `message`; `errors` keeps the full per-field map for anything that wants it.
+    return res.status(400).json({ success: false, message: describeZodError(err), errors: err.flatten().fieldErrors });
   }
 
   const mysqlErr = asMySqlError(err);

@@ -6,7 +6,7 @@ import { IconChip } from '../../../components/iconChip';
 import { Badge } from '@/components/ui/badge';
 import { useConfirm } from '@/components/confirmDialog';
 import { cn } from '@/lib/utils';
-import { RECURRENCE_LABEL, rateToneClass, rateBarClass, inverseRateToneClass, formatDate } from '../checklistDisplay';
+import { RECURRENCE_LABEL, smallRateToneClass, smallInverseRateToneClass, rateBarClass, formatDate, orgDayKey, plural } from '../checklistDisplay';
 import { useSetChecklistDefinitionActiveMutation, useDeleteChecklistDefinitionMutation } from '../hook';
 import { useAuth } from '../../../context/AuthContext';
 import { CHECKLIST_ICON_MAP } from './checklistIconMap';
@@ -44,10 +44,7 @@ const TAG_ICON_BY_LABEL: Record<string, LucideIcon> = {
 };
 
 // Org-local (India) calendar days, same as the generator — true when the first run is still ahead.
-const dayKey = (ms: number) => new Date(ms + 330 * 60_000).toISOString().slice(0, 10);
-const startsAfterToday = (startDate: string) => dayKey(new Date(startDate).getTime()) > dayKey(Date.now());
-
-const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
+const startsAfterToday = (startDate: string) => orgDayKey(new Date(startDate).getTime()) > orgDayKey(Date.now());
 
 const cardTags = (definition: ChecklistDefinition) => {
   const tags: string[] = [];
@@ -79,7 +76,8 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
 }: ChecklistDefinitionCardProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const isAdmin = user?.role === 'ADMIN';
+  // ADMIN and PC manage checklists alike (the server allows both for every operation here).
+  const canManage = user?.role === 'ADMIN' || user?.role === 'PC';
   const confirm = useConfirm();
   const setActiveMutation = useSetChecklistDefinitionActiveMutation();
   const deleteMutation = useDeleteChecklistDefinitionMutation();
@@ -142,8 +140,8 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
         {/* Sits above the stretched title link (z-10), so these stay individually clickable and
             reachable by keyboard. Hidden entirely in selection mode so a stray tap cannot
             pause/edit/delete instead of just selecting the card. */}
-        {selectionMode ? null : isAdmin ? (
-          <div className="relative z-10 flex items-center gap-1 shrink-0">
+        {selectionMode ? null : canManage ? (
+          <div className="relative z-10 flex flex-wrap items-center justify-end gap-2 min-w-0">
             <StatusPill
               active={definition.isActive}
               isUpdating={setActiveMutation.isPending}
@@ -194,9 +192,25 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
         </div>
       )}
 
+      {tags.length > 0 && (
+        <ul className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-display font-medium text-text-muted">
+          {tags.map((tag) => {
+            const TagIcon = TAG_ICON_BY_LABEL[tag] ?? ListChecks;
+            return (
+              <li key={tag} className="inline-flex items-center gap-1">
+                <TagIcon size={12} aria-hidden />
+                {tag}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {/* mt-auto pins the metrics to the card bottom, so cards in one grid row line up whatever
+          their title or chip rows add above. */}
       {hasRuns ? (
-        <div className="flex flex-col gap-3 pt-3.5 border-t border-border/60">
-          <div className="flex items-end justify-between gap-3">
+        <div className="flex flex-col gap-3 pt-3.5 mt-auto border-t border-border/60">
+          <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-2">
             <div className="flex flex-col gap-0.5">
               <span className="text-[11px] font-display font-medium text-text-muted">
                 {definition.currentRate !== null ? (definition.recurrence === 'DAILY' ? 'Today' : 'This run') : 'All time'}
@@ -205,12 +219,12 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
                 {headline}%
               </span>
             </div>
-            <div className="flex items-center gap-4 text-right">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
               {definition.currentRate !== null && (
-                <Stat label="All time" value={completionRate} tone={rateToneClass(completionRate)} />
+                <Stat label="All time" value={completionRate} tone={smallRateToneClass(completionRate)} />
               )}
-              {qualityRate !== null && <Stat label="Photo proof" value={qualityRate} tone={rateToneClass(qualityRate)} />}
-              {issueRate !== null && issueRate > 0 && <Stat label="Flagged" value={issueRate} tone={inverseRateToneClass(issueRate)} />}
+              {qualityRate !== null && <Stat label="Photo proof" value={qualityRate} tone={smallRateToneClass(qualityRate)} />}
+              {issueRate !== null && issueRate > 0 && <Stat label="Flagged" value={issueRate} tone={smallInverseRateToneClass(issueRate)} />}
             </div>
           </div>
           {/* Today's fill is plain progress (green once done); the all-time bar is coloured by how
@@ -231,20 +245,6 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
         <p className="mt-auto pt-3.5 border-t border-border/60 text-xs font-display text-text-muted">
           {startsLater ? `Starts ${formatDate(definition.startDate)}` : 'No runs yet'}
         </p>
-      )}
-
-      {tags.length > 0 && (
-        <ul className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-display font-medium text-text-muted">
-          {tags.map((tag) => {
-            const TagIcon = TAG_ICON_BY_LABEL[tag] ?? ListChecks;
-            return (
-              <li key={tag} className="inline-flex items-center gap-1">
-                <TagIcon size={12} aria-hidden />
-                {tag}
-              </li>
-            );
-          })}
-        </ul>
       )}
     </article>
   );

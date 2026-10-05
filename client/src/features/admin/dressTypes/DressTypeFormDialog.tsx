@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Shirt } from 'lucide-react';
-import { Input, Button, Modal, InlineError, ToggleChip } from '../../../components';
+import { cn } from '@/lib/utils';
+import { Input, Button, Modal, InlineError } from '../../../components';
 import { useCreateDressTypeMutation, useDressTypesQuery, useUpdateDressTypeMutation } from './hook';
 import { isDuplicateName } from '../orgCounts';
 import { useDiscardGuard } from '../useDiscardGuard';
@@ -27,7 +28,16 @@ interface DressTypeFormDialogProps {
   nested?: boolean;
 }
 
-const NAME_MAX = 60;
+// Matches the server's limit for a dress type name.
+const NAME_MAX = 80;
+
+// Same pill as ToggleChip, as a radio: ToggleChip is an aria-pressed toggle, which a screen reader
+// announces as a toggle button, not as one choice out of three.
+const CHIP_BASE =
+  'inline-flex items-center gap-1.5 min-h-11 sm:min-h-8 px-3 rounded-full border text-xs font-display font-medium cursor-pointer ' +
+  'transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40';
+
+const GENDER_NOUN = { FEMALE: 'women', MALE: 'men' } as const;
 
 /** Small dialog to add or rename a dress type and say who it is for. */
 export const DressTypeFormDialog = ({ onClose, dressType, onCreated, prefillName, nested = false }: DressTypeFormDialogProps) => {
@@ -45,6 +55,13 @@ export const DressTypeFormDialog = ({ onClose, dressType, onCreated, prefillName
   const trimmed = name.trim();
   const isDirty = trimmed !== (dressType?.name ?? prefillName ?? '').trim() || gender !== (dressType?.gender ?? null);
   const requestClose = useDiscardGuard(isDirty, isPending, onClose);
+
+  // Narrowing a type to one gender while people hold it: some of them may be the other gender (and
+  // all of them are, when it flips from Women to Men). Not blocked, but said before saving.
+  const holders = dressType?.peopleCount ?? 0;
+  const genderWarning = dressType && gender && gender !== dressType.gender && holders > 0
+    ? `${holders} ${holders === 1 ? 'person has' : 'people have'} this type now. Anyone who is not ${GENDER_NOUN[gender]} will need another type on the People page.`
+    : undefined;
 
   const nameError = !touched
     ? undefined
@@ -117,17 +134,38 @@ export const DressTypeFormDialog = ({ onClose, dressType, onCreated, prefillName
             error={nameError}
           />
 
-          <FormField label="Who wears it" hint="Women and Men types only show for people of that gender.">
+          <FormField label="Who wears it" hint="Women and Men types only show for people of that gender." warning={genderWarning}>
             <div role="radiogroup" aria-label="Who wears it" className="flex flex-wrap gap-2">
-              {GENDER_OPTIONS.map((option) => (
-                <ToggleChip
-                  key={option.label}
-                  on={gender === option.value}
-                  onClick={() => setGender(option.value)}
-                >
-                  {option.label}
-                </ToggleChip>
-              ))}
+              {GENDER_OPTIONS.map((option, index) => {
+                const checked = gender === option.value;
+                return (
+                  <button
+                    key={option.label}
+                    type="button"
+                    role="radio"
+                    aria-checked={checked}
+                    // One tab stop for the group; arrow keys move the choice, like a native radio set.
+                    tabIndex={checked ? 0 : -1}
+                    onClick={() => setGender(option.value)}
+                    onKeyDown={(e) => {
+                      const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0;
+                      if (!step) return;
+                      e.preventDefault();
+                      const next = GENDER_OPTIONS[(index + step + GENDER_OPTIONS.length) % GENDER_OPTIONS.length];
+                      setGender(next.value);
+                      (e.currentTarget.parentElement?.children[GENDER_OPTIONS.indexOf(next)] as HTMLElement | undefined)?.focus();
+                    }}
+                    className={cn(
+                      CHIP_BASE,
+                      checked
+                        ? 'border-primary-500/50 bg-primary-500/10 text-primary-700 dark:text-primary-300'
+                        : 'border-border bg-surface text-text-secondary hover:border-border-hover hover:text-text',
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
             </div>
           </FormField>
         </fieldset>

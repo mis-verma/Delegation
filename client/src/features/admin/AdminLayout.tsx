@@ -84,13 +84,13 @@ const NAV: AdminNavItem[] = [
 // this used to be. A soft tinted pill marks the current page instead of a solid white-on-navy one,
 // which reads calmer/more professional than a loud fill against a light rail.
 const NAV_LINK_BASE =
-  "group relative flex flex-1 min-w-0 items-center gap-3 px-3 py-2.5 min-h-11 lg:min-h-0 rounded-xl text-[13px] font-medium transition-all duration-300 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 active:scale-[0.98]";
+  "group relative flex flex-1 min-w-0 items-center gap-3 px-3 py-2.5 min-h-11 lg:min-h-0 rounded-xl text-sm font-medium transition-all duration-300 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 active:scale-[0.98]";
 const NAV_LINK_ACTIVE = "bg-primary-50 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300 font-semibold";
 const NAV_LINK_INACTIVE = "text-text-secondary hover:bg-surface-hover hover:text-text";
 const NAV_ICON_ACTIVE = "text-primary-600 dark:text-primary-300";
 const NAV_ICON_INACTIVE = "text-text-light group-hover:text-text-muted";
 const CHILD_LINK_BASE =
-  "relative flex items-center min-w-0 min-h-11 lg:min-h-0 rounded-lg px-3 py-2 text-[12.5px] font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500";
+  "relative flex items-center min-w-0 min-h-11 lg:min-h-0 rounded-lg px-3 py-2 text-xs font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500";
 const CHILD_LINK_ACTIVE = "bg-primary-50 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300 font-semibold";
 const CHILD_LINK_INACTIVE = "text-text-muted hover:bg-surface-hover hover:text-text";
 
@@ -251,7 +251,17 @@ export const AdminLayout = () => {
       <NavLink
         to={to}
         end={end}
-        onClick={() => { handleNavClick(); setFlyoutKey(null); }}
+        onClick={(e) => {
+          // Touch has no hover, so on the collapsed rail (tablet, 768-1023px) a tap on a group icon
+          // opens its flyout of pages instead of jumping to the first one and hiding the rest.
+          if (collapsedRail && hasChildren && window.matchMedia('(pointer: coarse)').matches) {
+            e.preventDefault();
+            setFlyoutKey(to);
+            return;
+          }
+          handleNavClick();
+          setFlyoutKey(null);
+        }}
         className={cn(
           NAV_LINK_BASE,
           !isDrawer && "focus-visible:ring-offset-1 focus-visible:ring-offset-surface",
@@ -492,7 +502,7 @@ export const AdminLayout = () => {
           {/* No brand mark here anymore — the header already carries the "Admin" context (its
               left slot reads "Admin / <page>"), so repeating a logo here was pure duplication.
               Just the section label remains. */}
-          <p className="text-[10px] font-bold text-text-light tracking-wider pb-4 mb-3 border-b border-border px-2">
+          <p className="text-[11px] font-bold text-text-light tracking-wider pb-4 mb-3 border-b border-border px-2">
             Navigation
           </p>
 
@@ -513,7 +523,7 @@ export const AdminLayout = () => {
                 <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-success border-2 border-surface-hover" aria-hidden="true" />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-display font-bold text-text truncate">{user.name}</p>
+                <p className="text-sm font-display font-bold text-text truncate">{user.name}</p>
                 {user.role && <p className="text-[11px] font-display font-medium text-text-muted truncate">{titleCase(user.role)}</p>}
               </div>
               <button
@@ -543,7 +553,7 @@ export const AdminLayout = () => {
               left slot reads "Admin / <page>"), so repeating a logo here was pure duplication.
               Just the section label remains. */}
           <p className={cn(
-            "text-[10px] font-bold text-text-light tracking-wider pb-4 mb-3 border-b border-border px-2 transition-opacity duration-300",
+            "text-[11px] font-bold text-text-light tracking-wider pb-4 mb-3 border-b border-border px-2 transition-opacity duration-300",
             !sidebarOpen && "opacity-0 h-0 !p-0 !m-0 !border-0 overflow-hidden"
           )}>
             Navigation
@@ -567,7 +577,7 @@ export const AdminLayout = () => {
                 <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-success border-2 border-surface-hover" aria-hidden="true" />
               </span>
               <div className={cn("min-w-0 flex-1 transition-opacity duration-300", !sidebarOpen && "hidden opacity-0")}>
-                <p className="text-[13px] font-display font-bold text-text truncate">{user.name}</p>
+                <p className="text-sm font-display font-bold text-text truncate">{user.name}</p>
                 {user.role && <p className="text-[11px] font-display font-medium text-text-muted truncate">{titleCase(user.role)}</p>}
               </div>
               <button

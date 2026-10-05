@@ -9,8 +9,9 @@ import {
 } from '../../../components';
 import { runScores } from '../checklistCompliance';
 import {
-  useStoresQuery, useAssignableUsersQuery, useChecklistInstancesBoardQuery, useChecklistInstanceSummaryQuery, useFormerPeopleQuery,
+  useStoresQuery, useAssignableUsersQuery, useChecklistInstancesBoardQuery, useChecklistInstanceSummaryQuery,
 } from '../hook';
+import { useFormerPeopleNamesQuery } from '../former/useFormerPeopleNames';
 import {
   formatDate, formatDeadlineTime, instanceProgressStatus, VERIFICATION_STATUS_LABEL, VERIFICATION_CHIP,
   instanceProgressToneClass, isInstanceOverdue, isFlaggedAnswer,
@@ -27,6 +28,7 @@ const STATUS_OPTIONS: { value: '' | ChecklistInstanceStatus; label: string }[] =
   { value: '', label: 'All' },
   { value: 'OPEN', label: 'Not completed' },
   { value: 'COMPLETED', label: 'Completed' },
+  { value: 'OVERDUE', label: 'Overdue' },
 ];
 
 const FIELD_LABEL = 'text-xs font-display font-medium text-text-secondary';
@@ -165,6 +167,7 @@ const ComplianceRowSkeleton = () => (
 );
 
 // One applied filter, with an X to drop just that one without opening the panel.
+// The chip stays 32px tall; on a touch screen the X gets a 44px hit area through its ::after.
 const ActiveFilterChip = ({ label, onRemove }: { label: string; onRemove: () => void }) => (
   <span className="flex items-center gap-1 h-8 pl-3 pr-1 rounded-full border border-primary-500/30 bg-primary-500/10 text-xs font-display font-medium text-primary-700 dark:text-primary-300">
     {label}
@@ -172,7 +175,7 @@ const ActiveFilterChip = ({ label, onRemove }: { label: string; onRemove: () => 
       type="button"
       onClick={onRemove}
       aria-label={`Remove filter: ${label}`}
-      className="flex items-center justify-center size-6 rounded-full text-primary-700/70 dark:text-primary-300/70 hover:bg-primary-500/15 hover:text-primary-700 dark:hover:text-primary-200 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+      className="relative pointer-coarse:after:absolute pointer-coarse:after:-inset-2.5 flex items-center justify-center size-6 rounded-full text-primary-700/70 dark:text-primary-300/70 hover:bg-primary-500/15 hover:text-primary-700 dark:hover:text-primary-200 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
     >
       <X size={13} aria-hidden />
     </button>
@@ -216,7 +219,13 @@ export const ChecklistComplianceBoard = () => {
   // an effect would render the stale page once before correcting itself.
   const setStoreId = (value: string) => { setStoreIdState(value); setPage(1); };
   const setAssigneeId = (value: string) => { setAssigneeIdState(value); setPage(1); };
-  const setStatus = (value: '' | ChecklistInstanceStatus) => { setStatusState(value); setPage(1); };
+  // The tile and the Status control narrow the same thing, so picking a status drops the tile (and a
+  // tile drops the status below): only one of them is ever on, and no chip contradicts the list.
+  const setStatus = (value: '' | ChecklistInstanceStatus) => {
+    setStatusState(value);
+    if (value) setQuickFilter('all');
+    setPage(1);
+  };
   const setIncludeDeleted = (value: boolean) => { setIncludeDeletedState(value); setPage(1); };
   const setRange = (value: DateRangeValue) => { setRangeState(value); setPage(1); };
   const setLastMonth = () => {
@@ -227,7 +236,9 @@ export const ChecklistComplianceBoard = () => {
     });
   };
   const toggleQuickFilter = (key: ComplianceQuickFilterKey) => {
-    setQuickFilter((prev) => (key === 'all' || prev === key ? 'all' : key));
+    const turnsOn = key !== 'all' && quickFilter !== key;
+    setQuickFilter(turnsOn ? key : 'all');
+    if (turnsOn) setStatusState('');
     setPage(1);
   };
   const hasFilters = !!(storeId || assigneeId || status || includeDeleted || range.from || range.to || quickFilter !== 'all');
@@ -246,13 +257,14 @@ export const ChecklistComplianceBoard = () => {
 
   const { data: stores = [], isPending: storesPending } = useStoresQuery();
   // Scoped to the selected store, for the Person filter's own option list.
-  const { data: people = [] } = useAssignableUsersQuery(undefined, storeId || undefined);
+  const { data: people = [], isSuccess: peopleLoaded } = useAssignableUsersQuery(undefined, storeId || undefined);
   // Unscoped roster so assignee chips resolve to real names even for instances outside whichever
   // store is currently selected in the filter above.
   const { data: allPeople = [], isPending: allPeoplePending } = useAssignableUsersQuery();
   // Deactivated people are not in the assignable roster, but their name still has to read right on
-  // old runs. Failure here just means no "(left)" tag, never a broken page.
-  const { data: formerPeople = [], isPending: formerPending } = useFormerPeopleQuery();
+  // old runs, and they can be picked in the Person filter. The light names endpoint (not the full
+  // former-people aggregates). Failure here just means no "(left)" tag, never a broken page.
+  const { data: formerPeople = [], isPending: formerPending } = useFormerPeopleNamesQuery();
 
   const nameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -267,8 +279,30 @@ export const ChecklistComplianceBoard = () => {
     .filter(Boolean)
     .join(' · ');
 
+  // Said out loud under the tiles: the list below spans exactly the picked dates (or everything),
+  // which is not the same span as the latest-period tiles above it.
+  const listSpan = range.from && range.to ? `Showing ${shortDay(range.from)} to ${shortDay(range.to)}`
+    : range.from ? `Showing from ${shortDay(range.from)}`
+    : range.to ? `Showing until ${shortDay(range.to)}`
+    : 'Showing all time';
+
   const storeOptions = useMemo(() => stores.map(s => ({ value: s.id, label: s.name })), [stores]);
-  const personOptions = useMemo(() => people.map(p => ({ value: p.id, label: personName(p) })), [people]);
+  // Current people of the picked store first, then everyone who has left (their runs still show here).
+  const personOptions = useMemo(
+    () => [
+      ...people.map(p => ({ value: p.id, label: personName(p) })),
+      ...formerPeople.map(p => ({ value: p.id, label: `${personName(p)} (left)` })),
+    ],
+    [people, formerPeople],
+  );
+
+  // A person picked before the store changed may not work in the new store. Once that store's roster
+  // is in, drop the pick instead of leaving the Person box naming someone the list can't match.
+  // (Former people are kept: the names endpoint has no store to check them against.)
+  if (assigneeId && storeId && peopleLoaded && !people.some(p => p.id === assigneeId) && !formerPeople.some(p => p.id === assigneeId)) {
+    setAssigneeIdState('');
+    setPage(1);
+  }
 
   // The tile and the Status control narrow the same dimension, so they resolve to one server
   // `status`, the tile wins when set.
@@ -306,7 +340,7 @@ export const ChecklistComplianceBoard = () => {
   );
 
   return (
-    <div className="flex flex-col gap-6 w-full max-w-5xl mx-auto">
+    <div className="flex flex-col gap-6 w-full">
       <PageHeader
         icon={ClipboardCheck}
         title="Checklist Compliance"
@@ -316,7 +350,7 @@ export const ChecklistComplianceBoard = () => {
 
       {/* One Filters button for the whole page: everything that narrows the stats and the list lives behind it. */}
       <section aria-label="Filters" className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-3">
           <Button
             variant="outline"
             size="lg"
@@ -349,7 +383,7 @@ export const ChecklistComplianceBoard = () => {
             <button
               type="button"
               onClick={clearFilters}
-              className="h-8 px-2.5 rounded-lg text-xs font-display font-medium text-text-muted hover:text-danger hover:bg-danger/10 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+              className="relative pointer-coarse:after:absolute pointer-coarse:after:-inset-y-1.5 pointer-coarse:after:inset-x-0 h-8 px-2.5 rounded-lg text-xs font-display font-medium text-text-muted hover:text-danger hover:bg-danger/10 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
             >
               Clear all
             </button>
@@ -438,9 +472,9 @@ export const ChecklistComplianceBoard = () => {
         scopeLabel={scopeLabel || undefined}
       />
 
-      <div className="flex items-center gap-3 pt-4 border-t border-border/60">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-4 border-t border-border/60">
         <h2 className="text-sm font-display font-bold text-text shrink-0">Who's done what</h2>
-        <p className="text-xs font-display text-text-muted">Reflects the filters above.</p>
+        <p className="text-xs font-display text-text-muted">{listSpan}</p>
       </div>
 
       <ChecklistComplianceQuickStats

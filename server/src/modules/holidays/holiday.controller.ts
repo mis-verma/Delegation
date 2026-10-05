@@ -1,6 +1,6 @@
 import type { Request, Response } from "express"
 import { holidayService } from "./holiday.service.js"
-import { createHolidaySchema, createHolidaysSchema, listHolidaysQuerySchema } from "./holiday.validation.js"
+import { createHolidaySchema, createHolidaysSchema, listHolidaysQuerySchema, previewHolidayQuerySchema } from "./holiday.validation.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
 
 export const holidayController = {
@@ -23,8 +23,17 @@ export const holidayController = {
         res.status(201).json({ success: true, ...(await holidayService.createMany(holidays, req.user!.sub)) })
     }),
 
+    // GET /holidays/preview?date=YYYY-MM-DD -> { success, data: { untouchedRuns, startedRuns } }
+    // untouchedRuns would be removed by adding the holiday, startedRuns would stay. Nothing is written.
+    preview: asyncHandler(async (req: Request, res: Response) => {
+        const { date } = previewHolidayQuerySchema.parse(req.query)
+        res.json({ success: true, data: await holidayService.preview(date) })
+    }),
+
+    // DELETE /holidays/:id -> { success, backfilled }: false for a past date (the generator never
+    // back-fills past days), true for today or a later date.
     remove: asyncHandler(async (req: Request, res: Response) => {
-        await holidayService.remove(req.params.id, req.user!.sub)
-        res.json({ success: true })
+        const { backfilled } = await holidayService.remove(req.params.id, req.user!.sub)
+        res.json({ success: true, backfilled })
     }),
 }

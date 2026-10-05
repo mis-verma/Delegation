@@ -13,6 +13,8 @@ import {
   UserCheck,
   ShieldCheck,
   Layers,
+  Info,
+  PauseCircle,
 } from 'lucide-react';
 import { Button, InlineError, NoticeBanner, PANEL_CLASS, Skeleton, formatWeekdays } from '../../../../../components';
 import { Badge } from '@/components/ui/badge';
@@ -43,6 +45,8 @@ interface BuilderReviewStepProps {
   canSubmit: boolean;
   isSubmitting: boolean;
   isEditing: boolean;
+  /** Whether the saved checklist is live (only known when editing). Decides what saving does to today's runs. */
+  isActive?: boolean;
   onSubmit: () => void;
   submitError?: string;
 }
@@ -50,7 +54,7 @@ interface BuilderReviewStepProps {
 const SECTION_CONFIG = [
   { label: 'Basics', icon: FileText },
   { label: 'Schedule', icon: Calendar },
-  { label: 'Items', icon: ListChecks },
+  { label: 'Questions', icon: ListChecks },
   { label: 'Assign', icon: Users },
 ] as const;
 
@@ -101,9 +105,9 @@ const SectionCard = ({
   badgeText?: string;
   children: ReactNode;
 }) => (
-  <div className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-4', !valid && 'border-warning/40 bg-warning/5')}>
-    <div className="flex items-center justify-between gap-2 pb-3 border-b border-border/50">
-      <div className="flex items-center gap-2">
+  <div className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-4 min-w-0', !valid && 'border-warning/40 bg-warning/5')}>
+    <div className="flex flex-wrap items-center justify-between gap-2 min-w-0 pb-3 border-b border-border/50">
+      <div className="flex flex-wrap items-center gap-2 min-w-0">
         <span
           className={`p-1.5 rounded-lg text-xs ${
             valid
@@ -122,7 +126,7 @@ const SectionCard = ({
           </span>
         )}
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 shrink-0">
         {!valid && (
           <Badge variant="warning" className="gap-1 text-[11px] py-0.5 px-2">
             <AlertTriangle size={11} /> Needs attention
@@ -137,13 +141,19 @@ const SectionCard = ({
 
 type UserPool = ReturnType<typeof useAssignableUsersQuery>['data'];
 
-const resolveNames = (ids: string[], pool: UserPool) =>
-  ids.map((id) => {
+// Only people the pool still lists. Someone picked for a store that was since unticked (or who has
+// been deactivated) is not saved, so naming them as "Unknown user" would be wrong; they are counted
+// in `left out` and called out under the names instead.
+const resolveNames = (ids: string[], pool: UserPool) => {
+  const names: string[] = [];
+  for (const id of ids) {
     const u = pool?.find((a) => a.id === id);
-    if (!u) return 'Unknown user';
+    if (!u) continue;
     const full = `${u.firstName} ${u.lastName ?? ''}`.trim();
-    return full || u.email;
-  });
+    names.push(full || u.email);
+  }
+  return { names, leftOut: pool ? ids.length - names.length : 0 };
+};
 
 const Caption =({ children }: { children: ReactNode }) => (
   <span className="flex items-center gap-1 text-[11px] font-medium text-text-muted">{children}</span>
@@ -176,6 +186,7 @@ export const BuilderReviewStep = ({
   canSubmit,
   isSubmitting,
   isEditing,
+  isActive,
   onSubmit,
   submitError,
 }: BuilderReviewStepProps) => {
@@ -208,9 +219,22 @@ export const BuilderReviewStep = ({
     .filter((s): s is { index: number; label: (typeof SECTION_CONFIG)[number]['label'] } => s !== null);
 
   return (
-    <div className="flex flex-col gap-4 sm:gap-6 w-full max-w-5xl mx-auto">
-      {/* Grid of Sections. The step frame above already carries the "Review & Create" heading. */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div className="flex flex-col gap-4 sm:gap-6 w-full">
+      {/* Saving an edit touches today's runs, so say how before the button, not after. */}
+      {isEditing && isActive !== undefined && (
+        isActive ? (
+          <NoticeBanner tone="info" icon={Info}>
+            Saving updates today&rsquo;s runs. Runs nobody started are rebuilt. Started runs keep every answer and get your changes. Runs sent for review or approved stay as they are.
+          </NoticeBanner>
+        ) : (
+          <NoticeBanner tone="neutral" icon={PauseCircle}>
+            This checklist is paused, so today&rsquo;s runs are not changed.
+          </NoticeBanner>
+        )
+      )}
+
+      {/* Grid of Sections. The step frame above already carries the step heading. */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         {/* 1. Basics */}
         <SectionCard
           title="Basics"
@@ -303,16 +327,16 @@ export const BuilderReviewStep = ({
 
         {/* 3. Items */}
         <SectionCard
-          title="Items"
+          title="Questions"
           icon={<ListChecks size={14} />}
           valid={sectionValidity[2]}
-          badgeText={`${namedItems.length} item${namedItems.length === 1 ? '' : 's'}`}
+          badgeText={`${namedItems.length} question${namedItems.length === 1 ? '' : 's'}`}
           onEdit={() => onEditSection(2)}
         >
           {namedItems.length === 0 ? (
             <div className="py-4 text-center">
               <p className="text-xs font-display text-text-muted italic">
-                You haven't added any items yet.
+                You haven’t added any questions yet.
               </p>
             </div>
           ) : (
@@ -333,12 +357,12 @@ export const BuilderReviewStep = ({
                       {item.label}
                     </span>
                     {item.section && (
-                      <span className="shrink-0 text-[10px] font-display text-text-muted px-1.5 py-0.5 rounded-full bg-muted/50">
+                      <span className="shrink-0 text-[11px] font-display text-text-muted px-1.5 py-0.5 rounded-full bg-muted/50">
                         {item.section}
                       </span>
                     )}
                   </div>
-                  <Badge variant="outline" className="shrink-0 text-[10px] py-0 px-1.5">
+                  <Badge variant="outline" className="shrink-0 text-[11px] py-0 px-1.5">
                     {questionTypeOf(item).label}
                   </Badge>
                 </li>
@@ -362,13 +386,20 @@ export const BuilderReviewStep = ({
               ) : assignableQuery.isError ? (
                 <InlineError message="We couldn't load the people." onRetry={() => assignableQuery.refetch()} />
               ) : (
-                <p className="text-xs font-display text-text-secondary">
-                  {assignees.length ? (
-                    assignees.join(', ')
-                  ) : (
-                    <span className="italic text-text-muted">No individual users selected</span>
+                <>
+                  <p className="text-xs font-display text-text-secondary">
+                    {assignees.names.length ? (
+                      assignees.names.join(', ')
+                    ) : (
+                      <span className="italic text-text-muted">Nobody assigned yet</span>
+                    )}
+                  </p>
+                  {assignees.leftOut > 0 && (
+                    <p className="text-[11px] font-display text-warning">
+                      {assignees.leftOut} {assignees.leftOut === 1 ? 'person is' : 'people are'} not in the selected stores and will be left out.
+                    </p>
                   )}
-                </p>
+                </>
               )}
             </div>
             <div className="flex flex-col gap-1">
@@ -399,7 +430,14 @@ export const BuilderReviewStep = ({
             ) : allActiveQuery.isError ? (
               <InlineError message="We couldn't load the people." onRetry={() => allActiveQuery.refetch()} />
             ) : (
-              <p className="text-xs font-display text-text-secondary">{reviewers.join(', ')}</p>
+              <>
+                <p className="text-xs font-display text-text-secondary">{reviewers.names.join(', ') || <span className="italic text-text-muted">No active reviewers picked</span>}</p>
+                {reviewers.leftOut > 0 && (
+                  <p className="text-[11px] font-display text-warning">
+                    {reviewers.leftOut} {reviewers.leftOut === 1 ? 'person is' : 'people are'} no longer active and will be left out.
+                  </p>
+                )}
+              </>
             )}
           </div>
         </SectionCard>
@@ -440,7 +478,7 @@ export const BuilderReviewStep = ({
           disabled={!canSubmit}
           className="w-full sm:w-auto sm:shrink-0 pointer-coarse:h-11"
         >
-          {isSubmitting ? 'Saving...' : isEditing ? 'Save Changes' : 'Create Checklist'}
+          {isSubmitting ? 'Saving…' : isEditing ? 'Save Changes' : 'Create Checklist'}
         </Button>
       </div>
     </div>

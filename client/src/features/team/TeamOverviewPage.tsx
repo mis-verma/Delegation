@@ -165,7 +165,7 @@ export const TeamOverviewPage = () => {
   };
 
   return (
-    <div className="flex flex-col gap-4 w-full max-w-5xl mx-auto pb-10">
+    <div className="flex flex-col gap-4 w-full pb-10">
       <PageHeader
         icon={Building2}
         title="Team Overview"

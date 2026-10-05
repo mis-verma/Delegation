@@ -3,6 +3,9 @@ import { useMemo, type ReactNode } from 'react';
 import { NoticeBanner } from '../../../../components';
 import { useAssignableUsersQuery } from '../../hook';
 import { ChecklistAssigneesField } from '../form/ChecklistAssigneesField';
+import { HiddenPeopleNotice } from './HiddenPeopleNotice';
+import { onRadioKeyDown } from './radioGroupKeys';
+import { peopleCount, splitByVisible, type StorePeople } from './useStorePeople';
 import type { ChecklistResponseMode } from '../../../../api/checklistDefinitions';
 
 interface BuilderAssignPanelProps {
@@ -11,6 +14,7 @@ interface BuilderAssignPanelProps {
   onAssigneeIdsChange: (ids: string[]) => void;
   responseMode: ChecklistResponseMode;
   onResponseModeChange: (mode: ChecklistResponseMode) => void;
+  people: StorePeople;
 }
 
 const MODES: { value: ChecklistResponseMode; title: string; hint: string; icon: ReactNode }[] = [
@@ -37,18 +41,22 @@ const copiesSummary = (mode: ChecklistResponseMode, people: number, departments:
   return `${departments} ${departments === 1 ? 'copy' : 'copies'} each time it comes round: one per department, shared by the people in that department.`;
 };
 
-export const BuilderAssignPanel = ({ storeIds, assigneeIds, onAssigneeIdsChange, responseMode, onResponseModeChange }: BuilderAssignPanelProps) => {
+export const BuilderAssignPanel = ({ storeIds, assigneeIds, onAssigneeIdsChange, responseMode, onResponseModeChange, people }: BuilderAssignPanelProps) => {
   const { data: users } = useAssignableUsersQuery(undefined, undefined, storeIds);
+  // Only people the list below still shows count: someone picked for a store that was since
+  // unticked is hidden there, and the server would reject them.
+  const { shown, hidden } = splitByVisible(assigneeIds, people.storePersonIds);
+  const storePersonIds = people.storePersonIds;
   const departmentCount = useMemo(() => {
-    const picked = new Set(assigneeIds);
+    const picked = new Set(splitByVisible(assigneeIds, storePersonIds).shown);
     return new Set((users ?? []).filter(u => picked.has(u.id)).map(u => u.departmentId ?? 'none')).size;
-  }, [users, assigneeIds]);
+  }, [users, assigneeIds, storePersonIds]);
   return (
   <div className="flex flex-col gap-6">
     <fieldset className="flex flex-col gap-2.5">
       <legend className="text-sm font-display font-semibold text-text pb-1">How many copies?</legend>
       <div role="radiogroup" className="grid gap-2.5 sm:grid-cols-3">
-        {MODES.map(m => {
+        {MODES.map((m, index) => {
           const on = responseMode === m.value;
           return (
             <button
@@ -56,7 +64,9 @@ export const BuilderAssignPanel = ({ storeIds, assigneeIds, onAssigneeIdsChange,
               type="button"
               role="radio"
               aria-checked={on}
+              tabIndex={on ? 0 : -1}
               onClick={() => onResponseModeChange(m.value)}
+              onKeyDown={(e) => onRadioKeyDown(e, index, MODES.length, (next) => onResponseModeChange(MODES[next].value))}
               className={`flex flex-col items-start gap-1.5 p-3.5 text-left rounded-2xl border cursor-pointer transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
                 on
                   ? 'border-primary-500/60 bg-primary-500/10'
@@ -72,9 +82,19 @@ export const BuilderAssignPanel = ({ storeIds, assigneeIds, onAssigneeIdsChange,
           );
         })}
       </div>
-      <NoticeBanner tone="info" icon={Users}>{copiesSummary(responseMode, assigneeIds.length, departmentCount)}</NoticeBanner>
+      <NoticeBanner tone="info" icon={Users}>{copiesSummary(responseMode, shown.length, departmentCount)}</NoticeBanner>
     </fieldset>
-    <ChecklistAssigneesField storeIds={storeIds} selected={assigneeIds} onChange={onAssigneeIdsChange} />
+    {hidden.length > 0 && (
+      <HiddenPeopleNotice
+        message={`${peopleCount(hidden.length)} ${hidden.length === 1 ? 'is' : 'are'} not in the selected stores.`}
+        onRemove={() => onAssigneeIdsChange(shown)}
+      />
+    )}
+    <ChecklistAssigneesField
+      storeIds={storeIds}
+      selected={shown}
+      onChange={(ids) => onAssigneeIdsChange([...hidden, ...ids])}
+    />
   </div>
   );
 };

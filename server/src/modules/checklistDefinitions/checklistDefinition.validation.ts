@@ -6,6 +6,7 @@ import {
     CHECKLIST_ICONS,
     CHECKLIST_ITEM_TYPES,
     CHECKLIST_CONDITIONAL_ACTIONS,
+    YES_NO_VALUES,
 } from "../../db/schema/checklistDefinition.js"
 
 const timeOfDay = z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Expected HH:mm")
@@ -33,6 +34,10 @@ const accessoriesByTypeSchema = z
         const kept = Object.entries(m).filter(([, names]) => names.length > 0)
         return kept.length ? Object.fromEntries(kept) : null
     })
+
+// Question types that can carry a good-answer rule, split by which half of the rule they use.
+const CHOICE_RULE_TYPES: string[] = ["YES_NO", "PASS_FAIL", "MULTIPLE_CHOICE", "DROPDOWN"]
+const RANGE_RULE_TYPES: string[] = ["NUMBER_ENTRY", "RATING"]
 
 const definitionItemShape = z.object({
     // The builder sends back the id of every question it loaded. On an update the service keeps that
@@ -74,6 +79,17 @@ const definitionItemShape = z.object({
     acceptableMax: z.number().nullable().optional(),
     yesActions: z.array(z.enum(CHECKLIST_CONDITIONAL_ACTIONS)).optional(),
     noActions: z.array(z.enum(CHECKLIST_CONDITIONAL_ACTIONS)).optional(),
+}).transform((item) => {
+    // A good-answer rule left over from a type the question no longer has (or never could have) is
+    // dropped rather than rejected, so an older client that still sends it keeps working. Choice
+    // types keep only the answer list, number/rating only the min/max range, every other type none.
+    const type = item.itemType ?? ""
+    return {
+        ...item,
+        acceptableAnswers: CHOICE_RULE_TYPES.includes(type) ? item.acceptableAnswers : null,
+        acceptableMin: RANGE_RULE_TYPES.includes(type) ? item.acceptableMin : null,
+        acceptableMax: RANGE_RULE_TYPES.includes(type) ? item.acceptableMax : null,
+    }
 }).refine(item => item.itemType !== "AUDIT" || (item.auditUserIds?.length ?? 0) >= 1, {
     message: "At least one auditor is required for an audit item",
     path: ["auditUserIds"],
@@ -97,15 +113,56 @@ const definitionItemShape = z.object({
 }).refine(item => (!item.yesActions?.length && !item.noActions?.length) || ["YES_NO", "PASS_FAIL"].includes(item.itemType ?? ""), {
     message: "Conditional rules only apply to Yes/No or Pass/Fail items",
     path: ["yesActions"],
+}).superRefine((item, ctx) => {
+    // The good-answer rule has to be something an answer can actually match, otherwise the question
+    // could never score as good.
+    const type = item.itemType ?? ""
+    const answers = item.acceptableAnswers ?? []
+    const { acceptableMin: min, acceptableMax: max } = item
+
+    if (type === "YES_NO" || type === "PASS_FAIL") {
+        if (answers.some((a) => !(YES_NO_VALUES as readonly string[]).includes(a))) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["acceptableAnswers"], message: "The good answer must be Yes or No" })
+        }
+    } else if (type === "MULTIPLE_CHOICE" || type === "DROPDOWN") {
+        const options = item.options ?? []
+        const bad = answers.filter((a) => !options.includes(a))
+        if (bad.length) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ["acceptableAnswers"],
+                message: `Good answer ${bad.map((b) => `"${b}"`).join(", ")} is not one of the options`,
+            })
+        }
+    }
+
+    if (!RANGE_RULE_TYPES.includes(type)) return
+    if (min != null && max != null && min > max) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["acceptableMax"], message: "Good answer minimum can't be more than the maximum" })
+        return
+    }
+    const outside = (lo: number, hi: number) => (min != null && (min < lo || min > hi)) || (max != null && (max < lo || max > hi))
+    if (type === "RATING" && item.ratingScale != null && outside(1, item.ratingScale)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["acceptableMax"], message: `Good answer range must be between 1 and ${item.ratingScale}` })
+    }
+    if (type === "NUMBER_ENTRY" && item.numberEntryMin != null && item.numberEntryMax != null && outside(item.numberEntryMin, item.numberEntryMax)) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["acceptableMax"],
+            message: `Good answer range must be between ${item.numberEntryMin} and ${item.numberEntryMax}`,
+        })
+    }
 })
 
 
 const checklistDefinitionFields = {
-    name: z.string().min(1),
-    description: z.string().optional(),
+    // 191 = the varchar length of ChecklistDefinition.name. Longer used to reach the DB and 500.
+    name: z.string().trim().min(1, "Give the checklist a name").max(191, "Keep the name under 192 characters"),
+    // The column is TEXT (65,535 bytes). 16,000 characters stays under that even at 4 bytes each.
+    description: z.string().max(16000, "Keep the description under 16,000 characters").optional(),
     storeIds: uniqueIdArray("At least one store is required"),
     recurrence: z.enum(CHECKLIST_RECURRENCES),
-    startDate: z.string(),
+    startDate: z.string().refine((v) => !Number.isNaN(new Date(v).getTime()), "Start date isn't a valid date"),
     opensTime: timeOfDay.optional(),
     cutoffTime: timeOfDay.optional(),
     assigneeIds: uniqueIdArray("At least one assignee is required"),

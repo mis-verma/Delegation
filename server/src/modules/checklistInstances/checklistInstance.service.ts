@@ -34,7 +34,7 @@ import { emitChecklistEvent } from "../../sockets/checklistEvent.js"
 import { env } from "../../config/env.js"
 import { checklistReportService, type ChecklistReportQuery } from "./checklistReport.service.js"
 import type { ChecklistReportScope } from "./checklistReportScope.js"
-import { orgLocalDate, addDays, utcSql } from "./checklistReportRange.js"
+import { orgLocalDate, addDays, utcSql, asOrgDay } from "./checklistReportRange.js"
 
 // OVERDUE is a subset of OPEN (unfinished *and* past its period end), not a third
 // independent state — the compliance board and MyChecklists both offer it as a filter, and
@@ -307,12 +307,14 @@ const completionCondition = (status: InstanceStatusFilter) => {
     const complete = sql`${anyItem} AND NOT ${anyUnfinished}`
     const incomplete = sql`NOT ${anyItem} OR ${anyUnfinished}`
 
-    if (status === "COMPLETED") return complete
+    // Every branch is fully parenthesised: drizzle's and(...) joins conditions without wrapping each
+    // one, so a bare `a OR b` would swallow the AND-ed conditions around it.
+    if (status === "COMPLETED") return sql`(${complete})`
     // Deadline is cutoffTime (same-day, or next-day for an overnight window) when set, else
     // periodEnd — same rule the summary's `overdue` count uses, and the client's isInstanceOverdue.
-    if (status === "OVERDUE") return sql`(${incomplete}) AND ${deadlineExpr} < ${localNowExpr}`
-    if (status === "DUE") return sql`(${incomplete}) AND ${deadlineExpr} >= ${localNowExpr}`
-    return incomplete // "OPEN" — every incomplete instance, overdue or not ("Pending")
+    if (status === "OVERDUE") return sql`((${incomplete}) AND ${deadlineExpr} < ${localNowExpr})`
+    if (status === "DUE") return sql`((${incomplete}) AND ${deadlineExpr} >= ${localNowExpr})`
+    return sql`(${incomplete})` // "OPEN" — every incomplete instance, overdue or not ("Pending")
 }
 
 /**
@@ -735,8 +737,9 @@ export type InstanceListFilter = {
     userId?: string
     /** Instances with at least one assignee in this department — see instanceIdsForDepartment. */
     departmentId?: string
-    /** Restricts to instances whose periodStart falls in [from, to] — ISO strings, same
-     *  inclusive-bounds convention as complianceReport's own from/to. Lets the compliance board's
+    /** Restricts to instances whose periodStart falls in [from, to] — an ISO instant or a plain
+     *  YYYY-MM-DD, both read as org-local days (see asOrgDay), inclusive of both days, same
+     *  convention as complianceReport's own from/to. Lets the compliance board's
      *  "who's done what" list be scoped to a past period (e.g. last month) instead of always
      *  showing every instance ever generated. */
     from?: string
@@ -756,6 +759,23 @@ const instanceInDepartmentCondition = (departmentId: string): SQL => sql`EXISTS 
     WHERE a.instanceId = ${checklistInstances.id} AND u.departmentId = ${departmentId}
 )`
 
+// The "not finished" views (pending / due / overdue) only look at runs that began in the last
+// SUMMARY_WINDOW_DAYS org-local days, so a daily run nobody filled a month ago stops counting as
+// "overdue" for ever; a ONE_TIME checklist has no next period to move on to, so it is exempt and
+// counts until it is done. This ONE expression is used by both the list's status filter
+// (instanceConditions) and the summary's counts, so a tile and the list it opens can never disagree.
+// total / completed / item counts are not windowed.
+const SUMMARY_WINDOW_DAYS = 45
+const NOT_FINISHED_STATUSES: readonly InstanceStatusFilter[] = ["OPEN", "DUE", "OVERDUE"]
+
+// periodStart is the org-local day written as UTC midnight, hence the day arithmetic.
+const inWindowExpr = (now: Date = new Date()): SQL => {
+    const windowStart = new Date(`${addDays(orgLocalDate(now), -SUMMARY_WINDOW_DAYS)}T00:00:00.000Z`)
+    return sql`(${checklistInstances.recurrence} = 'ONE_TIME' OR ${checklistInstances.periodStart} >= ${utcSql(windowStart)})`
+}
+
+const dayStartUtc = (day: string) => new Date(`${day}T00:00:00.000Z`)
+
 const instanceConditions = (filter: InstanceListFilter): SQL | undefined => {
     // Excluded by default regardless of what else the caller is filtering by — unless the caller
     // is ADMIN/PC auditing history (`includeDeleted`, set only by the controller from the
@@ -764,10 +784,16 @@ const instanceConditions = (filter: InstanceListFilter): SQL | undefined => {
     if (filter.definitionId) conditions.push(eq(checklistInstances.definitionId, filter.definitionId))
     if (filter.storeId) conditions.push(eq(checklistInstances.storeId, filter.storeId))
     if (filter.status) conditions.push(completionCondition(filter.status))
+    // Same window the summary's pending/due/overdue tiles use, so clicking a tile lists exactly what
+    // it counted. An explicit `from` means the caller picked a period: no window then.
+    if (filter.status && NOT_FINISHED_STATUSES.includes(filter.status) && !filter.from) conditions.push(inWindowExpr())
     if (filter.recurrence) conditions.push(eq(checklistInstances.recurrence, filter.recurrence))
     if (filter.verificationStatus) conditions.push(eq(checklistInstances.verificationStatus, filter.verificationStatus))
-    if (filter.from) conditions.push(gte(checklistInstances.periodStart, new Date(filter.from)))
-    if (filter.to) conditions.push(lte(checklistInstances.periodStart, new Date(filter.to)))
+    // from/to are an ISO instant or a plain YYYY-MM-DD. Either way they become org-local DAYS and are
+    // compared as dates (periodStart is the org-local day at UTC midnight), so a browser in another
+    // time zone cannot shift the first or last day. `to` is inclusive of its whole day.
+    if (filter.from) conditions.push(gte(checklistInstances.periodStart, dayStartUtc(asOrgDay(filter.from))))
+    if (filter.to) conditions.push(lt(checklistInstances.periodStart, dayStartUtc(addDays(asOrgDay(filter.to), 1))))
 
     // The assignee lives in the checklistInstanceAssignees junction table, not on the instance, so
     // these are EXISTS subqueries against it. Nothing matching simply yields no rows (and zero
@@ -820,11 +846,7 @@ const pendingApprovalScope = (user: AccessTokenPayload): SQL | undefined => {
     return sql`(${sql.join(parts, sql` OR `)})`
 }
 
-// The dashboard's checklist numbers. Pending / due / overdue only look at runs that began in the last
-// SUMMARY_WINDOW_DAYS (org-local days) so a daily run nobody filled a month ago stops counting as
-// "overdue" for ever; a ONE_TIME checklist has no next period to move on to, so it is exempt and
-// counts until it is done. total / completed / item counts are not windowed.
-const SUMMARY_WINDOW_DAYS = 45
+// The dashboard's checklist numbers: see SUMMARY_WINDOW_DAYS / inWindowExpr above for the window.
 // Short, with explicit invalidation from the paths below. The TTL covers what has no hook (the
 // generator creating runs, audit submissions, a deadline passing).
 const SUMMARY_TTL_SECONDS = 10
@@ -839,7 +861,7 @@ const summaryOwnerKey = (userId: string | undefined) => `u:${userId ?? "org"}`
  * ones (admin org view, department heads' view). Many assignees (a shared store run) just wipe the
  * lot, which is cheaper than a SCAN per person.
  */
-const dropChecklistSummaries = (assigneeIds: string[]) => {
+export const dropChecklistSummaries = (assigneeIds: string[]) => {
     const prefixes = assigneeIds.length > 4
         ? [`${CHECKLIST_SUMMARY_PREFIX}:`]
         : [summaryOwnerKey(undefined), ...assigneeIds.map((id) => summaryOwnerKey(id))].map((owner) => `${CHECKLIST_SUMMARY_PREFIX}:${owner}:`)
@@ -916,7 +938,9 @@ export const checklistInstanceService = {
      *
      * pending / due / overdue are windowed (see SUMMARY_WINDOW_DAYS), unless the caller asked for an
      * explicit `from`: someone looking at last quarter on the compliance board wants that period's
-     * misses, not zeros. Completion counts an N/A question as done, exactly like everywhere else
+     * misses, not zeros. The list's OPEN/DUE/OVERDUE filter uses the same window, so a tile and the
+     * list it opens agree; `total` is the unfiltered list's count, and total = completed + pending +
+     * olderOpen (unfinished runs older than the window). Completion counts an N/A question as done, exactly like everywhere else
      * (isDone is what N/A sets), so a run with N/A answers can still be complete.
      */
     async summary(filter: InstanceListFilter) {
@@ -934,18 +958,18 @@ export const checklistInstanceService = {
             async () => {
                 const built = instanceConditions(filter)
                 const now = new Date()
-                const windowStart = new Date(`${addDays(orgLocalDate(now), -SUMMARY_WINDOW_DAYS)}T00:00:00.000Z`)
-                // periodStart is the org-local day written as UTC midnight, hence the day arithmetic above.
-                const inWindow = filter.from
-                    ? sql`1 = 1`
-                    : sql`(${checklistInstances.recurrence} = 'ONE_TIME' OR ${checklistInstances.periodStart} >= ${utcSql(windowStart)})`
+                // The same window the list's OPEN / DUE / OVERDUE filter applies (instanceConditions).
+                const inWindow = filter.from ? sql`(1 = 1)` : inWindowExpr(now)
 
                 const isComplete = completionCondition("COMPLETED")
                 const [counts] = await db.select({
                     total: sql<number>`COUNT(*)`,
                     completed: sql<number>`SUM(CASE WHEN ${isComplete} THEN 1 ELSE 0 END)`,
                     pending: sql<number>`SUM(CASE WHEN (${completionCondition("OPEN")}) AND ${inWindow} THEN 1 ELSE 0 END)`,
-                    overdue: sql<number>`SUM(CASE WHEN ${completionCondition("OVERDUE")} AND ${inWindow} THEN 1 ELSE 0 END)`,
+                    overdue: sql<number>`SUM(CASE WHEN (${completionCondition("OVERDUE")}) AND ${inWindow} THEN 1 ELSE 0 END)`,
+                    // Unfinished runs older than the window: in `total` (and in the unfiltered list) but not
+                    // in pending/overdue, so total = completed + pending + olderOpen always adds up.
+                    olderOpen: sql<number>`SUM(CASE WHEN (${completionCondition("OPEN")}) AND NOT ${inWindow} THEN 1 ELSE 0 END)`,
                     // Runs generated since org-local midnight (not CURDATE(), which is the DB
                     // session's zone). For the dashboard and the sidebar badge breakdown.
                     newToday: sql<number>`SUM(CASE WHEN ${checklistInstances.generatedAt} >= ${utcSql(orgDayStartUtc(now))} THEN 1 ELSE 0 END)`,
@@ -969,6 +993,7 @@ export const checklistInstanceService = {
                     // No extra query: every pending run is either overdue or due.
                     due: pending - overdue,
                     overdue,
+                    olderOpen: Number(counts?.olderOpen ?? 0),
                     totalItems: Number(items?.totalItems ?? 0),
                     doneItems: Number(items?.doneItems ?? 0),
                     newToday: Number(counts?.newToday ?? 0),
@@ -989,8 +1014,9 @@ export const checklistInstanceService = {
         const conditions = [eq(checklistInstanceItemSubmissions.isDone, true), parentNotDeletedExpr]
         if (filter.personId) conditions.push(eq(checklistInstanceItemSubmissions.userId, filter.personId))
         if (filter.storeId) conditions.push(eq(checklistInstances.storeId, filter.storeId))
-        if (filter.from) conditions.push(gte(checklistInstances.periodStart, new Date(filter.from)))
-        if (filter.to) conditions.push(lte(checklistInstances.periodStart, new Date(filter.to)))
+        // Same day-based from/to reading as the instance list (see instanceConditions).
+        if (filter.from) conditions.push(gte(checklistInstances.periodStart, dayStartUtc(asOrgDay(filter.from))))
+        if (filter.to) conditions.push(lt(checklistInstances.periodStart, dayStartUtc(addDays(asOrgDay(filter.to), 1))))
         if (user.role !== "ADMIN" && user.role !== "PC") {
             if (!isHod(user) || !user.departmentId) return { data: [], meta: buildMeta(p, 0) }
             conditions.push(eq(users.departmentId, user.departmentId))
@@ -1052,7 +1078,9 @@ export const checklistInstanceService = {
     /**
      * Former people: everyone deactivated, with what their checklist history looks like, so it can
      * be found after they have left. Admin / PC only (the route enforces it). `leftAt` is when the
-     * account was deactivated through offboarding, else when it was last touched.
+     * account was deactivated (users.deactivatedAt), else the offboarding audit date, else when the
+     * account was last touched. The counts leave out runs of soft-deleted checklists, exactly like the
+     * Runs and Audits tabs they open (parentNotDeletedExpr), so a tile and its tab agree.
      */
     async formerPeople() {
         const people = await db.select({
@@ -1063,6 +1091,7 @@ export const checklistInstanceService = {
             departmentName: departments.name,
             storeName: stores.name,
             updatedAt: users.updatedAt,
+            deactivatedAt: users.deactivatedAt,
         })
             .from(users)
             .leftJoin(departments, eq(departments.id, users.departmentId))
@@ -1073,12 +1102,20 @@ export const checklistInstanceService = {
 
         const [worked, assigned, audited, left] = await Promise.all([
             db.select({ userId: checklistInstanceItems.completedBy, n: sql<number>`COUNT(DISTINCT ${checklistInstanceItems.instanceId})` })
-                .from(checklistInstanceItems).where(inArray(checklistInstanceItems.completedBy, ids)).groupBy(checklistInstanceItems.completedBy),
+                .from(checklistInstanceItems)
+                .innerJoin(checklistInstances, eq(checklistInstances.id, checklistInstanceItems.instanceId))
+                .where(and(inArray(checklistInstanceItems.completedBy, ids), parentNotDeletedExpr))
+                .groupBy(checklistInstanceItems.completedBy),
             db.select({ userId: checklistInstanceAssignees.userId, n: sql<number>`COUNT(DISTINCT ${checklistInstanceAssignees.instanceId})` })
-                .from(checklistInstanceAssignees).where(inArray(checklistInstanceAssignees.userId, ids)).groupBy(checklistInstanceAssignees.userId),
+                .from(checklistInstanceAssignees)
+                .innerJoin(checklistInstances, eq(checklistInstances.id, checklistInstanceAssignees.instanceId))
+                .where(and(inArray(checklistInstanceAssignees.userId, ids), parentNotDeletedExpr))
+                .groupBy(checklistInstanceAssignees.userId),
             db.select({ userId: checklistInstanceItemSubmissions.userId, n: sql<number>`COUNT(*)` })
                 .from(checklistInstanceItemSubmissions)
-                .where(and(inArray(checklistInstanceItemSubmissions.userId, ids), eq(checklistInstanceItemSubmissions.isDone, true)))
+                .innerJoin(checklistInstanceItems, eq(checklistInstanceItems.id, checklistInstanceItemSubmissions.itemId))
+                .innerJoin(checklistInstances, eq(checklistInstances.id, checklistInstanceItems.instanceId))
+                .where(and(inArray(checklistInstanceItemSubmissions.userId, ids), eq(checklistInstanceItemSubmissions.isDone, true), parentNotDeletedExpr))
                 .groupBy(checklistInstanceItemSubmissions.userId),
             db.select({ userId: auditLogs.entityId, at: sql<Date>`MAX(${auditLogs.createdAt})`.mapWith(auditLogs.createdAt) })
                 .from(auditLogs).where(and(eq(auditLogs.entityType, "User"), eq(auditLogs.action, "OFFBOARD"), inArray(auditLogs.entityId, ids)))
@@ -1095,19 +1132,33 @@ export const checklistInstanceService = {
             role: p.role,
             departmentName: p.departmentName,
             storeName: p.storeName,
-            leftAt: leftBy.get(p.id) ?? p.updatedAt,
+            leftAt: p.deactivatedAt ?? leftBy.get(p.id) ?? p.updatedAt,
             runsAssigned: assignedBy.get(p.id) ?? 0,
             runsWorked: workedBy.get(p.id) ?? 0,
             auditsOnThem: auditedBy.get(p.id) ?? 0,
         })).sort((a, b) => b.leftAt.getTime() - a.leftAt.getTime())
     },
 
+    /**
+     * Just who the former people are (`{ id, firstName, lastName, email }[]`), for resolving "(left)"
+     * names on screens that don't need the footprint counts. Same scope as formerPeople (the route is
+     * ADMIN/PC): every deactivated account.
+     */
+    async formerPeopleNames() {
+        return db.select({ id: users.id, firstName: users.firstName, lastName: users.lastName, email: users.email })
+            .from(users)
+            .where(eq(users.isActive, false))
+            .orderBy(asc(users.firstName), asc(users.lastName))
+    },
+
     /** One former (or current) person's checklist runs: ones they were assigned or that they completed items on. */
     async personRuns(personId: string, filter: { page?: number; limit?: number }) {
         const p = paginate(filter.page, filter.limit)
+        // Two `id IN (subquery)` branches (each one an index lookup on the junction/item table) instead of
+        // two correlated EXISTS ORed together, which the planner ran as a scan over every instance.
         const mine = sql`(
-            EXISTS (SELECT 1 FROM ${checklistInstanceAssignees} a WHERE a.instanceId = ${checklistInstances.id} AND a.userId = ${personId})
-            OR EXISTS (SELECT 1 FROM ${checklistInstanceItems} i WHERE i.instanceId = ${checklistInstances.id} AND i.completedBy = ${personId})
+            ${checklistInstances.id} IN (SELECT a.instanceId FROM ${checklistInstanceAssignees} a WHERE a.userId = ${personId})
+            OR ${checklistInstances.id} IN (SELECT i.instanceId FROM ${checklistInstanceItems} i WHERE i.completedBy = ${personId})
         )`
         const where = and(mine, parentNotDeletedExpr)
 
@@ -1172,6 +1223,7 @@ export const checklistInstanceService = {
             periodStart: checklistInstances.periodStart,
             periodEnd: checklistInstances.periodEnd,
             cutoffTime: checklistInstances.cutoffTime,
+            opensTime: checklistInstances.opensTime,
             total: sql<number>`COUNT(${checklistInstanceItems.id})`,
             done: sql<number>`COALESCE(SUM(${checklistInstanceItems.isDone}), 0)`,
             lastDoneAt: sql<Date | null>`MAX(${checklistInstanceItems.completedAt})`.mapWith(checklistInstanceItems.completedAt),
@@ -1181,7 +1233,7 @@ export const checklistInstanceService = {
             .where(and(...conditions))
             .groupBy(
                 checklistInstances.id, checklistInstances.definitionId, checklistInstances.title, checklistInstances.storeId, checklistInstances.scopeKey,
-                checklistInstances.periodStart, checklistInstances.periodEnd, checklistInstances.cutoffTime,
+                checklistInstances.periodStart, checklistInstances.periodEnd, checklistInstances.cutoffTime, checklistInstances.opensTime,
             )
         if (!runs.length) return empty
 
@@ -1194,11 +1246,14 @@ export const checklistInstanceService = {
         const now = Date.now()
         const today = new Date(now + offsetMs).toISOString().slice(0, 10)
         // periodStart is the org-local day written as UTC midnight, so "day + cutoff" minus the org's
-        // offset is the real instant it's due. No cutoff = the end of that day.
-        const deadlineOf = (r: { periodStart: Date; periodEnd: Date; cutoffTime: string | null }) => {
+        // offset is the real instant it's due. No cutoff = the end of that day. An overnight window
+        // (cutoff clock time earlier than opens, e.g. opens 22:00, cutoff 06:00) is due the NEXT day:
+        // the same rule as deadlineExpr and the trend SQL, so the run isn't missed/late before it opens.
+        const deadlineOf = (r: { periodStart: Date; periodEnd: Date; cutoffTime: string | null; opensTime: string | null }) => {
             if (!r.cutoffTime) return r.periodEnd.getTime() - offsetMs
             const [h, m] = r.cutoffTime.split(":").map(Number)
-            return r.periodStart.getTime() + (h * 60 + m) * 60_000 - offsetMs
+            const dayRoll = r.opensTime && r.cutoffTime < r.opensTime ? 24 * 60 : 0
+            return r.periodStart.getTime() + (h * 60 + m + dayRoll) * 60_000 - offsetMs
         }
 
         type CellState = "done" | "late" | "missed" | "open" | "holiday" | "off" | "upcoming"

@@ -1,5 +1,4 @@
 import { memo, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router';
 import {
   ArrowLeft,
   Repeat,
@@ -15,11 +14,13 @@ import {
   ClipboardX,
   type LucideIcon,
 } from 'lucide-react';
-import { Skeleton, Breadcrumbs, Button, EmptyState, InlineError, EntityIconTile, PANEL_CLASS, formatWeekdays } from '../../../components';
+import { Link, useParams, useNavigate } from 'react-router';
+import { Skeleton, Breadcrumbs, Button, EmptyState, InlineError, EntityIconTile, StatusPill, PANEL_CLASS, formatWeekdays } from '../../../components';
 import { IconChip } from '../../../components/iconChip';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { useChecklistDefinitionQuery, useInstancesForDefinitionQuery, useStoresQuery } from '../hook';
+import { useAuth } from '../../../context/AuthContext';
+import { useChecklistDefinitionQuery, useInstancesForDefinitionQuery, useStoresQuery, useSetChecklistDefinitionActiveMutation } from '../hook';
 import { ApiError } from '../../../api/http';
 import { ChecklistInstanceRow } from '../instance/ChecklistInstanceRow';
 import {
@@ -30,6 +31,9 @@ import {
   rateBarClass,
   inverseRateToneClass,
   inverseRateBarClass,
+  orgDayKey,
+  orgWeekday,
+  plural,
   RECURRENCE_LABEL,
   isInstanceOverdue,
   type InstanceProgressStatus,
@@ -50,14 +54,14 @@ const INSTANCE_LIMIT = 100;
 // (checklistInstanceGenerator.job.ts), so an admin sees the actual reason instead of "it'll show
 // up automatically" while nothing ever does. Dates are the org's local (India) calendar day.
 const noRunReason = (definition: ChecklistDefinition): string => {
-  const localToday = new Date(Date.now() + 330 * 60_000);
-  const todayKey = localToday.toISOString().slice(0, 10);
-  const startKey = new Date(new Date(definition.startDate).getTime() + 330 * 60_000).toISOString().slice(0, 10);
-  if (!definition.isActive) return 'This checklist is paused. Turn it back on to start creating runs.';
+  const todayKey = orgDayKey(Date.now());
+  const startKey = orgDayKey(new Date(definition.startDate).getTime());
+  const weekday = orgWeekday();
+  if (!definition.isActive) return 'This checklist is paused. Resume it with the status button at the top of this page to start creating runs.';
   if (startKey > todayKey) return `It starts on ${formatDate(definition.startDate)}, and the first run is created that day.`;
   if (!definition.assigneeIds.length) return 'Nobody is assigned yet. Edit it and pick who fills it in.';
-  if (definition.recurrence === 'DAILY' && definition.activeWeekdays && !definition.activeWeekdays.includes(localToday.getUTCDay())) {
-    return `${DAY_NAMES[localToday.getUTCDay()]} isn't one of its working days (${formatWeekdays(definition.activeWeekdays)}). The next run is created on the next working day.`;
+  if (definition.recurrence === 'DAILY' && definition.activeWeekdays && !definition.activeWeekdays.includes(weekday)) {
+    return `${DAY_NAMES[weekday]} isn't one of its working days (${formatWeekdays(definition.activeWeekdays)}). The next run is created on the next working day.`;
   }
   return `Today's run is created within the hour. If everyone assigned is on their week off today, there's no run today.`;
 };
@@ -70,18 +74,26 @@ interface RateTileProps {
   /** For rates where a HIGHER number is worse news (e.g. flagged-answer rate) — reads the same
    *  green/amber/red thresholds from the other end instead of showing a high bad number as green. */
   invert?: boolean;
+  /** For a live fill (today's / this run's progress): neutral text, green once done, not the
+   *  good/bad rate colours, which would paint a half-filled morning run red. */
+  live?: boolean;
+  /** One line saying what the number covers. */
+  caption?: string;
 }
 
-const RateTile = memo(function RateTile({ icon: Icon, label, rate, emptyLabel, invert = false }: RateTileProps) {
-  const toneClass = invert ? inverseRateToneClass : rateToneClass;
-  const barClass = invert ? inverseRateBarClass : rateBarClass;
+const RateTile = memo(function RateTile({ icon: Icon, label, rate, emptyLabel, invert = false, live = false, caption }: RateTileProps) {
+  const toneClass = live ? (r: number) => (r === 100 ? 'text-success' : 'text-text') : invert ? inverseRateToneClass : rateToneClass;
+  const barClass = live ? (r: number) => (r === 100 ? 'bg-success' : 'bg-primary-500') : invert ? inverseRateBarClass : rateBarClass;
   return (
-    <div className={cn(PANEL_CLASS, 'flex flex-col gap-2.5 p-4 flex-1 min-w-48')}>
-      <div className="flex items-center justify-between">
+    // Below sm the tile is a compact row (label left, number right, bar underneath); from sm up it
+    // is the stacked tile.
+    <div className={cn(PANEL_CLASS, 'grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-2 p-3 sm:flex sm:flex-col sm:items-stretch sm:gap-2.5 sm:p-4')}>
+      <div className="flex flex-col gap-0.5 min-w-0">
         <span className="flex items-center gap-1.5 text-xs font-display font-semibold text-text-muted">
-          <Icon size={14} className="text-text-muted" />
+          <Icon size={14} className="text-text-muted shrink-0" />
           {label}
         </span>
+        {caption && <span className="text-[11px] font-display text-text-muted leading-snug">{caption}</span>}
       </div>
 
       {rate !== null ? (
@@ -91,7 +103,7 @@ const RateTile = memo(function RateTile({ icon: Icon, label, rate, emptyLabel, i
           </p>
           {/* Coloured by how good the rate is (red/amber/green), not by done/total, so this stays
               a hand-built track rather than ChecklistProgressBar. */}
-          <div className="h-1.5 w-full rounded-full bg-surface-hover overflow-hidden">
+          <div className="col-span-2 h-1.5 w-full rounded-full bg-surface-hover overflow-hidden">
             <div
               className={cn('h-full w-full rounded-full origin-left transition-transform duration-500 ease-out', barClass(rate))}
               style={{ transform: `scaleX(${rate / 100})` }}
@@ -99,7 +111,7 @@ const RateTile = memo(function RateTile({ icon: Icon, label, rate, emptyLabel, i
           </div>
         </>
       ) : (
-        <p className="text-xs font-display text-text-muted py-2 italic">{emptyLabel}</p>
+        <p className="col-span-2 text-xs font-display text-text-muted sm:py-2 italic">{emptyLabel}</p>
       )}
     </div>
   );
@@ -120,7 +132,7 @@ const groupByStatus = (instances: ChecklistInstance[]) =>
   }).filter((group) => group.instances.length > 0);
 
 const PageSkeleton = () => (
-  <div className="flex flex-col gap-6 w-full max-w-4xl mx-auto py-2 sm:py-4" aria-busy="true">
+  <div className="flex flex-col gap-6 w-full py-2 sm:py-4" aria-busy="true">
     <Skeleton className="h-5 w-64" />
     <div className="flex items-center justify-between gap-3">
       <Skeleton className="h-8 w-44 rounded-md" />
@@ -151,7 +163,12 @@ export const ChecklistDefinitionDetail = () => {
   } = useInstancesForDefinitionQuery(definitionId, { limit: INSTANCE_LIMIT });
   const { data: stores } = useStoresQuery();
 
-  // Not "Unknown store" until the stores list has actually loaded.
+  const { user } = useAuth();
+  const setActiveMutation = useSetChecklistDefinitionActiveMutation();
+  // ADMIN and PC manage checklists alike (the server allows both).
+  const canManage = user?.role === 'ADMIN' || user?.role === 'PC';
+
+  // Names only for the tooltip on "N stores". Not "Unknown store" until the stores list has loaded.
   const storeNames = useMemo(() => {
     if (!definition || !stores) return null;
     const nameById = new Map(stores.map((s) => [s.id, s.name]));
@@ -168,7 +185,7 @@ export const ChecklistDefinitionDetail = () => {
   // whose Retry button can never succeed.
   if (isDeleted) {
     return (
-      <div className="w-full max-w-4xl mx-auto py-8">
+      <div className="w-full py-8">
         <EmptyState
           icon={ClipboardX}
           title="This checklist was deleted"
@@ -181,7 +198,7 @@ export const ChecklistDefinitionDetail = () => {
 
   if (isError || !definition) {
     return (
-      <div className="w-full max-w-4xl mx-auto py-6">
+      <div className="w-full py-6">
         <InlineError message="We couldn't load this checklist. Check your connection and try again." onRetry={() => refetch()} />
       </div>
     );
@@ -190,7 +207,7 @@ export const ChecklistDefinitionDetail = () => {
   const ResponseIcon = RESPONSE_MODE_ICON[definition.responseMode];
 
   return (
-    <div className="flex flex-col gap-6 w-full max-w-4xl mx-auto py-2 sm:py-4">
+    <div className="flex flex-col gap-6 w-full py-2 sm:py-4">
       <Breadcrumbs
         items={[
           { label: 'Dashboard', to: '/' },
@@ -200,28 +217,23 @@ export const ChecklistDefinitionDetail = () => {
         ]}
       />
 
-      {/* Top Bar Navigation & Actions */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <Button variant="ghost" size="sm" onClick={() => navigate(LIST_PATH)}>
-          <ArrowLeft size={14} />
-          <span>Back to Recurring Checklists</span>
+      {/* Actions (the breadcrumb above is the way back). Duplicate is icon-only on a phone. */}
+      <div className="flex items-center justify-end gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="min-w-11 sm:min-w-0"
+          title="Make a new checklist with the same stores, people, schedule and questions"
+          aria-label="Duplicate checklist"
+          onClick={() => navigate(`${LIST_PATH}/builder?copyFrom=${definition.id}`)}
+        >
+          <Copy size={14} />
+          <span className="hidden sm:inline">Duplicate</span>
         </Button>
-
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            title="Make a new checklist with the same stores, people, schedule and questions"
-            onClick={() => navigate(`${LIST_PATH}/builder?copyFrom=${definition.id}`)}
-          >
-            <Copy size={12} />
-            <span>Duplicate</span>
-          </Button>
-          <Button variant="primary" size="sm" onClick={() => navigate(`${LIST_PATH}/builder/${definition.id}`)}>
-            <Pencil size={12} />
-            <span>Edit in Builder</span>
-          </Button>
-        </div>
+        <Button variant="primary" size="sm" onClick={() => navigate(`${LIST_PATH}/builder/${definition.id}`)}>
+          <Pencil size={14} />
+          <span>Edit in Builder</span>
+        </Button>
       </div>
 
       {/* Main Overview Card */}
@@ -230,7 +242,7 @@ export const ChecklistDefinitionDetail = () => {
           <div className="flex items-start gap-3.5 min-w-0">
             <EntityIconTile icon={CHECKLIST_ICON_MAP[definition.icon]} tone="coral" />
             <div className="flex flex-col gap-1 min-w-0">
-              <h1 className="text-lg sm:text-xl font-display font-bold text-text tracking-tight truncate">
+              <h1 className="text-lg sm:text-xl font-display font-bold text-text tracking-tight leading-snug line-clamp-2 break-words">
                 {definition.name}
               </h1>
               {definition.description ? (
@@ -238,27 +250,42 @@ export const ChecklistDefinitionDetail = () => {
                   {definition.description}
                 </p>
               ) : (
-                <p className="text-xs font-display text-text-muted/70 italic">
+                <p className="text-xs font-display text-text-muted italic">
                   No description yet.
                 </p>
               )}
             </div>
           </div>
 
-          {/* Status Badge */}
-          <Badge variant={definition.isActive ? 'success' : 'neutral'} className="shrink-0">
-            {definition.isActive ? 'Active' : 'Paused'}
-          </Badge>
+          {/* Same pause/resume toggle as the card; read-only roles just see the state. */}
+          {canManage ? (
+            <StatusPill
+              active={definition.isActive}
+              isUpdating={setActiveMutation.isPending}
+              onToggle={() => setActiveMutation.mutate({ id: definition.id, isActive: !definition.isActive })}
+              ariaLabel={`${definition.isActive ? 'Pause' : 'Resume'} ${definition.name}`}
+              inactiveLabel="Paused"
+            />
+          ) : (
+            <Badge variant={definition.isActive ? 'success' : 'neutral'} className="shrink-0">
+              {definition.isActive ? 'Active' : 'Paused'}
+            </Badge>
+          )}
         </div>
 
         {/* Metadata Badges & Tags */}
         <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs font-display text-text-secondary pt-4 border-t border-border/60">
           <div className="flex items-center gap-1.5">
             <Store size={14} className="text-text-muted shrink-0" />
-            {storeNames === null ? (
-              <Skeleton className="h-4 w-28" />
+            {definition.storeIds.length === 0 ? (
+              <span>No stores</span>
             ) : (
-              <span className="truncate max-w-xs">{storeNames || 'No stores'}</span>
+              <span
+                title={storeNames ?? undefined}
+                className={cn(storeNames && 'cursor-help underline decoration-dotted decoration-text-light underline-offset-4')}
+              >
+                {plural(definition.storeIds.length, 'store')}
+              </span>
             )}
           </div>
           <div className="flex items-center gap-1.5">
@@ -281,33 +308,53 @@ export const ChecklistDefinitionDetail = () => {
       </div>
 
       {/* Metric Rate Tiles */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className={cn('grid grid-cols-1 gap-3 sm:gap-4', definition.currentRate !== null ? 'sm:grid-cols-2 lg:grid-cols-4' : 'sm:grid-cols-3')}>
+        {definition.currentRate !== null && (
+          <RateTile
+            icon={Gauge}
+            label={definition.recurrence === 'DAILY' ? 'Today' : 'This run'}
+            rate={definition.currentRate}
+            emptyLabel=""
+            live
+          />
+        )}
         <RateTile
           icon={Gauge}
-          label="Completion rate"
+          label="All time"
+          caption="Every run since it started"
           rate={definition.completionRate}
           emptyLabel="Nothing's been completed yet"
         />
         <RateTile
           icon={Camera}
-          label="Photo compliance"
+          label="Photo proof"
           rate={definition.qualityRate}
           emptyLabel="No photo checks on this checklist"
         />
         <RateTile
           icon={AlertTriangle}
-          label="Flagged answers"
+          label="Flagged"
           rate={definition.issueRate}
           emptyLabel="No gated Yes/No questions on this checklist"
           invert
         />
       </div>
 
-      {/* Past Runs Section */}
-      <section className="flex flex-col gap-4" aria-labelledby="past-runs-heading">
-        <h2 id="past-runs-heading" className="text-sm font-display font-bold text-text">
-          Past runs{instances ? ` (${instances.length}${instances.length === INSTANCE_LIMIT ? '+' : ''})` : ''}
-        </h2>
+      {/* Runs Section */}
+      <section className="flex flex-col gap-4" aria-labelledby="runs-heading">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+          <h2 id="runs-heading" className="text-sm font-display font-bold text-text">
+            Runs{instances ? ` (${instances.length}${instances.length === INSTANCE_LIMIT ? '+' : ''})` : ''}
+          </h2>
+          {instances && instances.length >= INSTANCE_LIMIT && (
+            <Link
+              to="/admin/checklist-compliance"
+              className="inline-flex items-center min-h-11 sm:min-h-0 text-xs font-display font-medium text-primary-600 dark:text-primary-400 hover:underline underline-offset-2"
+            >
+              Showing the latest {INSTANCE_LIMIT}. See every run on the Compliance board
+            </Link>
+          )}
+        </div>
 
         {instancesPending ? (
           <div className="flex flex-col gap-2" aria-busy="true">
@@ -316,7 +363,7 @@ export const ChecklistDefinitionDetail = () => {
             ))}
           </div>
         ) : instancesError ? (
-          <InlineError message="We couldn't load the past runs. Check your connection and try again." onRetry={() => refetchInstances()} />
+          <InlineError message="We couldn't load the runs. Check your connection and try again." onRetry={() => refetchInstances()} />
         ) : groups.length === 0 ? (
           <EmptyState icon={ListTodo} title="No runs yet" description={noRunReason(definition)} />
         ) : (

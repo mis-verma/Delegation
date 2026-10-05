@@ -25,6 +25,7 @@ checklistInstanceRouter.get("/pending-approval-preview", checklistInstanceContro
 // Verification queue's "Decisions" feed; scoped per role in the service. Before "/:id".
 checklistInstanceRouter.get("/decisions", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), checklistInstanceController.decisions)
 checklistInstanceRouter.get("/former-people",requireRole("ADMIN", "PC"), checklistInstanceController.formerPeople)
+checklistInstanceRouter.get("/former-people/names", requireRole("ADMIN", "PC"), checklistInstanceController.formerPeopleNames)
 checklistInstanceRouter.get("/former-people/:userId/runs", requireRole("ADMIN", "PC"), checklistInstanceController.personRuns)
 checklistInstanceRouter.get("/", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), checklistInstanceController.list)
 checklistInstanceRouter.get("/summary", checklistInstanceController.summary)

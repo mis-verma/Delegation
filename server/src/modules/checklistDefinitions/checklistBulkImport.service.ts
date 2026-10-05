@@ -4,7 +4,7 @@ import { parse as parseCsv } from "csv-parse/sync"
 import ExcelJS from "exceljs"
 import { PDFParse } from "pdf-parse"
 import { AppError } from "../../utils/AppError.js"
-import { checklistDefinitionService, listAllChecklistDefinitions } from "./checklistDefinition.service.js"
+import { checklistDefinitionService, listAllChecklistDefinitions, toItemInput } from "./checklistDefinition.service.js"
 import type { UpdateChecklistDefinitionInput } from "./checklistDefinition.validation.js"
 import { matchExactOrFuzzy, looksLikeEmail, type MatchConfidence } from "../../utils/fuzzyMatch.js"
 
@@ -259,30 +259,9 @@ export const checklistBulkImportService = {
                     reviewerIds: existing.reviewerIds.length ? existing.reviewerIds : undefined,
                     assigneeRoles: existing.assigneeRoles ?? undefined,
                     icon: existing.icon ?? undefined,
-                    items: existing.items.map((item: (typeof existing.items)[number]) => ({
-                        label: item.label,
-                        order: item.order,
-                        section: item.section ?? undefined,
-                        requiredImageCount: item.requiredImageCount,
-                        maxImageCount: item.maxImageCount,
-                        requiresLivePhoto: item.requiresLivePhoto,
-                        itemType: item.itemType,
-                        auditUserIds: item.auditUserIds,
-                        accessories: item.accessories ?? undefined,
-                        numberEntryUnit: item.numberEntryUnit ?? undefined,
-                        numberEntryMin: item.numberEntryMin ?? undefined,
-                        numberEntryMax: item.numberEntryMax ?? undefined,
-                        ratingScale: item.ratingScale ?? undefined,
-                        options: item.options ?? undefined,
-                        gpsTargetLat: item.gpsTargetLat ?? undefined,
-                        gpsTargetLng: item.gpsTargetLng ?? undefined,
-                        gpsRadiusMeters: item.gpsRadiusMeters ?? undefined,
-                        signatureLabels: item.signatureLabels ?? undefined,
-                        qrExpectedValue: item.qrExpectedValue ?? undefined,
-                        cashExpectedAmount: item.cashExpectedAmount ?? undefined,
-                        yesActions: item.yesActions ?? undefined,
-                        noActions: item.noActions ?? undefined,
-                    })),
+                    // Every stored question column goes back untouched (id, critical flag, good-answer
+                    // rule, audit lists, ...): update() writes null for anything omitted.
+                    items: existing.items.map(toItemInput),
                 }
                 // Each definition the import touches gets its own audit row, so a bulk import is
                 // as traceable as the equivalent edits made by hand.

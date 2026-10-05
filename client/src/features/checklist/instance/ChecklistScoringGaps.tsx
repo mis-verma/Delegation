@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { ChevronDown, Target } from 'lucide-react';
+import { ChevronDown, CircleHelp, Target } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { IconChip, PANEL_CLASS } from '../../../components';
 import { useChecklistScoringGapsQuery } from '../hook';
@@ -56,7 +56,7 @@ export const ChecklistScoringGaps = () => {
                 </span>
                 <span className="flex items-center gap-2 shrink-0">
                   <span className="text-xs font-display text-text-muted">{RECURRENCE_LABEL[g.recurrence]}</span>
-                  <IconChip icon={Target} tone="bg-warning" label={`${g.unscored} of ${g.scorable} unset`} />
+                  <IconChip icon={CircleHelp} tone="bg-warning" label={`${g.unscored} of ${g.scorable} unset`} />
                 </span>
               </Link>
             </li>

@@ -97,8 +97,16 @@ export type ReportWindow = {
  * the last 12 buckets for week/month/year, the last 30 days for day and none. With only one end
  * given, the other end is `today` (for a missing to) or the default span back from `to`.
  */
+/**
+ * A request boundary as an org-local 'YYYY-MM-DD': a plain day is taken as is, an ISO instant is
+ * converted to the org-local day it falls on. Shared by the report window and the instance
+ * list/summary filters so every endpoint reads from/to the same way. Throws a RangeError on text
+ * that is neither (the validation layer rejects that with a 400 before it gets here).
+ */
+export const asOrgDay = (value: string): string => (/^\d{4}-\d{2}-\d{2}$/.test(value) ? value : orgLocalDate(new Date(value)))
+
 export const resolveReportWindow = (groupBy: ReportGroupBy, from?: string, to?: string, now: number = Date.now()): ReportWindow => {
-    const asDay = (value: string) => (/^\d{4}-\d{2}-\d{2}$/.test(value) ? value : orgLocalDate(new Date(value)))
+    const asDay = asOrgDay
     const toDate = to ? asDay(to) : orgLocalDate(now)
     let fromDate: string
     if (from) {

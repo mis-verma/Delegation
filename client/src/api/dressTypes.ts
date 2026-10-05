@@ -8,8 +8,10 @@ export type DressType = {
   name: string;
   gender: DressTypeGender | null;
   isActive: boolean;
-  /** How many people currently have this type. */
+  /** How many ACTIVE people currently have this type (people who have left are not counted). */
   peopleCount: number;
+  /** How many audit questions carry a list of items for this type; deleting the type loses those lists. */
+  auditQuestionCount: number;
 };
 
 export type CreateDressTypePayload = {

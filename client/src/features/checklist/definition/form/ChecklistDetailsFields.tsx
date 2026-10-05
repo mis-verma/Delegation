@@ -2,6 +2,7 @@ import { Type, AlignLeft, Palette } from 'lucide-react';
 import { Input, Textarea } from '../../../../components';
 import { DETAIL_HEADING_CLASS } from '../../../tasks/taskFormFieldStyles';
 import { CHECKLIST_ICON_MAP, CHECKLIST_ICON_KEYS } from '../checklistIconMap';
+import { onRadioKeyDown } from '../builder/radioGroupKeys';
 import type { ChecklistIcon } from '../../../../api/checklistDefinitions';
 
 interface ChecklistDetailsFieldsProps {
@@ -34,6 +35,7 @@ export const ChecklistDetailsFields = ({
       placeholder="e.g. Store opening check"
       value={name}
       onChange={(e) => onNameChange(e.target.value)}
+      maxLength={191}
       className={QUIET_FIELD_CLASS}
       autoFocus
     />
@@ -56,7 +58,7 @@ export const ChecklistDetailsFields = ({
         Icon
       </span>
       <div role="radiogroup" aria-label="Checklist icon" className="flex flex-wrap gap-2">
-        {CHECKLIST_ICON_KEYS.map((key) => {
+        {CHECKLIST_ICON_KEYS.map((key, index) => {
           const Icon = CHECKLIST_ICON_MAP[key];
           const isSelected = icon === key;
           return (
@@ -66,7 +68,9 @@ export const ChecklistDetailsFields = ({
               role="radio"
               aria-checked={isSelected}
               aria-label={`Use ${key} icon`}
+              tabIndex={isSelected ? 0 : -1}
               onClick={() => onIconChange(key)}
+              onKeyDown={(e) => onRadioKeyDown(e, index, CHECKLIST_ICON_KEYS.length, (next) => onIconChange(CHECKLIST_ICON_KEYS[next]))}
               className={`flex items-center justify-center size-11 sm:size-10 rounded-xl border cursor-pointer transition-all duration-150 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
                 isSelected
                   ? 'border-primary-500 bg-primary-500/10 text-primary-700 dark:text-primary-300'

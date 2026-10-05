@@ -25,6 +25,9 @@ export const streamCsv = async (
     rows: AsyncIterable<Record<string, unknown>>,
     columns: CsvColumn[],
 ): Promise<void> => {
+    // UTF-8 byte-order mark first: without it Excel reads the file as ANSI and mangles Hindi (and any
+    // other non-ASCII) names. Spreadsheet apps and parsers treat the BOM as invisible.
+    res.write("﻿");
     res.write(columns.map((c) => escapeCsvValue(c.label)).join(",") + "\r\n");
     for await (const row of rows) {
         res.write(columns.map((c) => escapeCsvValue(row[c.key])).join(",") + "\r\n")

@@ -7,6 +7,7 @@ import {
   type DressType,
   type UpdateDressTypePayload,
 } from '../../../api/dressTypes';
+import { ApiError } from '../../../api/http';
 import { handleQueryRetry, errorMessage } from '../../../lib/queryHelpers';
 
 const KEY = ['dress-types'] as const;
@@ -57,10 +58,12 @@ export const useUpdateDressTypeMutation = () => {
   return useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: UpdateDressTypePayload }) =>
       dressTypeApi.update(id, payload).then(r => r.data),
-    onSuccess: () => {
+    onSuccess: (updated, { payload }) => {
       refresh();
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
-      toast.success('Dress type updated');
+      // A switch flip names the type and the new state; any other edit is just "updated".
+      const onlyToggled = payload.isActive !== undefined && payload.name === undefined && payload.gender === undefined;
+      toast.success(onlyToggled ? `${updated.name} turned ${payload.isActive ? 'on' : 'off'}` : 'Dress type updated');
     },
     onError: (err) => toast.error(errorMessage(err, 'Failed to update this dress type')),
   });
@@ -77,6 +80,11 @@ export const useDeleteDressTypeMutation = () => {
       queryClient.invalidateQueries({ queryKey: ['checklist-definitions'] });
       toast.success('Dress type deleted');
     },
-    onError: (err) => toast.error(errorMessage(err, 'Failed to delete this dress type')),
+    onError: (err) => {
+      // 409 = someone still holds the type. The server's own sentence says who and what to do, so show
+      // it as is, and reload the list because the counts on screen are evidently out of date.
+      if (err instanceof ApiError && err.status === 409) refresh();
+      toast.error(errorMessage(err, 'Failed to delete this dress type'));
+    },
   });
 };

@@ -51,17 +51,17 @@ export const AccessoriesListEditor = ({
       ) : (
         <span className="text-[11px] font-display font-medium text-text-muted">{label}</span>
       )}
-      <div className="flex flex-wrap items-center gap-1.5 min-h-10 p-1.5 rounded-xl border border-border bg-surface transition-colors duration-150 focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-500/20">
+      <div className="flex flex-wrap items-center gap-1.5 pointer-coarse:gap-2 min-h-10 p-1.5 rounded-xl border border-border bg-surface transition-colors duration-150 focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-500/20">
         {accessories.map((name) => (
           <span
             key={name}
-            className="inline-flex items-center gap-1 h-7 pl-2.5 pr-1 rounded-full bg-surface-hover text-xs font-display font-medium text-text"
+            className="inline-flex items-center gap-1 h-7 pointer-coarse:h-10 pl-2.5 pr-1 rounded-full bg-surface-hover text-xs font-display font-medium text-text"
           >
             {name}
             <button
               type="button"
               onClick={() => remove(name)}
-              className="flex items-center justify-center size-5 rounded-full text-text-muted cursor-pointer hover:bg-danger/10 hover:text-danger transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+              className="flex items-center justify-center size-5 pointer-coarse:size-9 rounded-full text-text-muted cursor-pointer hover:bg-danger/10 hover:text-danger transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
               aria-label={`Remove ${name}`}
             >
               <X size={11} />
@@ -75,14 +75,14 @@ export const AccessoriesListEditor = ({
           onBlur={add}
           placeholder={accessories.length ? 'Add another…' : placeholder}
           aria-label={label}
-          className="flex-1 min-w-32 h-7 px-1.5 bg-transparent text-sm font-display text-text placeholder:text-text-light focus:outline-none"
+          className="flex-1 min-w-32 h-7 pointer-coarse:h-10 px-1.5 bg-transparent text-sm font-display text-text placeholder:text-text-light focus:outline-none"
         />
         {trimmed && !isDuplicate && (
           <button
             type="button"
             onMouseDown={(e) => e.preventDefault()}
             onClick={add}
-            className="flex items-center justify-center size-7 rounded-full bg-primary-600 text-white cursor-pointer hover:bg-primary-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+            className="flex items-center justify-center size-7 pointer-coarse:size-10 rounded-full bg-primary-600 text-white cursor-pointer hover:bg-primary-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
             aria-label="Add"
           >
             <Plus size={14} />

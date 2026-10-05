@@ -23,7 +23,7 @@ export const containerOrderFor = (sections: string[]): SectionId[] => [UNGROUPED
 // Limits the server enforces on save (checklistDefinition.validation.ts) — checked while
 // duplicating so a copy can't push the checklist over and only fail at the final Save.
 export const MAX_CHECKLIST_ITEMS = 200;
-const MAX_SECTION_NAME_LENGTH = 120;
+export const MAX_SECTION_NAME_LENGTH = 120;
 
 // A copy of one question with an identity of its own. Every field but `key` is a string, a boolean
 // or an array of strings, so copying the arrays one level down is a full deep copy — editing the
@@ -61,5 +61,11 @@ export const flattenGroups = (order: SectionId[], groups: Record<SectionId, Item
 // rendering assumes same-section items are contiguous — so this must run any time an item is
 // added or an existing (possibly stale/out-of-order) checklist is loaded into the builder, not
 // only after a drag.
-export const normalizeItemOrder = (itemDrafts: ItemDraft[], sections: string[]): ItemDraft[] =>
-  flattenGroups(containerOrderFor(sections), groupBySection(itemDrafts, sections));
+export const normalizeItemOrder = (itemDrafts: ItemDraft[], sections: string[]): ItemDraft[] => {
+  const groups = groupBySection(itemDrafts, sections);
+  const order = containerOrderFor(sections);
+  // A question whose section isn't in `sections` keeps its own block at the end rather than being
+  // dropped, so this is safe to run on any list.
+  const strays = Object.keys(groups).filter((id) => !order.includes(id));
+  return flattenGroups([...order, ...strays], groups);
+};

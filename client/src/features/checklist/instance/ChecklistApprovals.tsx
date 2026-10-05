@@ -74,7 +74,7 @@ export const ChecklistApprovals = () => {
         : `${waiting} checklist${waiting !== 1 ? 's' : ''} from your department waiting on review${oldest ? `. Oldest waiting: ${formatWaiting(oldest, now)}` : ''}`;
 
   return (
-    <div className="flex flex-col gap-6 w-full max-w-5xl mx-auto">
+    <div className="flex flex-col gap-6 w-full">
       <PageHeader icon={ShieldCheck} title="Team Checklist Approvals" subtitle={subtitle} />
 
       <ChecklistList

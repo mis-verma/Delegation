@@ -11,10 +11,11 @@ import {
 import { useAuditHistoryQuery, useFormerPeopleQuery, usePersonRunsQuery } from '../hook';
 import { AuditRowCard } from '../instance/ChecklistHistory';
 import { formatDate, VERIFICATION_CHIP, VERIFICATION_STATUS_LABEL } from '../checklistDisplay';
+import { ROLE_LABEL } from '../../admin/roleBadge';
+import type { Role } from '../../../api/admin';
 import type { FormerPerson, PersonRun } from '../../../api/checklistInstances';
 
 const fullName = (p: Pick<FormerPerson, 'firstName' | 'lastName'>) => `${p.firstName} ${p.lastName ?? ''}`.trim();
-const ROLE_LABEL: Record<string, string> = { ADMIN: 'Admin', PC: 'PC', MANAGER: 'Manager', SENIOR: 'Senior', APPROVAL_MANAGER: 'Approval manager', USER: 'Staff', AGENT: 'Agent' };
 const DAY_MS = 86_400_000;
 
 // "3 weeks ago", for when someone left. Coarse on purpose: the exact date sits beside it.
@@ -56,14 +57,16 @@ const PersonButton = memo(({ person, selected, onSelect }: { person: FormerPerso
 ));
 PersonButton.displayName = 'PersonButton';
 
+// A compact tile (number over label, no icon box) below sm so three fit one row on a phone; the
+// full icon tile from sm up.
 const StatTile = ({ icon: Icon, value, label, tone }: { icon: LucideIcon; value: number; label: string; tone: string }) => (
-  <div className={cn(PANEL_CLASS, 'flex items-center gap-3 p-3.5')}>
-    <span className={cn('flex items-center justify-center size-10 rounded-xl shrink-0', tone)} aria-hidden>
+  <div className={cn(PANEL_CLASS, 'flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 p-2.5 sm:p-3.5 min-w-0')}>
+    <span className={cn('hidden sm:flex items-center justify-center size-10 rounded-xl shrink-0', tone)} aria-hidden>
       <Icon size={18} />
     </span>
     <div className="flex flex-col gap-0.5 min-w-0">
-      <span className="text-xl font-display font-bold text-text tabular-nums leading-none">{value}</span>
-      <span className="text-xs font-display text-text-muted leading-snug">{label}</span>
+      <span className="text-lg sm:text-xl font-display font-bold text-text tabular-nums leading-none">{value}</span>
+      <span className="text-[11px] sm:text-xs font-display text-text-muted leading-snug line-clamp-2">{label}</span>
     </div>
   </div>
 );
@@ -202,14 +205,14 @@ const PersonHistory = ({ person, onBack }: { person: FormerPerson; onBack: () =>
             </p>
           </div>
           <div className="flex flex-wrap gap-1.5">
-            <IconChip icon={false} label={ROLE_LABEL[person.role] ?? person.role} />
+            <IconChip icon={false} label={ROLE_LABEL[person.role as Role] ?? person.role} />
             {person.departmentName && <DepartmentChip name={person.departmentName} />}
             {person.storeName && <IconChip icon={Store} tone="bg-success" label={person.storeName} />}
           </div>
         </div>
       </section>
 
-      <div className="grid grid-cols-1 min-[28rem]:grid-cols-3 gap-2.5">
+      <div className="grid grid-cols-3 gap-2">
         <StatTile icon={ClipboardList} value={person.runsAssigned} label="Checklists given" tone="bg-primary-500/10 text-primary-700 dark:text-primary-300" />
         <StatTile icon={CheckCheck} value={person.runsWorked} label="Filled in by them" tone="bg-success/10 text-success" />
         <StatTile icon={ScanSearch} value={person.auditsOnThem} label="Audits on them" tone="bg-warning/10 text-warning" />
@@ -251,7 +254,7 @@ export const FormerPeoplePage = () => {
   );
 
   return (
-    <div className="flex flex-col gap-6 w-full max-w-5xl mx-auto">
+    <div className="flex flex-col gap-6 w-full">
       <PageHeader
         icon={UserMinus}
         title="Former People"
@@ -273,6 +276,10 @@ export const FormerPeoplePage = () => {
       {people && people.length > 0 && (
         <div className="grid gap-5 lg:grid-cols-[19rem_minmax(0,1fr)] lg:items-start">
           <div className={cn('flex flex-col gap-3', selected && !isDesktop && 'hidden')}>
+            {/* The page subtitle (with this count) is hidden on a phone, so the total lives here. */}
+            <p className="sm:hidden text-xs font-display text-text-muted px-1">
+              {people.length} {people.length === 1 ? 'person has' : 'people have'} left. Tap a name to see their checklist history.
+            </p>
             {people.length > 5 && (
               <Input
                 label="Find a person"

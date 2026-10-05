@@ -1,7 +1,8 @@
-import { and, asc, eq, ne, sql } from "drizzle-orm"
+import { and, asc, eq, isNull, ne, sql } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
 import { db } from "../../config/db.js"
 import { dressTypes, users } from "../../db/schema/core.js"
+import { checklistDefinitionItems, checklistDefinitions } from "../../db/schema/checklistDefinition.js"
 import { AppError } from "../../utils/AppError.js"
 import { auditService } from "../audit/audit.service.js"
 import type { CreateDressTypeInput, UpdateDressTypeInput } from "./dressType.validation.js"
@@ -21,30 +22,54 @@ const assertNameFree = async (name: string, exceptId?: string) => {
     if (existing) throw AppError.conflict(DUPLICATE_MESSAGE)
 }
 
-const toPublic = (row: typeof dressTypes.$inferSelect, peopleCount: number) => ({
+const toPublic = (row: typeof dressTypes.$inferSelect, peopleCount: number, auditQuestionCount: number) => ({
     id: row.id,
     name: row.name,
     gender: row.gender ?? null,
     isActive: row.isActive,
+    // ACTIVE people only: a deactivated person holding the type is not who anyone needs to move.
     peopleCount,
+    // Live audit questions (on checklists that are not deleted) with a non-empty tick-list for this type.
+    auditQuestionCount,
 })
 
 const countPeople = async (id: string) => {
-    const [row] = await db.select({ n: sql<number>`count(*)` }).from(users).where(eq(users.dressTypeId, id))
+    const [row] = await db.select({ n: sql<number>`count(*)` }).from(users).where(and(eq(users.dressTypeId, id), eq(users.isActive, true)))
     return Number(row?.n ?? 0)
+}
+
+// How many live definition questions carry a non-empty list for each dress type, from ONE query:
+// the (few) audit questions that have an accessoriesByType at all, counted per type here.
+// Questions of soft-deleted checklists are left out.
+const auditQuestionCounts = async (): Promise<Map<string, number>> => {
+    const rows = await db.select({ byType: checklistDefinitionItems.accessoriesByType })
+        .from(checklistDefinitionItems)
+        .innerJoin(checklistDefinitions, eq(checklistDefinitions.id, checklistDefinitionItems.definitionId))
+        .where(and(
+            isNull(checklistDefinitions.deletedAt),
+            sql`${checklistDefinitionItems.accessoriesByType} IS NOT NULL AND JSON_LENGTH(${checklistDefinitionItems.accessoriesByType}) > 0`,
+        ))
+    const counts = new Map<string, number>()
+    for (const { byType } of rows) {
+        for (const [typeId, list] of Object.entries(byType ?? {})) {
+            if (Array.isArray(list) && list.length > 0) counts.set(typeId, (counts.get(typeId) ?? 0) + 1)
+        }
+    }
+    return counts
 }
 
 // Admin-defined ways of dressing for work. A person points at one (User.dressTypeId) and an audit
 // question carries a tick-list per type (ChecklistDefinitionItem.accessoriesByType).
 export const dressTypeService = {
     async list() {
-        const [rows, counts] = await Promise.all([
+        const [rows, counts, questionCounts] = await Promise.all([
             db.select().from(dressTypes).orderBy(asc(dressTypes.name)),
             db.select({ id: users.dressTypeId, n: sql<number>`count(*)` }).from(users)
-                .where(sql`${users.dressTypeId} is not null`).groupBy(users.dressTypeId),
+                .where(and(sql`${users.dressTypeId} is not null`, eq(users.isActive, true))).groupBy(users.dressTypeId),
+            auditQuestionCounts(),
         ])
         const byType = new Map(counts.map((c) => [c.id, Number(c.n)]))
-        return rows.map((r) => toPublic(r, byType.get(r.id) ?? 0))
+        return rows.map((r) => toPublic(r, byType.get(r.id) ?? 0, questionCounts.get(r.id) ?? 0))
     },
 
     async create(input: CreateDressTypeInput, actorId: string) {
@@ -58,7 +83,7 @@ export const dressTypeService = {
             throw err
         }
         const [row] = await db.select().from(dressTypes).where(eq(dressTypes.id, id)).limit(1)
-        const created = toPublic(row, 0)
+        const created = toPublic(row, 0, 0)
         await auditService.record({ entityType: "DressType", entityId: id, action: "CREATE", actorId, after: created })
         return created
     },
@@ -80,18 +105,27 @@ export const dressTypeService = {
             throw err
         }
         const [row] = await db.select().from(dressTypes).where(eq(dressTypes.id, id)).limit(1)
-        const peopleCount = await countPeople(id)
-        const updated = toPublic(row, peopleCount)
-        await auditService.record({ entityType: "DressType", entityId: id, action: "UPDATE", actorId, before: toPublic(before, peopleCount), after: updated })
+        const [peopleCount, questionCounts] = await Promise.all([countPeople(id), auditQuestionCounts()])
+        const questionCount = questionCounts.get(id) ?? 0
+        const updated = toPublic(row, peopleCount, questionCount)
+        await auditService.record({ entityType: "DressType", entityId: id, action: "UPDATE", actorId, before: toPublic(before, peopleCount, questionCount), after: updated })
         return updated
     },
 
-    // The foreign key (ON DELETE SET NULL) clears User.dressTypeId; people fall back to their gender list.
+    // Refused while ACTIVE people are still set to this type: the foreign key (ON DELETE SET NULL) would
+    // silently move them onto their gender list and change what they are audited on. Turning the type
+    // off (isActive) is the safe alternative and is always allowed. Deactivated people holding it don't
+    // block; the key clears for them.
     async remove(id: string, actorId: string) {
         const [before] = await db.select().from(dressTypes).where(eq(dressTypes.id, id)).limit(1)
         if (!before) throw AppError.notFound("Dress type not found")
         const peopleCount = await countPeople(id)
+        if (peopleCount > 0) {
+            const who = peopleCount === 1 ? "1 person is" : `${peopleCount} people are`
+            throw AppError.conflict(`${who} still set to ${before.name}. Change them first, or turn it off instead.`)
+        }
+        const questionCount = (await auditQuestionCounts()).get(id) ?? 0
         await db.delete(dressTypes).where(eq(dressTypes.id, id))
-        await auditService.record({ entityType: "DressType", entityId: id, action: "DELETE", actorId, before: toPublic(before, peopleCount) })
+        await auditService.record({ entityType: "DressType", entityId: id, action: "DELETE", actorId, before: toPublic(before, peopleCount, questionCount) })
     },
 }

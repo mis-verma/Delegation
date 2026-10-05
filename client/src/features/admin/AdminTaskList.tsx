@@ -28,7 +28,7 @@ export const AdminTaskList = () => {
   const [showExport, setShowExport] = useState(false);
 
   return (
-    <div className="flex flex-col gap-6 max-w-7xl mx-auto w-full">
+    <div className="flex flex-col gap-6 w-full">
         <Breadcrumbs items={TEAM_DELEGATIONS_BREADCRUMBS} />
 
         {/* Header Section */}

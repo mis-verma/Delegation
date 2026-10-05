@@ -84,6 +84,18 @@ export const BuilderSchedulePanel = ({
 }: BuilderSchedulePanelProps) => {
   const { data: stores, isPending: storesPending, isError: storesError, refetch: refetchStores } = useStoresQuery();
   const activeStores = useMemo(() => (stores ?? []).filter((s) => s.isActive !== false), [stores]);
+  // Chips to show: every active store, plus any picked store that has since been switched off or
+  // removed, so an old checklist's selection can always be unticked.
+  const chipStores = useMemo(() => {
+    const known = new Set((stores ?? []).map((s) => s.id));
+    const inactivePicked = (stores ?? []).filter((s) => s.isActive === false && storeIds.includes(s.id));
+    const removedPicked = stores ? storeIds.filter((id) => !known.has(id)) : [];
+    return [
+      ...activeStores.map((s) => ({ id: s.id, name: s.name, note: '' })),
+      ...inactivePicked.map((s) => ({ id: s.id, name: s.name, note: 'inactive' })),
+      ...removedPicked.map((id) => ({ id, name: 'Removed store', note: 'removed' })),
+    ];
+  }, [stores, activeStores, storeIds]);
   const hasTimeMismatch = hasScheduleTimeMismatch(opensTime, cutoffTime);
   const isOvernight = isOvernightWindow(opensTime, cutoffTime);
 
@@ -114,16 +126,17 @@ export const BuilderSchedulePanel = ({
           </div>
         ) : storesError ? (
           <InlineError message="We couldn't load the stores." onRetry={() => refetchStores()} />
-        ) : activeStores.length === 0 ? (
+        ) : chipStores.length === 0 ? (
           <span className="text-xs font-display text-text-muted">No stores yet. Add one in People &amp; Teams.</span>
         ) : (
           <div className="flex flex-wrap gap-2" role="group" aria-label="Stores that run this checklist">
-            {activeStores.map((s) => {
+            {chipStores.map((s) => {
               const on = storeIds.includes(s.id);
               return (
                 <ToggleChip key={s.id} on={on} onClick={() => toggleStore(s.id)}>
                   {on ? <Check size={14} strokeWidth={2.75} /> : <Store size={14} className="text-text-light" />}
                   {s.name}
+                  {s.note && <span className="font-normal text-text-muted">({s.note})</span>}
                 </ToggleChip>
               );
             })}

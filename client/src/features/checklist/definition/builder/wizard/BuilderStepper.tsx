@@ -28,10 +28,11 @@ export const BuilderStepper = ({
 }: BuilderStepperProps) => {
   return (
     <>
-    {/* Phones: six labelled steps never fit in one row (it scrolled sideways, cutting labels
-        off), so they collapse to "Step n of 6" plus one tappable segment per step, tinted the
-        same way the desktop circles are (done / needs attention / current / locked). */}
-    <nav aria-label="Checklist builder progress" className={`sm:hidden flex flex-col gap-2 ${className}`}>
+    {/* Below xl: six labelled steps never fit in one row (the circle stepper needs about 840px, more
+        than the content area has between sm and xl once the sidebar is open), so they collapse to
+        "Step n of 6" plus one tappable segment per step, tinted the same way the circles are
+        (done / needs attention / current / locked). */}
+    <nav aria-label="Checklist builder progress" className={`xl:hidden flex flex-col gap-2 ${className}`}>
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-sm font-display font-bold text-text">{steps[current]?.label}</span>
         <span className="text-[11px] font-display font-medium text-text-muted tabular-nums">Step {current + 1} of {steps.length}</span>
@@ -49,7 +50,7 @@ export const BuilderStepper = ({
                 onClick={() => !isLocked && onSelect(index)}
                 disabled={isLocked}
                 aria-current={isCurrent ? 'step' : undefined}
-                aria-label={`Step ${index + 1}: ${step.label}`}
+                aria-label={`Step ${index + 1}: ${step.label}${isLocked ? ' (locked)' : needsAttention ? ' (needs attention)' : ''}`}
                 className="flex items-center w-full h-11 cursor-pointer disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 rounded-full"
               >
                 <span
@@ -69,7 +70,7 @@ export const BuilderStepper = ({
     </nav>
     <nav
       aria-label="Checklist builder progress"
-      className={`hidden sm:block w-full overflow-x-auto no-scrollbar py-2 ${className}`}
+      className={`hidden xl:block w-full overflow-x-auto no-scrollbar py-2 ${className}`}
     >
       <ol className="flex items-center justify-between min-w-max sm:min-w-0 w-full gap-1 sm:gap-2">
         {steps.map((step, index) => {
@@ -97,7 +98,7 @@ export const BuilderStepper = ({
                 disabled={isLocked}
                 aria-current={isCurrent ? 'step' : undefined}
                 aria-label={`Step ${index + 1}: ${step.label} (${statusDescription})`}
-                className={`group flex items-center gap-2.5 shrink-0 rounded-lg p-1 transition-all duration-150 select-none ${isLocked
+                className={`group flex items-center gap-2.5 shrink-0 rounded-lg p-1 pointer-coarse:min-h-11 pointer-coarse:px-2 transition-all duration-150 select-none ${isLocked
                     ? 'cursor-not-allowed opacity-60'
                     : 'cursor-pointer hover:bg-muted/40'
                   } focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50`}
@@ -105,7 +106,7 @@ export const BuilderStepper = ({
                 {/* Step Circle Badge */}
                 <span
                   className={[
-                    'flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-display font-bold transition-all duration-200',
+                    'flex size-8 pointer-coarse:size-9 shrink-0 items-center justify-center rounded-full text-xs font-display font-bold transition-all duration-200',
                     isLocked && 'bg-surface-hover text-text-light border border-border',
                     !isLocked && isCurrent && 'bg-primary-700 text-white ring-4 ring-primary-500/20 scale-105',
                     !isLocked && !isCurrent && isValid && 'bg-primary-700 text-white group-hover:scale-105',
@@ -142,7 +143,7 @@ export const BuilderStepper = ({
                   </span>
 
                   {step.description && (
-                    <span className="hidden md:inline text-[10px] text-text-muted">
+                    <span className="hidden md:inline text-[11px] text-text-muted">
                       {step.description}
                     </span>
                   )}

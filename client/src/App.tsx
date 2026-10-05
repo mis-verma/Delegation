@@ -1,6 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { createBrowserRouter, RouterProvider, Navigate, Outlet } from 'react-router';
-import { FolderKanban, ClipboardCheck } from 'lucide-react';
+import { FolderKanban } from 'lucide-react';
 import { ComingSoon } from './components/comingSoon';
 import { useAuth } from './context/AuthContext';
 import { ADMIN_AREA_ROLES, type Role } from './api/auth';
@@ -157,21 +157,6 @@ const ManagerRoute = createRoleGuard('MANAGER', 'SENIOR');
 // own department. Same split the API enforces, this just keeps everyone else off the page.
 const HistoryRoute = createRoleGuard('ADMIN', 'PC', 'MANAGER', 'SENIOR');
 
-const ChecklistTemplatesRoute = () => {
-  const { user } = useAuth();
-  if (user?.role !== 'ADMIN') {
-    return (
-      <ComingSoon
-        icon={ClipboardCheck}
-        title="Checklist Templates"
-        description="Checklist template management is being rolled out gradually and isn't available for your role yet."
-        features={['Reusable delegation templates', 'Recurring schedule builder', 'Step-by-step template editor']}
-      />
-    );
-  }
-  return <ChecklistTemplateList />;
-};
-
 const router = createBrowserRouter([
   {
     element: <PublicLayout />,
@@ -311,7 +296,7 @@ const router = createBrowserRouter([
               { path: '/admin/departments', element: <Navigate to="/admin/directory" replace /> },
               { path: '/admin/stores', element: <Navigate to="/admin/directory" replace /> },
               { path: '/admin/org-structure', element: <OrgStructurePage /> },
-              { path: '/admin/checklist-templates', element: <ChecklistTemplatesRoute /> },
+              { path: '/admin/checklist-templates', element: <ChecklistTemplateList /> },
               { path: '/admin/scheduled-checklists', element: <ChecklistTemplatesGrid /> },
               { path: '/admin/checklist-compliance', element: <ChecklistComplianceBoard /> },
               { path: '/admin/scheduled-checklists/builder', element: <ChecklistBuilder /> },

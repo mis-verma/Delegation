@@ -10,6 +10,8 @@ interface ChecklistReviewersFieldProps {
   storeIds: string[];
   selected: string[];
   onChange: (ids: string[]) => void;
+  /** A brand-new checklist (not an edit or a copy), which starts with PC pre-selected. */
+  isNew?: boolean;
   className?: string;
 }
 
@@ -26,6 +28,7 @@ export const ChecklistReviewersField = ({
   storeIds,
   selected,
   onChange,
+  isNew = false,
   className = '',
 }: ChecklistReviewersFieldProps) => {
   const { data: allDepartments = [] } = useDepartmentsQuery();
@@ -56,7 +59,7 @@ export const ChecklistReviewersField = ({
       />
 
       <p className="text-[11px] font-display text-text-muted">
-        Starts with PC pre-selected. Anyone you add here can approve or reject this checklist's
+        {isNew && 'Starts with PC pre-selected. '}Anyone you add here can approve or reject this checklist's
         runs, on top of PC/Admin and the department head of anyone assigned. Look for the
         "HOD" badge to add a department head directly.
       </p>

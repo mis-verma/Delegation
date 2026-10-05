@@ -18,6 +18,9 @@ export const createHolidaysSchema = z.object({
     holidays: z.array(createHolidaySchema).min(1).max(60),
 })
 
+// GET /holidays/preview?date=: what adding this date would do to that day's runs.
+export const previewHolidayQuerySchema = z.object({ date: calendarDay })
+
 export const listHolidaysQuerySchema = z.object({
     year: z.coerce.number().int().min(2000).max(2100).optional(),
 })

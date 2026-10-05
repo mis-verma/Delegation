@@ -15,6 +15,8 @@ import {
 import { GATED_BOOLEAN_ITEM_EXPR, FLAGGED_BOOLEAN_ANSWER_EXPR } from "../../utils/checklistBooleanFlags.js"
 import { REPORT_DATE_FORMATS, RANGE_BUCKET, resolveReportWindow, zeroFill, type ReportGroupBy } from "./checklistReportRange.js"
 import type { ChecklistReportScope } from "./checklistReportScope.js"
+import { AppError } from "../../utils/AppError.js"
+import { MAX_RANGE_DAYS } from "../checklistReports/checklistReport.validation.js"
 
 // Analytics over checklist runs: the trend report (one row per time bucket) and the by-store report
 // (one row per active store). Both read the SAME per-run aggregate (runAggregateSql), then group it
@@ -201,6 +203,15 @@ const metricsOf = (r: MetricRow) => ({
 
 const emptyBucket = (bucket: string) => ({ bucket, ...metricsOf({}) })
 
+// An explicit range is capped like the people/department export (MAX_RANGE_DAYS) so one request can't
+// aggregate years of runs. Without an explicit `from` the window is the bounded default.
+const assertRangeAllowed = (window: { fromDate: string; toDate: string }, explicit: boolean) => {
+    if (!explicit) return
+    const days = Math.round((Date.parse(`${window.toDate}T00:00:00.000Z`) - Date.parse(`${window.fromDate}T00:00:00.000Z`)) / 86_400_000) + 1
+    if (days < 1) throw AppError.badRequest("The start date must be on or before the end date.")
+    if (days > MAX_RANGE_DAYS) throw AppError.badRequest(`Pick a period of ${MAX_RANGE_DAYS} days or less.`)
+}
+
 export const checklistReportService = {
     /**
      * Trend report. `scope` null means the caller may see nothing (a head with no department): the
@@ -208,9 +219,12 @@ export const checklistReportService = {
      */
     async complianceReport(scope: ChecklistReportScope | null, query: ChecklistReportQuery) {
         const window = resolveReportWindow(query.groupBy, query.from, query.to)
+        assertRangeAllowed(window, !!query.from)
         if (!scope) return zeroFill([], query.groupBy, window, emptyBucket)
 
-        const conditions = filterConditions(scope, window, query.includeDeleted === true, true, query.assigneeId)
+        // Inactive stores are kept: the board list/summary and the person/department export keep their
+        // runs too, so the trend must add up to the same totals. Only the by-store report is "active stores".
+        const conditions = filterConditions(scope, window, query.includeDeleted === true, false, query.assigneeId)
         const bucketExpr = query.groupBy === "none"
             ? sql.raw(`'${RANGE_BUCKET}'`)
             : sql`DATE_FORMAT(r.periodStart, ${REPORT_DATE_FORMATS[query.groupBy]})`
@@ -231,6 +245,7 @@ export const checklistReportService = {
     async byStoreReport(scope: ChecklistReportScope | null, query: { from?: string; to?: string }) {
         if (!scope) return []
         const window = resolveReportWindow("none", query.from, query.to)
+        assertRangeAllowed(window, !!query.from)
         const conditions = filterConditions(scope, window, false, true)
 
         const [rows] = await db.execute(sql`

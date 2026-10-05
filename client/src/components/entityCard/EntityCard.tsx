@@ -91,8 +91,9 @@ export const StatusPill = ({ active, isUpdating, onToggle, ariaLabel, inactiveLa
     type="button"
     onClick={onToggle}
     disabled={isUpdating}
+    // The label already says what a press does ("Pause X" / "Resume X"). aria-pressed on top of it
+    // announced the opposite state ("Pause X, pressed"), so the toggle state is left out here.
     aria-label={ariaLabel}
-    aria-pressed={active}
     className={cn(
       // 44px tall on touch, back to the compact pill from sm up.
       'flex items-center gap-2 min-h-11 sm:min-h-8 px-3 sm:px-2.5 py-1 rounded-full text-[11px] font-semibold shrink-0 cursor-pointer transition-all duration-200 active:scale-95',

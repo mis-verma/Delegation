@@ -233,6 +233,40 @@ const assertUsersBelongToStores = async (userIds: string[], storeIds: string[], 
     }
 }
 
+// Reviewers don't need to belong to the checklist's stores (they approve across them), but they do
+// have to exist and still work here: an unknown or departed id used to reach the insert and surface
+// as the generic "Referenced record does not exist" FK message. Reviewers the checklist already has
+// are left alone (`alreadyLinked`), so a person who has left since being added never blocks an
+// unrelated edit or a bulk import.
+const assertReviewersValid = async (reviewerIds: string[] | undefined, alreadyLinked: string[] = []) => {
+    const fresh = [...new Set(reviewerIds ?? [])].filter((id) => !alreadyLinked.includes(id))
+    if (!fresh.length) return
+    const rows = await db.select({ id: users.id }).from(users).where(and(inArray(users.id, fresh), eq(users.isActive, true)))
+    if (rows.length !== fresh.length) throw AppError.badRequest("Some reviewers don't exist or have left.")
+}
+
+// Turns a stored definition item (as hydrateDefinitions returns it, audit users included) back into
+// the shape update() accepts. Anything that re-submits a definition's questions (the bulk import
+// does) MUST go through this: update() writes `?? null` for every field the input omits, so a
+// hand-built copy that forgets one column silently erases it on the next save. Every persisted
+// column is spread, including `id` (keeps today's runs linked to their question); only the row
+// bookkeeping is dropped, and nulls become undefined where the input schema has no null form.
+type StoredDefinitionItem = Awaited<ReturnType<typeof hydrateDefinitions>>[number]["items"][number]
+export const toItemInput = (item: StoredDefinitionItem): UpdateChecklistDefinitionInput["items"][number] => {
+    const { createdAt: _createdAt, updatedAt: _updatedAt, definitionId: _definitionId, ...columns } = item
+    return {
+        ...columns,
+        accessories: item.accessories ?? undefined,
+        accessoriesFemale: item.accessoriesFemale ?? undefined,
+        accessoriesMale: item.accessoriesMale ?? undefined,
+        accessoriesByType: item.accessoriesByType ?? undefined,
+        options: item.options ?? undefined,
+        signatureLabels: item.signatureLabels ?? undefined,
+        yesActions: item.yesActions ?? undefined,
+        noActions: item.noActions ?? undefined,
+    }
+}
+
 // Internal, unbounded — for callers that must see every matching definition regardless of page
 // size (checklistBulkImport.service.ts's matchRows fuzzy-matches an uploaded row's checklist name
 // against every definition that exists; silently only searching the first page would misfile rows
@@ -348,6 +382,8 @@ export const checklistDefinitionService = {
             }
         }
 
+        await assertReviewersValid(input.reviewerIds)
+
         const definitionId = createId()
 
         // Wrapped in a transaction (source had none) — creating a definition fans out into
@@ -425,8 +461,15 @@ export const checklistDefinitionService = {
         })
 
 
-        const definitionForGeneration = await loadDefinitionForGeneration(definitionId)
-        if (definitionForGeneration) await generateInstanceForDefinition(definitionForGeneration, new Date())
+        // The checklist is already saved at this point. If stamping out today's runs fails, report
+        // success anyway: the admin retrying would create a duplicate checklist, and the scheduled
+        // generator job picks the missing runs up on its next sweep.
+        try {
+            const definitionForGeneration = await loadDefinitionForGeneration(definitionId)
+            if (definitionForGeneration) await generateInstanceForDefinition(definitionForGeneration, new Date())
+        } catch (err) {
+            console.error(`[checklistDefinition.create] saved ${definitionId} but could not generate today's runs`, err)
+        }
 
         const created = await this.getById(definitionId)
         await auditService.record({ entityType: "ChecklistDefinition", entityId: definitionId, action: "CREATE", actorId: user.sub, after: created })
@@ -450,6 +493,9 @@ export const checklistDefinitionService = {
         const oldStoreLinks = await db.select({ storeId: checklistDefinitionStores.storeId })
             .from(checklistDefinitionStores).where(eq(checklistDefinitionStores.definitionId, id))
         const affectedStoreIds = [...new Set([...oldStoreLinks.map(l => l.storeId), ...input.storeIds])]
+        const oldReviewerLinks = await db.select({ userId: checklistDefinitionReviewers.userId })
+            .from(checklistDefinitionReviewers).where(eq(checklistDefinitionReviewers.definitionId, id))
+        await assertReviewersValid(input.reviewerIds, oldReviewerLinks.map(l => l.userId))
 
         await db.transaction(async (tx) => {
             // Locked (not a plain select) so two concurrent update() calls can't both read the
@@ -467,7 +513,7 @@ export const checklistDefinitionService = {
             // a full-replace write here would silently discard their changes with no warning —
             // reject instead and ask the admin to reload and reapply their edit.
             if (existing.version !== input.version) {
-                throw AppError.conflict("This checklist was changed by someone else. Refresh the page and reapply your edit.")
+                throw AppError.conflict("Someone else saved this checklist while you were editing. Reload it to see their changes, then apply yours again.")
             }
             wasActive = existing.isActive
 
@@ -576,14 +622,22 @@ export const checklistDefinitionService = {
         // checklist (e.g. fixing a label typo) shouldn't silently bring it back to life.
         let liveRuns: LiveRunsSummary = { refreshed: 0, updated: 0, kept: 0 }
         if (wasActive) {
-            const definitionForGeneration = await loadDefinitionForGeneration(id)
-            if (definitionForGeneration) {
-                const now = new Date()
-                // First bring this period's existing runs up to date — rebuilt if nobody started
-                // them, merged (answers kept) if someone did, see syncLiveInstances — THEN stamp out
-                // any that are missing, e.g. for a store the edit just added.
-                liveRuns = await syncLiveInstances(definitionForGeneration, now)
-                await generateInstanceForDefinition(definitionForGeneration, now)
+            // The edit is already committed. A failure here must not read as a failed save (a retry
+            // would hit the version check and 409), so log it and report zero runs touched; the
+            // scheduled generator job catches today's runs up.
+            try {
+                const definitionForGeneration = await loadDefinitionForGeneration(id)
+                if (definitionForGeneration) {
+                    const now = new Date()
+                    // First bring this period's existing runs up to date — rebuilt if nobody started
+                    // them, merged (answers kept) if someone did, see syncLiveInstances — THEN stamp out
+                    // any that are missing, e.g. for a store the edit just added.
+                    liveRuns = await syncLiveInstances(definitionForGeneration, now)
+                    await generateInstanceForDefinition(definitionForGeneration, now)
+                }
+            } catch (err) {
+                liveRuns = { refreshed: 0, updated: 0, kept: 0 }
+                console.error(`[checklistDefinition.update] saved ${id} but could not refresh today's runs`, err)
             }
         }
 

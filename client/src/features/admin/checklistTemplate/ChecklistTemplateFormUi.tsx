@@ -99,22 +99,22 @@ export const ChecklistTemplateFormUI = ({ departments, isSaving, saveError, onSu
   const footer = (
     <>
       {isFirstStep ? (
-        <Button type="button" variant="outline" onClick={onClose} disabled={isSaving} className="flex-1 sm:flex-none">
+        <Button type="button" variant="outline" onClick={onClose} disabled={isSaving} className="flex-1 sm:flex-none pointer-coarse:h-11">
           Cancel
         </Button>
       ) : (
-        <Button type="button" variant="outline" onClick={goBack} disabled={isSaving} className="flex-1 sm:flex-none">
+        <Button type="button" variant="outline" onClick={goBack} disabled={isSaving} className="flex-1 sm:flex-none pointer-coarse:h-11">
           <ArrowLeft className="w-3.5 h-3.5" />
           Back
         </Button>
       )}
 
       {isLastStep ? (
-        <Button type="button" variant="primary" disabled={isSaving} isLoading={isSaving} onClick={handleSave} className="flex-1 sm:flex-none">
-          {isSaving ? 'Creating...' : 'Create Task Template'}
+        <Button type="button" variant="primary" disabled={isSaving} isLoading={isSaving} onClick={handleSave} className="flex-1 sm:flex-none pointer-coarse:h-11">
+          {isSaving ? 'Creating…' : 'Create Task Template'}
         </Button>
       ) : (
-        <Button type="button" variant="primary" onClick={goNext} className="flex-1 sm:flex-none">
+        <Button type="button" variant="primary" onClick={goNext} className="flex-1 sm:flex-none pointer-coarse:h-11">
           Next
           <ArrowRight className="w-3.5 h-3.5" />
         </Button>
@@ -141,35 +141,35 @@ export const ChecklistTemplateFormUI = ({ departments, isSaving, saveError, onSu
             label="Template Name"
             value={name}
             onChange={e => { setName(e.target.value); setValidationError(null); }}
-            placeholder="e.g., Daily Store Opening, Restroom Cleaning..."
+            placeholder="e.g., Daily Store Opening, Restroom Cleaning…"
             error={validationError ?? undefined}
             autoFocus
           />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="flex items-center gap-1.5 text-xs font-medium text-text-secondary">
+              <label htmlFor="template-applies-to" className="flex items-center gap-1.5 text-xs font-medium text-text-secondary">
                 <Layers className="w-3.5 h-3.5 text-text-light" strokeWidth={2.5} />
                 Applies To
               </label>
               <Select value={appliesTo} onValueChange={v => setAppliesTo(v as ChecklistTemplateTarget)}>
-                <SelectTrigger className="w-full h-11 px-3 bg-surface border border-border rounded-lg text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all">
+                <SelectTrigger id="template-applies-to" className="w-full h-11 px-3 bg-surface border border-border rounded-lg text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="TASK">Delegations</SelectItem>
+                  <SelectItem value="TASK">Tasks</SelectItem>
                   <SelectItem value="TICKET">Tickets</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-1.5">
-              <label className="flex items-center gap-1.5 text-xs font-medium text-text-secondary">
+              <label htmlFor="template-department" className="flex items-center gap-1.5 text-xs font-medium text-text-secondary">
                 <Building2 className="w-3.5 h-3.5 text-text-light" strokeWidth={2.5} />
                 Owning Department
               </label>
               <Select value={departmentId || NO_DEPARTMENT} onValueChange={handleDepartmentChange}>
-                <SelectTrigger className="w-full h-11 px-3 bg-surface border border-border rounded-lg text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all">
+                <SelectTrigger id="template-department" className="w-full h-11 px-3 bg-surface border border-border rounded-lg text-sm text-text focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all">
                   <SelectValue placeholder="Global (No Department)" />
                 </SelectTrigger>
                 <SelectContent>
@@ -239,11 +239,11 @@ export const ChecklistTemplateFormUI = ({ departments, isSaving, saveError, onSu
           <div className="rounded-xl border border-border bg-surface-hover/40 divide-y divide-border/60">
             <div className="flex items-center justify-between px-4 py-3">
               <span className="text-xs font-display font-medium text-text-muted tracking-wider">Name</span>
-              <span className="text-sm font-display font-bold text-text truncate max-w-[60%]">{name || '—'}</span>
+              <span className="text-sm font-display font-bold text-text truncate max-w-[60%]">{name || 'Not set'}</span>
             </div>
             <div className="flex items-center justify-between px-4 py-3">
               <span className="text-xs font-display font-medium text-text-muted tracking-wider">Applies To</span>
-              <span className="text-sm font-display font-medium text-text">{appliesTo === 'TASK' ? 'Delegations' : 'Tickets'}</span>
+              <span className="text-sm font-display font-medium text-text">{appliesTo === 'TASK' ? 'Tasks' : 'Tickets'}</span>
             </div>
             <div className="flex items-center justify-between px-4 py-3">
               <span className="text-xs font-display font-medium text-text-muted tracking-wider">Department</span>
@@ -257,12 +257,12 @@ export const ChecklistTemplateFormUI = ({ departments, isSaving, saveError, onSu
             </h3>
 
             {definedSteps.length === 0 ? (
-              <p className="text-sm text-text-muted italic px-1">No steps defined — this template will just be a name you can attach later.</p>
+              <p className="text-sm text-text-muted italic px-1">No steps defined. This template will just be a name you can attach later.</p>
             ) : (
               <ul className="space-y-2">
                 {definedSteps.map((d, i) => (
                   <li key={d.id} className="flex items-start gap-3 p-3 rounded-lg border border-border bg-surface">
-                    <span className="flex shrink-0 items-center justify-center w-6 h-6 mt-0.5 rounded-md bg-primary-50 text-primary-700 text-[11px] font-bold">
+                    <span className="flex shrink-0 items-center justify-center w-6 h-6 mt-0.5 rounded-md bg-primary-500/10 text-primary-700 dark:text-primary-300 text-[11px] font-bold">
                       {i + 1}
                     </span>
                     <div className="flex-1 min-w-0">

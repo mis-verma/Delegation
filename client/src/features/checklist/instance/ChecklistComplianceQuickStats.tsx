@@ -12,7 +12,7 @@ export interface ComplianceQuickFilterCounts {
 
 const TILES = statusTiles<ComplianceQuickFilterKey>(['all', 'completed', 'pending', 'overdue'], {
   all: 'Total',
-  pending: 'Not yet complete',
+  pending: 'Not completed',
 });
 
 const NO_COUNTS: ComplianceQuickFilterCounts = { all: 0, completed: 0, pending: 0, overdue: 0 };

@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, useBlocker, useSearchParams } from 'react-router';
 import { motion, useReducedMotion } from 'framer-motion';
+import { toast } from 'sonner';
 import { ArrowLeft, AlertCircle, ListChecks, ChevronLeft, ChevronRight, ClipboardX } from 'lucide-react';
 import {
   Skeleton, Breadcrumbs, Button, ChecklistProgressBar, EmptyState, InlineError, PageHeader, PANEL_CLASS,
 } from '../../../../components';
 import { useConfirm } from '@/components/confirmDialog';
 import { ApiError } from '../../../../api/http';
+import { userApi } from '../../../../api/users';
 import {
   useChecklistDefinitionQuery,
   useCreateChecklistDefinitionMutation,
@@ -17,7 +19,9 @@ import {
 import { ChecklistDetailsFields } from '../form/ChecklistDetailsFields';
 import { ImportFromTemplateField } from '../form/ImportFromTemplateField';
 import { QuestionTypePalette } from './QuestionTypePalette';
-import { isItemDraftComplete } from './ItemTypeConfigFields';
+import { itemDraftProblem } from './ItemTypeConfigFields';
+import { useStorePeople, splitByVisible, peopleCount } from './useStorePeople';
+import { revealAfterRender, questionFieldOf } from './reveal';
 import { BuilderSchedulePanel, hasScheduleTimeMismatch } from './BuilderSchedulePanel';
 import { BuilderAssignPanel } from './BuilderAssignPanel';
 import { BuilderReviewersPanel } from './BuilderReviewersPanel';
@@ -25,7 +29,7 @@ import { BuilderStepper } from './wizard/BuilderStepper';
 import { BuilderStepFrame } from './wizard/BuilderStepFrame';
 import { BuilderReviewStep } from './wizard/BuilderReviewStep';
 import { emptyItemDraft, type ItemDraft } from '../ChecklistDefinitionItemDraftRow';
-import { normalizeItemOrder, cloneItemDraft } from '../itemSections';
+import { normalizeItemOrder, cloneItemDraft, MAX_CHECKLIST_ITEMS } from '../itemSections';
 import { BuilderItemsList } from './BuilderItemsList';
 import type {
   ChecklistDefinition, ChecklistRecurrence, ChecklistIcon, ChecklistResponseMode,
@@ -96,8 +100,15 @@ const acceptablePayload = (d: ItemDraft) => {
 const storedTypeLists = (byType: Record<string, string[]>): Record<string, string[]> =>
   Object.fromEntries(Object.entries(byType).filter(([, list]) => list.length > 0));
 
-const buildItemPayloads = (itemDrafts: ItemDraft[]): CreateChecklistDefinitionItemPayload[] =>
-  itemDrafts
+// `sections` re-groups the list once more as a safety net: the saved order is this flat order, so
+// questions of one section must sit together whatever path last touched the list. `storePersonIds`
+// drops auditors the stores no longer include (the server rejects them); null = nothing to compare.
+const buildItemPayloads = (
+  itemDrafts: ItemDraft[],
+  sections: string[],
+  storePersonIds: ReadonlySet<string> | null,
+): CreateChecklistDefinitionItemPayload[] =>
+  normalizeItemOrder(itemDrafts, sections)
     .filter(d => d.label.trim())
     .map(d => ({
       // A loaded question's key IS its server id; a new or copied one has a random key the server
@@ -111,7 +122,7 @@ const buildItemPayloads = (itemDrafts: ItemDraft[]): CreateChecklistDefinitionIt
       isCritical: d.isCritical,
       itemType: d.itemType,
       ...(d.itemType === 'AUDIT' ? {
-        auditUserIds: d.auditUserIds,
+        auditUserIds: splitByVisible(d.auditUserIds, storePersonIds).shown,
         accessories: d.accessories,
         accessoriesFemale: d.accessoriesFemale,
         accessoriesMale: d.accessoriesMale,
@@ -139,23 +150,38 @@ const buildItemPayloads = (itemDrafts: ItemDraft[]): CreateChecklistDefinitionIt
       } : {}),
     }));
 
+// The first thing to fix on the Questions step, worded with the question's number, and the key of
+// the question to scroll to. null = every question is ready.
+const firstItemProblem = (
+  itemDrafts: ItemDraft[],
+  storePersonIds: ReadonlySet<string> | null,
+): { key: string | null; message: string } | null => {
+  if (itemDrafts.length === 0) return { key: null, message: 'Add at least one question to continue.' };
+  for (let i = 0; i < itemDrafts.length; i++) {
+    const d = itemDrafts[i];
+    const problem = d.label.trim() ? itemDraftProblem(d, storePersonIds) : 'Type the question staff will see.';
+    if (problem) return { key: d.key, message: `Question ${i + 1}: ${problem}` };
+  }
+  return null;
+};
+
 const ALL_WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
 const DEFAULT_WORKING_WEEKDAYS = [1, 2, 3, 4, 5, 6];
 
 const STEPS = [
   { key: 'basics', label: 'Basics' },
   { key: 'schedule', label: 'Schedule' },
-  { key: 'items', label: 'Items' },
+  { key: 'items', label: 'Questions' },
   { key: 'assign', label: 'Assign' },
   { key: 'reviewers', label: 'Reviewers' },
   { key: 'review', label: 'Review' },
 ] as const;
 
-// Shown next to the disabled Next button so it's clear *why* it's blocked, not just that it is.
+// Shown next to the Next button so it's clear *why* it's blocked, not just that it is. The
+// Questions step's reason is worked out per question (it names the one to fix).
 const STEP_BLOCK_REASON: Record<number, string> = {
   0: 'Give this checklist a name to continue.',
   1: "Pick a store and a start date. Opening and closing can't be the same time.",
-  2: 'Add at least one finished item to continue.',
   3: 'Add at least one person to continue.',
 };
 
@@ -179,7 +205,7 @@ const BLANK_SNAPSHOT: BuilderSnapshot = {
 // Mirrors the loaded page: breadcrumb line, header, then the wizard card with its stepper row and a
 // step body. min-h (not a fixed height) so it never clips or leaves a hole.
 const BuilderSkeleton = () => (
-  <div className="flex flex-col gap-6 w-full max-w-5xl mx-auto py-2 sm:py-4" aria-busy="true">
+  <div className="flex flex-col gap-6 w-full py-2 sm:py-4" aria-busy="true">
     <Skeleton className="h-4 w-72 max-w-full rounded" />
     <div className="flex items-center gap-3">
       <Skeleton className="size-11 rounded-lg shrink-0" />
@@ -275,6 +301,9 @@ export const ChecklistBuilder = () => {
     // render as "unchanged" blank text but silently turn into a real change (cleared to undefined)
     // the moment the admin saves anything else on this checklist.
     const nextDescription = def.description?.trim() ?? '';
+    // A copy of a one-time checklist would otherwise carry that date, which has already passed, so
+    // the admin has to pick a new one.
+    const nextStartDate = asCopy && def.recurrence === 'ONE_TIME' ? '' : def.startDate.slice(0, 10);
     const weekdays = def.activeWeekdays ?? ALL_WEEKDAYS;
     const seenSections: string[] = [];
     for (const item of def.items) {
@@ -293,7 +322,7 @@ export const ChecklistBuilder = () => {
     setIcon(def.icon);
     setStoreIds(def.storeIds);
     setRecurrence(def.recurrence);
-    setStartDate(def.startDate.slice(0, 10));
+    setStartDate(nextStartDate);
     setOpensTime(def.opensTime ?? '');
     setCutoffTime(def.cutoffTime ?? '');
     setActiveWeekdays(weekdays);
@@ -312,7 +341,7 @@ export const ChecklistBuilder = () => {
       icon: def.icon,
       storeIds: def.storeIds,
       recurrence: def.recurrence,
-      startDate: def.startDate.slice(0, 10),
+      startDate: nextStartDate,
       opensTime: def.opensTime ?? '',
       cutoffTime: def.cutoffTime ?? '',
       activeWeekdays: weekdays,
@@ -383,6 +412,40 @@ export const ChecklistBuilder = () => {
     }));
   };
 
+  // Who is still visible in the pickers. Picked people the selected stores no longer include stay in
+  // the form's state, so every count and the save itself compare against these lists.
+  const people = useStorePeople(storeIds);
+  const { storePersonIds, activePersonIds } = people;
+
+  // Latest-wins counter for the clean-up below: toggling stores quickly must not let an older answer
+  // prune people the newer selection still includes.
+  const pruneToken = useRef(0);
+  const handleStoreIdsChange = (ids: string[]) => {
+    const removedAStore = storeIds.some((id) => !ids.includes(id));
+    setStoreIds(ids);
+    const token = ++pruneToken.current;
+    if (!removedAStore || ids.length === 0) return;
+    userApi.getAssignable(undefined, undefined, ids).then(({ data }) => {
+      if (token !== pruneToken.current) return;
+      const valid = new Set(data.map((u) => u.id));
+      const live = liveRef.current?.snapshot;
+      if (!live) return;
+      const dropped = new Set<string>();
+      for (const id of live.assigneeIds) if (!valid.has(id)) dropped.add(id);
+      for (const d of live.itemDrafts) {
+        if (d.itemType === 'AUDIT') for (const id of d.auditUserIds) if (!valid.has(id)) dropped.add(id);
+      }
+      if (dropped.size === 0) return;
+      setAssigneeIds((prev) => prev.filter((id) => valid.has(id)));
+      setItemDrafts((drafts) => drafts.map((d) => (
+        d.itemType === 'AUDIT' && d.auditUserIds.some((id) => !valid.has(id))
+          ? { ...d, auditUserIds: d.auditUserIds.filter((id) => valid.has(id)) }
+          : d
+      )));
+      toast.info(`Removed ${peopleCount(dropped.size)} who ${dropped.size === 1 ? 'is' : 'are'} not in the selected stores`);
+    }).catch(() => { /* The notices on the Assign and Questions steps still flag anyone left over. */ });
+  };
+
   const confirm = useConfirm();
   const blocker = useBlocker(
     useCallback(
@@ -432,11 +495,20 @@ export const ChecklistBuilder = () => {
   // array would land the new item after whichever section happens to be last in storage order,
   // not inside its own section's block, breaking the "same-section items are contiguous"
   // assumption every other view relies on.
-  const addItem = useCallback((patch: Partial<ItemDraft>) =>
+  const addItem = useCallback((patch: Partial<ItemDraft>) => {
+    if ((liveRef.current?.snapshot.itemDrafts.length ?? 0) >= MAX_CHECKLIST_ITEMS) {
+      toast.error(`A checklist can have at most ${MAX_CHECKLIST_ITEMS} questions.`);
+      return;
+    }
     // `section` goes last: the patch from AddQuestionModal is a whole draft carrying section: null,
     // which used to override the picked section and drop every new item into Ungrouped.
-    setItemDrafts(drafts => normalizeItemOrder([...drafts, { ...emptyItemDraft(), ...patch, section: activeSection }], sections)),
-  [activeSection, sections]);
+    const draft = { ...emptyItemDraft(), ...patch, section: activeSection };
+    setItemDrafts(drafts => normalizeItemOrder([...drafts, draft], sections));
+    toast.success('Question added');
+    // After the add pop-up has closed and handed focus back, bring the new card into view: on a
+    // phone the type grid sits below the list, so the card is otherwise off screen.
+    window.setTimeout(() => revealAfterRender(() => questionFieldOf(draft.key), false, 'center'), 80);
+  }, [activeSection, sections]);
 
   const removeItem = useCallback((key: string) =>
     setItemDrafts(drafts => drafts.filter(d => d.key !== key)), []);
@@ -444,16 +516,23 @@ export const ChecklistBuilder = () => {
   const handleImportTemplate = (templateId: string) => {
     const template = templates?.find(t => t.id === templateId);
     if (!template) return;
-    setItemDrafts(drafts => normalizeItemOrder([
-      ...drafts.filter(d => d.label.trim()),
-      ...template.items.map(item => ({
-        ...emptyItemDraft(),
-        label: item.label,
-        requiredImageCount: String(item.requiredImageCount),
-        maxImageCount: item.maxImageCount != null ? String(item.maxImageCount) : '',
-        requiresLivePhoto: item.requiresLivePhoto,
-      })),
-    ], sections));
+    const kept = itemDrafts.filter(d => d.label.trim());
+    const incoming = template.items.map(item => ({
+      ...emptyItemDraft(),
+      label: item.label,
+      requiredImageCount: String(item.requiredImageCount),
+      maxImageCount: item.maxImageCount != null ? String(item.maxImageCount) : '',
+      requiresLivePhoto: item.requiresLivePhoto,
+    }));
+    // The server caps a checklist at 200 questions: trim the template to fit and say so.
+    const room = Math.max(0, MAX_CHECKLIST_ITEMS - kept.length);
+    const taken = incoming.slice(0, room);
+    if (taken.length < incoming.length) {
+      toast.warning(taken.length === 0
+        ? `Nothing imported: a checklist can have at most ${MAX_CHECKLIST_ITEMS} questions.`
+        : `Added ${taken.length} of ${incoming.length} questions: a checklist can have at most ${MAX_CHECKLIST_ITEMS}.`);
+    }
+    setItemDrafts(normalizeItemOrder([...kept, ...taken], sections));
 
     // A recurring checklist assigns people at the whole-definition level, not per item (unlike a
     // Task/Ticket checklist item's own assigneeId), so a template item's defaultAssigneeId has no
@@ -475,20 +554,38 @@ export const ChecklistBuilder = () => {
   // its title accidentally cleared later, and buildItemPayloads silently drops it on submit.
   // Recomputed only when the drafts change. (Non-empty list + every label real is the same test as
   // "at least one payload", without building the payloads on every keystroke.)
-  const itemsValid = useMemo(
-    () => itemDrafts.length > 0 && itemDrafts.every(d => d.label.trim() && isItemDraftComplete(d)),
-    [itemDrafts],
-  );
-  const assignValid = assigneeIds.length > 0;
+  // The first thing to fix on the Questions step, worded with the question's number, and the key to
+  // scroll to when Next is pressed.
+  const itemProblem = firstItemProblem(itemDrafts, storePersonIds);
+  const itemsValid = itemProblem === null;
+  // Only people the pickers still show count: a hidden one is rejected by the server on save.
+  const visibleAssigneeCount = splitByVisible(assigneeIds, storePersonIds).shown.length;
+  const assignValid = visibleAssigneeCount > 0;
   const sectionValidity = useMemo(
     () => [basicsValid, scheduleValid, itemsValid, assignValid] as const,
     [basicsValid, scheduleValid, itemsValid, assignValid],
   );
   const canSubmit = sectionValidity.every(Boolean);
   const isStepValid = (index: number) => (index < sectionValidity.length ? sectionValidity[index] : true);
+  const blockReasonFor = (index: number) => {
+    if (index === 2) return itemProblem?.message ?? '';
+    if (index === 3 && assigneeIds.length > 0) return 'Pick at least one person from the selected stores to continue.';
+    return STEP_BLOCK_REASON[index] ?? '';
+  };
+
+  // Next on a step that isn't ready explains why (below) and takes you to the first thing to fix.
+  const handleNext = () => {
+    if (isStepValid(step)) { goToStep(step + 1); return; }
+    if (step === 0) revealAfterRender(() => document.getElementById('checklist-name'), true);
+    else if (step === 2 && itemProblem?.key) {
+      const key = itemProblem.key;
+      revealAfterRender(() => questionFieldOf(key), true);
+    }
+  };
 
   const handleSubmit = () => {
     if (!canSubmit) return;
+    const reviewersToSave = splitByVisible(reviewerIds, activePersonIds).shown;
     const payload = {
       name: name.trim(),
       description: description.trim() || undefined,
@@ -500,12 +597,13 @@ export const ChecklistBuilder = () => {
       cutoffTime: cutoffTime || undefined,
       activeWeekdays: recurrence === 'DAILY' ? activeWeekdays : null,
       responseMode,
-      assigneeIds,
-      reviewerIds: reviewerIds.length ? reviewerIds : undefined,
+      assigneeIds: splitByVisible(assigneeIds, storePersonIds).shown,
+      // A reviewer can work anywhere, so only people who are no longer active are left out.
+      reviewerIds: reviewersToSave.length ? reviewersToSave : undefined,
       // Role labels are retired: saving clears any old ones so cards stop showing them.
       assigneeRoles: [],
       // Built here, at save time, rather than on every keystroke.
-      items: buildItemPayloads(itemDrafts),
+      items: buildItemPayloads(itemDrafts, sections, storePersonIds),
     };
 
     if (isEditing) {
@@ -530,7 +628,7 @@ export const ChecklistBuilder = () => {
   // instead of the generic "try refreshing" banner below, whose Retry can never succeed here.
   if ((isEditing && isDeleted) || (isCopying && copySourceDeleted)) {
     return (
-      <div className="w-full max-w-5xl mx-auto p-4 sm:p-6">
+      <div className="w-full p-4 sm:p-6">
         <EmptyState
           icon={ClipboardX}
           title="This checklist was deleted"
@@ -543,7 +641,7 @@ export const ChecklistBuilder = () => {
 
   if ((isEditing && (loadError || !existing)) || (isCopying && (copyFailed || !copySource))) {
     return (
-      <div className="w-full max-w-5xl mx-auto p-4 sm:p-6">
+      <div className="w-full p-4 sm:p-6">
         <InlineError
           message="We couldn't load this checklist. Try refreshing, or come back in a bit."
           onRetry={() => (isEditing ? refetchExisting() : refetchCopy())}
@@ -579,7 +677,7 @@ export const ChecklistBuilder = () => {
           <BuilderStepFrame stepIndex={step} title="Schedule" description="Choose which stores run this checklist and how often.">
             <BuilderSchedulePanel
               storeIds={storeIds}
-              onStoreIdsChange={setStoreIds}
+              onStoreIdsChange={handleStoreIdsChange}
               recurrence={recurrence}
               onRecurrenceChange={setRecurrence}
               startDate={startDate}
@@ -595,13 +693,14 @@ export const ChecklistBuilder = () => {
         );
       case 2:
         return (
-          <BuilderStepFrame stepIndex={step} title="Checklist Items" description="Add the steps your team needs to complete, in order.">
+          <BuilderStepFrame stepIndex={step} title="Questions" description="Add the questions your team needs to answer or complete, in order.">
             <div className="flex flex-col gap-6">
               <ImportFromTemplateField templates={templates} onImport={handleImportTemplate} />
-              <div className="grid grid-cols-1 lg:grid-cols-[19rem_1fr] gap-5 lg:gap-6 items-start">
-                {/* Phones: questions first, the type grid after them (it used to sit on top and
-                    push every question below the fold). Desktop: a sticky sidebar next to the list. */}
-                <div className={`${PANEL_CLASS} order-last lg:order-first p-4 lg:sticky lg:top-4`}>
+              <div className="grid grid-cols-1 xl:grid-cols-[19rem_1fr] gap-5 xl:gap-6 items-start">
+                {/* Below xl (phones, tablets, a laptop with the sidebar open): questions first, the type
+                    grid after them, so the question column keeps its width. xl and up: a sticky sidebar
+                    next to the list, scrolling inside itself when the screen is short. */}
+                <div className={`${PANEL_CLASS} order-last xl:order-first p-4 xl:sticky xl:top-4 xl:max-h-[calc(100dvh-2rem)] xl:overflow-y-auto`}>
                   <QuestionTypePalette onAdd={addItem} storeIds={storeIds} />
                 </div>
 
@@ -625,6 +724,7 @@ export const ChecklistBuilder = () => {
                     activeSection={activeSection}
                     setActiveSection={setActiveSection}
                     storeIds={storeIds}
+                    validPersonIds={storePersonIds}
                   />
                 </div>
               </div>
@@ -640,6 +740,7 @@ export const ChecklistBuilder = () => {
               onAssigneeIdsChange={setAssigneeIds}
               responseMode={responseMode}
               onResponseModeChange={setResponseMode}
+              people={people}
             />
           </BuilderStepFrame>
         );
@@ -650,12 +751,15 @@ export const ChecklistBuilder = () => {
               storeIds={storeIds}
               reviewerIds={reviewerIds}
               onReviewerIdsChange={setReviewerIds}
+              people={people}
+              isNew={!isEditing && !isCopying}
             />
           </BuilderStepFrame>
         );
       default:
         return (
-          <BuilderStepFrame stepIndex={step} title="Review & Create" description="Double-check everything below, then create the checklist.">
+          <BuilderStepFrame stepIndex={step} title={isEditing ? 'Review & Save changes' : 'Review & Create'}
+            description={isEditing ? 'Double-check everything below, then save your changes.' : 'Double-check everything below, then create the checklist.'}>
             <BuilderReviewStep
               name={name}
               description={description}
@@ -674,6 +778,7 @@ export const ChecklistBuilder = () => {
               canSubmit={canSubmit}
               isSubmitting={mutation.isPending}
               isEditing={isEditing}
+              isActive={isEditing ? existing?.isActive : undefined}
               onSubmit={handleSubmit}
               submitError={mutation.isError ? (mutation.error instanceof Error ? mutation.error.message : "Couldn't save this checklist. Try again.") : undefined}
             />
@@ -683,7 +788,7 @@ export const ChecklistBuilder = () => {
   };
 
   return (
-    <div className="flex flex-col gap-6 w-full max-w-5xl mx-auto py-2 sm:py-4">
+    <div className="flex flex-col gap-6 w-full py-2 sm:py-4">
       <Breadcrumbs
         items={[
           { label: 'Dashboard', to: '/' },
@@ -699,7 +804,7 @@ export const ChecklistBuilder = () => {
         title={isEditing ? `Editing: ${existing?.name}` : isCopying ? 'Duplicate Checklist' : 'New Checklist'}
         subtitle={
           isEditing && existing
-            ? `Version ${existing.version} · Live in ${existing.storeIds.length} store${existing.storeIds.length !== 1 ? 's' : ''}`
+            ? `Version ${existing.version} · ${existing.isActive ? `Live in ${existing.storeIds.length} store${existing.storeIds.length !== 1 ? 's' : ''}` : 'Paused'}`
             : isCopying && copySource
               ? `Copied from "${copySource.name}" with its stores, people, schedule and every question. Give it a new name, then save.`
               : 'Build a recurring checklist your team runs on a schedule.'
@@ -731,7 +836,7 @@ export const ChecklistBuilder = () => {
             isStepValid={isStepValid}
             onSelect={goToStep}
           />
-          <ChecklistProgressBar done={step + 1} total={STEPS.length} bare thin className="hidden sm:flex" />
+          <ChecklistProgressBar done={step + 1} total={STEPS.length} bare thin className="hidden xl:flex" />
         </div>
 
         {/* Wizard Content Step */}
@@ -768,18 +873,18 @@ export const ChecklistBuilder = () => {
                     covers the first 4 (required) steps; a step past that (Reviewers) has nothing
                     to validate and reads as undefined/always-valid rather than blocked. */}
                 {!isStepValid(step) && (
-                  <p className="text-[11px] font-display text-warning flex items-center gap-1">
-                    <AlertCircle size={12} className="shrink-0" />
-                    {STEP_BLOCK_REASON[step]}
+                  <p className="text-[11px] font-display text-warning flex items-start gap-1 text-right">
+                    <AlertCircle size={12} className="shrink-0 mt-px" />
+                    {blockReasonFor(step)}
                   </p>
                 )}
                 <Button
                   type="button"
                   variant="primary"
                   size="md"
-                  onClick={() => goToStep(step + 1)}
-                  disabled={!isStepValid(step)}
-                  className="font-display pointer-coarse:h-11"
+                  onClick={handleNext}
+                  aria-disabled={!isStepValid(step)}
+                  className={`font-display pointer-coarse:h-11 ${isStepValid(step) ? '' : 'opacity-60'}`}
                 >
                   <span>Next</span>
                   <ChevronRight size={15} />

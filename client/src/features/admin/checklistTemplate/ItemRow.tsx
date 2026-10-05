@@ -1,18 +1,25 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import {
   Check,
   UserCheck,
   Trash2,
   Image as ImageIcon,
   Lock,
-  ChevronDown
+  ChevronDown,
+  Pencil,
 } from 'lucide-react';
 import { useUpdateChecklistTemplateItemMutation, useDeleteChecklistTemplateItemMutation } from '../hook';
 import { useConfirm } from '../../../components';
+import { InlineRenameInput } from './InlineRenameInput';
 import type { ChecklistTemplateItem } from '../../../api/checklistTemplates';
 import type { AssignableUser } from '../../../api/users';
 
 const UNASSIGNED = '__unassigned__';
+
+// 16px on a phone (iOS zooms the page for anything smaller), the compact 12px from sm up; 44px
+// tall on touch.
+const PHOTO_INPUT_CLASS =
+  'w-12 sm:w-10 h-11 sm:h-7 px-1 text-base sm:text-xs font-display font-medium text-center transition-all bg-surface border border-border rounded-lg text-text placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500';
 
 interface ItemRowProps {
   item: ChecklistTemplateItem;
@@ -25,6 +32,7 @@ export const ItemRow = ({ item, departmentId, assignableUsers, index }: ItemRowP
   const updateItem = useUpdateChecklistTemplateItemMutation();
   const deleteItem = useDeleteChecklistTemplateItemMutation();
   const confirm = useConfirm();
+  const [renaming, setRenaming] = useState(false);
 
   const minRef = useRef<HTMLInputElement>(null);
   const maxRef = useRef<HTMLInputElement>(null);
@@ -55,6 +63,11 @@ export const ItemRow = ({ item, departmentId, assignableUsers, index }: ItemRowP
     if (ok) deleteItem.mutate(item.id);
   };
 
+  // The saved assignee can be missing from the loaded options (still loading, a different
+  // department's list, someone who has since left). Without a stand-in option the select would
+  // quietly show "Unassigned" for a step that does have someone, and look like a change to undo.
+  const assigneeLoaded = !item.defaultAssigneeId || !!assignableUsers?.some(u => u.id === item.defaultAssigneeId);
+
   return (
     <article className="group flex flex-col xl:flex-row xl:items-center justify-between gap-4 p-4 sm:p-5 bg-surface border-b border-border/60 last:border-b-0 transition-colors duration-300 ease-in-out hover:bg-surface-hover/40">
       {/* Step Index & Label */}
@@ -62,9 +75,29 @@ export const ItemRow = ({ item, departmentId, assignableUsers, index }: ItemRowP
         <span className="flex items-center justify-center w-6 h-6 rounded-lg bg-surface-hover text-text-muted text-xs font-display font-bold shrink-0 mt-0.5 sm:mt-0 select-none">
           {index + 1}
         </span>
-        <span className="text-sm sm:text-base font-display font-medium text-text leading-snug truncate whitespace-normal sm:whitespace-nowrap">
-          {item.label}
-        </span>
+        {renaming ? (
+          <InlineRenameInput
+            value={item.label}
+            label={`Step ${index + 1} label`}
+            onSave={(label) => { setRenaming(false); updateItem.mutate({ id: item.id, payload: { label } }); }}
+            onCancel={() => setRenaming(false)}
+          />
+        ) : (
+          <>
+            <span title={item.label} className="min-w-0 text-sm sm:text-base font-display font-medium text-text leading-snug break-words">
+              {item.label}
+            </span>
+            <button
+              type="button"
+              onClick={() => setRenaming(true)}
+              className="shrink-0 flex items-center justify-center size-11 sm:size-8 rounded-lg text-text-muted hover:text-primary-600 dark:hover:text-primary-400 hover:bg-primary-500/10 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+              aria-label={`Rename step ${index + 1}`}
+              title="Rename step"
+            >
+              <Pencil size={14} />
+            </button>
+          </>
+        )}
       </div>
 
       {/* Controls Bar */}
@@ -77,29 +110,31 @@ export const ItemRow = ({ item, departmentId, assignableUsers, index }: ItemRowP
           </div>
 
           <label className="flex items-center gap-1.5 px-1" title="Minimum photos required">
-            <span className="text-[10px] font-display font-bold text-text-muted tracking-wider">Min</span>
+            <span className="text-[11px] font-display font-bold text-text-muted">Min</span>
             <input
               ref={minRef}
               type="number"
+              inputMode="numeric"
               min={0}
               defaultValue={item.requiredImageCount}
               onBlur={handleMinBlur}
-              className="w-10 h-7 px-1 text-xs font-display font-medium text-center transition-all bg-surface border border-border rounded-lg text-text focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+              className={PHOTO_INPUT_CLASS}
             />
           </label>
 
           <span className="text-border select-none">•</span>
 
           <label className="flex items-center gap-1.5 pr-1.5" title="Maximum photos allowed">
-            <span className="text-[10px] font-display font-bold text-text-muted tracking-wider">Max</span>
+            <span className="text-[11px] font-display font-bold text-text-muted">Max</span>
             <input
               ref={maxRef}
               type="number"
+              inputMode="numeric"
               min={0}
               defaultValue={item.maxImageCount ?? ''}
               placeholder="∞"
               onBlur={handleMaxBlur}
-              className="w-10 h-7 px-1 text-xs font-display font-medium text-center transition-all bg-surface border border-border rounded-lg text-text placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500"
+              className={PHOTO_INPUT_CLASS}
             />
           </label>
         </div>
@@ -107,9 +142,10 @@ export const ItemRow = ({ item, departmentId, assignableUsers, index }: ItemRowP
         {/* Live Photo Toggle */}
         <button
           type="button"
+          aria-pressed={item.requiresLivePhoto}
           onClick={() => updateItem.mutate({ id: item.id, payload: { requiresLivePhoto: !item.requiresLivePhoto } })}
           disabled={updateItem.isPending}
-          className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-display font-medium transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:opacity-50 disabled:pointer-events-none ${
+          className={`flex items-center gap-2 px-3 min-h-11 sm:min-h-9 rounded-xl border text-xs font-display font-medium transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:opacity-50 disabled:pointer-events-none ${
             item.requiresLivePhoto
               ? 'bg-primary-500/10 border-primary-500/30 text-primary-700 dark:text-primary-400'
               : 'bg-surface border-border text-text-secondary hover:text-text hover:bg-surface-hover'
@@ -133,14 +169,18 @@ export const ItemRow = ({ item, departmentId, assignableUsers, index }: ItemRowP
             value={item.defaultAssigneeId ?? UNASSIGNED}
             onChange={e => updateItem.mutate({ id: item.id, payload: { defaultAssigneeId: e.target.value === UNASSIGNED ? null : e.target.value } })}
             disabled={!departmentId}
+            aria-label={`Default assignee for step ${index + 1}`}
             title={departmentId ? 'Default assignee' : 'Set a department on this template first'}
-            className={`h-9 pl-8 pr-8 text-xs font-display font-medium appearance-none transition-all outline-none min-w-[130px] bg-surface-hover border rounded-xl ${
+            className={`h-11 sm:h-9 pl-8 pr-8 text-base sm:text-xs font-display font-medium appearance-none transition-all outline-none min-w-32 bg-surface-hover border rounded-xl ${
               !departmentId
                 ? 'border-border/60 text-text-muted cursor-not-allowed'
                 : 'border-border text-text-secondary hover:border-border-hover focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 cursor-pointer'
             }`}
           >
             <option value={UNASSIGNED}>Unassigned</option>
+            {!assigneeLoaded && item.defaultAssigneeId && (
+              <option value={item.defaultAssigneeId} hidden>Assigned person</option>
+            )}
             {assignableUsers?.map(u => (
               <option key={u.id} value={u.id}>
                 {u.firstName} {u.lastName ?? ''}
@@ -158,8 +198,8 @@ export const ItemRow = ({ item, departmentId, assignableUsers, index }: ItemRowP
           type="button"
           onClick={handleDelete}
           disabled={deleteItem.isPending}
-          className="p-2 rounded-xl transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger text-text-muted hover:text-danger hover:bg-danger/10 disabled:opacity-50 disabled:pointer-events-none"
-          aria-label="Delete item"
+          className="flex items-center justify-center size-11 sm:size-9 rounded-xl transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger text-text-muted hover:text-danger hover:bg-danger/10 disabled:opacity-50 disabled:pointer-events-none"
+          aria-label={`Delete step ${index + 1}`}
         >
           <Trash2 className="w-4 h-4" />
         </button>

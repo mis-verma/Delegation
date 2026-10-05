@@ -61,13 +61,28 @@ export const useCreateHolidaysMutation = () => {
   });
 };
 
+/** How many runs adding these dates would clear, summed. Only the dates that can already have runs (today or earlier). */
+export const previewHolidayClears = async (dates: string[]) => {
+  const results = await Promise.all(dates.map(d => holidayApi.preview(d)));
+  return results.reduce(
+    (sum, r) => ({ untouchedRuns: sum.untouchedRuns + r.untouchedRuns, startedRuns: sum.startedRuns + r.startedRuns }),
+    { untouchedRuns: 0, startedRuns: 0 },
+  );
+};
+
 export const useDeleteHolidayMutation = () => {
   const refresh = useRefreshAfterChange();
   return useMutation({
     mutationFn: (id: string) => holidayApi.remove(id),
-    onSuccess: () => {
+    onSuccess: (res) => {
       refresh();
-      toast.success('Holiday removed', { description: "Daily checklists start again from that day. Today's appear within the hour." });
+      // `backfilled` is the server's own word on whether that day gets its checklists back: today and
+      // later are created again, a past day is never filled in retroactively.
+      toast.success('Holiday removed', {
+        description: res.backfilled
+          ? "Today's and future checklists appear within the hour."
+          : 'Past days are not filled in again.',
+      });
     },
     onError: (err) => toast.error(errorMessage(err, "Couldn't remove the holiday")),
   });
