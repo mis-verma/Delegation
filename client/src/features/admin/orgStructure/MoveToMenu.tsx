@@ -42,10 +42,12 @@ export const MoveToMenu = ({ userId, userName, currentDepartmentId }: MoveToMenu
         <button
           type="button"
           aria-label={`Move ${userName} to another department`}
-          className="shrink-0 inline-flex items-center justify-center gap-1.5 size-11 sm:size-auto sm:min-h-8 sm:px-2.5 rounded-lg border border-transparent text-xs font-display font-medium text-text-muted cursor-pointer transition-colors duration-150 hover:bg-surface-active hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+          // Icon only while the row is narrow (a department column), label once the row has room.
+          // Always at least 44px square on touch screens, 32px with a mouse.
+          className="shrink-0 inline-flex items-center justify-center gap-1.5 min-h-11 min-w-11 sm:min-h-8 sm:min-w-8 @md:px-2.5 rounded-lg border border-transparent text-xs font-display font-medium text-text-muted cursor-pointer transition-colors duration-150 hover:bg-surface-active hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
         >
           <ArrowRightLeft className="size-3.5" aria-hidden />
-          <span className="hidden sm:inline">Move to...</span>
+          <span className="hidden @md:inline">Move to...</span>
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-72 p-2">

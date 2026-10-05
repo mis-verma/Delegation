@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, lazy, Suspense } from "react";
 import { Plus, Inbox, ArrowDownAZ, Users, type LucideIcon } from "lucide-react";
 
 import type { Department } from "../../../api/departments";
-import { DepartmentCard } from "./DepartmentCard";
+import { DepartmentCard, DepartmentCardSkeleton } from "./DepartmentCard";
 import { DepartmentTable } from "./DepartmentTable";
 import {
   useUsersQuery,
@@ -17,7 +17,6 @@ import { OrgStatusSection, OrgTableSkeleton, OrgToolbar } from "../directory/Org
 import { useDirectoryView } from "../directory/useDirectoryView";
 import {
   EmptyState,
-  EntityCardSkeleton,
   FormChunkFallback,
   FormLoadError,
   InlineError,
@@ -189,7 +188,7 @@ export const DepartmentList = () => {
       if (showTable) return <OrgTableSkeleton />;
       return (
         <div className={GRID_CLASS}>
-          {Array.from({ length: SKELETON_COUNT }).map((_, i) => <EntityCardSkeleton key={i} />)}
+          {Array.from({ length: SKELETON_COUNT }).map((_, i) => <DepartmentCardSkeleton key={i} />)}
         </div>
       );
     }

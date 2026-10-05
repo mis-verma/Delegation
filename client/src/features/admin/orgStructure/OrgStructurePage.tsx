@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import { MotionConfig } from 'framer-motion';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Network, Search, Maximize2, Minimize2, Inbox, Store, Layers, Users, TriangleAlert, CircleCheck } from 'lucide-react';
+import { Network, Search, Maximize2, Minimize2, Inbox, Store, Layers, Users, UserX, TriangleAlert, CircleCheck } from 'lucide-react';
 import { Button, EmptyState, InlineError, Input, PANEL_CLASS, PageHeader, Skeleton, ToggleChip } from '../../../components';
 import { StatCard } from '../../dashboard';
 import { adminApi, type AdminUser } from '../../../api/admin';
@@ -31,10 +31,26 @@ const DEPARTMENTS_KEY = ['departments'] as const;
 const STORES_KEY = ['stores'] as const;
 
 const OrgStructureSkeleton = () => (
-  <div className="flex flex-col gap-3">
+  <div className="flex flex-col gap-4">
     {Array.from({ length: 3 }).map((_, i) => (
-      <Skeleton key={i} className="h-20 rounded-2xl" />
+      <Skeleton key={i} className="h-24 rounded-2xl" />
     ))}
+  </div>
+);
+
+// Header for the two warning buckets (departments without a store, people without a department).
+const BucketHeader = ({ title, hint, count }: { title: string; hint: string; count: number }) => (
+  <div className="flex items-start gap-3">
+    <span className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-warning/30 bg-warning/15 text-warning">
+      <TriangleAlert className="size-4" aria-hidden />
+    </span>
+    <div className="min-w-0 flex-1 flex flex-col gap-0.5">
+      <h3 className="text-sm font-display font-bold leading-snug text-text">{title}</h3>
+      <p className="text-xs font-display text-text-muted">{hint}</p>
+    </div>
+    <span className="shrink-0 rounded-full border border-warning/30 bg-warning/10 px-2.5 py-0.5 text-xs font-display font-bold tabular-nums text-warning">
+      {count}
+    </span>
   </div>
 );
 
@@ -66,7 +82,9 @@ export const OrgStructurePage = () => {
   const people = useMemo(() => {
     const all = users ?? [];
     const active = all.filter((u) => u.isActive).length;
-    return { active, deactivated: all.length - active };
+    // Same rule as the "People without a department or store" bucket below.
+    const unplaced = all.filter((u) => u.isActive && !u.departmentId && !u.storeId).length;
+    return { active, deactivated: all.length - active, unplaced };
   }, [users]);
 
   // What a glance at this page should flag. Only active departments count: a switched-off one is
@@ -207,7 +225,7 @@ export const OrgStructurePage = () => {
     }
 
     return (
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-4 sm:gap-6">
         {visibleTree.stores.map((node) => (
           <StoreSection
             key={node.store.id}
@@ -224,26 +242,33 @@ export const OrgStructurePage = () => {
         ))}
 
         {visibleTree.unassignedDepartments.length > 0 && (
-          <div className="flex flex-col gap-2 rounded-2xl border border-dashed border-warning/40 bg-warning/5 p-4 sm:p-5">
-            <p className="text-xs font-display font-bold text-warning">Departments without a store</p>
-            {visibleTree.unassignedDepartments.map((d) => (
-              <DepartmentSection
-                key={d.department.id}
-                node={d}
-                isOpen={expandedDepts.has(d.department.id)}
-                forceOpen={forceOpen}
-                onToggle={toggleDept}
-                showUnassignedStoreHint
-                onDropUser={moveUser}
-                onUserDragStart={handleUserDragStart}
-                onUserDragEnd={handleUserDragEnd}
-              />
-            ))}
-          </div>
+          <section aria-label="Departments without a store" className="flex flex-col gap-4 rounded-2xl border border-dashed border-warning/40 bg-warning/5 p-4 sm:p-5">
+            <BucketHeader
+              title="Departments without a store"
+              hint="Pick a store for each of these so their people show up under it."
+              count={visibleTree.unassignedDepartments.length}
+            />
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 items-start gap-3 sm:gap-4">
+              {visibleTree.unassignedDepartments.map((d) => (
+                <DepartmentSection
+                  key={d.department.id}
+                  node={d}
+                  isOpen={expandedDepts.has(d.department.id)}
+                  forceOpen={forceOpen}
+                  onToggle={toggleDept}
+                  showUnassignedStoreHint
+                  onDropUser={moveUser}
+                  onUserDragStart={handleUserDragStart}
+                  onUserDragEnd={handleUserDragEnd}
+                />
+              ))}
+            </div>
+          </section>
         )}
 
         {visibleTree.unassignedUsers.length > 0 && (
-          <div
+          <section
+            aria-label="People without a department or store"
             onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
             onDragEnter={() => setIsUnassignDropTarget(true)}
             onDragLeave={(e) => { if (isLeavingDropTarget(e)) setIsUnassignDropTarget(false); }}
@@ -254,19 +279,30 @@ export const OrgStructurePage = () => {
               if (!dragged || (dragged.departmentId === null && dragged.storeId === null)) return;
               moveUser(dragged.id, { departmentId: null, storeId: null });
             }}
-            className={`flex flex-col gap-1 rounded-2xl border border-dashed p-4 sm:p-5 transition-colors duration-200 ${
-              isUnassignDropTarget ? 'border-text-muted bg-surface-hover ring-2 ring-text-muted/20' : 'border-border bg-surface-hover/60'
+            // Outline, not ring: no box-shadows on this page.
+            className={`flex flex-col gap-4 rounded-2xl border border-dashed p-4 sm:p-5 transition-colors duration-200 ${
+              isUnassignDropTarget
+                ? 'border-warning bg-warning/15 outline outline-2 -outline-offset-2 outline-warning/40'
+                : 'border-warning/40 bg-warning/5'
             }`}
           >
-            <p className="text-xs font-display font-bold text-text-muted">
-              {isUnassignDropTarget ? 'Drop to unassign' : 'People without a department or store'}
-            </p>
-            <div className="flex flex-col gap-0.5">
+            <BucketHeader
+              title={isUnassignDropTarget ? 'Drop to unassign' : 'People without a department or store'}
+              hint="Drag someone onto a department, or use Move to on their row."
+              count={visibleTree.unassignedUsers.length}
+            />
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
               {visibleTree.unassignedUsers.map((u) => (
-                <UserRow key={u.id} user={u} onDragStart={handleUserDragStart} onDragEnd={handleUserDragEnd} />
+                <UserRow
+                  key={u.id}
+                  user={u}
+                  className="border border-border bg-surface"
+                  onDragStart={handleUserDragStart}
+                  onDragEnd={handleUserDragEnd}
+                />
               ))}
             </div>
-          </div>
+          </section>
         )}
       </div>
     );
@@ -275,7 +311,7 @@ export const OrgStructurePage = () => {
   return (
     <MotionConfig reducedMotion="user">
       <OrgMoveContext.Provider value={moveApi}>
-        <div className="flex flex-col gap-5 w-full max-w-5xl mx-auto">
+        <div className="flex flex-col gap-5 sm:gap-6 w-full">
           <PageHeader
             icon={Network}
             title="Organization structure"
@@ -292,19 +328,17 @@ export const OrgStructurePage = () => {
             }
           />
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
-            <div className="col-span-2 sm:col-span-1 flex flex-col">
-              <StatCard
-                icon={Users}
-                label="People"
-                value={users ? people.active : 'No data'}
-                caption={people.deactivated > 0 ? `${people.deactivated} deactivated` : 'Active across your org'}
-                isLoading={usersPending}
-                compact
-                highlight
-                decorative
-              />
-            </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <StatCard
+              icon={Users}
+              label="People"
+              value={users ? people.active : 'No data'}
+              caption={people.deactivated > 0 ? `${people.deactivated} deactivated` : 'Active across your org'}
+              isLoading={usersPending}
+              compact
+              highlight
+              decorative
+            />
             <StatCard
               icon={Store}
               iconTint="text-coral-600 dark:text-coral-400"
@@ -321,6 +355,15 @@ export const OrgStructurePage = () => {
               value={departments ? departments.length : 'No data'}
               caption="Org-wide"
               isLoading={deptsPending}
+              compact
+            />
+            <StatCard
+              icon={UserX}
+              iconTint={people.unplaced > 0 ? 'text-warning' : 'text-success'}
+              label="Unassigned"
+              value={users ? people.unplaced : 'No data'}
+              caption={people.unplaced > 0 ? 'No department or store' : 'Everyone is placed'}
+              isLoading={usersPending}
               compact
             />
           </div>
@@ -349,8 +392,8 @@ export const OrgStructurePage = () => {
             </section>
           )}
 
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex-1 basis-64">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex-1 sm:max-w-xl">
               <Input
                 id="org-search"
                 type="search"

@@ -1,14 +1,17 @@
 import type { Role } from '../../api/admin';
 
 // Shared across UserList.tsx and the Org Structure view so role colors never drift apart.
+// Theme tokens only, tinted with opacity so they read in light and dark: the more access a role has,
+// the stronger the colour (Admin red, Approval Manager gold, PC green, Senior and Manager navy, Agent
+// amber, User neutral).
 export const ROLE_STYLES: Record<Role, string> = {
-  ADMIN: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/30',
-  APPROVAL_MANAGER: 'bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-500/10 dark:text-cyan-400 dark:border-cyan-500/30',
-  SENIOR: 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-500/10 dark:text-violet-400 dark:border-violet-500/30',
-  MANAGER: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/30',
-  AGENT: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/30',
-  USER: 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
-  PC: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/30',
+  ADMIN: 'bg-danger/10 text-danger border-danger/25',
+  APPROVAL_MANAGER: 'bg-coral-500/10 dark:bg-coral-500/15 text-coral-700 dark:text-coral-300 border-coral-500/30',
+  SENIOR: 'bg-primary-500/15 dark:bg-primary-500/20 text-primary-800 dark:text-primary-200 border-primary-500/40',
+  MANAGER: 'bg-primary-500/10 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300 border-primary-500/25',
+  AGENT: 'bg-warning/10 text-warning border-warning/25',
+  USER: 'bg-surface-hover text-text-secondary border-border',
+  PC: 'bg-success/10 text-success border-success/25',
 };
 
 /** What a role can see: own work only, their department's team, or everything. */

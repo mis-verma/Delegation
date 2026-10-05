@@ -1,5 +1,5 @@
 import { memo, useState } from 'react';
-import { GripVertical, TriangleAlert } from 'lucide-react';
+import { Crown, GripVertical, TriangleAlert } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { Avatar } from '../../../components';
@@ -24,11 +24,13 @@ interface UserRowProps {
    *  them doesn't defeat this row's own memoization. */
   onDragStart?: (user: AdminUser) => void;
   onDragEnd?: () => void;
+  /** Extra classes for the row, e.g. a border when the row sits on its own in a bucket. */
+  className?: string;
 }
 
 // Memoized: a large org can render hundreds of these inside StoreSection/DepartmentSection,
 // without this, toggling one accordion elsewhere re-renders every row in the tree.
-export const UserRow = memo(({ user, isHead, storeMismatch, onDragStart, onDragEnd }: UserRowProps) => {
+export const UserRow = memo(({ user, isHead, storeMismatch, onDragStart, onDragEnd, className }: UserRowProps) => {
   // Local only: doesn't need to be known outside this one row, so it can't defeat memoization
   // on any ancestor the way a top-down "which user is dragging" prop would.
   const [isBeingDragged, setIsBeingDragged] = useState(false);
@@ -54,22 +56,28 @@ export const UserRow = memo(({ user, isHead, storeMismatch, onDragStart, onDragE
         onDragEnd?.();
       }}
       className={cn(
-        'group flex items-center gap-1 px-2.5 py-2 rounded-lg transition-colors duration-200 hover:bg-surface-hover',
+        // @container: the role chip and the Move to label depend on how wide this row is, not on the
+        // screen, because the same row sits in a narrow department column and a full-width list.
+        '@container group flex min-h-12 items-center gap-2 px-2.5 py-2 rounded-lg transition-colors duration-200 hover:bg-surface-hover',
         draggable && 'cursor-grab active:cursor-grabbing',
-        isBeingDragged && 'opacity-40'
+        isBeingDragged && 'opacity-40',
+        className
       )}
     >
       {draggable && (
-        <GripVertical className="hidden sm:block w-3.5 h-3.5 text-text-light/0 group-hover:text-text-light shrink-0 transition-colors duration-150" aria-hidden />
+        <GripVertical className="hidden sm:block size-3.5 -mr-1 text-text-light/0 group-hover:text-text-light shrink-0 transition-colors duration-150" aria-hidden />
       )}
       <Avatar name={name} src={resolveAvatarUrl(user.avatarUrl)} size="sm" />
-      <div className="min-w-0 flex-1 pl-1.5 flex flex-col gap-0.5">
-        <p className={cn('text-sm font-display font-medium truncate', user.isActive ? 'text-text' : 'text-text-secondary')}>{name}</p>
-        <p className="text-xs font-display text-text-muted truncate">{user.email}</p>
+      <div className="min-w-0 flex-1 flex flex-col gap-0.5">
+        <p className={cn('text-sm font-display font-medium leading-snug line-clamp-2 break-words', user.isActive ? 'text-text' : 'text-text-secondary')}>{name}</p>
+        <p className="text-xs font-display text-text-muted line-clamp-1 break-all">{user.email}</p>
         <div className="flex flex-wrap items-center gap-1">
-          <span className={cn(CHIP, 'sm:hidden', ROLE_STYLES[user.role])}>{ROLE_LABEL[user.role]}</span>
+          <span className={cn(CHIP, '@sm:hidden', ROLE_STYLES[user.role])}>{ROLE_LABEL[user.role]}</span>
           {isHead && (
-            <span className={cn(CHIP, 'border-primary-500/30 bg-primary-500/10 text-primary-700 dark:text-primary-300')}>Dept head</span>
+            <span className={cn(CHIP, 'border-primary-500/30 bg-primary-500/10 text-primary-700 dark:text-primary-300')}>
+              <Crown className="size-3" aria-hidden />
+              Dept head
+            </span>
           )}
           {storeMismatch && (
             <span title={storeMismatch} className={cn(CHIP, 'border-warning/30 bg-warning/10 text-warning')}>
@@ -81,7 +89,7 @@ export const UserRow = memo(({ user, isHead, storeMismatch, onDragStart, onDragE
           {!user.isActive && <span className={cn(CHIP, 'border-border bg-surface-hover text-text-muted')}>Deactivated</span>}
         </div>
       </div>
-      <span className={cn(CHIP, 'hidden sm:inline-flex', ROLE_STYLES[user.role])}>{ROLE_LABEL[user.role]}</span>
+      <span className={cn(CHIP, 'hidden @sm:inline-flex', ROLE_STYLES[user.role])}>{ROLE_LABEL[user.role]}</span>
       <MoveToMenu userId={user.id} userName={name} currentDepartmentId={user.departmentId} />
     </div>
   );

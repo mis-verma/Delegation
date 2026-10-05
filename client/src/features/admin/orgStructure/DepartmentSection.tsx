@@ -74,10 +74,11 @@ export const DepartmentSection = memo(({ node, isOpen, forceOpen, onToggle, show
         onDropUser(dragged.id, { departmentId: department.id, ...(department.storeId ? { storeId: department.storeId } : {}) });
       }}
       className={cn(
-        'rounded-xl border overflow-hidden transition-colors duration-200',
+        // Outline, not ring: no box-shadows on this page. -outline-offset keeps it inside the card edge.
+        '@container flex flex-col rounded-xl border overflow-hidden bg-surface transition-colors duration-200',
         isDropTarget
-          ? 'border-primary-400 bg-primary-500/10 dark:bg-primary-500/15 ring-2 ring-primary-500/30'
-          : 'border-border/70 bg-surface-hover/30 hover:border-primary-200 hover:bg-surface'
+          ? 'border-primary-400 bg-primary-500/10 dark:bg-primary-500/15 outline outline-2 -outline-offset-2 outline-primary-500/40'
+          : 'border-border hover:border-primary-300'
       )}
     >
       <button
@@ -88,37 +89,41 @@ export const DepartmentSection = memo(({ node, isOpen, forceOpen, onToggle, show
         // aria-disabled, not disabled: while a search holds every branch open the button must stay focusable.
         aria-disabled={forceOpen || undefined}
         className={cn(
-          'flex w-full min-h-11 flex-wrap items-center gap-x-2.5 gap-y-1.5 px-3 py-2.5 text-left transition-colors duration-200 hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40',
+          'flex w-full min-h-11 items-start gap-3 p-4 text-left transition-colors duration-200 hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40',
           forceOpen ? 'cursor-default' : 'cursor-pointer'
         )}
       >
-        <EntityIconTile icon={Layers} tone="primary" />
-        <span className="text-sm font-display font-bold text-text truncate">{department.name}</span>
-        {!department.isActive && (
-          <span className={cn(HEADER_CHIP, 'border-border bg-surface-hover text-text-muted')}>Deactivated</span>
-        )}
-        {showUnassignedStoreHint && (
-          <span className={cn(HEADER_CHIP, 'border-warning/30 bg-warning/10 text-warning')}>
-            <StoreIcon className="w-3 h-3" aria-hidden /> No store
-          </span>
-        )}
-        {headLabel ? (
-          <span className="shrink-0 text-xs font-display text-text-muted truncate max-w-48">{headLabel}</span>
-        ) : (
-          <span className={cn(HEADER_CHIP, 'border-warning/30 bg-warning/10 text-warning')}>No head</span>
-        )}
-        <div className="ml-auto flex items-center gap-2 shrink-0">
+        <EntityIconTile icon={Layers} tone="primary" className="size-9" />
+        <div className="min-w-0 flex-1 flex flex-col gap-1.5">
+          <span className="text-sm font-display font-bold leading-snug text-text line-clamp-2 break-words">{department.name}</span>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            {headLabel ? (
+              <span className="text-xs font-display text-text-muted line-clamp-1 break-words">{headLabel}</span>
+            ) : (
+              <span className={cn(HEADER_CHIP, 'border-warning/30 bg-warning/10 text-warning')}>No head</span>
+            )}
+            {showUnassignedStoreHint && (
+              <span className={cn(HEADER_CHIP, 'border-warning/30 bg-warning/10 text-warning')}>
+                <StoreIcon className="size-3" aria-hidden /> No store
+              </span>
+            )}
+            {!department.isActive && (
+              <span className={cn(HEADER_CHIP, 'border-border bg-surface-hover text-text-muted')}>Deactivated</span>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0 self-center">
           {isDropTarget ? (
             <span className="text-[11px] font-display font-bold text-primary-600 dark:text-primary-400">Drop to move here</span>
           ) : (
             <>
-              <AvatarStack people={people} max={3} size="sm" className="hidden sm:flex" />
+              <AvatarStack people={people} max={3} size="sm" className="hidden @md:flex" />
               <MetricPill icon={Users}>
                 {node.activeCount} {node.activeCount === 1 ? 'member' : 'members'}
               </MetricPill>
             </>
           )}
-          <ChevronDown className={cn('w-3.5 h-3.5 text-text-light shrink-0 transition-transform duration-300', open && 'rotate-180')} aria-hidden />
+          <ChevronDown className={cn('size-4 text-text-light shrink-0 transition-transform duration-300', open && 'rotate-180')} aria-hidden />
         </div>
       </button>
 
@@ -132,9 +137,9 @@ export const DepartmentSection = memo(({ node, isOpen, forceOpen, onToggle, show
             transition={{ duration: 0.2, ease: 'easeInOut' }}
             className="overflow-hidden"
           >
-            <div className="flex flex-col gap-0.5 px-2 pb-2.5 pt-0.5 border-t border-border/60 mx-1">
+            <div className="flex flex-col gap-0.5 p-2 border-t border-border bg-surface-hover/30">
               {node.users.length === 0 ? (
-                <p className="px-3 py-2.5 text-xs font-display text-text-muted">No active members in this department yet.</p>
+                <p className="px-2.5 py-3 text-xs font-display text-text-muted">Nobody is in this department yet. Drag someone here, or use Move to on their row.</p>
               ) : (
                 node.users.map((u) => (
                   <UserRow

@@ -11,7 +11,7 @@ import {
 } from '../hook';
 import { useStoresQuery } from '../../tickets/hook';
 import { useAuth } from '../../../context/AuthContext';
-import { UserCard } from './UserCard';
+import { UserCard, UserCardSkeleton } from './UserCard';
 import { UserTable } from './UserTable';
 import { UserToolbar } from './UserToolbar';
 import { BulkBar } from './BulkBar';
@@ -23,7 +23,6 @@ import { presenceLabel } from '../presenceDisplay';
 import { ROLE_META, isDepartmentHead } from '../roleBadge';
 import {
   EmptyState,
-  EntityCardSkeleton,
   FormChunkFallback,
   FormLoadError,
   InlineError,
@@ -47,7 +46,7 @@ const UserForm = lazy(() =>
 // --- Subcomponents ---
 const UserGridSkeleton = () => (
   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3" aria-hidden>
-    {Array.from({ length: 6 }).map((_, i) => <EntityCardSkeleton key={i} />)}
+    {Array.from({ length: 6 }).map((_, i) => <UserCardSkeleton key={i} />)}
   </div>
 );
 

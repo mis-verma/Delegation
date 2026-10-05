@@ -19,18 +19,53 @@ export const DeactivatedChip = ({ label }: { label: string }) => (
   <span className={cn(CHIP, 'border-border bg-surface-hover text-text-secondary')}>{label}</span>
 );
 
-const PLACE = 'inline-flex items-center gap-1 text-[11px] font-display font-medium text-text-muted min-w-0';
-
-export const DepartmentLabel = ({ name }: { name?: string }) => (
-  <span className={cn(PLACE, !name && 'italic text-text-light')}>
-    <Building2 className="size-3 shrink-0 text-text-light" aria-hidden />
-    <span className="truncate">{name ?? 'No department'}</span>
+// Quiet "this person is active" marker. Deactivated people get DeactivatedChip instead.
+export const ActiveStatus = () => (
+  <span className="inline-flex items-center gap-1.5 text-[11px] font-display font-semibold text-text-secondary whitespace-nowrap">
+    <span className="size-1.5 rounded-full bg-success shrink-0" aria-hidden />
+    Active
   </span>
 );
 
-export const StoreLabel = ({ name }: { name?: string }) => (
-  <span className={cn(PLACE, !name && 'italic text-text-light')}>
-    <Store className="size-3 shrink-0 text-text-light" aria-hidden />
-    <span className="truncate">{name ?? 'No store'}</span>
-  </span>
-);
+interface PlaceFieldProps {
+  kind: 'department' | 'store';
+  name?: string;
+  /** Deactivated people read quieter; their actions stay at full contrast elsewhere. */
+  muted?: boolean;
+}
+
+// One labelled row: small tinted icon tile, a tiny label above, then the value. It always renders
+// two lines, set or not, so every card in the grid keeps the same height.
+export const PlaceField = ({ kind, name, muted }: PlaceFieldProps) => {
+  const isStore = kind === 'store';
+  const Icon = isStore ? Store : Building2;
+  return (
+    <div className="flex items-center gap-2 min-w-0">
+      <span
+        className={cn(
+          'flex items-center justify-center size-8 rounded-lg shrink-0',
+          isStore
+            ? 'bg-coral-500/10 dark:bg-coral-500/15 text-coral-700 dark:text-coral-300'
+            : 'bg-primary-500/10 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300',
+          muted && 'opacity-60',
+        )}
+      >
+        <Icon className="size-4" aria-hidden />
+      </span>
+      <div className="flex flex-col min-w-0">
+        <span className="text-[10px] font-display font-medium text-text-light leading-tight">
+          {isStore ? 'Store' : 'Department'}
+        </span>
+        <span
+          className={cn(
+            'text-xs font-display leading-snug truncate',
+            name ? cn('font-semibold', muted ? 'text-text-muted' : 'text-text') : 'font-medium text-text-light',
+          )}
+          title={name}
+        >
+          {name ?? 'Not set'}
+        </span>
+      </div>
+    </div>
+  );
+};

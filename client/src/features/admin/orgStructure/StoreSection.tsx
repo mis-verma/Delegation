@@ -1,6 +1,6 @@
 import { memo, useId, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ChevronDown, Store as StoreIcon, Users as UsersIcon } from 'lucide-react';
+import { ChevronDown, Layers, Store as StoreIcon, Users as UsersIcon } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { EntityIconTile, MetricPill, AvatarStack } from '../../../components';
@@ -78,10 +78,11 @@ const StoreSectionComponent = ({
         onDropUser(dragged.id, { departmentId: null, storeId: node.store.id });
       }}
       className={cn(
+        // Outline, not ring: no box-shadows on this page. -outline-offset keeps it inside the panel edge.
         'group/store rounded-2xl border overflow-hidden transition-colors duration-200',
         isDropTarget
-          ? 'border-coral-400 bg-coral-500/10 dark:bg-coral-500/15 ring-2 ring-coral-500/30'
-          : 'border-border bg-surface hover:border-coral-200'
+          ? 'border-coral-400 bg-coral-500/10 dark:bg-coral-500/15 outline outline-2 -outline-offset-2 outline-coral-500/40'
+          : 'border-border bg-surface hover:border-coral-300'
       )}
     >
       <button
@@ -92,31 +93,39 @@ const StoreSectionComponent = ({
         // aria-disabled, not disabled: while a search holds every branch open the button must stay focusable.
         aria-disabled={forceOpen || undefined}
         className={cn(
-          'flex w-full min-h-11 items-center gap-4 p-4 sm:p-5 text-left transition-colors duration-200 hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40',
+          'flex w-full min-h-11 items-center gap-3 sm:gap-4 p-4 sm:p-5 text-left transition-colors duration-200 hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40',
           forceOpen ? 'cursor-default' : 'cursor-pointer'
         )}
       >
-        <EntityIconTile icon={StoreIcon} tone="coral" className="w-8 h-8 sm:w-9 sm:h-9" />
-        <div className="min-w-0 flex-1">
-          <h3 className="flex items-center gap-2 min-w-0 text-base font-display font-bold text-text">
-            <span className="truncate">{node.store.name}</span>
+        <EntityIconTile icon={StoreIcon} tone="coral" className="size-10 sm:size-11" />
+        <div className="min-w-0 flex-1 flex flex-col gap-1">
+          <h3 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-base font-display font-bold leading-snug text-text">
+            <span className="line-clamp-2 break-words">{node.store.name}</span>
+            {node.store.code && (
+              <span className="shrink-0 text-[10px] font-display font-bold px-1.5 py-0.5 rounded-md border border-border bg-surface-hover text-text-secondary">
+                {node.store.code}
+              </span>
+            )}
             {!node.store.isActive && (
               <span className="shrink-0 text-[10px] font-display font-bold px-1.5 py-0.5 rounded-md border border-border bg-surface-hover text-text-muted">
                 Deactivated
               </span>
             )}
           </h3>
-          <p className="text-xs font-display text-text-muted truncate">
+          <p className="text-xs font-display text-text-muted">
             {isDropTarget
               ? 'Drop to assign here, no department'
-              : `${node.departments.length} ${node.departments.length === 1 ? 'department' : 'departments'}${node.store.code ? ` · ${node.store.code}` : ''}`}
+              : `${node.departments.length} ${node.departments.length === 1 ? 'department' : 'departments'}`}
+            <span className="md:hidden">
+              {isDropTarget ? '' : ` · ${node.activeCount} ${node.activeCount === 1 ? 'person' : 'people'}`}
+            </span>
           </p>
         </div>
-        <div className="hidden md:flex items-center gap-2.5 shrink-0">
+        <div className="hidden md:flex items-center gap-3 shrink-0">
           <AvatarStack people={people} max={4} size="sm" />
           <MetricPill icon={UsersIcon}>{node.activeCount} {node.activeCount === 1 ? 'person' : 'people'}</MetricPill>
         </div>
-        <ChevronDown className={cn('w-4 h-4 text-text-light shrink-0 transition-transform duration-300', open && 'rotate-180')} aria-hidden />
+        <ChevronDown className={cn('size-4 text-text-light shrink-0 transition-transform duration-300', open && 'rotate-180')} aria-hidden />
       </button>
 
       <AnimatePresence initial={false}>
@@ -129,11 +138,14 @@ const StoreSectionComponent = ({
             transition={{ duration: 0.25, ease: 'easeInOut' }}
             className="overflow-hidden"
           >
-            <div className="flex flex-col gap-2 px-4 sm:px-5 pb-5 border-t border-border/70 pt-4">
+            <div className="border-t border-border bg-surface-hover/30 p-4 sm:p-5">
               {node.departments.length === 0 && node.directUsers.length === 0 ? (
-                <p className="px-1 text-sm font-display text-text-muted">No departments or staff assigned to this store yet.</p>
+                <p className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm font-display text-text-muted">
+                  <Layers className="size-4 shrink-0 text-text-light" aria-hidden />
+                  This store has no departments or staff yet. Assign a department to it from People &amp; Teams.
+                </p>
               ) : (
-                <>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 items-start gap-3 sm:gap-4">
                   {node.departments.map((d) => (
                     <DepartmentSection
                       key={d.department.id}
@@ -147,16 +159,16 @@ const StoreSectionComponent = ({
                     />
                   ))}
                   {node.directUsers.length > 0 && (
-                    <div className="rounded-xl border border-dashed border-border px-2 py-2 bg-surface-hover/40">
-                      <p className="px-1 pb-1 text-[10px] font-display font-bold text-text-light tracking-wide">
-                        Store-level staff (no department)
+                    <div className="flex flex-col gap-0.5 rounded-xl border border-dashed border-border bg-surface p-2">
+                      <p className="px-2.5 py-1.5 text-xs font-display font-bold text-text-secondary">
+                        Store staff with no department
                       </p>
                       {node.directUsers.map((u) => (
                         <UserRow key={u.id} user={u} onDragStart={onUserDragStart} onDragEnd={onUserDragEnd} />
                       ))}
                     </div>
                   )}
-                </>
+                </div>
               )}
             </div>
           </motion.div>

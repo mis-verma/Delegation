@@ -6,7 +6,6 @@ import { OrgStatusSection, OrgTableSkeleton, OrgToolbar } from '../directory/Org
 import { useDirectoryView } from '../directory/useDirectoryView';
 import {
   EmptyState,
-  EntityCardSkeleton,
   FormChunkFallback,
   FormLoadError,
   InlineError,
@@ -17,7 +16,7 @@ import {
 import { useDepartmentsQuery, useStoresQuery } from '../../tickets/hook';
 import { useUsersQuery, useUpdateStoreMutation, useDeleteStoreMutation } from '../hook';
 import { countPeopleBy, hasPeople, peopleText } from '../orgCounts';
-import { StoreCard } from './StoreCard';
+import { StoreCard, StoreCardSkeleton } from './StoreCard';
 import { StoreTable } from './StoreTable';
 import type { Store } from '../../../api/stores';
 
@@ -196,7 +195,7 @@ export const StoreList = () => {
     // Skeleton only while there is nothing to show; a background refetch keeps the list on screen.
     if (isPending) return showTable ? <OrgTableSkeleton /> : (
       <div className={GRID_CLASS}>
-        {Array.from({ length: SKELETON_COUNT }).map((_, i) => <EntityCardSkeleton key={i} />)}
+        {Array.from({ length: SKELETON_COUNT }).map((_, i) => <StoreCardSkeleton key={i} />)}
       </div>
     );
 
