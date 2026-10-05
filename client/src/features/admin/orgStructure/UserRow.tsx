@@ -2,10 +2,9 @@ import { memo, useState } from 'react';
 import { Crown, GripVertical, TriangleAlert } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { Avatar } from '../../../components';
+import { Avatar, RoleChip } from '../../../components';
 import { resolveAvatarUrl } from '../../../lib/uploadsBase';
 import type { AdminUser } from '../../../api/admin';
-import { ROLE_STYLES, ROLE_LABEL } from '../roleBadge';
 import { MoveToMenu } from './MoveToMenu';
 
 function cn(...inputs: ClassValue[]) {
@@ -72,7 +71,7 @@ export const UserRow = memo(({ user, isHead, storeMismatch, onDragStart, onDragE
         <p className={cn('text-sm font-display font-medium leading-snug line-clamp-2 break-words', user.isActive ? 'text-text' : 'text-text-secondary')}>{name}</p>
         <p className="text-xs font-display text-text-muted line-clamp-1 break-all">{user.email}</p>
         <div className="flex flex-wrap items-center gap-1">
-          <span className={cn(CHIP, '@sm:hidden', ROLE_STYLES[user.role])}>{ROLE_LABEL[user.role]}</span>
+          <RoleChip role={user.role} className="@sm:hidden" />
           {isHead && (
             <span className={cn(CHIP, 'border-primary-500/30 bg-primary-500/10 text-primary-700 dark:text-primary-300')}>
               <Crown className="size-3" aria-hidden />
@@ -89,7 +88,7 @@ export const UserRow = memo(({ user, isHead, storeMismatch, onDragStart, onDragE
           {!user.isActive && <span className={cn(CHIP, 'border-border bg-surface-hover text-text-muted')}>Deactivated</span>}
         </div>
       </div>
-      <span className={cn(CHIP, 'hidden @sm:inline-flex', ROLE_STYLES[user.role])}>{ROLE_LABEL[user.role]}</span>
+      <RoleChip role={user.role} className="hidden @sm:inline-flex shrink-0" />
       <MoveToMenu userId={user.id} userName={name} currentDepartmentId={user.departmentId} />
     </div>
   );

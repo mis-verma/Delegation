@@ -3,9 +3,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { User as UserIcon, Phone, Mail, KeyRound, Eye, EyeOff, CalendarOff } from 'lucide-react';
-import { Input, Button, Skeleton, AvatarUpload, WeekdayPicker, weekdayShortName } from '../../components';
+import { Input, Button, Skeleton, AvatarUpload, WeekdayPicker, weekdayShortName, RoleChip } from '../../components';
 import { resolveAvatarUrl } from '../../lib/uploadsBase';
-import { ROLE_STYLES, ROLE_LABEL } from '../admin/roleBadge';
 import {
   useMyProfileQuery,
   useUpdateMyProfileMutation,
@@ -140,9 +139,7 @@ export const AccountSettings = () => {
             <UserIcon size={14} className="text-text-muted" />
             <span className="text-xs font-display font-bold text-text-muted">Profile</span>
           </div>
-          <span className={`text-[11px] font-display font-bold px-1.5 py-0.5 rounded-md border ${ROLE_STYLES[profile.role]}`}>
-            {ROLE_LABEL[profile.role]}
-          </span>
+          <RoleChip role={profile.role} />
         </div>
 
         <AvatarUpload

@@ -1,0 +1,1 @@
+export { StoreChip } from './StoreChip';

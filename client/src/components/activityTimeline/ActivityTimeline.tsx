@@ -6,7 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useAuditLogsQuery } from '../../features/admin/auditLog/hook';
 import { actionConfig, entityTypeConfig, diffAuditLog, type AuditIdResolvers, type DiffRow } from '../../features/admin/auditLog/auditLogDisplay';
 import { useAuditIdResolvers } from '../../features/admin/auditLog/useAuditIdResolvers';
-import { ROLE_LABEL, ROLE_STYLES } from '../../features/admin/roleBadge';
+import { RoleChip } from '../roleChip';
 import { avatarColorClass } from '../../lib/avatarColors';
 import { formatRelativeTime } from '../../features/dashboard/dashboardDisplay';
 import { Skeleton } from '../skeleton';
@@ -341,9 +341,7 @@ const ActivityTimelineRow = ({
               <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                 <span className="text-sm font-display font-bold text-text leading-snug">{fullName}</span>
                 {log.actor && (
-                  <span className={`hidden sm:inline-flex px-1.5 py-px rounded border text-[10px] font-display font-semibold ${ROLE_STYLES[log.actor.role]}`}>
-                    {ROLE_LABEL[log.actor.role] ?? log.actor.role}
-                  </span>
+                  <RoleChip role={log.actor.role} className="hidden sm:inline-flex" />
                 )}
                 {isLatest && (
                   <span className="inline-flex items-center gap-1 px-1.5 py-px rounded-full bg-primary-500/10 dark:bg-primary-500/15 text-[10px] font-display font-bold text-primary-700 dark:text-primary-300">

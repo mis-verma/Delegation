@@ -1,11 +1,11 @@
 import { memo } from 'react';
 import { cn } from '@/lib/utils';
-import { Avatar } from '../../../components';
+import { Avatar, RoleChip, PresenceChip } from '../../../components';
 import type { AdminUser } from '../../../api/admin';
 import { isDepartmentHead } from '../roleBadge';
 import { resolveAvatarUrl } from '../../../lib/uploadsBase';
 import { UserActionsMenu, type UserActionHandlers } from './UserActionsMenu';
-import { DeactivatedChip, DepartmentHeadChip, RoleChip } from './UserBits';
+import { DepartmentHeadChip } from './UserBits';
 import { deactivatedLabel, fullName } from './userDisplay';
 
 interface UserRowProps extends UserActionHandlers {
@@ -94,12 +94,12 @@ const UserRowComponent = ({
             Active
           </span>
         ) : (
-          <DeactivatedChip label={deactivatedLabel(user)} />
+          <PresenceChip deactivated deactivatedLabel={deactivatedLabel(user)} text="" />
         )}
       </td>
 
-      <td className={cn(CELL_CLASS, 'whitespace-nowrap text-text-muted', online && 'text-success')}>
-        {!user.isActive ? <span className="text-text-light">-</span> : presenceText || 'Never'}
+      <td className={cn(CELL_CLASS, 'whitespace-nowrap')}>
+        {!user.isActive ? <span className="text-text-light">-</span> : <PresenceChip online={online} text={presenceText || 'Never active'} />}
       </td>
 
       <td className={cn(CELL_CLASS, 'w-12')} onClick={(e) => e.stopPropagation()}>

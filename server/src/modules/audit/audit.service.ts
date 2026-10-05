@@ -1,5 +1,9 @@
 import { db } from "../../config/db.js";
 import { auditLogs, users } from "../../db/schema/core.js";
+import { tickets } from "../../db/schema/ticket.js";
+import { tasks } from "../../db/schema/task.js";
+import { checklistInstances } from "../../db/schema/checklistInstance.js";
+import { checklistDefinitions } from "../../db/schema/checklistDefinition.js";
 import { eq, and, desc, gte, lte, sql, like, inArray, type SQL } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 
@@ -50,6 +54,34 @@ type AuditParams = {
 
 // The transaction handle db.transaction() passes to its callback.
 export type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+// What a record is called right now, for entries whose own snapshot carries no name (a checklist run's
+// audit rows only hold its status, for example). One query per kind, only for the rows on this page.
+// A record that has since been removed simply gets no title and the page falls back to a short id.
+const loadEntityTitles = async (rows: { entityType: string; entityId: string }[]) => {
+    const idsOf = (type: string) => [...new Set(rows.filter((r) => r.entityType === type).map((r) => r.entityId))]
+    const titles = new Map<string, string>()
+    const [instanceIds, definitionIds, ticketIds, taskIds] = [idsOf("ChecklistInstance"), idsOf("ChecklistDefinition"), idsOf("Ticket"), idsOf("Task")]
+    await Promise.all([
+        instanceIds.length
+            ? db.select({ id: checklistInstances.id, title: checklistInstances.title }).from(checklistInstances).where(inArray(checklistInstances.id, instanceIds))
+                .then((found) => found.forEach((r) => titles.set(`ChecklistInstance:${r.id}`, r.title)))
+            : null,
+        definitionIds.length
+            ? db.select({ id: checklistDefinitions.id, title: checklistDefinitions.name }).from(checklistDefinitions).where(inArray(checklistDefinitions.id, definitionIds))
+                .then((found) => found.forEach((r) => titles.set(`ChecklistDefinition:${r.id}`, r.title)))
+            : null,
+        ticketIds.length
+            ? db.select({ id: tickets.id, title: tickets.title }).from(tickets).where(inArray(tickets.id, ticketIds))
+                .then((found) => found.forEach((r) => titles.set(`Ticket:${r.id}`, r.title)))
+            : null,
+        taskIds.length
+            ? db.select({ id: tasks.id, title: tasks.title }).from(tasks).where(inArray(tasks.id, taskIds))
+                .then((found) => found.forEach((r) => titles.set(`Task:${r.id}`, r.title)))
+            : null,
+    ])
+    return titles
+}
 
 export const auditService = {
     // Writes the audit row INSIDE the caller's transaction. Unlike record(), a failure is NOT
@@ -167,6 +199,8 @@ export const auditService = {
             db.select({ value: sql<number>`COUNT(*)` }).from(auditLogs).where(where),
         ]);
 
-        return { data: rows, meta: buildMeta(p, Number(total)) };
+        const titles = await loadEntityTitles(rows);
+        const data = rows.map((r) => ({ ...r, entityTitle: titles.get(`${r.entityType}:${r.entityId}`) ?? null }));
+        return { data, meta: buildMeta(p, Number(total)) };
     },
 }

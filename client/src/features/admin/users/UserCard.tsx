@@ -1,13 +1,13 @@
 import { memo } from 'react';
 import { Clock, Phone } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ENTITY_CARD_CLASS, Avatar, Skeleton } from '../../../components';
+import { ENTITY_CARD_CLASS, Avatar, Skeleton, RoleChip, PresenceChip } from '../../../components';
 import type { AdminUser } from '../../../api/admin';
 import { isDepartmentHead } from '../roleBadge';
 import { resolveAvatarUrl } from '../../../lib/uploadsBase';
 import { formatRelativeTime } from '../../dashboard/dashboardDisplay';
 import { UserActionsMenu, type UserActionHandlers } from './UserActionsMenu';
-import { ActiveStatus, DeactivatedChip, DepartmentHeadChip, PlaceField, RoleChip } from './UserBits';
+import { DepartmentHeadChip, PlaceField } from './UserBits';
 import { deactivatedLabel, fullName } from './userDisplay';
 
 interface UserCardProps extends UserActionHandlers {
@@ -82,7 +82,7 @@ const UserCardComponent = ({
           <RoleChip role={user.role} />
           {isDepartmentHead(user.role) && <DepartmentHeadChip />}
         </div>
-        {user.isActive ? <ActiveStatus /> : <DeactivatedChip label={deactivatedLabel(user)} />}
+        <PresenceChip online={online} text={presenceText} deactivated={!user.isActive} deactivatedLabel={deactivatedLabel(user)} />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -101,9 +101,6 @@ const UserCardComponent = ({
           <Clock className="size-3 shrink-0" aria-hidden />
           Joined {formatRelativeTime(user.createdAt)}
         </span>
-        {user.isActive && presenceText && (
-          <span className={cn('sm:ml-auto', online && 'text-success')}>{presenceText}</span>
-        )}
       </div>
     </article>
   );
