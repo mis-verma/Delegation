@@ -84,7 +84,12 @@ const RailTip = ({ label, show, children }: { label: string; show: boolean; chil
   <Tooltip delayDuration={0}>
     <TooltipTrigger asChild>{children}</TooltipTrigger>
     {show && (
-      <TooltipContent side="right" sideOffset={12} className="shadow-none text-[13px] px-3 py-1.5">
+      <TooltipContent
+        side="right"
+        sideOffset={12}
+        hideArrow
+        className="rounded-lg border border-primary-500/30 bg-primary-700 px-3 py-2 text-[13px] font-semibold text-white shadow-none dark:bg-primary-600"
+      >
         {label}
       </TooltipContent>
     )}
@@ -261,13 +266,8 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
           style={entranceProps.style}
         >
           <span className="flex items-center min-w-0">
-            <span
-              className={[
-                'flex items-center justify-center shrink-0 rounded-lg bg-surface-hover/40 text-text-light',
-                isDrawer ? 'size-8' : 'size-7',
-              ].join(' ')}
-            >
-              <Icon size={16} strokeWidth={1.75} />
+            <span className="flex items-center justify-center shrink-0 size-7 text-text-light">
+              <Icon size={20} strokeWidth={1.75} />
             </span>
             <span
               className={[
@@ -297,7 +297,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
             onClick={handleNavClick}
             className={({ isActive }) =>
               [
-                'group/link relative flex flex-1 min-w-0 items-center rounded-xl text-[13px] transition-colors duration-200 ease-out',
+                'group/link relative flex flex-1 min-w-0 items-center rounded-xl text-[13px] transition-colors duration-150 ease-out',
                 isDrawer ? 'px-3 py-3' : 'px-3 py-2.5',
                 showLabel ? 'justify-start' : 'md:justify-center md:px-0',
                 isActive || hasActiveChild
@@ -316,17 +316,16 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
                 )}
                 <span
                   className={[
-                    'relative z-10 flex items-center justify-center shrink-0 rounded-lg transition-all duration-300',
-                    isDrawer ? 'size-8' : 'size-7',
-                    isActive || hasActiveChild
-                      ? 'text-white'
-                      : 'bg-surface-hover/60 text-text-muted group-hover/link:bg-surface-active group-hover/link:text-text-secondary',
+                    // No grey tile behind every icon: a row of identical boxes read as busy. The
+                    // icon sits straight on the row, which fills solid when active and tints on hover.
+                    'relative z-10 flex items-center justify-center shrink-0 size-7 transition-colors duration-150',
+                    isActive || hasActiveChild ? 'text-white' : 'text-text-muted group-hover/link:text-text',
                   ].join(' ')}
                 >
                   <Icon
-                    size={16}
-                    strokeWidth={isActive || hasActiveChild ? 2.25 : 1.75}
-                    className="transition-transform duration-300 group-hover/link:scale-105"
+                    size={20}
+                    strokeWidth={isActive || hasActiveChild ? 2.1 : 1.75}
+                    className="transition-transform duration-200 group-hover/link:scale-105"
                   />
                 </span>
                 <span
