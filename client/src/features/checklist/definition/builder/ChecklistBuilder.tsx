@@ -44,6 +44,7 @@ const toItemDraft = (item: ChecklistDefinitionItem): ItemDraft => ({
   auditUserIds: item.auditUserIds,
   accessories: item.accessories,
   accessoriesFemale: item.accessoriesFemale,
+  accessoriesFemaleSaree: item.accessoriesFemaleSaree,
   accessoriesMale: item.accessoriesMale,
   numberEntryUnit: item.numberEntryUnit ?? '',
   numberEntryMin: item.numberEntryMin != null ? String(item.numberEntryMin) : '',
@@ -108,6 +109,7 @@ const buildItemPayloads = (itemDrafts: ItemDraft[]): CreateChecklistDefinitionIt
         auditUserIds: d.auditUserIds,
         accessories: d.accessories,
         accessoriesFemale: d.accessoriesFemale,
+        accessoriesFemaleSaree: d.accessoriesFemaleSaree,
         accessoriesMale: d.accessoriesMale,
       } : {}),
       ...(d.itemType === 'NUMBER_ENTRY' || d.itemType === 'CASH_TALLY' ? {

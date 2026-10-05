@@ -121,7 +121,7 @@ const hydrateInstances = async (instanceRows: (typeof checklistInstances.$inferS
 
     const submissionUserIds = [...new Set(submissions.map((s) => s.userId))]
     const submissionUsers = submissionUserIds.length
-        ? await db.select({ id: users.id, firstName: users.firstName, lastName: users.lastName, storeId: users.storeId, isActive: users.isActive }).from(users).where(inArray(users.id, submissionUserIds))
+        ? await db.select({ id: users.id, firstName: users.firstName, lastName: users.lastName, storeId: users.storeId, isActive: users.isActive, gender: users.gender, dressCode: users.dressCode }).from(users).where(inArray(users.id, submissionUserIds))
         : []
     const submissionUserById = new Map(submissionUsers.map((u) => [u.id, u]))
 

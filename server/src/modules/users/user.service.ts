@@ -50,6 +50,7 @@ const publicUserColumns = {
     lastName: users.lastName,
     role: users.role,
     gender: users.gender,
+    dressCode: users.dressCode,
     departmentId: users.departmentId,
     storeId: users.storeId,
     isActive: users.isActive,
@@ -70,7 +71,7 @@ const getSafeById = async (id: string) => {
 
 // What an audit row records about a person. Never includes the password hash.
 const userSnapshot = (u: {
-    email: string; role: string; isActive: boolean; firstName: string; lastName: string | null; gender: string | null;
+    email: string; role: string; isActive: boolean; firstName: string; lastName: string | null; gender: string | null; dressCode: string | null;
     phone: string | null; departmentId: string | null; storeId: string | null; weekOffDays: number[] | null; rank?: number | null;
 }) => ({
     email: u.email,
@@ -79,6 +80,7 @@ const userSnapshot = (u: {
     firstName: u.firstName,
     lastName: u.lastName,
     gender: u.gender,
+    dressCode: u.dressCode,
     phone: u.phone,
     departmentId: u.departmentId,
     storeId: u.storeId,
@@ -190,6 +192,7 @@ export const userService = {
                 departmentId: input.departmentId ?? null,
                 storeId: input.storeId ?? null,
                 gender: input.gender ?? null,
+                dressCode: input.gender === "FEMALE" ? (input.dressCode ?? null) : null,
                 phone: input.phone ?? null,
                 rank,
             });
@@ -250,6 +253,13 @@ export const userService = {
         if (input.firstName !== undefined) set.firstName = input.firstName;
         if (input.lastName !== undefined) set.lastName = input.lastName;
         if (input.gender !== undefined) set.gender = input.gender;
+        // A dress code only means something for a woman: any other (or cleared) gender stores null.
+        const finalGender = input.gender !== undefined ? input.gender : before.gender;
+        if (finalGender !== "FEMALE") {
+            if (before.dressCode !== null) set.dressCode = null;
+        } else if (input.dressCode !== undefined) {
+            set.dressCode = input.dressCode;
+        }
         if (input.departmentId !== undefined) set.departmentId = input.departmentId;
         if (input.storeId !== undefined) set.storeId = input.storeId;
         if (input.weekOffDays !== undefined) set.weekOffDays = input.weekOffDays;

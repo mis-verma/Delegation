@@ -1,5 +1,5 @@
 import { memo, useId, useState } from 'react';
-import { Camera, ImageUp, Zap, AlertTriangle } from 'lucide-react';
+import { Camera, ImageUp, Zap, AlertTriangle, Check, X } from 'lucide-react';
 import {
   useSetChecklistInstanceItemDoneMutation,
   useUploadChecklistInstanceImagesMutation,
@@ -37,8 +37,11 @@ const ACTION_HINT: Record<ChecklistConditionalAction, string> = {
   NOTIFY_AREA_MANAGER: 'the area manager will be notified',
 };
 
+// The answer buttons size everything from their own font: the icon is 1.15em, so it grows and shrinks
+// with the label (15px on phones, 14px from sm) and the two always sit in balance. Equal width, 48px
+// tall on phones so a thumb never misses, 40px with a mouse.
 const ANSWER_BASE =
-  'flex-1 min-h-11 sm:min-h-9 px-3 rounded-lg border text-xs font-display font-medium transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]';
+  'group flex flex-1 items-center justify-center gap-2 min-h-12 sm:min-h-10 px-4 rounded-xl border text-[15px] sm:text-sm font-display font-semibold transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.98] [-webkit-tap-highlight-color:transparent]';
 
 export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceItemBooleanCard({ item, instanceId, canWork, isLocked }: ChecklistInstanceItemBooleanCardProps) {
   const reasonId = useId();
@@ -115,14 +118,14 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
       {!item.isDone && !pendingAnswer && (yesActions.length > 0 || noActions.length > 0) && (
         <div className="flex flex-col gap-1">
           {yesActions.length > 0 && (
-            <p className="flex items-center gap-1.5 text-[11px] font-display text-warning">
-              <Zap size={11} className="shrink-0" />
+            <p className="flex items-start gap-1.5 text-xs font-display text-warning">
+              <Zap className="size-3 shrink-0 mt-0.5" />
               If you answer {labels.yes}, you'll need to provide {yesActions.map(a => ACTION_HINT[a]).join(', ')}.
             </p>
           )}
           {noActions.length > 0 && (
-            <p className="flex items-center gap-1.5 text-[11px] font-display text-warning">
-              <Zap size={11} className="shrink-0" />
+            <p className="flex items-start gap-1.5 text-xs font-display text-warning">
+              <Zap className="size-3 shrink-0 mt-0.5" />
               If you answer {labels.no}, you'll need to provide {noActions.map(a => ACTION_HINT[a]).join(', ')}.
             </p>
           )}
@@ -138,11 +141,12 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
           className={cn(
             ANSWER_BASE,
             shownAnswer === 'YES'
-              ? 'border-success/60 bg-success/10 text-success'
-              : 'border-border text-text-secondary hover:border-border-hover hover:bg-surface-hover',
+              ? 'border-success bg-success/10 text-success'
+              : 'border-border text-text-secondary hover:border-success/50 hover:bg-success/5',
             answerLocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
           )}
         >
+          <Check className="size-[1.15em] shrink-0" strokeWidth={shownAnswer === 'YES' ? 3 : 2.5} aria-hidden />
           {labels.yes}
         </button>
         <button
@@ -153,18 +157,19 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
           className={cn(
             ANSWER_BASE,
             shownAnswer === 'NO'
-              ? 'border-danger/60 bg-danger/10 text-danger'
-              : 'border-border text-text-secondary hover:border-border-hover hover:bg-surface-hover',
+              ? 'border-danger bg-danger/10 text-danger'
+              : 'border-border text-text-secondary hover:border-danger/50 hover:bg-danger/5',
             answerLocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
           )}
         >
+          <X className="size-[1.15em] shrink-0" strokeWidth={shownAnswer === 'NO' ? 3 : 2.5} aria-hidden />
           {labels.no}
         </button>
       </div>
 
       {item.isDone && isFlaggedAnswer(item) && (
-        <p className="flex items-center gap-1.5 text-[11px] font-display font-medium text-danger">
-          <AlertTriangle size={12} className="shrink-0" />
+        <p className="flex items-start gap-1.5 text-xs font-display font-medium text-danger">
+          <AlertTriangle className="size-3.5 shrink-0 mt-px" />
           Flagged. This answer counts against compliance, even with a reason or photo on file.
         </p>
       )}
@@ -185,7 +190,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
               />
             ) : (
               <div className="flex flex-col gap-1">
-                <span className="text-[11px] font-display text-text-muted">Reason</span>
+                <span className="text-xs font-display text-text-muted">Reason</span>
                 <p className="text-xs font-display text-text italic">"{item.conditionalReasonValue}"</p>
               </div>
             )
@@ -193,7 +198,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
 
           {requiresPhoto && (
             <div className="flex flex-col gap-2">
-              <span className="text-[11px] font-display text-text-muted">
+              <span className="text-xs font-display text-text-muted">
                 Photo {images.length > 0 ? `(${images.length})` : '(required)'}
               </span>
               {images.length > 0 && (

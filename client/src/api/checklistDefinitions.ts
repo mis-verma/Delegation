@@ -36,6 +36,8 @@ export type ChecklistDefinitionItem = {
   accessories: string[];
   /** AUDIT only: separate lists for female / male people; empty = use `accessories`. */
   accessoriesFemale: string[];
+  /** AUDIT only: a woman whose dress code is Saree gets this list; empty = she gets `accessoriesFemale`. */
+  accessoriesFemaleSaree: string[];
   accessoriesMale: string[];
   numberEntryUnit: string | null;
   numberEntryMin: number | null;
@@ -122,6 +124,7 @@ export type CreateChecklistDefinitionItemPayload = {
   auditUserIds?: string[];
   accessories?: string[];
   accessoriesFemale?: string[];
+  accessoriesFemaleSaree?: string[];
   accessoriesMale?: string[];
   numberEntryUnit?: string;
   numberEntryMin?: number;
@@ -203,6 +206,7 @@ const definitionItemDefaults = withArrayDefaults({
   auditUserIds: arrayField(z.string()),
   accessories: arrayField(z.string()),
   accessoriesFemale: arrayField(z.string()),
+  accessoriesFemaleSaree: arrayField(z.string()),
   accessoriesMale: arrayField(z.string()),
   options: arrayField(z.string()),
   signatureLabels: arrayField(z.string()),

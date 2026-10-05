@@ -281,6 +281,13 @@
       "when": 1791183829356,
       "tag": "0039_department_head_optional",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "5",
+      "when": 1791193322274,
+      "tag": "0040_dress_code",
+      "breakpoints": true
     }
   ]
 }

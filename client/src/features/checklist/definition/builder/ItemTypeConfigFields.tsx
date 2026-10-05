@@ -134,18 +134,26 @@ const AuditFields = ({ draft, onChange, storeIds }: ItemTypeFieldsProps) => (
       accessories={draft.accessories}
       onChange={(accessories) => onChange({ accessories })}
     />
-    {/* Uniform rules often differ by gender. A person gets the list for their gender (set on their
-        user profile); when that list is empty, or their gender isn't set, they get the one above. */}
+    {/* Uniform rules differ by gender, and women wear one of two dress styles. A person gets the list
+        for their gender and dress code (both set on their user profile); an empty list falls back
+        to the one above. */}
     <div className="flex flex-col gap-3 p-3 rounded-lg border border-dashed border-border bg-surface-hover/30">
       <p className="text-[11px] font-display text-text-muted leading-relaxed">
-        Different checks for women and men? Fill the lists below. Anyone whose gender isn't set, or
-        whose list is empty, gets the "everyone" list.
+        Each person is checked against the list for their gender and dress code. A woman with no
+        dress code set gets the coat, pant and heels list. Anything left empty falls back to the
+        main list.
       </p>
       <AccessoriesListEditor
-        label="Female"
-        placeholder="e.g. Saree or suit, bindi"
+        label="Female: coat, pant and heels"
+        placeholder="e.g. Coat, formal pant, heels, name badge"
         accessories={draft.accessoriesFemale}
         onChange={(accessoriesFemale) => onChange({ accessoriesFemale })}
+      />
+      <AccessoriesListEditor
+        label="Female: saree"
+        placeholder="e.g. Saree, blouse, bindi, name badge"
+        accessories={draft.accessoriesFemaleSaree}
+        onChange={(accessoriesFemaleSaree) => onChange({ accessoriesFemaleSaree })}
       />
       <AccessoriesListEditor
         label="Male"

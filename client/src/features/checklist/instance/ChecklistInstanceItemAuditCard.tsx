@@ -1,11 +1,9 @@
-import { memo, useId, useState, type ReactNode } from 'react';
+import { memo, useEffect, useId, useRef, useState } from 'react';
 import { Ban, Camera, Check, CheckCheck, ImageUp, RotateCcw, X } from 'lucide-react';
 import { Button, ChecklistProgressBar, Textarea } from '../../../components';
 import { Badge } from '../../../components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '../../../components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { avatarColorClass } from '../../../lib/avatarColors';
-import { getInitials } from '../../../lib/getInitials';
 import {
   useSetChecklistInstanceItemSubmissionDoneMutation,
   useUpdateChecklistInstanceItemSubmissionAccessoriesMutation,
@@ -18,7 +16,10 @@ import { ChecklistItemCardHeader } from './ChecklistItemCardHeader';
 import { ItemCardShell } from './ItemCardShell';
 import { ItemError } from './ItemError';
 import { EvidenceThumb } from './EvidenceThumb';
-import { CaptureButton, UploadingHint } from './CaptureButton';
+import { UploadingHint } from './CaptureButton';
+import { AuditAvatar, AuditPeopleList, AuditPersonPicker, AuditStatusChip } from './ChecklistAuditPeople';
+import { auditStatus, uniformLabel, type AuditPerson } from './ChecklistAuditHelpers';
+import { AuditCaptureButton, AuditSectionHeader, AuditTickRow, AuditUniformChip } from './ChecklistAuditTicks';
 import { useCanReopen } from './useCanReopen';
 import { formatDateTime } from '../checklistDisplay';
 import type {
@@ -44,10 +45,14 @@ const personName = (submission: ChecklistInstanceItemSubmission) => {
   return submission.userId?.isActive === false ? `${name} (left)` : name;
 };
 
+const firstName = (submission: ChecklistInstanceItemSubmission) => submission.userId?.firstName?.trim() || 'person';
+
 // Pick a person, then fill in just their row. An auditor walks the floor one person at a time, so
 // the card shows one person's checklist at a time too, and moves on by itself after each Submit.
+// Phones get a single "who is open" button that opens a sheet; large screens get the list as a
+// sticky column beside the open person.
 export const ChecklistInstanceItemAuditCard = memo(function ChecklistInstanceItemAuditCard({ item, instanceId, canWork, currentUserId, isLocked }: ChecklistInstanceItemAuditCardProps) {
-  const pickerLabelId = useId();
+  const peopleLabelId = useId();
   const { data: stores } = useStoresQuery();
   const storeName = (id: string | null) => (id ? stores?.find(s => s.id === id)?.name ?? null : null);
 
@@ -61,13 +66,36 @@ export const ChecklistInstanceItemAuditCard = memo(function ChecklistInstanceIte
   });
   const selected = submissions.find(s => s.id === selectedId) ?? submissions[0] ?? null;
 
-  // Next person still waiting, searching forward from the one just submitted and wrapping round —
-  // the refetch that marks it done hasn't landed yet, so it's skipped by position, not by isDone.
-  const goToNextPending = (submittedId: string) => {
-    const at = submissions.findIndex(s => s.id === submittedId);
-    const next = [...submissions.slice(at + 1), ...submissions.slice(0, at)].find(s => !s.isDone);
+  // Next person still waiting, searching forward from the one given and wrapping round. For a
+  // person just submitted the refetch that marks them done hasn't landed yet, so they are skipped
+  // by position, not by isDone.
+  const findNextPending = (fromId: string) => {
+    const at = submissions.findIndex(s => s.id === fromId);
+    return [...submissions.slice(at + 1), ...submissions.slice(0, at)].find(s => !s.isDone);
+  };
+  const goToNextPending = (fromId: string) => {
+    const next = findNextPending(fromId);
     if (next) setSelectedId(next.id);
   };
+
+  // A tall form leaves the page scrolled far down. When the checker moves on, bring the new
+  // person's top back into view instead of landing them at the bottom of someone else's form.
+  const detailRef = useRef<HTMLDivElement>(null);
+  const firstRun = useRef(true);
+  const selectedKey = selected?.id;
+  useEffect(() => {
+    if (firstRun.current) { firstRun.current = false; return; }
+    const el = detailRef.current;
+    if (el && el.getBoundingClientRect().top < 0) el.scrollIntoView({ block: 'start' });
+  }, [selectedKey]);
+
+  const people: AuditPerson[] = submissions.map(s => ({
+    id:     s.id,
+    name:   personName(s),
+    isMe:   !!currentUserId && s.userId?.id === currentUserId,
+    store:  storeName(s.userId?.storeId ?? null),
+    status: auditStatus(s),
+  }));
 
   return (
     <ItemCardShell isLocked={isLocked} className="gap-4">
@@ -82,132 +110,44 @@ export const ChecklistInstanceItemAuditCard = memo(function ChecklistInstanceIte
           Nobody to audit yet. Add people under "Who gets audited?" in the checklist builder.
         </p>
       ) : (
-        <>
-          <div className="flex flex-col gap-2">
-            <p id={pickerLabelId} className="text-xs font-semibold text-text-secondary">Select a person</p>
-            <div role="group" aria-labelledby={pickerLabelId} className="flex flex-wrap gap-2">
-              {submissions.map(submission => (
-                <PersonChip
-                  key={submission.id}
-                  name={personName(submission)}
-                  done={submission.isDone}
-                  notApplicable={submission.isNotApplicable}
-                  active={submission.id === selected?.id}
-                  isMe={!!currentUserId && submission.userId?.id === currentUserId}
-                  onSelect={() => setSelectedId(submission.id)}
-                />
-              ))}
-            </div>
+        <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[17rem_minmax(0,1fr)] lg:gap-x-5 lg:items-start">
+          <div className="lg:hidden">
+            <AuditPersonPicker people={people} selectedId={selected?.id ?? null} doneCount={submittedCount} onSelect={setSelectedId} />
+          </div>
+          <div
+            role="group"
+            aria-labelledby={peopleLabelId}
+            className="hidden lg:flex lg:flex-col lg:gap-2 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-8rem)]"
+          >
+            <p id={peopleLabelId} className="text-xs font-semibold text-text-secondary">People</p>
+            <AuditPeopleList people={people} selectedId={selected?.id ?? null} onSelect={setSelectedId} />
           </div>
 
-          {selected && (
-            <SubmissionPanel
-              key={selected.id}
-              item={item}
-              submission={selected}
-              instanceId={instanceId}
-              storeName={storeName(selected.userId?.storeId ?? null)}
-              isMe={!!currentUserId && selected.userId?.id === currentUserId}
-              interactive={interactive}
-              onSubmitted={goToNextPending}
-            />
-          )}
-        </>
+          <div ref={detailRef} className="min-w-0 scroll-mt-3 lg:pl-5 lg:border-l lg:border-border/60">
+            {selected && (
+              <SubmissionPanel
+                key={selected.id}
+                item={item}
+                submission={selected}
+                instanceId={instanceId}
+                storeName={storeName(selected.userId?.storeId ?? null)}
+                isMe={!!currentUserId && selected.userId?.id === currentUserId}
+                interactive={interactive}
+                onSubmitted={goToNextPending}
+                onNext={findNextPending(selected.id) ? () => goToNextPending(selected.id) : undefined}
+              />
+            )}
+          </div>
+        </div>
       )}
     </ItemCardShell>
   );
 });
 
 const AuditProgress = ({ done, total }: { done: number; total: number }) => (
-  <div className="flex items-center gap-2">
-    <ChecklistProgressBar done={done} total={total} bare thin className="w-24 sm:w-32" />
-    <span className="text-xs text-text-muted tabular-nums">{done} of {total} submitted</span>
-  </div>
-);
-
-const PersonAvatar = ({ name, done, notApplicable = false, size }: { name: string; done: boolean; notApplicable?: boolean; size: 'chip' | 'panel' }) => {
-  // At chip size a corner badge lands on top of the initials, so a finished person's chip swaps
-  // its initials for the tick outright. The name sits right beside it, so nothing is lost. Someone
-  // marked not applicable (absent, on leave) gets a muted "none" mark instead of the success tick.
-  if (done && size === 'chip') {
-    return (
-      <span
-        aria-hidden
-        className={cn(
-          'flex items-center justify-center size-8 sm:size-7 rounded-full shrink-0',
-          notApplicable ? 'bg-surface-active text-text-muted' : 'bg-success text-white',
-        )}
-      >
-        {notApplicable ? <Ban size={14} strokeWidth={2.5} /> : <Check size={14} strokeWidth={3} />}
-      </span>
-    );
-  }
-  return (
-    <span className="relative shrink-0">
-      <span
-        aria-hidden
-        className={cn(
-          'flex items-center justify-center rounded-full font-bold text-white',
-          avatarColorClass(name),
-          size === 'chip' ? 'size-8 sm:size-7 text-[11px] sm:text-[10px]' : 'size-10 text-xs',
-        )}
-      >
-        {getInitials(name)}
-      </span>
-      {done && (
-        <span
-          aria-hidden
-          className={cn(
-            'absolute -bottom-0.5 -right-0.5 flex items-center justify-center size-4 rounded-full ring-2 ring-surface',
-            notApplicable ? 'bg-surface-active text-text-muted' : 'bg-success text-white',
-          )}
-        >
-          {notApplicable ? <Ban size={10} strokeWidth={3} /> : <Check size={10} strokeWidth={3.5} />}
-        </span>
-      )}
-    </span>
-  );
-};
-
-// Same selected/unselected vocabulary as OptionsSheet's ChoiceChip, minus its trailing tick: here a
-// tick already means "submitted" (the avatar badge), so selection is carried by border and tint.
-const PersonChip = ({ name, done, notApplicable, active, isMe, onSelect }: {
-  name: string; done: boolean; notApplicable: boolean; active: boolean; isMe: boolean; onSelect: () => void;
-}) => (
-  <button
-    type="button"
-    aria-pressed={active}
-    onClick={onSelect}
-    title={name}
-    className={cn(
-      'inline-flex items-center gap-2 h-11 sm:h-9 pl-1 pr-3.5 rounded-full border text-sm sm:text-xs font-semibold',
-      'transition-[background-color,border-color,color,transform] duration-150 ease-out cursor-pointer outline-none',
-      'focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.97] [-webkit-tap-highlight-color:transparent]',
-      active
-        ? 'border-primary-600 dark:border-primary-400 bg-primary-500/10 dark:bg-primary-500/15 text-primary-800 dark:text-primary-100'
-        : done
-          ? notApplicable
-            ? 'border-border/60 bg-surface text-text-muted hover:border-border-hover'
-            : 'border-success/40 bg-surface text-text-secondary hover:border-success/70'
-          : 'border-border/60 bg-surface text-text-secondary hover:border-primary-400/60',
-    )}
-  >
-    <PersonAvatar name={name} done={done} notApplicable={notApplicable} size="chip" />
-    <span className="truncate max-w-[9rem]">{name}</span>
-    {isMe && <span className="font-medium opacity-75">(You)</span>}
-    {done && <span className="sr-only">{notApplicable ? ', not applicable' : ', submitted'}</span>}
-  </button>
-);
-
-// Label on the left in the card's secondary text tone, an optional count beside it, and an
-// optional action on the right. The fixed min height keeps rows with and without an action level.
-const SectionHeader = ({ label, meta, action }: { label: string; meta?: ReactNode; action?: ReactNode }) => (
-  <div className="flex items-center justify-between gap-3 min-h-8">
-    <p className="flex items-center gap-1.5 text-xs font-semibold text-text-secondary">
-      {label}
-      {meta && <span className="flex items-center gap-1 font-medium text-text-muted tabular-nums">{meta}</span>}
-    </p>
-    {action}
+  <div className="flex items-center gap-2.5">
+    <ChecklistProgressBar done={done} total={total} bare thin className="w-full max-w-48" />
+    <span className="text-xs text-text-muted tabular-nums whitespace-nowrap">{done} of {total} checked</span>
   </div>
 );
 
@@ -272,9 +212,11 @@ interface SubmissionPanelProps {
   isMe:        boolean;
   interactive: boolean;
   onSubmitted: (submissionId: string) => void;
+  /** Jumps to the next person still waiting. Absent when everyone else is already done. */
+  onNext?:     () => void;
 }
 
-const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, interactive, onSubmitted }: SubmissionPanelProps) => {
+const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, interactive, onSubmitted, onNext }: SubmissionPanelProps) => {
   const setDone = useSetChecklistInstanceItemSubmissionDoneMutation(instanceId);
   const updateAccessories = useUpdateChecklistInstanceItemSubmissionAccessoriesMutation(instanceId);
   const updateRemarks = useUpdateChecklistInstanceItemSubmissionRemarksMutation(instanceId);
@@ -296,6 +238,8 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
   const [accessoriesDraft, setAccessoriesDraft] = useState(submission.accessories);
 
   const name = personName(submission);
+  const uniform = uniformLabel(submission.userId);
+  const status = auditStatus(submission);
   const editable = interactive && !submission.isDone;
   const images = submission.images ?? [];
   const qualifying = item.requiresLivePhoto ? images.filter(i => i.captureMethod === 'LIVE').length : images.length;
@@ -357,40 +301,60 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
 
   const showPhotos = editable || images.length > 0 || item.requiredImageCount > 0;
   const liveWord = item.requiresLivePhoto ? 'live ' : '';
+  const unticked = accessoriesDraft.length - checkedCount;
+
+  // What the Submit button is waiting on, said plainly. Only missing photos block the button (as
+  // before); the rest is a heads-up so an untouched person isn't submitted by accident.
+  const helper = photosNeeded > 0
+    ? `Add ${photosNeeded} more ${liveWord}photo${photosNeeded === 1 ? '' : 's'} to submit.`
+    : accessoriesDraft.length > 0 && checkedCount === 0
+      ? 'Nothing ticked yet. Tick the items, or mark them not applicable.'
+      : unticked > 0
+        ? `${unticked} not ticked. Those will be recorded as missing.`
+        : '';
+
+  // The action strip. On phones it sticks above the bottom nav so Submit stays under the thumb
+  // however tall the form gets; from lg it is an ordinary row at the end of the panel.
+  const actionBar = 'sticky z-10 bottom-[calc(4rem+env(safe-area-inset-bottom))] md:bottom-0 lg:static flex flex-col gap-2 bg-surface -mx-3.5 px-3.5 sm:-mx-4 sm:px-4 lg:mx-0 lg:px-0 py-3 border-t border-border/60 lg:border-t-0 lg:py-0';
 
   return (
     <section
       aria-label={`Audit for ${name}`}
-      className="flex flex-col gap-4 pt-4 border-t border-border/60 animate-in fade-in slide-in-from-bottom-1 duration-200 ease-out"
+      className="flex flex-col gap-4 animate-in fade-in duration-200 ease-out"
     >
-      <div className="flex items-center gap-3">
-        <PersonAvatar name={name} done={submission.isDone} notApplicable={isNa} size="panel" />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-text truncate">
+      <div className="flex items-center gap-3 min-h-11">
+        <AuditAvatar name={name} size="panel" status={status} />
+        <div className="flex-1 min-w-0 flex flex-col gap-1">
+          <p className="text-base sm:text-sm font-semibold leading-snug text-text break-words">
             {name}{isMe && <span className="font-medium text-text-muted"> (You)</span>}
           </p>
-          {storeName && <p className="text-xs text-text-muted truncate">{storeName}</p>}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            {uniform && <AuditUniformChip label={uniform} />}
+            {storeName && <span className="text-xs text-text-muted truncate">{storeName}</span>}
+            {submission.isDone && isNa ? (
+              <Badge variant="neutral">
+                <Ban strokeWidth={2.5} aria-hidden />
+                Not applicable
+              </Badge>
+            ) : submission.isDone ? (
+              <Badge variant="success" className="tabular-nums">
+                <Check strokeWidth={3} aria-hidden />
+                Submitted{submission.completedAt ? ` ${formatDateTime(submission.completedAt)}` : ''}
+              </Badge>
+            ) : !interactive ? (
+              <Badge variant="neutral">Pending</Badge>
+            ) : (
+              <AuditStatusChip status={status} />
+            )}
+          </div>
         </div>
-        {submission.isDone && isNa ? (
-          <Badge variant="neutral">
-            <Ban strokeWidth={2.5} aria-hidden />
-            Not applicable
-          </Badge>
-        ) : submission.isDone ? (
-          <Badge variant="success" className="tabular-nums">
-            <Check strokeWidth={3} aria-hidden />
-            Submitted{submission.completedAt ? ` ${formatDateTime(submission.completedAt)}` : ''}
-          </Badge>
-        ) : !interactive ? (
-          <Badge variant="neutral">Pending</Badge>
-        ) : null}
       </div>
 
       {accessoriesDraft.length > 0 && !isNa && (
         <div className="flex flex-col gap-2">
-          <SectionHeader
+          <AuditSectionHeader
             label="What they have"
-            meta={`${checkedCount}/${accessoriesDraft.length}`}
+            meta={`${checkedCount} of ${accessoriesDraft.length} ticked`}
             action={editable && !allChecked && (
               <Button
                 variant="ghost"
@@ -398,15 +362,15 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
                 onClick={tickAll}
                 className="text-primary-600 dark:text-primary-300 hover:text-primary-700 dark:hover:text-primary-200 hover:bg-primary-500/10"
               >
-                <CheckCheck size={14} aria-hidden />
-                Tick all
+                <CheckCheck size={16} aria-hidden />
+                Select all
               </Button>
             )}
           />
-          <ul className="flex flex-wrap gap-2">
+          <ul role="group" aria-label={`What ${name} has`} className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
             {accessoriesDraft.map(a => (
-              <li key={a.name}>
-                <AccessoryTile
+              <li key={a.name} className="flex">
+                <AuditTickRow
                   name={a.name}
                   checked={a.checked}
                   missing={submission.isDone && !a.checked}
@@ -420,20 +384,20 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
       )}
 
       {showPhotos && !isNa && (
-        <div className="flex flex-col gap-2">
-          <SectionHeader
+        <div className="flex flex-col gap-2 max-w-2xl">
+          <AuditSectionHeader
             label="Photos"
             meta={item.requiredImageCount > 0 ? (
               <>
                 {photosNeeded === 0 && <Check size={12} strokeWidth={3} className="text-success" aria-hidden />}
-                {qualifying}/{item.requiredImageCount}{item.requiresLivePhoto ? ' · live only' : ''}
+                {qualifying} of {item.requiredImageCount}{item.requiresLivePhoto ? ', live only' : ''}
               </>
             ) : 'optional'}
           />
           {images.length > 0 && (
-            <ul className="flex flex-wrap gap-2">
+            <ul className="grid grid-cols-3 sm:grid-cols-4 gap-x-3 gap-y-4 pt-1">
               {images.map(img => (
-                <li key={img.id}>
+                <li key={img.id} className="flex justify-center">
                   <EvidenceThumb
                     image={img}
                     fallbackAlt={`Photo of ${name}`}
@@ -445,12 +409,14 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
             </ul>
           )}
           {editable && (
-            <div className="flex flex-wrap items-center gap-2">
-              <CaptureButton icon={Camera} label="Take photo" live accept="image/*" onFiles={files => handleFiles(files, 'LIVE')} />
-              {/* A live-only question rejects gallery uploads server-side, so there's no Gallery button to fail. */}
-              {!item.requiresLivePhoto && (
-                <CaptureButton icon={ImageUp} label="Gallery" live={false} accept="image/*" onFiles={files => handleFiles(files, 'GALLERY')} />
-              )}
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <AuditCaptureButton icon={Camera} label="Take photo" live accept="image/*" onFiles={files => handleFiles(files, 'LIVE')} />
+                {/* A live-only question rejects gallery uploads server-side, so there's no Gallery button to fail. */}
+                {!item.requiresLivePhoto && (
+                  <AuditCaptureButton icon={ImageUp} label="Gallery" live={false} accept="image/*" onFiles={files => handleFiles(files, 'GALLERY')} />
+                )}
+              </div>
               {uploadImages.isPending && <UploadingHint />}
             </div>
           )}
@@ -458,8 +424,8 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
       )}
 
       {editable ? (
-        <div className="flex flex-col gap-2">
-          <SectionHeader
+        <div className="flex flex-col gap-2 max-w-2xl">
+          <AuditSectionHeader
             label="Remarks"
             action={remarksDirty && (
               <Button variant="ghost" size="sm" onClick={saveRemarks} isLoading={updateRemarks.isPending}>
@@ -474,44 +440,69 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
             value={remarksDraft}
             onChange={e => setRemarksDraft(e.target.value)}
             placeholder="Were they present today? Note anything missing or out of place…"
-            rows={2}
-            className="min-h-[4.5rem] px-3 py-2.5 rounded-lg resize-y"
+            rows={3}
+            className="min-h-[5.5rem] px-3 py-2.5 rounded-lg text-base resize-y"
           />
         </div>
       ) : submission.remarks ? (
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1 max-w-2xl">
           <p className="text-xs font-semibold text-text-secondary">{isNa ? 'Reason' : 'Remarks'}</p>
-          <p className="text-sm text-text-secondary whitespace-pre-wrap break-words">{submission.remarks}</p>
+          <p className="text-[15px] sm:text-sm text-text-secondary whitespace-pre-wrap break-words">{submission.remarks}</p>
         </div>
       ) : null}
 
       {editable && (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-lg border border-dashed border-border-hover px-3 py-2.5">
+          <p className="text-[13px] sm:text-xs text-text-muted">Absent or on leave? You can skip this person.</p>
+          <Button
+            variant="outline"
+            onClick={openNa}
+            disabled={submitting}
+            className="w-full sm:w-auto h-11 sm:h-9 text-text-secondary"
+          >
+            <Ban size={16} aria-hidden />
+            Not applicable
+          </Button>
+        </div>
+      )}
+
+      {editable && (
+        <div className={actionBar}>
           <ItemError error={errorText} fallback="Couldn't save that. Try again." />
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2">
-            {photosNeeded > 0 && (
-              <p className="text-xs text-text-muted text-center sm:text-left sm:flex-1">
-                Add {photosNeeded} more {liveWord}photo{photosNeeded === 1 ? '' : 's'} to submit.
-              </p>
-            )}
-            <Button
-              variant="outline"
-              onClick={openNa}
-              disabled={submitting}
-              className="w-full sm:w-auto h-11 sm:h-10 border-dashed text-text-secondary"
-            >
-              <Ban size={14} aria-hidden />
-              Not applicable
-            </Button>
+          <p className="min-h-4 text-xs text-text-muted text-center sm:text-right" aria-live="polite">{helper}</p>
+          <div className="flex sm:justify-end">
             <Button
               variant="primary"
               onClick={handleSubmit}
               isLoading={submitting}
               disabled={photosNeeded > 0}
-              className="w-full sm:w-auto h-11 sm:h-10"
+              className="w-full sm:w-auto sm:min-w-44 h-12 sm:h-10 text-base sm:text-sm"
             >
-              Submit
+              Submit {firstName(submission)}
             </Button>
+          </div>
+        </div>
+      )}
+
+      {submission.isDone && (onNext || (interactive && canReopen)) && (
+        <div className={actionBar}>
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+            {interactive && canReopen && (
+              <Button
+                variant="outline"
+                onClick={() => setDone.mutate({ id: submission.id, isDone: false })}
+                isLoading={setDone.isPending}
+                className="w-full sm:w-auto h-12 sm:h-10"
+              >
+                {!setDone.isPending && <RotateCcw size={16} aria-hidden />}
+                Reopen
+              </Button>
+            )}
+            {onNext && (
+              <Button variant="primary" onClick={onNext} className="w-full sm:w-auto sm:min-w-44 h-12 sm:h-10 text-base sm:text-sm">
+                Next person
+              </Button>
+            )}
           </div>
         </div>
       )}
@@ -547,20 +538,6 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {interactive && submission.isDone && canReopen && (
-        <div className="flex flex-col sm:flex-row sm:justify-end">
-          <Button
-            variant="outline"
-            onClick={() => setDone.mutate({ id: submission.id, isDone: false })}
-            isLoading={setDone.isPending}
-            className="w-full sm:w-auto h-11 sm:h-10"
-          >
-            {!setDone.isPending && <RotateCcw size={14} aria-hidden />}
-            Reopen
-          </Button>
-        </div>
-      )}
     </section>
   );
 };

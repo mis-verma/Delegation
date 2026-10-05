@@ -25,7 +25,7 @@ import {
     departments,
 } from "../db/schema/index.js"
 import type { ChecklistRecurrence, ChecklistResponseMode } from "../db/schema/checklistDefinition.js"
-import type { Gender } from "../db/schema/core.js"
+import type { Gender, DressCode } from "../db/schema/core.js"
 import { getCurrentPeriod, type Period } from "../utils/period.js"
 import { env } from "../config/env.js"
 import { emitChecklistEvent } from "../sockets/checklistEvent.js"
@@ -54,6 +54,7 @@ type GenerationItem = {
     itemType: (typeof checklistDefinitionItems.$inferSelect)["itemType"]
     accessories: string[] | null
     accessoriesFemale: string[] | null
+    accessoriesFemaleSaree: string[] | null
     accessoriesMale: string[] | null
     numberEntryUnit: string | null
     numberEntryMin: number | null
@@ -220,31 +221,41 @@ const definitionConfig = (item: GenerationItem) => ({
     noActions: item.noActions,
 })
 
-// What to check on ONE person: the list for their gender when the question has one, otherwise the
+// What to check on ONE person: a woman in a saree gets the saree list when the question has one,
+// any other woman the female list, a man the male list; whatever is empty falls back to the
 // question's main list (also what someone with no gender set gets).
 export const accessoriesForPerson = (
-    item: Pick<GenerationItem, "accessories" | "accessoriesFemale" | "accessoriesMale">,
+    item: Pick<GenerationItem, "accessories" | "accessoriesFemale" | "accessoriesMale"> & { accessoriesFemaleSaree?: string[] | null },
     gender: Gender | null,
+    dressCode: DressCode | null = null,
 ): string[] => {
+    if (gender === "FEMALE" && dressCode === "SAREE" && item.accessoriesFemaleSaree?.length) return item.accessoriesFemaleSaree
     const specific = gender === "FEMALE" ? item.accessoriesFemale : gender === "MALE" ? item.accessoriesMale : null
     return specific?.length ? specific : (item.accessories ?? [])
 }
 
-const gendersOf = async (tx: Tx, userIds: string[]): Promise<Map<string, Gender | null>> => {
+type PersonLook = { gender: Gender | null; dressCode: DressCode | null }
+
+const peopleOf = async (tx: Tx, userIds: string[]): Promise<Map<string, PersonLook>> => {
     if (!userIds.length) return new Map()
-    const rows = await tx.select({ id: users.id, gender: users.gender }).from(users).where(inArray(users.id, userIds))
-    return new Map(rows.map((r) => [r.id, r.gender]))
+    const rows = await tx.select({ id: users.id, gender: users.gender, dressCode: users.dressCode }).from(users).where(inArray(users.id, userIds))
+    return new Map(rows.map((r) => [r.id, { gender: r.gender, dressCode: r.dressCode }]))
+}
+
+const listForUser = (item: Parameters<typeof accessoriesForPerson>[0], people: Map<string, PersonLook>, userId: string): string[] => {
+    const look = people.get(userId)
+    return accessoriesForPerson(item, look?.gender ?? null, look?.dressCode ?? null)
 }
 
 // One ticked-off-nothing row per accessory, for each person on an AUDIT question, using the list
 // that fits that person (see accessoriesForPerson).
 const stampAuditPeople = async (tx: Tx, itemId: string, userIds: string[], item: GenerationItem) => {
     if (!userIds.length) return
-    const genders = await gendersOf(tx, userIds)
+    const people = await peopleOf(tx, userIds)
     const drafts = userIds.map((userId) => ({ id: createId(), itemId, userId }))
     await tx.insert(checklistInstanceItemSubmissions).values(drafts)
     const accessoryRows = drafts.flatMap((d) =>
-        accessoriesForPerson(item, genders.get(d.userId) ?? null).map((name) => ({ id: createId(), submissionId: d.id, name, checked: false })),
+        listForUser(item, people, d.userId).map((name) => ({ id: createId(), submissionId: d.id, name, checked: false })),
     )
     if (accessoryRows.length) {
         await tx.insert(checklistInstanceItemSubmissionAccessories).values(accessoryRows)
@@ -575,7 +586,7 @@ export const matchRunItems = (runItems: InstanceItemRow[], defItems: GenerationI
 // Keeps the people on a started run's AUDIT question in step with the checklist: someone added to
 // the audit gets a row to fill in, someone taken off loses theirs unless they were already checked
 // (that result is a record and stays), and every open person's tick-list follows the list that fits
-// them (by gender). Returns whether everyone left on the question is now submitted.
+// them (by gender and dress code). Returns whether everyone left on the question is now submitted.
 const syncAuditPeople = async (
     tx: Tx,
     itemId: string,
@@ -585,7 +596,7 @@ const syncAuditPeople = async (
 ): Promise<boolean> => {
     const wanted = new Set(def.auditUserIds)
     const haveUsers = new Set(submissions.map((s) => s.userId))
-    const genders = await gendersOf(tx, submissions.map((s) => s.userId))
+    const people = await peopleOf(tx, submissions.map((s) => s.userId))
 
     const added = def.auditUserIds.filter((userId) => !haveUsers.has(userId))
     await stampAuditPeople(tx, itemId, added, def)
@@ -599,8 +610,8 @@ const syncAuditPeople = async (
 
     for (const submission of remaining) {
         if (submission.isDone) continue
-        // This person's own list: their gender's list when there is one, the main list otherwise.
-        const accessoryNames = accessoriesForPerson(def, genders.get(submission.userId) ?? null)
+        // This person's own list: by gender and dress code when there is one, the main list otherwise.
+        const accessoryNames = listForUser(def, people, submission.userId)
         const rows = accessoriesBySubmission.get(submission.id) ?? []
         const haveNames = new Set(rows.map((r) => r.name))
         const missing = accessoryNames.filter((name) => !haveNames.has(name))

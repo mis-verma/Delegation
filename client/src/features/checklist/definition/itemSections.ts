@@ -33,6 +33,7 @@ export const cloneItemDraft = (draft: ItemDraft, patch: Partial<ItemDraft> = {})
   auditUserIds: [...draft.auditUserIds],
   accessories: [...draft.accessories],
   accessoriesFemale: [...draft.accessoriesFemale],
+  accessoriesFemaleSaree: [...draft.accessoriesFemaleSaree],
   accessoriesMale: [...draft.accessoriesMale],
   options: [...draft.options],
   acceptableAnswers: [...draft.acceptableAnswers],

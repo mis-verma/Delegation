@@ -24,6 +24,8 @@ export type ItemDraft = {
   accessories: string[];
   // AUDIT only: separate lists for female / male people (empty = they get `accessories`).
   accessoriesFemale: string[];
+  // AUDIT only: women whose dress code is Saree (empty = they get accessoriesFemale).
+  accessoriesFemaleSaree: string[];
   accessoriesMale: string[];
   numberEntryUnit: string;
   numberEntryMin: string;
@@ -59,6 +61,7 @@ export const emptyItemDraft = (): ItemDraft => ({
   auditUserIds: [],
   accessories: [],
   accessoriesFemale: [],
+  accessoriesFemaleSaree: [],
   accessoriesMale: [],
   numberEntryUnit: '',
   numberEntryMin: '',

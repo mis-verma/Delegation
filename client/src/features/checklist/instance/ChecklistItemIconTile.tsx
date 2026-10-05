@@ -19,7 +19,7 @@ export const ChecklistItemIconTile = memo(function ChecklistItemIconTile({ icon:
         ? 'bg-gradient-to-br from-primary-500 to-primary-700 border-primary-800/20 dark:from-primary-600 dark:to-primary-900 text-white'
         : 'bg-surface-hover border-transparent text-text-light'
     }`}>
-      <Icon size={16} strokeWidth={done ? 2.5 : 2} />
+      <Icon className="size-[18px]" strokeWidth={done ? 2.5 : 2} />
     </span>
   );
 });

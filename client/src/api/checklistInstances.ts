@@ -46,6 +46,9 @@ export type ChecklistInstanceItemSubmissionUser = {
   storeId:   string | null;
   /** false once the person has left (deactivated): their name is shown with "(left)". */
   isActive?: boolean;
+  gender?:   'FEMALE' | 'MALE' | null;
+  /** What a woman wears to work (decides her uniform list): null = the usual female list. */
+  dressCode?: 'WESTERN' | 'SAREE' | null;
 };
 
 export type ChecklistInstanceItemSubmission = {

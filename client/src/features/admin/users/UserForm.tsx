@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { UserPlus, ShieldCheck, Building2, Store, KeyRound, User, Mail, Phone, CalendarOff, Copy, Wand2, Pencil } from 'lucide-react';
+import { UserPlus, ShieldCheck, Building2, Store, KeyRound, User, Mail, Phone, CalendarOff, Copy, Wand2, Pencil, Shirt } from 'lucide-react';
 import { Input, Button, Modal, Combobox, AvatarUpload, WeekdayPicker, InlineError, useConfirm } from '../../../components';
 import {
   useCreateUserMutation,
@@ -16,7 +16,7 @@ import { resolveAvatarUrl } from '../../../lib/uploadsBase';
 import { ApiError } from '../../../api/http';
 import { DepartmentForm } from '../department/DepartmentForm';
 import { StoreForm } from '../store/StoreForm';
-import type { AdminUser, Role, UpdateUserPayload } from '../../../api/admin';
+import type { AdminUser, DressCode, Role, UpdateUserPayload } from '../../../api/admin';
 import { ROLE_META, ROLE_ORDER, isDepartmentHead } from '../roleBadge';
 import { FormField, FormSection } from './FormField';
 import { PasswordSharedPanel, PasswordVisibilityToggle, ResetPasswordSection } from './PasswordPanels';
@@ -43,6 +43,8 @@ const buildUserSchema = (isEditing: boolean) =>
       // Picks which uniform list an audit checks this person against. '' = not set: they get the
       // question's main list.
       gender: z.enum(['', 'FEMALE', 'MALE']),
+      // Women only. '' = not set: she gets the usual female list (coat, pant and heels).
+      dressCode: z.enum(['', 'WESTERN', 'SAREE']),
       // Weekly day(s) off: no daily checklists for this person on these days.
       weekOffDays: z.array(z.number()).max(6, 'Leave at least one working day'),
     })
@@ -139,12 +141,13 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
       departmentId: user?.departmentId ?? prefill?.departmentId ?? '',
       storeId: user?.storeId ?? '',
       gender: user?.gender ?? '',
+      dressCode: user?.gender === 'FEMALE' ? (user.dressCode ?? '') : '',
       weekOffDays: user?.weekOffDays ? [...user.weekOffDays] : [],
       password: '',
     },
   });
 
-  const [role, departmentId, storeId, passwordValue] = useWatch({ control, name: ['role', 'departmentId', 'storeId', 'password'] });
+  const [role, departmentId, storeId, passwordValue, genderValue] = useWatch({ control, name: ['role', 'departmentId', 'storeId', 'password', 'gender'] });
   const isPending = mutation.isPending || isSubmitting;
 
   // Closing from any route (X, Esc, overlay, Cancel) goes through here, so unsaved edits are never
@@ -183,6 +186,8 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
     const departmentPayload = data.departmentId || undefined;
     const storePayload = data.storeId || undefined;
     const phone = data.phone?.trim() || undefined;
+    // Only a woman has a dress code; any other gender saves none.
+    const dressCode: DressCode | null = data.gender === 'FEMALE' && data.dressCode ? data.dressCode : null;
 
     if (isEditing && user) {
       // Send only what actually changed. The form used to resend everything, so an old phone number
@@ -197,6 +202,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
       if ((departmentPayload ?? null) !== (user.departmentId ?? null)) payload.departmentId = departmentPayload ?? null;
       if ((storePayload ?? null) !== (user.storeId ?? null)) payload.storeId = storePayload ?? null;
       if ((data.gender || null) !== (user.gender ?? null)) payload.gender = data.gender || null;
+      if (dressCode !== (user.dressCode ?? null)) payload.dressCode = dressCode;
       if (JSON.stringify([...data.weekOffDays].sort()) !== JSON.stringify([...(user.weekOffDays ?? [])].sort())) payload.weekOffDays = data.weekOffDays;
 
       if (Object.keys(payload).length === 0) {
@@ -225,6 +231,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
         departmentId: departmentPayload,
         storeId: storePayload,
         gender: data.gender || undefined,
+        dressCode: dressCode ?? undefined,
         weekOffDays: data.weekOffDays.length > 0 ? data.weekOffDays : undefined,
       },
       {
@@ -467,6 +474,30 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
                     )}
                   />
                 </FormField>
+
+                {genderValue === 'FEMALE' && (
+                  <FormField
+                    htmlFor="dressCode"
+                    label="Dress code (optional)"
+                    icon={Shirt}
+                    hint="Picks which uniform list an audit checks. Not set uses the coat, pant and heels list."
+                  >
+                    <Controller
+                      control={control}
+                      name="dressCode"
+                      render={({ field }) => (
+                        <Combobox
+                          id="dressCode"
+                          value={field.value}
+                          onChange={(value) => field.onChange(value)}
+                          placeholder="Not set"
+                          emptyOptionLabel="Not set"
+                          options={[{ value: 'WESTERN', label: 'Coat, pant and heels' }, { value: 'SAREE', label: 'Saree' }]}
+                        />
+                      )}
+                    />
+                  </FormField>
+                )}
 
                 <FormField
                   label="Week off"

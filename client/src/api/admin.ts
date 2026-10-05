@@ -17,12 +17,15 @@ export type AdminUser = {
     phone?: string | null;
     /** Picks which uniform checklist an audit gives this person; null = not set (main list). */
     gender?: Gender | null;
+    /** Women only: which dress style an audit checks; null = the usual female list. */
+    dressCode?: DressCode | null;
     /** Weekly day(s) off, 0 = Sunday … 6 = Saturday — no daily checklists on these days. */
     weekOffDays?: number[] | null;
     createdAt: string;
 };
 
 export type Gender = 'FEMALE' | 'MALE';
+export type DressCode = 'WESTERN' | 'SAREE';
 
 export type CreateUserPayload = {
     email: string;
@@ -33,11 +36,12 @@ export type CreateUserPayload = {
     departmentId?: string;
     storeId?: string;
     gender?: Gender;
+    dressCode?: DressCode | null;
     phone?: string;
     weekOffDays?: number[];
 };
 
-export type UpdateUserPayload = Partial<Omit<CreateUserPayload, "password" | "departmentId" | "storeId" | "gender" | "phone">> & {
+export type UpdateUserPayload = Partial<Omit<CreateUserPayload, "password" | "departmentId" | "storeId" | "gender" | "dressCode" | "phone">> & {
     /** null clears it. */
     phone?: string | null;
     isActive?: boolean;
@@ -45,6 +49,8 @@ export type UpdateUserPayload = Partial<Omit<CreateUserPayload, "password" | "de
     storeId?: string | null;
     /** null clears it back to "not set". */
     gender?: Gender | null;
+    /** null clears it (the usual female list). Ignored by the server unless gender is Female. */
+    dressCode?: DressCode | null;
     weekOffDays?: number[];
 };
 export type BulkUpdateUsersPayload = {

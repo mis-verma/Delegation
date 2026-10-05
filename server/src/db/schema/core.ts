@@ -27,6 +27,10 @@ export const ROLES = ['ADMIN', 'APPROVAL_MANAGER', 'SENIOR', 'MANAGER', 'AGENT',
 // separate female and male list). Null = not set: that person gets the question's main list.
 export const GENDERS = ['FEMALE', 'MALE'] as const;
 export type Gender = (typeof GENDERS)[number];
+// What a woman wears to work, which decides which uniform checklist an audit gives her. Empty (null)
+// means the question's normal female list. Only meaningful for gender FEMALE.
+export const DRESS_CODES = ['WESTERN', 'SAREE'] as const;
+export type DressCode = (typeof DRESS_CODES)[number];
 export type Role = (typeof ROLES)[number];
 export const EVENT_TYPES = ['DEADLINE', 'ANNOUNCEMENT', 'BROADCAST'] as const;
 
@@ -119,6 +123,7 @@ export const users = mysqlTable(
     lastName: varchar('lastName', { length: 191 }),
     role: mysqlEnum('role', ROLES).notNull().default('USER'),
     gender: mysqlEnum('gender', GENDERS),
+    dressCode: mysqlEnum('dressCode', DRESS_CODES),
     departmentId: varchar('departmentId', { length: 191 }).references(() => departments.id),
     storeId: varchar('storeId', { length: 191 }).references(() => stores.id),
     isActive: boolean('isActive').notNull().default(true),
