@@ -137,6 +137,9 @@ export const users = mysqlTable(
     // Set on every password change/reset. authenticate() rejects an access token issued before it,
     // so a password change also kills any still-live access token, not just the refresh sessions.
     passwordChangedAt: datetime('passwordChangedAt', { mode: 'date' }),
+    // True after an admin created the account or set/reset the password: the person must choose their
+    // own before using the app, so nobody but them ever knows their real password.
+    mustChangePassword: boolean('mustChangePassword').notNull().default(false),
     // Set when isActive goes false (PATCH or offboard), cleared on reactivation.
     deactivatedAt: datetime('deactivatedAt', { mode: 'date' }),
     createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),

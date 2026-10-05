@@ -58,6 +58,7 @@ const publicUserColumns = {
     avatarUrl: users.avatarUrl,
     weekOffDays: users.weekOffDays,
     deactivatedAt: users.deactivatedAt,
+    mustChangePassword: users.mustChangePassword,
     createdAt: users.createdAt,
     updatedAt: users.updatedAt,
 };
@@ -117,9 +118,11 @@ const applyPasswordChange = async (
     id: string,
     passwordHash: string,
     audit: { actorId: string; email: string },
+    // true when an admin set the password: the person must pick their own before using the app.
+    mustChangePassword = false,
 ) => {
     await db.transaction(async (tx) => {
-        await tx.update(users).set({ passwordHash, passwordChangedAt: passwordChangeStamp(), updatedAt: new Date() }).where(eq(users.id, id));
+        await tx.update(users).set({ passwordHash, passwordChangedAt: passwordChangeStamp(), mustChangePassword, updatedAt: new Date() }).where(eq(users.id, id));
         await revokeSessions(id, tx);
         await spendResetLinks(id, tx);
         await auditService.recordInTx(tx, {
@@ -179,6 +182,8 @@ export const userService = {
                 id,
                 email,
                 passwordHash,
+                // Admin-set starting password: temporary, replaced by the person at their first sign-in.
+                mustChangePassword: true,
                 firstName: input.firstName,
                 lastName: input.lastName ?? null,
                 role: input.role,
@@ -406,7 +411,7 @@ export const userService = {
 
         // Changing a password is exactly the moment a stolen refresh token should stop working, so
         // every existing session — this one's included — ends. The client signs back in right after.
-        await applyPasswordChange(id, await hashPassword(newPassword), { actorId: id, email: user.email });
+        await applyPasswordChange(id, await hashPassword(newPassword), { actorId: id, email: user.email }, false);
     },
 
     // Real delete is only for an account with no history (one created by mistake). Anyone who has
@@ -461,7 +466,9 @@ export const userService = {
         const user = await getSafeById(id);
         assertFound(user);
 
-        await applyPasswordChange(id, await hashPassword(newPassword), { actorId, email: user.email });
+        // The admin chose or generated this password, so it is temporary: the person has to replace it at
+        // their next sign-in and no admin ever holds anyone's real password.
+        await applyPasswordChange(id, await hashPassword(newPassword), { actorId, email: user.email }, true);
     },
 
     // Replaces this user's profile picture. The previous file is deleted only after the database

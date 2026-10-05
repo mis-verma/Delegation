@@ -21,6 +21,7 @@ export const useLoginMutation = () => {
         role:         user.role,
         departmentId: user.departmentId,
         storeId:      user.storeId,
+        mustChangePassword: user.mustChangePassword === true,
       });
       navigate(ADMIN_AREA_ROLES.includes(user.role) ? '/admin' : '/', { replace: true });
     },

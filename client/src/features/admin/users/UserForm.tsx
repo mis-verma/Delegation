@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { UserPlus, ShieldCheck, Building2, Store, KeyRound, User, Mail, Phone, CalendarOff, Copy, Wand2 } from 'lucide-react';
+import { UserPlus, ShieldCheck, Building2, Store, KeyRound, User, Mail, Phone, CalendarOff, Copy, Wand2, Pencil } from 'lucide-react';
 import { Input, Button, Modal, Combobox, AvatarUpload, WeekdayPicker, InlineError, useConfirm } from '../../../components';
 import {
   useCreateUserMutation,
@@ -72,6 +72,20 @@ interface UserFormProps {
 const isDuplicateEmail = (err: unknown) =>
   err instanceof ApiError ? err.status === 409 : err instanceof Error && /already/i.test(err.message);
 
+// Small pencil beside a picked department or store: opens that record's own edit form on top of this
+// one, so a wrong name or store can be fixed without closing the person's form.
+const EditPickedButton = ({ label, onClick }: { label: string; onClick: () => void }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    title={label}
+    aria-label={label}
+    className="flex items-center justify-center size-11 sm:size-10 shrink-0 rounded-xl border border-border bg-surface text-text-muted hover:text-text hover:border-primary-400/60 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+  >
+    <Pencil size={15} aria-hidden />
+  </button>
+);
+
 export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) => {
   const isEditing = Boolean(user);
   const confirm = useConfirm();
@@ -101,6 +115,9 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
   // elsewhere, and reopen.
   const [creatingDepartment, setCreatingDepartment] = useState<string | null>(null);
   const [creatingStore, setCreatingStore] = useState<string | null>(null);
+  // The department / store already picked above, opened for editing without leaving this form.
+  const [editingDepartmentId, setEditingDepartmentId] = useState<string | null>(null);
+  const [editingStoreId, setEditingStoreId] = useState<string | null>(null);
 
   const {
     register,
@@ -381,17 +398,24 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
                     control={control}
                     name="departmentId"
                     render={({ field }) => (
-                      <Combobox
-                        id="departmentId"
-                        value={field.value ?? ''}
-                        onChange={(id) => handleDepartmentChange(id, field.onChange)}
-                        isLoading={isDepartmentsLoading}
-                        placeholder="Search departments..."
-                        emptyOptionLabel="No department"
-                        options={(departments ?? []).map((d) => ({ value: d.id, label: d.name }))}
-                        onCreateNew={(query) => setCreatingDepartment(query)}
-                        createNewLabel="Create new department"
-                      />
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 min-w-0">
+                          <Combobox
+                            id="departmentId"
+                            value={field.value ?? ''}
+                            onChange={(id) => handleDepartmentChange(id, field.onChange)}
+                            isLoading={isDepartmentsLoading}
+                            placeholder="Search departments..."
+                            emptyOptionLabel="No department"
+                            options={(departments ?? []).map((d) => ({ value: d.id, label: d.name }))}
+                            onCreateNew={(query) => setCreatingDepartment(query)}
+                            createNewLabel="Create new department"
+                          />
+                        </div>
+                        {field.value && (
+                          <EditPickedButton label={`Edit ${departmentName ?? 'department'}`} onClick={() => setEditingDepartmentId(field.value ?? null)} />
+                        )}
+                      </div>
                     )}
                   />
                 </FormField>
@@ -401,17 +425,24 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
                     control={control}
                     name="storeId"
                     render={({ field }) => (
-                      <Combobox
-                        id="storeId"
-                        value={field.value ?? ''}
-                        onChange={field.onChange}
-                        isLoading={isStoresLoading}
-                        placeholder="Search stores..."
-                        emptyOptionLabel="No store"
-                        options={(stores ?? []).map((s) => ({ value: s.id, label: s.name }))}
-                        onCreateNew={(query) => setCreatingStore(query)}
-                        createNewLabel="Create new store"
-                      />
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 min-w-0">
+                          <Combobox
+                            id="storeId"
+                            value={field.value ?? ''}
+                            onChange={field.onChange}
+                            isLoading={isStoresLoading}
+                            placeholder="Search stores..."
+                            emptyOptionLabel="No store"
+                            options={(stores ?? []).map((s) => ({ value: s.id, label: s.name }))}
+                            onCreateNew={(query) => setCreatingStore(query)}
+                            createNewLabel="Create new store"
+                          />
+                        </div>
+                        {field.value && (
+                          <EditPickedButton label={`Edit ${stores?.find((s) => s.id === field.value)?.name ?? 'store'}`} onClick={() => setEditingStoreId(field.value ?? null)} />
+                        )}
+                      </div>
                     )}
                   />
                 </FormField>
@@ -461,14 +492,24 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
 
       {creatingDepartment !== null && (
         <DepartmentForm
+          nested
           onClose={() => setCreatingDepartment(null)}
           prefillName={creatingDepartment}
           onCreated={(createdDept) => handleDepartmentChange(createdDept.id, (value) => setValue('departmentId', value, { shouldValidate: true, shouldDirty: true }))}
         />
       )}
 
+      {editingDepartmentId && departments?.find((d) => d.id === editingDepartmentId) && (
+        <DepartmentForm nested department={departments.find((d) => d.id === editingDepartmentId)} onClose={() => setEditingDepartmentId(null)} />
+      )}
+
+      {editingStoreId && stores?.find((s) => s.id === editingStoreId) && (
+        <StoreForm nested store={stores.find((s) => s.id === editingStoreId)} onClose={() => setEditingStoreId(null)} />
+      )}
+
       {creatingStore !== null && (
         <StoreForm
+          nested
           onClose={() => setCreatingStore(null)}
           prefillName={creatingStore}
           onCreated={(createdStore) => setValue('storeId', createdStore.id, { shouldValidate: true, shouldDirty: true })}

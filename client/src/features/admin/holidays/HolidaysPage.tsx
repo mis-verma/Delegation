@@ -172,7 +172,7 @@ export const HolidaysPage = () => {
   const nextDiff = next ? daysUntil(next.date, today) : null;
 
   return (
-    <div className="flex flex-col gap-6 w-full max-w-5xl mx-auto">
+    <div className="flex flex-col gap-6 w-full">
       <PageHeader
         icon={CalendarOff}
         title="Holidays"

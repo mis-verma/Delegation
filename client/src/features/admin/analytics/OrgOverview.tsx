@@ -274,7 +274,7 @@ export const OrgOverview = () => {
   }, [refetchDepartments, refetchStores, refetchUsers, orgWide]);
 
   return (
-    <div className="flex flex-col gap-6 w-full max-w-5xl mx-auto">
+    <div className="flex flex-col gap-6 w-full">
       <PageHeader
         icon={BarChart3}
         title="Overview & Analytics"

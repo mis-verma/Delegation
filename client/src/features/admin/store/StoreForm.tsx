@@ -2,12 +2,13 @@ import { useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Store as StoreIcon } from 'lucide-react';
+import { Hash, MapPin, Store as StoreIcon } from 'lucide-react';
 import { Input, Button, Modal, InlineError } from '../../../components';
 import { useCreateStoreMutation, useUpdateStoreMutation } from '../hook';
 import { useStoresQuery } from '../../tickets/hook';
 import { isDuplicateName } from '../orgCounts';
 import { useDiscardGuard } from '../useDiscardGuard';
+import { FormSection } from '../users/FormField';
 import type { Store } from '../../../api/stores';
 
 // Built per render of the form so the duplicate-name check can read the cached store list.
@@ -39,9 +40,13 @@ interface StoreFormProps {
   /** Seeds the name field, e.g. whatever the admin had already typed into a Combobox's search
    *  box before hitting "Create new store". */
   prefillName?: string;
+  /** True when this opens on top of another modal (the user form's quick add / edit). It then stays
+   *  non-modal so the two dialogs do not fight over focus and scroll lock. On its own (from the
+   *  Stores tab) it is a normal modal, exactly like the user form. */
+  nested?: boolean;
 }
 
-export const StoreForm = ({ onClose, store, onCreated, prefillName }: StoreFormProps) => {
+export const StoreForm = ({ onClose, store, onCreated, prefillName, nested = false }: StoreFormProps) => {
   const isEditing = !!store;
   const createMutation = useCreateStoreMutation();
   const updateMutation = useUpdateStoreMutation();
@@ -93,20 +98,25 @@ export const StoreForm = ({ onClose, store, onCreated, prefillName }: StoreFormP
     <Modal
       open
       onClose={requestClose}
-      // Non-modal so this also works correctly when opened nested inside another Modal (e.g. a
-      // "create new store" quick-add from UserForm's store Combobox), same reasoning as
-      // DatePicker/DateRangePicker.
-      modal={false}
+      // Non-modal only when opened on top of another Modal (the user form's quick add / edit), same
+      // reasoning as DatePicker/DateRangePicker. On its own it is a normal modal like the user form.
+      modal={!nested}
       icon={<StoreIcon className="w-5 h-5" />}
       title={isEditing ? 'Edit store' : 'New store'}
-      description="Stores are where checklists run. Each recurring checklist is deployed to one or more of them."
+      description={isEditing ? "Update this store's name, code and address." : 'Add a place where checklists run.'}
       footer={footer}
+      showCloseButton={false}
+      draggable
     >
       <form id="store-form" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
-        <fieldset disabled={isPending} className="flex flex-col gap-4 disabled:opacity-60">
-          <Input id="name" label="Store name" placeholder="e.g. Karol Bagh" autoFocus error={errors.name?.message} {...register('name')} />
-          <Input id="code" label="Code (optional)" placeholder="e.g. KB01" autoCapitalize="characters" error={errors.code?.message} {...register('code')} />
-          <Input id="address" label="Address (optional)" placeholder="e.g. 12 Main Market, Karol Bagh" error={errors.address?.message} {...register('address')} />
+        <fieldset disabled={isPending} className="flex flex-col gap-5 disabled:opacity-60">
+          <FormSection title="Basics">
+            <Input id="name" label="Store name" icon={StoreIcon} placeholder="e.g. Karol Bagh" autoFocus error={errors.name?.message} {...register('name')} />
+            <Input id="code" label="Code (optional)" icon={Hash} placeholder="e.g. KB01" autoCapitalize="characters" error={errors.code?.message} {...register('code')} />
+          </FormSection>
+          <FormSection title="Location">
+            <Input id="address" label="Address (optional)" icon={MapPin} placeholder="e.g. 12 Main Market, Karol Bagh" error={errors.address?.message} {...register('address')} />
+          </FormSection>
         </fieldset>
 
         {mutation.isError && (

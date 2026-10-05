@@ -42,6 +42,13 @@ declare global {
     }
 }
 
+// The two requests a person with a temporary password may still make: read their own profile and
+// change their password (which needs the current, temporary one).
+const isPasswordSetupCall = (req: Request) => {
+    const path = `${req.baseUrl}${req.path}`.replace(/\/+$/, '');
+    return (req.method === 'GET' && path.endsWith('/users/me')) || (req.method === 'POST' && path.endsWith('/users/me/password'));
+};
+
 // 4. AUTHENTICATION MIDDLEWARE
 // Middleware function to intercept requests, read headers, and validate the user's identity token
 export const authenticate = asyncHandler(async (req: Request, _res: Response, next: NextFunction) => {
@@ -78,6 +85,7 @@ export const authenticate = asyncHandler(async (req: Request, _res: Response, ne
         departmentId: users.departmentId,
         storeId: users.storeId,
         passwordChangedAt: users.passwordChangedAt,
+        mustChangePassword: users.mustChangePassword,
     }).from(users).where(eq(users.id, payload.sub)).limit(1);
 
     if (!currentUser || !currentUser.isActive) {
@@ -86,6 +94,12 @@ export const authenticate = asyncHandler(async (req: Request, _res: Response, ne
     // A password change/reset ends every access token issued before it, not just the refresh sessions.
     if (tokenPredatesPasswordChange(payload.iat, currentUser.passwordChangedAt)) {
         return next(AppError.unauthorized('Password was changed. Please sign in again.'));
+    }
+
+    // An admin set this password, so it is temporary: until the person picks their own, the only calls
+    // that work are reading their own profile and changing their password.
+    if (currentUser.mustChangePassword && !isPasswordSetupCall(req)) {
+        return next(AppError.forbidden('Choose your own password before you continue.'));
     }
 
     req.user = {

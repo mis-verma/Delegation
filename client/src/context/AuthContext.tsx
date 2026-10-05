@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { authApi, type Role } from '../api/auth';
 import { tokenStore } from '../lib/tokenStore';
 
-type User = { id: string; name: string; email: string; role: Role; departmentId: string | null; storeId: string | null };
+type User = { id: string; name: string; email: string; role: Role; departmentId: string | null; storeId: string | null; mustChangePassword?: boolean };
 
 type AuthContextType = {
   user:       User | null;

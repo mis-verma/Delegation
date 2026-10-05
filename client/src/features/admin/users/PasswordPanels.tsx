@@ -28,7 +28,7 @@ interface PasswordSharedPanelProps {
 export const PasswordSharedPanel = ({ password, email, onDone }: PasswordSharedPanelProps) => (
   <NoticeBanner tone="success" icon={CheckCircle2} className="flex-col">
     <div className="flex flex-col gap-3">
-      <p className="font-semibold">Password set. Share it with them.</p>
+      <p className="font-semibold">Temporary password ready. Share it with them.</p>
       <div className="flex flex-col gap-1.5">
         {email && <p className="text-text-secondary">{email}</p>}
         <div className="flex items-center gap-2">
@@ -41,7 +41,9 @@ export const PasswordSharedPanel = ({ password, email, onDone }: PasswordSharedP
           </Button>
         </div>
       </div>
-      <p className="text-text-secondary">You will not be able to see this password again after you close this.</p>
+      <p className="text-text-secondary">
+        They choose their own password the first time they sign in, so only they will ever know it. You will not be able to see this one again after you close this.
+      </p>
       <div>
         <Button type="button" variant="primary" size="sm" onClick={onDone}>Done</Button>
       </div>
@@ -62,6 +64,8 @@ interface ResetPasswordSectionProps {
 // outside the form's <form> tag so pressing Enter here can never submit the whole profile.
 export const ResetPasswordSection = ({ userId, email, defaultExpanded = false, onFinished }: ResetPasswordSectionProps) => {
   const [expanded, setExpanded] = useState(defaultExpanded);
+  // The quick path first: one button makes a temporary password. Typing one is the second choice.
+  const [manual, setManual] = useState(false);
   const [password, setPassword] = useState('');
   const [shown, setShown] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -73,6 +77,7 @@ export const ResetPasswordSection = ({ userId, email, defaultExpanded = false, o
     setError(null);
     setShown(false);
     setSavedPassword(null);
+    setManual(false);
     setExpanded(defaultExpanded);
     onFinished?.();
   };
@@ -83,6 +88,12 @@ export const ResetPasswordSection = ({ userId, email, defaultExpanded = false, o
       return;
     }
     resetMutation.mutate({ id: userId, password }, { onSuccess: () => { setSavedPassword(password); setPassword(''); } });
+  };
+
+  // One click: make a strong temporary password and set it straight away.
+  const createTemporary = () => {
+    const generated = generatePassword();
+    resetMutation.mutate({ id: userId, password: generated }, { onSuccess: () => setSavedPassword(generated) });
   };
 
   const generate = () => {
@@ -106,6 +117,29 @@ export const ResetPasswordSection = ({ userId, email, defaultExpanded = false, o
     );
   }
 
+  if (!manual) {
+    return (
+      <div className={defaultExpanded ? 'flex flex-col gap-3' : 'flex flex-col gap-3 pt-3 border-t border-border'}>
+        <p className="text-sm font-display text-text-secondary leading-relaxed">
+          Make a temporary password and share it with them. They will be asked to choose their own the first time they sign in, so nobody else ever knows it.
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" variant="primary" size="sm" onClick={createTemporary} isLoading={resetMutation.isPending}>
+            <Wand2 size={13} aria-hidden />
+            Create temporary password
+          </Button>
+          <Button type="button" variant="ghost" size="sm" onClick={() => setManual(true)} disabled={resetMutation.isPending}>
+            Type one myself
+          </Button>
+          <span className="flex-1" />
+          <Button type="button" variant="ghost" size="sm" onClick={collapse} disabled={resetMutation.isPending}>
+            Cancel
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <form
       className={defaultExpanded ? 'flex flex-col gap-3' : 'flex flex-col gap-3 pt-3 border-t border-border'}
@@ -114,9 +148,9 @@ export const ResetPasswordSection = ({ userId, email, defaultExpanded = false, o
     >
       <Input
         id={`reset-password-${userId}`}
-        label="New password"
+        label="Temporary password"
         type={shown ? 'text' : 'password'}
-        placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
+        placeholder={`At least ${MIN_PASSWORD_LENGTH} characters, a capital letter and a number`}
         icon={KeyRound}
         value={password}
         onChange={(e) => { setPassword(e.target.value); setError(null); }}
@@ -139,7 +173,7 @@ export const ResetPasswordSection = ({ userId, email, defaultExpanded = false, o
           Cancel
         </Button>
         <Button type="submit" variant="primary" size="sm" isLoading={resetMutation.isPending}>
-          Set new password
+          Set temporary password
         </Button>
       </div>
     </form>

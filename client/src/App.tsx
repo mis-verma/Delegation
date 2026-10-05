@@ -29,6 +29,7 @@ const AdminLayout = lazy(() => import('./features/admin/AdminLayout').then(m => 
 // @hookform/resolvers and the whole of zod (via features/auth/Schemas) into the entry chunk, so
 // every already-signed-in user downloaded a login screen they will never see again before first
 // paint. Lazy, they load only on the one navigation that actually needs them.
+const ForcePasswordChange = lazy(() => import('./features/auth/ForcePasswordChange').then(m => ({ default: m.ForcePasswordChange })));
 const LoginForm = lazy(() => import('./features/auth/LoginForm').then(m => ({ default: m.LoginForm })));
 const ForgotPasswordForm = lazy(() => import('./features/auth/ForgotPasswordForm').then(m => ({ default: m.ForgotPasswordForm })));
 const ResetPasswordForm = lazy(() => import('./features/auth/ResetPasswordForm').then(m => ({ default: m.ResetPasswordForm })));
@@ -74,6 +75,8 @@ const ProtectedRoute = () => {
   // on is the person who needs to get back in to flip it off again.
   const { data: maintenance } = usePublicSettingsQuery();
   if (!token) return <Navigate to="/login" replace />;
+  // An admin set this password, so it is temporary: nothing else loads until they choose their own.
+  if (user?.mustChangePassword) return <Suspense fallback={null}><ForcePasswordChange /></Suspense>;
   if (maintenance?.maintenanceMode && user?.role !== 'ADMIN') {
     return <MaintenancePage message={maintenance.maintenanceMessage ?? undefined} />;
   }

@@ -23,6 +23,8 @@ export type AuthUser = {
   firstName:    string | null;
   departmentId: string | null;
   storeId:      string | null;
+  /** An admin set this password: the app asks for a new one before anything else. */
+  mustChangePassword?: boolean;
 };
 
 export type AuthResponse = {

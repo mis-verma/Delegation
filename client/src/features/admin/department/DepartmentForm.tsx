@@ -9,6 +9,7 @@ import { useDepartmentsQuery, useStoresQuery } from '../../tickets/hook';
 import { isDuplicateName } from '../orgCounts';
 import { ROLE_LABEL } from '../roleBadge';
 import { useDiscardGuard } from '../useDiscardGuard';
+import { FormField, FormSection } from '../users/FormField';
 import type { Department } from '../../../api/departments';
 
 // Built per render of the form so the duplicate-name check can read the cached department list.
@@ -39,6 +40,10 @@ interface DepartmentFormProps {
   /** Seeds the name field, e.g. whatever the admin had already typed into a Combobox's search
    *  box before hitting "Create new department". */
   prefillName?: string;
+  /** True when this opens on top of another modal (the user form's quick add / edit). It then stays
+   *  non-modal so the two dialogs do not fight over focus and scroll lock. On its own (from the
+   *  Departments tab) it is a normal modal, exactly like the user form. */
+  nested?: boolean;
 }
 
 // Read-only: who currently leads this department. Changing a head means changing that person's
@@ -80,7 +85,7 @@ const DepartmentHeads = ({ departmentId }: { departmentId: string }) => {
   );
 };
 
-export const DepartmentForm = ({ onClose, department, onCreated, prefillName }: DepartmentFormProps) => {
+export const DepartmentForm = ({ onClose, department, onCreated, prefillName, nested = false }: DepartmentFormProps) => {
   const isEditing = !!department;
   const createMutation = useCreateDepartmentMutation();
   const updateMutation = useUpdateDepartmentMutation();
@@ -134,10 +139,9 @@ export const DepartmentForm = ({ onClose, department, onCreated, prefillName }: 
     <Modal
       open
       onClose={requestClose}
-      // Non-modal so this also works correctly when opened nested inside another Modal (e.g. a
-      // "create new department" quick-add from UserForm's department Combobox), same reasoning
-      // as DatePicker/DateRangePicker.
-      modal={false}
+      // Non-modal only when opened on top of another Modal (the user form's quick add / edit), same
+      // reasoning as DatePicker/DateRangePicker. On its own it is a normal modal like the user form.
+      modal={!nested}
       icon={<Building2 className="w-5 h-5" />}
       title={isEditing ? 'Edit department' : 'New department'}
       description={
@@ -146,44 +150,44 @@ export const DepartmentForm = ({ onClose, department, onCreated, prefillName }: 
           : 'Departments group your people and decide who sees which checklists.'
       }
       footer={footer}
+      showCloseButton={false}
+      draggable
     >
       <form id="department-form" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
-        <fieldset disabled={isPending} className="flex flex-col gap-4 disabled:opacity-60">
-          <Input
-            id="name"
-            label="Department name"
-            placeholder="e.g. Customer Support"
-            autoFocus
-            error={errors.name?.message}
-            {...register('name')}
-          />
-
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="storeId" className="flex items-center gap-1.5 text-xs font-medium text-text-secondary">
-              <Store className="w-3.5 h-3.5 text-text-light" strokeWidth={2.5} />
-              Store (optional)
-            </label>
-            <Controller
-              control={control}
-              name="storeId"
-              render={({ field }) => (
-                <Combobox
-                  id="storeId"
-                  value={field.value ?? ''}
-                  onChange={field.onChange}
-                  isLoading={isStoresLoading}
-                  placeholder="Search stores..."
-                  emptyOptionLabel="No store"
-                  options={(stores ?? []).map((s) => ({ value: s.id, label: s.name }))}
-                />
-              )}
+        <fieldset disabled={isPending} className="flex flex-col gap-5 disabled:opacity-60">
+          <FormSection title="Basics">
+            <Input
+              id="name"
+              label="Department name"
+              icon={Building2}
+              placeholder="e.g. Customer Support"
+              autoFocus
+              error={errors.name?.message}
+              {...register('name')}
             />
-            <p className="text-xs font-display text-text-muted">
-              Pick the store this department works from.
-            </p>
-          </div>
+          </FormSection>
 
-          {isEditing && department && <DepartmentHeads departmentId={department.id} />}
+          <FormSection title="Placement">
+            <FormField htmlFor="storeId" label="Store (optional)" icon={Store} hint="Pick the store this department works from.">
+              <Controller
+                control={control}
+                name="storeId"
+                render={({ field }) => (
+                  <Combobox
+                    id="storeId"
+                    value={field.value ?? ''}
+                    onChange={field.onChange}
+                    isLoading={isStoresLoading}
+                    placeholder="Search stores..."
+                    emptyOptionLabel="No store"
+                    options={(stores ?? []).map((s) => ({ value: s.id, label: s.name }))}
+                  />
+                )}
+              />
+            </FormField>
+
+            {isEditing && department && <DepartmentHeads departmentId={department.id} />}
+          </FormSection>
         </fieldset>
 
         {mutation.isError && (

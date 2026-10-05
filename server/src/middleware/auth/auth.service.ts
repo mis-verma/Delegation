@@ -54,6 +54,7 @@ type UserRow = {
   departmentId: string | null;
   storeId: string | null;
   isActive: boolean;
+  mustChangePassword?: boolean;
 };
 
 // Creates a brand new refresh token for a given user, stores its HASH (not the raw value) in the
@@ -121,6 +122,8 @@ const publicUser = (user: UserRow) => ({
   firstName: user.firstName,
   departmentId: user.departmentId ?? null,
   storeId: user.storeId ?? null,
+  // The password was set by an admin: the app asks for a new one before anything else.
+  mustChangePassword: user.mustChangePassword ?? false,
 });
 
 // The main authentication service - all the actual "business logic" for login/refresh/logout lives
@@ -317,7 +320,7 @@ export const authService = {
         .where(and(eq(passwordResetTokens.id, stored.id), isNull(passwordResetTokens.usedAt)));
       if (claimed.affectedRows !== 1) throw AppError.badRequest('Invalid or expired reset link');
 
-      await tx.update(users).set({ passwordHash, passwordChangedAt: passwordChangeStamp(), updatedAt: now }).where(eq(users.id, user.id));
+      await tx.update(users).set({ passwordHash, passwordChangedAt: passwordChangeStamp(), mustChangePassword: false, updatedAt: now }).where(eq(users.id, user.id));
 
       // Any other reset link still outstanding for this account dies with the old password.
       await tx.update(passwordResetTokens)

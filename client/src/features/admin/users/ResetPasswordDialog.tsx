@@ -18,7 +18,7 @@ export const ResetPasswordDialog = ({ user, onClose }: ResetPasswordDialogProps)
     size="md"
     icon={<KeyRound className="w-5 h-5" />}
     title={`Reset password for ${fullName(user)}`}
-    description="Set a new password, then share it with them."
+    description="They will choose their own password the next time they sign in."
   >
     <ResetPasswordSection userId={user.id} email={user.email} defaultExpanded onFinished={onClose} />
   </Modal>

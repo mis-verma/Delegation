@@ -335,6 +335,7 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
       )}
       {creating === 'department' && (
         <DepartmentForm
+          nested
           onClose={() => setCreating(null)}
           onCreated={(created) => setValue('departmentId', created.id, { shouldValidate: true })}
         />

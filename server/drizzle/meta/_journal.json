@@ -267,6 +267,13 @@
       "when": 1791023702024,
       "tag": "0037_people_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "5",
+      "when": 1791182163768,
+      "tag": "0038_must_change_password",
+      "breakpoints": true
     }
   ]
 }
