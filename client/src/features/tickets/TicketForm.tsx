@@ -34,11 +34,18 @@ const CHIP_TOUCH_AREA = 'relative pointer-coarse:min-h-8 pointer-coarse:after:ab
 // Quiet fill until focused; Input's own danger styling takes over once validation fails.
 const QUIET_FIELD_CLASS = 'font-display border-transparent bg-surface-hover/50 hover:bg-surface-hover focus:bg-surface';
 
+const pad2 = (n: number) => String(n).padStart(2, '0');
+const toDateInput = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const toTimeInput = (d: Date) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+
 interface TicketFormProps {
   onClose: () => void;
+  /** Starts the due date and time on this moment (the Calendar's "New ticket" for the picked day).
+   *  Ignored when it is already in the past, since a ticket's due time must be in the future. */
+  defaultDueDate?: Date;
 }
 
-export const TicketForm = ({ onClose }: TicketFormProps) => {
+export const TicketForm = ({ onClose, defaultDueDate }: TicketFormProps) => {
   const { user } = useAuth();
   // Same role test the rest of the app uses for "may create a new label" — matches Delegation's
   // TaskForm exactly, since it's the same server-side gate (POST /tags is ADMIN/PC only).
@@ -64,6 +71,14 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
   };
   const removePhoto = (index: number) => setPhotos(prev => prev.filter((_, idx) => idx !== index));
 
+  // Read once, when the form opens: a Calendar day that is already past is ignored because a ticket's
+  // due time must be in the future.
+  const [initialDue] = useState(() =>
+    defaultDueDate && defaultDueDate.getTime() > Date.now()
+      ? { dueDate: toDateInput(defaultDueDate), dueTime: toTimeInput(defaultDueDate) }
+      : {},
+  );
+
   const {
     register,
     handleSubmit,
@@ -72,7 +87,7 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
     formState: { errors },
   } = useForm<TicketFields>({
     resolver: zodResolver(schema),
-    defaultValues: { priority: 'MEDIUM', assignmentMode: 'MANUAL' },
+    defaultValues: { priority: 'MEDIUM', assignmentMode: 'MANUAL', ...initialDue },
   });
 
   const assignmentMode = useWatch({ control, name: 'assignmentMode' });

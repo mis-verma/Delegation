@@ -37,9 +37,11 @@ const QUIET_FIELD_CLASS = 'font-display border-transparent bg-surface-hover/50 h
 interface TaskFormProps {
   onClose: () => void;
   onCreated?: (task: Task) => void;
+  /** Starts the due date on this day (the Calendar's "New delegation" for the picked day). */
+  defaultDueDate?: Date;
 }
 
-export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
+export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) => {
   const { user } = useAuth();
   // Same role test the rest of Delegation uses. Gates the "create a new label" affordance, which
   // is what the server's /tags write routes allow.
@@ -55,7 +57,7 @@ export const TaskForm = ({ onClose, onCreated }: TaskFormProps) => {
   // Local state rather than a form field: the label set is a list of ids toggled by pills, with
   // nothing for zod to validate beyond what the server already enforces (existing ids, max 12).
   const [tagIds, setTagIds] = useState<string[]>([]);
-  const [dateRange, setDateRange] = useState<DateRangeValue>({ from: null, to: null });
+  const [dateRange, setDateRange] = useState<DateRangeValue>({ from: null, to: defaultDueDate ?? null });
   const [files, setFiles] = useState<File[]>([]);
   // Which footer button triggered the submit — both are type="submit" for the same form, so this
   // is the only way onSubmit (one handler, native form submission) can tell "Create" apart from

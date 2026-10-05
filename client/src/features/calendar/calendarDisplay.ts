@@ -99,3 +99,36 @@ export const buildMonthGrid = (year: number, month: number): Date[] => {
 };
 
 export const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/** What can be created straight from a day. */
+export type CalendarCreateKind = 'delegation' | 'ticket';
+
+/** Checklists, delegations and tickets have a done/overdue/pending life; events are just
+ *  announcements on a date, so they get no status chip at all. */
+export const hasCalendarStatus = (type: CalendarItemType): boolean =>
+  type === 'delegation' || type === 'ticket' || type === 'checklist';
+
+export type CalendarItemState = 'completed' | 'overdue' | 'pending';
+
+export const calendarItemState = (item: Pick<CalendarItem, 'completed' | 'overdue'>): CalendarItemState =>
+  item.completed ? 'completed' : item.overdue ? 'overdue' : 'pending';
+
+/** The due date a new delegation or ticket starts with when created from `day`: 18:00 local that
+ *  day. If that moment has already passed (today, late), one hour from now, but only while that
+ *  still lands on the same day. A past day gets nothing, the form's own default applies. */
+export const defaultDueFor = (day: Date, nowMs: number): Date | undefined => {
+  const evening = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 18, 0, 0, 0);
+  if (evening.getTime() > nowMs) return evening;
+  const soon = new Date(nowMs + 60 * 60 * 1000);
+  return isSameCalendarDay(soon, day) ? soon : undefined;
+};
+
+/** "Today", "Tomorrow", "Yesterday" or the weekday, for the small label above the agenda date. */
+export const relativeDayLabel = (day: Date, today: Date): string => {
+  const start = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const diff = Math.round((start(day) - start(today)) / 86_400_000);
+  if (diff === 0) return 'Today';
+  if (diff === 1) return 'Tomorrow';
+  if (diff === -1) return 'Yesterday';
+  return day.toLocaleDateString(undefined, { weekday: 'long' });
+};
