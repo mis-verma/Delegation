@@ -94,6 +94,8 @@ export type ChecklistReportQuery = {
     to?: string
     /** ADMIN/PC only: also include runs of soft-deleted checklists. */
     includeDeleted?: boolean
+    /** Only runs this person is an assignee of: the same rule the compliance board's Person filter uses. */
+    assigneeId?: string
 }
 
 const filterConditions = (
@@ -101,6 +103,7 @@ const filterConditions = (
     window: { fromDate: string; toExclusive: string },
     includeDeleted: boolean,
     activeStoresOnly: boolean,
+    assigneeId?: string,
 ): SQL[] => {
     // periodStart is the org-local day (as UTC midnight) and the window is org-local days, so a
     // plain date comparison is exact whatever time zone the caller's browser sits in.
@@ -108,6 +111,12 @@ const filterConditions = (
     if (!includeDeleted) conditions.push(sql`d.deletedAt IS NULL`)
     if (activeStoresOnly) conditions.push(sql`st.isActive = 1`)
     if (scope.storeId) conditions.push(sql`ci.storeId = ${scope.storeId}`)
+    if (assigneeId) {
+        conditions.push(sql`EXISTS (
+            SELECT 1 FROM ${checklistInstanceAssignees} pa
+            WHERE pa.instanceId = ci.id AND pa.userId = ${assigneeId}
+        )`)
+    }
     if (scope.departmentId) {
         // Same rule as instanceIdsForDepartment: a run belongs to a department when one of its
         // assignees sits in it.
@@ -201,7 +210,7 @@ export const checklistReportService = {
         const window = resolveReportWindow(query.groupBy, query.from, query.to)
         if (!scope) return zeroFill([], query.groupBy, window, emptyBucket)
 
-        const conditions = filterConditions(scope, window, query.includeDeleted === true, true)
+        const conditions = filterConditions(scope, window, query.includeDeleted === true, true, query.assigneeId)
         const bucketExpr = query.groupBy === "none"
             ? sql.raw(`'${RANGE_BUCKET}'`)
             : sql`DATE_FORMAT(r.periodStart, ${REPORT_DATE_FORMATS[query.groupBy]})`

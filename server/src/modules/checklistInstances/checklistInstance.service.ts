@@ -714,6 +714,19 @@ const instanceInDepartmentCondition = (departmentId: string): SQL => sql`EXISTS 
     WHERE a.instanceId = ${checklistInstances.id} AND u.departmentId = ${departmentId}
 )`
 
+/**
+ * A run nobody finished before its day ended is MISSED: it keeps counting against completion in the
+ * reports, but it is not carried into the next day's to-do list. New day, new checklist. It stays
+ * visible when it is sent back for fixing (REJECTED), when it is a one-time checklist (no next day to
+ * replace it), and while its deadline is still today (an overnight run, or a late cutoff).
+ */
+const missedFromPastDayExpr = sql`(
+    ${checklistInstances.recurrence} <> 'ONE_TIME'
+    AND ${checklistInstances.verificationStatus} <> 'REJECTED'
+    AND (${completionCondition("OPEN")})
+    AND ${deadlineExpr} < DATE(${localNowExpr})
+)`
+
 const instanceConditions = (filter: InstanceListFilter): SQL | undefined => {
     // Excluded by default regardless of what else the caller is filtering by — unless the caller
     // is ADMIN/PC auditing history (`includeDeleted`, set only by the controller from the
@@ -753,6 +766,10 @@ const instanceConditions = (filter: InstanceListFilter): SQL | undefined => {
     }
 
     if (filter.departmentId) conditions.push(instanceInDepartmentCondition(filter.departmentId))
+
+    // "Mine" is today's work. An explicit from/to means the caller is looking at a chosen period, so
+    // that view keeps the misses.
+    if (filter.userId && !filter.from && !filter.to) conditions.push(sql`NOT ${missedFromPastDayExpr}`)
 
     return conditions.length ? and(...conditions) : undefined
 }

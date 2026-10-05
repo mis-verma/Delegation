@@ -30,6 +30,18 @@ const KEYS = {
 
 const DEFINITIONS_PAGE_SIZE = 30;
 
+/** Live checklists with questions that have no good answer set (ADMIN/PC). Cheap, so a short stale time is enough. */
+export const useChecklistScoringGapsQuery = () => {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: ['checklist-definitions', 'scoring-gaps'] as const,
+    queryFn: () => checklistDefinitionApi.getScoringGaps().then((r) => r.data),
+    enabled: !!token,
+    retry: handleQueryRetry,
+    staleTime: 60_000,
+  });
+};
+
 // Infinite, not the old unbounded fetch-everything call — GET /checklist-definitions used to
 // hydrate every matching definition (items, stores, assignees, reviewers) on every load of the
 // templates grid. useInfiniteQuery fetches and caches each page exactly once and appends them.

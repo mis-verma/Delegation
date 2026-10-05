@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import { useNavigate } from 'react-router';
 import { CheckCircle2, Send } from 'lucide-react';
 import { Button, PANEL_CLASS } from '../../../components';
 import { cn } from '@/lib/utils';
@@ -11,10 +12,12 @@ interface ChecklistSubmitBarProps {
   resubmit: boolean;
 }
 
-// Shown once every question is done. Ticking the last one no longer sends the checklist by itself:
-// the person confirms with one Submit, so nothing reaches the reviewer by accident or half-finished.
+// Shown once every question is done (never before: a half-filled checklist has no Submit). Ticking
+// the last one does not send the checklist by itself: the person confirms with one Submit, so nothing
+// reaches the reviewer by accident or half-finished. After it goes through, they land back on My Checklists.
 export const ChecklistSubmitBar = memo(function ChecklistSubmitBar({ instanceId, total, resubmit }: ChecklistSubmitBarProps) {
   const submit = useSubmitChecklistInstanceMutation();
+  const navigate = useNavigate();
   return (
     <div className={cn(PANEL_CLASS, 'sticky bottom-3 z-20 flex flex-col sm:flex-row sm:items-center gap-3 p-3.5 sm:p-4 border-success/30 bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/85')}>
       <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -30,7 +33,7 @@ export const ChecklistSubmitBar = memo(function ChecklistSubmitBar({ instanceId,
           </p>
         </div>
       </div>
-      <Button variant="primary" size="lg" className="gap-2 w-full sm:w-auto bg-success hover:bg-success/90 text-white" isLoading={submit.isPending} onClick={() => submit.mutate(instanceId)}>
+      <Button variant="primary" size="lg" className="gap-2 w-full sm:w-auto bg-success hover:bg-success/90 text-white" isLoading={submit.isPending} onClick={() => submit.mutate(instanceId, { onSuccess: () => navigate('/checklists') })}>
         <Send size={16} aria-hidden />
         {resubmit ? 'Submit again' : 'Submit for approval'}
       </Button>

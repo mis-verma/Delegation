@@ -217,7 +217,7 @@ export const checklistInstanceController = {
         // list/summary above, off by default so this org-wide trend doesn't include it silently.
         const isOrgWide = req.user!.role === "ADMIN" || req.user!.role === "PC"
         const includeDeleted = isOrgWide && (req.query.includeDeleted === "1" || req.query.includeDeleted === "true")
-        const data = await checklistInstanceService.complianceReport(scope, { groupBy: query.groupBy, from: query.from, to: query.to, includeDeleted })
+        const data = await checklistInstanceService.complianceReport(scope, { groupBy: query.groupBy, from: query.from, to: query.to, includeDeleted, assigneeId: query.assigneeId })
         res.json({ success: true, data })
     }),
 

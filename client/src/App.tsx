@@ -12,7 +12,6 @@ import { useChecklistSocket } from './features/checklist/useChecklistSocket';
 // Imported directly (not via features/checklist's barrel) so mounting it here doesn't drag the
 // whole checklist feature — Builder, Compliance Board, etc — into the main entry chunk; those stay
 // behind their own lazy() route imports below.
-import { OverdueChecklistInterstitial } from './features/checklist/instance/OverdueChecklistInterstitial';
 import { useNotificationSocket } from './features/notifications/useNotificationSocket';
 import { MyErrorBoundary, NotFoundPage, MaintenancePage } from './components/error';
 import { RouteFallback } from './components/skeleton';
@@ -80,10 +79,6 @@ const ProtectedRoute = () => {
   }
   return (
     <>
-      {/* Mounted above every authenticated route (main app + /admin alike) so it can surface
-          regardless of where someone lands after logging in — see its own file for the full
-          "escalating overdue" design this is one piece of. */}
-      <OverdueChecklistInterstitial />
       <Outlet />
     </>
   );

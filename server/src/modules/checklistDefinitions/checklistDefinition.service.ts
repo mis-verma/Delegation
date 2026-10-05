@@ -257,7 +257,56 @@ export const listAllChecklistDefinitions = async (filter: Pick<ListChecklistDefi
     return hydrateDefinitions(definitionRows)
 }
 
+// Question types that can carry a good-answer rule (see ChecklistDefinitionItem.acceptableAnswers).
+const SCORABLE_TYPES = new Set(["YES_NO", "PASS_FAIL", "MULTIPLE_CHOICE", "DROPDOWN", "NUMBER_ENTRY", "RATING"])
+const RANGE_TYPES = new Set(["NUMBER_ENTRY", "RATING"])
+
+const hasGoodAnswerRule = (item: { itemType: string; acceptableAnswers: string[] | null; acceptableMin: number | null; acceptableMax: number | null }) =>
+    RANGE_TYPES.has(item.itemType)
+        ? item.acceptableMin != null || item.acceptableMax != null
+        : (item.acceptableAnswers?.length ?? 0) > 0
+
+const GAP_LABELS_SHOWN = 5
+
 export const checklistDefinitionService = {
+    /**
+     * Live checklists whose questions could be scored but have no good answer set, so Answer
+     * compliance has nothing to count for them. One row per live definition that has at least one such
+     * question; fully set-up and score-less (no scorable question) checklists are left out.
+     */
+    async scoringGaps() {
+        const rows = await db
+            .select({
+                definitionId: checklistDefinitions.id,
+                name: checklistDefinitions.name,
+                recurrence: checklistDefinitions.recurrence,
+                isActive: checklistDefinitions.isActive,
+                label: checklistDefinitionItems.label,
+                order: checklistDefinitionItems.order,
+                itemType: checklistDefinitionItems.itemType,
+                acceptableAnswers: checklistDefinitionItems.acceptableAnswers,
+                acceptableMin: checklistDefinitionItems.acceptableMin,
+                acceptableMax: checklistDefinitionItems.acceptableMax,
+            })
+            .from(checklistDefinitionItems)
+            .innerJoin(checklistDefinitions, eq(checklistDefinitions.id, checklistDefinitionItems.definitionId))
+            .where(and(isNull(checklistDefinitions.deletedAt), eq(checklistDefinitions.isActive, true)))
+            .orderBy(asc(checklistDefinitions.name), asc(checklistDefinitionItems.order))
+
+        const byDefinition = new Map<string, { id: string; name: string; recurrence: string; scorable: number; unscored: number; labels: string[] }>()
+        for (const r of rows) {
+            if (!SCORABLE_TYPES.has(r.itemType)) continue
+            const entry = byDefinition.get(r.definitionId) ?? { id: r.definitionId, name: r.name, recurrence: r.recurrence, scorable: 0, unscored: 0, labels: [] }
+            entry.scorable += 1
+            if (!hasGoodAnswerRule(r)) {
+                entry.unscored += 1
+                if (entry.labels.length < GAP_LABELS_SHOWN) entry.labels.push(r.label)
+            }
+            byDefinition.set(r.definitionId, entry)
+        }
+        return [...byDefinition.values()].filter((d) => d.unscored > 0).sort((a, b) => b.unscored - a.unscored || a.name.localeCompare(b.name))
+    },
+
     async list(filter: ListChecklistDefinitionsFilter) {
         const p = paginateDefinitions(filter.page, filter.limit)
         const conditions = [NOT_DELETED]

@@ -35,6 +35,8 @@ const reportBoundary = z.union([z.string().datetime({ offset: true }), z.string(
 export const checklistInstanceComplianceReportQuerySchema = z.object({
     groupBy: z.enum(["day", "week", "month", "year", "none"]).default("day"),
     storeId: objectId.optional(),
+    // Narrows the whole report to runs this person is assigned to.
+    assigneeId: objectId.optional(),
     from: reportBoundary.optional(),
     to: reportBoundary.optional(),
 })

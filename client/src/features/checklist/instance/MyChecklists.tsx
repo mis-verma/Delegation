@@ -336,10 +336,10 @@ export const MyChecklists = () => {
           assigned to you today
         </div>
 
-        {/* Stays up while anything is overdue: one step up from the red Overdue tile, one step down
-            from the full-screen overdue interstitial (OverdueChecklistInterstitial, mounted
-            app-wide). One short line, tap to see them. Held back until the summary has loaded so it
-            never flashes in or out on a count that is still the 0 default. */}
+        {/* Stays up while anything of today's is overdue (past its cutoff, still not filled): one
+            step up from the red Overdue tile. Yesterday's misses are not in these counts, a new day
+            starts clean. One short line, tap to see them. Held back until the summary has loaded so
+            it never flashes in or out on a count that is still the 0 default. */}
         {!summaryPending && counts.overdue > 0 && quickFilter !== 'overdue' && (
           <button
             type="button"

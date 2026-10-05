@@ -21,6 +21,12 @@ export const checklistDefinitionController = {
         res.json({ success: true, ...result })
     }),
 
+    // GET /checklist-definitions/scoring-gaps: live checklists with questions that have no good answer set
+    scoringGaps: asyncHandler(async (_req: Request, res: Response) => {
+        const data = await checklistDefinitionService.scoringGaps()
+        res.json({ success: true, data })
+    }),
+
     getOne: asyncHandler(async (req: Request, res: Response) => {
         const definition = await checklistDefinitionService.getById(req.params.id)
         res.json({ success: true, data: definition })

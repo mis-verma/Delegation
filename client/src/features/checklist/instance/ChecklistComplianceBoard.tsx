@@ -1,6 +1,6 @@
 import { memo, useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { AlertTriangle, Check, ClipboardCheck, Clock, Minus, SearchX, SlidersHorizontal, Store, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, Check, ChevronDown, ClipboardCheck, Clock, Minus, SearchX, SlidersHorizontal, Store, X, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -20,6 +20,7 @@ import { GroupByControl, type GroupBy } from '../../admin/analytics/GroupByContr
 import { ChecklistInstanceKpiSection } from '../../admin/analytics/ChecklistInstanceKpiSection';
 import { endOfDay } from '../../../lib/dateRange';
 import { ChecklistReportButton } from '../report/ChecklistReportButton';
+import { ChecklistScoringGaps } from './ChecklistScoringGaps';
 import type { ChecklistInstance, ChecklistInstanceStatus } from '../../../api/checklistInstances';
 
 const STATUS_OPTIONS: { value: '' | ChecklistInstanceStatus; label: string }[] = [
@@ -163,6 +164,23 @@ const ComplianceRowSkeleton = () => (
   </div>
 );
 
+// One applied filter, with an X to drop just that one without opening the panel.
+const ActiveFilterChip = ({ label, onRemove }: { label: string; onRemove: () => void }) => (
+  <span className="flex items-center gap-1 h-8 pl-3 pr-1 rounded-full border border-primary-500/30 bg-primary-500/10 text-xs font-display font-medium text-primary-700 dark:text-primary-300">
+    {label}
+    <button
+      type="button"
+      onClick={onRemove}
+      aria-label={`Remove filter: ${label}`}
+      className="flex items-center justify-center size-6 rounded-full text-primary-700/70 dark:text-primary-300/70 hover:bg-primary-500/15 hover:text-primary-700 dark:hover:text-primary-200 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+    >
+      <X size={13} aria-hidden />
+    </button>
+  </span>
+);
+
+const shortDay = (d: Date) => d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+
 const personName = (p: { firstName: string; lastName: string | null; email?: string }) =>
   `${p.firstName} ${p.lastName ?? ''}`.trim() || p.email || 'Unknown';
 
@@ -213,6 +231,9 @@ export const ChecklistComplianceBoard = () => {
     setPage(1);
   };
   const hasFilters = !!(storeId || assigneeId || status || includeDeleted || range.from || range.to || quickFilter !== 'all');
+  // The Filters button's badge counts the controls inside the panel; the stat tiles below have their own highlight.
+  const filterCount = [storeId, assigneeId, status, includeDeleted, range.from || range.to].filter(Boolean).length;
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const clearFilters = () => {
     setStoreIdState('');
     setAssigneeIdState('');
@@ -241,6 +262,10 @@ export const ChecklistComplianceBoard = () => {
   }, [allPeople, formerPeople]);
   const storeNameById = useMemo(() => new Map(stores.map(s => [s.id, s.name])), [stores]);
   const namesLoading = allPeoplePending || formerPending;
+  // Names the store/person picked, so the stats heading says whose numbers they are.
+  const scopeLabel = [assigneeId ? nameById.get(assigneeId) : undefined, storeId ? storeNameById.get(storeId) : undefined]
+    .filter(Boolean)
+    .join(' · ');
 
   const storeOptions = useMemo(() => stores.map(s => ({ value: s.id, label: s.name })), [stores]);
   const personOptions = useMemo(() => people.map(p => ({ value: p.id, label: personName(p) })), [people]);
@@ -289,78 +314,129 @@ export const ChecklistComplianceBoard = () => {
         actions={<ChecklistReportButton />}
       />
 
-      {/* One filter panel for the whole page: everything that narrows what's shown below lives here. */}
-      <section aria-label="Filters" className={cn(PANEL_CLASS, 'flex flex-col gap-4 p-4 sm:p-5')}>
-        <div className="flex items-center gap-2">
-          <span className="flex items-center justify-center size-7 rounded-lg bg-primary-500/10 text-primary-700 dark:text-primary-300 shrink-0">
-            <SlidersHorizontal size={14} aria-hidden />
-          </span>
-          <h2 className="text-sm font-display font-bold text-text">Filters</h2>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <Button variant="outline" size="lg" className="px-4 text-sm" onClick={setLastMonth}>
-            Last month
-          </Button>
-          <GroupByControl groupBy={groupBy} onGroupByChange={setGroupBy} range={range} onRangeChange={setRange} />
-        </div>
-
-        <div className="flex flex-wrap items-end gap-3 pt-4 border-t border-dashed border-border/60">
-          <div className="flex flex-col gap-1.5 w-full sm:w-52">
-            <label htmlFor="compliance-store" className={FIELD_LABEL}>Store</label>
-            <Combobox
-              id="compliance-store"
-              value={storeId}
-              onChange={setStoreId}
-              options={storeOptions}
-              emptyOptionLabel="All stores"
-              isLoading={storesPending}
-              className={cn(CONTROL_H, 'rounded-xl')}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5 w-full sm:w-52">
-            <label htmlFor="compliance-person" className={FIELD_LABEL}>Person</label>
-            <Combobox
-              id="compliance-person"
-              value={assigneeId}
-              onChange={setAssigneeId}
-              options={personOptions}
-              emptyOptionLabel="All people"
-              className={cn(CONTROL_H, 'rounded-xl')}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5 w-full sm:w-fit">
-            <span id="compliance-status-label" className={FIELD_LABEL}>Status</span>
-            <Tabs value={status} onValueChange={(v) => setStatus(v as '' | ChecklistInstanceStatus)}>
-              <TabsList aria-labelledby="compliance-status-label" className={cn(CONTROL_H, 'w-full sm:w-fit')}>
-                {STATUS_OPTIONS.map(opt => (
-                  <TabsTrigger key={opt.value || 'all'} value={opt.value} className="h-full text-xs">
-                    {opt.label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
-          </div>
-          <label
-            htmlFor="compliance-include-deleted"
-            className={cn(
-              CONTROL_H,
-              'flex items-center gap-2.5 px-3 rounded-xl border text-xs font-display font-medium cursor-pointer transition-colors duration-150',
-              includeDeleted
-                ? 'border-primary-500/50 bg-primary-500/10 text-primary-700 dark:text-primary-300'
-                : 'border-border bg-surface text-text-secondary hover:border-border-hover',
-            )}
+      {/* One Filters button for the whole page: everything that narrows the stats and the list lives behind it. */}
+      <section aria-label="Filters" className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            size="lg"
+            className="px-4 text-sm gap-2"
+            onClick={() => setFiltersOpen((v) => !v)}
+            aria-expanded={filtersOpen}
+            aria-controls="compliance-filter-panel"
           >
-            <Switch id="compliance-include-deleted" checked={includeDeleted} onChange={setIncludeDeleted} />
-            Show deleted checklists
-          </label>
+            <SlidersHorizontal size={15} aria-hidden />
+            Filters
+            {filterCount > 0 && (
+              <span className="flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-primary-600 text-[11px] font-bold text-white tabular-nums">
+                {filterCount}
+              </span>
+            )}
+            <ChevronDown size={15} aria-hidden className={cn('transition-transform duration-200 motion-reduce:transition-none', filtersOpen && 'rotate-180')} />
+          </Button>
+
+          {storeId && <ActiveFilterChip label={storeNameById.get(storeId) ?? 'Store'} onRemove={() => setStoreId('')} />}
+          {assigneeId && <ActiveFilterChip label={nameById.get(assigneeId) ?? 'Person'} onRemove={() => setAssigneeId('')} />}
+          {status && <ActiveFilterChip label={STATUS_OPTIONS.find((o) => o.value === status)?.label ?? 'Status'} onRemove={() => setStatus('')} />}
+          {includeDeleted && <ActiveFilterChip label="Deleted checklists shown" onRemove={() => setIncludeDeleted(false)} />}
+          {(range.from || range.to) && (
+            <ActiveFilterChip
+              label={range.from && range.to ? `${shortDay(range.from)} to ${shortDay(range.to)}` : range.from ? `From ${shortDay(range.from)}` : `Until ${shortDay(range.to!)}`}
+              onRemove={() => setRange({ from: null, to: null })}
+            />
+          )}
+          {hasFilters && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="h-8 px-2.5 rounded-lg text-xs font-display font-medium text-text-muted hover:text-danger hover:bg-danger/10 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+            >
+              Clear all
+            </button>
+          )}
         </div>
+
+        {filtersOpen && (
+          <div id="compliance-filter-panel" className={cn(PANEL_CLASS, 'flex flex-col gap-4 p-4 sm:p-5')}>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button variant="outline" size="lg" className="px-4 text-sm" onClick={setLastMonth}>
+                Last month
+              </Button>
+              <GroupByControl groupBy={groupBy} onGroupByChange={setGroupBy} range={range} onRangeChange={setRange} />
+            </div>
+
+            <div className="flex flex-wrap items-end gap-3 pt-4 border-t border-dashed border-border/60">
+              <div className="flex flex-col gap-1.5 w-full sm:w-52">
+                <label htmlFor="compliance-store" className={FIELD_LABEL}>Store</label>
+                <Combobox
+                  id="compliance-store"
+                  value={storeId}
+                  onChange={setStoreId}
+                  options={storeOptions}
+                  emptyOptionLabel="All stores"
+                  isLoading={storesPending}
+                  className={cn(CONTROL_H, 'rounded-xl')}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5 w-full sm:w-52">
+                <label htmlFor="compliance-person" className={FIELD_LABEL}>Person</label>
+                <Combobox
+                  id="compliance-person"
+                  value={assigneeId}
+                  onChange={setAssigneeId}
+                  options={personOptions}
+                  emptyOptionLabel="All people"
+                  className={cn(CONTROL_H, 'rounded-xl')}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5 w-full sm:w-fit">
+                <span id="compliance-status-label" className={FIELD_LABEL}>Status</span>
+                <Tabs value={status} onValueChange={(v) => setStatus(v as '' | ChecklistInstanceStatus)}>
+                  <TabsList aria-labelledby="compliance-status-label" className={cn(CONTROL_H, 'w-full sm:w-fit')}>
+                    {STATUS_OPTIONS.map(opt => (
+                      <TabsTrigger key={opt.value || 'all'} value={opt.value} className="h-full text-xs">
+                        {opt.label}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                </Tabs>
+              </div>
+              <label
+                htmlFor="compliance-include-deleted"
+                className={cn(
+                  CONTROL_H,
+                  'flex items-center gap-2.5 px-3 rounded-xl border text-xs font-display font-medium cursor-pointer transition-colors duration-150',
+                  includeDeleted
+                    ? 'border-primary-500/50 bg-primary-500/10 text-primary-700 dark:text-primary-300'
+                    : 'border-border bg-surface text-text-secondary hover:border-border-hover',
+                )}
+              >
+                <Switch id="compliance-include-deleted" checked={includeDeleted} onChange={setIncludeDeleted} />
+                Show deleted checklists
+              </label>
+            </div>
+            <p className="text-xs font-display text-text-muted">
+              Store, person and dates change the figures and the list. Status only changes the list.
+            </p>
+          </div>
+        )}
       </section>
+
+      <ChecklistScoringGaps />
 
       {/* isOrgWideRole=false here on purpose: these cards' click destination on the Overview page
           is this exact page, so on this page itself there's nowhere further to send a click; the
           real per-instance rows they'd otherwise link to already render directly below. */}
-      <ChecklistInstanceKpiSection groupBy={groupBy} from={reportFrom} to={reportTo} isOrgWideRole={false} includeDeleted={includeDeleted} />
+      <ChecklistInstanceKpiSection
+        groupBy={groupBy}
+        from={reportFrom}
+        to={reportTo}
+        isOrgWideRole={false}
+        includeDeleted={includeDeleted}
+        storeId={storeId || undefined}
+        assigneeId={assigneeId || undefined}
+        scopeLabel={scopeLabel || undefined}
+      />
 
       <div className="flex items-center gap-3 pt-4 border-t border-border/60">
         <h2 className="text-sm font-display font-bold text-text shrink-0">Who's done what</h2>

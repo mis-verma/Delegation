@@ -222,7 +222,22 @@ const definitionDefaults = withArrayDefaults({
 const normalizeDefinition = (raw: unknown) => normalizeWith<ChecklistDefinition>(definitionDefaults, raw);
 const normalizeDefinitions = (raw: unknown[]) => raw.map(normalizeDefinition);
 
+/** A live checklist with questions that could be scored but have no good answer set. */
+export type ChecklistScoringGap = {
+  id: string;
+  name: string;
+  recurrence: ChecklistRecurrence;
+  /** Questions that can carry a good-answer rule. */
+  scorable: number;
+  /** Of those, how many have none. */
+  unscored: number;
+  /** The first few unscored question labels. */
+  labels: string[];
+};
+
 export const checklistDefinitionApi = {
+  getScoringGaps: () => apiFetch<ApiResponse<ChecklistScoringGap[]>>('/checklist-definitions/scoring-gaps'),
+
   getAll: (params: ListChecklistDefinitionsParams = {}) =>
     apiFetch<ApiResponse<ChecklistDefinition[]> & { meta: ChecklistDefinitionsPage }>(`/checklist-definitions${buildQuery({
       storeId: params.storeId,

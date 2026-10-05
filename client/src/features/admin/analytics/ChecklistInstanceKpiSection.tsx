@@ -14,12 +14,17 @@ interface ChecklistInstanceKpiSectionProps {
    *  rates. Passed down from the Compliance Board's own "Show deleted checklists" toggle when this
    *  section is embedded there. */
   includeDeleted?: boolean;
+  /** Narrow every figure and the trend to one store and/or one person. */
+  storeId?: string;
+  assigneeId?: string;
+  /** Names of the active store/person filters, shown as the heading so the numbers say whose they are. */
+  scopeLabel?: string;
 }
 
 const NOTHING_COUNTED = 'Nothing counted in this period';
 
-export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole, includeDeleted }: ChecklistInstanceKpiSectionProps) => {
-  const { data: rows, isPending, isError, isFetching, refetch } = useChecklistInstanceComplianceReportQuery(groupBy, from, to, includeDeleted);
+export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole, includeDeleted, storeId, assigneeId, scopeLabel }: ChecklistInstanceKpiSectionProps) => {
+  const { data: rows, isPending, isError, isFetching, refetch } = useChecklistInstanceComplianceReportQuery(groupBy, from, to, { includeDeleted, storeId, assigneeId });
   const completion = latestWithTrend(rows, 'completionRate', 'rate');
   const compliance = latestWithTrend(rows, 'complianceRate', 'rate');
   const quality = latestWithTrend(rows, 'qualityRate', 'rate');
@@ -34,8 +39,10 @@ export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole, 
   return (
     <KpiSectionShell
       icon={Repeat}
-      title="Store checklists"
-      description="How much of each period's checklist work was finished on time, answered inside the accepted range, backed by photos and approved the first time. Runs that are not due yet are left out."
+      title={scopeLabel || 'Store checklists'}
+      description={scopeLabel
+        ? "Only checklists assigned to this selection. A shared checklist counts for everyone it is assigned to. Runs that are not due yet are left out."
+        : "How much of each period's checklist work was finished on time, answered inside the accepted range, backed by photos and approved the first time. Runs that are not due yet are left out."}
       isPending={isPending}
       isError={isError}
       isFetching={isFetching}

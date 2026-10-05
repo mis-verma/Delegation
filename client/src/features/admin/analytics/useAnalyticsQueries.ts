@@ -55,11 +55,19 @@ export const useTicketTatReportQuery = (groupBy: ReportGroupBy, from?: string, t
   });
 };
 
-export const useChecklistInstanceComplianceReportQuery = (groupBy: ReportGroupBy, from?: string, to?: string, includeDeleted?: boolean) => {
+/** Optional store / person narrow the whole report; omit both for the org-wide (or role-scoped) figures. */
+export interface ChecklistReportFilters {
+  includeDeleted?: boolean;
+  storeId?: string;
+  assigneeId?: string;
+}
+
+export const useChecklistInstanceComplianceReportQuery = (groupBy: ReportGroupBy, from?: string, to?: string, filters: ChecklistReportFilters = {}) => {
+  const { includeDeleted, storeId, assigneeId } = filters;
   const { token, user } = useAuth();
   return useQuery({
-    queryKey: ['analytics', 'checklist-instance-compliance', groupBy, from, to, includeDeleted],
-    queryFn: () => checklistInstanceApi.getComplianceReport(groupBy, undefined, from, to, includeDeleted).then((r) => r.data),
+    queryKey: ['analytics', 'checklist-instance-compliance', groupBy, from, to, includeDeleted, storeId, assigneeId],
+    queryFn: () => checklistInstanceApi.getComplianceReport(groupBy, storeId, from, to, includeDeleted, assigneeId).then((r) => r.data),
     enabled: !!token && canViewOrgReports(user?.role),
     ...REPORT_OPTIONS,
   });

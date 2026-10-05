@@ -479,12 +479,13 @@ export const checklistInstanceApi = {
   deleteImage: (id: string) =>
     apiFetch<ApiResponse<{ deleted: boolean }>>(`/checklist-instance-images/${id}`, { method: 'DELETE' }),
 
-  getComplianceReport: (groupBy: ComplianceReportGroupBy = 'month', storeId?: string, from?: string, to?: string, includeDeleted?: boolean) => {
+  getComplianceReport: (groupBy: ComplianceReportGroupBy = 'month', storeId?: string, from?: string, to?: string, includeDeleted?: boolean, assigneeId?: string) => {
     const params = new URLSearchParams({ groupBy });
     if (storeId) params.set('storeId', storeId);
     if (from) params.set('from', toDayParam(from));
     if (to) params.set('to', toDayParam(to));
     if (includeDeleted) params.set('includeDeleted', '1');
+    if (assigneeId) params.set('assigneeId', assigneeId);
     return apiFetch<ApiResponse<ComplianceReportRow[]>>(`/checklist-instances/reports/compliance?${params.toString()}`);
   },
 
