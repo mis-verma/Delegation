@@ -11,6 +11,28 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Karya</title>
 
+  <!-- Applies the saved theme before the first paint. ThemeContext only stamps data-theme from an
+       effect, which runs after the browser has already drawn a frame, so a dark-mode user saw a
+       white flash on every load. Same rule as ThemeContext: 'tm-theme' = light | dark | system, with
+       system (or nothing saved) following the OS. The inline background colours are the page
+       colours from index.css, so the frame before the stylesheet arrives is not white either. -->
+  <script>
+    (function () {
+      var dark = false;
+      try {
+        var saved = localStorage.getItem('tm-theme');
+        dark = saved === 'dark' || (saved !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      } catch (e) {
+        dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      }
+      var root = document.documentElement;
+      root.setAttribute('data-theme', dark ? 'dark' : 'light');
+      if (dark) root.classList.add('dark');
+      root.style.backgroundColor = dark ? '#0b1020' : '#f5f7fb';
+      root.style.colorScheme = dark ? 'dark' : 'light';
+    })();
+  </script>
+
   <!-- Fonts are requested from here rather than via `@import` in index.css, so the font CSS
        downloads in parallel with our stylesheet instead of chaining behind it. gstatic (where the
        woff2 files themselves live) needs `crossorigin` for the preconnect to be reused by the

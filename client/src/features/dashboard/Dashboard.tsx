@@ -20,10 +20,9 @@ export const Dashboard = () => {
   // in-flow rail — keys off 1024px (`lg`) instead: a tablet in the 768-1023px gap used to get the
   // same full ~260px expanded rail as a desktop, which on an ~820px-wide screen left barely more
   // room for content than the phone drawer did. Below `lg`, the rail now starts collapsed to icons
-  // (still one tap to expand); a real desktop still opens expanded as before.
-  const [sidebarOpen, setSidebarOpen] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches,
-  );
+  // (still one tap to expand). The desktop rail now starts collapsed too: icons only, with each name
+  // shown in a tooltip on hover, so the page gets the full width until someone expands it.
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   // `sidebarOpen` means two different things depending on viewport — desktop expanded/collapsed,
   // or mobile drawer open/closed — so this tracks which one, same as AdminLayout's identical
   // split, letting the Escape-to-close effect below only ever apply to the mobile drawer.
@@ -36,7 +35,8 @@ export const Dashboard = () => {
     const mobileMq = window.matchMedia('(min-width: 768px)');
     const railMq = window.matchMedia('(min-width: 1024px)');
     const handleMobileChange = (e: MediaQueryListEvent) => setIsMobileViewport(!e.matches);
-    const handleRailChange = (e: MediaQueryListEvent) => setSidebarOpen(e.matches);
+    // Crossing the desktop breakpoint either way lands on the collapsed rail / closed drawer.
+    const handleRailChange = () => setSidebarOpen(false);
     mobileMq.addEventListener('change', handleMobileChange);
     railMq.addEventListener('change', handleRailChange);
     return () => {
@@ -72,7 +72,7 @@ export const Dashboard = () => {
 
   return (
     <div
-      className="flex flex-col h-svh w-full overflow-hidden text-text transition-colors duration-300"
+      className="flex flex-col h-svh w-full overflow-hidden text-text"
       style={{ background: 'var(--color-background)' }}
     >
       <Header onToggleSidebar={() => setSidebarOpen(v => !v)} />
@@ -105,7 +105,7 @@ export const Dashboard = () => {
              
               <div
                 key={location.pathname}
-                className="flex-1 flex flex-col h-full animate-in fade-in slide-in-from-bottom-3 duration-350 ease-out"
+                className="flex-1 flex flex-col h-full animate-in fade-in duration-200 ease-out motion-reduce:animate-none"
               >
                 <Suspense fallback={<RouteFallback />}>
                   {pageUnderMaintenance ? <PageMaintenance pageName={maintenancePageLabel(location.pathname)} /> : <Outlet />}

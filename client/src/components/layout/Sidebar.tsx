@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router';
+import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { useTaskSummaryQuery } from '../../features/tasks/hook';
 import { useTicketSummaryQuery } from '../../features/tickets/hook';
@@ -75,6 +76,20 @@ const isChildActive = (child: NavChild, location: { pathname: string; search: st
   child.to.includes('?')
     ? `${location.pathname}${location.search}` === child.to
     : location.pathname === child.to;
+
+// Collapsed rail: the name of each icon appears right beside it, instantly (no delay) on hover or
+// keyboard focus. The browser's own `title` tooltip waits about a second and looks out of place. The
+// tooltip renders in a portal, so the rail's overflow clipping cannot cut it off.
+const RailTip = ({ label, show, children }: { label: string; show: boolean; children: ReactNode }) => (
+  <Tooltip delayDuration={0}>
+    <TooltipTrigger asChild>{children}</TooltipTrigger>
+    {show && (
+      <TooltipContent side="right" sideOffset={12} className="shadow-none text-[13px] px-3 py-1.5">
+        {label}
+      </TooltipContent>
+    )}
+  </Tooltip>
+);
 
 interface SidebarProps {
   isOpen: boolean;
@@ -218,18 +233,18 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
     }
   };
 
-  const renderNavItem = ({ to, icon: Icon, label, children, soon, quickCreateTo }: NavItem, isDrawer: boolean, index = 0) => {
+  const renderNavItem = ({ to, icon: Icon, label, children, soon, quickCreateTo }: NavItem, isDrawer: boolean) => {
     const hasActiveChild = children?.some((child) => !child.soon && isChildActive(child, location)) ?? false;
     const hasChildren = !!children?.length;
     const isExpanded = expandedKeys.has(to);
     const showLabel = isDrawer || isOpen;
-    // Same one-authored-moment entrance stagger as AdminLayout's nav rail — plays once when the
-    // sidebar first mounts (login / full page load), not on every route change, since this list
-    // doesn't remount between pages. `motion-reduce:animate-none` keeps it out of the way for
-    // anyone who asked for less motion.
+    // One short fade when the sidebar first mounts (login / full page load). It used to stagger
+    // each row by 40ms with a slide, so the last items were still arriving ~600ms after load, which
+    // read as the sidebar lagging. Now every row fades in together in 150ms.
+    // `motion-reduce:animate-none` keeps it out of the way for anyone who asked for less motion.
     const entranceProps = {
-      className: 'animate-in fade-in slide-in-from-left-1 duration-300 ease-out motion-reduce:animate-none',
-      style: { animationFillMode: 'backwards' as const, animationDelay: `${Math.min(index, 8) * 40}ms` },
+      className: 'animate-in fade-in duration-150 ease-out motion-reduce:animate-none',
+      style: { animationFillMode: 'backwards' as const },
     };
 
     if (soon) {
@@ -275,10 +290,10 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
     return (
       <div key={to} className={entranceProps.className} style={entranceProps.style}>
         <div className="flex items-center gap-1.5">
+          <RailTip label={label} show={!showLabel}>
           <NavLink
             to={to}
             end={to === '/'}
-            title={!showLabel ? label : undefined}
             onClick={handleNavClick}
             className={({ isActive }) =>
               [
@@ -325,6 +340,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
               </>
             )}
           </NavLink>
+          </RailTip>
 
           {showLabel && (
             <SidebarSummaryBadge
@@ -452,7 +468,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
           className="flex flex-col gap-1 flex-1 min-h-0 overflow-y-auto pr-1.5 -mr-1.5 [&::-webkit-scrollbar]:hidden"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
-          {navItems.map((item, i) => renderNavItem(item, isDrawer, i))}
+          {navItems.map((item) => renderNavItem(item, isDrawer))}
 
           {adminNavItems.length > 0 && (
             <>
@@ -473,7 +489,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
                 <span className="size-1.5 rounded-full bg-coral-500 shrink-0" aria-hidden="true" />
                 Admin
               </p>
-              {adminNavItems.map((item, i) => renderNavItem(item, isDrawer, navItems.length + i))}
+              {adminNavItems.map((item) => renderNavItem(item, isDrawer))}
             </>
           )}
         </nav>
