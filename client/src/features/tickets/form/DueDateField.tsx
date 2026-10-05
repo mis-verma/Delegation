@@ -46,7 +46,7 @@ export const DueDateField = ({ mode, control, setValue, errors, categoryTatHours
           animate={{ opacity: 1, height: 'auto' }}
           exit={{ opacity: 0, height: 0 }}
           transition={{ duration: 0.15 }}
-          className="flex flex-col gap-1.5 overflow-hidden"
+          className="-m-1 flex flex-col gap-1.5 overflow-hidden p-1"
         >
           {!hideLabel && <label className="text-xs font-medium text-text-secondary">Due date & time</label>}
           <DatePicker
@@ -75,7 +75,7 @@ export const DueDateField = ({ mode, control, setValue, errors, categoryTatHours
         >
           <Sparkles className="w-4 h-4 shrink-0 text-primary-600 dark:text-primary-400" />
           <span>
-            Auto-assigned tickets are given a default TAT of{' '}
+            Auto-assigned tickets are due within{" "}
             <strong>{categoryTatHours ?? 24} hours</strong>
             {categoryTatHours ? ' (from this category)' : ''}.
           </span>

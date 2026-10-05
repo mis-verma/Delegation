@@ -24,24 +24,24 @@ export const TicketBoardColumn = memo(({ status, tickets, draggable, onOpen, dep
   return (
     <div
       ref={setNodeRef}
-      className={`flex flex-col gap-3 rounded-2xl border min-w-0 p-2.5 transition-all duration-300 h-full ${
+      className={`flex flex-col gap-3 rounded-2xl border min-w-0 p-2 sm:p-2.5 transition-colors duration-300 h-full ${
         isOver
-          ? 'border-primary-400/50 bg-primary-500/5 shadow-[0_0_20px_rgba(var(--color-primary-500),0.05)] scale-[1.01]'
+          ? 'border-primary-400/60 bg-primary-500/5 ring-2 ring-primary-400/25'
           : 'border-border/40 bg-surface-hover/30 hover:bg-surface-hover/50'
       }`}
     >
-      <div className="flex items-center justify-between px-2 py-1.5">
+      <div className="flex items-center justify-between gap-2 px-2 py-1.5">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="relative flex items-center justify-center size-2.5">
             <span className={`absolute inset-0 rounded-full blur-sm opacity-60 ${config.dot}`} />
             <span className={`relative size-2 rounded-full shrink-0 ${config.dot}`} aria-hidden="true" />
           </div>
-          <h3 className="text-[13px] font-display font-bold text-text tracking-wide truncate">
+          <h3 className="text-[13px] font-display font-bold text-text tracking-wide leading-tight break-words">
             {config.label}
           </h3>
         </div>
 
-        <span className="flex items-center justify-center min-w-[1.75rem] h-6 px-2 text-[11px] font-bold text-text-secondary rounded-full bg-surface border border-border/50 shadow-sm tabular-nums">
+        <span className="flex items-center justify-center shrink-0 min-w-7 h-6 px-2 text-[11px] font-bold text-text-secondary rounded-full bg-surface border border-border/50 tabular-nums">
           {tickets.length}
         </span>
       </div>
@@ -60,7 +60,7 @@ export const TicketBoardColumn = memo(({ status, tickets, draggable, onOpen, dep
           ))
         ) : (
           tickets.map((ticket) => (
-            <div key={ticket.id} className="transition-all duration-300 hover:-translate-y-1 hover:shadow-md">
+            <div key={ticket.id} className="transition-transform duration-300 hover:-translate-y-0.5">
               <TicketCard
                 ticket={ticket}
                 onClick={onOpen}

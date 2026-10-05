@@ -126,9 +126,9 @@ export const TicketList = () => {
   const ownScopeOnly = !!user && OWN_SCOPE_ROLES.includes(user.role);
 
   return (
-    <div className="flex flex-col gap-6 mx-auto w-full max-w-(--container-width) transition-all duration-300">
-      
-      <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 sm:gap-6 mx-auto w-full min-w-0 max-w-(--container-width) transition-all duration-300">
+
+      <div className="flex flex-col gap-3 sm:gap-4">
         {/* Same header treatment as Delegation: the visible title block is gone — you arrive from
             a nav item that already says Tickets, and the lead "Total" tile states the same count
             as a number you can click. The heading stays in the accessibility tree so the page
@@ -146,13 +146,13 @@ export const TicketList = () => {
 
         {/* One controls band below the stats, matching Delegation: view toggle + active filters
             on the left, the create action and Options on the right. */}
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-x-3 gap-y-2.5 flex-wrap min-w-0">
           {/* View lives in the toolbar, not inside Options — same as Delegation. It changes what
               the whole page looks like, so it reads as a place you are rather than a setting you
               went and configured. */}
           {/* Hidden on phones (only List is available there), but still mounted: ViewToggle's own
               effect is what switches a saved Board/Table view back to List on a small screen. */}
-          <div className="hidden sm:block">
+          <div className="hidden sm:block shrink-0">
             <ViewToggle tabs={VIEW_TABS} value={organizer.view} onChange={organizer.setView} />
           </div>
 
@@ -162,7 +162,9 @@ export const TicketList = () => {
               only Options is left, so an unconditional auto-margin pushed a single pill hard right
               and left a ~220px dead gap in front of it. Desktop still gets the intentional
               controls-left / actions-right split. */}
-          <div className="flex items-center gap-2.5 flex-wrap shrink-0 sm:ml-auto">
+          {/* `order-first` below sm: Options stays put at the left edge and any active-filter chips
+              wrap in after it, instead of Options jumping sideways each time a chip appears. */}
+          <div className="order-first sm:order-none flex items-center gap-2.5 flex-wrap shrink-0 sm:ml-auto">
             <div className="hidden md:block">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -210,11 +212,11 @@ export const TicketList = () => {
       </div>
 
       {/* Main Display Area */}
-      {isPending && <TicketListSkeleton />}
+      {isPending && <TicketListSkeleton view={organizer.view} />}
 
       {isError && (
-        <div className="flex items-center gap-2.5 p-4 rounded-xl bg-danger/10 border border-danger/20 text-danger text-xs font-display">
-          <AlertCircle size={16} />
+        <div className="flex items-start sm:items-center gap-2.5 p-3 sm:p-4 rounded-xl bg-danger/10 border border-danger/20 text-danger text-xs font-display">
+          <AlertCircle size={16} className="shrink-0" />
           <span>Failed to load tickets. Please check your network connection and try again.</span>
         </div>
       )}

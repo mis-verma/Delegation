@@ -27,7 +27,7 @@ export const TicketStatusHistory = ({ statusUpdates, onPreview }: TicketStatusHi
   if (!statusUpdates || statusUpdates.length === 0) return null;
 
   return (
-    <section className="flex flex-col gap-3">
+    <section className="flex flex-col gap-3 min-w-0">
       <h3 className={DETAIL_HEADING_CLASS}>
         <History size={14} className="text-text-light" />
         Status history
@@ -72,12 +72,12 @@ export const TicketStatusHistory = ({ statusUpdates, onPreview }: TicketStatusHi
                     )}
                   </div>
 
-                  <p className="text-[11px] font-medium text-text-muted tabular-nums leading-tight">
+                  <p className="text-xs font-medium text-text-muted tabular-nums leading-snug break-words">
                     {author ? `${author} · ` : ''}{formatStamp(su.createdAt)}
                   </p>
 
                   {su.remark && (
-                    <p className="text-xs text-text-secondary leading-relaxed whitespace-pre-wrap break-words pl-2.5 border-l-2 border-primary-500/30">
+                    <p className="text-sm sm:text-[13px] text-text-secondary leading-relaxed whitespace-pre-wrap break-words pl-2.5 border-l-2 border-primary-500/30">
                       {su.remark}
                     </p>
                   )}
@@ -88,7 +88,7 @@ export const TicketStatusHistory = ({ statusUpdates, onPreview }: TicketStatusHi
                         <Camera size={12} className="text-text-light" />
                         {su.photos.length} {su.photos.length === 1 ? 'photo' : 'photos'}
                       </span>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2 max-w-md">
                         {su.photos.map((photo) => {
                           const imageUrl = `${UPLOADS_BASE}${photo.url}`;
                           return (
@@ -96,7 +96,7 @@ export const TicketStatusHistory = ({ statusUpdates, onPreview }: TicketStatusHi
                               key={photo.id}
                               type="button"
                               onClick={() => onPreview(imageUrl)}
-                              className="group/photo relative size-14 rounded-lg border border-border/60 overflow-hidden bg-surface-hover cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+                              className="group/photo relative aspect-square w-full rounded-lg border border-border/60 overflow-hidden bg-surface-hover cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
                               title={photo.captureMethod === 'LIVE' ? 'Taken with the camera' : 'Added from the gallery'}
                               aria-label="Preview photo"
                             >

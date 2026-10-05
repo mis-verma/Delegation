@@ -169,10 +169,10 @@ export function DatePicker({
             type="button"
             disabled={disabled}
             className={cn(
-              'w-full flex items-center gap-2 h-10 px-3 rounded-md border bg-surface text-sm transition-all cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30',
+              'w-full flex items-center gap-2 h-10 pointer-coarse:min-h-11 px-3 rounded-md border bg-surface text-sm transition-all cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30',
               'disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-surface-hover',
               open ? 'border-primary-500' : 'border-border hover:border-border-hover',
-              value && 'pr-9',
+              value && 'pr-9 pointer-coarse:pr-14',
               className,
               triggerClassName,
             )}
@@ -187,7 +187,7 @@ export function DatePicker({
           <button
             type="button"
             aria-label="Clear date"
-            className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 text-text-light bg-surface-hover hover:bg-danger/10 hover:text-danger rounded-full transition-colors shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1.5 pointer-coarse:p-[15px] text-text-light bg-surface-hover hover:bg-danger/10 hover:text-danger rounded-full transition-colors shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
             onClick={(e) => {
               e.stopPropagation();
               onChange(null);

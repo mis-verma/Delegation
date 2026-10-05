@@ -168,12 +168,12 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
         step === 'review' ? (
           <>
             <Button variant="outline" onClick={() => setStep('upload')}>Start over</Button>
-            <div className="flex flex-col items-end gap-1.5">
+            <div className="flex flex-col items-end gap-1.5 min-w-0 text-right">
               {!canPublish && (
                 <p className="text-[11px] font-display text-warning flex items-center gap-1">
                   <AlertCircle size={12} className="shrink-0" />
                   {includedRows.length === 0
-                    ? 'Every row is excluded — include at least one to continue.'
+                    ? 'Every row is excluded. Include at least one to continue.'
                     : `Resolve ${unresolvedCount} row${unresolvedCount === 1 ? '' : 's'} to continue.`}
                 </p>
               )}
@@ -192,7 +192,7 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
           onDrop={onDrop}
-          className={`flex flex-col items-center justify-center gap-3 py-14 px-6 rounded-xl border-2 border-dashed cursor-pointer text-center transition-colors ${
+          className={`flex flex-col items-center justify-center gap-3 py-10 sm:py-14 px-4 sm:px-6 rounded-xl border-2 border-dashed cursor-pointer text-center transition-colors ${
             dragOver ? 'border-primary-500 bg-primary-500/5' : 'border-border/80 hover:border-primary-400'
           } ${previewMutation.isPending ? 'pointer-events-none opacity-60' : ''}`}
         >
@@ -212,7 +212,7 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
             </p>
             <p className="text-xs font-display text-text-muted mt-1">CSV or Excel (.xlsx)</p>
             <p className="text-[11px] font-display text-text-light mt-2">
-              Columns: Title, Description, Assignee (email or name), Priority, Department, Store, Category, TAT Hours, Labels — Title and Description are required.
+              Columns: Title, Description, Assignee (email or name), Priority, Department, Store, Category, TAT Hours, Labels. Title and Description are required.
             </p>
           </div>
         </label>
@@ -339,7 +339,7 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
                         onClick={() => updateRow(row.rowIndex, { excluded: !row.excluded })}
                         title={row.excluded ? 'Include row' : 'Exclude row'}
                         aria-label={row.excluded ? 'Include row' : 'Exclude row'}
-                        className="p-1.5 rounded-md text-text-light hover:text-danger hover:bg-danger/10 transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+                        className="flex items-center justify-center size-8 pointer-coarse:size-11 rounded-md text-text-light hover:text-danger hover:bg-danger/10 transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
                       >
                         <X size={14} />
                       </button>

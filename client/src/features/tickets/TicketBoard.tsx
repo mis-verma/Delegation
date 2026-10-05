@@ -64,6 +64,9 @@ export const TicketBoard = ({ tickets, departmentNames, isVerifier = false, onOp
   const verifyMutation = useVerifyTicketMutation();
   const { requestMove, statusRemarkDialog } = useTicketStatusMove();
   const [activeTicket, setActiveTicket] = useState<Ticket | null>(null);
+  // Width of the card being dragged, so the overlay matches whatever the column track is at this
+  // breakpoint instead of a hardcoded size that is wrong at two of the three.
+  const [overlayWidth, setOverlayWidth] = useState<number | undefined>(undefined);
 
   // Mouse, touch and keyboard are three different gestures and need three different activation
   // rules. One PointerSensor treated a finger exactly like a mouse, so a 5px swipe starting on a
@@ -99,6 +102,7 @@ export const TicketBoard = ({ tickets, departmentNames, isVerifier = false, onOp
     if (typeof window !== 'undefined' && window.navigator && window.navigator.vibrate) {
       window.navigator.vibrate(50);
     }
+    setOverlayWidth(event.active.rect.current.initial?.width);
     setActiveTicket(tickets.find(t => t.id === event.active.id) ?? null);
   };
 
@@ -117,7 +121,7 @@ export const TicketBoard = ({ tickets, departmentNames, isVerifier = false, onOp
       // clear reason instead of letting the request round-trip into a 403, same posture as
       // useTaskStatusMove's own "done" guard.
       if (!isVerifier) {
-        toast.error('Only a verifier can close a ticket — send it for review instead.');
+        toast.error('Only a verifier can close a ticket. Send it for review instead.');
         return;
       }
       if (ticket.status !== 'PENDING_APPROVAL') {
@@ -151,7 +155,10 @@ export const TicketBoard = ({ tickets, departmentNames, isVerifier = false, onOp
       <DragOverlay dropAnimation={dropAnimationConfig}>
         {activeTicket && (
          
-          <div className="w-[280px] sm:w-[320px] xl:w-[240px] rotate-2 scale-[1.02] shadow-2xl shadow-black/10 dark:shadow-black/40 cursor-grabbing opacity-100 rounded-xl overflow-hidden ring-1 ring-border/50 bg-surface transform-gpu transition-transform will-change-transform z-50">
+          <div
+            style={{ width: overlayWidth }}
+            className="max-w-[85vw] rotate-2 scale-[1.02] cursor-grabbing rounded-2xl overflow-hidden border border-primary-500/40 ring-2 ring-primary-500/20 bg-surface transform-gpu transition-transform will-change-transform z-50"
+          >
             <TicketCard
               ticket={activeTicket}
               onClick={onOpen}

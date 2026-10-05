@@ -17,3 +17,8 @@ export const PRIORITIES: { value: TicketPriority; label: string; short: string; 
   { value: 'HIGH', label: 'High', short: 'H', outlineClass: 'text-danger/70 hover:bg-danger/5', selectedClass: 'bg-danger/15 text-danger' },
   { value: 'CRITICAL', label: 'Critical', short: 'C', outlineClass: 'text-danger/70 hover:bg-danger/5', selectedClass: 'bg-danger/25 text-danger font-bold' },
 ];
+
+/** Trigger look for the routing grid's pickers (category, department, priority, due date): a full
+ *  width field, 44px tall on phones and 40px from sm up, so every one is an easy thumb target. */
+export const FIELD_TRIGGER_CLASS =
+  'h-11 sm:h-10 px-3 rounded-lg border-border/60 bg-surface hover:border-primary-400 text-sm';

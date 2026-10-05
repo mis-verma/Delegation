@@ -2,6 +2,7 @@ import { memo, useMemo } from 'react';
 import { TicketCard } from '../TicketCard';
 import { TicketGroupHeader } from './TicketGroupHeader';
 import { groupChecklistStats } from './ticketGrouping';
+import { TICKET_GRID_CLASS } from './ticketLayout';
 import type { Ticket } from '../../../api/ticket';
 
 interface TicketGroup {
@@ -32,7 +33,7 @@ const TicketGroupedListComponent = ({
   ), [groups]);
 
   return (
-    <div className="flex flex-col gap-6 sm:gap-8">
+    <div className="flex flex-col gap-5 sm:gap-8">
       {groups.map((group, groupIdx) => {
         const stats = groupChecklistStats(group.tickets);
         const groupOffset = groupOffsets[groupIdx];
@@ -46,7 +47,7 @@ const TicketGroupedListComponent = ({
               stats={stats}
             />
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+            <div className={TICKET_GRID_CLASS}>
               {group.tickets.map((ticket, ticketIdx) => (
                 <TicketCard
                   key={ticket.id}

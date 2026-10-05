@@ -16,7 +16,7 @@ import { resolveAvatarUrl } from '../../../lib/uploadsBase';
 import { ApiError } from '../../../api/http';
 import { DepartmentForm } from '../department/DepartmentForm';
 import { StoreForm } from '../store/StoreForm';
-import type { AdminUser, Role } from '../../../api/admin';
+import type { AdminUser, Role, UpdateUserPayload } from '../../../api/admin';
 import { ROLE_META, ROLE_ORDER, isDepartmentHead } from '../roleBadge';
 import { FormField, FormSection } from './FormField';
 import { PasswordSharedPanel, PasswordVisibilityToggle, ResetPasswordSection } from './PasswordPanels';
@@ -185,23 +185,25 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
     const phone = data.phone?.trim() || undefined;
 
     if (isEditing && user) {
-      updateMutation.mutate(
-        {
-          id: user.id,
-          payload: {
-            firstName: data.firstName,
-            lastName: data.lastName || undefined,
-            email: data.email,
-            phone: phone ?? null,
-            role: data.role,
-            departmentId: departmentPayload ?? null,
-            storeId: storePayload ?? null,
-            gender: data.gender || null,
-            weekOffDays: data.weekOffDays,
-          },
-        },
-        { onSuccess: onClose, onError: handleSaveError },
-      );
+      // Send only what actually changed. The form used to resend everything, so an old phone number
+      // that no longer passes today's rules (or any other untouched field) made a plain role change
+      // fail with a 400 the person could not explain.
+      const payload: UpdateUserPayload = {};
+      if (data.firstName !== user.firstName) payload.firstName = data.firstName;
+      if ((data.lastName ?? '') !== (user.lastName ?? '')) payload.lastName = data.lastName ?? '';
+      if (data.email.trim().toLowerCase() !== user.email.toLowerCase()) payload.email = data.email;
+      if ((phone ?? null) !== ((user.phone?.trim() || null))) payload.phone = phone ?? null;
+      if (data.role !== user.role) payload.role = data.role;
+      if ((departmentPayload ?? null) !== (user.departmentId ?? null)) payload.departmentId = departmentPayload ?? null;
+      if ((storePayload ?? null) !== (user.storeId ?? null)) payload.storeId = storePayload ?? null;
+      if ((data.gender || null) !== (user.gender ?? null)) payload.gender = data.gender || null;
+      if (JSON.stringify([...data.weekOffDays].sort()) !== JSON.stringify([...(user.weekOffDays ?? [])].sort())) payload.weekOffDays = data.weekOffDays;
+
+      if (Object.keys(payload).length === 0) {
+        onClose();
+        return;
+      }
+      updateMutation.mutate({ id: user.id, payload }, { onSuccess: onClose, onError: handleSaveError });
       return;
     }
 

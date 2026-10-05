@@ -13,31 +13,41 @@ interface TicketStatusMenuProps {
   options: TicketStatusOption[];
   onPick: (status: TicketStatus) => void;
   isBusy?: boolean;
+  /** `secondary` when another action (Approve / Reject) owns the footer, so there is still one
+   *  primary button on screen. */
+  emphasis?: 'primary' | 'secondary';
 }
 
 /**
- * The one "Update status" button at the bottom of the ticket sheet. Opens upward with each
- * status as its chip's icon circle plus label; picking one opens the remark popup (the caller
- * decides). Replaces both the old verifier-only colored dropdown and the always-open "Update
- * Status" panel (three buttons, a textarea and photo buttons pinned over half a phone screen).
- * Full width and navy on phones, like the delegation sheet's Advance button.
+ * The one "Update status" button in the ticket sheet's action bar. Opens upward with each status
+ * as its chip's icon circle plus label; picking one opens the remark popup (the caller decides).
+ * On a phone the button spans the bar and the menu matches the button's width, with 44px rows, so
+ * nothing is clipped at the screen edge. From sm up it is a compact button with a 14rem menu.
  */
-export const TicketStatusMenu = ({ options, onPick, isBusy = false }: TicketStatusMenuProps) => (
+export const TicketStatusMenu = ({ options, onPick, isBusy = false, emphasis = 'primary' }: TicketStatusMenuProps) => (
   <DropdownMenu>
     <DropdownMenuTrigger asChild>
       <Button
-        variant="primary"
-        size="sm"
+        variant={emphasis === 'primary' ? 'primary' : 'outline'}
+        size="md"
         isLoading={isBusy}
         disabled={isBusy || options.length === 0}
-        className="max-sm:flex-1 max-sm:h-11 max-sm:bg-primary-700 max-sm:text-white gap-2 font-display"
+        className={`max-sm:w-full max-sm:h-12 gap-2 font-display ${
+          emphasis === 'primary' ? 'max-sm:bg-primary-700 max-sm:text-white' : ''
+        }`}
       >
         {!isBusy && <RefreshCw size={15} strokeWidth={2.5} />}
         Update status
         <ChevronUp size={15} strokeWidth={2.5} className="opacity-70" />
       </Button>
     </DropdownMenuTrigger>
-    <DropdownMenuContent side="top" align="end" sideOffset={8} className="w-56 p-1.5 rounded-xl">
+    <DropdownMenuContent
+      side="top"
+      align="end"
+      sideOffset={8}
+      collisionPadding={16}
+      className="max-sm:w-(--radix-dropdown-menu-trigger-width) max-sm:min-w-0 sm:w-56 p-1.5 rounded-xl pointer-events-auto overscroll-contain"
+    >
       <DropdownMenuLabel className="text-xs font-medium text-text-muted">Move to</DropdownMenuLabel>
       {options.map((opt) => {
         const meta = getStatusChipMeta(opt.value.toLowerCase() as StatusChipStatus);
@@ -46,7 +56,7 @@ export const TicketStatusMenu = ({ options, onPick, isBusy = false }: TicketStat
           <DropdownMenuItem
             key={opt.value}
             onClick={() => onPick(opt.value)}
-            className="gap-2.5 py-2 text-sm font-medium cursor-pointer"
+            className="gap-2.5 min-h-11 sm:min-h-9 py-2 text-sm font-medium cursor-pointer"
           >
             <span className={`flex items-center justify-center size-6 rounded-full text-white shrink-0 ${meta.tone}`}>
               <Icon strokeWidth={2.75} className="size-3 text-white!" />

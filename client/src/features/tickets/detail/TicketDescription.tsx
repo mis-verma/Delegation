@@ -60,7 +60,7 @@ export const TicketDescription = ({ description }: TicketDescriptionProps) => {
           <button
             type="button"
             onClick={handleCopy}
-            className="flex items-center justify-center size-8 rounded-full text-text-light hover:text-primary-600 hover:bg-surface-hover transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]"
+            className="flex items-center justify-center size-11 sm:size-8 rounded-full text-text-light hover:text-primary-600 hover:bg-surface-hover transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]"
             title={copied ? 'Copied' : 'Copy description'}
             aria-label="Copy description"
           >
@@ -69,11 +69,12 @@ export const TicketDescription = ({ description }: TicketDescriptionProps) => {
         )}
       </div>
 
-      <div className="rounded-xl border border-border/50 dark:border-white/[0.06] bg-surface-hover/40 px-3.5 py-3">
+      <div className="rounded-xl border border-border/50 dark:border-white/[0.06] bg-surface-hover/40 px-3.5 py-3 sm:px-4 sm:py-3.5">
         {trimmedText ? (
           <div className="flex flex-col gap-2">
+            {/* 72ch keeps a line readable once the left column is wider than a phone. */}
             <p
-              className={`text-sm text-text-secondary leading-relaxed whitespace-pre-wrap break-words ${
+              className={`max-w-[72ch] text-[15px] sm:text-sm text-text-secondary leading-relaxed whitespace-pre-wrap break-words ${
                 isLongText && !isExpanded ? 'line-clamp-6' : ''
               }`}
             >
@@ -83,7 +84,7 @@ export const TicketDescription = ({ description }: TicketDescriptionProps) => {
               <button
                 type="button"
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="self-start inline-flex items-center gap-1 text-xs font-semibold text-primary-700 dark:text-primary-300 hover:underline cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 rounded"
+                className="self-start inline-flex items-center gap-1 min-h-11 sm:min-h-8 text-xs font-semibold text-primary-700 dark:text-primary-300 hover:underline cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 rounded"
               >
                 {isExpanded ? 'Show less' : 'Show more'}
                 {isExpanded ? <ChevronUp size={14} strokeWidth={2.5} /> : <ChevronDown size={14} strokeWidth={2.5} />}

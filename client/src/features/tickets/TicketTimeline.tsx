@@ -10,10 +10,16 @@ interface TicketTimelineProps {
 const DAY_MS = 86_400_000;
 const startOfDay = (value: string | Date) => new Date(value).setHours(0, 0, 0, 0);
 
-/** Column width per day. Fixed rather than fluid so a 3-week span stays readable and scrolls. */
+/**
+ * Minimum column width per day. A short span stretches to fill the card (no empty strip to the
+ * right on a wide screen); a long one holds this floor so day numbers stay readable and scrolls.
+ */
 const DAY_WIDTH_REM = 3.25;
 /** Beyond this the axis is unreadable at any width, so the span is clamped and the rest scrolls. */
 const MAX_DAYS = 45;
+
+/** Label column: narrower on phones and tablets so the chart keeps room, wider where titles fit. */
+const LABEL_WIDTH = 'w-44 sm:w-52 lg:w-64 xl:w-72';
 
 type Bar = {
   ticket: Ticket;
@@ -86,7 +92,7 @@ const TicketTimelineComponent = ({ tickets, onOpen }: TicketTimelineProps) => {
   }, [tickets]);
 
   const todayIndex = days.findIndex((d) => startOfDay(d) === startOfDay(new Date()));
-  const chartWidth = `${days.length * DAY_WIDTH_REM}rem`;
+  const chartMinWidth = `${days.length * DAY_WIDTH_REM}rem`;
   const ownerName = (ticket: Ticket) => ticket.assignee?.firstName ?? 'Unassigned';
 
   return (
@@ -112,17 +118,16 @@ const TicketTimelineComponent = ({ tickets, onOpen }: TicketTimelineProps) => {
           <div className="overflow-x-auto">
             <div className="min-w-fit">
               <div className="flex sticky top-0 z-20 bg-primary-800">
-                <div className="sticky left-0 z-30 w-52 md:w-64 shrink-0 px-3 py-2.5 bg-primary-800">
+                <div className={`sticky left-0 z-30 ${LABEL_WIDTH} shrink-0 px-3 py-2.5 bg-primary-800`}>
                   <span className="text-xs font-semibold text-white tracking-tight">Ticket</span>
                 </div>
-                <div className="flex" style={{ width: chartWidth }}>
+                <div className="flex flex-1" style={{ minWidth: chartMinWidth }}>
                   {days.map((day, index) => (
                     <div
                       key={day.toISOString()}
-                      className={`shrink-0 px-1 py-2.5 text-center text-[11px] font-semibold tabular-nums ${
+                      className={`flex-1 basis-0 min-w-0 px-1 py-2.5 text-center text-[11px] font-semibold tabular-nums whitespace-nowrap ${
                         index === todayIndex ? 'text-white' : 'text-white/60'
                       }`}
-                      style={{ width: `${DAY_WIDTH_REM}rem` }}
                     >
                       {index === 0 || day.getDate() === 1
                         ? day.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
@@ -139,17 +144,17 @@ const TicketTimelineComponent = ({ tickets, onOpen }: TicketTimelineProps) => {
 
                   return (
                     <li key={ticket.id} className="flex border-t border-border/40">
-                      <div className="sticky left-0 z-10 w-52 md:w-64 shrink-0 flex items-center gap-2 px-3 py-2.5 bg-surface">
+                      <div className={`sticky left-0 z-10 ${LABEL_WIDTH} shrink-0 flex items-center gap-2 px-3 py-2.5 bg-surface`}>
                         <span aria-hidden className={`w-1 self-stretch rounded-full shrink-0 ${priority.bar}`} />
                         <button
                           type="button"
                           onClick={() => onOpen(ticket)}
                           className="flex flex-col min-w-0 text-left cursor-pointer rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 transition-all duration-200 ease-in-out"
                         >
-                          <span className="text-xs font-semibold text-text-secondary tracking-tight truncate">
+                          <span className="text-xs font-semibold text-text-secondary tracking-tight leading-snug line-clamp-2 break-words">
                             {ticket.title}
                           </span>
-                          <span className="text-[10px] font-medium truncate">
+                          <span className="text-[10px] font-medium break-words">
                             {overdue ? (
                               <span className="text-danger font-semibold">Delayed</span>
                             ) : (
@@ -159,15 +164,14 @@ const TicketTimelineComponent = ({ tickets, onOpen }: TicketTimelineProps) => {
                         </button>
                       </div>
 
-                      <div className="relative py-3" style={{ width: chartWidth }}>
+                      <div className="relative flex-1 py-3" style={{ minWidth: chartMinWidth }}>
                         <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-5 flex">
                           {days.map((day, index) => (
                             <div
                               key={day.toISOString()}
-                              className={`shrink-0 h-full ${
+                              className={`flex-1 basis-0 min-w-0 h-full ${
                                 index === todayIndex ? 'bg-primary-500/20' : 'bg-surface-hover/60'
                               }`}
-                              style={{ width: `${DAY_WIDTH_REM}rem` }}
                             />
                           ))}
                         </div>
@@ -182,8 +186,8 @@ const TicketTimelineComponent = ({ tickets, onOpen }: TicketTimelineProps) => {
                             clippedStart ? '' : 'rounded-l-md'
                           } ${clippedEnd ? '' : 'rounded-r-md'}`}
                           style={{
-                            left: `${offset * DAY_WIDTH_REM}rem`,
-                            width: `${span * DAY_WIDTH_REM}rem`,
+                            left: `${(offset / days.length) * 100}%`,
+                            width: `${(span / days.length) * 100}%`,
                           }}
                         >
                           <span className="sr-only">
@@ -221,14 +225,14 @@ const TicketTimelineComponent = ({ tickets, onOpen }: TicketTimelineProps) => {
                       onOpen(ticket);
                     }
                   }}
-                  className="relative flex items-center gap-3 pl-4 pr-3 py-2.5 bg-surface hover:bg-surface-hover/60 focus-visible:bg-surface-hover/60 focus-visible:outline-none transition-colors duration-200 ease-in-out cursor-pointer"
+                  className="relative flex items-center gap-3 pl-4 pr-3 py-2.5 pointer-coarse:py-3 bg-surface hover:bg-surface-hover/60 focus-visible:bg-surface-hover/60 focus-visible:outline-none transition-colors duration-200 ease-in-out cursor-pointer"
                 >
                   <span aria-hidden className={`absolute left-0 top-0 bottom-0 w-1 ${PRIORITY_CONFIG[ticket.priority].bar}`} />
                   <div className="flex flex-col min-w-0">
-                    <span className="text-xs font-semibold text-text-secondary tracking-tight truncate">
+                    <span className="text-xs font-semibold text-text-secondary tracking-tight leading-snug line-clamp-2 break-words">
                       {ticket.title}
                     </span>
-                    <span className="text-[10px] font-medium text-text-muted truncate">
+                    <span className="text-[10px] font-medium text-text-muted break-words">
                       {ownerName(ticket)}
                     </span>
                   </div>

@@ -62,7 +62,7 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, index = 0 }: Tic
     >
       <div className="flex flex-col gap-1 min-w-0 w-full">
         <div className="flex items-start gap-2 min-w-0">
-          <h3 className="flex-1 min-w-0 text-[15px] font-display font-semibold text-text tracking-tight leading-snug line-clamp-2">
+          <h3 className="flex-1 min-w-0 text-[15px] font-display font-semibold text-text tracking-tight leading-snug line-clamp-2 break-words">
             {ticket.title}
           </h3>
           {assigneeName ? (
@@ -78,8 +78,14 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, index = 0 }: Tic
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1.5 text-[11px] font-medium text-text-muted">
+        <div className="flex items-center gap-x-1.5 gap-y-0.5 flex-wrap text-[11px] font-medium text-text-muted">
           <span className="font-mono tracking-tight">{ticketCode(ticket.id)}</span>
+          {isOverdue && (
+            <>
+              <span aria-hidden>·</span>
+              <span className="font-semibold text-danger">Delayed</span>
+            </>
+          )}
           {progress !== null && (
             <>
               <span aria-hidden>·</span>
@@ -89,7 +95,7 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, index = 0 }: Tic
         </div>
       </div>
 
-      <div className="flex items-center gap-1.5 flex-wrap mt-auto w-full">
+      <div className="flex items-center gap-x-1.5 gap-y-2 flex-wrap mt-auto w-full">
         {onHoldRemark ? (
           // StatusChip doesn't forward props, so it can't be the asChild target itself.
           <Tooltip>

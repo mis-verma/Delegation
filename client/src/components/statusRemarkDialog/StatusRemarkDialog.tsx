@@ -139,7 +139,7 @@ export const StatusRemarkDialog = ({
                   type="button"
                   onClick={() => { setRemark(s); textareaRef.current?.focus(); }}
                   aria-pressed={remark === s}
-                  className={`h-8 px-3 rounded-full border text-xs font-medium transition-colors duration-150 cursor-pointer [-webkit-tap-highlight-color:transparent] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
+                  className={`h-11 sm:h-8 px-3.5 sm:px-3 rounded-full border text-xs font-medium transition-colors duration-150 cursor-pointer [-webkit-tap-highlight-color:transparent] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
                     remark === s
                       ? 'border-transparent bg-primary-700 text-white'
                       : 'border-border/60 bg-surface text-text-secondary hover:border-primary-400 active:bg-surface-hover'
@@ -162,8 +162,8 @@ export const StatusRemarkDialog = ({
             maxLength={MAX_REMARK}
             aria-invalid={showError}
             aria-describedby={showError ? 'status-remark-error' : 'status-remark-hint'}
-            placeholder={placeholder ?? 'e.g. Vendor confirmed the parts are shipping Friday — starting the fit-out now.'}
-            className={`w-full resize-none rounded-lg border bg-surface px-3 py-2.5 text-sm text-text placeholder:text-text-light transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500/30 ${
+            placeholder={placeholder ?? 'e.g. Vendor confirmed the parts ship on Friday. Starting the fit-out now.'}
+            className={`w-full resize-none rounded-lg border bg-surface px-3 py-2.5 text-base sm:text-sm text-text placeholder:text-text-light transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500/30 ${
               showError ? 'border-danger focus:border-danger' : 'border-border focus:border-primary-400'
             }`}
           />

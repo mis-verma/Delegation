@@ -128,7 +128,7 @@ export const Combobox = ({
           disabled={disabled || isLoading}
           aria-expanded={open}
           className={cn(
-            'press-feedback flex items-center gap-2 w-full h-10 px-3 rounded-md border bg-surface text-sm transition-colors cursor-pointer',
+            'press-feedback flex items-center gap-2 w-full h-10 pointer-coarse:min-h-11 px-3 rounded-md border bg-surface text-sm transition-colors cursor-pointer',
             'focus:outline-none focus:ring-2 focus:ring-primary-400',
             'disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-border',
             open ? 'border-primary-500' : 'border-border hover:border-primary-400',
@@ -168,7 +168,7 @@ export const Combobox = ({
               setHighlightedIndex(0);
             }}
             onKeyDown={handleKeyDown}
-            className="w-full h-8 rounded-md border border-border bg-background pl-8 pr-2 text-sm text-text placeholder:text-text-light focus:outline-none focus:ring-2 focus:border-primary-400 focus:ring-primary-400/30"
+            className="w-full h-11 sm:h-8 rounded-md border border-border bg-background pl-8 pr-2 text-base sm:text-sm text-text placeholder:text-text-light focus:outline-none focus:ring-2 focus:border-primary-400 focus:ring-primary-400/30"
           />
         </div>
 
@@ -198,7 +198,7 @@ export const Combobox = ({
                     // pick" and "this is where keyboard focus is", never a solid colour block —
                     // that read as a heavy, dated highlight next to the rest of this modal's quiet
                     // surfaces, especially in dark mode where the fill fought the near-black page.
-                    'flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg text-sm font-display font-medium cursor-pointer transition-colors duration-150',
+                    'flex items-center justify-between gap-2 px-3 py-2.5 pointer-coarse:min-h-11 rounded-lg text-sm font-display font-medium cursor-pointer transition-colors duration-150',
                     isSelected
                       ? 'bg-primary-500/10 text-primary-700 dark:text-primary-400 font-semibold'
                       : isHighlighted

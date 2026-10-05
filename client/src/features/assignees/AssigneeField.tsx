@@ -73,7 +73,7 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
               disabled={disabled}
               onClick={() => toggle(u.id)}
               title={`${name} — click to remove`}
-              className={`flex items-center justify-center size-8 rounded-full text-[11px] font-bold text-white shrink-0 cursor-pointer transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:hover:scale-100 ${avatarColorClass(name)}`}
+              className={`relative pointer-coarse:after:absolute pointer-coarse:after:-inset-1.5 flex items-center justify-center size-8 rounded-full text-[11px] font-bold text-white shrink-0 cursor-pointer transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:hover:scale-100 ${avatarColorClass(name)}`}
             >
               {getInitials(name)}
             </button>
@@ -99,7 +99,7 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
                   type="button"
                   title="Add assignee"
                   aria-label="Add assignee"
-                  className="flex items-center gap-1.5 h-8 pl-2 pr-3 rounded-full border border-dashed border-border-hover text-text-light hover:text-primary-600 hover:border-primary-400 transition-colors cursor-pointer shrink-0"
+                  className="relative pointer-coarse:after:absolute pointer-coarse:after:-inset-y-1.5 pointer-coarse:after:inset-x-0 flex items-center gap-1.5 h-8 pl-2 pr-3 rounded-full border border-dashed border-border-hover text-text-light hover:text-primary-600 hover:border-primary-400 transition-colors cursor-pointer shrink-0"
                 >
                   <Plus size={15} strokeWidth={2.5} />
                   <span className="text-xs font-display">Unassigned</span>
@@ -110,7 +110,7 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
                   type="button"
                   title={single ? 'Change assignee' : 'Add assignee'}
                   aria-label={single ? 'Change assignee' : 'Add assignee'}
-                  className="flex items-center justify-center size-8 rounded-full border border-dashed border-border-hover text-text-light hover:text-primary-600 hover:border-primary-400 transition-colors cursor-pointer shrink-0"
+                  className="relative pointer-coarse:after:absolute pointer-coarse:after:-inset-1.5 flex items-center justify-center size-8 rounded-full border border-dashed border-border-hover text-text-light hover:text-primary-600 hover:border-primary-400 transition-colors cursor-pointer shrink-0"
                 >
                   <Plus size={15} strokeWidth={2.5} />
                 </button>

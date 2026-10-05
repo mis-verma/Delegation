@@ -26,26 +26,29 @@ export const StatusPhotoThumbnail = ({
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
+  // Fills its grid cell (the caller lays thumbnails out in a 3 / 4 column grid) and stays square.
+  // The remove button is always visible on touch screens, where there is no hover to reveal it,
+  // and only fades in on hover for a mouse. `after:-inset-1.5` stretches its tap area to 44px.
   return (
-    <div className="group relative h-16 w-16 rounded-xl border border-border bg-surface-hover shrink-0 overflow-hidden transition-all hover:border-border-hover">
+    <div className="group relative aspect-square w-full rounded-xl border border-border bg-surface-hover overflow-hidden transition-colors hover:border-border-hover">
       {previewUrl && (
-        <img 
-          src={previewUrl} 
-          alt={file.name} 
-          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110" 
+        <img
+          src={previewUrl}
+          alt={file.name}
+          className="size-full object-cover transition-transform duration-300 group-hover:scale-110"
         />
       )}
-      
+
       {/* Overlay gradient for better button visibility */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-transparent opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 transition-opacity duration-200 pointer-events-none" />
 
       <button
         type="button"
         onClick={() => onRemove(index)}
-        className="absolute top-1 right-1 p-1 rounded-full bg-surface text-text-muted hover:text-danger border border-border/50 opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-sm cursor-pointer outline-none focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-danger focus-visible:ring-offset-background scale-90 hover:scale-100"
+        className="absolute top-1 right-1 flex items-center justify-center size-8 rounded-full bg-surface text-text-muted hover:text-danger border border-border/50 opacity-0 group-hover:opacity-100 pointer-coarse:opacity-100 transition-all duration-200 cursor-pointer outline-none focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-danger after:absolute after:-inset-1.5"
         aria-label={`Remove ${file.name}`}
       >
-        <X size={12} strokeWidth={2.5} />
+        <X size={14} strokeWidth={2.5} />
       </button>
     </div>
   );

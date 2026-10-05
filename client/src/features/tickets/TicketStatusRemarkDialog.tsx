@@ -57,18 +57,18 @@ const HistoryPreview = ({ statusUpdates }: { statusUpdates: Ticket['statusUpdate
         <History size={13} className="text-primary-500" />
         Recent history
       </span>
-      <div className="flex flex-col gap-1.5 max-h-32 overflow-y-auto pr-1">
+      <div className="flex flex-col gap-1.5">
         {recent.map((su) => (
           <div
             key={su.id}
-            className="flex items-center gap-2 flex-wrap px-2.5 py-2 rounded-lg border border-border/60 bg-surface-hover/30 text-[11px]"
+            className="flex items-center gap-2 flex-wrap px-2.5 py-2 rounded-lg border border-border/60 bg-surface-hover/30 text-xs"
           >
             <StatusChip status={su.fromStatus.toLowerCase() as StatusChipStatus} label={getStatusChipLabel(su.fromStatus.toLowerCase() as StatusChipStatus)} />
             <ArrowRight size={10} strokeWidth={3} className="text-text-light shrink-0" />
             <StatusChip status={su.toStatus.toLowerCase() as StatusChipStatus} label={getStatusChipLabel(su.toStatus.toLowerCase() as StatusChipStatus)} />
             <span className="text-text-muted font-medium ml-auto shrink-0 tabular-nums">{relativeTime(su.createdAt)}</span>
             {su.remark && (
-              <p className="basis-full text-text-secondary font-medium leading-snug truncate" title={su.remark}>
+              <p className="basis-full min-w-0 text-text-secondary font-medium leading-snug break-words line-clamp-2" title={su.remark}>
                 "{su.remark}"
               </p>
             )}
@@ -94,8 +94,9 @@ const PhotoAttachments = ({
     <span className="flex items-center gap-1.5 text-xs font-bold text-text-secondary tracking-tight">
       <ImagePlus size={13} className="text-primary-500" /> Photo (optional)
     </span>
-    <div className="flex items-center gap-2 flex-wrap">
-      <label className="inline-flex items-center justify-center gap-2 text-xs font-bold px-3 py-2 rounded-lg border border-primary-500/30 text-primary-700 dark:text-primary-400 bg-primary-500/10 hover:bg-primary-500/20 cursor-pointer transition-all focus-within:ring-2 focus-within:ring-primary-500 focus-within:ring-offset-1 focus-within:ring-offset-background active:scale-95">
+    {/* Two equal 44px buttons on a phone; compact and content-sized from sm. */}
+    <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+      <label className="inline-flex items-center justify-center gap-2 text-xs font-bold px-3 min-h-11 sm:min-h-9 rounded-lg border border-primary-500/30 text-primary-700 dark:text-primary-400 bg-primary-500/10 hover:bg-primary-500/20 cursor-pointer transition-all focus-within:ring-2 focus-within:ring-primary-500 focus-within:ring-offset-1 focus-within:ring-offset-background active:scale-95">
         <Camera size={14} strokeWidth={2.5} />
         <span>Camera</span>
         <input
@@ -107,7 +108,7 @@ const PhotoAttachments = ({
           onChange={(e) => { onAddPhotos(e.target.files, 'LIVE'); e.target.value = ''; }}
         />
       </label>
-      <label className="inline-flex items-center justify-center gap-2 text-xs font-bold px-3 py-2 rounded-lg border border-border text-text-secondary bg-surface hover:bg-surface-hover cursor-pointer transition-all focus-within:ring-2 focus-within:ring-primary-500 focus-within:ring-offset-1 focus-within:ring-offset-background active:scale-95">
+      <label className="inline-flex items-center justify-center gap-2 text-xs font-bold px-3 min-h-11 sm:min-h-9 rounded-lg border border-border text-text-secondary bg-surface hover:bg-surface-hover cursor-pointer transition-all focus-within:ring-2 focus-within:ring-primary-500 focus-within:ring-offset-1 focus-within:ring-offset-background active:scale-95">
         <ImageUp size={14} strokeWidth={2.5} />
         <span>Gallery</span>
         <input
@@ -120,7 +121,7 @@ const PhotoAttachments = ({
       </label>
     </div>
     {photos.length > 0 && (
-      <div className="flex flex-wrap gap-2 pt-1">
+      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 pt-1">
         {photos.map((file, index) => (
           <StatusPhotoThumbnail
             key={`${file.name}-${file.lastModified}-${index}`}

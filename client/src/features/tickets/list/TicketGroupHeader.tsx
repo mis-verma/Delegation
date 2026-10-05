@@ -14,10 +14,11 @@ export const TicketGroupHeader = ({ label, groupBy, ticketCount, stats }: Ticket
   const Icon = groupBy === 'department' ? Building2 : User;
 
   return (
-    <div className="flex items-center justify-between gap-3 px-0.5">
+    <div className="flex items-center justify-between gap-x-3 gap-y-1 flex-wrap px-0.5">
       <div className="flex items-center gap-2 min-w-0">
         <EntityIconTile icon={Icon} tone={groupBy === 'department' ? 'coral' : 'primary'} className="size-6 sm:size-7 rounded-md shrink-0" />
-        <h3 className="text-sm font-display font-semibold text-text tracking-tight leading-snug">
+        {/* Wraps rather than truncates: a long department or person name must stay readable. */}
+        <h3 className="min-w-0 text-sm font-display font-semibold text-text tracking-tight leading-snug break-words">
           {label}
         </h3>
         <span className="text-xs font-semibold text-text-muted tabular-nums shrink-0">{ticketCount}</span>
