@@ -26,11 +26,11 @@ export const TicketVerificationActions = ({ isPending, onApprove, onReject }: Ti
   return (
     <div className="flex flex-col gap-3 min-w-0">
       {!isRejecting ? (
-        // 48px buttons on a phone, 40px from sm. Approve is the primary (solid green, first).
+        // 44px buttons on a phone, 40px from sm. Approve is the primary (solid green, first).
         <div className="grid grid-cols-2 gap-2 sm:gap-3">
           <Button
             variant="primary"
-            className="h-12 sm:h-10 gap-2 bg-success hover:bg-success/90 text-white font-bold rounded-xl transition-all outline-none focus-visible:ring-2 focus-visible:ring-success focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-95"
+            className="h-11 sm:h-10 gap-2 bg-success hover:bg-success/90 text-white font-bold rounded-xl transition-all outline-none focus-visible:ring-2 focus-visible:ring-success focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-95"
             isLoading={isPending}
             onClick={onApprove}
           >
@@ -40,7 +40,7 @@ export const TicketVerificationActions = ({ isPending, onApprove, onReject }: Ti
 
           <Button
             variant="outline"
-            className="h-12 sm:h-10 gap-2 border-danger/30 text-danger bg-surface hover:bg-danger/10 font-bold rounded-xl transition-all outline-none focus-visible:ring-2 focus-visible:ring-danger focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-95"
+            className="h-11 sm:h-10 gap-2 border-danger/30 text-danger bg-surface hover:bg-danger/10 font-bold rounded-xl transition-all outline-none focus-visible:ring-2 focus-visible:ring-danger focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-95"
             disabled={isPending}
             onClick={startReject}
           >
@@ -78,7 +78,7 @@ export const TicketVerificationActions = ({ isPending, onApprove, onReject }: Ti
           <div className="flex flex-col gap-2 sm:flex-row-reverse sm:justify-start sm:gap-3">
             <Button
               variant="primary"
-              className="h-12 sm:h-10 sm:min-w-32 bg-danger hover:bg-danger/90 text-white font-bold rounded-xl transition-all outline-none focus-visible:ring-2 focus-visible:ring-danger focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="h-11 sm:h-10 sm:min-w-32 bg-danger hover:bg-danger/90 text-white font-bold rounded-xl transition-all outline-none focus-visible:ring-2 focus-visible:ring-danger focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isPending || !canSubmitReject}
               onClick={() => onReject(trimmedNote)}
             >
@@ -87,7 +87,7 @@ export const TicketVerificationActions = ({ isPending, onApprove, onReject }: Ti
 
             <Button
               variant="outline"
-              className="h-12 sm:h-10 sm:min-w-24 rounded-xl font-bold border-border text-text-secondary bg-surface hover:bg-surface-hover transition-all outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-95"
+              className="h-11 sm:h-10 sm:min-w-24 rounded-xl font-bold border-border text-text-secondary bg-surface hover:bg-surface-hover transition-all outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-95"
               disabled={isPending}
               onClick={handleCancel}
             >

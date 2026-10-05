@@ -9,17 +9,19 @@ type SkeletonView = 'list' | 'board' | 'table' | 'timeline';
 const CardSkeleton = ({ className }: { className?: string }) => (
   <div className={`flex flex-col gap-2.5 p-3.5 rounded-2xl bg-surface border border-border/60 ${className ?? ''}`}>
     <div className="flex items-start gap-2">
-      <div className="flex-1 flex flex-col gap-1.5">
+      <div className="flex-1 flex flex-col gap-1 sm:gap-2">
         <Skeleton className="h-4 w-4/5 rounded-md" />
         <Skeleton className="h-4 w-1/2 rounded-md" />
       </div>
-      <Skeleton className="size-6 rounded-full shrink-0" />
+      <Skeleton className="size-5 sm:size-6 rounded-full shrink-0" />
     </div>
-    <Skeleton className="h-3 w-24 rounded-md" />
+    <Skeleton className="h-4 w-24 rounded-md" />
+    {/* Three chips on phones (status, priority, due), a fourth from sm where department joins. */}
     <div className="flex items-center gap-1.5 flex-wrap">
-      <Skeleton className="h-5 w-16 rounded-full" />
-      <Skeleton className="h-5 w-14 rounded-full" />
-      <Skeleton className="h-5 w-20 rounded-full" />
+      <Skeleton className="h-6 sm:h-7 w-20 rounded-full" />
+      <Skeleton className="h-6 sm:h-7 w-16 rounded-full" />
+      <Skeleton className="h-6 sm:h-7 w-20 rounded-full" />
+      <Skeleton className="hidden sm:block h-7 w-24 rounded-full" />
     </div>
   </div>
 );
@@ -42,7 +44,7 @@ const ListSkeleton = () => (
 );
 
 const BoardSkeleton = () => (
-  <div className="grid grid-flow-col auto-cols-[17.5rem] sm:auto-cols-[minmax(18rem,1fr)] lg:auto-cols-[minmax(14rem,1fr)] gap-3 sm:gap-4 overflow-hidden">
+  <div className="grid grid-flow-col auto-cols-[17.5rem] sm:auto-cols-[minmax(18rem,1fr)] lg:auto-cols-[minmax(15rem,1fr)] gap-3 sm:gap-4 overflow-hidden">
     {Array.from({ length: 5 }).map((_, i) => (
       <div key={i} className="flex flex-col gap-3 p-2.5 rounded-2xl border border-border/40 bg-surface-hover/30">
         <div className="flex items-center justify-between gap-2 px-2 py-1.5">

@@ -53,7 +53,10 @@ export const TaskStatusRemarkDialog = ({
     from={<StatusPill status={task.status} />}
     to={<StatusPill status={toStatus} />}
     confirmLabel={`Move to ${STATUS_LABEL[toStatus]}`}
-    description="Status changes are recorded on this delegation's timeline for everyone working on it."
+    optional={toStatus === 'pending_approval'}
+    description={toStatus === 'pending_approval'
+      ? 'Add a note for the reviewer if you want to. You can also send it for review without one.'
+      : "Status changes are recorded on this delegation's timeline for everyone working on it."}
     suggestions={REMARK_SUGGESTIONS[toStatus]}
     onCancel={onCancel}
     onConfirm={onConfirm}

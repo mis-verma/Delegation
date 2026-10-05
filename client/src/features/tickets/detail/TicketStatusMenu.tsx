@@ -32,8 +32,8 @@ export const TicketStatusMenu = ({ options, onPick, isBusy = false, emphasis = '
         size="md"
         isLoading={isBusy}
         disabled={isBusy || options.length === 0}
-        className={`max-sm:w-full max-sm:h-12 gap-2 font-display ${
-          emphasis === 'primary' ? 'max-sm:bg-primary-700 max-sm:text-white' : ''
+        className={`max-sm:w-full max-sm:h-11 gap-2 font-display ${
+          emphasis === 'primary' ? 'max-sm:bg-primary-700 dark:max-sm:bg-primary-400 max-sm:text-white' : ''
         }`}
       >
         {!isBusy && <RefreshCw size={15} strokeWidth={2.5} />}
@@ -58,8 +58,8 @@ export const TicketStatusMenu = ({ options, onPick, isBusy = false, emphasis = '
             onClick={() => onPick(opt.value)}
             className="gap-2.5 min-h-11 sm:min-h-9 py-2 text-sm font-medium cursor-pointer"
           >
-            <span className={`flex items-center justify-center size-6 rounded-full text-white shrink-0 ${meta.tone}`}>
-              <Icon strokeWidth={2.75} className="size-3 text-white!" />
+            <span className={`flex items-center justify-center size-5 sm:size-6 rounded-full text-white shrink-0 ${meta.tone}`}>
+              <Icon strokeWidth={2.75} className="size-2.5 sm:size-3 text-white!" />
             </span>
             {opt.label}
           </DropdownMenuItem>

@@ -164,7 +164,7 @@ export const TicketList = () => {
               controls-left / actions-right split. */}
           {/* `order-first` below sm: Options stays put at the left edge and any active-filter chips
               wrap in after it, instead of Options jumping sideways each time a chip appears. */}
-          <div className="order-first sm:order-none flex items-center gap-2.5 flex-wrap shrink-0 sm:ml-auto">
+          <div className="order-first sm:order-none flex items-center gap-x-3 gap-y-2.5 flex-wrap shrink-0 sm:ml-auto">
             <div className="hidden md:block">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

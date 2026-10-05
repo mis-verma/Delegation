@@ -38,7 +38,7 @@ const variantMap: Record<NonNullable<ButtonProps['variant']>, string> = {
 // when the caller sets its own background (green Approve, red Reject, the login gradient) — those
 // already carry their meaning in color and must not all turn navy on a phone.
 const PRIMARY_TOUCH_CLASS =
-  'pointer-coarse:bg-primary-800 pointer-coarse:text-white pointer-coarse:disabled:bg-surface-active pointer-coarse:disabled:text-text';
+  'pointer-coarse:bg-primary-800 dark:pointer-coarse:bg-primary-500 pointer-coarse:text-white pointer-coarse:disabled:bg-surface-active dark:pointer-coarse:disabled:bg-surface-active pointer-coarse:disabled:text-text';
 const hasOwnBackground = (className: unknown) =>
   typeof className === 'string' && /(^|\s)(bg-|from-)/.test(className);
 

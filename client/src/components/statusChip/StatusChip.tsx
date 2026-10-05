@@ -41,9 +41,9 @@ const STATUS_CHIP_CONFIG: Record<StatusChipStatus, StatusChipConfig> = {
   on_hold: { label: 'On Hold', tone: 'bg-text-muted', icon: PauseCircle },
   open: { label: 'Open', tone: 'bg-text-muted', icon: CircleDot },
   in_progress: { label: 'In Progress', tone: 'bg-warning', icon: Clock },
-  in_review: { label: 'In Review', tone: 'bg-primary-600', icon: Eye },
+  in_review: { label: 'In Review', tone: 'bg-primary-600 dark:bg-primary-400', icon: Eye },
   pending: { label: 'Pending', tone: 'bg-text-muted', icon: Clock },
-  pending_approval: { label: 'Pending Approval', tone: 'bg-primary-600', icon: Eye },
+  pending_approval: { label: 'Pending Approval', tone: 'bg-primary-600 dark:bg-primary-400', icon: Eye },
   completed: { label: 'Completed', tone: 'bg-success', icon: CheckCircle2 },
   closed: { label: 'Closed', tone: 'bg-success', icon: CheckCircle2 },
 };

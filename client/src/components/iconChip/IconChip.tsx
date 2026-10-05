@@ -18,6 +18,8 @@ export interface IconChipProps {
    *  label's own `Tag.color`) that can't be expressed as a Tailwind class. Wins over `tone`. */
   toneStyle?: CSSProperties;
   className?: string;
+  /** Extra classes merged onto the label text, e.g. `text-danger` to colour it. */
+  labelClassName?: string;
   title?: string;
   children?: ReactNode;
 }
@@ -29,27 +31,31 @@ export interface IconChipProps {
 // shape (Badge-based, dot+text, plain tinted span), so nothing about them read as one design
 // language. StatusChip/PriorityChip/DepartmentChip/TagChip all render through this now instead of
 // each hand-rolling their own pill markup.
-export const IconChip = ({ icon: Icon, label, tone = 'bg-primary-600', toneStyle, className, title, children }: IconChipProps) => (
+export const IconChip = ({ icon: Icon, label, tone = 'bg-primary-600 dark:bg-primary-400', toneStyle, className, title, labelClassName, children }: IconChipProps) => (
   <span
     title={title}
     className={cn(
-      'inline-flex items-center gap-1.5 pl-1 pr-2.5 py-1 rounded-full border border-border/60 bg-surface',
+      // Fixed 24px tall on phones, 28px from sm, so a row of chips lines up whatever each holds.
+      // max-w-full + min-w-0 keep the pill inside its container; the label's `truncate` does the
+      // shrinking. No-icon variant gets a full pl-2.5 so the text isn't tucked against the edge.
+      'inline-flex items-center gap-1 sm:gap-1.5 h-6 sm:h-7 pr-2 sm:pr-2.5 py-0 max-w-full min-w-0 rounded-full border border-border/60 bg-surface',
+      Icon ? 'pl-1' : 'pl-2.5',
       className,
     )}
   >
     {Icon && (
       <span
-        className={cn('flex items-center justify-center size-5 rounded-full shrink-0 text-white', !toneStyle && tone)}
+        className={cn('flex items-center justify-center size-4 sm:size-5 rounded-full shrink-0 text-white', !toneStyle && tone)}
         style={toneStyle}
       >
-        <Icon size={10} strokeWidth={2.75} />
+        <Icon className="size-2.5 sm:size-3" strokeWidth={2.75} />
       </span>
     )}
     {/* min-w-0 lets this shrink below its content size — required for `truncate` to actually
         engage on a flex child, so a caller constraining the outer pill's width (e.g. a long
         department name in a fixed-width card row) gets an ellipsis instead of blowing out the
         row, without every other caller (which never constrains the width) losing any text. */}
-    <span className="min-w-0 truncate text-[11px] font-display font-semibold text-text-secondary">{label}</span>
+    <span className={cn('min-w-0 truncate text-[11px] font-display font-semibold text-text-secondary', labelClassName)}>{label}</span>
     {children}
   </span>
 );

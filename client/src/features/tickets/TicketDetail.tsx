@@ -125,9 +125,9 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
     .filter(s => s.value !== ticket.status && s.value !== 'CLOSED');
 
   const handlePickStatus = (next: TicketStatus) => {
-    // Only On Hold asks why. In Progress and Completed (which sends it to PC for approval) are one
-    // tap with no pop-up.
-    if (next === 'ON_HOLD') setQuickStatusPick(next);
+    // On Hold must be explained. Completed (which sends it to PC for approval) opens a small popup
+    // where the note is the person's choice. In Progress is one tap with no popup.
+    if (next === 'ON_HOLD' || next === 'PENDING_APPROVAL') setQuickStatusPick(next);
     else if ((RESTRICTED_STATUSES as readonly string[]).includes(next)) statusUpdateMut.mutate({ status: next as RestrictedStatus });
     else updateMut.mutate({ id: ticket.id, payload: { status: next } });
   };
@@ -203,21 +203,21 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
 
                   {storeName && (
                     <TicketPropertyRow label="Store" chipOrderClass="max-lg:order-6">
-                      <IconChip icon={StoreIcon} tone="bg-primary-700" label={storeName} title="Store" className="max-w-full" />
+                      <IconChip icon={StoreIcon} tone="bg-primary-700 dark:bg-primary-400" label={storeName} title="Store" className="max-w-full" />
                     </TicketPropertyRow>
                   )}
 
                   {categoryName && (
                     <TicketPropertyRow label="Category" chipOrderClass="max-lg:order-7">
-                      <IconChip icon={Layers} tone="bg-primary-700" label={categoryName} title="Category" className="max-w-full" />
+                      <IconChip icon={Layers} tone="bg-primary-700 dark:bg-primary-400" label={categoryName} title="Category" className="max-w-full" />
                     </TicketPropertyRow>
                   )}
 
                   <TicketPropertyRow label="Assignee" chipOrderClass="max-lg:order-3">
                     {canAssign ? (
-                      // The shared picker's avatar and plus buttons are 32px; on a touch screen they
-                      // are stretched to 44px from out here without touching the shared component.
-                      <div title="Assignee" className="flex items-center pointer-coarse:[&_button]:min-h-11 pointer-coarse:[&_button]:min-w-11">
+                      // The shared picker keeps its 32px avatar and carries its own invisible 44px
+                      // touch hit area, so nothing is stretched from out here.
+                      <div title="Assignee" className="flex items-center">
                         <AssigneeField
                           single
                           hideLabel
@@ -252,10 +252,11 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                     <TicketPropertyRow label="Due" chipOrderClass="max-lg:order-4">
                       <IconChip
                         icon={CalendarDays}
-                        tone={isOverdue ? 'bg-danger' : 'bg-primary-700'}
+                        tone={isOverdue ? 'bg-danger' : 'bg-primary-700 dark:bg-primary-400'}
                         label={`${isOverdue ? 'Delayed · ' : 'Due '}${new Date(ticket.tatDueAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`}
                         title="SLA deadline"
-                        className={isOverdue ? 'border-danger/30 text-danger' : undefined}
+                        className={isOverdue ? 'border-danger/30' : undefined}
+                        labelClassName={isOverdue ? 'text-danger' : undefined}
                       />
                     </TicketPropertyRow>
                   ) : null}
@@ -362,7 +363,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
             statusUpdateMut.mutate(
               {
                 status: quickStatusPick,
-                remark,
+                remark: remark || undefined,
                 captureMethod: quickStatusPhotos.length ? quickStatusCaptureMethod : undefined,
                 files: quickStatusPhotos,
               },

@@ -38,9 +38,10 @@ export const useTicketStatusMove = () => {
       return;
     }
 
-    // Only On Hold asks why. In Progress and Completed (which sends it to PC for approval) are one
-    // tap, so a drag onto those columns goes straight through, still recorded in the ticket's history.
-    if (toStatus !== 'ON_HOLD') {
+    // On Hold must be explained and Completed (which sends it to PC for approval) opens a small popup
+    // where the note is optional. In Progress is one tap, so a drag onto that column goes straight
+    // through, still recorded in the ticket's history.
+    if (toStatus !== 'ON_HOLD' && toStatus !== 'PENDING_APPROVAL') {
       moveMutation.mutate({ id: ticket.id, payload: { status: toStatus } });
       return;
     }
@@ -56,7 +57,7 @@ export const useTicketStatusMove = () => {
       onCancel={() => setPendingMove(null)}
       onConfirm={(remark) => {
         moveMutation.mutate(
-          { id: pendingMove.ticket.id, payload: { status: pendingMove.toStatus, remark } },
+          { id: pendingMove.ticket.id, payload: { status: pendingMove.toStatus, remark: remark || undefined } },
           { onSuccess: () => setPendingMove(null) },
         );
       }}

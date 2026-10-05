@@ -64,7 +64,7 @@ export const TicketSettingsMenu = ({
           active={selected.includes(p.id)}
           onClick={() => onChange(toggleValue(selected, p.id))}
           lead={
-            <span className={`flex items-center justify-center size-6 rounded-full text-white text-[9px] font-bold shrink-0 ${avatarColorClass(p.name)}`}>
+            <span className={`flex items-center justify-center size-5 sm:size-6 rounded-full text-white text-[9px] font-bold shrink-0 ${avatarColorClass(p.name)}`}>
               {getInitials(p.name)}
             </span>
           }
@@ -154,7 +154,7 @@ export const TicketSettingsMenu = ({
                 key={tag.id}
                 active={filters.labelIds.includes(tag.id)}
                 onClick={() => patch({ labelIds: toggleValue(filters.labelIds, tag.id) })}
-                lead={<span className="flex items-center justify-center size-6 shrink-0"><span className={`size-2.5 rounded-full ${labelDotClass(tag.name)}`} /></span>}
+                lead={<span className="flex items-center justify-center size-5 sm:size-6 shrink-0"><span className={`size-2.5 rounded-full ${labelDotClass(tag.name)}`} /></span>}
               >
                 {tag.name}
               </ChoiceChip>
@@ -171,7 +171,7 @@ export const TicketSettingsMenu = ({
                 key={d.id}
                 active={filters.departmentId === d.id}
                 onClick={() => patch({ departmentId: filters.departmentId === d.id ? '' : d.id })}
-                lead={<ChoiceIcon icon={Building2} tone="bg-primary-600" />}
+                lead={<ChoiceIcon icon={Building2} tone="bg-primary-600 dark:bg-primary-400" />}
               >
                 {d.name}
               </ChoiceChip>

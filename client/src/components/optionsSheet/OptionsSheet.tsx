@@ -107,7 +107,7 @@ export const ChoiceChip = ({ active, onClick, lead, children }: { active: boolea
     type="button"
     aria-pressed={active}
     onClick={onClick}
-    className={`inline-flex items-center gap-1.5 h-8 ${lead ? 'pl-1' : 'pl-3'} pr-3 rounded-full border text-xs font-semibold transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.97] [-webkit-tap-highlight-color:transparent] ${
+    className={`inline-flex items-center gap-1.5 h-8 pointer-coarse:h-10 ${lead ? 'pl-1' : 'pl-3'} pr-3 rounded-full border text-xs font-semibold transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.97] [-webkit-tap-highlight-color:transparent] ${
       active
         ? 'border-primary-600 dark:border-primary-400 bg-primary-500/10 dark:bg-primary-500/15 text-primary-800 dark:text-primary-100'
         : 'border-border/60 dark:border-white/[0.08] bg-surface text-text-secondary hover:border-primary-400/60'
@@ -121,19 +121,19 @@ export const ChoiceChip = ({ active, onClick, lead, children }: { active: boolea
 
 /** Solid icon circle for a ChoiceChip's `lead`. */
 export const ChoiceIcon = ({ icon: Icon, tone }: { icon: LucideIcon; tone: string }) => (
-  <span className={`flex items-center justify-center size-6 rounded-full text-white shrink-0 ${tone}`}>
-    <Icon size={12} strokeWidth={2.75} />
+  <span className={`flex items-center justify-center size-5 sm:size-6 rounded-full text-white shrink-0 ${tone}`}>
+    <Icon className="size-2.5 sm:size-3" strokeWidth={2.75} />
   </span>
 );
 
-export const ChoiceWrap = ({ children }: { children: ReactNode }) => <div className="flex flex-wrap gap-2">{children}</div>;
+export const ChoiceWrap = ({ children }: { children: ReactNode }) => <div className="flex flex-wrap gap-2 pointer-coarse:gap-2.5">{children}</div>;
 
 /** Small "Clear" link for a section's label row, shown only while that section has a pick. */
 export const ChoiceClear = ({ onClick }: { onClick: () => void }) => (
   <button
     type="button"
     onClick={onClick}
-    className="text-[11px] font-semibold text-text-muted hover:text-danger px-1.5 py-0.5 rounded cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+    className="text-[11px] font-semibold text-text-muted hover:text-danger px-1.5 py-0.5 pointer-coarse:min-h-11 pointer-coarse:px-3 rounded cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
   >
     Clear
   </button>
@@ -191,20 +191,20 @@ export const OptionsSheet = ({
       >
         <div
           {...dragHandleProps}
-          className={`shrink-0 flex items-center gap-3 px-5 pt-5 pb-4 border-b border-border/60 ${isDragging ? 'sm:cursor-grabbing sm:touch-none' : 'sm:cursor-grab sm:touch-none'}`}
+          className={`shrink-0 flex items-center gap-3 px-5 py-3.5 border-b border-border/60 ${isDragging ? 'sm:cursor-grabbing sm:touch-none' : 'sm:cursor-grab sm:touch-none'}`}
         >
-          <span className="flex items-center justify-center size-10 rounded-xl bg-primary-500/10 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300 shrink-0">
-            <SlidersHorizontal size={18} strokeWidth={2.25} />
+          <span className="flex items-center justify-center size-9 sm:size-10 rounded-xl bg-primary-500/10 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300 shrink-0">
+            <SlidersHorizontal className="size-[18px] sm:size-5" strokeWidth={2.25} />
           </span>
           <div className="flex-1 min-w-0">
-            <DialogTitle className="text-base font-display font-semibold text-text tracking-tight">Filter and sort</DialogTitle>
+            <DialogTitle className="text-base sm:text-lg font-display font-semibold text-text tracking-tight">Filter and sort</DialogTitle>
             <DialogDescription className="text-xs font-medium text-text-muted tabular-nums">{subtitle}</DialogDescription>
           </div>
           <DialogClose asChild>
             <button
               type="button"
               aria-label="Close"
-              className="flex items-center justify-center size-9 -mr-1.5 rounded-full text-text-muted hover:text-text hover:bg-surface-hover active:bg-surface-hover cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]"
+              className="flex items-center justify-center size-9 pointer-coarse:size-11 -mr-1.5 rounded-full text-text-muted hover:text-text hover:bg-surface-hover active:bg-surface-hover cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]"
             >
               <X size={18} strokeWidth={2.5} />
             </button>
@@ -220,7 +220,7 @@ export const OptionsSheet = ({
             type="button"
             onClick={onReset}
             disabled={!canReset}
-            className="inline-flex items-center gap-1.5 h-10 px-2.5 rounded-lg text-xs font-display font-semibold text-text-muted hover:text-danger disabled:opacity-40 disabled:hover:text-text-muted disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 transition-colors"
+            className="inline-flex items-center gap-1.5 h-11 sm:h-10 px-2.5 rounded-lg text-xs font-display font-semibold text-text-muted hover:text-danger disabled:opacity-40 disabled:hover:text-text-muted disabled:cursor-not-allowed cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 transition-colors"
           >
             <RotateCcw size={14} strokeWidth={2.5} />
             Reset
@@ -230,7 +230,7 @@ export const OptionsSheet = ({
             <Button
               variant="outline"
               size="sm"
-              className="h-10"
+              className="h-11 sm:h-10"
               aria-label="Export"
               onClick={() => { setIsOpen(false); onExport(); }}
             >
@@ -239,7 +239,7 @@ export const OptionsSheet = ({
             </Button>
           )}
           <DialogClose asChild>
-            <Button variant="primary" size="sm" className="h-10 px-5 max-sm:bg-primary-700 max-sm:text-white font-display">
+            <Button variant="primary" size="sm" className="h-11 sm:h-10 px-5 max-sm:bg-primary-700 dark:max-sm:bg-primary-500 max-sm:text-white font-display">
               {showLabel}
             </Button>
           </DialogClose>

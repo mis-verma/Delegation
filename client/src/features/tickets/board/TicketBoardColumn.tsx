@@ -36,7 +36,7 @@ export const TicketBoardColumn = memo(({ status, tickets, draggable, onOpen, dep
             <span className={`absolute inset-0 rounded-full blur-sm opacity-60 ${config.dot}`} />
             <span className={`relative size-2 rounded-full shrink-0 ${config.dot}`} aria-hidden="true" />
           </div>
-          <h3 className="text-[13px] font-display font-bold text-text tracking-wide leading-tight break-words">
+          <h3 className="text-sm font-display font-semibold text-text tracking-tight leading-tight break-words">
             {config.label}
           </h3>
         </div>
@@ -64,6 +64,7 @@ export const TicketBoardColumn = memo(({ status, tickets, draggable, onOpen, dep
               <TicketCard
                 ticket={ticket}
                 onClick={onOpen}
+                variant="board"
                 departmentName={ticket.departmentId ? departmentNames?.get(ticket.departmentId) : undefined}
               />
             </div>

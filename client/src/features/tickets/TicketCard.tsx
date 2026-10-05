@@ -6,7 +6,7 @@ import { getTicketStatusLabel } from '../../lib/ticketStatusLabel';
 import { getInitials } from '../../lib/getInitials';
 import { avatarColorClass } from '../../lib/avatarColors';
 import { useAuth } from '../../context/AuthContext';
-import { PRIORITY_CONFIG, ticketCode } from './ticketDisplay';
+import { PRIORITY_CONFIG, formatDueLabel, ticketCode } from './ticketDisplay';
 import { StatusChip, getStatusChipLabel, type StatusChipStatus } from '../../components/statusChip';
 import { PriorityChip } from '../../components/priorityChip';
 import { DepartmentChip } from '../../components/departmentChip';
@@ -18,30 +18,29 @@ interface TicketCardProps {
   ticket: Ticket;
   onClick: (ticket: Ticket) => void;
   departmentName?: string;
-  index?: number;
+  /** Board columns are narrow, so there the department stays plain text and labels wait for `xl`. */
+  variant?: 'list' | 'board';
+  /** Hide the avatar when the list is already grouped by that person. */
+  hideAssignee?: boolean;
 }
 
-// "Today" / "Tomorrow" / "Yesterday", otherwise "19 Sept". Same wording the delegation cards use.
-const dueLabel = (iso: string) => {
-  const startOfDay = (d: Date) => new Date(d).setHours(0, 0, 0, 0);
-  const days = Math.round((startOfDay(new Date(iso)) - startOfDay(new Date())) / 86_400_000);
-  if (days === 0) return 'Today';
-  if (days === 1) return 'Tomorrow';
-  if (days === -1) return 'Yesterday';
-  return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
-};
-
 /**
- * One ticket as a tile, in the same design as the delegation list cards: title, a quiet meta line
- * (ticket code, checklist count), then one row of icon chips for status, priority, department and
- * due date, with the assignee's avatar at the end. Also the board's kanban card, so it has to read
- * well narrow too: the chip row wraps, the title is capped at two lines.
+ * One ticket as a tile, in the same design as the delegation list cards: title, a quiet one-line
+ * meta line (ticket code, checklist count, department on phones), then a row of icon chips. Phones
+ * show only status, priority and due so every card is the same height; department and labels join
+ * from `sm`. Also the board's kanban card, so it has to read well narrow too.
  */
-const TicketCardComponent = ({ ticket, onClick, departmentName, index = 0 }: TicketCardProps) => {
+const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list', hideAssignee = false }: TicketCardProps) => {
   const { user } = useAuth();
   const { totalItems, doneItems, progress } = getChecklistProgress(ticket.checklists);
 
-  const isOverdue = ticket.isOverdue && ticket.status !== 'CLOSED';
+  const due = formatDueLabel(ticket);
+  const isOverdue = !!due?.overdue;
+  const isBoard = variant === 'board';
+  // Phones: department is plain meta text. From sm it is a chip, except in narrow board columns,
+  // where it stays text and labels wait for xl.
+  const deptChipClass = isBoard ? 'hidden' : 'hidden sm:inline-flex';
+  const tagChipClass = isBoard ? 'hidden xl:inline-flex' : 'hidden sm:inline-flex';
   const priorityInfo = PRIORITY_CONFIG[ticket.priority];
   const statusChipStatus = ticket.status.toLowerCase() as StatusChipStatus;
   const statusLabel = getTicketStatusLabel(ticket.status, user?.role, getStatusChipLabel(statusChipStatus));
@@ -57,50 +56,57 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, index = 0 }: Tic
     <button
       type="button"
       onClick={() => onClick(ticket)}
-      className="group w-full h-full text-left flex flex-col gap-2.5 p-3.5 rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface hover:border-primary-500/50 active:bg-surface-hover/50 transition-all duration-200 ease-in-out cursor-pointer animate-step-in outline-none focus-visible:border-primary-500/50 focus-visible:ring-2 focus-visible:ring-primary-500/30 [-webkit-tap-highlight-color:transparent]"
-      style={{ animationDelay: `${Math.min(index, 10) * 35}ms` }}
+      className="group w-full h-full text-left flex flex-col gap-2.5 p-3.5 rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface hover:border-primary-500/50 active:bg-surface-hover/50 transition-all duration-200 ease-in-out cursor-pointer outline-none focus-visible:border-primary-500/50 focus-visible:ring-2 focus-visible:ring-primary-500/30 [-webkit-tap-highlight-color:transparent]"
     >
       <div className="flex flex-col gap-1 min-w-0 w-full">
         <div className="flex items-start gap-2 min-w-0">
-          <h3 className="flex-1 min-w-0 text-[15px] font-display font-semibold text-text tracking-tight leading-snug line-clamp-2 break-words">
+          {/* leading-5 matches the phone avatar (size-5) so the first line and the avatar centre-align. */}
+          <h3 className="flex-1 min-w-0 text-[15px] font-display font-semibold text-text tracking-tight leading-5 sm:leading-6 line-clamp-2 break-words">
             {ticket.title}
           </h3>
-          {assigneeName ? (
+          {!hideAssignee && (assigneeName ? (
             <span
-              className={`flex items-center justify-center size-6 rounded-full text-white text-[10px] font-bold shrink-0 ${avatarColorClass(assigneeName)}`}
+              className={`flex items-center justify-center size-5 sm:size-6 rounded-full text-white text-[9px] sm:text-[10px] font-bold shrink-0 ${avatarColorClass(assigneeName)}`}
               title={`Assigned to ${assigneeName}`}
             >
               {getInitials(assigneeName)}
             </span>
           ) : (
-            <span className="flex items-center justify-center size-6 rounded-full bg-surface-hover text-text-light shrink-0" title="Unassigned">
-              <User size={12} />
+            <span className="flex items-center justify-center size-5 sm:size-6 rounded-full bg-surface-hover text-text-light shrink-0" title="Unassigned">
+              <User className="size-3" />
             </span>
-          )}
+          ))}
         </div>
-        <div className="flex items-center gap-x-1.5 gap-y-0.5 flex-wrap text-[11px] font-medium text-text-muted">
-          <span className="font-mono tracking-tight">{ticketCode(ticket.id)}</span>
+        {/* One line, never wraps: the department is the only part that truncates. */}
+        <div className="flex items-center gap-x-1.5 min-w-0 whitespace-nowrap text-[11px] leading-4 font-medium text-text-muted">
+          <span className="font-mono tracking-tight shrink-0">{ticketCode(ticket.id)}</span>
           {isOverdue && (
             <>
               <span aria-hidden>·</span>
-              <span className="font-semibold text-danger">Delayed</span>
+              <span className="font-semibold text-danger shrink-0">Delayed</span>
             </>
           )}
           {progress !== null && (
             <>
               <span aria-hidden>·</span>
-              <span className="tabular-nums">Checklist {doneItems}/{totalItems}</span>
+              <span className="tabular-nums shrink-0">Checklist {doneItems}/{totalItems}</span>
+            </>
+          )}
+          {departmentName && (
+            <>
+              <span aria-hidden className={isBoard ? undefined : 'sm:hidden'}>·</span>
+              <span className={`min-w-0 truncate ${isBoard ? '' : 'sm:hidden'}`}>{departmentName}</span>
             </>
           )}
         </div>
       </div>
 
-      <div className="flex items-center gap-x-1.5 gap-y-2 flex-wrap mt-auto w-full">
+      <div className="flex items-center gap-x-1.5 gap-y-1.5 flex-wrap mt-auto w-full">
         {onHoldRemark ? (
           // StatusChip doesn't forward props, so it can't be the asChild target itself.
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="inline-flex cursor-help">{statusChip}</span>
+              <span className="inline-flex max-w-full min-w-0 cursor-help">{statusChip}</span>
             </TooltipTrigger>
             <TooltipContent side="top" className="max-w-[220px] text-left whitespace-normal">
               {onHoldRemark}
@@ -110,38 +116,40 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, index = 0 }: Tic
 
         <PriorityChip meta={priorityInfo} />
 
-        {departmentName && <DepartmentChip name={departmentName} className="shrink-0" />}
+        {departmentName && <DepartmentChip name={departmentName} className={deptChipClass} />}
 
-        {ticket.tatDueAt && (
+        {due && (
           <IconChip
             icon={CalendarDays}
             tone={isOverdue ? 'bg-danger' : 'bg-primary-700'}
-            label={dueLabel(ticket.tatDueAt)}
+            label={due.text}
             title={isOverdue ? 'Delayed: past its target time' : 'Target resolution date'}
-            className={isOverdue ? 'border-danger/30 text-danger' : undefined}
+            className={isOverdue ? 'border-danger/30' : undefined}
+            labelClassName={isOverdue ? 'text-danger' : undefined}
           />
         )}
 
-        {/* Capped at two with a +n: a ticket can carry up to 12 labels. */}
-        {ticket.tags.slice(0, 2).map((tag) => <TagChip key={tag.id} tag={tag} />)}
+        {/* Capped at two with a +n: a ticket can carry up to 12 labels. Hidden on phones. */}
+        {ticket.tags.slice(0, 2).map((tag) => <TagChip key={tag.id} tag={tag} className={tagChipClass} />)}
         {ticket.tags.length > 2 && (
           <span
-            className="text-[10px] font-semibold text-text-muted tabular-nums"
+            className={`${isBoard ? 'hidden xl:inline' : 'hidden sm:inline'} text-[11px] font-semibold text-text-muted tabular-nums`}
             title={ticket.tags.map((t) => t.name).join(', ')}
           >
             +{ticket.tags.length - 2}
           </span>
         )}
 
+        {/* The bar is desktop-only: on a phone the meta line already says "Checklist 3/10". */}
         {progress !== null && (
-          <span className="flex items-center gap-1.5 ml-auto shrink-0">
+          <span className="hidden sm:flex items-center gap-1.5 ml-auto shrink-0">
             <span className="w-12 h-1.5 rounded-full bg-surface-hover overflow-hidden">
               <span
                 className="block h-full rounded-full bg-primary-600 transition-all duration-300 ease-in-out"
                 style={{ width: `${progress}%` }}
               />
             </span>
-            <span className="text-[10px] font-semibold text-text-muted tabular-nums">{progress}%</span>
+            <span className="text-[11px] font-semibold text-text-muted tabular-nums">{progress}%</span>
           </span>
         )}
       </div>

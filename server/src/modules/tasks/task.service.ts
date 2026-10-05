@@ -681,7 +681,9 @@ export const taskService = {
         // shouldn't demand a remark.
         const isStatusChange = input.status !== undefined && input.status !== beforeStatus;
         const remark = statusRemark?.trim();
-        if (isStatusChange && !remark) {
+        // Sending it for review (the person finished their part) is the one move where the note is their
+        // choice; every other move must still say why.
+        if (isStatusChange && !remark && input.status !== "pending_approval") {
             throw AppError.badRequest("A remark is required to change a delegation's status.")
         }
 
@@ -723,7 +725,7 @@ export const taskService = {
                     changedBy: user.sub,
                     fromStatus: beforeStatus,
                     toStatus: input.status!,
-                    remark: remark!,
+                    remark: remark ?? "",
                 });
             }
             const [updated] = await tx.select().from(tasks).where(eq(tasks.id, id)).limit(1);

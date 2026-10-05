@@ -660,7 +660,7 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
           onCancel={() => setAdvanceTo(null)}
           onConfirm={(statusRemark) => {
             updateMutation.mutate(
-              { id: task.id, payload: { status: advanceTo, statusRemark } },
+              { id: task.id, payload: { status: advanceTo, statusRemark: statusRemark || undefined } },
               { onSuccess: () => setAdvanceTo(null) },
             );
           }}

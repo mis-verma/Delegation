@@ -48,7 +48,7 @@ export const DraggableTicketCard = ({ ticket, onOpen, departmentName }: Draggabl
           : 'cursor-grab'
       }`}
     >
-      <TicketCard ticket={ticket} onClick={onOpen} departmentName={departmentName} />
+      <TicketCard ticket={ticket} onClick={onOpen} departmentName={departmentName} variant="board" />
     </div>
   );
 };

@@ -145,8 +145,13 @@ export const TicketStatusRemarkDialog = ({
     from={chip(ticket.status)}
     to={chip(toStatus)}
     confirmLabel={toStatus === 'ON_HOLD' ? 'Put on hold' : `Move to ${getStatusChipLabel(toStatus.toLowerCase() as StatusChipStatus)}`}
-    description="Say why it's on hold and when work should resume. Everyone working on this ticket sees it."
-    placeholder="e.g. Waiting for the vendor's replacement part. Work resumes when it arrives."
+    optional={toStatus !== 'ON_HOLD'}
+    description={toStatus === 'ON_HOLD'
+      ? "Say why it's on hold and when work should resume. Everyone working on this ticket sees it."
+      : 'Add a note for the reviewer if you want to. You can also move it without one.'}
+    placeholder={toStatus === 'ON_HOLD'
+      ? "e.g. Waiting for the vendor's replacement part. Work resumes when it arrives."
+      : 'e.g. Replaced the printer cable and tested a print. Working again.'}
     onCancel={onCancel}
     onConfirm={onConfirm}
     isSubmitting={isSubmitting}

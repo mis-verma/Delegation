@@ -26,6 +26,11 @@ import { DETAIL_HEADING_CLASS, CHIP_TRIGGER_CLASS } from '../tasks/taskFormField
 import { useAuth } from '../../context/AuthContext';
 import { OWN_SCOPE_ROLES } from '../../api/auth';
 
+// The chips stay 32px tall. On a touch screen the shared Combobox / DatePicker triggers would grow to
+// 44px (pointer-coarse:min-h-11), so that is pinned back to 32px and an invisible pseudo-element
+// pads the tap area out to 44px instead. The chips row uses gap-y-3 so those areas never overlap.
+const CHIP_TOUCH_AREA = 'relative pointer-coarse:min-h-8 pointer-coarse:after:absolute pointer-coarse:after:-inset-y-1.5 pointer-coarse:after:inset-x-0';
+
 // Quiet fill until focused; Input's own danger styling takes over once validation fails.
 const QUIET_FIELD_CLASS = 'font-display border-transparent bg-surface-hover/50 hover:bg-surface-hover focus:bg-surface';
 
@@ -190,7 +195,7 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
     >
       {/* Same layout as the New delegation form: icon labels over Title and Description, then
           one Details row of chips (category, department, priority, assignee, due date). */}
-      <form id="ticket-form" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5 px-4 pb-4 pt-0 sm:p-5" noValidate>
+      <form id="ticket-form" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5 px-5 pb-4 pt-0 sm:p-5" noValidate>
         {/* First, because it decides what the Details row below offers. */}
         <AssignmentModeToggle
           mode={assignmentMode}
@@ -249,7 +254,7 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
             <SlidersHorizontal size={14} className="text-text-light" />
             Details
           </span>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-3">
             {/* Picking a category fills in the department, the responsible person and the due date. */}
             <div title="Category">
               <Combobox
@@ -260,7 +265,7 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
                 options={(categories ?? []).map(c => ({ value: c.id, label: c.name }))}
                 onCreateNew={isVerifier ? () => setCreating('category') : undefined}
                 createNewLabel="New category"
-                className={`${CHIP_TRIGGER_CLASS} max-w-[13rem] ${errors.categoryId ? 'border-danger/60' : ''}`}
+                className={`${CHIP_TRIGGER_CLASS} ${CHIP_TOUCH_AREA} max-w-[13rem] ${errors.categoryId ? 'border-danger/60' : ''}`}
               />
             </div>
 
@@ -275,7 +280,7 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
                 options={(departments ?? []).map(d => ({ value: d.id, label: d.name }))}
                 onCreateNew={isVerifier ? () => setCreating('department') : undefined}
                 createNewLabel="New department"
-                className={`${CHIP_TRIGGER_CLASS} max-w-[13rem] ${errors.departmentId ? 'border-danger/60' : ''}`}
+                className={`${CHIP_TRIGGER_CLASS} ${CHIP_TOUCH_AREA} max-w-[13rem] ${errors.departmentId ? 'border-danger/60' : ''}`}
               />
             </div>
             )}
@@ -301,7 +306,7 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
                 <DueDateField
                   mode="MANUAL"
                   hideLabel
-                  triggerClassName={CHIP_TRIGGER_CLASS}
+                  triggerClassName={`${CHIP_TRIGGER_CLASS} ${CHIP_TOUCH_AREA}`}
                   control={control}
                   setValue={setValue}
                   errors={errors}
@@ -330,7 +335,7 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
                 ) : (
                   <IconChip icon={UserCheck} tone="bg-warning" label="No responsible person set" />
                 )}
-                {selectedCategory.tatHours ? <IconChip icon={Clock} tone="bg-primary-600" label={`Due in ${selectedCategory.tatHours}h`} /> : null}
+                {selectedCategory.tatHours ? <IconChip icon={Clock} tone="bg-primary-600 dark:bg-primary-400" label={`Due in ${selectedCategory.tatHours}h`} /> : null}
               </div>
               <p className="text-[11px] font-display text-text-muted">
                 {selectedCategory.assigneeIds.length === 0
@@ -411,7 +416,7 @@ const PhotoToolbar = ({ onAdd }: { onAdd: (files: FileList | null) => void }) =>
     onAdd(e.target.files);
     e.target.value = '';
   };
-  const btn = 'flex items-center justify-center size-8 rounded-lg text-text-light hover:text-primary-600 hover:bg-surface-hover transition-colors cursor-pointer shrink-0';
+  const btn = 'flex items-center justify-center size-8 pointer-coarse:size-11 rounded-lg text-text-light hover:text-primary-600 hover:bg-surface-hover transition-colors cursor-pointer shrink-0';
   return (
     <div className="flex items-center gap-0.5">
       <input ref={cameraRef} type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={handle} />

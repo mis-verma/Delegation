@@ -123,12 +123,12 @@ export const Modal = ({
         >
           <div className="flex items-start gap-3 min-w-0">
             {icon && (
-              <div className={cn('shrink-0 flex items-center justify-center size-10 rounded-xl', ICON_TONE_CLASS[iconTone])}>
+              <div className={cn('shrink-0 flex items-center justify-center size-9 sm:size-10 rounded-xl', ICON_TONE_CLASS[iconTone])}>
                 {icon}
               </div>
             )}
             <div className="min-w-0">
-              <DialogTitle className="truncate">{title}</DialogTitle>
+              <DialogTitle className="truncate text-base sm:text-lg font-semibold">{title}</DialogTitle>
               {description ? (
                 <DialogDescription>{description}</DialogDescription>
               ) : (
@@ -141,7 +141,7 @@ export const Modal = ({
           {showCloseButton && (
             <DialogClose
               className={cn(
-                'shrink-0 flex items-center justify-center size-9 -m-1 rounded-full text-text-muted hover:text-text hover:bg-surface-hover transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 cursor-pointer active:scale-90',
+                'shrink-0 flex items-center justify-center size-9 pointer-coarse:size-11 -m-1 rounded-full text-text-muted hover:text-text hover:bg-surface-hover transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 cursor-pointer active:scale-90',
                 closeButtonClassName,
               )}
               aria-label="Close modal"

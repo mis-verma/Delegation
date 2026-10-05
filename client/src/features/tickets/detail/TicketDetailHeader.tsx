@@ -20,13 +20,14 @@ const formatDate = (dateString: string) => {
   return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 };
 
+// 36px visible on a phone, 40px from sm; the after: layer pads the tap area out to 44px on a phone.
 const ICON_BUTTON =
-  'flex items-center justify-center size-11 sm:size-10 rounded-full text-text-muted transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 [-webkit-tap-highlight-color:transparent] disabled:opacity-50 disabled:pointer-events-none';
+  'relative flex items-center justify-center size-9 sm:size-10 rounded-full text-text-muted transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 [-webkit-tap-highlight-color:transparent] disabled:opacity-50 disabled:pointer-events-none after:absolute after:-inset-1 sm:after:hidden';
 
 /**
  * The sheet's sticky top bar. Row one: ticket code (tap to copy), the live status chip (so the
  * state is still visible after the body has scrolled), when it was raised (sm and up; lg moves it
- * into the properties rail), then delete and close on the right, both full 44px touch targets.
+ * into the properties rail), then delete and close on the right, both with 44px touch targets.
  * Row two: the title, clamped to two lines on a phone and free to wrap from sm up. The shared
  * sheet's own absolute close button is switched off because it is only 40px and floats over the
  * wrapping chips; this one sits in the row instead.

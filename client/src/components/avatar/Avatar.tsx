@@ -19,6 +19,7 @@ interface AvatarProps {
 }
 
 const DOT_SIZE_CLASS: Record<keyof typeof SIZE_CLASS, string> = {
+  xs: 'size-1.5',
   sm: 'size-2',
   md: 'size-2.5',
   lg: 'size-3',
@@ -26,7 +27,7 @@ const DOT_SIZE_CLASS: Record<keyof typeof SIZE_CLASS, string> = {
 };
 
 // Pixel size of each SIZE_CLASS step, so the <img> reserves its box before the photo arrives.
-const IMG_PX: Record<keyof typeof SIZE_CLASS, number> = { sm: 32, md: 40, lg: 48, xl: 80 };
+const IMG_PX: Record<keyof typeof SIZE_CLASS, number> = { xs: 20, sm: 32, md: 40, lg: 48, xl: 80 };
 
 // Shared photo-or-initials avatar — a real <img> when `src` is set, the same gradient-circle
 // initials treatment every card in the app already used inline otherwise (see UserCard.tsx,

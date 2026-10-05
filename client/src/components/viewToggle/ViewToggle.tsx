@@ -62,7 +62,7 @@ export function ViewToggle<V extends string>({ tabs, value, onChange }: ViewTogg
     // Pill track, same rounded-full shape as the New/Options buttons sharing the toolbar. The
     // picked view is a raised white segment with a navy icon rather than a solid navy fill, so
     // the page's one navy button (create) stays the only loud thing in the row.
-    <div role="tablist" className="flex items-center gap-0.5 h-9 p-0.5 rounded-full bg-surface-hover/70 border border-border/50 dark:border-white/[0.06]">
+    <div role="tablist" className="flex items-center gap-0.5 p-0.5 rounded-full bg-surface-hover/70 border border-border/50 dark:border-white/[0.06]">
       {tabs.map((tab, index) => (
         <button
           key={tab.key}
@@ -75,7 +75,7 @@ export function ViewToggle<V extends string>({ tabs, value, onChange }: ViewTogg
           onKeyDown={(e) => handleKeyDown(e, index)}
           title={`${tab.label} view`}
           aria-label={`${tab.label} view`}
-          className={`items-center gap-1.5 h-full px-3 rounded-full text-xs font-display font-semibold transition-all duration-200 ease-in-out cursor-pointer outline-none active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-primary-500/50 ${
+          className={`items-center gap-1.5 h-7.5 pointer-coarse:h-11 pointer-fine:sm:h-6.5 px-3 rounded-full text-xs font-display font-semibold transition-all duration-200 ease-in-out cursor-pointer outline-none active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-primary-500/50 ${
             tab.mobileHidden ? 'hidden sm:flex' : 'flex'
           } ${
             value === tab.key

@@ -225,7 +225,7 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
           </p>
 
           <div className="overflow-x-auto rounded-lg border border-border">
-            <table className="w-full text-sm">
+            <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-border bg-surface-hover/30">
                   <th className="text-left font-display font-semibold text-text-muted text-[11px] tracking-wide px-3 py-2">Title</th>
@@ -249,7 +249,7 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
                         onChange={(e) => updateRow(row.rowIndex, { title: e.target.value })}
                         disabled={row.excluded}
                         placeholder="Title"
-                        className={`w-36 px-2.5 py-1.5 text-sm bg-surface border border-border rounded-lg outline-none focus:border-primary-500 disabled:opacity-60 ${requiredFieldRing(row.title.trim())}`}
+                        className={`w-36 px-2.5 py-1.5 text-xs bg-surface border border-border rounded-lg outline-none focus:border-primary-500 disabled:opacity-60 ${requiredFieldRing(row.title.trim())}`}
                       />
                     </td>
                     <td className="px-3 py-2">
@@ -258,7 +258,7 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
                         onChange={(e) => updateRow(row.rowIndex, { description: e.target.value })}
                         disabled={row.excluded}
                         placeholder="Description"
-                        className={`w-40 px-2.5 py-1.5 text-sm bg-surface border border-border rounded-lg outline-none focus:border-primary-500 disabled:opacity-60 ${requiredFieldRing(row.description.trim())}`}
+                        className={`w-40 px-2.5 py-1.5 text-xs bg-surface border border-border rounded-lg outline-none focus:border-primary-500 disabled:opacity-60 ${requiredFieldRing(row.description.trim())}`}
                       />
                     </td>
                     <td className="px-3 py-2">
@@ -269,7 +269,7 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
                         emptyOptionLabel="Unassigned"
                         placeholder={row.raw.assigneeName || 'Unassigned'}
                         disabled={row.excluded}
-                        className={optionalFieldRing(row.assigneeId, row.raw.assigneeName, row.assigneeConfidence)}
+                        className={`text-xs ${optionalFieldRing(row.assigneeId, row.raw.assigneeName, row.assigneeConfidence)}`}
                       />
                     </td>
                     <td className="px-3 py-2">
@@ -280,7 +280,7 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
                         emptyOptionLabel="No department"
                         placeholder={row.raw.departmentName || 'No department'}
                         disabled={row.excluded}
-                        className={optionalFieldRing(row.departmentId, row.raw.departmentName, row.departmentConfidence)}
+                        className={`text-xs ${optionalFieldRing(row.departmentId, row.raw.departmentName, row.departmentConfidence)}`}
                       />
                     </td>
                     <td className="px-3 py-2">
@@ -291,7 +291,7 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
                         emptyOptionLabel="No store"
                         placeholder={row.raw.storeName || 'No store'}
                         disabled={row.excluded}
-                        className={optionalFieldRing(row.storeId, row.raw.storeName, row.storeConfidence)}
+                        className={`text-xs ${optionalFieldRing(row.storeId, row.raw.storeName, row.storeConfidence)}`}
                       />
                     </td>
                     <td className="px-3 py-2">
@@ -302,7 +302,7 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
                         emptyOptionLabel="No category"
                         placeholder={row.raw.categoryName || 'No category'}
                         disabled={row.excluded}
-                        className={optionalFieldRing(row.categoryId, row.raw.categoryName, row.categoryConfidence)}
+                        className={`text-xs ${optionalFieldRing(row.categoryId, row.raw.categoryName, row.categoryConfidence)}`}
                       />
                     </td>
                     <td className="px-3 py-2">
@@ -310,6 +310,7 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
                         value={row.priority}
                         onChange={(v) => updateRow(row.rowIndex, { priority: v as Priority })}
                         options={PRIORITY_OPTIONS}
+                        className="text-xs"
                         disabled={row.excluded}
                       />
                     </td>
@@ -319,7 +320,7 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
                         onChange={(e) => updateRow(row.rowIndex, { tatHours: e.target.value, tatHoursInvalid: false })}
                         disabled={row.excluded}
                         placeholder="Default"
-                        className={`w-20 px-2.5 py-1.5 text-sm bg-surface border border-border rounded-lg outline-none focus:border-primary-500 disabled:opacity-60 ${row.tatHoursInvalid ? 'ring-2 ring-danger/40' : ''}`}
+                        className={`w-20 px-2.5 py-1.5 text-xs bg-surface border border-border rounded-lg outline-none focus:border-primary-500 disabled:opacity-60 ${row.tatHoursInvalid ? 'ring-2 ring-danger/40' : ''}`}
                       />
                     </td>
                     <td className="px-3 py-2 text-xs max-w-40">
@@ -331,7 +332,7 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
                           <TagIcon size={11} /> {row.unmatchedLabelNames.length} unmatched
                         </span>
                       )}
-                      {!row.tagIds.length && !row.unmatchedLabelNames.length && <span className="text-text-light">—</span>}
+                      {!row.tagIds.length && !row.unmatchedLabelNames.length && <span className="text-text-light">None</span>}
                     </td>
                     <td className="px-3 py-2 text-center">
                       <button

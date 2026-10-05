@@ -42,6 +42,14 @@ interface StatusRemarkDialogProps {
   attachments?: ReactNode;
   /** Optional one-tap remark starters shown above the text box (tap fills it, still editable). */
   suggestions?: string[];
+  /**
+   * The note is the person's choice: the dialog can be confirmed with the box empty (onConfirm then
+   * gets ''), the title and label say "optional", and the button reads `confirmLabel` until
+   * something is typed, then `confirmWithNoteLabel`. Leave off for a status that must be explained.
+   */
+  optional?: boolean;
+  /** Confirm text once a note is typed, in optional mode. Defaults to `${confirmLabel} with note`. */
+  confirmWithNoteLabel?: string;
 }
 
 /**
@@ -56,6 +64,7 @@ interface StatusRemarkDialogProps {
 export const StatusRemarkDialog = ({
   itemTitle, from, to, confirmLabel, description, placeholder,
   onCancel, onConfirm, isSubmitting = false, nested = false, history, attachments, suggestions,
+  optional = false, confirmWithNoteLabel,
 }: StatusRemarkDialogProps) => {
   const [remark, setRemark] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -63,12 +72,12 @@ export const StatusRemarkDialog = ({
 
   const trimmed = remark.trim();
   const isEmpty = trimmed.length === 0;
-  const showError = touched && isEmpty;
+  const showError = !optional && touched && isEmpty;
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     setTouched(true);
-    if (isEmpty || isSubmitting) return;
+    if ((isEmpty && !optional) || isSubmitting) return;
     onConfirm(trimmed);
   };
 
@@ -79,7 +88,7 @@ export const StatusRemarkDialog = ({
       modal={!nested}
       size="lg"
       icon={<MessageSquareText className="w-5 h-5 text-primary-600" />}
-      title="Add a remark"
+      title={optional ? 'Add a note?' : 'Add a remark'}
       // Desktop-only: three lines of header on a phone for something the form itself makes clear.
       description={<span className="hidden sm:inline">{description}</span>}
       // Phones: header X instead of the footer Cancel, and the confirm button spans the sheet —
@@ -96,10 +105,10 @@ export const StatusRemarkDialog = ({
             variant="primary"
             size="sm"
             isLoading={isSubmitting}
-            disabled={isEmpty}
+            disabled={isEmpty && !optional}
             className="max-sm:w-full"
           >
-            {confirmLabel}
+            {optional && !isEmpty ? (confirmWithNoteLabel ?? `${confirmLabel} with note`) : confirmLabel}
           </Button>
         </div>
       }
@@ -126,7 +135,7 @@ export const StatusRemarkDialog = ({
 
         <div className="flex flex-col gap-2">
           <label htmlFor="status-remark" className="flex items-center gap-1.5 text-xs font-semibold text-text-secondary">
-            <PenLine size={13} className="text-text-light" /> What changed?
+            <PenLine size={13} className="text-text-light" /> {optional ? 'Note (optional)' : 'What changed?'}
           </label>
 
           {/* One-tap starting points for the common remarks — typing a sentence on a phone keyboard

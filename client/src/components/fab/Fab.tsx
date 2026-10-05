@@ -55,7 +55,7 @@ export const Fab = ({ actions, icon: Icon = Plus, 'aria-label': ariaLabel }: Fab
       )}
 
       <div
-        className="md:hidden fixed right-6 z-40 flex flex-col items-end gap-4"
+        className="md:hidden fixed right-4 sm:right-6 z-40 flex flex-col items-end gap-4"
         style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
       >
         {!isSingleAction && (
@@ -86,12 +86,12 @@ export const Fab = ({ actions, icon: Icon = Plus, 'aria-label': ariaLabel }: Fab
                       disabled={action.disabled}
                       aria-label={action.label}
                       className={cn(
-                        "relative flex items-center justify-center size-12 rounded-full bg-surface border border-border text-primary-600 shadow-md transition-all duration-200 cursor-pointer active:scale-90",
+                        "relative flex items-center justify-center size-11 sm:size-12 rounded-full bg-surface border border-border text-primary-600 shadow-md transition-all duration-200 cursor-pointer active:scale-90",
                         "hover:bg-primary-50 hover:border-primary-200 hover:text-primary-700",
                         "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-surface disabled:hover:border-border"
                       )}
                     >
-                      <action.icon size={20} strokeWidth={2.5} />
+                      <action.icon className="size-[18px] sm:size-5" strokeWidth={2.5} />
                       {action.badge && (
                         <span className="absolute -top-2 -right-2 text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-surface-hover border border-border text-text-muted shadow-sm">
                           {action.badge}
@@ -110,7 +110,7 @@ export const Fab = ({ actions, icon: Icon = Plus, 'aria-label': ariaLabel }: Fab
           aria-label={ariaLabel ?? singleAction?.label ?? (expanded ? 'Close quick actions' : 'Quick actions')}
           aria-expanded={isSingleAction ? undefined : expanded}
           className={cn(
-            "flex items-center justify-center size-14 rounded-full bg-primary-600 text-white cursor-pointer transition-all duration-300 ease-out",
+            "flex items-center justify-center size-12 sm:size-14 rounded-full bg-primary-600 text-white cursor-pointer transition-all duration-300 ease-out",
             "shadow-lg shadow-primary-600/30 hover:shadow-xl hover:shadow-primary-600/40 hover:bg-primary-500",
             "active:scale-95 ring-4 ring-transparent hover:ring-primary-100/50 focus:outline-none focus:ring-primary-100/50",
             "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary-600 disabled:hover:scale-100 disabled:hover:-translate-y-0",
@@ -122,7 +122,7 @@ export const Fab = ({ actions, icon: Icon = Plus, 'aria-label': ariaLabel }: Fab
               !isSingleAction && expanded ? 'rotate-[135deg]' : 'rotate-0'
             }`}
           >
-            {singleAction ? <singleAction.icon size={24} strokeWidth={2.5} /> : <Icon size={24} strokeWidth={2.5} />}
+            {singleAction ? <singleAction.icon className="size-5 sm:size-6" strokeWidth={2.5} /> : <Icon className="size-5 sm:size-6" strokeWidth={2.5} />}
           </span>
         </button>
       </div>

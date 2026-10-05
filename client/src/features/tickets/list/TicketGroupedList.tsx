@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo } from 'react';
 import { TicketCard } from '../TicketCard';
 import { TicketGroupHeader } from './TicketGroupHeader';
 import { groupChecklistStats } from './ticketGrouping';
@@ -24,19 +24,10 @@ const TicketGroupedListComponent = ({
   onSelectTicket,
   departmentNames,
 }: TicketGroupedListProps) => {
-  const groupOffsets = useMemo(() => (
-    groups.reduce<{ offsets: number[]; count: number }>((acc, group) => {
-      acc.offsets.push(acc.count);
-      acc.count += group.tickets.length;
-      return acc;
-    }, { offsets: [], count: 0 }).offsets
-  ), [groups]);
-
   return (
     <div className="flex flex-col gap-5 sm:gap-8">
-      {groups.map((group, groupIdx) => {
+      {groups.map((group) => {
         const stats = groupChecklistStats(group.tickets);
-        const groupOffset = groupOffsets[groupIdx];
 
         return (
           <div key={group.key} className="flex flex-col gap-3 sm:gap-4">
@@ -48,15 +39,17 @@ const TicketGroupedListComponent = ({
             />
 
             <div className={TICKET_GRID_CLASS}>
-              {group.tickets.map((ticket, ticketIdx) => (
+              {group.tickets.map((ticket) => (
                 <TicketCard
                   key={ticket.id}
                   ticket={ticket}
                   onClick={onSelectTicket}
-                  index={groupOffset + ticketIdx}
+                  // The group header already names the department / the person, so the card
+                  // doesn't repeat it. No department at all means no chip.
                   departmentName={
-                    departmentNames.get(ticket.departmentId ?? '') ?? 'Ticket'
+                    groupBy === 'department' ? undefined : departmentNames.get(ticket.departmentId ?? '')
                   }
+                  hideAssignee={groupBy === 'assignee'}
                 />
               ))}
             </div>

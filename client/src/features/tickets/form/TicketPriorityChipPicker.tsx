@@ -22,7 +22,7 @@ export const TicketPriorityChipPicker = ({
         <button
           type="button"
           aria-label={`Priority: ${current.label}. Change priority`}
-          className="flex rounded-full cursor-pointer outline-none transition-opacity hover:opacity-85 focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]"
+          className="relative flex rounded-full cursor-pointer outline-none transition-opacity hover:opacity-85 focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent] pointer-coarse:after:absolute pointer-coarse:after:-inset-y-1.5 pointer-coarse:after:inset-x-0"
         >
           <IconChip icon={current.icon} tone={current.solid} label={current.label}>
             <ChevronDown size={12} strokeWidth={2.5} className="text-text-light -mr-0.5" />
@@ -33,7 +33,7 @@ export const TicketPriorityChipPicker = ({
         {PRIORITY_ORDER.map((p) => {
           const Icon = PRIORITY_CONFIG[p].icon;
           return (
-            <DropdownMenuItem key={p} onClick={() => onChange(p)} className="gap-2">
+            <DropdownMenuItem key={p} onClick={() => onChange(p)} className="gap-2 min-h-11 sm:min-h-9">
               <span className={`flex items-center justify-center size-5 rounded-full text-white shrink-0 ${PRIORITY_CONFIG[p].solid}`}>
                 <Icon strokeWidth={2.75} className="size-2.5 text-white!" />
               </span>

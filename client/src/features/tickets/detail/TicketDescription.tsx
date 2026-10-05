@@ -92,7 +92,7 @@ export const TicketDescription = ({ description }: TicketDescriptionProps) => {
             )}
           </div>
         ) : (
-          <p className="text-sm text-text-light italic">No description added.</p>
+          <p className="text-[15px] sm:text-sm text-text-light italic">No description added.</p>
         )}
       </div>
     </section>

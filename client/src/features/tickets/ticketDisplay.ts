@@ -89,3 +89,24 @@ export const PRIORITY_CONFIG: Record<Ticket['priority'], { label: string; classN
     icon: AlertTriangle,
   },
 };
+
+/**
+ * The one wording for a ticket's target date, shared by the card, table and timeline so they agree:
+ * "Today" / "Tomorrow" / "Yesterday", otherwise "5 Oct". `label` adds a "Delayed" prefix when the
+ * ticket is overdue and not closed. Null when the ticket has no target date.
+ */
+export const formatDueLabel = (
+  ticket: Pick<Ticket, 'tatDueAt' | 'status' | 'isOverdue'>,
+): { text: string; label: string; overdue: boolean } | null => {
+  if (!ticket.tatDueAt) return null;
+  const startOfDay = (d: Date) => new Date(d).setHours(0, 0, 0, 0);
+  const due = new Date(ticket.tatDueAt);
+  const days = Math.round((startOfDay(due) - startOfDay(new Date())) / 86_400_000);
+  const text =
+    days === 0 ? 'Today'
+    : days === 1 ? 'Tomorrow'
+    : days === -1 ? 'Yesterday'
+    : due.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  const overdue = ticket.isOverdue && ticket.status !== 'CLOSED';
+  return { text, label: overdue ? `Delayed · ${text}` : text, overdue };
+};

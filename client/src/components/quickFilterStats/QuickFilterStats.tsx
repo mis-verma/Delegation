@@ -78,10 +78,10 @@ const QuickFilterStatsSkeleton = ({ count, variant }: { count: number; variant: 
           <div
             key={i}
             className={cn(
-              'flex items-center justify-between gap-3 rounded-lg p-3.5 md:p-4',
+              'flex items-center justify-between gap-3 lg:gap-2.5 xl:gap-3 rounded-lg p-3.5 md:p-4 lg:p-3 xl:p-4',
               i === 0 && leadSpanClass(count),
               isHero
-                ? 'bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700'
+                ? 'bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700 dark:from-primary-700 dark:via-primary-600 dark:to-primary-500'
                 : 'bg-surface border border-border',
             )}
           >
@@ -89,7 +89,7 @@ const QuickFilterStatsSkeleton = ({ count, variant }: { count: number; variant: 
               <Skeleton className={cn('h-7 w-12', isHero && 'bg-white/20')} />
               <Skeleton className={cn('h-3.5 w-20', isHero && 'bg-white/20')} />
             </div>
-            <Skeleton className={cn('size-10 rounded-xl shrink-0', isHero && 'bg-white/20')} />
+            <Skeleton className={cn('size-10 lg:size-8 xl:size-10 rounded-xl shrink-0', isHero && 'bg-white/20')} />
           </div>
         );
       })}
@@ -164,7 +164,7 @@ export function QuickFilterStats<K extends string>({
                 'flex flex-col items-center justify-center gap-1 min-h-[52px] px-0.5 rounded-xl border font-display transition-colors duration-200 cursor-pointer active:scale-[0.97] [-webkit-tap-highlight-color:transparent]',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
                 isSelected
-                  ? 'border-transparent bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700 text-white'
+                  ? 'border-transparent bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700 dark:from-primary-700 dark:via-primary-600 dark:to-primary-500 text-white'
                   : 'border-border bg-surface text-text-secondary',
               )}
             >
@@ -205,13 +205,14 @@ export function QuickFilterStats<K extends string>({
               aria-label={purpose}
               title={purpose}
               className={cn(
-                "group relative flex items-center justify-between gap-3 overflow-hidden rounded-lg p-3.5 md:p-4 text-left transition-all duration-400 ease-out cursor-pointer",
+                "group relative flex items-center justify-between gap-3 lg:gap-2.5 xl:gap-3 overflow-hidden rounded-lg p-3.5 md:p-4 lg:p-3 xl:p-4 text-left transition-all duration-400 ease-out cursor-pointer",
                 index === 0 && leadSpanClass(shownTiles.length),
                 // All-token navy ramp (was `from-slate-900`, a raw Tailwind default in a project
                 // that mandates its own palette). Kept identical to StatusBreakdownCard's shell —
                 // these two navy tiles are deliberately the same surface. The shadow colour was
                 // missed in that same sweep and is now on the palette too.
                 "bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700",
+                "dark:from-primary-700 dark:via-primary-600 dark:to-primary-500",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
                 // Was `ring-2 ring-white/60` — since this tile is "active" by default (it's the
                 // resting state whenever no bucket is picked, per the comment above), a stark
@@ -244,8 +245,8 @@ export function QuickFilterStats<K extends string>({
                   tile is already the bold navy surface. No extra badge/ring on top of it — the
                   tile's own border/shadow/lift above already say "selected", and a corner glyph on
                   a tile this small just read as clutter. */}
-              <div className="relative z-10 shrink-0 flex items-center justify-center size-10 rounded-xl border border-white/20 bg-white/15 transition-transform duration-300 group-hover:scale-105">
-                <Icon size={18} strokeWidth={2.5} className="text-white" />
+              <div className="relative z-10 shrink-0 flex items-center justify-center size-10 lg:size-8 xl:size-10 rounded-xl border border-white/20 bg-white/15 transition-transform duration-300 group-hover:scale-105">
+                <Icon size={18} strokeWidth={2.5} className="size-[18px] lg:size-4 xl:size-[18px] text-white" />
               </div>
             </button>
           );
@@ -260,7 +261,7 @@ export function QuickFilterStats<K extends string>({
             aria-label={purpose}
             title={purpose}
             className={cn(
-              "group relative flex items-center gap-4 overflow-hidden rounded-lg p-3.5 md:p-4 text-left transition-all duration-200 cursor-pointer bg-surface border",
+              "group relative flex items-center gap-4 lg:gap-2.5 xl:gap-4 overflow-hidden rounded-lg p-3.5 md:p-4 lg:p-3 xl:p-4 text-left transition-all duration-200 cursor-pointer bg-surface border",
               index === 0 && leadSpanClass(shownTiles.length),
               // Was `focus:ring-primary-50/50` — #f0f4f8 at half opacity, i.e. an invisible focus
               // ring on a white surface, on the primary filter control of five different pages.
@@ -304,8 +305,8 @@ export function QuickFilterStats<K extends string>({
                 circle wrapped around the icon rather than a subtle flourish, and a badge stacked
                 on top of that made it worse. The border/fill/left-bar changes above already say
                 "selected" on their own. */}
-            <div className={cn("flex items-center justify-center size-10 rounded-xl border transition-all duration-300 shrink-0 group-hover:scale-105", bgTint, ring)}>
-              <Icon size={18} strokeWidth={2.5} className={iconTint} />
+            <div className={cn("flex items-center justify-center size-10 lg:size-8 xl:size-10 rounded-xl border transition-all duration-300 shrink-0 group-hover:scale-105", bgTint, ring)}>
+              <Icon size={18} strokeWidth={2.5} className={cn("size-[18px] lg:size-4 xl:size-[18px]", iconTint)} />
             </div>
           </button>
         );

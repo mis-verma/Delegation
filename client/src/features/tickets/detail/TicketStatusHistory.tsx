@@ -68,7 +68,7 @@ export const TicketStatusHistory = ({ statusUpdates, onPreview }: TicketStatusHi
                       {getStatusChipLabel(key)}
                     </p>
                     {isLatest && (
-                      <span className="px-2 py-0.5 rounded-full bg-primary-700 text-white text-[10px] font-bold leading-none">Latest</span>
+                      <span className="px-2 py-0.5 rounded-full bg-primary-700 dark:bg-primary-400 text-white text-[11px] font-bold leading-none">Latest</span>
                     )}
                   </div>
 
@@ -77,7 +77,7 @@ export const TicketStatusHistory = ({ statusUpdates, onPreview }: TicketStatusHi
                   </p>
 
                   {su.remark && (
-                    <p className="text-sm sm:text-[13px] text-text-secondary leading-relaxed whitespace-pre-wrap break-words pl-2.5 border-l-2 border-primary-500/30">
+                    <p className="text-[15px] sm:text-sm text-text-secondary leading-relaxed whitespace-pre-wrap break-words pl-2.5 border-l-2 border-primary-500/30">
                       {su.remark}
                     </p>
                   )}

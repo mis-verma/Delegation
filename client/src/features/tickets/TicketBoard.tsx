@@ -162,6 +162,7 @@ export const TicketBoard = ({ tickets, departmentNames, isVerifier = false, onOp
             <TicketCard
               ticket={activeTicket}
               onClick={onOpen}
+              variant="board"
               departmentName={activeTicket.departmentId ? departmentNames?.get(activeTicket.departmentId) : undefined}
             />
           </div>

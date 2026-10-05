@@ -51,6 +51,9 @@ interface EntityIconTileProps {
   /** primary (navy) for org structure — users, departments; coral (gold) for physical stores. */
   tone?: 'primary' | 'coral';
   className?: string;
+  /** Glyph size classes; defaults to `size-5` (for the 40px tile). Pass a smaller one when the tile
+   *  itself is shrunk via `className`. */
+  iconClassName?: string;
 }
 
 // The leading visual for Departments/Stores — exactly 40px to match User avatars. A solid
@@ -59,7 +62,7 @@ interface EntityIconTileProps {
 // Actions) so "the app feels dull/flat" gets fixed once, consistently, rather than per screen.
 // Still just a border for edge definition, no box-shadow — the app's own "cards use borders, not
 // shadows" convention extends to this tile too.
-export const EntityIconTile = ({ icon: Icon, tone = 'primary', className }: EntityIconTileProps) => (
+export const EntityIconTile = ({ icon: Icon, tone = 'primary', className, iconClassName = 'size-5' }: EntityIconTileProps) => (
   <div
     className={cn(
       'flex items-center justify-center size-10 rounded-xl shrink-0 text-white transition-all duration-300 group-hover:scale-105',
@@ -69,7 +72,7 @@ export const EntityIconTile = ({ icon: Icon, tone = 'primary', className }: Enti
       className
     )}
   >
-    <Icon className="size-5" strokeWidth={2.25} />
+    <Icon className={iconClassName} strokeWidth={2.25} />
   </div>
 );
 

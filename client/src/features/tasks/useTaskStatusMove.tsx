@@ -61,7 +61,7 @@ export const useTaskStatusMove = () => {
       onCancel={() => setPendingMove(null)}
       onConfirm={(statusRemark) => {
         updateMutation.mutate(
-          { id: pendingMove.task.id, payload: { status: pendingMove.toStatus, statusRemark } },
+          { id: pendingMove.task.id, payload: { status: pendingMove.toStatus, statusRemark: statusRemark || undefined } },
           { onSuccess: () => setPendingMove(null) },
         );
       }}

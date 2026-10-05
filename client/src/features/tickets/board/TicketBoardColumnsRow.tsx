@@ -30,11 +30,12 @@ export const TicketBoardColumnsRow = memo(({ tickets, draggable, onOpen, departm
 
   return (
     // One column per status laid out in a row of equal tracks. A track is never narrower than its
-    // floor (17.5rem on phones, 18rem at sm, 14rem from lg), so a card is never squeezed: when the
-    // five floors fit the content area the tracks stretch to fill it exactly (no empty gutter),
-    // otherwise the row scrolls sideways and snaps column by column below `lg`. The scrollbar stays
-    // thin and visible on desktop, where nothing else says the row scrolls.
-    <div className="grid grid-flow-col auto-cols-[17.5rem] sm:auto-cols-[minmax(18rem,1fr)] lg:auto-cols-[minmax(14rem,1fr)] gap-3 sm:gap-4 xl:gap-5 items-stretch overflow-x-auto overscroll-x-contain snap-x snap-mandatory lg:snap-none scroll-px-1 pb-3 [scrollbar-width:thin] animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out">
+    // floor (17.5rem on phones, 18rem at sm, 15rem from lg), so a card is never squeezed. Five 15rem
+    // floors plus gaps need about 1184px, more than the lg/xl content area (about 700/940px), so
+    // there the row scrolls sideways and snaps column by column; only on wider screens do the
+    // tracks stretch to fill the area with no gutter. The scrollbar stays thin and visible, since
+    // nothing else says the row scrolls.
+    <div className="grid grid-flow-col auto-cols-[17.5rem] sm:auto-cols-[minmax(18rem,1fr)] lg:auto-cols-[minmax(15rem,1fr)] gap-3 sm:gap-4 xl:gap-5 items-stretch overflow-x-auto overscroll-x-contain snap-x snap-mandatory scroll-px-1 pb-3 [scrollbar-width:thin] animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out">
       {TICKET_BOARD_COLUMNS.map(status => (
         <div key={status} className="min-w-0 snap-start">
           <TicketBoardColumn
