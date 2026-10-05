@@ -8,6 +8,8 @@ export type Notification = {
     ticketId : string | null;
     taskId : string | null;
     checklistInstanceId : string | null;
+    /** The checklist this is about has had its day end. The message still shows, but there is nothing to open. */
+    checklistMissed? : boolean;
     isRead : boolean;
     createdAt : string;
 }

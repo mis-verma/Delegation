@@ -142,6 +142,8 @@ export type ChecklistInstance = {
   submittedAt:        string | null;
   submittedBy:        string | null;
   submittedByName:    string | null;
+  /** Nobody finished it before its day ended: counted as missed and no longer fillable by its assignees. */
+  isMissed?:          boolean;
   verifiedBy:         string | null;
   verifiedAt:         string | null;
   verificationNote:   string | null;

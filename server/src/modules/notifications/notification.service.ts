@@ -3,6 +3,7 @@ import { db } from '../../config/db.js';
 import { notifications, users } from '../../db/schema/core.js';
 import { eq, and, or, desc, inArray } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
+import { missedInstanceIds } from '../checklistInstances/checklistMissedRun.js';
 import { AppError } from '../../utils/AppError.js'; // helper for creating consistent HTTP error objects (e.g. 404 Not Found)
 import { getIO } from '../../sockets/socket.js'; // gives us access to the Socket.IO server so we can push notifications to the browser in real time
 
@@ -400,12 +401,16 @@ export const notificationService = {
 
   // Returns the most recent 50 notifications for a given user, newest first - used to populate the notifications dropdown/list in the UI
   async listForUser(userId: string) {
-    return db
+    const rows = await db
       .select()
       .from(notifications)
       .where(eq(notifications.recipientId, userId))
       .orderBy(desc(notifications.createdAt))
       .limit(50);
+    // A notification about a checklist whose day has ended still shows its message, but the client
+    // must not send the person to a run they can no longer fill: flag those.
+    const missed = await missedInstanceIds(rows.map((r) => r.checklistInstanceId).filter((id): id is string => !!id));
+    return rows.map((r) => ({ ...r, checklistMissed: !!r.checklistInstanceId && missed.has(r.checklistInstanceId) }));
   },
 
   // Marks a single notification as read - but only if it actually belongs to this user

@@ -10,6 +10,7 @@ import {
 import { and, eq, sql } from "drizzle-orm"
 import { AppError } from "../../utils/AppError.js"
 import { syncVerificationStatus, assertInstanceOpen, assertInstanceEditable } from "../checklistInstances/checklistInstance.service.js"
+import { assertRunNotMissed } from "../checklistInstances/checklistMissedRun.js"
 import { emitChecklistEvent } from "../../sockets/checklistEvent.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { UpdateChecklistInstanceItemSubmissionAccessoriesInput, UpdateChecklistInstanceItemSubmissionRemarksInput } from "./checklistInstanceItemSubmission.validation.js"
@@ -39,6 +40,7 @@ export const assertSubmissionRunEditable = async (instanceId: string, user: Acce
     const [instance] = await db.select({ verificationStatus: checklistInstances.verificationStatus })
         .from(checklistInstances).where(eq(checklistInstances.id, instanceId)).limit(1)
     if (instance) assertInstanceEditable(instance, user)
+    await assertRunNotMissed(instanceId, user)
 }
 
 // Never trust the client's isDone — recount qualifying evidence photos from the DB first, same

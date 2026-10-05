@@ -21,6 +21,7 @@ import { eq, and, inArray, desc, asc, sql, gte, lte, lt, type SQL } from "drizzl
 import { AppError } from "../../utils/AppError.js"
 import { notificationService } from "../notifications/notification.service.js"
 import { ticketService } from "../tickets/ticket.service.js"
+import { missedFromPastDayExpr, missedInstanceIds, assertRunNotMissed } from "./checklistMissedRun.js"
 import { auditService } from "../audit/audit.service.js"
 import { cached, cacheKey, invalidateQuick } from "../../config/queryCache.js"
 import { orgDayStartUtc } from "../../utils/orgDay.js"
@@ -162,8 +163,12 @@ const hydrateInstances = async (instanceRows: (typeof checklistInstances.$inferS
         itemsByInstance.set(item.instanceId, list)
     }
 
+    const missedIds = await missedInstanceIds(instanceIds)
+
     return instanceRows.map((instance) => ({
         ...instance,
+        // A run nobody finished before its day ended: counted as missed, no longer fillable.
+        isMissed: missedIds.has(instance.id),
         assigneeIds: assigneeIdsByInstance.get(instance.id) ?? [],
         reviewerIds: reviewerIdsByInstance.get(instance.id) ?? [],
         submittedByName: instance.submittedBy ? (nameById.get(instance.submittedBy) ?? null) : null,
@@ -714,19 +719,6 @@ const instanceInDepartmentCondition = (departmentId: string): SQL => sql`EXISTS 
     WHERE a.instanceId = ${checklistInstances.id} AND u.departmentId = ${departmentId}
 )`
 
-/**
- * A run nobody finished before its day ended is MISSED: it keeps counting against completion in the
- * reports, but it is not carried into the next day's to-do list. New day, new checklist. It stays
- * visible when it is sent back for fixing (REJECTED), when it is a one-time checklist (no next day to
- * replace it), and while its deadline is still today (an overnight run, or a late cutoff).
- */
-const missedFromPastDayExpr = sql`(
-    ${checklistInstances.recurrence} <> 'ONE_TIME'
-    AND ${checklistInstances.verificationStatus} <> 'REJECTED'
-    AND (${completionCondition("OPEN")})
-    AND ${deadlineExpr} < DATE(${localNowExpr})
-)`
-
 const instanceConditions = (filter: InstanceListFilter): SQL | undefined => {
     // Excluded by default regardless of what else the caller is filtering by — unless the caller
     // is ADMIN/PC auditing history (`includeDeleted`, set only by the controller from the
@@ -1246,6 +1238,7 @@ export const checklistInstanceService = {
         const assigneeIds = assigneeLinkRows.map((l) => l.userId)
         assertCanAccess({ assigneeIds }, user)
         assertInstanceEditable(instanceRow, user)
+        await assertRunNotMissed(instanceRow.id, user)
 
         // Once something is done it stays done: only an admin may reopen it. A reviewer sending a
         // run back (verify, REJECT) reopens every item itself, so nobody else needs to undo their
@@ -1480,6 +1473,7 @@ export const checklistInstanceService = {
         const assigneeIds = assigneeLinks.map((l) => l.userId)
         assertCanAccess({ assigneeIds }, user)
 
+        await assertRunNotMissed(id, user)
         if (instance.verificationStatus !== "NOT_SUBMITTED" && instance.verificationStatus !== "REJECTED") {
             throw AppError.badRequest(instance.verificationStatus === "APPROVED" ? "This checklist is already approved." : "This checklist has already been submitted.")
         }

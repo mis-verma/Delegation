@@ -34,10 +34,12 @@ export const notificationLook = (type: string) => {
   };
 };
 
-export const notificationPath = (n: Pick<Notification, 'ticketId' | 'taskId' | 'checklistInstanceId'>) => {
+export const notificationPath = (n: Pick<Notification, 'ticketId' | 'taskId' | 'checklistInstanceId' | 'checklistMissed'>) => {
   if (n.ticketId) return `/tickets?open=${n.ticketId}`;
   if (n.taskId) return `/tasks?open=${n.taskId}`;
-  if (n.checklistInstanceId) return `/checklists/${n.checklistInstanceId}`;
+  // A checklist whose day has ended is not opened from here: the person works today's checklist, and
+  // this one only counts as missed.
+  if (n.checklistInstanceId) return n.checklistMissed ? null : `/checklists/${n.checklistInstanceId}`;
   return null;
 };
 

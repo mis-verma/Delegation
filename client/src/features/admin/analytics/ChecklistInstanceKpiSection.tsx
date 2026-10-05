@@ -14,6 +14,8 @@ interface ChecklistInstanceKpiSectionProps {
    *  rates. Passed down from the Compliance Board's own "Show deleted checklists" toggle when this
    *  section is embedded there. */
   includeDeleted?: boolean;
+  /** False on the Checklist Compliance page itself: the cards would only link back to where the viewer already is. */
+  linkCards?: boolean;
   /** Narrow every figure and the trend to one store and/or one person. */
   storeId?: string;
   assigneeId?: string;
@@ -23,7 +25,7 @@ interface ChecklistInstanceKpiSectionProps {
 
 const NOTHING_COUNTED = 'Nothing counted in this period';
 
-export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole, includeDeleted, storeId, assigneeId, scopeLabel }: ChecklistInstanceKpiSectionProps) => {
+export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole, includeDeleted, storeId, assigneeId, scopeLabel, linkCards = true }: ChecklistInstanceKpiSectionProps) => {
   const { data: rows, isPending, isError, isFetching, refetch } = useChecklistInstanceComplianceReportQuery(groupBy, from, to, { includeDeleted, storeId, assigneeId });
   const completion = latestWithTrend(rows, 'completionRate', 'rate');
   const compliance = latestWithTrend(rows, 'complianceRate', 'rate');
@@ -34,7 +36,7 @@ export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole, 
 
   // Every figure is a rate across all runs in the period, not a list of records. The per-run rows
   // live on the compliance board (ADMIN/PC) or the history page (managers and senior staff).
-  const href = isOrgWideRole ? '/admin/checklist-compliance' : '/checklists/history';
+  const href = !linkCards ? undefined : isOrgWideRole ? '/admin/checklist-compliance' : '/checklists/history';
 
   return (
     <KpiSectionShell

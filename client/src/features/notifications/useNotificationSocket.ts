@@ -36,7 +36,7 @@ export const useNotificationSocket = ({ onArrive, navigate }: Options = {}) => {
 
             const doNavigate = navigateRef.current;
             if (!doNavigate || !n?.id || !n.title) return;
-            const path = notificationPath({ ticketId: n.ticketId ?? null, taskId: n.taskId ?? null, checklistInstanceId: n.checklistInstanceId ?? null });
+            const path = notificationPath({ ticketId: n.ticketId ?? null, taskId: n.taskId ?? null, checklistInstanceId: n.checklistInstanceId ?? null, checklistMissed: n.checklistMissed });
             const id = n.id;
             // Top-right (main.tsx's Toaster) so a new notification is seen even with the panel
             // closed; the toast id is the notification id, so a double delivery never stacks two.

@@ -253,7 +253,10 @@ export const ChecklistInstanceDetail = () => {
   const { done, total, progress, isComplete, overdue, chipStatus, compliance, scored, good, verification } = getInstanceView(instance);
   // PC has full parity with ADMIN throughout this app.
   const isAdminOrPC = user?.role === 'ADMIN' || user?.role === 'PC';
-  const canWork = isAdminOrPC || (!!user && instance.assigneeIds.includes(user.id));
+  // A run whose day ended (counted as missed) is closed to the people it was assigned to; the server
+  // refuses their changes too. ADMIN/PC can still work it.
+  const isMissed = instance.isMissed === true;
+  const canWork = isAdminOrPC || (!!user && instance.assigneeIds.includes(user.id) && !isMissed);
   const isLocked = instance.verificationStatus === 'APPROVED';
   // Same people who can approve; the server still checks the department for a MANAGER/SENIOR.
   const canReview =
@@ -270,6 +273,7 @@ export const ChecklistInstanceDetail = () => {
   const hasSections = instance.items.some(i => i.section);
   const verificationNote = instance.verificationNote;
   const showBanners =
+    isMissed ||
     notYetOpen ||
     (instance.verificationStatus === 'PENDING_APPROVAL' && !canReview) ||
     (instance.verificationStatus === 'APPROVED' && !!verificationNote) ||
@@ -349,6 +353,14 @@ export const ChecklistInstanceDetail = () => {
 
       {showBanners && (
         <div className="flex flex-col gap-3">
+          {isMissed && (
+            <NoticeBanner tone="warning" icon={Clock}>
+              {isAdminOrPC
+                ? "This checklist's day has ended and it counts as missed. You can still edit it as an admin."
+                : "This checklist's day has ended, so it counts as missed and can't be filled in any more. Today's checklist is in My Checklists."}
+            </NoticeBanner>
+          )}
+
           {notYetOpen && (
             <NoticeBanner tone="neutral" icon={Clock}>
               This checklist opens at {instance.opensTime}. Items can't be ticked off before then.

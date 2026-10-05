@@ -7,6 +7,7 @@ import { createId } from "@paralleldrive/cuid2";
 import { AppError } from "../../utils/AppError.js";
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js";
 import { assertInstanceEditable } from "../checklistInstances/checklistInstance.service.js";
+import { assertRunNotMissed } from "../checklistInstances/checklistMissedRun.js";
 import { auditService } from "../audit/audit.service.js";
 
 const assertCanUpload = async (user: AccessTokenPayload, item: { instanceId: string }) => {
@@ -14,6 +15,7 @@ const assertCanUpload = async (user: AccessTokenPayload, item: { instanceId: str
     if (!instance) throw AppError.notFound("Checklist instance not found");
     // Same approval lock as setItemDone — evidence on an approved run can't be added or removed.
     assertInstanceEditable(instance, user);
+    await assertRunNotMissed(instance.id, user);
     if (user.role === "ADMIN" || user.role === "PC") return;
     const assigneeLinks = await db.select({ userId: checklistInstanceAssignees.userId })
         .from(checklistInstanceAssignees)

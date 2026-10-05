@@ -424,14 +424,14 @@ export const ChecklistComplianceBoard = () => {
 
       <ChecklistScoringGaps />
 
-      {/* isOrgWideRole=false here on purpose: these cards' click destination on the Overview page
-          is this exact page, so on this page itself there's nowhere further to send a click; the
-          real per-instance rows they'd otherwise link to already render directly below. */}
+      {/* linkCards={false} on purpose: these cards' click destination on the Overview page is this
+          exact page, so here they are plain tiles. (Leaving them linked sent a click to History.) */}
       <ChecklistInstanceKpiSection
         groupBy={groupBy}
         from={reportFrom}
         to={reportTo}
         isOrgWideRole={false}
+        linkCards={false}
         includeDeleted={includeDeleted}
         storeId={storeId || undefined}
         assigneeId={assigneeId || undefined}
