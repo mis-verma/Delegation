@@ -1,7 +1,7 @@
 import { Tabs, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import type { QueueTab, QueueView } from './verificationModel';
 
-const TRIGGER = 'min-h-11 sm:min-h-8 px-2.5 sm:px-3 text-xs sm:text-sm';
+const TRIGGER = 'min-h-11 sm:min-h-9 px-2.5 sm:px-4 text-xs sm:text-sm';
 
 const Count = ({ value }: { value: number | null }) =>
   value === null ? null : <span className="tabular-nums text-text-light">{value}</span>;

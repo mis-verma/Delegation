@@ -7,7 +7,15 @@ import type { TicketStatusUpdate } from '../../../api/ticket';
 interface TicketStatusHistoryProps {
   statusUpdates: TicketStatusUpdate[];
   onPreview: (url: string) => void;
+  /**
+   * Closing a ticket happens through approval, not through a status move, so it is never one of the
+   * `statusUpdates` rows (the last row would still read 'Pending Approval' on a closed ticket). Pass
+   * this to show the closing as the newest step.
+   */
+  closure?: { at: string; by: string | null; note: string | null } | null;
 }
+
+type HistoryRow = Pick<TicketStatusUpdate, 'id' | 'toStatus' | 'createdAt' | 'remark' | 'photos'> & { author: string | undefined };
 
 const formatStamp = (iso: string) => {
   const d = new Date(iso);
@@ -23,8 +31,14 @@ const formatStamp = (iso: string) => {
  * a tinted card marked "Latest". The remark is a quote line under the name and time, and any proof
  * photos are thumbnails below it.
  */
-export const TicketStatusHistory = ({ statusUpdates, onPreview }: TicketStatusHistoryProps) => {
-  if (!statusUpdates || statusUpdates.length === 0) return null;
+export const TicketStatusHistory = ({ statusUpdates, onPreview, closure }: TicketStatusHistoryProps) => {
+  const rows: HistoryRow[] = [
+    ...(closure
+      ? [{ id: 'closed', toStatus: 'CLOSED' as TicketStatusUpdate['toStatus'], createdAt: closure.at, remark: closure.note ?? '', photos: [], author: closure.by ?? undefined }]
+      : []),
+    ...(statusUpdates ?? []).map((su) => ({ id: su.id, toStatus: su.toStatus, createdAt: su.createdAt, remark: su.remark, photos: su.photos, author: su.changedByUser?.firstName })),
+  ];
+  if (rows.length === 0) return null;
 
   return (
     <section className="flex flex-col gap-3 min-w-0">
@@ -34,13 +48,13 @@ export const TicketStatusHistory = ({ statusUpdates, onPreview }: TicketStatusHi
       </h3>
 
       <ol className="flex flex-col">
-        {statusUpdates.map((su, index) => {
+        {rows.map((su, index) => {
           const key = su.toStatus.toLowerCase() as StatusChipStatus;
           const meta = getStatusChipMeta(key);
           const Icon = meta.icon;
           const isLatest = index === 0;
-          const isLast = index === statusUpdates.length - 1;
-          const author = su.changedByUser?.firstName;
+          const isLast = index === rows.length - 1;
+          const author = su.author;
 
           return (
             <li key={su.id} className="flex gap-3">

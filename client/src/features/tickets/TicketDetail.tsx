@@ -302,7 +302,13 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                   remark and optional proof photos, so this sheet already has one place to say
                   something and show evidence without a second, separate mechanism duplicating it. */}
               {(ticket.statusUpdates?.length ?? 0) > 0 && (
-                <TicketStatusHistory statusUpdates={ticket.statusUpdates} onPreview={setPreviewImage} />
+                <TicketStatusHistory
+                  statusUpdates={ticket.statusUpdates}
+                  onPreview={setPreviewImage}
+                  closure={ticket.status === 'CLOSED' && (ticket.verifiedAt ?? ticket.closedAt)
+                    ? { at: (ticket.verifiedAt ?? ticket.closedAt) as string, by: ticket.verifier?.firstName ?? null, note: ticket.verificationNote }
+                    : null}
+                />
               )}
 
               {isAdmin && <ActivityTimeline entityType="Ticket" entityId={ticket.id} />}

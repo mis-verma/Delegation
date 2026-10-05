@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ShieldCheck, CheckCheck, ListChecks } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import { EmptyState, InlineError, PageHeader, PANEL_CLASS, useConfirm } from '../../components';
 import { Breadcrumbs } from '../../components/breadcrumbs';
 import { useMediaQuery } from '../../lib/useMediaQuery';
@@ -273,6 +274,7 @@ export const VerificationQueue = () => {
   const showChecklists = params.tab === 'all' || params.tab === 'checklists';
   const showTicketTask = params.tab !== 'checklists';
   const ticketTaskFailed = ticketsQuery.isError || tasksQuery.isError;
+  const splitPane = checklistQuery.isPending || visibleRows.length > 0;
 
   const rootHref = useMemo(() => {
     const next = new URLSearchParams(searchParams);
@@ -319,7 +321,8 @@ export const VerificationQueue = () => {
           )}
 
           {showChecklists && (
-            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-4 items-start">
+            // The list/review split only makes sense with rows to review; an empty or failed list takes the full width.
+            <div className={cn('grid grid-cols-1 gap-4 items-start', splitPane && 'lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]')}>
               <ChecklistList
                 rows={visibleRows}
                 now={now}

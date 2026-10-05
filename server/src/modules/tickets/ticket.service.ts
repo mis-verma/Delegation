@@ -710,6 +710,12 @@ export const ticketService = {
 
     const before = ticket;
 
+    // Moving a ticket to the status it is already in is not a move. Without this a double tap on
+    // "Update status" wrote the same step twice into the ticket's history.
+    if (input.status === before.status) {
+      throw AppError.conflict("This ticket is already in that status.")
+    }
+
     if (input.status === "PENDING_APPROVAL" && before.status !== "PENDING_APPROVAL") {
       const checklistsWithItems = await getTicketChecklistsWithItems(id)
       assertChecklistsResolved(checklistsWithItems, "sending this ticket for review")
