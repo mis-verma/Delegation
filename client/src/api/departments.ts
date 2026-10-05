@@ -5,6 +5,8 @@ export type Department = {
   name: string;
   isActive: boolean;
   storeId: string | null;
+  /** Works without a Manager or Senior: left out of the "no head" warning. */
+  headOptional?: boolean;
 };
 
 export type ApiResponse<T> = { success: boolean; data: T };
@@ -18,11 +20,13 @@ export type PaginatedResponse<T> = {
 export type CreateDepartmentPayload = {
   name: string;
   storeId?: string;
+  headOptional?: boolean;
 }
 
 export type UpdateDepartmentPayload = Partial<Omit<CreateDepartmentPayload, "storeId">> & {
   isActive?: boolean;
   storeId?: string | null;
+  headOptional?: boolean;
 };
 
 

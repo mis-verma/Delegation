@@ -94,6 +94,9 @@ export const departments = mysqlTable(
     name: varchar('name', { length: 191 }).notNull(),
     isActive: boolean('isActive').notNull().default(true),
     storeId: varchar('storeId', { length: 191 }).references(() => stores.id),
+    // True for a department that works fine without a Manager or Senior (Admin or PC approve for it):
+    // it is left out of the "departments without a head" warning on Org Structure.
+    headOptional: boolean('headOptional').notNull().default(false),
     createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
     updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
   },

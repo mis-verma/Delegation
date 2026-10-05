@@ -99,6 +99,8 @@ export const DepartmentSection = memo(({ node, isOpen, forceOpen, onToggle, show
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             {headLabel ? (
               <span className="text-xs font-display text-text-muted line-clamp-1 break-words">{headLabel}</span>
+            ) : department.headOptional ? (
+              <span className="text-xs font-display text-text-light">Head not needed</span>
             ) : (
               <span className={cn(HEADER_CHIP, 'border-warning/30 bg-warning/10 text-warning')}>No head</span>
             )}

@@ -90,6 +90,7 @@ export const departmentService = {
                 name,
                 isActive: input.isActive,
                 storeId: input.storeId ?? null,
+                headOptional: input.headOptional ?? false,
             });
         } catch (err) {
             if (isDuplicateEntry(err)) throw AppError.conflict("Name already exists");

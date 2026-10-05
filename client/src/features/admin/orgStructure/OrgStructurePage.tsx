@@ -97,7 +97,7 @@ export const OrgStructurePage = () => {
     return [
       { key: 'no-store', label: 'Departments without a store', count: activeDepartments.filter((d) => !d.storeId).length },
       { key: 'no-dept', label: 'People without a department', count: (users ?? []).filter(needsDepartment).length },
-      { key: 'no-head', label: 'Departments without a head', count: activeDepartments.filter((d) => !headedDepartmentIds.has(d.id)).length },
+      { key: 'no-head', label: 'Departments without a head', count: activeDepartments.filter((d) => !d.headOptional && !headedDepartmentIds.has(d.id)).length },
     ].filter((item) => item.count > 0);
   }, [departments, users]);
 

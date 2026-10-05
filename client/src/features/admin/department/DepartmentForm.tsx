@@ -1,9 +1,9 @@
 import { useMemo } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Building2, Store, UserCog } from 'lucide-react';
-import { Input, Button, Modal, Combobox, InlineError, Skeleton } from '../../../components';
+import { Input, Button, Modal, Combobox, InlineError, Skeleton, Switch } from '../../../components';
 import { useCreateDepartmentMutation, useUpdateDepartmentMutation, useUsersQuery } from '../hook';
 import { useDepartmentsQuery, useStoresQuery } from '../../tickets/hook';
 import { isDuplicateName } from '../orgCounts';
@@ -26,6 +26,7 @@ const buildDepartmentSchema = (existing: Department[] | undefined, ignoreId: str
         }
       }),
     storeId: z.string().optional(),
+    headOptional: z.boolean(),
   });
 
 type DepartmentFields = z.infer<ReturnType<typeof buildDepartmentSchema>>;
@@ -48,7 +49,7 @@ interface DepartmentFormProps {
 
 // Read-only: who currently leads this department. Changing a head means changing that person's
 // role or department on the People page, so this only shows the answer and flags a gap.
-const DepartmentHeads = ({ departmentId }: { departmentId: string }) => {
+const DepartmentHeads = ({ departmentId, headOptional }: { departmentId: string; headOptional: boolean }) => {
   const { data: users, isPending } = useUsersQuery();
 
   const heads = useMemo(
@@ -64,6 +65,8 @@ const DepartmentHeads = ({ departmentId }: { departmentId: string }) => {
       </p>
       {isPending ? (
         <Skeleton className="h-7 w-40 rounded-full" />
+      ) : heads.length === 0 && headOptional ? (
+        <span className="text-xs font-display text-text-muted">No head, and that is fine for this department.</span>
       ) : heads.length === 0 ? (
         <div className="flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center px-2.5 py-1 rounded-full border border-warning/30 bg-warning/10 text-warning text-xs font-display font-semibold">
@@ -102,9 +105,10 @@ export const DepartmentForm = ({ onClose, department, onCreated, prefillName, ne
     formState: { errors, isDirty },
   } = useForm<DepartmentFields>({
     resolver: zodResolver(schema),
-    defaultValues: { name: department?.name || prefillName || '', storeId: department?.storeId ?? '' }
+    defaultValues: { name: department?.name || prefillName || '', storeId: department?.storeId ?? '', headOptional: department?.headOptional ?? false }
   });
 
+  const headOptional = useWatch({ control, name: 'headOptional' });
   const isPending = mutation.isPending;
   const requestClose = useDiscardGuard(isDirty, isPending, onClose);
 
@@ -113,12 +117,12 @@ export const DepartmentForm = ({ onClose, department, onCreated, prefillName, ne
 
     if (isEditing && department) {
       updateMutation.mutate(
-        { id: department.id, payload: { name: data.name, storeId: storePayload ?? null } },
+        { id: department.id, payload: { name: data.name, storeId: storePayload ?? null, headOptional: data.headOptional } },
         { onSuccess: onClose }
       );
     } else {
       createMutation.mutate(
-        { name: data.name, storeId: storePayload },
+        { name: data.name, storeId: storePayload, headOptional: data.headOptional },
         { onSuccess: (created) => { onCreated?.(created); onClose(); } }
       );
     }
@@ -186,7 +190,26 @@ export const DepartmentForm = ({ onClose, department, onCreated, prefillName, ne
               />
             </FormField>
 
-            {isEditing && department && <DepartmentHeads departmentId={department.id} />}
+            {isEditing && department && <DepartmentHeads departmentId={department.id} headOptional={headOptional} />}
+
+            <Controller
+              control={control}
+              name="headOptional"
+              render={({ field }) => (
+                <label
+                  htmlFor="headOptional"
+                  className="flex items-start gap-3 min-h-11 px-3 py-2.5 rounded-xl border border-border bg-surface hover:border-border-hover cursor-pointer transition-colors duration-150"
+                >
+                  <Switch id="headOptional" checked={field.value} onChange={field.onChange} className="mt-0.5" />
+                  <span className="flex flex-col gap-0.5 min-w-0">
+                    <span className="text-sm font-display font-semibold text-text">This department does not need a head</span>
+                    <span className="text-xs font-display text-text-muted">
+                      Turn this on when Admin or PC approve its work, so it stays out of the "no head" warning.
+                    </span>
+                  </span>
+                </label>
+              )}
+            />
           </FormSection>
         </fieldset>
 

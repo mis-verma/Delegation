@@ -1,0 +1,1 @@
+ALTER TABLE `Department` ADD `headOptional` boolean DEFAULT false NOT NULL;

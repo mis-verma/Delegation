@@ -5,6 +5,8 @@ export const createDepartmentSchema = z.object({
     name: z.string().trim().min(1, "Name is required").max(191),
     isActive: z.boolean().optional(),
     storeId: objectId.optional(),
+    // This department does not need a head (Manager or Senior): no "no head" warning for it.
+    headOptional: z.boolean().optional(),
 })
 
 // storeId is overridden to also accept `null` (unlike create) so an admin can explicitly clear a
