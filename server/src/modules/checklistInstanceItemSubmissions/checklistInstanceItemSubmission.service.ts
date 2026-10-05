@@ -222,7 +222,9 @@ export const checklistInstanceItemSubmissionService = {
             if (instance) assertInstanceOpen(instance)
 
             // Not applicable skips the photo rule: there's nobody to photograph.
-            if (!markingNotApplicable) await assertPhotosSatisfied(submission, item)
+            // A checked person always needs at least one photo as proof, whatever the question's own photo
+            // setting says (it can only raise that number, never lower it below one).
+            if (!markingNotApplicable) await assertPhotosSatisfied(submission, { ...item, requiredImageCount: Math.max(1, item.requiredImageCount) })
         }
 
         const completion = deriveSubmissionCompletion(isDone)

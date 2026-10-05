@@ -252,7 +252,9 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
   const showTypePicker = editable && !submission.isNotApplicable && typeChoices.length > 0;
   const typeShownInPicker = showTypePicker && (typeId === null || typeChoices.some(o => o.id === typeId));
   const qualifying = item.requiresLivePhoto ? images.filter(i => i.captureMethod === 'LIVE').length : images.length;
-  const photosNeeded = Math.max(item.requiredImageCount - qualifying, 0);
+  // Every checked person needs at least one photo as proof (the server enforces the same floor).
+  const requiredPhotos = Math.max(1, item.requiredImageCount);
+  const photosNeeded = Math.max(requiredPhotos - qualifying, 0);
   const checkedCount = accessoriesDraft.filter(a => a.checked).length;
   const allChecked = checkedCount === accessoriesDraft.length;
 
@@ -315,14 +317,16 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
   const error = uploadImages.error ?? setDone.error ?? updateRemarks.error;
   const errorText = error ? (error instanceof Error ? error.message : "Couldn't save that. Try again.") : null;
 
-  const showPhotos = editable || images.length > 0 || item.requiredImageCount > 0;
+  const showPhotos = editable || images.length > 0;
   const liveWord = item.requiresLivePhoto ? 'live ' : '';
   const unticked = accessoriesDraft.length - checkedCount;
 
   // What the Submit button is waiting on, said plainly. Only missing photos block the button (as
   // before); the rest is a heads-up so an untouched person isn't submitted by accident.
   const helper = photosNeeded > 0
-    ? `Add ${photosNeeded} more ${liveWord}photo${photosNeeded === 1 ? '' : 's'} to submit.`
+    ? (qualifying === 0 && photosNeeded === 1
+      ? `Add a ${liveWord}photo to submit.`
+      : `Add ${photosNeeded} more ${liveWord}photo${photosNeeded === 1 ? '' : 's'} to submit.`)
     : accessoriesDraft.length > 0 && checkedCount === 0
       ? 'Nothing ticked yet. Tick the items, or mark them not applicable.'
       : unticked > 0
@@ -415,12 +419,12 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
         <div className="flex flex-col gap-2 max-w-2xl">
           <AuditSectionHeader
             label="Photos"
-            meta={item.requiredImageCount > 0 ? (
+            meta={(
               <>
                 {photosNeeded === 0 && <Check size={12} strokeWidth={3} className="text-success" aria-hidden />}
-                {qualifying} of {item.requiredImageCount}{item.requiresLivePhoto ? ', live only' : ''}
+                Required: {qualifying} of {requiredPhotos}{item.requiresLivePhoto ? ', live only' : ''}
               </>
-            ) : 'optional'}
+            )}
           />
           {images.length > 0 && (
             <ul className="grid grid-cols-3 sm:grid-cols-4 gap-x-3 gap-y-4 pt-1">
