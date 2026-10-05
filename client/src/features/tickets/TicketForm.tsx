@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Ticket as TicketIcon, AlertCircle, Check, Type, AlignLeft, Camera, Image as ImageIcon, Route, Clock, UserCheck } from 'lucide-react';
+import { Ticket as TicketIcon, AlertCircle, Check, Type, AlignLeft, SlidersHorizontal, Camera, Image as ImageIcon, Route, Clock, UserCheck } from 'lucide-react';
 
 import { Button, Modal, Input, Combobox, DepartmentChip, IconChip } from '../../components';
 import { useCreateTicketMutation, useAssignableUsersQuery, useDepartmentsQuery } from './hook';
@@ -20,13 +20,10 @@ import { DepartmentForm } from '../admin/department/DepartmentForm';
 import { AssignmentModeToggle } from './form/AssignmentModeToggle';
 import { DueDateField } from './form/DueDateField';
 import { TicketPriorityChipPicker } from './form/TicketPriorityChipPicker';
-import { FormField } from './form/FormField';
-import { PhotoTiles } from './form/PhotoTiles';
-import { FIELD_TRIGGER_CLASS } from './form/formConstants';
 import { TaskDescriptionField } from '../tasks/TaskDescriptionField';
-import { DETAIL_HEADING_CLASS } from '../tasks/taskFormFieldStyles';
+import { StagedFileChips } from '../tasks/StagedFileChips';
+import { DETAIL_HEADING_CLASS, CHIP_TRIGGER_CLASS } from '../tasks/taskFormFieldStyles';
 import { useAuth } from '../../context/AuthContext';
-import { useMediaQuery } from '../../lib/useMediaQuery';
 import { OWN_SCOPE_ROLES } from '../../api/auth';
 
 // Quiet fill until focused; Input's own danger styling takes over once validation fails.
@@ -95,11 +92,6 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
     return known ?? { id: a.id, firstName: a.firstName, lastName: a.lastName, email: a.email, role: 'USER', departmentId: null };
   }), [selectedCategory, assignableUsers]);
   const assigneeChoices = categoryPeople.length ? categoryPeople : assignableUsers;
-  const pickedPerson = assigneeId ? assigneeChoices?.find(u => u.id === assigneeId) : undefined;
-  const assigneeName = pickedPerson ? `${pickedPerson.firstName} ${pickedPerson.lastName ?? ''}`.trim() : '';
-  // Focus the title on laptops and desktops only. On a phone the keyboard would pop up over the
-  // form the moment it opens.
-  const canAutoFocus = useMediaQuery('(hover: hover) and (pointer: fine)');
 
   useEffect(() => {
     if (categoryId) return;
@@ -185,107 +177,82 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
     <Modal
       open
       onClose={onClose}
-      // xl (a 2xl-wide dialog) from sm up; lg and wider switch to a wider dialog that holds the
-      // two-column layout (text on the left, routing on the right) without scrolling on a laptop.
       size="xl"
-      contentClassName="lg:max-w-4xl"
       icon={<TicketIcon className="w-5 h-5" />}
       title="New ticket"
       description={<span className="hidden sm:inline">{ownScopeOnly ? "Say what's wrong, then choose where it should go." : "Say what's wrong, then choose who picks it up."}</span>}
       footer={footer}
       bodyClassName="p-0 sm:p-0 overflow-y-auto"
-      headerClassName="border-b-0 px-4 py-3 sm:px-5 sm:py-3.5"
-      footerClassName="border-t-0 px-4 sm:px-5"
+      headerClassName="border-b-0"
+      footerClassName="border-t-0"
       // X on phones only, where the footer has just the Create button. Desktop keeps Cancel.
       closeButtonClassName="sm:hidden"
     >
-      {/* One column on phones and tablets: title, description, then routing, then labels. From lg:
-          text fields on the left, the routing panel on the right (spanning both rows), labels
-          under the text so the two columns stay about the same height. */}
-      <form
-        id="ticket-form"
-        onSubmit={handleSubmit(onSubmit)}
-        className="grid grid-cols-1 gap-5 px-4 pb-4 pt-1 sm:p-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-6"
-        noValidate
-      >
-        <div className="flex min-w-0 flex-col gap-5">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="title" className={DETAIL_HEADING_CLASS}>
-              <Type size={14} className="text-text-light" />
-              Title <span className="text-danger">*</span>
-            </label>
-            <Input
-              id="title"
-              placeholder="e.g. Card machine at counter 2 not printing"
-              error={errors.title?.message}
-              className={`h-12 sm:h-10 ${errors.title ? 'font-display' : QUIET_FIELD_CLASS}`}
-              {...register('title')}
-              // Phones skip the autofocus: it would raise the keyboard over the form before the
-              // person has even seen it. Enter moves on to the description instead of submitting.
-              autoFocus={canAutoFocus}
-              enterKeyHint="next"
-              onKeyDown={e => {
-                if (e.key !== 'Enter') return;
-                e.preventDefault();
-                document.getElementById('description')?.focus();
-              }}
-            />
-          </div>
+      {/* Same layout as the New delegation form: icon labels over Title and Description, then
+          one Details row of chips (category, department, priority, assignee, due date). */}
+      <form id="ticket-form" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5 px-4 pb-4 pt-0 sm:p-5" noValidate>
+        {/* First, because it decides what the Details row below offers. */}
+        <AssignmentModeToggle
+          mode={assignmentMode}
+          onChange={m => {
+            setValue('assignmentMode', m);
+            // Auto means the category decides, so a person picked by hand earlier is put back to the category's.
+            if (m === 'AUTO' && selectedCategory) applyCategory(selectedCategory);
+          }}
+        />
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="description" className={DETAIL_HEADING_CLASS}>
-              <AlignLeft size={14} className="text-text-light" />
-              Description <span className="text-danger">*</span>
-            </label>
-            <Controller
-              control={control}
-              name="description"
-              render={({ field }) => (
-                <TaskDescriptionField
-                  id="description"
-                  value={field.value ?? ''}
-                  onChange={field.onChange}
-                  onBlur={field.onBlur}
-                  rows={4}
-                  placeholder="What happened, where, and since when…"
-                  toolbar={<PhotoToolbar onAdd={addPhotos} />}
-                  // The shared textarea is text-sm, which makes iOS zoom the page on focus, so it is
-                  // bumped to 16px below sm and given more room once the left column has it.
-                  containerClassName={`[&_textarea]:min-h-28 [&_textarea]:text-base sm:[&_textarea]:text-sm lg:[&_textarea]:min-h-52 ${errors.description ? 'border-danger' : 'border-transparent bg-surface-hover/50 focus-within:bg-surface'}`}
-                >
-                  {photos.length > 0 && <PhotoTiles files={photos} onRemove={removePhoto} />}
-                </TaskDescriptionField>
-              )}
-            />
-            {errors.description?.message && (
-              <p className="text-xs text-danger font-display" role="alert">{errors.description.message}</p>
-            )}
-          </div>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="title" className={DETAIL_HEADING_CLASS}>
+            <Type size={14} className="text-text-light" />
+            Title <span className="text-danger">*</span>
+          </label>
+          <Input
+            id="title"
+            placeholder="e.g. Card machine at counter 2 not printing"
+            error={errors.title?.message}
+            className={errors.title ? 'font-display' : QUIET_FIELD_CLASS}
+            {...register('title')}
+            autoFocus
+          />
         </div>
 
-        {/* Routing: what decides where the ticket lands. The mode comes first because it decides
-            which fields below are offered. */}
-        <section aria-label="Routing" className="flex min-w-0 flex-col gap-4 lg:row-span-2 lg:rounded-xl lg:border lg:border-border/50 lg:bg-surface-hover/30 lg:p-4">
-          <AssignmentModeToggle
-            mode={assignmentMode}
-            onChange={m => {
-              setValue('assignmentMode', m);
-              // Auto means the category decides, so a person picked by hand earlier is put back to the category's.
-              if (m === 'AUTO' && selectedCategory) applyCategory(selectedCategory);
-            }}
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="description" className={DETAIL_HEADING_CLASS}>
+            <AlignLeft size={14} className="text-text-light" />
+            Description <span className="text-danger">*</span>
+          </label>
+          <Controller
+            control={control}
+            name="description"
+            render={({ field }) => (
+              <TaskDescriptionField
+                id="description"
+                value={field.value ?? ''}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                rows={3}
+                placeholder="What happened, where, and since when…"
+                toolbar={<PhotoToolbar onAdd={addPhotos} />}
+                containerClassName={errors.description ? 'border-danger' : 'border-transparent bg-surface-hover/50 focus-within:bg-surface'}
+              >
+                {photos.length > 0 && <StagedFileChips files={photos} onRemove={removePhoto} />}
+              </TaskDescriptionField>
+            )}
           />
+          {errors.description?.message && (
+            <p className="text-xs text-danger font-display" role="alert">{errors.description.message}</p>
+          )}
+        </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="flex flex-col gap-2">
+          <span className={DETAIL_HEADING_CLASS}>
+            <SlidersHorizontal size={14} className="text-text-light" />
+            Details
+          </span>
+          <div className="flex flex-wrap items-center gap-2">
             {/* Picking a category fills in the department, the responsible person and the due date. */}
-            <FormField
-              label="Category"
-              htmlFor="ticket-category"
-              required={assignmentMode === 'AUTO'}
-              error={errors.categoryId?.message}
-              className={assignmentMode === 'AUTO' ? 'sm:col-span-2' : ''}
-            >
+            <div title="Category">
               <Combobox
-                id="ticket-category"
                 value={categoryId ?? ''}
                 onChange={selectCategory}
                 placeholder="Search categories..."
@@ -293,96 +260,66 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
                 options={(categories ?? []).map(c => ({ value: c.id, label: c.name }))}
                 onCreateNew={isVerifier ? () => setCreating('category') : undefined}
                 createNewLabel="New category"
-                className={`${FIELD_TRIGGER_CLASS} ${errors.categoryId ? 'border-danger/60' : ''}`}
+                className={`${CHIP_TRIGGER_CLASS} max-w-[13rem] ${errors.categoryId ? 'border-danger/60' : ''}`}
               />
-            </FormField>
+            </div>
 
             {assignmentMode === 'MANUAL' && (
-              <FormField
-                label="Department"
-                htmlFor="ticket-department"
-                required
-                aside={selectedCategory ? 'From category' : undefined}
-                error={errors.departmentId?.message}
-              >
-                <Combobox
-                  id="ticket-department"
-                  value={departmentId ?? ''}
-                  onChange={v => setValue('departmentId', v)}
-                  disabled={!!selectedCategory}
-                  placeholder="Search departments..."
-                  emptyOptionLabel="Choose a department"
-                  options={(departments ?? []).map(d => ({ value: d.id, label: d.name }))}
-                  onCreateNew={isVerifier ? () => setCreating('department') : undefined}
-                  createNewLabel="New department"
-                  className={`${FIELD_TRIGGER_CLASS} ${errors.departmentId ? 'border-danger/60' : ''}`}
-                />
-              </FormField>
+            <div title="Department">
+              <Combobox
+                value={departmentId ?? ''}
+                onChange={v => setValue('departmentId', v)}
+                disabled={!!selectedCategory}
+                placeholder="Search departments..."
+                emptyOptionLabel="Choose a department"
+                options={(departments ?? []).map(d => ({ value: d.id, label: d.name }))}
+                onCreateNew={isVerifier ? () => setCreating('department') : undefined}
+                createNewLabel="New department"
+                className={`${CHIP_TRIGGER_CLASS} max-w-[13rem] ${errors.departmentId ? 'border-danger/60' : ''}`}
+              />
+            </div>
             )}
+
+            <TicketPriorityChipPicker value={priority} onChange={v => setValue('priority', v)} />
 
             {!ownScopeOnly && assignmentMode === 'MANUAL' && (
-              <FormField label="Assignee" required error={errors.assigneeId?.message} className="sm:col-span-2">
-                <div className="flex min-h-11 min-w-0 items-center gap-2 sm:min-h-10">
-                  {/* The picker's own buttons are 32px; on touch screens an invisible ring of
-                      extra hit area brings each one to 44px without changing how it looks. */}
-                  <div className="shrink-0 pointer-coarse:[&_button]:relative pointer-coarse:[&_button]:after:absolute pointer-coarse:[&_button]:after:-inset-1.5 pointer-coarse:[&_button]:after:content-['']">
-                    <AssigneeField
-                      single
-                      hideLabel
-                      selectedIds={assigneeId ? [assigneeId] : []}
-                      onChange={ids => setValue('assigneeId', ids[0] ?? '')}
-                      users={assigneeChoices}
-                      isLoading={isLoadingAssignableUsers}
-                      disabled={!departmentId && !selectedCategory}
-                    />
-                  </div>
-                  {assigneeName && <span className="min-w-0 truncate text-sm font-medium text-text">{assigneeName}</span>}
-                </div>
-              </FormField>
+              <div title="Assignee" className="flex items-center">
+                <AssigneeField
+                  single
+                  hideLabel
+                  selectedIds={assigneeId ? [assigneeId] : []}
+                  onChange={ids => setValue('assigneeId', ids[0] ?? '')}
+                  users={assigneeChoices}
+                  isLoading={isLoadingAssignableUsers}
+                  disabled={!departmentId && !selectedCategory}
+                />
+              </div>
             )}
 
-            <FormField
-              label="Priority"
-              htmlFor="ticket-priority"
-              className={assignmentMode === 'AUTO' ? 'sm:col-span-2' : ''}
-            >
-              <TicketPriorityChipPicker id="ticket-priority" value={priority} onChange={v => setValue('priority', v)} />
-            </FormField>
-
             {assignmentMode === 'MANUAL' && (
-              <FormField label="Due date" required>
+              <div title="Due date">
                 <DueDateField
                   mode="MANUAL"
                   hideLabel
-                  triggerClassName={FIELD_TRIGGER_CLASS}
+                  triggerClassName={CHIP_TRIGGER_CLASS}
                   control={control}
                   setValue={setValue}
                   errors={errors}
                   categoryTatHours={selectedCategory?.tatHours}
                 />
-              </FormField>
+              </div>
             )}
           </div>
 
-          {assignmentMode === 'AUTO' && (
-            <DueDateField
-              mode="AUTO"
-              control={control}
-              setValue={setValue}
-              errors={errors}
-              categoryTatHours={selectedCategory?.tatHours}
-            />
-          )}
-
           {/* What the chosen category decided, in plain words, so nothing is filled in silently. */}
           {selectedCategory && (
-            <div className="flex min-w-0 flex-col gap-2 p-3 rounded-xl border border-primary-500/20 bg-primary-500/5 dark:bg-primary-500/10">
-              <p className="flex items-start gap-1.5 text-xs font-display font-semibold text-text">
-                <Route size={14} className="mt-px shrink-0 text-primary-600 dark:text-primary-300" aria-hidden />
-                <span className="min-w-0 wrap-break-word">Goes where "{selectedCategory.name}" sends it</span>
+            <div className="flex flex-col gap-2 p-3 rounded-xl border border-primary-500/20 bg-primary-500/5 dark:bg-primary-500/10">
+              <p className="flex items-center gap-1.5 text-xs font-display font-semibold text-text">
+                <Route size={14} className="text-primary-600 dark:text-primary-300" aria-hidden />
+                Goes where "{selectedCategory.name}" sends it
               </p>
               <div className="flex flex-wrap items-center gap-2">
-                <DepartmentChip name={selectedCategory.departmentId.name} />
+                {selectedCategory.departmentId.name ? <DepartmentChip name={selectedCategory.departmentId.name} /> : null}
                 {selectedCategory.assigneeIds.length > 0 ? (
                   <IconChip
                     icon={UserCheck}
@@ -395,7 +332,7 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
                 )}
                 {selectedCategory.tatHours ? <IconChip icon={Clock} tone="bg-primary-600" label={`Due in ${selectedCategory.tatHours}h`} /> : null}
               </div>
-              <p className="text-xs font-display text-text-muted">
+              <p className="text-[11px] font-display text-text-muted">
                 {selectedCategory.assigneeIds.length === 0
                   ? (assignmentMode === 'AUTO'
                     ? 'Nobody is set for this category yet, so the ticket would have no owner. Switch to Manual and pick someone, or add a person in Settings.'
@@ -407,27 +344,41 @@ export const TicketForm = ({ onClose }: TicketFormProps) => {
             </div>
           )}
 
+          {/* Why Create is blocked, in plain words, right under the chips they belong to. */}
+          {(errors.categoryId?.message || errors.departmentId?.message || errors.assigneeId?.message) && (
+            <p className="text-xs text-danger font-display" role="alert">
+              {errors.categoryId?.message ?? errors.departmentId?.message ?? errors.assigneeId?.message}
+            </p>
+          )}
           {!isVerifier && (
-            <p className="text-xs text-text-light font-display">
+            <p className="text-[11px] text-text-light font-display">
               Can't find the right category? Ask an admin to add it.
             </p>
           )}
-        </section>
+
+          {assignmentMode === 'AUTO' && (
+            <DueDateField
+              mode="AUTO"
+              control={control}
+              setValue={setValue}
+              errors={errors}
+              categoryTatHours={selectedCategory?.tatHours}
+            />
+          )}
+        </div>
 
         {/* No Reviewers picker here: PC and Admin already verify every ticket by default
             (ticket.service CAN_VERIFY_BY_ROLE), so naming one was a manual step that changed
             nothing. */}
-        <div className="min-w-0">
-          <LabelsField
-            tags={tags ?? []}
-            selectedIds={tagIds ?? []}
-            onChange={v => setValue('tagIds', v)}
-            canCreate={isVerifier}
-          />
-        </div>
+        <LabelsField
+          tags={tags ?? []}
+          selectedIds={tagIds ?? []}
+          onChange={v => setValue('tagIds', v)}
+          canCreate={isVerifier}
+        />
 
         {mutation.isError && (
-          <div className="p-3 rounded-lg bg-danger/10 border border-danger/20 text-xs text-danger font-display flex items-center gap-2.5 lg:col-span-2">
+          <div className="p-3 rounded-lg bg-danger/10 border border-danger/20 text-xs text-danger font-display flex items-center gap-2.5">
             <AlertCircle className="w-4 h-4 shrink-0" />
             {mutation.error instanceof Error ? mutation.error.message : "Couldn't create the ticket. Check the fields and try again."}
           </div>
@@ -460,17 +411,16 @@ const PhotoToolbar = ({ onAdd }: { onAdd: (files: FileList | null) => void }) =>
     onAdd(e.target.files);
     e.target.value = '';
   };
-  // Labelled, not icon-only, so it reads as "add photos" at a glance; 44px tall on touch screens.
-  const btn = 'flex items-center justify-center gap-1.5 h-8 pointer-coarse:h-11 px-2.5 rounded-lg text-xs font-medium font-display text-text-secondary hover:text-primary-600 hover:bg-surface-hover transition-colors cursor-pointer shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40';
+  const btn = 'flex items-center justify-center size-8 rounded-lg text-text-light hover:text-primary-600 hover:bg-surface-hover transition-colors cursor-pointer shrink-0';
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-0.5">
       <input ref={cameraRef} type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={handle} />
       <input ref={galleryRef} type="file" accept="image/*" multiple className="hidden" onChange={handle} />
       <button type="button" title="Take photo" aria-label="Take photo" className={btn} onClick={() => cameraRef.current?.click()}>
-        <Camera size={15} /> Camera
+        <Camera size={15} />
       </button>
       <button type="button" title="Add photo from gallery" aria-label="Add photo from gallery" className={btn} onClick={() => galleryRef.current?.click()}>
-        <ImageIcon size={15} /> Gallery
+        <ImageIcon size={15} />
       </button>
     </div>
   );
