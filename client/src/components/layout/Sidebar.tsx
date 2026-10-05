@@ -82,7 +82,12 @@ const isChildActive = (child: NavChild, location: { pathname: string; search: st
 // tooltip renders in a portal, so the rail's overflow clipping cannot cut it off.
 const RailTip = ({ label, show, children }: { label: string; show: boolean; children: ReactNode }) => (
   <Tooltip delayDuration={0}>
-    <TooltipTrigger asChild>{children}</TooltipTrigger>
+    {/* A plain wrapper is the trigger, not the NavLink itself: Radix merges className onto an
+        asChild target as a string, which turns NavLink's className function into text and wipes every
+        class on the link (layout, colours, hover). */}
+    <TooltipTrigger asChild>
+      <div className="flex flex-1 min-w-0">{children}</div>
+    </TooltipTrigger>
     {show && (
       <TooltipContent
         side="right"
@@ -289,7 +294,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
 
     return (
       <div key={to} className={entranceProps.className} style={entranceProps.style}>
-        <div className="flex items-center gap-1.5">
+        <div className="group/row flex items-center gap-1.5">
           <RailTip label={label} show={!showLabel}>
           <NavLink
             to={to}
@@ -371,7 +376,9 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
               onClick={handleNavClick}
               title={`New ${label}`}
               aria-label={`New ${label}`}
-              className="shrink-0 p-1.5 rounded-lg text-text-muted hover:text-text hover:bg-surface-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+              // On the desktop rail the + only appears while the row is hovered or focused, so a column of
+              // plus signs does not sit next to every item all the time. The mobile drawer keeps it visible.
+              className="shrink-0 p-1.5 rounded-lg text-text-muted hover:text-text hover:bg-surface-hover transition-[color,background-color,opacity] md:opacity-0 md:group-hover/row:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
             >
               <Plus size={16} strokeWidth={2.5} />
             </NavLink>
