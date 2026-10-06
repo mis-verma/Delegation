@@ -10,6 +10,10 @@ const LINKS = [
   { to: '/settings', label: 'Settings' },
 ];
 
+// The company that owns the product, named on the copyright line. Deliberately not the editable
+// workspace name (orgName): that can be renamed in Settings, the copyright holder cannot.
+const COPYRIGHT_HOLDER = 'Verma Jewellers';
+
 export const Footer = () => {
   const currentYear = new Date().getFullYear();
   const { data: publicSettings } = usePublicSettingsQuery();
@@ -47,7 +51,7 @@ export const Footer = () => {
               to={to}
               className={({ isActive }) =>
                 [
-                  'px-2.5 py-1 rounded-lg text-xs font-mono font-medium transition-colors',
+                  'px-2.5 py-1 rounded-lg text-xs font-display font-medium transition-colors',
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40',
                   isActive
                     ? 'text-primary-600 dark:text-primary-300 font-semibold bg-primary-500/10'
@@ -59,8 +63,8 @@ export const Footer = () => {
             </NavLink>
           ))}
         </nav>
-        <p className="text-xs text-text-muted font-mono shrink-0">
-          © {currentYear} {orgName}. All rights reserved.
+        <p className="text-xs font-display font-medium text-text-muted shrink-0 text-center">
+          &copy; {currentYear} {COPYRIGHT_HOLDER}. All rights reserved.
         </p>
       </div>
     </footer>
