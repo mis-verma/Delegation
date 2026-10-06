@@ -540,7 +540,7 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy, onToggleC
                   onClick={isMobile ? undefined : (_, index) => openCategory(category, index)}
                 >
                   {data.map((d, i) => (
-                    <Cell key={d.label} fill={`url(#activity-bar-${category})`} fillOpacity={cellOpacity(i)} className="transition-all duration-300" />
+                    <Cell key={d.label} fill={`url(#activity-bar-${category})`} fillOpacity={cellOpacity(i)} className="transition-[fill-opacity] duration-300" />
                   ))}
                 </Bar>
               );

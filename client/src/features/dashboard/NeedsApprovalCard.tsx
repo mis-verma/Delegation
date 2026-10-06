@@ -37,7 +37,7 @@ const ApprovalLink = memo(({ row }: { row: ApprovalRow }) => {
   return (
     <Link
       to={row.link}
-      className="group/row flex items-center gap-3 min-h-11 rounded-xl border border-border/60 bg-surface px-3.5 py-3 transition-colors duration-200 hover:border-warning/40 hover:bg-warning/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+      className="group/row flex items-center gap-3 min-h-11 rounded-xl border border-border/60 bg-surface px-3.5 py-3 transition-colors duration-200 hover:border-primary-500/40 hover:bg-primary-500/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
     >
       <div className={`flex items-center justify-center size-9 rounded-lg shrink-0 text-white ${ACTIVITY_CATEGORY_DOT_CLASS[row.category]}`}>
         <Icon size={15} strokeWidth={2.25} />
@@ -53,10 +53,10 @@ const ApprovalLink = memo(({ row }: { row: ApprovalRow }) => {
               <span className="size-1 rounded-full bg-border shrink-0" />
             </>
           )}
-          <span className="text-warning font-semibold shrink-0">Waiting {formatRelativeTime(row.waitingSince)}</span>
+          <span className="text-primary-600 dark:text-primary-400 font-semibold shrink-0">Waiting {formatRelativeTime(row.waitingSince)}</span>
         </p>
       </div>
-      <ChevronRight size={16} strokeWidth={2.5} className="shrink-0 text-text-light group-hover/row:text-warning transition-colors duration-200" />
+      <ChevronRight size={16} strokeWidth={2.5} className="shrink-0 text-text-light group-hover/row:text-primary-600 dark:group-hover/row:text-primary-400 transition-colors duration-200" />
     </Link>
   );
 });
@@ -121,7 +121,7 @@ export const NeedsApprovalCard = () => {
           {/* One-off warm tile, not EntityIconTile's shared primary/coral: coral there is scoped to
               physical stores, and this block is the one place on the dashboard that reads as
               "waiting on you", so it earns its own accent. */}
-          <div className="flex items-center justify-center size-10 rounded-xl shrink-0 text-warning bg-gradient-to-br from-warning/20 to-danger/10 border border-warning/25">
+          <div className="flex items-center justify-center size-10 rounded-xl shrink-0 text-primary-600 dark:text-primary-400 bg-primary-500/10 border border-primary-500/20">
             <ShieldAlert size={18} strokeWidth={2.25} />
           </div>
           <div className="min-w-0">
@@ -135,7 +135,7 @@ export const NeedsApprovalCard = () => {
         </div>
         {/* No badge while any source is down: the sum would be a floor, not the real queue. */}
         {!hasError && total > 0 && (
-          <span className="shrink-0 inline-flex items-center justify-center min-w-[1.375rem] h-[1.375rem] px-1.5 rounded-full bg-warning/15 text-warning text-xs font-display font-bold tabular-nums">
+          <span className="shrink-0 inline-flex items-center justify-center min-w-[1.375rem] h-[1.375rem] px-1.5 rounded-full bg-primary-500/15 text-primary-700 dark:text-primary-300 text-xs font-display font-bold tabular-nums">
             {total}
           </span>
         )}

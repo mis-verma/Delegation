@@ -77,7 +77,7 @@ const BarTooltip = ({ active, payload }: { active?: boolean; payload?: TooltipPa
 };
 
 const Legend = () => (
-  <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs font-display font-bold text-text-secondary">
+  <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs font-bold text-text-secondary">
     <span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="size-2.5 rounded-sm" style={{ backgroundColor: COMPLETION_COLOR }} />Completion</span>
     <span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="size-2.5 rounded-sm" style={{ backgroundColor: COMPLIANCE_COLOR }} />Compliance</span>
     <span className="font-medium text-text-muted">Done of what was due, and done on time</span>

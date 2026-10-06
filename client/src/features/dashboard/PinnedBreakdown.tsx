@@ -25,7 +25,7 @@ interface PinnedBreakdownProps {
 export const PinnedBreakdown = ({ title, onClose, variant = 'pinned', className = '', children }: PinnedBreakdownProps) => (
   <div
     className={`rounded-2xl border border-border bg-surface px-4 py-3 flex flex-col gap-2 ${
-      variant === 'pinned' ? 'animate-in fade-in slide-in-from-top-1 duration-200' : 'transition-all duration-200'
+      variant === 'pinned' ? 'animate-in fade-in slide-in-from-top-1 duration-200' : 'transition-opacity duration-200'
     } ${className}`}
   >
     <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-1.5">
@@ -71,7 +71,7 @@ export const BreakdownRatioRows = ({ rows, onRowClick }: { rows: readonly Breakd
           onClick={clickable ? () => onRowClick!(row.label) : undefined}
           // min-h-11 (44px) — these became tap targets when the click-through drill-down was added;
           // the original py-0.5 row (~24px) was sized for plain text, not a button.
-          className={`flex items-center justify-between gap-4 text-[13px] w-full min-h-11 rounded-lg -mx-2 px-2 transition-colors duration-200 ${
+          className={`flex items-center justify-between gap-4 text-sm w-full min-h-11 rounded-lg -mx-2 px-2 transition-colors duration-200 ${
             clickable ? 'cursor-pointer text-left hover:bg-surface-hover' : ''
           }`}
         >

@@ -72,7 +72,7 @@
   --color-white: #ffffff;
 
   /* --- Typography --- */
-  --font-sans: "Inter", "Helvetica Neue", Arial, sans-serif;
+  --font-sans: "Inter", "Inter Fallback", "Helvetica Neue", Arial, sans-serif;
   --font-display: "Plus Jakarta Sans", "Inter", "Segoe UI", sans-serif;
 
   /* --- Layout (Using rem) --- */
@@ -199,6 +199,25 @@ html, body {
    the same Inter-first stack, so this doesn't change anything already using them. */
 body {
   font-family: var(--font-sans);
+  /* Crisper, evenly weighted glyphs on every screen, and no browser-chosen text inflation when a phone
+     is turned sideways. Numbers line up by default so counts do not jitter as they change. */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  font-variant-numeric: lining-nums;
+}
+
+/* While Inter downloads, text is drawn in Arial scaled to Inter's metrics, so when the real font swaps
+   in the page does not shift or re-wrap. */
+@font-face {
+  font-family: "Inter Fallback";
+  src: local("Arial");
+  size-adjust: 107.4%;
+  ascent-override: 90.2%;
+  descent-override: 22.5%;
+  line-gap-override: 0%;
 }
 
 :root[data-theme="dark"] {

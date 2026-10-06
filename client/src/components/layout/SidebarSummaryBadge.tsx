@@ -75,7 +75,7 @@ export const SidebarSummaryBadge = ({ label, data, completedLabel = 'Completed' 
           // off-brand patch rather than a considered part of the same design. Still distinct from
           // the plain "just active, nothing overdue" gray below it, just recolored to the app's
           // own palette instead of the generic status-warning one.
-          className={`shrink-0 min-w-[1.25rem] h-[1.125rem] px-1.5 rounded-full text-[10.5px] font-display font-bold flex items-center justify-center tabular-nums cursor-default outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
+          className={`shrink-0 min-w-[1.25rem] h-[1.125rem] px-1.5 rounded-full text-xs font-display font-bold flex items-center justify-center tabular-nums cursor-default outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
             data.overdue > 0
               ? 'bg-primary-500/15 text-primary-700 dark:bg-primary-500/25 dark:text-primary-300'
               : 'bg-surface-active text-text-secondary'

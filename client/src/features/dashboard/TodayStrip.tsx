@@ -13,13 +13,13 @@ type Tone = 'danger' | 'warning' | 'neutral';
 
 const TONE_NUMBER: Record<Tone, string> = {
   danger: 'text-danger',
-  warning: 'text-warning',
+  warning: 'text-primary-600 dark:text-primary-400',
   neutral: 'text-text',
 };
 
 const TONE_ICON: Record<Tone, string> = {
   danger: 'bg-danger/10 text-danger',
-  warning: 'bg-warning/10 text-warning',
+  warning: 'bg-primary-500/10 text-primary-600 dark:text-primary-400',
   neutral: 'bg-primary-500/10 text-primary-600 dark:text-primary-400',
 };
 
@@ -79,7 +79,7 @@ const TodayTile = memo(({ icon: Icon, label, tone, value, isPending, isError, on
       className={`${PANEL_CLASS} group flex flex-col gap-2 p-3.5 min-h-[6.5rem] transition-colors duration-200 hover:border-primary-500/40 active:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40${hide}`}
     >
       {header}
-      <span className={`text-3xl font-display font-bold tabular-nums leading-none ${live ? TONE_NUMBER[tone] : 'text-text-muted'}`}>{value}</span>
+      <span className={`text-2xl sm:text-3xl font-display font-bold tabular-nums leading-none ${live ? TONE_NUMBER[tone] : 'text-text-muted'}`}>{value}</span>
       <span className="text-xs font-medium text-text-muted leading-snug line-clamp-2">{detail}</span>
     </Link>
   );

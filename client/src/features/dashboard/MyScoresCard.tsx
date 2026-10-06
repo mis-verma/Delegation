@@ -142,7 +142,7 @@ const ScoreTile = ({ title, icon: Icon, score, detail, loading }: ScoreTileProps
       >
         <span className="font-display text-lg sm:text-3xl font-extrabold leading-none text-text">{score === null ? '–' : `${score}%`}</span>
       </SemiGauge>
-      <p className="col-start-2 row-start-2 self-start text-xs font-display text-text-muted sm:text-center sm:min-h-8">
+      <p className="col-start-2 row-start-2 self-start text-xs font-medium text-text-muted sm:text-center sm:min-h-8">
         {loading ? 'Loading' : score === null ? 'Nothing was due' : detail}
       </p>
     </div>
@@ -261,8 +261,8 @@ export const MyScoresCard = () => {
       <header className="flex flex-col gap-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <h2 className="font-display text-base font-bold text-text truncate">{heading}</h2>
-            <p className="text-xs font-display text-text-muted">Work that fell due in the window, and how much was done on time</p>
+            <h2 className="text-base sm:text-lg font-display font-bold text-text tracking-tight truncate">{heading}</h2>
+            <p className="text-xs font-medium text-text-muted mt-0.5">Work that fell due in the window, and how much was done on time</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {scopes.length > 1 && (
@@ -344,11 +344,11 @@ export const MyScoresCard = () => {
       </header>
 
       {!ready ? (
-        <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm font-display text-text-muted">
+        <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm font-medium text-text-muted">
           Pick a {SCOPE_LABEL[scope].toLowerCase()} above to see its scores.
         </div>
       ) : query.isError && !data ? (
-        <div className="rounded-lg border border-border px-4 py-6 text-center text-sm font-display text-text-muted">
+        <div className="rounded-lg border border-border px-4 py-6 text-center text-sm font-medium text-text-muted">
           Could not load the scores.{' '}
           <button type="button" onClick={() => void query.refetch()} className="font-bold text-primary-600 dark:text-primary-400 hover:underline">Try again</button>
         </div>

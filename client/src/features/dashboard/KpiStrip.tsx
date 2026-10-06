@@ -151,7 +151,7 @@ const MobileTile = ({ view }: MobileTileProps) => {
     >
       {head}
       <span className="flex items-baseline gap-1.5">
-        <span className="text-3xl font-display font-bold tabular-nums leading-none">{view.pending}</span>
+        <span className="text-2xl font-display font-bold tabular-nums leading-none">{view.pending}</span>
         <span className="text-xs font-display font-medium text-white/70">pending</span>
       </span>
       <span className="flex flex-wrap items-center gap-x-2 gap-y-1">

@@ -147,7 +147,7 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
           {/* Phones: the page (or a greeting on Home) with today's date under it. */}
           {phoneTitle && (
             <div className="sm:hidden flex flex-col min-w-0 leading-tight">
-              <span className="text-[15px] font-display font-bold text-text tracking-tight truncate">{phoneTitle}</span>
+              <span className="text-base font-display font-bold text-text tracking-tight truncate">{phoneTitle}</span>
               <span className="text-xs font-medium text-text-muted truncate">{phoneDate}</span>
             </div>
           )}
@@ -198,7 +198,7 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
                     <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-success border-2 border-surface" aria-hidden="true" />
                   </span>
                   <span className="hidden lg:flex flex-col items-start min-w-0 leading-tight py-0.5">
-                    <span className="max-w-[120px] truncate text-[13px] font-bold text-text">{user.name}</span>
+                    <span className="max-w-[120px] truncate text-sm font-bold text-text">{user.name}</span>
                     {user.role && (
                       <span className="max-w-[120px] truncate text-xs font-medium text-text-muted mt-0.5">{titleCase(user.role)}</span>
                     )}
