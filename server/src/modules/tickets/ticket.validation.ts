@@ -12,6 +12,8 @@ export const createTicketSchema = z.object({
     categoryId : objectId.optional(),
     departmentId : objectId.optional(),
     tatHours : z.number().positive().optional(),
+    // First day of a start-to-due range; informational (see Ticket.startDate).
+    startDate : z.string().datetime({ offset: true }).optional(),
     // Labels. Capped the same as Task's — a ticket carrying more than a dozen isn't labelled,
     // it's noise. Reuses Task's own `tags` table (see ticketTags in db/schema/ticket.ts).
     tagIds : z.array(objectId).max(12).optional(),
@@ -21,7 +23,8 @@ export const createTicketSchema = z.object({
 })
 export const updateTicketSchema = createTicketSchema.partial().extend({
     status : z.enum(TICKET_STATUSES).optional(),
-    assigneeId : objectId.nullable().optional()
+    assigneeId : objectId.nullable().optional(),
+    startDate : z.string().datetime({ offset: true }).nullable().optional()
 })
 
 export const paginatioinSchema = z.object({

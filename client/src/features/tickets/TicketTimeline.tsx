@@ -34,8 +34,8 @@ type Bar = {
 /**
  * The ticket Gantt: one row per ticket, bars placed and sized on a shared day axis.
  *
- * A bar runs from the ticket's creation to its TAT due date. Ticket has no `startDate` field at
- * all (unlike Task), so the bar always starts at `createdAt` — that is when the clock actually
+ * A bar runs from the ticket's start day (when a start-to-due range was picked) or else its creation, to
+ * its TAT due date. Without a picked start the bar begins at `createdAt`, when the clock actually
  * started. A ticket with no `tatDueAt` has no end and therefore no bar; those are listed under the
  * chart rather than dropped, since "nobody has a target date for this" is exactly the thing a
  * timeline should surface.
@@ -53,7 +53,7 @@ const TicketTimelineComponent = ({ tickets, onOpen }: TicketTimelineProps) => {
       return { days: [] as Date[], bars: [] as Bar[], undated: unscheduled };
     }
 
-    const barStart = (t: Ticket) => startOfDay(t.createdAt);
+    const barStart = (t: Ticket) => startOfDay(t.startDate ?? t.createdAt);
     const barEnd = (t: Ticket) => startOfDay(t.tatDueAt!);
 
     // Axis starts at the earliest of (earliest bar start, today) so "today" is always locatable,

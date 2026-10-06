@@ -1,7 +1,7 @@
 import { useWatch, type Control, type UseFormSetValue, type FieldErrors } from 'react-hook-form';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles } from 'lucide-react';
-import { DatePicker } from '../../../components';
+import { DateRangePicker, type DateRangeValue } from '../../../components';
 import type { TicketFields } from './ticketFormSchema';
 
 interface DueDateFieldProps {
@@ -24,17 +24,32 @@ const toTimeStr = (d: Date) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 export const DueDateField = ({ mode, control, setValue, errors, categoryTatHours, hideLabel = false, triggerClassName }: DueDateFieldProps) => {
   const dueDate = useWatch({ control, name: 'dueDate' });
   const dueTime = useWatch({ control, name: 'dueTime' });
+  const startDate = useWatch({ control, name: 'startDate' });
 
-  const combined = dueDate ? new Date(`${dueDate}T${dueTime || '09:00'}`) : null;
+  const combined = dueDate ? new Date(`${dueDate}T${dueTime || '18:00'}`) : null;
+  const start = startDate ? new Date(`${startDate}T00:00`) : null;
 
-  const handleChange = (date: Date | null) => {
-    if (!date) {
+  // One calendar for the whole span: the first day is when the work starts (optional to think about,
+  // but the range needs both ends), the last day is the due day, with a due time. A day picked with no
+  // time yet gets the end of the working day rather than midnight, which would already be "late".
+  const handleChange = (range: DateRangeValue) => {
+    if (!range.from && !range.to) {
+      setValue('startDate', '', { shouldValidate: true });
       setValue('dueDate', '', { shouldValidate: true });
       setValue('dueTime', '', { shouldValidate: true });
       return;
     }
-    setValue('dueDate', toDateStr(date), { shouldValidate: true });
-    setValue('dueTime', toTimeStr(date), { shouldValidate: true });
+    setValue('startDate', range.from ? toDateStr(range.from) : '', { shouldValidate: true });
+    if (!range.to) {
+      // First tap of a new range: the old due day no longer applies until the last day is picked.
+      setValue('dueDate', '', { shouldValidate: false });
+      setValue('dueTime', '', { shouldValidate: false });
+      return;
+    }
+    const atMidnight = range.to.getHours() === 0 && range.to.getMinutes() === 0;
+    const due = atMidnight ? new Date(range.to.getFullYear(), range.to.getMonth(), range.to.getDate(), 18, 0) : range.to;
+    setValue('dueDate', toDateStr(due), { shouldValidate: true });
+    setValue('dueTime', toTimeStr(due), { shouldValidate: true });
   };
 
   return (
@@ -48,14 +63,14 @@ export const DueDateField = ({ mode, control, setValue, errors, categoryTatHours
           transition={{ duration: 0.15 }}
           className="-m-1 flex flex-col gap-1.5 overflow-hidden p-1"
         >
-          {!hideLabel && <label className="text-xs font-medium text-text-secondary">Due date & time</label>}
-          <DatePicker
-            value={combined}
+          {!hideLabel && <label className="text-xs font-medium text-text-secondary">Start and due day</label>}
+          <DateRangePicker
+            value={{ from: start, to: combined }}
             onChange={handleChange}
             showTime
-            minDate={new Date()}
-            placeholder={hideLabel ? "Add due date" : "Select a due date"}
-            className={triggerClassName ? `${triggerClassName} ${combined ? 'pr-10' : ''}` : "font-display border-transparent bg-surface-hover/50 hover:bg-surface-hover"}
+            endTimeOnly
+            placeholder={hideLabel ? "Add due date" : "Select start and due day"}
+            triggerClassName={triggerClassName ?? "font-display border-transparent bg-surface-hover/50 hover:bg-surface-hover"}
           />
           {(errors.dueDate?.message || errors.dueTime?.message) && (
             <p className="text-xs text-danger font-display" role="alert">

@@ -10,6 +10,8 @@ const baseTicketSchema = z.object({
   assigneeId: z.string().optional().or(z.literal('')),
   dueDate: z.string().optional().or(z.literal('')),
   dueTime: z.string().optional().or(z.literal('')),
+  // First day of a start-to-due range (YYYY-MM-DD). Optional: a single due date works as before.
+  startDate: z.string().optional().or(z.literal('')),
   tagIds: z.array(z.string()).max(12).optional(),
 });
 

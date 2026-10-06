@@ -123,6 +123,8 @@ export type Ticket = {
   assignmentMode: AssignmentMode;
   tatHours:       number | null;
   tatDueAt:       string | null;
+  /** First day of a start-to-due range, when one was picked. Informational: the TAT clock runs from creation. */
+  startDate:      string | null;
   userId:         string;
   assigneeId:     string | null;
   storeId:        string | null;
@@ -170,12 +172,14 @@ export type CreateTicketPayload = {
   categoryId?:     string;
   departmentId?:   string;
   tatHours?:       number;
+  /** First day of a start-to-due range (ISO). Informational. */
+  startDate?:      string;
   tagIds?:         string[];
   /** User ids to name as explicit reviewers — see Ticket['reviewers']. */
   reviewerIds?:    string[];
 };
 
-export type UpdateTicketPayload = Partial<Omit<CreateTicketPayload, 'assigneeId'> & { status: TicketStatus; assigneeId: string | null }>;
+export type UpdateTicketPayload = Partial<Omit<CreateTicketPayload, 'assigneeId' | 'startDate'> & { status: TicketStatus; assigneeId: string | null; startDate: string | null }>;
 
 export type VerifyTicketPayload = { action: 'APPROVE' | 'REJECT'; note?: string };
 

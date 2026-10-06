@@ -30,6 +30,8 @@ interface DateRangePickerProps {
    *  to Combobox filters whose own "All X" option renders the same way), not a true empty
    *  "nothing chosen yet" state like a form's "Select a date range". Off by default. */
   placeholderIsValue?: boolean;
+  /** With `showTime`: ask for a time on the last day only (a start day plus a due day and time). */
+  endTimeOnly?: boolean;
 }
 
 const WEEKDAY_LABELS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
@@ -74,6 +76,7 @@ export function DateRangePicker({
   triggerClassName = '',
   disabled = false,
   placeholderIsValue = false,
+  endTimeOnly = false,
 }: DateRangePickerProps) {
   const [open, setOpen] = useState(false);
   const [viewMonth, setViewMonth] = useState(() => startOfDay(value.from ?? new Date()));
@@ -143,7 +146,7 @@ export function DateRangePicker({
   const hasValue = !!value.from || !!value.to;
   const label = hasValue
     ? [
-        value.from ? formatDate(value.from) + (showTime ? ` ${formatTime(value.from)}` : '') : null,
+        value.from ? formatDate(value.from) + (showTime && !endTimeOnly ? ` ${formatTime(value.from)}` : '') : null,
         value.to ? formatDate(value.to) + (showTime ? ` ${formatTime(value.to)}` : '') : null,
       ]
         .filter(Boolean)
@@ -306,6 +309,7 @@ export function DateRangePicker({
 
         {showTime && value.from && (
           <div className="flex items-center gap-3 pt-3 border-t border-border/60">
+            {!endTimeOnly && (
             <div className="flex-1 flex flex-col gap-1.5">
               <label className="text-xs font-display font-semibold text-text-muted">Start time</label>
               <input
@@ -315,8 +319,9 @@ export function DateRangePicker({
                 className="w-full h-10 pointer-coarse:h-11 rounded-md border border-border bg-surface px-3 text-base sm:text-sm text-text outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 focus-visible:border-primary-500"
               />
             </div>
+            )}
             <div className="flex-1 flex flex-col gap-1.5">
-              <label className="text-xs font-display font-semibold text-text-muted">End time</label>
+              <label className="text-xs font-display font-semibold text-text-muted">{endTimeOnly ? 'Due time' : 'End time'}</label>
               <input
                 type="time"
                 value={value.to ? formatTime(value.to) : ''}

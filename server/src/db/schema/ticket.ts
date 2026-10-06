@@ -44,6 +44,9 @@ export const tickets = mysqlTable(
     tatHours: float('tatHours'),
     // Recomputed from tatHours by a service-layer helper (was a Mongoose pre('save') hook).
     tatDueAt: datetime('tatDueAt', { mode: 'date' }),
+    // The first day the work is meant to happen, when the person picked a range (start to due). Purely
+    // informational: the TAT clock still runs from creation to tatDueAt. Null for a due-date-only ticket.
+    startDate: datetime('startDate', { mode: 'date' }),
     isOverdue: boolean('isOverdue').notNull().default(false),
     closedAt: datetime('closedAt', { mode: 'date' }),
     userId: varchar('userId', { length: 191 }).notNull().references(() => users.id),

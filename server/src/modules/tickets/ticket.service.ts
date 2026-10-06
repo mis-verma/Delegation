@@ -566,6 +566,7 @@ export const ticketService = {
       departmentId: input.departmentId ?? null,
       tatHours: tatHours ?? null,
       tatDueAt: deriveTatDueAt(tatHours ?? null, now),
+      startDate: input.startDate ? new Date(input.startDate) : null,
       isOverdue: false,
       userId: user.sub,
     })
@@ -651,6 +652,10 @@ export const ticketService = {
       patch.verifiedBy = null;
       patch.verifiedAt = null;
       patch.verificationNote = null;
+    }
+
+    if (input.startDate !== undefined) {
+      patch.startDate = input.startDate ? new Date(input.startDate) : null
     }
 
     if (input.tatHours !== undefined && input.tatHours !== before.tatHours) {

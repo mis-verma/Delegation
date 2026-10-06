@@ -155,6 +155,7 @@ export const TicketForm = ({ onClose, defaultDueDate }: TicketFormProps) => {
         departmentId: data.departmentId !== '' ? data.departmentId : undefined,
         assigneeId: data.assigneeId !== '' ? data.assigneeId : undefined,
         tatHours: tatHours ?? (data.assignmentMode === 'AUTO' ? (selectedCategory?.tatHours ?? 24) : undefined),
+        startDate: data.assignmentMode === 'MANUAL' && data.startDate ? new Date(`${data.startDate}T00:00`).toISOString() : undefined,
         tagIds: data.tagIds?.length ? data.tagIds : undefined,
       },
       {
