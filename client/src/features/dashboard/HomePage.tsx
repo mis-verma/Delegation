@@ -112,12 +112,11 @@ export const HomePage = () => {
     reset: resetLayout,
   } = useDashboardLayout(isOrgWideRole);
 
-  // Phones open on "day": the score is just its gauge there, and "how am I doing today" is the
-  // glance question. Wider screens open on "week", which is far more likely to have something in
-  // it than a fresh month.
-  const [period, setPeriod] = useState<CompliancePeriod>(() =>
-    window.matchMedia('(max-width: 767px)').matches ? 'day' : 'week',
-  );
+  // Every screen opens the score on "week". "Day" is empty for most people most mornings, which made
+  // the first look "No data"; the Day tab is one tap away.
+  const [period, setPeriod] = useState<CompliancePeriod>('week');
+  // Admin and PC can flip the score between their own delegations and the whole team's.
+  const [scoreScope, setScoreScope] = useState<'mine' | 'team'>('mine');
   const [comparePeriod, setComparePeriod] = useState<CompliancePeriod>('week');
   const [activityGroupBy, setActivityGroupBy] = useState<ActivityGroupBy>('day');
   // All four kinds on by default — toggling one off in the Activity Overview filter narrows both
@@ -208,7 +207,7 @@ export const HomePage = () => {
     const createdIn = (periodDate: Date) => {
       const start = startOfCurrent(period, periodDate);
       const end = startOfCurrent(period, shiftPeriod(period, periodDate, 1));
-      return assignedTasks.filter((t) => {
+      return (scoreScope === 'team' ? visibleTasks : assignedTasks).filter((t) => {
         const created = new Date(t.createdAt).getTime();
         return created >= start && created < end;
       });
@@ -224,6 +223,8 @@ export const HomePage = () => {
 
     const done = current.filter((t) => t.status === 'done');
     const open = current.filter((t) => t.status !== 'done');
+    const overdueOpen = open.filter((t) => t.dueDate && new Date(t.dueDate).getTime() < now).length;
+    const whose = scoreScope === 'team' ? 'in the team' : 'assigned to you';
     const prevDone = previous.filter((t) => t.status === 'done').length;
     const prevOpen = previous.length - prevDone;
 
@@ -237,8 +238,15 @@ export const HomePage = () => {
 
     const stats: [FooterStat, FooterStat, FooterStat] = [
       { key: 'target', label: 'Assigned', value: String(current.length), ...movement(current.length, previous.length) },
-      { key: 'resolved', label: 'Resolved', value: String(done.length), ...movement(done.length, prevDone) },
-      { key: 'pending', label: 'Pending', value: String(open.length), ...movement(open.length, prevOpen, true) },
+      { key: 'resolved', label: 'Done', value: String(done.length), ...movement(done.length, prevDone) },
+      {
+        key: 'pending',
+        label: 'Still open',
+        value: String(open.length),
+        // Overdue = still open and past its due date. Shown under the number so a late one is not hidden in the count.
+        hint: overdueOpen > 0 ? `${overdueOpen} overdue` : undefined,
+        ...movement(open.length, prevOpen, true),
+      },
     ];
 
     const periodLabel = PERIOD_LABEL[period];
@@ -246,14 +254,14 @@ export const HomePage = () => {
       ? (percent >= previousPercent ? ', ahead of the previous period.' : ', behind the previous period.')
       : '.';
     const description = percent == null
-      ? `No delegations were assigned to you ${periodLabel}.`
-      : `${percent}% weighted completion of the delegations assigned to you ${periodLabel}${pace}`;
+      ? `No delegations were ${scoreScope === 'team' ? 'assigned in the team' : 'assigned to you'} ${periodLabel}.`
+      : `${percent}% weighted completion of the delegations ${whose} ${periodLabel}${pace}`;
 
     const toRows = (list: Task[]): DrilldownRow[] => list.map((t) => taskDrilldownRow(t, now));
     const drilldowns: Record<ScoreStatKey, DrilldownRow[]> = { target: toRows(current), resolved: toRows(done), pending: toRows(open) };
 
     return { percent, total: current.length, delta: pointDelta(percent, previousPercent), stats, description, drilldowns };
-  }, [assignedTasks, period, nowDate, now]);
+  }, [assignedTasks, visibleTasks, scoreScope, period, nowDate, now]);
 
   // Compare Dashboard reads org-wide lists, so it has the same "ADMIN/PC only" gate as Compliance
   // (both are absent from `cardOrder` for everyone else, see useDashboardLayout).
@@ -289,7 +297,7 @@ export const HomePage = () => {
       case 'delegationScore':
         return (
           <MonthlyTargetCard
-            title="Your delegation score"
+            title={scoreScope === 'team' ? 'Team delegation score' : 'Your delegation score'}
             percent={score.percent}
             total={score.total}
             delta={score.delta}
@@ -298,6 +306,8 @@ export const HomePage = () => {
             drilldowns={score.drilldowns}
             period={period}
             onPeriodChange={setPeriod}
+            scope={isOrgWideRole ? scoreScope : undefined}
+            onScopeChange={isOrgWideRole ? setScoreScope : undefined}
             isPending={tasksPending}
             isError={tasksFailed}
             onRetry={retryTasks}

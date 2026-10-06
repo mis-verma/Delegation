@@ -106,8 +106,11 @@ export const STATUS_CONFIG = {
 export const TASK_SCORE: Record<Task['status'], number> = {
   draft: 0,
   todo: 0,
-  in_progress: 0.5,
-  pending_approval: 0.5,
+  // Weighted by how far along the work is: started is a quarter, handed in for approval is three
+  // quarters, only approved-and-done is the full mark. (Both used to be 50, so submitting for approval
+  // earned nothing over merely starting.)
+  in_progress: 0.25,
+  pending_approval: 0.75,
   done: 1,
 };
 

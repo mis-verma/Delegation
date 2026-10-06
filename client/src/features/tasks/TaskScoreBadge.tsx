@@ -69,7 +69,7 @@ export const TaskScoreBadge = ({ status, variant = 'chip' }: TaskScoreBadgeProps
             ))}
           </div>
           <p className="text-xs font-display text-text-muted">
-            {percent === 100 ? 'Finished and approved' : percent === 50 ? 'Half the score. The rest comes when it is done and approved.' : 'Not started yet'}
+            {percent === 100 ? 'Finished and approved' : percent === 0 ? 'Not started yet' : `${percent}% so far. The rest comes when it is done and approved.`}
           </p>
         </div>
       </div>

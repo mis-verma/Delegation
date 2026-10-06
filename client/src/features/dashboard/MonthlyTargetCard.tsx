@@ -1,8 +1,9 @@
 import { memo, useState } from 'react';
-import { ArrowDown, ArrowUp, Minus, Target } from 'lucide-react';
+import { ArrowDown, ArrowUp, Info, Minus, Target } from 'lucide-react';
 import { SemiGauge } from '../../components/semiGauge';
 import { EntityIconTile } from '../../components';
 import { Badge } from '../../components/ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover';
 import { Skeleton } from '../../components/skeleton';
 import { InlineError } from '../../components/inlineError';
 import { DrilldownModal, type DrilldownRow } from './DrilldownModal';
@@ -24,6 +25,8 @@ export interface FooterStat {
   key: ScoreStatKey;
   label: string;
   value: string;
+  /** Small line under the number, e.g. "2 overdue". */
+  hint?: string;
   /**
    * Which way the number itself actually moved against the previous period. This used to double as
    * the sentiment, which broke on "Pending": fewer pending items is good, so it was passed
@@ -51,6 +54,9 @@ interface MonthlyTargetCardProps {
   drilldowns: Record<ScoreStatKey, DrilldownRow[]>;
   period: CompliancePeriod;
   onPeriodChange: (period: CompliancePeriod) => void;
+  /** Admin and PC only: whose delegations the score covers. Leave out to hide the switch. */
+  scope?: 'mine' | 'team';
+  onScopeChange?: (scope: 'mine' | 'team') => void;
   isPending?: boolean;
   isError?: boolean;
   onRetry?: () => void;
@@ -88,6 +94,8 @@ export const MonthlyTargetCard = memo(({
   drilldowns,
   period,
   onPeriodChange,
+  scope,
+  onScopeChange,
   isPending = false,
   isError = false,
   onRetry,
@@ -107,9 +115,30 @@ export const MonthlyTargetCard = memo(({
   // a static readout, not a control, so it keeps its own permanent tint layered on top.
   const changeClassName = isFlatChange ? 'bg-surface-hover' : (rounded ?? 0) > 0 ? 'bg-success/10' : 'bg-danger/10';
 
-  const periodControl = (
+  const periodTabs = (
     <PeriodTabControl value={period} options={COMPLIANCE_PERIOD_OPTIONS} labels={PERIOD_TAB_LABEL} onChange={onPeriodChange} className="w-auto" />
   );
+  // Mine / Team switch for Admin and PC, next to the period tabs.
+  const periodControl = scope && onScopeChange ? (
+    <div className="flex flex-wrap items-center justify-center gap-2">
+      <div role="group" aria-label="Whose delegations" className="inline-flex items-center gap-1 rounded-full border border-border bg-surface-hover/50 p-1">
+        {(['mine', 'team'] as const).map((value) => (
+          <button
+            key={value}
+            type="button"
+            aria-pressed={scope === value}
+            onClick={() => onScopeChange(value)}
+            className={`h-8 pointer-coarse:h-11 px-3 rounded-full text-xs font-display font-semibold outline-none cursor-pointer transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
+              scope === value ? 'bg-primary-700 text-white dark:bg-primary-600' : 'text-text-muted hover:text-text'
+            }`}
+          >
+            {value === 'mine' ? 'Mine' : 'Team'}
+          </button>
+        ))}
+      </div>
+      {periodTabs}
+    </div>
+  ) : periodTabs;
 
   return (
     // `@container` + `@lg:`/`@xl:` below size this card's internal layout off its own rendered
@@ -124,7 +153,24 @@ export const MonthlyTargetCard = memo(({
         <div className="flex gap-2.5 sm:gap-3 items-center min-w-0">
           <EntityIconTile icon={Target} />
           <div>
-            <h2 id="delegation-score-heading" className="text-base sm:text-lg font-display font-bold text-text tracking-tight leading-tight">{title}</h2>
+            <div className="flex items-center gap-1">
+              <h2 id="delegation-score-heading" className="text-base sm:text-lg font-display font-bold text-text tracking-tight leading-tight">{title}</h2>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="How the delegation score is worked out"
+                    className="flex items-center justify-center size-8 pointer-coarse:size-11 rounded-full text-text-muted hover:text-text hover:bg-surface-hover outline-none cursor-pointer transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-primary-500/40"
+                  >
+                    <Info size={14} aria-hidden="true" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-72 text-xs font-display text-text-secondary leading-relaxed">
+                  <p className="font-semibold text-text mb-1.5">How the score works</p>
+                  Each delegation earns points by its stage: To do 0%, In progress 25%, Pending approval 75%, Done 100%. The score is the average across the delegations in this period. Overdue ones are counted on the Still open tile.
+                </PopoverContent>
+              </Popover>
+            </div>
             <p className="hidden sm:block text-xs font-medium text-text-muted mt-0.5 tracking-wide">Weighted completion, {PERIOD_LABEL[period]}</p>
           </div>
         </div>
@@ -179,7 +225,7 @@ export const MonthlyTargetCard = memo(({
             {stats.map((stat) => {
               // Arrow = which way the number moved; colour = whether that's good. Separating the
               // two is what lets "Pending: 3 down" be green.
-              const TrendIcon = stat.direction === 'flat' ? Minus : stat.direction === 'up' ? ArrowUp : ArrowDown;
+              const TrendIcon = stat.direction === 'up' ? ArrowUp : ArrowDown;
               return (
                 <button
                   key={stat.key}
@@ -190,8 +236,9 @@ export const MonthlyTargetCard = memo(({
                   <span className="text-[11px] sm:text-xs font-medium text-text-muted capitalize tracking-wide">{stat.label}</span>
                   <span className="inline-flex items-center gap-1 sm:gap-1.5 text-lg sm:text-xl font-display font-bold text-text tabular-nums">
                     {stat.value}
-                    <TrendIcon size={14} strokeWidth={3} className={STAT_SENTIMENT[stat.sentiment]} />
+                    {stat.direction !== 'flat' && <TrendIcon size={14} strokeWidth={3} className={STAT_SENTIMENT[stat.sentiment]} />}
                   </span>
+                  {stat.hint && <span className="text-[11px] font-display font-semibold text-danger leading-none">{stat.hint}</span>}
                 </button>
               );
             })}

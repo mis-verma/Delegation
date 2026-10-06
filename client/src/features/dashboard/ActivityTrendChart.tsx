@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Cell } from 'recharts';
 import { BarChart3, CheckSquare, ChevronRight, ClipboardCheck, ListTodo, Plus, TicketCheck, type LucideIcon } from 'lucide-react';
 import { useIsMobile } from '../../lib/useMediaQuery';
-import { PinnedBreakdown, BreakdownHint } from './PinnedBreakdown';
+import { PinnedBreakdown } from './PinnedBreakdown';
 import { DrilldownModal } from './DrilldownModal';
 import { EmptyState } from '../../components';
 import {
@@ -29,12 +29,6 @@ interface ActivityTrendChartProps {
 }
 
 type ActivityDatum = { label: string; track?: number } & Record<ActivityCategory, number>;
-
-interface ChartTooltipProps {
-  active?: boolean;
-  payload?: readonly { payload?: ActivityDatum }[];
-  activeCategories: ReadonlySet<ActivityCategory>;
-}
 
 const BAR_WIDTH = 44;
 
@@ -283,23 +277,32 @@ const CompactBreakdown = memo(({
 });
 CompactBreakdown.displayName = 'CompactBreakdown';
 
-const ChartTooltip = ({ active, payload, activeCategories }: ChartTooltipProps) => {
-  const datum = payload?.[0]?.payload;
-  if (!active || !datum) return null;
-
-  return (
-    <PinnedBreakdown title={datum.label} variant="tooltip" className="min-w-[160px]">
-      <BreakdownRows datum={datum} activeCategories={activeCategories} />
-    </PinnedBreakdown>
-  );
-};
-
 export const ActivityTrendChart = ({ items, activeCategories, groupBy, onToggleCategory }: ActivityTrendChartProps) => {
   const navigate = useNavigate();
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [drilldownCategory, setDrilldownCategory] = useState<ActivityCategory | null>(null);
   const isMobile = useIsMobile();
   const rootRef = useRef<HTMLDivElement>(null);
+  const plotRef = useRef<HTMLDivElement>(null);
+
+  // Desktop hover card. It is our own element (not Recharts' tooltip) so its rows can be clicked: it
+  // hides 250ms after the pointer leaves the bar, which gives the pointer time to cross the small gap
+  // and land on the card, and entering the card cancels the hide.
+  const [hover, setHover] = useState<{ index: number; x: number; width: number } | null>(null);
+  const hideTimer = useRef<number | null>(null);
+  const cancelHide = () => {
+    if (hideTimer.current !== null) {
+      window.clearTimeout(hideTimer.current);
+      hideTimer.current = null;
+    }
+  };
+  const scheduleHide = () => {
+    cancelHide();
+    hideTimer.current = window.setTimeout(() => setHover(null), 250);
+  };
+  useEffect(() => () => {
+    if (hideTimer.current !== null) window.clearTimeout(hideTimer.current);
+  }, []);
 
   // Phones: a tap anywhere outside the chart dismisses the pinned breakdown straight away, instead
   // of it staying up until the same bar is tapped again. Skipped while the drill-down modal is open
@@ -322,6 +325,7 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy, onToggleC
     setPrevGroupBy(groupBy);
     setSelectedIndex(null);
     setDrilldownCategory(null);
+    setHover(null);
   }
 
   const activeOrder = useMemo(() => ACTIVITY_CATEGORY_ORDER.filter((c) => activeCategories.has(c)), [activeCategories]);
@@ -421,6 +425,19 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy, onToggleC
   // dimming of "not today" bars, which used to make legitimate data look washed-out for no reason.
   const cellOpacity = (i: number) => (selectedIndex === null || i === selectedIndex ? 1 : 0.25);
 
+  // Desktop: one click on a coloured part of a bar, or on a row in the hover card, opens that
+  // category's items for that period straight away (the list pop-up, with a View all button).
+  const openCategory = (category: ActivityCategory, index: number) => {
+    cancelHide();
+    setHover(null);
+    setSelectedIndex(index);
+    setDrilldownCategory(category);
+  };
+  const closeDrilldown = () => {
+    setDrilldownCategory(null);
+    if (!isMobile) setSelectedIndex(null);
+  };
+
   return (
     <div ref={rootRef} className="flex flex-col gap-3 sm:gap-4 w-full">
       {/* Phones: the headline first (how much was created in this window), then one cell per
@@ -440,6 +457,7 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy, onToggleC
           layer stays off: it wraps the chart in its own focusable <div tabIndex={0}> that the
           browser outlines on click, and a focusable child inside role="img" is not announced
           anyway. The sr-only table and buttons below are the keyboard and screen-reader route. */}
+      <div ref={plotRef} className="relative w-full">
       <div role="img" aria-label={chartSummary} className="w-full [&_.recharts-bar-rectangle]:cursor-pointer" style={{ height: ACTIVITY_CHART_HEIGHT }}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
@@ -452,12 +470,25 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy, onToggleC
             margin={{ top: 24, right: 10, left: 0, bottom: 0 }}
             barCategoryGap="40%"
             onClick={(state) => {
+              // Phones only: a tap pins that bar's small card over the chart. Desktop opens things
+              // by clicking a coloured part of a bar (see openCategory), so nothing is pinned.
+              if (!isMobile) return;
               // Recharts 3 reports this as a string ("3"), not a number — the old
               // `typeof === 'number'` check never passed, so tapping a bar pinned nothing.
               const raw = state?.activeTooltipIndex;
               const index = raw == null ? NaN : Number(raw);
               if (Number.isInteger(index)) setSelectedIndex((prev) => (prev === index ? null : index));
             }}
+            onMouseMove={(state) => {
+              if (isMobile) return;
+              const raw = state?.activeTooltipIndex;
+              const index = raw == null ? NaN : Number(raw);
+              const x = state?.activeCoordinate?.x;
+              if (!Number.isInteger(index) || x == null) return;
+              cancelHide();
+              setHover((prev) => (prev && prev.index === index ? prev : { index, x, width: plotRef.current?.clientWidth ?? 0 }));
+            }}
+            onMouseLeave={() => { if (!isMobile) scheduleHide(); }}
           >
             <CartesianGrid
               vertical={false}
@@ -503,7 +534,7 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy, onToggleC
                 `activeTooltipIndex`, which Recharts only tracks while a Tooltip exists. */}
             <Tooltip
               cursor={isMobile ? false : <NarrowCursor barWidth={mobileBarSize} />}
-              content={(props) => (isMobile ? null : <ChartTooltip {...props} activeCategories={activeCategories} />)}
+              content={() => null}
               isAnimationActive={false} // Prevents jitter on fast hovering
             />
 
@@ -532,6 +563,7 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy, onToggleC
                   shape={segmentShapes[category]}
                   maxBarSize={BAR_WIDTH}
                   barSize={mobileBarSize}
+                  onClick={isMobile ? undefined : (_, index) => openCategory(category, index)}
                   label={isTopOfStack ? renderTotalLabel : undefined}
                 >
                   {data.map((d, i) => (
@@ -542,6 +574,34 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy, onToggleC
             })}
           </BarChart>
         </ResponsiveContainer>
+      </div>
+
+      {/* Desktop hover card: the same breakdown, with every row clickable. Flips to the left of the
+          bar on the right half of the chart so it never runs off the card. */}
+      {!isMobile && hover && !drilldownCategory && datumTotal(data[hover.index], activeOrder) > 0 && (
+        <div
+          onMouseEnter={cancelHide}
+          onMouseLeave={scheduleHide}
+          className="absolute top-2 z-20"
+          style={
+            hover.x < hover.width * 0.55
+              ? { left: hover.x + mobileBarSize / 2 + 10 }
+              : { right: hover.width - hover.x + mobileBarSize / 2 + 10 }
+          }
+        >
+          <PinnedBreakdown title={data[hover.index].label} variant="tooltip" className="min-w-[180px]">
+            <BreakdownRows datum={data[hover.index]} activeCategories={activeCategories} onCategoryClick={(category) => openCategory(category, hover.index)} />
+          </PinnedBreakdown>
+        </div>
+      )}
+
+      {/* Phones: a tap on a bar floats its small card over the top of the chart, so nothing on the
+          page is pushed down. Rows open the category straight away; a tap outside closes it. */}
+      {isMobile && selectedDatum && (
+        <div className="absolute inset-x-0 top-0 z-20 rounded-2xl border border-border bg-surface p-1.5">
+          <CompactBreakdown datum={selectedDatum} activeCategories={activeCategories} onCategoryClick={setDrilldownCategory} />
+        </div>
+      )}
       </div>
 
       {/* The same numbers as a plain table for screen readers. */}
@@ -588,27 +648,14 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy, onToggleC
         })}
       </div>
 
-      {/* Tap-to-pin breakdown — same data the hover tooltip shows, kept visible after the tap so
-          it works on touch devices (no hover). Its rows are clickable here (never on the hover
-          tooltip — see BreakdownRows) since a pinned panel stays put long enough to be clicked. */}
-      {selectedDatum && isMobile ? (
-        <CompactBreakdown
-          datum={selectedDatum}
-          activeCategories={activeCategories}
-          onCategoryClick={setDrilldownCategory}
-        />
-      ) : selectedDatum ? (
-        <PinnedBreakdown title={selectedDatum.label} onClose={() => setSelectedIndex(null)}>
-          <BreakdownRows datum={selectedDatum} activeCategories={activeCategories} onCategoryClick={setDrilldownCategory} />
-        </PinnedBreakdown>
-      ) : (
-        <BreakdownHint>{isMobile ? 'Tap a bar to see its full breakdown' : 'Click a bar to see its full breakdown'}</BreakdownHint>
-      )}
+      <p className="text-center text-xs font-medium text-text-muted">
+        {isMobile ? 'Tap a bar, then pick a category to open it' : 'Click a coloured part of a bar to open it'}
+      </p>
 
       {drilldownCategory && selectedIndex !== null && (
         <DrilldownModal
           open
-          onClose={() => setDrilldownCategory(null)}
+          onClose={closeDrilldown}
           title={`${ACTIVITY_CATEGORY_LABEL[drilldownCategory]}: ${data[selectedIndex].label}`}
           rows={itemsInRange(items, drilldownCategory, buckets[selectedIndex].start, buckets[selectedIndex].end)}
           viewAllHref={

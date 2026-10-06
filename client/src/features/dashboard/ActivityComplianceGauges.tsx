@@ -1,8 +1,9 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { ClipboardCheck, ShieldCheck, Sparkles, Download, FileSpreadsheet, FileText, Info, type LucideIcon } from 'lucide-react';
+import { Building2, ChevronRight, ClipboardCheck, Store, User, X, ShieldCheck, Sparkles, Download, FileSpreadsheet, FileText, Info, type LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
-import { RadialGauge, EntityIconTile, Button } from '../../components';
+import { RadialGauge, EntityIconTile, Button, Combobox } from '../../components';
+import { OptionsSheet, OptionSection, ChoiceChip, ChoiceIcon, ChoiceWrap, ChoiceClear } from '../../components/optionsSheet';
 import { Modal } from '../../components/modal';
 import { useIsMobile, useMediaQuery } from '../../lib/useMediaQuery';
 import { useNow } from '../../lib/useNow';
@@ -10,7 +11,6 @@ import { BreakdownRatioRows } from './PinnedBreakdown';
 import { DrilldownList, DrilldownViewAllButton } from './DrilldownModal';
 import { DeltaBadge } from './RateDelta';
 import { isTrendReady } from './trendGate';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../../components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '../../components/ui/dropdown-menu';
 import { csvBlob, xlsxBlob, downloadBlob, stampedFilename, type TableRows } from '../../lib/exportTable';
@@ -29,11 +29,6 @@ import {
   type ActivityWorkItem,
   type RateTone,
 } from './dashboardDisplay';
-
-// Sentinel for "no scope picked" — Radix Select's Item can't take an empty-string value, and
-// `null`/`undefined` isn't a valid controlled value either, so every filter uses this string and
-// gets translated back to `null` at the point it's read.
-const ALL = 'all';
 
 // The breakdown rows only carry a display label ("Ticket"), not the category key that produced
 // it — this reverses ACTIVITY_CATEGORY_LABEL once so a clicked row's label can look its category
@@ -101,6 +96,15 @@ interface GaugeProps {
 
 // Only the icon carries tone color now — the card itself stays one neutral surface regardless of
 // performance, so the two gauges don't turn the card into a traffic-light panel.
+// The ring itself is coloured by how the score reads (green good, amber middle, red low), so 20% and
+// 95% no longer look the same. A tiny volume or no data keeps the brand blue.
+const TONE_FILL: Record<RateTone, string> = {
+  success: 'var(--color-success)',
+  warning: 'var(--color-warning)',
+  danger: 'var(--color-danger)',
+  neutral: 'var(--color-primary-700)',
+};
+
 const TONE_ACCENT: Record<RateTone, string> = {
   success: 'text-success',
   warning: 'text-warning',
@@ -135,8 +139,7 @@ const Gauge = memo(({ gaugeKey, icon: Icon, label, definition, percent, caption,
         aria-label={`${label}: ${isNull ? 'No data' : `${percent}%`}${hasCaption ? `, ${caption}` : ''}. Open the breakdown by category.`}
         className="flex flex-col items-center gap-3 sm:gap-4 w-full min-h-11 rounded-xl outline-none cursor-pointer focus-visible:ring-2 focus-visible:ring-primary-500/40"
       >
-        {/* Fill is always the brand navy, not the tone color; the tone only tints the icon. */}
-        <RadialGauge percent={percent ?? 0} size={size} variant="circle" gradientFrom="var(--color-primary-700, #213e6a)" gradientTo="var(--color-primary-700, #213e6a)">
+        <RadialGauge percent={percent ?? 0} size={size} variant="circle" gradientFrom={isNull ? TONE_FILL.neutral : TONE_FILL[rateTone(percent, volume)]} gradientTo={isNull ? TONE_FILL.neutral : TONE_FILL[rateTone(percent, volume)]}>
           <span className={`font-display font-black tracking-tight ${isNull ? 'text-xs sm:text-sm text-text-muted' : 'text-lg sm:text-2xl text-text'}`}>
             {isNull ? 'No data' : `${percent}%`}
           </span>
@@ -152,6 +155,10 @@ const Gauge = memo(({ gaugeKey, icon: Icon, label, definition, percent, caption,
           {/* The raw count is what makes the percentage trustworthy: "3 of 4" reads very
               differently from "300 of 400" at the same 75%. */}
           {hasCaption && <span className="text-xs font-display font-medium text-text-muted tabular-nums">{caption}</span>}
+          <span className="inline-flex items-center gap-0.5 text-xs font-display font-semibold text-primary-700 dark:text-primary-300">
+            See breakdown
+            <ChevronRight size={12} strokeWidth={2.5} aria-hidden="true" />
+          </span>
         </span>
       </button>
 
@@ -184,8 +191,22 @@ const ScopeTag = memo(({ label, scope }: { label: string; scope: CategoryScope }
 ));
 ScopeTag.displayName = 'ScopeTag';
 
+const ScopeChip = ({ label, onRemove }: { label: string; onRemove: () => void }) => (
+  <span className="flex items-center gap-1 h-8 pl-3 pr-1 rounded-full border border-primary-500/30 bg-primary-500/10 text-xs font-display font-medium text-primary-700 dark:text-primary-300">
+    <span className="truncate max-w-[12rem]">{label}</span>
+    <button
+      type="button"
+      onClick={onRemove}
+      aria-label={`Remove filter: ${label}`}
+      className="flex items-center justify-center size-6 shrink-0 rounded-full hover:bg-primary-500/15 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+    >
+      <X size={13} aria-hidden />
+    </button>
+  </span>
+);
+
 const DONE_RATE_DEFINITION = 'Done rate: items finished out of items created in this period.';
-const NOT_OVERDUE_DEFINITION = 'Not overdue: share of items not past their due date.';
+const NOT_OVERDUE_DEFINITION = 'On time: of the items that are finished or past their due date, the share that was not late. Items not due yet are left out.';
 
 export const ActivityComplianceGauges = ({ items, activeCategories, groupBy, orgChecklistRate = null, categoryScope }: ActivityComplianceGaugesProps) => {
   const navigate = useNavigate();
@@ -196,6 +217,7 @@ export const ActivityComplianceGauges = ({ items, activeCategories, groupBy, org
   const showFilters = useMediaQuery('(min-width: 640px)');
   const [selected, setSelected] = useState<GaugeKey | null>(null);
   const [drilldownCategory, setDrilldownCategory] = useState<ActivityCategory | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   // "All" until an admin narrows it — Department, Store and Person are independent, combinable
   // scopes (e.g. one department at one store), not tabs. A Department filter is also the
@@ -318,7 +340,7 @@ export const ActivityComplianceGauges = ({ items, activeCategories, groupBy, org
   const handleToggle = useCallback((key: GaugeKey) => setSelected((prev) => (prev === key ? null : key)), []);
 
   const activeBreakdown = selected === 'completion' ? doneBreakdown : selected === 'onTime' ? notOverdueBreakdown : null;
-  const activeLabel = selected === 'completion' ? 'Done rate' : selected === 'onTime' ? 'Not overdue' : null;
+  const activeLabel = selected === 'completion' ? 'Done rate' : selected === 'onTime' ? 'On time' : null;
   const rangeText = ACTIVITY_GROUP_RANGE_LABEL[groupBy];
   const deltaTitle = `vs the ${rangeText.replace('last ', '')} before`;
 
@@ -432,49 +454,54 @@ export const ActivityComplianceGauges = ({ items, activeCategories, groupBy, org
         ))}
       </div>
 
-      {/* One compact row of scope selects. Mounted from `sm` up only, so a phone never fetches the
-          department, store and people lists for filters it cannot see. */}
+      {/* Department, Store and Person live behind one Filters button (same pattern as the
+          Verification page), with what is applied shown as removable chips. Mounted from `sm` up
+          only, so a phone never fetches the lists for filters it cannot see. */}
       {showFilters && (
         <div className="flex flex-wrap items-center gap-2">
-          <Select value={departmentId ?? ALL} onValueChange={(v) => setDepartmentId(v === ALL ? null : v)}>
-            {/* aria-label, not just the placeholder: once a department is picked, SelectValue shows
-                its name, which on its own does not say this trigger is the department filter. */}
-            <SelectTrigger size="sm" className="w-auto min-w-[8.5rem]" aria-label="Filter by department">
-              <SelectValue placeholder="All departments" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>All departments</SelectItem>
-              {departments.map((d) => (
-                <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <OptionsSheet
+            isOpen={filtersOpen}
+            setIsOpen={setFiltersOpen}
+            activeCount={(departmentId ? 1 : 0) + (storeId ? 1 : 0) + (personId ? 1 : 0)}
+            subtitle="Narrow the numbers to one department, store or person"
+            onReset={() => { setDepartmentId(null); setStoreId(null); setPersonId(null); }}
+            canReset={!!(departmentId || storeId || personId)}
+            showLabel="Show results"
+          >
+            <OptionSection icon={Building2} label="Department" aside={departmentId ? <ChoiceClear onClick={() => setDepartmentId(null)} /> : undefined}>
+              <ChoiceWrap>
+                {departments.map((d) => (
+                  <ChoiceChip key={d.id} active={departmentId === d.id} onClick={() => setDepartmentId(departmentId === d.id ? null : d.id)} lead={<ChoiceIcon icon={Building2} tone="bg-primary-600" />}>
+                    {d.name}
+                  </ChoiceChip>
+                ))}
+              </ChoiceWrap>
+            </OptionSection>
+            <OptionSection icon={Store} label="Store" aside={storeId ? <ChoiceClear onClick={() => setStoreId(null)} /> : undefined}>
+              <ChoiceWrap>
+                {stores.map((st) => (
+                  <ChoiceChip key={st.id} active={storeId === st.id} onClick={() => setStoreId(storeId === st.id ? null : st.id)} lead={<ChoiceIcon icon={Store} tone="bg-primary-600" />}>
+                    {st.name}
+                  </ChoiceChip>
+                ))}
+              </ChoiceWrap>
+            </OptionSection>
+            <OptionSection icon={User} label="Person" aside={personId ? <ChoiceClear onClick={() => setPersonId(null)} /> : undefined}>
+              <Combobox
+                value={personId ?? ''}
+                onChange={(v) => setPersonId(v || null)}
+                options={people.map((pe) => ({ value: pe.id, label: `${pe.firstName}${pe.lastName ? ` ${pe.lastName}` : ''}` }))}
+                emptyOptionLabel="All people"
+                placeholder="Search people..."
+              />
+            </OptionSection>
+          </OptionsSheet>
 
-          <Select value={storeId ?? ALL} onValueChange={(v) => setStoreId(v === ALL ? null : v)}>
-            <SelectTrigger size="sm" className="w-auto min-w-[8.5rem]" aria-label="Filter by store">
-              <SelectValue placeholder="All stores" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>All stores</SelectItem>
-              {stores.map((s) => (
-                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {departmentId && <ScopeChip label={departmentName} onRemove={() => setDepartmentId(null)} />}
+          {storeId && <ScopeChip label={storeName} onRemove={() => setStoreId(null)} />}
+          {personId && <ScopeChip label={personName} onRemove={() => setPersonId(null)} />}
 
-          <Select value={personId ?? ALL} onValueChange={(v) => setPersonId(v === ALL ? null : v)}>
-            <SelectTrigger size="sm" className="w-auto min-w-[8.5rem]" aria-label="Filter by person">
-              <SelectValue placeholder="All people" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>All people</SelectItem>
-              {people.map((p) => (
-                <SelectItem key={p.id} value={p.id}>{p.firstName}{p.lastName ? ` ${p.lastName}` : ''}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Only Ticket carries all three scope dimensions — narrowing by any of them drops
+          {/* Only Ticket carries all three scope dimensions: narrowing by any of them drops
               categories that don't have it rather than matching them against the wrong thing.
               Surfaced here so a shrunk total reads as expected rather than broken. */}
           {(departmentId || storeId || personId) && (
@@ -506,7 +533,7 @@ export const ActivityComplianceGauges = ({ items, activeCategories, groupBy, org
           <Gauge
             gaugeKey="onTime"
             icon={ShieldCheck}
-            label="Not overdue"
+            label="On time"
             definition={NOT_OVERDUE_DEFINITION}
             percent={notOverdueRate}
             caption={`${onTimeCount} of ${dueTotal} due`}
