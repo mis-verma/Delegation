@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { ChevronLeft, ChevronRight, ClipboardCheck, Download, FileSpreadsheet, FileText, Ticket as TicketIcon, Users } from 'lucide-react';
 import { Button, Combobox, type ComboboxOption } from '../../components';
 import { SemiGauge } from '../../components/semiGauge/SemiGauge';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel } from '../../components/ui/dropdown-menu';
 import { useAuth } from '../../context/AuthContext';
 import { OWN_SCOPE_ROLES } from '../../api/auth';
-import { scoreApi, type Scores, type ScoreScope } from '../../api/scores';
-import { useAssignableUsersQuery, useDepartmentsQuery, useStoresQuery } from '../tickets/hook';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '../../components/ui/dropdown-menu';
+import { scoreApi, type ScoreReport, type ScoreReportRow, type Scores, type ScoreScope } from '../../api/scores';
 import { csvBlob, xlsxBlob, downloadBlob, stampedFilename, type TableRows } from '../../lib/exportTable';
+import { useAssignableUsersQuery, useDepartmentsQuery, useStoresQuery } from '../tickets/hook';
 import { PeriodTabControl } from './PeriodTabControl';
 import { DASHBOARD_CARD_CLASS, bucketKeyFor, rateTone, type RateTone } from './dashboardDisplay';
 
@@ -65,6 +66,35 @@ const scoreQuery = (scope: ScoreScope, id: string | undefined, from: string, to:
   staleTime: 60_000,
 });
 
+// Column set shared by the department and people tables in the full report.
+const REPORT_COLUMNS = [
+  'Checklists due', 'Checklists done', 'Checklists missed', 'Completion %', 'Compliance %',
+  'Tickets due', 'Closed on time', 'Late', 'Ticket score %',
+  'Delegations due', 'Delegations done', 'Overdue', 'Delegation score %',
+];
+const reportCells = (r: ScoreReportRow) => [
+  r.checklist.due, r.checklist.completed, r.checklist.missed, r.checklist.completionPct, r.checklist.compliancePct,
+  r.ticket.due, r.ticket.onTime, r.ticket.late, r.ticket.score,
+  r.delegation.due, r.delegation.done, r.delegation.overdue, r.delegation.score,
+];
+
+const reportRows = (report: ScoreReport, windowLabel: string): TableRows => [
+  ['Checklist, ticket and delegation scores'],
+  ['Window', `${windowLabel} (${report.from} to ${report.to})`],
+  ['Generated', new Date(report.generatedAt).toLocaleString()],
+  [],
+  ['Departments'],
+  ['Department', ...REPORT_COLUMNS],
+  ...report.departments.map((d) => [d.name, ...reportCells(d)]),
+  [],
+  ['People'],
+  ['Name', 'Department', 'Role', ...REPORT_COLUMNS],
+  ...report.people.map((p) => [p.name, p.department, p.role ?? '', ...reportCells(p)]),
+  [],
+  ['Notes'],
+  ...report.notes.map((n) => [n]),
+];
+
 interface ScoreTileProps {
   title: string;
   icon: typeof Users;
@@ -80,14 +110,16 @@ const TONE_PILL: Record<RateTone, { label: string; className: string } | null> =
   neutral: null,
 };
 
+// On a phone the dial sits left of the title and detail, so three tiles stay short; from `sm` up it is
+// the stacked tile with the dial in the middle.
 const ScoreTile = ({ title, icon: Icon, score, detail, loading }: ScoreTileProps) => {
   // A small count still gets its colour: one finished item out of one is a full, green score.
   const tone = score === null ? 'neutral' : rateTone(score, Number.MAX_SAFE_INTEGER);
   const [from, to] = RING[tone];
   const pill = TONE_PILL[tone];
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface-hover/30 p-3.5 min-w-0">
-      <div className="flex items-center justify-between gap-2">
+    <div className="grid grid-cols-[7rem_minmax(0,1fr)] grid-rows-[auto_auto] items-center gap-x-3 gap-y-1 rounded-lg border border-border bg-surface-hover/30 p-3 sm:flex sm:flex-col sm:items-stretch sm:gap-2 sm:p-3.5 min-w-0">
+      <div className="col-start-2 row-start-1 self-end flex items-center justify-between gap-2 min-w-0 sm:self-auto">
         <div className="flex items-center gap-2 min-w-0">
           <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-md bg-primary-500/10 text-primary-600 dark:text-primary-400">
             <Icon className="size-4" aria-hidden="true" />
@@ -96,10 +128,19 @@ const ScoreTile = ({ title, icon: Icon, score, detail, loading }: ScoreTileProps
         </div>
         {pill && <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-display font-bold ${pill.className}`}>{pill.label}</span>}
       </div>
-      <SemiGauge percent={score ?? 0} showFill={score !== null} gradientFrom={from} gradientTo={to} ariaLabel={score === null ? `${title}: no data` : `${title}: ${score} percent`} className="mx-auto max-w-64">
-        <span className="font-display text-2xl sm:text-3xl font-extrabold leading-none text-text">{score === null ? '–' : `${score}%`}</span>
+      <SemiGauge
+        percent={score ?? 0}
+        showFill={score !== null}
+        gradientFrom={from}
+        gradientTo={to}
+        ariaLabel={score === null ? `${title}: no data` : `${title}: ${score} percent`}
+        className="col-start-1 row-span-2 row-start-1 sm:mx-auto sm:max-w-64"
+      >
+        <span className="font-display text-lg sm:text-3xl font-extrabold leading-none text-text">{score === null ? '–' : `${score}%`}</span>
       </SemiGauge>
-      <p className="text-xs font-display text-text-muted text-center min-h-8">{loading ? 'Loading' : score === null ? 'Nothing was due' : detail}</p>
+      <p className="col-start-2 row-start-2 self-start text-xs font-display text-text-muted sm:text-center sm:min-h-8">
+        {loading ? 'Loading' : score === null ? 'Nothing was due' : detail}
+      </p>
     </div>
   );
 };
@@ -119,11 +160,13 @@ export const MyScoresCard = () => {
     [orgWide, isHod],
   );
   const canPickPerson = !!role && !OWN_SCOPE_ROLES.includes(role);
+  const canExportReport = orgWide || isHod;
 
   const [scope, setScope] = useState<ScoreScope>('person');
   const [period, setPeriod] = useState<ScorePeriod>('month');
   const [offset, setOffset] = useState(0);
   const [picked, setPicked] = useState('');
+  const [exporting, setExporting] = useState(false);
 
   const people = useAssignableUsersQuery();
   const departments = useDepartmentsQuery(scopes.includes('department'));
@@ -163,59 +206,86 @@ export const MyScoresCard = () => {
     }
   }, [ready, period, offset, scope, targetId, queryClient]);
 
-  // Downloads exactly what is on screen: this person, department or store, for this window.
-  const handleExport = (format: 'csv' | 'xlsx') => {
+  const save = (rows: TableRows, format: 'csv' | 'xlsx', base: string) => {
+    downloadBlob(format === 'csv' ? csvBlob(rows) : xlsxBlob(rows, 'Scores'), stampedFilename(base, format));
+  };
+
+  // What is on screen: this person, department or store, for this window.
+  const exportView = (format: 'csv' | 'xlsx') => {
     if (!data) return;
     const { checklist: c, ticket: t, delegation: d } = data;
-    const rows: TableRows = [
+    save([
       [`Scores for ${data.name}`],
       ['View', SCOPE_LABEL[data.scope]],
       ['Window', `${range.label} (${data.from} to ${data.to})`],
       ['Generated', new Date().toLocaleString()],
       [],
-      ['Score', 'Score %', 'Measured on', 'Done', 'Of', 'Other'],
-      ['Checklist', c.score, c.compliancePct === null ? 'Completion' : 'Compliance', c.completed, c.assigned, `${c.approved} of ${c.submitted} approved, ${c.missed} missed`],
+      ['Score', 'Score %', 'Measured on', 'Done', 'Due', 'Other'],
+      ['Checklist', c.score, c.compliancePct === null ? 'Completion' : 'Compliance', c.completed, c.due, `${c.approved} of ${c.submitted} approved, ${c.missed} missed`],
       ['Tickets', t.score, 'Closed on time', t.onTime, t.due, `${t.late} late`],
       ['Delegations', d.score, 'Weighted status', d.done, d.due, `${d.overdue} overdue`],
-    ];
-    downloadBlob(format === 'csv' ? csvBlob(rows) : xlsxBlob(rows, 'Scores'), stampedFilename('scores', format));
+    ], format, 'scores');
+  };
+
+  // Every department and person the viewer may see, as two tables.
+  const exportReport = async (format: 'csv' | 'xlsx') => {
+    setExporting(true);
+    try {
+      const report = await scoreApi.report({ from: range.from, to: range.to });
+      save(reportRows(report, range.label), format, 'scores-report');
+      toast.success(`Exported ${report.departments.length} departments and ${report.people.length} people`);
+    } catch {
+      toast.error('Could not build the report. Try again.');
+    } finally {
+      setExporting(false);
+    }
   };
 
   const heading = scope === 'person' && !targetId ? 'Your scores' : `${data?.name ?? SCOPE_LABEL[scope]} scores`;
   const showPicker = scope === 'person' ? canPickPerson : !(scope === 'department' && isHod);
 
   return (
-    <section className={`${DASHBOARD_CARD_CLASS} flex flex-col gap-4 p-4 sm:p-5`} aria-label="Scores">
+    <section className={`${DASHBOARD_CARD_CLASS} flex flex-col gap-3 sm:gap-4 p-3.5 sm:p-5 min-w-0`} aria-label="Scores">
       <header className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <h2 className="font-display text-base font-bold text-text truncate">{heading}</h2>
             <p className="text-xs font-display text-text-muted">Work that fell due in the window, and how much was done on time</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             {scopes.length > 1 && (
-              <PeriodTabControl value={scope} options={scopes} labels={SCOPE_LABEL} onChange={(next) => { setScope(next); setPicked(''); }} />
+              <div className="hidden sm:block">
+                <PeriodTabControl value={scope} options={scopes} labels={SCOPE_LABEL} onChange={(next) => { setScope(next); setPicked(''); }} />
+              </div>
             )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" disabled={!data} aria-label="Export scores" className="shrink-0 pointer-coarse:min-h-11">
+                <Button variant="outline" size="sm" disabled={!data || exporting} aria-label="Export scores" className="shrink-0 pointer-coarse:min-h-11 pointer-coarse:min-w-11">
                   <Download size={14} strokeWidth={2.5} aria-hidden="true" />
-                  Export
+                  <span className="hidden sm:inline">{exporting ? 'Exporting' : 'Export'}</span>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-48">
-                <DropdownMenuItem onClick={() => handleExport('csv')} className="gap-2">
-                  <FileText size={14} />
-                  CSV (.csv)
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleExport('xlsx')} className="gap-2">
-                  <FileSpreadsheet size={14} />
-                  Excel (.xlsx)
-                </DropdownMenuItem>
+              <DropdownMenuContent align="end" className="min-w-56">
+                <DropdownMenuLabel className="text-xs">This view</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => exportView('csv')} className="gap-2"><FileText size={14} />CSV (.csv)</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportView('xlsx')} className="gap-2"><FileSpreadsheet size={14} />Excel (.xlsx)</DropdownMenuItem>
+                {canExportReport && (
+                  <>
+                    <DropdownMenuLabel className="text-xs">{orgWide ? 'All departments and people' : 'My department, by person'}</DropdownMenuLabel>
+                    <DropdownMenuItem onClick={() => void exportReport('csv')} className="gap-2"><FileText size={14} />Report CSV (.csv)</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => void exportReport('xlsx')} className="gap-2"><FileSpreadsheet size={14} />Report Excel (.xlsx)</DropdownMenuItem>
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
         </div>
+
+        {scopes.length > 1 && (
+          <div className="sm:hidden">
+            <PeriodTabControl value={scope} options={scopes} labels={SCOPE_LABEL} onChange={(next) => { setScope(next); setPicked(''); }} fill />
+          </div>
+        )}
 
         {showPicker && (
           <Combobox
@@ -253,8 +323,14 @@ export const MyScoresCard = () => {
           <button type="button" onClick={() => void query.refetch()} className="font-bold text-primary-600 dark:text-primary-400 hover:underline">Try again</button>
         </div>
       ) : (
-        <div className={`grid grid-cols-1 min-[420px]:grid-cols-3 gap-2.5 transition-opacity ${query.isFetching && data ? 'opacity-60' : ''}`}>
-          <ScoreTile loading={loading} title="Checklist" icon={ClipboardCheck} score={data?.checklist.score ?? null} detail={data ? `${data.checklist.completed} of ${data.checklist.assigned} done${data.checklist.submitted ? `, ${data.checklist.approved} of ${data.checklist.submitted} approved` : ''}` : ''} />
+        <div className={`grid grid-cols-1 sm:grid-cols-3 gap-2.5 transition-opacity ${query.isFetching && data ? 'opacity-60' : ''}`}>
+          <ScoreTile
+            loading={loading}
+            title="Checklist"
+            icon={ClipboardCheck}
+            score={data?.checklist.score ?? null}
+            detail={data ? `${data.checklist.completed} of ${data.checklist.due} done${data.checklist.submitted ? `, ${data.checklist.approved} of ${data.checklist.submitted} approved` : ''}` : ''}
+          />
           <ScoreTile loading={loading} title="Tickets" icon={TicketIcon} score={data?.ticket.score ?? null} detail={data ? `${data.ticket.onTime} of ${data.ticket.due} on time` : ''} />
           <ScoreTile loading={loading} title="Delegations" icon={Users} score={data?.delegation.score ?? null} detail={data ? `${data.delegation.done} of ${data.delegation.due} done` : ''} />
         </div>

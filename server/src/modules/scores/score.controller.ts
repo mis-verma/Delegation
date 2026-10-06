@@ -16,7 +16,16 @@ const querySchema = z
     .refine((q) => Date.parse(q.to) - Date.parse(q.from) <= 366 * 86_400_000, "Pick at most one year")
     .refine((q) => q.scope === "person" || !!q.id, "Pick a department or store")
 
+const reportSchema = z
+    .object({ from: DATE, to: DATE })
+    .refine((q) => q.from <= q.to, "From must be on or before To")
+    .refine((q) => Date.parse(q.to) - Date.parse(q.from) <= 366 * 86_400_000, "Pick at most one year")
+
 export const scoreController = {
+    report: asyncHandler(async (req: Request, res: Response) => {
+        const { from, to } = reportSchema.parse(req.query)
+        res.json({ success: true, data: await scoreService.report(req.user!, from, to) })
+    }),
     scores: asyncHandler(async (req: Request, res: Response) => {
         const { scope, id, from, to } = querySchema.parse(req.query)
         const data = await scoreService.forScope(req.user!, scope, id ?? req.user!.sub, from, to)
