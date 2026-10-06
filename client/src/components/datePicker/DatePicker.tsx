@@ -226,7 +226,7 @@ export function DatePicker({
                     panel === tab.key ? 'bg-surface border border-border' : 'border border-transparent',
                   )}
                 >
-                  <span className="text-[10px] font-semibold text-text-muted leading-none">{tab.label}</span>
+                  <span className="text-xs font-semibold text-text-muted leading-none">{tab.label}</span>
                   <span className={cn('text-sm font-display font-semibold leading-tight tabular-nums', panel === tab.key ? 'text-text' : 'text-text-secondary')}>{tab.text}</span>
                 </button>
               ))}
@@ -248,7 +248,7 @@ export function DatePicker({
                     type="button"
                     onClick={() => selectDay(target)}
                     className={cn(
-                      'h-8 px-1 rounded-lg text-[11px] font-display font-semibold whitespace-nowrap transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40',
+                      'h-8 px-1 rounded-lg text-xs font-display font-semibold whitespace-nowrap transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40',
                       isActive
                         ? 'bg-primary-600 text-white'
                         : 'bg-surface-hover text-text-secondary hover:bg-surface-active hover:text-text',
@@ -285,7 +285,7 @@ export function DatePicker({
             <div className="flex flex-col gap-1">
               <div className="grid grid-cols-7">
                 {WEEKDAY_LABELS.map((w) => (
-                  <span key={w} className="text-[10px] font-bold text-text-light text-center">
+                  <span key={w} className="text-xs font-bold text-text-light text-center">
                     {w}
                   </span>
                 ))}
@@ -324,7 +324,7 @@ export function DatePicker({
           {showTime && !value && (
             <div className="hidden sm:flex sm:w-[200px] shrink-0 flex-col items-center justify-center gap-1 sm:border-l sm:pl-5 border-border text-center">
               <span className="text-xs font-semibold text-text-muted">Pick a day first</span>
-              <span className="text-[11px] text-text-light">Then set the time here.</span>
+              <span className="text-xs text-text-light">Then set the time here.</span>
             </div>
           )}
 
@@ -355,14 +355,14 @@ export function DatePicker({
 
                   <div className="flex p-0.5 bg-surface-hover rounded-lg">
                     {(['AM', 'PM'] as const).map((p) => (
-                      <button key={p} type="button" onClick={() => setPeriod(p)} aria-pressed={period === p} className={cn(segClass(period === p), 'text-[11px] font-bold')}>
+                      <button key={p} type="button" onClick={() => setPeriod(p)} aria-pressed={period === p} className={cn(segClass(period === p), 'text-xs font-bold')}>
                         {p}
                       </button>
                     ))}
                   </div>
                 </div>
 
-                <span className="text-[11px] font-medium text-text-light">
+                <span className="text-xs font-medium text-text-light">
                   {dialMode === 'hour' ? 'Tap the hour' : 'Tap the minutes'}
                 </span>
 

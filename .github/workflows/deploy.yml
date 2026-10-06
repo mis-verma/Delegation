@@ -73,10 +73,31 @@ jobs:
           name: deploy-artifact
           path: artifact
 
+      # Trust the VPS's host key before any ssh/rsync. This is the first step that touches the network,
+      # so it is also where "the runner cannot reach the server over SSH" shows up. It retries a few
+      # times (a busy or briefly rate-limited sshd is common) and, if it still fails, says what to check
+      # instead of just "exit code 1". The secrets go through env so they are masked and never inlined.
       - name: Add VPS to known_hosts
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT || '22' }}
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -p "${{ secrets.VPS_PORT || 22 }}" -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+          if [ -z "$VPS_HOST" ]; then
+            echo "::error::The VPS_HOST secret is empty. Add it under Settings > Environments > production (or repository secrets)."
+            exit 1
+          fi
+          for attempt in 1 2 3 4; do
+            if ssh-keyscan -T 15 -p "$VPS_PORT" -H "$VPS_HOST" > keyscan.out 2> keyscan.err && [ -s keyscan.out ]; then
+              cat keyscan.out >> ~/.ssh/known_hosts
+              exit 0
+            fi
+            echo "Attempt $attempt: no SSH host key came back."
+            cat keyscan.err || true
+            sleep 10
+          done
+          echo "::error::Could not reach the VPS over SSH from GitHub. Check: (1) VPS_HOST is the server's public IP or hostname with no http:// or spaces, (2) VPS_PORT matches the SSH port, (3) the VPS firewall (CloudPanel > Security) allows SSH from GitHub's runners, (4) the server is up."
+          exit 1
 
       # CloudPanel gives each site its own unprivileged SSH user (auto-named at site-creation
       # time — e.g. karyaos-in / api-karyaos-in, whatever CloudPanel actually calls them; see
