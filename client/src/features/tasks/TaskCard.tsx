@@ -8,6 +8,8 @@ import {
   CalendarPlus,
   CalendarDays,
   History,
+  MoreHorizontal,
+  ExternalLink,
 } from "lucide-react";
 import { useDeleteTaskMutation } from "./hook";
 import { TaskVerifyActions } from "./TaskVerifyActions";
@@ -27,7 +29,8 @@ import { getChecklistProgress } from "../../lib/checklistProgress";
 import { ChecklistProgressBar } from "../../components/progress";
 import { CATEGORY_CONFIG, formatShortDateTime, type CardFieldVisibility } from "./cardFields";
 import { STATUS_LABEL, STATUS_ICON, MOVABLE_STATUSES } from "./taskDisplay";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from "@/components/ui/dropdown-menu";
+import { useConfirm } from "../../components";
 import type { Task } from "../../api/task";
 
 interface TaskCardProps {
@@ -75,6 +78,7 @@ const daysLeftLabel = (dueDate: string) => {
 
 export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentName, isVerifier, onOpen, fields, isNewlyAssigned, onMove, priorityRail = false }: TaskCardProps) => {
   const deleteMutation = useDeleteTaskMutation();
+  const confirm = useConfirm();
   const priority = PRIORITY_MAP[task.priority];
   const coverPhoto = coverPhotoFor(task.attachments);
   const isOverdue = isOverdueTask(task);
@@ -119,9 +123,9 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
       )}
 
       {isNewlyAssigned && raisedByName && (
-        <div className="flex items-center gap-1.5 -mt-1 -mx-1 px-2.5 py-1.5 rounded-lg bg-info/10 text-[11px] font-semibold text-info">
+        <div className="flex items-center gap-1.5 -mt-1 -mx-1 px-2.5 py-1.5 rounded-lg bg-info/10 text-xs font-semibold text-info">
           <UserCog size={12} strokeWidth={2.5} className="shrink-0" />
-          <span className="truncate">New delegation from {raisedByName} — kindly review</span>
+          <span className="truncate">New from {raisedByName}. Please take a look.</span>
         </div>
       )}
 
@@ -129,85 +133,84 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
           ~250px column's title down to "Security camera offlin…"; they're a small floating
           toolbar now, shown on hover or keyboard focus (always on touch, where there's no hover). */}
       <div className="flex items-start gap-2">
-        <h4 className={`flex-1 min-w-0 text-sm font-display font-semibold text-text tracking-tight leading-snug line-clamp-2 break-words ${onMove || isVerifier ? 'pointer-coarse:pr-20' : ''}`}>
+        <h4 className={`flex-1 min-w-0 text-sm font-display font-semibold text-text tracking-tight leading-snug line-clamp-2 break-words ${onMove || isVerifier ? 'pr-9' : ''}`}>
           {task.title}
         </h4>
         <TaskSourceBadge aiMeta={task.aiMeta} />
       </div>
 
-      {(onMove || isVerifier) && (
-        <div className="absolute top-2 right-2 z-10 flex items-center gap-0.5 p-0.5 rounded-lg border border-border/70 bg-surface opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 pointer-coarse:opacity-100 transition-opacity duration-150">
-
-          {onMove && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  // Same reason as the delete button below: this sits inside dnd-kit's drag
-                  // listeners, so its press must not pick the card up instead.
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => e.stopPropagation()}
-                  aria-label="Move to another status"
-                  title="Move to another status"
-                  className="flex items-center justify-center size-8 rounded-md text-text-muted hover:text-primary-600 hover:bg-primary-500/10 transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
-                >
-                  <MoveRight size={15} strokeWidth={2.5} />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                className="w-52 rounded-xl"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <DropdownMenuLabel className="text-xs text-text-muted font-medium">Move to</DropdownMenuLabel>
-                {MOVABLE_STATUSES.map((status) => {
-                  // "Done" is reached through the verification flow (Approve) only, for anyone —
-                  // same rule useTaskStatusMove enforces on a drop and task.service.ts on the
-                  // server. "Pending Approval" must arrive from "In Progress" — skipping straight
-                  // there from To Do used to be allowed. Showing both disabled says the option
-                  // exists but isn't available from here/now, rather than hiding it outright.
-                  const blocked = status === 'done' || (status === 'pending_approval' && task.status !== 'in_progress');
-                  return (
-                    <DropdownMenuItem
-                      key={status}
-                      disabled={status === task.status || blocked}
-                      onClick={() => onMove(task, status)}
-                      className="gap-2.5 py-2 cursor-pointer"
-                    >
-                      {STATUS_ICON[status]}
-                      <span className="font-medium text-sm">{STATUS_LABEL[status]}</span>
-                    </DropdownMenuItem>
-                  );
-                })}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-
-          {isVerifier && (
+      {/* One always-visible "..." menu instead of two icons that only appeared on hover: Open, Move to
+          and Delete live inside. It sits inside dnd-kit's drag listeners on the board, so its press
+          must not pick the card up. */}
+      <div className="absolute top-2 right-2 z-10" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
             <button
               type="button"
-              // On the board this card sits inside dnd-kit's drag listeners. Without stopping the
-              // pointerdown here, pressing Delete and moving a few pixels picks the whole card up
-              // instead of pressing the button — the click never lands.
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation();
-                deleteMutation.mutate(task.id);
-              }}
-              disabled={deleteMutation.isPending}
-              aria-label="Delete delegation"
-              title="Delete delegation"
-              className="flex items-center justify-center size-8 rounded-md text-text-muted hover:text-danger hover:bg-danger/10 transition-colors cursor-pointer disabled:opacity-50 outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+              aria-label="Delegation actions"
+              className="flex items-center justify-center size-8 pointer-coarse:size-11 rounded-lg text-text-muted hover:text-text hover:bg-surface-hover transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
             >
-              {deleteMutation.isPending ? (
-                <Loader2 size={15} strokeWidth={2.5} className="animate-spin text-danger" />
-              ) : (
-                <Trash2 size={15} strokeWidth={2.5} />
-              )}
+              <MoreHorizontal size={16} strokeWidth={2.5} />
             </button>
-          )}
-        </div>
-      )}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-52 rounded-xl" onClick={(e) => e.stopPropagation()}>
+            <DropdownMenuItem onClick={() => onOpen(task)} className="gap-2.5 py-2 cursor-pointer">
+              <ExternalLink size={15} />
+              <span className="font-medium text-sm">Open</span>
+            </DropdownMenuItem>
+            {onMove && (
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger className="gap-2.5 py-2 cursor-pointer">
+                  <MoveRight size={15} />
+                  <span className="font-medium text-sm">Move to</span>
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="w-52 rounded-xl">
+                  <DropdownMenuLabel className="text-xs text-text-muted font-medium">Move to</DropdownMenuLabel>
+                  {MOVABLE_STATUSES.map((status) => {
+                    // "Done" is reached through the verification flow (Approve) only, for anyone, the
+                    // same rule useTaskStatusMove enforces on a drop and task.service.ts on the server.
+                    // "Pending Approval" must arrive from "In Progress". Showing both disabled says the
+                    // option exists but is not available from here, rather than hiding it.
+                    const blocked = status === 'done' || (status === 'pending_approval' && task.status !== 'in_progress');
+                    return (
+                      <DropdownMenuItem
+                        key={status}
+                        disabled={status === task.status || blocked}
+                        onClick={() => onMove(task, status)}
+                        className="gap-2.5 py-2 cursor-pointer"
+                      >
+                        {STATUS_ICON[status]}
+                        <span className="font-medium text-sm">{STATUS_LABEL[status]}</span>
+                      </DropdownMenuItem>
+                    );
+                  })}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            )}
+            {isVerifier && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  disabled={deleteMutation.isPending}
+                  onClick={async () => {
+                    const ok = await confirm({
+                      title: 'Delete this delegation?',
+                      description: 'It is removed from the lists.',
+                      confirmLabel: 'Delete',
+                      variant: 'danger',
+                    });
+                    if (ok) deleteMutation.mutate(task.id);
+                  }}
+                  className="gap-2.5 py-2 cursor-pointer text-danger focus:text-danger focus:bg-danger/10"
+                >
+                  {deleteMutation.isPending ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
+                  <span className="font-medium text-sm">Delete</span>
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
 
       {coverPhoto && (
         // aspect-video gave a ~250px-wide column a ~140px image — the single heaviest thing on the
@@ -221,7 +224,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
       )}
 
       {task.description && (
-        <p className="text-xs text-text-secondary leading-tight line-clamp-2">
+        <p className="text-xs text-text-secondary leading-snug line-clamp-2">
           {task.description}
         </p>
       )}
@@ -263,7 +266,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
           — quiet text metadata — so they share one wrapping row, which keeps pills and plain text
           from alternating down the card. */}
       {((fields.raisedBy && raisedByName) || fields.created || fields.updated) && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold text-text-light tabular-nums">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-text-light tabular-nums">
           {fields.raisedBy && raisedByName && (
             <span className="flex items-center gap-1 min-w-0">
               <UserCog size={12} strokeWidth={2.5} className="shrink-0" />
@@ -271,7 +274,8 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
             </span>
           )}
 
-          {fields.created && (
+          {/* Both on: one "updated" time, with the created time in its tooltip. */}
+          {fields.created && !fields.updated && (
             <span className="flex items-center gap-1" title={`Created ${formatShortDateTime(task.createdAt)}`}>
               <CalendarPlus size={12} strokeWidth={2.5} />
               {formatShortDateTime(task.createdAt)}
@@ -279,7 +283,10 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
           )}
 
           {fields.updated && (
-            <span className="flex items-center gap-1" title={`Updated ${formatShortDateTime(task.updatedAt)}`}>
+            <span
+              className="flex items-center gap-1"
+              title={fields.created ? `Created ${formatShortDateTime(task.createdAt)}. Updated ${formatShortDateTime(task.updatedAt)}` : `Updated ${formatShortDateTime(task.updatedAt)}`}
+            >
               <History size={12} strokeWidth={2.5} />
               {formatShortDateTime(task.updatedAt)}
             </span>
@@ -295,7 +302,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
                 {assigneeNames.slice(0, MAX_VISIBLE_AVATARS).map((name, i) => (
                   <div
                     key={name + i}
-                    className={`flex items-center justify-center size-6 rounded-full text-white text-[10px] font-bold ring-2 ring-surface shrink-0 ${avatarColorClass(name)}`}
+                    className={`flex items-center justify-center size-7 rounded-full text-white text-xs font-bold ring-2 ring-surface shrink-0 ${avatarColorClass(name)}`}
                     title={`Assigned to ${name}`}
                   >
                     {getInitials(name)}
@@ -303,14 +310,14 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
                 ))}
                 {assigneeNames.length > MAX_VISIBLE_AVATARS && (
                   <div
-                    className="flex items-center justify-center size-6 rounded-full bg-surface-hover text-text-secondary text-[10px] font-bold ring-2 ring-surface shrink-0"
+                    className="flex items-center justify-center size-7 rounded-full bg-surface-hover text-text-secondary text-xs font-bold ring-2 ring-surface shrink-0"
                     title={assigneeNames.slice(MAX_VISIBLE_AVATARS).join(', ')}
                   >
                     +{assigneeNames.length - MAX_VISIBLE_AVATARS}
                   </div>
                 )}
               </div>
-              <span className="text-[11px] font-semibold text-text-secondary truncate">
+              <span className="text-xs font-semibold text-text-secondary truncate">
                 {assigneeNames[0]}
                 {assigneeNames.length > 1 ? ` +${assigneeNames.length - 1}` : ''}
               </span>
@@ -318,12 +325,12 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
           ) : (
             <div className="flex items-center gap-1.5 min-w-0">
               <div
-                className="flex items-center justify-center size-6 rounded-full bg-surface-hover text-text-light ring-2 ring-surface shrink-0"
+                className="flex items-center justify-center size-7 rounded-full bg-surface-hover text-text-light ring-2 ring-surface shrink-0"
                 title="Unassigned"
               >
                 <User size={13} strokeWidth={2.5} />
               </div>
-              <span className="text-[11px] font-semibold text-text-light truncate">Unassigned</span>
+              <span className="text-xs font-semibold text-text-light truncate">Unassigned</span>
             </div>
           )
         ) : (

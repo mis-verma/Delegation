@@ -446,7 +446,7 @@ const MessageBubbles = ({ messages }: { messages: { from: "bot" | "user"; text: 
                         >
                             {m.text}
                         </div>
-                        <span className="text-[10px] text-text-light px-1">
+                        <span className="text-xs text-text-light px-1">
                             {formatMessageTime(m.timestamp)}
                         </span>
                     </div>
@@ -919,14 +919,14 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
                                         <div className="flex items-center justify-between gap-2 w-full">
                                             <Badge
                                                 variant={CONVERSATION_STATUS_VARIANT[c.status]}
-                                                className={`text-[10px] ${CONVERSATION_STATUS_TINT[c.status]}`}
+                                                className={`text-xs ${CONVERSATION_STATUS_TINT[c.status]}`}
                                             >
                                                 {CONVERSATION_STATUS_LABEL[c.status]}
                                             </Badge>
-                                            <span className="text-[10px] text-text-light shrink-0">{formatShortDateTime(c.createdAt)}</span>
+                                            <span className="text-xs text-text-light shrink-0">{formatShortDateTime(c.createdAt)}</span>
                                         </div>
                                         <p className="text-sm font-medium text-text truncate w-full">{c.title || "New conversation"}</p>
-                                        <span className="text-[10px] text-text-light">{c.messageCount} message{c.messageCount === 1 ? "" : "s"}</span>
+                                        <span className="text-xs text-text-light">{c.messageCount} message{c.messageCount === 1 ? "" : "s"}</span>
                                     </button>
                                 ))
                             )}

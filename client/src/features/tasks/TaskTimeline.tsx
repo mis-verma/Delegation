@@ -120,12 +120,12 @@ const TaskTimelineComponent = ({
             {(['high', 'medium', 'low'] as Task['priority'][]).map((key) => (
               <span key={key} className="flex items-center gap-1.5">
                 <span aria-hidden className={`w-4 h-2.5 rounded-sm ${PRIORITY_MAP[key].bar}`} />
-                <span className="text-[11px] font-semibold text-text-muted tracking-tight">
+                <span className="text-xs font-semibold text-text-muted tracking-tight">
                   {PRIORITY_MAP[key].label}
                 </span>
               </span>
             ))}
-            <span className="text-[11px] font-semibold text-danger tracking-tight">
+            <span className="text-xs font-semibold text-danger tracking-tight">
               Overdue is labelled on the row
             </span>
           </div>
@@ -146,7 +146,7 @@ const TaskTimelineComponent = ({
                     {days.map((day, index) => (
                       <div
                         key={day.toISOString()}
-                        className={`shrink-0 px-1 py-2.5 text-center text-[11px] font-semibold tabular-nums ${
+                        className={`shrink-0 px-1 py-2.5 text-center text-xs font-semibold tabular-nums ${
                           index === todayIndex ? 'text-white' : 'text-white/60'
                         }`}
                         style={{ width: `${DAY_WIDTH_REM}rem` }}
@@ -195,7 +195,7 @@ const TaskTimelineComponent = ({
                                 A ring around a bar that is already the priority colour reads as a
                                 drop shadow, and on a high-priority (red) bar it was invisible
                                 anyway. Words can't be confused with the priority scale. */}
-                            <span className="text-[10px] font-medium truncate">
+                            <span className="text-xs font-medium truncate">
                               {overdue ? (
                                 <span className="text-danger font-semibold">Overdue</span>
                               ) : (
@@ -284,7 +284,7 @@ const TaskTimelineComponent = ({
                       <span className="text-xs font-semibold text-text-secondary tracking-tight truncate">
                         {task.title}
                       </span>
-                      <span className="text-[10px] font-medium text-text-muted truncate">
+                      <span className="text-xs font-medium text-text-muted truncate">
                         {ownerName(task)}
                       </span>
                     </div>

@@ -106,7 +106,7 @@ export const TaskOptionsDialog = ({
           active={selected.includes(p.id)}
           onClick={() => onPick(toggleValue(selected, p.id))}
           lead={
-            <span className={`flex items-center justify-center size-6 rounded-full text-white text-[9px] font-bold shrink-0 ${avatarColorClass(p.name)}`}>
+            <span className={`flex items-center justify-center size-7 rounded-full text-white text-xs font-bold shrink-0 ${avatarColorClass(p.name)}`}>
               {getInitials(p.name)}
             </span>
           }
@@ -167,7 +167,7 @@ export const TaskOptionsDialog = ({
             <button
               type="button"
               onClick={() => CARD_FIELD_CONFIG.forEach(({ key }) => { if (!fieldVisibility[key]) onToggleField(key); })}
-              className="text-[11px] font-semibold text-text-muted hover:text-primary-600 px-1.5 py-0.5 rounded cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+              className="text-xs font-semibold text-text-muted hover:text-primary-600 px-1.5 py-0.5 rounded cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
             >
               Show all
             </button>
@@ -303,7 +303,7 @@ export const TaskOptionsDialog = ({
                   <button
                     type="button"
                     onClick={() => { setShowAddUser(true); setIsOpen(false); }}
-                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-text-muted hover:text-primary-600 px-1.5 py-0.5 rounded cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-text-muted hover:text-primary-600 px-1.5 py-0.5 rounded cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
                   >
                     <UserPlus size={12} strokeWidth={2.5} />
                     Add user

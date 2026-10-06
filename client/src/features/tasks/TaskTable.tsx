@@ -158,12 +158,12 @@ const TaskTableComponent = ({
                     <td className={`${CELL_CLASS} whitespace-nowrap`}>
                       {assignees.length ? (
                         <span className="inline-flex items-center gap-2" title={assignees.join(', ')}>
-                          <span className={`flex items-center justify-center size-6 rounded-full text-white text-[9px] font-bold shrink-0 ${avatarColorClass(assignees[0])}`}>
+                          <span className={`flex items-center justify-center size-7 rounded-full text-white text-xs font-bold shrink-0 ${avatarColorClass(assignees[0])}`}>
                             {getInitials(assignees[0])}
                           </span>
                           <span className="font-medium text-text">{assignees[0]}</span>
                           {assignees.length > 1 && (
-                            <span className="text-[10px] font-bold px-1.5 py-px rounded-full bg-surface-hover text-text-secondary">+{assignees.length - 1}</span>
+                            <span className="text-xs font-bold px-1.5 py-px rounded-full bg-surface-hover text-text-secondary">+{assignees.length - 1}</span>
                           )}
                         </span>
                       ) : (
@@ -185,14 +185,14 @@ const TaskTableComponent = ({
                           className={overdue ? 'border-danger/30 text-danger' : undefined}
                         />
                       ) : (
-                        <span className="text-text-light">—</span>
+                        <span className="text-text-light">None</span>
                       )}
                     </td>
                   )}
 
                   {fields.department && (
                     <td className={CELL_CLASS}>
-                      {department ? <DepartmentChip name={department} /> : <span className="text-text-light">—</span>}
+                      {department ? <DepartmentChip name={department} /> : <span className="text-text-light">None</span>}
                     </td>
                   )}
 
@@ -203,23 +203,23 @@ const TaskTableComponent = ({
                       <div className="flex items-center gap-1 flex-nowrap" title={task.tags.map((t) => t.name).join(', ')}>
                         {task.tags.slice(0, MAX_TABLE_LABELS).map((tag) => <TagChip key={tag.id} tag={tag} />)}
                         {task.tags.length > MAX_TABLE_LABELS && (
-                          <span className="text-[10px] font-bold px-1.5 py-px rounded-full bg-surface-hover text-text-secondary tabular-nums">+{task.tags.length - MAX_TABLE_LABELS}</span>
+                          <span className="text-xs font-bold px-1.5 py-px rounded-full bg-surface-hover text-text-secondary tabular-nums">+{task.tags.length - MAX_TABLE_LABELS}</span>
                         )}
                       </div>
                     ) : (
-                      <span className="text-text-light">—</span>
+                      <span className="text-text-light">None</span>
                     )}
                   </td>
 
                   {fields.raisedBy && (
                     <td className={`${CELL_CLASS} whitespace-nowrap`}>
-                      {raisedBy ?? <span className="text-text-light">—</span>}
+                      {raisedBy ?? <span className="text-text-light">None</span>}
                     </td>
                   )}
 
                   {fields.subtasks && (
                     <td className={`${CELL_CLASS} whitespace-nowrap tabular-nums`}>
-                      {progress ? `${progress.done}/${progress.total}` : <span className="text-text-light">—</span>}
+                      {progress ? `${progress.done}/${progress.total}` : <span className="text-text-light">None</span>}
                     </td>
                   )}
 

@@ -133,7 +133,7 @@ export const ChecklistItemRow = ({
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover/img:opacity-100 transition-opacity" />
 
-              <span className={`absolute top-1 left-1 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shadow-xs text-white ${
+              <span className={`absolute top-1 left-1 text-xs font-bold px-1.5 py-0.5 rounded text-white ${
                 img.captureMethod === 'LIVE' ? 'bg-primary-600' : 'bg-black/85'
               }`}>
                 {img.captureMethod === 'LIVE' ? 'Live' : 'Gallery'}

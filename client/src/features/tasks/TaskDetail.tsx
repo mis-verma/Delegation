@@ -210,7 +210,7 @@ const TaskStatusSummary = ({ status }: { status: Task['status'] }) => {
         <StatusChip status={DETAIL_STATUS_CHIP_KEY[status]} label={STATUS_LABEL[status]} />
       </div>
       {stepIndex >= 0 && (
-        <span className="text-[11px] font-semibold text-text-light tabular-nums shrink-0">
+        <span className="text-xs font-semibold text-text-light tabular-nums shrink-0">
           Step {stepIndex + 1} of {STATUS_ORDER.length}
         </span>
       )}
@@ -324,12 +324,12 @@ const TaskStatusStepper = ({ task }: { task: Task }) => {
                       {STATUS_LABEL[s]}
                     </p>
                     {isCurrent && (
-                      <span className="px-2 py-0.5 rounded-full bg-primary-700 text-white text-[10px] font-bold leading-none">Current</span>
+                      <span className="px-2 py-0.5 rounded-full bg-primary-700 text-white text-xs font-bold leading-none">Current</span>
                     )}
                   </div>
 
                   {stamp && (
-                    <p className="text-[11px] font-medium text-text-muted tabular-nums leading-tight">
+                    <p className="text-xs font-medium text-text-muted tabular-nums leading-tight">
                       {author ? `${author} · ` : ''}{formatStepDate(stamp)}, {formatStepTime(stamp)}
                     </p>
                   )}
@@ -481,7 +481,7 @@ const TaskEditLayout = ({
         </div>
 
         {!isViewOnly && !canReassign && (
-          <p className="text-[11px] font-medium text-text-light">Only a manager or above can reassign or move departments.</p>
+          <p className="text-xs font-medium text-text-light">Only a manager or above can reassign or move departments.</p>
         )}
 
         {/* No reviewer picker: PC and Admin already verify every delegation by default

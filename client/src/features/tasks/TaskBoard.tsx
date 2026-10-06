@@ -186,7 +186,7 @@ const Column = memo(({ columnKey, label, tasks, isDropTarget, fillsRow, assignee
   return (
     <section
       ref={setNodeRef}
-      aria-label={`${label} — ${tasks.length} delegation${tasks.length === 1 ? '' : 's'}${overdueCount ? `, ${overdueCount} overdue` : ''}`}
+      aria-label={`${label}, ${tasks.length} delegation${tasks.length === 1 ? '' : 's'}${overdueCount ? `, ${overdueCount} overdue` : ''}`}
       // h-full pairs with the grid dropping `items-start`: every column now stretches to the
       // height of the tallest, so the whole vertical band under a column accepts a drop.
       // Below xl the board is a horizontal scroller, so each column also needs a floor width and a
@@ -250,7 +250,7 @@ const Column = memo(({ columnKey, label, tasks, isDropTarget, fillsRow, assignee
           type="button"
           onClick={() => setExpanded(v => !v)}
           aria-expanded={expanded}
-          className="flex items-center justify-center gap-1.5 w-full py-2 rounded-md text-[11px] font-semibold text-text-muted hover:text-text hover:bg-surface-hover transition-all duration-200 ease-in-out cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          className="flex items-center justify-center gap-1.5 w-full py-2 rounded-md text-xs font-semibold text-text-muted hover:text-text hover:bg-surface-hover transition-all duration-200 ease-in-out cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         >
           {expanded ? 'Show fewer' : `Show ${hiddenCount} more`}
           <ChevronDown size={13} className={`transition-transform duration-200 ease-in-out ${expanded ? 'rotate-180' : ''}`} />

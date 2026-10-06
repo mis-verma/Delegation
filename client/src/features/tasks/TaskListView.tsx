@@ -111,18 +111,18 @@ const TaskListViewComponent = ({
                     {owners.length ? (
                       <>
                         {owners.slice(0, 3).map((name, i) => (
-                          <span key={name + i} className={`flex items-center justify-center size-6 rounded-full ring-2 ring-surface text-white text-[9px] font-bold ${avatarColorClass(name)}`}>
+                          <span key={name + i} className={`flex items-center justify-center size-7 rounded-full ring-2 ring-surface text-white text-xs font-bold ${avatarColorClass(name)}`}>
                             {getInitials(name)}
                           </span>
                         ))}
                         {owners.length > 3 && (
-                          <span className="flex items-center justify-center size-6 rounded-full ring-2 ring-surface bg-surface-hover text-text-secondary text-[9px] font-bold">
+                          <span className="flex items-center justify-center size-7 rounded-full ring-2 ring-surface bg-surface-hover text-text-secondary text-xs font-bold">
                             +{owners.length - 3}
                           </span>
                         )}
                       </>
                     ) : (
-                      <span className="flex items-center justify-center size-6 rounded-full border border-dashed border-border-hover text-text-light text-[9px] font-bold">?</span>
+                      <span className="flex items-center justify-center size-7 rounded-full border border-dashed border-border-hover text-text-light text-xs font-bold">?</span>
                     )}
                   </span>
                 )}
@@ -130,7 +130,7 @@ const TaskListViewComponent = ({
               {/* The reference layout also puts a task code and a comment count on this line.
                   Neither exists yet: ids are cuids with no short human code, and the list payload
                   carries no comment count. Type and checklist progress are real data. */}
-              <div className="flex items-center gap-1.5 text-[11px] font-medium text-text-muted">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-text-muted">
                 <span>{CATEGORY_CONFIG[task.category].label}</span>
                 {progress && (
                   <>
@@ -167,7 +167,7 @@ const TaskListViewComponent = ({
               {task.tags?.slice(0, 2).map((tag) => <TagChip key={tag.id} tag={tag} />)}
               {(task.tags?.length ?? 0) > 2 && (
                 <span
-                  className="text-[10px] font-semibold text-text-muted tabular-nums"
+                  className="text-xs font-semibold text-text-muted tabular-nums"
                   title={task.tags!.map((t) => t.name).join(', ')}
                 >
                   +{task.tags!.length - 2}
@@ -182,7 +182,7 @@ const TaskListViewComponent = ({
                       style={{ width: `${checklist.progress}%` }}
                     />
                   </span>
-                  <span className="text-[10px] font-semibold text-text-muted tabular-nums">
+                  <span className="text-xs font-semibold text-text-muted tabular-nums">
                     {checklist.progress}%
                   </span>
                 </span>

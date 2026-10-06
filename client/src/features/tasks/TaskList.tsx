@@ -518,10 +518,10 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
                           </span>
                           <span className="flex flex-col min-w-0 flex-1">
                             <span className="text-sm font-display font-semibold text-text">{itemTitle}</span>
-                            <span className="text-[11px] text-text-muted leading-snug">{hint}</span>
+                            <span className="text-xs text-text-muted leading-snug">{hint}</span>
                           </span>
                           {soon && (
-                            <span className="text-[10px] font-display font-bold px-1.5 py-0.5 rounded-full bg-surface-hover border border-border text-text-light">
+                            <span className="text-xs font-display font-bold px-1.5 py-0.5 rounded-full bg-surface-hover border border-border text-text-light">
                               Soon
                             </span>
                           )}
@@ -620,7 +620,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
               {activeChips.map(chip => (
                 <span
                   key={chip.key}
-                  className="flex items-center gap-1.5 pl-3 pr-1.5 py-1 text-[11px] font-semibold rounded-lg bg-primary-50/80 text-primary-700 border border-primary-200/60 dark:bg-primary-900/20 dark:border-primary-800/80 dark:text-primary-300"
+                  className="flex items-center gap-1.5 pl-3 pr-1.5 py-1 text-xs font-semibold rounded-lg bg-primary-50/80 text-primary-700 border border-primary-200/60 dark:bg-primary-900/20 dark:border-primary-800/80 dark:text-primary-300"
                 >
                   {chip.label}
                   <button
@@ -638,7 +638,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
                 type="button"
                 onClick={saveFilters}
                 title="Save this filter combination as your default"
-                className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold rounded-lg text-text-muted hover:text-text hover:bg-surface border border-transparent hover:border-border transition-all duration-200 ease-in-out cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg text-text-muted hover:text-text hover:bg-surface border border-transparent hover:border-border transition-all duration-200 ease-in-out cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
                 <Save size={13} />
                 Save view

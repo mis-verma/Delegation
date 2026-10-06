@@ -76,7 +76,7 @@ const RowShell = ({ task, departmentNames, action }: { task: Task; departmentNam
           <PriorityChip meta={priority} />
           <IconChip icon={category.icon} tone={category.solid} label={category.label} />
           {department && <IconChip icon={Building2} tone="bg-primary-700" label={department} />}
-          <span className="inline-flex items-center gap-1 text-[11px] font-display font-medium text-text-muted">
+          <span className="inline-flex items-center gap-1 text-xs font-display font-medium text-text-muted">
             <Clock3 size={11} className="shrink-0" />
             {formatShortDate(task.updatedAt)}
           </span>
