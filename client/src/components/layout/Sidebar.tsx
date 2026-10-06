@@ -112,6 +112,7 @@ interface SidebarProps {
 export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: SidebarProps) => {
   const location = useLocation();
   const isMobile = useIsMobile();
+  const swipeStartX = useRef<number | null>(null);
   const isAdmin = user?.role === 'ADMIN';
   const isPC = user?.role === 'PC';
   const isManager = user?.role === 'MANAGER';
@@ -570,10 +571,13 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
       {/* Scrim stays mounted and fades via opacity; `pointer-events-none` when closed is what
           makes an always-present full-screen overlay harmless. AnimatePresence was only ever
           buying the exit fade, which a CSS transition on a mounted node gives for free. */}
+      {/* No backdrop blur: blurring the whole page behind the menu is heavy on a budget Android phone and
+          made opening and closing lag. A plain dim does the same job. touch-manipulation removes the
+          tap delay some browsers add. */}
       <div
         onClick={onNavigate}
         aria-hidden="true"
-        className={`md:hidden fixed inset-0 z-40 bg-black/40 backdrop-blur-sm transition-opacity duration-200 ease-out motion-reduce:transition-none ${
+        className={`md:hidden fixed inset-0 z-40 bg-black/50 touch-manipulation transition-opacity duration-200 ease-out motion-reduce:transition-none ${
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
       />
@@ -589,7 +593,13 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
         // Shadow only while open — parked off-screen at -translate-x-full, the shadow-2xl blur still
         // reached ~20px onto the visible page and drew a grey band down the left edge of every
         // mobile screen.
-        className={`md:hidden fixed top-0 left-0 z-50 w-[280px] max-w-[85vw] h-dvh flex flex-col rounded-r-3xl px-4 pt-8 pb-5 bg-surface border-r border-border transition-[translate,box-shadow] duration-300 ease-out motion-reduce:transition-none ${
+        // Swipe the menu to the left to close it, the way most apps behave.
+        onTouchStart={(e) => { swipeStartX.current = e.touches[0].clientX; }}
+        onTouchEnd={(e) => {
+          if (swipeStartX.current !== null && swipeStartX.current - e.changedTouches[0].clientX > 60) onNavigate?.();
+          swipeStartX.current = null;
+        }}
+        className={`md:hidden fixed top-0 left-0 z-50 w-[280px] max-w-[85vw] h-dvh flex flex-col rounded-r-3xl px-4 pt-8 pb-5 bg-surface border-r border-border transition-[translate,box-shadow] duration-200 ease-out will-change-transform motion-reduce:transition-none ${
           isOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full shadow-none pointer-events-none'
         }`}
       >

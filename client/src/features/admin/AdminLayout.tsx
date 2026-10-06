@@ -479,7 +479,7 @@ export const AdminLayout = () => {
           onClick={() => setSidebarOpen(false)}
           aria-hidden="true"
           className={cn(
-            'md:hidden fixed inset-0 z-30 bg-black/40 backdrop-blur-sm transition-opacity duration-200 ease-out motion-reduce:transition-none',
+            'md:hidden fixed inset-0 z-30 bg-black/50 touch-manipulation transition-opacity duration-200 ease-out motion-reduce:transition-none',
             sidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none',
           )}
         />

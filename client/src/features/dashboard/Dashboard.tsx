@@ -77,7 +77,11 @@ export const Dashboard = () => {
     >
       <Header onToggleSidebar={() => setSidebarOpen(v => !v)} />
 
-      <div className="flex flex-1 min-h-0 relative z-0">
+      {/* The drawer lives in this box. While it is open on a phone the box is lifted above the header
+          and the bottom bar (both are fixed or stacked higher), so the dimmed backdrop covers the
+          whole screen and a tap on ANY blank spot closes the menu. At z-0 the backdrop was trapped
+          underneath them, so a tap on the header or the bottom bar did nothing. */}
+      <div className={`flex flex-1 min-h-0 relative ${mobileDrawerOpen ? 'z-50' : 'z-0'}`}>
         <Sidebar
           isOpen={sidebarOpen}
           user={user}
