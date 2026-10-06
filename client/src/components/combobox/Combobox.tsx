@@ -12,7 +12,13 @@ function cn(...inputs: ClassValue[]) {
 export interface ComboboxOption {
   value: string;
   label: string;
+  /** Small secondary text on the right (a department, a code). It is searched too. */
+  hint?: string;
 }
+
+// A long list (every person in the company) is cut to this many rows until the search narrows it, so
+// opening stays instant. The footer says how many more there are.
+const MAX_ROWS = 60;
 
 interface ComboboxProps {
   id?: string;
@@ -70,10 +76,18 @@ export const Combobox = ({
 
   const trimmedQuery = query.trim();
   const filtered = useMemo(
-    () => (trimmedQuery ? allOptions.filter((o) => o.label.toLowerCase().includes(trimmedQuery.toLowerCase())) : allOptions),
+    () => (trimmedQuery ? allOptions.filter((o) => `${o.label} ${o.hint ?? ''}`.toLowerCase().includes(trimmedQuery.toLowerCase())) : allOptions),
     [allOptions, trimmedQuery]
   );
-  const safeHighlightedIndex = Math.min(highlightedIndex, Math.max(filtered.length - 1, 0));
+  const shown = useMemo(() => {
+    if (filtered.length <= MAX_ROWS) return filtered;
+    const head = filtered.slice(0, MAX_ROWS);
+    // The current pick stays visible even when it sits far down the list.
+    const current = filtered.find((o) => o.value === value);
+    return current && !head.includes(current) ? [current, ...head.slice(0, MAX_ROWS - 1)] : head;
+  }, [filtered, value]);
+  const hiddenCount = filtered.length - shown.length;
+  const safeHighlightedIndex = Math.min(highlightedIndex, Math.max(shown.length - 1, 0));
 
   const hasExactMatch = trimmedQuery
     ? allOptions.some((o) => o.label.trim().toLowerCase() === trimmedQuery.toLowerCase())
@@ -90,13 +104,13 @@ export const Combobox = ({
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setHighlightedIndex(Math.min(safeHighlightedIndex + 1, filtered.length - 1));
+      setHighlightedIndex(Math.min(safeHighlightedIndex + 1, shown.length - 1));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setHighlightedIndex(Math.max(safeHighlightedIndex - 1, 0));
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      const option = filtered[safeHighlightedIndex];
+      const option = shown[safeHighlightedIndex];
       if (option) commit(option);
     }
   };
@@ -151,16 +165,18 @@ export const Combobox = ({
         collisionBoundary={triggerEl?.closest('[data-slot="dialog-content"]') ?? undefined}
         collisionPadding={16}
        
-        className="w-(--radix-popover-trigger-width) max-h-(--radix-popover-content-available-height) flex flex-col p-2"
+        className="w-(--radix-popover-trigger-width) min-w-56 max-h-[min(22rem,var(--radix-popover-content-available-height))] flex flex-col p-2"
       >
         <div className="relative mb-1.5 shrink-0">
           <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-light pointer-events-none" />
           <input
-            autoFocus
+            // A phone keyboard would cover most of the list the moment it opens, so on touch screens the
+            // search box is tapped on purpose, not focused for you.
+            autoFocus={typeof window === 'undefined' || !window.matchMedia('(pointer: coarse)').matches}
             role="combobox"
             aria-expanded={open}
             aria-controls={id ? `${id}-listbox` : undefined}
-            aria-activedescendant={filtered[safeHighlightedIndex] ? optionId(filtered[safeHighlightedIndex]) : undefined}
+            aria-activedescendant={shown[safeHighlightedIndex] ? optionId(shown[safeHighlightedIndex]) : undefined}
             value={query}
             placeholder="Type to search…"
             onChange={(e) => {
@@ -179,7 +195,7 @@ export const Combobox = ({
               <span className="truncate">{trimmedQuery ? `No matches for "${trimmedQuery}"` : 'No options'}</span>
             </li>
           ) : (
-            filtered.map((option, i) => {
+            shown.map((option, i) => {
               const isSelected = option.value === value;
               const isHighlighted = i === safeHighlightedIndex;
               return (
@@ -208,10 +224,19 @@ export const Combobox = ({
                   )}
                 >
                   <span className="truncate">{highlightMatch(option.label, trimmedQuery)}</span>
-                  {isSelected && <Check size={14} className="shrink-0 text-primary-600 dark:text-primary-400" />}
+                  <span className="flex items-center gap-2 shrink-0 min-w-0">
+                    {option.hint && <span className="truncate max-w-28 text-xs font-medium text-text-muted">{option.hint}</span>}
+                    {isSelected && <Check size={14} className="shrink-0 text-primary-600 dark:text-primary-400" />}
+                  </span>
                 </li>
               );
             })
+          )}
+
+          {hiddenCount > 0 && (
+            <li aria-hidden="true" className="px-3 py-2 text-xs font-display text-text-muted text-center">
+              {hiddenCount} more. Type to narrow the list.
+            </li>
           )}
 
           {onCreateNew && !hasExactMatch && (

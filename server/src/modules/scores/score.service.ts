@@ -26,8 +26,9 @@ export type ChecklistScore = {
     submitted: number
     approved: number
 }
-export type TicketScore = { score: number | null; due: number; onTime: number; late: number }
-export type DelegationScore = { score: number | null; due: number; done: number; overdue: number }
+// Completion is the share of due items that got done. Compliance is the share that got done on time.
+export type TicketScore = { score: number | null; completionPct: number | null; compliancePct: number | null; due: number; closed: number; onTime: number; late: number }
+export type DelegationScore = { score: number | null; completionPct: number | null; compliancePct: number | null; due: number; done: number; onTime: number; overdue: number }
 
 export type Scores = {
     scope: ScoreScope
@@ -45,8 +46,8 @@ export type ScoreReport = { from: string; to: string; generatedAt: string; depar
 
 export const SCORE_REPORT_NOTES = [
     "Checklist: only runs that have come due count (finished, or past their deadline), so a running period does not dip for runs still ahead. The score is compliance when answers have been checked, otherwise completion.",
-    "Tickets: share of due tickets closed on or before their due time. A ticket counts when its due time falls in the window.",
-    "Delegations: weighted by status (to do 0, in progress 25, waiting approval 75, done 100) over delegations due in the window or already done. Drafts never count.",
+    "Tickets: a ticket counts when its due time falls in the window. Completion is the share closed, compliance the share closed on or before the due time.",
+    "Delegations: counted when due in the window or already done. Completion is the share done, compliance the share done on or before the due date (handed-in time, else approval time, else last update). Score is weighted by status (to do 0, in progress 25, waiting approval 75, done 100). Drafts never count.",
     "A person is scored on what is assigned to them. A department is scored on what belongs to the department, so its figures can differ from the sum of its people.",
 ]
 
@@ -74,27 +75,37 @@ const foldChecklist = (rows: readonly (ReportMetrics & { answersChecked: number 
     }
 }
 
-type TaskLike = { status: string; dueDate: Date | null }
+type TaskLike = { status: string; dueDate: Date | null; finishedAt: Date | null }
 type TicketLike = { status: string; tatDueAt: Date | null; closedAt: Date | null }
 
 // Delegations: only what has come due (or is already done). Drafts are private and never count.
 const foldTasks = (rows: readonly TaskLike[], now: Date): DelegationScore => {
     const due = rows.filter((t) => t.status !== "draft" && (t.status === "done" || (t.dueDate !== null && t.dueDate < now)))
     const weighted = sum(due, (t) => TASK_WEIGHT[t.status] ?? 0)
+    const done = due.filter((t) => t.status === "done")
+    // Done with no due date or no finish time on record cannot be late.
+    const onTime = done.filter((t) => !t.dueDate || !t.finishedAt || t.finishedAt <= t.dueDate).length
     return {
         score: due.length ? Math.round((weighted / due.length) * 100) : null,
+        completionPct: pct(done.length, due.length),
+        compliancePct: pct(onTime, due.length),
         due: due.length,
-        done: due.filter((t) => t.status === "done").length,
+        done: done.length,
+        onTime,
         overdue: due.filter((t) => t.status !== "done" && t.dueDate !== null && t.dueDate < now).length,
     }
 }
 
-// Tickets: share of due tickets closed on or before their due time.
+// Tickets: completion is the share of due tickets closed, compliance the share closed on or before their due time.
 const foldTickets = (rows: readonly TicketLike[], now: Date): TicketScore => {
     const due = rows.filter((t) => t.status === "CLOSED" || (t.tatDueAt !== null && t.tatDueAt < now))
-    const onTime = due.filter((t) => t.status === "CLOSED" && t.closedAt && t.tatDueAt && t.closedAt <= t.tatDueAt).length
-    return { score: pct(onTime, due.length), due: due.length, onTime, late: due.length - onTime }
+    const closed = due.filter((t) => t.status === "CLOSED")
+    const onTime = closed.filter((t) => t.closedAt && t.tatDueAt && t.closedAt <= t.tatDueAt).length
+    return { score: pct(onTime, due.length), completionPct: pct(closed.length, due.length), compliancePct: pct(onTime, due.length), due: due.length, closed: closed.length, onTime, late: due.length - onTime }
 }
+
+// When a task was finished: handed in, else approved, else last touched.
+const finishedAt = (t: { submittedAt: Date | null; verifiedAt: Date | null; updatedAt: Date }) => t.submittedAt ?? t.verifiedAt ?? t.updatedAt
 
 const windowOf = (from: string, to: string) => {
     const offsetMs = env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000
@@ -170,7 +181,7 @@ export const scoreService = {
                 return null
             }),
             db
-                .select({ status: tasks.status, dueDate: tasks.dueDate })
+                .select({ status: tasks.status, dueDate: tasks.dueDate, submittedAt: tasks.submittedAt, verifiedAt: tasks.verifiedAt, updatedAt: tasks.updatedAt })
                 .from(tasks)
                 .where(and(isNull(tasks.deletedAt), gte(tasks.dueDate, start), lt(tasks.dueDate, end), target.taskWhere)),
             db
@@ -179,7 +190,7 @@ export const scoreService = {
                 .where(and(isNull(tickets.deletedAt), gte(tickets.tatDueAt, start), lt(tickets.tatDueAt, end), target.ticketWhere)),
         ])
 
-        return { scope, id, name: target.name, from, to, checklist: foldChecklist(people ?? []), ticket: foldTickets(ticketRows, now), delegation: foldTasks(taskRows, now) }
+        return { scope, id, name: target.name, from, to, checklist: foldChecklist(people ?? []), ticket: foldTickets(ticketRows, now), delegation: foldTasks(taskRows.map((t) => ({ ...t, finishedAt: finishedAt(t) })), now) }
     },
 
     /**
@@ -206,7 +217,7 @@ export const scoreService = {
                 .where(and(eq(users.isActive, true), onlyDepartment ? eq(users.departmentId, onlyDepartment) : undefined)),
             db.select({ id: departments.id, name: departments.name }).from(departments).where(onlyDepartment ? eq(departments.id, onlyDepartment) : undefined),
             db
-                .select({ status: tasks.status, dueDate: tasks.dueDate, assigneeId: tasks.assigneeId, departmentId: tasks.departmentId })
+                .select({ status: tasks.status, dueDate: tasks.dueDate, assigneeId: tasks.assigneeId, departmentId: tasks.departmentId, submittedAt: tasks.submittedAt, verifiedAt: tasks.verifiedAt, updatedAt: tasks.updatedAt })
                 .from(tasks)
                 .where(and(isNull(tasks.deletedAt), gte(tasks.dueDate, start), lt(tasks.dueDate, end), isNotNull(tasks.assigneeId), onlyDepartment ? eq(tasks.departmentId, onlyDepartment) : undefined)),
             db
@@ -228,9 +239,10 @@ export const scoreService = {
             }
             return map
         }
-        const tasksByPerson = group(taskRows, "assigneeId")
+        const reportTasks = taskRows.map((t) => ({ ...t, finishedAt: finishedAt(t) }))
+        const tasksByPerson = group(reportTasks, "assigneeId")
         const ticketsByPerson = group(ticketRows, "assigneeId")
-        const tasksByDept = group(taskRows, "departmentId")
+        const tasksByDept = group(reportTasks, "departmentId")
         const ticketsByDept = group(ticketRows, "departmentId")
 
         const rowFor = (id: string, name: string, department: string, role: string | undefined, c: ChecklistScore, tk: TicketLike[], ts: TaskLike[]): ScoreReportRow => ({

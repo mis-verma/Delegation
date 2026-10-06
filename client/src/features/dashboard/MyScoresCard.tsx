@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { ChevronLeft, ChevronRight, ClipboardCheck, Download, FileSpreadsheet, FileText, Ticket as TicketIcon, Users } from 'lucide-react';
+import { BarChart3, ChevronLeft, ChevronRight, ClipboardCheck, Gauge, Download, FileSpreadsheet, FileText, Ticket as TicketIcon, Users } from 'lucide-react';
 import { Button, Combobox, type ComboboxOption } from '../../components';
 import { SemiGauge } from '../../components/semiGauge/SemiGauge';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel } from '../../components/ui/dropdown-menu';
@@ -11,12 +11,16 @@ import { scoreApi, type ScoreReport, type ScoreReportRow, type Scores, type Scor
 import { csvBlob, xlsxBlob, downloadBlob, stampedFilename, type TableRows } from '../../lib/exportTable';
 import { useAssignableUsersQuery, useDepartmentsQuery, useStoresQuery } from '../tickets/hook';
 import { PeriodTabControl } from './PeriodTabControl';
+import { ScoreBars } from './ScoreBars';
 import { DASHBOARD_CARD_CLASS, bucketKeyFor, rateTone, type RateTone } from './dashboardDisplay';
 
 type ScorePeriod = 'day' | 'week' | 'month' | 'quarter' | 'year';
 const PERIODS: readonly ScorePeriod[] = ['day', 'week', 'month', 'quarter', 'year'];
 const PERIOD_LABEL: Record<ScorePeriod, string> = { day: 'Day', week: 'Week', month: 'Month', quarter: 'Quarter', year: 'Year' };
 const SCOPE_LABEL: Record<ScoreScope, string> = { person: 'Person', department: 'Department', store: 'Store' };
+type ScoreView = 'bars' | 'dials';
+const VIEW_OPTIONS: readonly ScoreView[] = ['bars', 'dials'];
+const VIEW_LABEL: Record<ScoreView, string> = { bars: 'Bars', dials: 'Dials' };
 const PICK_PLACEHOLDER: Record<ScoreScope, string> = { person: 'Me', department: 'Pick a department', store: 'Pick a store' };
 
 const RING: Record<RateTone, [string, string]> = {
@@ -68,14 +72,14 @@ const scoreQuery = (scope: ScoreScope, id: string | undefined, from: string, to:
 
 // Column set shared by the department and people tables in the full report.
 const REPORT_COLUMNS = [
-  'Checklists due', 'Checklists done', 'Checklists missed', 'Completion %', 'Compliance %',
-  'Tickets due', 'Closed on time', 'Late', 'Ticket score %',
-  'Delegations due', 'Delegations done', 'Overdue', 'Delegation score %',
+  'Checklists due', 'Checklists done', 'Checklists missed', 'Checklist completion %', 'Checklist compliance %',
+  'Tickets due', 'Tickets closed', 'Tickets closed on time', 'Ticket completion %', 'Ticket compliance %',
+  'Delegations due', 'Delegations done', 'Delegations done on time', 'Delegations overdue', 'Delegation completion %', 'Delegation compliance %',
 ];
 const reportCells = (r: ScoreReportRow) => [
   r.checklist.due, r.checklist.completed, r.checklist.missed, r.checklist.completionPct, r.checklist.compliancePct,
-  r.ticket.due, r.ticket.onTime, r.ticket.late, r.ticket.score,
-  r.delegation.due, r.delegation.done, r.delegation.overdue, r.delegation.score,
+  r.ticket.due, r.ticket.closed, r.ticket.onTime, r.ticket.completionPct, r.ticket.compliancePct,
+  r.delegation.due, r.delegation.done, r.delegation.onTime, r.delegation.overdue, r.delegation.completionPct, r.delegation.compliancePct,
 ];
 
 const reportRows = (report: ScoreReport, windowLabel: string): TableRows => [
@@ -167,21 +171,29 @@ export const MyScoresCard = () => {
   const [offset, setOffset] = useState(0);
   const [picked, setPicked] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [view, setView] = useState<ScoreView>('bars');
 
   const people = useAssignableUsersQuery();
-  const departments = useDepartmentsQuery(scopes.includes('department'));
+  const departments = useDepartmentsQuery(scopes.includes('department') || canPickPerson);
   const stores = useStoresQuery(scope === 'store');
 
   const options = useMemo<ComboboxOption[]>(() => {
-    if (scope === 'person') return (people.data ?? []).map((p) => ({ value: p.id, label: `${p.firstName} ${p.lastName ?? ''}`.trim() }));
+    if (scope === 'person') {
+      const deptName = new Map((departments.data ?? []).map((d) => [d.id, d.name]));
+      return (people.data ?? [])
+        .map((p) => ({ value: p.id, label: `${p.firstName} ${p.lastName ?? ''}`.trim(), hint: p.departmentId ? deptName.get(p.departmentId) : undefined }))
+        .sort((a, b) => a.label.localeCompare(b.label));
+    }
     if (scope === 'department') {
       return (departments.data ?? []).filter((d) => orgWide || d.id === user?.departmentId).map((d) => ({ value: d.id, label: d.name }));
     }
     return (stores.data ?? []).map((s) => ({ value: s.id, label: s.name }));
   }, [scope, people.data, departments.data, stores.data, orgWide, user?.departmentId]);
 
-  // A head opens their own department straight away instead of seeing an empty picker.
-  const effectivePick = picked || (scope === 'department' && isHod ? user?.departmentId ?? '' : '');
+  // Department and Store open on the viewer's own, so nobody starts at an empty picker. Picking
+  // something else overrides it; switching view puts it back.
+  const ownDefault = scope === 'department' ? user?.departmentId ?? '' : scope === 'store' ? user?.storeId ?? '' : '';
+  const effectivePick = picked || ownDefault;
   const ready = scope === 'person' || !!effectivePick;
   const targetId = effectivePick || undefined;
 
@@ -220,10 +232,10 @@ export const MyScoresCard = () => {
       ['Window', `${range.label} (${data.from} to ${data.to})`],
       ['Generated', new Date().toLocaleString()],
       [],
-      ['Score', 'Score %', 'Measured on', 'Done', 'Due', 'Other'],
-      ['Checklist', c.score, c.compliancePct === null ? 'Completion' : 'Compliance', c.completed, c.due, `${c.approved} of ${c.submitted} approved, ${c.missed} missed`],
-      ['Tickets', t.score, 'Closed on time', t.onTime, t.due, `${t.late} late`],
-      ['Delegations', d.score, 'Weighted status', d.done, d.due, `${d.overdue} overdue`],
+      ['Module', 'Due', 'Done', 'Done on time', 'Completion %', 'Compliance %', 'Other'],
+      ['Checklist', c.due, c.completed, '', c.completionPct, c.compliancePct, `${c.approved} of ${c.submitted} approved, ${c.missed} missed`],
+      ['Tickets', t.due, t.closed, t.onTime, t.completionPct, t.compliancePct, `${t.late} late`],
+      ['Delegations', d.due, d.done, d.onTime, d.completionPct, d.compliancePct, `${d.overdue} overdue`],
     ], format, 'scores');
   };
 
@@ -258,6 +270,24 @@ export const MyScoresCard = () => {
                 <PeriodTabControl value={scope} options={scopes} labels={SCOPE_LABEL} onChange={(next) => { setScope(next); setPicked(''); }} />
               </div>
             )}
+            <div role="group" aria-label="Show as" className="inline-flex items-center rounded-lg border border-border p-0.5">
+              {VIEW_OPTIONS.map((option) => {
+                const Icon = option === 'bars' ? BarChart3 : Gauge;
+                const active = view === option;
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    onClick={() => setView(option)}
+                    aria-pressed={active}
+                    aria-label={`${VIEW_LABEL[option]} view`}
+                    className={`inline-flex size-8 pointer-coarse:size-10 items-center justify-center rounded-md transition-colors ${active ? 'bg-primary-500/10 text-primary-600 dark:text-primary-400' : 'text-text-muted hover:text-text'}`}
+                  >
+                    <Icon className="size-4" aria-hidden="true" />
+                  </button>
+                );
+              })}
+            </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" disabled={!data || exporting} aria-label="Export scores" className="shrink-0 pointer-coarse:min-h-11 pointer-coarse:min-w-11">
@@ -289,7 +319,7 @@ export const MyScoresCard = () => {
 
         {showPicker && (
           <Combobox
-            value={picked}
+            value={effectivePick}
             onChange={setPicked}
             options={options}
             emptyOptionLabel={scope === 'person' ? 'Me' : undefined}
@@ -323,7 +353,11 @@ export const MyScoresCard = () => {
           <button type="button" onClick={() => void query.refetch()} className="font-bold text-primary-600 dark:text-primary-400 hover:underline">Try again</button>
         </div>
       ) : (
-        <div className={`grid grid-cols-1 sm:grid-cols-3 gap-2.5 transition-opacity ${query.isFetching && data ? 'opacity-60' : ''}`}>
+        <div className={`transition-opacity duration-200 ${query.isFetching && data ? 'opacity-60' : ''}`}>
+        {view === 'bars' ? (
+          <ScoreBars scores={data} loading={loading} />
+        ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
           <ScoreTile
             loading={loading}
             title="Checklist"
@@ -333,6 +367,8 @@ export const MyScoresCard = () => {
           />
           <ScoreTile loading={loading} title="Tickets" icon={TicketIcon} score={data?.ticket.score ?? null} detail={data ? `${data.ticket.onTime} of ${data.ticket.due} on time` : ''} />
           <ScoreTile loading={loading} title="Delegations" icon={Users} score={data?.delegation.score ?? null} detail={data ? `${data.delegation.done} of ${data.delegation.due} done` : ''} />
+        </div>
+        )}
         </div>
       )}
     </section>
