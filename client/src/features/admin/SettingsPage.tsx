@@ -3,7 +3,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Loader2, Settings as SettingsIcon, CheckSquare, Construction, Bell, Clock, ListChecks, KeyRound, Camera, Building2, Database, Upload, type LucideIcon } from 'lucide-react';
-import { Input, Button, Form, Skeleton, PageHeader, Textarea, Switch, BrandLogo } from '../../components';
+import { Input, Button, Skeleton, PageHeader, Textarea, Switch, BrandLogo } from '../../components';
 import { Loader } from '../../components/loaders';
 import { useSettingsQuery, useUpdateSettingsMutation, useUploadLogoMutation, useRemoveLogoMutation } from './hook';
 import { resolveLogoUrl } from '../../lib/uploadsBase';
@@ -196,10 +196,12 @@ export const SettingsPage = () => {
       <PageHeader
         icon={SettingsIcon}
         title="Settings"
-        subtitle="Branding, ticket and upload defaults, notifications, sign-in sessions and how long records are kept. These apply to everyone."
+        subtitle="Branding, defaults, notifications, sessions and retention. These apply to everyone."
       />
 
-      <Form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5" noValidate>
+      {/* A plain form, not the shared Form component: that one draws its own narrow padded card (max-w-lg,
+          big padding, shadow) for sign-in style forms, which squeezed this whole page into a 512px box. */}
+      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5 w-full" noValidate>
         {/* Two columns from lg: identity and defaults on the left, behaviour and housekeeping on the right. */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
           <div className="flex flex-col gap-5">
@@ -437,7 +439,7 @@ export const SettingsPage = () => {
             </div>
           </div>
         )}
-      </Form>
+      </form>
     </div>
   );
 };
