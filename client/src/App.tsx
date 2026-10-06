@@ -50,7 +50,6 @@ const CategoryList = lazy(() => import('./features/settings/CategoryList').then(
 const AccountSettings = lazy(() => import('./features/settings/AccountSettings').then(m => ({ default: m.AccountSettings })));
 const AppearanceSettings = lazy(() => import('./features/settings/AppearanceSettings').then(m => ({ default: m.AppearanceSettings })));
 const DirectoryPage = lazy(() => import('./features/admin/directory').then(m => ({ default: m.DirectoryPage })));
-const OrgStructurePage = lazy(() => import('./features/admin/orgStructure').then(m => ({ default: m.OrgStructurePage })));
 const ReportsPage = lazy(() => import('./features/reports').then(m => ({ default: m.ReportsPage })));
 const FormerPeoplePage = lazy(() => import('./features/checklist/former').then(m => ({ default: m.FormerPeoplePage })));
 const SystemHealthPage = lazy(() => import('./features/admin/health').then(m => ({ default: m.SystemHealthPage })));
@@ -295,7 +294,7 @@ const router = createBrowserRouter([
               { path: '/admin/users', element: <Navigate to="/admin/directory" replace /> },
               { path: '/admin/departments', element: <Navigate to="/admin/directory" replace /> },
               { path: '/admin/stores', element: <Navigate to="/admin/directory" replace /> },
-              { path: '/admin/org-structure', element: <OrgStructurePage /> },
+              { path: '/admin/org-structure', element: <Navigate to="/admin/directory?tab=structure" replace /> },
               { path: '/admin/checklist-templates', element: <ChecklistTemplateList /> },
               { path: '/admin/scheduled-checklists', element: <ChecklistTemplatesGrid /> },
               { path: '/admin/checklist-compliance', element: <ChecklistComplianceBoard /> },

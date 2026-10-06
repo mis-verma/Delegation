@@ -1,24 +1,29 @@
+import { lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router';
-import { Contact, Users, Building2, Store } from 'lucide-react';
+import { Contact, Users, Building2, Store, Network } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { PageHeader } from '../../../components';
+import { PageHeader, Skeleton } from '../../../components';
 import { UserList } from '../users';
 import { DepartmentList } from '../department';
 import { StoreList } from '../store';
 import { useUsersQuery, useDepartmentsQuery } from '../hook';
 import { useStoresQuery } from '../../tickets/hook';
 
+// The Org structure view loads on demand: it carries the drag-and-drop tree, which the three lists do not need.
+const OrgStructurePage = lazy(() => import('../orgStructure').then((m) => ({ default: m.OrgStructurePage })));
+
 const TABS = [
   { value: 'users', label: 'Users', icon: Users },
   { value: 'departments', label: 'Departments', icon: Building2 },
   { value: 'stores', label: 'Stores', icon: Store },
+  { value: 'structure', label: 'Org structure', icon: Network },
 ] as const;
 
 type TabValue = (typeof TABS)[number]['value'];
 
-// One home for the three entities that make up the org ladder (see Org Structure for the
-// read-only combined view of how they relate): each tab is the existing, self-contained
-// List component as-is, just no longer scattered across three separate sidebar pages.
+// One home for the three entities that make up the org ladder, plus a fourth view that shows how they
+// fit together as a tree (Org structure used to be its own sidebar page). Each list tab is the existing,
+// self-contained List component as-is.
 const isTabValue = (v: string | null): v is TabValue => TABS.some((t) => t.value === v);
 
 // "42 active, 6 deactivated", or "All active" when nobody is switched off.
@@ -50,11 +55,13 @@ export const DirectoryPage = () => {
     users: users?.length,
     departments: departments?.length,
     stores: stores?.length,
+    structure: undefined,
   };
 
   const summary = tab === 'users' ? summarize(users, 'deactivated')
     : tab === 'departments' ? summarize(departments, 'inactive')
-      : summarize(stores, 'inactive');
+      : tab === 'stores' ? summarize(stores, 'inactive')
+        : null;
 
   return (
     <div className="flex flex-col gap-5 w-full">
@@ -92,6 +99,11 @@ export const DirectoryPage = () => {
         </TabsContent>
         <TabsContent value="stores">
           <StoreList />
+        </TabsContent>
+        <TabsContent value="structure">
+          <Suspense fallback={<Skeleton className="h-64 rounded-2xl" />}>
+            <OrgStructurePage embedded />
+          </Suspense>
         </TabsContent>
       </Tabs>
     </div>

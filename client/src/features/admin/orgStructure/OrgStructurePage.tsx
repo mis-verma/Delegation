@@ -54,7 +54,13 @@ const BucketHeader = ({ title, hint, count }: { title: string; hint: string; cou
   </div>
 );
 
-export const OrgStructurePage = () => {
+interface OrgStructurePageProps {
+  /** Inside People & Teams as one of its views: no page title (that page already has one), just the
+   *  one-line hint and the Expand / Collapse buttons. */
+  embedded?: boolean;
+}
+
+export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: stores, isPending: storesPending, isError: storesError, refetch: refetchStores } = useStoresQuery();
@@ -312,11 +318,8 @@ export const OrgStructurePage = () => {
     <MotionConfig reducedMotion="user">
       <OrgMoveContext.Provider value={moveApi}>
         <div className="flex flex-col gap-5 sm:gap-6 w-full">
-          <PageHeader
-            icon={Network}
-            title="Organization structure"
-            subtitle="Every store, its departments, and who sits where. Drag a person onto a department, or use Move to on their row."
-            actions={
+          {(() => {
+            const expandCollapse = (
               <>
                 <Button variant="outline" size="sm" onClick={expandAll} disabled={isPending}>
                   <Maximize2 className="w-3.5 h-3.5" aria-hidden /> Expand all
@@ -325,8 +328,23 @@ export const OrgStructurePage = () => {
                   <Minimize2 className="w-3.5 h-3.5" aria-hidden /> Collapse all
                 </Button>
               </>
-            }
-          />
+            );
+            return embedded ? (
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm font-display text-text-muted max-w-2xl">
+                  Every store, its departments, and who sits where. Drag a person onto a department, or use Move to on their row.
+                </p>
+                <div className="flex items-center gap-2">{expandCollapse}</div>
+              </div>
+            ) : (
+              <PageHeader
+                icon={Network}
+                title="Organization structure"
+                subtitle="Every store, its departments, and who sits where. Drag a person onto a department, or use Move to on their row."
+                actions={expandCollapse}
+              />
+            );
+          })()}
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <StatCard

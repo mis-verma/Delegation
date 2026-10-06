@@ -5,7 +5,6 @@ import {
   Contact,
   Settings,
   FileDown,
-  Network,
   LogOut,
   Repeat,
   ChevronDown,
@@ -65,7 +64,6 @@ const NAV: AdminNavItem[] = [
   { to: '/admin', icon: LayoutDashboard, label: 'Overview & Analytics', end: true },
   { to: '/admin/directory', icon: Contact, label: 'People & Teams', end: false },
   { to: '/admin/presence', icon: Radio, label: "Who's Online", end: false },
-  { to: '/admin/org-structure', icon: Network, label: 'Org Structure', end: false },
   { to: '/admin/scheduled-checklists', icon: Repeat, label: 'Checklists', end: false, children: CHECKLIST_CHILDREN },
   // Tickets and Team Delegations hidden from the sidebar for now (asked to be temporarily
   // removed, not deleted) — routes themselves still exist and work if linked to directly.
