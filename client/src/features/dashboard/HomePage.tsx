@@ -20,6 +20,7 @@ import { ActivityOverviewCard } from './ActivityOverviewCard';
 import { NeedsApprovalCard } from './NeedsApprovalCard';
 import { TodayStrip } from './TodayStrip';
 import { TeamProgressCard } from './TeamProgressCard';
+import { MyScoresCard } from './MyScoresCard';
 import { RecentActivity, RECENT_ACTIVITY_FEED_SIZE } from './RecentActivity';
 import { UpcomingEvents } from './UpcomingEvents';
 import { DashboardCardFrame } from './DashboardCardFrame';
@@ -340,6 +341,8 @@ export const HomePage = () => {
             <CompareDashboard tasks={visibleTasks} tickets={visibleTickets} period={comparePeriod} onPeriodChange={setComparePeriod} />
           </Suspense>
         );
+      case 'myScores':
+        return <MyScoresCard />;
       case 'teamProgress':
         if (tasksFailed) return <CardLoadError label={CARD_LABEL.teamProgress} message="Couldn't load delegations." onRetry={retryTasks} />;
         return tasksPending ? <CardSkeleton label="team progress" /> : <TeamProgressCard tasks={teamTasks} isOrgWideRole={isOrgWideRole} />;

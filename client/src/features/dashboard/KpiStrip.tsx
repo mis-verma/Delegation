@@ -8,6 +8,7 @@ import { Skeleton } from '../../components/skeleton';
 import { useNow } from '../../lib/useNow';
 import { isInstanceOverdue } from '../checklist/checklistDisplay';
 import { isTaskOverdue, isTicketLate, taskDrilldownRow } from './dashboardDisplay';
+import { createdRangeHref } from '../../lib/createdRange';
 import type { DashboardSummaries } from './useDashboardSummaries';
 import type { Task } from '../../api/task';
 import type { Ticket } from '../../api/ticket';
@@ -137,7 +138,7 @@ const MobileTile = ({ view }: MobileTileProps) => {
       <button type="button" onClick={view.onRetry} className={`${shell} cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400`}>
         {head}
         <span className="text-sm font-display font-bold">No data</span>
-        <span className="text-[11px] font-display font-medium text-white/70">Tap to retry</span>
+        <span className="text-xs font-display font-medium text-white/70">Tap to retry</span>
       </button>
     );
   }
@@ -151,16 +152,16 @@ const MobileTile = ({ view }: MobileTileProps) => {
       {head}
       <span className="flex items-baseline gap-1.5">
         <span className="text-3xl font-display font-bold tabular-nums leading-none">{view.pending}</span>
-        <span className="text-[11px] font-display font-medium text-white/70">pending</span>
+        <span className="text-xs font-display font-medium text-white/70">pending</span>
       </span>
       <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
         {view.total != null && (
-          <span className="text-[11px] font-display font-medium text-white/70 tabular-nums">
+          <span className="text-xs font-display font-medium text-white/70 tabular-nums">
             of {view.total} {view.totalLabel === 'Total' ? 'total' : 'today'}
           </span>
         )}
         {view.overdue > 0 && (
-          <span className="inline-flex items-center h-5 px-1.5 rounded-full bg-danger text-white text-[10px] font-display font-bold tabular-nums">
+          <span className="inline-flex items-center h-5 px-1.5 rounded-full bg-danger text-white text-xs font-display font-bold tabular-nums">
             {view.overdue} overdue
           </span>
         )}
@@ -235,7 +236,9 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
     } else if (key === 'checklist') {
       const pick = {
         pending: (x: ChecklistInstance) => !isChecklistDone(x),
-        completed: (x: ChecklistInstance) => isChecklistDone(x),
+        // The tile's Completed figure is TODAY's, so the preview only lists runs from today. It used
+        // to list every finished run in the recent list, which is a different number.
+        completed: (x: ChecklistInstance) => isChecklistDone(x) && isNew(x.generatedAt),
         newToday: (x: ChecklistInstance) => isNew(x.generatedAt),
         overdue: (x: ChecklistInstance) => isInstanceOverdue(x, isChecklistDone(x)),
       }[kind];
@@ -251,14 +254,20 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
     }
 
     const counted = { pending: view.pending, completed: view.completed, newToday: view.newToday, overdue: view.overdue }[kind];
+    // "New today" opens the list already narrowed to today (the same filter the chart bars use), not the
+    // whole unfiltered list the figure is a small part of.
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const viewAllHref = kind === 'newToday' ? createdRangeHref(view.href, new Date(today), tomorrow) : VIEW_ALL_HREF[key][kind];
+
     return {
       title: `${DRILL_LABEL[kind]} ${view.noun}`,
+      description: counted != null ? `${counted} ${counted === 1 ? view.noun.replace(/s$/, '') : view.noun} in total` : undefined,
       icon: view.icon,
       rows,
-      viewAllHref: VIEW_ALL_HREF[key][kind],
+      total: counted ?? undefined,
+      viewAllHref,
       viewAllLabel: `View all in ${view.title}`,
-      // The preview is built from the most recent records, so say so when the figure counts more.
-      cappedNote: counted != null && counted > rows.length ? `Showing the ${rows.length} most recent of ${counted}.` : undefined,
     };
   }, [openDrill, views, now, taskList, ticketList, todoList, checklistList]);
 
@@ -298,11 +307,12 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
           open
           onClose={() => setOpenDrill(null)}
           title={drilldown.title}
+          description={drilldown.description}
           icon={drilldown.icon}
           rows={drilldown.rows}
+          total={drilldown.total}
           viewAllHref={drilldown.viewAllHref}
           viewAllLabel={drilldown.viewAllLabel}
-          cappedNote={drilldown.cappedNote}
         />
       )}
     </div>

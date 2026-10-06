@@ -128,7 +128,7 @@ const FeedRow = memo(({ item, now }: FeedRowProps) => {
           </span>
           {/* On phones the status rides in this row as a chip beside the kind chip (flex-wrap for
               the long labels); a pill on the right had no room next to the title. */}
-          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] font-medium text-text-muted">
+          <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-medium text-text-muted">
             <IconChip
               icon={KindIcon}
               tone={ACTIVITY_CATEGORY_DOT_CLASS[isTicket ? 'ticket' : 'delegation']}
@@ -142,7 +142,7 @@ const FeedRow = memo(({ item, now }: FeedRowProps) => {
       </div>
 
       {/* Phones: the time sits top-right, mail-app style. */}
-      <span className="sm:hidden self-start shrink-0 pt-0.5 text-[11px] font-medium text-text-muted tabular-nums">{relative}</span>
+      <span className="sm:hidden self-start shrink-0 pt-0.5 text-xs font-medium text-text-muted tabular-nums">{relative}</span>
 
       <div className="hidden sm:flex items-center gap-4 shrink-0 ml-4">
         <StatusChip status={chipKey} label={pillLabel} />
@@ -281,7 +281,7 @@ export const RecentActivity = ({ feed, isPending, isError = false, onRetry }: Re
 
       {!isPending && visible.length > 0 && totalPages > 1 && (
         <div className="flex flex-col @2xl:flex-row @2xl:items-center @2xl:justify-between gap-2 px-4 sm:px-5 py-3 border-t border-border/50">
-          <span className="text-[11px] font-medium text-text-muted tabular-nums whitespace-nowrap order-2 @2xl:order-1 @max-2xl:self-center">
+          <span className="text-xs font-medium text-text-muted tabular-nums whitespace-nowrap order-2 @2xl:order-1 @max-2xl:self-center">
             Showing {(page - 1) * PAGE_SIZE + 1} to {Math.min(page * PAGE_SIZE, visible.length)} of {visible.length}
           </span>
           <div className="order-1 @2xl:order-2 flex justify-center">

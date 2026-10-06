@@ -206,7 +206,7 @@ export const MonthlyTargetCard = memo(({
                 <span className="text-xl sm:text-2xl font-display font-bold tracking-tight text-text-muted leading-none">No data</span>
               )}
               {delta != null && (
-                <Badge variant={changeVariant} className={`text-[11px] ${changeClassName}`}>
+                <Badge variant={changeVariant} className={`text-xs ${changeClassName}`}>
                   <ChangeIcon size={12} strokeWidth={3} />
                   {formatDelta(delta)}
                 </Badge>
@@ -233,12 +233,12 @@ export const MonthlyTargetCard = memo(({
                   onClick={() => setOpenStat(stat.key)}
                   className="flex flex-col items-center justify-center gap-1 sm:gap-1.5 min-h-16 px-2 py-2.5 sm:p-4 rounded-xl bg-surface-hover/30 border border-border/40 cursor-pointer transition-colors duration-200 hover:bg-surface-hover/70 hover:border-border/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
                 >
-                  <span className="text-[11px] sm:text-xs font-medium text-text-muted capitalize tracking-wide">{stat.label}</span>
+                  <span className="text-xs sm:text-xs font-medium text-text-muted capitalize tracking-wide">{stat.label}</span>
                   <span className="inline-flex items-center gap-1 sm:gap-1.5 text-lg sm:text-xl font-display font-bold text-text tabular-nums">
                     {stat.value}
                     {stat.direction !== 'flat' && <TrendIcon size={14} strokeWidth={3} className={STAT_SENTIMENT[stat.sentiment]} />}
                   </span>
-                  {stat.hint && <span className="text-[11px] font-display font-semibold text-danger leading-none">{stat.hint}</span>}
+                  {stat.hint && <span className="text-xs font-display font-semibold text-danger leading-none">{stat.hint}</span>}
                 </button>
               );
             })}

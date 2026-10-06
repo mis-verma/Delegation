@@ -5,6 +5,7 @@ export type DashboardCardId =
   | 'todayStrip'
   | 'needsApproval'
   | 'kpiStrip'
+  | 'myScores'
   | 'quickActions'
   | 'activityOverview'
   | 'compliance'
@@ -33,11 +34,12 @@ export const DEFAULT_CARD_ORDER: readonly DashboardCardId[] = [
   'todayStrip',
   'needsApproval',
   'kpiStrip',
+  'myScores',
   'delegationScore',
   'activityOverview',
-  'compliance',
   'compareDashboard',
   'teamProgress',
+  'compliance',
   'recentActivity',
   'upcomingEvents',
   'quickActions',
@@ -71,6 +73,7 @@ export const DEFAULT_CARD_SIZES: Record<DashboardCardId, DashboardCardSize> = {
   todayStrip: 'big',
   needsApproval: 'big',
   kpiStrip: 'big',
+  myScores: 'big',
   quickActions: 'small',
   activityOverview: 'small',
   compliance: 'small',
@@ -87,6 +90,7 @@ export const CARD_LABEL: Record<DashboardCardId, string> = {
   todayStrip: 'Today',
   needsApproval: 'Needs your approval',
   kpiStrip: 'Key numbers',
+  myScores: 'Scores',
   quickActions: 'Quick actions',
   activityOverview: 'Activity overview',
   compliance: 'Compliance',

@@ -46,7 +46,7 @@ const ApprovalLink = memo(({ row }: { row: ApprovalRow }) => {
         {/* line-clamp-2, not truncate: this row's icon and chevron leave little width for the title
             on a phone, and truncate cut titles down to a fragment. */}
         <p className="text-sm font-display font-semibold text-text line-clamp-2 leading-snug">{row.title}</p>
-        <p className="text-[11px] font-medium text-text-light flex items-center gap-1.5">
+        <p className="text-xs font-medium text-text-light flex items-center gap-1.5">
           {row.meta && (
             <>
               <span className="truncate">{row.meta}</span>
@@ -180,7 +180,7 @@ export const NeedsApprovalCard = () => {
 
         {!nothingToShow && (
           <div className="flex items-center justify-between gap-3 px-1">
-            <p className="text-[11px] font-medium text-text-light">
+            <p className="text-xs font-medium text-text-light">
               {remaining > 0 ? `+${remaining} more waiting` : `${visible.length} waiting`}
             </p>
             {queueHref && (

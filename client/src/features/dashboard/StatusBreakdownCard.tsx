@@ -107,7 +107,7 @@ export const StatusBreakdownCard = memo(({
             aria-label={`${overdue.value} overdue, show them`}
             className="relative shrink-0 inline-flex items-center gap-1.5 min-h-11 px-1 -mx-1 cursor-pointer focus-visible:outline-none group/overdue"
           >
-            <span className="inline-flex items-center gap-1 h-6 px-2 rounded-full bg-danger text-white text-[11px] font-display font-bold tabular-nums transition-colors duration-200 group-hover/overdue:bg-danger/85 group-focus-visible/overdue:ring-2 group-focus-visible/overdue:ring-white/70">
+            <span className="inline-flex items-center gap-1 h-6 px-2 rounded-full bg-danger text-white text-xs font-display font-bold tabular-nums transition-colors duration-200 group-hover/overdue:bg-danger/85 group-focus-visible/overdue:ring-2 group-focus-visible/overdue:ring-white/70">
               {overdue.value} overdue
             </span>
           </button>

@@ -210,8 +210,16 @@ const resolveDepartmentScope = (user: AccessTokenPayload, requested?: string): {
 // ---------------------------------------------------------------------------
 
 export const checklistReportService = {
-    async build(user: AccessTokenPayload, query: Pick<ChecklistReportQuery, "from" | "to" | "storeId" | "departmentId" | "groupBy">): Promise<ChecklistReport> {
-        const { departmentId, locked } = resolveDepartmentScope(user, query.departmentId)
+    /**
+     * `onlyUserId` narrows the report to one person's runs and answers. It skips the role check, so the
+     * caller (the scores module) must already have decided the viewer may see that person.
+     */
+    async build(
+        user: AccessTokenPayload,
+        query: Pick<ChecklistReportQuery, "from" | "to" | "storeId" | "departmentId" | "groupBy">,
+        onlyUserId?: string,
+    ): Promise<ChecklistReport> {
+        const { departmentId, locked } = onlyUserId ? { departmentId: undefined, locked: false } : resolveDepartmentScope(user, query.departmentId)
         const { from, to, storeId, groupBy } = query
         const offsetMs = env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000
         const now = Date.now()
@@ -225,6 +233,12 @@ export const checklistReportService = {
             parentNotDeletedExpr,
         ]
         if (storeId) runConditions.push(eq(checklistInstances.storeId, storeId))
+        if (onlyUserId) {
+            runConditions.push(sql`EXISTS (
+                SELECT 1 FROM ${checklistInstanceAssignees} a3
+                WHERE a3.instanceId = ${checklistInstances.id} AND a3.userId = ${onlyUserId}
+            )`)
+        }
         if (departmentId) {
             runConditions.push(sql`EXISTS (
                 SELECT 1 FROM ${checklistInstanceAssignees} a2
@@ -270,7 +284,7 @@ export const checklistReportService = {
                 .from(checklistInstanceAssignees)
                 .innerJoin(checklistInstances, eq(checklistInstances.id, checklistInstanceAssignees.instanceId))
                 .innerJoin(users, eq(users.id, checklistInstanceAssignees.userId))
-                .where(departmentId ? and(runWhere, eq(users.departmentId, departmentId)) : runWhere),
+                .where(and(runWhere, departmentId ? eq(users.departmentId, departmentId) : undefined, onlyUserId ? eq(users.id, onlyUserId) : undefined)),
             // Item-level numbers by the person who completed each question.
             db.select({
                 userId: creditedUser,

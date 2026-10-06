@@ -1,6 +1,6 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Building2, ChevronRight, ClipboardCheck, Timer, Store, User, X, ShieldCheck, Sparkles, Download, FileSpreadsheet, FileText, Info, type LucideIcon } from 'lucide-react';
+import { Building2, ChevronRight, ClipboardCheck, Store, User, X, ShieldCheck, Sparkles, Download, FileSpreadsheet, FileText, Info, type LucideIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { RadialGauge, EntityIconTile, Button, Combobox } from '../../components';
 import { OptionsSheet, OptionSection, ChoiceChip, ChoiceIcon, ChoiceWrap, ChoiceClear } from '../../components/optionsSheet';
@@ -10,7 +10,6 @@ import { useNow } from '../../lib/useNow';
 import { BreakdownRatioRows } from './PinnedBreakdown';
 import { DrilldownList, DrilldownViewAllButton } from './DrilldownModal';
 import { DeltaBadge } from './RateDelta';
-import { useApprovalTatQuery } from './useApprovalTat';
 import { isTrendReady } from './trendGate';
 import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/popover';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '../../components/ui/dropdown-menu';
@@ -69,7 +68,7 @@ interface ActivityComplianceGaugesProps {
   categoryScope?: Partial<Record<ActivityCategory, CategoryScope>>;
 }
 
-type GaugeKey = 'completion' | 'onTime' | 'approval';
+type GaugeKey = 'completion' | 'onTime';
 
 interface CategoryBreakdownRow {
   label: string;
@@ -207,7 +206,6 @@ const ScopeChip = ({ label, onRemove }: { label: string; onRemove: () => void })
 );
 
 const DONE_RATE_DEFINITION = 'Done rate: items finished out of items created in this period.';
-const APPROVAL_DEFINITION = 'Approved in 24h: of the delegations, tickets and checklists handed in for approval in this period, the share the reviewer decided within 24 hours. One still waiting after 24 hours counts as missed.';
 const NOT_OVERDUE_DEFINITION = 'On time: of the items that are finished or past their due date, the share that was not late. Items not due yet are left out.';
 
 export const ActivityComplianceGauges = ({ items, activeCategories, groupBy, orgChecklistRate = null, categoryScope }: ActivityComplianceGaugesProps) => {
@@ -265,22 +263,6 @@ export const ActivityComplianceGauges = ({ items, activeCategories, groupBy, org
     setSelected(null);
     setDrilldownCategory(null);
   }
-
-  // The reviewer's own score: how much of what was handed in got a decision within 24 hours, over the
-  // same window as the two rings. The card is ADMIN/PC only, so the request is always allowed here.
-  const approvalWindow = useMemo(() => {
-    const buckets = lastActivityBuckets(groupBy, ACTIVITY_BUCKET_COUNT[groupBy], new Date(now));
-    return { from: buckets[0].start.toISOString(), to: buckets[buckets.length - 1].end.toISOString() };
-  }, [groupBy, now]);
-  const { data: approval } = useApprovalTatQuery(approvalWindow.from, approvalWindow.to, true);
-  const approvalDue = approval ? approval.met + approval.breached : 0;
-  const approvalBreakdown: CategoryBreakdownRow[] = approval
-    ? (['delegation', 'ticket', 'checklist'] as const).map((kind) => ({
-        label: ACTIVITY_CATEGORY_LABEL[kind],
-        count: approval.byKind[kind].met,
-        total: approval.byKind[kind].met + approval.byKind[kind].breached,
-      }))
-    : [];
 
   const {
     doneRate, notOverdueRate, doneCount, doneTotal, onTimeCount, dueTotal,
@@ -357,9 +339,9 @@ export const ActivityComplianceGauges = ({ items, activeCategories, groupBy, org
 
   const handleToggle = useCallback((key: GaugeKey) => setSelected((prev) => (prev === key ? null : key)), []);
 
-  const activeBreakdown = selected === 'completion' ? doneBreakdown : selected === 'onTime' ? notOverdueBreakdown : selected === 'approval' ? approvalBreakdown : null;
-  const activeLabel = selected === 'completion' ? 'Done rate' : selected === 'onTime' ? 'On time' : selected === 'approval' ? 'Approved in 24h' : null;
-  const selectedRate = selected === 'completion' ? doneRate : selected === 'onTime' ? notOverdueRate : (approval?.rate ?? null);
+  const activeBreakdown = selected === 'completion' ? doneBreakdown : selected === 'onTime' ? notOverdueBreakdown : null;
+  const activeLabel = selected === 'completion' ? 'Done rate' : selected === 'onTime' ? 'On time' : null;
+  const selectedRate = selected === 'completion' ? doneRate : notOverdueRate;
   const rangeText = ACTIVITY_GROUP_RANGE_LABEL[groupBy];
   const deltaTitle = `vs the ${rangeText.replace('last ', '')} before`;
 
@@ -403,9 +385,6 @@ export const ActivityComplianceGauges = ({ items, activeCategories, groupBy, org
         return [row.label, row.total, row.count, percentOf(row.count, row.total), due?.total ?? 0, due?.count ?? 0, percentOf(due?.count ?? 0, due?.total ?? 0)];
       }),
       ['All categories', doneTotal, doneCount, doneRate, dueTotal, onTimeCount, notOverdueRate],
-      [],
-      ['Approval turnaround (24 hour promise)'],
-      ['Decided within 24h', approval?.met ?? 0, 'Missed', approval?.breached ?? 0, 'Still waiting', approval?.pending ?? 0, 'Rate %', approval?.rate ?? ''],
     ];
   };
 
@@ -537,7 +516,7 @@ export const ActivityComplianceGauges = ({ items, activeCategories, groupBy, org
       {/* Gauges: a centered pair, capped so they read as a cluster of circles rather than drifting
           apart on a wide monitor. Tapping one opens the breakdown in a modal. */}
       <div className="flex justify-center">
-        <div className={`grid grid-cols-2 gap-2.5 sm:gap-6 w-full ${approval ? 'sm:grid-cols-3 max-w-3xl' : 'max-w-xl'}`}>
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-6 w-full max-w-xl">
           <Gauge
             gaugeKey="completion"
             icon={ClipboardCheck}
@@ -566,24 +545,6 @@ export const ActivityComplianceGauges = ({ items, activeCategories, groupBy, org
             size={gaugeSize}
             onToggle={handleToggle}
           />
-          {approval && (
-            <div className="col-span-2 sm:col-span-1 max-sm:mx-auto max-sm:w-1/2 max-sm:min-w-40">
-              <Gauge
-                gaugeKey="approval"
-                icon={Timer}
-                label="Approved in 24h"
-                definition={APPROVAL_DEFINITION}
-                percent={approval.rate}
-                caption={`${approval.met} of ${approvalDue} in 24h${approval.pending > 0 ? ` \u00b7 ${approval.pending} waiting` : ''}`}
-                volume={approvalDue}
-                delta={null}
-                deltaTitle=""
-                isSelected={selected === 'approval'}
-                size={gaugeSize}
-                onToggle={handleToggle}
-              />
-            </div>
-          )}
         </div>
       </div>
 
@@ -644,20 +605,17 @@ export const ActivityComplianceGauges = ({ items, activeCategories, groupBy, org
                   <p className="text-sm font-display font-bold text-text">
                     {selected === 'completion'
                       ? `${doneCount} of ${doneTotal} done`
-                      : selected === 'onTime'
-                        ? `${onTimeCount} of ${dueTotal} due items on time`
-                        : `${approval?.met ?? 0} of ${approvalDue} approvals within 24 hours`}
+                      : `${onTimeCount} of ${dueTotal} due items on time`}
                   </p>
                   <p className="text-xs font-medium text-text-muted">
-                    {selected === 'completion' ? DONE_RATE_DEFINITION : selected === 'onTime' ? NOT_OVERDUE_DEFINITION : APPROVAL_DEFINITION}
+                    {selected === 'completion' ? DONE_RATE_DEFINITION : NOT_OVERDUE_DEFINITION}
                   </p>
                 </div>
               </div>
               <div className="flex flex-col gap-1 border-t border-border/50 pt-3">
                 <BreakdownRatioRows
                   rows={activeBreakdown}
-                  // The approval rows are counts of hand-ins, not item lists, so they do not drill down.
-                  onRowClick={selected === 'approval' ? undefined : (label) => setDrilldownCategory(LABEL_TO_CATEGORY[label])}
+                  onRowClick={(label) => setDrilldownCategory(LABEL_TO_CATEGORY[label])}
                 />
               </div>
             </>

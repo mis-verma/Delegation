@@ -77,7 +77,7 @@ const TodayTile = memo(({ icon: Icon, label, tone, value, isPending, isError, on
     >
       {header}
       <span className={`text-3xl font-display font-bold tabular-nums leading-none ${live ? TONE_NUMBER[tone] : 'text-text-muted'}`}>{value}</span>
-      <span className="text-[11px] font-medium text-text-muted leading-snug line-clamp-2">{detail}</span>
+      <span className="text-xs font-medium text-text-muted leading-snug line-clamp-2">{detail}</span>
     </Link>
   );
 });
@@ -146,7 +146,7 @@ export const TodayStrip = ({ summaries, onRefresh, isRefreshing }: TodayStripPro
       <div className="flex items-center justify-between gap-3">
         <h2 id="today-heading" className="text-base sm:text-lg font-display font-bold text-text tracking-tight">Today</h2>
         <div className="flex items-center gap-1">
-          {updatedLabel && <span className="text-[11px] font-medium text-text-light tabular-nums">{updatedLabel}</span>}
+          {updatedLabel && <span className="text-xs font-medium text-text-light tabular-nums">{updatedLabel}</span>}
           <Button variant="ghost" size="sm" onClick={onRefresh} disabled={isRefreshing} aria-label="Refresh the dashboard" className="shrink-0">
             <RotateCw size={14} strokeWidth={2.5} className={isRefreshing ? 'motion-safe:animate-spin' : ''} aria-hidden="true" />
             <span className="hidden sm:inline">Refresh</span>

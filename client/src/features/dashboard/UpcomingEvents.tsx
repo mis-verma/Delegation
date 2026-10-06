@@ -31,7 +31,7 @@ const EventRow = memo(({ event, now }: { event: Event; now: number }) => {
       </div>
 
       <div className="flex items-center gap-4 pl-11 sm:pl-0 shrink-0">
-        <span className={`inline-flex items-center justify-center text-[11px] font-display font-medium px-2.5 py-1 rounded-full ${EVENT_TYPE_COLORS[event.type]}`}>
+        <span className={`inline-flex items-center justify-center text-xs font-display font-medium px-2.5 py-1 rounded-full ${EVENT_TYPE_COLORS[event.type]}`}>
           {EVENT_TYPE_LABELS[event.type]}
         </span>
         <span className={`text-xs font-display font-medium sm:min-w-20 sm:text-right ${day === 'Today' ? 'text-warning' : 'text-text-muted'}`}>{day}</span>

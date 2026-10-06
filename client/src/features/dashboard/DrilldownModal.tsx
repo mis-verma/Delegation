@@ -30,6 +30,9 @@ const PREVIEW_LIMIT = 8;
 
 interface DrilldownListProps {
   rows: DrilldownRow[];
+  /** The figure the person tapped, when it counts more than `rows` holds. Turns the footnote into one
+   *  plain sentence: "Showing 8 of 23". */
+  total?: number;
   cappedNote?: string;
   isLoading?: boolean;
   viewAllHref?: string;
@@ -50,7 +53,7 @@ const DrilldownRowButton = memo(({ row, onSelect }: { row: DrilldownRow; onSelec
     >
       <div className="flex-1 min-w-0">
         <p className="text-sm font-display font-semibold text-text line-clamp-2 leading-snug">{row.title}</p>
-        <p className="text-[11px] font-medium text-text-light mt-0.5">{formatRelativeTime(row.createdAt)}</p>
+        <p className="text-xs font-medium text-text-light mt-0.5">{formatRelativeTime(row.createdAt)}</p>
       </div>
       {/* Same icon-circle-in-a-pill StatusChip every Ticket/Delegation status display already
           renders through. `completed`/`overdue`/`pending` are real StatusChipStatus values, so no
@@ -69,7 +72,7 @@ DrilldownRowButton.displayName = 'DrilldownRowButton';
  * nesting a second `Dialog`. Two stacked Radix dialogs animating open/closed back-to-back is what
  * made that transition feel like a double delay instead of an instant swap.
  */
-export const DrilldownList = ({ rows, cappedNote, isLoading = false, viewAllHref, viewAllLabel = 'View all', onSelect }: DrilldownListProps) => {
+export const DrilldownList = ({ rows, total, cappedNote, isLoading = false, viewAllHref, viewAllLabel = 'View all', onSelect }: DrilldownListProps) => {
   const visible = rows.slice(0, PREVIEW_LIMIT);
   const remaining = rows.length - visible.length;
 
@@ -87,10 +90,16 @@ export const DrilldownList = ({ rows, cappedNote, isLoading = false, viewAllHref
     return <EmptyState size="compact" icon={Inbox} title="Nothing here yet" description="No items match this selection." />;
   }
 
-  const footnote = [
-    remaining > 0 ? `+${remaining} more` : null,
-    cappedNote ?? (viewAllHref ? `See the full list on the ${viewAllLabel.replace(/^View all /i, '').trim() || 'full'} page.` : null),
-  ].filter(Boolean).join('. ');
+  // One sentence about what is on screen versus what the figure counts. A tapped figure that counts
+  // more than the preview holds says "Showing 8 of 23"; the old wording stacked "Showing the 25 most
+  // recent of 80" and "+17 more" together, which gave two different numbers for the same gap.
+  const counted = total != null && total > visible.length ? total : null;
+  const footnote = counted != null
+    ? `Showing ${visible.length} of ${counted}.${viewAllHref ? ' The rest are on the full list.' : ''}`
+    : [
+        remaining > 0 ? `+${remaining} more` : null,
+        cappedNote ?? (viewAllHref ? `See the full list on the ${viewAllLabel.replace(/^View all /i, '').trim() || 'full'} page.` : null),
+      ].filter(Boolean).join('. ');
 
   return (
     <>
@@ -100,7 +109,7 @@ export const DrilldownList = ({ rows, cappedNote, isLoading = false, viewAllHref
         ))}
       </div>
 
-      {footnote && <p className="text-[11px] font-medium text-text-light text-center">{footnote}</p>}
+      {footnote && <p className="text-xs font-medium text-text-light text-center">{footnote}</p>}
     </>
   );
 };
@@ -122,6 +131,8 @@ interface DrilldownModalProps {
   description?: string;
   icon?: LucideIcon;
   rows: DrilldownRow[];
+  /** The figure that was tapped (see DrilldownList). */
+  total?: number;
   /** Preview lists are sometimes capped (e.g. the last 25 records) — surfaced so the modal doesn't
    *  imply it's showing everything when it isn't. */
   cappedNote?: string;
@@ -144,6 +155,7 @@ export const DrilldownModal = ({
   description,
   icon: Icon,
   rows,
+  total,
   cappedNote,
   isLoading = false,
   viewAllHref,
@@ -184,7 +196,7 @@ export const DrilldownModal = ({
       // one-shot form dialog with nothing behind it worth uncovering.
       draggable
     >
-      <DrilldownList rows={rows} cappedNote={cappedNote} isLoading={isLoading} viewAllHref={viewAllHref} viewAllLabel={viewAllLabel} onSelect={go} />
+      <DrilldownList rows={rows} total={total} cappedNote={cappedNote} isLoading={isLoading} viewAllHref={viewAllHref} viewAllLabel={viewAllLabel} onSelect={go} />
     </Modal>
   );
 };

@@ -29,7 +29,7 @@ export const PinnedBreakdown = ({ title, onClose, variant = 'pinned', className 
     } ${className}`}
   >
     <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-1.5">
-      <p className="text-[11px] font-display font-semibold text-text-muted tracking-wide">{title}</p>
+      <p className="text-xs font-display font-semibold text-text-muted tracking-wide">{title}</p>
       {onClose && (
         <button
           type="button"
@@ -90,5 +90,5 @@ export const BreakdownRatioRows = ({ rows, onRowClick }: { rows: readonly Breakd
 
 /** The "nothing pinned yet" prompt that sits where a breakdown panel will appear. */
 export const BreakdownHint = ({ children }: { children: ReactNode }) => (
-  <p className="text-[11px] font-display font-medium text-text-light text-center px-1">{children}</p>
+  <p className="text-xs font-display font-medium text-text-light text-center px-1">{children}</p>
 );
