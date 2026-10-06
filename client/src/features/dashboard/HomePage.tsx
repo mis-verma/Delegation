@@ -55,11 +55,11 @@ const DashboardSortableGrid = lazy(() => import('./DashboardSortableGrid'));
 // The user-facing counterpart to Admin Overview's QuickActionsGrid — same shared component, own
 // action list (everyday work routes, not admin management pages).
 const USER_QUICK_ACTIONS: readonly QuickAction[] = [
-  { to: '/tasks', icon: ClipboardList, label: 'Delegations', description: 'View your assigned work' },
-  { to: '/tickets', icon: TicketCheck, label: 'Tickets', description: 'Raise or track an issue' },
-  { to: '/todo', icon: ListTodo, label: 'Todo', description: 'Your personal task list' },
-  { to: '/checklists', icon: ListChecks, label: 'Checklists', description: "Today's runs" },
-  { to: '/events', icon: CalendarDays, label: 'Events', description: 'Upcoming deadlines' },
+  { to: '/tasks', icon: ClipboardList, label: 'Delegations', description: 'View your assigned work', tileClassName: 'bg-activity-delegation/15 text-activity-delegation' },
+  { to: '/tickets', icon: TicketCheck, label: 'Tickets', description: 'Raise or track an issue', tileClassName: 'bg-activity-ticket/15 text-activity-ticket' },
+  { to: '/todo', icon: ListTodo, label: 'Todo', description: 'Your personal task list', tileClassName: 'bg-activity-todo/15 text-activity-todo' },
+  { to: '/checklists', icon: ListChecks, label: 'Checklists', description: "Today's runs", tileClassName: 'bg-primary-500/15 text-primary-600 dark:text-primary-300' },
+  { to: '/events', icon: CalendarDays, label: 'Events', description: 'Upcoming deadlines', tileClassName: 'bg-warning/15 text-warning' },
 ];
 
 // Phones drop Quick actions (links already one tap away in the bottom nav) and Team's progress

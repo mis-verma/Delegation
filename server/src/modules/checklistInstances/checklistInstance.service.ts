@@ -259,6 +259,27 @@ export const assertInstanceEditable = (instance: { verificationStatus: string },
 }
 
 // Signatures are base64 PNGs (tens of KB each) — the audit row only needs to know one was there.
+// One readable line for an audit row on a question: what actually changed between the two snapshots.
+const ANSWER_LABEL: Record<string, string> = { YES: "Yes", NO: "No" }
+const describeItemChange = (action: string, before: unknown, after: unknown): string => {
+    const b = (before ?? {}) as Record<string, unknown>
+    const a = (after ?? {}) as Record<string, unknown>
+    if (action === "REOPEN") return "Reopened"
+    if (a.isNotApplicable && !b.isNotApplicable) return "Marked not applicable"
+    const parts: string[] = []
+    if (action === "COMPLETE") parts.push("Marked done")
+    if (a.booleanAnswer !== b.booleanAnswer && a.booleanAnswer) {
+        const was = b.booleanAnswer ? ` (was ${ANSWER_LABEL[String(b.booleanAnswer)] ?? b.booleanAnswer})` : ""
+        parts.push(`Answered ${ANSWER_LABEL[String(a.booleanAnswer)] ?? a.booleanAnswer}${was}`)
+    }
+    if (a.numericValue !== b.numericValue && a.numericValue != null) {
+        parts.push(`Number ${b.numericValue != null ? `${b.numericValue} to ${a.numericValue}` : String(a.numericValue)}`)
+    }
+    if (a.textValue !== b.textValue && a.textValue) parts.push("Answer text changed")
+    if (a.remarks !== b.remarks) parts.push(a.remarks ? "Remark added or edited" : "Remark removed")
+    return parts.length ? parts.join(". ") : "Updated"
+}
+
 const auditItemSnapshot = (item: Record<string, unknown>) => ({
     ...item,
     signatureValue: item.signatureValue ? "[signature]" : null,
@@ -1309,6 +1330,35 @@ export const checklistInstanceService = {
             rows,
             summary: { ...totals, rate: totals.due ? Math.round((totals.onTime / totals.due) * 100) : null },
         }
+    },
+
+    // GET /checklist-instances/:id/item-history. Every save and reopen of a question is already written
+    // to the audit log with a before and after snapshot; this turns those rows into a short readable
+    // list per question (who, when, what changed) for the people who review the run. The person who
+    // fills a run in is not given it: it shows how each answer was edited, which is for oversight.
+    async itemHistory(id: string, user: AccessTokenPayload) {
+        const instance = await getPopulatedInstanceById(id)
+        if (!instance) throw AppError.notFound("Checklist instance not found")
+        await assertCanView(instance, user)
+        const oversees = user.role === "ADMIN" || user.role === "PC" || user.role === "APPROVAL_MANAGER" || isHod(user) || instance.reviewerIds.includes(user.sub)
+        if (!oversees) throw AppError.forbidden()
+
+        const itemIds = instance.items.map((item) => item.id)
+        if (itemIds.length === 0) return []
+        const rows = await db
+            .select()
+            .from(auditLogs)
+            .where(and(eq(auditLogs.entityType, "ChecklistInstanceItem"), inArray(auditLogs.entityId, itemIds)))
+            .orderBy(asc(auditLogs.createdAt))
+
+        return rows.map((row) => ({
+            id: row.id,
+            itemId: row.entityId,
+            at: row.createdAt,
+            actorName: row.actorName ?? "Someone",
+            source: row.source,
+            summary: describeItemChange(row.action, row.before, row.after),
+        }))
     },
 
     async getById(id: string, user: AccessTokenPayload) {

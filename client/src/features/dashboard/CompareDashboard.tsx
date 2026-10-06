@@ -150,44 +150,46 @@ interface SummaryChipProps {
   /** Point change vs the last period; null shows no badge. */
   delta: number | null;
   deltaTitle: string;
-  dotClassName: string;
+  /** Icon in a tinted tile at the top right, same stat-tile look as the rest of the dashboard. */
+  icon: LucideIcon;
+  tileClassName: string;
   /** Whose work the number covers: the first three are the whole organisation, the checklist chip is yours. */
   scopeTag?: 'Org' | 'Mine';
   isLoading?: boolean;
   onClick: () => void;
 }
 
-const SummaryChip = memo(({ label, value, detail, delta, deltaTitle, dotClassName, scopeTag, isLoading = false, onClick }: SummaryChipProps) => (
+const SummaryChip = memo(({ label, value, detail, delta, deltaTitle, icon: Icon, tileClassName, scopeTag, isLoading = false, onClick }: SummaryChipProps) => (
   <button
     type="button"
     onClick={onClick}
     aria-haspopup="dialog"
     aria-label={`${label}: ${value != null ? `${value}%` : 'No data'}${detail ? `, ${detail}` : ''}. Open the records.`}
-    className="flex items-center gap-2.5 w-full min-h-11 px-3.5 py-2.5 rounded-xl border border-border/50 bg-surface-hover/60 text-left transition-colors duration-200 motion-reduce:transition-none cursor-pointer outline-none hover:border-border-hover hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary-500/40"
+    className="flex flex-col justify-between gap-2.5 w-full min-h-[6.25rem] p-3 sm:p-3.5 rounded-xl border border-border/60 bg-surface-hover/40 text-left transition-colors duration-200 motion-reduce:transition-none cursor-pointer outline-none hover:border-border-hover hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary-500/40"
   >
-    <span aria-hidden="true" className={`size-2.5 rounded-full shrink-0 ${dotClassName}`} />
-    <span className="flex flex-col gap-0.5 min-w-0">
-      <span className="flex items-center gap-1.5 text-xs font-display font-medium text-text-muted">
-        {label}
-        {scopeTag && <span className="px-1.5 rounded-full bg-border/50 text-xs font-semibold text-text-secondary">{scopeTag}</span>}
+    {/* One type scale for every chip: 12px label, 24px number, 12px detail. */}
+    <span className="flex items-start justify-between gap-2">
+      <span className="text-xs font-display font-semibold text-text-secondary leading-snug">{label}</span>
+      <span aria-hidden="true" className={`flex items-center justify-center size-8 shrink-0 rounded-lg ${tileClassName}`}>
+        <Icon size={16} />
       </span>
+    </span>
+    <span className="flex flex-col gap-1">
       {isLoading ? (
-        <Skeleton className="h-5 w-14 rounded" />
+        <Skeleton className="h-7 w-16 rounded" />
       ) : value != null ? (
-        // flex-wrap, not a rigid single row: at 2-up on a narrow phone this chip's own width can
-        // be under 150px, too tight for a bold percent, a count and a change badge on one line.
-        <span className="flex items-center flex-wrap gap-x-1.5 gap-y-0.5">
-          <span className="text-base font-display font-bold text-text tabular-nums">{value}%</span>
+        <span className="flex items-center flex-wrap gap-x-2 gap-y-0.5">
+          <span className="text-2xl font-display font-bold text-text tabular-nums leading-none">{value}%</span>
           <DeltaBadge delta={delta} title={deltaTitle} />
         </span>
       ) : (
-        <span className="text-xs font-display font-medium text-text-muted">No data</span>
+        <span className="text-sm font-display font-semibold text-text-muted leading-none">No data</span>
       )}
-      {/* Raw count under the percent — "3 of 4" reads very differently from "300 of 400" even at
-          the same value, so the count is what makes the percent trustworthy. */}
-      {!isLoading && value != null && detail && (
-        <span className="text-xs font-display font-medium text-text-muted tabular-nums">{detail}</span>
-      )}
+      {/* The raw count makes the percent trustworthy: "3 of 4" reads very differently from "300 of 400". */}
+      <span className="flex items-center flex-wrap gap-x-1.5 text-xs font-display font-medium text-text-muted tabular-nums">
+        {!isLoading && value != null && detail}
+        {scopeTag && <span className="px-1.5 rounded-full bg-border/50 font-semibold text-text-secondary">{scopeTag}</span>}
+      </span>
     </span>
   </button>
 ));
@@ -482,7 +484,7 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
       {/* "On-time" used index.css's `coral` accent before — its own doc comment scopes coral to
           decorative use, and its gold hue reads too close to `warning` for a metric that's
           actually good news. `info` also matches the primary/info pairing used for the two series. */}
-      <div className="grid grid-cols-2 @sm:grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 @2xl:grid-cols-4 gap-2.5">
         <SummaryChip
           label="Completion"
           value={current.completion}
@@ -490,7 +492,8 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
           detail={`${current.completedCount} of ${current.total} done`}
           delta={delta(current.completion, previous.completion)}
           deltaTitle={deltaTitle}
-          dotClassName="bg-primary-500"
+          icon={CheckCircle2}
+          tileClassName="bg-primary-500/15 text-primary-600 dark:text-primary-300"
           onClick={() => setDrilldown({ title: `Completed ${PERIOD_LABEL[period]}`, icon: CheckCircle2, rows: completionRows })}
         />
         <SummaryChip
@@ -500,7 +503,8 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
           detail={`${current.onTimeCount} of ${current.dueCount} due`}
           delta={delta(current.onTime, previous.onTime)}
           deltaTitle={deltaTitle}
-          dotClassName="bg-activity-ticket"
+          icon={Clock}
+          tileClassName="bg-activity-ticket/15 text-activity-ticket"
           onClick={() => setDrilldown({ title: `Finished on time ${PERIOD_LABEL[period]}`, icon: Clock, rows: onTimeRows })}
         />
         <SummaryChip
@@ -510,7 +514,8 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
           detail={`${current.reviewedCount} of ${current.completedCount} done`}
           delta={delta(current.reviewed, previous.reviewed)}
           deltaTitle={deltaTitle}
-          dotClassName="bg-activity-delegation"
+          icon={ShieldCheck}
+          tileClassName="bg-activity-delegation/15 text-activity-delegation"
           onClick={() => setDrilldown({ title: `Reviewed ${PERIOD_LABEL[period]}`, icon: ShieldCheck, rows: reviewedRows })}
         />
         <SummaryChip
@@ -520,7 +525,8 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
           detail={`${checklistDoneItems} of ${checklistTotalItems} items`}
           delta={delta(checklistRate, checklistPrevRate)}
           deltaTitle={deltaTitle}
-          dotClassName="bg-success"
+          icon={ListChecks}
+          tileClassName="bg-success/15 text-success"
           isLoading={checklistPending}
           onClick={() => setDrilldown({
             title: 'Completed checklists',
@@ -619,6 +625,7 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
                     stroke="var(--color-primary-500)"
                     strokeWidth={2.5}
                     fill={`url(#compFill-${gradientId})`}
+                    connectNulls
                     dot={completionDot}
                     activeDot={{ r: 5, strokeWidth: 2, stroke: 'var(--color-surface)' }}
                   />
@@ -628,6 +635,7 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
                     stroke="var(--color-activity-ticket)"
                     strokeWidth={2.5}
                     fill={`url(#onTimeFill-${gradientId})`}
+                    connectNulls
                     dot={onTimeDot}
                     activeDot={{ r: 5, strokeWidth: 2, stroke: 'var(--color-surface)' }}
                   />

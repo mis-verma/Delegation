@@ -3,6 +3,8 @@ import { useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { Wand2, AlertCircle, Save, Inbox, X, Plus, ChevronDown, Upload } from "lucide-react";
 import { Skeleton, Fab, ViewToggle, EmptyState, type ViewTab } from "../../components";
+import { CreatedRangeBanner } from "../../components/createdRangeBanner";
+import { useCreatedRange } from "../../lib/createdRange";
 import { ExportDialog } from "../reports";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { useTasksQuery, useTasksMetaQuery, useAssignableUsersQuery } from "./hook";
@@ -360,12 +362,15 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
   );
 
   const mineOnly = searchParams.get('mine') === '1';
-  const mineFiltered = useMemo(
-    () => (!mineOnly || !user
-      ? (tasks ?? [])
-      : (tasks ?? []).filter(t => t.userId === user.id || t.assigneeId === user.id || t.additionalAssigneeIds.includes(user.id))),
-    [tasks, mineOnly, user],
-  );
+  // Opened from a chart bar: only delegations created inside that bar's period (see lib/createdRange).
+  const createdRange = useCreatedRange();
+  const mineFiltered = useMemo(() => {
+    const everything = tasks ?? [];
+    const mine = !mineOnly || !user
+      ? everything
+      : everything.filter(t => t.userId === user.id || t.assigneeId === user.id || t.additionalAssigneeIds.includes(user.id));
+    return createdRange.range ? mine.filter(t => createdRange.matches(t.createdAt)) : mine;
+  }, [tasks, mineOnly, user, createdRange]);
 
   // The store box sits above the stat tiles and scopes the page, so it's applied before the counts
   // are taken — otherwise picking a store would narrow the board while the tiles above it kept
@@ -580,6 +585,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
 
   return (
     <div className="flex flex-col gap-6 mx-auto w-full max-w-(--container-width) transition-all duration-300">
+      <CreatedRangeBanner range={createdRange.range} onClear={createdRange.clear} noun="delegations" />
 
       <div className="flex flex-col gap-4">
         {!hideHeader && (

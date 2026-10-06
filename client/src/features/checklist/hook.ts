@@ -9,7 +9,7 @@ import {
   type ChecklistRecurrence,
   type LiveRunsSummary,
 } from '../../api/checklistDefinitions';
-import { checklistInstanceApi, type ChecklistInstance, type ChecklistInstanceStatus, type ChecklistVerificationStatus, type VerifyChecklistInstancePayload, type SendBackChecklistInstancePayload } from '../../api/checklistInstances';
+import { checklistInstanceApi, checklistItemHistoryApi, type ChecklistInstance, type ChecklistInstanceStatus, type ChecklistVerificationStatus, type VerifyChecklistInstancePayload, type SendBackChecklistInstancePayload } from '../../api/checklistInstances';
 import { checklistInstanceItemSubmissionApi } from '../../api/checklistInstanceItemSubmissions';
 import type { ChecklistInstanceItemSubmissionAccessory } from '../../api/checklistInstances';
 import type { CaptureMethod } from '../../api/ticket';
@@ -569,3 +569,15 @@ export { useDepartmentsQuery, useStoresQuery, useAssignableUsersQuery } from '..
 // Templates are a separate one-off feature (see ChecklistDefinition model comment), but the
 // definition form lets admins import a template's step labels as a starting point.
 export { useChecklistTemplatesQuery } from '../admin/hook';
+
+// The answer history of one run, fetched only when a reviewer opens a question's history. One request
+// covers every question in the run, so opening a second question costs nothing.
+export const useChecklistItemHistoryQuery = (instanceId: string, enabled: boolean) => {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: ['checklist-instances', 'item-history', instanceId],
+    queryFn: () => checklistItemHistoryApi.get(instanceId).then((r) => r.data),
+    enabled: !!token && enabled,
+    retry: handleQueryRetry,
+  });
+};

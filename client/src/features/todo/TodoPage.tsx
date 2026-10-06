@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { Plus, Flag, ArrowUpDown } from 'lucide-react';
 import { Button, Fab } from '../../components';
+import { CreatedRangeBanner } from '../../components/createdRangeBanner';
+import { useCreatedRange } from '../../lib/createdRange';
 import {
   OptionsSheet, OptionSection, OptionSegmented, ChoiceChip, ChoiceIcon, ChoiceWrap, ChoiceClear,
 } from '../../components/optionsSheet';
@@ -31,7 +33,13 @@ export const TodoPage = () => {
   // Newest first by default: the order the server already returns.
   const [sort, setSort] = useState<TodoSortKey>('created');
   // Same query key as TodoList, so this is served from cache.
-  const { data: todos = [], isPending } = useTodosQuery();
+  const { data: allTodos = [], isPending } = useTodosQuery();
+  // Opened from a chart bar: only to-dos created inside that bar's period (see lib/createdRange).
+  const createdRange = useCreatedRange();
+  const todos = useMemo(
+    () => (createdRange.range ? allTodos.filter((t) => createdRange.matches(t.createdAt)) : allTodos),
+    [allTodos, createdRange],
+  );
 
   // `/todo?create=1` (the sidebar's "+") opens the form once, then drops the param.
   useEffect(() => {
@@ -68,6 +76,7 @@ export const TodoPage = () => {
     <div className="flex flex-col gap-6 mx-auto w-full max-w-(--container-width) transition-all duration-300">
       {/* No visible title block, same as Delegation and Tickets: the nav item already says To-Do. */}
       <h1 className="sr-only">To-Do</h1>
+      <CreatedRangeBanner range={createdRange.range} onClear={createdRange.clear} noun="to-dos" />
 
       <Fab actions={[{ key: 'add', label: 'Add todo', icon: Plus, onClick: () => setShowForm(true) }]} />
 

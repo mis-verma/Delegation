@@ -2,6 +2,8 @@ import { useCallback, useMemo, useState } from 'react';
 import { AlertCircle, ClipboardCheck, X, Store, ChevronRight, Clock, AlarmClock, ArrowDownAZ, Repeat, User, LayoutList, Table2, Kanban, Rows3, ArrowUpDown, Building2, ShieldCheck, Users } from 'lucide-react';
 import { useSearchParams } from 'react-router';
 import { Skeleton, PageNav, ViewToggle, EmptyState, FilterPill, InlineError, PANEL_CLASS, type ViewTab } from '../../../components';
+import { CreatedRangeBanner } from '../../../components/createdRangeBanner';
+import { useCreatedRange } from '../../../lib/createdRange';
 import {
   OptionsSheet, OptionSection, OptionSegmented, OptionSelect, ChoiceChip, ChoiceIcon, ChoiceWrap, ChoiceClear,
 } from '../../../components/optionsSheet';
@@ -183,6 +185,10 @@ export const MyChecklists = () => {
   // Today's bound (org-local calendar day) — only applied when the Completed filter is actually
   // engaged, below, so the "Completed" tile and this list agree on what "completed" means.
   const todayBound = todayPeriodBoundIso();
+  // Opened from a chart bar: the server narrows to runs whose period falls in that bar's days.
+  const createdRange = useCreatedRange();
+  const rangeFrom = createdRange.range ? new Date(createdRange.range.from).toISOString() : undefined;
+  const rangeTo = createdRange.range ? new Date(createdRange.range.to - 1).toISOString() : undefined;
   const instanceFilter = {
     status: serverStatus,
     storeId: storeId || undefined,
@@ -190,8 +196,8 @@ export const MyChecklists = () => {
     verificationStatus: verificationStatus || undefined,
     departmentId: departmentId || undefined,
     assigneeIds: assigneeIds.length ? assigneeIds : undefined,
-    from: serverStatus === 'COMPLETED' ? todayBound : undefined,
-    to: serverStatus === 'COMPLETED' ? todayBound : undefined,
+    from: rangeFrom ?? (serverStatus === 'COMPLETED' ? todayBound : undefined),
+    to: rangeTo ?? (serverStatus === 'COMPLETED' ? todayBound : undefined),
   };
   // `isPending` is only true when there is no data at all (keepPreviousData holds the last page
   // while a new filter loads), so skeletons show on first load and the list just dims after that.
@@ -325,6 +331,7 @@ export const MyChecklists = () => {
     // Same shared container as Delegation, Tickets and To-Do, centred. Moving between those pages
     // and this one must not shift the content's width or edge.
     <div className="flex flex-col gap-6 mx-auto w-full max-w-(--container-width)">
+      <CreatedRangeBanner range={createdRange.range} onClear={createdRange.clear} noun="checklists" />
       <div className="flex flex-col gap-3">
         {/* Same header treatment as Delegation, Tickets and To-Do: no visible title block, the nav
             item that got you here already says My Checklists. The heading stays as the page's one

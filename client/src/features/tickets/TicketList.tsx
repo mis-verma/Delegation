@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { Plus, ChevronDown, Upload, AlertCircle, Inbox, LayoutList, Kanban, Table2, GanttChartSquare } from 'lucide-react';
 import { Button, PageNav, Fab, ViewToggle, EmptyState, type ViewTab } from '../../components';
+import { CreatedRangeBanner } from '../../components/createdRangeBanner';
+import { useCreatedRange } from '../../lib/createdRange';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/context/AuthContext';
 import { OWN_SCOPE_ROLES } from '../../api/auth';
@@ -77,7 +79,13 @@ export const TicketList = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const assigneeIdFilter = searchParams.get('assigneeIds') ?? undefined;
   const { data: allTicketsData, isPending, isError } = useTicketsBoardQuery(true, assigneeIdFilter);
-  const organizer = useTicketOrganizer(allTicketsData ?? [], user, departmentNames);
+  // Opened from a chart bar: only tickets created inside that bar's period (see lib/createdRange).
+  const createdRange = useCreatedRange();
+  const ticketsInRange = useMemo(() => {
+    const everything = allTicketsData ?? [];
+    return createdRange.range ? everything.filter((t) => createdRange.matches(t.createdAt)) : everything;
+  }, [allTicketsData, createdRange]);
+  const organizer = useTicketOrganizer(ticketsInRange, user, departmentNames);
 
   // `/tickets?open=<id>` opens that ticket's detail sheet directly, then drops the param so it
   // doesn't reopen on every render. Mirrors TaskList's existing `?open=` handling — the Dashboard's
@@ -127,6 +135,7 @@ export const TicketList = () => {
 
   return (
     <div className="flex flex-col gap-4 sm:gap-6 mx-auto w-full min-w-0 max-w-(--container-width) transition-all duration-300">
+      <CreatedRangeBanner range={createdRange.range} onClear={createdRange.clear} noun="tickets" />
 
       <div className="flex flex-col gap-3 sm:gap-4">
         {/* Same header treatment as Delegation: the visible title block is gone — you arrive from

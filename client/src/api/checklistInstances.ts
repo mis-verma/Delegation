@@ -521,3 +521,18 @@ export const checklistInstanceApi = {
       `/checklist-instances/reports/by-store${buildQuery({ from: from ? toDayParam(from) : undefined, to: to ? toDayParam(to) : undefined })}`,
     ),
 };
+
+/** One saved change to a question: who, when, and a readable line of what changed. Reviewers only. */
+export type ChecklistItemHistoryEvent = {
+  id: string;
+  itemId: string;
+  at: string;
+  actorName: string;
+  source: string | null;
+  summary: string;
+};
+
+export const checklistItemHistoryApi = {
+  get: (instanceId: string) =>
+    apiFetch<ApiResponse<ChecklistItemHistoryEvent[]>>(`/checklist-instances/${instanceId}/item-history`),
+};

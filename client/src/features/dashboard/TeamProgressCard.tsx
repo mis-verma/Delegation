@@ -1,7 +1,8 @@
 import { memo, useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { Users, Info, ChevronDown, ArrowUpRight, Clock, AlertTriangle } from 'lucide-react';
+import { Users, Info, ChevronDown, ArrowUpRight, Clock, AlertTriangle, CircleDashed, Loader, Eye, CheckCircle2 } from 'lucide-react';
 import { RadialGauge, EntityIconTile } from '../../components';
+import { CountUp } from '../../components/countUp';
 import { useAssignableUsersQuery } from '../tickets/hook';
 import { Popover, PopoverTrigger, PopoverContent } from '../../components/ui/popover';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '../../components/ui/dropdown-menu';
@@ -79,10 +80,10 @@ export const TeamProgressCard = memo(({ tasks, isOrgWideRole }: TeamProgressCard
   const ringFill = completionRate == null ? RING_FILL.neutral : RING_FILL[rateTone(completionRate, total)];
 
   const tiles = [
-    { key: 'todo', label: 'To do', rows: todo, dot: 'bg-text-muted' },
-    { key: 'in_progress', label: 'In progress', rows: inProgress, dot: 'bg-warning' },
-    { key: 'in_review', label: 'In review', rows: inReview, dot: 'bg-status-approve' },
-    { key: 'done', label: 'Done', rows: done, dot: 'bg-success' },
+    { key: 'todo', label: 'To do', rows: todo, dot: 'bg-text-muted', icon: CircleDashed, tone: 'bg-text-muted/15 text-text-secondary' },
+    { key: 'in_progress', label: 'In progress', rows: inProgress, dot: 'bg-warning', icon: Loader, tone: 'bg-warning/15 text-warning' },
+    { key: 'in_review', label: 'In review', rows: inReview, dot: 'bg-status-approve', icon: Eye, tone: 'bg-status-approve/15 text-status-approve' },
+    { key: 'done', label: 'Done', rows: done, dot: 'bg-success', icon: CheckCircle2, tone: 'bg-success/15 text-success' },
   ] as const;
 
   // Admin and PC: the three people with the most overdue delegations, so the card says who, not just
@@ -189,7 +190,9 @@ export const TeamProgressCard = memo(({ tasks, isOrgWideRole }: TeamProgressCard
                   onClick={() => open(`${tile.label} delegations`, tile.rows, '/tasks')}
                   className="flex items-center gap-3 w-full min-h-11 px-1 -mx-1 rounded-lg text-left cursor-pointer transition-colors duration-150 hover:bg-surface-hover/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
                 >
-                  <span aria-hidden="true" className={`size-2.5 rounded-full shrink-0 ${tile.dot}`} />
+                  <span aria-hidden="true" className={`flex items-center justify-center size-8 shrink-0 rounded-lg ${tile.tone}`}>
+                    <tile.icon size={16} />
+                  </span>
                   <span className="flex-1 text-sm font-display font-medium text-text-secondary">{tile.label}</span>
                   <span className="text-xs font-display font-medium text-text-muted tabular-nums">{total > 0 ? `${Math.round((tile.rows.length / total) * 100)}%` : ''}</span>
                   <span className="w-8 text-right text-base font-display font-bold tabular-nums text-text">{tile.rows.length}</span>
@@ -201,31 +204,30 @@ export const TeamProgressCard = memo(({ tasks, isOrgWideRole }: TeamProgressCard
       </div>
 
       {/* These two ignore the period: an overdue delegation is overdue whenever it was created. */}
+      {/* These two ignore the period: an overdue delegation is overdue whenever it was created. Same
+          stat-tile shape as the other dashboard stats: number and label on the left, tinted icon on the right. */}
       <div className="flex flex-col gap-2">
         <p className="text-xs font-display font-semibold text-text-muted">Right now, any date</p>
-        <div className="grid grid-cols-2 gap-2.5">
-          <button
-            type="button"
-            onClick={() => open('Overdue delegations', overdue, '/tasks?quickFilter=delayed')}
-            className="flex items-center gap-3 min-h-14 px-3.5 rounded-xl border border-danger/25 bg-danger/5 text-left cursor-pointer transition-colors duration-200 hover:bg-danger/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
-          >
-            <span className="flex items-center justify-center size-8 shrink-0 rounded-lg bg-danger/15 text-danger"><AlertTriangle size={16} aria-hidden /></span>
-            <span className="flex flex-col leading-tight">
-              <span className="text-xl font-display font-bold tabular-nums text-danger">{overdue.length}</span>
-              <span className="text-xs font-display font-semibold text-text-secondary">Overdue</span>
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => open('Due today', dueToday, '/tasks?quickFilter=pending')}
-            className="flex items-center gap-3 min-h-14 px-3.5 rounded-xl border border-warning/25 bg-warning/5 text-left cursor-pointer transition-colors duration-200 hover:bg-warning/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning/40"
-          >
-            <span className="flex items-center justify-center size-8 shrink-0 rounded-lg bg-warning/15 text-warning"><Clock size={16} aria-hidden /></span>
-            <span className="flex flex-col leading-tight">
-              <span className="text-xl font-display font-bold tabular-nums text-warning">{dueToday.length}</span>
-              <span className="text-xs font-display font-semibold text-text-secondary">Due today</span>
-            </span>
-          </button>
+        <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-2.5">
+          {[
+            { key: 'overdue', label: 'Overdue', rows: overdue, href: '/tasks?quickFilter=delayed', title: 'Overdue delegations', icon: AlertTriangle, tile: 'bg-danger/10 text-danger', value: 'text-danger', ring: 'hover:border-danger/40 focus-visible:ring-danger/40' },
+            { key: 'due', label: 'Due today', rows: dueToday, href: '/tasks?quickFilter=pending', title: 'Due today', icon: Clock, tile: 'bg-warning/10 text-warning', value: 'text-warning', ring: 'hover:border-warning/40 focus-visible:ring-warning/40' },
+          ].map((stat) => (
+            <button
+              key={stat.key}
+              type="button"
+              onClick={() => open(stat.title, stat.rows, stat.href)}
+              className={`flex items-center justify-between gap-3 rounded-xl border border-border bg-surface p-3.5 sm:p-4 text-left cursor-pointer transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 ${stat.ring}`}
+            >
+              <span className="flex flex-col gap-1 min-w-0">
+                <span className={`text-2xl sm:text-3xl font-display font-bold tabular-nums leading-none ${stat.value}`}><CountUp value={stat.rows.length} /></span>
+                <span className="text-xs sm:text-sm font-display font-medium text-text-muted">{stat.label}</span>
+              </span>
+              <span aria-hidden="true" className={`flex items-center justify-center size-10 sm:size-11 shrink-0 rounded-xl ${stat.tile}`}>
+                <stat.icon size={20} />
+              </span>
+            </button>
+          ))}
         </div>
       </div>
 

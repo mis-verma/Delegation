@@ -9,6 +9,8 @@ export interface QuickAction {
   icon: LucideIcon;
   label: string;
   description: string;
+  /** Tint for the icon tile, e.g. the category's own colour. Falls back to the standard blue tile. */
+  tileClassName?: string;
 }
 
 interface QuickActionsGridProps {
@@ -42,7 +44,7 @@ export const QuickActionsGrid = ({ actions, title = 'Quick actions', description
       <EntityIconTile icon={Zap} tone="coral" />
       <div>
         <h2 className="font-display text-base sm:text-lg font-bold tracking-tight text-text">{title}</h2>
-        <p className="mt-0.5 font-display text-[11px] sm:text-xs font-medium text-text-muted">{description}</p>
+        <p className="mt-0.5 font-display text-xs font-medium text-text-muted">{description}</p>
       </div>
     </div>
 

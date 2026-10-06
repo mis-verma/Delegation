@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { ExternalLink, Flag, CornerUpLeft, CheckCircle2 } from 'lucide-react';
 import { IconChip, Modal, PANEL_CLASS } from '../../components';
 import { cn } from '@/lib/utils';
-import { complianceToneClass, formatDate, formatDateTime } from '../checklist/checklistDisplay';
+import { complianceToneClass, formatDate, formatDateTime, instanceDeadline } from '../checklist/checklistDisplay';
 import { InstanceReviewPanel } from '../checklist/instance/InstanceReviewPanel';
 import { ReviewActions, SendBackForm } from '../checklist/instance/ReviewActions';
 import { SEND_BACK_NOTE_MAX, composeSendBackNote } from '../checklist/instance/sendBackNote';
@@ -95,6 +95,7 @@ export const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, picked
         onNoteChange={onItemNote}
         lastSendBackNote={instance.verificationNote}
         showScores={false}
+        deadlineMs={instanceDeadline(instance)}
       />
     </div>
   );

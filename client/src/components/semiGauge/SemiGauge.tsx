@@ -93,8 +93,9 @@ export const SemiGauge = ({
           </g>
         )}
 
-        <text x="15" y="107" textAnchor="middle" className="fill-text-light" fontSize="7" fontWeight="600">0</text>
-        <text x="185" y="107" textAnchor="middle" className="fill-text-light" fontSize="7" fontWeight="600">100</text>
+        {/* The end values sit inside the arc, just above the baseline, not under its tips. */}
+        <text x="44" y="97" textAnchor="middle" className="fill-text-light" fontSize="7" fontWeight="600">0</text>
+        <text x="156" y="97" textAnchor="middle" className="fill-text-light" fontSize="7" fontWeight="600">100</text>
       </svg>
 
       <div className="absolute inset-x-0 bottom-0 flex flex-col items-center justify-end gap-1.5 pb-[3%]">{children}</div>

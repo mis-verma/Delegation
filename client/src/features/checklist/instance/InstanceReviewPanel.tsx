@@ -1,10 +1,11 @@
 import { memo, useMemo, useState } from 'react';
-import { AlertTriangle, Ban, Check, CheckCheck, ChevronDown, CornerUpLeft, Flag } from 'lucide-react';
+import { AlertTriangle, Ban, Check, CheckCheck, ChevronDown, CornerUpLeft, Flag, History, Timer } from 'lucide-react';
 import { IconChip } from '../../../components';
 import { cn } from '@/lib/utils';
 import { runScores } from '../checklistCompliance';
 import { complianceToneClass, formatDateTime } from '../checklistDisplay';
 import { EvidenceThumb } from './EvidenceThumb';
+import { useChecklistItemHistoryQuery } from '../hook';
 import { itemFlags, needsLookRank, type ItemFlags } from './reviewFlags';
 import type { ChecklistInstanceItem, ChecklistInstanceItemSubmission } from '../../../api/checklistInstances';
 
@@ -110,6 +111,45 @@ const AuditPeople = ({ item }: { item: ChecklistInstanceItem }) => {
   );
 };
 
+// How this question's answer was saved and edited: one line per change with who and when. Opens on
+// demand and loads the run's whole history once, shared by every question's expander.
+const ItemHistory = ({ item }: { item: ChecklistInstanceItem }) => {
+  const [open, setOpen] = useState(false);
+  const { data, isPending, isError } = useChecklistItemHistoryQuery(item.instanceId, open);
+  const events = (data ?? []).filter((e) => e.itemId === item.id);
+  return (
+    <div className="flex flex-col gap-1.5">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex items-center gap-1.5 self-start min-h-11 sm:min-h-8 -mx-1.5 px-1.5 rounded-lg text-xs font-display font-semibold text-text-muted hover:text-text hover:bg-surface-hover transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+      >
+        <History size={13} aria-hidden />
+        {open ? 'Hide answer history' : 'Answer history'}
+      </button>
+      {open && (
+        isPending ? (
+          <p className="text-xs font-display text-text-muted">Loading history...</p>
+        ) : isError ? (
+          <p className="text-xs font-display text-danger">Could not load the history. Try again in a moment.</p>
+        ) : events.length === 0 ? (
+          <p className="text-xs font-display text-text-muted">No changes recorded for this question.</p>
+        ) : (
+          <ol className="flex flex-col gap-1.5 border-l-2 border-border pl-3">
+            {events.map((e) => (
+              <li key={e.id} className="flex flex-col">
+                <span className="text-xs font-display font-medium text-text-secondary">{e.summary}</span>
+                <span className="text-xs font-display text-text-muted">{e.actorName} &middot; {formatDateTime(e.at)}</span>
+              </li>
+            ))}
+          </ol>
+        )
+      )}
+    </div>
+  );
+};
+
 interface ReviewRowProps {
   item: ChecklistInstanceItem;
   flags: ItemFlags;
@@ -121,10 +161,13 @@ interface ReviewRowProps {
   onNoteChange?: (itemId: string, note: string) => void;
   /** The reviewer's note from the last send-back, shown on questions that were fixed since. */
   previousNote: string | null;
+  /** When the run closed (ms). A question completed after this is flagged as answered late. */
+  deadlineMs: number | null;
 }
 
-const ReviewRow = memo(function ReviewRow({ item, flags, selected, disabled, onToggle, note, onNoteChange, previousNote }: ReviewRowProps) {
+const ReviewRow = memo(function ReviewRow({ item, flags, selected, disabled, onToggle, note, onNoteChange, previousNote, deadlineMs }: ReviewRowProps) {
   const answer = item.isNotApplicable ? null : answerText(item);
+  const answeredLate = deadlineMs != null && item.isDone && !!item.completedAt && new Date(item.completedAt).getTime() > deadlineMs;
 
   return (
     <li className={cn('flex items-start gap-1 py-2.5 first:pt-0 last:pb-0 rounded-lg transition-colors duration-150', selected && 'bg-danger/5')}>
@@ -153,6 +196,7 @@ const ReviewRow = memo(function ReviewRow({ item, flags, selected, disabled, onT
         <div className="flex items-start justify-between gap-2 flex-wrap">
           <p className="text-sm font-display font-medium text-text leading-snug min-w-0">{item.label}</p>
           <div className="flex items-center gap-1.5 flex-wrap">
+            {answeredLate && <IconChip icon={Timer} tone="bg-warning" label="Answered late" title="Completed after the run's closing time" />}
             {flags.critical && <IconChip icon={Flag} tone="bg-danger" label="Critical" title="Marked critical by the checklist author" />}
             {item.isNotApplicable && <IconChip icon={Ban} tone="bg-text-muted" label="Not applicable" />}
             {flags.bad && <IconChip icon={AlertTriangle} tone="bg-warning" label="Not an acceptable answer" />}
@@ -189,6 +233,7 @@ const ReviewRow = memo(function ReviewRow({ item, flags, selected, disabled, onT
           </div>
         )}
         {item.itemType === 'AUDIT' && <AuditPeople item={item} />}
+        {item.itemType !== 'AUDIT' && <ItemHistory item={item} />}
         {selected && onNoteChange && (
           <input
             type="text"
@@ -220,6 +265,8 @@ interface InstanceReviewPanelProps {
   lastSendBackNote?: string | null;
   /** Shows the completion / compliance line on top. The review pane has its own score tiles. */
   showScores?: boolean;
+  /** When the run closed (ms), so late answers can be flagged. Leave out to skip the flag. */
+  deadlineMs?: number | null;
 }
 
 const SectionTitle = ({ children }: { children: string }) => (
@@ -231,7 +278,7 @@ const SectionTitle = ({ children }: { children: string }) => (
 // question back (with an optional note of its own). Used by the Verification page's review pane and
 // the department Approvals page, so both review the same way.
 export const InstanceReviewPanel = memo(function InstanceReviewPanel({
-  items, selected, onToggle, disabled = false, notes, onNoteChange, lastSendBackNote = null, showScores = true,
+  items, selected, onToggle, disabled = false, notes, onNoteChange, lastSendBackNote = null, showScores = true, deadlineMs = null,
 }: InstanceReviewPanelProps) {
   const scores = useMemo(() => (showScores ? runScores(items) : null), [items, showScores]);
   const [showRest, setShowRest] = useState(false);
@@ -255,6 +302,7 @@ export const InstanceReviewPanel = memo(function InstanceReviewPanel({
       note={notes?.[item.id] ?? ''}
       onNoteChange={onNoteChange}
       previousNote={lastSendBackNote}
+      deadlineMs={deadlineMs}
     />
   );
 

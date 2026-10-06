@@ -4,12 +4,11 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { BarChart3, CheckSquare, ChevronRight, ClipboardCheck, ListTodo, Plus, TicketCheck, type LucideIcon } from 'lucide-react';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { PinnedBreakdown } from './PinnedBreakdown';
-import { DrilldownModal } from './DrilldownModal';
+import { createdRangeHref } from '../../lib/createdRange';
 import { EmptyState } from '../../components';
 import {
   lastActivityBuckets,
   countItemsInRange,
-  itemsInRange,
   ACTIVITY_BUCKET_COUNT,
   ACTIVITY_GROUP_RANGE_LABEL,
   ACTIVITY_CATEGORY_ORDER,
@@ -96,6 +95,14 @@ const makeSegmentShape = (category: ActivityCategory, activeOrder: readonly Acti
       />
     );
   };
+
+// Where each category's list lives; a click on a bar opens it narrowed to that bar's period.
+const CATEGORY_PAGE: Record<ActivityCategory, string> = {
+  delegation: '/tasks',
+  ticket: '/tickets',
+  checklist: '/checklists',
+  todo: '/todo',
+};
 
 const CATEGORY_ICON: Record<ActivityCategory, LucideIcon> = {
   delegation: CheckSquare,
@@ -249,7 +256,6 @@ CompactBreakdown.displayName = 'CompactBreakdown';
 export const ActivityTrendChart = ({ items, activeCategories, groupBy, onToggleCategory }: ActivityTrendChartProps) => {
   const navigate = useNavigate();
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const [drilldownCategory, setDrilldownCategory] = useState<ActivityCategory | null>(null);
   const isMobile = useIsMobile();
   const rootRef = useRef<HTMLDivElement>(null);
   const plotRef = useRef<HTMLDivElement>(null);
@@ -277,13 +283,13 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy, onToggleC
   // of it staying up until the same bar is tapped again. Skipped while the drill-down modal is open
   // — it renders in a portal outside rootRef and needs `selectedIndex` to stay set.
   useEffect(() => {
-    if (!isMobile || selectedIndex === null || drilldownCategory) return;
+    if (!isMobile || selectedIndex === null) return;
     const onPointerDown = (e: PointerEvent) => {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) setSelectedIndex(null);
     };
     document.addEventListener('pointerdown', onPointerDown);
     return () => document.removeEventListener('pointerdown', onPointerDown);
-  }, [isMobile, selectedIndex, drilldownCategory]);
+  }, [isMobile, selectedIndex]);
 
   // Bucket indices mean something different per granularity (e.g. index 3 of 7 days vs. index 3
   // of 4 quarters) — clear any pinned selection rather than let it silently point at the wrong
@@ -293,7 +299,6 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy, onToggleC
   if (groupBy !== prevGroupBy) {
     setPrevGroupBy(groupBy);
     setSelectedIndex(null);
-    setDrilldownCategory(null);
     setHover(null);
   }
 
@@ -400,12 +405,7 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy, onToggleC
   const openCategory = (category: ActivityCategory, index: number) => {
     cancelHide();
     setHover(null);
-    setSelectedIndex(index);
-    setDrilldownCategory(category);
-  };
-  const closeDrilldown = () => {
-    setDrilldownCategory(null);
-    if (!isMobile) setSelectedIndex(null);
+    navigate(createdRangeHref(CATEGORY_PAGE[category], buckets[index].start, buckets[index].end));
   };
 
   return (
@@ -546,7 +546,7 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy, onToggleC
 
       {/* Desktop hover card: the same breakdown, with every row clickable. Flips to the left of the
           bar on the right half of the chart so it never runs off the card. */}
-      {!isMobile && hover && hoverDatum && !drilldownCategory && datumTotal(hoverDatum, activeOrder) > 0 && (
+      {!isMobile && hover && hoverDatum && datumTotal(hoverDatum, activeOrder) > 0 && (
         <div
           onMouseEnter={cancelHide}
           onMouseLeave={scheduleHide}
@@ -567,7 +567,7 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy, onToggleC
           page is pushed down. Rows open the category straight away; a tap outside closes it. */}
       {isMobile && selectedDatum && (
         <div className="absolute inset-x-0 top-0 z-20 rounded-2xl border border-border bg-surface p-1.5">
-          <CompactBreakdown datum={selectedDatum} activeCategories={activeCategories} onCategoryClick={setDrilldownCategory} />
+          <CompactBreakdown datum={selectedDatum} activeCategories={activeCategories} onCategoryClick={(category) => openCategory(category, selectedIndex ?? 0)} />
         </div>
       )}
       </div>
@@ -617,24 +617,8 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy, onToggleC
       </div>
 
       <p className="text-center text-xs font-medium text-text-muted">
-        {isMobile ? 'Tap a bar, then pick a category to open it' : 'Click a coloured part of a bar to open it'}
+        {isMobile ? 'Tap a bar, then pick a category to open it' : 'Click a coloured part of a bar to open that day on its page'}
       </p>
-
-      {drilldownCategory && selectedIndex !== null && (
-        <DrilldownModal
-          open
-          onClose={closeDrilldown}
-          title={`${ACTIVITY_CATEGORY_LABEL[drilldownCategory]}: ${data[selectedIndex].label}`}
-          rows={itemsInRange(items, drilldownCategory, buckets[selectedIndex].start, buckets[selectedIndex].end)}
-          viewAllHref={
-            drilldownCategory === 'delegation' ? '/tasks'
-              : drilldownCategory === 'ticket' ? '/tickets'
-              : drilldownCategory === 'checklist' ? '/checklists'
-              : '/todo'
-          }
-          viewAllLabel={`View all ${ACTIVITY_CATEGORY_LABEL[drilldownCategory].toLowerCase()}s`}
-        />
-      )}
     </div>
   );
 };

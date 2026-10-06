@@ -186,6 +186,12 @@ export const checklistInstanceController = {
         res.json({ success: true, data: instance })
     }),
 
+    // GET /checklist-instances/:id/item-history: who changed each answer, when, and how. Reviewers only.
+    itemHistory: asyncHandler(async (req: Request, res: Response) => {
+        const data = await checklistInstanceService.itemHistory(req.params.id, req.user!)
+        res.json({ success: true, data })
+    }),
+
     setItemDone: asyncHandler(async (req: Request, res: Response) => {
         const { isDone, ...values } = setChecklistInstanceItemDoneSchema.parse(req.body)
         const item = await checklistInstanceService.setItemDone(req.params.id, isDone, req.user!, values)
