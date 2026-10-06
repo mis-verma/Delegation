@@ -67,3 +67,27 @@ export const formatRelativeShort = (iso: string) => {
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
   return `${Math.floor(seconds / 86400)}d ago`;
 };
+
+export interface NotificationGroup {
+  label: 'Today' | 'Yesterday' | 'Earlier';
+  items: Notification[];
+}
+
+// Newest first, bucketed by calendar day so a long list reads as "what happened today" before
+// "what you missed". Empty buckets are left out. The list comes from the server newest-first already.
+export const groupNotifications = (list: Notification[]): NotificationGroup[] => {
+  const now = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(now.getDate() - 1);
+  const buckets: NotificationGroup[] = [
+    { label: 'Today', items: [] },
+    { label: 'Yesterday', items: [] },
+    { label: 'Earlier', items: [] },
+  ];
+  for (const n of list) {
+    const day = new Date(n.createdAt).toDateString();
+    const bucket = day === now.toDateString() ? buckets[0] : day === yesterday.toDateString() ? buckets[1] : buckets[2];
+    bucket.items.push(n);
+  }
+  return buckets.filter((b) => b.items.length > 0);
+};

@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router';
 import type { Notification } from '@/api/notifications';
 import { useNotificationsQuery, useMarkNotificationReadMutation, useMarkAllNotificationsReadMutation } from './hooks';
 import { useNotificationSocket } from './useNotificationSocket';
-import { notificationLook, notificationPath, formatNotificationTime, formatRelativeShort } from './notificationDisplay';
+import { notificationLook, notificationPath, formatNotificationTime, formatRelativeShort, groupNotifications } from './notificationDisplay';
 import { Popover, PopoverTrigger, PopoverContent } from '../../components/ui/popover';
 import { Modal } from '../../components/modal';
 import { useMediaQuery } from '../../lib/useMediaQuery';
@@ -39,104 +39,124 @@ interface NotificationBellProps {
   accent?: boolean;
 }
 
+type NotificationFilter = 'all' | 'unread';
+
 interface NotificationListProps {
   notifications: Notification[];
   isError: boolean;
+  filter: NotificationFilter;
   onOpen: (n: Notification) => void;
   /** Phone sheet: bigger rows and three message lines instead of two. */
   roomy?: boolean;
 }
 
-// The rows (or the error / empty state), shared by the desktop popover and the phone sheet.
-const NotificationList = ({ notifications, isError, onOpen, roomy = false }: NotificationListProps) => {
+const NotificationEmpty = ({ icon: Icon, title, hint, tone = 'neutral' }: { icon: typeof BellRing; title: string; hint: string; tone?: 'neutral' | 'danger' }) => (
+  <div className="flex flex-col items-center justify-center gap-1 py-14 px-6 text-center">
+    <span className={cn('flex items-center justify-center size-14 rounded-2xl mb-2', tone === 'danger' ? 'bg-danger/10 text-danger' : 'bg-primary-500/10 text-primary-600 dark:text-primary-300')}>
+      <Icon className="size-6" strokeWidth={1.75} />
+    </span>
+    <p className="text-sm font-display font-bold text-text">{title}</p>
+    <p className="text-sm font-display text-text-muted max-w-[16rem]">{hint}</p>
+  </div>
+);
+
+// The rows (or the error / empty state), shared by the desktop popover and the phone sheet. Grouped
+// under Today / Yesterday / Earlier, so the list reads like a timeline rather than one long run.
+const NotificationList = ({ notifications, isError, filter, onOpen, roomy = false }: NotificationListProps) => {
   if (isError) {
-    return (
-      <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-        <div className="flex items-center justify-center mb-3 text-danger">
-          <AlertCircle className="w-6 h-6" />
-        </div>
-        <p className="text-sm font-display font-medium text-text">Couldn't load notifications</p>
-        <p className="text-xs font-display text-text-muted mt-1">Failed to connect to the server. Please refresh the page.</p>
-      </div>
-    );
+    return <NotificationEmpty icon={AlertCircle} tone="danger" title="Couldn't load notifications" hint="We couldn't reach the server. Check your connection and refresh the page." />;
   }
 
-  if (notifications.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-        <div className="flex items-center justify-center mb-3 text-text-light">
-          <BellRing className="w-6 h-6" />
-        </div>
-        <p className="text-sm font-display font-medium text-text">All caught up!</p>
-        <p className="text-xs font-display text-text-muted mt-1">Check back later for new notifications.</p>
-      </div>
-    );
+  const shown = filter === 'unread' ? notifications.filter((n) => !n.isRead) : notifications;
+
+  if (shown.length === 0) {
+    return filter === 'unread'
+      ? <NotificationEmpty icon={CheckCheck} title="Nothing unread" hint="You have read everything. Switch to All to see earlier updates." />
+      : <NotificationEmpty icon={BellRing} title="All caught up" hint="New updates about your delegations, tickets and checklists will show up here." />;
   }
 
   return (
-    <ul className="divide-y divide-border/60">
-      {notifications.map(n => {
-        const look = notificationLook(n.type);
-        const Icon = look.icon;
-        const canOpen = notificationPath(n) !== null;
-        return (
-          <li key={n.id}>
-            <button
-              onClick={() => onOpen(n)}
-              className={cn(
-                "w-full flex items-start gap-3 p-4 text-left transition-colors duration-200 cursor-pointer touch-manipulation focus-visible:outline-none focus-visible:bg-surface-hover relative",
-                roomy && "min-h-[4.5rem] active:bg-surface-hover",
-                // Unread rows get a left accent bar in the badge's own colour plus a
-                // stronger tint, so "needs attention" is legible at a glance, not just
-                // from the small dot the old version relied on.
-                n.isRead
-                  ? "bg-surface hover:bg-surface-hover"
-                  : "bg-primary-500/[0.06] hover:bg-primary-500/10 before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:bg-primary-500"
-              )}
-            >
-              <span className={cn("flex items-center justify-center size-9 rounded-full shrink-0", look.tile)}>
-                <Icon size={16} strokeWidth={2.25} />
-              </span>
+    <div className="flex flex-col pb-2">
+      {groupNotifications(shown).map((group) => (
+        <section key={group.label} aria-label={group.label}>
+          <h4 className="px-5 pt-3 pb-1.5 text-xs font-display font-bold text-text-light tracking-wide">{group.label}</h4>
+          <ul className="flex flex-col gap-0.5 px-2">
+            {group.items.map((n) => {
+              const look = notificationLook(n.type);
+              const Icon = look.icon;
+              const canOpen = notificationPath(n) !== null;
+              return (
+                <li key={n.id}>
+                  <button
+                    onClick={() => onOpen(n)}
+                    className={cn(
+                      'w-full flex items-start gap-3 p-3 rounded-xl text-left transition-colors duration-150 cursor-pointer touch-manipulation outline-none',
+                      'focus-visible:ring-2 focus-visible:ring-primary-500/40',
+                      roomy && 'min-h-[4.5rem] active:bg-surface-hover',
+                      n.isRead ? 'hover:bg-surface-hover' : 'bg-primary-500/[0.07] hover:bg-primary-500/[0.12]',
+                    )}
+                  >
+                    <span className={cn('flex items-center justify-center size-10 rounded-xl shrink-0', look.tile)}>
+                      <Icon size={18} strokeWidth={2.1} />
+                    </span>
 
-              <div className="flex-1 min-w-0 space-y-1">
-                <div className="flex items-start justify-between gap-2">
-                  <p className={cn(
-                    "text-sm font-display leading-snug break-words",
-                    n.isRead ? "font-medium text-text-secondary" : "font-bold text-text"
-                  )}>
-                    {n.title}
-                  </p>
-                  {!n.isRead && <span className="mt-1 size-1.5 rounded-full bg-primary-500 shrink-0" aria-hidden />}
-                </div>
-                <p className={cn(
-                  "text-sm font-display leading-relaxed break-words",
-                  roomy ? "line-clamp-3" : "line-clamp-2",
-                  n.isRead ? "text-text-muted" : "text-text-secondary"
-                )}>
-                  {n.message}
-                </p>
-                <div className="flex items-center gap-1.5 pt-1">
-                  <p className="text-[11px] font-display font-semibold text-text-light" title={formatRelativeShort(n.createdAt)}>
-                    {formatNotificationTime(n.createdAt)}
-                  </p>
-                  {canOpen && (
-                    <ChevronRight size={11} className="text-text-light" aria-hidden />
-                  )}
-                  {n.checklistMissed && (
-                    <span className="text-[11px] font-display text-text-light">· That day has ended</span>
-                  )}
-                </div>
-              </div>
-            </button>
-          </li>
-        );
-      })}
-    </ul>
+                    <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className={cn('text-sm font-display leading-snug break-words', n.isRead ? 'font-medium text-text-secondary' : 'font-bold text-text')}>
+                          {n.title}
+                        </p>
+                        {!n.isRead && <span className="mt-1.5 size-2 rounded-full bg-primary-500 shrink-0" aria-label="Unread" />}
+                      </div>
+                      <p className={cn('text-sm font-display leading-relaxed break-words', roomy ? 'line-clamp-3' : 'line-clamp-2', n.isRead ? 'text-text-muted' : 'text-text-secondary')}>
+                        {n.message}
+                      </p>
+                      <div className="flex items-center gap-1.5 pt-1 text-xs font-display text-text-light">
+                        <span className="font-semibold text-text-muted">{look.kindLabel}</span>
+                        <span aria-hidden>·</span>
+                        <time dateTime={n.createdAt} title={formatNotificationTime(n.createdAt)}>{formatRelativeShort(n.createdAt)}</time>
+                        {n.checklistMissed && (
+                          <>
+                            <span aria-hidden>·</span>
+                            <span>That day has ended</span>
+                          </>
+                        )}
+                        {canOpen && <ChevronRight size={12} className="ml-auto shrink-0" aria-hidden />}
+                      </div>
+                    </div>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ))}
+    </div>
   );
 };
 
+// All / Unread: two quiet pills in the panel header.
+const NotificationTabs = ({ value, onChange, unread }: { value: NotificationFilter; onChange: (v: NotificationFilter) => void; unread: number }) => (
+  <div role="group" aria-label="Show notifications" className="inline-flex items-center gap-1 p-1 rounded-full bg-surface-hover border border-border/60">
+    {(['all', 'unread'] as const).map((key) => (
+      <button
+        key={key}
+        type="button"
+        aria-pressed={value === key}
+        onClick={() => onChange(key)}
+        className={cn(
+          'h-7 pointer-coarse:h-9 px-3 rounded-full text-xs font-display font-semibold transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40',
+          value === key ? 'bg-surface text-text border border-border/70' : 'text-text-muted hover:text-text border border-transparent',
+        )}
+      >
+        {key === 'all' ? 'All' : `Unread${unread > 0 ? ` ${unread}` : ''}`}
+      </button>
+    ))}
+  </div>
+);
+
 export const NotificationBell = ({ tone = 'light', badgeRing = true, accent = false }: NotificationBellProps) => {
   const [open, setOpen] = useState(false);
+  const [filter, setFilter] = useState<NotificationFilter>('all');
   // Rings the bell for a beat when a notification lands while the panel is closed — the toast
   // (useNotificationSocket) already surfaces it, this is what makes the bell itself say "new" if
   // someone glances at the header a second later instead of catching the toast.
@@ -198,8 +218,8 @@ export const NotificationBell = ({ tone = 'light', badgeRing = true, accent = fa
 
       {unreadCount > 0 && (
         <span className={cn(
-          "absolute top-1.5 right-1.5 flex items-center justify-center min-w-[18px] h-[18px] px-1",
-          "rounded-full bg-danger text-white text-[10px] font-bold leading-none",
+          "absolute top-1 right-1 flex items-center justify-center min-w-5 h-5 px-1",
+          "rounded-full bg-danger text-white text-xs font-bold leading-none",
           badgeRing && "ring-2 ring-surface",
           "transform translate-x-1/2 -translate-y-1/2",
           "animate-in zoom-in duration-300",
@@ -217,7 +237,7 @@ export const NotificationBell = ({ tone = 'light', badgeRing = true, accent = fa
       onClick={() => markAllRead.mutate()}
       disabled={markAllRead.isPending}
       className={cn(
-        "flex items-center gap-1.5 min-h-8 pointer-coarse:min-h-11 text-xs font-display font-medium text-text-light hover:text-primary-600",
+        "flex items-center gap-1.5 min-h-8 pointer-coarse:min-h-11 text-xs font-display font-semibold text-primary-700 dark:text-primary-300 hover:text-primary-600",
         "transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded-md px-1.5 -mx-1.5 cursor-pointer touch-manipulation disabled:opacity-50"
       )}
     >
@@ -238,7 +258,7 @@ export const NotificationBell = ({ tone = 'light', badgeRing = true, accent = fa
             <span className="flex items-center gap-2">
               Notifications
               {unreadCount > 0 && (
-                <span className="px-2 py-0.5 rounded-full bg-danger/15 text-danger text-[10px] font-display font-bold">
+                <span className="px-2 py-0.5 rounded-full bg-primary-500/15 text-primary-700 dark:text-primary-300 text-xs font-display font-bold">
                   {unreadCount} new
                 </span>
               )}
@@ -249,10 +269,11 @@ export const NotificationBell = ({ tone = 'light', badgeRing = true, accent = fa
           contentClassName="h-[85dvh]"
           bodyClassName="gap-0 p-0 overscroll-contain pb-[max(0.5rem,env(safe-area-inset-bottom))]"
         >
-          {unreadCount > 0 && (
-            <div className="flex justify-end px-4 py-1 border-b border-border/60 shrink-0">{markAllButton}</div>
-          )}
-          <NotificationList notifications={notifications} isError={isError} onOpen={handleClick} roomy />
+          <div className="flex items-center justify-between gap-2 px-4 py-2 border-b border-border/60 shrink-0">
+            <NotificationTabs value={filter} onChange={setFilter} unread={unreadCount} />
+            {unreadCount > 0 && markAllButton}
+          </div>
+          <NotificationList notifications={notifications} isError={isError} filter={filter} onOpen={handleClick} roomy />
         </Modal>
       </>
     );
@@ -274,24 +295,23 @@ export const NotificationBell = ({ tone = 'light', badgeRing = true, accent = fa
         sideOffset={10}
         className="w-96 p-0 rounded-2xl border border-border bg-surface overflow-hidden flex flex-col max-h-[32rem]"
       >
-        <header className="flex items-center justify-between px-5 py-4 border-b border-border/60 bg-surface-hover/50 shrink-0">
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-display font-bold text-text">Notifications</h3>
-            {unreadCount > 0 && (
-              <span className="px-2 py-0.5 rounded-full bg-danger/15 text-danger text-[10px] font-display font-bold">
-                {unreadCount} new
-              </span>
-            )}
+        <header className="flex flex-col gap-3 px-5 pt-4 pb-3 border-b border-border/60 shrink-0">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <h3 className="text-base font-display font-bold text-text tracking-tight">Notifications</h3>
+              {unreadCount > 0 && (
+                <span className="px-2 py-0.5 rounded-full bg-primary-500/15 text-primary-700 dark:text-primary-300 text-xs font-display font-bold">
+                  {unreadCount} new
+                </span>
+              )}
+            </div>
+            {unreadCount > 0 && markAllButton}
           </div>
-          {unreadCount > 0 && markAllButton}
+          <NotificationTabs value={filter} onChange={setFilter} unread={unreadCount} />
         </header>
 
-        <div className="flex-1 overflow-y-auto no-scrollbar relative">
-          <NotificationList notifications={notifications} isError={isError} onOpen={handleClick} />
-
-          {notifications.length > 0 && !isError && (
-            <div className="h-6 w-full bg-gradient-to-t from-surface to-transparent absolute bottom-0 pointer-events-none" />
-          )}
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
+          <NotificationList notifications={notifications} isError={isError} filter={filter} onOpen={handleClick} />
         </div>
       </PopoverContent>
     </Popover>
