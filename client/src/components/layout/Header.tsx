@@ -137,7 +137,9 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
               </span>
             ) : (
               <span className="inline-flex rounded-xl transition-transform duration-200 group-hover:scale-105">
-                <BrandLogo className="size-9 sm:size-10" showWordmark={false} />
+                {/* The mark alone on a phone; from sm up the name sits beside it, so the logo reads as a logo on
+                    tablets and desktops instead of a small blue square. */}
+                <BrandLogo className="size-10 sm:size-11" textClassName="hidden sm:inline-flex text-lg" />
               </span>
             )}
           </NavLink>

@@ -35,11 +35,14 @@ export const BottomNav = () => {
 
   return (
     <nav
-      className="md:hidden fixed inset-x-0 bottom-0 z-40 px-3 pointer-events-none"
+      // The strip the bar floats in is filled with the page colour, so scrolling text and cards no
+      // longer show through the gaps at its sides and below it, and a tap in that strip no longer
+      // lands on something hidden behind it.
+      className="md:hidden fixed inset-x-0 bottom-0 z-40 px-3 pt-2 bg-background"
       style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
       aria-label="Mobile navigation bar"
     >
-      <div className="pointer-events-auto relative h-16 max-w-lg mx-auto grid grid-cols-5 rounded-3xl border border-border bg-surface">
+      <div className="relative h-16 max-w-lg mx-auto grid grid-cols-5 rounded-3xl border border-border bg-surface">
         {NAV_ITEMS.map(({ to, label, icon: Icon, exact, center }) => {
           const isActive = exact ? location.pathname === to : location.pathname.startsWith(to);
 
