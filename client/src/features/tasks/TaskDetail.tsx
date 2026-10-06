@@ -139,10 +139,9 @@ const TaskFooter = ({ task, isPC, isVerifier, nextStatus, onAdvance, isAdvancing
         </div>
       )}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-4">
-        {/* Score/status readout is desktop-only here — phones show the score beside the status chip
-            at the top of the sheet (TaskStatusSummary) instead of spending a footer row on it. */}
+        {/* The score now has its own panel under the status at the top of the sheet, so the footer
+            only keeps the Completed / Awaiting approval notes. */}
         <div className="hidden sm:flex items-center gap-3 flex-wrap">
-          <TaskScoreBadge status={task.status} />
           {task.status === 'done' && (
             <span className="flex items-center gap-1.5 text-xs font-semibold text-success px-2 py-1 rounded-md">
               <CheckCircle2 size={15} /> Completed
@@ -209,10 +208,6 @@ const TaskStatusSummary = ({ status }: { status: Task['status'] }) => {
         {/* Same icon-circle StatusChip as the list cards and the remark popup — was a flat
             outline Badge, the old chip style. */}
         <StatusChip status={DETAIL_STATUS_CHIP_KEY[status]} label={STATUS_LABEL[status]} />
-        {/* Phones: the score sits beside the status here instead of taking a footer row of its own. */}
-        <span className="sm:hidden">
-          <TaskScoreBadge status={status} />
-        </span>
       </div>
       {stepIndex >= 0 && (
         <span className="text-[11px] font-semibold text-text-light tabular-nums shrink-0">
@@ -414,6 +409,7 @@ const TaskEditLayout = ({
       </div>
 
       <TaskStatusSummary status={task.status} />
+      <TaskScoreBadge status={task.status} variant="panel" />
 
       <VerificationNoteBanner note={task.verificationNote} approved={task.status === 'done'} verifiedBy={task.verifiedBy} />
 

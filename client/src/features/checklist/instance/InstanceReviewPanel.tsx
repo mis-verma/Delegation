@@ -6,7 +6,7 @@ import { runScores } from '../checklistCompliance';
 import { complianceToneClass, formatDateTime } from '../checklistDisplay';
 import { EvidenceThumb } from './EvidenceThumb';
 import { itemFlags, needsLookRank, type ItemFlags } from './reviewFlags';
-import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
+import type { ChecklistInstanceItem, ChecklistInstanceItemSubmission } from '../../../api/checklistInstances';
 
 // What the person answered, in words, so a reviewer can judge a question without opening the full
 // checklist. Types that carry no readable answer (a plain tick) return null.
@@ -44,6 +44,71 @@ const answerText = (item: ChecklistInstanceItem): string | null => {
 };
 
 const QUESTION_NOTE_MAX = 200;
+
+const personName = (s: ChecklistInstanceItemSubmission) =>
+  `${s.userId.firstName}${s.userId.lastName ? ` ${s.userId.lastName}` : ''}${s.userId.isActive === false ? ' (left)' : ''}`;
+
+// The audit trail line under every question: what kind of task it is, what was done, when and by whom.
+// Reviewers only (this panel is behind the Verification and department Approvals pages).
+const auditTrailLine = (item: ChecklistInstanceItem): string => {
+  const kind = item.itemType === 'AUDIT' ? 'Audit task' : 'Checklist task';
+  if (item.itemType === 'AUDIT') return kind;
+  if (!item.isDone || !item.completedAt) return `${kind} \u00b7 Not done`;
+  const action = item.isNotApplicable ? 'Marked not applicable' : 'Done';
+  return `${kind} \u00b7 ${action} ${formatDateTime(item.completedAt)}${item.completedByName ? ` by ${item.completedByName}` : ''}`;
+};
+
+// Audit questions are answered per person. This lists every person with the action taken, the time,
+// the reason when they could not be checked, and the photos, so nothing the checker recorded is hidden
+// behind the "x of y people checked" count.
+const AuditPeople = ({ item }: { item: ChecklistInstanceItem }) => {
+  const [open, setOpen] = useState(false);
+  if (item.submissions.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-2">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex items-center gap-1.5 self-start min-h-11 sm:min-h-8 -mx-1.5 px-1.5 rounded-lg text-xs font-display font-semibold text-primary-700 dark:text-primary-300 hover:bg-surface-hover transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+      >
+        <ChevronDown size={14} aria-hidden className={cn('transition-transform duration-200', open ? 'rotate-0' : '-rotate-90')} />
+        {open ? 'Hide people' : `Show each person (${item.submissions.length})`}
+      </button>
+      {open && (
+        <ul className="flex flex-col gap-2">
+          {item.submissions.map((sub) => {
+            const state = sub.isNotApplicable ? 'Not applicable' : sub.isDone ? 'Checked' : 'Not checked';
+            return (
+              <li key={sub.id} className="flex flex-col gap-1.5 rounded-lg border border-border/60 bg-surface-hover/30 p-2.5">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <span className="text-sm font-display font-medium text-text">{personName(sub)}</span>
+                  <span className={cn('text-xs font-display font-semibold', sub.isNotApplicable ? 'text-text-muted' : sub.isDone ? 'text-success' : 'text-warning')}>
+                    {state}
+                  </span>
+                </div>
+                <p className="text-xs font-display text-text-muted">
+                  {sub.completedAt ? formatDateTime(sub.completedAt) : 'No time recorded'}
+                  {sub.dressType ? ` \u00b7 Wearing: ${sub.dressType.name}` : ''}
+                </p>
+                {sub.remarks && (
+                  <p className="text-xs font-display text-text-muted whitespace-pre-wrap break-words">
+                    {sub.isNotApplicable ? 'Reason' : 'Remark'}: {sub.remarks}
+                  </p>
+                )}
+                {sub.images.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {sub.images.map((img) => <EvidenceThumb key={img.id} image={img} fallbackAlt={`Evidence for ${personName(sub)}`} />)}
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+};
 
 interface ReviewRowProps {
   item: ChecklistInstanceItem;
@@ -106,6 +171,7 @@ const ReviewRow = memo(function ReviewRow({ item, flags, selected, disabled, onT
           </div>
         </div>
 
+        <p className="text-xs font-display text-text-muted">{auditTrailLine(item)}</p>
         {answer && <p className="text-xs font-display text-text-secondary">{answer}</p>}
         {item.remarks && (
           <p className="text-xs font-display text-text-muted whitespace-pre-wrap break-words">
@@ -122,6 +188,7 @@ const ReviewRow = memo(function ReviewRow({ item, flags, selected, disabled, onT
             {item.images.map(img => <EvidenceThumb key={img.id} image={img} fallbackAlt={`Evidence for ${item.label}`} />)}
           </div>
         )}
+        {item.itemType === 'AUDIT' && <AuditPeople item={item} />}
         {selected && onNoteChange && (
           <input
             type="text"
