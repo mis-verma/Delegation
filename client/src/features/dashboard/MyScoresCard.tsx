@@ -72,16 +72,30 @@ interface ScoreTileProps {
   loading: boolean;
 }
 
+const TONE_PILL: Record<RateTone, { label: string; className: string } | null> = {
+  success: { label: 'Good', className: 'bg-success/10 text-success' },
+  warning: { label: 'Fair', className: 'bg-warning/10 text-warning' },
+  danger: { label: 'Low', className: 'bg-danger/10 text-danger' },
+  neutral: null,
+};
+
 const ScoreTile = ({ title, icon: Icon, score, total, detail, loading }: ScoreTileProps) => {
-  const [from, to] = RING[score === null ? 'neutral' : rateTone(score, total)];
+  const tone = score === null ? 'neutral' : rateTone(score, total);
+  const [from, to] = RING[tone];
+  const pill = TONE_PILL[tone];
   return (
-    <div className="flex flex-col items-center gap-1 rounded-lg border border-border bg-surface-hover/30 px-3 pt-3 pb-3 min-w-0">
-      <div className="flex items-center gap-1.5 text-xs font-display font-bold text-text-muted">
-        <Icon className="size-3.5 shrink-0" aria-hidden="true" />
-        <span className="truncate">{title}</span>
+    <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface-hover/30 p-3.5 min-w-0">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-md bg-primary-500/10 text-primary-600 dark:text-primary-400">
+            <Icon className="size-4" aria-hidden="true" />
+          </span>
+          <span className="truncate text-sm font-display font-bold text-text">{title}</span>
+        </div>
+        {pill && <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-display font-bold ${pill.className}`}>{pill.label}</span>}
       </div>
-      <SemiGauge percent={score ?? 0} showFill={score !== null} gradientFrom={from} gradientTo={to} ariaLabel={score === null ? `${title}: no data` : `${title}: ${score} percent`} className="max-w-48">
-        <span className="font-display text-xl sm:text-2xl font-extrabold leading-none text-text">{score === null ? '–' : `${score}%`}</span>
+      <SemiGauge percent={score ?? 0} showFill={score !== null} gradientFrom={from} gradientTo={to} ariaLabel={score === null ? `${title}: no data` : `${title}: ${score} percent`} className="mx-auto max-w-64">
+        <span className="font-display text-2xl sm:text-3xl font-extrabold leading-none text-text">{score === null ? '–' : `${score}%`}</span>
       </SemiGauge>
       <p className="text-xs font-display text-text-muted text-center min-h-8">{loading ? 'Loading' : score === null ? 'Nothing was due' : detail}</p>
     </div>
