@@ -13,6 +13,7 @@ import { DRAG_SLOP_PX } from "../../lib/dragSlop";
 import { isOverdueTask } from "./taskFilters";
 import { buildBoardColumns, type BoardGroupBy } from "./taskBoardGroups";
 import { taskAssigneeIds, type CardFieldVisibility } from "./cardFields";
+import { STATUS_ICON } from "./taskDisplay";
 import type { Task } from "../../api/task";
 
 const resolveAssigneeNames = (task: Task, assigneeNames: Map<string, string>) =>
@@ -182,6 +183,7 @@ const Column = memo(({ columnKey, label, tasks, isDropTarget, fillsRow, assignee
   // What's actually at risk in this column. A count alone says how much work sits here; this says
   // whether any of it has already slipped, which is the number that decides where to look first.
   const overdueCount = tasks.filter(isOverdueTask).length;
+  const statusIcon = isDropTarget ? STATUS_ICON[columnKey as Task['status']] : undefined;
 
   return (
     <section
@@ -193,14 +195,22 @@ const Column = memo(({ columnKey, label, tasks, isDropTarget, fillsRow, assignee
       // snap point; from xl it's a real grid again and those are handed back to the grid.
       className={`flex flex-col gap-2 h-full rounded-lg border p-2 transition-colors duration-200 ease-in-out flex-1 min-w-[280px] sm:min-w-[320px] snap-start ${
         fillsRow ? 'xl:min-w-0' : ''
-      } ${isOver ? 'border-primary-400 bg-primary-500/8' : 'border-border bg-surface'}`}
+      } ${isOver ? 'border-primary-400 bg-primary-500/8' : 'border-border/70 bg-surface-hover/40'}`}
     >
       {/* Column Header */}
       <div className="flex items-center justify-between gap-2 px-2 py-2">
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-2.5 min-w-0">
+          {/* A status column carries its status's own icon in a small tile, so the columns are told apart
+              by picture and colour as well as by name. Grouped by person or department there is no
+              status to show, so no tile. */}
+          {statusIcon && (
+            <span aria-hidden="true" className="flex items-center justify-center size-7 rounded-lg bg-surface border border-border/70 text-text-secondary shrink-0">
+              {statusIcon}
+            </span>
+          )}
           {/* Wraps rather than truncates: "Pending Approval" next to two badges was being cut to
               "Pending Appro…" in a four-column board. */}
-          <h3 className="text-[13px] font-display font-semibold text-text leading-tight">
+          <h3 className="text-sm font-display font-bold text-text leading-tight">
             {label}
           </h3>
           <Badge variant="default" className="min-w-6 justify-center bg-primary-500/10 tabular-nums">

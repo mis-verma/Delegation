@@ -27,7 +27,7 @@ import { IconChip } from "../../components/iconChip";
 import { getInitials } from "../../lib/getInitials";
 import { getChecklistProgress } from "../../lib/checklistProgress";
 import { ChecklistProgressBar } from "../../components/progress";
-import { CATEGORY_CONFIG, formatShortDateTime, type CardFieldVisibility } from "./cardFields";
+import { CATEGORY_CONFIG, formatShortDate, formatShortDateTime, type CardFieldVisibility } from "./cardFields";
 import { STATUS_LABEL, STATUS_ICON, MOVABLE_STATUSES } from "./taskDisplay";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent } from "@/components/ui/dropdown-menu";
 import { useConfirm } from "../../components";
@@ -94,7 +94,10 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
   // (a bespoke gradient progress bar mid-card, a StatusChip pill in the footer) that were also
   // mutually exclusive for no reason a viewer could see, and disagreed with each other's wording
   // ("3d left" vs "3 days left") whenever both could have applied.
-  const showDueChip = fields.dueDate && !!task.dueDate && task.status !== 'done';
+  const showDueCell = fields.dueDate && !!task.dueDate;
+  // Plain once it is done; amber on the due day itself; red when it has slipped.
+  const dueIsToday = !!task.dueDate && task.status !== 'done' && !isOverdue && new Date(task.dueDate).toDateString() === new Date().toDateString();
+  const dueTone = task.status === 'done' ? 'text-text-secondary' : isOverdue ? 'text-danger' : dueIsToday ? 'text-warning' : 'text-text';
   // The footer shows Done / In review / verify actions for these states, so the score pill would
   // just be a second reading of the same status.
   const showScoreBadge = fields.status && task.status !== 'done' && task.status !== 'pending_approval';
@@ -237,7 +240,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
           the same kind of thing now, matching Ticket/Checklist cards' own chip row. The score
           badge is suppressed whenever the footer already carries a status badge for the same fact
           — otherwise a finished delegation showed "Mark 100%" here and "Done" three lines below it. */}
-      {(fields.department || fields.priority || fields.category || showDueChip || showScoreBadge) && (
+      {(fields.department || fields.priority || fields.category || showScoreBadge) && (
         <div className="flex flex-wrap items-center gap-1.5">
           {fields.department && departmentName && <DepartmentChip name={departmentName} />}
 
@@ -248,16 +251,6 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
             return <IconChip icon={cat.icon} tone={cat.solid} label={cat.label} />;
           })()}
 
-          {showDueChip && (
-            <IconChip
-              icon={CalendarDays}
-              tone={isOverdue ? 'bg-danger' : 'bg-primary-700'}
-              label={daysLeftLabel(task.dueDate!)}
-              title={isOverdue ? 'Overdue' : 'Due date'}
-              className={isOverdue ? 'border-danger/30 text-danger' : undefined}
-            />
-          )}
-
           {showScoreBadge && <TaskScoreBadge status={task.status} />}
         </div>
       )}
@@ -265,15 +258,8 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
       {/* Raised-by and the timestamps were three separate bands. They're all the same kind of thing
           — quiet text metadata — so they share one wrapping row, which keeps pills and plain text
           from alternating down the card. */}
-      {((fields.raisedBy && raisedByName) || fields.created || fields.updated) && (
+      {(fields.created || fields.updated) && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-text-light tabular-nums">
-          {fields.raisedBy && raisedByName && (
-            <span className="flex items-center gap-1 min-w-0">
-              <UserCog size={12} strokeWidth={2.5} className="shrink-0" />
-              <span className="truncate text-text-muted">{raisedByName}</span>
-            </span>
-          )}
-
           {/* Both on: one "updated" time, with the created time in its tooltip. */}
           {fields.created && !fields.updated && (
             <span className="flex items-center gap-1" title={`Created ${formatShortDateTime(task.createdAt)}`}>
@@ -290,6 +276,40 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
               <History size={12} strokeWidth={2.5} />
               {formatShortDateTime(task.updatedAt)}
             </span>
+          )}
+        </div>
+      )}
+
+      {/* Two labelled facts the board is read for: who raised it and when it is due. Each has a small
+          caption and a value in full-size text, so neither is a grey afterthought in a row of icons. A
+          finished delegation shows its due date in plain text (nothing left to chase); an open one turns
+          amber on its due day and red once it has passed. */}
+      {((fields.raisedBy && raisedByName) || showDueCell) && (
+        <div className={`grid gap-2 rounded-lg bg-surface-hover/50 px-2.5 py-2 ${((fields.raisedBy && raisedByName) && showDueCell) ? 'grid-cols-2' : 'grid-cols-1'}`}>
+          {fields.raisedBy && raisedByName && (
+            <div className="min-w-0 flex flex-col gap-1">
+              <span className="text-xs font-display font-medium text-text-muted">Raised by</span>
+              <span className="flex items-center gap-1.5 min-w-0">
+                <span className={`flex items-center justify-center size-5 rounded-full text-white text-xs font-bold shrink-0 ${avatarColorClass(raisedByName)}`} aria-hidden="true">
+                  {getInitials(raisedByName).slice(0, 1)}
+                </span>
+                <span className="text-sm font-display font-semibold text-text truncate" title={raisedByName}>{raisedByName}</span>
+              </span>
+            </div>
+          )}
+          {showDueCell && (
+            <div className="min-w-0 flex flex-col gap-1">
+              <span className="text-xs font-display font-medium text-text-muted">Due</span>
+              <span className="flex items-center gap-1.5 min-w-0">
+                <CalendarDays size={14} strokeWidth={2.25} className={`shrink-0 ${dueTone}`} aria-hidden="true" />
+                <span className={`text-sm font-display font-semibold truncate ${dueTone}`} title={isOverdue ? 'Overdue' : 'Due date'}>
+                  {formatShortDate(task.dueDate!)}
+                </span>
+                {task.status !== 'done' && (
+                  <span className={`text-xs font-display font-medium shrink-0 ${dueTone}`}>{daysLeftLabel(task.dueDate!)}</span>
+                )}
+              </span>
+            </div>
           )}
         </div>
       )}
