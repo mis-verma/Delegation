@@ -6,4 +6,4 @@ export const scoreRouter = Router()
 
 scoreRouter.use(authenticate)
 // Any signed-in user. The service decides whose scores they may open.
-scoreRouter.get("/person", scoreController.person)
+scoreRouter.get("/", scoreController.scores)

@@ -1,7 +1,10 @@
 import { apiFetch } from './http';
 
-export interface PersonScores {
-  userId: string;
+export type ScoreScope = 'person' | 'department' | 'store';
+
+export interface Scores {
+  scope: ScoreScope;
+  id: string;
   name: string;
   from: string;
   to: string;
@@ -10,11 +13,11 @@ export interface PersonScores {
   delegation: { score: number | null; due: number; done: number; overdue: number };
 }
 
-/** `from` and `to` are calendar days, YYYY-MM-DD, both included. Without `userId` it is the caller's own. */
+/** `from` and `to` are calendar days, YYYY-MM-DD, both included. A person without `id` is the caller. */
 export const scoreApi = {
-  person: (params: { userId?: string; from: string; to: string }) => {
-    const query = new URLSearchParams({ from: params.from, to: params.to });
-    if (params.userId) query.set('userId', params.userId);
-    return apiFetch<{ success: boolean; data: PersonScores }>(`/scores/person?${query.toString()}`).then((r) => r.data);
+  get: (params: { scope: ScoreScope; id?: string; from: string; to: string }) => {
+    const query = new URLSearchParams({ scope: params.scope, from: params.from, to: params.to });
+    if (params.id) query.set('id', params.id);
+    return apiFetch<{ success: boolean; data: Scores }>(`/scores?${query.toString()}`).then((r) => r.data);
   },
 };

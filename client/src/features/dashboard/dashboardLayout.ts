@@ -35,15 +35,16 @@ export const DEFAULT_CARD_ORDER: readonly DashboardCardId[] = [
   'needsApproval',
   'kpiStrip',
   'myScores',
-  'delegationScore',
   'activityOverview',
   'compareDashboard',
   'teamProgress',
-  'compliance',
   'recentActivity',
   'upcomingEvents',
-  'quickActions',
 ];
+// 'compliance' (Completion and on-time), 'delegationScore' and 'quickActions' are retired from the
+// dashboard: Scores covers the first two and the sidebar covers the third. They stay in the id type
+// so the card renderer compiles, but a card id missing from DEFAULT_CARD_ORDER is never shown, and a
+// saved layout that still lists one has it dropped on load.
 
 /** The v1 default order, kept only so a saved layout that is still exactly the old default can be
  *  recognised (and moved to the new default) rather than treated as a deliberate custom order.
