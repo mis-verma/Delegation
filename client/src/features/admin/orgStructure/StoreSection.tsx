@@ -145,6 +145,13 @@ const StoreSectionComponent = ({
                   This store has no departments or staff yet. Assign a department to it from People &amp; Teams.
                 </p>
               ) : (
+                <div className="flex flex-col gap-3">
+                  {/* A small label so the level reads at a glance: this row is the store's departments. */}
+                  <p className="flex items-center gap-2 text-xs font-display font-bold text-text-muted">
+                    <Layers className="size-3.5" aria-hidden />
+                    Departments
+                    <span className="rounded-full bg-border/60 px-1.5 text-text-secondary tabular-nums">{node.departments.length}</span>
+                  </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 items-start gap-3 sm:gap-4">
                   {node.departments.map((d) => (
                     <DepartmentSection
@@ -168,6 +175,7 @@ const StoreSectionComponent = ({
                       ))}
                     </div>
                   )}
+                </div>
                 </div>
               )}
             </div>

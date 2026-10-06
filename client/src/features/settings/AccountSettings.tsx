@@ -12,6 +12,7 @@ import {
   useUploadMyAvatarMutation,
   useRemoveMyAvatarMutation,
 } from './hook';
+import { SettingsCard } from './SettingsCard';
 
 const profileSchema = z.object({
   firstName: z.string().trim().min(1, 'First name is required'),
@@ -50,20 +51,19 @@ const WeekOffCard = ({ initial, isSaving, onSave }: { initial: number[]; isSavin
   const [days, setDays] = useState<number[]>(initial);
   const dirty = days.join(',') !== initial.join(',');
   return (
-    <div className="flex flex-col gap-3 p-4 rounded-xl border border-border">
-      <div className="flex items-center gap-2">
-        <CalendarOff size={14} className="text-text-muted" />
-        <span className="text-xs font-display font-bold text-text-muted">Week off</span>
-        <span className="text-[11px] font-display text-text-muted">· {days.length ? days.map(weekdayShortName).join(', ') : 'None'}</span>
-      </div>
+    <SettingsCard
+      icon={CalendarOff}
+      title="Week off"
+      aside={<span className="text-xs font-display font-medium text-text-muted">{days.length ? days.map(weekdayShortName).join(', ') : 'None'}</span>}
+      hint="You won't get daily checklists on these days."
+    >
       <WeekdayPicker value={days} onChange={setDays} tone="off" maxSelected={6} aria-label="Your weekly days off" />
-      <p className="text-xs text-text-muted">You won't get daily checklists on these days.</p>
       <div className="flex justify-end">
         <Button type="button" variant="primary" size="sm" isLoading={isSaving} disabled={!dirty} onClick={() => onSave(days)}>
           Save week off
         </Button>
       </div>
-    </div>
+    </SettingsCard>
   );
 };
 
@@ -124,23 +124,19 @@ export const AccountSettings = () => {
 
   if (isPending || !profile) {
     return (
-      <div className="flex flex-col gap-5 max-w-lg">
-        <Skeleton className="h-52 w-full rounded-xl" />
-        <Skeleton className="h-44 w-full rounded-xl" />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 w-full max-w-5xl">
+        <Skeleton className="h-96 w-full rounded-2xl" />
+        <Skeleton className="h-72 w-full rounded-2xl" />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-5 max-w-lg">
-      <form onSubmit={handleProfileSubmit(onProfileSubmit)} className="flex flex-col gap-4 p-4 rounded-xl border border-border" noValidate>
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <UserIcon size={14} className="text-text-muted" />
-            <span className="text-xs font-display font-bold text-text-muted">Profile</span>
-          </div>
-          <RoleChip role={profile.role} />
-        </div>
+    // Two columns from lg: who you are on the left, your week and your password on the right. One
+    // column on a phone, in the same order.
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start w-full max-w-5xl">
+      <form onSubmit={handleProfileSubmit(onProfileSubmit)} noValidate>
+       <SettingsCard icon={UserIcon} title="Profile" aside={<RoleChip role={profile.role} />}>
 
         <AvatarUpload
           name={`${profile.firstName} ${profile.lastName ?? ''}`}
@@ -168,8 +164,10 @@ export const AccountSettings = () => {
             Save changes
           </Button>
         </div>
+       </SettingsCard>
       </form>
 
+      <div className="flex flex-col gap-5">
       <WeekOffCard
         key={(profile.weekOffDays ?? []).join(',')}
         initial={profile.weekOffDays ?? []}
@@ -177,11 +175,8 @@ export const AccountSettings = () => {
         onSave={(weekOffDays) => updateProfileMut.mutate({ weekOffDays })}
       />
 
-      <form onSubmit={handlePasswordSubmit(onPasswordSubmit)} className="flex flex-col gap-4 p-4 rounded-xl border border-border" noValidate>
-        <div className="flex items-center gap-2">
-          <KeyRound size={14} className="text-text-muted" />
-          <span className="text-xs font-display font-bold text-text-muted">Password</span>
-        </div>
+      <form onSubmit={handlePasswordSubmit(onPasswordSubmit)} noValidate>
+       <SettingsCard icon={KeyRound} title="Password" hint="Changing your password signs you out of every device. You will need to sign back in with the new one.">
 
         <Input
           id="currentPassword"
@@ -221,16 +216,14 @@ export const AccountSettings = () => {
           </p>
         )}
 
-        <p className="text-xs text-text-muted -mt-1">
-          Changing your password signs you out of every device — you'll need to sign back in with the new one.
-        </p>
-
         <div className="flex justify-end pt-1">
           <Button type="submit" variant="primary" size="sm" isLoading={changePasswordMut.isPending}>
             Change password
           </Button>
         </div>
+       </SettingsCard>
       </form>
+      </div>
     </div>
   );
 };

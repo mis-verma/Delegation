@@ -314,37 +314,29 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
     );
   };
 
+  const expandCollapse = (
+    <>
+      <Button variant="outline" size="sm" onClick={expandAll} disabled={isPending}>
+        <Maximize2 className="w-3.5 h-3.5" aria-hidden /> Expand all
+      </Button>
+      <Button variant="outline" size="sm" onClick={collapseAll} disabled={isPending}>
+        <Minimize2 className="w-3.5 h-3.5" aria-hidden /> Collapse all
+      </Button>
+    </>
+  );
+
   return (
     <MotionConfig reducedMotion="user">
       <OrgMoveContext.Provider value={moveApi}>
         <div className="flex flex-col gap-5 sm:gap-6 w-full">
-          {(() => {
-            const expandCollapse = (
-              <>
-                <Button variant="outline" size="sm" onClick={expandAll} disabled={isPending}>
-                  <Maximize2 className="w-3.5 h-3.5" aria-hidden /> Expand all
-                </Button>
-                <Button variant="outline" size="sm" onClick={collapseAll} disabled={isPending}>
-                  <Minimize2 className="w-3.5 h-3.5" aria-hidden /> Collapse all
-                </Button>
-              </>
-            );
-            return embedded ? (
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-sm font-display text-text-muted max-w-2xl">
-                  Every store, its departments, and who sits where. Drag a person onto a department, or use Move to on their row.
-                </p>
-                <div className="flex items-center gap-2">{expandCollapse}</div>
-              </div>
-            ) : (
-              <PageHeader
-                icon={Network}
-                title="Organization structure"
-                subtitle="Every store, its departments, and who sits where. Drag a person onto a department, or use Move to on their row."
-                actions={expandCollapse}
-              />
-            );
-          })()}
+          {!embedded && (
+            <PageHeader
+              icon={Network}
+              title="Organization structure"
+              subtitle="Every store, its departments, and who sits where. Drag a person onto a department, or use Move to on their row."
+              actions={expandCollapse}
+            />
+          )}
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <StatCard
@@ -387,22 +379,29 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
           </div>
 
           {(isPending || hasAllData) && (
-            <section aria-label="Needs attention" className={`${PANEL_CLASS} flex flex-col gap-3 p-4`}>
-              <h2 className="text-sm font-display font-bold text-text">Needs attention</h2>
+            // One slim strip, not a titled panel: the heading and the items share a row, so a clean org
+            // costs one line of height and a messy one costs one wrapped row.
+            <section aria-label="Needs attention" className={`${PANEL_CLASS} flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3`}>
+              <h2 className="flex items-center gap-2 text-sm font-display font-bold text-text shrink-0">
+                {attention.length === 0 && !isPending ? (
+                  <CircleCheck className="size-4 text-success" aria-hidden />
+                ) : (
+                  <TriangleAlert className="size-4 text-warning" aria-hidden />
+                )}
+                Needs attention
+              </h2>
               {isPending ? (
-                <Skeleton className="h-6 w-2/3" />
+                <Skeleton className="h-6 w-1/2" />
               ) : attention.length === 0 ? (
-                <p className="flex items-center gap-2 text-sm font-display text-text-muted">
-                  <CircleCheck className="size-4 shrink-0 text-success" aria-hidden />
+                <p className="text-sm font-display text-text-muted">
                   Every active department has a store and a head, and everyone is in a department.
                 </p>
               ) : (
-                <ul className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <ul className="flex flex-wrap items-center gap-2">
                   {attention.map((item) => (
-                    <li key={item.key} className="flex items-center gap-2 rounded-lg border border-warning/25 bg-warning/10 px-3 py-2">
-                      <TriangleAlert className="size-4 shrink-0 text-warning" aria-hidden />
-                      <span className="flex-1 min-w-0 text-xs font-display text-text">{item.label}</span>
-                      <span className="shrink-0 text-sm font-display font-bold tabular-nums text-warning">{item.count}</span>
+                    <li key={item.key} className="inline-flex items-center gap-2 rounded-full border border-warning/25 bg-warning/10 pl-3 pr-1.5 py-1">
+                      <span className="text-xs font-display text-text">{item.label}</span>
+                      <span className="min-w-6 text-center rounded-full bg-warning/20 px-1.5 text-xs font-display font-bold tabular-nums text-warning">{item.count}</span>
                     </li>
                   ))}
                 </ul>
@@ -410,6 +409,8 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
             </section>
           )}
 
+          {/* One toolbar sitting directly above the tree it controls: search on the left, the
+              deactivated toggle beside it, and Expand / Collapse all pushed to the right edge. */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-3">
             <div className="flex-1 sm:max-w-xl">
               <Input
@@ -427,6 +428,7 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
                 Show deactivated{people.deactivated > 0 ? ` (${people.deactivated})` : ''}
               </ToggleChip>
             )}
+            {embedded && <div className="flex items-center gap-2 sm:ml-auto shrink-0">{expandCollapse}</div>}
           </div>
 
           {/* A failed refresh never hides the structure; it just says so. */}

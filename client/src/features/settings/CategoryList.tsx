@@ -59,7 +59,7 @@ export const CategoryList = () => {
                 <button
                   onClick={() => toggleActive(c.id, c.isActive)}
                   disabled={isUpdating}
-                  className={`text-[11px] font-display font-medium px-2 py-0.5 rounded-full shrink-0 cursor-pointer transition-colors disabled:opacity-50 flex items-center gap-1 ${
+                  className={`text-xs font-display font-medium px-2 py-0.5 rounded-full shrink-0 cursor-pointer transition-colors disabled:opacity-50 flex items-center gap-1 ${
                     c.isActive
                       ? 'bg-success/10 text-success hover:bg-success/20'
                       : 'bg-surface-hover text-text-muted hover:bg-surface-active'

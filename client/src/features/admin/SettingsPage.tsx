@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Loader2, Settings as SettingsIcon, CheckSquare, Construction, Bell, Clock, ListChecks, KeyRound, Camera, Building2, Database, type LucideIcon } from 'lucide-react';
-import { Input, Button, Form, Skeleton, GradientIconTile, Textarea, Switch, BrandLogo } from '../../components';
+import { Loader2, Settings as SettingsIcon, CheckSquare, Construction, Bell, Clock, ListChecks, KeyRound, Camera, Building2, Database, Upload, type LucideIcon } from 'lucide-react';
+import { Input, Button, Form, Skeleton, PageHeader, Textarea, Switch, BrandLogo } from '../../components';
 import { Loader } from '../../components/loaders';
 import { useSettingsQuery, useUpdateSettingsMutation, useUploadLogoMutation, useRemoveLogoMutation } from './hook';
 import { resolveLogoUrl } from '../../lib/uploadsBase';
+import { SettingsCard } from '../settings/SettingsCard';
 
 const IMAGE_TYPE_OPTIONS = [
   { value: 'image/jpeg', label: 'JPEG' },
@@ -172,290 +173,270 @@ export const SettingsPage = () => {
 
   if (isPending) {
     return (
-      <div className="flex flex-col gap-6 max-w-lg">
+      <div className="flex flex-col gap-6 w-full">
         <div className="flex items-center gap-3">
-          <Skeleton className="size-10 rounded-xl shrink-0" />
+          <Skeleton className="size-11 rounded-xl shrink-0" />
           <div className="flex flex-col gap-1.5">
-            <Skeleton className="h-5 w-24" />
-            <Skeleton className="h-3 w-56" />
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-3 w-72" />
           </div>
         </div>
-        <div className="flex flex-col gap-4">
-          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <Skeleton className="h-72 rounded-2xl" />
+          <Skeleton className="h-72 rounded-2xl" />
+          <Skeleton className="h-56 rounded-2xl" />
+          <Skeleton className="h-56 rounded-2xl" />
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-6 max-w-lg">
-      <div className="flex items-center gap-3">
-        <GradientIconTile icon={SettingsIcon} />
-        <div>
-          <h1 className="text-xl font-display font-bold text-text">Settings</h1>
-          <p className="text-sm text-text-muted mt-0.5">
-            System-wide defaults for ticket SLA and file uploads.
-          </p>
-        </div>
-      </div>
+    <div className="flex flex-col gap-5 sm:gap-6 w-full">
+      <PageHeader
+        icon={SettingsIcon}
+        title="Settings"
+        subtitle="Branding, ticket and upload defaults, notifications, sign-in sessions and how long records are kept. These apply to everyone."
+      />
 
       <Form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5" noValidate>
-        <div className="flex flex-col gap-4 p-4 rounded-xl border border-border">
-          <div className="flex items-center gap-2">
-            <Building2 size={14} className="text-text-muted" />
-            <span className="text-xs font-display font-bold text-text-muted">Branding</span>
-          </div>
+        {/* Two columns from lg: identity and defaults on the left, behaviour and housekeeping on the right. */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+          <div className="flex flex-col gap-5">
+            <SettingsCard icon={Building2} title="Branding" hint="Shown in the header, footer, login screen, and as the sender name on emails.">
+              <LogoUpload
+                src={resolveLogoUrl(logoUrl)}
+                isUploading={uploadLogoMutation.isPending}
+                isRemoving={removeLogoMutation.isPending}
+                onUpload={(file) => uploadLogoMutation.mutate(file, { onSuccess: (updated) => setLogoUrl(updated.logoUrl) })}
+                onRemove={() => removeLogoMutation.mutate(undefined, { onSuccess: (updated) => setLogoUrl(updated.logoUrl) })}
+              />
+              <Input
+                id="orgName"
+                label="Organization name"
+                placeholder="Karya"
+                error={errors.orgName?.message}
+                {...register('orgName')}
+              />
+            </SettingsCard>
 
-          <LogoUpload
-            src={resolveLogoUrl(logoUrl)}
-            isUploading={uploadLogoMutation.isPending}
-            isRemoving={removeLogoMutation.isPending}
-            onUpload={(file) => uploadLogoMutation.mutate(file, { onSuccess: (updated) => setLogoUrl(updated.logoUrl) })}
-            onRemove={() => removeLogoMutation.mutate(undefined, { onSuccess: (updated) => setLogoUrl(updated.logoUrl) })}
-          />
+            <SettingsCard icon={Upload} title="Tickets and uploads" hint="The default due time for a new ticket, and the limits on what people can attach.">
+              <Input
+                id="defaultTatHours"
+                label="Default ticket TAT (hours)"
+                type="number"
+                step="1"
+                suffix={<span className="text-xs text-text-light">hours</span>}
+                error={errors.defaultTatHours?.message}
+                {...register('defaultTatHours', { valueAsNumber: true })}
+              />
 
-          <Input
-            id="orgName"
-            label="Organization name"
-            placeholder="Karya"
-            error={errors.orgName?.message}
-            {...register('orgName')}
-          />
-          <p className="text-xs text-text-muted -mt-1">
-            Shown in the header, footer, login screen, and as the sender name on emails.
-          </p>
-        </div>
-
-        <Input
-          id="defaultTatHours"
-          label="Default ticket TAT (hours)"
-          type="number"
-          step="1"
-          suffix={<span className="text-xs text-text-light">hours</span>}
-          error={errors.defaultTatHours?.message}
-          {...register('defaultTatHours', { valueAsNumber: true })}
-        />
-
-        <Input
-          id="maxUploadSizeMb"
-          label="Max upload size per file"
-          type="number"
-          step="1"
-          suffix={<span className="text-xs text-text-light">MB</span>}
-          error={errors.maxUploadSizeMb?.message}
-          {...register('maxUploadSizeMb', { valueAsNumber: true })}
-        />
-
-        <Input
-          id="maxUploadFiles"
-          label="Max files per upload"
-          type="number"
-          step="1"
-          error={errors.maxUploadFiles?.message}
-          {...register('maxUploadFiles', { valueAsNumber: true })}
-        />
-
-        <Controller
-          control={control}
-          name="allowedImageTypes"
-          render={({ field }) => (
-            <div className="flex flex-col gap-1.5">
-              <span className="text-sm font-display font-medium text-text-secondary">Allowed image types</span>
-              <div className="flex gap-4">
-                {IMAGE_TYPE_OPTIONS.map(opt => {
-                  const checked = field.value?.includes(opt.value) ?? false;
-                  return (
-                  <label key={opt.value} className="flex items-center gap-1.5 text-sm text-text font-display cursor-pointer">
-                    {/* sr-only, not hidden — `hidden` is display:none, which drops the checkbox out
-                        of the tab order entirely, making this control unreachable by keyboard.
-                        sr-only keeps it focusable/toggleable while the styled box below stands in
-                        visually; `peer` + `peer-focus-visible:` puts the focus ring on that box. */}
-                    <input
-                      type="checkbox"
-                      className="sr-only peer"
-                      checked={checked}
-                      onChange={e => {
-                        const next = e.target.checked
-                          ? [...(field.value ?? []), opt.value]
-                          : (field.value ?? []).filter((v: string) => v !== opt.value);
-                        field.onChange(next);
-                      }}
-                    />
-                    <div className={`flex items-center justify-center size-4 rounded border transition-colors peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-primary-500/50 peer-focus-visible:ring-offset-1 ${checked ? 'bg-primary-500 border-primary-500' : 'bg-surface border-border'}`}>
-                      {checked && <CheckSquare size={11} className="text-white" />}
-                    </div>
-                    {opt.label}
-                  </label>
-                  );
-                })}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  id="maxUploadSizeMb"
+                  label="Max upload size per file"
+                  type="number"
+                  step="1"
+                  suffix={<span className="text-xs text-text-light">MB</span>}
+                  error={errors.maxUploadSizeMb?.message}
+                  {...register('maxUploadSizeMb', { valueAsNumber: true })}
+                />
+                <Input
+                  id="maxUploadFiles"
+                  label="Max files per upload"
+                  type="number"
+                  step="1"
+                  error={errors.maxUploadFiles?.message}
+                  {...register('maxUploadFiles', { valueAsNumber: true })}
+                />
               </div>
-              {errors.allowedImageTypes && (
-                <span className="text-xs font-medium text-danger">{errors.allowedImageTypes.message}</span>
+
+              <Controller
+                control={control}
+                name="allowedImageTypes"
+                render={({ field }) => (
+                  <div className="flex flex-col gap-2">
+                    <span className="text-sm font-display font-medium text-text-secondary">Allowed image types</span>
+                    <div className="flex flex-wrap gap-2">
+                      {IMAGE_TYPE_OPTIONS.map((opt) => {
+                        const checked = field.value?.includes(opt.value) ?? false;
+                        return (
+                          <label
+                            key={opt.value}
+                            className={`flex items-center gap-2 h-10 pointer-coarse:h-11 px-3.5 rounded-xl border text-sm font-display font-medium cursor-pointer transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary-500/40 ${
+                              checked ? 'border-primary-500/50 bg-primary-500/10 text-primary-700 dark:text-primary-300' : 'border-border bg-surface text-text-secondary hover:border-border-hover'
+                            }`}
+                          >
+                            {/* sr-only, not hidden: `hidden` drops the checkbox out of the tab order, making it
+                                unreachable by keyboard. The whole pill is the visible control. */}
+                            <input
+                              type="checkbox"
+                              className="sr-only"
+                              checked={checked}
+                              onChange={(e) => {
+                                const next = e.target.checked
+                                  ? [...(field.value ?? []), opt.value]
+                                  : (field.value ?? []).filter((v: string) => v !== opt.value);
+                                field.onChange(next);
+                              }}
+                            />
+                            <span className={`flex items-center justify-center size-4 rounded border ${checked ? 'bg-primary-500 border-primary-500' : 'bg-surface border-border'}`}>
+                              {checked && <CheckSquare size={11} className="text-white" />}
+                            </span>
+                            {opt.label}
+                          </label>
+                        );
+                      })}
+                    </div>
+                    {errors.allowedImageTypes && (
+                      <span className="text-xs font-medium text-danger">{errors.allowedImageTypes.message}</span>
+                    )}
+                  </div>
+                )}
+              />
+            </SettingsCard>
+
+            <SettingsCard icon={Database} title="Data retention" hint="How long each type of record is kept before a nightly sweep deletes it. Set any of these to 0 to keep that record forever, the right choice if you must retain audit history indefinitely.">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <Input
+                  id="auditRetentionDays"
+                  label="Audit log"
+                  type="number"
+                  step="1"
+                  suffix={<span className="text-xs text-text-light">days</span>}
+                  error={errors.auditRetentionDays?.message}
+                  {...register('auditRetentionDays', { valueAsNumber: true })}
+                />
+                <Input
+                  id="notificationRetentionDays"
+                  label="Notifications"
+                  type="number"
+                  step="1"
+                  suffix={<span className="text-xs text-text-light">days</span>}
+                  error={errors.notificationRetentionDays?.message}
+                  {...register('notificationRetentionDays', { valueAsNumber: true })}
+                />
+                <Input
+                  id="inboundMessageRetentionDays"
+                  label="Inbound messages"
+                  type="number"
+                  step="1"
+                  suffix={<span className="text-xs text-text-light">days</span>}
+                  error={errors.inboundMessageRetentionDays?.message}
+                  {...register('inboundMessageRetentionDays', { valueAsNumber: true })}
+                />
+              </div>
+            </SettingsCard>
+          </div>
+
+          <div className="flex flex-col gap-5">
+            <SettingsCard icon={Bell} title="Notification defaults">
+              <Controller
+                control={control}
+                name="notifyTaskDeadlineReminders"
+                render={({ field }) => (
+                  <SwitchRow
+                    id="notifyTaskDeadlineReminders"
+                    icon={Clock}
+                    label="Delegation deadline reminders"
+                    description="Notify assignees as a delegation's due date approaches."
+                    checked={field.value}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
+              <div className="h-px w-full bg-border" />
+              <Controller
+                control={control}
+                name="notifyChecklistOverdueReminders"
+                render={({ field }) => (
+                  <SwitchRow
+                    id="notifyChecklistOverdueReminders"
+                    icon={ListChecks}
+                    label="Checklist overdue reminders"
+                    description="Notify assignees and store PCs when a checklist runs past its deadline."
+                    checked={field.value}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
+            </SettingsCard>
+
+            <SettingsCard icon={KeyRound} title="Session and sign-in" hint='The app silently renews itself every access-token window, so people won&apos;t notice it. "Stay signed in for" is the one that matters day to day: how long someone can close the app and come back without logging in again. It only applies going forward; already-open sessions keep their current timing until they next refresh.'>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  id="accessTokenExpiresMinutes"
+                  label="Access token lifetime"
+                  type="number"
+                  step="1"
+                  suffix={<span className="text-xs text-text-light">min</span>}
+                  error={errors.accessTokenExpiresMinutes?.message}
+                  {...register('accessTokenExpiresMinutes', { valueAsNumber: true })}
+                />
+                <Input
+                  id="refreshTokenExpiresDays"
+                  label="Stay signed in for"
+                  type="number"
+                  step="1"
+                  suffix={<span className="text-xs text-text-light">days</span>}
+                  error={errors.refreshTokenExpiresDays?.message}
+                  {...register('refreshTokenExpiresDays', { valueAsNumber: true })}
+                />
+              </div>
+            </SettingsCard>
+
+            <SettingsCard icon={Construction} title="Maintenance" tone="warning">
+              <Controller
+                control={control}
+                name="maintenanceMode"
+                render={({ field }) => (
+                  <SwitchRow
+                    id="maintenanceMode"
+                    icon={Construction}
+                    iconClassName="text-warning"
+                    label="Maintenance mode"
+                    description="Takes the app down for everyone except admins."
+                    checked={field.value}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
+              {maintenanceMode && (
+                <Textarea
+                  id="maintenanceMessage"
+                  label="Message shown to users (optional)"
+                  placeholder="We're rolling out some improvements right now. Back shortly."
+                  rows={2}
+                  error={errors.maintenanceMessage?.message}
+                  {...register('maintenanceMessage')}
+                />
               )}
-            </div>
-          )}
-        />
-
-        <div className="flex flex-col gap-3 p-4 rounded-xl border border-border">
-          <Controller
-            control={control}
-            name="maintenanceMode"
-            render={({ field }) => (
-              <SwitchRow
-                id="maintenanceMode"
-                icon={Construction}
-                iconClassName="text-warning"
-                label="Maintenance mode"
-                description="Takes the app down for everyone except admins."
-                checked={field.value}
-                onChange={field.onChange}
-              />
-            )}
-          />
-
-          {maintenanceMode && (
-            <Textarea
-              id="maintenanceMessage"
-              label="Message shown to users (optional)"
-              placeholder="We're rolling out some improvements right now. Back shortly."
-              rows={2}
-              error={errors.maintenanceMessage?.message}
-              {...register('maintenanceMessage')}
-            />
-          )}
-        </div>
-
-        <div className="flex flex-col gap-4 p-4 rounded-xl border border-border">
-          <div className="flex items-center gap-2">
-            <Bell size={14} className="text-text-muted" />
-            <span className="text-xs font-display font-bold text-text-muted">Notification defaults</span>
+            </SettingsCard>
           </div>
-
-          <Controller
-            control={control}
-            name="notifyTaskDeadlineReminders"
-            render={({ field }) => (
-              <SwitchRow
-                id="notifyTaskDeadlineReminders"
-                icon={Clock}
-                label="Delegation deadline reminders"
-                description="Notify assignees as a delegation's due date approaches."
-                checked={field.value}
-                onChange={field.onChange}
-              />
-            )}
-          />
-
-          <div className="h-px w-full bg-border" />
-
-          <Controller
-            control={control}
-            name="notifyChecklistOverdueReminders"
-            render={({ field }) => (
-              <SwitchRow
-                id="notifyChecklistOverdueReminders"
-                icon={ListChecks}
-                label="Checklist overdue reminders"
-                description="Notify assignees and store PCs when a checklist runs past its deadline."
-                checked={field.value}
-                onChange={field.onChange}
-              />
-            )}
-          />
-        </div>
-
-        <div className="flex flex-col gap-4 p-4 rounded-xl border border-border">
-          <div className="flex items-center gap-2">
-            <KeyRound size={14} className="text-text-muted" />
-            <span className="text-xs font-display font-bold text-text-muted">Session &amp; tokens</span>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-4">
-            <Input
-              id="accessTokenExpiresMinutes"
-              label="Access token lifetime"
-              type="number"
-              step="1"
-              suffix={<span className="text-xs text-text-light">min</span>}
-              error={errors.accessTokenExpiresMinutes?.message}
-              {...register('accessTokenExpiresMinutes', { valueAsNumber: true })}
-            />
-
-            <Input
-              id="refreshTokenExpiresDays"
-              label="Stay signed in for"
-              type="number"
-              step="1"
-              suffix={<span className="text-xs text-text-light">days</span>}
-              error={errors.refreshTokenExpiresDays?.message}
-              {...register('refreshTokenExpiresDays', { valueAsNumber: true })}
-            />
-          </div>
-          <p className="text-xs text-text-muted -mt-1">
-            The app silently renews itself every access-token window, so people won't notice it — it
-            mainly controls how often that happens. "Stay signed in for" is the one that matters day
-            to day: how long someone can close the app and come back without logging in again.
-            Only applies going forward — already-open sessions keep their current timing until they
-            next refresh.
-          </p>
-        </div>
-
-        <div className="flex flex-col gap-4 p-4 rounded-xl border border-border">
-          <div className="flex items-center gap-2">
-            <Database size={14} className="text-text-muted" />
-            <span className="text-xs font-display font-bold text-text-muted">Data retention</span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Input
-              id="auditRetentionDays"
-              label="Audit log"
-              type="number"
-              step="1"
-              suffix={<span className="text-xs text-text-light">days</span>}
-              error={errors.auditRetentionDays?.message}
-              {...register('auditRetentionDays', { valueAsNumber: true })}
-            />
-
-            <Input
-              id="notificationRetentionDays"
-              label="Notifications"
-              type="number"
-              step="1"
-              suffix={<span className="text-xs text-text-light">days</span>}
-              error={errors.notificationRetentionDays?.message}
-              {...register('notificationRetentionDays', { valueAsNumber: true })}
-            />
-
-            <Input
-              id="inboundMessageRetentionDays"
-              label="Inbound messages"
-              type="number"
-              step="1"
-              suffix={<span className="text-xs text-text-light">days</span>}
-              error={errors.inboundMessageRetentionDays?.message}
-              {...register('inboundMessageRetentionDays', { valueAsNumber: true })}
-            />
-          </div>
-          <p className="text-xs text-text-muted -mt-1">
-            How long each type of record is kept before a nightly sweep deletes it. Set any of these
-            to 0 to keep that record forever — the right choice if you have a compliance requirement
-            to retain audit history indefinitely.
-          </p>
         </div>
 
         {mutation.isError && (
-          <p className="text-xs text-danger text-center">
+          <p role="alert" className="text-sm text-danger text-center">
             {mutation.error instanceof Error ? mutation.error.message : 'Failed to save settings.'}
           </p>
         )}
 
-        <div className="flex justify-end pt-1">
-          <Button type="submit" variant="primary" size="sm" isLoading={mutation.isPending} disabled={!isDirty}>
-            {mutation.isPending && <Loader2 size={14} className="animate-spin" />}
-            Save changes
-          </Button>
-        </div>
+        {/* Save bar: appears the moment something changes and stays in reach at the bottom of the
+            screen, so a long form never needs a scroll back to the end to save. */}
+        {(isDirty || mutation.isPending) && (
+          <div className="sticky bottom-3 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary-500/30 bg-surface px-4 py-3">
+            <p className="text-sm font-display font-medium text-text-secondary">You have unsaved changes</p>
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="ghost" size="sm" disabled={mutation.isPending} onClick={() => reset({ ...settings, maintenanceMessage: settings?.maintenanceMessage ?? '' })}>
+                Discard
+              </Button>
+              <Button type="submit" variant="primary" size="sm" isLoading={mutation.isPending}>
+                {mutation.isPending && <Loader2 size={14} className="animate-spin" />}
+                Save changes
+              </Button>
+            </div>
+          </div>
+        )}
       </Form>
     </div>
   );
