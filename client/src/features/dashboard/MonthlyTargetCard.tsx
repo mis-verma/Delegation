@@ -1,11 +1,10 @@
 import { memo, useState } from 'react';
 import { ArrowDown, ArrowUp, Minus, Target } from 'lucide-react';
-import { RadialGauge } from '../../components/radialGauge';
+import { SemiGauge } from '../../components/semiGauge';
 import { EntityIconTile } from '../../components';
 import { Badge } from '../../components/ui/badge';
 import { Skeleton } from '../../components/skeleton';
 import { InlineError } from '../../components/inlineError';
-import { useIsMobile } from '../../lib/useMediaQuery';
 import { DrilldownModal, type DrilldownRow } from './DrilldownModal';
 import { PeriodTabControl } from './PeriodTabControl';
 import {
@@ -93,9 +92,6 @@ export const MonthlyTargetCard = memo(({
   isError = false,
   onRetry,
 }: MonthlyTargetCardProps) => {
-  // 220px on desktop; 180 on phones, where the gauge is the card's only content.
-  const isMobile = useIsMobile();
-  const gaugeSize = isMobile ? 180 : 220;
   const [openStat, setOpenStat] = useState<ScoreStatKey | null>(null);
 
   const hasData = percent != null;
@@ -140,49 +136,38 @@ export const MonthlyTargetCard = memo(({
         <InlineError message="Couldn't load your delegations." onRetry={onRetry} />
       ) : isPending ? (
         <div className="flex flex-col gap-5" role="status" aria-label="Loading delegation score">
-          <div className="flex items-center justify-center sm:justify-start gap-6">
-            <Skeleton className="rounded-full" style={{ width: gaugeSize, height: gaugeSize, maxWidth: '100%' }} />
-          </div>
+          <Skeleton className="w-full max-w-lg mx-auto aspect-[2/1] rounded-t-full rounded-b-none" />
           <div className="grid grid-cols-3 gap-2 sm:gap-3">
             {[0, 1, 2].map((i) => <Skeleton key={i} className="h-16 sm:h-[5.5rem] rounded-xl" />)}
           </div>
         </div>
       ) : (
         <div className="relative flex flex-col gap-5">
-          {/* Phones: just the gauge, centered. The score and its trend are the whole point of this
-              card at a glance; the sentence stays desktop-only. */}
-          <div className="flex items-center justify-center sm:justify-start gap-4 @lg:gap-6">
-            <div className="relative shrink-0">
-              {/* Broad arc (thickness 11) in a navy gradient, with tick marks and a knob at the
-                  reading point: reads as a real score dial rather than a thin outline. */}
-              <RadialGauge
-                percent={percent ?? 0}
-                size={gaugeSize}
-                thickness={11}
-                ticks={24}
-                showKnob={hasData}
-                gradientFrom="var(--color-primary-400)"
-                gradientTo="var(--color-primary-800)"
-                className="relative"
-                ariaLabel={hasData ? `${title}: ${percent}%${delta != null ? `, ${formatDelta(delta)} against the previous period` : ''}` : `${title}: no data for this period`}
-              >
-                {hasData ? (
-                  <span className={`text-4xl sm:text-5xl font-display font-bold tracking-tight tabular-nums ${TONE_TEXT[tone]}`}>
-                    {percent}<span className="text-2xl sm:text-3xl">%</span>
-                  </span>
-                ) : (
-                  <span className="text-xl sm:text-2xl font-display font-bold tracking-tight text-text-muted">No data</span>
-                )}
-                {delta != null && (
-                  <Badge variant={changeVariant} className={`text-[11px] ${changeClassName}`}>
-                    <ChangeIcon size={12} strokeWidth={3} />
-                    {formatDelta(delta)}
-                  </Badge>
-                )}
-              </RadialGauge>
-            </div>
+          {/* A half-circle dial that takes the card's width (capped so it never gets taller than
+              it is useful), with the score and its trend inside the arc and the sentence under it. */}
+          <div className="flex flex-col items-center gap-3">
+            <SemiGauge
+              percent={percent ?? 0}
+              showFill={hasData}
+              className="max-w-lg"
+              ariaLabel={hasData ? `${title}: ${percent}%${delta != null ? `, ${formatDelta(delta)} against the previous period` : ''}` : `${title}: no data for this period`}
+            >
+              {hasData ? (
+                <span className={`text-4xl sm:text-5xl font-display font-bold tracking-tight tabular-nums leading-none ${TONE_TEXT[tone]}`}>
+                  {percent}<span className="text-2xl sm:text-3xl">%</span>
+                </span>
+              ) : (
+                <span className="text-xl sm:text-2xl font-display font-bold tracking-tight text-text-muted leading-none">No data</span>
+              )}
+              {delta != null && (
+                <Badge variant={changeVariant} className={`text-[11px] ${changeClassName}`}>
+                  <ChangeIcon size={12} strokeWidth={3} />
+                  {formatDelta(delta)}
+                </Badge>
+              )}
+            </SemiGauge>
 
-            <p className="hidden sm:block flex-1 min-w-0 text-sm font-medium text-text-muted leading-relaxed">{description}</p>
+            <p className="hidden sm:block text-center max-w-md text-sm font-medium text-text-muted leading-relaxed">{description}</p>
           </div>
 
           {/* Phones: the period switch sits centered under the gauge; beside the title it pushed
