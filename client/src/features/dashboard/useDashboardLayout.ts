@@ -17,6 +17,8 @@ interface StoredLayout {
   version?: number;
   order: DashboardCardId[];
   sizes: Partial<Record<DashboardCardId, DashboardCardSize>>;
+  /** Cards the person chose to hide. Absent on layouts saved before hiding existed. */
+  hidden?: DashboardCardId[];
 }
 
 interface LoadedLayout {
@@ -26,6 +28,7 @@ interface LoadedLayout {
   rawOrder: string[];
   order: DashboardCardId[];
   sizes: Partial<Record<DashboardCardId, DashboardCardSize>>;
+  hidden: DashboardCardId[];
 }
 
 const STORAGE_PREFIX = 'tm-dashboard-layout';
@@ -45,6 +48,7 @@ const loadStoredLayout = (key: string): LoadedLayout | null => {
       rawOrder,
       order: rawOrder.filter(isDashboardCardId),
       sizes: parsed.sizes && typeof parsed.sizes === 'object' ? parsed.sizes : {},
+      hidden: Array.isArray(parsed.hidden) ? (parsed.hidden as unknown[]).filter(isDashboardCardId) : [],
     };
   } catch {
     // Corrupt or blocked storage reads the same as "nothing saved yet" — falls through to
@@ -115,6 +119,7 @@ export const useDashboardLayout = (isOrgWideRole: boolean) => {
     const stored = loadStoredLayout(storageKey);
     return { ...DEFAULT_CARD_SIZES, ...stored?.sizes };
   });
+  const [hidden, setHidden] = useState<DashboardCardId[]>(() => loadStoredLayout(storageKey)?.hidden ?? []);
   const [isCustomizing, setIsCustomizing] = useState(false);
 
   // Re-reconciles if the viewer's visible card set changes after mount — `user` (and so
@@ -131,12 +136,12 @@ export const useDashboardLayout = (isOrgWideRole: boolean) => {
 
   useEffect(() => {
     try {
-      localStorage.setItem(storageKey, JSON.stringify({ version: LAYOUT_VERSION, order, sizes } satisfies StoredLayout));
+      localStorage.setItem(storageKey, JSON.stringify({ version: LAYOUT_VERSION, order, sizes, hidden } satisfies StoredLayout));
     } catch {
       // A layout that can't be saved just resets on the next reload — not worth failing anything
       // over (private window, full storage, disabled site data).
     }
-  }, [storageKey, order, sizes]);
+  }, [storageKey, order, sizes, hidden]);
 
   const moveCard = useCallback((activeId: DashboardCardId, overId: DashboardCardId) => {
     setOrder((prev) => {
@@ -151,10 +156,15 @@ export const useDashboardLayout = (isOrgWideRole: boolean) => {
     setSizes((prev) => ({ ...prev, [id]: size }));
   }, []);
 
+  const toggleHidden = useCallback((id: DashboardCardId) => {
+    setHidden((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }, []);
+
   const reset = useCallback(() => {
     setOrder([...visibleCards]);
     setSizes({ ...DEFAULT_CARD_SIZES });
+    setHidden([]);
   }, [visibleCards]);
 
-  return { order, sizes, isCustomizing, setIsCustomizing, moveCard, setCardSize, reset };
+  return { order, sizes, hidden, isCustomizing, setIsCustomizing, moveCard, setCardSize, toggleHidden, reset };
 };

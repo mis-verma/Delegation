@@ -105,10 +105,12 @@ export const HomePage = () => {
   const {
     order: cardOrder,
     sizes: cardSizes,
+    hidden: hiddenIds,
     isCustomizing,
     setIsCustomizing,
     moveCard,
     setCardSize,
+    toggleHidden,
     reset: resetLayout,
   } = useDashboardLayout(isOrgWideRole);
 
@@ -348,9 +350,17 @@ export const HomePage = () => {
     }
   };
 
-  const visibleCardOrder = useMemo(
+  // Cards this screen can show at all (phones drop two), then split into the ones on the page and the
+  // ones the person hid. Hidden cards stay in the saved order, so showing one again puts it back where
+  // it was.
+  const eligibleCardOrder = useMemo(
     () => (isMobile ? cardOrder.filter((id) => !MOBILE_HIDDEN_CARDS.has(id)) : cardOrder),
     [isMobile, cardOrder],
+  );
+  const visibleCardOrder = useMemo(() => eligibleCardOrder.filter((id) => !hiddenIds.includes(id)), [eligibleCardOrder, hiddenIds]);
+  const hiddenCards = useMemo(
+    () => eligibleCardOrder.filter((id) => hiddenIds.includes(id)).map((id) => ({ id, label: CARD_LABEL[id] })),
+    [eligibleCardOrder, hiddenIds],
   );
 
   const isRefreshing = useIsFetching({
@@ -361,7 +371,7 @@ export const HomePage = () => {
   // Rendered as the live grid, and again as the fallback while the drag-and-drop layer loads, so
   // the moment Customize starts nothing on the page moves.
   const staticGrid = (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 pb-8">
+    <div className="grid grid-cols-1 sm:grid-cols-2 [grid-auto-flow:row_dense] gap-4 md:gap-6 pb-8">
       {visibleCardOrder.map((id) => (
         <DashboardCardFrame key={id} size={cardSizes[id]}>
           {renderCard(id)}
@@ -388,12 +398,14 @@ export const HomePage = () => {
           onStart={() => setIsCustomizing(true)}
           onReset={resetLayout}
           onDone={() => setIsCustomizing(false)}
+          hiddenCards={hiddenCards}
+          onShow={(id) => toggleHidden(id as DashboardCardId)}
         />
       </div>
 
       {isCustomizing ? (
         <Suspense fallback={staticGrid}>
-          <DashboardSortableGrid order={visibleCardOrder} sizes={cardSizes} renderCard={renderCard} onMove={moveCard} onSizeChange={setCardSize} />
+          <DashboardSortableGrid order={visibleCardOrder} sizes={cardSizes} renderCard={renderCard} onMove={moveCard} onSizeChange={setCardSize} onHide={toggleHidden} />
         </Suspense>
       ) : (
         staticGrid

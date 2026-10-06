@@ -1,5 +1,5 @@
 import type { HTMLAttributes, ReactNode } from 'react';
-import { GripVertical, Square, RectangleHorizontal } from 'lucide-react';
+import { EyeOff, GripVertical, Square, RectangleHorizontal } from 'lucide-react';
 import type { DashboardCardSize } from './dashboardLayout';
 
 // Frame chrome with no drag-and-drop dependency: the home page renders every card through this
@@ -36,11 +36,13 @@ interface CardCustomizeStripProps {
   label: string;
   size: DashboardCardSize;
   onSizeChange: (size: DashboardCardSize) => void;
+  /** Hides this card. It goes to the "Hidden" row in the toolbar, from where it can be brought back. */
+  onHide: () => void;
   /** Spread from dnd-kit's useSortable (attributes + listeners) onto the grip button. */
   handleProps: HTMLAttributes<HTMLButtonElement>;
 }
 
-export const CardCustomizeStrip = ({ label, size, onSizeChange, handleProps }: CardCustomizeStripProps) => (
+export const CardCustomizeStrip = ({ label, size, onSizeChange, onHide, handleProps }: CardCustomizeStripProps) => (
   <div className="flex items-center gap-2 px-1">
     <button
       type="button"
@@ -75,5 +77,14 @@ export const CardCustomizeStrip = ({ label, size, onSizeChange, handleProps }: C
         <RectangleHorizontal size={14} strokeWidth={2.25} />
       </button>
     </div>
+    <button
+      type="button"
+      onClick={onHide}
+      title={`Hide ${label}`}
+      aria-label={`Hide ${label}`}
+      className="shrink-0 flex items-center justify-center size-9 rounded-lg border border-border bg-surface text-text-muted hover:text-text hover:bg-surface-hover transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+    >
+      <EyeOff size={14} strokeWidth={2.25} />
+    </button>
   </div>
 );
