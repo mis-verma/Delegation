@@ -107,7 +107,7 @@ export const TeamProgressCard = memo(({ tasks, isOrgWideRole }: TeamProgressCard
   const open = (title: string, list: Task[], href: string) => setDrilldown({ title, rows: list.map((t) => taskDrilldownRow(t, now)), href });
 
   return (
-    <section aria-labelledby="team-progress-heading" className={`${DASHBOARD_CARD_CLASS} p-4 sm:p-6 lg:p-7 flex flex-col gap-4`}>
+    <section aria-labelledby="team-progress-heading" className={`@container ${DASHBOARD_CARD_CLASS} p-4 sm:p-6 lg:p-7 flex flex-col gap-5`}>
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <EntityIconTile icon={Users} />
@@ -153,81 +153,104 @@ export const TeamProgressCard = memo(({ tasks, isOrgWideRole }: TeamProgressCard
         </DropdownMenu>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
-        {tiles.map((tile) => (
-          <button
-            key={tile.key}
-            type="button"
-            onClick={() => open(`${tile.label} delegations`, tile.rows, '/tasks')}
-            className="flex flex-col justify-center gap-1.5 min-h-16 sm:h-20 px-2.5 sm:px-3 rounded-xl border border-border/60 bg-surface-hover/30 transition-colors duration-200 cursor-pointer hover:bg-surface-hover hover:border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
-          >
-            <span className="flex items-center gap-1.5 text-[11px] font-display font-semibold text-text-muted whitespace-nowrap">
-              <span className={`size-1.5 rounded-full shrink-0 ${tile.dot}`} />
-              {tile.label}
-            </span>
-            <span className="text-xl font-display font-bold tabular-nums text-text">{tile.rows.length}</span>
-          </button>
-        ))}
+      {/* The picture first: the completion ring beside the split of the period's delegations (one
+          proportional bar, then a row per stage). Stacks on a narrow card, side by side when wide. */}
+      <div className="grid grid-cols-1 @lg:grid-cols-[auto_minmax(0,1fr)] items-center gap-5 @lg:gap-8">
+        <button
+          type="button"
+          onClick={() => open('Done delegations', done, '/tasks')}
+          aria-label={completionRate == null ? 'Completion rate: no data for this period' : `Completion rate ${completionRate}%, ${done.length} of ${total} done. Tap for the completed records.`}
+          disabled={done.length === 0}
+          className="flex flex-col items-center gap-1.5 justify-self-center rounded-2xl outline-none disabled:cursor-default cursor-pointer focus-visible:ring-2 focus-visible:ring-primary-500/40"
+        >
+          <RadialGauge percent={completionRate ?? 0} size={150} variant="circle" gradientFrom={ringFill} gradientTo={ringFill}>
+            <div className="flex flex-col items-center justify-center">
+              {completionRate == null
+                ? <span className="text-sm font-display font-bold text-text-muted">No data</span>
+                : <span className="text-3xl font-display font-black tracking-tighter text-text tabular-nums">{completionRate}%</span>}
+              <span className="text-xs font-display font-medium text-text-muted">completed</span>
+            </div>
+          </RadialGauge>
+          <span className="text-xs font-medium text-text-muted">{done.length} of {total} done &middot; {PERIOD_LABEL[period].toLowerCase()}</span>
+        </button>
+
+        <div className="flex flex-col gap-3 min-w-0">
+          {/* One bar, split by stage, so the balance of the work reads before any number does. */}
+          <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-border/60" role="img" aria-label={tiles.map((t) => `${t.label} ${t.rows.length}`).join(', ')}>
+            {total > 0 && tiles.map((tile) => (
+              <span key={tile.key} className={`${tile.dot} h-full transition-[width] duration-500 motion-reduce:transition-none`} style={{ width: `${(tile.rows.length / total) * 100}%` }} />
+            ))}
+          </div>
+          <ul className="flex flex-col">
+            {tiles.map((tile) => (
+              <li key={tile.key} className="border-b border-border/50 last:border-b-0">
+                <button
+                  type="button"
+                  onClick={() => open(`${tile.label} delegations`, tile.rows, '/tasks')}
+                  className="flex items-center gap-3 w-full min-h-11 px-1 -mx-1 rounded-lg text-left cursor-pointer transition-colors duration-150 hover:bg-surface-hover/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+                >
+                  <span aria-hidden="true" className={`size-2.5 rounded-full shrink-0 ${tile.dot}`} />
+                  <span className="flex-1 text-sm font-display font-medium text-text-secondary">{tile.label}</span>
+                  <span className="text-xs font-display font-medium text-text-muted tabular-nums">{total > 0 ? `${Math.round((tile.rows.length / total) * 100)}%` : ''}</span>
+                  <span className="w-8 text-right text-base font-display font-bold tabular-nums text-text">{tile.rows.length}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
       </div>
 
-      {/* Always visible, on phones too: these two are the numbers someone opens this card to
-          check, so they are not tucked behind a "show details" toggle. */}
-      <p className="text-xs font-display font-semibold text-text-muted -mb-2">Right now, any date</p>
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
-        <button
-          type="button"
-          onClick={() => open('Overdue delegations', overdue, '/tasks?quickFilter=delayed')}
-          className="flex items-center justify-between gap-2 min-h-11 px-3 rounded-xl border border-danger/20 bg-danger/5 text-left cursor-pointer transition-colors duration-200 hover:bg-danger/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
-        >
-          <span className="flex items-center gap-1.5 text-[13px] font-display font-semibold text-text-secondary"><AlertTriangle size={13} className="text-danger shrink-0" /> Overdue</span>
-          <span className="text-sm font-display font-bold tabular-nums text-danger">{overdue.length}</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => open('Due today', dueToday, '/tasks?quickFilter=pending')}
-          className="flex items-center justify-between gap-2 min-h-11 px-3 rounded-xl border border-warning/20 bg-warning/5 text-left cursor-pointer transition-colors duration-200 hover:bg-warning/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning/40"
-        >
-          <span className="flex items-center gap-1.5 text-[13px] font-display font-semibold text-text-secondary"><Clock size={13} className="text-warning shrink-0" /> Due today</span>
-          <span className="text-sm font-display font-bold tabular-nums text-warning">{dueToday.length}</span>
-        </button>
+      {/* These two ignore the period: an overdue delegation is overdue whenever it was created. */}
+      <div className="flex flex-col gap-2">
+        <p className="text-xs font-display font-semibold text-text-muted">Right now, any date</p>
+        <div className="grid grid-cols-2 gap-2.5">
+          <button
+            type="button"
+            onClick={() => open('Overdue delegations', overdue, '/tasks?quickFilter=delayed')}
+            className="flex items-center gap-3 min-h-14 px-3.5 rounded-xl border border-danger/25 bg-danger/5 text-left cursor-pointer transition-colors duration-200 hover:bg-danger/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+          >
+            <span className="flex items-center justify-center size-8 shrink-0 rounded-lg bg-danger/15 text-danger"><AlertTriangle size={16} aria-hidden /></span>
+            <span className="flex flex-col leading-tight">
+              <span className="text-xl font-display font-bold tabular-nums text-danger">{overdue.length}</span>
+              <span className="text-xs font-display font-semibold text-text-secondary">Overdue</span>
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => open('Due today', dueToday, '/tasks?quickFilter=pending')}
+            className="flex items-center gap-3 min-h-14 px-3.5 rounded-xl border border-warning/25 bg-warning/5 text-left cursor-pointer transition-colors duration-200 hover:bg-warning/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-warning/40"
+          >
+            <span className="flex items-center justify-center size-8 shrink-0 rounded-lg bg-warning/15 text-warning"><Clock size={16} aria-hidden /></span>
+            <span className="flex flex-col leading-tight">
+              <span className="text-xl font-display font-bold tabular-nums text-warning">{dueToday.length}</span>
+              <span className="text-xs font-display font-semibold text-text-secondary">Due today</span>
+            </span>
+          </button>
+        </div>
       </div>
 
       {needsHelp.length > 0 && (
-        <div className="flex flex-col gap-1.5">
+        <div className="flex flex-col gap-1">
           <p className="text-xs font-display font-semibold text-text-muted">Needs help (most overdue)</p>
-          {needsHelp.map((person) => (
-            <button
-              key={person.id}
-              type="button"
-              onClick={() => open(`Overdue: ${person.name}`, person.list, '/tasks?quickFilter=delayed')}
-              className="flex items-center justify-between gap-2 min-h-11 px-3 rounded-xl border border-border/60 bg-surface-hover/30 text-left cursor-pointer transition-colors duration-200 hover:bg-surface-hover hover:border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
-            >
-              <span className="text-sm font-display font-medium text-text truncate">{person.name}</span>
-              <span className="text-sm font-display font-bold tabular-nums text-danger shrink-0">{person.list.length} overdue</span>
-            </button>
-          ))}
+          <ul className="flex flex-col">
+            {needsHelp.map((person) => (
+              <li key={person.id} className="border-b border-border/50 last:border-b-0">
+                <button
+                  type="button"
+                  onClick={() => open(`Overdue: ${person.name}`, person.list, '/tasks?quickFilter=delayed')}
+                  className="flex items-center gap-3 w-full min-h-12 px-1 -mx-1 rounded-lg text-left cursor-pointer transition-colors duration-150 hover:bg-surface-hover/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+                >
+                  <span aria-hidden="true" className="flex items-center justify-center size-8 shrink-0 rounded-full bg-primary-700 text-white text-xs font-display font-bold dark:bg-primary-600">
+                    {person.name.split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase()}
+                  </span>
+                  <span className="flex-1 text-sm font-display font-medium text-text truncate">{person.name}</span>
+                  <span className="text-sm font-display font-bold tabular-nums text-danger shrink-0">{person.list.length} overdue</span>
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
-
-      {/* The same RadialGauge every other compliance-style chart on this dashboard uses. Tapping it
-          opens the completed records, the same affordance the Compliance gauges use. */}
-      <button
-        type="button"
-        onClick={() => open('Done delegations', done, '/tasks')}
-        aria-label={completionRate == null ? 'Completion rate: no data for this period' : `Completion rate ${completionRate}%, ${done.length} of ${total} done. Tap for the completed records.`}
-        disabled={done.length === 0}
-        className="flex flex-col items-center gap-1 py-1 rounded-2xl outline-none disabled:cursor-default cursor-pointer focus-visible:ring-2 focus-visible:ring-primary-500/40"
-      >
-        <RadialGauge percent={completionRate ?? 0} size={144} variant="circle" gradientFrom={ringFill} gradientTo={ringFill}>
-          <div className="flex flex-col items-center justify-center">
-            {completionRate == null
-              ? <span className="text-sm font-display font-bold text-text-muted">No data</span>
-              : <span className="text-xl font-display font-black tracking-tighter text-text">{completionRate}%</span>}
-            <span className="text-xs font-display font-medium text-text-muted">Completion rate</span>
-          </div>
-        </RadialGauge>
-        <span className="block text-xs font-medium text-text-muted">{done.length} of {total} done &middot; {PERIOD_LABEL[period].toLowerCase()}</span>
-      </button>
 
       <Separator />
 

@@ -252,6 +252,25 @@ const makeDot = (color: string) =>
 const completionDot = makeDot('var(--color-primary-500)');
 const onTimeDot = makeDot('var(--color-activity-ticket)');
 
+// Phones skip the full chart, so this is the same Completion trend as one small line under the chips.
+// Finished periods are plain points; the newest (still filling) one is hollow, like the big chart.
+const Sparkline = ({ data }: { data: ChartDatum[] }) => {
+  const W = 100;
+  const H = 28;
+  const points = data
+    .map((d, i) => ({ d, x: data.length > 1 ? (i / (data.length - 1)) * W : W / 2, y: d.completion == null ? null : H - 3 - (d.completion / 100) * (H - 6) }))
+    .filter((p): p is { d: ChartDatum; x: number; y: number } => p.y != null);
+  if (points.length < 2) return null;
+  return (
+    <div className="sm:hidden flex flex-col gap-1" aria-hidden="true">
+      <span className="text-xs font-display font-medium text-text-muted">Completion trend</span>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-10 overflow-visible" preserveAspectRatio="none">
+        <polyline points={points.map((p) => `${p.x},${p.y}`).join(' ')} fill="none" stroke="var(--color-primary-500)" strokeWidth={1.8} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+      </svg>
+    </div>
+  );
+};
+
 const CHART_SERIES = [
   { label: 'Completion', className: 'bg-primary-500' },
   { label: 'On-time', className: 'bg-activity-ticket' },
@@ -308,15 +327,22 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
   // Only fetched for the checklist chip's own drilldown rows — the headline % above comes from the
   // cheaper server-side summary, same "recent preview, not a second unbounded list" capped window
   // KpiStrip's own checklist card already uses.
-  const { data: checklistInstances = [] } = useMyChecklistInstancesQuery({}, { limit: 25 });
+  const { data: checklistInstances = [] } = useMyChecklistInstancesQuery({ from: currentFrom, to: currentTo }, { limit: 100 });
 
   const [drilldown, setDrilldown] = useState<Drilldown | null>(null);
 
   const { chartData, current, previous, projection, completionRows, onTimeRows, reviewedRows, checklistRows, trendReady } = useMemo(() => {
     const nowDate = new Date(now);
+    // A finished delegation is late if the person handed it in after the due date. The hand-in time is
+    // the last "pending approval" step when the list carries it; only when it does not do we fall back
+    // to the approval time, which also counts a slow reviewer against the assignee.
+    const handedInAt = (t: Task) => {
+      const handIns = (t.statusUpdates ?? []).filter((u) => u.toStatus === 'pending_approval');
+      return handIns.length ? handIns[handIns.length - 1].createdAt : (t.verifiedAt ?? t.updatedAt);
+    };
     const taskLate = (t: Task) =>
       isTaskOverdue(t, now) ||
-      (t.status === 'done' && !!t.dueDate && new Date(t.verifiedAt ?? t.updatedAt).getTime() > new Date(t.dueDate).getTime());
+      (t.status === 'done' && !!t.dueDate && new Date(handedInAt(t)).getTime() > new Date(t.dueDate).getTime());
 
     const items: WorkItem[] = [
       ...tasks.map((t) => ({
@@ -505,6 +531,8 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
           })}
         />
       </div>
+
+      {hasData && <Sparkline data={chartData} />}
 
       {!trendReady && (
         <p className="text-xs font-medium text-text-muted">
