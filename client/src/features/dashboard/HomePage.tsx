@@ -65,7 +65,7 @@ const USER_QUICK_ACTIONS: readonly QuickAction[] = [
 
 // Phones drop Quick actions (links already one tap away in the bottom nav) and Team's progress
 // (its To do/In progress/Done split repeats the Delegation tile and the score above it).
-const MOBILE_HIDDEN_CARDS: ReadonlySet<DashboardCardId> = new Set(['quickActions', 'teamProgress']);
+const MOBILE_HIDDEN_CARDS: ReadonlySet<DashboardCardId> = new Set(['quickActions', 'teamProgress', 'todayStrip']);
 
 const NO_TASKS: Task[] = [];
 const NO_TICKETS: Ticket[] = [];

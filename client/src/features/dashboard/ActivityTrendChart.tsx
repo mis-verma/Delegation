@@ -30,7 +30,9 @@ interface ActivityTrendChartProps {
 type ActivityDatum = { label: string; track?: number } & Record<ActivityCategory, number>;
 
 // Widest a bar may grow. Fewer buckets (month, quarter, year) get wider bars up to this.
-const BAR_WIDTH = 72;
+const BAR_WIDTH = 48;
+// One corner radius for the bars and the track behind them, so the two always match.
+const BAR_RADIUS = 6;
 
 /**
  * The chart, both of its empty states, and HomePage's loading skeleton must all be exactly this
@@ -76,14 +78,17 @@ interface SegmentShapeProps {
 const makeSegmentShape = (category: ActivityCategory, activeOrder: readonly ActivityCategory[]) =>
   function SegmentShape({ x = 0, y = 0, width = 0, height = 0, fill, fillOpacity, payload }: SegmentShapeProps) {
     if (!payload || height <= 0 || width <= 0) return null;
-    const above = activeOrder.slice(activeOrder.indexOf(category) + 1);
-    const isTop = above.every((c) => payload[c] === 0);
-    const r = isTop ? Math.min(8, width / 2, height) : 0;
+    const at = activeOrder.indexOf(category);
+    const isTop = activeOrder.slice(at + 1).every((c) => payload[c] === 0);
+    // The lowest drawn segment is rounded at the bottom too, so a bar sits on the baseline with the
+    // same corners as the soft track behind it instead of square feet under round tops.
+    const isBottom = activeOrder.slice(0, at).every((c) => payload[c] === 0);
+    const r = Math.min(BAR_RADIUS, width / 2, height / 2);
+    const rt = isTop ? r : 0;
+    const rb = isBottom ? r : 0;
     const bottom = y + height;
     const right = x + width;
-    const d = r > 0
-      ? `M${x},${bottom} L${x},${y + r} Q${x},${y} ${x + r},${y} L${right - r},${y} Q${right},${y} ${right},${y + r} L${right},${bottom} Z`
-      : `M${x},${bottom} L${x},${y} L${right},${y} L${right},${bottom} Z`;
+    const d = `M${x + rt},${y} H${right - rt} Q${right},${y} ${right},${y + rt} V${bottom - rb} Q${right},${bottom} ${right - rb},${bottom} H${x + rb} Q${x},${bottom} ${x},${bottom - rb} V${y + rt} Q${x},${y} ${x + rt},${y} Z`;
     return (
       <path
         d={d}
@@ -438,7 +443,7 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy, onToggleC
             // card to clip the first bar against the edge. `top` leaves room for the total-count
             // label sitting just above the tallest bar.
             margin={{ top: 8, right: 10, left: 0, bottom: 0 }}
-            barCategoryGap="28%"
+            barCategoryGap="32%"
             onClick={(state) => {
               // Phones only: a tap pins that bar's small card over the chart. Desktop opens things
               // by clicking a coloured part of a bar (see openCategory), so nothing is pinned.
@@ -472,7 +477,7 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy, onToggleC
             <defs>
               {ACTIVITY_CATEGORY_ORDER.map((category) => (
                 <linearGradient key={category} id={`activity-bar-${category}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={ACTIVITY_CATEGORY_COLOR[category]} stopOpacity={0.75} />
+                  <stop offset="0%" stopColor={ACTIVITY_CATEGORY_COLOR[category]} stopOpacity={0.88} />
                   <stop offset="100%" stopColor={ACTIVITY_CATEGORY_COLOR[category]} stopOpacity={1} />
                 </linearGradient>
               ))}
@@ -516,7 +521,7 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy, onToggleC
               xAxisId="track"
               dataKey="track"
               fill="var(--color-surface-hover)"
-              radius={8}
+              radius={BAR_RADIUS}
               maxBarSize={BAR_WIDTH}
               barSize={mobileBarSize}
               isAnimationActive={false}
