@@ -306,25 +306,24 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
                 isDrawer ? 'px-3 py-3' : 'px-3 py-2.5',
                 showLabel ? 'justify-start' : 'md:justify-center md:px-0',
                 isActive || hasActiveChild
-                  ? 'text-white font-bold'
-                  : 'text-text-secondary font-semibold hover:bg-surface-hover hover:text-text',
+                  ? 'bg-primary-50 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300 font-semibold'
+                  : 'text-text-secondary font-medium hover:bg-surface-hover hover:text-text',
               ].join(' ')
             }
           >
             {({ isActive }) => (
               <>
-                {/* Solid fill, not a tint + accent bar — a full navy row is the one unmistakable-
-                    even-collapsed signal, and it's the same "solid, not tinted" treatment the
-                    view toggle's active tab already uses elsewhere in the app. */}
-                {(isActive || hasActiveChild) && (
-                  <span className="absolute inset-0 rounded-xl bg-primary-700 dark:bg-primary-600 animate-in fade-in duration-200 motion-reduce:animate-none" />
+                {/* Same look as the Admin sidebar: a soft tinted pill marks the current page (no solid fill),
+                    and on the collapsed rail a small pip on the left edge says the same. */}
+                {!showLabel && (isActive || hasActiveChild) && (
+                  <span aria-hidden="true" className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-1/2 rounded-full bg-primary-600 dark:bg-primary-400" />
                 )}
                 <span
                   className={[
                     // No grey tile behind every icon: a row of identical boxes read as busy. The
                     // icon sits straight on the row, which fills solid when active and tints on hover.
                     'relative z-10 flex items-center justify-center shrink-0 size-7 transition-colors duration-150',
-                    isActive || hasActiveChild ? 'text-white' : 'text-text-muted group-hover/link:text-text',
+                    isActive || hasActiveChild ? 'text-primary-600 dark:text-primary-300' : 'text-text-light group-hover/link:text-text-muted',
                   ].join(' ')}
                 >
                   <Icon
@@ -450,7 +449,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
         <div className="flex items-center justify-between px-3 mb-4 shrink-0">
           <p
             className={[
-              'text-[11px] font-bold text-text-muted capitalize tracking-wide',
+              'text-xs font-bold text-text-light tracking-wider',
               'overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out',
               (isDrawer || isOpen) ? 'max-h-5 opacity-100' : 'max-h-0 opacity-0',
             ].join(' ')}
@@ -487,7 +486,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
               />
               <p
                 className={[
-                  'flex items-center gap-1.5 text-[11px] font-bold text-text-muted capitalize tracking-wide px-3',
+                  'flex items-center gap-1.5 text-xs font-bold text-text-light tracking-wider px-3',
                   'overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out',
                   (isDrawer || isOpen) ? 'max-h-5 opacity-100 mb-3' : 'max-h-0 opacity-0 mb-0',
                 ].join(' ')}
@@ -511,7 +510,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
       <div className="shrink-0 pt-3 border-t border-border">
         <p
           className={[
-            'text-[11px] font-bold text-text-muted capitalize tracking-wide px-3 mb-1',
+            'text-xs font-bold text-text-light tracking-wider px-3 mb-1',
             'overflow-hidden whitespace-nowrap transition-all duration-300 ease-in-out',
             (isDrawer || isOpen) ? 'max-h-5 opacity-100' : 'max-h-0 opacity-0',
           ].join(' ')}
@@ -525,7 +524,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
         <div
           className={[
             'flex items-center p-2 rounded-xl border border-transparent transition-all duration-300',
-            (isDrawer || isOpen) ? 'bg-surface-hover/50 border-border' : 'md:justify-center hover:bg-surface-hover/50',
+            (isDrawer || isOpen) ? 'bg-surface-hover border-border' : 'md:justify-center hover:bg-surface-hover/50',
           ].join(' ')}
         >
           <div
@@ -590,19 +589,19 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
         // Shadow only while open — parked off-screen at -translate-x-full, the shadow-2xl blur still
         // reached ~20px onto the visible page and drew a grey band down the left edge of every
         // mobile screen.
-        className={`md:hidden fixed top-0 left-0 z-50 w-[280px] max-w-[85vw] h-dvh flex flex-col px-4 pt-8 pb-5 bg-surface border-r border-border transition-[translate,box-shadow] duration-300 ease-out motion-reduce:transition-none ${
+        className={`md:hidden fixed top-0 left-0 z-50 w-[280px] max-w-[85vw] h-dvh flex flex-col rounded-r-3xl px-4 pt-8 pb-5 bg-surface border-r border-border transition-[translate,box-shadow] duration-300 ease-out motion-reduce:transition-none ${
           isOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full shadow-none pointer-events-none'
         }`}
       >
         {renderContent(true)}
       </aside>
 
-      <div className="hidden md:block relative shrink-0 h-full z-20">
+      <div className="hidden md:block relative shrink-0 h-full z-20 p-3">
         {/* Width comes straight from the --sidebar-width-* tokens. It used to be a pair of JS
             pixel constants that a comment asked you to keep "numerically in sync" with those
             tokens; that file is gone. One source of truth, and the rail transitions in CSS. */}
         <aside
-          className={`flex flex-col h-full border-r border-border overflow-hidden py-5 bg-surface transition-[width,padding] duration-300 ease-out motion-reduce:transition-none ${
+          className={`flex flex-col h-full rounded-2xl border border-border overflow-hidden py-5 bg-surface transition-[width,padding] duration-300 ease-out motion-reduce:transition-none ${
             isOpen ? 'w-(--sidebar-width-expanded) px-4' : 'w-(--sidebar-width-collapsed) px-3'
           }`}
         >
@@ -615,7 +614,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
             onClick={onToggleCollapse}
             aria-label={isOpen ? 'Collapse sidebar' : 'Expand sidebar'}
             title={isOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-            className="absolute top-1/2 -right-3 -translate-y-1/2 z-30 flex size-6 items-center justify-center rounded-full border border-border bg-surface text-text-muted transition-all duration-200 cursor-pointer hover:text-primary-600 hover:border-primary-300 active:scale-90"
+            className="absolute top-1/2 right-0 -translate-y-1/2 z-30 flex size-6 items-center justify-center rounded-full border border-border bg-surface text-text-muted transition-all duration-200 cursor-pointer hover:text-primary-600 hover:border-primary-300 active:scale-90"
           >
             {isOpen ? <ChevronLeft size={13} strokeWidth={2.5} /> : <ChevronRight size={13} strokeWidth={2.5} />}
           </button>
