@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, ClipboardCheck, Ticket as TicketIcon, Users } from 'lucide-react';
-import { Combobox, type ComboboxOption } from '../../components';
+import { ChevronLeft, ChevronRight, ClipboardCheck, Download, FileSpreadsheet, FileText, Ticket as TicketIcon, Users } from 'lucide-react';
+import { Button, Combobox, type ComboboxOption } from '../../components';
 import { SemiGauge } from '../../components/semiGauge/SemiGauge';
 import { useAuth } from '../../context/AuthContext';
 import { OWN_SCOPE_ROLES } from '../../api/auth';
 import { scoreApi, type Scores, type ScoreScope } from '../../api/scores';
 import { useAssignableUsersQuery, useDepartmentsQuery, useStoresQuery } from '../tickets/hook';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '../../components/ui/dropdown-menu';
+import { csvBlob, xlsxBlob, downloadBlob, stampedFilename, type TableRows } from '../../lib/exportTable';
 import { PeriodTabControl } from './PeriodTabControl';
 import { DASHBOARD_CARD_CLASS, bucketKeyFor, rateTone, type RateTone } from './dashboardDisplay';
 
@@ -67,7 +69,6 @@ interface ScoreTileProps {
   title: string;
   icon: typeof Users;
   score: number | null;
-  total: number;
   detail: string;
   loading: boolean;
 }
@@ -79,8 +80,9 @@ const TONE_PILL: Record<RateTone, { label: string; className: string } | null> =
   neutral: null,
 };
 
-const ScoreTile = ({ title, icon: Icon, score, total, detail, loading }: ScoreTileProps) => {
-  const tone = score === null ? 'neutral' : rateTone(score, total);
+const ScoreTile = ({ title, icon: Icon, score, detail, loading }: ScoreTileProps) => {
+  // A small count still gets its colour: one finished item out of one is a full, green score.
+  const tone = score === null ? 'neutral' : rateTone(score, Number.MAX_SAFE_INTEGER);
   const [from, to] = RING[tone];
   const pill = TONE_PILL[tone];
   return (
@@ -161,20 +163,58 @@ export const MyScoresCard = () => {
     }
   }, [ready, period, offset, scope, targetId, queryClient]);
 
+  // Downloads exactly what is on screen: this person, department or store, for this window.
+  const handleExport = (format: 'csv' | 'xlsx') => {
+    if (!data) return;
+    const { checklist: c, ticket: t, delegation: d } = data;
+    const rows: TableRows = [
+      [`Scores for ${data.name}`],
+      ['View', SCOPE_LABEL[data.scope]],
+      ['Window', `${range.label} (${data.from} to ${data.to})`],
+      ['Generated', new Date().toLocaleString()],
+      [],
+      ['Score', 'Score %', 'Measured on', 'Done', 'Of', 'Other'],
+      ['Checklist', c.score, c.compliancePct === null ? 'Completion' : 'Compliance', c.completed, c.assigned, `${c.approved} of ${c.submitted} approved, ${c.missed} missed`],
+      ['Tickets', t.score, 'Closed on time', t.onTime, t.due, `${t.late} late`],
+      ['Delegations', d.score, 'Weighted status', d.done, d.due, `${d.overdue} overdue`],
+    ];
+    downloadBlob(format === 'csv' ? csvBlob(rows) : xlsxBlob(rows, 'Scores'), stampedFilename('scores', format));
+  };
+
   const heading = scope === 'person' && !targetId ? 'Your scores' : `${data?.name ?? SCOPE_LABEL[scope]} scores`;
   const showPicker = scope === 'person' ? canPickPerson : !(scope === 'department' && isHod);
 
   return (
-    <section className={`${DASHBOARD_CARD_CLASS} flex flex-col gap-4`} aria-label="Scores">
+    <section className={`${DASHBOARD_CARD_CLASS} flex flex-col gap-4 p-4 sm:p-5`} aria-label="Scores">
       <header className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="min-w-0">
             <h2 className="font-display text-base font-bold text-text truncate">{heading}</h2>
             <p className="text-xs font-display text-text-muted">Work that fell due in the window, and how much was done on time</p>
           </div>
-          {scopes.length > 1 && (
-            <PeriodTabControl value={scope} options={scopes} labels={SCOPE_LABEL} onChange={(next) => { setScope(next); setPicked(''); }} />
-          )}
+          <div className="flex items-center gap-2">
+            {scopes.length > 1 && (
+              <PeriodTabControl value={scope} options={scopes} labels={SCOPE_LABEL} onChange={(next) => { setScope(next); setPicked(''); }} />
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" disabled={!data} aria-label="Export scores" className="shrink-0 pointer-coarse:min-h-11">
+                  <Download size={14} strokeWidth={2.5} aria-hidden="true" />
+                  Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-48">
+                <DropdownMenuItem onClick={() => handleExport('csv')} className="gap-2">
+                  <FileText size={14} />
+                  CSV (.csv)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleExport('xlsx')} className="gap-2">
+                  <FileSpreadsheet size={14} />
+                  Excel (.xlsx)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         {showPicker && (
@@ -214,9 +254,9 @@ export const MyScoresCard = () => {
         </div>
       ) : (
         <div className={`grid grid-cols-1 min-[420px]:grid-cols-3 gap-2.5 transition-opacity ${query.isFetching && data ? 'opacity-60' : ''}`}>
-          <ScoreTile loading={loading} title="Checklist" icon={ClipboardCheck} score={data?.checklist.score ?? null} total={data?.checklist.assigned ?? 0} detail={data ? `${data.checklist.completed} of ${data.checklist.assigned} done${data.checklist.submitted ? `, ${data.checklist.approved} of ${data.checklist.submitted} approved` : ''}` : ''} />
-          <ScoreTile loading={loading} title="Tickets" icon={TicketIcon} score={data?.ticket.score ?? null} total={data?.ticket.due ?? 0} detail={data ? `${data.ticket.onTime} of ${data.ticket.due} on time` : ''} />
-          <ScoreTile loading={loading} title="Delegations" icon={Users} score={data?.delegation.score ?? null} total={data?.delegation.due ?? 0} detail={data ? `${data.delegation.done} of ${data.delegation.due} done` : ''} />
+          <ScoreTile loading={loading} title="Checklist" icon={ClipboardCheck} score={data?.checklist.score ?? null} detail={data ? `${data.checklist.completed} of ${data.checklist.assigned} done${data.checklist.submitted ? `, ${data.checklist.approved} of ${data.checklist.submitted} approved` : ''}` : ''} />
+          <ScoreTile loading={loading} title="Tickets" icon={TicketIcon} score={data?.ticket.score ?? null} detail={data ? `${data.ticket.onTime} of ${data.ticket.due} on time` : ''} />
+          <ScoreTile loading={loading} title="Delegations" icon={Users} score={data?.delegation.score ?? null} detail={data ? `${data.delegation.done} of ${data.delegation.due} done` : ''} />
         </div>
       )}
     </section>

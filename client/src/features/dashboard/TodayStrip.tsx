@@ -36,9 +36,12 @@ interface TodayTileProps {
   detail: string;
   /** The filtered list this figure opens. */
   href: string;
+  /** Left out on a phone, where the same figure is already on the card right below. */
+  phoneHidden?: boolean;
 }
 
-const TodayTile = memo(({ icon: Icon, label, tone, value, isPending, isError, onRetry, detail, href }: TodayTileProps) => {
+const TodayTile = memo(({ icon: Icon, label, tone, value, isPending, isError, onRetry, detail, href, phoneHidden }: TodayTileProps) => {
+  const hide = phoneHidden ? ' max-sm:hidden' : '';
   const header = (
     <span className="flex items-center gap-2 min-w-0">
       <span className={`flex items-center justify-center size-7 rounded-lg shrink-0 ${TONE_ICON[tone]}`}>
@@ -50,7 +53,7 @@ const TodayTile = memo(({ icon: Icon, label, tone, value, isPending, isError, on
 
   if (isPending) {
     return (
-      <div className={`${PANEL_CLASS} flex flex-col gap-2.5 p-3.5 min-h-[6.5rem]`} role="status" aria-label={`Loading ${label}`}>
+      <div className={`${PANEL_CLASS} flex flex-col gap-2.5 p-3.5 min-h-[6.5rem]${hide}`} role="status" aria-label={`Loading ${label}`}>
         {header}
         <Skeleton className="h-8 w-14" />
         <Skeleton className="h-3 w-24" />
@@ -60,7 +63,7 @@ const TodayTile = memo(({ icon: Icon, label, tone, value, isPending, isError, on
 
   if (isError || value == null) {
     return (
-      <div className={`${PANEL_CLASS} flex flex-col gap-1.5 p-3.5 min-h-[6.5rem]`}>
+      <div className={`${PANEL_CLASS} flex flex-col gap-1.5 p-3.5 min-h-[6.5rem]${hide}`}>
         {header}
         <p className="text-sm font-display font-semibold text-text-muted">No data</p>
         <Button variant="ghost" size="sm" onClick={onRetry} className="self-start -ml-2">Retry</Button>
@@ -73,7 +76,7 @@ const TodayTile = memo(({ icon: Icon, label, tone, value, isPending, isError, on
     <Link
       to={href}
       aria-label={`${label}: ${value}. ${detail}`}
-      className={`${PANEL_CLASS} group flex flex-col gap-2 p-3.5 min-h-[6.5rem] transition-colors duration-200 hover:border-primary-500/40 active:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40`}
+      className={`${PANEL_CLASS} group flex flex-col gap-2 p-3.5 min-h-[6.5rem] transition-colors duration-200 hover:border-primary-500/40 active:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40${hide}`}
     >
       {header}
       <span className={`text-3xl font-display font-bold tabular-nums leading-none ${live ? TONE_NUMBER[tone] : 'text-text-muted'}`}>{value}</span>
@@ -182,6 +185,7 @@ export const TodayStrip = ({ summaries, onRefresh, isRefreshing }: TodayStripPro
             }}
             detail={approvals.reviewsAllWork ? 'Tickets, delegations and checklists' : approvals.isHod ? 'Checklists in your department' : 'Checklists you review'}
             href={approvalsHref ?? '/'}
+            phoneHidden
           />
         )}
 
@@ -195,6 +199,7 @@ export const TodayStrip = ({ summaries, onRefresh, isRefreshing }: TodayStripPro
           onRetry={mine.checklist.onRetry}
           detail={checklistOverdue > 0 ? `${checklistOverdue} of them overdue` : 'All on track'}
           href="/checklists?status=pending"
+          phoneHidden
         />
 
         <TodayTile
