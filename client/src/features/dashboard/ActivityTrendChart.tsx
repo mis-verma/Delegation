@@ -30,7 +30,8 @@ interface ActivityTrendChartProps {
 
 type ActivityDatum = { label: string; track?: number } & Record<ActivityCategory, number>;
 
-const BAR_WIDTH = 44;
+// Widest a bar may grow. Fewer buckets (month, quarter, year) get wider bars up to this.
+const BAR_WIDTH = 72;
 
 /**
  * The chart, both of its empty states, and HomePage's loading skeleton must all be exactly this
@@ -44,17 +45,16 @@ interface NarrowCursorProps {
   y?: number;
   width?: number;
   height?: number;
-  /** The real bar width, so the hover highlight hugs the bar instead of a fixed 44px. */
-  barWidth?: number;
 }
 
-// Upgraded Cursor: Uses a subtle, soft-edged highlight rather than a harsh block
-const NarrowCursor = ({ x = 0, y = 0, width = 0, height = 0, barWidth = BAR_WIDTH }: NarrowCursorProps) => (
+// Soft highlight behind the hovered bar. It fills that bar's whole slot, so it follows the bar width
+// at every zoom (day, month, quarter, year) instead of a fixed 44px.
+const NarrowCursor = ({ x = 0, y = 0, width = 0, height = 0 }: NarrowCursorProps) => (
   <rect
-    x={x + width / 2 - barWidth / 2 - 4}
-    y={y - 10}
-    width={barWidth + 8}
-    height={height + 20}
+    x={x + 2}
+    y={y - 6}
+    width={Math.max(0, width - 4)}
+    height={height + 12}
     rx={8}
     fill="var(--color-primary-500)"
     fillOpacity={0.06}
@@ -162,13 +162,16 @@ const BreakdownRows = memo(({
   datum,
   activeCategories,
   onCategoryClick,
+  compact = false,
 }: {
   datum: ActivityDatum;
   activeCategories: ReadonlySet<ActivityCategory>;
   onCategoryClick?: (category: ActivityCategory) => void;
+  /** Hover card: tighter rows, and only the categories that have something on that day. */
+  compact?: boolean;
 }) => (
-  <div className="flex flex-col gap-1.5">
-    {ACTIVITY_CATEGORY_ORDER.filter((category) => activeCategories.has(category)).map((category) => {
+  <div className={compact ? 'flex flex-col gap-0.5' : 'flex flex-col gap-1.5'}>
+    {ACTIVITY_CATEGORY_ORDER.filter((category) => activeCategories.has(category) && (!compact || datum[category] > 0)).map((category) => {
       const clickable = !!onCategoryClick && datum[category] > 0;
       const RowTag = clickable ? 'button' : 'div';
       return (
@@ -177,7 +180,7 @@ const BreakdownRows = memo(({
           key={category}
           type={clickable ? 'button' : undefined}
           onClick={clickable ? () => onCategoryClick!(category) : undefined}
-          className={`flex items-center justify-between gap-4 text-sm w-full min-h-11 rounded-lg -mx-2 px-2 transition-colors duration-200 ${
+          className={`flex items-center justify-between gap-4 text-sm w-full ${compact ? 'min-h-8' : 'min-h-11'} rounded-lg -mx-2 px-2 transition-colors duration-200 ${
             clickable ? 'cursor-pointer text-left hover:bg-surface-hover' : ''
           }`}
         >
@@ -195,40 +198,6 @@ const BreakdownRows = memo(({
   </div>
 ));
 BreakdownRows.displayName = 'BreakdownRows';
-
-interface TotalLabelProps {
-  x?: string | number;
-  y?: string | number;
-  width?: string | number;
-  index?: number;
-}
-
-// The four category colors are deliberately one navy family, not four distinct hues (see
-// ACTIVITY_CATEGORY_COLOR's own comment) — which reads as "on-brand" but makes adjacent segments
-// within one stacked bar genuinely hard to tell apart by color alone. A small bold total above
-// each bar gives the one number most worth reading (how much happened that day) without needing
-// to hover or tap every bar to add its segments up by eye.
-const makeTotalLabel = (data: readonly ActivityDatum[], activeOrder: readonly ActivityCategory[]) =>
-  function TotalLabel({ x, y, width, index }: TotalLabelProps) {
-    const nx = Number(x), ny = Number(y), nw = Number(width);
-    if (!Number.isFinite(nx) || !Number.isFinite(ny) || !Number.isFinite(nw) || index == null) return null;
-    const total = datumTotal(data[index], activeOrder);
-    if (total === 0) return null;
-    return (
-      <text
-        x={nx + nw / 2}
-        y={ny - 8}
-        textAnchor="middle"
-        fontSize={12}
-        fontWeight={700}
-        fontFamily="var(--font-display)"
-        fill="var(--color-text-secondary)"
-        className="tabular-nums"
-      >
-        {total}
-      </text>
-    );
-  };
 
 // Phone version of the tap-to-pin breakdown: one fixed row of equal cells — the day and its total,
 // then one per non-zero category (count over label) — instead of a titled panel of 44px rows. Equal
@@ -364,10 +333,6 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy, onToggleC
   }, [data]);
   const windowTotal = activeOrder.reduce((sum, c) => sum + categoryTotals[c], 0);
 
-  // Built once per data change rather than a fresh function every render, which made Recharts
-  // remount every label.
-  const renderTotalLabel = useMemo(() => makeTotalLabel(data, activeOrder), [data, activeOrder]);
-
   // Text alternative for the picture: the headline total and the busiest bucket.
   const rangeText = ACTIVITY_GROUP_RANGE_LABEL[groupBy];
   const peak = useMemo(() => {
@@ -412,7 +377,7 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy, onToggleC
   // on a narrow card. ~70% of each bucket's share of a ~300px plot, capped at 30px, so a 12-bucket
   // view still leaves a gap between bars instead of running them together.
   // Desktop gets a fixed, chunky width too; left to Recharts it drew ~12px sticks.
-  const mobileBarSize = isMobile ? Math.min(28, Math.floor((300 / data.length) * 0.66)) : data.length <= 8 ? 30 : 20;
+  const mobileBarSize = isMobile ? Math.min(28, Math.floor((300 / data.length) * 0.66)) : undefined;
 
   // Whole-number ticks only (these are item counts), and no more ticks than the tallest bar has
   // steps. Asking for the default five with `allowDecimals={false}` made a quiet week whose tallest
@@ -421,6 +386,11 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy, onToggleC
   const yTickCount = yMax < 4 ? yMax + 1 : 5;
 
   const selectedDatum = selectedIndex !== null ? data[selectedIndex] : null;
+  // Switching Day / Month / Quarter / Year changes how many bars there are, so a hover index from the
+  // old view can point past the end. Read it through this guard, never data[hover.index] directly.
+  const hoverDatum = hover ? data[hover.index] : undefined;
+  // The card sits half a bar slot (plus a small gap) away from the bar's centre.
+  const hoverGap = hover && data.length ? hover.width / data.length / 2 + 6 : 12;
   // Bars read at full, real color until the user actually taps one to isolate it — no ambient
   // dimming of "not today" bars, which used to make legitimate data look washed-out for no reason.
   const cellOpacity = (i: number) => (selectedIndex === null || i === selectedIndex ? 1 : 0.25);
@@ -467,8 +437,8 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy, onToggleC
             // shown, and an extra `left` offset shifts the plot area far enough on a narrow mobile
             // card to clip the first bar against the edge. `top` leaves room for the total-count
             // label sitting just above the tallest bar.
-            margin={{ top: 24, right: 10, left: 0, bottom: 0 }}
-            barCategoryGap="40%"
+            margin={{ top: 8, right: 10, left: 0, bottom: 0 }}
+            barCategoryGap="28%"
             onClick={(state) => {
               // Phones only: a tap pins that bar's small card over the chart. Desktop opens things
               // by clicking a coloured part of a bar (see openCategory), so nothing is pinned.
@@ -533,7 +503,7 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy, onToggleC
             {/* Stays mounted on phones but renders nothing there — the chart's onClick reads
                 `activeTooltipIndex`, which Recharts only tracks while a Tooltip exists. */}
             <Tooltip
-              cursor={isMobile ? false : <NarrowCursor barWidth={mobileBarSize} />}
+              cursor={isMobile ? false : <NarrowCursor />}
               content={() => null}
               isAnimationActive={false} // Prevents jitter on fast hovering
             />
@@ -553,8 +523,7 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy, onToggleC
               activeBar={false}
             />
 
-            {activeOrder.map((category, idx) => {
-              const isTopOfStack = idx === activeOrder.length - 1;
+            {activeOrder.map((category) => {
               return (
                 <Bar
                   key={category}
@@ -564,7 +533,6 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy, onToggleC
                   maxBarSize={BAR_WIDTH}
                   barSize={mobileBarSize}
                   onClick={isMobile ? undefined : (_, index) => openCategory(category, index)}
-                  label={isTopOfStack ? renderTotalLabel : undefined}
                 >
                   {data.map((d, i) => (
                     <Cell key={d.label} fill={`url(#activity-bar-${category})`} fillOpacity={cellOpacity(i)} className="transition-all duration-300" />
@@ -578,19 +546,19 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy, onToggleC
 
       {/* Desktop hover card: the same breakdown, with every row clickable. Flips to the left of the
           bar on the right half of the chart so it never runs off the card. */}
-      {!isMobile && hover && !drilldownCategory && datumTotal(data[hover.index], activeOrder) > 0 && (
+      {!isMobile && hover && hoverDatum && !drilldownCategory && datumTotal(hoverDatum, activeOrder) > 0 && (
         <div
           onMouseEnter={cancelHide}
           onMouseLeave={scheduleHide}
           className="absolute top-2 z-20"
           style={
             hover.x < hover.width * 0.55
-              ? { left: hover.x + mobileBarSize / 2 + 10 }
-              : { right: hover.width - hover.x + mobileBarSize / 2 + 10 }
+              ? { left: hover.x + hoverGap }
+              : { right: hover.width - hover.x + hoverGap }
           }
         >
-          <PinnedBreakdown title={data[hover.index].label} variant="tooltip" className="min-w-[180px]">
-            <BreakdownRows datum={data[hover.index]} activeCategories={activeCategories} onCategoryClick={(category) => openCategory(category, hover.index)} />
+          <PinnedBreakdown title={hoverDatum.label} variant="tooltip" className="min-w-[160px] !gap-1.5">
+            <BreakdownRows compact datum={hoverDatum} activeCategories={activeCategories} onCategoryClick={(category) => openCategory(category, hover.index)} />
           </PinnedBreakdown>
         </div>
       )}

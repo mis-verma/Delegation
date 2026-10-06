@@ -33,9 +33,9 @@
   --color-activity-checklist: var(--color-primary-700);
   /* One clearly different hue per category in the Items created chart (and everywhere that reuses its
      colour key), so Delegation, Ticket, Checklist and To-Do can be told apart at a glance. */
-  --color-activity-delegation: #7c5cdb;
+  --color-activity-delegation: #4c2f9e;
   --color-activity-ticket: #0d9488;
-  --color-activity-todo: #e0a43a;
+  --color-activity-todo: #e0527f;
 
   /* --- Champagne Gold Accent (kept small: highlights, decorative blobs, the sidebar's active mark) --- */
   --color-coral-50: #fdf9ec;
@@ -229,7 +229,7 @@ body {
   --color-activity-checklist: var(--color-primary-400);
   --color-activity-delegation: #a48bf0;
   --color-activity-ticket: #3cc0b2;
-  --color-activity-todo: #e6bb62;
+  --color-activity-todo: #f08aa8;
   color-scheme: dark;
 }
 
