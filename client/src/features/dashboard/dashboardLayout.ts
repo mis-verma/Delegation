@@ -1,7 +1,10 @@
-// The cards a viewer can drag, resize and reorder. The worklist blocks above them (Today, Needs
-// approval, KPI strip) are fixed at the top of the page on purpose and are not part of this list:
-// the things that need doing today should never be dragged below a chart.
+// The cards a viewer can drag, resize and reorder. That now includes the three blocks that used to
+// be pinned at the top (Today, Needs approval, Key numbers): they start at the top, full width, but
+// are the viewer's to move, shrink to half width, or leave where they are.
 export type DashboardCardId =
+  | 'todayStrip'
+  | 'needsApproval'
+  | 'kpiStrip'
   | 'quickActions'
   | 'activityOverview'
   | 'compliance'
@@ -16,12 +19,20 @@ export type DashboardCardSize = 'small' | 'big';
 /** Bump whenever DEFAULT_CARD_ORDER changes. A saved layout from an older version is migrated in
  *  useDashboardLayout: if it was just the old default, it moves to the new default; if the user had
  *  rearranged it, their order is kept. */
-export const LAYOUT_VERSION = 2;
+export const LAYOUT_VERSION = 3;
+
+/** Cards added in version 3. A saved older layout gets these put at the FRONT (where they used to be
+ *  pinned), not appended at the end like other new cards, so nobody's approvals block vanishes to
+ *  the bottom of the page the day this ships. */
+export const NEW_IN_V3: readonly DashboardCardId[] = ['todayStrip', 'needsApproval', 'kpiStrip'];
 
 /** The dashboard's default layout — the starting point every user's saved layout is built from, and
  *  what "Reset to default" restores. Quick actions only repeat the sidebar links, so it sits last,
  *  below the fold. */
 export const DEFAULT_CARD_ORDER: readonly DashboardCardId[] = [
+  'todayStrip',
+  'needsApproval',
+  'kpiStrip',
   'delegationScore',
   'activityOverview',
   'compliance',
@@ -56,6 +67,10 @@ export const ADMIN_ONLY_CARDS: ReadonlySet<DashboardCardId> = new Set(['complian
 
 /** Every card starts at half-width. */
 export const DEFAULT_CARD_SIZES: Record<DashboardCardId, DashboardCardSize> = {
+  // The three worklist blocks are wide by nature, so they start full width.
+  todayStrip: 'big',
+  needsApproval: 'big',
+  kpiStrip: 'big',
   quickActions: 'small',
   activityOverview: 'small',
   compliance: 'small',
@@ -69,6 +84,9 @@ export const DEFAULT_CARD_SIZES: Record<DashboardCardId, DashboardCardSize> = {
 /** Shown in the drag handle's accessible name and the customize-mode label strip — the same
  *  names these cards already carry as on-page headings. */
 export const CARD_LABEL: Record<DashboardCardId, string> = {
+  todayStrip: 'Today',
+  needsApproval: 'Needs your approval',
+  kpiStrip: 'Key numbers',
   quickActions: 'Quick actions',
   activityOverview: 'Activity overview',
   compliance: 'Compliance',

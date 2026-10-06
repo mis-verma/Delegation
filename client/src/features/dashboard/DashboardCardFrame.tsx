@@ -19,7 +19,10 @@ interface DashboardCardFrameProps {
 // card here already draws its own border/rounded shell, and wrapping that in a second one is the
 // "nested cards" mistake this app has spent real effort undoing elsewhere on the dashboard.
 export const DashboardCardFrame = ({ size, children, isDragging = false, strip }: DashboardCardFrameProps) => (
-  <div className={`flex flex-col gap-2 h-full ${size === 'big' ? 'sm:col-span-2' : ''} ${isDragging ? 'opacity-50 z-10' : ''}`}>
+  // `has-[>div:empty]:hidden`: a card that renders nothing (the approvals block for someone with no
+  // queue to review, say) leaves its inner box empty, and the whole frame then disappears instead of
+  // leaving a blank gap and a stray customize strip in the grid.
+  <div className={`flex flex-col gap-2 h-full has-[>div:empty]:hidden ${size === 'big' ? 'sm:col-span-2' : ''} ${isDragging ? 'opacity-50 z-10' : ''}`}>
     {strip}
     {/* flex-1 so the card itself (h-full via DASHBOARD_CARD_CLASS) has real height to fill —
         without this a strip above would be the only flex item actually sized, and the card below

@@ -24,7 +24,7 @@ interface BrandLogoProps {
  * rather than an app-store icon and holds from a 16px favicon up. Colours are the Soft Sapphire
  * theme's own (primary blue, violet accent), so it sits in the same family as the app around it.
  *
- * The wordmark is "Karya" in the display face with the Devanagari "आर्य" beside it, lighter.
+ * The wordmark is just "Karya" in the display face.
  */
 export const BrandLogo = ({ className = 'size-6', showWordmark = true, textClassName }: BrandLogoProps) => {
   // Unique per instance (and colon-free, which url(#id) needs) so Header + Footer + a preview
@@ -56,9 +56,6 @@ export const BrandLogo = ({ className = 'size-6', showWordmark = true, textClass
       {showWordmark && (
         <span className={cn('inline-flex items-baseline gap-1.5 leading-none truncate', textClassName)}>
           <span className="font-display font-extrabold tracking-tight text-primary-800 dark:text-white">Karya</span>
-          <span lang="hi" className="text-[0.85em] text-text-muted" style={{ fontFamily: "'Noto Sans Devanagari', sans-serif", fontWeight: 700 }}>
-            आर्य
-          </span>
         </span>
       )}
     </span>

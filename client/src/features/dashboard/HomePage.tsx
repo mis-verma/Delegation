@@ -267,6 +267,20 @@ export const HomePage = () => {
   // (both are absent from `cardOrder` for everyone else, see useDashboardLayout).
   const renderCard = (id: DashboardCardId): ReactNode => {
     switch (id) {
+      case 'todayStrip':
+        return <TodayStrip summaries={summaries} onRefresh={refresh} isRefreshing={isRefreshing} />;
+      case 'needsApproval':
+        return <NeedsApprovalCard />;
+      case 'kpiStrip':
+        return (
+          <DashboardOverview
+            summaries={summaries.kpi}
+            taskList={visibleTasks}
+            ticketList={visibleTickets}
+            todoList={todos}
+            checklistList={checklistInstances}
+          />
+        );
       case 'quickActions':
         return <QuickActionsGrid actions={USER_QUICK_ACTIONS} />;
       case 'activityOverview':
@@ -364,20 +378,8 @@ export const HomePage = () => {
     <div className="flex flex-col gap-6 lg:gap-8 w-full">
       <h1 className="sr-only">Today, {heading}</h1>
 
-      {/* Worklist first: what needs doing today, then what is waiting on you, then the numbers,
-          then everything customizable. */}
-      <TodayStrip summaries={summaries} onRefresh={refresh} isRefreshing={isRefreshing} />
-
-      <NeedsApprovalCard />
-
-      <DashboardOverview
-        summaries={summaries.kpi}
-        taskList={visibleTasks}
-        ticketList={visibleTickets}
-        todoList={todos}
-        checklistList={checklistInstances}
-      />
-
+      {/* Today, Needs your approval and Key numbers are cards in the grid below now, starting at the
+          top at full width, so each one can be moved, resized or left alone like the rest. */}
       {/* Desktop only — dragging/resizing cards by a small grip handle isn't a touch-friendly
           interaction. */}
       <div className="hidden sm:block">

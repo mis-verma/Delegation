@@ -5,6 +5,7 @@ import {
   DEFAULT_CARD_SIZES,
   ADMIN_ONLY_CARDS,
   LAYOUT_VERSION,
+  NEW_IN_V3,
   LEGACY_V1_DEFAULT_ORDER,
   LEGACY_V1_ADMIN_ONLY,
   type DashboardCardId,
@@ -102,6 +103,12 @@ export const useDashboardLayout = (isOrgWideRole: boolean) => {
     const stored = loadStoredLayout(storageKey);
     if (!stored) return [...visibleCards];
     if (stored.version < LAYOUT_VERSION && isUntouchedLegacyDefault(stored.rawOrder)) return [...visibleCards];
+    // A layout saved before version 3 predates the three worklist cards: they go first, where they used
+    // to be pinned, and the rest keeps the order the person chose.
+    if (stored.version < 3) {
+      const front = NEW_IN_V3.filter((id) => visibleCards.includes(id));
+      return [...front, ...reconcile(stored.order.filter((id) => !NEW_IN_V3.includes(id)))];
+    }
     return reconcile(stored.order);
   });
   const [sizes, setSizes] = useState<Record<DashboardCardId, DashboardCardSize>>(() => {
