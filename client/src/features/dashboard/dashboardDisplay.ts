@@ -60,8 +60,12 @@ export const relativeDayLabel = (isoDate: string, now: number): string => {
   return new Date(isoDate).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 };
 
-export const greeting = () => {
-  const hour = new Date().getHours();
+// Takes the time as an argument on purpose. Called with no argument it read the clock inside, so the
+// compiler saw a call with no inputs and computed it once per mount: the header kept saying "Good
+// morning" all afternoon until the page was reloaded. Pass in a time that is kept up to date (the
+// headers keep one in state, refreshed every 30 seconds) and it re-runs as the day moves on.
+export const greeting = (at: Date) => {
+  const hour = at.getHours();
   if (hour < 12) return 'Good morning';
   if (hour < 18) return 'Good afternoon';
   return 'Good evening';

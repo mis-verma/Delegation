@@ -127,7 +127,7 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
           </div>
           <div className="hidden sm:flex flex-col min-w-0 leading-tight">
             <span className="text-base font-display font-bold text-text truncate">
-              {greeting()}{firstName ? `, ${firstName}` : null}
+              {greeting(now)}{firstName ? `, ${firstName}` : null}
             </span>
             <span className="text-xs font-medium text-text-muted truncate">{pageLabel}</span>
           </div>

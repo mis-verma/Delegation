@@ -84,11 +84,9 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
   const currentTime = now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
   // Phones: the header carries the page's name (or a greeting on Home) with today's date under it,
   // since the desktop page-label pill and clock don't fit there.
-  const hour = now.getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const firstName = (user?.name ?? '').split(' ')[0];
   const isHome = location.pathname === '/';
-  const phoneTitle = isHome ? greeting : pageLabel;
+  const phoneTitle = isHome ? timeGreeting(now) : pageLabel;
   const phoneDateOnly = now.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
   // Home: the name rides on the second line so "Good afternoon" fits a 360px bar uncut.
   const phoneDate = isHome && firstName ? `${firstName} · ${phoneDateOnly}` : phoneDateOnly;
@@ -157,7 +155,7 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
           {/* From sm up, same two lines as the Admin header: the greeting, with the section under it. */}
           <div className="hidden sm:flex flex-col min-w-0 leading-tight">
             <span className="text-base font-display font-bold text-text truncate">
-              {timeGreeting()}{firstName ? `, ${firstName}` : null}
+              {timeGreeting(now)}{firstName ? `, ${firstName}` : null}
             </span>
             {pageLabel && <span className="text-xs font-medium text-text-muted truncate">{pageLabel}</span>}
           </div>
