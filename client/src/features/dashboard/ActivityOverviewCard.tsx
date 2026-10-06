@@ -86,7 +86,7 @@ export const ActivityOverviewCard = memo(({
         </div>
       </div>
     ) : (
-      <ActivityTrendChart items={activityItems} activeCategories={activeCategories} groupBy={activityGroupBy} />
+      <ActivityTrendChart items={activityItems} activeCategories={activeCategories} groupBy={activityGroupBy} onToggleCategory={onToggleCategory} />
     )}
   </section>
   );

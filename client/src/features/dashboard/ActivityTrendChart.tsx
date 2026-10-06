@@ -1,7 +1,7 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Cell } from 'recharts';
-import { BarChart3, ChevronRight, Plus } from 'lucide-react';
+import { BarChart3, CheckSquare, ChevronRight, ClipboardCheck, ListTodo, Plus, TicketCheck, type LucideIcon } from 'lucide-react';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { PinnedBreakdown, BreakdownHint } from './PinnedBreakdown';
 import { DrilldownModal } from './DrilldownModal';
@@ -24,6 +24,8 @@ interface ActivityTrendChartProps {
   items: ActivityWorkItem[];
   activeCategories: ReadonlySet<ActivityCategory>;
   groupBy: ActivityGroupBy;
+  /** Phones have no filter chips above the card, so the chart carries its own category picker. */
+  onToggleCategory?: (category: ActivityCategory) => void;
 }
 
 type ActivityDatum = { label: string; track?: number } & Record<ActivityCategory, number>;
@@ -48,20 +50,109 @@ interface NarrowCursorProps {
   y?: number;
   width?: number;
   height?: number;
+  /** The real bar width, so the hover highlight hugs the bar instead of a fixed 44px. */
+  barWidth?: number;
 }
 
 // Upgraded Cursor: Uses a subtle, soft-edged highlight rather than a harsh block
-const NarrowCursor = ({ x = 0, y = 0, width = 0, height = 0 }: NarrowCursorProps) => (
+const NarrowCursor = ({ x = 0, y = 0, width = 0, height = 0, barWidth = BAR_WIDTH }: NarrowCursorProps) => (
   <rect
-    x={x + width / 2 - BAR_WIDTH / 2 - 4}
+    x={x + width / 2 - barWidth / 2 - 4}
     y={y - 10}
-    width={BAR_WIDTH + 8}
+    width={barWidth + 8}
     height={height + 20}
     rx={8}
     fill="var(--color-primary-500)"
     fillOpacity={0.06}
   />
 );
+
+interface SegmentShapeProps {
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  fill?: string;
+  fillOpacity?: number | string;
+  payload?: ActivityDatum;
+}
+
+// Draws one stack segment. Only the segment that is actually on top of that day's bar gets rounded
+// corners: Recharts rounds per series, so on a day where the last category is 0 the visible top was
+// square. Empty segments draw nothing, which also removes the thin outline line they used to leave.
+const makeSegmentShape = (category: ActivityCategory, activeOrder: readonly ActivityCategory[]) =>
+  function SegmentShape({ x = 0, y = 0, width = 0, height = 0, fill, fillOpacity, payload }: SegmentShapeProps) {
+    if (!payload || height <= 0 || width <= 0) return null;
+    const above = activeOrder.slice(activeOrder.indexOf(category) + 1);
+    const isTop = above.every((c) => payload[c] === 0);
+    const r = isTop ? Math.min(8, width / 2, height) : 0;
+    const bottom = y + height;
+    const right = x + width;
+    const d = r > 0
+      ? `M${x},${bottom} L${x},${y + r} Q${x},${y} ${x + r},${y} L${right - r},${y} Q${right},${y} ${right},${y + r} L${right},${bottom} Z`
+      : `M${x},${bottom} L${x},${y} L${right},${y} L${right},${bottom} Z`;
+    return (
+      <path
+        d={d}
+        fill={fill}
+        fillOpacity={fillOpacity}
+        stroke="var(--color-surface)"
+        strokeWidth={1.5}
+        className="transition-[fill-opacity] duration-300"
+      />
+    );
+  };
+
+const CATEGORY_ICON: Record<ActivityCategory, LucideIcon> = {
+  delegation: CheckSquare,
+  ticket: TicketCheck,
+  checklist: ClipboardCheck,
+  todo: ListTodo,
+};
+
+// Phone category picker: one big tappable tile per category (44px high), in the category's own
+// colour, showing its count while on. It is the chart's legend and its filter in one, so switching
+// between Checklist, Ticket, Delegation and To-Do is a single tap.
+const MobileCategoryPicker = memo(({
+  active,
+  totals,
+  onToggle,
+}: {
+  active: ReadonlySet<ActivityCategory>;
+  totals: Record<ActivityCategory, number> | null;
+  onToggle?: (category: ActivityCategory) => void;
+}) => (
+  <div className="grid grid-cols-2 gap-2" role="group" aria-label="Choose what the chart shows">
+    {ACTIVITY_CATEGORY_ORDER.map((category) => {
+      const on = active.has(category);
+      const Icon = CATEGORY_ICON[category];
+      return (
+        <button
+          key={category}
+          type="button"
+          onClick={() => onToggle?.(category)}
+          aria-pressed={on}
+          className={`flex items-center gap-2.5 min-h-11 px-2.5 rounded-xl border text-left outline-none transition-colors duration-150 cursor-pointer active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
+            on ? 'border-border bg-surface' : 'border-border/50 bg-surface-hover/40 opacity-60'
+          }`}
+        >
+          <span
+            aria-hidden="true"
+            className="flex items-center justify-center size-7 shrink-0 rounded-lg text-white"
+            style={{ backgroundColor: on ? ACTIVITY_CATEGORY_COLOR[category] : 'var(--color-text-light)' }}
+          >
+            <Icon size={15} />
+          </span>
+          <span className="flex flex-col min-w-0 leading-tight">
+            <span className="text-xs font-display font-semibold text-text truncate">{ACTIVITY_CATEGORY_LABEL[category]}</span>
+            <span className="text-xs font-medium text-text-muted tabular-nums">{on ? (totals ? totals[category] : '') : 'Off'}</span>
+          </span>
+        </button>
+      );
+    })}
+  </div>
+));
+MobileCategoryPicker.displayName = 'MobileCategoryPicker';
 
 const datumTotal = (datum: ActivityDatum, order: readonly ActivityCategory[]) =>
   order.reduce((sum, c) => sum + datum[c], 0);
@@ -203,7 +294,7 @@ const ChartTooltip = ({ active, payload, activeCategories }: ChartTooltipProps) 
   );
 };
 
-export const ActivityTrendChart = ({ items, activeCategories, groupBy }: ActivityTrendChartProps) => {
+export const ActivityTrendChart = ({ items, activeCategories, groupBy, onToggleCategory }: ActivityTrendChartProps) => {
   const navigate = useNavigate();
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [drilldownCategory, setDrilldownCategory] = useState<ActivityCategory | null>(null);
@@ -234,6 +325,11 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
   }
 
   const activeOrder = useMemo(() => ACTIVITY_CATEGORY_ORDER.filter((c) => activeCategories.has(c)), [activeCategories]);
+  const segmentShapes = useMemo(() => {
+    const shapes = {} as Record<ActivityCategory, ReturnType<typeof makeSegmentShape>>;
+    for (const category of ACTIVITY_CATEGORY_ORDER) shapes[category] = makeSegmentShape(category, activeOrder);
+    return shapes;
+  }, [activeOrder]);
 
   // Kept alongside `data` (same index) purely so a clicked breakdown row can look its bucket's
   // [start, end) back up — the bar itself only ever needed the count, not the range that produced
@@ -284,20 +380,26 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
 
   if (activeOrder.length === 0) {
     return (
-      <div className="flex flex-col [&>*]:h-full" style={{ height: ACTIVITY_CHART_HEIGHT }}>
-        <EmptyState icon={BarChart3} size="compact" title="No categories selected" description="Pick at least one category to see the trend." />
+      <div className="flex flex-col gap-3">
+        {isMobile && <MobileCategoryPicker active={activeCategories} totals={null} onToggle={onToggleCategory} />}
+        <div className="flex flex-col [&>*]:h-full" style={{ height: ACTIVITY_CHART_HEIGHT }}>
+          <EmptyState icon={BarChart3} size="compact" title="No categories selected" description="Pick at least one category to see the trend." />
+        </div>
       </div>
     );
   }
 
   if (!hasData) {
     return (
-      <div className="flex flex-col [&>*]:h-full [&>*]:py-6" style={{ height: ACTIVITY_CHART_HEIGHT }}>
-        <EmptyState
-          icon={BarChart3}
-          title="No items created in this period yet"
-          action={{ label: 'New delegation', icon: Plus, onClick: () => navigate('/tasks?create=1') }}
-        />
+      <div className="flex flex-col gap-3">
+        {isMobile && <MobileCategoryPicker active={activeCategories} totals={categoryTotals} onToggle={onToggleCategory} />}
+        <div className="flex flex-col [&>*]:h-full [&>*]:py-6" style={{ height: ACTIVITY_CHART_HEIGHT }}>
+          <EmptyState
+            icon={BarChart3}
+            title="No items created in this period yet"
+            action={{ label: 'New delegation', icon: Plus, onClick: () => navigate('/tasks?create=1') }}
+          />
+        </div>
       </div>
     );
   }
@@ -330,17 +432,7 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
             <span className="text-3xl font-display font-bold text-text tabular-nums leading-none">{windowTotal}</span>
             <span className="text-xs font-medium text-text-muted">items created in the {rangeText}</span>
           </div>
-          <div className="grid grid-cols-2 gap-1.5">
-            {activeOrder.map((category) => (
-              <div key={category} className="flex items-center justify-between gap-2 h-9 px-2.5 rounded-xl bg-surface-hover/60 border border-border/40 min-w-0">
-                <span className="flex items-center gap-1.5 min-w-0">
-                  <span aria-hidden="true" className="size-2.5 rounded-full shrink-0" style={{ backgroundColor: ACTIVITY_CATEGORY_COLOR[category] }} />
-                  <span className="text-xs font-medium text-text-secondary truncate">{ACTIVITY_CATEGORY_LABEL[category]}</span>
-                </span>
-                <span className="text-sm font-display font-bold text-text tabular-nums">{categoryTotals[category]}</span>
-              </div>
-            ))}
-          </div>
+          <MobileCategoryPicker active={activeCategories} totals={categoryTotals} onToggle={onToggleCategory} />
         </div>
       )}
 
@@ -348,7 +440,7 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
           layer stays off: it wraps the chart in its own focusable <div tabIndex={0}> that the
           browser outlines on click, and a focusable child inside role="img" is not announced
           anyway. The sr-only table and buttons below are the keyboard and screen-reader route. */}
-      <div role="img" aria-label={chartSummary} className="w-full cursor-pointer" style={{ height: ACTIVITY_CHART_HEIGHT }}>
+      <div role="img" aria-label={chartSummary} className="w-full [&_.recharts-bar-rectangle]:cursor-pointer" style={{ height: ACTIVITY_CHART_HEIGHT }}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={chartData}
@@ -410,7 +502,7 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
             {/* Stays mounted on phones but renders nothing there — the chart's onClick reads
                 `activeTooltipIndex`, which Recharts only tracks while a Tooltip exists. */}
             <Tooltip
-              cursor={isMobile ? false : <NarrowCursor />}
+              cursor={isMobile ? false : <NarrowCursor barWidth={mobileBarSize} />}
               content={(props) => (isMobile ? null : <ChartTooltip {...props} activeCategories={activeCategories} />)}
               isAnimationActive={false} // Prevents jitter on fast hovering
             />
@@ -437,11 +529,9 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
                   key={category}
                   dataKey={category}
                   stackId="stack"
-                  radius={isTopOfStack ? [8, 8, 0, 0] : [0, 0, 0, 0]}
+                  shape={segmentShapes[category]}
                   maxBarSize={BAR_WIDTH}
                   barSize={mobileBarSize}
-                  stroke="var(--color-surface)"
-                  strokeWidth={2}
                   label={isTopOfStack ? renderTotalLabel : undefined}
                 >
                   {data.map((d, i) => (
@@ -512,7 +602,7 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy }: Activit
           <BreakdownRows datum={selectedDatum} activeCategories={activeCategories} onCategoryClick={setDrilldownCategory} />
         </PinnedBreakdown>
       ) : (
-        <BreakdownHint>Tap a bar to see its full breakdown</BreakdownHint>
+        <BreakdownHint>{isMobile ? 'Tap a bar to see its full breakdown' : 'Click a bar to see its full breakdown'}</BreakdownHint>
       )}
 
       {drilldownCategory && selectedIndex !== null && (

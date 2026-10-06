@@ -321,15 +321,15 @@ export const ACTIVITY_CATEGORY_LABEL: Record<ActivityCategory, string> = {
 // token swaps to a light shade in dark mode so Checklist stays visible in both themes.
 export const ACTIVITY_CATEGORY_COLOR: Record<ActivityCategory, string> = {
   checklist: 'var(--color-activity-checklist)',
-  ticket: 'var(--color-primary-700)',
-  delegation: 'var(--color-primary-500)',
-  todo: 'var(--color-primary-300)',
+  ticket: 'var(--color-activity-ticket)',
+  delegation: 'var(--color-activity-delegation)',
+  todo: 'var(--color-activity-todo)',
 };
 export const ACTIVITY_CATEGORY_DOT_CLASS: Record<ActivityCategory, string> = {
   checklist: 'bg-activity-checklist',
-  ticket: 'bg-primary-700',
-  delegation: 'bg-primary-500',
-  todo: 'bg-primary-300',
+  ticket: 'bg-activity-ticket',
+  delegation: 'bg-activity-delegation',
+  todo: 'bg-activity-todo',
 };
 
 export interface ActivityWorkItem {

@@ -30,7 +30,12 @@
      identical to the dark theme's own near-black surface (--color-surface: #121a2c below) — the
      dark-mode override further down swaps it to a light shade so it survives that background flip
      the same way the status colors already do. */
-  --color-activity-checklist: var(--color-primary-900);
+  --color-activity-checklist: var(--color-primary-700);
+  /* One clearly different hue per category in the Items created chart (and everywhere that reuses its
+     colour key), so Delegation, Ticket, Checklist and To-Do can be told apart at a glance. */
+  --color-activity-delegation: #7c5cdb;
+  --color-activity-ticket: #0d9488;
+  --color-activity-todo: #e0a43a;
 
   /* --- Champagne Gold Accent (kept small: highlights, decorative blobs, the sidebar's active mark) --- */
   --color-coral-50: #fdf9ec;
@@ -221,7 +226,10 @@ body {
      effectively invisible (both the legend dot and that category's stacked-bar segment vanish).
      primary-200 keeps it in the same navy family while guaranteeing contrast against this surface,
      same reasoning as the status-color lightening above. */
-  --color-activity-checklist: var(--color-primary-200);
+  --color-activity-checklist: var(--color-primary-400);
+  --color-activity-delegation: #a48bf0;
+  --color-activity-ticket: #3cc0b2;
+  --color-activity-todo: #e6bb62;
   color-scheme: dark;
 }
 
