@@ -49,6 +49,8 @@ export type Task = {
     updatedAt:    string;
     verifiedBy:       string | null;
     verifiedAt:       string | null;
+    /** When it was last handed in for approval (the server records it; absent on older payloads). */
+    submittedAt?:     string | null;
     verificationNote: string | null;
     aiMeta?: {
         rawInput : string;

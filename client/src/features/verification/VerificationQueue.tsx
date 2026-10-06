@@ -16,7 +16,6 @@ import { QueueToolbar } from './QueueToolbar';
 import { ReviewPane, ReviewSheet, type SendBackPayload } from './ReviewPane';
 import { ShortcutsHelp } from './ShortcutsHelp';
 import { TicketTaskQueue } from './TicketTaskQueue';
-import { TypeTabs, ViewTabs } from './QueueTabs';
 import { approveRun, rejectRun, sendBackRun } from './decisionRequests';
 import { filterTasks, filterTickets, oldestCreated, sortByCreated, type TicketTaskFilter } from './ticketTaskFilters';
 import { useChecklistDecisionsQuery } from './useChecklistDecisions';
@@ -28,7 +27,7 @@ import { useQueueParams, type QueueParamsPatch } from './useQueueParams';
 import { useQueueShortcuts } from './useQueueShortcuts';
 import { useRefreshAfterDecision } from './useRefreshAfterDecision';
 import { useReviewDraft, type ReviewDraft } from './useReviewDraft';
-import { DAY_MS, UNASSIGNED, formatWaiting, type ChecklistRow, type QueueTab, type QueueView } from './verificationModel';
+import { DAY_MS, UNASSIGNED, formatWaiting, type ChecklistRow } from './verificationModel';
 
 const NO_TICKETS: Ticket[] = [];
 const NO_TASKS: Task[] = [];
@@ -284,8 +283,6 @@ export const VerificationQueue = () => {
     return query ? `/verify?${query}` : '/verify';
   }, [searchParams]);
 
-  const setView = useCallback((view: QueueView) => patch({ view, open: null }, { replace: false }), [patch]);
-  const setTab = useCallback((tab: QueueTab) => patch({ tab, open: null }), [patch]);
   const showWaiting = useCallback(() => patch({ view: 'waiting' }), [patch]);
   const showDecided = useCallback(() => patch({ view: 'decided', open: null }, { replace: false }), [patch]);
   const openDepartment = useCallback((id: string) => patch({ dept: id }, { replace: false }), [patch]);
@@ -297,24 +294,24 @@ export const VerificationQueue = () => {
     <div className="flex flex-col gap-5 w-full max-w-(--container-width) mx-auto">
       <PageHeader icon={ShieldCheck} title="Verification" subtitle={subtitle} actions={counter} />
 
-      <ViewTabs view={params.view} onChange={setView} waiting={counts?.all ?? null} decided={decisionsQuery.data?.length ?? null} />
+      {/* Search and one Options button, always. What used to be two tab strips (Waiting or Decided today,
+          and All / Checklists / Tickets / Delegations) now lives inside Options with the other filters. */}
+      <QueueToolbar
+        params={params}
+        patch={patch}
+        lookups={lookups}
+        attentionAvailable={showChecklists}
+        filtersActive={filtersActive}
+        onClear={clearFilters}
+        shownCount={params.tab === 'tickets' ? ticketCount : params.tab === 'delegations' ? taskCount : params.tab === 'checklists' ? checklistCount : (counts?.all ?? null)}
+        counts={counts}
+        decidedCount={decisionsQuery.data?.length ?? null}
+      />
 
       {params.view === 'decided' ? (
         <DecidedToday onShowWaiting={showWaiting} />
       ) : (
         <>
-          <div className="flex flex-col gap-3">
-            <TypeTabs tab={params.tab} onChange={setTab} counts={counts} />
-            <QueueToolbar
-              params={params}
-              patch={patch}
-              lookups={lookups}
-              attentionAvailable={showChecklists}
-              filtersActive={filtersActive}
-              onClear={clearFilters}
-              shownCount={params.tab === 'tickets' ? ticketCount : params.tab === 'delegations' ? taskCount : params.tab === 'checklists' ? checklistCount : (counts?.all ?? null)}
-            />
-          </div>
 
           {params.dept && showTicketTask && (
             <Breadcrumbs items={[{ label: 'Verification', to: rootHref }, { label: departmentNameOf(params.dept) }]} />
@@ -382,6 +379,10 @@ export const VerificationQueue = () => {
                 onOpenDepartment={openDepartment}
                 onClearDepartment={clearDepartment}
                 onClearFilters={clearFilters}
+                now={now}
+                personNameById={personNameById}
+                decisions={{ heldIds, schedule, hold, release }}
+                refresh={refresh}
               />
             </>
           )}

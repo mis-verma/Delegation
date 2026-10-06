@@ -1,15 +1,15 @@
 import { useState } from 'react';
-import { AlarmClock, Building2, CalendarClock, CalendarPlus, Clock, ShieldAlert, ShieldCheck, Store, Search, User, X, ArrowUpDown } from 'lucide-react';
+import { AlarmClock, Building2, CalendarClock, CalendarPlus, Clock, History, Layers, ShieldAlert, ShieldCheck, Store, Search, User, X, ArrowUpDown } from 'lucide-react';
 import { Combobox } from '../../components';
 import { OptionsSheet, OptionSection, OptionSelect, OptionSegmented, ChoiceChip, ChoiceIcon, ChoiceWrap, ChoiceClear } from '../../components/optionsSheet';
 import { cn } from '@/lib/utils';
 import type { QueueLookups } from './useChecklistQueue';
 import type { QueueParams, QueueParamsPatch } from './useQueueParams';
-import { AGE_OPTIONS, SORT_OPTIONS, UNASSIGNED, type AgeFilter, type SortKey } from './verificationModel';
+import { AGE_OPTIONS, SORT_OPTIONS, UNASSIGNED, type AgeFilter, type QueueTab, type QueueView, type SortKey } from './verificationModel';
 
 interface QueueToolbarProps {
   params: QueueParams;
-  patch: (change: QueueParamsPatch) => void;
+  patch: (change: QueueParamsPatch, options?: { replace?: boolean }) => void;
   lookups: QueueLookups;
   /** "Needs attention only" is about checklists, so it is off on the Tickets and Delegations tabs. */
   attentionAvailable: boolean;
@@ -17,10 +17,16 @@ interface QueueToolbarProps {
   onClear: () => void;
   /** How many items the current filters leave, for the sheet's "Show N" button. */
   shownCount?: number | null;
+  /** How many are waiting per type, for the Type choices in Options. Null while loading. */
+  counts: { all: number; checklists: number; tickets: number; delegations: number } | null;
+  /** How many decisions were made today, for the Show choices. Null while loading. */
+  decidedCount: number | null;
 }
 
 const SORT_LABEL = Object.fromEntries(SORT_OPTIONS.map((o) => [o.value, o.label])) as Record<SortKey, string>;
 const SORT_ICON: Record<SortKey, typeof Clock> = { oldest: Clock, overdue: AlarmClock, compliance: ShieldCheck, newest: CalendarPlus };
+
+const TYPE_LABEL: Record<QueueTab, string> = { all: 'All', checklists: 'Checklists', tickets: 'Tickets', delegations: 'Delegations' };
 
 const AGE_SEGMENTS = AGE_OPTIONS.map((o) => ({
   value: o.value,
@@ -46,8 +52,9 @@ const AppliedChip = ({ label, onRemove }: { label: string; onRemove: () => void 
 // Search, plus ONE Options button that holds everything else (sort, store, department, person, age,
 // needs attention). What is applied shows as chips under the search box, each one removable.
 // Everything is written to the URL.
-export const QueueToolbar = ({ params, patch, lookups, attentionAvailable, filtersActive, onClear, shownCount }: QueueToolbarProps) => {
+export const QueueToolbar = ({ params, patch, lookups, attentionAvailable, filtersActive, onClear, shownCount, counts, decidedCount }: QueueToolbarProps) => {
   const [open, setOpen] = useState(false);
+  const decided = params.view === 'decided';
 
   const attention = params.attention && attentionAvailable;
   const storeName = params.store ? lookups.stores.find((s) => s.id === params.store)?.name ?? 'Store' : null;
@@ -55,12 +62,13 @@ export const QueueToolbar = ({ params, patch, lookups, attentionAvailable, filte
   const personName = params.person ? lookups.people.find((p) => p.id === params.person)?.name ?? 'Person' : null;
   const ageLabel = params.age !== 'any' ? AGE_SEGMENTS.find((a) => a.value === params.age)?.label ?? null : null;
 
-  const activeCount = (params.store ? 1 : 0) + (params.dept ? 1 : 0) + (params.person ? 1 : 0) + (params.age !== 'any' ? 1 : 0) + (attention ? 1 : 0);
+  const activeCount = (decided ? 1 : 0) + (!decided && params.tab !== 'all' ? 1 : 0) + (params.store ? 1 : 0) + (params.dept ? 1 : 0) + (params.person ? 1 : 0) + (params.age !== 'any' ? 1 : 0) + (attention ? 1 : 0);
   const showLabel = shownCount == null ? 'Show results' : `Show ${shownCount} ${shownCount === 1 ? 'item' : 'items'}`;
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
+        {!decided && (
         <label className="relative flex-1 min-w-0 sm:max-w-sm">
           <span className="sr-only">Search by title, person or store</span>
           <Search size={15} aria-hidden className="absolute left-3 top-1/2 -translate-y-1/2 text-text-light pointer-events-none" />
@@ -86,16 +94,44 @@ export const QueueToolbar = ({ params, patch, lookups, attentionAvailable, filte
             </button>
           )}
         </label>
+        )}
 
         <OptionsSheet
           isOpen={open}
           setIsOpen={setOpen}
           activeCount={activeCount}
-          subtitle={filtersActive ? 'Showing a narrowed view' : 'Everything waiting for you'}
-          onReset={() => { onClear(); patch({ sort: 'oldest' }); }}
-          canReset={filtersActive || params.sort !== 'oldest'}
-          showLabel={showLabel}
+          subtitle={decided ? "Today's decisions" : filtersActive ? 'Showing a narrowed view' : 'Everything waiting for you'}
+          onReset={() => { onClear(); patch({ sort: 'oldest', tab: 'all', view: 'waiting', open: null }); }}
+          canReset={filtersActive || params.sort !== 'oldest' || params.tab !== 'all' || decided}
+          showLabel={decided ? 'Show decisions' : showLabel}
         >
+          {/* What was the two tab strips on the page: whether to look at the work waiting or at what was
+              decided today, and which kind of work. Everything about the view now lives in this one place. */}
+          <OptionSection icon={History} label="Show">
+            <OptionSegmented
+              options={[
+                { value: 'waiting' as QueueView, label: `Waiting${counts ? ` ${counts.all}` : ''}`, icon: Clock },
+                { value: 'decided' as QueueView, label: `Decided today${decidedCount != null ? ` ${decidedCount}` : ''}`, icon: History },
+              ]}
+              value={params.view}
+              onChange={(view: QueueView) => patch({ view, open: null }, { replace: false })}
+            />
+          </OptionSection>
+
+          {!decided && (
+            <OptionSection icon={Layers} label="Type">
+              {/* Wrapping choices, not a four-across strip: "Delegations 12" does not fit a quarter of a phone. */}
+              <ChoiceWrap>
+                {(Object.keys(TYPE_LABEL) as QueueTab[]).map((tab) => (
+                  <ChoiceChip key={tab} active={params.tab === tab} onClick={() => patch({ tab, open: null })}>
+                    {TYPE_LABEL[tab]}{counts ? ` ${counts[tab]}` : ''}
+                  </ChoiceChip>
+                ))}
+              </ChoiceWrap>
+            </OptionSection>
+          )}
+
+          {!decided && (<>
           <OptionSection icon={ArrowUpDown} label="Sort by">
             <OptionSelect labels={SORT_LABEL} icons={SORT_ICON} value={params.sort} onChange={(sort) => patch({ sort })} />
           </OptionSection>
@@ -167,14 +203,17 @@ export const QueueToolbar = ({ params, patch, lookups, attentionAvailable, filte
               </ChoiceChip>
             </ChoiceWrap>
             {!attentionAvailable && (
-              <p className="text-xs font-display text-text-muted">Only applies to checklists. Switch to All or Checklists to use it.</p>
+              <p className="text-xs font-display text-text-muted">Only applies to checklists. Switch the Type to All or Checklists to use it.</p>
             )}
           </OptionSection>
+          </>)}
         </OptionsSheet>
       </div>
 
-      {filtersActive && (
+      {(filtersActive || decided || (!decided && params.tab !== 'all')) && (
         <div className="flex flex-wrap items-center gap-2">
+          {decided && <AppliedChip label="Decided today" onRemove={() => patch({ view: 'waiting' }, { replace: false })} />}
+          {!decided && params.tab !== 'all' && <AppliedChip label={TYPE_LABEL[params.tab]} onRemove={() => patch({ tab: 'all', open: null })} />}
           {storeName && <AppliedChip label={storeName} onRemove={() => patch({ store: null })} />}
           {deptName && <AppliedChip label={deptName} onRemove={() => patch({ dept: null })} />}
           {personName && <AppliedChip label={personName} onRemove={() => patch({ person: null })} />}

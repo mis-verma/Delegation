@@ -1,9 +1,9 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Check, Loader2, CheckCircle2, SearchX, ChevronRight, Building2, Users } from 'lucide-react';
 import { toast } from 'sonner';
-import { Button, EmptyState, Skeleton } from '../../components';
-import { useVerifyTicketMutation } from '../tickets/hook';
-import { useVerifyTaskMutation } from '../tasks/hook';
+import { Button, EmptyState, Skeleton, useConfirm } from '../../components';
+import { approveTaskRun, approveTicketRun, rejectTaskRun, rejectTicketRun } from './decisionRequests';
+import type { DecisionRequest } from './useDeferredDecisions';
 import { TicketRow, TaskRow } from './TicketTaskRows';
 import { UNASSIGNED, type QueueTab } from './verificationModel';
 import type { Ticket } from '../../api/ticket';
@@ -37,7 +37,7 @@ const DepartmentGroupCard = ({ group, onOpen }: { group: DepartmentGroup; onOpen
       <span className="text-xs font-display font-medium text-text-muted">
         <strong className="font-display font-bold text-text">{group.tickets.length}</strong> tickets · <strong className="font-display font-bold text-text">{group.tasks.length}</strong> delegations
       </span>
-      <span className="inline-flex items-center justify-center text-[11px] font-display font-bold px-2 py-0.5 rounded bg-primary-600 text-white">
+      <span className="inline-flex items-center justify-center text-xs font-display font-bold px-2 py-0.5 rounded bg-primary-600 text-white">
         {group.tickets.length + group.tasks.length} pending
       </span>
     </div>
@@ -48,7 +48,7 @@ const SectionTitle = ({ title, count }: { title: string; count?: number }) => (
   <div className="flex items-center gap-2">
     <h2 className="text-sm font-display font-semibold text-text">{title}</h2>
     {count != null && count > 0 && (
-      <span className="px-2 py-0.5 rounded-full bg-border/50 text-[11px] font-display font-medium text-text-muted tabular-nums">{count}</span>
+      <span className="px-2 py-0.5 rounded-full bg-border/50 text-xs font-display font-medium text-text-muted tabular-nums">{count}</span>
     )}
   </div>
 );
@@ -66,12 +66,31 @@ interface TicketTaskQueueProps {
   onOpenDepartment: (id: string) => void;
   onClearDepartment: () => void;
   onClearFilters: () => void;
+  /** The page's clock, so every row measures its waiting time against the same "now". */
+  now: number;
+  personNameById: ReadonlyMap<string, string>;
+  /** The page's Undo window: a decision hides the row at once and is sent after ten seconds. */
+  decisions: {
+    heldIds: ReadonlySet<string>;
+    schedule: (request: DecisionRequest) => void;
+    hold: (ids: string[]) => void;
+    release: (ids: string[]) => void;
+  };
+  /** Refreshes the lists after a decision was saved. */
+  refresh: () => Promise<unknown>;
 }
 
 /** Tickets and delegations waiting for review: department cards, then a department's own list with bulk approve. */
 export const TicketTaskQueue = ({
-  tab, tickets, tasks, isPending, departmentId, departmentNameOf, filtersActive, onOpenDepartment, onClearDepartment, onClearFilters,
+  tab, tickets: allTickets, tasks: allTasks, isPending, departmentId, departmentNameOf, filtersActive, onOpenDepartment, onClearDepartment, onClearFilters,
+  now, personNameById, decisions, refresh,
 }: TicketTaskQueueProps) => {
+  const confirm = useConfirm();
+  const { heldIds, schedule, hold, release } = decisions;
+  // A row that was just approved or sent back is gone straight away, while its Undo is still running.
+  const tickets = useMemo(() => allTickets.filter((t) => !heldIds.has(t.id)), [allTickets, heldIds]);
+  const tasks = useMemo(() => allTasks.filter((t) => !heldIds.has(t.id)), [allTasks, heldIds]);
+
   const showTickets = tab === 'all' || tab === 'tickets';
   const showTasks = tab === 'all' || tab === 'delegations';
 
@@ -116,18 +135,39 @@ export const TicketTaskQueue = ({
   }), []);
   const toggleSelectAll = () => setSelectedIds(allSelected ? new Set() : new Set(selectableIds));
 
-  const verifyTicket = useVerifyTicketMutation();
-  const verifyTask = useVerifyTaskMutation();
+  const approveItem = useCallback((kind: 'ticket' | 'task') => (id: string, title: string) => {
+    schedule({ id, verb: 'Approved', label: title, run: kind === 'ticket' ? approveTicketRun(id) : approveTaskRun(id) });
+  }, [schedule]);
+  const sendBackItem = useCallback((kind: 'ticket' | 'task') => (id: string, title: string, note: string) => {
+    schedule({ id, verb: 'Sent back', label: title, run: kind === 'ticket' ? rejectTicketRun(id, note) : rejectTaskRun(id, note) });
+  }, [schedule]);
+  const approveTicket = useMemo(() => approveItem('ticket'), [approveItem]);
+  const approveTask = useMemo(() => approveItem('task'), [approveItem]);
+  const sendBackTicket = useMemo(() => sendBackItem('ticket'), [sendBackItem]);
+  const sendBackTask = useMemo(() => sendBackItem('task'), [sendBackItem]);
 
+  // Approving several at once asks first, and then runs one request after another right away: ten
+  // separate Undo toasts would be noise, so the whole batch is confirmed up front instead.
   const bulkApprove = async () => {
     if (!group || selectedIds.size === 0) return;
-    setBulkApproving(true);
     const ticketIds = group.tickets.filter((t) => selectedIds.has(t.id)).map((t) => t.id);
     const taskIds = group.tasks.filter((t) => selectedIds.has(t.id)).map((t) => t.id);
+    const total = ticketIds.length + taskIds.length;
+    const ok = await confirm({
+      title: `Approve ${total} ${total === 1 ? 'item' : 'items'}?`,
+      description: 'They are approved right away, without opening each one. Anything you want to look at first, leave unticked.',
+      confirmLabel: `Approve ${total}`,
+    });
+    if (!ok) return;
+    setBulkApproving(true);
+    const ids = [...ticketIds, ...taskIds];
+    hold(ids);
     const results = await Promise.allSettled([
-      ...ticketIds.map((id) => verifyTicket.mutateAsync({ id, payload: { action: 'APPROVE' } })),
-      ...taskIds.map((id) => verifyTask.mutateAsync({ id, payload: { action: 'APPROVE' } })),
+      ...ticketIds.map((id) => approveTicketRun(id)({ keepalive: false })),
+      ...taskIds.map((id) => approveTaskRun(id)({ keepalive: false })),
     ]);
+    try { await refresh(); } catch { /* the next refetch catches up */ }
+    release(ids);
     setBulkApproving(false);
     setSelectedIds(new Set());
     const failed = results.filter((r) => r.status === 'rejected').length;
@@ -198,7 +238,19 @@ export const TicketTaskQueue = ({
           <SectionTitle title="Tickets" count={visibleTickets.length} />
           <div className="flex flex-col gap-3">
             {visibleTickets.length === 0 && <EmptyState size="compact" icon={CheckCircle2} tone="success" title="No tickets waiting here" />}
-            {visibleTickets.map((t) => <TicketRow key={t.id} ticket={t} selected={selectedIds.has(t.id)} onToggleSelect={toggleSelect} />)}
+            {visibleTickets.map((t) => (
+              <TicketRow
+                key={t.id}
+                ticket={t}
+                now={now}
+                departmentName={t.departmentId ? departmentNameOf(t.departmentId) : null}
+                raisedByName={personNameById.get(t.userId) ?? null}
+                onApprove={approveTicket}
+                onSendBack={sendBackTicket}
+                selected={selectedIds.has(t.id)}
+                onToggleSelect={toggleSelect}
+              />
+            ))}
           </div>
         </section>
       )}
@@ -208,7 +260,19 @@ export const TicketTaskQueue = ({
           <SectionTitle title="Delegations" count={visibleTasks.length} />
           <div className="flex flex-col gap-3">
             {visibleTasks.length === 0 && <EmptyState size="compact" icon={CheckCircle2} tone="success" title="No delegations waiting here" />}
-            {visibleTasks.map((t) => <TaskRow key={t.id} task={t} selected={selectedIds.has(t.id)} onToggleSelect={toggleSelect} />)}
+            {visibleTasks.map((t) => (
+              <TaskRow
+                key={t.id}
+                task={t}
+                now={now}
+                departmentName={t.departmentId ? departmentNameOf(t.departmentId) : null}
+                raisedByName={personNameById.get(t.userId) ?? null}
+                onApprove={approveTask}
+                onSendBack={sendBackTask}
+                selected={selectedIds.has(t.id)}
+                onToggleSelect={toggleSelect}
+              />
+            ))}
           </div>
         </section>
       )}
