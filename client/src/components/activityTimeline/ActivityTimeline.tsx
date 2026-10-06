@@ -137,7 +137,7 @@ export const ActivityTimeline = ({ entityType, entityId, limit: initialLimit = P
           </span>
           <span>Activity</span>
           {ready && total > 0 && (
-            <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-surface-hover text-[10px] font-display font-bold text-text-secondary tabular-nums">
+            <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-surface-hover text-xs font-display font-bold text-text-secondary tabular-nums">
               {total}
             </span>
           )}
@@ -154,7 +154,7 @@ export const ActivityTimeline = ({ entityType, entityId, limit: initialLimit = P
                   role="tab"
                   aria-selected={active}
                   onClick={() => setFilter(key)}
-                  className={`inline-flex items-center gap-1 h-7 px-2.5 rounded-full text-[11px] font-display font-semibold transition-all duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
+                  className={`inline-flex items-center gap-1 h-7 px-2.5 rounded-full text-xs font-display font-semibold transition-all duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
                     active ? 'bg-surface text-text ring-1 ring-border' : 'text-text-muted hover:text-text'
                   }`}
                 >
@@ -205,13 +205,13 @@ export const ActivityTimeline = ({ entityType, entityId, limit: initialLimit = P
         return (
           <div key={group.key} className="flex flex-col gap-3" role="group" aria-label={label.full}>
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-display font-semibold text-text-secondary">
+              <span className="inline-flex items-center gap-1.5 text-xs font-display font-semibold text-text-secondary">
                 {label.lead && <span className="text-text font-bold">{label.lead}</span>}
                 {label.lead && <span className="text-text-light" aria-hidden>·</span>}
                 <span>{label.full}</span>
               </span>
               <span className="h-px flex-1 bg-border/70" aria-hidden />
-              <span className="text-[10px] font-display font-semibold text-text-light tabular-nums">
+              <span className="text-xs font-display font-semibold text-text-light tabular-nums">
                 {group.rows.length} {group.rows.length === 1 ? 'entry' : 'entries'}
               </span>
             </div>
@@ -251,12 +251,12 @@ const ChangeList = ({ log, rows }: { log: AuditLog; rows: DiffRow[] }) => (
       if (row.before.length > LONG_TEXT || row.after.length > LONG_TEXT) {
         return (
           <li key={row.key} className="flex flex-col sm:flex-row gap-1.5 sm:gap-3 min-w-0">
-            <span className="text-[11px] font-display font-semibold text-text-muted sm:w-24 shrink-0 truncate" title={row.label}>
+            <span className="text-xs font-display font-semibold text-text-muted sm:w-24 shrink-0 truncate" title={row.label}>
               {row.label}
             </span>
             <div className="flex flex-col gap-1 min-w-0 flex-1">
               {!wasEmpty && (
-                <p className="text-[11px] text-text-muted line-clamp-2 break-words" title={row.before}>
+                <p className="text-xs text-text-muted line-clamp-2 break-words" title={row.before}>
                   <span className="font-display font-semibold text-text-light">Was: </span>
                   {row.before}
                 </p>
@@ -270,7 +270,7 @@ const ChangeList = ({ log, rows }: { log: AuditLog; rows: DiffRow[] }) => (
       }
       return (
         <li key={row.key} className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 min-w-0">
-          <span className="text-[11px] font-display font-semibold text-text-muted sm:w-24 shrink-0 truncate" title={row.label}>
+          <span className="text-xs font-display font-semibold text-text-muted sm:w-24 shrink-0 truncate" title={row.label}>
             {row.label}
           </span>
           <div className="flex flex-wrap items-center gap-1.5 min-w-0">
@@ -344,7 +344,7 @@ const ActivityTimelineRow = ({
                   <RoleChip role={log.actor.role} className="hidden sm:inline-flex" />
                 )}
                 {isLatest && (
-                  <span className="inline-flex items-center gap-1 px-1.5 py-px rounded-full bg-primary-500/10 dark:bg-primary-500/15 text-[10px] font-display font-bold text-primary-700 dark:text-primary-300">
+                  <span className="inline-flex items-center gap-1 px-1.5 py-px rounded-full bg-primary-500/10 dark:bg-primary-500/15 text-xs font-display font-bold text-primary-700 dark:text-primary-300">
                     <span className="size-1.5 rounded-full bg-primary-500" aria-hidden />
                     Latest
                   </span>
@@ -360,7 +360,7 @@ const ActivityTimelineRow = ({
             className="flex flex-col items-end gap-0.5 shrink-0 text-right"
           >
             <span className="text-xs font-display font-bold text-text tabular-nums">{timeLabel(date)}</span>
-            <span className="hidden sm:block text-[10px] font-display font-medium text-text-light">{formatRelativeTime(log.createdAt)}</span>
+            <span className="hidden sm:block text-xs font-display font-medium text-text-light">{formatRelativeTime(log.createdAt)}</span>
           </time>
         </header>
 
@@ -389,7 +389,7 @@ const ActivityTimelineRow = ({
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
-            className="inline-flex items-center gap-1 w-fit sm:ml-[42px] min-h-6 text-[11px] font-display font-bold text-primary-700 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 transition-colors duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded"
+            className="inline-flex items-center gap-1 w-fit sm:ml-[42px] min-h-6 text-xs font-display font-bold text-primary-700 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 transition-colors duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded"
             aria-expanded={expanded}
           >
             {expanded

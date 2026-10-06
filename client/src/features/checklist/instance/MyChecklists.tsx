@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { AlertCircle, ClipboardCheck, X, Store, ChevronRight, Clock, AlarmClock, ArrowDownAZ, Repeat, User, LayoutList, Table2, Kanban, Rows3, ArrowUpDown, Building2, ShieldCheck, Users } from 'lucide-react';
 import { useSearchParams } from 'react-router';
 import { Skeleton, PageNav, ViewToggle, EmptyState, FilterPill, InlineError, PANEL_CLASS, type ViewTab } from '../../../components';
-import { CreatedRangeBanner } from '../../../components/createdRangeBanner';
+import { CreatedRangeBanner, CreatedRangePicker } from '../../../components/createdRangeBanner';
 import { useCreatedRange } from '../../../lib/createdRange';
 import {
   OptionsSheet, OptionSection, OptionSegmented, OptionSelect, ChoiceChip, ChoiceIcon, ChoiceWrap, ChoiceClear,
@@ -389,6 +389,8 @@ export const MyChecklists = () => {
         <div className="hidden sm:block">
           <ViewToggle tabs={VIEW_TABS} value={view} onChange={setView} />
         </div>
+
+        <CreatedRangePicker createdRange={createdRange} className="w-44 shrink-0" />
 
         {quickFilter && (
           <FilterPill active icon={X} onClick={clearQuickFilter}>

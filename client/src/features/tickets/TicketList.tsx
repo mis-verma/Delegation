@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { Plus, ChevronDown, Upload, AlertCircle, Inbox, LayoutList, Kanban, Table2, GanttChartSquare } from 'lucide-react';
 import { Button, PageNav, Fab, ViewToggle, EmptyState, type ViewTab } from '../../components';
-import { CreatedRangeBanner } from '../../components/createdRangeBanner';
+import { CreatedRangeBanner, CreatedRangePicker } from '../../components/createdRangeBanner';
 import { useCreatedRange } from '../../lib/createdRange';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/context/AuthContext';
@@ -164,6 +164,8 @@ export const TicketList = () => {
           <div className="hidden sm:block shrink-0">
             <ViewToggle tabs={VIEW_TABS} value={organizer.view} onChange={organizer.setView} />
           </div>
+
+          <CreatedRangePicker createdRange={createdRange} className="w-44 shrink-0" />
 
           <TicketActiveTags organizer={organizer} allTickets={allTicketsData ?? []} />
 

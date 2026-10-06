@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { CheckSquare, Loader2, ChevronRight, CircleDot, Clock, Eye, Type, CheckCircle2, ShieldCheck, Trash2, CalendarDays, Check, Milestone, AlignLeft } from 'lucide-react';
-import { Modal, Button, DateRangePicker, ActivityTimeline, DepartmentChip, StatusChip, type StatusChipStatus } from '../../components';
+import { Modal, Button, DateRangePicker, ActivityTimeline, DepartmentChip, StatusChip, useConfirm, type StatusChipStatus } from '../../components';
 import { IconChip } from '../../components/iconChip';
 import type { DateRangeValue } from '../../components';
 import { useTaskQuery, useUpdateTaskMutation, useDeleteTaskMutation, useAssignableUsersQuery } from './hook';
@@ -10,7 +10,7 @@ import { TaskFormDepartmentField } from './TaskFormDepartmentField';
 import { AssigneeField } from '../assignees/AssigneeField';
 import { TaskDescriptionField } from './TaskDescriptionField';
 import { VerificationNoteBanner } from '../../components/verificationBanner';
-import { STATUS_LABEL, NEXT_STATUS } from './taskDisplay';
+import { STATUS_LABEL, NEXT_STATUS, endOfDay } from './taskDisplay';
 import { TaskScoreBadge } from './TaskScoreBadge';
 import { TaskPriorityChipPicker } from './TaskPriorityChipPicker';
 import { DETAIL_HEADING_CLASS, CHIP_TRIGGER_CLASS } from './taskFormFieldStyles';
@@ -179,7 +179,7 @@ const TaskFooter = ({ task, isPC, isVerifier, nextStatus, onAdvance, isAdvancing
             // Phones: only when there's nothing else in the row — otherwise the header ✕ closes.
             className={`px-6 ${nextStatus && !isPC ? 'max-sm:hidden' : 'max-sm:flex-1'}`}
           >
-            Done
+            Close
           </Button>
         </div>
       </div>
@@ -257,8 +257,9 @@ const formatStepTime = (date: Date) => date.toLocaleTimeString(undefined, { hour
  * the delegation reached that stage at all. Each step is now stamped from the entry that produced
  * it, and date and remark always describe the same event.
  */
-const TaskStatusStepper = ({ task }: { task: Task }) => {
+const TaskStatusStepper = ({ task, nameOf }: { task: Task; nameOf: (id: string | null | undefined) => string | undefined }) => {
   const currentIndex = STATUS_ORDER.indexOf(task.status);
+  const isDraft = task.status === 'draft';
 
   // statusUpdates is newest-first, so `find` is the MOST RECENT arrival at a stage — the right one
   // for a delegation that looped (sent for verification, rejected, sent again): what describes the
@@ -272,6 +273,11 @@ const TaskStatusStepper = ({ task }: { task: Task }) => {
         <Milestone size={14} className="text-text-light" />
         Progress
       </h3>
+      {isDraft && (
+        <p className="text-xs font-display text-text-muted rounded-lg border border-border/60 bg-surface-hover/40 px-3 py-2">
+          This is a draft, not published yet. Move it to To do to start the steps below.
+        </p>
+      )}
 
       {/* Done steps: solid green circle + check on a green rail. Current: solid navy circle with
           the stage's own icon and a soft ring, its content in a tinted card marked "Current".
@@ -287,10 +293,15 @@ const TaskStatusStepper = ({ task }: { task: Task }) => {
 
           const arrival = reached ? arrivalAt(s) : null;
           // 'todo' is where every delegation starts, so it has no status-change entry of its own.
+          // "Done" is reached by the reviewer approving it, not by a status move, so it has no entry of its
+          // own: its time, person and note come from the approval itself.
+          const approval = s === 'done' && task.status === 'done' && task.verifiedAt ? task : null;
           const stamp = arrival ? new Date(arrival.createdAt)
+            : approval ? new Date(approval.verifiedAt as string)
             : reached && s === 'todo' ? new Date(task.createdAt)
             : null;
-          const author = arrival?.changedByUser?.firstName;
+          const author = arrival?.changedByUser?.firstName ?? (approval ? nameOf(approval.verifiedBy) : undefined);
+          const remark = arrival?.remark || (approval ? approval.verificationNote : null);
 
           return (
             <li key={s} className="flex gap-3" aria-current={isCurrent ? 'step' : undefined}>
@@ -334,9 +345,9 @@ const TaskStatusStepper = ({ task }: { task: Task }) => {
                     </p>
                   )}
 
-                  {arrival?.remark ? (
+                  {remark ? (
                     <p className="text-xs text-text-secondary leading-relaxed whitespace-pre-wrap break-words pl-2.5 border-l-2 border-primary-500/30">
-                      {arrival.remark}
+                      {remark}
                     </p>
                   ) : (
                     <p className={`text-xs leading-snug ${reached ? 'text-text-muted' : 'text-text-light'}`}>{TIMELINE_STEP_DESCRIPTION[s]}</p>
@@ -378,6 +389,13 @@ const TaskEditLayout = ({
 }: TaskEditLayoutProps) => {
   const { user } = useAuth();
   const departmentName = task.departmentId ? departments?.find((d) => d.id === task.departmentId)?.name : undefined;
+  // Names for the ids the task carries (who raised it, who approved it) from the people list this
+  // role can already see; an id that is not in it simply shows no name.
+  const nameOf = (id: string | null | undefined) => {
+    const person = id ? assignableUsers?.find((u) => u.id === id) : undefined;
+    return person ? `${person.firstName}${person.lastName ? ` ${person.lastName}` : ''}` : undefined;
+  };
+  const raisedBy = nameOf(task.userId);
   return (
   // flex-col + flex-1 on the scroller, not `h-full`: on phones the percentage height didn't resolve
   // against this flex item, so the scroller grew to its full content height and the sheet's
@@ -406,6 +424,9 @@ const TaskEditLayout = ({
           )}
         </div>
         <TitleEditor value={task.title} isViewMode={isViewOnly} disabled={isViewOnly} onSave={onSaveTitle} />
+        <p className="text-xs font-display font-medium text-text-muted">
+          {raisedBy ? `Raised by ${raisedBy} \u00b7 ` : ''}Created {formatStepDate(new Date(task.createdAt))}, {formatStepTime(new Date(task.createdAt))}
+        </p>
       </div>
 
       <TaskStatusSummary status={task.status} />
@@ -452,7 +473,7 @@ const TaskEditLayout = ({
                 }}
                 onChange={(range: DateRangeValue) => onUpdate({
                   startDate: range.from ? range.from.toISOString() : undefined,
-                  dueDate: range.to ? range.to.toISOString() : undefined,
+                  dueDate: range.to ? endOfDay(range.to).toISOString() : undefined,
                 })}
                 placeholder="Add dates"
                 triggerClassName={CHIP_TRIGGER_CLASS}
@@ -532,7 +553,7 @@ const TaskEditLayout = ({
           ActivityTimeline below is a different, unrelated thing added later: an ADMIN/PC-only
           read-only audit trail (who changed which fields, sourced from AuditLog) — not a
           reintroduction of the removed comment feed, and invisible to every other role. */}
-      <TaskStatusStepper task={task} />
+      <TaskStatusStepper task={task} nameOf={nameOf} />
 
       {(user?.role === 'ADMIN' || user?.role === 'PC') && (
         <>
@@ -576,6 +597,7 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
 
   const updateMutation = useUpdateTaskMutation({ silent: true });
   const deleteMutation = useDeleteTaskMutation();
+  const confirm = useConfirm();
   const { data: assignableUsers, isLoading: isLoadingUsers } = useAssignableUsersQuery();
   const { data: departments, isLoading: isLoadingDepts } = useDepartmentsQuery();
 
@@ -639,7 +661,15 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
           onSaveTitle={saveTitle}
           onSaveDescription={saveDescription}
           onUpdate={handleUpdate}
-          onDelete={(id: string) => deleteMutation.mutate(id, { onSuccess: onClose })}
+          onDelete={async (id: string) => {
+            const ok = await confirm({
+              title: 'Delete this delegation?',
+              description: 'It is removed from the lists.',
+              confirmLabel: 'Delete',
+              variant: 'danger',
+            });
+            if (ok) deleteMutation.mutate(id, { onSuccess: onClose });
+          }}
           isDeleting={deleteMutation.isPending}
         />
       </div>

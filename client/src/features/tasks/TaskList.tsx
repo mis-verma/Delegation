@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { Wand2, AlertCircle, Save, Inbox, X, Plus, ChevronDown, Upload } from "lucide-react";
 import { Skeleton, Fab, ViewToggle, EmptyState, type ViewTab } from "../../components";
-import { CreatedRangeBanner } from "../../components/createdRangeBanner";
+import { CreatedRangeBanner, CreatedRangePicker } from "../../components/createdRangeBanner";
 import { useCreatedRange } from "../../lib/createdRange";
 import { ExportDialog } from "../reports";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
@@ -614,6 +614,8 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
           <div className="hidden sm:block">
             <ViewToggle tabs={VIEW_TABS} value={view} onChange={changeView} />
           </div>
+
+          <CreatedRangePicker createdRange={createdRange} />
 
           {activeChips.length > 0 && (
             <div className="flex items-center gap-2 flex-wrap min-w-0">

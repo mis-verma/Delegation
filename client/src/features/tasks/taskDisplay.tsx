@@ -114,6 +114,11 @@ export const TASK_SCORE: Record<Task['status'], number> = {
   done: 1,
 };
 
+// A due date picked on a calendar has no time of its own. Saved as midnight it made a delegation due
+// "today" overdue from 00:00 that same day; saving the last minute of the chosen day means it is due
+// all day and only overdue once the day is over, on the card, the dashboard and the server alike.
+export const endOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 0, 0);
+
 export const taskScorePercent = (status: Task['status']) => Math.round(TASK_SCORE[status] * 100);
 
 export const NEXT_STATUS: Record<Task['status'], Task['status'] | null> = {

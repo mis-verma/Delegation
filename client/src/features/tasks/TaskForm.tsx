@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { endOfDay } from './taskDisplay';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -96,7 +97,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
           status:                saveAsDraft ? 'draft' : undefined,
           priority:              data.priority,
           startDate:             dateRange.from ? dateRange.from.toISOString() : undefined,
-          dueDate:               dateRange.to ? dateRange.to.toISOString() : undefined,
+          dueDate:               dateRange.to ? endOfDay(dateRange.to).toISOString() : undefined,
           assigneeId:            assigneeIds[0],
           additionalAssigneeIds: assigneeIds.slice(1),
           departmentId:          data.departmentId !== '' ? data.departmentId : undefined,

@@ -77,7 +77,7 @@ export const ActivityValue = ({
     return (
       <span className={`inline-flex flex-wrap items-center gap-1 ${dim}`}>
         {text.split(', ').map((name) => (
-          <span key={name} className={`inline-flex items-center h-6 px-2 rounded-full border text-[11px] font-display font-semibold ${name.startsWith('+') || name.startsWith('#') ? 'border-border/60 bg-surface-hover/60 text-text-muted' : labelChipClass(name)}`}>
+          <span key={name} className={`inline-flex items-center h-6 px-2 rounded-full border text-xs font-display font-semibold ${name.startsWith('+') || name.startsWith('#') ? 'border-border/60 bg-surface-hover/60 text-text-muted' : labelChipClass(name)}`}>
             {name}
           </span>
         ))}
@@ -86,13 +86,13 @@ export const ActivityValue = ({
   }
 
   if (text === EMPTY) {
-    return <span className="text-[11px] font-display font-medium text-text-light italic">Empty</span>;
+    return <span className="text-xs font-display font-medium text-text-light italic">Empty</span>;
   }
 
   return (
     <span
       title={text}
-      className={`inline-flex items-center min-w-0 max-w-[16rem] px-2.5 py-1 rounded-full border text-[11px] font-display font-semibold truncate ${
+      className={`inline-flex items-center min-w-0 max-w-[16rem] px-2.5 py-1 rounded-full border text-xs font-display font-semibold truncate ${
         side === 'before'
           ? 'border-border/60 bg-surface-hover/60 text-text-muted'
           : 'border-primary-500/25 bg-primary-500/10 text-primary-700 dark:bg-primary-500/15 dark:text-primary-300'

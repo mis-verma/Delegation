@@ -49,6 +49,24 @@ export const useCreatedRange = () => {
     [range],
   );
 
+  // Sets the range from two calendar days, both included: a one-day pick is [that day, the next day).
+  const set = useCallback(
+    (firstDay: Date, lastDay: Date) => {
+      const start = new Date(firstDay.getFullYear(), firstDay.getMonth(), firstDay.getDate());
+      const end = new Date(lastDay.getFullYear(), lastDay.getMonth(), lastDay.getDate() + 1);
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set(CREATED_FROM_PARAM, start.toISOString());
+          next.set(CREATED_TO_PARAM, end.toISOString());
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
   const clear = useCallback(() => {
     setSearchParams(
       (prev) => {
@@ -61,5 +79,5 @@ export const useCreatedRange = () => {
     );
   }, [setSearchParams]);
 
-  return { range, matches, clear };
+  return { range, matches, set, clear };
 };

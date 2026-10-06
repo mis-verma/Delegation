@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { Plus, Flag, ArrowUpDown } from 'lucide-react';
 import { Button, Fab } from '../../components';
-import { CreatedRangeBanner } from '../../components/createdRangeBanner';
+import { CreatedRangeBanner, CreatedRangePicker } from '../../components/createdRangeBanner';
 import { useCreatedRange } from '../../lib/createdRange';
 import {
   OptionsSheet, OptionSection, OptionSegmented, ChoiceChip, ChoiceIcon, ChoiceWrap, ChoiceClear,
@@ -125,6 +125,8 @@ export const TodoPage = () => {
               />
             </OptionSection>
           </OptionsSheet>
+
+          <CreatedRangePicker createdRange={createdRange} className="w-44 shrink-0" />
 
           <Button size="sm" variant="primary" className="hidden md:inline-flex gap-1.5 ml-auto rounded-full font-display" onClick={() => setShowForm(true)}>
             <Plus size={15} strokeWidth={2.5} />
