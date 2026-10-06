@@ -177,7 +177,14 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
       .map((d) => ({ id: d.id, name: d.name, storeId: d.storeId, storeName: d.storeId ? (storeNames.get(d.storeId) ?? null) : null }))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [departments, stores]);
-  const moveApi = useMemo<OrgMoveApi>(() => ({ targets: moveTargets, moveUser }), [moveTargets, moveUser]);
+  const nameOf = useCallback(
+    (userId: string) => {
+      const person = users?.find((u) => u.id === userId);
+      return person ? `${person.firstName} ${person.lastName ?? ''}`.trim() : undefined;
+    },
+    [users],
+  );
+  const moveApi = useMemo<OrgMoveApi>(() => ({ targets: moveTargets, moveUser, nameOf }), [moveTargets, moveUser, nameOf]);
 
   // Stable, same reason as the toggles above; the drag callbacks only need to exist so rows render
   // as draggable.

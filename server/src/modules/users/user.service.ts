@@ -51,6 +51,7 @@ const publicUserColumns = {
     role: users.role,
     gender: users.gender,
     dressTypeId: users.dressTypeId,
+    reportsToId: users.reportsToId,
     departmentId: users.departmentId,
     storeId: users.storeId,
     isActive: users.isActive,
@@ -71,7 +72,7 @@ const getSafeById = async (id: string) => {
 
 // What an audit row records about a person. Never includes the password hash.
 const userSnapshot = (u: {
-    email: string; role: string; isActive: boolean; firstName: string; lastName: string | null; gender: string | null; dressTypeId: string | null;
+    email: string; role: string; isActive: boolean; firstName: string; lastName: string | null; gender: string | null; dressTypeId: string | null; reportsToId?: string | null;
     phone: string | null; departmentId: string | null; storeId: string | null; weekOffDays: number[] | null; rank?: number | null;
 }) => ({
     email: u.email,
@@ -81,6 +82,7 @@ const userSnapshot = (u: {
     lastName: u.lastName,
     gender: u.gender,
     dressTypeId: u.dressTypeId,
+    reportsToId: u.reportsToId ?? null,
     phone: u.phone,
     departmentId: u.departmentId,
     storeId: u.storeId,
@@ -104,6 +106,23 @@ const assertOrgRefs = async (departmentId?: string | null, storeId?: string | nu
     if (dressTypeId) {
         const [t] = await db.select({ id: dressTypes.id }).from(dressTypes).where(eq(dressTypes.id, dressTypeId)).limit(1);
         if (!t) throw AppError.badRequest("That dress type doesn't exist.");
+    }
+};
+
+// "Reports to": the person has to exist and be active, cannot be the user themself, and cannot sit
+// below the user in the chain (A reports to B reports to A is a loop, and a loop would send an alert
+// round in circles). `userId` is null while creating, when there is no chain below the new person yet.
+const MAX_CHAIN_DEPTH = 25;
+const assertReportsTo = async (userId: string | null, reportsToId: string | null | undefined) => {
+    if (!reportsToId) return;
+    if (userId && reportsToId === userId) throw AppError.badRequest("A person can't report to themself.");
+    let cursor: string | null = reportsToId;
+    for (let depth = 0; cursor && depth < MAX_CHAIN_DEPTH; depth += 1) {
+        const [row] = await db.select({ id: users.id, isActive: users.isActive, reportsToId: users.reportsToId }).from(users).where(eq(users.id, cursor)).limit(1);
+        if (!row) throw AppError.badRequest("That person doesn't exist.");
+        if (depth === 0 && !row.isActive) throw AppError.badRequest("That person is deactivated, so they can't be someone's head.");
+        if (userId && row.reportsToId === userId) throw AppError.badRequest("That would make a loop: that person already reports to this one, directly or through others.");
+        cursor = row.reportsToId;
     }
 };
 
@@ -178,6 +197,7 @@ export const userService = {
         if (existing) throw AppError.conflict('Email already registered');
         await assertPhoneAvailable(input.phone);
         await assertOrgRefs(input.departmentId, input.storeId, input.dressTypeId);
+        await assertReportsTo(null, input.reportsToId);
 
         const passwordHash = await hashPassword(input.password);
         const rank = deriveDefaultRank(input.role);
@@ -197,6 +217,7 @@ export const userService = {
                 storeId: input.storeId ?? null,
                 gender: input.gender ?? null,
                 dressTypeId: input.dressTypeId ?? null,
+                reportsToId: input.reportsToId ?? null,
                 phone: input.phone ?? null,
                 rank,
             });
@@ -251,6 +272,7 @@ export const userService = {
         }
         if (input.phone) await assertPhoneAvailable(input.phone, id);
         await assertOrgRefs(input.departmentId, input.storeId, input.dressTypeId);
+        if (input.reportsToId !== undefined) await assertReportsTo(id, input.reportsToId);
 
         const set: Partial<typeof users.$inferInsert> = { updatedAt: new Date() };
         if (normalizedEmail !== undefined) set.email = normalizedEmail;
@@ -258,6 +280,7 @@ export const userService = {
         if (input.lastName !== undefined) set.lastName = input.lastName;
         if (input.gender !== undefined) set.gender = input.gender;
         if (input.dressTypeId !== undefined) set.dressTypeId = input.dressTypeId;
+        if (input.reportsToId !== undefined) set.reportsToId = input.reportsToId;
         if (input.departmentId !== undefined) set.departmentId = input.departmentId;
         if (input.storeId !== undefined) set.storeId = input.storeId;
         if (input.weekOffDays !== undefined) set.weekOffDays = input.weekOffDays;

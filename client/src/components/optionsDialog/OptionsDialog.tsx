@@ -76,7 +76,7 @@ export const OptionsDialog = ({
       // open and shut constantly, not a document you read, so the rest of the page going dark
       // every time reads as heavier than the moment warrants. Blur stays as-is; brightness is an
       // opacity thing, not a blur one.
-      overlayClassName="bg-black/20 backdrop-blur-sm"
+      overlayClassName="bg-black/30"
       className={
         'bg-surface sm:max-w-2xl ' +
         // Phones: header / scrolling body / footer as three flex rows, with only the body scrolling.

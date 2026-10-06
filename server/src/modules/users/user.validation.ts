@@ -30,6 +30,8 @@ export const createUserSchema = z.object({
     // Which dress type an audit checks this person against (Admin > Dress types). null = none, so
     // they get the gender / main list. No gender restriction here: the client filters the picker.
     dressTypeId: z.string().min(1).max(191).nullable().optional(),
+    // Who this person reports to (their head). null = nobody. Loops and unknown people are refused in the service.
+    reportsToId: objectId.nullable().optional(),
     // Digits only once parsed; "" becomes null (see phone.ts).
     phone: phoneSchema.optional(),
 });

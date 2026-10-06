@@ -19,6 +19,8 @@ export type AdminUser = {
     gender?: Gender | null;
     /** Which admin-defined dress type an audit checks this person against; null = none (their gender's list). */
     dressTypeId?: string | null;
+    /** Who this person reports to (for a head, their own head); null = nobody. */
+    reportsToId?: string | null;
     /** Weekly day(s) off, 0 = Sunday … 6 = Saturday — no daily checklists on these days. */
     weekOffDays?: number[] | null;
     createdAt: string;
@@ -36,11 +38,14 @@ export type CreateUserPayload = {
     storeId?: string;
     gender?: Gender;
     dressTypeId?: string | null;
+    reportsToId?: string | null;
     phone?: string;
     weekOffDays?: number[];
 };
 
-export type UpdateUserPayload = Partial<Omit<CreateUserPayload, "password" | "departmentId" | "storeId" | "gender" | "dressTypeId" | "phone">> & {
+export type UpdateUserPayload = Partial<Omit<CreateUserPayload, "password" | "departmentId" | "storeId" | "gender" | "dressTypeId" | "reportsToId" | "phone">> & {
+    /** null clears it. */
+    reportsToId?: string | null;
     /** null clears it. */
     phone?: string | null;
     isActive?: boolean;

@@ -28,7 +28,7 @@ export const TodoDrawer = ({ open, onClose }: TodoDrawerProps) => {
     <>
       {open && (
         <div
-          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm transition-opacity duration-200"
+          className="fixed inset-0 z-50 bg-black/50 transition-opacity duration-200"
           onClick={onClose}
           aria-hidden="true"
         />

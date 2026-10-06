@@ -48,7 +48,7 @@ export const Fab = ({ actions, icon: Icon = Plus, 'aria-label': ariaLabel }: Fab
         <div
           onClick={() => setExpanded(false)}
           aria-hidden="true"
-          className={`md:hidden fixed inset-0 z-30 bg-black/40 backdrop-blur-sm transition-opacity duration-200 ease-out motion-reduce:transition-none ${
+          className={`md:hidden fixed inset-0 z-30 bg-black/50 transition-opacity duration-200 ease-out motion-reduce:transition-none ${
             expanded ? 'opacity-100' : 'opacity-0 pointer-events-none'
           }`}
         />

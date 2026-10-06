@@ -42,7 +42,7 @@ function DialogOverlay({
         // spawned from *inside* a dialog (e.g. an assignee picker in a form modal) rather than a
         // competing full-screen surface, and being portalled to document.body as siblings of the
         // dialog, they need a higher z-index of their own to render on top of it, not beneath it.
-        "fixed inset-0 z-[70] bg-black/40 backdrop-blur-sm",
+        "fixed inset-0 z-[70] bg-black/50",
         // 150ms/100ms, not 200ms/150ms — every dialog in the app already carries a real, un-
         // removable ~90-100ms of framework overhead before this animation even starts (Radix's own
         // Presence machinery probes computed style to time exit/enter correctly), so the visible
@@ -64,7 +64,7 @@ function DialogContent({
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
-  /** Overrides the backdrop's own classes (default `bg-black/40 backdrop-blur-sm`) — for a dialog
+  /** Overrides the backdrop's own classes (default `bg-black/50`) — for a dialog
    *  that's opened/closed constantly (e.g. an Options filter panel) rather than read, where the
    *  default dimming makes the rest of the page go dark every time. Optional and additive: every
    *  other dialog keeps the default backdrop untouched. */
@@ -81,11 +81,9 @@ function DialogContent({
         ref={ref}
         data-slot="dialog-content"
         className={cn(
-          // shadow-2xl alone is the untinted browser default depth every design-system shadow in
-          // this app tints from the palette (see TicketForm.tsx's own dialog-shaped card) — this is
-          // the one dialog every modal in the app renders through, so it was the widest-reaching
-          // instance of that gap.
-          "fixed z-[70] grid w-full gap-5 bg-surface text-text p-6 sm:p-7 shadow-2xl shadow-primary-900/10 border border-border outline-none max-h-[90vh] overflow-y-auto no-scrollbar",
+          // No shadow and no blurred backdrop: both repaint a large area on every animation frame, which is
+          // what made dialogs stutter on low-end Android phones. A border and a plain dim separate it.
+          "fixed z-[70] grid w-full gap-5 bg-surface text-text p-6 sm:p-7 border border-border outline-none max-h-[90vh] overflow-y-auto no-scrollbar",
           
           // Buttery smooth entry/exit physics — tightened alongside the overlay above.
           "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=open]:duration-150 data-[state=closed]:duration-100 data-[state=open]:ease-[cubic-bezier(0.32,0.72,0,1)]",

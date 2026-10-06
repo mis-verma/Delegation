@@ -10,6 +10,7 @@ import {
   mysqlEnum,
   index,
   uniqueIndex,
+  type AnyMySqlColumn,
 } from 'drizzle-orm/mysql-core';
 import { createId } from '@paralleldrive/cuid2';
 
@@ -144,6 +145,11 @@ export const users = mysqlTable(
     dressTypeId: varchar('dressTypeId', { length: 191 }).references(() => dressTypes.id, { onDelete: 'set null' }),
     departmentId: varchar('departmentId', { length: 191 }).references(() => departments.id),
     storeId: varchar('storeId', { length: 191 }).references(() => stores.id),
+    // Who this person reports to: for a department head, their own head. Optional, one person, and
+    // never a loop (checked in user.service). A late approval is flagged to this person as well.
+    // Cleared if that person is ever removed. Annotated return type breaks the self-reference's
+    // circular type inference, same as Task.parentTaskId.
+    reportsToId: varchar('reportsToId', { length: 191 }).references((): AnyMySqlColumn => users.id, { onDelete: 'set null' }),
     isActive: boolean('isActive').notNull().default(true),
     // Derived from `role` via DEFAULT_RANK_BY_ROLE when null; app-layer sets this
     // on insert if not provided (min 1, max 6 — not enforced at the DB level).

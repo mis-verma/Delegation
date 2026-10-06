@@ -277,12 +277,35 @@ export const notificationService = {
     }
     if (!recipientIds.length) return [];
 
-    return notificationService.notifyMany(recipientIds, {
+    const sent = await notificationService.notifyMany(recipientIds, {
       type: 'CHECKLIST_PENDING_VERIFICATION',
       title: 'Checklist waiting for approval',
       message: `"${instance.title}" has been waiting for approval for ${formatWaiting(instance.hoursWaiting)}.`,
       checklistInstanceId: instance._id.toString(),
     });
+
+    // A heads-up to whoever the reviewers report to (their own head), so a late approval is not only
+    // known to the person who is late. Skips anyone already told above and the people who did the work
+    // (nobody is flagged about their own checklist).
+    const assigneeSet = new Set((instance.assigneeIds ?? []).map((id) => id.toString()));
+    const alreadyTold = new Set(recipientIds);
+    const heads = await db
+      .select({ superiorId: users.reportsToId })
+      .from(users)
+      .where(and(inArray(users.id, recipientIds), eq(users.isActive, true)));
+    const superiorIds = [...new Set(heads.map((h) => h.superiorId).filter((id): id is string => !!id && !alreadyTold.has(id) && !assigneeSet.has(id)))];
+    if (superiorIds.length) {
+      const active = await db.select({ id: users.id }).from(users).where(and(inArray(users.id, superiorIds), eq(users.isActive, true)));
+      if (active.length) {
+        await notificationService.notifyMany(active.map((a) => a.id), {
+          type: 'CHECKLIST_PENDING_VERIFICATION',
+          title: 'Approval running late in your team',
+          message: `"${instance.title}" has been waiting for approval for ${formatWaiting(instance.hoursWaiting)}.`,
+          checklistInstanceId: instance._id.toString(),
+        });
+      }
+    }
+    return sent;
   },
 
   // Second and last chase, after two days: tells every Admin and PC.

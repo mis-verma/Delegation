@@ -181,7 +181,7 @@ export const OptionsSheet = ({
         ref={contentRef}
         style={dragStyle}
         showCloseButton={false}
-        overlayClassName="bg-black/20 backdrop-blur-sm"
+        overlayClassName="bg-black/30"
         className={
           'bg-surface sm:max-w-2xl flex flex-col gap-0 p-0 sm:p-0 overflow-hidden max-h-[88dvh] sm:max-h-[85vh] ' +
           'will-change-transform data-[state=open]:duration-150 data-[state=closed]:duration-100 ' +

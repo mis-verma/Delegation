@@ -1,0 +1,2 @@
+ALTER TABLE `User` ADD `reportsToId` varchar(191);--> statement-breakpoint
+ALTER TABLE `User` ADD CONSTRAINT `User_reportsToId_User_id_fk` FOREIGN KEY (`reportsToId`) REFERENCES `User`(`id`) ON DELETE set null ON UPDATE no action;

@@ -2,12 +2,13 @@ import { useMemo, useRef, useState } from 'react';
 import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { UserPlus, ShieldCheck, Building2, Store, KeyRound, User, Mail, Phone, CalendarOff, Copy, Wand2, Pencil, Shirt } from 'lucide-react';
+import { UserPlus, ShieldCheck, Building2, Store, KeyRound, User, Mail, Phone, CalendarOff, Copy, Wand2, Pencil, Shirt, Network } from 'lucide-react';
 import { Input, Button, Modal, Combobox, AvatarUpload, WeekdayPicker, InlineError, useConfirm } from '../../../components';
 import {
   useCreateUserMutation,
   useUpdateUserMutation,
   useDepartmentsQuery,
+  useUsersQuery,
   useUploadUserAvatarMutation,
   useRemoveUserAvatarMutation,
 } from '../hook';
@@ -47,6 +48,7 @@ const buildUserSchema = (isEditing: boolean) =>
       gender: z.enum(['', 'FEMALE', 'MALE']),
       // An admin-defined dress type. '' = none: they get their gender's list.
       dressTypeId: z.string(),
+      reportsToId: z.string(),
       // Weekly day(s) off: no daily checklists for this person on these days.
       weekOffDays: z.array(z.number()).max(6, 'Leave at least one working day'),
     })
@@ -144,6 +146,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
       storeId: user?.storeId ?? '',
       gender: user?.gender ?? '',
       dressTypeId: user?.dressTypeId ?? '',
+      reportsToId: user?.reportsToId ?? '',
       weekOffDays: user?.weekOffDays ? [...user.weekOffDays] : [],
       password: '',
     },
@@ -163,6 +166,18 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
     [dressTypes, genderValue, dressTypeValue],
   );
   const [creatingDressType, setCreatingDressType] = useState<string | null>(null);
+
+  // Who they can report to: active people in a head or admin role, never the person being edited.
+  // The one already chosen stays listed even if they have since been deactivated, so the field
+  // never shows blank. The server also refuses loops.
+  const { data: allUsers, isLoading: isUsersLoading } = useUsersQuery();
+  const reportsToOptions = useMemo(
+    () =>
+      (allUsers ?? [])
+        .filter((u) => u.id !== user?.id && (u.id === user?.reportsToId || (u.isActive && (isDepartmentHead(u.role) || u.role === 'PC' || u.role === 'ADMIN'))))
+        .map((u) => ({ value: u.id, label: `${fullName(u)} (${ROLE_META[u.role].label})` })),
+    [allUsers, user?.id, user?.reportsToId],
+  );
 
   // Closing from any route (X, Esc, overlay, Cancel) goes through here, so unsaved edits are never
   // lost to a stray click. Nothing to lose once the account exists and only the password panel shows.
@@ -201,6 +216,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
     const storePayload = data.storeId || undefined;
     const phone = data.phone?.trim() || undefined;
     const dressTypeId = data.dressTypeId || null;
+    const reportsToId = data.reportsToId || null;
 
     if (isEditing && user) {
       // Send only what actually changed. The form used to resend everything, so an old phone number
@@ -216,6 +232,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
       if ((storePayload ?? null) !== (user.storeId ?? null)) payload.storeId = storePayload ?? null;
       if ((data.gender || null) !== (user.gender ?? null)) payload.gender = data.gender || null;
       if (dressTypeId !== (user.dressTypeId ?? null)) payload.dressTypeId = dressTypeId;
+      if (reportsToId !== (user.reportsToId ?? null)) payload.reportsToId = reportsToId;
       if (JSON.stringify([...data.weekOffDays].sort()) !== JSON.stringify([...(user.weekOffDays ?? [])].sort())) payload.weekOffDays = data.weekOffDays;
 
       if (Object.keys(payload).length === 0) {
@@ -245,6 +262,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
         storeId: storePayload,
         gender: data.gender || undefined,
         dressTypeId: dressTypeId ?? undefined,
+        reportsToId: reportsToId ?? undefined,
         weekOffDays: data.weekOffDays.length > 0 ? data.weekOffDays : undefined,
       },
       {
@@ -515,6 +533,29 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
                         options={dressTypeOptions}
                         onCreateNew={(query) => setCreatingDressType(query)}
                         createNewLabel="Create new type"
+                      />
+                    )}
+                  />
+                </FormField>
+
+                <FormField
+                  htmlFor="reportsToId"
+                  label="Reports to (optional)"
+                  icon={Network}
+                  hint="Their own head. A late approval in their area is flagged to this person as well."
+                >
+                  <Controller
+                    control={control}
+                    name="reportsToId"
+                    render={({ field }) => (
+                      <Combobox
+                        id="reportsToId"
+                        value={field.value}
+                        onChange={field.onChange}
+                        isLoading={isUsersLoading}
+                        placeholder="Nobody"
+                        emptyOptionLabel="Nobody"
+                        options={reportsToOptions}
                       />
                     )}
                   />

@@ -30,7 +30,7 @@ export const ImageLightbox = ({ src, onClose }: ImageLightboxProps) => {
       role="dialog"
       aria-modal="true"
       aria-label="Image preview"
-      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn"
+      className="fixed inset-0 z-50 bg-black/85 flex items-center justify-center p-4 animate-fadeIn"
       onClick={onClose}
     >
       {/* stopPropagation here — without it, a click anywhere on the image itself bubbles up to

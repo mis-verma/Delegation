@@ -6,6 +6,7 @@ import { Avatar, RoleChip } from '../../../components';
 import { resolveAvatarUrl } from '../../../lib/uploadsBase';
 import type { AdminUser } from '../../../api/admin';
 import { MoveToMenu } from './MoveToMenu';
+import { useOrgMove } from './orgMoveContext';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -35,6 +36,9 @@ export const UserRow = memo(({ user, isHead, storeMismatch, onDragStart, onDragE
   const [isBeingDragged, setIsBeingDragged] = useState(false);
   const draggable = !!onDragStart;
   const name = `${user.firstName} ${user.lastName ?? ''}`.trim();
+  // The chain: who this person reports to, shown on the row so the ladder can be read off the tree.
+  const orgApi = useOrgMove();
+  const reportsToName = user.reportsToId ? orgApi?.nameOf(user.reportsToId) : undefined;
 
   return (
     <div
@@ -70,6 +74,7 @@ export const UserRow = memo(({ user, isHead, storeMismatch, onDragStart, onDragE
       <div className="min-w-0 flex-1 flex flex-col gap-0.5">
         <p className={cn('text-sm font-display font-medium leading-snug line-clamp-2 break-words', user.isActive ? 'text-text' : 'text-text-secondary')}>{name}</p>
         <p className="text-xs font-display text-text-muted line-clamp-1 break-all">{user.email}</p>
+        {reportsToName && <p className="text-xs font-display text-text-muted line-clamp-1">Reports to <span className="font-semibold text-text-secondary">{reportsToName}</span></p>}
         <div className="flex flex-wrap items-center gap-1">
           <RoleChip role={user.role} className="@sm:hidden" />
           {isHead && (
