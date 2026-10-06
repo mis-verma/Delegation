@@ -2,7 +2,7 @@ import { NavLink, useLocation } from 'react-router';
 import type { LucideIcon } from 'lucide-react';
 import {
   LayoutDashboard,
-  CheckSquare,
+  ClipboardList,
   TicketCheck,
   ClipboardCheck,
   ListTodo,
@@ -13,49 +13,60 @@ interface NavItem {
   label: string;
   icon: LucideIcon;
   exact: boolean;
-  soon?: boolean;
+  /** The raised round button in the middle of the bar. Exactly one item has it. */
+  center?: boolean;
 }
 
+// Delegation sits in the middle, raised: it is the screen people live in, and a centre button is the
+// easiest one to reach with a thumb. Two tabs either side.
 const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Home', icon: LayoutDashboard, exact: true },
-  { to: '/tasks', label: 'Tasks', icon: CheckSquare, exact: false },
   { to: '/tickets', label: 'Tickets', icon: TicketCheck, exact: false },
+  { to: '/tasks', label: 'Delegation', icon: ClipboardList, exact: false, center: true },
   { to: '/todo', label: 'To-Do', icon: ListTodo, exact: false },
   { to: '/checklists', label: 'Checklists', icon: ClipboardCheck, exact: false },
 ];
 
-
+// A floating rounded bar, inset from the screen edges like the header and sidebar cards, instead of a
+// full-width strip glued to the bottom. No shadow: the border and the notch ring around the centre
+// button give it separation. 12px labels (the old 10px was too small to read at arm's length).
 export const BottomNav = () => {
   const location = useLocation();
 
   return (
     <nav
-      className="md:hidden fixed bottom-0 left-0 right-0 z-40 rounded-t-[28px] border-t border-border bg-surface/85 dark:bg-background/85 transition-colors pb-[env(safe-area-inset-bottom)]"
-      style={{
-        backdropFilter: 'var(--glass-blur, blur(16px))',
-        WebkitBackdropFilter: 'var(--glass-blur, blur(16px))',
-      }}
+      className="md:hidden fixed inset-x-0 bottom-0 z-40 px-3 pointer-events-none"
+      style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
       aria-label="Mobile navigation bar"
     >
-      <div className="h-16 max-w-lg mx-auto px-1.5 flex items-center justify-around">
-        {NAV_ITEMS.map(({ to, label, icon: Icon, exact, soon }) => {
-          const isActive = exact
-            ? location.pathname === to
-            : location.pathname.startsWith(to);
+      <div className="pointer-events-auto relative h-16 max-w-lg mx-auto grid grid-cols-5 rounded-3xl border border-border bg-surface">
+        {NAV_ITEMS.map(({ to, label, icon: Icon, exact, center }) => {
+          const isActive = exact ? location.pathname === to : location.pathname.startsWith(to);
 
-          if (soon) {
+          if (center) {
             return (
-              <span
+              <NavLink
                 key={to}
-                title={`${label} — coming soon`}
-                className="flex flex-col items-center justify-center flex-1 h-full pt-1.5 pb-1.5 cursor-not-allowed select-none opacity-40"
+                to={to}
+                aria-label={label}
+                className="group relative flex flex-col items-center justify-end h-full pb-2 select-none outline-none [-webkit-tap-highlight-color:transparent]"
               >
-                <div className="relative flex items-center justify-center w-12 h-[30px]">
-                  <Icon size={18} strokeWidth={2} className="text-text-muted" />
-                  <span className="absolute top-0 right-2.5 size-1.5 rounded-full bg-text-light" aria-hidden="true" />
-                </div>
-                <span className="text-[10px] leading-tight mt-1 font-medium text-text-muted">{label}</span>
-              </span>
+                {/* The raised button. The surface-coloured ring cuts a notch into the bar around it. */}
+                <span
+                  className={`absolute -top-6 flex items-center justify-center size-14 rounded-full ring-4 ring-surface bg-gradient-to-br from-primary-500 to-primary-700 text-white transition-transform duration-150 group-active:scale-95 group-focus-visible:ring-primary-500/40 ${
+                    isActive ? 'dark:from-primary-400 dark:to-primary-600' : ''
+                  }`}
+                >
+                  <Icon size={24} strokeWidth={2.25} />
+                </span>
+                <span
+                  className={`relative text-xs leading-none font-display ${
+                    isActive ? 'text-primary-700 dark:text-primary-300 font-bold' : 'text-text-secondary font-semibold'
+                  }`}
+                >
+                  {label}
+                </span>
+              </NavLink>
             );
           }
 
@@ -63,35 +74,23 @@ export const BottomNav = () => {
             <NavLink
               key={to}
               to={to}
-              className="group relative flex flex-col items-center justify-center flex-1 h-full pt-1.5 pb-1.5 cursor-pointer select-none active:scale-[0.92] transition-transform duration-150"
+              className="group relative flex flex-col items-center justify-center gap-1 h-full cursor-pointer select-none outline-none active:scale-[0.94] transition-transform duration-150 [-webkit-tap-highlight-color:transparent]"
             >
-              {/* Was a `layoutId` span that slid along the bar between tabs. A shared-element
-                  slide needs one element moving between two DOM nodes, which CSS can't express —
-                  so the bar now grows in place from the centre. Same cue, no travel. */}
-              {isActive && (
-                <span className="absolute -top-px h-[3px] w-7 rounded-full bg-gradient-to-r from-primary-600 to-primary-400 origin-center animate-in fade-in zoom-in-50 duration-200 motion-reduce:animate-none" />
-              )}
-
-              <div className="relative flex items-center justify-center w-12 h-[30px]">
+              <span className="relative flex items-center justify-center w-12 h-8">
                 {isActive && (
-                  <span className="absolute inset-0 rounded-full bg-primary-500/10 dark:bg-primary-400/10 animate-in fade-in duration-200 motion-reduce:animate-none" />
+                  <span className="absolute inset-0 rounded-full bg-primary-500/12 dark:bg-primary-400/15 animate-in fade-in zoom-in-95 duration-200 motion-reduce:animate-none" />
                 )}
                 <Icon
-                  size={18}
-                  strokeWidth={isActive ? 2.5 : 2}
-                  className={`relative z-10 transition-all duration-200 ${
-                    isActive
-                      ? 'text-primary-600 dark:text-primary-400 scale-110'
-                      : 'text-text-muted group-hover:text-text group-hover:scale-105'
+                  size={21}
+                  strokeWidth={isActive ? 2.4 : 1.9}
+                  className={`relative transition-colors duration-200 ${
+                    isActive ? 'text-primary-600 dark:text-primary-300' : 'text-text-muted group-hover:text-text'
                   }`}
                 />
-              </div>
-
+              </span>
               <span
-                className={`relative z-10 text-[10px] leading-tight mt-1 transition-all duration-200 ${
-                  isActive
-                    ? 'text-primary-700 dark:text-primary-300 font-bold'
-                    : 'text-text-muted font-medium group-hover:text-text'
+                className={`relative text-xs leading-none font-display transition-colors duration-200 ${
+                  isActive ? 'text-primary-700 dark:text-primary-300 font-bold' : 'text-text-muted font-medium group-hover:text-text'
                 }`}
               >
                 {label}

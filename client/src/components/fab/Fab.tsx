@@ -56,7 +56,7 @@ export const Fab = ({ actions, icon: Icon = Plus, 'aria-label': ariaLabel }: Fab
 
       <div
         className="md:hidden fixed right-4 sm:right-6 z-40 flex flex-col items-end gap-4"
-        style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
+        style={{ bottom: 'calc(6.25rem + env(safe-area-inset-bottom))' }}
       >
         {!isSingleAction && (
           // The speed-dial items stay mounted and are transformed out of view when closed, which
@@ -77,7 +77,7 @@ export const Fab = ({ actions, icon: Icon = Plus, 'aria-label': ariaLabel }: Fab
                       expanded ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-90'
                     }`}
                   >
-                    <span className="px-3.5 py-1.5 rounded-xl bg-surface border border-border shadow-sm text-xs font-bold text-text-secondary tracking-wide whitespace-nowrap">
+                    <span className="px-3.5 py-2 rounded-full bg-surface border border-border text-sm font-display font-semibold text-text whitespace-nowrap">
                       {action.label}
                     </span>
                     <button
@@ -86,14 +86,15 @@ export const Fab = ({ actions, icon: Icon = Plus, 'aria-label': ariaLabel }: Fab
                       disabled={action.disabled}
                       aria-label={action.label}
                       className={cn(
-                        "relative flex items-center justify-center size-11 sm:size-12 rounded-full bg-surface border border-border text-primary-600 shadow-md transition-all duration-200 cursor-pointer active:scale-90",
-                        "hover:bg-primary-50 hover:border-primary-200 hover:text-primary-700",
-                        "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-surface disabled:hover:border-border"
+                        "relative flex items-center justify-center size-12 rounded-full border border-primary-500/30 bg-surface text-primary-700 dark:text-primary-300 transition-all duration-200 cursor-pointer active:scale-90",
+                        "hover:bg-primary-500/10 hover:border-primary-500/50",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40",
+                        "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-surface disabled:hover:border-primary-500/30"
                       )}
                     >
-                      <action.icon className="size-[18px] sm:size-5" strokeWidth={2.5} />
+                      <action.icon className="size-5" strokeWidth={2.25} />
                       {action.badge && (
-                        <span className="absolute -top-2 -right-2 text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-surface-hover border border-border text-text-muted shadow-sm">
+                        <span className="absolute -top-2 -right-2 text-xs font-display font-semibold px-2 py-0.5 rounded-full bg-surface-hover border border-border text-text-muted">
                           {action.badge}
                         </span>
                       )}
@@ -110,11 +111,12 @@ export const Fab = ({ actions, icon: Icon = Plus, 'aria-label': ariaLabel }: Fab
           aria-label={ariaLabel ?? singleAction?.label ?? (expanded ? 'Close quick actions' : 'Quick actions')}
           aria-expanded={isSingleAction ? undefined : expanded}
           className={cn(
-            "flex items-center justify-center size-12 sm:size-14 rounded-full bg-primary-600 text-white cursor-pointer transition-all duration-300 ease-out",
-            "shadow-lg shadow-primary-600/30 hover:shadow-xl hover:shadow-primary-600/40 hover:bg-primary-500",
-            "active:scale-95 ring-4 ring-transparent hover:ring-primary-100/50 focus:outline-none focus:ring-primary-100/50",
-            "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary-600 disabled:hover:scale-100 disabled:hover:-translate-y-0",
-            (!isSingleAction && expanded) ? "scale-95 bg-primary-700 shadow-md" : "hover:-translate-y-1"
+            "flex items-center justify-center size-14 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 text-white cursor-pointer transition-all duration-300 ease-out",
+            // No shadow: a ring in the page colour lifts the button off whatever scrolls beneath it.
+            "ring-4 ring-background hover:from-primary-400 hover:to-primary-600",
+            "active:scale-95 focus-visible:outline-none focus-visible:ring-primary-500/40",
+            "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100",
+            (!isSingleAction && expanded) ? "scale-95 from-primary-600 to-primary-800" : ""
           )}
         >
           <span
@@ -122,7 +124,7 @@ export const Fab = ({ actions, icon: Icon = Plus, 'aria-label': ariaLabel }: Fab
               !isSingleAction && expanded ? 'rotate-[135deg]' : 'rotate-0'
             }`}
           >
-            {singleAction ? <singleAction.icon className="size-5 sm:size-6" strokeWidth={2.5} /> : <Icon className="size-5 sm:size-6" strokeWidth={2.5} />}
+            {singleAction ? <singleAction.icon className="size-6" strokeWidth={2.5} /> : <Icon className="size-6" strokeWidth={2.5} />}
           </span>
         </button>
       </div>
