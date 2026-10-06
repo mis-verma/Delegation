@@ -35,7 +35,7 @@
      colour key), so Delegation, Ticket, Checklist and To-Do can be told apart at a glance. */
   --color-activity-delegation: #4c2f9e;
   --color-activity-ticket: #0d9488;
-  --color-activity-todo: #e0527f;
+  --color-activity-todo: #475569;
 
   /* --- Champagne Gold Accent (kept small: highlights, decorative blobs, the sidebar's active mark) --- */
   --color-coral-50: #fdf9ec;
@@ -229,7 +229,7 @@ body {
   --color-activity-checklist: var(--color-primary-400);
   --color-activity-delegation: #a48bf0;
   --color-activity-ticket: #3cc0b2;
-  --color-activity-todo: #f08aa8;
+  --color-activity-todo: #9aa7bd;
   color-scheme: dark;
 }
 

@@ -151,11 +151,13 @@ interface SummaryChipProps {
   delta: number | null;
   deltaTitle: string;
   dotClassName: string;
+  /** Whose work the number covers: the first three are the whole organisation, the checklist chip is yours. */
+  scopeTag?: 'Org' | 'Mine';
   isLoading?: boolean;
   onClick: () => void;
 }
 
-const SummaryChip = memo(({ label, value, detail, delta, deltaTitle, dotClassName, isLoading = false, onClick }: SummaryChipProps) => (
+const SummaryChip = memo(({ label, value, detail, delta, deltaTitle, dotClassName, scopeTag, isLoading = false, onClick }: SummaryChipProps) => (
   <button
     type="button"
     onClick={onClick}
@@ -165,7 +167,10 @@ const SummaryChip = memo(({ label, value, detail, delta, deltaTitle, dotClassNam
   >
     <span aria-hidden="true" className={`size-2.5 rounded-full shrink-0 ${dotClassName}`} />
     <span className="flex flex-col gap-0.5 min-w-0">
-      <span className="text-xs font-display font-medium text-text-muted">{label}</span>
+      <span className="flex items-center gap-1.5 text-xs font-display font-medium text-text-muted">
+        {label}
+        {scopeTag && <span className="px-1.5 rounded-full bg-border/50 text-xs font-semibold text-text-secondary">{scopeTag}</span>}
+      </span>
       {isLoading ? (
         <Skeleton className="h-5 w-14 rounded" />
       ) : value != null ? (
@@ -192,6 +197,8 @@ interface ChartDatum {
   label: string;
   completion: number | null;
   onTime: number | null;
+  /** The newest bucket: still filling up, so it is drawn as a hollow dot and labelled "so far". */
+  partial?: boolean;
 }
 
 interface ChartTooltipProps {
@@ -201,17 +208,17 @@ interface ChartTooltipProps {
 
 const ChartTooltip = ({ active, payload }: ChartTooltipProps) => {
   if (!active || !payload?.length) return null;
-  const { label, completion, onTime } = payload[0].payload;
+  const { label, completion, onTime, partial } = payload[0].payload;
   return (
     <div className="rounded-2xl border border-border bg-surface px-4 py-3 flex flex-col gap-1.5 animate-in fade-in zoom-in-95 duration-200">
-      <p className="text-xs font-display font-medium text-text-muted capitalize tracking-wide">{label}</p>
+      <p className="text-xs font-display font-medium text-text-muted capitalize tracking-wide">{label}{partial ? ' (so far)' : ''}</p>
       <div className="flex items-center gap-2 text-sm">
         <span className="size-2 rounded-full shrink-0 bg-primary-500" />
         <span className="text-text-muted">Completion</span>
         <span className="font-display font-bold text-text ml-auto">{completion != null ? `${completion}%` : 'No data'}</span>
       </div>
       <div className="flex items-center gap-2 text-sm">
-        <span className="size-2 rounded-full shrink-0 bg-info" />
+        <span className="size-2 rounded-full shrink-0 bg-activity-ticket" />
         <span className="text-text-muted">On-time</span>
         <span className="font-display font-bold text-text ml-auto">{onTime != null ? `${onTime}%` : 'No data'}</span>
       </div>
@@ -227,9 +234,27 @@ interface Drilldown {
   viewAllLabel?: string;
 }
 
+interface DotProps {
+  cx?: number;
+  cy?: number;
+  payload?: ChartDatum;
+}
+
+// A solid dot for finished periods and a hollow one for the newest, still-filling period, so its
+// natural dip does not read as a real drop.
+const makeDot = (color: string) =>
+  function SeriesDot({ cx, cy, payload }: DotProps) {
+    if (cx == null || cy == null) return <g />;
+    return payload?.partial
+      ? <circle cx={cx} cy={cy} r={4} fill="var(--color-surface)" stroke={color} strokeWidth={2} />
+      : <circle cx={cx} cy={cy} r={3} fill={color} />;
+  };
+const completionDot = makeDot('var(--color-primary-500)');
+const onTimeDot = makeDot('var(--color-activity-ticket)');
+
 const CHART_SERIES = [
   { label: 'Completion', className: 'bg-primary-500' },
-  { label: 'On-time', className: 'bg-info' },
+  { label: 'On-time', className: 'bg-activity-ticket' },
 ];
 
 export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: CompareDashboardProps) => {
@@ -320,6 +345,7 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
       label: b.label,
       completion: bucketRates[i].completion,
       onTime: bucketRates[i].onTime,
+      partial: i === buckets.length - 1,
     }));
 
     const currentRates = bucketRates[bucketRates.length - 1];
@@ -434,6 +460,7 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
         <SummaryChip
           label="Completion"
           value={current.completion}
+          scopeTag="Org"
           detail={`${current.completedCount} of ${current.total} done`}
           delta={delta(current.completion, previous.completion)}
           deltaTitle={deltaTitle}
@@ -443,24 +470,27 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
         <SummaryChip
           label="On-time"
           value={current.onTime}
+          scopeTag="Org"
           detail={`${current.onTimeCount} of ${current.dueCount} due`}
           delta={delta(current.onTime, previous.onTime)}
           deltaTitle={deltaTitle}
-          dotClassName="bg-info"
+          dotClassName="bg-activity-ticket"
           onClick={() => setDrilldown({ title: `Finished on time ${PERIOD_LABEL[period]}`, icon: Clock, rows: onTimeRows })}
         />
         <SummaryChip
           label="Reviewed rate"
           value={current.reviewed}
+          scopeTag="Org"
           detail={`${current.reviewedCount} of ${current.completedCount} done`}
           delta={delta(current.reviewed, previous.reviewed)}
           deltaTitle={deltaTitle}
-          dotClassName="bg-warning"
+          dotClassName="bg-activity-delegation"
           onClick={() => setDrilldown({ title: `Reviewed ${PERIOD_LABEL[period]}`, icon: ShieldCheck, rows: reviewedRows })}
         />
         <SummaryChip
           label="My checklist items"
           value={checklistRate}
+          scopeTag="Mine"
           detail={`${checklistDoneItems} of ${checklistTotalItems} items`}
           delta={delta(checklistRate, checklistPrevRate)}
           deltaTitle={deltaTitle}
@@ -494,6 +524,10 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
               <span className="text-xs font-display font-medium text-text-muted">{series.label}</span>
             </div>
           ))}
+          <span className="flex items-center gap-1.5 text-xs font-display font-medium text-text-muted">
+            <span aria-hidden="true" className="size-2.5 rounded-full border-2 border-text-muted bg-surface shrink-0" />
+            This {period} so far
+          </span>
         </div>
 
         {hasData ? (
@@ -507,8 +541,8 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
                       <stop offset="95%" stopColor="var(--color-primary-500)" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id={`onTimeFill-${gradientId}`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--color-info)" stopOpacity={0.35} />
-                      <stop offset="95%" stopColor="var(--color-info)" stopOpacity={0} />
+                      <stop offset="5%" stopColor="var(--color-activity-ticket)" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="var(--color-activity-ticket)" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <XAxis
@@ -557,18 +591,16 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
                     stroke="var(--color-primary-500)"
                     strokeWidth={2.5}
                     fill={`url(#compFill-${gradientId})`}
-                    connectNulls
-                    dot={{ r: 3, strokeWidth: 0, fill: 'var(--color-primary-500)' }}
+                    dot={completionDot}
                     activeDot={{ r: 5, strokeWidth: 2, stroke: 'var(--color-surface)' }}
                   />
                   <Area
                     type="monotone"
                     dataKey="onTime"
-                    stroke="var(--color-info)"
+                    stroke="var(--color-activity-ticket)"
                     strokeWidth={2.5}
                     fill={`url(#onTimeFill-${gradientId})`}
-                    connectNulls
-                    dot={{ r: 3, strokeWidth: 0, fill: 'var(--color-info)' }}
+                    dot={onTimeDot}
                     activeDot={{ r: 5, strokeWidth: 2, stroke: 'var(--color-surface)' }}
                   />
                 </AreaChart>
