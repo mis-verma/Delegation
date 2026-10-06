@@ -165,7 +165,7 @@ export const TicketList = () => {
             <ViewToggle tabs={VIEW_TABS} value={organizer.view} onChange={organizer.setView} />
           </div>
 
-          <CreatedRangePicker createdRange={createdRange} className="w-44 shrink-0" />
+          <CreatedRangePicker createdRange={createdRange} className="shrink-0" />
 
           <TicketActiveTags organizer={organizer} allTickets={allTicketsData ?? []} />
 

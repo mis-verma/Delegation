@@ -390,7 +390,7 @@ export const MyChecklists = () => {
           <ViewToggle tabs={VIEW_TABS} value={view} onChange={setView} />
         </div>
 
-        <CreatedRangePicker createdRange={createdRange} className="w-44 shrink-0" />
+        <CreatedRangePicker createdRange={createdRange} className="shrink-0" />
 
         {quickFilter && (
           <FilterPill active icon={X} onClick={clearQuickFilter}>

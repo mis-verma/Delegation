@@ -126,7 +126,7 @@ export const TodoPage = () => {
             </OptionSection>
           </OptionsSheet>
 
-          <CreatedRangePicker createdRange={createdRange} className="w-44 shrink-0" />
+          <CreatedRangePicker createdRange={createdRange} className="shrink-0" />
 
           <Button size="sm" variant="primary" className="hidden md:inline-flex gap-1.5 ml-auto rounded-full font-display" onClick={() => setShowForm(true)}>
             <Plus size={15} strokeWidth={2.5} />
