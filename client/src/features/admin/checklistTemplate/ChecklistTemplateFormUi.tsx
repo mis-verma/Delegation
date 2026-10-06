@@ -262,20 +262,20 @@ export const ChecklistTemplateFormUI = ({ departments, isSaving, saveError, onSu
               <ul className="space-y-2">
                 {definedSteps.map((d, i) => (
                   <li key={d.id} className="flex items-start gap-3 p-3 rounded-lg border border-border bg-surface">
-                    <span className="flex shrink-0 items-center justify-center w-6 h-6 mt-0.5 rounded-md bg-primary-500/10 text-primary-700 dark:text-primary-300 text-[11px] font-bold">
+                    <span className="flex shrink-0 items-center justify-center w-6 h-6 mt-0.5 rounded-md bg-primary-500/10 text-primary-700 dark:text-primary-300 text-xs font-bold">
                       {i + 1}
                     </span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-text truncate">{d.label}</p>
                       <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface-hover text-text-secondary text-[11px] font-medium">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface-hover text-text-secondary text-xs font-medium">
                           <User size={11} /> {assignableUsers?.find(u => u.id === d.assigneeId)?.firstName ?? 'Unassigned'}
                         </span>
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface-hover text-text-secondary text-[11px] font-medium">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface-hover text-text-secondary text-xs font-medium">
                           <ImageIcon size={11} /> {Number(d.requiredImageCount) || 0}{d.maxImageCount ? `–${d.maxImageCount}` : '+'} photos
                         </span>
                         {d.requiresLivePhoto && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary-500/10 text-primary-700 dark:text-primary-400 text-[11px] font-medium">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary-500/10 text-primary-700 dark:text-primary-400 text-xs font-medium">
                             <Camera size={11} /> Live capture
                           </span>
                         )}

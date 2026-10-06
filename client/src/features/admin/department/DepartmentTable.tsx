@@ -78,7 +78,7 @@ const DepartmentTableComponent = ({
                       {d.name}
                     </span>
                     {!d.isActive && (
-                      <span className="shrink-0 text-[10px] font-display font-bold px-1.5 py-0.5 rounded-md border border-border bg-surface-hover text-text-muted">
+                      <span className="shrink-0 text-xs font-display font-bold px-1.5 py-0.5 rounded-md border border-border bg-surface-hover text-text-muted">
                         Deactivated
                       </span>
                     )}

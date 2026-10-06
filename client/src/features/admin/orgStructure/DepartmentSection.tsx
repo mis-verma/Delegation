@@ -13,7 +13,7 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-const HEADER_CHIP = 'shrink-0 inline-flex items-center gap-1 text-[10px] font-display font-bold px-2 py-0.5 rounded-full border';
+const HEADER_CHIP = 'shrink-0 inline-flex items-center gap-1 text-xs font-display font-bold px-2 py-0.5 rounded-full border';
 
 interface DepartmentSectionProps {
   node: DepartmentNode;
@@ -116,7 +116,7 @@ export const DepartmentSection = memo(({ node, isOpen, forceOpen, onToggle, show
         </div>
         <div className="flex items-center gap-2 shrink-0 self-center">
           {isDropTarget ? (
-            <span className="text-[11px] font-display font-bold text-primary-600 dark:text-primary-400">Drop to move here</span>
+            <span className="text-xs font-display font-bold text-primary-600 dark:text-primary-400">Drop to move here</span>
           ) : (
             <>
               <AvatarStack people={people} max={3} size="sm" className="hidden @md:flex" />

@@ -502,7 +502,7 @@ export const AdminLayout = () => {
           {/* No brand mark here anymore — the header already carries the "Admin" context (its
               left slot reads "Admin / <page>"), so repeating a logo here was pure duplication.
               Just the section label remains. */}
-          <p className="text-[11px] font-bold text-text-light tracking-wider pb-4 mb-3 border-b border-border px-2">
+          <p className="text-xs font-bold text-text-light tracking-wider pb-4 mb-3 border-b border-border px-2">
             Navigation
           </p>
 
@@ -524,7 +524,7 @@ export const AdminLayout = () => {
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-display font-bold text-text truncate">{user.name}</p>
-                {user.role && <p className="text-[11px] font-display font-medium text-text-muted truncate">{titleCase(user.role)}</p>}
+                {user.role && <p className="text-xs font-display font-medium text-text-muted truncate">{titleCase(user.role)}</p>}
               </div>
               <button
                 type="button"
@@ -553,7 +553,7 @@ export const AdminLayout = () => {
               left slot reads "Admin / <page>"), so repeating a logo here was pure duplication.
               Just the section label remains. */}
           <p className={cn(
-            "text-[11px] font-bold text-text-light tracking-wider pb-4 mb-3 border-b border-border px-2 transition-opacity duration-300",
+            "text-xs font-bold text-text-light tracking-wider pb-4 mb-3 border-b border-border px-2 transition-opacity duration-300",
             !sidebarOpen && "opacity-0 h-0 !p-0 !m-0 !border-0 overflow-hidden"
           )}>
             Navigation
@@ -578,7 +578,7 @@ export const AdminLayout = () => {
               </span>
               <div className={cn("min-w-0 flex-1 transition-opacity duration-300", !sidebarOpen && "hidden opacity-0")}>
                 <p className="text-sm font-display font-bold text-text truncate">{user.name}</p>
-                {user.role && <p className="text-[11px] font-display font-medium text-text-muted truncate">{titleCase(user.role)}</p>}
+                {user.role && <p className="text-xs font-display font-medium text-text-muted truncate">{titleCase(user.role)}</p>}
               </div>
               <button
                 type="button"

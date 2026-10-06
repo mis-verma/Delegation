@@ -88,7 +88,7 @@ export const AuditLogRow = memo(({ log, resolvers }: { log: AuditLog; resolvers?
 
         {isDelete && (
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="inline-flex items-center gap-1.5 rounded-lg border border-danger/25 bg-danger/10 px-2 py-1.5 text-[11px] font-display font-semibold text-danger">
+            <span className="inline-flex items-center gap-1.5 rounded-lg border border-danger/25 bg-danger/10 px-2 py-1.5 text-xs font-display font-semibold text-danger">
               <Trash2 size={12} aria-hidden />
               Removed
             </span>

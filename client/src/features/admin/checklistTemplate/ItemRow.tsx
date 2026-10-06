@@ -110,7 +110,7 @@ export const ItemRow = ({ item, departmentId, assignableUsers, index }: ItemRowP
           </div>
 
           <label className="flex items-center gap-1.5 px-1" title="Minimum photos required">
-            <span className="text-[11px] font-display font-bold text-text-muted">Min</span>
+            <span className="text-xs font-display font-bold text-text-muted">Min</span>
             <input
               ref={minRef}
               type="number"
@@ -125,7 +125,7 @@ export const ItemRow = ({ item, departmentId, assignableUsers, index }: ItemRowP
           <span className="text-border select-none">•</span>
 
           <label className="flex items-center gap-1.5 pr-1.5" title="Maximum photos allowed">
-            <span className="text-[11px] font-display font-bold text-text-muted">Max</span>
+            <span className="text-xs font-display font-bold text-text-muted">Max</span>
             <input
               ref={maxRef}
               type="number"

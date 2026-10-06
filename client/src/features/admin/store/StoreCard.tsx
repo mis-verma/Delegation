@@ -41,16 +41,16 @@ export const StoreCard = memo(({ store, activeCount, inactiveCount, isUpdating, 
             </h3>
             {store.code ? (
               <span
-                className="shrink-0 max-w-[40%] truncate px-1.5 py-0.5 rounded-md border border-border bg-surface-hover text-[10px] font-display font-semibold tabular-nums tracking-wide text-text-secondary"
+                className="shrink-0 max-w-[40%] truncate px-1.5 py-0.5 rounded-md border border-border bg-surface-hover text-xs font-display font-semibold tabular-nums tracking-wide text-text-secondary"
                 title={`Store code ${store.code}`}
               >
                 {store.code}
               </span>
             ) : (
-              <span className="shrink-0 text-[10px] font-display italic text-text-light">No code</span>
+              <span className="shrink-0 text-xs font-display italic text-text-light">No code</span>
             )}
             {!store.isActive && (
-              <span className="shrink-0 text-[10px] font-display font-bold px-1.5 py-0.5 rounded-md border border-border bg-surface-hover text-text-muted">
+              <span className="shrink-0 text-xs font-display font-bold px-1.5 py-0.5 rounded-md border border-border bg-surface-hover text-text-muted">
                 Deactivated
               </span>
             )}

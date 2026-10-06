@@ -102,12 +102,12 @@ const StoreSectionComponent = ({
           <h3 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-base font-display font-bold leading-snug text-text">
             <span className="line-clamp-2 break-words">{node.store.name}</span>
             {node.store.code && (
-              <span className="shrink-0 text-[10px] font-display font-bold px-1.5 py-0.5 rounded-md border border-border bg-surface-hover text-text-secondary">
+              <span className="shrink-0 text-xs font-display font-bold px-1.5 py-0.5 rounded-md border border-border bg-surface-hover text-text-secondary">
                 {node.store.code}
               </span>
             )}
             {!node.store.isActive && (
-              <span className="shrink-0 text-[10px] font-display font-bold px-1.5 py-0.5 rounded-md border border-border bg-surface-hover text-text-muted">
+              <span className="shrink-0 text-xs font-display font-bold px-1.5 py-0.5 rounded-md border border-border bg-surface-hover text-text-muted">
                 Deactivated
               </span>
             )}

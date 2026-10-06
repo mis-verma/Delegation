@@ -83,7 +83,7 @@ export const TemplateBlock = ({ template, departmentName }: TemplateBlockProps) 
               <span className="text-sm font-display font-medium text-text break-words">{template.name}</span>
 
               <div className="flex items-center gap-1.5 shrink-0">
-                <span className={`text-[11px] font-display font-medium px-2 py-0.5 rounded-md flex items-center gap-1 ${
+                <span className={`text-xs font-display font-medium px-2 py-0.5 rounded-md flex items-center gap-1 ${
                   template.appliesTo === 'TASK'
                     ? 'bg-primary-500/10 text-primary-700 dark:text-primary-300 ring-1 ring-primary-500/20'
                     : 'bg-warning/10 text-text-secondary ring-1 ring-warning/30'
@@ -93,7 +93,7 @@ export const TemplateBlock = ({ template, departmentName }: TemplateBlockProps) 
                 </span>
 
                 {departmentName && (
-                  <span className="text-[11px] font-display font-medium px-2 py-0.5 rounded-md bg-surface-hover text-text-secondary border border-border/60 flex items-center gap-1">
+                  <span className="text-xs font-display font-medium px-2 py-0.5 rounded-md bg-surface-hover text-text-secondary border border-border/60 flex items-center gap-1">
                     <Building2 size={11} />
                     {departmentName}
                   </span>

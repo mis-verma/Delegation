@@ -90,7 +90,7 @@ const UserCardComponent = ({
         <PlaceField kind="store" name={storeName} muted={muted} />
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-3 mt-auto border-t border-border/60 text-[11px] font-display font-medium text-text-light">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-3 mt-auto border-t border-border/60 text-xs font-display font-medium text-text-light">
         {user.phone && (
           <span className="inline-flex items-center gap-1 text-text-muted tabular-nums">
             <Phone className="size-3 shrink-0" aria-hidden />

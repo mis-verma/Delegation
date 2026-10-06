@@ -96,7 +96,7 @@ export const AuditLogFilters = ({ filter, onChange, onClearAll, users }: AuditLo
           <SlidersHorizontal size={15} aria-hidden />
           Filters
           {count > 0 && (
-            <span className="flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-primary-600 text-[11px] font-bold text-white tabular-nums">
+            <span className="flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-primary-600 text-xs font-bold text-white tabular-nums">
               {count}
             </span>
           )}

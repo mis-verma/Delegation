@@ -36,7 +36,7 @@ export const AdminTaskList = () => {
 
           {/* Title Module */}
           <div className="flex items-start gap-4">
-            <div className="flex items-center justify-center size-12 rounded-2xl bg-primary-50 text-primary-700 border border-primary-100 shadow-sm shrink-0">
+            <div className="flex items-center justify-center size-12 rounded-2xl bg-primary-500/10 text-primary-700 dark:text-primary-300 border border-primary-500/20 shrink-0">
               <ClipboardList className="w-6 h-6" />
             </div>
             <div className="flex flex-col gap-1">
@@ -87,7 +87,7 @@ export const AdminTaskList = () => {
           <ExportDialog
             reportModule="tasks"
             title="Export Delegations"
-            description="Every delegation created in the selected period — status, priority, department, and assignee."
+            description="Every delegation created in the selected period, with its status, priority, department and assignee."
             onClose={() => setShowExport(false)}
           />
         )}

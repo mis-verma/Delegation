@@ -207,7 +207,7 @@ export const SystemHealthPage = () => {
                   <li key={`${e.at}-${i}`} className="flex flex-col gap-0.5 p-3.5">
                     <p className="text-xs font-display font-semibold text-text break-all">{e.method} {e.path}</p>
                     <p className="text-xs font-display text-danger break-words">{e.message}</p>
-                    <p className="text-[11px] font-display text-text-muted">{timeAgo(e.at)}</p>
+                    <p className="text-xs font-display text-text-muted">{timeAgo(e.at)}</p>
                   </li>
                 ))}
               </ul>

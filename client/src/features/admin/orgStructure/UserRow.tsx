@@ -11,7 +11,7 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-const CHIP = 'shrink-0 inline-flex items-center gap-1 text-[10px] font-display font-bold px-1.5 py-0.5 rounded-md border';
+const CHIP = 'shrink-0 inline-flex items-center gap-1 text-xs font-display font-bold px-1.5 py-0.5 rounded-md border';
 
 interface UserRowProps {
   user: AdminUser;

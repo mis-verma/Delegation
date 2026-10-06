@@ -123,13 +123,13 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
               as "Good morn…". Desktop keeps the greeting with the section underneath. */}
           <div className="sm:hidden flex flex-col min-w-0 leading-tight">
             <span className="text-[15px] font-display font-bold text-text tracking-tight truncate">{pageLabel || 'Admin'}</span>
-            <span className="text-[11px] font-medium text-text-muted">{currentDate}</span>
+            <span className="text-xs font-medium text-text-muted">{currentDate}</span>
           </div>
           <div className="hidden sm:flex flex-col min-w-0 leading-tight">
             <span className="text-base font-display font-bold text-text truncate">
               {greeting()}{firstName ? `, ${firstName}` : null}
             </span>
-            <span className="text-[11px] font-medium text-text-muted truncate">{pageLabel}</span>
+            <span className="text-xs font-medium text-text-muted truncate">{pageLabel}</span>
           </div>
         </div>
 
@@ -171,14 +171,14 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
                   aria-label={`Account menu, ${user.name}${user.role ? `, ${titleCase(user.role)}` : ''}`}
                   className="flex items-center gap-2.5 h-11 px-1.5 sm:pl-1 sm:pr-3 rounded-full sm:bg-surface-hover sm:border sm:border-border text-text-secondary cursor-pointer transition-all duration-200 hover:bg-surface-active hover:text-text active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 group"
                 >
-                  <span className="relative flex items-center justify-center size-8 rounded-full bg-primary-100 dark:bg-primary-500/20 text-primary-700 dark:text-primary-300 font-bold text-[11px] shrink-0 group-hover:scale-105 transition-transform">
+                  <span className="relative flex items-center justify-center size-8 rounded-full bg-primary-100 dark:bg-primary-500/20 text-primary-700 dark:text-primary-300 font-bold text-xs shrink-0 group-hover:scale-105 transition-transform">
                     {initials || <User size={14} strokeWidth={2.5} />}
                     <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-success border-2 border-surface" aria-hidden="true" />
                   </span>
                   <span className="hidden lg:flex flex-col items-start min-w-0 leading-tight py-0.5">
                     <span className="max-w-[120px] truncate text-[13px] font-bold text-text">{user.name}</span>
                     {user.role && (
-                      <span className="max-w-[120px] truncate text-[11px] font-medium text-text-muted mt-0.5">{titleCase(user.role)}</span>
+                      <span className="max-w-[120px] truncate text-xs font-medium text-text-muted mt-0.5">{titleCase(user.role)}</span>
                     )}
                   </span>
                   <ChevronDown size={14} className="hidden sm:inline text-text-light shrink-0 ml-1 group-hover:text-text-muted transition-colors" strokeWidth={2.5} />

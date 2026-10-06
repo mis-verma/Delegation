@@ -26,7 +26,7 @@ const ValuePill = ({ value, variant }: { value: string; variant: PillVariant }) 
   return (
     <span
       className={cn(
-        'inline-flex items-center px-2 py-1 rounded-md border text-[11px] max-w-full sm:max-w-[16rem] truncate',
+        'inline-flex items-center px-2 py-1 rounded-md border text-xs max-w-full sm:max-w-[16rem] truncate',
         valuePillClass(variant),
         // The word "Empty" is a state, not a value: keep it quiet and italic.
         value === EMPTY_MARK && 'italic font-medium text-text-muted',
@@ -57,7 +57,7 @@ const ChangePills = ({ row }: { row: DiffRow }) => {
 /** One changed field as a small self-contained chip: "Priority  Low -> High". Used directly in a row. */
 export const DiffChange = ({ row }: { row: DiffRow }) => (
   <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border/60 bg-surface-hover/40 px-2 py-1.5 max-w-full">
-    <span className="text-[11px] font-display font-semibold text-text-secondary">{row.label}</span>
+    <span className="text-xs font-display font-semibold text-text-secondary">{row.label}</span>
     <ChangePills row={row} />
   </div>
 );
@@ -65,7 +65,7 @@ export const DiffChange = ({ row }: { row: DiffRow }) => (
 /** One detail of a record as a plain "Label: value" pill, e.g. "Priority: High". */
 export const FactPill = ({ fact }: { fact: FactRow }) => (
   <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-border/60 bg-surface-hover/40 px-2 py-1.5 max-w-full">
-    <span className="text-[11px] font-display font-semibold text-text-secondary">{fact.label}</span>
+    <span className="text-xs font-display font-semibold text-text-secondary">{fact.label}</span>
     <ValuePill value={fact.value} variant="plain" />
   </div>
 );
