@@ -56,31 +56,32 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
     <button
       type="button"
       onClick={() => onClick(ticket)}
-      className="group w-full h-full text-left flex flex-col gap-2.5 p-3.5 rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface hover:border-primary-500/50 active:bg-surface-hover/50 transition-all duration-200 ease-in-out cursor-pointer outline-none focus-visible:border-primary-500/50 focus-visible:ring-2 focus-visible:ring-primary-500/30 [-webkit-tap-highlight-color:transparent]"
+      className="group w-full h-full text-left flex flex-col gap-2 sm:gap-2.5 p-3 sm:p-3.5 rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface hover:border-primary-500/50 active:bg-surface-hover/50 transition-all duration-200 ease-in-out cursor-pointer outline-none focus-visible:border-primary-500/50 focus-visible:ring-2 focus-visible:ring-primary-500/30 [-webkit-tap-highlight-color:transparent]"
     >
       <div className="flex flex-col gap-1 min-w-0 w-full">
         <div className="flex items-start gap-2 min-w-0">
-          {/* leading-5 matches the phone avatar (size-5) so the first line and the avatar centre-align. */}
+          {/* leading-5 matches the old phone avatar height so the first line and the avatar centre-align. */}
           <h3 className="flex-1 min-w-0 text-[15px] font-display font-semibold text-text tracking-tight leading-5 sm:leading-6 line-clamp-2 break-words">
             {ticket.title}
           </h3>
           {!hideAssignee && (assigneeName ? (
             <span
-              className={`flex items-center justify-center size-5 sm:size-6 rounded-full text-white text-[9px] sm:text-[10px] font-bold shrink-0 ${avatarColorClass(assigneeName)}`}
+              className={`flex items-center justify-center size-6 sm:size-7 rounded-full text-white text-xs font-bold shrink-0 ${avatarColorClass(assigneeName)}`}
               title={`Assigned to ${assigneeName}`}
             >
               {getInitials(assigneeName)}
             </span>
           ) : (
-            <span className="flex items-center justify-center size-5 sm:size-6 rounded-full bg-surface-hover text-text-light shrink-0" title="Unassigned">
+            <span className="flex items-center justify-center size-6 sm:size-7 rounded-full bg-surface-hover text-text-light shrink-0" title="Unassigned">
               <User className="size-3" />
             </span>
           ))}
         </div>
         {/* One line, never wraps: the department is the only part that truncates. */}
-        <div className="flex items-center gap-x-1.5 min-w-0 whitespace-nowrap text-[11px] leading-4 font-medium text-text-muted">
+        <div className="flex items-center gap-x-1.5 min-w-0 whitespace-nowrap text-xs leading-4 font-medium text-text-muted">
           <span className="font-mono tracking-tight shrink-0">{ticketCode(ticket.id)}</span>
-          {isOverdue && (
+          {/* "Delayed" in words only where there is no red due chip saying it already. */}
+          {isOverdue && !due && (
             <>
               <span aria-hidden>·</span>
               <span className="font-semibold text-danger shrink-0">Delayed</span>
@@ -133,7 +134,7 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
         {ticket.tags.slice(0, 2).map((tag) => <TagChip key={tag.id} tag={tag} className={tagChipClass} />)}
         {ticket.tags.length > 2 && (
           <span
-            className={`${isBoard ? 'hidden xl:inline' : 'hidden sm:inline'} text-[11px] font-semibold text-text-muted tabular-nums`}
+            className={`${isBoard ? 'hidden xl:inline' : 'hidden sm:inline'} text-xs font-semibold text-text-muted tabular-nums`}
             title={ticket.tags.map((t) => t.name).join(', ')}
           >
             +{ticket.tags.length - 2}
@@ -149,7 +150,7 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
                 style={{ width: `${progress}%` }}
               />
             </span>
-            <span className="text-[11px] font-semibold text-text-muted tabular-nums">{progress}%</span>
+            <span className="text-xs font-semibold text-text-muted tabular-nums">{progress}%</span>
           </span>
         )}
       </div>

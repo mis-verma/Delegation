@@ -89,7 +89,7 @@ const TaskListViewComponent = ({
             // No colored side stripe and no date pinned to the right edge any more: priority and
             // due date are chips in the row below, in the same icon-chip language as status and
             // department — one place to read every property instead of three.
-            className="h-full flex flex-col gap-2.5 p-3.5 rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface hover:border-primary-500/50 focus-visible:border-primary-500/50 focus-visible:outline-none active:bg-surface-hover/50 transition-all duration-200 ease-in-out cursor-pointer [-webkit-tap-highlight-color:transparent]"
+            className="h-full flex flex-col gap-2 sm:gap-2.5 p-3 sm:p-3.5 rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface hover:border-primary-500/50 focus-visible:border-primary-500/50 focus-visible:outline-none active:bg-surface-hover/50 transition-all duration-200 ease-in-out cursor-pointer [-webkit-tap-highlight-color:transparent]"
           >
             <div className="flex flex-col gap-1 min-w-0">
               <div className="flex items-start gap-2 min-w-0">
@@ -130,17 +130,27 @@ const TaskListViewComponent = ({
               {/* The reference layout also puts a task code and a comment count on this line.
                   Neither exists yet: ids are cuids with no short human code, and the list payload
                   carries no comment count. Type and checklist progress are real data. */}
-              <div className="flex items-center gap-1.5 text-xs font-medium text-text-muted">
-                <span>{CATEGORY_CONFIG[task.category].label}</span>
-                {progress && (
-                  <>
-                    <span aria-hidden>·</span>
-                    <span className="tabular-nums">
-                      Checklist {progress.done}/{progress.total}
+              {/* Every tile here is a delegation, so saying "Delegation" on each one told nobody anything.
+                  The type shows only for the odd one that is an Issue. On a phone the department rides
+                  on this line (its chip is hidden there), so the tile stays short but still says where
+                  it belongs. */}
+              {(task.category !== 'delegation' || progress || (fields.department && department)) && (
+                <div className="flex items-center gap-x-1.5 min-w-0 whitespace-nowrap text-xs font-medium text-text-muted">
+                  {task.category !== 'delegation' && <span className="shrink-0">{CATEGORY_CONFIG[task.category].label}</span>}
+                  {progress && (
+                    <>
+                      {task.category !== 'delegation' && <span aria-hidden>·</span>}
+                      <span className="tabular-nums shrink-0">Checklist {progress.done}/{progress.total}</span>
+                    </>
+                  )}
+                  {fields.department && department && (
+                    <span className="sm:hidden min-w-0 truncate">
+                      {(task.category !== 'delegation' || progress) && <span aria-hidden>· </span>}
+                      {department}
                     </span>
-                  </>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* mt-auto so tiles of differing title length still align their footers to the bottom
@@ -150,7 +160,7 @@ const TaskListViewComponent = ({
 
               <PriorityChip meta={priority} />
 
-              {fields.department && department && <DepartmentChip name={department} />}
+              {fields.department && department && <DepartmentChip name={department} className="hidden sm:inline-flex" />}
 
               {fields.dueDate && task.dueDate && (
                 <IconChip
@@ -164,10 +174,10 @@ const TaskListViewComponent = ({
 
               {/* Capped at two with a +n overflow: a delegation carrying six labels would
                   otherwise push status and due date off the tile entirely. */}
-              {task.tags?.slice(0, 2).map((tag) => <TagChip key={tag.id} tag={tag} />)}
+              {task.tags?.slice(0, 2).map((tag) => <TagChip key={tag.id} tag={tag} className="hidden sm:inline-flex" />)}
               {(task.tags?.length ?? 0) > 2 && (
                 <span
-                  className="text-xs font-semibold text-text-muted tabular-nums"
+                  className="hidden sm:inline text-xs font-semibold text-text-muted tabular-nums"
                   title={task.tags!.map((t) => t.name).join(', ')}
                 >
                   +{task.tags!.length - 2}
