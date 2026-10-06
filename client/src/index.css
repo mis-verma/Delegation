@@ -37,23 +37,23 @@
   --color-activity-ticket: #0d9488;
   --color-activity-todo: #475569;
 
-  /* --- Champagne Gold Accent (kept small: highlights, decorative blobs, the sidebar's active mark) --- */
-  --color-coral-50: #fdf9ec;
-  --color-coral-100: #faf2d6;
-  --color-coral-200: #f4e4ab;
-  --color-coral-300: #ecd27f;
-  --color-coral-400: #e3c05f;
-  --color-coral-500: #d9ae45;
-  --color-coral-600: #b98f2c;
-  --color-coral-700: #96721f;
+  /* --- Violet accent (kept small: highlights, decorative blobs, the sidebar's active mark). The token keeps its old "coral" name; it was champagne gold and is now violet so nothing reads yellow. --- */
+  --color-coral-50: #f5f1ff;
+  --color-coral-100: #ebe4ff;
+  --color-coral-200: #d8ccfb;
+  --color-coral-300: #bba8f5;
+  --color-coral-400: #9c85ec;
+  --color-coral-500: #7c5cdb;
+  --color-coral-600: #6544c0;
+  --color-coral-700: #4f3499;
 
   /* --- Status Colors (High Contrast) --- */
   --color-success: #10b981;
-  --color-warning: #f59e0b;
+  --color-warning: #e0620d;
   --color-danger: #ef4444;
   --color-info: #3f6fe0;
   --color-status-todo: #94a3b8;
-  --color-status-progress: #f59e0b;
+  --color-status-progress: #e0620d;
   --color-status-verify: #6366f1;
   --color-status-approve: #0891b2;
   --color-status-done: #10b981;
@@ -219,7 +219,7 @@ body {
      complaint. Lightened + slightly desaturated so priority/status colors stay legible without
      the harsh contrast, same hue family as the light-mode values above. */
   --color-success: #4caf80;
-  --color-warning: #d3a24e;
+  --color-warning: #f19a55;
   --color-danger: #d17272;
   --color-info: #7aa2e8;
   /* primary-900 (light mode's Checklist accent) is near-black — on this near-black surface it's

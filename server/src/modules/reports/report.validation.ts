@@ -19,4 +19,10 @@ export const reportExportQuerySchema = z.object({
     storeId: z.string().optional(),
 });
 
+// Window on the hand-in time. Required: the dashboard always asks for its own period.
+export const approvalTatQuerySchema = z.object({
+    from: z.string().datetime({ offset: true }),
+    to: z.string().datetime({ offset: true }),
+});
+
 export type ReportExportQuery = z.infer<typeof reportExportQuerySchema>;

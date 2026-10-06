@@ -7,6 +7,9 @@ export const reportRouter = Router();
 reportRouter.use(authenticate);
 reportRouter.use(requireRole("ADMIN", "PC"));
 
+// Approval turnaround: how much of what was handed in got a decision within 24 hours. ADMIN/PC only
+// (the router already gates that).
+reportRouter.get("/approval-tat", reportController.approvalTat);
 reportRouter.get("/tickets/export", reportController.exportTickets);
 reportRouter.get("/tasks/export", reportController.exportTasks);
 reportRouter.get("/checklists/export", reportController.exportChecklists);
