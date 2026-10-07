@@ -294,7 +294,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                   current={ticket.tags ?? []}
                   onSave={(tagIds) => labelsMut.mutate({ id: ticket.id, payload: { tagIds } })}
                   canCreate={isVerifier}
-                  readOnly={!canAssign}
+                  readOnly
                   headingClassName={DETAIL_HEADING_CLASS}
                 />
               </div>

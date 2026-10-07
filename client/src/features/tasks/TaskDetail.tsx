@@ -422,7 +422,7 @@ const TaskEditLayout = ({
             </button>
           )}
         </div>
-        <TitleEditor value={task.title} isViewMode={isViewOnly} disabled={isViewOnly} onSave={onSaveTitle} />
+        <TitleEditor value={task.title} isViewMode disabled onSave={onSaveTitle} />
         <p className="text-xs font-display font-medium text-text-muted">
           {raisedBy ? `Raised by ${raisedBy} \u00b7 ` : ''}Created {formatStepDate(new Date(task.createdAt))}, {formatStepTime(new Date(task.createdAt))}
         </p>
@@ -520,7 +520,7 @@ const TaskEditLayout = ({
         current={task.tags ?? []}
         onSave={(tagIds) => onUpdate({ tagIds })}
         canCreate={isVerifier}
-        readOnly={isViewOnly}
+        readOnly
         headingClassName={DETAIL_HEADING_CLASS}
       />
 
@@ -538,7 +538,7 @@ const TaskEditLayout = ({
             now-inert view/delete grid too, rather than leaving it half-removed. */}
         <PlainDescriptionEditor
           value={task.description ?? ''}
-          disabled={isViewOnly}
+          disabled
           onSave={onSaveDescription}
         />
       </div>
