@@ -184,9 +184,6 @@ export const CalendarPage = () => {
           <EntityIconTile icon={CalendarIcon} />
           <div className="flex min-w-0 flex-col gap-0.5">
             <h1 className="text-lg sm:text-xl font-display font-bold text-text tracking-tight">Calendar</h1>
-            <p className="hidden sm:block text-[13px] font-medium text-text-muted">
-              Everything due, day by day. Tap a day to see it or plan something new.
-            </p>
           </div>
         </div>
 

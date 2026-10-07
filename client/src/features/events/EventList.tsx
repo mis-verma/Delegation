@@ -1,6 +1,7 @@
 import { useMemo, useState, lazy, Suspense } from 'react';
-import { Trash2, Pencil, CalendarClock, Clock3, Loader2, AlertCircle, Plus } from 'lucide-react';
-import { Button, Fab, Skeleton, GradientIconTile, IconChip, QuickFilterStats, EmptyState } from '../../components';
+import { Trash2, Pencil, CalendarClock, Clock3, Loader2, AlertCircle } from 'lucide-react';
+import { Button, Skeleton, GradientIconTile, IconChip, QuickFilterStats, EmptyState } from '../../components';
+import { QuickFilterPill } from '../../components/filterRow/QuickFilterPill';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/context/AuthContext';
 import { useEventsQuery, useDeleteEventMutation } from './hook';
@@ -159,9 +160,6 @@ export const EventList = () => {
         <GradientIconTile icon={CalendarClock} />
         <div>
           <h1 className="text-xl font-display font-bold text-text">Events</h1>
-          <p className="text-sm text-text-muted mt-0.5">
-            Deadlines, announcements, and broadcasts for everyone
-          </p>
         </div>
       </div>
 
@@ -195,8 +193,10 @@ export const EventList = () => {
         </div>
       )}
 
-      {canManage && (
-        <Fab actions={[{ key: 'create', label: 'New event', icon: Plus, onClick: () => setShowForm(true) }]} />
+      {typeFilter && (
+        <div>
+          <QuickFilterPill filter={typeFilter} label={EVENT_TYPE_LABELS[typeFilter]} onClear={() => setTypeFilter(null)} />
+        </div>
       )}
 
       {renderContent()}

@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router';
 import { Plus, ChevronDown, Upload, AlertCircle, Inbox, LayoutList, Kanban, Table2, GanttChartSquare } from 'lucide-react';
 import { PageNav, Fab, ViewToggle, EmptyState, type ViewTab } from '../../components';
 import { CreatedRangeBanner, CreatedRangePicker } from '../../components/createdRangeBanner';
+import { QuickFilterPill } from '../../components/filterRow/QuickFilterPill';
 import { useCreatedRange } from '../../lib/createdRange';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/context/AuthContext';
@@ -164,6 +165,8 @@ export const TicketList = () => {
           <div className="hidden sm:block shrink-0">
             <ViewToggle tabs={VIEW_TABS} value={organizer.view} onChange={organizer.setView} />
           </div>
+
+          <QuickFilterPill filter={organizer.quickFilter} onClear={organizer.clearQuickFilter} />
 
           <TicketActiveTags organizer={organizer} allTickets={allTicketsData ?? []} />
 

@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router';
 import { Plus, Flag, ArrowUpDown, X } from 'lucide-react';
 import { Fab } from '../../components';
 import { CreatedRangeBanner, CreatedRangePicker } from '../../components/createdRangeBanner';
+import { QuickFilterPill } from '../../components/filterRow/QuickFilterPill';
 import { useCreatedRange, useDueRange } from '../../lib/createdRange';
 import {
   OptionsSheet, OptionSection, OptionSegmented, ChoiceChip, ChoiceIcon, ChoiceWrap, ChoiceClear,
@@ -147,16 +148,21 @@ export const TodoPage = () => {
         </div>
       </div>
 
-      {dueRange.range && (
-        <button
-          type="button"
-          onClick={dueRange.clear}
-          className="inline-flex w-fit items-center gap-1.5 rounded-full border border-primary-500/30 bg-primary-500/10 py-1 pl-3 pr-2 text-xs font-display font-semibold text-primary-700 transition-colors hover:bg-primary-500/15 dark:text-primary-300"
-          aria-label={`Clear the due date filter: ${dueRange.range.label}`}
-        >
-          Due {dueRange.range.label}
-          <X size={13} aria-hidden="true" />
-        </button>
+      {(quickFilter || dueRange.range) && (
+        <div className="flex flex-wrap items-center gap-2">
+          <QuickFilterPill filter={quickFilter} onClear={() => setQuickFilter(null)} />
+          {dueRange.range && (
+            <button
+              type="button"
+              onClick={dueRange.clear}
+              className="inline-flex w-fit items-center gap-1.5 rounded-full border border-primary-500/30 bg-primary-500/10 py-1 pl-3 pr-2 text-xs font-display font-semibold text-primary-700 transition-colors hover:bg-primary-500/15 dark:text-primary-300"
+              aria-label={`Clear the due date filter: ${dueRange.range.label}`}
+            >
+              Due {dueRange.range.label}
+              <X size={13} aria-hidden="true" />
+            </button>
+          )}
+        </div>
       )}
 
       <TodoList quickFilter={quickFilter} priority={priority} sort={sort} onClearFilters={clearFilters} rangeFilter={rangeFilter} />
