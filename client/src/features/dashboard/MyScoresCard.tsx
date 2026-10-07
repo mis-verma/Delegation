@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router';
+import { AnimatePresence, motion } from 'framer-motion';
 import { toast } from 'sonner';
-import { ArrowDown, ArrowUp, ChartColumn, ChartLine, ChevronLeft, ChevronRight, CircleGauge, ClipboardCheck, Download, FileSpreadsheet, FileText, Ticket as TicketIcon, Trophy, Users, type LucideIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { ArrowDown, ArrowUp, ChartColumn, ChartLine, ChevronDown, ChevronLeft, ChevronRight, CircleGauge, ClipboardCheck, Download, FileSpreadsheet, FileText, Ticket as TicketIcon, Users, type LucideIcon } from 'lucide-react';
 import { Button, Combobox, type ComboboxOption } from '../../components';
 import { SemiGauge } from '../../components/semiGauge/SemiGauge';
 import { InfoHint } from '../../components/infoHint/InfoHint';
@@ -21,9 +23,10 @@ import { DASHBOARD_CARD_CLASS, rateTone, type RateTone } from './dashboardDispla
 import { PERIODS, PERIOD_LABEL, windowFor, type ScorePeriod } from './scorePeriods';
 
 const SCOPE_LABEL: Record<ScoreScope, string> = { person: 'Person', department: 'Department', store: 'Store' };
-type ScoreView = 'bars' | 'dials' | 'trend' | 'ranking';
-const VIEW_LABEL: Record<ScoreView, string> = { bars: 'Bars', dials: 'Dials', trend: 'Trend', ranking: 'Ranking' };
-const VIEW_ICON: Record<ScoreView, LucideIcon> = { bars: ChartColumn, dials: CircleGauge, trend: ChartLine, ranking: Trophy };
+type ScoreView = 'bars' | 'dials' | 'trend';
+const VIEWS: readonly ScoreView[] = ['bars', 'dials', 'trend'];
+const VIEW_LABEL: Record<ScoreView, string> = { bars: 'Bars', dials: 'Dials', trend: 'Trend' };
+const VIEW_ICON: Record<ScoreView, LucideIcon> = { bars: ChartColumn, dials: CircleGauge, trend: ChartLine };
 
 // What a person last chose is remembered per account, so the card opens the way they left it.
 interface ScorePrefs { view: ScoreView; period: ScorePeriod; compare: boolean; metric: ScoreMetric }
@@ -36,7 +39,7 @@ const loadPrefs = (userId: string | undefined): Partial<ScorePrefs> => {
     return {};
   }
 };
-const isView = (v: unknown): v is ScoreView => v === 'bars' || v === 'dials' || v === 'trend' || v === 'ranking';
+const isView = (v: unknown): v is ScoreView => v === 'bars' || v === 'dials' || v === 'trend';
 const isPeriod = (v: unknown): v is ScorePeriod => typeof v === 'string' && (PERIODS as readonly string[]).includes(v);
 const PICK_PLACEHOLDER: Record<ScoreScope, string> = { person: 'Me', department: 'Pick a department', store: 'Pick a store' };
 
@@ -185,9 +188,11 @@ export const MyScoresCard = () => {
   const setPeriod = (next: ScorePeriod) => { setPeriodState(next); remember({ period: next }); };
   const setCompare = (next: boolean) => { setCompareState(next); remember({ compare: next }); };
   const setMetric = (next: ScoreMetric) => { setMetricState(next); remember({ metric: next }); };
-  // Ranking is for people who can see more than themselves; anyone else falls back to the bars.
-  const views = useMemo<ScoreView[]>(() => (canExportReport ? ['bars', 'dials', 'trend', 'ranking'] : ['bars', 'dials', 'trend']), [canExportReport]);
-  const activeView: ScoreView = views.includes(view) ? view : 'bars';
+  // Closed by default, so the card opens on the signed-in person's own scores. Open, it shows the measure tabs
+  // and, for Admin, PC and department heads, everyone they may see, with a search box.
+  const [moreOpen, setMoreOpen] = useState(false);
+  const views = VIEWS;
+  const activeView: ScoreView = view;
   const setView = (next: ScoreView) => { setViewState(next); remember({ view: next }); };
 
   const people = useAssignableUsersQuery();
@@ -405,17 +410,48 @@ export const MyScoresCard = () => {
           </div>
         </div>
 
-        {activeView !== 'ranking' && (
-          <PeriodTabControl value={metric} options={METRIC_OPTIONS} labels={METRIC_LABEL} onChange={setMetric} fill />
-        )}
       </header>
 
-      {!ready && activeView !== 'ranking' ? (
+      {/* Measures and people: folded away so the card stays short and shows the person's own scores. */}
+      <div className="rounded-lg border border-border/60">
+        <button
+          type="button"
+          onClick={() => setMoreOpen((v) => !v)}
+          aria-expanded={moreOpen}
+          aria-controls="scores-more"
+          className="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg px-3 text-left outline-none transition-colors hover:bg-surface-hover/40 focus-visible:ring-2 focus-visible:ring-primary-500/40"
+        >
+          <span className="min-w-0">
+            <span className="block text-xs font-display font-semibold text-text">{canExportReport ? 'Measures and everyone' : 'Measures'}</span>
+            <span className="block truncate text-xs font-medium text-text-muted">{METRIC_LABEL[metric]}{canExportReport ? `, ${SCOPE_LABEL[scope].toLowerCase()} wise` : ''}</span>
+          </span>
+          <ChevronDown className={cn('size-4 shrink-0 text-text-muted transition-transform duration-200', moreOpen && 'rotate-180')} aria-hidden="true" />
+        </button>
+        <AnimatePresence initial={false}>
+          {moreOpen && (
+            <motion.div
+              id="scores-more"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.22, ease: 'easeInOut' }}
+              className="overflow-hidden"
+            >
+              <div className="flex flex-col gap-3 border-t border-border/60 p-3">
+                <PeriodTabControl value={metric} options={METRIC_OPTIONS} labels={METRIC_LABEL} onChange={setMetric} fill />
+                {canExportReport && (
+                  <ScoreRanking metric={metric} scope={scope} from={range.from} to={range.to} onOpen={(id) => { setPicked(id); setMoreOpen(false); }} />
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {!ready ? (
         <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm font-medium text-text-muted">
           Pick a {SCOPE_LABEL[scope].toLowerCase()} above to see its scores.
         </div>
-      ) : activeView === 'ranking' ? (
-        <ScoreRanking scope={scope} from={range.from} to={range.to} onOpen={(id) => { setPicked(id); setView('bars'); }} />
       ) : activeView === 'trend' ? (
         <ScoreTrend metric={metric} scope={scope} id={targetId} period={period} from={range.from} to={range.to} />
       ) : query.isError && !data ? (

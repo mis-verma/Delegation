@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowDown, ArrowUp, ChevronRight } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronRight, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { scoreApi, type ScoreReport, type ScoreReportRow, type ScoreScope } from '../../api/scores';
 import { Skeleton } from '../../components/skeleton';
 import { rateTone, type RateTone } from './dashboardDisplay';
+import type { ScoreMetric } from './scoreMetrics';
 
 type Metric = 'completion' | 'compliance' | 'ontime';
 type SortKey = 'name' | 'overall' | 'checklist' | 'ticket' | 'delegation';
@@ -55,6 +56,8 @@ const MiniBar = ({ value }: { value: number | null }) => (
 );
 
 interface ScoreRankingProps {
+  /** When given, the card's measure tabs drive this list and its own measure chips are hidden. */
+  metric?: ScoreMetric;
   scope: ScoreScope;
   from: string;
   to: string;
@@ -66,8 +69,10 @@ interface ScoreRankingProps {
  * Everyone (or every department, or every store) side by side for the selected window, sorted so the
  * ones who need attention are on top. Tap a row to open that person, department or store on the card.
  */
-export const ScoreRanking = ({ scope, from, to, onOpen }: ScoreRankingProps) => {
-  const [metric, setMetric] = useState<Metric>('completion');
+export const ScoreRanking = ({ metric: controlled, scope, from, to, onOpen }: ScoreRankingProps) => {
+  const [localMetric, setMetric] = useState<Metric>('completion');
+  const metric: Metric = controlled ? (controlled === 'overview' ? 'completion' : controlled) : localMetric;
+  const [query, setQuery] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('overall');
   const [ascending, setAscending] = useState(true);
 
@@ -79,7 +84,10 @@ export const ScoreRanking = ({ scope, from, to, onOpen }: ScoreRankingProps) => 
 
   const rows = useMemo(() => {
     const source = scope === 'person' ? data?.people : scope === 'department' ? data?.departments : data?.stores;
-    const list = (source ?? []).map(compute);
+    const needle = query.trim().toLowerCase();
+    const list = (source ?? [])
+      .filter((r) => !needle || r.name.toLowerCase().includes(needle) || r.department.toLowerCase().includes(needle))
+      .map(compute);
     const value = (c: Computed): number | string | null => {
       if (sortKey === 'name') return c.row.name.toLowerCase();
       return c[metric][sortKey];
@@ -93,7 +101,7 @@ export const ScoreRanking = ({ scope, from, to, onOpen }: ScoreRankingProps) => 
       const diff = typeof x === 'string' ? x.localeCompare(y as string) : x - (y as number);
       return ascending ? diff : -diff;
     });
-  }, [data, scope, metric, sortKey, ascending]);
+  }, [data, scope, metric, sortKey, ascending, query]);
 
   const sortBy = (key: SortKey) => {
     if (key === sortKey) setAscending((v) => !v);
@@ -122,14 +130,14 @@ export const ScoreRanking = ({ scope, from, to, onOpen }: ScoreRankingProps) => 
       </div>
     );
   }
-  if (rows.length === 0) {
+  if (rows.length === 0 && !query.trim()) {
     return <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm font-medium text-text-muted">Nothing was due for any of the {SUBJECT[scope]} in this window.</div>;
   }
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div role="radiogroup" aria-label="Measure" className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-surface-hover/50 p-0.5">
+        <div role="radiogroup" aria-label="Measure" className={cn('inline-flex items-center gap-1 rounded-full border border-border/60 bg-surface-hover/50 p-0.5', controlled && 'hidden')}>
           {(['completion', 'compliance', 'ontime'] as const).map((m) => (
             <button
               key={m}
@@ -148,6 +156,20 @@ export const ScoreRanking = ({ scope, from, to, onOpen }: ScoreRankingProps) => 
         </div>
         <p className="text-xs font-medium text-text-muted">{rows.length} {SUBJECT[scope]}. Worst first. Tap a row to open it.</p>
       </div>
+
+      <label className="relative block">
+        <span className="sr-only">Search {SUBJECT[scope]}</span>
+        <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-text-light" aria-hidden="true" />
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={`Search ${SUBJECT[scope]}`}
+          className="h-9 w-full rounded-lg border border-border bg-surface pl-8 pr-3 text-base text-text outline-none transition-colors placeholder:text-text-light focus-visible:border-primary-500 focus-visible:ring-2 focus-visible:ring-primary-500/30 sm:text-sm"
+        />
+      </label>
+
+      {rows.length === 0 && <p className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm font-medium text-text-muted">No {SUBJECT[scope]} match &ldquo;{query.trim()}&rdquo;.</p>}
 
       {/* Phone: one card per row. */}
       <ul className="flex flex-col gap-2 sm:hidden">

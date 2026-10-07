@@ -410,6 +410,14 @@ body {
 
 /* Opening a page from a link that asks for a view transition (a dashboard approval, for one) cross-fades the old
    page into the new one instead of cutting. Short, and off for anyone who asked for reduced motion. */
+/* On a phone the wide heading face gives way to Inter everywhere (headings, numbers, labels), so the same
+   words take less room on every page, not just the dashboard. */
+@media (max-width: 639px) {
+  :root {
+    --font-display: var(--font-sans);
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   ::view-transition-old(root),
   ::view-transition-new(root) {
