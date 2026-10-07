@@ -108,15 +108,15 @@ const ScoreTile = ({ title, icon: Icon, score, detail, loading, href, change }: 
   const tone = score === null ? 'neutral' : rateTone(score, Number.MAX_SAFE_INTEGER);
   const [from, to] = RING[tone];
   const pill = TONE_PILL[tone];
-  const tileClass = `grid grid-cols-[7rem_minmax(0,1fr)] grid-rows-[auto_auto] items-center gap-x-3 gap-y-1 rounded-lg border border-border bg-surface-hover/30 p-3 sm:flex sm:flex-col sm:items-stretch sm:gap-2 sm:p-3.5 min-w-0 ${href ? 'transition-colors hover:border-border-hover outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40' : ''}`;
+  const tileClass = `grid grid-cols-[7rem_minmax(0,1fr)] grid-rows-[auto_auto] items-center gap-x-3 gap-y-1 rounded-lg border border-border bg-surface-hover/30 p-2.5 sm:flex sm:flex-col sm:items-stretch sm:gap-2 sm:p-3.5 min-w-0 ${href ? 'transition-colors hover:border-border-hover outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40' : ''}`;
   const body = (
     <>
       <div className="col-start-2 row-start-1 self-end flex items-center justify-between gap-2 min-w-0 sm:self-auto">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-md bg-primary-500/10 text-primary-600 dark:text-primary-400">
+          <span className="hidden size-7 shrink-0 items-center justify-center rounded-md bg-primary-500/10 text-primary-600 dark:text-primary-400 sm:inline-flex">
             <Icon className="size-4" aria-hidden="true" />
           </span>
-          <span className="truncate text-sm font-display font-bold text-text">{title}</span>
+          <span className="truncate text-[13px] sm:text-sm font-display font-semibold sm:font-bold text-text">{title}</span>
         </div>
         <span className="flex shrink-0 items-center gap-1.5">
           {change != null && change !== 0 && (
@@ -300,12 +300,12 @@ export const MyScoresCard = () => {
   const showPicker = scope === 'person' ? canPickPerson : !(scope === 'department' && isHod);
 
   return (
-    <section className={`${DASHBOARD_CARD_CLASS} flex flex-col gap-3 sm:gap-4 p-3.5 sm:p-5 min-w-0`} aria-label="Scores">
+    <section className={`${DASHBOARD_CARD_CLASS} flex flex-col gap-3 sm:gap-4 p-3 sm:p-5 min-w-0`} aria-label="Scores">
       <header className="flex flex-col gap-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 min-w-0">
-              <h2 className="text-base sm:text-lg font-display font-bold text-text tracking-tight truncate">{heading}</h2>
+              <h2 className="text-sm sm:text-lg font-display font-semibold sm:font-bold text-text tracking-tight truncate">{heading}</h2>
               <InfoHint label="What do these scores mean?">
                 <p><strong className="text-text">Completion</strong>: how much of the work that came due was done.</p>
                 <p className="mt-1.5"><strong className="text-text">Compliance</strong>: how much was done on time. For checklists, how well the checked answers were answered.</p>

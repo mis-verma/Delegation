@@ -103,7 +103,7 @@ const FeedRow = memo(({ item, now }: FeedRowProps) => {
       // list to go find the thing you just clicked.
       to={isTicket ? `/tickets?open=${item.id}` : `/tasks?open=${item.id}`}
       aria-label={`${item.title}, ${isTicket ? 'ticket' : 'delegation'}, ${pillLabel}, ${relative}`}
-      className="group/row flex items-center justify-between gap-3 sm:gap-0 min-h-11 px-3 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-none border border-border/60 sm:border-0 bg-surface sm:bg-transparent hover:bg-surface-hover/80 active:bg-surface-hover transition-colors duration-200 relative overflow-hidden focus:outline-none focus-visible:bg-surface-hover focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40"
+      className="group/row flex items-center justify-between gap-3 sm:gap-0 min-h-11 px-3 sm:px-5 py-2.5 sm:py-3.5 rounded-xl sm:rounded-none border border-border/60 sm:border-0 bg-surface sm:bg-transparent hover:bg-surface-hover/80 active:bg-surface-hover transition-colors duration-200 relative overflow-hidden focus:outline-none focus-visible:bg-surface-hover focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40"
     >
       <div aria-hidden="true" className="absolute left-0 top-0 bottom-0 w-1 bg-primary-500 transform -translate-x-full group-hover/row:translate-x-0 transition-transform duration-300 ease-out" />
 
@@ -123,7 +123,7 @@ const FeedRow = memo(({ item, now }: FeedRowProps) => {
         {/* overflow-hidden on the column (not just min-w-0): min-w-0 lets it shrink but doesn't stop
             its own children rendering wider than it and bleeding into the status chip's space. */}
         <div className="flex flex-col gap-1 min-w-0 overflow-hidden">
-          <span className="text-sm font-display font-bold text-text line-clamp-2 leading-snug group-hover/row:text-primary-600 dark:group-hover/row:text-primary-400 transition-colors duration-200">
+          <span className="text-[13px] sm:text-sm font-display font-semibold sm:font-bold text-text line-clamp-2 leading-snug group-hover/row:text-primary-600 dark:group-hover/row:text-primary-400 transition-colors duration-200">
             {item.title}
           </span>
           {/* On phones the status rides in this row as a chip beside the kind chip (flex-wrap for
@@ -203,11 +203,11 @@ export const RecentActivity = ({ feed, isPending, isError = false, onRetry }: Re
     <section id="recent-activity" aria-labelledby="recent-activity-heading" className={`@container relative ${DASHBOARD_CARD_CLASS} flex flex-col hover:border-primary-500/30 transition-colors duration-200 overflow-hidden`}>
       {/* Title and search share a row only when the card itself is wide (@2xl); in the half-width
           desktop slot the search drops under the title instead of squeezing the heading. */}
-      <div className="flex flex-col @2xl:flex-row @2xl:items-center justify-between gap-3 @2xl:gap-4 px-4 sm:px-5 py-3 sm:py-4 border-b border-border/40">
+      <div className="flex flex-col @2xl:flex-row @2xl:items-center justify-between gap-3 @2xl:gap-4 px-3 sm:px-5 py-2.5 sm:py-4 border-b border-border/40">
         <div className="flex items-center gap-3 sm:gap-3.5 min-w-0">
-          <EntityIconTile icon={Activity} />
+          <EntityIconTile icon={Activity} className="size-8 sm:size-10" iconClassName="size-4 sm:size-5" />
           <div>
-            <h2 id="recent-activity-heading" className="text-base sm:text-lg font-display font-bold text-text tracking-tight">
+            <h2 id="recent-activity-heading" className="text-sm sm:text-lg font-display font-semibold sm:font-bold text-text tracking-tight">
               Recently created
             </h2>
             <p className="hidden sm:block text-xs font-medium text-text-muted mt-0.5">Newest tickets and delegations</p>

@@ -118,16 +118,16 @@ interface MobileTileProps {
 // Mobile: the headline is what is still open, with the total beside it as the secondary figure, and
 // a tap goes straight to that pending list. No toggle, no breakdown: the full card lives at `sm:`.
 const MobileTile = ({ view }: MobileTileProps) => {
-  const shell = 'relative overflow-hidden flex flex-col gap-2 p-3 rounded-2xl min-h-24 bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700 text-white text-left';
+  const shell = 'relative overflow-hidden flex flex-col gap-1.5 p-2.5 rounded-xl min-h-20 bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700 text-white text-left';
 
   if (view.isPending) {
-    return <Skeleton className="min-h-24 rounded-2xl" />;
+    return <Skeleton className="min-h-20 rounded-xl" />;
   }
 
   const head = (
     <span className="flex items-center gap-2 min-w-0">
-      <span className="flex items-center justify-center size-7 rounded-lg bg-white/15 shrink-0">
-        <view.icon size={14} strokeWidth={2.5} aria-hidden="true" />
+      <span className="flex items-center justify-center size-6 rounded-md bg-white/15 shrink-0">
+        <view.icon size={12} strokeWidth={2.5} aria-hidden="true" />
       </span>
       <span className="text-xs font-display font-semibold text-white/90">{view.title}</span>
     </span>
@@ -151,7 +151,7 @@ const MobileTile = ({ view }: MobileTileProps) => {
     >
       {head}
       <span className="flex items-baseline gap-1.5">
-        <span className="text-2xl font-display font-bold tabular-nums leading-none">{view.pending}</span>
+        <span className="text-xl font-display font-bold tabular-nums leading-none">{view.pending}</span>
         <span className="text-xs font-display font-medium text-white/70">pending</span>
       </span>
       <span className="flex flex-wrap items-center gap-x-2 gap-y-1">

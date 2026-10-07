@@ -27,7 +27,7 @@ const EventRow = memo(({ event, now }: { event: Event; now: number }) => {
         <div aria-hidden="true" className={`flex items-center justify-center shrink-0 ${EVENT_TYPE_ICON_TINTS[event.type]}`}>
           <Icon size={14} />
         </div>
-        <p className="text-sm font-display font-medium text-text line-clamp-2 leading-snug">{event.title}</p>
+        <p className="text-[13px] sm:text-sm font-display font-medium text-text line-clamp-2 leading-snug">{event.title}</p>
       </div>
 
       <div className="flex items-center gap-4 pl-11 sm:pl-0 shrink-0">
@@ -46,11 +46,11 @@ export const UpcomingEvents = ({ events, isPending, isError = false, onRetry }: 
 
   return (
     <section id="upcoming-events" aria-labelledby="upcoming-events-heading" className={`relative ${DASHBOARD_CARD_CLASS} flex flex-col hover:border-primary-500/30 transition-colors duration-200 overflow-hidden`}>
-      <div className="flex items-center justify-between gap-3 sm:gap-4 px-4 sm:px-5 py-3 sm:py-4 border-b border-border/40">
+      <div className="flex items-center justify-between gap-3 sm:gap-4 px-3 sm:px-5 py-2.5 sm:py-4 border-b border-border/40">
         <div className="flex items-center gap-3">
-          <EntityIconTile icon={CalendarClock} />
+          <EntityIconTile icon={CalendarClock} className="size-8 sm:size-10" iconClassName="size-4 sm:size-5" />
           <div>
-            <h2 id="upcoming-events-heading" className="text-base sm:text-lg font-display font-bold text-text tracking-tight">Upcoming events</h2>
+            <h2 id="upcoming-events-heading" className="text-sm sm:text-lg font-display font-semibold sm:font-bold text-text tracking-tight">Upcoming events</h2>
             <p className="hidden sm:block text-xs font-medium text-text-muted mt-0.5">Deadlines, announcements and broadcasts</p>
           </div>
         </div>

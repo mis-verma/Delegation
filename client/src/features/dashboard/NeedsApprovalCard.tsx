@@ -37,15 +37,15 @@ const ApprovalLink = memo(({ row }: { row: ApprovalRow }) => {
   return (
     <Link
       to={row.link}
-      className="group/row flex items-center gap-3 min-h-11 rounded-xl border border-border/60 bg-surface px-3.5 py-3 transition-colors duration-200 hover:border-primary-500/40 hover:bg-primary-500/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+      className="group/row flex items-center gap-3 min-h-11 rounded-xl border border-border/60 bg-surface px-3 py-2.5 sm:px-3.5 sm:py-3 transition-colors duration-200 hover:border-primary-500/40 hover:bg-primary-500/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
     >
-      <div className={`flex items-center justify-center size-9 rounded-lg shrink-0 text-white ${ACTIVITY_CATEGORY_DOT_CLASS[row.category]}`}>
+      <div className={`flex items-center justify-center size-8 sm:size-9 rounded-lg shrink-0 text-white ${ACTIVITY_CATEGORY_DOT_CLASS[row.category]}`}>
         <Icon size={15} strokeWidth={2.25} />
       </div>
       <div className="flex-1 min-w-0">
         {/* line-clamp-2, not truncate: this row's icon and chevron leave little width for the title
             on a phone, and truncate cut titles down to a fragment. */}
-        <p className="text-sm font-display font-semibold text-text line-clamp-2 leading-snug">{row.title}</p>
+        <p className="text-[13px] sm:text-sm font-display font-medium sm:font-semibold text-text line-clamp-2 leading-snug">{row.title}</p>
         <p className="text-xs font-medium text-text-light flex items-center gap-1.5">
           {row.meta && (
             <>
@@ -116,16 +116,16 @@ export const NeedsApprovalCard = () => {
 
   return (
     <section aria-labelledby="needs-approval-heading" className={`${DASHBOARD_CARD_CLASS} flex flex-col`}>
-      <div className="flex items-center justify-between gap-3 px-4 sm:px-5 py-4 border-b border-border/40">
+      <div className="flex items-center justify-between gap-3 px-3 py-2.5 sm:px-5 sm:py-4 border-b border-border/40">
         <div className="flex items-center gap-3.5 min-w-0">
           {/* One-off warm tile, not EntityIconTile's shared primary/coral: coral there is scoped to
               physical stores, and this block is the one place on the dashboard that reads as
               "waiting on you", so it earns its own accent. */}
-          <div className="flex items-center justify-center size-10 rounded-xl shrink-0 text-primary-600 dark:text-primary-400 bg-primary-500/10 border border-primary-500/20">
+          <div className="flex items-center justify-center size-8 sm:size-10 rounded-lg sm:rounded-xl shrink-0 text-primary-600 dark:text-primary-400 bg-primary-500/10 border border-primary-500/20">
             <ShieldAlert size={18} strokeWidth={2.25} />
           </div>
           <div className="min-w-0">
-            <h2 id="needs-approval-heading" className="text-base sm:text-lg font-display font-bold text-text tracking-tight">
+            <h2 id="needs-approval-heading" className="text-sm sm:text-lg font-display font-semibold sm:font-bold text-text tracking-tight">
               Needs your approval
             </h2>
             <p className="hidden sm:block text-xs font-medium text-text-muted mt-0.5">
@@ -141,7 +141,7 @@ export const NeedsApprovalCard = () => {
         )}
       </div>
 
-      <div className="flex flex-col gap-3 p-3 sm:p-4">
+      <div className="flex flex-col gap-2 p-2.5 sm:gap-3 sm:p-4">
         {failedSources.map((source) => (
           <InlineError key={source.label} message={`Couldn't load ${source.label} waiting for approval.`} onRetry={source.retry} />
         ))}

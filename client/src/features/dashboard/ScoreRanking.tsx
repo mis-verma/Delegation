@@ -138,7 +138,7 @@ export const ScoreRanking = ({ scope, from, to, onOpen }: ScoreRankingProps) => 
               aria-checked={metric === m}
               onClick={() => setMetric(m)}
               className={cn(
-                'min-h-8 rounded-full px-3 text-xs font-display font-bold outline-none transition-colors pointer-coarse:min-h-11 focus-visible:ring-2 focus-visible:ring-primary-500/40',
+                'min-h-8 rounded-full px-3 text-xs font-display font-medium sm:font-bold outline-none transition-colors pointer-coarse:min-h-11 focus-visible:ring-2 focus-visible:ring-primary-500/40',
                 metric === m ? 'bg-surface text-primary-700 ring-1 ring-border dark:text-primary-300' : 'text-text-muted hover:text-text',
               )}
             >
