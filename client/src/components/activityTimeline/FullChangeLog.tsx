@@ -1,0 +1,31 @@
+import { useState } from 'react';
+import { ChevronDown, ShieldCheck } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import type { AuditEntityType } from '../../api/auditLogs';
+import { ActivityTimeline } from './ActivityTimeline';
+
+/**
+ * The field-by-field change log (who changed which value from what to what) for Admin and PC only,
+ * folded away under the plain Activity feed so the section stays calm. Renders nothing for anyone else.
+ */
+export const FullChangeLog = ({ entityType, entityId }: { entityType: AuditEntityType; entityId: string }) => {
+  const { user } = useAuth();
+  const [open, setOpen] = useState(false);
+  if (user?.role !== 'ADMIN' && user?.role !== 'PC') return null;
+
+  return (
+    <div className="flex flex-col gap-3">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="inline-flex min-h-9 w-fit items-center gap-1.5 rounded-full border border-border px-3 text-xs font-display font-semibold text-text-secondary outline-none transition-colors hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-coarse:min-h-11"
+      >
+        <ShieldCheck size={13} strokeWidth={2.5} aria-hidden="true" />
+        {open ? 'Hide full change log' : 'Full change log (Admin)'}
+        <ChevronDown size={13} strokeWidth={2.5} className={`transition-transform duration-200 ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
+      </button>
+      {open && <ActivityTimeline entityType={entityType} entityId={entityId} />}
+    </div>
+  );
+};

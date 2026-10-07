@@ -12,7 +12,7 @@ export { ImageLightbox }   from './imageLightbox';
 export { Form }            from './forms';
 export { ModernHeroTitle } from './animate';
 export { Breadcrumbs }     from './breadcrumbs';
-export { ActivityTimeline } from './activityTimeline';
+export { ActivityTimeline, ActivityFeed, FullChangeLog } from './activityTimeline';
 export type { BreadcrumbTrailItem } from './breadcrumbs';
 export { PageNav }         from './pagination';
 export { Skeleton, RouteFallback } from './skeleton';

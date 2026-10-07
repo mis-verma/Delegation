@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { CheckSquare, Loader2, ChevronRight, CircleDot, Clock, Eye, Type, CheckCircle2, ShieldCheck, Trash2, CalendarDays, Check, Milestone, AlignLeft } from 'lucide-react';
-import { Modal, Button, DateRangePicker, ActivityTimeline, DepartmentChip, StatusChip, useConfirm, type StatusChipStatus } from '../../components';
+import { Modal, Button, DateRangePicker, ActivityFeed, FullChangeLog, DepartmentChip, StatusChip, useConfirm, type StatusChipStatus } from '../../components';
 import { IconChip } from '../../components/iconChip';
 import type { DateRangeValue } from '../../components';
 import { useTaskQuery, useUpdateTaskMutation, useDeleteTaskMutation, useAssignableUsersQuery } from './hook';
@@ -387,7 +387,6 @@ const TaskEditLayout = ({
   assignableUsers, isLoadingUsers, departments, isLoadingDepts,
   onSaveTitle, onSaveDescription, onUpdate, onDelete, isDeleting,
 }: TaskEditLayoutProps) => {
-  const { user } = useAuth();
   const departmentName = task.departmentId ? departments?.find((d) => d.id === task.departmentId)?.name : undefined;
   // Names for the ids the task carries (who raised it, who approved it) from the people list this
   // role can already see; an id that is not in it simply shows no name.
@@ -555,12 +554,11 @@ const TaskEditLayout = ({
           reintroduction of the removed comment feed, and invisible to every other role. */}
       <TaskStatusStepper task={task} nameOf={nameOf} />
 
-      {(user?.role === 'ADMIN' || user?.role === 'PC') && (
-        <>
-          <hr className="border-border/60" />
-          <ActivityTimeline entityType="Task" entityId={task.id} />
-        </>
-      )}
+      {/* Everyone who works on the delegation sees the plain history (the server decides who); Admin and
+          PC also get the field-by-field change log, folded away underneath. */}
+      <hr className="border-border/60" />
+      <ActivityFeed entityType="Task" entityId={task.id} />
+      <FullChangeLog entityType="Task" entityId={task.id} />
     </div>
 
     <div className="pointer-events-none absolute inset-x-0 top-0 h-6 bg-gradient-to-b from-card to-transparent" />

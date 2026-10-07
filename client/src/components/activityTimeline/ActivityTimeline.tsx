@@ -6,9 +6,6 @@ import { useAuth } from '../../context/AuthContext';
 import { useAuditLogsQuery } from '../../features/admin/auditLog/hook';
 import { actionConfig, entityTypeConfig, diffAuditLog, type AuditIdResolvers, type DiffRow } from '../../features/admin/auditLog/auditLogDisplay';
 import { useAuditIdResolvers } from '../../features/admin/auditLog/useAuditIdResolvers';
-import { RoleChip } from '../roleChip';
-import { avatarColorClass } from '../../lib/avatarColors';
-import { formatRelativeTime } from '../../features/dashboard/dashboardDisplay';
 import { Skeleton } from '../skeleton';
 import { ActivityValue } from './ActivityValue';
 import type { AuditEntityType, AuditLog } from '../../api/auditLogs';
@@ -73,22 +70,31 @@ const actorFullName = (log: AuditLog) =>
 const isStatusMove = (log: AuditLog) =>
   log.action !== 'CREATE' && log.action !== 'DELETE' && log.before?.status !== log.after?.status;
 
-// One plain sentence per entry, verb first, so the row reads without opening anything. A status
-// move says so in words; the chips under it then show from/to.
-const summaryLine = (log: AuditLog, diffRows: DiffRow[]) => {
+// What the person did, written to follow their name: "moved it to In progress", "changed due date and
+// priority". A status move names where it went, so a long history reads without opening anything.
+const phraseFor = (log: AuditLog, diffRows: DiffRow[]) => {
   const thing = entityTypeConfig(log.entityType).label.toLowerCase();
-  if (log.action === 'CREATE') return `Created this ${thing}`;
-  if (log.action === 'DELETE') return `Deleted this ${thing}`;
-  if (log.action === 'VERIFY' || log.action === 'APPROVE') return `Approved this ${thing}`;
-  if (log.action === 'REJECT') return `Sent this ${thing} back`;
-  if (diffRows.length === 0) return `Updated this ${thing}`;
+  if (log.action === 'CREATE') return `created this ${thing}`;
+  if (log.action === 'DELETE') return `deleted this ${thing}`;
+  if (log.action === 'VERIFY' || log.action === 'APPROVE') return `approved this ${thing}`;
+  if (log.action === 'REJECT') return `sent this ${thing} back`;
+  if (diffRows.length === 0) return `updated this ${thing}`;
+  const statusRow = diffRows.find((r) => r.key === 'status');
   const others = diffRows.filter((r) => r.key !== 'status').map((r) => r.label.toLowerCase());
-  const moved = diffRows.some((r) => r.key === 'status');
   const list = (names: string[]) =>
     names.length <= 2 ? names.join(' and ') : `${names.slice(0, 2).join(', ')} and ${names.length - 2} more`;
-  if (moved && others.length === 0) return 'Moved the status';
-  if (moved) return `Moved the status, changed ${list(others)}`;
-  return `Changed ${list(others)}`;
+  if (statusRow && others.length === 0) return `moved it to ${statusRow.after}`;
+  if (statusRow) return `moved it to ${statusRow.after} and changed ${list(others)}`;
+  return `changed ${list(others)}`;
+};
+
+// One meaning per colour on the rail badge: approvals green, send-backs and deletes red, moves and
+// creation the app's blue, ordinary edits quiet grey. Everything else on the row stays neutral.
+const badgeTone = (log: AuditLog) => {
+  if (log.action === 'VERIFY' || log.action === 'APPROVE') return 'bg-success';
+  if (log.action === 'REJECT' || log.action === 'DELETE') return 'bg-danger';
+  if (log.action === 'CREATE' || isStatusMove(log)) return 'bg-primary-600 dark:bg-primary-500';
+  return 'bg-text-light';
 };
 
 /**
@@ -125,7 +131,6 @@ export const ActivityTimeline = ({ entityType, entityId, limit: initialLimit = P
   };
   const visible = filter === 'all' ? rows : rows.filter((r) => (filter === 'status' ? isStatusMove(r) : !isStatusMove(r)));
   const groups = groupByDay(visible);
-  const newestId = rows[0]?.id;
   const ready = !isPending && !isError;
 
   return (
@@ -160,7 +165,7 @@ export const ActivityTimeline = ({ entityType, entityId, limit: initialLimit = P
                 >
                   <Icon size={12} strokeWidth={2.5} className={active ? 'text-primary-600 dark:text-primary-400' : ''} />
                   <span className={key === 'all' ? '' : 'hidden sm:inline'}>{label}</span>
-                  <span className="tabular-nums text-text-light">{counts[key]}</span>
+                  {key === 'status' && counts.status > 0 && <span className="tabular-nums text-text-light">{counts.status}</span>}
                 </button>
               );
             })}
@@ -204,21 +209,18 @@ export const ActivityTimeline = ({ entityType, entityId, limit: initialLimit = P
         const label = dayLabel(group.date);
         return (
           <div key={group.key} className="flex flex-col gap-3" role="group" aria-label={label.full}>
-            <div className="flex items-center gap-2">
+            <div className="sticky top-0 z-10 -mx-1 flex items-center gap-2 bg-surface px-1 py-1">
               <span className="inline-flex items-center gap-1.5 text-xs font-display font-semibold text-text-secondary">
                 {label.lead && <span className="text-text font-bold">{label.lead}</span>}
                 {label.lead && <span className="text-text-light" aria-hidden>·</span>}
                 <span>{label.full}</span>
               </span>
               <span className="h-px flex-1 bg-border/70" aria-hidden />
-              <span className="text-xs font-display font-semibold text-text-light tabular-nums">
-                {group.rows.length} {group.rows.length === 1 ? 'entry' : 'entries'}
-              </span>
             </div>
 
-            <ol className="relative flex flex-col gap-1 pl-7 before:absolute before:left-[11px] before:top-4 before:bottom-4 before:w-px before:bg-border">
+            <ol className="relative flex flex-col gap-1 pl-11 before:absolute before:left-4 before:top-5 before:bottom-5 before:w-px before:bg-border/80">
               {group.rows.map((log) => (
-                <ActivityTimelineRow key={log.id} log={log} resolvers={resolvers} isLatest={log.id === newestId} />
+                <ActivityTimelineRow key={log.id} log={log} resolvers={resolvers} />
               ))}
             </ol>
           </div>
@@ -288,87 +290,61 @@ const ChangeList = ({ log, rows }: { log: AuditLog; rows: DiffRow[] }) => (
   </ul>
 );
 
-const ActivityTimelineRow = ({
-  log,
-  resolvers,
-  isLatest,
-}: {
-  log: AuditLog;
-  resolvers: AuditIdResolvers;
-  isLatest: boolean;
-}) => {
+const ActivityTimelineRow = ({ log, resolvers }: { log: AuditLog; resolvers: AuditIdResolvers }) => {
   const [expanded, setExpanded] = useState(false);
   const action = actionConfig(log.action);
-  // A status move gets its own glyph on the rail, so a long history scans as "moves vs. edits"
-  // before reading a word.
+  // A status move gets its own glyph, so a long history scans as "moves vs. edits" before reading a word.
   const Icon = log.action === 'UPDATE' && isStatusMove(log) ? ArrowRightLeft : action.icon;
   const diffRows = diffAuditLog(log.before, log.after, resolvers);
   const fullName = actorFullName(log);
-  const summary = summaryLine(log, diffRows);
+  const phrase = phraseFor(log, diffRows);
   const date = new Date(log.createdAt);
   const isSnapshot = log.action === 'CREATE' || log.action === 'DELETE';
   // Status first: it's the change people scan for.
   const ordered = [...diffRows].sort((a, b) => Number(b.key === 'status') - Number(a.key === 'status'));
-  // CREATE/DELETE snapshots list every column — noise inline, so those stay behind the toggle.
-  const inlineRows = isSnapshot ? [] : ordered.slice(0, INLINE_DIFF_ROWS);
-  const hiddenCount = ordered.length - inlineRows.length;
+  // CREATE/DELETE snapshots list every column, which is noise inline, so those stay behind the toggle.
+  // A status-only move already says where it went in the sentence, so it needs no chips under it.
+  const statusOnly = ordered.length === 1 && ordered[0].key === 'status';
+  const inlineRows = isSnapshot || statusOnly ? [] : ordered.slice(0, INLINE_DIFF_ROWS);
+  const hiddenCount = isSnapshot ? ordered.length : ordered.length - inlineRows.length;
   const shown = expanded ? ordered : inlineRows;
 
   return (
     <li className="relative">
-      <span
-        className={`absolute -left-7 top-3 flex items-center justify-center size-6 rounded-full ring-4 ring-surface text-white ${action.tone}`}
-        title={action.label}
-        aria-hidden
-      >
-        <Icon size={11} strokeWidth={3} />
+      {/* The person sits on the rail, with one small glyph at its corner for what they did. */}
+      <span className="absolute -left-11 top-2.5 flex size-8 items-center justify-center" aria-hidden>
+        {log.actor ? (
+          <span className="flex size-8 items-center justify-center rounded-full bg-primary-500/15 text-xs font-display font-bold text-primary-700 ring-4 ring-surface dark:text-primary-300">
+            {log.actor.firstName[0]?.toUpperCase() ?? '?'}
+            {log.actor.lastName?.[0]?.toUpperCase() ?? ''}
+          </span>
+        ) : (
+          <span className="flex size-8 items-center justify-center rounded-full bg-surface-hover text-text-muted ring-4 ring-surface">
+            <Bot size={14} strokeWidth={2.5} />
+          </span>
+        )}
+        <span className={`absolute -bottom-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full text-white ring-2 ring-surface ${badgeTone(log)}`} title={action.label}>
+          <Icon size={9} strokeWidth={3.5} />
+        </span>
       </span>
 
-      <article className="flex flex-col gap-2.5 px-3 py-2.5 rounded-lg border border-transparent hover:border-border/70 hover:bg-surface-hover/40 transition-all duration-200">
+      <article className="flex flex-col gap-2 rounded-lg border border-transparent px-3 py-2 transition-colors duration-200 hover:border-border/70 hover:bg-surface-hover/40">
         <header className="flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2.5 min-w-0">
-            {log.actor ? (
-              <span className={`flex items-center justify-center size-8 rounded-full text-white text-xs font-display font-bold shrink-0 ${avatarColorClass(log.actor.firstName)}`}>
-                {log.actor.firstName[0]?.toUpperCase() ?? '?'}
-                {log.actor.lastName?.[0]?.toUpperCase() ?? ''}
-              </span>
-            ) : (
-              <span className="flex items-center justify-center size-8 rounded-full bg-surface-hover text-text-muted shrink-0 ring-1 ring-border">
-                <Bot size={14} strokeWidth={2.5} />
-              </span>
-            )}
-            <div className="flex flex-col gap-0.5 min-w-0">
-              <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                <span className="text-sm font-display font-bold text-text leading-snug">{fullName}</span>
-                {log.actor && (
-                  <RoleChip role={log.actor.role} className="hidden sm:inline-flex" />
-                )}
-                {isLatest && (
-                  <span className="inline-flex items-center gap-1 px-1.5 py-px rounded-full bg-primary-500/10 dark:bg-primary-500/15 text-xs font-display font-bold text-primary-700 dark:text-primary-300">
-                    <span className="size-1.5 rounded-full bg-primary-500" aria-hidden />
-                    Latest
-                  </span>
-                )}
-              </div>
-              <p className="text-xs font-display text-text-secondary leading-snug">{summary}</p>
-            </div>
-          </div>
-
+          <p className="min-w-0 text-sm font-display leading-snug text-text-secondary">
+            <span className="font-bold text-text">{fullName}</span>
+            {log.actor && <span className="sr-only"> ({log.actor.role})</span>}{' '}
+            {phrase}
+          </p>
           <time
             dateTime={log.createdAt}
             title={date.toLocaleString('en-IN', { dateStyle: 'full', timeStyle: 'medium' })}
-            className="flex flex-col items-end gap-0.5 shrink-0 text-right"
+            className="shrink-0 pt-0.5 text-xs font-display font-medium tabular-nums text-text-muted"
           >
-            <span className="text-xs font-display font-bold text-text tabular-nums">{timeLabel(date)}</span>
-            <span className="hidden sm:block text-xs font-display font-medium text-text-light">{formatRelativeTime(log.createdAt)}</span>
+            {timeLabel(date)}
           </time>
         </header>
 
-        {!isSnapshot && shown.length > 0 && (
-          <div className="sm:pl-[42px]">
-            <ChangeList log={log} rows={shown} />
-          </div>
-        )}
+        {!isSnapshot && shown.length > 0 && <ChangeList log={log} rows={shown} />}
 
         {/* CREATE/DELETE: full snapshot only on request. */}
         <AnimatePresence initial={false}>
@@ -378,7 +354,7 @@ const ActivityTimelineRow = ({
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               transition={{ duration: 0.2, ease: 'easeInOut' }}
-              className="overflow-hidden sm:pl-[42px]"
+              className="overflow-hidden"
             >
               <ChangeList log={log} rows={ordered} />
             </motion.div>
@@ -389,7 +365,7 @@ const ActivityTimelineRow = ({
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
-            className="inline-flex items-center gap-1 w-fit sm:ml-[42px] min-h-6 text-xs font-display font-bold text-primary-700 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 transition-colors duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500 rounded"
+            className="inline-flex min-h-6 w-fit items-center gap-1 text-xs font-display font-bold text-primary-700 transition-colors duration-200 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 pointer-coarse:min-h-11"
             aria-expanded={expanded}
           >
             {expanded

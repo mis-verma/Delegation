@@ -10,7 +10,7 @@ import {
   useAddTicketStatusUpdateMutation,
   useDepartmentsQuery,
 } from './hook';
-import { ImageLightbox, ActivityTimeline, IconChip, StatusChip, PriorityChip, DepartmentChip, type StatusChipStatus } from '../../components';
+import { ImageLightbox, ActivityFeed, FullChangeLog, IconChip, StatusChip, PriorityChip, DepartmentChip, type StatusChipStatus } from '../../components';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { useCategoriesQuery } from '../settings/hook';
 import { DetailLabelsField } from '../tags/DetailLabelsField';
@@ -311,7 +311,8 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                 />
               )}
 
-              {isAdmin && <ActivityTimeline entityType="Ticket" entityId={ticket.id} />}
+              <ActivityFeed entityType="Ticket" entityId={ticket.id} />
+              <FullChangeLog entityType="Ticket" entityId={ticket.id} />
             </div>
           </div>
         </div>

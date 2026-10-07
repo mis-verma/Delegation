@@ -37,6 +37,7 @@ import { settingsRouter } from "./modules/settings/settings.routes.js"
 import { reportRouter } from "./modules/reports/report.routes.js"
 import { checklistReportRouter } from "./modules/checklistReports/checklistReport.routes.js"
 import { scoreRouter } from "./modules/scores/score.routes.js"
+import { activityRouter } from "./modules/activity/activity.routes.js"
 import { eventRouter } from "./modules/events/event.routes.js"
 import { smartTaskConversationRouter } from "./modules/smartTaskConversations/smartTaskConversation.routes.js"
 import { todoRouter } from "./modules/todos/todo.routes.js"
@@ -202,6 +203,7 @@ class App {
         this.app.use("/reports", reportRouter)
         this.app.use("/checklist-reports", checklistReportRouter)
         this.app.use("/scores", scoreRouter)
+        this.app.use("/activity", activityRouter)
         this.app.use("/events", eventRouter)
         this.app.use("/smart-task-conversations", smartTaskConversationRouter)
         this.app.use("/todos", todoRouter)
