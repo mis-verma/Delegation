@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { ExternalLink, Flag, CornerUpLeft, CheckCircle2 } from 'lucide-react';
 import { IconChip, Modal, PANEL_CLASS } from '../../components';
 import { cn } from '@/lib/utils';
+import { useAuth } from '../../context/AuthContext';
 import { complianceToneClass, formatDate, formatDateTime, instanceDeadline } from '../checklist/checklistDisplay';
 import { InstanceReviewPanel } from '../checklist/instance/InstanceReviewPanel';
 import { ReviewActions, SendBackForm } from '../checklist/instance/ReviewActions';
@@ -38,6 +39,9 @@ interface BodyProps {
 // questions with the failing ones first.
 export const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, onTogglePicked, onItemNote, hideTitle = false }: BodyProps) {
   const { instance, risk } = row;
+  const { user } = useAuth();
+  // Mirrors the server: department heads, PC and Admin, never on a run they fill in themselves.
+  const canWaive = !!user && ['ADMIN', 'PC', 'MANAGER', 'SENIOR'].includes(user.role) && !instance.assigneeIds.includes(user.id);
   const photos = risk.photosNeeded > 0 ? `${risk.photosHave}/${risk.photosNeeded}` : 'None needed';
 
   return (
@@ -77,8 +81,10 @@ export const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, picked
         <Tile label="Completion" value={`${risk.completion}%`} />
         <Tile
           label="Compliance"
-          value={risk.compliance === null ? 'Not scored' : `${risk.compliance}%`}
-          tone={risk.compliance === null ? 'text-text-muted text-sm leading-7' : complianceToneClass(risk.compliance)}
+          // A run with no accepted-answer rules has nothing that could have failed, so it reads 100%
+          // rather than "Not scored".
+          value={`${risk.compliance ?? 100}%`}
+          tone={complianceToneClass(risk.compliance ?? 100)}
         />
         <Tile
           label="Photos"
@@ -89,6 +95,7 @@ export const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, picked
 
       <InstanceReviewPanel
         items={instance.items}
+        canWaive={canWaive}
         selected={pickedSet}
         onToggle={onTogglePicked}
         notes={picked}

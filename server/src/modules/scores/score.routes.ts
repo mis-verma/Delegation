@@ -9,3 +9,5 @@ scoreRouter.use(authenticate)
 scoreRouter.get("/", scoreController.scores)
 // The table behind the export: every department and person the viewer may see. The service gates the role.
 scoreRouter.get("/report", scoreController.report)
+// The same scores over time (a few buckets), for the Trend view. Same access rules as the card.
+scoreRouter.get("/trend", scoreController.trend)

@@ -9,8 +9,10 @@ export interface ItemFlags {
   bad: boolean;
   /** Needs photos and has fewer than that. */
   missingPhotos: boolean;
-  /** A reviewer already sent this question back at least once. */
+  /** A reviewer already sent this question back at least once (and has not waived it since). */
   sentBack: boolean;
+  /** A reviewer excused this question: it no longer counts against compliance. */
+  waived: boolean;
   /** The checklist author marked this question critical. */
   critical: boolean;
   /** Critical and its verdict is bad. */
@@ -23,7 +25,8 @@ export interface ItemFlags {
 
 export const itemFlags = (item: ChecklistInstanceItem): ItemFlags => {
   const verdict = answerVerdict(item);
-  const sentBack = item.sendBackCount > 0;
+  const waived = !!item.waivedAt;
+  const sentBack = item.sendBackCount > 0 && !waived;
   const bad = verdict === 'bad' && !sentBack;
   const missingPhotos = !item.isNotApplicable && item.requiredImageCount > 0 && item.images.length < item.requiredImageCount;
   const critical = item.isCritical === true;
@@ -31,6 +34,7 @@ export const itemFlags = (item: ChecklistInstanceItem): ItemFlags => {
     bad,
     missingPhotos,
     sentBack,
+    waived,
     critical,
     criticalFailed: critical && verdict === 'bad',
     fixed: sentBack && item.isDone,

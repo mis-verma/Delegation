@@ -1,10 +1,11 @@
 import { memo, useMemo, useState } from 'react';
-import { AlertTriangle, Ban, Check, CheckCheck, ChevronDown, CornerUpLeft, Flag, History, Timer } from 'lucide-react';
+import { AlertTriangle, Ban, Check, CheckCheck, ChevronDown, CornerUpLeft, Flag, History, ShieldCheck, Timer } from 'lucide-react';
 import { IconChip } from '../../../components';
 import { cn } from '@/lib/utils';
 import { runScores } from '../checklistCompliance';
 import { complianceToneClass, formatDateTime } from '../checklistDisplay';
 import { EvidenceThumb } from './EvidenceThumb';
+import { WaiveAction } from './WaiveAction';
 import { useChecklistItemHistoryQuery } from '../hook';
 import { itemFlags, needsLookRank, type ItemFlags } from './reviewFlags';
 import type { ChecklistInstanceItem, ChecklistInstanceItemSubmission } from '../../../api/checklistInstances';
@@ -152,6 +153,8 @@ const ItemHistory = ({ item }: { item: ChecklistInstanceItem }) => {
 
 interface ReviewRowProps {
   item: ChecklistInstanceItem;
+  /** A department head, PC or Admin who is not filling this run in: may waive a failing question. */
+  canWaive: boolean;
   flags: ItemFlags;
   selected: boolean;
   disabled: boolean;
@@ -165,7 +168,7 @@ interface ReviewRowProps {
   deadlineMs: number | null;
 }
 
-const ReviewRow = memo(function ReviewRow({ item, flags, selected, disabled, onToggle, note, onNoteChange, previousNote, deadlineMs }: ReviewRowProps) {
+const ReviewRow = memo(function ReviewRow({ item, canWaive, flags, selected, disabled, onToggle, note, onNoteChange, previousNote, deadlineMs }: ReviewRowProps) {
   const answer = item.isNotApplicable ? null : answerText(item);
   const answeredLate = deadlineMs != null && item.isDone && !!item.completedAt && new Date(item.completedAt).getTime() > deadlineMs;
 
@@ -209,6 +212,7 @@ const ReviewRow = memo(function ReviewRow({ item, flags, selected, disabled, onT
               />
             )}
             {flags.fixed && <IconChip icon={CheckCheck} tone="bg-success" label="Fixed after send-back" />}
+            {flags.waived && <IconChip icon={ShieldCheck} tone="bg-primary-600" label="Waived" title={item.waiveReason ?? 'Excused by a reviewer'} />}
             {flags.missingPhotos && (
               <IconChip icon={AlertTriangle} tone="bg-danger" label={`Photos ${item.images.length}/${item.requiredImageCount}`} />
             )}
@@ -221,6 +225,16 @@ const ReviewRow = memo(function ReviewRow({ item, flags, selected, disabled, onT
           <p className="text-xs font-display text-text-muted whitespace-pre-wrap break-words">
             {item.isNotApplicable ? 'Reason' : 'Remark'}: {item.remarks}
           </p>
+        )}
+        {flags.waived && item.waiveReason && (
+          <p className="text-xs font-display text-text-muted whitespace-pre-wrap break-words border-l-2 border-primary-500/40 pl-2.5">
+            Waived: {item.waiveReason}
+          </p>
+        )}
+        {canWaive && (flags.bad || flags.sentBack || flags.waived) && (
+          <div className="flex justify-end">
+            <WaiveAction instanceId={item.instanceId} item={item} />
+          </div>
         )}
         {flags.fixed && previousNote && (
           <p className="text-xs font-display text-text-muted whitespace-pre-wrap break-words border-l-2 border-border pl-2.5">
@@ -253,6 +267,8 @@ const ReviewRow = memo(function ReviewRow({ item, flags, selected, disabled, onT
 
 interface InstanceReviewPanelProps {
   items: ChecklistInstanceItem[];
+  /** Show the Waive button on failing questions. The server still decides who may. */
+  canWaive?: boolean;
   /** Questions the reviewer has ticked to send back. */
   selected: ReadonlySet<string>;
   onToggle: (itemId: string) => void;
@@ -278,7 +294,7 @@ const SectionTitle = ({ children }: { children: string }) => (
 // question back (with an optional note of its own). Used by the Verification page's review pane and
 // the department Approvals page, so both review the same way.
 export const InstanceReviewPanel = memo(function InstanceReviewPanel({
-  items, selected, onToggle, disabled = false, notes, onNoteChange, lastSendBackNote = null, showScores = true, deadlineMs = null,
+  items, canWaive = false, selected, onToggle, disabled = false, notes, onNoteChange, lastSendBackNote = null, showScores = true, deadlineMs = null,
 }: InstanceReviewPanelProps) {
   const scores = useMemo(() => (showScores ? runScores(items) : null), [items, showScores]);
   const [showRest, setShowRest] = useState(false);
@@ -295,6 +311,7 @@ export const InstanceReviewPanel = memo(function InstanceReviewPanel({
     <ReviewRow
       key={item.id}
       item={item}
+      canWaive={canWaive}
       flags={flags}
       selected={selected.has(item.id)}
       disabled={disabled}

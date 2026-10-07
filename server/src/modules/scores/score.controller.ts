@@ -17,14 +17,30 @@ const querySchema = z
     .refine((q) => q.scope === "person" || !!q.id, "Pick a department or store")
 
 const reportSchema = z
-    .object({ from: DATE, to: DATE })
+    .object({ from: DATE, to: DATE, stores: z.enum(["1", "0"]).optional() })
     .refine((q) => q.from <= q.to, "From must be on or before To")
     .refine((q) => Date.parse(q.to) - Date.parse(q.from) <= 366 * 86_400_000, "Pick at most one year")
 
+const trendSchema = z
+    .object({
+        scope: z.enum(["person", "department", "store"]).default("person"),
+        id: z.string().min(1).max(191).optional(),
+        period: z.enum(["day", "week", "month", "quarter", "year"]),
+        from: DATE,
+        to: DATE,
+    })
+    .refine((q) => q.from <= q.to, "From must be on or before To")
+    .refine((q) => Date.parse(q.to) - Date.parse(q.from) <= 366 * 86_400_000, "Pick at most one year")
+    .refine((q) => q.scope === "person" || !!q.id, "Pick a department or store")
+
 export const scoreController = {
+    trend: asyncHandler(async (req: Request, res: Response) => {
+        const { scope, id, period, from, to } = trendSchema.parse(req.query)
+        res.json({ success: true, data: await scoreService.trend(req.user!, scope, id ?? req.user!.sub, period, from, to) })
+    }),
     report: asyncHandler(async (req: Request, res: Response) => {
-        const { from, to } = reportSchema.parse(req.query)
-        res.json({ success: true, data: await scoreService.report(req.user!, from, to) })
+        const { from, to, stores } = reportSchema.parse(req.query)
+        res.json({ success: true, data: await scoreService.report(req.user!, from, to, stores === "1") })
     }),
     scores: asyncHandler(async (req: Request, res: Response) => {
         const { scope, id, from, to } = querySchema.parse(req.query)

@@ -303,6 +303,17 @@ export const useInstancesForDefinitionQuery = (definitionId: string, paging: { p
 // status filters are picked, across every checklist definition (not scoped to one, unlike
 // useInstancesForDefinitionQuery above).
 /** Returns the whole `{ data, meta }` page — the board needs `meta.totalPages` for its pager. */
+export const usePeriodReportQuery = (from: string, to: string, storeId?: string, departmentId?: string) => {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: ['checklist-instances', 'period-report', from, to, storeId ?? '', departmentId ?? ''],
+    queryFn: () => checklistInstanceApi.getPeriodReport(from, to, storeId, departmentId).then(r => r.data),
+    enabled: !!token,
+    retry: handleQueryRetry,
+    placeholderData: keepPreviousData,
+  });
+};
+
 export const useWeeklyReportQuery = (weekStart: string, storeId?: string, departmentId?: string) => {
   const { token } = useAuth();
   return useQuery({
@@ -553,6 +564,25 @@ export const useSendBackChecklistInstanceMutation = () =>
     invalidateKeys: [['checklist-instances']],
     successMessage: 'Sent back to the team',
     errorFallback: "Couldn't send those questions back",
+  });
+
+export const useWaiveChecklistItemMutation = () =>
+  useEntityMutation({
+    mutationFn: ({ id, itemId, reason }: { id: string; itemId: string; reason: string }) =>
+      checklistInstanceApi.waiveItem(id, itemId, reason).then(r => r.data),
+    setDetailData: (updated) => ({ key: KEYS.instanceDetail(updated.id), data: updated }),
+    invalidateKeys: [['checklist-instances'], ['checklist-reports'], ['scores']],
+    successMessage: 'Question waived',
+    errorFallback: "Couldn't waive this question",
+  });
+
+export const useUnwaiveChecklistItemMutation = () =>
+  useEntityMutation({
+    mutationFn: ({ id, itemId }: { id: string; itemId: string }) => checklistInstanceApi.unwaiveItem(id, itemId).then(r => r.data),
+    setDetailData: (updated) => ({ key: KEYS.instanceDetail(updated.id), data: updated }),
+    invalidateKeys: [['checklist-instances'], ['checklist-reports'], ['scores']],
+    successMessage: 'Waiver taken back',
+    errorFallback: "Couldn't take the waiver back",
   });
 
 // ADMIN only: an approved run goes back to the review queue.

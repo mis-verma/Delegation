@@ -29,6 +29,7 @@ checklistInstanceRouter.get("/former-people/names", requireRole("ADMIN", "PC"), 
 checklistInstanceRouter.get("/former-people/:userId/runs", requireRole("ADMIN", "PC"), checklistInstanceController.personRuns)
 checklistInstanceRouter.get("/", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), checklistInstanceController.list)
 checklistInstanceRouter.get("/summary", checklistInstanceController.summary)
+checklistInstanceRouter.get("/reports/period", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), checklistInstanceController.periodReport)
 checklistInstanceRouter.get("/reports/weekly", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), checklistInstanceController.weeklyReport)
 checklistInstanceRouter.get("/reports/compliance", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), checklistInstanceController.complianceReport)
 checklistInstanceRouter.get("/reports/by-store", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), checklistInstanceController.byStoreReport)
@@ -37,6 +38,9 @@ checklistInstanceRouter.get("/:id", checklistInstanceController.getOne)
 checklistInstanceRouter.patch("/:id/submit", checklistInstanceController.submit)
 checklistInstanceRouter.patch("/:id/verify", checklistInstanceController.verify)
 checklistInstanceRouter.patch("/:id/send-back", checklistInstanceController.sendBack)
+// Excuse one failing question (or take the waiver back). The service allows only department heads, PC and Admin.
+checklistInstanceRouter.patch("/:id/items/:itemId/waive", checklistInstanceController.waiveItem)
+checklistInstanceRouter.delete("/:id/items/:itemId/waive", checklistInstanceController.unwaiveItem)
 checklistInstanceRouter.patch("/:id/reopen-approval", requireRole("ADMIN"), checklistInstanceController.reopenApproval)
 
 // Mounted at /checklist-instance-items in app.ts. No role gate on setItemDone/images — the

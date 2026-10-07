@@ -73,6 +73,12 @@ export const sendBackChecklistInstanceSchema = z.object({
     note: z.string().trim().min(1, "Say what needs fixing.").max(1000),
 })
 
+// A reviewer excuses one question that would count against compliance: the reason is required and is shown
+// to the person and written to the audit log.
+export const waiveChecklistItemSchema = z.object({
+    reason: z.string().trim().min(5, "Say why this is being waived.").max(500),
+})
+
 export type SetChecklistInstanceItemDoneInput = z.infer<typeof setChecklistInstanceItemDoneSchema>
 export type UploadChecklistInstanceImageInput = z.infer<typeof uploadChecklistInstanceImageSchema>
 export type VerifyChecklistInstanceInput = z.infer<typeof verifyChecklistInstanceSchema>
@@ -122,6 +128,16 @@ export const decisionsQuerySchema = z.object({
     to: reportBoundary.optional(),
     limit: z.coerce.number().int().min(1).max(200).optional(),
 })
+
+// Fill report over any window of up to a year: org-local days, both ends included.
+const reportDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date like 2026-09-28").refine((d) => !Number.isNaN(Date.parse(d + "T00:00:00Z")), "That is not a real date")
+export const periodReportQuerySchema = z.object({
+    from: reportDay,
+    to: reportDay,
+    storeId: z.string().min(1).optional(),
+    departmentId: z.string().min(1).optional(),
+}).refine((q) => q.from <= q.to, "From must be on or before To")
+  .refine((q) => Date.parse(q.to + "T00:00:00Z") - Date.parse(q.from + "T00:00:00Z") <= 366 * 86_400_000, "Pick at most one year")
 
 // Monday of the week to report on (org-local YYYY-MM-DD); anything that is not a real day is a 400.
 export const weeklyReportQuerySchema = z.object({

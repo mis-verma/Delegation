@@ -121,6 +121,10 @@ export type ChecklistInstanceItem = {
   sendBackNote:       string | null;
   /** How many times a reviewer sent this question back. Counts as a failed compliance check. */
   sendBackCount:      number;
+  /** A reviewer excused this question, so it no longer counts against compliance. */
+  waivedAt:           string | null;
+  waivedBy:           string | null;
+  waiveReason:        string | null;
   issueId:            string | null;
   instanceId:         string;
   images:             ChecklistInstanceImage[];
@@ -336,15 +340,35 @@ export type ChecklistPendingApproval = {
   waitingSince: string;
 };
 
-export type WeeklyCellState = 'done' | 'late' | 'missed' | 'open' | 'holiday' | 'off' | 'upcoming';
+export type WeeklyCellState = 'done' | 'late' | 'missed' | 'open' | 'holiday' | 'off' | 'upcoming' | 'summary';
 /** `compliance` is answer quality (weighted, critical x2, sent back = fail); null when nothing was checked. */
-export type WeeklyCell = { date: string; state: WeeklyCellState; runId: string | null; done: number; total: number; compliance: number | null };
+export type WeeklyCell = {
+  /** A day (YYYY-MM-DD) for a day column, a month (YYYY-MM) for a month column. */
+  date: string;
+  state: WeeklyCellState;
+  runId: string | null;
+  done: number;
+  total: number;
+  compliance: number | null;
+  /** Month columns only: that month's runs added up. */
+  due?: number;
+  onTime?: number;
+  late?: number;
+  missed?: number;
+  rate?: number | null;
+  completion?: number | null;
+};
 export type WeeklyReport = {
+  from: string;
+  to: string;
   weekStart: string;
+  /** One column per day up to 31 days, one per month beyond that. */
+  kind: 'day' | 'month';
+  columns: { key: string; label: string }[];
   days: string[];
   holidays: Record<string, string>;
-  rows: { definitionId: string; scopeKey: string; name: string; storeId: string; storeName: string; cells: WeeklyCell[]; rate: number | null; compliance: number | null }[];
-  summary: { due: number; onTime: number; late: number; missed: number; rate: number | null; compliance: number | null };
+  rows: { definitionId: string; scopeKey: string; name: string; storeId: string; storeName: string; cells: WeeklyCell[]; rate: number | null; completion: number | null; compliance: number | null }[];
+  summary: { due: number; onTime: number; late: number; missed: number; rate: number | null; completion: number | null; compliance: number | null };
 };
 
 export const checklistInstanceApi = {
@@ -428,6 +452,9 @@ export const checklistInstanceApi = {
       .then(r => ({ ...r, data: normalizeInstance(r.data) })),
 
   /** Weekly fill report: one row per daily checklist per store, one cell per weekday. `weekStart` is the Monday. */
+  /** Fill report over any window of up to a year, as day columns or month columns. */
+  getPeriodReport: (from: string, to: string, storeId?: string, departmentId?: string) =>
+    apiFetch<ApiResponse<WeeklyReport>>(`/checklist-instances/reports/period${buildQuery({ from, to, storeId, departmentId })}`),
   getWeeklyReport: (weekStart: string, storeId?: string, departmentId?: string) =>
     apiFetch<ApiResponse<WeeklyReport>>(`/checklist-instances/reports/weekly${buildQuery({ weekStart, storeId, departmentId })}`),
 
@@ -480,6 +507,17 @@ export const checklistInstanceApi = {
 
   submit: (id: string) =>
     apiFetch<ApiResponse<ChecklistInstance>>(`/checklist-instances/${id}/submit`, { method: 'PATCH' })
+      .then(r => ({ ...r, data: normalizeInstance(r.data) })),
+
+  /** Department head, PC or Admin: excuse a question that counts against compliance, with a reason. */
+  waiveItem: (id: string, itemId: string, reason: string) =>
+    apiFetch<ApiResponse<ChecklistInstance>>(`/checklist-instances/${id}/items/${itemId}/waive`, {
+      method: 'PATCH',
+      body: JSON.stringify({ reason }),
+    }).then(r => ({ ...r, data: normalizeInstance(r.data) })),
+
+  unwaiveItem: (id: string, itemId: string) =>
+    apiFetch<ApiResponse<ChecklistInstance>>(`/checklist-instances/${id}/items/${itemId}/waive`, { method: 'DELETE' })
       .then(r => ({ ...r, data: normalizeInstance(r.data) })),
 
   sendBack: (id: string, payload: SendBackChecklistInstancePayload) =>

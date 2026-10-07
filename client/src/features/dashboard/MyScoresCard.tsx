@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Link, useNavigate } from 'react-router';
 import { toast } from 'sonner';
-import { BarChart3, ChevronLeft, ChevronRight, ClipboardCheck, Gauge, Download, FileSpreadsheet, FileText, Ticket as TicketIcon, Users } from 'lucide-react';
+import { ArrowDown, ArrowUp, BarChart3, ChevronLeft, ChevronRight, ClipboardCheck, Gauge, Download, FileSpreadsheet, FileText, ListOrdered, Ticket as TicketIcon, TrendingUp, Users } from 'lucide-react';
 import { Button, Combobox, type ComboboxOption } from '../../components';
 import { SemiGauge } from '../../components/semiGauge/SemiGauge';
 import { InfoHint } from '../../components/infoHint/InfoHint';
@@ -13,13 +14,29 @@ import { csvBlob, xlsxBlob, downloadBlob, stampedFilename, type TableRows } from
 import { useAssignableUsersQuery, useDepartmentsQuery, useStoresQuery } from '../tickets/hook';
 import { PeriodTabControl } from './PeriodTabControl';
 import { ScoreBars } from './ScoreBars';
+import { ScoreRanking } from './ScoreRanking';
+import { ScoreTrend } from './ScoreTrend';
 import { DASHBOARD_CARD_CLASS, rateTone, type RateTone } from './dashboardDisplay';
 import { PERIODS, PERIOD_LABEL, windowFor, type ScorePeriod } from './scorePeriods';
 
 const SCOPE_LABEL: Record<ScoreScope, string> = { person: 'Person', department: 'Department', store: 'Store' };
-type ScoreView = 'bars' | 'dials';
-const VIEW_OPTIONS: readonly ScoreView[] = ['bars', 'dials'];
-const VIEW_LABEL: Record<ScoreView, string> = { bars: 'Bars', dials: 'Dials' };
+type ScoreView = 'bars' | 'dials' | 'trend' | 'ranking';
+const VIEW_LABEL: Record<ScoreView, string> = { bars: 'Bars', dials: 'Dials', trend: 'Trend', ranking: 'Ranking' };
+const VIEW_ICON: Record<ScoreView, typeof Gauge> = { bars: BarChart3, dials: Gauge, trend: TrendingUp, ranking: ListOrdered };
+
+// What a person last chose is remembered per account, so the card opens the way they left it.
+interface ScorePrefs { view: ScoreView; period: ScorePeriod; compare: boolean }
+const PREFS_KEY = 'tm-scores-prefs';
+const loadPrefs = (userId: string | undefined): Partial<ScorePrefs> => {
+  try {
+    const raw = localStorage.getItem(`${PREFS_KEY}-${userId ?? 'anon'}`);
+    return raw ? (JSON.parse(raw) as Partial<ScorePrefs>) : {};
+  } catch {
+    return {};
+  }
+};
+const isView = (v: unknown): v is ScoreView => v === 'bars' || v === 'dials' || v === 'trend' || v === 'ranking';
+const isPeriod = (v: unknown): v is ScorePeriod => typeof v === 'string' && (PERIODS as readonly string[]).includes(v);
 const PICK_PLACEHOLDER: Record<ScoreScope, string> = { person: 'Me', department: 'Pick a department', store: 'Pick a store' };
 
 const RING: Record<RateTone, [string, string]> = {
@@ -70,6 +87,10 @@ interface ScoreTileProps {
   score: number | null;
   detail: string;
   loading: boolean;
+  /** Where the late items for this module live; the whole tile opens it. */
+  href?: string | null;
+  /** The score now minus the previous period's, shown when Compare is on. */
+  change?: number | null;
 }
 
 const TONE_PILL: Record<RateTone, { label: string; className: string } | null> = {
@@ -81,13 +102,14 @@ const TONE_PILL: Record<RateTone, { label: string; className: string } | null> =
 
 // On a phone the dial sits left of the title and detail, so three tiles stay short; from `sm` up it is
 // the stacked tile with the dial in the middle.
-const ScoreTile = ({ title, icon: Icon, score, detail, loading }: ScoreTileProps) => {
+const ScoreTile = ({ title, icon: Icon, score, detail, loading, href, change }: ScoreTileProps) => {
   // A small count still gets its colour: one finished item out of one is a full, green score.
   const tone = score === null ? 'neutral' : rateTone(score, Number.MAX_SAFE_INTEGER);
   const [from, to] = RING[tone];
   const pill = TONE_PILL[tone];
-  return (
-    <div className="grid grid-cols-[7rem_minmax(0,1fr)] grid-rows-[auto_auto] items-center gap-x-3 gap-y-1 rounded-lg border border-border bg-surface-hover/30 p-3 sm:flex sm:flex-col sm:items-stretch sm:gap-2 sm:p-3.5 min-w-0">
+  const tileClass = `grid grid-cols-[7rem_minmax(0,1fr)] grid-rows-[auto_auto] items-center gap-x-3 gap-y-1 rounded-lg border border-border bg-surface-hover/30 p-3 sm:flex sm:flex-col sm:items-stretch sm:gap-2 sm:p-3.5 min-w-0 ${href ? 'transition-colors hover:border-border-hover outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40' : ''}`;
+  const body = (
+    <>
       <div className="col-start-2 row-start-1 self-end flex items-center justify-between gap-2 min-w-0 sm:self-auto">
         <div className="flex items-center gap-2 min-w-0">
           <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-md bg-primary-500/10 text-primary-600 dark:text-primary-400">
@@ -95,7 +117,15 @@ const ScoreTile = ({ title, icon: Icon, score, detail, loading }: ScoreTileProps
           </span>
           <span className="truncate text-sm font-display font-bold text-text">{title}</span>
         </div>
-        {pill && <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-display font-bold ${pill.className}`}>{pill.label}</span>}
+        <span className="flex shrink-0 items-center gap-1.5">
+          {change != null && change !== 0 && (
+            <span className={`inline-flex items-center gap-0.5 text-xs font-display font-bold tabular-nums ${change > 0 ? 'text-success' : 'text-danger'}`} title="Compared with the previous period">
+              {change > 0 ? <ArrowUp className="size-3" aria-hidden="true" /> : <ArrowDown className="size-3" aria-hidden="true" />}
+              {Math.abs(change)}
+            </span>
+          )}
+          {pill && <span className={`rounded-full px-2 py-0.5 text-xs font-display font-bold ${pill.className}`}>{pill.label}</span>}
+        </span>
       </div>
       <SemiGauge
         percent={score ?? 0}
@@ -110,8 +140,9 @@ const ScoreTile = ({ title, icon: Icon, score, detail, loading }: ScoreTileProps
       <p className="col-start-2 row-start-2 self-start text-xs font-medium text-text-muted sm:text-center sm:min-h-8">
         {loading ? 'Loading' : score === null ? 'Nothing was due' : detail}
       </p>
-    </div>
+    </>
   );
+  return href ? <Link to={href} aria-label={`${title}: open the late items`} className={tileClass}>{body}</Link> : <div className={tileClass}>{body}</div>;
 };
 
 /**
@@ -132,11 +163,29 @@ export const MyScoresCard = () => {
   const canExportReport = orgWide || isHod;
 
   const [scope, setScope] = useState<ScoreScope>('person');
-  const [period, setPeriod] = useState<ScorePeriod>('month');
+  const initialPrefs = useMemo(() => loadPrefs(user?.id), [user?.id]);
+  const [period, setPeriodState] = useState<ScorePeriod>(() => (isPeriod(initialPrefs.period) ? initialPrefs.period : 'month'));
   const [offset, setOffset] = useState(0);
   const [picked, setPicked] = useState('');
   const [exporting, setExporting] = useState(false);
-  const [view, setView] = useState<ScoreView>('bars');
+  const [view, setViewState] = useState<ScoreView>(() => (isView(initialPrefs.view) ? initialPrefs.view : 'bars'));
+  const [compare, setCompareState] = useState<boolean>(() => initialPrefs.compare === true);
+  const navigate = useNavigate();
+
+  // Every change to view, period or compare is saved. A storage that refuses (private window) just forgets.
+  const remember = (next: Partial<ScorePrefs>) => {
+    try {
+      localStorage.setItem(`${PREFS_KEY}-${user?.id ?? 'anon'}`, JSON.stringify({ ...loadPrefs(user?.id), ...next }));
+    } catch {
+      /* nothing to do */
+    }
+  };
+  const setPeriod = (next: ScorePeriod) => { setPeriodState(next); remember({ period: next }); };
+  const setCompare = (next: boolean) => { setCompareState(next); remember({ compare: next }); };
+  // Ranking is for people who can see more than themselves; anyone else falls back to the bars.
+  const views = useMemo<ScoreView[]>(() => (canExportReport ? ['bars', 'dials', 'trend', 'ranking'] : ['bars', 'dials', 'trend']), [canExportReport]);
+  const activeView: ScoreView = views.includes(view) ? view : 'bars';
+  const setView = (next: ScoreView) => { setViewState(next); remember({ view: next }); };
 
   const people = useAssignableUsersQuery();
   const departments = useDepartmentsQuery(scopes.includes('department') || canPickPerson);
@@ -173,6 +222,32 @@ export const MyScoresCard = () => {
   });
   const data = ready ? query.data : undefined;
   const loading = ready && !data && query.isPending;
+
+  // The window before this one, only fetched while Compare is on and the view can show a change.
+  const previousRange = windowFor(period, offset - 1);
+  const previousQuery = useQuery<Scores>({
+    ...scoreQuery(scope, targetId, previousRange.from, previousRange.to),
+    enabled: ready && compare && (activeView === 'bars' || activeView === 'dials'),
+  });
+  const previous = compare ? previousQuery.data : undefined;
+
+  // Where the late items for a module live, for the subject on the card. A list that cannot be narrowed to
+  // the subject (checklists of someone else) has no link rather than a misleading one.
+  const drillHref = (module: 'checklist' | 'ticket' | 'delegation'): string | null => {
+    const mine = scope === 'person' && (!targetId || targetId === user?.id);
+    const id = targetId ?? user?.id ?? '';
+    if (module === 'delegation') {
+      if (scope === 'person') return mine ? '/tasks?quickFilter=delayed&mine=1' : `/tasks?quickFilter=delayed&assigneeIds=${id}`;
+      return scope === 'department' ? `/tasks?quickFilter=delayed&departmentId=${id}` : `/tasks?quickFilter=delayed&storeId=${id}`;
+    }
+    if (module === 'ticket') return scope === 'person' ? `/tickets?quickFilter=delayed&assigneeIds=${id}` : '/tickets?quickFilter=delayed';
+    if (mine) return '/checklists?status=overdue';
+    return scope === 'store' ? `/checklists?status=overdue&store=${id}` : null;
+  };
+  const openModule = (module: 'checklist' | 'ticket' | 'delegation') => {
+    const href = drillHref(module);
+    if (href) navigate(href);
+  };
 
   // Warm the neighbouring windows so the arrows feel instant.
   useEffect(() => {
@@ -243,9 +318,9 @@ export const MyScoresCard = () => {
               </div>
             )}
             <div role="group" aria-label="Show as" className="inline-flex items-center rounded-lg border border-border p-0.5">
-              {VIEW_OPTIONS.map((option) => {
-                const Icon = option === 'bars' ? BarChart3 : Gauge;
-                const active = view === option;
+              {views.map((option) => {
+                const Icon = VIEW_ICON[option];
+                const active = activeView === option;
                 return (
                   <button
                     key={option}
@@ -253,6 +328,7 @@ export const MyScoresCard = () => {
                     onClick={() => setView(option)}
                     aria-pressed={active}
                     aria-label={`${VIEW_LABEL[option]} view`}
+                    title={VIEW_LABEL[option]}
                     className={`inline-flex size-8 pointer-coarse:size-10 items-center justify-center rounded-md transition-colors ${active ? 'bg-primary-500/10 text-primary-600 dark:text-primary-400' : 'text-text-muted hover:text-text'}`}
                   >
                     <Icon className="size-4" aria-hidden="true" />
@@ -304,6 +380,18 @@ export const MyScoresCard = () => {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <PeriodTabControl value={period} options={PERIODS} labels={PERIOD_LABEL} onChange={(next) => { setPeriod(next); setOffset(0); }} fill />
           <div className="flex items-center justify-between sm:justify-end gap-1">
+            {(activeView === 'bars' || activeView === 'dials') && (
+              <button
+                type="button"
+                onClick={() => setCompare(!compare)}
+                aria-pressed={compare}
+                title="Show the change since the previous period"
+                className={`mr-1 inline-flex h-9 pointer-coarse:h-11 items-center gap-1 rounded-lg border px-2.5 text-xs font-display font-bold transition-colors ${compare ? 'border-primary-500 bg-primary-500/10 text-primary-700 dark:text-primary-300' : 'border-border text-text-muted hover:border-border-hover hover:text-text'}`}
+              >
+                <ArrowUp className="size-3" aria-hidden="true" /><ArrowDown className="-ml-1.5 size-3" aria-hidden="true" />
+                Compare
+              </button>
+            )}
             <button type="button" onClick={() => setOffset((o) => o - 1)} aria-label={`Previous ${period}`} className="inline-flex size-9 pointer-coarse:size-11 items-center justify-center rounded-lg border border-border text-text-muted hover:border-border-hover hover:text-text">
               <ChevronLeft className="size-4" aria-hidden="true" />
             </button>
@@ -315,10 +403,14 @@ export const MyScoresCard = () => {
         </div>
       </header>
 
-      {!ready ? (
+      {!ready && activeView !== 'ranking' ? (
         <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm font-medium text-text-muted">
           Pick a {SCOPE_LABEL[scope].toLowerCase()} above to see its scores.
         </div>
+      ) : activeView === 'ranking' ? (
+        <ScoreRanking scope={scope} from={range.from} to={range.to} onOpen={(id) => { setPicked(id); setView('bars'); }} />
+      ) : activeView === 'trend' ? (
+        <ScoreTrend scope={scope} id={targetId} period={period} from={range.from} to={range.to} />
       ) : query.isError && !data ? (
         <div className="rounded-lg border border-border px-4 py-6 text-center text-sm font-medium text-text-muted">
           Could not load the scores.{' '}
@@ -326,8 +418,8 @@ export const MyScoresCard = () => {
         </div>
       ) : (
         <div className={`transition-opacity duration-200 ${query.isFetching && data ? 'opacity-60' : ''}`}>
-        {view === 'bars' ? (
-          <ScoreBars scores={data} loading={loading} />
+        {activeView === 'bars' ? (
+          <ScoreBars scores={data} loading={loading} previous={previous} onOpenModule={(m) => openModule(m)} />
         ) : (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
           <ScoreTile
@@ -335,10 +427,12 @@ export const MyScoresCard = () => {
             title="Checklist"
             icon={ClipboardCheck}
             score={data?.checklist.score ?? null}
+            href={drillHref('checklist')}
+            change={previous && data && previous.checklist.score !== null && data.checklist.score !== null ? data.checklist.score - previous.checklist.score : null}
             detail={data ? `${data.checklist.completed} of ${data.checklist.due} done${data.checklist.submitted ? `, ${data.checklist.approved} of ${data.checklist.submitted} approved` : ''}` : ''}
           />
-          <ScoreTile loading={loading} title="Tickets" icon={TicketIcon} score={data?.ticket.score ?? null} detail={data ? `${data.ticket.onTime} of ${data.ticket.due} on time` : ''} />
-          <ScoreTile loading={loading} title="Delegations" icon={Users} score={data?.delegation.score ?? null} detail={data ? `${data.delegation.done} of ${data.delegation.due} done` : ''} />
+          <ScoreTile loading={loading} title="Tickets" icon={TicketIcon} score={data?.ticket.score ?? null} href={drillHref('ticket')} change={previous && data && previous.ticket.score !== null && data.ticket.score !== null ? data.ticket.score - previous.ticket.score : null} detail={data ? `${data.ticket.onTime} of ${data.ticket.due} on time` : ''} />
+          <ScoreTile loading={loading} title="Delegations" icon={Users} score={data?.delegation.score ?? null} href={drillHref('delegation')} change={previous && data && previous.delegation.score !== null && data.delegation.score !== null ? data.delegation.score - previous.delegation.score : null} detail={data ? `${data.delegation.done} of ${data.delegation.due} done` : ''} />
         </div>
         )}
         </div>

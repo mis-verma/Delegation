@@ -41,8 +41,12 @@ export type Scores = {
     delegation: DelegationScore
 }
 
+export type TrendPeriod = "day" | "week" | "month" | "quarter" | "year"
+export type TrendBucket = { label: string; from: string; to: string; checklist: ChecklistScore; ticket: TicketScore; delegation: DelegationScore }
+export type ScoreTrend = { scope: ScoreScope; id: string; name: string; period: TrendPeriod; buckets: TrendBucket[] }
+
 export type ScoreReportRow = { id: string; name: string; department: string; role?: string; checklist: ChecklistScore; ticket: TicketScore; delegation: DelegationScore }
-export type ScoreReport = { from: string; to: string; generatedAt: string; departments: ScoreReportRow[]; people: ScoreReportRow[]; notes: string[] }
+export type ScoreReport = { from: string; to: string; generatedAt: string; departments: ScoreReportRow[]; people: ScoreReportRow[]; stores: ScoreReportRow[]; notes: string[] }
 
 export const SCORE_REPORT_NOTES = [
     "Checklist: only runs that have come due count (finished, or past their deadline), so a running period does not dip for runs still ahead. The score is compliance when answers have been checked, otherwise completion.",
@@ -112,6 +116,43 @@ const windowOf = (from: string, to: string) => {
     return { start: new Date(Date.parse(`${from}T00:00:00.000Z`) - offsetMs), end: new Date(Date.parse(`${to}T00:00:00.000Z`) + DAY_MS - offsetMs) }
 }
 
+const ymd = (ms: number) => new Date(ms).toISOString().slice(0, 10)
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+// How a window is cut for the trend. Days and weeks show seven days, a month shows its weeks, a quarter
+// and a year show calendar months. Never more than twelve buckets.
+const bucketsFor = (period: TrendPeriod, from: string, to: string): { label: string; from: string; to: string }[] => {
+    const fromMs = Date.parse(`${from}T00:00:00.000Z`)
+    const toMs = Date.parse(`${to}T00:00:00.000Z`)
+    const out: { label: string; from: string; to: string }[] = []
+    if (period === "day" || period === "week") {
+        // The last seven days ending on the window's last day (a week is exactly its own seven days).
+        for (let i = 6; i >= 0; i--) {
+            const d = toMs - i * DAY_MS
+            out.push({ label: new Date(d).toLocaleDateString("en-GB", { weekday: "short", timeZone: "UTC" }), from: ymd(d), to: ymd(d) })
+        }
+        return out
+    }
+    if (period === "month") {
+        for (let start = fromMs, n = 1; start <= toMs && n <= 6; start += 7 * DAY_MS, n++) {
+            const end = Math.min(start + 6 * DAY_MS, toMs)
+            out.push({ label: `${new Date(start).getUTCDate()}-${new Date(end).getUTCDate()}`, from: ymd(start), to: ymd(end) })
+        }
+        return out
+    }
+    // quarter and year: calendar months inside the window
+    const cursor = new Date(fromMs)
+    cursor.setUTCDate(1)
+    while (cursor.getTime() <= toMs && out.length < 12) {
+        const start = Math.max(cursor.getTime(), fromMs)
+        const nextMonth = Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 1)
+        const end = Math.min(nextMonth - DAY_MS, toMs)
+        out.push({ label: MONTH_NAMES[cursor.getUTCMonth()], from: ymd(start), to: ymd(end) })
+        cursor.setUTCMonth(cursor.getUTCMonth() + 1)
+    }
+    return out
+}
+
 type Target = { name: string; taskWhere: SQL | undefined; ticketWhere: SQL | undefined; checklistFor: (viewer: AccessTokenPayload, from: string, to: string) => Promise<PersonRow[]> }
 
 const peopleOf = (viewer: AccessTokenPayload, from: string, to: string, filters: { departmentId?: string; storeId?: string }, onlyUserId?: string) =>
@@ -168,8 +209,8 @@ export const scoreService = {
     },
 
     /** `from` and `to` are org-local days (YYYY-MM-DD), both included. */
-    async forScope(viewer: AccessTokenPayload, scope: ScoreScope, id: string, from: string, to: string): Promise<Scores> {
-        const target = await this.resolve(viewer, scope, id)
+    async forScope(viewer: AccessTokenPayload, scope: ScoreScope, id: string, from: string, to: string, resolved?: Target): Promise<Scores> {
+        const target = resolved ?? (await this.resolve(viewer, scope, id))
         const { start, end } = windowOf(from, to)
         const now = new Date()
 
@@ -194,10 +235,28 @@ export const scoreService = {
     },
 
     /**
+     * The same scores over time, for the Trend view: the selected window cut into a few buckets (7 days
+     * for a day or a week, weeks for a month, months for a quarter or a year), each scored with exactly
+     * the rules of `forScope`, so a bucket always agrees with the card. Access is checked once.
+     */
+    async trend(viewer: AccessTokenPayload, scope: ScoreScope, id: string, period: TrendPeriod, from: string, to: string): Promise<ScoreTrend> {
+        const target = await this.resolve(viewer, scope, id)
+        const buckets = bucketsFor(period, from, to)
+        const out: TrendBucket[] = []
+        // A few at a time, so one trend never floods the database pool.
+        for (let i = 0; i < buckets.length; i += 4) {
+            const slice = buckets.slice(i, i + 4)
+            const scored = await Promise.all(slice.map((b) => this.forScope(viewer, scope, id, b.from, b.to, target)))
+            scored.forEach((s, k) => out.push({ label: slice[k].label, from: slice[k].from, to: slice[k].to, checklist: s.checklist, ticket: s.ticket, delegation: s.delegation }))
+        }
+        return { scope, id, name: target.name, period, buckets: out }
+    },
+
+    /**
      * Every department and every person the viewer may see, scored for one window: the table behind the
      * export. ADMIN/PC see the whole organisation, MANAGER/SENIOR their own department, nobody else.
      */
-    async report(viewer: AccessTokenPayload, from: string, to: string): Promise<ScoreReport> {
+    async report(viewer: AccessTokenPayload, from: string, to: string, includeStores = false): Promise<ScoreReport> {
         const orgWide = viewer.role === "ADMIN" || viewer.role === "PC"
         const hod = viewer.role === "MANAGER" || viewer.role === "SENIOR"
         if (!orgWide && !hod) throw AppError.forbidden()
@@ -266,6 +325,19 @@ export const scoreService = {
             .filter(hasData)
             .sort((a, b) => a.name.localeCompare(b.name))
 
-        return { from, to, generatedAt: new Date().toISOString(), departments: depts, people, notes: SCORE_REPORT_NOTES }
+        // Stores are scored one by one with the card's own rules (delegations follow the assignee's store).
+        // Admin and PC only, and only when asked for, because it is a query set per store.
+        let storeRows: ScoreReportRow[] = []
+        if (includeStores && orgWide) {
+            const all = await db.select({ id: stores.id, name: stores.name }).from(stores).where(eq(stores.isActive, true))
+            for (let i = 0; i < all.length; i += 4) {
+                const slice = all.slice(i, i + 4)
+                const scored = await Promise.all(slice.map((s) => this.forScope(viewer, "store", s.id, from, to)))
+                scored.forEach((sc, k) => storeRows.push({ id: slice[k].id, name: slice[k].name, department: "", checklist: sc.checklist, ticket: sc.ticket, delegation: sc.delegation }))
+            }
+            storeRows = storeRows.filter(hasData).sort((a, b) => a.name.localeCompare(b.name))
+        }
+
+        return { from, to, generatedAt: new Date().toISOString(), departments: depts, people, stores: storeRows, notes: SCORE_REPORT_NOTES }
     },
 }

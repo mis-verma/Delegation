@@ -1,6 +1,6 @@
 import type { Request, Response } from "express"
 import { checklistInstanceService, type InstanceRecurrence, type InstanceVerificationStatus } from "./checklistInstance.service.js"
-import { setChecklistInstanceItemDoneSchema, verifyChecklistInstanceSchema, sendBackChecklistInstanceSchema, checklistInstanceComplianceReportQuerySchema, checklistInstanceByStoreReportQuerySchema, listChecklistInstancesQuerySchema, listPendingVerificationQuerySchema, weeklyReportQuerySchema, decisionsQuerySchema, summaryQuerySchema } from "./checklistInstance.validation.js"
+import { setChecklistInstanceItemDoneSchema, verifyChecklistInstanceSchema, sendBackChecklistInstanceSchema, waiveChecklistItemSchema, checklistInstanceComplianceReportQuerySchema, checklistInstanceByStoreReportQuerySchema, listChecklistInstancesQuerySchema, listPendingVerificationQuerySchema, weeklyReportQuerySchema, periodReportQuerySchema, decisionsQuerySchema, summaryQuerySchema } from "./checklistInstance.validation.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
 import { resolveChecklistReportScope } from "./checklistReportScope.js"
 import { checklistReportService } from "./checklistReport.service.js"
@@ -176,6 +176,10 @@ export const checklistInstanceController = {
     }),
 
     // GET /checklist-instances/reports/weekly?weekStart=YYYY-MM-DD&storeId= (ADMIN/PC all, MANAGER/SENIOR own department)
+    periodReport: asyncHandler(async (req: Request, res: Response) => {
+        const { from, to, storeId, departmentId } = periodReportQuerySchema.parse(req.query)
+        res.json({ success: true, data: await checklistInstanceService.periodReport(req.user!, from, to, storeId, departmentId) })
+    }),
     weeklyReport: asyncHandler(async (req: Request, res: Response) => {
         const { weekStart, storeId, departmentId } = weeklyReportQuerySchema.parse(req.query)
         res.json({ success: true, data: await checklistInstanceService.weeklyReport(req.user!, weekStart, storeId, departmentId) })
@@ -214,6 +218,16 @@ export const checklistInstanceController = {
     }),
 
     // PATCH /checklist-instances/:id/send-back — same access as verify; reopens only the chosen questions
+    // PATCH /checklist-instances/:id/items/:itemId/waive and DELETE the same path (take it back).
+    waiveItem: asyncHandler(async (req: Request, res: Response) => {
+        const input = waiveChecklistItemSchema.parse(req.body)
+        const instance = await checklistInstanceService.waiveItem(req.params.id, req.params.itemId, input, req.user!)
+        res.json({ success: true, data: instance })
+    }),
+    unwaiveItem: asyncHandler(async (req: Request, res: Response) => {
+        const instance = await checklistInstanceService.unwaiveItem(req.params.id, req.params.itemId, req.user!)
+        res.json({ success: true, data: instance })
+    }),
     sendBack: asyncHandler(async (req: Request, res: Response) => {
         const input = sendBackChecklistInstanceSchema.parse(req.body)
         const instance = await checklistInstanceService.sendBack(req.params.id, input, req.user!)

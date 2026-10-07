@@ -54,7 +54,7 @@ END)`
 const ANSWERED = sql`(cii.isDone = 1 AND cii.isNotApplicable = 0)`
 
 // Answered item that has an acceptable-answer rule to be judged against.
-const RULE_SCORED = sql`(${ANSWERED} AND (
+const RULE_SCORED = sql`(${ANSWERED} AND cii.waivedAt IS NULL AND (
     (cii.itemType IN ('YES_NO', 'PASS_FAIL') AND COALESCE(JSON_LENGTH(cii.acceptableAnswers), 0) > 0 AND cii.booleanAnswer IS NOT NULL)
     OR (cii.itemType IN ('MULTIPLE_CHOICE', 'DROPDOWN') AND COALESCE(JSON_LENGTH(cii.acceptableAnswers), 0) > 0 AND cii.textValue IS NOT NULL AND cii.textValue <> '')
     OR (cii.itemType IN ('NUMBER_ENTRY', 'RATING') AND (cii.acceptableMin IS NOT NULL OR cii.acceptableMax IS NOT NULL) AND cii.numericValue IS NOT NULL)
@@ -68,7 +68,7 @@ const RULE_OK = sql`(CASE
 END)`
 
 // D11: a reviewer send-back is a failed check, scored even without a rule.
-const SENT_BACK = sql`(cii.isNotApplicable = 0 AND cii.sendBackCount > 0)`
+const SENT_BACK = sql`(cii.isNotApplicable = 0 AND cii.sendBackCount > 0 AND cii.waivedAt IS NULL)`
 const SCORED = sql`(${RULE_SCORED} OR ${SENT_BACK})`
 const GOOD = sql`(${RULE_SCORED} AND cii.sendBackCount = 0 AND ${RULE_OK})`
 // A critical question counts double in the compliance rate (scored weight and good weight both x2).

@@ -16,11 +16,13 @@ export type AnswerVerdict = 'good' | 'bad';
 type Scorable = Pick<
   ChecklistInstanceItem,
   'itemType' | 'isDone' | 'isNotApplicable' | 'sendBackCount' | 'booleanAnswer' | 'textValue' | 'numericValue' | 'acceptableAnswers' | 'acceptableMin' | 'acceptableMax'
-> & { isCritical?: boolean };
+> & { isCritical?: boolean; waivedAt?: string | null; waiveReason?: string | null };
 
 // null = this question isn't scored (no rule, not answered yet, or not applicable).
 export const answerVerdict = (item: Scorable): AnswerVerdict | null => {
   if (item.isNotApplicable) return null;
+  // Waived by a reviewer: left out of compliance entirely, like not applicable.
+  if (item.waivedAt) return null;
   // Sent back by a reviewer at least once: a failed check, whatever the current answer is.
   if (item.sendBackCount > 0) return 'bad';
   if (!item.isDone) return null;
@@ -44,6 +46,39 @@ export const answerVerdict = (item: Scorable): AnswerVerdict | null => {
       return null;
   }
 };
+
+const BOOLEAN_LABEL: Record<string, Record<string, string>> = {
+  YES_NO: { YES: 'Yes', NO: 'No' },
+  PASS_FAIL: { YES: 'Pass', NO: 'Fail' },
+};
+
+/**
+ * Why a question counts against compliance, in words the person can act on, or null when it does not.
+ * Names the accepted answer so "Not acceptable" is never a guess. A question sent back and redone still
+ * counts, and says so, because the first attempt is what is scored.
+ */
+export const complianceReason = (item: Scorable): string | null => {
+  if (item.isNotApplicable || item.waivedAt) return null;
+  if (item.sendBackCount > 0) return item.isDone ? 'Sent back by the reviewer earlier, so it still counts against compliance.' : null;
+  if (answerVerdict(item) !== 'bad') return null;
+  const accepted = item.acceptableAnswers ?? [];
+  if (item.itemType === 'NUMBER_ENTRY' || item.itemType === 'RATING') {
+    const { acceptableMin: min, acceptableMax: max } = item;
+    const range = min != null && max != null ? `between ${min} and ${max}` : min != null ? `${min} or more` : `${max} or less`;
+    return `Counts against compliance. The accepted answer is ${range}.`;
+  }
+  const labels = BOOLEAN_LABEL[item.itemType];
+  const words = accepted.map((a) => labels?.[a] ?? a).join(' or ');
+  return `Counts against compliance. The accepted answer is ${words}.`;
+};
+
+/** The notice for a waived question, with the reviewer's reason, or null when it is not waived. */
+export const waiveNotice = (item: Scorable): string | null =>
+  item.waivedAt ? `Waived by a reviewer, so it does not count against compliance.${item.waiveReason ? ` Reason: ${item.waiveReason}` : ''}` : null;
+
+/** True when this question counts against compliance right now (a bad answer or a send-back). */
+export const countsAgainstCompliance = (item: Scorable): boolean =>
+  !item.isNotApplicable && !item.waivedAt && (item.sendBackCount > 0 || answerVerdict(item) === 'bad');
 
 export type RunScores = {
   /** Applicable questions done / applicable questions (N/A excluded). */

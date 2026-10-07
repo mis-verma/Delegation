@@ -316,6 +316,13 @@
       "when": 1791283673298,
       "tag": "0044_user_reports_to",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "5",
+      "when": 1791356990006,
+      "tag": "0045_checklist_item_waiver",
+      "breakpoints": true
     }
   ]
 }

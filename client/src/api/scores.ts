@@ -1,6 +1,7 @@
 import { apiFetch } from './http';
 
 export type ScoreScope = 'person' | 'department' | 'store';
+export type TrendPeriod = 'day' | 'week' | 'month' | 'quarter' | 'year';
 
 export interface ChecklistScore {
   score: number | null;
@@ -28,6 +29,23 @@ export interface Scores {
   delegation: DelegationScore;
 }
 
+export interface TrendBucket {
+  label: string;
+  from: string;
+  to: string;
+  checklist: ChecklistScore;
+  ticket: TicketScore;
+  delegation: DelegationScore;
+}
+
+export interface ScoreTrend {
+  scope: ScoreScope;
+  id: string;
+  name: string;
+  period: TrendPeriod;
+  buckets: TrendBucket[];
+}
+
 export interface ScoreReportRow {
   id: string;
   name: string;
@@ -44,6 +62,8 @@ export interface ScoreReport {
   generatedAt: string;
   departments: ScoreReportRow[];
   people: ScoreReportRow[];
+  /** Only filled when asked for (`stores: true`) and only for Admin and PC. */
+  stores: ScoreReportRow[];
   notes: string[];
 }
 
@@ -54,7 +74,16 @@ export const scoreApi = {
     if (params.id) query.set('id', params.id);
     return apiFetch<{ success: boolean; data: Scores }>(`/scores?${query.toString()}`).then((r) => r.data);
   },
-  /** Every department and person the caller may see (Admin, PC, department heads). */
-  report: (params: { from: string; to: string }) =>
-    apiFetch<{ success: boolean; data: ScoreReport }>(`/scores/report?${new URLSearchParams(params).toString()}`).then((r) => r.data),
+  /** The same scores cut into a few buckets over the window, for the Trend view. */
+  trend: (params: { scope: ScoreScope; id?: string; period: TrendPeriod; from: string; to: string }) => {
+    const query = new URLSearchParams({ scope: params.scope, period: params.period, from: params.from, to: params.to });
+    if (params.id) query.set('id', params.id);
+    return apiFetch<{ success: boolean; data: ScoreTrend }>(`/scores/trend?${query.toString()}`).then((r) => r.data);
+  },
+  /** Every department and person the caller may see (Admin, PC, department heads), optionally every store. */
+  report: (params: { from: string; to: string; stores?: boolean }) => {
+    const query = new URLSearchParams({ from: params.from, to: params.to });
+    if (params.stores) query.set('stores', '1');
+    return apiFetch<{ success: boolean; data: ScoreReport }>(`/scores/report?${query.toString()}`).then((r) => r.data);
+  },
 };

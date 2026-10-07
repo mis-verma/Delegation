@@ -99,11 +99,13 @@ const numScored = sql`(${item.itemType} IN ('NUMBER_ENTRY','RATING') AND (${item
 // A question a reviewer sent back (sendBackCount > 0) is a FAILED check whatever its answer is now,
 // even if redone well later and even if it has no accepted-answer rule: it was not right first time.
 // It stays scored, and counts as not good, on the person who had done it (sentBackFrom).
-const sentBack = sql`(${item.sendBackCount} > 0 AND ${item.isNotApplicable} = 0)`
-const ruleScored = sql`(${item.isDone} = 1 AND ${item.isNotApplicable} = 0 AND (${boolScored} OR ${textScored} OR ${numScored}))`
+// A WAIVED question (a reviewer excused it, with a reason) is left out of compliance entirely.
+const sentBack = sql`(${item.sendBackCount} > 0 AND ${item.isNotApplicable} = 0 AND ${item.waivedAt} IS NULL)`
+const ruleScored = sql`(${item.isDone} = 1 AND ${item.isNotApplicable} = 0 AND ${item.waivedAt} IS NULL AND (${boolScored} OR ${textScored} OR ${numScored}))`
 
 const scoredExpr = sql<number>`SUM(CASE WHEN ${sentBack} THEN 1 WHEN ${ruleScored} THEN 1 ELSE 0 END)`
 const goodExpr = sql<number>`SUM(CASE
+    WHEN ${item.waivedAt} IS NOT NULL THEN 0
     WHEN ${sentBack} THEN 0
     WHEN ${item.isDone} = 1 AND ${item.isNotApplicable} = 0 AND ${boolScored} AND JSON_CONTAINS(${item.acceptableAnswers}, JSON_QUOTE(${item.booleanAnswer})) THEN 1
     WHEN ${item.isDone} = 1 AND ${item.isNotApplicable} = 0 AND ${textScored} AND JSON_CONTAINS(${item.acceptableAnswers}, JSON_QUOTE(${item.textValue})) THEN 1
@@ -117,6 +119,7 @@ const goodExpr = sql<number>`SUM(CASE
 const weightExpr = sql`(CASE WHEN ${item.isCritical} = 1 THEN 2 ELSE 1 END)`
 export const weightedScoredExpr = sql<number>`SUM(CASE WHEN ${sentBack} THEN ${weightExpr} WHEN ${ruleScored} THEN ${weightExpr} ELSE 0 END)`
 export const weightedGoodExpr = sql<number>`SUM(CASE
+    WHEN ${item.waivedAt} IS NOT NULL THEN 0
     WHEN ${sentBack} THEN 0
     WHEN ${item.isDone} = 1 AND ${item.isNotApplicable} = 0 AND ${boolScored} AND JSON_CONTAINS(${item.acceptableAnswers}, JSON_QUOTE(${item.booleanAnswer})) THEN ${weightExpr}
     WHEN ${item.isDone} = 1 AND ${item.isNotApplicable} = 0 AND ${textScored} AND JSON_CONTAINS(${item.acceptableAnswers}, JSON_QUOTE(${item.textValue})) THEN ${weightExpr}

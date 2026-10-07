@@ -187,6 +187,13 @@ const stampPeople = async (tx: Tx, instanceId: string, definition: GenerationDef
     }
 }
 
+// A yes/no or pass/fail question nobody gave an accepted answer to still has an obvious right answer
+// (Yes, Pass), so a "No" counts as a failed check instead of being ignored. It is copied into the run when
+// the run is made, which means it applies from now on and leaves every earlier run's score as it was.
+// A question with its own rule keeps it.
+export const defaultAcceptableAnswers = (item: Pick<GenerationItem, "itemType" | "acceptableAnswers">): string[] | null =>
+    item.acceptableAnswers?.length ? item.acceptableAnswers : item.itemType === "YES_NO" || item.itemType === "PASS_FAIL" ? ["YES"] : item.acceptableAnswers
+
 // The columns of a run's question that are authored on the checklist question and copied across
 // (how the question is answered, its photo rules, its options). Used both to stamp a question onto
 // a run and to bring a not-yet-answered question on a started run up to date.
@@ -214,7 +221,7 @@ const definitionConfig = (item: GenerationItem) => ({
     signatureLabels: item.signatureLabels,
     qrExpectedValue: item.qrExpectedValue,
     cashExpectedAmount: item.cashExpectedAmount,
-    acceptableAnswers: item.acceptableAnswers,
+    acceptableAnswers: defaultAcceptableAnswers(item),
     acceptableMin: item.acceptableMin,
     acceptableMax: item.acceptableMax,
     yesActions: item.yesActions,

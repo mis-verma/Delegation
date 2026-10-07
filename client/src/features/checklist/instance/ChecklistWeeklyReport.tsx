@@ -1,26 +1,26 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { CalendarCheck2, CalendarOff, Check, Clock, Minus, SearchX, X } from 'lucide-react';
+import { CalendarCheck2, CalendarOff, Check, ChevronLeft, ChevronRight, Clock, Minus, SearchX, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Combobox, EmptyState, InlineError, PageHeader, PANEL_CLASS, PeriodStepper, Skeleton } from '../../../components';
-import { useStoresQuery, useWeeklyReportQuery } from '../hook';
+import { Combobox, EmptyState, InlineError, PageHeader, PANEL_CLASS, Skeleton } from '../../../components';
+import { useStoresQuery, usePeriodReportQuery } from '../hook';
 import { useDepartmentsQuery } from '../../tickets/hook';
 import { useAuth } from '../../../context/AuthContext';
 import { WeeklyExportMenu } from './WeeklyExportMenu';
 import { rateToneClass } from '../checklistDisplay';
 import { useOrgToday } from '../useOrgToday';
+import { PeriodTabControl } from '../../dashboard/PeriodTabControl';
+import { PERIOD_LABEL, PERIODS, windowFor, type ScorePeriod } from '../../dashboard/scorePeriods';
 import type { WeeklyCell, WeeklyCellState, WeeklyReport } from '../../../api/checklistInstances';
 
 type WeeklyReportRow = WeeklyReport['rows'][number];
 
-const DAY_MS = 86_400_000;
-const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+// Indexed by getUTCDay(), so Sunday is first.
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 // Hoisted: building an Intl formatter is the expensive part, and every cell label formats a date.
 const SHORT_DATE = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', timeZone: 'UTC' });
 
-const addDays = (date: string, n: number) => new Date(Date.parse(`${date}T00:00:00Z`) + n * DAY_MS).toISOString().slice(0, 10);
-const mondayOf = (date: string) => addDays(date, -((new Date(`${date}T00:00:00Z`).getUTCDay() + 6) % 7));
 const shortDate = (date: string) => SHORT_DATE.format(new Date(`${date}T00:00:00Z`));
 
 // One look per state. Colour is never the only signal: each carries its own mark and a word in the
@@ -33,6 +33,7 @@ const STATE: Record<WeeklyCellState, { label: string; tone: string; icon: typeof
   holiday: { label: 'Holiday', tone: 'text-text-light', icon: CalendarOff },
   off: { label: 'No run', tone: 'text-text-light', icon: null },
   upcoming: { label: 'Not due yet', tone: 'text-text-light', icon: null },
+  summary: { label: 'Month total', tone: 'text-text', icon: null },
 };
 
 const Ring = ({ percent, tone, dashed, size = 28, children }: { percent: number; tone: string; dashed?: boolean; size?: number; children?: React.ReactNode }) => {
@@ -59,6 +60,21 @@ const Cell = memo(({ cell, name }: { cell: WeeklyCell; name: string }) => {
   const percent = cell.total ? Math.round((cell.done / cell.total) * 100) : 0;
   const label = `${name}, ${shortDate(cell.date)}: ${s.label}${cell.total ? `, ${cell.done} of ${cell.total} done` : ''}${cell.compliance !== null ? `, compliance ${cell.compliance}%` : ''}`;
   const Icon = s.icon;
+
+  // A month column adds its runs up: the share filled (on time or late), with the split in the tooltip.
+  if (cell.state === 'summary') {
+    const due = cell.due ?? 0;
+    const detail = due === 0
+      ? 'Nothing was due'
+      : `${due} due: ${cell.onTime ?? 0} on time, ${cell.late ?? 0} late, ${cell.missed ?? 0} not filled${cell.compliance !== null ? `, compliance ${cell.compliance}%` : ''}`;
+    return (
+      <span role="img" title={`${name}, ${cell.date}: ${detail}`} aria-label={`${name}, ${cell.date}: ${detail}`} className={cn(CELL_BOX, 'w-14 sm:w-14')}>
+        {cell.completion == null
+          ? <Minus size={14} className="text-text-light" aria-hidden />
+          : <span className={cn('text-sm font-display font-bold tabular-nums', rateToneClass(cell.completion))}>{cell.completion}%</span>}
+      </span>
+    );
+  }
 
   if (!cell.runId) {
     return (
@@ -91,6 +107,13 @@ const MatrixRow = memo(({ row }: { row: WeeklyReportRow }) => (
       <td key={cell.date} className="px-1 py-1 text-center"><Cell cell={cell} name={row.name} /></td>
     ))}
     <td className="px-3 py-1 text-center">
+      {row.completion === null ? (
+        <span className="text-text-light">-</span>
+      ) : (
+        <span className={cn('text-sm font-display font-bold tabular-nums', rateToneClass(row.completion))}>{row.completion}%</span>
+      )}
+    </td>
+    <td className="px-3 py-1 text-center">
       {row.rate === null ? (
         <span className="text-text-light">-</span>
       ) : (
@@ -102,7 +125,7 @@ const MatrixRow = memo(({ row }: { row: WeeklyReportRow }) => (
     </td>
     <td className="px-3 py-1 text-center">
       {row.compliance === null ? (
-        <span className="text-text-light" title="No answers were checked this week">-</span>
+        <span className="text-text-light" title="No answers were checked in this period">-</span>
       ) : (
         <span className={cn('text-sm font-display font-bold tabular-nums', rateToneClass(row.compliance))}>{row.compliance}%</span>
       )}
@@ -111,13 +134,13 @@ const MatrixRow = memo(({ row }: { row: WeeklyReportRow }) => (
 ));
 MatrixRow.displayName = 'MatrixRow';
 
-const STRIP = cn(PANEL_CLASS, 'grid grid-cols-2 sm:grid-cols-5 gap-px bg-border overflow-hidden');
+const STRIP = cn(PANEL_CLASS, 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-px bg-border overflow-hidden');
 
 // Same strip and matrix shapes as the real thing, so the page does not jump when the report lands.
 const ReportSkeleton = () => (
   <>
     <div className={STRIP}>
-      {Array.from({ length: 5 }).map((_, i) => (
+      {Array.from({ length: 6 }).map((_, i) => (
         <div key={i} className="flex flex-col gap-2 p-3.5 bg-surface">
           <Skeleton className="h-3 w-20" />
           <Skeleton className="h-6 w-12" />
@@ -147,8 +170,8 @@ const ReportSkeleton = () => (
 export const ChecklistWeeklyReport = () => {
   // Kept fresh: a tab left open past midnight rolls over instead of highlighting yesterday.
   const today = useOrgToday();
-  const thisMonday = useMemo(() => mondayOf(today), [today]);
-  const [weekStart, setWeekStart] = useState(thisMonday);
+  const [period, setPeriod] = useState<ScorePeriod>('week');
+  const [offset, setOffset] = useState(0);
   const [storeId, setStoreId] = useState('');
   const [departmentId, setDepartmentId] = useState('');
   const { user } = useAuth();
@@ -156,19 +179,17 @@ export const ChecklistWeeklyReport = () => {
   const canPickDepartment = user?.role === 'ADMIN' || user?.role === 'PC';
   const { data: stores = [], isPending: storesPending } = useStoresQuery();
   const { data: departments = [], isPending: departmentsPending } = useDepartmentsQuery(canPickDepartment);
-  const { data, isPending, isError, isFetching, refetch } = useWeeklyReportQuery(weekStart, storeId || undefined, canPickDepartment ? departmentId || undefined : undefined);
+  const range = windowFor(period, offset);
+  const { data, isPending, isError, isFetching, refetch } = usePeriodReportQuery(range.from, range.to, storeId || undefined, canPickDepartment ? departmentId || undefined : undefined);
 
   const storeOptions = useMemo(() => stores.map(s => ({ value: s.id, label: s.name })), [stores]);
   const departmentOptions = useMemo(() => departments.map(d => ({ value: d.id, label: d.name })), [departments]);
-  const goPrev = useCallback(() => setWeekStart(w => addDays(w, -7)), []);
-  const goNext = useCallback(() => setWeekStart(w => addDays(w, 7)), []);
-  const goToday = useCallback(() => setWeekStart(thisMonday), [thisMonday]);
 
   const rows = data?.rows;
   const holidayDays = useMemo(() => (data ? data.days.filter(d => data.holidays[d]) : []), [data]);
   const summary = data?.summary;
-  const range = `${shortDate(weekStart)} to ${shortDate(addDays(weekStart, 6))}, ${addDays(weekStart, 6).slice(0, 4)}`;
   const summaryTiles = useMemo(() => summary && [
+    { label: 'Completion rate', value: summary.completion === null ? '-' : `${summary.completion}%`, tone: summary.completion === null ? '' : rateToneClass(summary.completion) },
     { label: 'On-time rate', value: summary.rate === null ? '-' : `${summary.rate}%`, tone: summary.rate === null ? '' : rateToneClass(summary.rate) },
     { label: 'Compliance', value: summary.compliance === null ? '-' : `${summary.compliance}%`, tone: summary.compliance === null ? '' : rateToneClass(summary.compliance) },
     { label: 'Filled on time', value: summary.onTime, tone: 'text-success' },
@@ -176,27 +197,37 @@ export const ChecklistWeeklyReport = () => {
     { label: 'Not filled', value: summary.missed, tone: summary.missed ? 'text-danger' : '' },
   ], [summary]);
 
-  // The empty week gets the one recovery that fits: drop the store filter, else jump back to now.
+  const periodWord = PERIOD_LABEL[period].toLowerCase();
+  // The empty window gets the one recovery that fits: drop the filters, else jump back to now.
   const emptyAction = storeId || departmentId
     ? { label: 'Clear filters', onClick: () => { setStoreId(''); setDepartmentId(''); } }
-    : weekStart !== thisMonday
-      ? { label: 'Go to this week', onClick: goToday }
+    : offset !== 0
+      ? { label: `Go to this ${periodWord}`, onClick: () => setOffset(0) }
       : undefined;
+  const isMonthView = data?.kind === 'month';
 
   return (
     <div className="flex flex-col gap-5 w-full">
-      <PageHeader icon={CalendarCheck2} title="Weekly Report" subtitle="Who filled their daily checklists, day by day, and how well." />
+      <PageHeader icon={CalendarCheck2} title="Fill Report" subtitle="Who filled their daily checklists, and how well, by day, week, month, quarter or year." />
 
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <PeriodStepper
-          label={range}
-          onPrev={goPrev}
-          onNext={goNext}
-          prevLabel="Previous week"
-          nextLabel="Next week"
-          todayLabel={weekStart !== thisMonday ? 'This week' : undefined}
-          onToday={goToday}
-        />
+        <div className="flex flex-col gap-2 w-full sm:w-auto">
+          <PeriodTabControl value={period} options={PERIODS} labels={PERIOD_LABEL} onChange={(next) => { setPeriod(next); setOffset(0); }} fill />
+          <div className="flex items-center justify-between sm:justify-start gap-1">
+            <button type="button" onClick={() => setOffset((o) => o - 1)} aria-label={`Previous ${periodWord}`} className="inline-flex size-9 pointer-coarse:size-11 items-center justify-center rounded-lg border border-border text-text-muted hover:border-border-hover hover:text-text">
+              <ChevronLeft className="size-4" aria-hidden="true" />
+            </button>
+            <span className="min-w-36 text-center text-xs font-display font-bold text-text">{range.label}</span>
+            <button type="button" onClick={() => setOffset((o) => Math.min(0, o + 1))} disabled={offset >= 0} aria-label={`Next ${periodWord}`} className="inline-flex size-9 pointer-coarse:size-11 items-center justify-center rounded-lg border border-border text-text-muted hover:border-border-hover hover:text-text disabled:opacity-40 disabled:hover:border-border">
+              <ChevronRight className="size-4" aria-hidden="true" />
+            </button>
+            {offset !== 0 && (
+              <button type="button" onClick={() => setOffset(0)} className="ml-1 min-h-9 pointer-coarse:min-h-11 rounded-lg px-2 text-xs font-display font-bold text-primary-700 hover:underline dark:text-primary-300">
+                This {periodWord}
+              </button>
+            )}
+          </div>
+        </div>
         <div className="flex flex-wrap items-end gap-3 w-full sm:w-auto">
           <div className="flex flex-col gap-1.5 flex-1 min-w-40 sm:flex-none sm:w-52">
             <label htmlFor="weekly-store" className="text-xs font-display font-medium text-text-secondary">Store</label>
@@ -235,13 +266,13 @@ export const ChecklistWeeklyReport = () => {
 
       {isPending && <ReportSkeleton />}
 
-      {isError && <InlineError message="We couldn't load the weekly report. Check your connection and try again." onRetry={() => refetch()} />}
+      {isError && <InlineError message="We couldn't load the fill report. Check your connection and try again." onRetry={() => refetch()} />}
 
       {!isPending && !isError && rows?.length === 0 && (
-        <EmptyState icon={SearchX} title="No daily checklists this week" description="Try another week, store or department." action={emptyAction} />
+        <EmptyState icon={SearchX} title={`No daily checklists in this ${periodWord}`} description="Try another period, store or department." action={emptyAction} />
       )}
 
-      {/* keepPreviousData holds the old week on screen while the next loads: dim it meanwhile. */}
+      {/* keepPreviousData holds the old window on screen while the next loads: dim it meanwhile. */}
       {data && !!rows?.length && (
         <div className={cn('flex flex-col gap-5 transition-opacity duration-200', isFetching && 'opacity-60')} aria-busy={isFetching}>
           {summary && summary.due > 0 && (
@@ -255,30 +286,35 @@ export const ChecklistWeeklyReport = () => {
             </dl>
           )}
           {summary && summary.due === 0 && (
-            <p className="text-xs font-display text-text-muted">Nothing was due this week.</p>
+            <p className="text-xs font-display text-text-muted">Nothing was due in this {periodWord}.</p>
           )}
           {summary && summary.due > 0 && (
             <p className="text-xs font-display text-text-muted">
-              On time is the share of due runs filled before their cutoff. Compliance is how well the checked answers were answered, with critical questions counted twice and sent-back ones counted as failed.
+              Completion is the share of due runs that got filled, on time or late. On time is the share filled before their cutoff. Compliance is how well the checked answers were answered, with critical questions counted twice and sent-back ones counted as failed.
             </p>
           )}
 
           {/* A scroll area has to be reachable and named for keyboard and screen-reader users. */}
-          <div role="region" aria-label="Weekly fill matrix, scrolls sideways" tabIndex={0} className={cn(PANEL_CLASS, 'overflow-x-auto outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40')}>
+          <div role="region" aria-label="Fill matrix, scrolls sideways" tabIndex={0} className={cn(PANEL_CLASS, 'overflow-x-auto outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40')}>
             <table className="w-full border-collapse text-left">
-              <caption className="sr-only">Daily checklist fill status, week of {range}</caption>
+              <caption className="sr-only">Daily checklist fill status, {range.label}</caption>
               <thead>
                 <tr className="border-b border-border">
                   <th scope="col" className="sticky left-0 z-10 bg-surface px-4 py-3 text-xs font-display font-semibold text-text-secondary min-w-48">Checklist</th>
-                  {data.days.map((d, i) => (
-                    <th key={d} scope="col" className="px-1 py-2 text-center min-w-12" title={data.holidays[d]}>
-                      <span className={cn('flex flex-col items-center text-xs font-display leading-tight', d === today ? 'text-primary-600 dark:text-primary-300 font-bold' : 'text-text-muted font-medium')}>
-                        {WEEKDAYS[i]}
-                        <span className="tabular-nums text-sm">{d.slice(8)}</span>
-                        {data.holidays[d] && <span className="text-xs text-text-light">Holiday</span>}
-                      </span>
+                  {data.columns.map((col) => (
+                    <th key={col.key} scope="col" className={cn('px-1 py-2 text-center', isMonthView ? 'min-w-14' : data.columns.length > 7 ? 'min-w-10' : 'min-w-12')} title={data.holidays[col.key]}>
+                      {isMonthView ? (
+                        <span className="text-xs font-display font-medium text-text-muted">{col.label}</span>
+                      ) : (
+                        <span className={cn('flex flex-col items-center text-xs font-display leading-tight', col.key === today ? 'text-primary-600 dark:text-primary-300 font-bold' : 'text-text-muted font-medium')}>
+                          {WEEKDAYS[new Date(`${col.key}T00:00:00Z`).getUTCDay()]}
+                          <span className="tabular-nums text-sm">{col.key.slice(8)}</span>
+                          {data.holidays[col.key] && data.columns.length <= 7 && <span className="text-xs text-text-light">Holiday</span>}
+                        </span>
+                      )}
                     </th>
                   ))}
+                  <th scope="col" className="px-3 py-3 text-center text-xs font-display font-semibold text-text-secondary min-w-20" title="Share of due runs that got filled, on time or late">Completion</th>
                   <th scope="col" className="px-3 py-3 text-center text-xs font-display font-semibold text-text-secondary min-w-20" title="Share of due runs filled on time">On time</th>
                   <th scope="col" className="px-3 py-3 text-center text-xs font-display font-semibold text-text-secondary min-w-20" title="How well the checked answers were answered">Compliance</th>
                 </tr>
@@ -295,20 +331,24 @@ export const ChecklistWeeklyReport = () => {
             </p>
           )}
 
-          <ul className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-text-muted font-display" aria-label="Legend">
-            {(['done', 'late', 'missed', 'open', 'holiday'] as WeeklyCellState[]).map(k => {
-              const s = STATE[k];
-              const Icon = s.icon;
-              return (
-                <li key={k} className="inline-flex items-center gap-1.5">
-                  <Ring percent={k === 'open' ? 50 : k === 'missed' ? 40 : 100} tone={s.tone} dashed={k === 'holiday'} size={18}>
-                    {Icon && <Icon size={8} strokeWidth={3.5} />}
-                  </Ring>
-                  {s.label}
-                </li>
-              );
-            })}
-          </ul>
+          {isMonthView ? (
+            <p className="text-xs font-display text-text-muted">Each month shows the share of its due runs that got filled. Hover a month for the split.</p>
+          ) : (
+            <ul className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-text-muted font-display" aria-label="Legend">
+              {(['done', 'late', 'missed', 'open', 'holiday'] as WeeklyCellState[]).map(k => {
+                const s = STATE[k];
+                const Icon = s.icon;
+                return (
+                  <li key={k} className="inline-flex items-center gap-1.5">
+                    <Ring percent={k === 'open' ? 50 : k === 'missed' ? 40 : 100} tone={s.tone} dashed={k === 'holiday'} size={18}>
+                      {Icon && <Icon size={8} strokeWidth={3.5} />}
+                    </Ring>
+                    {s.label}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
       )}
     </div>

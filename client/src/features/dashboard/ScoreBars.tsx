@@ -1,6 +1,7 @@
 import { memo, useId, useMemo } from 'react';
 import { Bar, BarChart, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { useIsMobile } from '../../lib/useMediaQuery';
+import { ArrowDown, ArrowUp } from 'lucide-react';
 import type { Scores } from '../../api/scores';
 
 // The two measures every module is judged on.
@@ -10,7 +11,10 @@ const COMPLIANCE_COLOR = 'var(--color-primary-800)';
 // A soft blue lane behind every bar shows how far from 100% it is, with no gridlines needed.
 const TRACK_FILL = 'color-mix(in oklab, var(--color-primary-500) 9%, transparent)';
 
+type ModuleKey = 'checklist' | 'ticket' | 'delegation';
+
 interface Row {
+  key: ModuleKey;
   name: string;
   completion: number | null;
   compliance: number | null;
@@ -21,6 +25,7 @@ interface Row {
 
 const rowsFor = (s: Scores): Row[] => [
   {
+    key: 'checklist',
     name: 'Checklist',
     completion: s.checklist.completionPct,
     // Compliance is how well the checked answers were answered, not a count of on-time runs.
@@ -30,6 +35,7 @@ const rowsFor = (s: Scores): Row[] => [
     hasData: s.checklist.due > 0,
   },
   {
+    key: 'ticket',
     name: 'Tickets',
     completion: s.ticket.completionPct,
     compliance: s.ticket.compliancePct,
@@ -38,6 +44,7 @@ const rowsFor = (s: Scores): Row[] => [
     hasData: s.ticket.due > 0,
   },
   {
+    key: 'delegation',
     name: 'Delegations',
     completion: s.delegation.completionPct,
     compliance: s.delegation.compliancePct,
@@ -100,7 +107,29 @@ const ModuleTick = ({ x, y, payload, rows }: { x?: number; y?: number; payload?:
  * Completion and compliance for Checklist, Tickets and Delegations as grouped bars on a fixed 0 to 100
  * scale, so bars from different windows and people can be compared by eye.
  */
-export const ScoreBars = memo(({ scores, loading }: { scores: Scores | undefined; loading: boolean }) => {
+interface ScoreBarsProps {
+  scores: Scores | undefined;
+  loading: boolean;
+  /** The window before this one. When given, the change since then is shown under the chart. */
+  previous?: Scores | undefined;
+  /** Tapping a bar opens that module's late items. Left out where there is no list to open. */
+  onOpenModule?: (module: ModuleKey) => void;
+}
+
+const delta = (now: number | null, before: number | null) => (now === null || before === null ? null : now - before);
+
+const Delta = ({ label, value }: { label: string; value: number | null }) =>
+  value === null ? (
+    <span className="text-xs font-medium text-text-muted">{label} -</span>
+  ) : (
+    <span className={`inline-flex items-center gap-0.5 text-xs font-display font-bold tabular-nums ${value > 0 ? 'text-success' : value < 0 ? 'text-danger' : 'text-text-muted'}`}>
+      <span className="font-medium text-text-muted">{label}</span>
+      {value > 0 ? <ArrowUp className="size-3" aria-hidden="true" /> : value < 0 ? <ArrowDown className="size-3" aria-hidden="true" /> : null}
+      {value === 0 ? 'same' : `${Math.abs(value)}`}
+    </span>
+  );
+
+export const ScoreBars = memo(({ scores, loading, previous, onOpenModule }: ScoreBarsProps) => {
   const isMobile = useIsMobile();
   const gradientId = useId().replace(/:/g, '');
   const rows = useMemo(() => (scores ? rowsFor(scores) : []), [scores]);
@@ -114,7 +143,7 @@ export const ScoreBars = memo(({ scores, loading }: { scores: Scores | undefined
       <Legend />
 
       {/* The height is fixed so the card does not jump while the numbers load or the window changes. */}
-      <div className="relative h-60 sm:h-72 w-full" role="img" aria-label={summary || 'Loading scores'}>
+      <div className={`relative h-60 sm:h-72 w-full ${onOpenModule ? '[&_.recharts-bar-rectangle]:cursor-pointer' : ''}`} role="img" aria-label={summary || 'Loading scores'}>
         {loading && !scores ? (
           <div className="absolute inset-0 flex items-end justify-around gap-4 px-6 pb-8" role="status" aria-label="Loading scores">
             {[55, 80, 40].map((h, i) => (
@@ -143,16 +172,33 @@ export const ScoreBars = memo(({ scores, loading }: { scores: Scores | undefined
                   width to the bars instead of an axis. */}
               <YAxis domain={[0, 100]} hide={isMobile} ticks={[0, 25, 50, 75, 100]} tickFormatter={(v: number) => `${v}%`} tickLine={false} axisLine={false} width={44} tick={{ fill: 'var(--color-text-muted)', fontSize: 12, fontWeight: 600 }} />
               <Tooltip content={<BarTooltip />} cursor={false} isAnimationActive={false} />
-              <Bar dataKey="completion" fill={`url(#${gradientId}-a)`} radius={[7, 7, 0, 0]} maxBarSize={isMobile ? 40 : 52} background={{ fill: TRACK_FILL, radius: 7 }} animationDuration={500}>
+              <Bar dataKey="completion" fill={`url(#${gradientId}-a)`} radius={[7, 7, 0, 0]} maxBarSize={isMobile ? 40 : 52} background={{ fill: TRACK_FILL, radius: 7 }} animationDuration={500} onClick={(d: { payload?: Row }) => { if (d.payload) onOpenModule?.(d.payload.key); }}>
                 <LabelList dataKey="completion" position="top" offset={6} fontSize={12} fontWeight={700} fill="var(--color-text)" formatter={(v: unknown) => (typeof v === 'number' ? `${v}%` : '')} />
               </Bar>
-              <Bar dataKey="compliance" fill={`url(#${gradientId}-b)`} radius={[7, 7, 0, 0]} maxBarSize={isMobile ? 40 : 52} background={{ fill: TRACK_FILL, radius: 7 }} animationDuration={500}>
+              <Bar dataKey="compliance" fill={`url(#${gradientId}-b)`} radius={[7, 7, 0, 0]} maxBarSize={isMobile ? 40 : 52} background={{ fill: TRACK_FILL, radius: 7 }} animationDuration={500} onClick={(d: { payload?: Row }) => { if (d.payload) onOpenModule?.(d.payload.key); }}>
                 <LabelList dataKey="compliance" position="top" offset={6} fontSize={12} fontWeight={700} fill="var(--color-text)" formatter={(v: unknown) => (typeof v === 'number' ? `${v}%` : '')} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
         )}
       </div>
+
+      {previous && scores && (
+        <ul className="flex flex-col gap-1.5 rounded-lg border border-border/60 bg-surface-hover/30 px-3 py-2.5" aria-label="Change since the previous period">
+          <li className="text-xs font-display font-bold text-text-secondary">Since the previous period</li>
+          {rowsFor(scores).map((r, i) => {
+            const before = rowsFor(previous)[i];
+            return (
+              <li key={r.key} className="flex flex-wrap items-center gap-x-4 gap-y-0.5">
+                <span className="w-24 text-xs font-display font-bold text-text">{r.name}</span>
+                <Delta label="Completion" value={delta(r.completion, before.completion)} />
+                <Delta label="Compliance" value={delta(r.compliance, before.compliance)} />
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {onOpenModule && <p className="text-xs font-medium text-text-muted">Tap a bar to open the late items for that module.</p>}
 
       <table className="sr-only">
         <caption>Completion and compliance by module</caption>

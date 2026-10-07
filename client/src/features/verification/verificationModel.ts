@@ -117,9 +117,9 @@ export const formatWaiting = (since: number, now: number): string => {
 };
 
 const byCompliance = (a: ChecklistRow, b: ChecklistRow) => {
-  // Unscored runs go last: there is no number to be "lowest" about.
-  const ac = a.risk.compliance ?? 101;
-  const bc = b.risk.compliance ?? 101;
+  // Unscored runs count as 100%, the same as they are shown, so they sort after every run that failed something.
+  const ac = a.risk.compliance ?? 100;
+  const bc = b.risk.compliance ?? 100;
   return ac - bc || a.waitingSince - b.waitingSince;
 };
 

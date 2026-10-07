@@ -213,6 +213,13 @@ export const checklistInstanceItems = mysqlTable(
     // The user who had completed the question when it was last sent back (who got it wrong). No FK
     // on purpose: it is history, and must survive that user being removed.
     sentBackFrom: varchar('sentBackFrom', { length: 191 }),
+    // A reviewer's WAIVER: this question would count against compliance (a bad answer or a send-back) but
+    // the reviewer excused it, with a reason (store closed for stock-taking, power cut). A waived question
+    // is left out of compliance entirely, like "not applicable". Who waived it is kept as plain history
+    // (no FK) so it survives that user being removed; the reason is shown to the person and in the audit log.
+    waivedAt: datetime('waivedAt', { mode: 'date' }),
+    waivedBy: varchar('waivedBy', { length: 191 }),
+    waiveReason: text('waiveReason'),
     // The checklist question this run's question was stamped from (ChecklistDefinitionItem.id). It
     // lets an edit to the checklist reach a run that's already started: the run's question is found
     // again even if it was renamed or moved, instead of looking like one question removed and

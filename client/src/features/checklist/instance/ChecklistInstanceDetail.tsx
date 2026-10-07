@@ -1,6 +1,6 @@
 import { memo, useCallback, useMemo, useState, type ReactElement } from 'react';
 import { useParams, useNavigate } from 'react-router';
-import { ArrowLeft, ShieldAlert, ShieldQuestion, CornerUpLeft, AlertTriangle, Pencil, Clock, Layers, ClipboardX } from 'lucide-react';
+import { ArrowLeft, ShieldAlert, ShieldCheck, ShieldQuestion, CornerUpLeft, AlertTriangle, Pencil, Clock, Layers, ClipboardX } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Button, ChecklistProgressBar, IconChip, InlineError, NoticeBanner, PANEL_CLASS, Skeleton, StatusChip, VerificationNoteBanner,
@@ -24,7 +24,8 @@ import { ItemRemarksField } from './ItemRemarksField';
 import { NotApplicableItemCard } from './NotApplicableItemCard';
 import { ChecklistReviewBar } from './ChecklistReviewBar';
 import { ChecklistSubmitBar } from './ChecklistSubmitBar';
-import { answerVerdict } from '../checklistCompliance';
+import { complianceReason, countsAgainstCompliance, waiveNotice } from '../checklistCompliance';
+import { WaiveAction } from './WaiveAction';
 import {
   complianceToneClass, formatDate, formatDateTime, getInstanceView, instanceProgressToneClass, isInstanceNotYetOpen,
   RECURRENCE_LABEL,
@@ -105,16 +106,19 @@ interface DetailItemRowProps {
   selecting: boolean;
   picked: boolean;
   onTogglePicked: (itemId: string) => void;
+  /** A department head, PC or Admin who is not filling this run in: may waive a failing question. */
+  canWaive: boolean;
 }
 
 // One question in the list. Memoized so ticking one item, or flipping the reviewer's pick mode,
 // re-renders only the rows whose own props changed instead of every card on the page. React Query
 // keeps untouched `item` objects referentially equal between refetches, so the memo holds.
 const DetailItemRow = memo(({
-  item, instanceId, canWork, isLocked, currentUserId, overdue, showHeader, isFirst, selecting, picked, onTogglePicked,
+  item, instanceId, canWork, isLocked, currentUserId, overdue, showHeader, isFirst, selecting, picked, onTogglePicked, canWaive,
 }: DetailItemRowProps) => {
   const canEdit = canWork && !isLocked;
-  const verdictIsBad = answerVerdict(item) === 'bad';
+  const reason = complianceReason(item);
+  const waived = waiveNotice(item);
   return (
     <>
       {showHeader && (
@@ -138,15 +142,25 @@ const DetailItemRow = memo(({
             Send this question back
           </label>
         )}
-        {verdictIsBad && (
+        {reason && (
           <NoticeBanner tone="warning" icon={AlertTriangle} className="items-center p-2.5 px-3.5 font-medium">
-            Not an acceptable answer
+            {reason}
+          </NoticeBanner>
+        )}
+        {waived && (
+          <NoticeBanner tone="info" icon={ShieldCheck} className="items-center p-2.5 px-3.5 font-medium">
+            {waived}
           </NoticeBanner>
         )}
         {!item.isDone && item.sendBackNote && (
           <NoticeBanner tone="danger" icon={CornerUpLeft} className="p-2.5 px-3.5">
             Sent back: {item.sendBackNote}
           </NoticeBanner>
+        )}
+        {canWaive && (item.waivedAt || countsAgainstCompliance(item)) && (
+          <div className="flex justify-end">
+            <WaiveAction instanceId={instanceId} item={item} />
+          </div>
         )}
         {item.isNotApplicable ? (
           <NotApplicableItemCard item={item} instanceId={instanceId} canEdit={canEdit} />
@@ -266,6 +280,9 @@ export const ChecklistInstanceDetail = () => {
   const isMissed = instance.isMissed === true;
   const canWork = isAdminOrPC || (!!user && instance.assigneeIds.includes(user.id) && !isMissed);
   const isLocked = instance.verificationStatus === 'APPROVED';
+  // Mirrors the server: department heads, PC and Admin, never on a run they fill in themselves; a head only
+  // while the run is being reviewed, Admin and PC at any time.
+  const canWaive = !!user && (isAdminOrPC || ((user.role === 'MANAGER' || user.role === 'SENIOR') && (instance.verificationStatus === 'PENDING_APPROVAL' || instance.verificationStatus === 'REJECTED'))) && !instance.assigneeIds.includes(user.id);
   // Same people who can approve; the server still checks the department for a MANAGER/SENIOR.
   const canReview =
     instance.verificationStatus === 'PENDING_APPROVAL' &&
@@ -417,6 +434,7 @@ export const ChecklistInstanceDetail = () => {
             selecting={selecting}
             picked={picked.has(item.id)}
             onTogglePicked={togglePicked}
+            canWaive={canWaive}
           />
         ))}
       </div>

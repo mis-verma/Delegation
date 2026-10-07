@@ -26,9 +26,8 @@ export const RiskChips = memo(function RiskChips({ risk, className }: RiskChipsP
           title="A question marked critical was not answered acceptably"
         />
       )}
-      {risk.compliance !== null && (
-        <IconChip icon={Gauge} tone={complianceTone(risk.compliance)} label={`Compliance ${risk.compliance}%`} />
-      )}
+      {/* No accepted-answer rules means nothing could fail: it shows 100%, not a missing chip. */}
+      <IconChip icon={Gauge} tone={complianceTone(risk.compliance ?? 100)} label={`Compliance ${risk.compliance ?? 100}%`} />
       {risk.badAnswers > 0 && (
         <IconChip icon={AlertTriangle} tone="bg-warning" label={plural(risk.badAnswers, 'bad answer', 'bad answers')} title="Answers outside the accepted rule" />
       )}

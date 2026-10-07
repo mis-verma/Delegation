@@ -715,6 +715,51 @@ const assertCanVerify = (assigneeDepartmentIds: Set<string>, reviewerIds: string
     if (!canVerify) throw AppError.forbidden()
 }
 
+// Does this question count against compliance right now? A send-back always does; otherwise only an
+// answered question whose answer sits outside its accepted-answer rule. Mirrors answerVerdict() on the client.
+const countsAgainstCompliance = (item: typeof checklistInstanceItems.$inferSelect): boolean => {
+    if (item.isNotApplicable) return false
+    if (item.sendBackCount > 0) return true
+    if (!item.isDone) return false
+    const accepted = item.acceptableAnswers ?? []
+    switch (item.itemType) {
+        case "YES_NO":
+        case "PASS_FAIL":
+            return accepted.length > 0 && item.booleanAnswer != null && !accepted.includes(item.booleanAnswer)
+        case "MULTIPLE_CHOICE":
+        case "DROPDOWN":
+            return accepted.length > 0 && !!item.textValue && !accepted.includes(item.textValue)
+        case "NUMBER_ENTRY":
+        case "RATING": {
+            const { acceptableMin: min, acceptableMax: max, numericValue: value } = item
+            if ((min == null && max == null) || value == null) return false
+            return (min != null && value < min) || (max != null && value > max)
+        }
+        default:
+            return false
+    }
+}
+
+// Who may waive or un-waive: the people who review the run (assertCanVerify) AND are a department head,
+// PC or Admin, who do not fill the run in themselves. A head acts only while the run is under review.
+const loadWaivable = async (id: string, itemId: string, user: AccessTokenPayload) => {
+    const [instance] = await db.select().from(checklistInstances).where(eq(checklistInstances.id, id)).limit(1)
+    if (!instance) throw AppError.notFound("Checklist instance not found")
+    const assigneeLinks = await db.select({ userId: checklistInstanceAssignees.userId }).from(checklistInstanceAssignees).where(eq(checklistInstanceAssignees.instanceId, id))
+    const assigneeIds = assigneeLinks.map((l) => l.userId)
+    const reviewerLinks = await db.select({ userId: checklistInstanceReviewers.userId }).from(checklistInstanceReviewers).where(eq(checklistInstanceReviewers.instanceId, id))
+    assertCanVerify(await getDepartmentIdsForUserIds(assigneeIds), reviewerLinks.map((l) => l.userId), user)
+    if (!["ADMIN", "PC", "MANAGER", "SENIOR"].includes(user.role)) throw AppError.forbidden("Only a department head, PC or Admin can waive a question.")
+    if (assigneeIds.includes(user.sub)) throw AppError.forbidden("You cannot waive a question on a checklist you fill in yourself.")
+    const orgWide = user.role === "ADMIN" || user.role === "PC"
+    if (!orgWide && instance.verificationStatus !== "PENDING_APPROVAL" && instance.verificationStatus !== "REJECTED") {
+        throw AppError.badRequest("A question can only be waived while the checklist is being reviewed. Ask an admin.")
+    }
+    const [item] = await db.select().from(checklistInstanceItems).where(and(eq(checklistInstanceItems.id, itemId), eq(checklistInstanceItems.instanceId, id))).limit(1)
+    if (!item) throw AppError.notFound("That question is not on this checklist.")
+    return { instance: { ...instance, assigneeIds }, item }
+}
+
 // The decisions feed (checklistInstanceService.decisions): audit actions on a run that a reviewer or
 // the person filling it in took. See the audit records in submit/sendBack/verify above.
 const DECISION_ACTIONS = ["APPROVE", "REJECT", "SEND_BACK", "SUBMIT"] as const
@@ -1212,22 +1257,47 @@ export const checklistInstanceService = {
     },
 
     /**
-     * Weekly fill report: one row per daily checklist per store, one cell per weekday (Mon-Sun).
-     * A cell is how a day's run went: done on time, done late, missed (past its cutoff and not
-     * filled), still open, a holiday, or no run (day off / not yet). Counts only, no hydration.
+     * Fill report for a week, a month or a year: one row per daily checklist per store, one column per
+     * day (up to 31 days) or per month (longer windows). A day's cell is how that run went: done on time,
+     * done late, missed (past its cutoff and not filled), still open, a holiday, or no run. A month's cell
+     * adds those up. Counts only, no hydration.
+     *
+     * Completion rate = runs filled (on time or late) / runs that were due. On-time rate = runs filled on
+     * time / runs that were due. Compliance = how well the checked answers were answered (the weighted
+     * rule of the compliance report). Open, off and holiday days never pull any of them down.
      * ADMIN/PC see every store; MANAGER/SENIOR only runs whose assignees sit in their department.
-     * The week rate is runs filled on time / runs that were due, so open, off and holiday days
-     * never pull it down. `weekStart` is the Monday, as an org-local YYYY-MM-DD.
+     * `from` and `to` are org-local YYYY-MM-DD days, both included, at most a year apart.
      */
-    async weeklyReport(user: AccessTokenPayload, weekStart: string, storeId?: string, departmentId?: string) {
-        const startMs = Date.parse(`${weekStart}T00:00:00.000Z`)
-        const days = Array.from({ length: 7 }, (_, i) => new Date(startMs + i * 86_400_000).toISOString().slice(0, 10))
-        const empty = { weekStart, days, holidays: {} as Record<string, string>, rows: [], summary: { due: 0, onTime: 0, late: 0, missed: 0, rate: null as number | null, compliance: null as number | null } }
+    async periodReport(user: AccessTokenPayload, from: string, to: string, storeId?: string, departmentId?: string) {
+        const DAY = 86_400_000
+        const startMs = Date.parse(`${from}T00:00:00.000Z`)
+        const endMs = Date.parse(`${to}T00:00:00.000Z`)
+        const spanDays = Math.round((endMs - startMs) / DAY) + 1
+        const kind: "day" | "month" = spanDays <= 31 ? "day" : "month"
+        const dayKeys = Array.from({ length: spanDays }, (_, i) => new Date(startMs + i * DAY).toISOString().slice(0, 10))
+        const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+        const columns: { key: string; label: string }[] = []
+        if (kind === "day") {
+            for (const d of dayKeys) columns.push({ key: d, label: d })
+        } else {
+            const seen = new Set<string>()
+            for (const d of dayKeys) {
+                const key = d.slice(0, 7)
+                if (seen.has(key)) continue
+                seen.add(key)
+                columns.push({ key, label: `${MONTHS[Number(key.slice(5, 7)) - 1]}${key.slice(0, 4) !== from.slice(0, 4) || spanDays > 366 ? ` ${key.slice(2, 4)}` : ""}` })
+            }
+        }
+        const emptySummary = { due: 0, onTime: 0, late: 0, missed: 0, rate: null as number | null, completion: null as number | null, compliance: null as number | null }
+        const empty = {
+            from, to, weekStart: from, kind, columns, days: kind === "day" ? dayKeys : ([] as string[]),
+            holidays: {} as Record<string, string>, rows: [], summary: emptySummary,
+        }
 
         const conditions = [
             eq(checklistInstances.recurrence, "DAILY"),
             gte(checklistInstances.periodStart, new Date(startMs)),
-            lte(checklistInstances.periodStart, new Date(startMs + 6 * 86_400_000)),
+            lte(checklistInstances.periodStart, new Date(endMs)),
             parentNotDeletedExpr,
         ]
         if (storeId) conditions.push(eq(checklistInstances.storeId, storeId))
@@ -1265,7 +1335,7 @@ export const checklistInstanceService = {
             )
         if (!runs.length) return empty
 
-        const holidayRows = await db.select({ date: holidays.date, name: holidays.name }).from(holidays).where(inArray(holidays.date, days))
+        const holidayRows = await db.select({ date: holidays.date, name: holidays.name }).from(holidays).where(inArray(holidays.date, dayKeys))
         const holidayByDate = Object.fromEntries(holidayRows.map((h) => [h.date, h.name]))
         const storeIds = [...new Set(runs.map((r) => r.storeId))]
         const storeNames = new Map((await db.select({ id: stores.id, name: stores.name }).from(stores).where(inArray(stores.id, storeIds))).map((s) => [s.id, s.name]))
@@ -1284,46 +1354,76 @@ export const checklistInstanceService = {
             return r.periodStart.getTime() + (h * 60 + m + dayRoll) * 60_000 - offsetMs
         }
 
-        type CellState = "done" | "late" | "missed" | "open" | "holiday" | "off" | "upcoming"
-        const grouped = new Map<string, { definitionId: string; scopeKey: string; name: string; storeId: string; byDay: Map<string, typeof runs[number]> }>()
+        type CellState = "done" | "late" | "missed" | "open" | "holiday" | "off" | "upcoming" | "summary"
+        type Run = typeof runs[number]
+        const stateOf = (r: Run): "done" | "late" | "missed" | "open" => {
+            const total = Number(r.total), done = Number(r.done)
+            const complete = total > 0 && done === total
+            const deadline = deadlineOf(r)
+            if (complete) return r.lastDoneAt && r.lastDoneAt.getTime() > deadline ? "late" : "done"
+            return now > deadline ? "missed" : "open"
+        }
+        const pctOf = (good: number, scored: number) => (scored > 0 ? Math.round((good / scored) * 100) : null)
+        const rateOf = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 100) : null)
+
+        type Group = { definitionId: string; scopeKey: string; name: string; storeId: string; runs: Run[] }
+        const grouped = new Map<string, Group>()
         for (const r of runs) {
             // A per-person / per-department checklist has one row per person / department (its title
             // already says who), a shared one has a single row per store.
             const key = `${r.definitionId}|${r.storeId}|${r.scopeKey}`
-            const g = grouped.get(key) ?? { definitionId: r.definitionId, scopeKey: r.scopeKey, name: r.title, storeId: r.storeId, byDay: new Map() }
-            g.byDay.set(r.periodStart.toISOString().slice(0, 10), r)
+            const g = grouped.get(key) ?? { definitionId: r.definitionId, scopeKey: r.scopeKey, name: r.title, storeId: r.storeId, runs: [] }
+            g.runs.push(r)
             g.name = r.title
             grouped.set(key, g)
         }
 
-        const totals = { due: 0, onTime: 0, late: 0, missed: 0 }
-        const quality = { scored: 0, good: 0 }
-        const pctOf = (good: number, scored: number) => (scored > 0 ? Math.round((good / scored) * 100) : null)
+        const totals = { due: 0, onTime: 0, late: 0, missed: 0, scored: 0, good: 0 }
         const rows = [...grouped.values()].map((g) => {
-            let due = 0, onTime = 0, rowScored = 0, rowGood = 0
-            const cells = days.map((date) => {
-                const r = g.byDay.get(date)
+            const acc = { onTime: 0, late: 0, missed: 0, scored: 0, good: 0 }
+            const byDay = new Map<string, Run>()
+            const byMonth = new Map<string, { onTime: number; late: number; missed: number; scored: number; good: number }>()
+            for (const r of g.runs) {
+                const st = stateOf(r)
+                const scored = Number(r.wScored), good = Number(r.wGood)
+                if (st === "done") acc.onTime++
+                else if (st === "late") acc.late++
+                else if (st === "missed") acc.missed++
+                acc.scored += scored
+                acc.good += good
+                const date = r.periodStart.toISOString().slice(0, 10)
+                byDay.set(date, r)
+                const m = byMonth.get(date.slice(0, 7)) ?? { onTime: 0, late: 0, missed: 0, scored: 0, good: 0 }
+                if (st === "done") m.onTime++
+                else if (st === "late") m.late++
+                else if (st === "missed") m.missed++
+                m.scored += scored
+                m.good += good
+                byMonth.set(date.slice(0, 7), m)
+            }
+            const due = acc.onTime + acc.late + acc.missed
+            totals.due += due; totals.onTime += acc.onTime; totals.late += acc.late; totals.missed += acc.missed
+            totals.scored += acc.scored; totals.good += acc.good
+
+            const cells = columns.map((col) => {
+                if (kind === "month") {
+                    const m = byMonth.get(col.key)
+                    const cellDue = m ? m.onTime + m.late + m.missed : 0
+                    return {
+                        date: col.key, state: "summary" as CellState, runId: null as string | null, done: 0, total: 0,
+                        compliance: m ? pctOf(m.good, m.scored) : null,
+                        due: cellDue, onTime: m?.onTime ?? 0, late: m?.late ?? 0, missed: m?.missed ?? 0,
+                        rate: rateOf(m?.onTime ?? 0, cellDue), completion: rateOf((m?.onTime ?? 0) + (m?.late ?? 0), cellDue),
+                    }
+                }
+                const date = col.key
+                const r = byDay.get(date)
                 if (!r) {
                     const state: CellState = holidayByDate[date] ? "holiday" : date > today ? "upcoming" : "off"
                     return { date, state, runId: null as string | null, done: 0, total: 0, compliance: null as number | null }
                 }
-                const total = Number(r.total), done = Number(r.done)
-                const scored = Number(r.wScored), good = Number(r.wGood)
-                rowScored += scored; rowGood += good
-                quality.scored += scored; quality.good += good
-                const complete = total > 0 && done === total
-                const deadline = deadlineOf(r)
-                let state: CellState
-                if (complete) state = r.lastDoneAt && r.lastDoneAt.getTime() > deadline ? "late" : "done"
-                else state = now > deadline ? "missed" : "open"
-                if (state === "done" || state === "late" || state === "missed") due++
-                if (state === "done") onTime++
-                if (state === "done") totals.onTime++
-                else if (state === "late") totals.late++
-                else if (state === "missed") totals.missed++
-                return { date, state, runId: r.id, done, total, compliance: pctOf(good, scored) }
+                return { date, state: stateOf(r) as CellState, runId: r.id, done: Number(r.done), total: Number(r.total), compliance: pctOf(Number(r.wGood), Number(r.wScored)) }
             })
-            totals.due += due
             return {
                 definitionId: g.definitionId,
                 scopeKey: g.scopeKey,
@@ -1331,18 +1431,34 @@ export const checklistInstanceService = {
                 storeId: g.storeId,
                 storeName: storeNames.get(g.storeId) ?? "Store",
                 cells,
-                rate: due ? Math.round((onTime / due) * 100) : null,
-                compliance: pctOf(rowGood, rowScored),
+                rate: rateOf(acc.onTime, due),
+                completion: rateOf(acc.onTime + acc.late, due),
+                compliance: pctOf(acc.good, acc.scored),
             }
         }).sort((a, b) => a.name.localeCompare(b.name) || a.storeName.localeCompare(b.storeName))
 
         return {
-            weekStart,
-            days,
+            from,
+            to,
+            weekStart: from,
+            kind,
+            columns,
+            days: kind === "day" ? dayKeys : ([] as string[]),
             holidays: holidayByDate,
             rows,
-            summary: { ...totals, rate: totals.due ? Math.round((totals.onTime / totals.due) * 100) : null, compliance: pctOf(quality.good, quality.scored) },
+            summary: {
+                due: totals.due, onTime: totals.onTime, late: totals.late, missed: totals.missed,
+                rate: rateOf(totals.onTime, totals.due),
+                completion: rateOf(totals.onTime + totals.late, totals.due),
+                compliance: pctOf(totals.good, totals.scored),
+            },
         }
+    },
+
+    /** The Monday-to-Sunday view the old page asked for: the same report over seven days. */
+    async weeklyReport(user: AccessTokenPayload, weekStart: string, storeId?: string, departmentId?: string) {
+        const end = new Date(Date.parse(`${weekStart}T00:00:00.000Z`) + 6 * 86_400_000).toISOString().slice(0, 10)
+        return this.periodReport(user, weekStart, end, storeId, departmentId)
     },
 
     // GET /checklist-instances/:id/item-history. Every save and reopen of a question is already written
@@ -1721,6 +1837,43 @@ export const checklistInstanceService = {
             after: { verificationStatus: "REJECTED", sentBackItemIds: wanted, note },
         })
         await dropChecklistSummaries(assigneeLinks.map((l) => l.userId))
+        emitChecklistEvent("checklist-instance:updated", { storeId: instance.storeId }, { instanceId: id })
+        return getPopulatedInstanceById(id)
+    },
+
+    /**
+     * Excuse one question that would count against compliance (a bad answer, or a send-back), with a
+     * written reason. A waived question leaves compliance entirely, like "not applicable". Department
+     * heads, PC and Admin only, and never on a checklist they fill in themselves. A head can only do it
+     * while the run is being reviewed; Admin and PC at any time. Written to the audit log.
+     */
+    async waiveItem(id: string, itemId: string, input: { reason: string }, user: AccessTokenPayload) {
+        const { instance, item } = await loadWaivable(id, itemId, user)
+        if (item.waivedAt) throw AppError.badRequest("This question is already waived.")
+        if (!countsAgainstCompliance(item)) throw AppError.badRequest("This question does not count against compliance, so there is nothing to waive.")
+        const reason = input.reason.trim()
+        await db.update(checklistInstanceItems).set({ waivedAt: new Date(), waivedBy: user.sub, waiveReason: reason, updatedAt: new Date() }).where(eq(checklistInstanceItems.id, itemId))
+        await auditService.record({
+            entityType: "ChecklistInstance", entityId: id, action: "WAIVE", actorId: user.sub,
+            before: { itemId, waived: false },
+            after: { itemId, question: item.label, waived: true, reason },
+        })
+        await dropChecklistSummaries(instance.assigneeIds)
+        emitChecklistEvent("checklist-instance:updated", { storeId: instance.storeId }, { instanceId: id })
+        return getPopulatedInstanceById(id)
+    },
+
+    /** Take a waiver back: the question counts against compliance again. Same people, same rules. */
+    async unwaiveItem(id: string, itemId: string, user: AccessTokenPayload) {
+        const { instance, item } = await loadWaivable(id, itemId, user)
+        if (!item.waivedAt) throw AppError.badRequest("This question is not waived.")
+        await db.update(checklistInstanceItems).set({ waivedAt: null, waivedBy: null, waiveReason: null, updatedAt: new Date() }).where(eq(checklistInstanceItems.id, itemId))
+        await auditService.record({
+            entityType: "ChecklistInstance", entityId: id, action: "UNWAIVE", actorId: user.sub,
+            before: { itemId, waived: true, reason: item.waiveReason },
+            after: { itemId, question: item.label, waived: false },
+        })
+        await dropChecklistSummaries(instance.assigneeIds)
         emitChecklistEvent("checklist-instance:updated", { storeId: instance.storeId }, { instanceId: id })
         return getPopulatedInstanceById(id)
     },
