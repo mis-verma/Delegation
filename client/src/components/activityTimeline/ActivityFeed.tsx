@@ -9,15 +9,15 @@ import { useNow } from '../../lib/useNow';
 
 const PAGE = 8;
 
-const KIND: Record<ActivityKind, { icon: LucideIcon; tone: string }> = {
-  created: { icon: Plus, tone: 'bg-primary-600 dark:bg-primary-500' },
-  status: { icon: ArrowRightLeft, tone: 'bg-primary-600 dark:bg-primary-500' },
-  approved: { icon: Check, tone: 'bg-success' },
-  sent_back: { icon: Undo2, tone: 'bg-danger' },
-  due_changed: { icon: CalendarClock, tone: 'bg-text-light' },
-  priority_changed: { icon: Flag, tone: 'bg-text-light' },
-  reassigned: { icon: UserRound, tone: 'bg-text-light' },
-  edited: { icon: Pencil, tone: 'bg-text-light' },
+const KIND: Record<ActivityKind, { icon: LucideIcon }> = {
+  created: { icon: Plus },
+  status: { icon: ArrowRightLeft },
+  approved: { icon: Check },
+  sent_back: { icon: Undo2 },
+  due_changed: { icon: CalendarClock },
+  priority_changed: { icon: Flag },
+  reassigned: { icon: UserRound },
+  edited: { icon: Pencil },
 };
 
 const DAY = 86_400_000;
@@ -123,17 +123,21 @@ const Detail = ({ e }: { e: ActivityEvent }) => {
 };
 
 const Row = ({ e, thing }: { e: ActivityEvent; thing: string }) => {
-  const { icon: Icon, tone } = KIND[e.kind];
+  const { icon: Icon } = KIND[e.kind];
   const date = new Date(e.at);
-  const initials = e.actor ? e.actor.name.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join('') : '';
   return (
     <li className="relative">
-      <span className="absolute -left-11 top-2.5 flex size-8 items-center justify-center" aria-hidden>
-        <span className="flex size-8 items-center justify-center rounded-full bg-primary-500/15 text-xs font-display font-bold text-primary-700 ring-4 ring-surface dark:text-primary-300">{initials || '·'}</span>
-        <span className={cn('absolute -bottom-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full text-white ring-2 ring-surface', tone)}>
-          <Icon size={9} strokeWidth={3.5} />
-        </span>
+      {/* One plain node per entry on the rail: a solid blue disc with the action's icon. Its background is opaque, so
+          the line behind it never shows through, and there is no second badge to crowd it. The person's name is in
+          the sentence, in bold. */}
+      <span
+        className="absolute -left-11 top-2 z-10 flex size-8 items-center justify-center rounded-full bg-primary-100 text-primary-700 ring-4 ring-surface dark:bg-primary-900 dark:text-primary-200"
+        title={e.kind.replace('_', ' ')}
+        aria-hidden
+      >
+        <Icon size={14} strokeWidth={2.5} />
       </span>
+
       <article className="flex flex-col gap-2 rounded-lg border border-transparent px-3 py-2 transition-colors duration-200 hover:border-border/70 hover:bg-surface-hover/40">
         <header className="flex items-start justify-between gap-3">
           <p className="min-w-0 text-sm font-display leading-snug text-text-secondary">

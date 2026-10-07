@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { History, ChevronDown, Bot, Loader2, ArrowRight, ArrowRightLeft, PencilLine, Layers } from 'lucide-react';
+import { History, ChevronDown, Loader2, ArrowRight, ArrowRightLeft, PencilLine, Layers } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAuditLogsQuery } from '../../features/admin/auditLog/hook';
@@ -86,15 +86,6 @@ const phraseFor = (log: AuditLog, diffRows: DiffRow[]) => {
   if (statusRow && others.length === 0) return `moved it to ${statusRow.after}`;
   if (statusRow) return `moved it to ${statusRow.after} and changed ${list(others)}`;
   return `changed ${list(others)}`;
-};
-
-// One meaning per colour on the rail badge: approvals green, send-backs and deletes red, moves and
-// creation the app's blue, ordinary edits quiet grey. Everything else on the row stays neutral.
-const badgeTone = (log: AuditLog) => {
-  if (log.action === 'VERIFY' || log.action === 'APPROVE') return 'bg-success';
-  if (log.action === 'REJECT' || log.action === 'DELETE') return 'bg-danger';
-  if (log.action === 'CREATE' || isStatusMove(log)) return 'bg-primary-600 dark:bg-primary-500';
-  return 'bg-text-light';
 };
 
 /**
@@ -311,21 +302,15 @@ const ActivityTimelineRow = ({ log, resolvers }: { log: AuditLog; resolvers: Aud
 
   return (
     <li className="relative">
-      {/* The person sits on the rail, with one small glyph at its corner for what they did. */}
-      <span className="absolute -left-11 top-2.5 flex size-8 items-center justify-center" aria-hidden>
-        {log.actor ? (
-          <span className="flex size-8 items-center justify-center rounded-full bg-primary-500/15 text-xs font-display font-bold text-primary-700 ring-4 ring-surface dark:text-primary-300">
-            {log.actor.firstName[0]?.toUpperCase() ?? '?'}
-            {log.actor.lastName?.[0]?.toUpperCase() ?? ''}
-          </span>
-        ) : (
-          <span className="flex size-8 items-center justify-center rounded-full bg-surface-hover text-text-muted ring-4 ring-surface">
-            <Bot size={14} strokeWidth={2.5} />
-          </span>
-        )}
-        <span className={`absolute -bottom-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full text-white ring-2 ring-surface ${badgeTone(log)}`} title={action.label}>
-          <Icon size={9} strokeWidth={3.5} />
-        </span>
+      {/* One plain node per entry on the rail: a solid blue disc with the action's icon. Its background is opaque, so
+          the line behind it never shows through, and there is no second badge to crowd it. The person's name is in
+          the sentence, in bold. */}
+      <span
+        className="absolute -left-11 top-2 z-10 flex size-8 items-center justify-center rounded-full bg-primary-100 text-primary-700 ring-4 ring-surface dark:bg-primary-900 dark:text-primary-200"
+        title={action.label}
+        aria-hidden
+      >
+        <Icon size={14} strokeWidth={2.5} />
       </span>
 
       <article className="flex flex-col gap-2 rounded-lg border border-transparent px-3 py-2 transition-colors duration-200 hover:border-border/70 hover:bg-surface-hover/40">

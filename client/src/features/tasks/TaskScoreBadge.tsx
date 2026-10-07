@@ -18,11 +18,11 @@ interface RingProps {
 }
 
 // A small progress ring: a faint full circle with the earned part drawn over it.
-const ScoreRing = ({ percent, size, stroke, className }: RingProps) => {
+const ScoreRing = ({ percent, size, stroke, className, scalable = false }: RingProps & { scalable?: boolean }) => {
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true" className={cn('shrink-0 -rotate-90', className)}>
+    <svg {...(scalable ? {} : { width: size, height: size })} viewBox={`0 0 ${size} ${size}`} aria-hidden="true" className={cn('shrink-0 -rotate-90', scalable && 'size-full', className)}>
       <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="currentColor" strokeOpacity={0.18} strokeWidth={stroke} />
       <circle
         cx={size / 2}
@@ -56,9 +56,9 @@ export const TaskScoreBadge = ({ status, variant = 'chip' }: TaskScoreBadgeProps
     const stepIndex = SCORE_STEPS.indexOf(status);
     return (
       <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-surface-hover/40 p-3" role="group" aria-label={`Delegation score ${percent} percent`}>
-        <div className={cn('relative flex items-center justify-center size-12 shrink-0', color)}>
-          <ScoreRing percent={percent} size={48} stroke={5} />
-          <span className="absolute text-[13px] font-display font-bold text-text tabular-nums">{percent}%</span>
+        <div className={cn('relative flex size-14 shrink-0 items-center justify-center sm:size-[72px]', color)}>
+          <ScoreRing percent={percent} size={60} stroke={5} scalable />
+          <span className="absolute text-xs font-display font-bold leading-none tracking-tight text-text tabular-nums sm:text-base">{percent}%</span>
         </div>
         <div className="flex flex-col gap-1.5 min-w-0 flex-1">
           <p className="text-xs font-display font-semibold text-text">Delegation score</p>
