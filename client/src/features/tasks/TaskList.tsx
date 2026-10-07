@@ -660,7 +660,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
               inside `headerActions` is `hidden md:block`, so on mobile this only ever holds
               Options, and an unconditional auto-margin pushed that one pill hard right, leaving a
               dead gap in front of it. */}
-          <div className="flex items-center gap-2.5 flex-wrap shrink-0 sm:ml-auto">
+          <div className="flex items-center gap-2.5 flex-wrap shrink-0 ml-auto">
             <CreatedRangePicker createdRange={createdRange} />
             {headerActions}
           </div>

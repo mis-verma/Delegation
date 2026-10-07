@@ -395,7 +395,7 @@ export const MyChecklists = () => {
             since there's no primary action to balance against on this page. Store used to be its
             own dropdown beside Options; it's a filter like the rest, so it lives in the sheet now
             and the toolbar is just Options, same as the other list pages. */}
-        <div className="flex items-center gap-2.5 shrink-0 sm:ml-auto">
+        <div className="flex items-center gap-2.5 shrink-0 ml-auto">
           <CreatedRangePicker createdRange={createdRange} className="shrink-0" />
           <OptionsSheet
             isOpen={showOptions}
