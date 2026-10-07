@@ -6,10 +6,10 @@ import { scoreApi, type ScoreReport, type ScoreReportRow, type ScoreScope } from
 import { Skeleton } from '../../components/skeleton';
 import { rateTone, type RateTone } from './dashboardDisplay';
 
-type Metric = 'completion' | 'compliance';
+type Metric = 'completion' | 'compliance' | 'ontime';
 type SortKey = 'name' | 'overall' | 'checklist' | 'ticket' | 'delegation';
 
-const METRIC_LABEL: Record<Metric, string> = { completion: 'Completion', compliance: 'Compliance' };
+const METRIC_LABEL: Record<Metric, string> = { completion: 'Completion', compliance: 'Compliance', ontime: 'On time' };
 const SUBJECT: Record<ScoreScope, string> = { person: 'people', department: 'departments', store: 'stores' };
 const BAR: Record<RateTone, string> = { success: 'bg-success', warning: 'bg-warning', danger: 'bg-danger', neutral: 'bg-text-light' };
 const TEXT: Record<RateTone, string> = { success: 'text-success', warning: 'text-warning', danger: 'text-danger', neutral: 'text-text-muted' };
@@ -18,6 +18,7 @@ interface Computed {
   row: ScoreReportRow;
   completion: Record<'overall' | 'checklist' | 'ticket' | 'delegation', number | null>;
   compliance: Record<'overall' | 'checklist' | 'ticket' | 'delegation', number | null>;
+  ontime: Record<'overall' | 'checklist' | 'ticket' | 'delegation', number | null>;
   due: number;
 }
 
@@ -25,9 +26,9 @@ interface Computed {
 // with 200. Compliance is averaged the same way over the modules that have a compliance figure.
 const compute = (row: ScoreReportRow): Computed => {
   const parts = [
-    { due: row.checklist.due, done: row.checklist.completed, completion: row.checklist.completionPct, compliance: row.checklist.compliancePct },
-    { due: row.ticket.due, done: row.ticket.closed, completion: row.ticket.completionPct, compliance: row.ticket.compliancePct },
-    { due: row.delegation.due, done: row.delegation.done, completion: row.delegation.completionPct, compliance: row.delegation.compliancePct },
+    { due: row.checklist.due, done: row.checklist.completed, completion: row.checklist.completionPct, compliance: row.checklist.compliancePct, ontime: row.checklist.onTimePct, onTime: row.checklist.onTime },
+    { due: row.ticket.due, done: row.ticket.closed, completion: row.ticket.completionPct, compliance: row.ticket.compliancePct, ontime: row.ticket.onTimePct, onTime: row.ticket.onTime },
+    { due: row.delegation.due, done: row.delegation.done, completion: row.delegation.completionPct, compliance: row.delegation.compliancePct, ontime: row.delegation.onTimePct, onTime: row.delegation.onTime },
   ];
   const due = parts.reduce((s, p) => s + p.due, 0);
   const done = parts.reduce((s, p) => s + p.done, 0);
@@ -39,6 +40,8 @@ const compute = (row: ScoreReportRow): Computed => {
     due,
     completion: { overall: due ? Math.round((done / due) * 100) : null, checklist: parts[0].completion, ticket: parts[1].completion, delegation: parts[2].completion },
     compliance: { overall: overallCompliance, checklist: parts[0].compliance, ticket: parts[1].compliance, delegation: parts[2].compliance },
+    // Overall on time: of everything finished, how much was finished on time.
+    ontime: { overall: done ? Math.round((parts.reduce((s, p) => s + p.onTime, 0) / done) * 100) : null, checklist: parts[0].ontime, ticket: parts[1].ontime, delegation: parts[2].ontime },
   };
 };
 
@@ -127,7 +130,7 @@ export const ScoreRanking = ({ scope, from, to, onOpen }: ScoreRankingProps) => 
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div role="radiogroup" aria-label="Measure" className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-surface-hover/50 p-0.5">
-          {(['completion', 'compliance'] as const).map((m) => (
+          {(['completion', 'compliance', 'ontime'] as const).map((m) => (
             <button
               key={m}
               type="button"

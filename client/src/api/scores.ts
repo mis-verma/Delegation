@@ -7,6 +7,9 @@ export interface ChecklistScore {
   score: number | null;
   completionPct: number | null;
   compliancePct: number | null;
+  /** Of the runs that were finished, the share finished on time. */
+  onTimePct: number | null;
+  onTime: number;
   /** Runs that have come due: finished, or past their deadline. Runs still ahead are left out. */
   due: number;
   completed: number;
@@ -15,8 +18,8 @@ export interface ChecklistScore {
   approved: number;
 }
 /** Completion is the share of due items done; compliance is the share done on time. */
-export interface TicketScore { score: number | null; completionPct: number | null; compliancePct: number | null; due: number; closed: number; onTime: number; late: number }
-export interface DelegationScore { score: number | null; completionPct: number | null; compliancePct: number | null; due: number; done: number; onTime: number; overdue: number }
+export interface TicketScore { score: number | null; completionPct: number | null; compliancePct: number | null; onTimePct: number | null; due: number; closed: number; onTime: number; late: number }
+export interface DelegationScore { score: number | null; completionPct: number | null; compliancePct: number | null; onTimePct: number | null; due: number; done: number; onTime: number; overdue: number }
 
 export interface Scores {
   scope: ScoreScope;

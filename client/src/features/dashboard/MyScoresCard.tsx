@@ -15,6 +15,7 @@ import { useAssignableUsersQuery, useDepartmentsQuery, useStoresQuery } from '..
 import { PeriodTabControl } from './PeriodTabControl';
 import { ScoreBars } from './ScoreBars';
 import { ScoreRanking } from './ScoreRanking';
+import { METRIC_LABEL, METRIC_OPTIONS, isMetric, numbersFor, type ModuleKey, type ScoreMetric } from './scoreMetrics';
 import { ScoreTrend } from './ScoreTrend';
 import { DASHBOARD_CARD_CLASS, rateTone, type RateTone } from './dashboardDisplay';
 import { PERIODS, PERIOD_LABEL, windowFor, type ScorePeriod } from './scorePeriods';
@@ -25,7 +26,7 @@ const VIEW_LABEL: Record<ScoreView, string> = { bars: 'Bars', dials: 'Dials', tr
 const VIEW_ICON: Record<ScoreView, typeof Gauge> = { bars: BarChart3, dials: Gauge, trend: TrendingUp, ranking: ListOrdered };
 
 // What a person last chose is remembered per account, so the card opens the way they left it.
-interface ScorePrefs { view: ScoreView; period: ScorePeriod; compare: boolean }
+interface ScorePrefs { view: ScoreView; period: ScorePeriod; compare: boolean; metric: ScoreMetric }
 const PREFS_KEY = 'tm-scores-prefs';
 const loadPrefs = (userId: string | undefined): Partial<ScorePrefs> => {
   try {
@@ -54,14 +55,14 @@ const scoreQuery = (scope: ScoreScope, id: string | undefined, from: string, to:
 
 // Column set shared by the department and people tables in the full report.
 const REPORT_COLUMNS = [
-  'Checklists due', 'Checklists done', 'Checklists missed', 'Checklist completion %', 'Checklist compliance %',
-  'Tickets due', 'Tickets closed', 'Tickets closed on time', 'Ticket completion %', 'Ticket compliance %',
-  'Delegations due', 'Delegations done', 'Delegations done on time', 'Delegations overdue', 'Delegation completion %', 'Delegation compliance %',
+  'Checklists due', 'Checklists done', 'Checklists missed', 'Checklist completion %', 'Checklist compliance %', 'Checklist on-time %',
+  'Tickets due', 'Tickets closed', 'Tickets closed on time', 'Ticket completion %', 'Ticket compliance %', 'Ticket on-time %',
+  'Delegations due', 'Delegations done', 'Delegations done on time', 'Delegations overdue', 'Delegation completion %', 'Delegation compliance %', 'Delegation on-time %',
 ];
 const reportCells = (r: ScoreReportRow) => [
-  r.checklist.due, r.checklist.completed, r.checklist.missed, r.checklist.completionPct, r.checklist.compliancePct,
-  r.ticket.due, r.ticket.closed, r.ticket.onTime, r.ticket.completionPct, r.ticket.compliancePct,
-  r.delegation.due, r.delegation.done, r.delegation.onTime, r.delegation.overdue, r.delegation.completionPct, r.delegation.compliancePct,
+  r.checklist.due, r.checklist.completed, r.checklist.missed, r.checklist.completionPct, r.checklist.compliancePct, r.checklist.onTimePct,
+  r.ticket.due, r.ticket.closed, r.ticket.onTime, r.ticket.completionPct, r.ticket.compliancePct, r.ticket.onTimePct,
+  r.delegation.due, r.delegation.done, r.delegation.onTime, r.delegation.overdue, r.delegation.completionPct, r.delegation.compliancePct, r.delegation.onTimePct,
 ];
 
 const reportRows = (report: ScoreReport, windowLabel: string): TableRows => [
@@ -170,6 +171,7 @@ export const MyScoresCard = () => {
   const [exporting, setExporting] = useState(false);
   const [view, setViewState] = useState<ScoreView>(() => (isView(initialPrefs.view) ? initialPrefs.view : 'bars'));
   const [compare, setCompareState] = useState<boolean>(() => initialPrefs.compare === true);
+  const [metric, setMetricState] = useState<ScoreMetric>(() => (isMetric(initialPrefs.metric) ? initialPrefs.metric : 'overview'));
   const navigate = useNavigate();
 
   // Every change to view, period or compare is saved. A storage that refuses (private window) just forgets.
@@ -182,6 +184,7 @@ export const MyScoresCard = () => {
   };
   const setPeriod = (next: ScorePeriod) => { setPeriodState(next); remember({ period: next }); };
   const setCompare = (next: boolean) => { setCompareState(next); remember({ compare: next }); };
+  const setMetric = (next: ScoreMetric) => { setMetricState(next); remember({ metric: next }); };
   // Ranking is for people who can see more than themselves; anyone else falls back to the bars.
   const views = useMemo<ScoreView[]>(() => (canExportReport ? ['bars', 'dials', 'trend', 'ranking'] : ['bars', 'dials', 'trend']), [canExportReport]);
   const activeView: ScoreView = views.includes(view) ? view : 'bars';
@@ -299,7 +302,7 @@ export const MyScoresCard = () => {
   return (
     <section className={`${DASHBOARD_CARD_CLASS} flex flex-col gap-3 sm:gap-4 p-3.5 sm:p-5 min-w-0`} aria-label="Scores">
       <header className="flex flex-col gap-3">
-        <div className="flex items-start justify-between gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 min-w-0">
               <h2 className="text-base sm:text-lg font-display font-bold text-text tracking-tight truncate">{heading}</h2>
@@ -309,9 +312,9 @@ export const MyScoresCard = () => {
                 <p className="mt-1.5">Work that is not due yet is left out, so a running week or month does not look low. Good is 80% or more, Fair 50 to 79, Low under 50.</p>
               </InfoHint>
             </div>
-            <p className="text-xs font-medium text-text-muted mt-0.5">Work that fell due in the window, and how much was done on time</p>
+            <p className="mt-0.5 hidden text-xs font-medium text-text-muted sm:block">Work that fell due in the window, and how much was done on time</p>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center justify-between gap-2 sm:justify-end sm:shrink-0">
             {scopes.length > 1 && (
               <div className="hidden sm:block">
                 <PeriodTabControl value={scope} options={scopes} labels={SCOPE_LABEL} onChange={(next) => { setScope(next); setPicked(''); }} />
@@ -379,7 +382,7 @@ export const MyScoresCard = () => {
 
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
           <PeriodTabControl value={period} options={PERIODS} labels={PERIOD_LABEL} onChange={(next) => { setPeriod(next); setOffset(0); }} fill />
-          <div className="flex items-center justify-between sm:justify-end gap-1">
+          <div className="flex w-full items-center gap-1 sm:w-auto sm:justify-end">
             {(activeView === 'bars' || activeView === 'dials') && (
               <button
                 type="button"
@@ -389,18 +392,22 @@ export const MyScoresCard = () => {
                 className={`mr-1 inline-flex h-9 pointer-coarse:h-11 items-center gap-1 rounded-lg border px-2.5 text-xs font-display font-bold transition-colors ${compare ? 'border-primary-500 bg-primary-500/10 text-primary-700 dark:text-primary-300' : 'border-border text-text-muted hover:border-border-hover hover:text-text'}`}
               >
                 <ArrowUp className="size-3" aria-hidden="true" /><ArrowDown className="-ml-1.5 size-3" aria-hidden="true" />
-                Compare
+                <span className="hidden min-[420px]:inline">Compare</span>
               </button>
             )}
             <button type="button" onClick={() => setOffset((o) => o - 1)} aria-label={`Previous ${period}`} className="inline-flex size-9 pointer-coarse:size-11 items-center justify-center rounded-lg border border-border text-text-muted hover:border-border-hover hover:text-text">
               <ChevronLeft className="size-4" aria-hidden="true" />
             </button>
-            <span className="min-w-32 text-center text-xs font-display font-bold text-text">{range.label}</span>
+            <span className="min-w-0 flex-1 truncate text-center text-xs font-display font-bold text-text sm:min-w-32 sm:flex-none">{range.label}</span>
             <button type="button" onClick={() => setOffset((o) => Math.min(0, o + 1))} disabled={offset >= 0} aria-label={`Next ${period}`} className="inline-flex size-9 pointer-coarse:size-11 items-center justify-center rounded-lg border border-border text-text-muted hover:border-border-hover hover:text-text disabled:opacity-40 disabled:hover:border-border">
               <ChevronRight className="size-4" aria-hidden="true" />
             </button>
           </div>
         </div>
+
+        {activeView !== 'ranking' && (
+          <PeriodTabControl value={metric} options={METRIC_OPTIONS} labels={METRIC_LABEL} onChange={setMetric} fill />
+        )}
       </header>
 
       {!ready && activeView !== 'ranking' ? (
@@ -410,7 +417,7 @@ export const MyScoresCard = () => {
       ) : activeView === 'ranking' ? (
         <ScoreRanking scope={scope} from={range.from} to={range.to} onOpen={(id) => { setPicked(id); setView('bars'); }} />
       ) : activeView === 'trend' ? (
-        <ScoreTrend scope={scope} id={targetId} period={period} from={range.from} to={range.to} />
+        <ScoreTrend metric={metric} scope={scope} id={targetId} period={period} from={range.from} to={range.to} />
       ) : query.isError && !data ? (
         <div className="rounded-lg border border-border px-4 py-6 text-center text-sm font-medium text-text-muted">
           Could not load the scores.{' '}
@@ -419,20 +426,39 @@ export const MyScoresCard = () => {
       ) : (
         <div className={`transition-opacity duration-200 ${query.isFetching && data ? 'opacity-60' : ''}`}>
         {activeView === 'bars' ? (
-          <ScoreBars scores={data} loading={loading} previous={previous} onOpenModule={(m) => openModule(m)} />
+          <ScoreBars scores={data} loading={loading} metric={metric} previous={previous} onOpenModule={(m) => openModule(m)} />
         ) : (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-          <ScoreTile
-            loading={loading}
-            title="Checklist"
-            icon={ClipboardCheck}
-            score={data?.checklist.score ?? null}
-            href={drillHref('checklist')}
-            change={previous && data && previous.checklist.score !== null && data.checklist.score !== null ? data.checklist.score - previous.checklist.score : null}
-            detail={data ? `${data.checklist.completed} of ${data.checklist.due} done${data.checklist.submitted ? `, ${data.checklist.approved} of ${data.checklist.submitted} approved` : ''}` : ''}
-          />
-          <ScoreTile loading={loading} title="Tickets" icon={TicketIcon} score={data?.ticket.score ?? null} href={drillHref('ticket')} change={previous && data && previous.ticket.score !== null && data.ticket.score !== null ? data.ticket.score - previous.ticket.score : null} detail={data ? `${data.ticket.onTime} of ${data.ticket.due} on time` : ''} />
-          <ScoreTile loading={loading} title="Delegations" icon={Users} score={data?.delegation.score ?? null} href={drillHref('delegation')} change={previous && data && previous.delegation.score !== null && data.delegation.score !== null ? data.delegation.score - previous.delegation.score : null} detail={data ? `${data.delegation.done} of ${data.delegation.due} done` : ''} />
+          {([
+            { key: 'checklist', title: 'Checklist', icon: ClipboardCheck },
+            { key: 'ticket', title: 'Tickets', icon: TicketIcon },
+            { key: 'delegation', title: 'Delegations', icon: Users },
+          ] as { key: ModuleKey; title: string; icon: typeof Users }[]).map(({ key, title, icon }) => {
+            // Overview keeps the headline score; the other tabs show that one measure for every module.
+            const now = data ? numbersFor(data, key) : null;
+            const before = previous ? numbersFor(previous, key) : null;
+            const pick = (n: ReturnType<typeof numbersFor> | null, fallback: number | null | undefined) =>
+              n === null ? null : metric === 'completion' ? n.completion : metric === 'compliance' ? n.compliance : metric === 'ontime' ? n.ontime : fallback ?? null;
+            const headline = (d: typeof data) => (d ? (key === 'checklist' ? d.checklist.score : key === 'ticket' ? d.ticket.score : d.delegation.score) : null);
+            const score = pick(now, headline(data));
+            const priorScore = pick(before, headline(previous));
+            const note = now === null ? '' : metric === 'completion' ? now.completionNote : metric === 'compliance' ? now.complianceNote : metric === 'ontime' ? now.ontimeNote : '';
+            const overviewDetail = !data ? '' : key === 'checklist'
+              ? `${data.checklist.completed} of ${data.checklist.due} done${data.checklist.submitted ? `, ${data.checklist.approved} of ${data.checklist.submitted} approved` : ''}`
+              : key === 'ticket' ? `${data.ticket.onTime} of ${data.ticket.due} on time` : `${data.delegation.done} of ${data.delegation.due} done`;
+            return (
+              <ScoreTile
+                key={key}
+                loading={loading}
+                title={title}
+                icon={icon}
+                score={score}
+                href={drillHref(key)}
+                change={score !== null && priorScore !== null ? score - priorScore : null}
+                detail={metric === 'overview' ? overviewDetail : note}
+              />
+            );
+          })}
         </div>
         )}
         </div>

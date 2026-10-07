@@ -19,6 +19,9 @@ export type ChecklistScore = {
     score: number | null
     completionPct: number | null
     compliancePct: number | null
+    /** Of the runs that were finished, the share finished on time. */
+    onTimePct: number | null
+    onTime: number
     /** Runs that have come due: finished, or past their deadline. Runs still ahead are left out. */
     due: number
     completed: number
@@ -26,9 +29,10 @@ export type ChecklistScore = {
     submitted: number
     approved: number
 }
-// Completion is the share of due items that got done. Compliance is the share that got done on time.
-export type TicketScore = { score: number | null; completionPct: number | null; compliancePct: number | null; due: number; closed: number; onTime: number; late: number }
-export type DelegationScore = { score: number | null; completionPct: number | null; compliancePct: number | null; due: number; done: number; onTime: number; overdue: number }
+// Completion is the share of due items done. Compliance is the share done on time (for checklists, how well
+// the checked answers were answered). On time is, of the items that were FINISHED, the share finished on time.
+export type TicketScore = { score: number | null; completionPct: number | null; compliancePct: number | null; onTimePct: number | null; due: number; closed: number; onTime: number; late: number }
+export type DelegationScore = { score: number | null; completionPct: number | null; compliancePct: number | null; onTimePct: number | null; due: number; done: number; onTime: number; overdue: number }
 
 export type Scores = {
     scope: ScoreScope
@@ -52,6 +56,7 @@ export const SCORE_REPORT_NOTES = [
     "Checklist: only runs that have come due count (finished, or past their deadline), so a running period does not dip for runs still ahead. The score is compliance when answers have been checked, otherwise completion.",
     "Tickets: a ticket counts when its due time falls in the window. Completion is the share closed, compliance the share closed on or before the due time.",
     "Delegations: counted when due in the window or already done. Completion is the share done, compliance the share done on or before the due date (handed-in time, else approval time, else last update). Score is weighted by status (to do 0, in progress 25, waiting approval 75, done 100). Drafts never count.",
+    "On time: of the items that were finished (runs, tickets, delegations), the share finished before their deadline. Compliance counts unfinished late items as misses too, so it can be lower.",
     "A person is scored on what is assigned to them. A department is scored on what belongs to the department, so its figures can differ from the sum of its people.",
 ]
 
@@ -67,10 +72,13 @@ const foldChecklist = (rows: readonly (ReportMetrics & { answersChecked: number 
     const checked = sum(rows, (r) => (r.compliancePct === null ? 0 : r.answersChecked))
     const compliancePct = checked > 0 ? Math.round(sum(rows, (r) => (r.compliancePct === null ? 0 : r.compliancePct * r.answersChecked)) / checked) : null
     const completionPct = pct(completed, due)
+    const onTime = sum(rows, (r) => r.onTime)
     return {
         score: compliancePct ?? completionPct,
         completionPct,
         compliancePct,
+        onTimePct: pct(onTime, completed),
+        onTime,
         due,
         completed,
         missed,
@@ -93,6 +101,7 @@ const foldTasks = (rows: readonly TaskLike[], now: Date): DelegationScore => {
         score: due.length ? Math.round((weighted / due.length) * 100) : null,
         completionPct: pct(done.length, due.length),
         compliancePct: pct(onTime, due.length),
+        onTimePct: pct(onTime, done.length),
         due: due.length,
         done: done.length,
         onTime,
@@ -105,7 +114,7 @@ const foldTickets = (rows: readonly TicketLike[], now: Date): TicketScore => {
     const due = rows.filter((t) => t.status === "CLOSED" || (t.tatDueAt !== null && t.tatDueAt < now))
     const closed = due.filter((t) => t.status === "CLOSED")
     const onTime = closed.filter((t) => t.closedAt && t.tatDueAt && t.closedAt <= t.tatDueAt).length
-    return { score: pct(onTime, due.length), completionPct: pct(closed.length, due.length), compliancePct: pct(onTime, due.length), due: due.length, closed: closed.length, onTime, late: due.length - onTime }
+    return { score: pct(onTime, due.length), completionPct: pct(closed.length, due.length), compliancePct: pct(onTime, due.length), onTimePct: pct(onTime, closed.length), due: due.length, closed: closed.length, onTime, late: due.length - onTime }
 }
 
 // When a task was finished: handed in, else approved, else last touched.

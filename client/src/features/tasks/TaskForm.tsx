@@ -75,22 +75,24 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
     resolver: zodResolver(taskSchema),
     defaultValues: {
       priority: 'medium',
-      departmentId: user?.departmentId ?? '',
+      // Front-line staff start on their own department; everyone else starts with none, so the person picker
+      // lists everyone until a department is chosen, and then only that department's people.
+      departmentId: ownScopeOnly ? user?.departmentId ?? '' : '',
       description: '',
     },
   });
 
-  // Front-line staff pick a department first; once chosen, the person picker appears with that
-  // department's people (optional). Everyone else keeps the full list as before.
+  // Choosing a department narrows the person picker to that department's people, for every role (front-line
+  // staff only see the picker once a department is chosen). With no department it lists everyone allowed.
   const departmentId = useWatch({ control, name: 'departmentId' });
-  const { data: departmentPeople, isLoading: isLoadingDepartmentPeople } = useDepartmentPeopleQuery(departmentId || undefined, undefined, undefined, ownScopeOnly && !!departmentId);
-  const assignableUsers = ownScopeOnly ? departmentPeople : allAssignable;
-  const isLoadingUsers = ownScopeOnly ? isLoadingDepartmentPeople : isLoadingAllUsers;
+  const { data: departmentPeople, isLoading: isLoadingDepartmentPeople } = useDepartmentPeopleQuery(departmentId || undefined, undefined, undefined, !!departmentId);
+  const assignableUsers = departmentId ? departmentPeople : allAssignable;
+  const isLoadingUsers = departmentId ? isLoadingDepartmentPeople : isLoadingAllUsers;
   // A different department means a different set of people: the old pick no longer applies.
   const [prevDepartmentId, setPrevDepartmentId] = useState(departmentId);
   if (departmentId !== prevDepartmentId) {
     setPrevDepartmentId(departmentId);
-    if (ownScopeOnly) setAssigneeIds([]);
+    setAssigneeIds([]);
   }
 
   const isBusy = mutation.isPending || isSubmitting;

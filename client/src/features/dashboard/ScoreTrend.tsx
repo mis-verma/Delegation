@@ -5,16 +5,13 @@ import { cn } from '@/lib/utils';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { scoreApi, type ScoreScope, type ScoreTrend as ScoreTrendData, type TrendBucket, type TrendPeriod } from '../../api/scores';
 import { Skeleton } from '../../components/skeleton';
+import { SERIES_COLOR, SERIES_LABEL, seriesFor, type ModuleKey, type ScoreMetric, type SeriesKey } from './scoreMetrics';
 
-type ModuleKey = 'checklist' | 'ticket' | 'delegation';
 const MODULES: { key: ModuleKey; label: string }[] = [
   { key: 'checklist', label: 'Checklist' },
   { key: 'ticket', label: 'Tickets' },
   { key: 'delegation', label: 'Delegations' },
 ];
-// Same two weights of blue as the Bars view, so a colour means the same thing in both.
-const COMPLETION_COLOR = 'var(--color-primary-500)';
-const COMPLIANCE_COLOR = 'var(--color-primary-800)';
 const TRACK_FILL = 'color-mix(in oklab, var(--color-primary-500) 9%, transparent)';
 
 interface Point {
@@ -22,15 +19,16 @@ interface Point {
   range: string;
   completion: number | null;
   compliance: number | null;
+  ontime: number | null;
   due: number;
 }
 
 const pointOf = (b: TrendBucket, key: ModuleKey): Point => {
   const m = b[key];
-  return { label: b.label, range: b.from === b.to ? b.from : `${b.from} to ${b.to}`, completion: m.completionPct, compliance: m.compliancePct, due: m.due };
+  return { label: b.label, range: b.from === b.to ? b.from : `${b.from} to ${b.to}`, completion: m.completionPct, compliance: m.compliancePct, ontime: m.onTimePct, due: m.due };
 };
 
-const TrendTooltip = ({ active, payload }: { active?: boolean; payload?: { payload?: Point }[] }) => {
+const TrendTooltip = ({ active, payload, series }: { active?: boolean; payload?: { payload?: Point }[]; series: SeriesKey[] }) => {
   const p = payload?.[0]?.payload;
   if (!active || !p) return null;
   return (
@@ -41,8 +39,9 @@ const TrendTooltip = ({ active, payload }: { active?: boolean; payload?: { paylo
         <p className="text-xs font-display text-text-muted">Nothing was due.</p>
       ) : (
         <>
-          <p className="text-xs font-display font-bold text-text"><span aria-hidden="true" className="mr-1.5 inline-block size-2 rounded-sm" style={{ backgroundColor: COMPLETION_COLOR }} />Completion {p.completion === null ? 'no data' : `${p.completion}%`}</p>
-          <p className="text-xs font-display font-bold text-text"><span aria-hidden="true" className="mr-1.5 inline-block size-2 rounded-sm" style={{ backgroundColor: COMPLIANCE_COLOR }} />Compliance {p.compliance === null ? 'no data' : `${p.compliance}%`}</p>
+          {series.map((k) => (
+            <p key={k} className="text-xs font-display font-bold text-text"><span aria-hidden="true" className="mr-1.5 inline-block size-2 rounded-sm" style={{ backgroundColor: SERIES_COLOR[k] }} />{SERIES_LABEL[k]} {p[k] === null ? 'no data' : `${p[k]}%`}</p>
+          ))}
           <p className="text-xs font-medium text-text-muted">{p.due} due</p>
         </>
       )}
@@ -51,6 +50,8 @@ const TrendTooltip = ({ active, payload }: { active?: boolean; payload?: { paylo
 };
 
 interface ScoreTrendProps {
+  /** Overview draws completion beside compliance; the other tabs draw one measure. */
+  metric?: ScoreMetric;
   scope: ScoreScope;
   id: string | undefined;
   period: TrendPeriod;
@@ -63,7 +64,8 @@ interface ScoreTrendProps {
  * last 7 days, the weeks of a month, the months of a quarter or a year), so a score has a direction.
  * Every bucket is scored by the same server rules as the card itself.
  */
-export const ScoreTrend = ({ scope, id, period, from, to }: ScoreTrendProps) => {
+export const ScoreTrend = ({ metric = 'overview', scope, id, period, from, to }: ScoreTrendProps) => {
+  const series = seriesFor(metric);
   const isMobile = useIsMobile();
   const [module, setModule] = useState<ModuleKey>('checklist');
   const { data, isPending, isError, refetch } = useQuery<ScoreTrendData>({
@@ -95,12 +97,13 @@ export const ScoreTrend = ({ scope, id, period, from, to }: ScoreTrendProps) => 
           ))}
         </div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-display font-bold text-text-secondary">
-          <span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="size-2.5 rounded-sm" style={{ backgroundColor: COMPLETION_COLOR }} />Completion</span>
-          <span className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="size-2.5 rounded-sm" style={{ backgroundColor: COMPLIANCE_COLOR }} />Compliance</span>
+          {series.map((k) => (
+            <span key={k} className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="size-2.5 rounded-sm" style={{ backgroundColor: SERIES_COLOR[k] }} />{SERIES_LABEL[k]}</span>
+          ))}
         </div>
       </div>
 
-      <div className="relative h-60 w-full sm:h-72" role="img" aria-label={anyData ? `Completion and compliance over time for ${MODULES.find((m) => m.key === module)?.label}` : 'Nothing was due in this window'}>
+      <div className="relative h-60 w-full sm:h-72" role="img" aria-label={anyData ? `${series.map((k) => SERIES_LABEL[k]).join(' and ')} over time for ${MODULES.find((m) => m.key === module)?.label}` : 'Nothing was due in this window'}>
         {isPending ? (
           <div className="absolute inset-0 flex items-end justify-around gap-3 px-6 pb-8" role="status" aria-label="Loading the trend">
             {[45, 70, 55, 85, 60, 75, 50].map((h, i) => <Skeleton key={i} className="w-5 rounded-t-md sm:w-8" style={{ height: `${h}%` }} />)}
@@ -117,18 +120,17 @@ export const ScoreTrend = ({ scope, id, period, from, to }: ScoreTrendProps) => 
             <BarChart data={points} accessibilityLayer={false} margin={{ top: 22, right: 4, left: isMobile ? 0 : 4, bottom: 0 }} barCategoryGap={isMobile ? '12%' : '24%'} barGap={3}>
               <XAxis dataKey="label" interval={0} tickLine={false} axisLine={false} dy={8} tick={{ fill: 'var(--color-text-secondary)', fontSize: 12, fontWeight: 600 }} />
               <YAxis domain={[0, 100]} hide={isMobile} ticks={[0, 25, 50, 75, 100]} tickFormatter={(v: number) => `${v}%`} tickLine={false} axisLine={false} width={44} tick={{ fill: 'var(--color-text-muted)', fontSize: 12, fontWeight: 600 }} />
-              <Tooltip content={<TrendTooltip />} cursor={false} isAnimationActive={false} />
-              <Bar dataKey="completion" fill={COMPLETION_COLOR} radius={[6, 6, 0, 0]} maxBarSize={isMobile ? 20 : 30} background={{ fill: TRACK_FILL, radius: 6 }} animationDuration={500}>
-                {points.length <= 7 && <LabelList dataKey="completion" position="top" offset={5} fontSize={12} fontWeight={700} fill="var(--color-text)" formatter={(v: unknown) => (typeof v === 'number' ? `${v}` : '')} />}
-              </Bar>
-              <Bar dataKey="compliance" fill={COMPLIANCE_COLOR} radius={[6, 6, 0, 0]} maxBarSize={isMobile ? 20 : 30} background={{ fill: TRACK_FILL, radius: 6 }} animationDuration={500}>
-                {points.length <= 7 && <LabelList dataKey="compliance" position="top" offset={5} fontSize={12} fontWeight={700} fill="var(--color-text)" formatter={(v: unknown) => (typeof v === 'number' ? `${v}` : '')} />}
-              </Bar>
+              <Tooltip content={<TrendTooltip series={series} />} cursor={false} isAnimationActive={false} />
+              {series.map((k) => (
+                <Bar key={k} dataKey={k} fill={SERIES_COLOR[k]} radius={[6, 6, 0, 0]} maxBarSize={series.length === 1 ? (isMobile ? 28 : 44) : isMobile ? 20 : 30} background={{ fill: TRACK_FILL, radius: 6 }} animationDuration={500}>
+                  {points.length <= 7 && (series.length === 1 || !isMobile) && <LabelList dataKey={k} position="top" offset={5} fontSize={12} fontWeight={700} fill="var(--color-text)" formatter={(v: unknown) => (typeof v === 'number' ? `${v}` : '')} />}
+                </Bar>
+              ))}
             </BarChart>
           </ResponsiveContainer>
         )}
       </div>
-      <p className="text-xs font-medium text-text-muted">Each bar is a slice of the window, scored the same way as the card. Empty slots had nothing due.</p>
+      <p className="text-xs font-medium text-text-muted">Each bar is a slice of the window, scored the same way as the card. {isMobile && series.length > 1 ? 'Tap a bar for its numbers. ' : ''}Empty slots had nothing due.</p>
     </div>
   );
 };
