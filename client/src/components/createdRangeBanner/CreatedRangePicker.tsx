@@ -121,7 +121,7 @@ export const CreatedRangePicker = ({ createdRange, className }: CreatedRangePick
         </button>
       </PopoverTrigger>
 
-      <PopoverContent align="start" className="w-[19.5rem] p-3 flex flex-col gap-3">
+      <PopoverContent align="end" collisionPadding={12} className="w-[min(19.5rem,calc(100vw-1.5rem))] p-3 flex flex-col gap-3">
         <div className="flex flex-wrap gap-1.5" role="group" aria-label="Quick ranges">
           {presets.map((preset) => (
             <button

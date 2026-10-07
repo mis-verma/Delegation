@@ -115,14 +115,19 @@ export const StatusBreakdownCard = memo(({
         )}
 
         {!error && scores !== undefined && (
-          <div role="group" aria-label={`${title} view`} className="relative inline-flex shrink-0 items-center rounded-full bg-white/10 p-0.5">
+          <div role="group" aria-label={`${title} view`} className="relative grid shrink-0 grid-cols-2 items-center rounded-full bg-white/10 p-0.5">
+            {/* The white thumb slides to the chosen side, so the switch moves instead of snapping. */}
+            <span
+              aria-hidden="true"
+              className={`pointer-events-none absolute inset-y-0.5 left-0.5 w-[calc(50%-2px)] rounded-full bg-white transition-transform duration-300 ease-out motion-reduce:transition-none ${side === 'scores' ? 'translate-x-full' : 'translate-x-0'}`}
+            />
             {(['counts', 'scores'] as const).map((option) => (
               <button
                 key={option}
                 type="button"
                 aria-pressed={side === option}
                 onClick={() => setSide(option)}
-                className={`h-6 rounded-full px-2 text-xs font-display font-semibold outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-white/60 pointer-coarse:h-8 ${side === option ? 'bg-white text-primary-800' : 'text-white/75 hover:text-white'}`}
+                className={`relative z-10 h-6 rounded-full px-2 text-xs font-display font-semibold outline-none transition-colors duration-300 focus-visible:ring-2 focus-visible:ring-white/60 pointer-coarse:h-8 ${side === option ? 'text-primary-800' : 'text-white/75 hover:text-white'}`}
               >
                 {option === 'counts' ? 'Counts' : 'Scores'}
               </button>
@@ -149,7 +154,7 @@ export const StatusBreakdownCard = memo(({
           <InlineError message={error.message} onRetry={error.onRetry} className="flex-1" />
         </div>
       ) : (
-        <div className="relative z-10 flex flex-1 items-stretch gap-3 p-3">
+        <div key={showScores ? 'scores' : 'counts'} className="relative z-10 flex flex-1 items-stretch gap-3 p-3 animate-in fade-in slide-in-from-bottom-1 duration-300 motion-reduce:animate-none">
           <div className="flex-1 flex flex-col justify-center gap-1 min-w-0 px-1">
             {shownRows.map((row) => {
               const content = (
