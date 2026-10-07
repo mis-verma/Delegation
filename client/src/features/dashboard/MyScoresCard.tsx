@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { BarChart3, ChevronLeft, ChevronRight, ClipboardCheck, Gauge, Download, FileSpreadsheet, FileText, Ticket as TicketIcon, Users } from 'lucide-react';
 import { Button, Combobox, type ComboboxOption } from '../../components';
 import { SemiGauge } from '../../components/semiGauge/SemiGauge';
+import { InfoHint } from '../../components/infoHint/InfoHint';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel } from '../../components/ui/dropdown-menu';
 import { useAuth } from '../../context/AuthContext';
 import { OWN_SCOPE_ROLES } from '../../api/auth';
@@ -225,7 +226,14 @@ export const MyScoresCard = () => {
       <header className="flex flex-col gap-3">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <h2 className="text-base sm:text-lg font-display font-bold text-text tracking-tight truncate">{heading}</h2>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <h2 className="text-base sm:text-lg font-display font-bold text-text tracking-tight truncate">{heading}</h2>
+              <InfoHint label="What do these scores mean?">
+                <p><strong className="text-text">Completion</strong>: how much of the work that came due was done.</p>
+                <p className="mt-1.5"><strong className="text-text">Compliance</strong>: how much was done on time. For checklists, how well the checked answers were answered.</p>
+                <p className="mt-1.5">Work that is not due yet is left out, so a running week or month does not look low. Good is 80% or more, Fair 50 to 79, Low under 50.</p>
+              </InfoHint>
+            </div>
             <p className="text-xs font-medium text-text-muted mt-0.5">Work that fell due in the window, and how much was done on time</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">

@@ -10,6 +10,7 @@ import { notificationLook, notificationPath, formatNotificationTime, formatRelat
 import { Popover, PopoverTrigger, PopoverContent } from '../../components/ui/popover';
 import { Modal } from '../../components/modal';
 import { useMediaQuery } from '../../lib/useMediaQuery';
+import { AttentionStrip } from './AttentionStrip';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -203,7 +204,7 @@ export const NotificationBell = ({ tone = 'light', badgeRing = true, accent = fa
         tone === 'dark'
           ? cn("text-white/70 hover:text-white hover:bg-white/10", open && "bg-white/10 text-white")
           : accent
-            ? cn("text-warning hover:bg-warning/10", open && "bg-warning/10")
+            ? cn("text-primary-600 dark:text-primary-300 hover:bg-primary-500/10", open && "bg-primary-500/10")
             : cn(
                 "text-text-light hover:text-text hover:bg-surface-hover",
                 open && "bg-surface-hover text-text"
@@ -273,6 +274,7 @@ export const NotificationBell = ({ tone = 'light', badgeRing = true, accent = fa
             <NotificationTabs value={filter} onChange={setFilter} unread={unreadCount} />
             {unreadCount > 0 && markAllButton}
           </div>
+          <AttentionStrip onNavigate={() => setOpen(false)} />
           <NotificationList notifications={notifications} isError={isError} filter={filter} onOpen={handleClick} roomy />
         </Modal>
       </>
@@ -309,6 +311,8 @@ export const NotificationBell = ({ tone = 'light', badgeRing = true, accent = fa
           </div>
           <NotificationTabs value={filter} onChange={setFilter} unread={unreadCount} />
         </header>
+
+        <AttentionStrip onNavigate={() => setOpen(false)} />
 
         <div className="flex-1 overflow-y-auto custom-scrollbar">
           <NotificationList notifications={notifications} isError={isError} filter={filter} onOpen={handleClick} />

@@ -1,5 +1,7 @@
 import { NavLink, useLocation } from 'react-router';
 import type { LucideIcon } from 'lucide-react';
+import { NavCountBadge } from './NavCountBadge';
+import { badgeSummary, useNavBadges, type NavBadgeMap } from './useNavBadges';
 import {
   LayoutDashboard,
   ClipboardList,
@@ -32,6 +34,7 @@ const NAV_ITEMS: NavItem[] = [
 // button give it separation. 12px labels (the old 10px was too small to read at arm's length).
 export const BottomNav = () => {
   const location = useLocation();
+  const badges = useNavBadges();
 
   return (
     <nav
@@ -45,13 +48,15 @@ export const BottomNav = () => {
       <div className="relative h-16 max-w-lg mx-auto grid grid-cols-5 rounded-3xl border border-border bg-surface">
         {NAV_ITEMS.map(({ to, label, icon: Icon, exact, center }) => {
           const isActive = exact ? location.pathname === to : location.pathname.startsWith(to);
+          const badge = to in badges ? badges[to as keyof NavBadgeMap] : undefined;
+          const summary = badge ? badgeSummary(badge) : '';
 
           if (center) {
             return (
               <NavLink
                 key={to}
                 to={to}
-                aria-label={label}
+                aria-label={summary ? `${label}, ${summary}` : label}
                 className="group relative flex flex-col items-center justify-end h-full pb-2 select-none outline-none [-webkit-tap-highlight-color:transparent]"
               >
                 {/* The raised button. The surface-coloured ring cuts a notch into the bar around it. */}
@@ -62,6 +67,7 @@ export const BottomNav = () => {
                 >
                   <Icon size={24} strokeWidth={2.25} />
                 </span>
+                {badge && <NavCountBadge badge={badge} className="-top-6 left-1/2 ml-3" />}
                 <span
                   className={`relative text-xs leading-none font-display ${
                     isActive ? 'text-primary-700 dark:text-primary-300 font-bold' : 'text-text-secondary font-semibold'
@@ -77,6 +83,7 @@ export const BottomNav = () => {
             <NavLink
               key={to}
               to={to}
+              aria-label={summary ? `${label}, ${summary}` : label}
               className="group relative flex flex-col items-center justify-center gap-1 h-full cursor-pointer select-none outline-none active:scale-[0.94] transition-transform duration-150 [-webkit-tap-highlight-color:transparent]"
             >
               <span className="relative flex items-center justify-center w-12 h-8">
@@ -90,6 +97,7 @@ export const BottomNav = () => {
                     isActive ? 'text-primary-600 dark:text-primary-300' : 'text-text-muted group-hover:text-text'
                   }`}
                 />
+                {badge && <NavCountBadge badge={badge} className="-top-1.5 left-1/2 ml-1.5" />}
               </span>
               <span
                 className={`relative text-xs leading-none font-display transition-colors duration-200 ${
