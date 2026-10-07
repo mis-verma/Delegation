@@ -584,10 +584,10 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
   );
 
   return (
-    <div className="flex flex-col gap-6 mx-auto w-full max-w-(--container-width) transition-all duration-300">
+    <div className="flex flex-col gap-3 mx-auto w-full max-w-(--container-width) transition-all duration-300">
       <CreatedRangeBanner range={createdRange.range} onClear={createdRange.clear} noun="delegations" />
 
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3">
         {!hideHeader && (
           <>
         
@@ -614,8 +614,6 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
           <div className="hidden sm:block">
             <ViewToggle tabs={VIEW_TABS} value={view} onChange={changeView} />
           </div>
-
-          <CreatedRangePicker createdRange={createdRange} />
 
           {activeChips.length > 0 && (
             <div className="flex items-center gap-2 flex-wrap min-w-0">
@@ -668,6 +666,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
               Options, and an unconditional auto-margin pushed that one pill hard right, leaving a
               dead gap in front of it. */}
           <div className="flex items-center gap-2.5 flex-wrap shrink-0 sm:ml-auto">
+            <CreatedRangePicker createdRange={createdRange} />
             {headerActions}
           </div>
         </div>

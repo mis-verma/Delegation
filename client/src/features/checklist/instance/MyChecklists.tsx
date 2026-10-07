@@ -330,7 +330,7 @@ export const MyChecklists = () => {
   return (
     // Same shared container as Delegation, Tickets and To-Do, centred. Moving between those pages
     // and this one must not shift the content's width or edge.
-    <div className="flex flex-col gap-6 mx-auto w-full max-w-(--container-width)">
+    <div className="flex flex-col gap-3 mx-auto w-full max-w-(--container-width)">
       <CreatedRangeBanner range={createdRange.range} onClear={createdRange.clear} noun="checklists" />
       <div className="flex flex-col gap-3">
         {/* Same header treatment as Delegation, Tickets and To-Do: no visible title block, the nav
@@ -390,8 +390,6 @@ export const MyChecklists = () => {
           <ViewToggle tabs={VIEW_TABS} value={view} onChange={setView} />
         </div>
 
-        <CreatedRangePicker createdRange={createdRange} className="shrink-0" />
-
         {quickFilter && (
           <FilterPill active icon={X} onClick={clearQuickFilter}>
             <span className="sr-only">Clear status filter: </span>
@@ -405,6 +403,7 @@ export const MyChecklists = () => {
             own dropdown beside Options; it's a filter like the rest, so it lives in the sheet now
             and the toolbar is just Options, same as the other list pages. */}
         <div className="flex items-center gap-2.5 shrink-0 sm:ml-auto">
+          <CreatedRangePicker createdRange={createdRange} className="shrink-0" />
           <OptionsSheet
             isOpen={showOptions}
             setIsOpen={setShowOptions}

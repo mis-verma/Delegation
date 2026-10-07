@@ -107,16 +107,17 @@ export const CreatedRangePicker = ({ createdRange, className }: CreatedRangePick
       <PopoverTrigger asChild>
         <button
           type="button"
+          title={label}
           className={cn(
-            'inline-flex items-center gap-2 h-9 pointer-coarse:h-11 px-3 rounded-lg border text-sm font-display font-medium outline-none cursor-pointer transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-500/40',
+            'inline-flex size-9 pointer-coarse:size-11 items-center justify-center rounded-full border text-sm font-display font-medium outline-none cursor-pointer transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-500/40',
             applied
               ? 'border-primary-500/40 bg-primary-500/10 text-primary-700 dark:text-primary-300'
               : 'border-border bg-surface text-text-secondary hover:border-border-hover hover:text-text',
             className,
           )}
         >
-          <CalendarDays size={15} aria-hidden className="shrink-0" />
-          <span className="truncate">{label}</span>
+          <CalendarDays size={16} aria-hidden className="shrink-0" />
+          <span className="sr-only">{label}</span>
         </button>
       </PopoverTrigger>
 

@@ -16,8 +16,9 @@ const RING: Record<Required<AdminChromeAccentsProps>['scale'], string> = {
   compact: '-top-8 -right-8 size-24',
 };
 
-export const AdminChromeAccents = ({ scale = 'wide' }: AdminChromeAccentsProps) => (
-  <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-    <span className={`absolute rounded-full border border-white/15 ${RING[scale]}`} />
-  </div>
-);
+// The corner ring is retired: the stat cards are plain surfaces now. The component stays so its callers need no edit,
+// and the ring sizes stay in case a decoration ever comes back.
+export const AdminChromeAccents = ({ scale = 'wide' }: AdminChromeAccentsProps) => {
+  void RING[scale];
+  return null;
+};

@@ -134,7 +134,7 @@ export const TicketList = () => {
   const ownScopeOnly = !!user && OWN_SCOPE_ROLES.includes(user.role);
 
   return (
-    <div className="flex flex-col gap-4 sm:gap-6 mx-auto w-full min-w-0 max-w-(--container-width) transition-all duration-300">
+    <div className="flex flex-col gap-3 mx-auto w-full min-w-0 max-w-(--container-width) transition-all duration-300">
       <CreatedRangeBanner range={createdRange.range} onClear={createdRange.clear} noun="tickets" />
 
       <div className="flex flex-col gap-3 sm:gap-4">
@@ -165,8 +165,6 @@ export const TicketList = () => {
             <ViewToggle tabs={VIEW_TABS} value={organizer.view} onChange={organizer.setView} />
           </div>
 
-          <CreatedRangePicker createdRange={createdRange} className="shrink-0" />
-
           <TicketActiveTags organizer={organizer} allTickets={allTicketsData ?? []} />
 
           {/* `sm:ml-auto`, not a bare `ml-auto` — on mobile the Create button below is hidden and
@@ -176,6 +174,7 @@ export const TicketList = () => {
           {/* `order-first` below sm: Options stays put at the left edge and any active-filter chips
               wrap in after it, instead of Options jumping sideways each time a chip appears. */}
           <div className="order-first sm:order-none flex items-center gap-x-3 gap-y-2.5 flex-wrap shrink-0 sm:ml-auto">
+            <CreatedRangePicker createdRange={createdRange} className="shrink-0" />
             <div className="hidden md:block">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

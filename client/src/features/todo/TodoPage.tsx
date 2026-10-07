@@ -73,7 +73,7 @@ export const TodoPage = () => {
   };
 
   return (
-    <div className="flex flex-col gap-6 mx-auto w-full max-w-(--container-width) transition-all duration-300">
+    <div className="flex flex-col gap-3 mx-auto w-full max-w-(--container-width) transition-all duration-300">
       {/* No visible title block, same as Delegation and Tickets: the nav item already says To-Do. */}
       <h1 className="sr-only">To-Do</h1>
       <CreatedRangeBanner range={createdRange.range} onClear={createdRange.clear} noun="to-dos" />
@@ -92,7 +92,8 @@ export const TodoPage = () => {
 
         {/* One controls row, same as the other list pages: Options on the left, the add button on
             the right on desktop (phones use the + button instead). */}
-        <div className="flex items-center gap-3">
+        {/* Right-aligned and in reverse order, so Options sits at the far right with Created on and the add button to its left. */}
+        <div className="flex flex-row-reverse items-center gap-3">
           <OptionsSheet
             isOpen={showOptions}
             setIsOpen={setShowOptions}
@@ -128,7 +129,7 @@ export const TodoPage = () => {
 
           <CreatedRangePicker createdRange={createdRange} className="shrink-0" />
 
-          <Button size="sm" variant="primary" className="hidden md:inline-flex gap-1.5 ml-auto rounded-full font-display" onClick={() => setShowForm(true)}>
+          <Button size="sm" variant="primary" className="hidden md:inline-flex gap-1.5 rounded-full font-display" onClick={() => setShowForm(true)}>
             <Plus size={15} strokeWidth={2.5} />
             New to-do
           </Button>

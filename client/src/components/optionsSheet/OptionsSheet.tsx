@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { SlidersHorizontal, X, Check, ChevronDown, RotateCcw, FileDown, type LucideIcon } from 'lucide-react';
+import { ListFilter, SlidersHorizontal, X, Check, ChevronDown, RotateCcw, FileDown, type LucideIcon } from 'lucide-react';
 import { Dialog, DialogTrigger, DialogContent, DialogTitle, DialogDescription, DialogClose } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Button } from '../button';
@@ -165,12 +165,13 @@ export const OptionsSheet = ({
         <Button
           variant="secondary"
           size="sm"
-          className="group gap-2 font-display font-semibold tracking-tight rounded-full text-xs sm:text-sm px-4 py-2 border border-border hover:border-primary-400 transition-all duration-200 ease-in-out"
+          title="Options"
+          aria-label={activeCount > 0 ? `Options, ${activeCount} active` : 'Options'}
+          className="group relative size-9 pointer-coarse:size-11 shrink-0 rounded-full border border-border p-0 transition-colors duration-200 hover:border-primary-400"
         >
-          <SlidersHorizontal size={15} strokeWidth={2.5} className="text-text-muted group-hover:text-primary-600 transition-colors duration-200" />
-          <span>Options</span>
+          <ListFilter size={16} strokeWidth={2.5} className="text-text-muted group-hover:text-primary-600 transition-colors duration-200" aria-hidden="true" />
           {activeCount > 0 && (
-            <span className="flex items-center justify-center min-w-[1.1rem] h-[1.1rem] px-1 text-[10px] font-bold rounded-full bg-primary-600 text-white tabular-nums">
+            <span aria-hidden="true" className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary-600 px-1 text-xs font-bold leading-none text-white tabular-nums">
               {activeCount}
             </span>
           )}

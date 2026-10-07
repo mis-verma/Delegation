@@ -293,12 +293,6 @@ export function QuickFilterStats<K extends string>({
               </p>
             </div>
 
-            {/* Same share as a hairline along the bottom edge, in the tile's own accent colour. */}
-            {share !== null && (
-              <span aria-hidden className="absolute left-0 right-0 bottom-0 h-[3px] bg-surface-hover/70">
-                <span className={cn("block h-full transition-all duration-500 ease-out", accentBar)} style={{ width: `${share}%` }} />
-              </span>
-            )}
 
             {/* Icon tile — the StatCard-style treatment this row was missing. No decorative ring
                 behind it and no corner badge on top of it: at this tile's compact size (roughly a
