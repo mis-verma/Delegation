@@ -189,8 +189,9 @@ export const MyScoresCard = () => {
   const setMetric = (next: ScoreMetric) => { setMetricState(next); remember({ metric: next }); };
   // Closed by default, so the card opens on the signed-in person's own scores. Open, it shows the measure tabs
   // and, for Admin, PC and department heads, everyone they may see, with a search box.
-  const [moreOpen, setMoreOpen] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 640px)').matches);
-  const [everOpened, setEverOpened] = useState(moreOpen);
+  // Closed by default at every size, so the card opens on the chart. (A wide card shows the controls as a side panel instead.)
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [everOpened, setEverOpened] = useState(false);
   // When the CARD itself is wide (not the screen: a half-width card on a big screen is still narrow) the controls are
   // a permanent side panel beside the chart. Measured with the same width the CSS container query uses.
   const cardRef = useRef<HTMLElement>(null);
@@ -421,39 +422,39 @@ export const MyScoresCard = () => {
         >
           <div className="min-h-0 overflow-hidden">
             {(everOpened || isWide) && (
-              <div className="flex flex-col gap-2.5 border-t border-border/60 p-2.5 sm:max-w-md @4xl:max-w-none">
+              <div className="flex flex-col gap-2.5 border-t border-border/60 p-2.5">
                 {scopes.length > 1 && (
                   <PeriodTabControl value={scope} options={scopes} labels={SCOPE_LABEL} onChange={(next) => { setScope(next); setPicked(''); }} fill dense />
                 )}
 
-                {showPicker && (
-                  <Combobox
-                    value={effectivePick}
-                    onChange={setPicked}
-                    options={options}
-                    emptyOptionLabel={scope === 'person' ? 'Me' : undefined}
-                    placeholder={PICK_PLACEHOLDER[scope]}
-                    isLoading={scope === 'person' ? people.isPending : scope === 'department' ? departments.isPending : stores.isPending}
-                    className="h-9 w-full pointer-coarse:min-h-9 text-xs sm:h-10 sm:w-72 sm:text-sm sm:pointer-coarse:min-h-11"
-                  />
-                )}
-
-                <PeriodTabControl value={period} options={PERIODS} labels={PERIOD_LABEL} onChange={(next) => { setPeriod(next); setOffset(0); }} fill dense />
-
-                <div className="flex w-full items-center gap-1">
+                {/* The picker and Compare sit on one row. */}
+                <div className="flex items-center gap-2">
+                  {showPicker && (
+                    <Combobox
+                      value={effectivePick}
+                      onChange={setPicked}
+                      options={options}
+                      emptyOptionLabel={scope === 'person' ? 'Me' : undefined}
+                      placeholder={PICK_PLACEHOLDER[scope]}
+                      isLoading={scope === 'person' ? people.isPending : scope === 'department' ? departments.isPending : stores.isPending}
+                      className="h-9 min-w-0 flex-1 pointer-coarse:min-h-9 text-xs sm:text-sm"
+                    />
+                  )}
                   {(activeView === 'bars' || activeView === 'dials') && (
                     <button
                       type="button"
                       onClick={() => setCompare(!compare)}
                       aria-pressed={compare}
                       title="Show the change since the previous period"
-                      className={`mr-1 inline-flex h-9 pointer-coarse:h-11 items-center gap-1 rounded-lg border px-2.5 text-xs font-display font-bold transition-colors ${compare ? 'border-primary-500 bg-primary-500/10 text-primary-700 dark:text-primary-300' : 'border-border text-text-muted hover:border-border-hover hover:text-text'}`}
+                      className={`inline-flex shrink-0 h-9 pointer-coarse:h-11 items-center gap-1 rounded-lg border px-2.5 text-xs font-display font-bold transition-colors ${compare ? 'border-primary-500 bg-primary-500/10 text-primary-700 dark:text-primary-300' : 'border-border text-text-muted hover:border-border-hover hover:text-text'}`}
                     >
                       <ArrowUp className="size-3" aria-hidden="true" /><ArrowDown className="-ml-1.5 size-3" aria-hidden="true" />
                       <span className="hidden min-[420px]:inline">Compare</span>
                     </button>
                   )}
                 </div>
+
+                <PeriodTabControl value={period} options={PERIODS} labels={PERIOD_LABEL} onChange={(next) => { setPeriod(next); setOffset(0); }} fill dense />
 
                 <PeriodTabControl value={metric} options={METRIC_OPTIONS} labels={METRIC_LABEL} onChange={setMetric} fill dense />
 

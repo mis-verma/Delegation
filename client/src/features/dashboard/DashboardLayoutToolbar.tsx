@@ -15,18 +15,22 @@ interface DashboardLayoutToolbarProps {
 // Same bar, same position, so nothing jumps around the moment the mode flips.
 export const DashboardLayoutToolbar = ({ isCustomizing, onStart, onReset, onDone, hiddenCards, onShow }: DashboardLayoutToolbarProps) => {
   if (!isCustomizing) {
+    // Just the icon: it needs no words, and a quiet square takes far less room above the stats than a labelled button.
     return (
-      <div className="flex items-center justify-end gap-3">
-        {hiddenCards.length > 0 && (
-          <span className="text-xs font-display text-text-muted">{hiddenCards.length} hidden</span>
-        )}
+      <div className="flex items-center justify-end">
         <button
           type="button"
           onClick={onStart}
-          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-border bg-surface text-xs font-display font-semibold text-text-secondary hover:bg-surface-hover hover:text-text transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+          aria-label={hiddenCards.length > 0 ? `Customize layout, ${hiddenCards.length} hidden` : 'Customize layout'}
+          title="Customize layout"
+          className="relative inline-flex size-8 items-center justify-center rounded-lg border border-border bg-surface text-text-secondary transition-colors cursor-pointer hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
         >
-          <LayoutGrid size={13} strokeWidth={2.25} />
-          Customize layout
+          <LayoutGrid size={14} strokeWidth={2.25} aria-hidden="true" />
+          {hiddenCards.length > 0 && (
+            <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary-600 px-1 text-xs font-display font-bold leading-none text-white" aria-hidden="true">
+              {hiddenCards.length}
+            </span>
+          )}
         </button>
       </div>
     );
