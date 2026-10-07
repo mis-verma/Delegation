@@ -407,3 +407,13 @@ body {
 @utility gap-inherit {
   gap: inherit;
 }
+
+/* Opening a page from a link that asks for a view transition (a dashboard approval, for one) cross-fades the old
+   page into the new one instead of cutting. Short, and off for anyone who asked for reduced motion. */
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 240ms;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}

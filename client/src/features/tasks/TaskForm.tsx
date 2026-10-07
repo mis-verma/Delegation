@@ -289,8 +289,27 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
               Details
             </span>
             <div className="flex flex-wrap items-center gap-2">
-              {(!ownScopeOnly || !!departmentId) && (
-                <div title="Assignees" className="flex items-center">
+              {/* The flow is department first, then the person: the person list shows only that department's
+                  people, so it stays closed until a department is chosen. */}
+              <div title="Department">
+                <Controller
+                  control={control}
+                  name="departmentId"
+                  render={({ field }) => (
+                    <TaskFormDepartmentField
+                      hideLabel
+                      value={field.value ?? ''}
+                      onChange={field.onChange}
+                      departments={departments}
+                      isLoading={isLoadingDepts}
+                      triggerClassName={`${CHIP_TRIGGER_CLASS} max-w-[13rem]`}
+                    />
+                  )}
+                />
+              </div>
+
+              <div title="Assignees" className="flex items-center">
+                {departmentId ? (
                   <AssigneeField
                     hideLabel
                     selectedIds={assigneeIds}
@@ -298,8 +317,12 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
                     users={assignableUsers}
                     isLoading={isLoadingUsers}
                   />
-                </div>
-              )}
+                ) : (
+                  <span className="inline-flex h-8 items-center rounded-full border border-dashed border-border px-3 text-xs font-display text-text-light">
+                    Pick a department first
+                  </span>
+                )}
+              </div>
 
               <Controller
                 control={control}
@@ -315,23 +338,6 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
                   onChange={setDateRange}
                   placeholder="Add dates"
                   triggerClassName={CHIP_TRIGGER_CLASS}
-                />
-              </div>
-
-              <div title="Department">
-                <Controller
-                  control={control}
-                  name="departmentId"
-                  render={({ field }) => (
-                    <TaskFormDepartmentField
-                      hideLabel
-                      value={field.value ?? ''}
-                      onChange={field.onChange}
-                      departments={departments}
-                      isLoading={isLoadingDepts}
-                      triggerClassName={`${CHIP_TRIGGER_CLASS} max-w-[13rem]`}
-                    />
-                  )}
                 />
               </div>
             </div>

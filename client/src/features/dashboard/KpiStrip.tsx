@@ -126,9 +126,6 @@ const MobileTile = ({ view }: MobileTileProps) => {
 
   const head = (
     <span className="flex items-center gap-2 min-w-0">
-      <span className="flex items-center justify-center size-6 rounded-md bg-white/15 shrink-0">
-        <view.icon size={12} strokeWidth={2.5} aria-hidden="true" />
-      </span>
       <span className="text-xs font-display font-semibold text-white/90">{view.title}</span>
     </span>
   );

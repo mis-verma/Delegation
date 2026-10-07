@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router';
 import { toast } from 'sonner';
-import { ArrowDown, ArrowUp, BarChart3, ChevronLeft, ChevronRight, ClipboardCheck, Gauge, Download, FileSpreadsheet, FileText, ListOrdered, Ticket as TicketIcon, TrendingUp, Users } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChartColumn, ChartLine, ChevronLeft, ChevronRight, CircleGauge, ClipboardCheck, Download, FileSpreadsheet, FileText, Ticket as TicketIcon, Trophy, Users, type LucideIcon } from 'lucide-react';
 import { Button, Combobox, type ComboboxOption } from '../../components';
 import { SemiGauge } from '../../components/semiGauge/SemiGauge';
 import { InfoHint } from '../../components/infoHint/InfoHint';
@@ -23,7 +23,7 @@ import { PERIODS, PERIOD_LABEL, windowFor, type ScorePeriod } from './scorePerio
 const SCOPE_LABEL: Record<ScoreScope, string> = { person: 'Person', department: 'Department', store: 'Store' };
 type ScoreView = 'bars' | 'dials' | 'trend' | 'ranking';
 const VIEW_LABEL: Record<ScoreView, string> = { bars: 'Bars', dials: 'Dials', trend: 'Trend', ranking: 'Ranking' };
-const VIEW_ICON: Record<ScoreView, typeof Gauge> = { bars: BarChart3, dials: Gauge, trend: TrendingUp, ranking: ListOrdered };
+const VIEW_ICON: Record<ScoreView, LucideIcon> = { bars: ChartColumn, dials: CircleGauge, trend: ChartLine, ranking: Trophy };
 
 // What a person last chose is remembered per account, so the card opens the way they left it.
 interface ScorePrefs { view: ScoreView; period: ScorePeriod; compare: boolean; metric: ScoreMetric }
@@ -376,7 +376,7 @@ export const MyScoresCard = () => {
             emptyOptionLabel={scope === 'person' ? 'Me' : undefined}
             placeholder={PICK_PLACEHOLDER[scope]}
             isLoading={scope === 'person' ? people.isPending : scope === 'department' ? departments.isPending : stores.isPending}
-            className="w-full sm:w-72"
+            className="h-9 w-full pointer-coarse:min-h-9 text-xs sm:h-10 sm:w-72 sm:text-sm sm:pointer-coarse:min-h-11"
           />
         )}
 

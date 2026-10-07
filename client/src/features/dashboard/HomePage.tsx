@@ -389,7 +389,7 @@ export const HomePage = () => {
   return (
     // Sections breathe wider than the cards inside them (gap-6/8 out here vs. gap-4/6 within each
     // row), so a row's own siblings group more tightly than the unrelated sections around it.
-    <div className="flex flex-col gap-6 lg:gap-8 w-full">
+    <div className="flex flex-col gap-6 lg:gap-8 w-full max-sm:[--font-display:var(--font-sans)]">
       <h1 className="sr-only">Today, {heading}</h1>
 
       {/* Today, Needs your approval and Key numbers are cards in the grid below now, starting at the

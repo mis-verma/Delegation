@@ -37,7 +37,8 @@ const ApprovalLink = memo(({ row }: { row: ApprovalRow }) => {
   return (
     <Link
       to={row.link}
-      className="group/row flex items-center gap-3 min-h-11 rounded-xl border border-border/60 bg-surface px-3 py-2.5 sm:px-3.5 sm:py-3 transition-colors duration-200 hover:border-primary-500/40 hover:bg-primary-500/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+      viewTransition
+      className="group/row flex items-center gap-3 min-h-11 rounded-xl border border-border/60 bg-surface px-3 py-2.5 sm:px-3.5 sm:py-3 transition-[color,background-color,border-color,transform] duration-200 active:scale-[0.985] motion-reduce:transition-none hover:border-primary-500/40 hover:bg-primary-500/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
     >
       <div className={`flex items-center justify-center size-8 sm:size-9 rounded-lg shrink-0 text-white ${ACTIVITY_CATEGORY_DOT_CLASS[row.category]}`}>
         <Icon size={15} strokeWidth={2.25} />
