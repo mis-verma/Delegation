@@ -66,7 +66,7 @@ export const TicketStatusHistory = ({ statusUpdates, onPreview, closure }: Ticke
                 >
                   <Icon size={13} strokeWidth={2.5} />
                 </span>
-                {!isLast && <span className="w-0.5 flex-1 min-h-5 my-1 rounded-full bg-border" />}
+                {!isLast && <span className="w-0.5 flex-1 min-h-5 my-1 rounded-full bg-primary-500/40" />}
               </div>
 
               <div className={`flex-1 min-w-0 ${isLast ? '' : 'pb-4'}`}>

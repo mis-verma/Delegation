@@ -1,4 +1,4 @@
-import { memo, useId, useMemo } from 'react';
+import { memo, useId, useMemo, type ReactElement } from 'react';
 import { Bar, BarChart, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import { useIsMobile } from '../../lib/useMediaQuery';
@@ -110,6 +110,17 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
   const gradientId = useId().replace(/:/g, '');
   const rows = useMemo(() => (scores ? rowsFor(scores) : []), [scores]);
   const series = seriesFor(metric);
+  // A module with nothing due is drawn as zero so its empty lane still shows in the row; its number is not printed.
+  const chartRows = useMemo(() => rows.map((r) => (r.hasData ? r : { ...r, completion: 0, compliance: 0, ontime: 0 })), [rows]);
+  const renderLabel = (props: { x?: number | string; y?: number | string; width?: number | string; value?: unknown; index?: number }): ReactElement | null => {
+    const row = chartRows[props.index ?? -1];
+    if (!row?.hasData || typeof props.value !== 'number') return null;
+    return (
+      <text x={Number(props.x) + Number(props.width) / 2} y={Number(props.y) - 6} textAnchor="middle" fontSize={12} fontWeight={700} fill="var(--color-text)">
+        {props.value}%
+      </text>
+    );
+  };
   // One bar per module is allowed to be wider than a pair.
   const barSize = series.length === 1 ? (isMobile ? 56 : 72) : isMobile ? 40 : 52;
 
@@ -134,7 +145,7 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={rows} accessibilityLayer={false} margin={{ top: 22, right: 4, left: isMobile ? 0 : 4, bottom: 0 }} barCategoryGap={isMobile ? '10%' : '24%'} barGap={6}>
+            <BarChart data={chartRows} accessibilityLayer={false} margin={{ top: 22, right: 4, left: isMobile ? 0 : 4, bottom: 0 }} barCategoryGap={isMobile ? '10%' : '24%'} barGap={6}>
               <defs>
                 {series.map((k) => (
                   <linearGradient key={k} id={`${gradientId}-${k}`} x1="0" y1="0" x2="0" y2="1">
@@ -160,7 +171,7 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
                   animationDuration={500}
                   onClick={(d: { payload?: Row }) => { if (d.payload) onOpenModule?.(d.payload.key); }}
                 >
-                  <LabelList dataKey={k} position="top" offset={6} fontSize={12} fontWeight={700} fill="var(--color-text)" formatter={(v: unknown) => (typeof v === 'number' ? `${v}%` : '')} />
+                  <LabelList dataKey={k} position="top" offset={6} content={renderLabel} />
                 </Bar>
               ))}
             </BarChart>

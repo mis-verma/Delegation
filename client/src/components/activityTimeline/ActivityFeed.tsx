@@ -234,7 +234,7 @@ export const ActivityFeed = ({ entityType, entityId }: { entityType: ActivityEnt
                   </span>
                   <span className="h-px flex-1 bg-border/70" aria-hidden />
                 </div>
-                <ol className="relative flex flex-col gap-1 pl-11 before:absolute before:bottom-5 before:left-4 before:top-5 before:w-px before:bg-border/80">
+                <ol className="relative flex flex-col gap-1 pl-11 before:absolute before:bottom-5 before:left-[15px] before:top-5 before:w-0.5 before:rounded-full before:bg-primary-500/40">
                   {group.events.map((e) => <Row key={e.id} e={e} thing={thing} />)}
                 </ol>
               </div>

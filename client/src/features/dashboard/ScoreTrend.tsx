@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactElement } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Bar, BarChart, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { cn } from '@/lib/utils';
@@ -74,6 +74,17 @@ export const ScoreTrend = ({ metric = 'overview', scope, id, period, from, to }:
     staleTime: 60_000,
   });
   const points = useMemo(() => data?.buckets.map((b) => pointOf(b, module)) ?? [], [data, module]);
+  // A slice with nothing due is drawn as zero so its empty lane still shows; its number is not printed.
+  const chartPoints = useMemo(() => points.map((p) => (p.due > 0 ? p : { ...p, completion: 0, compliance: 0, ontime: 0 })), [points]);
+  const renderLabel = (props: { x?: number | string; y?: number | string; width?: number | string; value?: unknown; index?: number }): ReactElement | null => {
+    const point = chartPoints[props.index ?? -1];
+    if (!point || point.due === 0 || typeof props.value !== 'number') return null;
+    return (
+      <text x={Number(props.x) + Number(props.width) / 2} y={Number(props.y) - 5} textAnchor="middle" fontSize={12} fontWeight={700} fill="var(--color-text)">
+        {props.value}
+      </text>
+    );
+  };
   const anyData = points.some((p) => p.due > 0);
 
   return (
@@ -117,13 +128,13 @@ export const ScoreTrend = ({ metric = 'overview', scope, id, period, from, to }:
           <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-border text-sm font-medium text-text-muted">Nothing was due in this window.</div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={points} accessibilityLayer={false} margin={{ top: 22, right: 4, left: isMobile ? 0 : 4, bottom: 0 }} barCategoryGap={isMobile ? '12%' : '24%'} barGap={3}>
+            <BarChart data={chartPoints} accessibilityLayer={false} margin={{ top: 22, right: 4, left: isMobile ? 0 : 4, bottom: 0 }} barCategoryGap={isMobile ? '12%' : '24%'} barGap={3}>
               <XAxis dataKey="label" interval={0} tickLine={false} axisLine={false} dy={8} tick={{ fill: 'var(--color-text-secondary)', fontSize: 12, fontWeight: 600 }} />
               <YAxis domain={[0, 100]} hide={isMobile} ticks={[0, 25, 50, 75, 100]} tickFormatter={(v: number) => `${v}%`} tickLine={false} axisLine={false} width={44} tick={{ fill: 'var(--color-text-muted)', fontSize: 12, fontWeight: 600 }} />
               <Tooltip content={<TrendTooltip series={series} />} cursor={false} isAnimationActive={false} />
               {series.map((k) => (
                 <Bar key={k} dataKey={k} fill={SERIES_COLOR[k]} radius={[6, 6, 0, 0]} maxBarSize={series.length === 1 ? (isMobile ? 28 : 44) : isMobile ? 20 : 30} background={{ fill: TRACK_FILL, radius: 6 }} animationDuration={500}>
-                  {points.length <= 7 && (series.length === 1 || !isMobile) && <LabelList dataKey={k} position="top" offset={5} fontSize={12} fontWeight={700} fill="var(--color-text)" formatter={(v: unknown) => (typeof v === 'number' ? `${v}` : '')} />}
+                  {points.length <= 7 && (series.length === 1 || !isMobile) && <LabelList dataKey={k} position="top" content={renderLabel} />}
                 </Bar>
               ))}
             </BarChart>
