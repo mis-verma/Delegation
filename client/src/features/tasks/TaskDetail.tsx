@@ -404,8 +404,8 @@ const TaskEditLayout = ({
       {/* Title with its own label, like Description and Progress below it. The delete button
           sits on the label row now, so the title itself gets the sheet's full width to wrap in. */}
       <div className="flex flex-col gap-1.5">
-        <div className="flex items-center justify-between gap-3 min-h-8">
-          <span className="text-xs font-display font-medium text-text-muted">Title</span>
+        <div className="flex items-start justify-between gap-3">
+          <TitleEditor value={task.title} isViewMode disabled onSave={onSaveTitle} />
           {isVerifier && (
             <button
               type="button"
@@ -419,7 +419,6 @@ const TaskEditLayout = ({
             </button>
           )}
         </div>
-        <TitleEditor value={task.title} isViewMode disabled onSave={onSaveTitle} />
         <p className="text-xs font-display font-medium text-text-muted">
           {raisedBy ? `Raised by ${raisedBy} \u00b7 ` : ''}Created {formatStepDate(new Date(task.createdAt))}, {formatStepTime(new Date(task.createdAt))}
         </p>
@@ -522,10 +521,7 @@ const TaskEditLayout = ({
         headingClassName={DETAIL_HEADING_CLASS}
       />
 
-      <hr className="border-border/60" />
-
       <div className="flex flex-col gap-2">
-        <h3 className="text-xs font-display font-medium text-text-muted">Description</h3>
         {/* No attachments grid here any more (removed by request, same call as the comment feed
             below) — files can still be attached when a delegation is first created (TaskForm's
             own AttachFilesToolbar), that flow is untouched. This sheet's own upload button had
@@ -537,8 +533,6 @@ const TaskEditLayout = ({
           onSave={onSaveDescription}
         />
       </div>
-
-      <hr className="border-border/60" />
 
       {/* The old Activity feed (a comment box + comment/status history, visible to anyone) used to
           sit below this. It's gone by request: the only place to write anything about a delegation
@@ -555,7 +549,6 @@ const TaskEditLayout = ({
 
       {/* Everyone who works on the delegation sees the plain history (the server decides who); Admin and
           PC also get the field-by-field change log, folded away underneath. */}
-      <hr className="border-border/60" />
       <ActivityFeed entityType="Task" entityId={task.id} />
       <FullChangeLog entityType="Task" entityId={task.id} />
     </div>
