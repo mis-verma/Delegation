@@ -267,7 +267,7 @@ export function QuickFilterStats<K extends string>({
               // Was `focus:ring-primary-50/50` — #f0f4f8 at half opacity, i.e. an invisible focus
               // ring on a white surface, on the primary filter control of five different pages.
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
-              isActive ? "border-primary-500/40 bg-primary-500/5" : "border-border hover:border-border-hover"
+              isActive ? "border-primary-500 bg-primary-500/10 ring-1 ring-primary-500/30" : "border-border hover:border-border-hover"
             )}
           >
             <div className="min-w-0 flex-1">

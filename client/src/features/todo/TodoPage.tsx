@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { Plus, Flag, ArrowUpDown } from 'lucide-react';
-import { Button, Fab } from '../../components';
+import { Plus, Flag, ArrowUpDown, X } from 'lucide-react';
+import { Fab } from '../../components';
 import { CreatedRangeBanner, CreatedRangePicker } from '../../components/createdRangeBanner';
-import { useCreatedRange } from '../../lib/createdRange';
+import { useCreatedRange, useDueRange } from '../../lib/createdRange';
 import {
   OptionsSheet, OptionSection, OptionSegmented, ChoiceChip, ChoiceIcon, ChoiceWrap, ChoiceClear,
 } from '../../components/optionsSheet';
@@ -15,7 +15,7 @@ import { TODO_QUICK_FILTER_PREDICATES } from './todoQuickFilters';
 import { CreateTodoModal } from './CreateTodoModal';
 import { useTodosQuery } from './hook';
 import { readQuickFilterParam } from '../../lib/readQuickFilterParam';
-import type { TodoPriority } from '../../api/todos';
+import type { Todo, TodoPriority } from '../../api/todos';
 
 const QUICK_FILTER_VALUES = ['pending', 'completed', 'due', 'delayed'] as const;
 const PRIORITIES: TodoPriority[] = ['high', 'medium', 'low'];
@@ -36,10 +36,13 @@ export const TodoPage = () => {
   const { data: allTodos = [], isPending } = useTodosQuery();
   // Opened from a chart bar: only to-dos created inside that bar's period (see lib/createdRange).
   const createdRange = useCreatedRange();
-  const todos = useMemo(
-    () => (createdRange.range ? allTodos.filter((t) => createdRange.matches(t.createdAt)) : allTodos),
-    [allTodos, createdRange],
+  // The due-date filter from the calendar icon: only to-dos due inside it. A to-do with no due date is not in any range.
+  const dueRange = useDueRange();
+  const rangeFilter = useMemo(
+    () => (t: Todo) => (createdRange.range ? createdRange.matches(t.createdAt) : true) && (dueRange.range ? !!t.dueDate && dueRange.matches(t.dueDate) : true),
+    [createdRange, dueRange],
   );
+  const todos = useMemo(() => allTodos.filter(rangeFilter), [allTodos, rangeFilter]);
 
   // `/todo?create=1` (the sidebar's "+") opens the form once, then drops the param.
   useEffect(() => {
@@ -127,16 +130,36 @@ export const TodoPage = () => {
             </OptionSection>
           </OptionsSheet>
 
-          <CreatedRangePicker createdRange={createdRange} className="shrink-0" />
+          <CreatedRangePicker createdRange={dueRange} label="Due date" className="shrink-0" />
 
-          <Button size="sm" variant="primary" className="hidden md:inline-flex gap-1.5 rounded-full font-display" onClick={() => setShowForm(true)}>
-            <Plus size={15} strokeWidth={2.5} />
-            New to-do
-          </Button>
+          <button
+            type="button"
+            onClick={() => setShowForm(true)}
+            className="hidden md:inline-flex group inline-flex items-center h-9 rounded-full bg-primary-800 hover:bg-primary-900 dark:bg-primary-600 dark:hover:bg-primary-500 text-white text-sm font-display font-semibold tracking-tight ring-1 ring-inset ring-white/10 transition-all duration-200 ease-in-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-surface active:scale-[0.98] data-[state=open]:bg-primary-900 dark:data-[state=open]:bg-primary-500"
+          >
+            <span className="flex items-center gap-2 pl-3.5 pr-4">
+              <span className="flex items-center justify-center size-5 rounded-full bg-white/15">
+                <Plus size={13} strokeWidth={3} className="transition-transform duration-300 group-hover:rotate-90" />
+              </span>
+              New To-do
+            </span>
+          </button>
         </div>
       </div>
 
-      <TodoList quickFilter={quickFilter} priority={priority} sort={sort} onClearFilters={clearFilters} />
+      {dueRange.range && (
+        <button
+          type="button"
+          onClick={dueRange.clear}
+          className="inline-flex w-fit items-center gap-1.5 rounded-full border border-primary-500/30 bg-primary-500/10 py-1 pl-3 pr-2 text-xs font-display font-semibold text-primary-700 transition-colors hover:bg-primary-500/15 dark:text-primary-300"
+          aria-label={`Clear the due date filter: ${dueRange.range.label}`}
+        >
+          Due {dueRange.range.label}
+          <X size={13} aria-hidden="true" />
+        </button>
+      )}
+
+      <TodoList quickFilter={quickFilter} priority={priority} sort={sort} onClearFilters={clearFilters} rangeFilter={rangeFilter} />
 
       <CreateTodoModal open={showForm} onClose={() => setShowForm(false)} />
     </div>

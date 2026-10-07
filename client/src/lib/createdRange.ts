@@ -25,10 +25,10 @@ export interface CreatedRange {
  * case it is ignored rather than showing an empty list). `matches` is the list filter, `clear` drops
  * the two params and keeps every other one.
  */
-export const useCreatedRange = () => {
+const useUrlDateRange = (fromParam: string, toParam: string) => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const rawFrom = searchParams.get(CREATED_FROM_PARAM);
-  const rawTo = searchParams.get(CREATED_TO_PARAM);
+  const rawFrom = searchParams.get(fromParam);
+  const rawTo = searchParams.get(toParam);
 
   const range = useMemo<CreatedRange | null>(() => {
     if (!rawFrom || !rawTo) return null;
@@ -57,27 +57,33 @@ export const useCreatedRange = () => {
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);
-          next.set(CREATED_FROM_PARAM, start.toISOString());
-          next.set(CREATED_TO_PARAM, end.toISOString());
+          next.set(fromParam, start.toISOString());
+          next.set(toParam, end.toISOString());
           return next;
         },
         { replace: true },
       );
     },
-    [setSearchParams],
+    [setSearchParams, fromParam, toParam],
   );
 
   const clear = useCallback(() => {
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
-        next.delete(CREATED_FROM_PARAM);
-        next.delete(CREATED_TO_PARAM);
+        next.delete(fromParam);
+        next.delete(toParam);
         return next;
       },
       { replace: true },
     );
-  }, [setSearchParams]);
+  }, [setSearchParams, fromParam, toParam]);
 
   return { range, matches, set, clear };
 };
+
+/** The created-between filter, from `?createdFrom=&createdTo=`. */
+export const useCreatedRange = () => useUrlDateRange(CREATED_FROM_PARAM, CREATED_TO_PARAM);
+
+/** The due-between filter (To-Do), from `?dueFrom=&dueTo=`: the same shape, a different pair of params. */
+export const useDueRange = () => useUrlDateRange('dueFrom', 'dueTo');

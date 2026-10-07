@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { Plus, ChevronDown, Upload, AlertCircle, Inbox, LayoutList, Kanban, Table2, GanttChartSquare } from 'lucide-react';
-import { Button, PageNav, Fab, ViewToggle, EmptyState, type ViewTab } from '../../components';
+import { PageNav, Fab, ViewToggle, EmptyState, type ViewTab } from '../../components';
 import { CreatedRangeBanner, CreatedRangePicker } from '../../components/createdRangeBanner';
 import { useCreatedRange } from '../../lib/createdRange';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
@@ -178,11 +178,20 @@ export const TicketList = () => {
             <div className="hidden md:block">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="primary" size="sm" className="group gap-2 rounded-full">
-                    <Plus size={16} strokeWidth={2.5} className="transition-transform duration-300 group-hover:rotate-90" />
-                    <span>Create Ticket</span>
-                    <ChevronDown size={14} className="opacity-70" />
-                  </Button>
+                  <button
+                    type="button"
+                    className="group inline-flex items-center h-9 rounded-full bg-primary-800 hover:bg-primary-900 dark:bg-primary-600 dark:hover:bg-primary-500 text-white text-sm font-display font-semibold tracking-tight ring-1 ring-inset ring-white/10 transition-all duration-200 ease-in-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-surface active:scale-[0.98] data-[state=open]:bg-primary-900 dark:data-[state=open]:bg-primary-500"
+                  >
+                    <span className="flex items-center gap-2 pl-3.5 pr-3">
+                      <span className="flex items-center justify-center size-5 rounded-full bg-white/15">
+                        <Plus size={13} strokeWidth={3} className="transition-transform duration-300 group-hover:rotate-90" />
+                      </span>
+                      New Ticket
+                    </span>
+                    <span className="flex items-center self-stretch pl-2 pr-3 border-l border-white/15">
+                      <ChevronDown size={14} strokeWidth={2.5} className="opacity-80 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                    </span>
+                  </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56 rounded-xl">
                   <DropdownMenuItem onClick={() => setShowForm(true)} className="gap-2.5 py-2 cursor-pointer">

@@ -15,6 +15,8 @@ import type { Todo, TodoPriority } from '../../api/todos';
 interface TodoListProps {
   quickFilter?: TodoQuickFilterKey | null;
   priority?: TodoPriorityFilter;
+  /** An extra filter applied first, for example a created or due date range. */
+  rangeFilter?: (todo: Todo) => boolean;
   /** Omit to keep the server's own order — the drawer renders this list with no props. */
   sort?: TodoSortKey;
   /** Offered on the "nothing matched" empty state when filters are the reason it's empty. */
@@ -35,13 +37,14 @@ const dueText = (iso: string) => {
   return `${relativeDayLabel(d)}, ${time}`;
 };
 
-export const TodoList = ({ quickFilter = null, priority = 'all', sort, onClearFilters }: TodoListProps) => {
+export const TodoList = ({ quickFilter = null, priority = 'all', sort, onClearFilters, rangeFilter }: TodoListProps) => {
   const { data: allTodos = [], isPending, isError } = useTodosQuery();
   const updateMut = useUpdateTodoMutation();
   const deleteMut = useDeleteTodoMutation();
   const [editing, setEditing] = useState<Todo | null>(null);
 
-  const quickFiltered = quickFilter ? allTodos.filter(TODO_QUICK_FILTER_PREDICATES[quickFilter]) : allTodos;
+  const inRange = rangeFilter ? allTodos.filter(rangeFilter) : allTodos;
+  const quickFiltered = quickFilter ? inRange.filter(TODO_QUICK_FILTER_PREDICATES[quickFilter]) : inRange;
   const priorityFiltered = priority === 'all' ? quickFiltered : quickFiltered.filter((t) => t.priority === priority);
   const todos = sort ? sortTodos(priorityFiltered, sort) : priorityFiltered;
 

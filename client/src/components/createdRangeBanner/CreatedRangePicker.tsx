@@ -9,6 +9,8 @@ type CreatedRangeState = ReturnType<typeof useCreatedRange>;
 interface CreatedRangePickerProps {
   createdRange: CreatedRangeState;
   className?: string;
+  /** What the date is called, for the tooltip and screen readers: "Created on" by default, "Due date" on To-Do. */
+  label?: string;
 }
 
 const WEEKDAYS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
@@ -32,7 +34,7 @@ const monthGrid = (month: Date) => {
  * Yesterday, Last 7 days, This month. The list narrows to items created in it, and the banner above the
  * page says so. It is the same filter a chart bar links to, so the two always agree.
  */
-export const CreatedRangePicker = ({ createdRange, className }: CreatedRangePickerProps) => {
+export const CreatedRangePicker = ({ createdRange, className, label: emptyLabel = 'Created on' }: CreatedRangePickerProps) => {
   const { range, set, clear } = createdRange;
   const [today] = useState(() => dayOf(new Date()));
   const [open, setOpen] = useState(false);
@@ -100,7 +102,7 @@ export const CreatedRangePicker = ({ createdRange, className }: CreatedRangePick
     ? sameDay(applied.from, applied.to)
       ? SHORT_DAY.format(applied.from)
       : `${SHORT_DAY.format(applied.from)} to ${SHORT_DAY.format(applied.to)}`
-    : 'Created on';
+    : emptyLabel;
 
   return (
     <Popover open={open} onOpenChange={onOpenChange}>

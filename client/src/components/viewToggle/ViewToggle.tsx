@@ -80,11 +80,11 @@ export function ViewToggle<V extends string>({ tabs, value, onChange }: ViewTogg
           } ${
             value === tab.key
               // Border + surface fill, readable in both themes; no box-shadow (app uses borders).
-              ? 'bg-surface text-text border border-border dark:border-white/[0.1]'
+              ? 'bg-primary-600 text-white border border-transparent dark:bg-primary-500'
               : 'text-text-muted border border-transparent hover:text-text'
           }`}
         >
-          <tab.icon size={14} strokeWidth={2.25} className={value === tab.key ? 'text-primary-600 dark:text-primary-300' : undefined} />
+          <tab.icon size={14} strokeWidth={2.25} className={value === tab.key ? 'text-white' : undefined} />
           <span className="hidden md:inline">{tab.label}</span>
         </button>
       ))}
