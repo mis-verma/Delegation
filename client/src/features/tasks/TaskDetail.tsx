@@ -518,6 +518,7 @@ const TaskEditLayout = ({
         onSave={(tagIds) => onUpdate({ tagIds })}
         canCreate={isVerifier}
         readOnly
+        hideHeading
         headingClassName={DETAIL_HEADING_CLASS}
       />
 
@@ -625,9 +626,7 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
       onClose={onClose}
       size="xl"
       icon={<CheckSquare className="w-5 h-5 text-primary-600" />}
-      title="Delegation details"
-      // Desktop-only: on a phone this line cost header height and said nothing the title doesn't.
-      
+      title="Delegation details"      
       bodyClassName="p-0 overflow-hidden rounded-b-xl"
       footer={
         <TaskFooter

@@ -6,7 +6,7 @@ import { getTicketStatusLabel } from '../../lib/ticketStatusLabel';
 import { getInitials } from '../../lib/getInitials';
 import { avatarColorClass } from '../../lib/avatarColors';
 import { useAuth } from '../../context/AuthContext';
-import { PRIORITY_CONFIG, formatDueLabel, ticketCode } from './ticketDisplay';
+import { PRIORITY_CONFIG, formatDueLabel } from './ticketDisplay';
 import { StatusChip, getStatusChipLabel, type StatusChipStatus } from '../../components/statusChip';
 import { PriorityChip } from '../../components/priorityChip';
 import { DepartmentChip } from '../../components/departmentChip';
@@ -56,12 +56,12 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
     <button
       type="button"
       onClick={() => onClick(ticket)}
-      className="group w-full h-full text-left flex flex-col gap-2 sm:gap-2.5 p-3 sm:p-3.5 rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface hover:border-primary-500/50 active:bg-surface-hover/50 transition-all duration-200 ease-in-out cursor-pointer outline-none focus-visible:border-primary-500/50 focus-visible:ring-2 focus-visible:ring-primary-500/30 [-webkit-tap-highlight-color:transparent]"
+      className="group w-full h-full text-left flex flex-col gap-2 sm:gap-2.5 p-3 sm:p-3.5 rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface hover:border-primary-500/50 active:bg-surface-hover/50 transition-all duration-200 ease-in-out cursor-pointer select-none outline-none focus-visible:border-primary-500/50 focus-visible:ring-2 focus-visible:ring-primary-500/30 [-webkit-tap-highlight-color:transparent]"
     >
       <div className="flex flex-col gap-1 min-w-0 w-full">
         <div className="flex items-start gap-2 min-w-0">
           {/* leading-5 matches the old phone avatar height so the first line and the avatar centre-align. */}
-          <h3 className="flex-1 min-w-0 text-[15px] font-display font-semibold text-text tracking-tight leading-5 sm:leading-6 line-clamp-2 break-words">
+          <h3 className="flex-1 min-w-0 cursor-pointer text-[15px] font-display font-semibold text-text tracking-tight leading-5 sm:leading-6 line-clamp-2 break-words">
             {ticket.title}
           </h3>
           {!hideAssignee && (assigneeName ? (
@@ -77,29 +77,30 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
             </span>
           ))}
         </div>
-        {/* One line, never wraps: the department is the only part that truncates. */}
-        <div className="flex items-center gap-x-1.5 min-w-0 whitespace-nowrap text-xs leading-4 font-medium text-text-muted">
-          <span className="font-mono tracking-tight shrink-0">{ticketCode(ticket.id)}</span>
-          {/* "Delayed" in words only where there is no red due chip saying it already. */}
-          {isOverdue && !due && (
-            <>
-              <span aria-hidden>·</span>
-              <span className="font-semibold text-danger shrink-0">Delayed</span>
-            </>
-          )}
-          {progress !== null && (
-            <>
-              <span aria-hidden>·</span>
-              <span className="tabular-nums shrink-0">Checklist {doneItems}/{totalItems}</span>
-            </>
-          )}
-          {departmentName && (
-            <>
-              <span aria-hidden className={isBoard ? undefined : 'sm:hidden'}>·</span>
-              <span className={`min-w-0 truncate ${isBoard ? '' : 'sm:hidden'}`}>{departmentName}</span>
-            </>
-          )}
-        </div>
+        {/* What the ticket is about, in place of the ticket code: two lines at most. */}
+        {ticket.description?.trim() && (
+          <p className="text-sm text-text-secondary leading-snug line-clamp-2 break-words">{ticket.description.trim()}</p>
+        )}
+        {/* One line, never wraps: the department is the only part that truncates. Only drawn when
+            there is something to say. */}
+        {((isOverdue && !due) || progress !== null || (departmentName && (isBoard ? false : true))) && (
+          <div className="flex items-center gap-x-1.5 min-w-0 whitespace-nowrap text-xs leading-4 font-medium text-text-muted">
+            {/* "Delayed" in words only where there is no red due chip saying it already. */}
+            {isOverdue && !due && <span className="font-semibold text-danger shrink-0">Delayed</span>}
+            {progress !== null && (
+              <>
+                {isOverdue && !due && <span aria-hidden>·</span>}
+                <span className="tabular-nums shrink-0">Checklist {doneItems}/{totalItems}</span>
+              </>
+            )}
+            {departmentName && (
+              <>
+                {((isOverdue && !due) || progress !== null) && <span aria-hidden className="sm:hidden">·</span>}
+                <span className="min-w-0 truncate sm:hidden">{departmentName}</span>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-x-1.5 gap-y-1.5 flex-wrap mt-auto w-full">

@@ -113,7 +113,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
       }}
       role="button"
       tabIndex={0}
-      className={`group relative flex flex-col gap-2 p-3.5 rounded-lg border border-border bg-surface hover:border-primary-500/40 transition-colors duration-200 cursor-pointer select-none outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 overflow-hidden ${priorityRail ? 'pl-4' : ''}`}
+      className={`group relative flex flex-col gap-2 p-3.5 rounded-lg border border-border bg-surface hover:border-primary-500/40 transition-colors duration-200 cursor-pointer select-none active:bg-surface-hover/50 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 overflow-hidden [-webkit-tap-highlight-color:transparent] ${priorityRail ? 'pl-4' : ''}`}
     >
       {/* Absolutely positioned so it hugs the rounded edge without becoming a flex child that
           every other row in the card has to lay out around. aria-hidden because the priority is
@@ -136,7 +136,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
           ~250px column's title down to "Security camera offlin…"; they're a small floating
           toolbar now, shown on hover or keyboard focus (always on touch, where there's no hover). */}
       <div className="flex items-start gap-2">
-        <h4 className={`flex-1 min-w-0 text-sm font-display font-semibold text-text tracking-tight leading-snug line-clamp-2 break-words ${onMove || isVerifier ? 'pr-9' : ''}`}>
+        <h4 className={`flex-1 min-w-0 cursor-pointer text-sm font-display font-semibold text-text tracking-tight leading-snug line-clamp-2 break-words ${onMove || isVerifier ? 'pr-9' : ''}`}>
           {task.title}
         </h4>
         <TaskSourceBadge aiMeta={task.aiMeta} />
@@ -227,7 +227,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
       )}
 
       {task.description && (
-        <p className="text-xs text-text-secondary leading-snug line-clamp-2">
+        <p className="cursor-pointer text-xs text-text-secondary leading-snug line-clamp-2">
           {task.description}
         </p>
       )}

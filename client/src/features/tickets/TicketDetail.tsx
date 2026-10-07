@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ShieldCheck, SlidersHorizontal, CalendarDays, User, Store as StoreIcon, Layers, ChevronDown, AlertTriangle } from 'lucide-react';
+import { ShieldCheck, CalendarDays, User, Store as StoreIcon, Layers, ChevronDown, AlertTriangle } from 'lucide-react';
 import {
   useStoresQuery,
   useTicketQuery,
@@ -186,10 +186,6 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
               {/* Phone and tablet: every property is a chip in one wrapping row. lg: the same
                   elements become labelled rows (see TicketPropertyRow). */}
               <section className="flex flex-col gap-2 lg:gap-3">
-                <h3 className={DETAIL_HEADING_CLASS}>
-                  <SlidersHorizontal size={14} className="text-text-light" />
-                  Details
-                </h3>
                 <dl className="flex flex-wrap items-center gap-2 lg:flex-col lg:items-stretch lg:gap-0 lg:divide-y lg:divide-border/50">
                   {/* The sticky header already carries the status chip on every size, so the chip
                       row skips it; the rail repeats it with the other properties. */}
@@ -295,6 +291,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                   onSave={(tagIds) => labelsMut.mutate({ id: ticket.id, payload: { tagIds } })}
                   canCreate={isVerifier}
                   readOnly
+                  hideHeading
                   headingClassName={DETAIL_HEADING_CLASS}
                 />
               </div>

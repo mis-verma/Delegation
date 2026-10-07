@@ -38,7 +38,6 @@ export const TicketDescription = ({ description }: TicketDescriptionProps) => {
 
   return (
     <section className="flex flex-col gap-1">
-      <h3 className="text-xs font-display font-medium text-text-muted">Description</h3>
       {trimmedText ? (
         <div className="flex flex-col gap-1">
           {/* 72ch keeps a line readable once the left column is wider than a phone. */}

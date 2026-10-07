@@ -47,7 +47,7 @@ export const TicketDetailHeader = ({ ticket, statusLabel, onDelete, isDeleting =
   };
 
   return (
-    <SheetHeader className="gap-1.5 pl-4 pr-2 pt-2 pb-3 sm:pl-6 sm:pr-4 sm:pt-3 sm:pb-4 lg:pl-8 lg:pr-6 text-left">
+    <SheetHeader className="gap-1.5 border-b-0 pl-4 pr-2 pt-2 pb-1 sm:pl-6 sm:pr-4 sm:pt-3 sm:pb-4 lg:pl-8 lg:pr-6 text-left">
       <div className="flex items-center gap-2">
         <div className="flex flex-1 min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
           {/* after: widens the tap area to 44px high without making the pill itself chunky. */}
