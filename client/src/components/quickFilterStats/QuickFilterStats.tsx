@@ -178,7 +178,7 @@ export function QuickFilterStats<K extends string>({
 
       <div className={cn(gridClass(shownTiles.length), 'hidden sm:grid')}>
       {shownTiles.map((tile, index) => {
-        const { key, label, icon: Icon, bgTint, accentBar, accentBorder, ring, iconTint } = tile;
+        const { key, label, icon: Icon } = tile;
         const isTotalTile = hasTotal && key === 'all';
         // The Total tile is the resting state, so it reads as selected exactly when no bucket is.
         const isActive = isTotalTile ? active === null : active === key;
@@ -267,19 +267,9 @@ export function QuickFilterStats<K extends string>({
               // Was `focus:ring-primary-50/50` — #f0f4f8 at half opacity, i.e. an invisible focus
               // ring on a white surface, on the primary filter control of five different pages.
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
-              isActive ? `${accentBorder} ${bgTint}` : "border-border hover:border-border-hover"
+              isActive ? "border-primary-500/40 bg-primary-500/5" : "border-border hover:border-border-hover"
             )}
           >
-            {/* Left accent bar */}
-            <span
-              aria-hidden="true"
-              className={cn(
-                "absolute inset-y-0 left-0 w-1.5 transition-opacity duration-300 rounded-l-lg",
-                accentBar,
-                isActive ? "opacity-100" : "opacity-0 group-hover:opacity-40"
-              )}
-            />
-
             <div className="min-w-0 flex-1">
               <p className={cn("text-2xl font-bold tracking-tight leading-none tabular-nums transition-colors", isActive ? "text-text" : "text-text-secondary group-hover:text-text")}>
                 {typeof count === 'number' ? <CountUp value={count} /> : count}
@@ -300,8 +290,8 @@ export function QuickFilterStats<K extends string>({
                 circle wrapped around the icon rather than a subtle flourish, and a badge stacked
                 on top of that made it worse. The border/fill/left-bar changes above already say
                 "selected" on their own. */}
-            <div className={cn("flex items-center justify-center size-10 lg:size-8 xl:size-10 rounded-xl border transition-all duration-300 shrink-0 group-hover:scale-105", bgTint, ring)}>
-              <Icon size={18} strokeWidth={2.5} className={cn("size-[18px] lg:size-4 xl:size-[18px]", iconTint)} />
+            <div className={cn("flex items-center justify-center size-10 lg:size-8 xl:size-10 rounded-xl border transition-colors duration-200 shrink-0", isActive ? "border-primary-500/30 bg-primary-500/10" : "border-border/60 bg-surface-hover/60")}>
+              <Icon size={18} strokeWidth={2.25} className={cn("size-[18px] lg:size-4 xl:size-[18px]", isActive ? "text-primary-600 dark:text-primary-400" : "text-text-muted")} />
             </div>
           </button>
         );

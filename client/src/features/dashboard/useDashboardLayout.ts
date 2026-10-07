@@ -121,8 +121,8 @@ export const useDashboardLayout = (isOrgWideRole: boolean, isFrontLine = false) 
     const saved = { ...stored?.sizes };
     // Version 4 made the Scores card half width by default: a width saved before that was only the old default.
     if (stored && stored.version < 4) delete saved.myScores;
-    // Version 5 made Key numbers half width by default, to sit beside the Scores card.
-    if (stored && stored.version < 5) delete saved.kpiStrip;
+    // Version 6 put Key numbers back to full width (version 5 had made it half width).
+    if (stored && stored.version < 6) delete saved.kpiStrip;
     return { ...DEFAULT_CARD_SIZES, ...saved };
   });
   const [hidden, setHidden] = useState<DashboardCardId[]>(() => loadStoredLayout(storageKey)?.hidden ?? []);

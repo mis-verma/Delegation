@@ -20,7 +20,7 @@ export type DashboardCardSize = 'small' | 'big';
 /** Bump whenever DEFAULT_CARD_ORDER changes. A saved layout from an older version is migrated in
  *  useDashboardLayout: if it was just the old default, it moves to the new default; if the user had
  *  rearranged it, their order is kept. */
-export const LAYOUT_VERSION = 5;
+export const LAYOUT_VERSION = 6;
 
 /** Cards added in version 3. A saved older layout gets these put at the FRONT (where they used to be
  *  pinned), not appended at the end like other new cards, so nobody's approvals block vanishes to
@@ -85,7 +85,7 @@ export const DEFAULT_CARD_SIZES: Record<DashboardCardId, DashboardCardSize> = {
   // The three worklist blocks are wide by nature, so they start full width.
   todayStrip: 'big',
   needsApproval: 'big',
-  kpiStrip: 'small',
+  kpiStrip: 'big',
   myScores: 'small',
   quickActions: 'small',
   activityOverview: 'small',
