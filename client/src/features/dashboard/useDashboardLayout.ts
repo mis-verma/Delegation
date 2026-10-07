@@ -118,7 +118,10 @@ export const useDashboardLayout = (isOrgWideRole: boolean, isFrontLine = false) 
   });
   const [sizes, setSizes] = useState<Record<DashboardCardId, DashboardCardSize>>(() => {
     const stored = loadStoredLayout(storageKey);
-    return { ...DEFAULT_CARD_SIZES, ...stored?.sizes };
+    const saved = { ...stored?.sizes };
+    // Version 4 made the Scores card half width by default: a width saved before that was only the old default.
+    if (stored && stored.version < 4) delete saved.myScores;
+    return { ...DEFAULT_CARD_SIZES, ...saved };
   });
   const [hidden, setHidden] = useState<DashboardCardId[]>(() => loadStoredLayout(storageKey)?.hidden ?? []);
   const [isCustomizing, setIsCustomizing] = useState(false);
