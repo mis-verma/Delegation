@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useMediaQuery } from '../../lib/useMediaQuery';
 import { ArrowDown, ArrowUp, ChartColumn, ChartLine, ChevronDown, ChevronLeft, ChevronRight, CircleGauge, ClipboardCheck, Download, FileSpreadsheet, FileText, Ticket as TicketIcon, Users, type LucideIcon } from 'lucide-react';
 import { Button, Combobox, type ComboboxOption } from '../../components';
 import { SemiGauge } from '../../components/semiGauge/SemiGauge';
@@ -191,6 +192,8 @@ export const MyScoresCard = () => {
   // and, for Admin, PC and department heads, everyone they may see, with a search box.
   const [moreOpen, setMoreOpen] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 640px)').matches);
   const [everOpened, setEverOpened] = useState(moreOpen);
+  // From 1024px the controls are a permanent side panel beside the chart, not a fold.
+  const isWide = useMediaQuery('(min-width: 1024px)');
   const toggleMore = () => { setMoreOpen((v) => !v); setEverOpened(true); };
   const views = VIEWS;
   const activeView: ScoreView = view;
@@ -365,8 +368,11 @@ export const MyScoresCard = () => {
 
       </header>
 
+      {/* Phone and tablet: steps, then the fold, then the chart, in one column. Wide screen: the chart and the steps on
+          the left, the controls as a panel on the right. */}
+      <div className="flex flex-col gap-3 sm:gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:grid-rows-[auto_1fr] lg:gap-x-6">
       {/* The date steps stay in view: the day or week is the thing people change most. */}
-      <div className="flex w-full items-center gap-1">
+      <div className="flex w-full items-center gap-1 lg:col-start-1 lg:row-start-1">
         <button type="button" onClick={() => setOffset((o) => o - 1)} aria-label={`Previous ${period}`} className="inline-flex size-9 pointer-coarse:size-11 items-center justify-center rounded-lg border border-border text-text-muted hover:border-border-hover hover:text-text">
           <ChevronLeft className="size-4" aria-hidden="true" />
         </button>
@@ -380,13 +386,13 @@ export const MyScoresCard = () => {
           and the list of everyone with its search) is folded under one row, so the card stays short and opens on
           the signed-in person's own scores. A phone starts folded; a desktop starts open. The fold is a CSS grid
           row that eases between 0fr and 1fr, so it follows the content's real height whatever loads inside it. */}
-      <div className="rounded-lg border border-border/60">
+      <div className="rounded-lg border border-border/60 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-start">
         <button
           type="button"
           onClick={toggleMore}
           aria-expanded={moreOpen}
           aria-controls="scores-more"
-          className="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg px-3 text-left outline-none transition-colors hover:bg-surface-hover/40 focus-visible:ring-2 focus-visible:ring-primary-500/40"
+          className="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg px-3 text-left outline-none transition-colors hover:bg-surface-hover/40 focus-visible:ring-2 focus-visible:ring-primary-500/40 lg:pointer-events-none lg:hover:bg-transparent"
         >
           <span className="min-w-0">
             <span className="block text-xs font-display font-semibold text-text">{canExportReport ? 'Period, measure and people' : 'Period and measure'}</span>
@@ -394,20 +400,20 @@ export const MyScoresCard = () => {
               {range.label} · {METRIC_LABEL[metric]} · {scope === 'person' && !targetId ? 'Me' : data?.name ?? SCOPE_LABEL[scope]}
             </span>
           </span>
-          <ChevronDown className={cn('size-4 shrink-0 text-text-muted transition-transform duration-300', moreOpen && 'rotate-180')} aria-hidden="true" />
+          <ChevronDown className={cn('size-4 shrink-0 text-text-muted transition-transform duration-300 lg:hidden', moreOpen && 'rotate-180')} aria-hidden="true" />
         </button>
 
         <div
           id="scores-more"
-          inert={!moreOpen}
+          inert={!moreOpen && !isWide}
           className={cn(
-            'grid transition-[grid-template-rows,opacity] duration-300 ease-out motion-reduce:transition-none',
+            'grid transition-[grid-template-rows,opacity] duration-300 ease-out motion-reduce:transition-none lg:grid-rows-[1fr] lg:opacity-100',
             moreOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
           )}
         >
           <div className="min-h-0 overflow-hidden">
-            {everOpened && (
-              <div className="flex flex-col gap-3 border-t border-border/60 p-3">
+            {(everOpened || isWide) && (
+              <div className="flex flex-col gap-3 border-t border-border/60 p-3 sm:max-w-md lg:max-w-none">
                 {scopes.length > 1 && (
                   <PeriodTabControl value={scope} options={scopes} labels={SCOPE_LABEL} onChange={(next) => { setScope(next); setPicked(''); }} fill />
                 )}
@@ -444,7 +450,7 @@ export const MyScoresCard = () => {
                 <PeriodTabControl value={metric} options={METRIC_OPTIONS} labels={METRIC_LABEL} onChange={setMetric} fill />
 
                 {canExportReport && (
-                  <ScoreRanking metric={metric} scope={scope} from={range.from} to={range.to} onOpen={(id) => { setPicked(id); setMoreOpen(false); }} />
+                  <ScoreRanking compact={isWide} metric={metric} scope={scope} from={range.from} to={range.to} onOpen={(id) => { setPicked(id); setMoreOpen(false); }} />
                 )}
               </div>
             )}
@@ -452,6 +458,7 @@ export const MyScoresCard = () => {
         </div>
       </div>
 
+      <div className="min-w-0 lg:col-start-1 lg:row-start-2">
       {!ready ? (
         <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm font-medium text-text-muted">
           Pick a {SCOPE_LABEL[scope].toLowerCase()} above to see its scores.
@@ -503,6 +510,8 @@ export const MyScoresCard = () => {
         )}
         </div>
       )}
+      </div>
+      </div>
     </section>
   );
 };

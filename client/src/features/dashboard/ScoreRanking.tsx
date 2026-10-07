@@ -56,6 +56,8 @@ const MiniBar = ({ value }: { value: number | null }) => (
 );
 
 interface ScoreRankingProps {
+  /** The list sits in a narrow side panel: always use the compact cards, never the wide table. */
+  compact?: boolean;
   /** When given, the card's measure tabs drive this list and its own measure chips are hidden. */
   metric?: ScoreMetric;
   scope: ScoreScope;
@@ -69,7 +71,7 @@ interface ScoreRankingProps {
  * Everyone (or every department, or every store) side by side for the selected window, sorted so the
  * ones who need attention are on top. Tap a row to open that person, department or store on the card.
  */
-export const ScoreRanking = ({ metric: controlled, scope, from, to, onOpen }: ScoreRankingProps) => {
+export const ScoreRanking = ({ compact = false, metric: controlled, scope, from, to, onOpen }: ScoreRankingProps) => {
   const [localMetric, setMetric] = useState<Metric>('completion');
   const metric: Metric = controlled ? (controlled === 'overview' ? 'completion' : controlled) : localMetric;
   const [query, setQuery] = useState('');
@@ -172,7 +174,7 @@ export const ScoreRanking = ({ metric: controlled, scope, from, to, onOpen }: Sc
       {rows.length === 0 && <p className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm font-medium text-text-muted">No {SUBJECT[scope]} match &ldquo;{query.trim()}&rdquo;.</p>}
 
       {/* Phone: one card per row. */}
-      <ul className="flex flex-col gap-2 sm:hidden">
+      <ul className={cn('flex flex-col gap-2', !compact && 'sm:hidden')}>
         {rows.map((c) => {
           const value = c[metric].overall;
           return (
@@ -200,7 +202,7 @@ export const ScoreRanking = ({ metric: controlled, scope, from, to, onOpen }: Sc
       </ul>
 
       {/* Tablet and desktop: a sortable table. */}
-      <div className="hidden overflow-x-auto rounded-lg border border-border sm:block">
+      <div className={cn('hidden overflow-x-auto rounded-lg border border-border', !compact && 'sm:block')}>
         <table className="w-full border-collapse text-left">
           <caption className="sr-only">{METRIC_LABEL[metric]} by {scope}</caption>
           <thead>
