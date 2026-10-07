@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ShieldCheck, SlidersHorizontal, CalendarDays, User, Store as StoreIcon, Layers } from 'lucide-react';
+import { ShieldCheck, SlidersHorizontal, CalendarDays, User, Store as StoreIcon, Layers, ChevronDown, AlertTriangle } from 'lucide-react';
 import {
   useStoresQuery,
   useTicketQuery,
@@ -81,6 +81,10 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
     : raisedByUser ? `${raisedByUser.firstName} ${raisedByUser.lastName ?? ''}`.trim() : null;
 
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  // Phone only: Department, Store and Category fold away behind "More details"; the rail shows them all.
+  const [moreOpen, setMoreOpen] = useState(false);
+  // Phone only: History and Activity share one tab strip; from lg both are on the page.
+  const [lowerTab, setLowerTab] = useState<'history' | 'activity'>('history');
   const statusUpdateMut = useAddTicketStatusUpdateMutation(ticket.id);
 
   const confirm = useConfirm();
@@ -141,6 +145,9 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
   const assigneeName = ticket.assignee?.firstName ?? null;
   const showVerify = isVerifier && ticket.status === 'PENDING_APPROVAL';
   const showFooter = showVerify || statusOptions.length > 0;
+  const hasHistory = (ticket.statusUpdates?.length ?? 0) > 0;
+  // With no status history there is nothing to switch between, so Activity is the only view.
+  const shownTab = hasHistory ? lowerTab : 'activity';
 
   return (
     <Sheet open onOpenChange={v => { if (!v) onClose(); }}>
@@ -167,13 +174,14 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
         />
 
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6 custom-scrollbar">
-          {/* One column up to md. From lg a reading column on the left and a sticky properties rail
-              on the right. The rail comes first in the DOM so a phone reads properties, then the
-              story; lg:order flips them visually. */}
+          {/* One column up to md: the description first, then the properties card, then the history.
+              From lg a reading column on the left and a sticky properties rail on the right. The
+              reading column is `contents` below lg so its two halves and the rail can be ordered
+              as siblings. */}
           <div className="flex flex-col gap-5 sm:gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_16rem] xl:grid-cols-[minmax(0,1fr)_18rem] lg:items-start lg:gap-x-8">
             <aside
               aria-label="Ticket properties"
-              className="flex flex-col gap-5 min-w-0 lg:order-2 lg:sticky lg:top-0 lg:rounded-xl lg:border lg:border-border/60 lg:bg-surface-hover/30 lg:p-4"
+              className="flex flex-col gap-4 min-w-0 max-lg:order-2 max-lg:rounded-xl max-lg:border max-lg:border-border/60 max-lg:bg-surface-hover/30 max-lg:p-3 sm:max-lg:p-4 lg:order-2 lg:sticky lg:top-0 lg:rounded-xl lg:border lg:border-border/60 lg:bg-surface-hover/30 lg:p-4"
             >
               {/* Phone and tablet: every property is a chip in one wrapping row. lg: the same
                   elements become labelled rows (see TicketPropertyRow). */}
@@ -194,7 +202,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                   </TicketPropertyRow>
 
                   {departmentName && (
-                    <TicketPropertyRow label="Department" chipOrderClass="max-lg:order-5">
+                    <TicketPropertyRow label="Department" chipOrderClass={moreOpen ? 'max-lg:order-5' : 'max-lg:order-5 max-lg:hidden'}>
                       <span title="Department" className="inline-flex min-w-0">
                         <DepartmentChip name={departmentName} />
                       </span>
@@ -202,22 +210,22 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                   )}
 
                   {storeName && (
-                    <TicketPropertyRow label="Store" chipOrderClass="max-lg:order-6">
+                    <TicketPropertyRow label="Store" chipOrderClass={moreOpen ? 'max-lg:order-6' : 'max-lg:order-6 max-lg:hidden'}>
                       <IconChip icon={StoreIcon} tone="bg-primary-700 dark:bg-primary-400" label={storeName} title="Store" className="max-w-full" />
                     </TicketPropertyRow>
                   )}
 
                   {categoryName && (
-                    <TicketPropertyRow label="Category" chipOrderClass="max-lg:order-7">
+                    <TicketPropertyRow label="Category" chipOrderClass={moreOpen ? 'max-lg:order-7' : 'max-lg:order-7 max-lg:hidden'}>
                       <IconChip icon={Layers} tone="bg-primary-700 dark:bg-primary-400" label={categoryName} title="Category" className="max-w-full" />
                     </TicketPropertyRow>
                   )}
 
-                  <TicketPropertyRow label="Assignee" chipOrderClass="max-lg:order-3">
+                  <TicketPropertyRow label="Assignee" chipOrderClass="max-lg:order-1 max-lg:w-full">
                     {canAssign ? (
                       // The shared picker keeps its 32px avatar and carries its own invisible 44px
                       // touch hit area, so nothing is stretched from out here.
-                      <div title="Assignee" className="flex items-center">
+                      <div title="Assignee" className="flex items-center max-lg:w-full">
                         <AssigneeField
                           single
                           hideLabel
@@ -227,7 +235,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                         />
                       </div>
                     ) : (
-                      <span title="Assignee" className="inline-flex items-center gap-1.5 min-w-0 pl-1 pr-2.5 py-1 rounded-full border border-border/60 bg-surface text-xs font-semibold text-text">
+                      <span title="Assignee" className="inline-flex items-center gap-1.5 min-w-0 pl-1 pr-2.5 py-1 rounded-full border border-border/60 bg-surface text-xs font-semibold text-text max-lg:w-full max-lg:rounded-lg max-lg:py-2 max-lg:text-sm">
                         {assigneeName ? (
                           <span className={`flex items-center justify-center size-5 rounded-full text-white text-[9px] font-bold shrink-0 ${avatarColorClass(assigneeName)}`}>
                             {getInitials(assigneeName)}
@@ -264,6 +272,18 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                   <TicketPropertyRow label="Created" railOnly>
                     <span className="text-sm font-medium text-text tabular-nums">{formatShortDateTime(ticket.createdAt)}</span>
                   </TicketPropertyRow>
+
+                  {(departmentName || storeName || categoryName) && (
+                    <button
+                      type="button"
+                      onClick={() => setMoreOpen(o => !o)}
+                      aria-expanded={moreOpen}
+                      className="lg:hidden order-8 relative inline-flex items-center gap-1 h-7 px-2.5 rounded-full text-xs font-display font-semibold text-primary-700 dark:text-primary-300 hover:bg-primary-500/10 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 after:absolute after:-inset-y-2 after:inset-x-0"
+                    >
+                      {moreOpen ? 'Fewer details' : 'More details'}
+                      <ChevronDown size={13} strokeWidth={2.5} className={`transition-transform duration-200 ${moreOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                  )}
                 </dl>
               </section>
 
@@ -280,7 +300,8 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
               </div>
             </aside>
 
-            <div className="flex flex-col gap-5 sm:gap-6 min-w-0 lg:order-1">
+            <div className="max-lg:contents lg:flex lg:flex-col lg:gap-6 min-w-0 lg:order-1">
+              <div className="flex flex-col gap-5 sm:gap-6 min-w-0 max-lg:order-1">
               {/* No reviewer picker: PC and Admin verify every ticket by default. Older tickets that
                   named reviewers still show them, read-only. */}
               {ticket.reviewers.length > 0 && (
@@ -292,16 +313,44 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                 </div>
               )}
 
+              {isOverdue && ticket.tatDueAt && (
+                <div className="lg:hidden flex items-center gap-2 rounded-lg border border-danger/25 bg-danger/10 px-3 py-2 text-sm font-display font-semibold text-danger">
+                  <AlertTriangle size={15} className="shrink-0" aria-hidden />
+                  Delayed, due {new Date(ticket.tatDueAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+                </div>
+              )}
+
               <VerificationNoteBanner note={ticket.verificationNote} approved={ticket.status === 'CLOSED'} verifiedBy={ticket.verifiedBy} />
 
               <TicketDescription description={ticket.description} />
+              </div>
+
+              <div className="flex flex-col gap-5 sm:gap-6 min-w-0 max-lg:order-3">
 
               {/* No standalone attachments/comments UI here (removed by request, same call as
                   Delegation's own — TaskDetail.tsx carries the identical reasoning): every status
                   change already goes through TicketStatusRemarkDialog below, which takes a mandatory
                   remark and optional proof photos, so this sheet already has one place to say
                   something and show evidence without a second, separate mechanism duplicating it. */}
-              {(ticket.statusUpdates?.length ?? 0) > 0 && (
+              {hasHistory && (
+                <div role="tablist" aria-label="Ticket history" className="lg:hidden flex gap-1 rounded-full bg-surface-hover/60 p-1">
+                  {(['history', 'activity'] as const).map(k => (
+                    <button
+                      key={k}
+                      type="button"
+                      role="tab"
+                      aria-selected={shownTab === k}
+                      onClick={() => setLowerTab(k)}
+                      className={`flex-1 h-9 rounded-full text-sm font-display font-semibold cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 transition-colors duration-150 ${shownTab === k ? 'bg-primary-600 text-white dark:bg-primary-500' : 'text-text-muted'}`}
+                    >
+                      {k === 'history' ? 'History' : 'Activity'}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {hasHistory && (
+                <div className={shownTab === 'history' ? '' : 'max-lg:hidden'}>
                 <TicketStatusHistory
                   statusUpdates={ticket.statusUpdates}
                   onPreview={setPreviewImage}
@@ -309,10 +358,14 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                     ? { at: (ticket.verifiedAt ?? ticket.closedAt) as string, by: ticket.verifier?.firstName ?? null, note: ticket.verificationNote }
                     : null}
                 />
+                </div>
               )}
 
-              <ActivityFeed entityType="Ticket" entityId={ticket.id} />
-              <FullChangeLog entityType="Ticket" entityId={ticket.id} />
+              <div className={`flex flex-col gap-5 sm:gap-6 ${shownTab === 'activity' ? '' : 'max-lg:hidden'}`}>
+                <ActivityFeed entityType="Ticket" entityId={ticket.id} />
+                <FullChangeLog entityType="Ticket" entityId={ticket.id} />
+              </div>
+              </div>
             </div>
           </div>
         </div>
