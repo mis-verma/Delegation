@@ -54,6 +54,7 @@ const XL_GRID_COLS: Record<number, string> = {
   2: 'xl:grid-cols-2',
   3: 'xl:grid-cols-3',
   4: 'xl:grid-cols-4',
+  5: 'xl:grid-cols-5',
 };
 
 const DROP_ANIMATION: DropAnimation = {
@@ -297,7 +298,7 @@ const TaskBoardComponent = ({ tasks, assigneeNames, departmentNames, isVerifier 
   );
   // Status and Priority always fit; grouping by department or assignee can produce a dozen
   // columns, which as a grid would be a dozen slivers. Those stay a scroller at every width.
-  const fitsOneRow = columns.length > 0 && columns.length <= 4;
+  const fitsOneRow = columns.length > 0 && columns.length <= 5;
   // Split sensors instead of one PointerSensor. PointerSensor treats touch and mouse identically,
   // so an 8px activation distance meant any finger swipe starting on a card began a drag rather
   // than scrolling the board. A mouse gets the distance threshold (drag starts as soon as you

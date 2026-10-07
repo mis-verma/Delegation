@@ -30,6 +30,7 @@ export const TASK_STATUS_COLORS: Record<Task['status'], string> = {
   in_progress: 'bg-status-progress/10 text-status-progress',
   pending_approval: 'bg-status-approve/10 text-status-approve',
   done: 'bg-status-done/10 text-status-done',
+  on_hold: 'bg-warning/10 text-warning',
 };
 
 // Humanized recency for feed timestamps — "2h ago" reads as more alive/scannable than a bare

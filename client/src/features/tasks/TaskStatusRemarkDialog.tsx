@@ -1,6 +1,7 @@
 import { StatusRemarkDialog } from '../../components/statusRemarkDialog';
 import { StatusChip, type StatusChipStatus } from '../../components';
 import { STATUS_LABEL } from './taskDisplay';
+import { BACK_STATUS, confirmLabelFor } from './taskStatusModel';
 import type { Task } from '../../api/task';
 
 interface TaskStatusRemarkDialogProps {
@@ -23,6 +24,7 @@ const STATUS_CHIP_KEY: Record<Task['status'], StatusChipStatus> = {
   in_progress: 'in_progress',
   pending_approval: 'pending_approval',
   done: 'completed',
+  on_hold: 'on_hold',
 };
 
 const StatusPill = ({ status }: { status: Task['status'] }) => (
@@ -37,6 +39,7 @@ const REMARK_SUGGESTIONS: Record<Task['status'], string[]> = {
   in_progress: ['Started working on it', 'Picked this up today', 'Waiting on another team'],
   pending_approval: ['Done — ready for review', 'Completed as requested'],
   done: ['Reviewed and approved', 'All good, closing this'],
+  on_hold: ['Waiting on another team', 'Waiting for information', 'Blocked, needs a decision'],
 };
 
 /**
@@ -52,11 +55,15 @@ export const TaskStatusRemarkDialog = ({
     itemTitle={task.title}
     from={<StatusPill status={task.status} />}
     to={<StatusPill status={toStatus} />}
-    confirmLabel={`Move to ${STATUS_LABEL[toStatus]}`}
+    confirmLabel={confirmLabelFor(task.status, toStatus, STATUS_LABEL[toStatus])}
     optional={toStatus === 'pending_approval'}
     description={toStatus === 'pending_approval'
       ? 'Add a note for the reviewer if you want to. You can also send it for review without one.'
-      : "Status changes are recorded on this delegation's timeline for everyone working on it."}
+      : toStatus === 'on_hold'
+        ? 'Say why this is on hold. Everyone working on this delegation will see the reason, and the due date keeps running.'
+        : BACK_STATUS[task.status] === toStatus
+        ? 'Say why it is moving back. Everyone working on this delegation will see the note.'
+        : "Status changes are recorded on this delegation's timeline for everyone working on it."}
     suggestions={REMARK_SUGGESTIONS[toStatus]}
     onCancel={onCancel}
     onConfirm={onConfirm}

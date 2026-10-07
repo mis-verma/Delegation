@@ -77,9 +77,10 @@ const STATUS_CHIP_KEY: Record<Task['status'], StatusChipStatus | null> = {
   in_progress: 'in_progress',
   pending_approval: 'pending_approval',
   done: 'completed',
+  on_hold: 'on_hold',
 };
 
-const STATUS_ORDER: Task['status'][] = ['todo', 'in_progress', 'pending_approval', 'done', 'draft'];
+const STATUS_ORDER: Task['status'][] = ['todo', 'in_progress', 'on_hold', 'pending_approval', 'done', 'draft'];
 const PRIORITY_ORDER: Task['priority'][] = ['high', 'medium', 'low'];
 
 /**

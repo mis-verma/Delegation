@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle2, Clock, CircleDashed, ShieldCheck, FileEdit, ArrowDown, Minus, ArrowUp } from 'lucide-react';
+import { CheckCircle2, Clock, CircleDashed, ShieldCheck, FileEdit, PauseCircle, ArrowDown, Minus, ArrowUp } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Task } from '../../api/task';
 
@@ -47,6 +47,7 @@ export const STATUS_ICON = {
   in_progress: <Clock size={16} className="text-status-progress shrink-0 transition-colors duration-200" strokeWidth={2.5} />,
   pending_approval: <ShieldCheck size={16} className="text-status-approve shrink-0 transition-colors duration-200" strokeWidth={2.5} />,
   done: <CheckCircle2 size={16} className="text-status-done shrink-0 transition-colors duration-200" strokeWidth={2.5} />,
+  on_hold: <PauseCircle size={16} className="text-warning shrink-0 transition-colors duration-200" strokeWidth={2.5} />,
 } satisfies Record<Task['status'], React.ReactNode>;
 
 
@@ -55,7 +56,7 @@ export const STATUS_ICON = {
 // copies of this array is exactly how the modules' stat tiles drifted apart before. Deliberately
 // stops at pending_approval: done is reachable only through the single-stage verify() decision,
 // never a raw "move to" pick.
-export const MOVABLE_STATUSES: Task['status'][] = ['todo', 'in_progress', 'pending_approval', 'done'];
+export const MOVABLE_STATUSES: Task['status'][] = ['todo', 'in_progress', 'on_hold', 'pending_approval', 'done'];
 
 
 export const STATUS_LABEL = {
@@ -64,6 +65,7 @@ export const STATUS_LABEL = {
   in_progress: 'In Progress',
   pending_approval: 'Pending Approval',
   done: 'Done',
+  on_hold: 'On Hold',
 } satisfies Record<Task['status'], string>;
 
 
@@ -93,6 +95,11 @@ export const STATUS_CONFIG = {
     badge: 'bg-status-done/10 text-status-done border-status-done/20 transition-all duration-200 ease-in-out',
     indicator: 'bg-status-done/35 transition-colors duration-200',
   },
+  on_hold: {
+    label: 'On Hold',
+    badge: 'bg-warning/10 text-warning border-warning/20 transition-all duration-200 ease-in-out',
+    indicator: 'bg-warning/35 transition-colors duration-200',
+  },
 } satisfies Record<
   Task['status'],
   { label: string; badge: string; indicator: string }
@@ -112,6 +119,8 @@ export const TASK_SCORE: Record<Task['status'], number> = {
   in_progress: 0.25,
   pending_approval: 0.75,
   done: 1,
+  // Paused work earns nothing extra, and the due date keeps running while it is held.
+  on_hold: 0,
 };
 
 // A due date picked on a calendar has no time of its own. Saved as midnight it made a delegation due
@@ -131,6 +140,8 @@ export const NEXT_STATUS: Record<Task['status'], Task['status'] | null> = {
   // decision), never this raw "advance" button.
   pending_approval: null,
   done: null,
+  // Resuming is the "advance" from a hold.
+  on_hold: 'in_progress',
 };
 
 // Self-service "undo" — deliberately only in_progress -> todo. Reverting out of pending_approval
@@ -142,4 +153,5 @@ export const PREV_STATUS: Record<Task['status'], Task['status'] | null> = {
   in_progress: 'todo',
   pending_approval: null,
   done: null,
+  on_hold: null,
 };

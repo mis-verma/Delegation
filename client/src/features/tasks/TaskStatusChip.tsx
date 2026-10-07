@@ -13,6 +13,7 @@ const CHIP_KEY: Record<Task['status'], StatusChipStatus> = {
   in_progress: 'in_progress',
   pending_approval: 'pending_approval',
   done: 'completed',
+  on_hold: 'on_hold',
 };
 
 export const TaskStatusChip = ({ status, className }: { status: Task['status']; className?: string }) => (

@@ -30,7 +30,7 @@ export type Task = {
     id:           string;
     title:        string;
     description:  string | null;
-    status:       'draft' | 'todo' | 'in_progress' | 'pending_approval' | 'done';
+    status:       'draft' | 'todo' | 'in_progress' | 'pending_approval' | 'done' | 'on_hold';
     /** Soft-delete marker — non-null means this delegation is in the Archived view. */
     deletedAt?:   string | null;
     category :    'issue' | 'delegation';

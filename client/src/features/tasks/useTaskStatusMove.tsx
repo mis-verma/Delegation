@@ -48,6 +48,17 @@ export const useTaskStatusMove = () => {
       return;
     }
 
+    // Mirrors the on-hold rules in task.service.ts: only To do or In progress can be paused, and a
+    // held delegation resumes to In progress before it goes anywhere else.
+    if (toStatus === 'on_hold' && task.status !== 'todo' && task.status !== 'in_progress') {
+      toast.error('Only a delegation that is To do or In progress can be put on hold.');
+      return;
+    }
+    if (task.status === 'on_hold' && toStatus !== 'in_progress') {
+      toast.error('Resume this delegation to In Progress first.');
+      return;
+    }
+
     // Never commits on its own: the server requires a remark for any status change, and a path
     // that skipped it would both fail and be a way around the rule the detail modal enforces.
     setPendingMove({ task, toStatus });

@@ -1,0 +1,3 @@
+ALTER TABLE `TaskStatusUpdate` MODIFY COLUMN `fromStatus` enum('draft','todo','in_progress','pending_approval','done','on_hold') NOT NULL;--> statement-breakpoint
+ALTER TABLE `TaskStatusUpdate` MODIFY COLUMN `toStatus` enum('draft','todo','in_progress','pending_approval','done','on_hold') NOT NULL;--> statement-breakpoint
+ALTER TABLE `Task` MODIFY COLUMN `status` enum('draft','todo','in_progress','pending_approval','done','on_hold') NOT NULL DEFAULT 'todo';

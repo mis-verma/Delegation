@@ -30,7 +30,12 @@ import { users, departments, projects } from './core.js';
 // in_progress via verify()/PATCH /tasks/:id/verify. Used to be two stages (a QC pass into
 // pending_verification, then a separate APPROVAL_MANAGER-only sign-off) — collapsed to one brief
 // check by request; see git history if the two-stage version is ever needed again.
-export const TASK_STATUSES = ['draft', 'todo', 'in_progress', 'pending_approval', 'done'] as const;
+//
+// 'on_hold' is work paused with a written reason. It is entered only from todo or in_progress and
+// left only back to in_progress (task.service.ts's update()). The due date keeps running while a
+// delegation is held, so it still shows as delayed. Appended last so the enum migration is a plain
+// ALTER with no reordering of the existing values.
+export const TASK_STATUSES = ['draft', 'todo', 'in_progress', 'pending_approval', 'done', 'on_hold'] as const;
 export const TASK_CATEGORIES = ['issue', 'delegation'] as const;
 export const TASK_PRIORITIES = ['low', 'medium', 'high'] as const;
 export const TASK_REMINDER_CHANNELS = ['notification', 'alarm', 'email', 'sms'] as const;

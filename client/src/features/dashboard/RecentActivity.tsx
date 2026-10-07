@@ -77,6 +77,7 @@ const TASK_CHIP_KEY: Record<Task['status'], StatusChipStatus> = {
   in_progress: 'in_progress',
   pending_approval: 'pending_approval',
   done: 'completed',
+  on_hold: 'on_hold',
 };
 
 interface FeedRowProps {

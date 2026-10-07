@@ -11,6 +11,7 @@ import {
   Clock,
   ShieldCheck,
   CheckCircle2,
+  PauseCircle,
   Building2,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -36,6 +37,7 @@ const STATUS_CHIP_META: Record<Task['status'], { tone: string; icon: LucideIcon 
   in_progress: { tone: 'bg-status-progress', icon: Clock },
   pending_approval: { tone: 'bg-status-approve', icon: ShieldCheck },
   done: { tone: 'bg-status-done', icon: CheckCircle2 },
+  on_hold: { tone: 'bg-warning', icon: PauseCircle },
 };
 
 const RowSkeleton = () => (

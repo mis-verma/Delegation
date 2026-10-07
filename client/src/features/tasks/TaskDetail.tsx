@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
-import { CheckSquare, Loader2, ChevronRight, CircleDot, Clock, Eye, Type, CheckCircle2, ShieldCheck, Trash2, CalendarDays, Check, Milestone, AlignLeft } from 'lucide-react';
-import { Modal, Button, DateRangePicker, ActivityFeed, FullChangeLog, DepartmentChip, StatusChip, useConfirm, type StatusChipStatus } from '../../components';
+import { CheckSquare, Loader2, ChevronRight, MoreHorizontal, Undo2, PauseCircle, CircleDot, Clock, Eye, Type, CheckCircle2, ShieldCheck, Trash2, CalendarDays, Check, Milestone, AlignLeft } from 'lucide-react';
+import { Modal, Button, DateRangePicker, ActivityFeed, FullChangeLog, DepartmentChip, useConfirm } from '../../components';
 import { IconChip } from '../../components/iconChip';
 import type { DateRangeValue } from '../../components';
 import { useTaskQuery, useUpdateTaskMutation, useDeleteTaskMutation, useAssignableUsersQuery } from './hook';
@@ -12,6 +12,9 @@ import { TaskDescriptionField } from './TaskDescriptionField';
 import { VerificationNoteBanner } from '../../components/verificationBanner';
 import { STATUS_LABEL, NEXT_STATUS, endOfDay } from './taskDisplay';
 import { TaskScoreBadge } from './TaskScoreBadge';
+import { TaskStatusCard } from './TaskStatusCard';
+import { FORWARD_LABEL, BACK_STATUS, BACK_LABEL, CAN_HOLD } from './taskStatusModel';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { TaskPriorityChipPicker } from './TaskPriorityChipPicker';
 import { DETAIL_HEADING_CLASS, CHIP_TRIGGER_CLASS } from './taskFormFieldStyles';
 import { TaskStatusRemarkDialog } from './TaskStatusRemarkDialog';
@@ -119,11 +122,15 @@ interface TaskFooterProps {
   nextStatus: Task['status'] | null;
   /** Opens the remark dialog — the status change itself can't be fired without one. */
   onAdvance: () => void;
+  /** Opens the same remark dialog for the one step back (null when there is none). */
+  onBack: (() => void) | null;
+  /** Opens the same remark dialog to pause it (null when it can't be paused from here). */
+  onHold: (() => void) | null;
   isAdvancing: boolean;
   onClose: () => void;
 }
 
-const TaskFooter = ({ task, isPC, isVerifier, nextStatus, onAdvance, isAdvancing, onClose }: TaskFooterProps) => {
+const TaskFooter = ({ task, isPC, isVerifier, nextStatus, onAdvance, onBack, onHold, isAdvancing, onClose }: TaskFooterProps) => {
   // Single-stage verify: one PC/ADMIN/manager/reviewer check decides the whole thing (see
   // task.service.ts's CAN_VERIFY_BY_ROLE) — the old two-stage QC-then-approval split is gone.
   const needsDecision = isVerifier && task.status === 'pending_approval';
@@ -169,8 +176,31 @@ const TaskFooter = ({ task, isPC, isVerifier, nextStatus, onAdvance, isAdvancing
               onClick={onAdvance}
             >
               {isAdvancing ? <Loader2 size={14} className="animate-spin mr-1 shrink-0" /> : <ChevronRight size={14} className="mr-1 shrink-0" />}
-              <span className="truncate">Advance to {STATUS_LABEL[nextStatus as keyof typeof STATUS_LABEL]}</span>
+              <span className="truncate">{FORWARD_LABEL[task.status] ?? `Move to ${STATUS_LABEL[nextStatus as keyof typeof STATUS_LABEL]}`}</span>
             </Button>
+          )}
+          {(onBack || onHold) && !isPC && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="px-2.5 pointer-coarse:min-h-11 pointer-coarse:min-w-11" aria-label="More status actions">
+                  <MoreHorizontal size={16} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-60 rounded-xl">
+                {onHold && (
+                  <DropdownMenuItem onClick={onHold} className="gap-2.5 py-2 cursor-pointer">
+                    <PauseCircle size={15} className="text-warning" />
+                    <span className="font-medium text-sm">Put on hold</span>
+                  </DropdownMenuItem>
+                )}
+                {onBack && (
+                  <DropdownMenuItem onClick={onBack} className="gap-2.5 py-2 cursor-pointer">
+                    <Undo2 size={15} className="text-primary-600" />
+                    <span className="font-medium text-sm">{BACK_LABEL[task.status]}</span>
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
           <Button
             variant="outline"
@@ -189,36 +219,6 @@ const TaskFooter = ({ task, isPC, isVerifier, nextStatus, onAdvance, isAdvancing
 
 const STATUS_ORDER: Task['status'][] = ['todo', 'in_progress', 'pending_approval', 'done'];
 
-// A single status readout — the StatusChip, the score, and "step 2 of 4". The full arrival-by-
-// arrival history (with remarks) lives in TaskStatusStepper further down — this is only the
-// at-a-glance answer to "where is this right now."
-const DETAIL_STATUS_CHIP_KEY: Record<Task['status'], StatusChipStatus> = {
-  draft: 'open',
-  todo: 'open',
-  in_progress: 'in_progress',
-  pending_approval: 'pending_approval',
-  done: 'completed',
-};
-
-const TaskStatusSummary = ({ status }: { status: Task['status'] }) => {
-  const stepIndex = STATUS_ORDER.indexOf(status);
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <div className="flex items-center gap-2 min-w-0">
-        {/* Same icon-circle StatusChip as the list cards and the remark popup — was a flat
-            outline Badge, the old chip style. */}
-        <StatusChip status={DETAIL_STATUS_CHIP_KEY[status]} label={STATUS_LABEL[status]} />
-      </div>
-      {stepIndex >= 0 && (
-        <span className="text-xs font-semibold text-text-light tabular-nums shrink-0">
-          Step {stepIndex + 1} of {STATUS_ORDER.length}
-        </span>
-      )}
-    </div>
-  );
-};
-
-
 // A plain colored "value" pill (matching PRIORITY_MAP's existing badge tint) instead of the
 // always-visible three-button grid TaskFormPrioritySelector renders elsewhere — click it to
 // change priority via a small menu, same as picking any other value rather than filling in a form.
@@ -229,6 +229,7 @@ const TIMELINE_STEP_DESCRIPTION: Record<Task['status'], string> = {
   in_progress: 'Work is underway.',
   pending_approval: 'Submitted for review.',
   done: 'Delegation completed and closed.',
+  on_hold: 'Work is paused.',
 };
 
 const STEP_ICON: Record<Task['status'], typeof Check> = {
@@ -237,6 +238,7 @@ const STEP_ICON: Record<Task['status'], typeof Check> = {
   in_progress: Clock,
   pending_approval: Eye,
   done: CheckCircle2,
+  on_hold: PauseCircle,
 };
 
 const formatStepDate = (date: Date) => date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
@@ -428,7 +430,7 @@ const TaskEditLayout = ({
         </p>
       </div>
 
-      <TaskStatusSummary status={task.status} />
+      <TaskStatusCard task={task} nameOf={nameOf} />
       <TaskScoreBadge status={task.status} variant="panel" />
 
       <VerificationNoteBanner note={task.verificationNote} approved={task.status === 'done'} verifiedBy={task.verifiedBy} />
@@ -637,6 +639,8 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
           isVerifier={isVerifier}
           nextStatus={nextStatus}
           onAdvance={() => nextStatus && setAdvanceTo(nextStatus)}
+          onHold={CAN_HOLD.includes(task.status) ? () => setAdvanceTo('on_hold') : null}
+          onBack={BACK_STATUS[task.status] ? () => setAdvanceTo(BACK_STATUS[task.status] as Task['status']) : null}
           isAdvancing={updateMutation.isPending}
           onClose={onClose}
         />

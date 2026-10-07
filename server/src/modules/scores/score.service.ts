@@ -10,7 +10,7 @@ import { checklistReportService, type PersonRow, type ReportMetrics } from "../c
 
 // Same weights as TASK_SCORE on the client: started is a quarter, handed in for approval three
 // quarters, only done is the full mark.
-const TASK_WEIGHT: Record<string, number> = { draft: 0, todo: 0, in_progress: 0.25, pending_approval: 0.75, done: 1 }
+const TASK_WEIGHT: Record<string, number> = { draft: 0, todo: 0, in_progress: 0.25, pending_approval: 0.75, done: 1, on_hold: 0 }
 const DAY_MS = 86_400_000
 
 export type ScoreScope = "person" | "department" | "store"

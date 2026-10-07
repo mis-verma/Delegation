@@ -646,6 +646,14 @@ export const taskService = {
             if (user.role !== "ADMIN") {
                 throw AppError.forbidden("Only a verifier can reopen a delegation that's already been verified.")
             }
+        } else if (input.status === "on_hold" && beforeStatus !== "on_hold") {
+            // Only live work can be paused: not a draft, not something already waiting on review.
+            if (beforeStatus !== "todo" && beforeStatus !== "in_progress") {
+                throw AppError.badRequest("Only a delegation that is To do or In progress can be put on hold.")
+            }
+        } else if (beforeStatus === "on_hold" && input.status !== undefined && input.status !== "on_hold" && input.status !== "in_progress") {
+            // Resuming is the only way out; review and done still have to be reached from in_progress.
+            throw AppError.badRequest("Resume this delegation to In Progress first.")
         } else if (input.status === "pending_approval" && beforeStatus !== "pending_approval") {
             // Must arrive from in_progress — a delegation used to be able to jump straight from
             // todo (or even draft) to pending_approval, "arriving" for review despite never
