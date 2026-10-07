@@ -97,12 +97,19 @@ export function DateRangePicker({
     return d >= startOfDay(lo) && d <= startOfDay(hi);
   };
 
-  // With no times to set, a finished range closes the popup after a short beat, so the last day is
-  // seen lit up before it goes. With times, the person still has to set them and press Done.
-  const closeSoon = () => {
-    if (showTime) return;
+  // A finished range closes the popup on its own after a short beat, so the last day is seen lit up
+  // before it fades away. With a time to set the beat is longer, and touching a time field cancels
+  // the close so the time can be changed (Done still closes it by hand).
+  const [closing, setClosing] = useState(false);
+  const cancelClose = () => {
     if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
-    closeTimer.current = window.setTimeout(() => setOpen(false), 260);
+    closeTimer.current = null;
+    setClosing(false);
+  };
+  const closeSoon = () => {
+    cancelClose();
+    setClosing(true);
+    closeTimer.current = window.setTimeout(() => { closeTimer.current = null; setClosing(false); setOpen(false); }, showTime ? 700 : 260);
   };
 
   const handleDayClick = (day: Date) => {
@@ -110,6 +117,7 @@ export function DateRangePicker({
       base && showTime ? new Date(d.getFullYear(), d.getMonth(), d.getDate(), base.getHours(), base.getMinutes()) : d;
 
     if (!value.from || (value.from && value.to)) {
+      cancelClose();
       onChange({ from: withTime(value.from, day), to: null });
       return;
     }
@@ -128,6 +136,7 @@ export function DateRangePicker({
   const setTime = (which: 'from' | 'to', hhmm: string) => {
     const base = value[which];
     if (!base) return;
+    cancelClose();
     const [h, m] = hhmm.split(':').map(Number);
     onChange({ ...value, [which]: new Date(base.getFullYear(), base.getMonth(), base.getDate(), h, m) });
   };
@@ -160,7 +169,7 @@ export function DateRangePicker({
       onOpenChange={(next) => {
         if (disabled) return;
         if (next) {
-          if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
+          cancelClose();
           setViewMonth(startOfDay(value.from ?? value.to ?? new Date()));
           setHoverDate(null);
         }
@@ -314,6 +323,8 @@ export function DateRangePicker({
               <label className="text-xs font-display font-semibold text-text-muted">Start time</label>
               <input
                 type="time"
+                onFocus={cancelClose}
+                onPointerDown={cancelClose}
                 value={formatTime(value.from)}
                 onChange={(e) => setTime('from', e.target.value)}
                 className="w-full h-10 pointer-coarse:h-11 rounded-md border border-border bg-surface px-3 text-base sm:text-sm text-text outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 focus-visible:border-primary-500"
@@ -324,6 +335,8 @@ export function DateRangePicker({
               <label className="text-xs font-display font-semibold text-text-muted">{endTimeOnly ? 'Due time' : 'End time'}</label>
               <input
                 type="time"
+                onFocus={cancelClose}
+                onPointerDown={cancelClose}
                 value={value.to ? formatTime(value.to) : ''}
                 disabled={!value.to}
                 onChange={(e) => setTime('to', e.target.value)}
@@ -335,7 +348,7 @@ export function DateRangePicker({
 
         <div className="flex items-center justify-between gap-2 border-t border-border/60 pt-2.5">
           <p className="text-xs font-display text-text-muted">
-            {pickingEnd ? 'Now pick the last day' : value.from && value.to ? 'Range set' : 'Pick the first day'}
+            {pickingEnd ? 'Now pick the last day' : value.from && value.to ? (closing && showTime ? 'Range set. Tap a time to change it' : 'Range set') : 'Pick the first day'}
           </p>
           {showTime && (
             <Button variant="primary" size="sm" onClick={() => setOpen(false)} disabled={!value.from || !value.to}>

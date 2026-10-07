@@ -337,13 +337,14 @@ export type ChecklistPendingApproval = {
 };
 
 export type WeeklyCellState = 'done' | 'late' | 'missed' | 'open' | 'holiday' | 'off' | 'upcoming';
-export type WeeklyCell = { date: string; state: WeeklyCellState; runId: string | null; done: number; total: number };
+/** `compliance` is answer quality (weighted, critical x2, sent back = fail); null when nothing was checked. */
+export type WeeklyCell = { date: string; state: WeeklyCellState; runId: string | null; done: number; total: number; compliance: number | null };
 export type WeeklyReport = {
   weekStart: string;
   days: string[];
   holidays: Record<string, string>;
-  rows: { definitionId: string; scopeKey: string; name: string; storeId: string; storeName: string; cells: WeeklyCell[]; rate: number | null }[];
-  summary: { due: number; onTime: number; late: number; missed: number; rate: number | null };
+  rows: { definitionId: string; scopeKey: string; name: string; storeId: string; storeName: string; cells: WeeklyCell[]; rate: number | null; compliance: number | null }[];
+  summary: { due: number; onTime: number; late: number; missed: number; rate: number | null; compliance: number | null };
 };
 
 export const checklistInstanceApi = {
@@ -427,8 +428,8 @@ export const checklistInstanceApi = {
       .then(r => ({ ...r, data: normalizeInstance(r.data) })),
 
   /** Weekly fill report: one row per daily checklist per store, one cell per weekday. `weekStart` is the Monday. */
-  getWeeklyReport: (weekStart: string, storeId?: string) =>
-    apiFetch<ApiResponse<WeeklyReport>>(`/checklist-instances/reports/weekly${buildQuery({ weekStart, storeId })}`),
+  getWeeklyReport: (weekStart: string, storeId?: string, departmentId?: string) =>
+    apiFetch<ApiResponse<WeeklyReport>>(`/checklist-instances/reports/weekly${buildQuery({ weekStart, storeId, departmentId })}`),
 
   getForDefinition: (definitionId: string, paging: PageParams = {}) =>
     apiFetch<ApiResponse<ChecklistInstance[]> & { meta: ChecklistInstancePage }>(

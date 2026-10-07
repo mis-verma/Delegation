@@ -561,12 +561,12 @@ export const userService = {
 
     async listAssignable(user: AccessTokenPayload, departmentId?: string, storeId?: string, storeIds?: string[]) {
         const isScoped = user.role !== "ADMIN" && user.role !== "PC";
-        // Department heads (MANAGER/SENIOR/APPROVAL_MANAGER) send tickets and work to other
-        // departments, so choosing a department must list THAT department's people, not silently
-        // fall back to their own. Front-line roles (AGENT/USER) still never browse another
-        // department. Only names and roles come back, same fields as before.
-        const canBrowseDepartments = user.role === "MANAGER" || user.role === "SENIOR" || user.role === "APPROVAL_MANAGER";
-        const effectiveDepartmentId = isScoped && !canBrowseDepartments && departmentId !== user.departmentId ? undefined : departmentId;
+        // Choosing a department lists THAT department's people for every role, so a ticket or
+        // delegation raised for another department can name who should take it (front-line staff
+        // used to be silently handed their own department's list instead). Only names and roles come
+        // back for non-admins (the controller drops email). Without a department, a scoped caller
+        // still only gets their own department, store and themselves, below.
+        const effectiveDepartmentId = departmentId
         const effectiveStoreId = isScoped && storeId !== user.storeId ? undefined : storeId
         // A checklist can target several stores at once, so the assignee picker needs "assignable
         // in ANY of these stores", not just the first one - a scoped caller (non-ADMIN/PC) can only

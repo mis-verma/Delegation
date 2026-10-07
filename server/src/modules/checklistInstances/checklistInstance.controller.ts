@@ -177,8 +177,8 @@ export const checklistInstanceController = {
 
     // GET /checklist-instances/reports/weekly?weekStart=YYYY-MM-DD&storeId= (ADMIN/PC all, MANAGER/SENIOR own department)
     weeklyReport: asyncHandler(async (req: Request, res: Response) => {
-        const { weekStart, storeId } = weeklyReportQuerySchema.parse(req.query)
-        res.json({ success: true, data: await checklistInstanceService.weeklyReport(req.user!, weekStart, storeId) })
+        const { weekStart, storeId, departmentId } = weeklyReportQuerySchema.parse(req.query)
+        res.json({ success: true, data: await checklistInstanceService.weeklyReport(req.user!, weekStart, storeId, departmentId) })
     }),
 
     getOne: asyncHandler(async (req: Request, res: Response) => {

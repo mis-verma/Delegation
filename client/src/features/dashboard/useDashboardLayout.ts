@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import {
   DEFAULT_CARD_ORDER,
+  defaultOrderFor,
   DEFAULT_CARD_SIZES,
   ADMIN_ONLY_CARDS,
   LAYOUT_VERSION,
@@ -76,13 +77,13 @@ const moveItem = <T,>(list: readonly T[], from: number, to: number): T[] => {
  * Versioned: when the default order changes (LAYOUT_VERSION), a saved layout that is still exactly
  * the previous default is moved to the new default, and one the user rearranged keeps their order.
  */
-export const useDashboardLayout = (isOrgWideRole: boolean) => {
+export const useDashboardLayout = (isOrgWideRole: boolean, isFrontLine = false) => {
   const { user } = useAuth();
   const storageKey = `${STORAGE_PREFIX}-${user?.id ?? 'anon'}`;
 
   const visibleCards = useMemo(
-    () => DEFAULT_CARD_ORDER.filter((id) => isOrgWideRole || !ADMIN_ONLY_CARDS.has(id)),
-    [isOrgWideRole],
+    () => defaultOrderFor(isFrontLine).filter((id) => isOrgWideRole || !ADMIN_ONLY_CARDS.has(id)),
+    [isOrgWideRole, isFrontLine],
   );
 
   // Drops any id a stored order still has but this viewer can no longer see (e.g. their role
@@ -128,10 +129,13 @@ export const useDashboardLayout = (isOrgWideRole: boolean) => {
   // rest of the session once their real role loads in a tick later. Adjusted during render
   // (React's documented pattern for resetting state off a prop change) rather than in an effect,
   // so it commits in the same render `isOrgWideRole` actually changes.
-  const [prevIsOrgWideRole, setPrevIsOrgWideRole] = useState(isOrgWideRole);
-  if (isOrgWideRole !== prevIsOrgWideRole) {
-    setPrevIsOrgWideRole(isOrgWideRole);
-    setOrder((prev) => reconcile(prev));
+  const roleKey = `${isOrgWideRole}-${isFrontLine}`;
+  const [prevRoleKey, setPrevRoleKey] = useState(roleKey);
+  if (roleKey !== prevRoleKey) {
+    setPrevRoleKey(roleKey);
+    // Someone who never saved a layout gets the default for the role that just loaded; someone who did
+    // keeps their own order, with any card they can no longer (or newly can) see reconciled.
+    setOrder((prev) => (loadStoredLayout(storageKey) ? reconcile(prev) : [...visibleCards]));
   }
 
   useEffect(() => {

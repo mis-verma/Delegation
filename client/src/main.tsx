@@ -29,10 +29,6 @@ if (import.meta.env.DEV) {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProvider>
-      {/* QueryClientProvider now wraps AuthProvider (was the other way round) so AuthContext's
-          logout() can reach useQueryClient() and purge every cached query on sign-out — otherwise
-          a lower-privileged account signed into afterward could see the previous session's
-          already-cached data (another user's tasks/tickets) until each query happened to refetch. */}
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <TooltipProvider>

@@ -130,4 +130,6 @@ export const weeklyReportQuerySchema = z.object({
         // Mondays only: a mid-week start would silently show a week that is not Monday to Sunday.
         .refine((d) => Number.isNaN(Date.parse(d + "T00:00:00Z")) || new Date(d + "T00:00:00Z").getUTCDay() === 1, "Pick a Monday."),
     storeId: z.string().min(1).optional(),
+    // ADMIN/PC can narrow to one department; a department head is always held to their own.
+    departmentId: z.string().min(1).optional(),
 })

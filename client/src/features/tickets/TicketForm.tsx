@@ -96,7 +96,7 @@ export const TicketForm = ({ onClose, defaultDueDate }: TicketFormProps) => {
   const priority = useWatch({ control, name: 'priority' });
   const assigneeId = useWatch({ control, name: 'assigneeId' });
   const tagIds = useWatch({ control, name: 'tagIds' });
-  const { data: assignableUsers, isLoading: isLoadingAssignableUsers } = useAssignableUsersQuery(departmentId || undefined, undefined, undefined, !ownScopeOnly);
+  const { data: assignableUsers, isLoading: isLoadingAssignableUsers } = useAssignableUsersQuery(departmentId || undefined, undefined, undefined, !ownScopeOnly || !!departmentId);
 
   // A category just created from inside this form is not in the cached list until it refetches, so it
   // is kept here too: picking "New category" must fill the form straight away, not a second later.
@@ -201,7 +201,7 @@ export const TicketForm = ({ onClose, defaultDueDate }: TicketFormProps) => {
       size="xl"
       icon={<TicketIcon className="w-5 h-5" />}
       title="New ticket"
-      description={<span className="hidden sm:inline">{ownScopeOnly ? "Say what's wrong, then choose where it should go." : "Say what's wrong, then choose who picks it up."}</span>}
+      description={<span className="hidden sm:inline">{ownScopeOnly ? "Say what's wrong, choose where it should go, and name who if you know." : "Say what's wrong, then choose who picks it up."}</span>}
       footer={footer}
       bodyClassName="p-0 sm:p-0 overflow-y-auto"
       headerClassName="border-b-0"
@@ -303,7 +303,9 @@ export const TicketForm = ({ onClose, defaultDueDate }: TicketFormProps) => {
 
             <TicketPriorityChipPicker value={priority} onChange={v => setValue('priority', v)} />
 
-            {!ownScopeOnly && assignmentMode === 'MANUAL' && (
+            {/* Front-line staff pick a department first; once it is chosen the person picker appears with that
+                department's people, optional (a ticket with no person goes to the department). */}
+            {(!ownScopeOnly || !!departmentId) && assignmentMode === 'MANUAL' && (
               <div title="Assignee" className="flex items-center">
                 <AssigneeField
                   single

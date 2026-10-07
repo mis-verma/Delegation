@@ -44,6 +44,20 @@ export const DEFAULT_CARD_ORDER: readonly DashboardCardId[] = [
 // so the card renderer compiles, but a card id missing from DEFAULT_CARD_ORDER is never shown, and a
 // saved layout that still lists one has it dropped on load.
 
+/** Front-line staff (User, Agent) work their own items and rarely approve anything, so their default
+ *  starts with how they are doing and their own numbers; the approvals block, which hides itself when
+ *  nothing is waiting, drops to the end. Managers, Seniors, Admin and PC keep the approvals first. */
+export const FRONT_LINE_CARD_ORDER: readonly DashboardCardId[] = [
+  'todayStrip',
+  'myScores',
+  'kpiStrip',
+  'upcomingEvents',
+  'recentActivity',
+  'needsApproval',
+];
+
+export const defaultOrderFor = (frontLine: boolean): readonly DashboardCardId[] => (frontLine ? FRONT_LINE_CARD_ORDER : DEFAULT_CARD_ORDER);
+
 /** The v1 default order, kept only so a saved layout that is still exactly the old default can be
  *  recognised (and moved to the new default) rather than treated as a deliberate custom order.
  *  'needsApproval' was a draggable card in v1; it is now a fixed block, so stored copies of that id

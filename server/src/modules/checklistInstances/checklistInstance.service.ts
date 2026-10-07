@@ -33,6 +33,7 @@ import type { Role } from "../../db/schema/core.js"
 import { emitChecklistEvent } from "../../sockets/checklistEvent.js"
 import { env } from "../../config/env.js"
 import { checklistReportService, type ChecklistReportQuery } from "./checklistReport.service.js"
+import { weightedGoodExpr, weightedScoredExpr } from "../checklistReports/checklistReport.service.js"
 import type { ChecklistReportScope } from "./checklistReportScope.js"
 import { orgLocalDate, addDays, utcSql, asOrgDay } from "./checklistReportRange.js"
 
@@ -1218,10 +1219,10 @@ export const checklistInstanceService = {
      * The week rate is runs filled on time / runs that were due, so open, off and holiday days
      * never pull it down. `weekStart` is the Monday, as an org-local YYYY-MM-DD.
      */
-    async weeklyReport(user: AccessTokenPayload, weekStart: string, storeId?: string) {
+    async weeklyReport(user: AccessTokenPayload, weekStart: string, storeId?: string, departmentId?: string) {
         const startMs = Date.parse(`${weekStart}T00:00:00.000Z`)
         const days = Array.from({ length: 7 }, (_, i) => new Date(startMs + i * 86_400_000).toISOString().slice(0, 10))
-        const empty = { weekStart, days, holidays: {} as Record<string, string>, rows: [], summary: { due: 0, onTime: 0, late: 0, missed: 0, rate: null as number | null } }
+        const empty = { weekStart, days, holidays: {} as Record<string, string>, rows: [], summary: { due: 0, onTime: 0, late: 0, missed: 0, rate: null as number | null, compliance: null as number | null } }
 
         const conditions = [
             eq(checklistInstances.recurrence, "DAILY"),
@@ -1233,6 +1234,8 @@ export const checklistInstanceService = {
         if (user.role !== "ADMIN" && user.role !== "PC") {
             if (!isHod(user) || !user.departmentId) return empty
             conditions.push(instanceInDepartmentCondition(user.departmentId))
+        } else if (departmentId) {
+            conditions.push(instanceInDepartmentCondition(departmentId))
         }
 
         const runs = await db.select({
@@ -1248,6 +1251,10 @@ export const checklistInstanceService = {
             total: sql<number>`COUNT(${checklistInstanceItems.id})`,
             done: sql<number>`COALESCE(SUM(${checklistInstanceItems.isDone}), 0)`,
             lastDoneAt: sql<Date | null>`MAX(${checklistInstanceItems.completedAt})`.mapWith(checklistInstanceItems.completedAt),
+            // Answer quality, the same weighted rule as the compliance report: a critical question counts
+            // double and a sent-back one counts as a failure.
+            wScored: weightedScoredExpr,
+            wGood: weightedGoodExpr,
         })
             .from(checklistInstances)
             .leftJoin(checklistInstanceItems, eq(checklistInstanceItems.instanceId, checklistInstances.id))
@@ -1290,15 +1297,20 @@ export const checklistInstanceService = {
         }
 
         const totals = { due: 0, onTime: 0, late: 0, missed: 0 }
+        const quality = { scored: 0, good: 0 }
+        const pctOf = (good: number, scored: number) => (scored > 0 ? Math.round((good / scored) * 100) : null)
         const rows = [...grouped.values()].map((g) => {
-            let due = 0, onTime = 0
+            let due = 0, onTime = 0, rowScored = 0, rowGood = 0
             const cells = days.map((date) => {
                 const r = g.byDay.get(date)
                 if (!r) {
                     const state: CellState = holidayByDate[date] ? "holiday" : date > today ? "upcoming" : "off"
-                    return { date, state, runId: null as string | null, done: 0, total: 0 }
+                    return { date, state, runId: null as string | null, done: 0, total: 0, compliance: null as number | null }
                 }
                 const total = Number(r.total), done = Number(r.done)
+                const scored = Number(r.wScored), good = Number(r.wGood)
+                rowScored += scored; rowGood += good
+                quality.scored += scored; quality.good += good
                 const complete = total > 0 && done === total
                 const deadline = deadlineOf(r)
                 let state: CellState
@@ -1309,7 +1321,7 @@ export const checklistInstanceService = {
                 if (state === "done") totals.onTime++
                 else if (state === "late") totals.late++
                 else if (state === "missed") totals.missed++
-                return { date, state, runId: r.id, done, total }
+                return { date, state, runId: r.id, done, total, compliance: pctOf(good, scored) }
             })
             totals.due += due
             return {
@@ -1320,6 +1332,7 @@ export const checklistInstanceService = {
                 storeName: storeNames.get(g.storeId) ?? "Store",
                 cells,
                 rate: due ? Math.round((onTime / due) * 100) : null,
+                compliance: pctOf(rowGood, rowScored),
             }
         }).sort((a, b) => a.name.localeCompare(b.name) || a.storeName.localeCompare(b.storeName))
 
@@ -1328,7 +1341,7 @@ export const checklistInstanceService = {
             days,
             holidays: holidayByDate,
             rows,
-            summary: { ...totals, rate: totals.due ? Math.round((totals.onTime / totals.due) * 100) : null },
+            summary: { ...totals, rate: totals.due ? Math.round((totals.onTime / totals.due) * 100) : null, compliance: pctOf(quality.good, quality.scored) },
         }
     },
 

@@ -115,8 +115,8 @@ const goodExpr = sql<number>`SUM(CASE
 // A critical question counts double in Compliance %: weighted twins of scoredExpr/goodExpr above
 // (Answers checked stays the raw count).
 const weightExpr = sql`(CASE WHEN ${item.isCritical} = 1 THEN 2 ELSE 1 END)`
-const weightedScoredExpr = sql<number>`SUM(CASE WHEN ${sentBack} THEN ${weightExpr} WHEN ${ruleScored} THEN ${weightExpr} ELSE 0 END)`
-const weightedGoodExpr = sql<number>`SUM(CASE
+export const weightedScoredExpr = sql<number>`SUM(CASE WHEN ${sentBack} THEN ${weightExpr} WHEN ${ruleScored} THEN ${weightExpr} ELSE 0 END)`
+export const weightedGoodExpr = sql<number>`SUM(CASE
     WHEN ${sentBack} THEN 0
     WHEN ${item.isDone} = 1 AND ${item.isNotApplicable} = 0 AND ${boolScored} AND JSON_CONTAINS(${item.acceptableAnswers}, JSON_QUOTE(${item.booleanAnswer})) THEN ${weightExpr}
     WHEN ${item.isDone} = 1 AND ${item.isNotApplicable} = 0 AND ${textScored} AND JSON_CONTAINS(${item.acceptableAnswers}, JSON_QUOTE(${item.textValue})) THEN ${weightExpr}

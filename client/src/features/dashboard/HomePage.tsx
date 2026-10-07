@@ -5,6 +5,7 @@ import { QuickActionsGrid, type QuickAction } from '../admin/overview/QuickActio
 import { Skeleton } from '../../components/skeleton';
 import { InlineError } from '../../components/inlineError';
 import { useAuth } from '../../context/AuthContext';
+import { OWN_SCOPE_ROLES } from '../../api/auth';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { useNow } from '../../lib/useNow';
 import { DASHBOARD_QUERY_OPTIONS, DASHBOARD_QUERY_ROOTS, invalidateDashboardQueries } from '../../lib/dashboardQuery';
@@ -113,7 +114,7 @@ export const HomePage = () => {
     setCardSize,
     toggleHidden,
     reset: resetLayout,
-  } = useDashboardLayout(isOrgWideRole);
+  } = useDashboardLayout(isOrgWideRole, !!user && OWN_SCOPE_ROLES.includes(user.role));
 
   // Every screen opens the score on "week". "Day" is empty for most people most mornings, which made
   // the first look "No data"; the Day tab is one tap away.

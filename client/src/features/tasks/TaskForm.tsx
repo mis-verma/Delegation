@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { endOfDay } from './taskDisplay';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { CheckSquare, Check, FileEdit, Type, AlignLeft, SlidersHorizontal } from 'lucide-react';
 import { Input, Modal, DateRangePicker, Button } from '../../components';
 import type { DateRangeValue } from '../../components';
 import { useCreateTaskWithAttachmentsMutation, useAssignableUsersQuery } from './hook';
+import { useAssignableUsersQuery as useDepartmentPeopleQuery } from '../tickets/hook';
 import { useTagsQuery } from '../tags/hook';
 import { LabelsField } from '../tags/LabelsField';
 import { TaskDescriptionField } from './TaskDescriptionField';
@@ -51,7 +52,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
   // role set the server already stops from re-assigning once a delegation exists.
   const ownScopeOnly = !!user && OWN_SCOPE_ROLES.includes(user.role);
   const mutation = useCreateTaskWithAttachmentsMutation();
-  const { data: assignableUsers, isLoading: isLoadingUsers } = useAssignableUsersQuery();
+  const { data: allAssignable, isLoading: isLoadingAllUsers } = useAssignableUsersQuery();
   const { data: departments, isLoading: isLoadingDepts } = useDepartmentsQuery();
   const { data: tags } = useTagsQuery();
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
@@ -78,6 +79,19 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
       description: '',
     },
   });
+
+  // Front-line staff pick a department first; once chosen, the person picker appears with that
+  // department's people (optional). Everyone else keeps the full list as before.
+  const departmentId = useWatch({ control, name: 'departmentId' });
+  const { data: departmentPeople, isLoading: isLoadingDepartmentPeople } = useDepartmentPeopleQuery(departmentId || undefined, undefined, undefined, ownScopeOnly && !!departmentId);
+  const assignableUsers = ownScopeOnly ? departmentPeople : allAssignable;
+  const isLoadingUsers = ownScopeOnly ? isLoadingDepartmentPeople : isLoadingAllUsers;
+  // A different department means a different set of people: the old pick no longer applies.
+  const [prevDepartmentId, setPrevDepartmentId] = useState(departmentId);
+  if (departmentId !== prevDepartmentId) {
+    setPrevDepartmentId(departmentId);
+    if (ownScopeOnly) setAssigneeIds([]);
+  }
 
   const isBusy = mutation.isPending || isSubmitting;
   // Both footer buttons submit the same form/mutation, so a single shared `isBusy` flipped BOTH
@@ -136,7 +150,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
       // when. The old copy ("Define objectives, set priorities…") described the act of filling
       // a form rather than telling anyone anything.
       // Desktop-only: on a phone this sentence cost two lines of an already-tight sheet.
-      description={<span className="hidden sm:inline">{ownScopeOnly ? 'Describe the work and pick a department. A manager will assign it.' : 'Describe the work, then set who owns it and by when.'}</span>}
+      description={<span className="hidden sm:inline">{ownScopeOnly ? 'Describe the work, pick a department, and name who if you know. Otherwise a manager will assign it.' : 'Describe the work, then set who owns it and by when.'}</span>}
       // One scrollbar for the whole body instead of a separate one per pane. Two nested scroll
       // areas meant fields below the fold in the sidebar (Department, Labels) were reachable only
       // by scrolling inside a region with no visible affordance — so they read as missing.
@@ -273,7 +287,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
               Details
             </span>
             <div className="flex flex-wrap items-center gap-2">
-              {!ownScopeOnly && (
+              {(!ownScopeOnly || !!departmentId) && (
                 <div title="Assignees" className="flex items-center">
                   <AssigneeField
                     hideLabel

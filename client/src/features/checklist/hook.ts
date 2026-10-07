@@ -303,11 +303,11 @@ export const useInstancesForDefinitionQuery = (definitionId: string, paging: { p
 // status filters are picked, across every checklist definition (not scoped to one, unlike
 // useInstancesForDefinitionQuery above).
 /** Returns the whole `{ data, meta }` page — the board needs `meta.totalPages` for its pager. */
-export const useWeeklyReportQuery = (weekStart: string, storeId?: string) => {
+export const useWeeklyReportQuery = (weekStart: string, storeId?: string, departmentId?: string) => {
   const { token } = useAuth();
   return useQuery({
-    queryKey: ['checklist-instances', 'weekly-report', weekStart, storeId ?? ''],
-    queryFn: () => checklistInstanceApi.getWeeklyReport(weekStart, storeId).then(r => r.data),
+    queryKey: ['checklist-instances', 'weekly-report', weekStart, storeId ?? '', departmentId ?? ''],
+    queryFn: () => checklistInstanceApi.getWeeklyReport(weekStart, storeId, departmentId).then(r => r.data),
     enabled: !!token,
     retry: handleQueryRetry,
     placeholderData: keepPreviousData,
