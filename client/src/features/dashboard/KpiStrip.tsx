@@ -274,7 +274,7 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
         {views.map((view) => <MobileTile key={view.key} view={view} />)}
       </div>
 
-      <div className="hidden sm:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 md:gap-5">
+      <div className="hidden sm:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {views.map((view) => {
           if (view.isPending) return <KpiCardSkeleton key={view.key} />;
           const open = (kind: DrillKind) => () => setOpenDrill({ key: view.key, kind });

@@ -375,7 +375,7 @@ export const HomePage = () => {
   // Rendered as the live grid, and again as the fallback while the drag-and-drop layer loads, so
   // the moment Customize starts nothing on the page moves.
   const staticGrid = (
-    <div className="grid grid-cols-1 sm:grid-cols-2 [grid-auto-flow:row_dense] gap-4 md:gap-6 pb-8">
+    <div className="grid grid-cols-1 sm:grid-cols-2 [grid-auto-flow:row_dense] gap-3 pb-8">
       {visibleCardOrder.map((id) => (
         <DashboardCardFrame key={id} size={cardSizes[id]}>
           {renderCard(id)}
@@ -389,7 +389,7 @@ export const HomePage = () => {
   return (
     // Sections breathe wider than the cards inside them (gap-6/8 out here vs. gap-4/6 within each
     // row), so a row's own siblings group more tightly than the unrelated sections around it.
-    <div className="flex flex-col gap-6 lg:gap-8 w-full">
+    <div className="flex flex-col gap-3 w-full">
       <h1 className="sr-only">Today, {heading}</h1>
 
       {/* Today, Needs your approval and Key numbers are cards in the grid below now, starting at the
