@@ -617,16 +617,17 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
   return (
     <Modal
       open
-      onClose={onClose}
-      size="xl"
-      icon={<CheckSquare className="w-5 h-5 text-primary-600" />}
-      title="Delegation details"
-      // Desktop-only: on a phone this line cost header height and said nothing the title doesn't.
       description={
         <span className="hidden sm:inline">
           {isViewOnly ? 'Review this delegation’s details.' : 'Changes save automatically as you edit each field.'}
         </span>
       }
+      onClose={onClose}
+      size="xl"
+      icon={<CheckSquare className="w-5 h-5 text-primary-600" />}
+      title="Delegation details"
+      // Desktop-only: on a phone this line cost header height and said nothing the title doesn't.
+      
       bodyClassName="p-0 overflow-hidden rounded-b-xl"
       footer={
         <TaskFooter
