@@ -3,7 +3,6 @@ import { useSearchParams } from 'react-router';
 import { Plus, ChevronDown, Upload, AlertCircle, Inbox, LayoutList, Kanban, Table2, GanttChartSquare } from 'lucide-react';
 import { PageNav, Fab, ViewToggle, EmptyState, type ViewTab } from '../../components';
 import { CreatedRangeBanner, CreatedRangePicker } from '../../components/createdRangeBanner';
-import { QuickFilterPill } from '../../components/filterRow/QuickFilterPill';
 import { useCreatedRange } from '../../lib/createdRange';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/context/AuthContext';
@@ -166,8 +165,6 @@ export const TicketList = () => {
             <ViewToggle tabs={VIEW_TABS} value={organizer.view} onChange={organizer.setView} />
           </div>
 
-          <QuickFilterPill filter={organizer.quickFilter} onClear={organizer.clearQuickFilter} />
-
           <TicketActiveTags organizer={organizer} allTickets={allTicketsData ?? []} />
 
           {/* `sm:ml-auto`, not a bare `ml-auto` — on mobile the Create button below is hidden and
@@ -176,7 +173,7 @@ export const TicketList = () => {
               controls-left / actions-right split. */}
           {/* `order-first` below sm: Options stays put at the left edge and any active-filter chips
               wrap in after it, instead of Options jumping sideways each time a chip appears. */}
-          <div className="order-first sm:order-none flex items-center gap-x-3 gap-y-2.5 flex-wrap shrink-0 sm:ml-auto">
+          <div className="flex items-center gap-x-3 gap-y-2.5 flex-wrap shrink-0 ml-auto">
             <CreatedRangePicker createdRange={createdRange} className="shrink-0" />
             <div className="hidden md:block">
               <DropdownMenu>

@@ -13,29 +13,12 @@ const CHIP_CLASS = 'flex items-center gap-1 min-w-0 max-w-full pl-3 pr-0.5 h-7 t
 const REMOVE_CLASS = 'relative flex items-center justify-center size-6 shrink-0 rounded-full after:absolute after:-inset-2.5 cursor-pointer transition-colors duration-200 ease-in-out hover:bg-primary-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40';
 
 export const TicketActiveTags = ({ organizer, allTickets }: TicketActiveTagsProps) => {
-  const { quickFilter } = organizer;
   // Nothing to show: render nothing, not an empty box that still takes a gap slot in the toolbar
   // (it pushed Options 24px off the page edge on phones).
-  if (!quickFilter && !organizer.assigneeIdFilter) return null;
+  if (!organizer.assigneeIdFilter) return null;
 
   return (
     <div className="flex items-center gap-2 flex-wrap min-w-0">
-      {quickFilter && (
-        <span className={CHIP_CLASS}>
-          <span className="min-w-0 truncate">
-            Showing: {quickFilter.charAt(0).toUpperCase() + quickFilter.slice(1)}
-          </span>
-          <button
-            type="button"
-            onClick={() => organizer.toggleQuickFilter(quickFilter)}
-            aria-label="Clear status filter"
-            className={REMOVE_CLASS}
-          >
-            <X size={13} />
-          </button>
-        </span>
-      )}
-
       {organizer.assigneeIdFilter && (
         <span className={CHIP_CLASS}>
           <span className="min-w-0 truncate">

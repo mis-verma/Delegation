@@ -1,7 +1,6 @@
 import { useMemo, useState, lazy, Suspense } from 'react';
 import { Trash2, Pencil, CalendarClock, Clock3, Loader2, AlertCircle } from 'lucide-react';
 import { Button, Skeleton, GradientIconTile, IconChip, QuickFilterStats, EmptyState } from '../../components';
-import { QuickFilterPill } from '../../components/filterRow/QuickFilterPill';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/context/AuthContext';
 import { useEventsQuery, useDeleteEventMutation } from './hook';
@@ -190,12 +189,6 @@ export const EventList = () => {
           >
             New event
           </Button>
-        </div>
-      )}
-
-      {typeFilter && (
-        <div>
-          <QuickFilterPill filter={typeFilter} label={EVENT_TYPE_LABELS[typeFilter]} onClear={() => setTypeFilter(null)} />
         </div>
       )}
 

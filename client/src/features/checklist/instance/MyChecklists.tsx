@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
-import { AlertCircle, ClipboardCheck, X, Store, ChevronRight, Clock, AlarmClock, ArrowDownAZ, Repeat, User, LayoutList, Table2, Kanban, Rows3, ArrowUpDown, Building2, ShieldCheck, Users } from 'lucide-react';
+import { AlertCircle, ClipboardCheck, Store, ChevronRight, Clock, AlarmClock, ArrowDownAZ, Repeat, User, LayoutList, Table2, Kanban, Rows3, ArrowUpDown, Building2, ShieldCheck, Users } from 'lucide-react';
 import { useSearchParams } from 'react-router';
-import { Skeleton, PageNav, ViewToggle, EmptyState, FilterPill, InlineError, PANEL_CLASS, type ViewTab } from '../../../components';
+import { Skeleton, PageNav, ViewToggle, EmptyState, InlineError, PANEL_CLASS, type ViewTab } from '../../../components';
 import { CreatedRangeBanner, CreatedRangePicker } from '../../../components/createdRangeBanner';
 import { useCreatedRange } from '../../../lib/createdRange';
 import {
@@ -389,13 +389,6 @@ export const MyChecklists = () => {
         <div className="hidden sm:block">
           <ViewToggle tabs={VIEW_TABS} value={view} onChange={setView} />
         </div>
-
-        {quickFilter && (
-          <FilterPill active icon={X} onClick={clearQuickFilter}>
-            <span className="sr-only">Clear status filter: </span>
-            Showing: {QUICK_FILTER_LABEL[quickFilter]}
-          </FilterPill>
-        )}
 
         {/* `sm:ml-auto`, not a bare `ml-auto` — same fix as Tickets/Tasks: the auto-margin was
             shifting this Store+Options cluster off the left edge on mobile for no benefit,

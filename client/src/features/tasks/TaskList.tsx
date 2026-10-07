@@ -4,7 +4,6 @@ import { toast } from "sonner";
 import { Wand2, AlertCircle, Save, Inbox, X, Plus, ChevronDown, Upload } from "lucide-react";
 import { Skeleton, Fab, ViewToggle, EmptyState, type ViewTab } from "../../components";
 import { CreatedRangeBanner, CreatedRangePicker } from "../../components/createdRangeBanner";
-import { QuickFilterPill } from "../../components/filterRow/QuickFilterPill";
 import { useCreatedRange } from "../../lib/createdRange";
 import { ExportDialog } from "../reports";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
@@ -414,12 +413,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
   // result and the sort key, so it only changes when one of those actually does.
   const sorted = useMemo(() => [...filtered].sort(SORT_COMPARATORS[sort]), [filtered, sort]);
 
-  const QUICK_FILTER_LABEL: Record<QuickFilterKey, string> = {
-    pending: 'Pending', completed: 'Completed', due: 'Due', delayed: 'Delayed',
-  };
-
   const activeChips: { key: string; label: string; onClear: () => void }[] = [
-    ...(quickFilter ? [{ key: 'quickFilter', label: `Showing: ${QUICK_FILTER_LABEL[quickFilter]}`, onClear: () => setQuickFilter(null) }] : []),
     ...(filters.status !== 'all' ? [{ key: 'status', label: `Status: ${STATUS_LABEL[filters.status]}`, onClear: () => updateFilters({ status: 'all' }) }] : []),
     // Never shown on a locked page — the category there isn't something the viewer chose and
     // can clear, it's what the page is.
@@ -615,8 +609,6 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
           <div className="hidden sm:block">
             <ViewToggle tabs={VIEW_TABS} value={view} onChange={changeView} />
           </div>
-
-          <QuickFilterPill filter={quickFilter} onClear={() => setQuickFilter(null)} />
 
           {activeChips.length > 0 && (
             <div className="flex items-center gap-2 flex-wrap min-w-0">

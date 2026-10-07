@@ -3,7 +3,6 @@ import { useSearchParams } from 'react-router';
 import { Plus, Flag, ArrowUpDown, X } from 'lucide-react';
 import { Fab } from '../../components';
 import { CreatedRangeBanner, CreatedRangePicker } from '../../components/createdRangeBanner';
-import { QuickFilterPill } from '../../components/filterRow/QuickFilterPill';
 import { useCreatedRange, useDueRange } from '../../lib/createdRange';
 import {
   OptionsSheet, OptionSection, OptionSegmented, ChoiceChip, ChoiceIcon, ChoiceWrap, ChoiceClear,
@@ -136,7 +135,7 @@ export const TodoPage = () => {
           <button
             type="button"
             onClick={() => setShowForm(true)}
-            className="hidden md:inline-flex group inline-flex items-center h-9 rounded-full bg-primary-800 hover:bg-primary-900 dark:bg-primary-600 dark:hover:bg-primary-500 text-white text-sm font-display font-semibold tracking-tight ring-1 ring-inset ring-white/10 transition-all duration-200 ease-in-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-surface active:scale-[0.98] data-[state=open]:bg-primary-900 dark:data-[state=open]:bg-primary-500"
+            className="hidden md:inline-flex group items-center h-9 rounded-full bg-primary-800 hover:bg-primary-900 dark:bg-primary-600 dark:hover:bg-primary-500 text-white text-sm font-display font-semibold tracking-tight ring-1 ring-inset ring-white/10 transition-all duration-200 ease-in-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-surface active:scale-[0.98] data-[state=open]:bg-primary-900 dark:data-[state=open]:bg-primary-500"
           >
             <span className="flex items-center gap-2 pl-3.5 pr-4">
               <span className="flex items-center justify-center size-5 rounded-full bg-white/15">
@@ -148,9 +147,8 @@ export const TodoPage = () => {
         </div>
       </div>
 
-      {(quickFilter || dueRange.range) && (
+      {dueRange.range && (
         <div className="flex flex-wrap items-center gap-2">
-          <QuickFilterPill filter={quickFilter} onClear={() => setQuickFilter(null)} />
           {dueRange.range && (
             <button
               type="button"
