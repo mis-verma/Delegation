@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { CheckSquare, Loader2, ChevronRight, MoreHorizontal, Undo2, PauseCircle, CircleDot, Clock, Eye, Type, CheckCircle2, ShieldCheck, Trash2, CalendarDays, Check, Milestone, AlignLeft } from 'lucide-react';
+import { CheckSquare, Loader2, ChevronRight, MoreHorizontal, Undo2, PauseCircle, CircleDot, Clock, Eye, CheckCircle2, ShieldCheck, Trash2, CalendarDays, Check, Milestone } from 'lucide-react';
 import { Modal, Button, DateRangePicker, ActivityFeed, FullChangeLog, DepartmentChip, useConfirm } from '../../components';
 import { IconChip } from '../../components/iconChip';
 import type { DateRangeValue } from '../../components';
@@ -34,7 +34,7 @@ const TitleEditor = ({ value, disabled, onSave, isViewMode }: { value: string, d
   }
 
   if (isViewMode) {
-    return <h2 className="text-lg md:text-xl font-semibold text-text leading-snug px-3 py-1 -ml-3">{value}</h2>;
+    return <h2 className="text-lg md:text-xl font-semibold text-text leading-snug break-words select-text">{value}</h2>;
   }
 
   // A textarea that grows with its content (field-sizing), not a one-line Input — on a phone a
@@ -85,15 +85,13 @@ const PlainDescriptionEditor = ({ value, disabled, onSave, toolbar, children }: 
   if (disabled) {
     return (
       <div className="flex flex-col gap-3">
-        {/* A soft card, not bare text: reads as the body of the delegation rather than a stray
-            line floating between two dividers. */}
-        <div className="rounded-xl border border-border/50 dark:border-white/[0.06] bg-surface-hover/40 px-3.5 py-3">
-          {value.trim() ? (
-            <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap break-words">{value}</p>
-          ) : (
-            <p className="text-sm text-text-light italic">No description added.</p>
-          )}
-        </div>
+        {/* Plain body text under the small label above, no box: the same title-and-subtitle
+            reading as the ticket sheet. */}
+        {value.trim() ? (
+          <p className="text-base text-text leading-relaxed whitespace-pre-wrap break-words select-text">{value}</p>
+        ) : (
+          <p className="text-base text-text-light italic">No description added.</p>
+        )}
         {children}
       </div>
     );
@@ -407,10 +405,7 @@ const TaskEditLayout = ({
           sits on the label row now, so the title itself gets the sheet's full width to wrap in. */}
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between gap-3 min-h-8">
-          <span className={DETAIL_HEADING_CLASS}>
-            <Type size={14} className="text-text-light" />
-            Title
-          </span>
+          <span className="text-xs font-display font-medium text-text-muted">Title</span>
           {isVerifier && (
             <button
               type="button"
@@ -529,10 +524,7 @@ const TaskEditLayout = ({
       <hr className="border-border/60" />
 
       <div className="flex flex-col gap-2">
-        <h3 className={DETAIL_HEADING_CLASS}>
-          <AlignLeft size={14} className="text-text-light" />
-          Description
-        </h3>
+        <h3 className="text-xs font-display font-medium text-text-muted">Description</h3>
         {/* No attachments grid here any more (removed by request, same call as the comment feed
             below) — files can still be attached when a delegation is first created (TaskForm's
             own AttachFilesToolbar), that flow is untouched. This sheet's own upload button had
@@ -554,7 +546,11 @@ const TaskEditLayout = ({
           ActivityTimeline below is a different, unrelated thing added later: an ADMIN/PC-only
           read-only audit trail (who changed which fields, sourced from AuditLog) — not a
           reintroduction of the removed comment feed, and invisible to every other role. */}
-      <TaskStatusStepper task={task} nameOf={nameOf} />
+      {/* The step list is for larger screens; on a phone the status card and the score panel above
+          already say where it stands. */}
+      <div className="max-sm:hidden">
+        <TaskStatusStepper task={task} nameOf={nameOf} />
+      </div>
 
       {/* Everyone who works on the delegation sees the plain history (the server decides who); Admin and
           PC also get the field-by-field change log, folded away underneath. */}
