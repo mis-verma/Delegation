@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router';
-import { AnimatePresence, motion } from 'framer-motion';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { ArrowDown, ArrowUp, ChartColumn, ChartLine, ChevronDown, ChevronLeft, ChevronRight, CircleGauge, ClipboardCheck, Download, FileSpreadsheet, FileText, Ticket as TicketIcon, Users, type LucideIcon } from 'lucide-react';
@@ -190,7 +189,9 @@ export const MyScoresCard = () => {
   const setMetric = (next: ScoreMetric) => { setMetricState(next); remember({ metric: next }); };
   // Closed by default, so the card opens on the signed-in person's own scores. Open, it shows the measure tabs
   // and, for Admin, PC and department heads, everyone they may see, with a search box.
-  const [moreOpen, setMoreOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(() => typeof window !== 'undefined' && window.matchMedia('(min-width: 640px)').matches);
+  const [everOpened, setEverOpened] = useState(moreOpen);
+  const toggleMore = () => { setMoreOpen((v) => !v); setEverOpened(true); };
   const views = VIEWS;
   const activeView: ScoreView = view;
   const setView = (next: ScoreView) => { setViewState(next); remember({ view: next }); };
@@ -320,11 +321,6 @@ export const MyScoresCard = () => {
             <p className="mt-0.5 hidden text-xs font-medium text-text-muted sm:block">Work that fell due in the window, and how much was done on time</p>
           </div>
           <div className="flex items-center justify-between gap-2 sm:justify-end sm:shrink-0">
-            {scopes.length > 1 && (
-              <div className="hidden sm:block">
-                <PeriodTabControl value={scope} options={scopes} labels={SCOPE_LABEL} onChange={(next) => { setScope(next); setPicked(''); }} />
-              </div>
-            )}
             <div role="group" aria-label="Show as" className="inline-flex items-center rounded-lg border border-border p-0.5">
               {views.map((option) => {
                 const Icon = VIEW_ICON[option];
@@ -367,85 +363,93 @@ export const MyScoresCard = () => {
           </div>
         </div>
 
-        {scopes.length > 1 && (
-          <div className="sm:hidden">
-            <PeriodTabControl value={scope} options={scopes} labels={SCOPE_LABEL} onChange={(next) => { setScope(next); setPicked(''); }} fill />
-          </div>
-        )}
-
-        {showPicker && (
-          <Combobox
-            value={effectivePick}
-            onChange={setPicked}
-            options={options}
-            emptyOptionLabel={scope === 'person' ? 'Me' : undefined}
-            placeholder={PICK_PLACEHOLDER[scope]}
-            isLoading={scope === 'person' ? people.isPending : scope === 'department' ? departments.isPending : stores.isPending}
-            className="h-9 w-full pointer-coarse:min-h-9 text-xs sm:h-10 sm:w-72 sm:text-sm sm:pointer-coarse:min-h-11"
-          />
-        )}
-
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <PeriodTabControl value={period} options={PERIODS} labels={PERIOD_LABEL} onChange={(next) => { setPeriod(next); setOffset(0); }} fill />
-          <div className="flex w-full items-center gap-1 sm:w-auto sm:justify-end">
-            {(activeView === 'bars' || activeView === 'dials') && (
-              <button
-                type="button"
-                onClick={() => setCompare(!compare)}
-                aria-pressed={compare}
-                title="Show the change since the previous period"
-                className={`mr-1 inline-flex h-9 pointer-coarse:h-11 items-center gap-1 rounded-lg border px-2.5 text-xs font-display font-bold transition-colors ${compare ? 'border-primary-500 bg-primary-500/10 text-primary-700 dark:text-primary-300' : 'border-border text-text-muted hover:border-border-hover hover:text-text'}`}
-              >
-                <ArrowUp className="size-3" aria-hidden="true" /><ArrowDown className="-ml-1.5 size-3" aria-hidden="true" />
-                <span className="hidden min-[420px]:inline">Compare</span>
-              </button>
-            )}
-            <button type="button" onClick={() => setOffset((o) => o - 1)} aria-label={`Previous ${period}`} className="inline-flex size-9 pointer-coarse:size-11 items-center justify-center rounded-lg border border-border text-text-muted hover:border-border-hover hover:text-text">
-              <ChevronLeft className="size-4" aria-hidden="true" />
-            </button>
-            <span className="min-w-0 flex-1 truncate text-center text-xs font-display font-bold text-text sm:min-w-32 sm:flex-none">{range.label}</span>
-            <button type="button" onClick={() => setOffset((o) => Math.min(0, o + 1))} disabled={offset >= 0} aria-label={`Next ${period}`} className="inline-flex size-9 pointer-coarse:size-11 items-center justify-center rounded-lg border border-border text-text-muted hover:border-border-hover hover:text-text disabled:opacity-40 disabled:hover:border-border">
-              <ChevronRight className="size-4" aria-hidden="true" />
-            </button>
-          </div>
-        </div>
-
       </header>
 
-      {/* Measures and people: folded away so the card stays short and shows the person's own scores. */}
+      {/* The date steps stay in view: the day or week is the thing people change most. */}
+      <div className="flex w-full items-center gap-1">
+        <button type="button" onClick={() => setOffset((o) => o - 1)} aria-label={`Previous ${period}`} className="inline-flex size-9 pointer-coarse:size-11 items-center justify-center rounded-lg border border-border text-text-muted hover:border-border-hover hover:text-text">
+          <ChevronLeft className="size-4" aria-hidden="true" />
+        </button>
+        <span className="min-w-0 flex-1 truncate text-center text-xs font-display font-bold text-text">{range.label}</span>
+        <button type="button" onClick={() => setOffset((o) => Math.min(0, o + 1))} disabled={offset >= 0} aria-label={`Next ${period}`} className="inline-flex size-9 pointer-coarse:size-11 items-center justify-center rounded-lg border border-border text-text-muted hover:border-border-hover hover:text-text disabled:opacity-40 disabled:hover:border-border">
+          <ChevronRight className="size-4" aria-hidden="true" />
+        </button>
+      </div>
+
+      {/* Everything that picks WHAT is shown (person, department or store, the day, week or month, the measure,
+          and the list of everyone with its search) is folded under one row, so the card stays short and opens on
+          the signed-in person's own scores. A phone starts folded; a desktop starts open. The fold is a CSS grid
+          row that eases between 0fr and 1fr, so it follows the content's real height whatever loads inside it. */}
       <div className="rounded-lg border border-border/60">
         <button
           type="button"
-          onClick={() => setMoreOpen((v) => !v)}
+          onClick={toggleMore}
           aria-expanded={moreOpen}
           aria-controls="scores-more"
           className="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg px-3 text-left outline-none transition-colors hover:bg-surface-hover/40 focus-visible:ring-2 focus-visible:ring-primary-500/40"
         >
           <span className="min-w-0">
-            <span className="block text-xs font-display font-semibold text-text">{canExportReport ? 'Measures and everyone' : 'Measures'}</span>
-            <span className="block truncate text-xs font-medium text-text-muted">{METRIC_LABEL[metric]}{canExportReport ? `, ${SCOPE_LABEL[scope].toLowerCase()} wise` : ''}</span>
+            <span className="block text-xs font-display font-semibold text-text">{canExportReport ? 'Period, measure and people' : 'Period and measure'}</span>
+            <span className="block truncate text-xs font-medium text-text-muted">
+              {range.label} · {METRIC_LABEL[metric]} · {scope === 'person' && !targetId ? 'Me' : data?.name ?? SCOPE_LABEL[scope]}
+            </span>
           </span>
-          <ChevronDown className={cn('size-4 shrink-0 text-text-muted transition-transform duration-200', moreOpen && 'rotate-180')} aria-hidden="true" />
+          <ChevronDown className={cn('size-4 shrink-0 text-text-muted transition-transform duration-300', moreOpen && 'rotate-180')} aria-hidden="true" />
         </button>
-        <AnimatePresence initial={false}>
-          {moreOpen && (
-            <motion.div
-              id="scores-more"
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.22, ease: 'easeInOut' }}
-              className="overflow-hidden"
-            >
+
+        <div
+          id="scores-more"
+          inert={!moreOpen}
+          className={cn(
+            'grid transition-[grid-template-rows,opacity] duration-300 ease-out motion-reduce:transition-none',
+            moreOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
+          )}
+        >
+          <div className="min-h-0 overflow-hidden">
+            {everOpened && (
               <div className="flex flex-col gap-3 border-t border-border/60 p-3">
+                {scopes.length > 1 && (
+                  <PeriodTabControl value={scope} options={scopes} labels={SCOPE_LABEL} onChange={(next) => { setScope(next); setPicked(''); }} fill />
+                )}
+
+                {showPicker && (
+                  <Combobox
+                    value={effectivePick}
+                    onChange={setPicked}
+                    options={options}
+                    emptyOptionLabel={scope === 'person' ? 'Me' : undefined}
+                    placeholder={PICK_PLACEHOLDER[scope]}
+                    isLoading={scope === 'person' ? people.isPending : scope === 'department' ? departments.isPending : stores.isPending}
+                    className="h-9 w-full pointer-coarse:min-h-9 text-xs sm:h-10 sm:w-72 sm:text-sm sm:pointer-coarse:min-h-11"
+                  />
+                )}
+
+                <PeriodTabControl value={period} options={PERIODS} labels={PERIOD_LABEL} onChange={(next) => { setPeriod(next); setOffset(0); }} fill />
+
+                <div className="flex w-full items-center gap-1">
+                  {(activeView === 'bars' || activeView === 'dials') && (
+                    <button
+                      type="button"
+                      onClick={() => setCompare(!compare)}
+                      aria-pressed={compare}
+                      title="Show the change since the previous period"
+                      className={`mr-1 inline-flex h-9 pointer-coarse:h-11 items-center gap-1 rounded-lg border px-2.5 text-xs font-display font-bold transition-colors ${compare ? 'border-primary-500 bg-primary-500/10 text-primary-700 dark:text-primary-300' : 'border-border text-text-muted hover:border-border-hover hover:text-text'}`}
+                    >
+                      <ArrowUp className="size-3" aria-hidden="true" /><ArrowDown className="-ml-1.5 size-3" aria-hidden="true" />
+                      <span className="hidden min-[420px]:inline">Compare</span>
+                    </button>
+                  )}
+                </div>
+
                 <PeriodTabControl value={metric} options={METRIC_OPTIONS} labels={METRIC_LABEL} onChange={setMetric} fill />
+
                 {canExportReport && (
                   <ScoreRanking metric={metric} scope={scope} from={range.from} to={range.to} onOpen={(id) => { setPicked(id); setMoreOpen(false); }} />
                 )}
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            )}
+          </div>
+        </div>
       </div>
 
       {!ready ? (
