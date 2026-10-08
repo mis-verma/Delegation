@@ -495,10 +495,12 @@ export const ChecklistBuilder = () => {
   // array would land the new item after whichever section happens to be last in storage order,
   // not inside its own section's block, breaking the "same-section items are contiguous"
   // assumption every other view relies on.
-  const addItem = useCallback((patch: Partial<ItemDraft>) => {
+  // Returns whether the question was added, so the add pop-up stays open (and keeps what was typed)
+  // when the checklist is already full.
+  const addItem = useCallback((patch: Partial<ItemDraft>): boolean => {
     if ((liveRef.current?.snapshot.itemDrafts.length ?? 0) >= MAX_CHECKLIST_ITEMS) {
       toast.error(`A checklist can have at most ${MAX_CHECKLIST_ITEMS} questions.`);
-      return;
+      return false;
     }
     // `section` goes last: the patch from AddQuestionModal is a whole draft carrying section: null,
     // which used to override the picked section and drop every new item into Ungrouped.
@@ -508,6 +510,7 @@ export const ChecklistBuilder = () => {
     // After the add pop-up has closed and handed focus back, bring the new card into view: on a
     // phone the type grid sits below the list, so the card is otherwise off screen.
     window.setTimeout(() => revealAfterRender(() => questionFieldOf(draft.key), false, 'center'), 80);
+    return true;
   }, [activeSection, sections]);
 
   const removeItem = useCallback((key: string) =>
@@ -516,8 +519,17 @@ export const ChecklistBuilder = () => {
   const handleImportTemplate = (templateId: string) => {
     const template = templates?.find(t => t.id === templateId);
     if (!template) return;
-    const kept = itemDrafts.filter(d => d.label.trim());
-    const incoming = template.items.map(item => ({
+    // Every existing draft stays, including one whose label is still empty: dropping it would throw
+    // away a question the admin had already configured.
+    const kept = itemDrafts;
+    const have = new Set(kept.map(d => d.label.trim().toLowerCase()).filter(Boolean));
+    const fresh = template.items.filter(item => !have.has(item.label.trim().toLowerCase()));
+    if (fresh.length < template.items.length) {
+      toast.info(fresh.length === 0
+        ? 'Every step of this template is already in the checklist.'
+        : `Skipped ${template.items.length - fresh.length} steps that are already in the checklist.`);
+    }
+    const incoming = fresh.map(item => ({
       ...emptyItemDraft(),
       label: item.label,
       requiredImageCount: String(item.requiredImageCount),
@@ -780,6 +792,15 @@ export const ChecklistBuilder = () => {
               isEditing={isEditing}
               isActive={isEditing ? existing?.isActive : undefined}
               onSubmit={handleSubmit}
+              onReloadLatest={mutation.error instanceof ApiError && mutation.error.status === 409 ? () => {
+                void confirm({
+                  title: 'Load the latest version?',
+                  description: 'Another admin saved this checklist first. Loading it replaces what you have here. Note down any changes you still need to make.',
+                  confirmLabel: 'Load latest',
+                  cancelLabel: 'Keep editing',
+                  variant: 'danger',
+                }).then((ok) => { if (ok) window.location.reload(); });
+              } : undefined}
               submitError={mutation.isError ? (mutation.error instanceof Error ? mutation.error.message : "Couldn't save this checklist. Try again.") : undefined}
             />
           </BuilderStepFrame>

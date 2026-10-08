@@ -49,6 +49,8 @@ interface BuilderReviewStepProps {
   isActive?: boolean;
   onSubmit: () => void;
   submitError?: string;
+  /** Set when the save lost a race with another admin: offers a way to load their version. */
+  onReloadLatest?: () => void;
 }
 
 const SECTION_CONFIG = [
@@ -189,6 +191,7 @@ export const BuilderReviewStep = ({
   isActive,
   onSubmit,
   submitError,
+  onReloadLatest,
 }: BuilderReviewStepProps) => {
   const storesQuery = useStoresQuery();
   // Every selected store, not just the first: a checklist can span multiple stores, and an
@@ -445,6 +448,11 @@ export const BuilderReviewStep = ({
 
       {/* Submission Error Banner */}
       {submitError && <InlineError message={submitError} />}
+      {submitError && onReloadLatest && (
+        <Button variant="outline" size="sm" className="self-start" onClick={onReloadLatest}>
+          Load the latest version
+        </Button>
+      )}
 
       {/* Action Footer & Incomplete Step Helper */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-4 border-t border-border/60">

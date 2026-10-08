@@ -976,7 +976,7 @@ export const checklistInstanceService = {
         const total = await countInstances(where)
         const instanceRows = await db.select().from(checklistInstances)
             .where(where)
-            .orderBy(desc(checklistInstances.periodStart))
+            .orderBy(desc(checklistInstances.periodStart), desc(checklistInstances.id))
             .limit(p.limit).offset(p.offset)
 
         return { data: await hydrateInstances(instanceRows), meta: buildMeta(p, total) }
@@ -989,7 +989,7 @@ export const checklistInstanceService = {
         const total = await countInstances(where)
         const instanceRows = await db.select().from(checklistInstances)
             .where(where)
-            .orderBy(desc(checklistInstances.periodStart))
+            .orderBy(desc(checklistInstances.periodStart), desc(checklistInstances.id))
             .limit(p.limit).offset(p.offset)
 
         return { data: await hydrateInstances(instanceRows), meta: buildMeta(p, total) }
@@ -1118,7 +1118,7 @@ export const checklistInstanceService = {
             .innerJoin(users, eq(users.id, checklistInstanceItemSubmissions.userId))
             .leftJoin(stores, eq(stores.id, checklistInstances.storeId))
             .where(where)
-            .orderBy(desc(checklistInstanceItemSubmissions.completedAt))
+            .orderBy(desc(checklistInstanceItemSubmissions.completedAt), asc(checklistInstanceItemSubmissions.id))
             .limit(p.limit).offset(p.offset)
         if (!rows.length) return { data: [], meta: buildMeta(p, total) }
 
@@ -1681,7 +1681,9 @@ export const checklistInstanceService = {
         const total = await countInstances(where)
         const instanceRows = await db.select().from(checklistInstances)
             .where(where)
-            .orderBy(desc(checklistInstances.periodStart))
+            // Oldest waiting first, like the dashboard card. `id` breaks ties so a page boundary never
+            // repeats or skips a run (updatedAt alone ties for runs approved in the same second).
+            .orderBy(asc(checklistInstances.updatedAt), asc(checklistInstances.id))
             .limit(p.limit).offset(p.offset)
         return { data: await hydrateInstances(instanceRows), meta: buildMeta(p, total) }
     },

@@ -93,6 +93,11 @@ const makeEndpointDot = (color: string, lastIndex: number, isolated: ReadonlySet
   );
 };
 
+// With several lines, colour alone is not enough (colour-blind readers, greyscale prints): each
+// line after the first gets its own dash pattern, and the legend swatch repeats it.
+const DASHES = [undefined, '7 4', '2 4', '10 4 2 4'] as const;
+const dashFor = (count: number, index: number) => (count > 1 ? DASHES[index % DASHES.length] : undefined);
+
 export const ReportTrendChart = ({ data, series, groupBy, valueSuffix = '', yDomain }: ReportTrendChartProps) => {
   const points = useMemo(() => data.slice(-(groupBy === 'day' ? MAX_POINTS_DAY : MAX_POINTS_OTHER)), [data, groupBy]);
   const hasValues = useMemo(() => points.some((row) => series.some((s) => row[s.key] != null)), [points, series]);
@@ -148,9 +153,11 @@ export const ReportTrendChart = ({ data, series, groupBy, valueSuffix = '', yDom
           app's tokens), pairs each line's color with its name the same way the tooltip already does. */}
       {series.length > 1 && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 px-1">
-          {series.map((s) => (
+          {series.map((s, i) => (
             <div key={s.key} className="flex items-center gap-1.5">
-              <span className="size-2 rounded-full shrink-0" style={{ background: s.color }} aria-hidden="true" />
+              <svg width="22" height="8" className="shrink-0" aria-hidden="true">
+                <line x1="1" y1="4" x2="21" y2="4" stroke={s.color} strokeWidth="2.5" strokeLinecap="round" strokeDasharray={dashFor(series.length, i)} />
+              </svg>
               <span className="text-xs font-display font-medium text-text-secondary">{s.label}</span>
             </div>
           ))}
@@ -195,7 +202,7 @@ export const ReportTrendChart = ({ data, series, groupBy, valueSuffix = '', yDom
               content={<ChartTooltip valueSuffix={valueSuffix} formatLabel={formatLabel} />}
               cursor={{ stroke: 'var(--color-text-light)', strokeWidth: 1, strokeDasharray: '4 4' }}
             />
-            {series.map((s) => (
+            {series.map((s, i) => (
               <Area
                 key={s.key}
                 type="monotone"
@@ -203,6 +210,7 @@ export const ReportTrendChart = ({ data, series, groupBy, valueSuffix = '', yDom
                 name={s.label}
                 stroke={s.color}
                 strokeWidth={2.5}
+                strokeDasharray={dashFor(series.length, i)}
                 fill={`url(#trend-fill-${s.key})`}
                 dot={makeEndpointDot(s.color, points.length - 1, isolatedBySeries.get(s.key) ?? new Set())}
                 activeDot={{ r: 5, fill: s.color, stroke: 'var(--color-surface)', strokeWidth: 2 }}

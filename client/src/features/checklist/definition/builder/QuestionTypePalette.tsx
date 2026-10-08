@@ -11,7 +11,8 @@ export interface PaletteEntry {
 }
 
 interface QuestionTypePaletteProps {
-  onAdd: (patch: Partial<ItemDraft>) => void;
+  /** Returns false when the question could not be added; the pop-up then stays open. */
+  onAdd: (patch: Partial<ItemDraft>) => boolean;
   storeIds?: string[];
 }
 
@@ -58,7 +59,7 @@ export const QuestionTypePalette = memo(function QuestionTypePalette({ onAdd, st
           entry={{ label: active.label, icon: active.icon, patch: active.patch }}
           storeIds={storeIds}
           onClose={() => setActive(null)}
-          onConfirm={(patch) => { onAdd(patch); setActive(null); }}
+          onConfirm={(patch) => { if (onAdd(patch)) setActive(null); }}
         />
       )}
     </div>

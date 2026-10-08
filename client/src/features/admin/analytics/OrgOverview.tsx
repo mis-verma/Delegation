@@ -1,4 +1,4 @@
-import { memo, useCallback, useId, useMemo } from 'react';
+import { memo, useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { AlertTriangle, Building2, ClipboardCheck, FileDown, Info, Repeat, TicketCheck } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -208,6 +208,24 @@ RecentActivitySection.displayName = 'RecentActivitySection';
 // Page
 // ---------------------------------------------------------------------------------------------
 
+// Today's date as a string that changes at local midnight (and when a sleeping tab wakes up), so
+// anything keyed on it recomputes once the day rolls over.
+const useToday = () => {
+  const [today, setToday] = useState(() => toDateParam(new Date()));
+  useEffect(() => {
+    const refresh = () => setToday(toDateParam(new Date()));
+    const now = new Date();
+    const untilMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime() - now.getTime();
+    const timer = window.setTimeout(refresh, untilMidnight + 1000);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [today]);
+  return today;
+};
+
 export const OrgOverview = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -236,7 +254,9 @@ export const OrgOverview = () => {
   // range, or else the last 12 buckets of the grouping (30 days for Day), the same span the control
   // bar names. Without it ticket and delegation figures were all-time while store checklists were
   // the last 30 days.
-  const fallbackWindow = useMemo(() => defaultWindow(groupBy), [groupBy]);
+  // `today` moves at midnight, so a tab left open overnight does not keep ranking yesterday's window.
+  const today = useToday();
+  const fallbackWindow = useMemo(() => defaultWindow(groupBy, parseDateParam(today) ?? undefined), [groupBy, today]);
   const windowFrom = from ?? fallbackWindow.from;
   const windowTo = to ?? fallbackWindow.to;
 

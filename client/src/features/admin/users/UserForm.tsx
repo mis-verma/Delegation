@@ -226,7 +226,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
     }
   };
 
-  const onSubmit = (data: UserFields) => {
+  const onSubmit = async (data: UserFields) => {
     setSubmitError(null);
     const departmentPayload = data.departmentId || undefined;
     const storePayload = data.storeId || undefined;
@@ -254,6 +254,15 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
       if (Object.keys(payload).length === 0) {
         onClose();
         return;
+      }
+      // A role decides what this person can see and do, so changing it is confirmed, not a quiet save.
+      if (payload.role) {
+        const ok = await confirm({
+          title: `Change ${fullName(user)} to ${ROLE_META[payload.role].label}?`,
+          description: `They go from ${ROLE_META[user.role].label} to ${ROLE_META[payload.role].label}. What they can see and do changes right away.`,
+          confirmLabel: 'Change role',
+        });
+        if (!ok) return;
       }
       updateMutation.mutate({ id: user.id, payload }, { onSuccess: onClose, onError: handleSaveError });
       return;

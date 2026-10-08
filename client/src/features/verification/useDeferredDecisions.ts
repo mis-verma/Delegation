@@ -92,7 +92,7 @@ export const useDeferredDecisions = ({ afterSaved, delayMs = UNDO_WINDOW_MS }: O
   }, [fire]);
 
   useEffect(() => {
-    const onVisibility = () => { if (document.visibilityState === 'hidden') flushAll(false); };
+    const onVisibility = () => { if (document.visibilityState === 'hidden') flushAll(true); };
     const onPageHide = () => flushAll(true);
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('pagehide', onPageHide);

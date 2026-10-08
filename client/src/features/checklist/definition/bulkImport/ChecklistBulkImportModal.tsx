@@ -1,6 +1,7 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { UploadCloud, FileSpreadsheet, AlertCircle, X, ChevronLeft, PartyPopper } from 'lucide-react';
-import { Modal, Button, DatePicker, TimePicker, Combobox, InlineError, NoticeBanner } from '../../../../components';
+import { Modal, Button, DatePicker, TimePicker, Combobox, InlineError, NoticeBanner, useConfirm } from '../../../../components';
 import { cn } from '@/lib/utils';
 import {
   useChecklistBulkImportPreviewMutation,
@@ -126,6 +127,7 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
   const [cutoffTime, setCutoffTime] = useState('');
   const [summary, setSummary] = useState<BulkImportSummary | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const confirm = useConfirm();
 
   const previewMutation = useChecklistBulkImportPreviewMutation();
   const publishMutation = useChecklistBulkImportPublishMutation();
@@ -143,7 +145,20 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
     publishMutation.reset();
   };
 
-  const handleClose = () => {
+  const handleClose = async () => {
+    // Closing mid-publish would hide the result (and any failures) while the server keeps writing.
+    if (publishMutation.isPending) return;
+    // A reviewed table or a chosen schedule is work worth keeping: ask before throwing it away.
+    if (step === 'review' || step === 'schedule') {
+      const leave = await confirm({
+        title: 'Close this import?',
+        description: 'The rows you matched will be lost and you will need to upload the file again.',
+        confirmLabel: 'Close',
+        cancelLabel: 'Keep working',
+        variant: 'danger',
+      });
+      if (!leave) return;
+    }
     reset();
     onClose();
   };
@@ -175,7 +190,14 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
     e.preventDefault();
     setDragOver(false);
     const file = e.dataTransfer.files?.[0];
-    if (file) handleFile(file);
+    if (!file) return;
+    // The browse button filters by type; a dropped file is not filtered, so check it here.
+    const ext = file.name.includes('.') ? `.${file.name.split('.').pop()!.toLowerCase()}` : '';
+    if (!ACCEPTED_EXTENSIONS.split(',').map((x) => x.trim().toLowerCase()).includes(ext)) {
+      toast.error('That file type is not supported. Use CSV, Excel or PDF.');
+      return;
+    }
+    handleFile(file);
   };
 
   const includedRows = useMemo(() => rows.filter((r) => !r.excluded), [rows]);
@@ -190,7 +212,17 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
     setRows((prev) => prev.map((r) => (r.rowIndex === rowIndex ? { ...r, ...patch } : r)));
   }, []);
 
-  const handlePublish = () => {
+  const handlePublish = async () => {
+    // A start date or time window is applied to every checklist in the batch, live ones included.
+    if (startDate || opensTime || cutoffTime) {
+      const count = new Set(includedRows.map((r) => r.checklistDefinitionId)).size;
+      const ok = await confirm({
+        title: `Change the schedule of ${count} checklist${count === 1 ? '' : 's'}?`,
+        description: 'The start date and times you set replace the current ones on every checklist in this batch, including live ones.',
+        confirmLabel: 'Publish',
+      });
+      if (!ok) return;
+    }
     publishMutation.mutate(
       {
         rows: includedRows.map((r) => ({ checklistDefinitionId: r.checklistDefinitionId, storeId: r.storeId, userId: r.userId })),
@@ -359,10 +391,12 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
 
       {step === 'done' && summary && (
         <div className="flex flex-col items-center justify-center gap-3 py-10 text-center">
-          <span className="flex items-center justify-center size-12 rounded-xl bg-success/10 text-success border border-success/20">
-            <PartyPopper className="size-6" />
+          <span className={cn('flex items-center justify-center size-12 rounded-xl border', summary.updatedDefinitions === 0 && summary.failed.length > 0 ? 'bg-danger/10 text-danger border-danger/20' : 'bg-success/10 text-success border-success/20')}>
+            {summary.updatedDefinitions === 0 && summary.failed.length > 0 ? <AlertCircle className="size-6" /> : <PartyPopper className="size-6" />}
           </span>
-          <p className="text-sm font-display font-semibold text-text">All set!</p>
+          <p className="text-sm font-display font-semibold text-text">
+            {summary.updatedDefinitions === 0 && summary.failed.length > 0 ? 'Nothing was updated' : summary.failed.length > 0 ? 'Done, with some failures' : 'All set!'}
+          </p>
           <p className="text-xs font-display text-text-muted max-w-sm">
             Updated {summary.updatedDefinitions} checklist{summary.updatedDefinitions === 1 ? '' : 's'}, added{' '}
             {summary.storesAdded} store{summary.storesAdded === 1 ? '' : 's'} and{' '}
