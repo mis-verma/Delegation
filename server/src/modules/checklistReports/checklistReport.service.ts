@@ -3,7 +3,7 @@ import type { Response } from "express"
 import { and, eq, gte, lte, sql } from "drizzle-orm"
 import { db } from "../../config/db.js"
 import { env } from "../../config/env.js"
-import { departments, stores, users } from "../../db/schema/core.js"
+import { departments, holidays, stores, users } from "../../db/schema/core.js"
 import { checklistDefinitions } from "../../db/schema/checklistDefinition.js"
 import { checklistInstanceAssignees, checklistInstanceItems, checklistInstances } from "../../db/schema/checklistInstance.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
@@ -67,7 +67,8 @@ export const REPORT_NOTES = [
     "A critical question counts double in Compliance %, for or against. Answers checked still counts it once.",
     "A question a reviewer sent back counts as a failed check for the person who had done it, even if it was redone well, and even if it has no accepted-answer rule.",
     "Completed on time means every question was done by the cutoff time. A checklist with no cutoff is due at the end of its day.",
-    "Completion % and On-time % are measured against all checklists assigned in the period, including ones that are still open.",
+    "Completion % is measured against all checklists assigned in the period. A checklist that is still open counts for the share of its questions already done, and in full once it is filled. On-time % counts only checklists finished by their cutoff.",
+    "This report covers every kind of checklist (daily, weekly, monthly and one-time), so its totals can be higher than the daily-only Fill report. A checklist that has not opened yet, has no questions, or was left unfinished on a holiday is not counted.",
 ]
 
 const NO_DEPARTMENT_KEY = "__none__"
@@ -152,14 +153,22 @@ type RunRow = {
     lastDoneAt: Date | null
 }
 
-type RunFlags = { complete: boolean; onTime: boolean; missed: boolean; submitted: boolean; approved: boolean; sentBack: boolean }
+type RunFlags = {
+    complete: boolean; onTime: boolean; missed: boolean; submitted: boolean; approved: boolean; sentBack: boolean
+    /** Not counted at all: not opened yet, no questions, or left unfinished on a holiday. */
+    skip: boolean
+    /** For a run still open before its cutoff: the share of its questions already done (0 to 1). */
+    partial: number
+}
 
-const emptyRunAcc = () => ({ assigned: 0, completed: 0, onTime: 0, missed: 0, submitted: 0, approved: 0, sentBack: 0 })
+const emptyRunAcc = () => ({ assigned: 0, completed: 0, onTime: 0, missed: 0, submitted: 0, approved: 0, sentBack: 0, openProgress: 0 })
 type RunAcc = ReturnType<typeof emptyRunAcc>
 const emptyItemAcc = () => ({ done: 0, na: 0, scored: 0, good: 0, wScored: 0, wGood: 0 })
 type ItemAcc = ReturnType<typeof emptyItemAcc>
 
 const addRun = (acc: RunAcc, f: RunFlags) => {
+    if (f.skip) return
+    acc.openProgress += f.partial
     acc.assigned += 1
     if (f.complete) acc.completed += 1
     if (f.onTime) acc.onTime += 1
@@ -181,7 +190,7 @@ const addItems = (into: ItemAcc, from: ItemAcc) => {
 const toMetrics = (r: RunAcc, i: ItemAcc): ReportMetrics => ({
     assigned: r.assigned,
     completed: r.completed,
-    completionPct: pct(r.completed, r.assigned),
+    completionPct: pct(r.completed + r.openProgress, r.assigned),
     onTime: r.onTime,
     onTimePct: pct(r.onTime, r.assigned),
     missed: r.missed,
@@ -306,6 +315,10 @@ export const checklistReportService = {
             db.select({ id: stores.id, name: stores.name }).from(stores),
         ])
 
+        // Holidays in the window, so a run left unfinished on one is not a miss.
+        const holidayRows = await db.select({ date: holidays.date }).from(holidays).where(and(gte(holidays.date, from), lte(holidays.date, to)))
+        const holidayDates = new Set(holidayRows.map((h) => h.date))
+
         const departmentNames = new Map(departmentRows.map((d) => [d.id, d.name]))
         const storeNames = new Map(storeRows.map((s) => [s.id, s.name]))
 
@@ -324,10 +337,22 @@ export const checklistReportService = {
                 deadline = r.periodStart.getTime() + minutes * 60_000 - offsetMs
             }
             const status = r.verificationStatus
+            const done = Number(r.done)
+            // When the run opens for filling: the opens time that day, or the start of the day.
+            let opensAt = r.periodStart.getTime() - offsetMs
+            if (r.opensTime) {
+                const [oh, om] = r.opensTime.split(":").map(Number)
+                opensAt += (oh * 60 + om) * 60_000
+            }
+            const holidayDate = r.periodStart.toISOString().slice(0, 10)
+            const skip = total === 0 || (!complete && holidayDates.has(holidayDate)) || (done === 0 && opensAt > now)
+            const missed = !complete && now > deadline
             return {
+                skip,
+                partial: !complete && !missed && total > 0 ? done / total : 0,
                 complete,
                 onTime: complete && (!r.lastDoneAt || r.lastDoneAt.getTime() <= deadline),
-                missed: !complete && now > deadline,
+                missed,
                 submitted: r.submittedAt != null || status === "PENDING_APPROVAL" || status === "APPROVED",
                 approved: status === "APPROVED",
                 sentBack: r.rejectionCount > 0,
@@ -342,7 +367,7 @@ export const checklistReportService = {
 
         for (const a of assigneeRows) {
             const flags = flagsByRun.get(a.instanceId)
-            if (!flags) continue
+            if (!flags || flags.skip) continue
             let person = peopleById.get(a.userId)
             if (!person) {
                 person = { row: a, runs: emptyRunAcc(), items: emptyItemAcc() }

@@ -1366,9 +1366,28 @@ export const checklistInstanceService = {
         const pctOf = (good: number, scored: number) => (scored > 0 ? Math.round((good / scored) * 100) : null)
         const rateOf = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 100) : null)
 
+        // Runs that are not real work yet are left out entirely: not opened (nothing done, and the opens
+        // time has not come), no questions at all, or left unfinished on a holiday. They are not a miss
+        // and not "in progress", so they must not pull any rate down.
+        const opensAtOf = (r: Run) => {
+            let at = r.periodStart.getTime() - offsetMs
+            if (r.opensTime) {
+                const [oh, om] = r.opensTime.split(":").map(Number)
+                at += (oh * 60 + om) * 60_000
+            }
+            return at
+        }
+        const countable = runs.filter((r) => {
+            const total = Number(r.total), done = Number(r.done)
+            if (total === 0) return false
+            if (done < total && holidayByDate[r.periodStart.toISOString().slice(0, 10)]) return false
+            if (done === 0 && opensAtOf(r) > now) return false
+            return true
+        })
+
         type Group = { definitionId: string; scopeKey: string; name: string; storeId: string; runs: Run[] }
         const grouped = new Map<string, Group>()
-        for (const r of runs) {
+        for (const r of countable) {
             // A per-person / per-department checklist has one row per person / department (its title
             // already says who), a shared one has a single row per store.
             const key = `${r.definitionId}|${r.storeId}|${r.scopeKey}`
@@ -1423,7 +1442,7 @@ export const checklistInstanceService = {
                     return {
                         date: col.key, state: "summary" as CellState, runId: null as string | null, done: 0, total: 0,
                         compliance: m ? pctOf(m.good, m.scored) : null,
-                        due: cellDue, onTime: m?.onTime ?? 0, late: m?.late ?? 0, missed: m?.missed ?? 0,
+                        due: cellDue, onTime: m?.onTime ?? 0, late: m?.late ?? 0, missed: m?.missed ?? 0, open: m?.open ?? 0,
                         rate: rateOf(m?.onTime ?? 0, cellDue + (m?.open ?? 0)),
                         completion: rateOf((m?.onTime ?? 0) + (m?.late ?? 0) + (m?.openProgress ?? 0), cellDue + (m?.open ?? 0)),
                     }
@@ -1431,7 +1450,7 @@ export const checklistInstanceService = {
                 const date = col.key
                 const r = byDay.get(date)
                 if (!r) {
-                    const state: CellState = holidayByDate[date] ? "holiday" : date > today ? "upcoming" : "off"
+                    const state: CellState = holidayByDate[date] ? "holiday" : date >= today ? "upcoming" : "off"
                     return { date, state, runId: null as string | null, done: 0, total: 0, compliance: null as number | null }
                 }
                 return { date, state: stateOf(r) as CellState, runId: r.id, done: Number(r.done), total: Number(r.total), compliance: pctOf(Number(r.wGood), Number(r.wScored)) }
