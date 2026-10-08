@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { CountBadge } from '../countBadge';
 import { ListFilter, SlidersHorizontal, X, Check, RotateCcw, FileDown, type LucideIcon } from 'lucide-react';
 import { Dialog, DialogTrigger, DialogContent, DialogTitle, DialogDescription, DialogClose } from '@/components/ui/dialog';
 import { Button } from '../button';
@@ -182,22 +183,26 @@ export const OptionsSheet = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button
-          variant="secondary"
-          size="sm"
-          title="Options"
-          aria-label={activeCount > 0 ? `Options, ${activeCount} active` : 'Options'}
-          className="group relative size-9 pointer-coarse:size-11 shrink-0 rounded-full border border-primary-500/30 bg-primary-500/10 dark:bg-primary-500/15 p-0 transition-colors duration-200 hover:border-primary-500/60 hover:bg-primary-500/15"
-        >
-          <ListFilter size={16} strokeWidth={2.5} className="text-primary-700 dark:text-primary-300" aria-hidden="true" />
-          {activeCount > 0 && (
-            <span aria-hidden="true" className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary-600 px-1 text-xs font-bold leading-none text-white tabular-nums">
-              {activeCount}
-            </span>
-          )}
-        </Button>
-      </DialogTrigger>
+      {/* The number sits on a wrapper beside the button, not inside it, and inside the wrapper's own
+          padding, so neither the button's round edge nor a toolbar's overflow can cut it off. */}
+      <span className="relative inline-flex shrink-0 -m-1 p-1">
+        <DialogTrigger asChild>
+          <Button
+            variant="secondary"
+            size="sm"
+            title="Options"
+            aria-label={activeCount > 0 ? `Options, ${activeCount} active` : 'Options'}
+            className="group size-9 pointer-coarse:size-11 shrink-0 rounded-full border border-primary-500/30 bg-primary-500/10 dark:bg-primary-500/15 p-0 transition-colors duration-200 hover:border-primary-500/60 hover:bg-primary-500/15"
+          >
+            <ListFilter size={16} strokeWidth={2.5} className="text-primary-700 dark:text-primary-300" aria-hidden="true" />
+          </Button>
+        </DialogTrigger>
+        <CountBadge
+          count={activeCount}
+          label={`${activeCount} ${activeCount === 1 ? 'option' : 'options'} on`}
+          className="pointer-events-none absolute right-0 top-0"
+        />
+      </span>
 
       <DialogContent
         ref={contentRef}
