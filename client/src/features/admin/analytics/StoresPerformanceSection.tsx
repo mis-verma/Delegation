@@ -1,7 +1,7 @@
 import { memo, useId, useMemo } from 'react';
 import { Link } from 'react-router';
 import { Trophy, AlertTriangle, Building2 } from 'lucide-react';
-import { EmptyState, InlineError, PANEL_CLASS, ENTITY_CARD_CLASS, Skeleton } from '../../../components';
+import { ActiveRangeBadge, EmptyState, InlineError, PANEL_CLASS, ENTITY_CARD_CLASS, Skeleton } from '../../../components';
 import { MIN_RANK_VOLUME, NEEDS_ATTENTION_BELOW, rankRows, useOwnerRankings, type RankedRow } from './useOwnerRankings';
 import { useChecklistInstanceComplianceReportQuery } from './useAnalyticsQueries';
 import { formatDuration, formatPercent, statCaption } from './analyticsDisplay';
@@ -41,6 +41,12 @@ const RankBadge = ({ isTop, isLow }: { isTop: boolean; isLow: boolean }) => {
   return null;
 };
 
+// A figure over a handful of items is shown but not ranked, and says so.
+const FewItemsTag = ({ row }: { row: RankedRow }) =>
+  row.overall != null && row.volume < MIN_RANK_VOLUME ? (
+    <span className="text-xs font-display font-medium text-text-muted whitespace-nowrap">Too few items to rank</span>
+  ) : null;
+
 interface RankedRowProps {
   row: RankedRow;
   isTop: boolean;
@@ -53,12 +59,13 @@ const NUMBER_CELL = 'px-4 py-3 text-right font-display tabular-nums';
 
 const RankedTableRow = memo(({ row, isTop, isLow, to }: RankedRowProps) => (
   <tr className="border-t border-border/60 hover:bg-surface-hover/50 transition-colors motion-reduce:transition-none">
-    <th scope="row" className="px-4 py-3 text-left font-display font-medium text-text">
+    <th scope="row" className="sticky left-0 z-10 bg-surface px-4 py-3 text-left font-display font-medium text-text">
       <div className="flex items-center gap-2 flex-wrap">
         <Link to={to} className="rounded hover:text-primary-700 dark:hover:text-primary-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50">
           {row.name}
         </Link>
         <RankBadge isTop={isTop} isLow={isLow} />
+        <FewItemsTag row={row} />
       </div>
     </th>
     <td className={`${NUMBER_CELL} font-bold ${rateToneClass(row.overall)}`}>{formatPercent(row.overall)}</td>
@@ -140,7 +147,7 @@ const RankedTable = ({ title, subtitle, rows, isPending, isError, isFetching, on
               <caption className="sr-only">{title} ranked by overall score, best first</caption>
               <thead>
                 <tr className="bg-surface-hover/60">
-                  <th scope="col" className={`${HEAD_CELL} text-left`}>{nameColumnLabel}</th>
+                  <th scope="col" className={`${HEAD_CELL} text-left sticky left-0 z-10 bg-surface-hover`}>{nameColumnLabel}</th>
                   <th scope="col" className={`${HEAD_CELL} text-right`}>Overall</th>
                   <th scope="col" className={`${HEAD_CELL} text-right`}>Tickets closed</th>
                   <th scope="col" className={`${HEAD_CELL} text-right`}>{secondaryLabel}</th>
@@ -189,7 +196,8 @@ export const StoresPerformanceSection = ({ from, to }: StoresPerformanceSectionP
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-start justify-between gap-x-4 gap-y-1 flex-wrap px-1">
-        <p className="text-xs font-display font-medium text-text-muted max-w-xl">
+        <ActiveRangeBadge from={from} to={to} />
+        <p className="text-xs font-display font-medium text-text-muted max-w-xl basis-full sm:basis-auto sm:flex-1">
           Overall blends ticket completion with delegation completion for departments, or with checklist completion for stores. Best first. Needs at least {MIN_RANK_VOLUME} items to be ranked.
         </p>
         <p className="text-xs font-display font-semibold text-text-secondary shrink-0">

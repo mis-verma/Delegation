@@ -110,18 +110,17 @@ const OverviewTabs = memo(({ groupBy, from, to, isOrgWideRole }: OverviewTabsPro
   const [params] = useSearchParams();
   const patch = useSearchPatch();
 
-  const tabs = SECTION_TABS;
   const requested = params.get('tab');
-  const section: SectionValue = tabs.find((t) => t.value === requested)?.value ?? DEFAULT_SECTION;
+  const section: SectionValue = SECTION_TABS.find((t) => t.value === requested)?.value ?? DEFAULT_SECTION;
 
   return (
-    <section id={SECTIONS_ANCHOR_ID} aria-labelledby={headingId} className="flex flex-col gap-4 scroll-mt-4 lg:scroll-mt-44">
+    <section id={SECTIONS_ANCHOR_ID} tabIndex={-1} aria-labelledby={headingId} className="flex flex-col gap-4 scroll-mt-4 lg:scroll-mt-52 focus:outline-none">
       <h2 id={headingId} className="sr-only">Performance by area</h2>
       <Tabs value={section} onValueChange={(v) => patch({ tab: v === DEFAULT_SECTION ? null : v })}>
-        {/* Four equal columns on a phone: the icon drops out and a long label wraps to two lines
+        {/* Equal columns on a phone: the icon drops out and a long label wraps to two lines
             instead of clipping. A compact pill group from sm up. */}
         <TabsList aria-label="Performance area" className="grid w-full grid-flow-col auto-cols-fr sm:inline-flex sm:w-fit h-auto">
-          {tabs.map(({ value, label, icon: Icon }) => (
+          {SECTION_TABS.map(({ value, label, icon: Icon }) => (
             <TabsTrigger
               key={value}
               value={value}
@@ -183,7 +182,12 @@ export const OrgOverview = () => {
     (target: SectionValue) => {
       patch({ tab: target === DEFAULT_SECTION ? null : target });
       const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      requestAnimationFrame(() => document.getElementById(SECTIONS_ANCHOR_ID)?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' }));
+      requestAnimationFrame(() => {
+        const section = document.getElementById(SECTIONS_ANCHOR_ID);
+        section?.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+        // Keyboard and screen reader users land in the section too, not just the eyes.
+        section?.focus({ preventScroll: true });
+      });
     },
     [patch],
   );

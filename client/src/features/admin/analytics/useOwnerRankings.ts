@@ -101,10 +101,12 @@ export interface RankedTable {
 
 /** Orders rows and decides who earns a badge. Pure, so callers memoise it on their rows. */
 export const rankRows = (rows: RankedRow[]): RankedTable => {
+  // Ranked rows first (enough items behind the figure), then rows with too few items to rank, then
+  // rows with no figure. A store with 100% over one ticket must not sit above a store with 95% over 200.
+  const tier = (r: RankedRow) => (r.overall == null ? 2 : r.volume >= MIN_RANK_VOLUME ? 0 : 1);
   const sorted = [...rows].sort((a, b) => {
-    if (a.overall == null && b.overall == null) return a.name.localeCompare(b.name);
-    if (a.overall == null) return 1;
-    if (b.overall == null) return -1;
+    if (tier(a) !== tier(b)) return tier(a) - tier(b);
+    if (a.overall == null || b.overall == null) return a.name.localeCompare(b.name);
     return b.overall - a.overall || b.volume - a.volume || a.name.localeCompare(b.name);
   });
   const eligible = sorted.filter((r) => r.overall != null && r.volume >= MIN_RANK_VOLUME);

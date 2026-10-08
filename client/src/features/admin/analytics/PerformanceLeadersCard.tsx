@@ -1,7 +1,7 @@
 import { memo, useId, useMemo } from 'react';
 import { Link } from 'react-router';
 import { Trophy, AlertTriangle, Building2, Store, ArrowRight } from 'lucide-react';
-import { Button, InlineError, PANEL_CLASS, Skeleton } from '../../../components';
+import { ActiveRangeBadge, Button, InlineError, PANEL_CLASS, Skeleton } from '../../../components';
 import { MIN_RANK_VOLUME, NEEDS_ATTENTION_BELOW, rankRows, useOwnerRankings, type RankedRow } from './useOwnerRankings';
 import { formatPercent } from './analyticsDisplay';
 
@@ -9,8 +9,8 @@ interface PerformanceLeadersCardProps {
   /** The window every ranking covers: the picked range, or the page's default window. */
   from?: string;
   to?: string;
-  /** Jumps straight to the full ranked table (the Stores tab below) instead of this card
-   *  duplicating it: this is the glance view, that is the drill-in. */
+  /** Opens the full ranking page instead of this card duplicating it: this is the glance view,
+   *  that is the drill-in. */
   onViewFull: () => void;
 }
 
@@ -116,7 +116,7 @@ const DimensionColumn = ({ icon: Icon, title, rows, isPending, isError, isFetchi
 };
 
 // The owner-level "who's top, who's low" summary, scoped to the page's own date range and shown on
-// the Overview itself. It reads the same ranked rows as the full Stores table (useOwnerRankings),
+// the Overview itself. It reads the same ranked rows as the full Rankings page (useOwnerRankings),
 // so the two never disagree. Rows open the people and teams directory, the nearest page that
 // lists a single department or store.
 export const PerformanceLeadersCard = ({ from, to, onViewFull }: PerformanceLeadersCardProps) => {
@@ -127,7 +127,7 @@ export const PerformanceLeadersCard = ({ from, to, onViewFull }: PerformanceLead
   } = useOwnerRankings(from, to);
 
   return (
-    <section aria-labelledby={headingId} className={`${PANEL_CLASS} p-4 sm:p-5 flex flex-col gap-4`}>
+    <section aria-labelledby={headingId} className={`${PANEL_CLASS} @container p-4 sm:p-5 flex flex-col gap-4`}>
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <h2 id={headingId} className="text-sm font-display font-bold text-text">How stores and departments are doing</h2>
@@ -141,7 +141,9 @@ export const PerformanceLeadersCard = ({ from, to, onViewFull }: PerformanceLead
         </Button>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 sm:divide-x sm:divide-border">
+      <ActiveRangeBadge from={from} to={to} />
+
+      <div className="flex flex-col @2xl:flex-row gap-4 @2xl:gap-6 @2xl:divide-x @2xl:divide-border">
         <DimensionColumn
           icon={Building2}
           title="Departments"
@@ -161,7 +163,7 @@ export const PerformanceLeadersCard = ({ from, to, onViewFull }: PerformanceLead
           isFetching={storesFetching}
           onRetry={retryStores}
           to="/admin/directory?tab=stores"
-          className="sm:pl-6"
+          className="@2xl:pl-6"
         />
       </div>
     </section>
