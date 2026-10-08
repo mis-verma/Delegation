@@ -7,7 +7,8 @@ import { useCreatedRange } from '../../lib/createdRange';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/context/AuthContext';
 import { OWN_SCOPE_ROLES } from '../../api/auth';
-import { useDepartmentsQuery, useStoresQuery, useAssignableUsersQuery, useTicketsBoardQuery } from './hook';
+import { useDepartmentsQuery, useStoresQuery, useAssignableUsersQuery, useTicketsBoardQuery, BOARD_LIMIT } from './hook';
+import { NoticeBanner } from '../../components/noticeBanner';
 import { useCategoriesQuery } from '../settings/hook';
 import { useTagsQuery } from '../tags/hook';
 import { TicketForm } from './TicketForm';
@@ -238,6 +239,14 @@ export const TicketList = () => {
           <AlertCircle size={16} className="shrink-0" />
           <span>Failed to load tickets. Please check your network connection and try again.</span>
         </div>
+      )}
+
+      {/* The server is asked for the newest BOARD_LIMIT tickets; a full page means older ones exist
+          that no view here shows, so say so rather than let the list look complete. */}
+      {!isPending && !isError && (allTicketsData?.length ?? 0) >= BOARD_LIMIT && (
+        <NoticeBanner tone="warning" icon={AlertCircle}>
+          Showing the newest {BOARD_LIMIT} tickets. Use the filters or search to narrow it down; older tickets are not listed here.
+        </NoticeBanner>
       )}
 
       {!isPending && !isError && organizer.sorted.length === 0 && (

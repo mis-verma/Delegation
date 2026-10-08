@@ -11,7 +11,7 @@ import {
   MoreHorizontal,
   ExternalLink,
 } from "lucide-react";
-import { useDeleteTaskMutation } from "./hook";
+import { useDeleteTaskMutation, usePrefetchTask } from "./hook";
 import { TaskVerifyActions } from "./TaskVerifyActions";
 import { PRIORITY_MAP } from "./taskDisplay";
 import { isOverdueTask } from "./taskFilters";
@@ -102,8 +102,11 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
   // just be a second reading of the same status.
   const showScoreBadge = fields.status && task.status !== 'done' && task.status !== 'pending_approval';
 
+  const prefetchHandlers = usePrefetchTask(task.id);
+
   return (
     <div
+      {...prefetchHandlers}
       onClick={() => onOpen(task)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {

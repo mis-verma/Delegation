@@ -7,6 +7,7 @@ import {
   storesQueryOptions,
   assignableUsersQueryOptions,
 } from '../features/tickets/hook';
+import { tasksListQueryOptions, assignableUsersAllQueryOptions } from '../features/tasks/hook';
 import { categoriesQueryOptions } from '../features/settings/hook';
 import { tagsQueryOptions } from '../features/tags/hook';
 
@@ -28,6 +29,15 @@ const PREFETCHERS: Record<string, Prefetcher> = {
     void qc.prefetchQuery(categoriesQueryOptions());
     void qc.prefetchQuery(tagsQueryOptions());
   },
+};
+
+PREFETCHERS['/tasks'] = (qc) => {
+  void import('../features/tasks/TaskList');
+  void qc.prefetchQuery(tasksListQueryOptions());
+  void qc.prefetchQuery(assignableUsersAllQueryOptions());
+  void qc.prefetchQuery(departmentsQueryOptions());
+  void qc.prefetchQuery(storesQueryOptions());
+  void qc.prefetchQuery(tagsQueryOptions());
 };
 
 // Same alias the router has: the admin copy of the page is the very same component.

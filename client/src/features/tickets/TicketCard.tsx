@@ -7,7 +7,7 @@ import { getInitials } from '../../lib/getInitials';
 import { avatarColorClass } from '../../lib/avatarColors';
 import { useAuth } from '../../context/AuthContext';
 import { usePrefetchTicket } from './hook';
-import { PRIORITY_CONFIG, formatDueLabel } from './ticketDisplay';
+import { PRIORITY_CONFIG, formatDueLabel, formatAge } from './ticketDisplay';
 import { StatusChip, getStatusChipLabel, type StatusChipStatus } from '../../components/statusChip';
 import { PriorityChip } from '../../components/priorityChip';
 import { DepartmentChip } from '../../components/departmentChip';
@@ -51,7 +51,7 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
     ? (ticket.statusUpdates ?? []).find(su => su.toStatus === 'ON_HOLD')?.remark ?? null
     : null;
 
-  const prefetchTicket = usePrefetchTicket();
+  const prefetchHandlers = usePrefetchTicket(ticket.id);
 
   const statusChip = <StatusChip status={statusChipStatus} label={statusLabel} />;
 
@@ -59,15 +59,13 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
     <button
       type="button"
       onClick={() => onClick(ticket)}
-      onMouseEnter={() => prefetchTicket(ticket.id)}
-      onFocus={() => prefetchTicket(ticket.id)}
-      onTouchStart={() => prefetchTicket(ticket.id)}
+      {...prefetchHandlers}
       className="group w-full h-full text-left flex flex-col gap-2 sm:gap-2.5 p-3 sm:p-3.5 rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface hover:border-primary-500/50 active:bg-surface-hover/50 transition-all duration-200 ease-in-out cursor-pointer select-none outline-none focus-visible:border-primary-500/50 focus-visible:ring-2 focus-visible:ring-primary-500/30 [-webkit-tap-highlight-color:transparent]"
     >
       <div className="flex flex-col gap-1 min-w-0 w-full">
         <div className="flex items-start gap-2 min-w-0">
           {/* leading-5 matches the old phone avatar height so the first line and the avatar centre-align. */}
-          <h3 className="flex-1 min-w-0 cursor-pointer text-[15px] font-display font-semibold text-text tracking-tight leading-5 sm:leading-6 line-clamp-2 break-words">
+          <h3 className="flex-1 min-w-0 text-[15px] font-display font-semibold text-text tracking-tight leading-5 sm:leading-6 line-clamp-2 break-words">
             {ticket.title}
           </h3>
           {!hideAssignee && (assigneeName ? (
@@ -86,6 +84,12 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
         {/* What the ticket is about, in place of the ticket code: two lines at most. */}
         {ticket.description?.trim() && (
           <p className="text-sm text-text-secondary leading-snug line-clamp-2 break-words">{ticket.description.trim()}</p>
+        )}
+        {/* The reason is also in the status chip's tooltip, but a phone has no hover. */}
+        {onHoldRemark && (
+          <p className="text-xs text-text-muted leading-snug line-clamp-1 break-words">
+            <span className="font-semibold text-text-secondary">On hold:</span> {onHoldRemark}
+          </p>
         )}
         {/* One line, never wraps: the department is the only part that truncates. Only drawn when
             there is something to say. */}
@@ -122,7 +126,9 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
           </Tooltip>
         ) : statusChip}
 
-        <PriorityChip meta={priorityInfo} />
+        {/* Medium is the default, so a chip on every card is noise: only the exceptions are marked.
+            The detail sheet still shows it for every ticket. */}
+        {ticket.priority !== 'MEDIUM' && <PriorityChip meta={priorityInfo} />}
 
         {departmentName && <DepartmentChip name={departmentName} className={deptChipClass} />}
 
@@ -160,6 +166,13 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
             <span className="text-xs font-semibold text-text-muted tabular-nums">{progress}%</span>
           </span>
         )}
+
+        <span
+          className={`${progress !== null ? 'hidden sm:inline' : ''} ${progress === null ? 'ml-auto' : ''} shrink-0 text-xs font-medium text-text-light tabular-nums`}
+          title={`Raised ${new Date(ticket.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`}
+        >
+          {formatAge(ticket.createdAt)}
+        </span>
       </div>
     </button>
   );

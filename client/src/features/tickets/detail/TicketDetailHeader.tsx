@@ -34,6 +34,8 @@ const ICON_BUTTON =
  */
 export const TicketDetailHeader = ({ ticket, statusLabel, onDelete, isDeleting = false }: TicketDetailHeaderProps) => {
   const [copied, setCopied] = useState(false);
+  // Tap the title to read all of it; it is clamped to two lines on a phone.
+  const [titleOpen, setTitleOpen] = useState(false);
   const code = ticketCode(ticket.id);
 
   const handleCopyId = async () => {
@@ -97,8 +99,8 @@ export const TicketDetailHeader = ({ ticket, statusLabel, onDelete, isDeleting =
       </div>
 
       <SheetTitle
-        title={ticket.title}
-        className="pr-2 text-lg sm:text-xl lg:text-2xl font-display font-semibold text-text tracking-tight leading-snug break-words line-clamp-2 sm:line-clamp-3 select-text"
+        onClick={() => setTitleOpen((o) => !o)}
+        className={`pr-2 text-lg sm:text-xl lg:text-2xl font-display font-semibold text-text tracking-tight leading-snug break-words select-text ${titleOpen ? '' : 'line-clamp-2 sm:line-clamp-3'}`}
       >
         {ticket.title}
       </SheetTitle>

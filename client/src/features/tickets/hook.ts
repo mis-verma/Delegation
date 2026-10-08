@@ -1,5 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { activityQueryOptions } from '../../components/activityTimeline/activityQuery';
 import { useAuth } from '../../context/AuthContext';
@@ -84,14 +84,27 @@ export const ticketDetailQueryOptions = (id: string) => ({
 
 // Warms a ticket's full record and its activity before the card is clicked. The list rows carry
 // no status history, so without this the open sheet starts both fetches only after it mounts.
-export const usePrefetchTicket = () => {
+// Returns the handlers to spread on the card. A mouse waits 150ms on the card first, so sweeping
+// across a board doesn't fire two requests for every card on the way; a finger or keyboard focus
+// is a clear intent and goes at once.
+export const usePrefetchTicket = (id: string) => {
   const queryClient = useQueryClient();
   const { token } = useAuth();
-  return useCallback((id: string) => {
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  const run = useCallback(() => {
     if (!token) return;
     void queryClient.prefetchQuery({ ...ticketDetailQueryOptions(id), staleTime: 30_000 });
     void queryClient.prefetchQuery(activityQueryOptions('Ticket', id));
-  }, [queryClient, token]);
+  }, [queryClient, token, id]);
+  const cancel = useCallback(() => clearTimeout(timer.current), []);
+
+  return {
+    onMouseEnter: () => { cancel(); timer.current = setTimeout(run, 150); },
+    onMouseLeave: cancel,
+    onFocus: run,
+    onTouchStart: run,
+  };
 };
 
 export const useTicketQuery = (id: string) => {
@@ -171,7 +184,7 @@ export const useTicketsByStatusQuery = (status: TicketStatus, limit = 100, enabl
 // to see effectively all tickets at once to bucket them correctly into status columns. Known v1
 // limitation: more than BOARD_LIMIT open tickets means the board undercounts rather than
 // paginating further — acceptable for now, a one-line constant bump if it becomes a real issue.
-const BOARD_LIMIT = 500;
+export const BOARD_LIMIT = 500;
 
 // Fetches (up to BOARD_LIMIT) tickets unpaginated, so search/filter/sort can run against the
 // whole matching set instead of just whatever 20-row page the server-paginated list happens to
@@ -390,3 +403,21 @@ export const useTicketBulkImportPublishMutation = () => {
     onError: (err) => toast.error(errorMessage(err, 'Failed to publish this batch')),
   });
 };
+
+// Photos on the ticket itself (added at creation or later), separate from the proof photos that
+// travel with a status change. The server lets anyone who may edit the ticket add or remove them.
+export const useUploadTicketAttachmentsMutation = (ticketId: string) =>
+  useEntityMutation({
+    mutationFn: (files: File[]) => ticketApi.uploadAttachments(ticketId, files),
+    invalidateKeys: [['tickets']],
+    successMessage: null,
+    errorFallback: 'Failed to add the photo',
+  });
+
+export const useDeleteTicketAttachmentMutation = () =>
+  useEntityMutation({
+    mutationFn: (id: string) => ticketApi.deleteAttachment(id),
+    invalidateKeys: [['tickets']],
+    successMessage: null,
+    errorFallback: 'Failed to remove the photo',
+  });

@@ -3,6 +3,8 @@ import { useDraggable } from '@dnd-kit/core';
 import { TicketCard } from '../TicketCard';
 import { DRAG_SLOP_PX } from '../../../lib/dragSlop';
 import type { Ticket } from '../../../api/ticket';
+import { useAuth } from '../../../context/AuthContext';
+import { canChangeTicket } from '../ticketPermissions';
 
 export interface DraggableTicketCardProps {
   ticket: Ticket;
@@ -16,7 +18,11 @@ export const DraggableTicketCard = ({ ticket, onOpen, departmentName }: Draggabl
   // board's KeyboardSensor and screen-reader `announcements` (wired up in TicketBoard.tsx) have
   // nothing to attach to, so keyboard-only drag-and-drop silently doesn't work despite being
   // configured.
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: ticket.id });
+  // A card the viewer may not move is not draggable at all, instead of letting them drop it and
+  // read a 403 toast afterwards. It still opens on a tap.
+  const { user } = useAuth();
+  const movable = canChangeTicket(user, ticket);
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: ticket.id, disabled: !movable });
   const pressOrigin = useRef<{ x: number; y: number } | null>(null);
 
   return (
@@ -45,7 +51,7 @@ export const DraggableTicketCard = ({ ticket, onOpen, departmentName }: Draggabl
       className={`relative group touch-manipulation transition-all duration-200 ease-in-out ${
         isDragging
           ? 'opacity-30 cursor-grabbing z-50 scale-95'
-          : 'cursor-grab'
+          : movable ? 'cursor-grab' : ''
       }`}
     >
       <TicketCard ticket={ticket} onClick={onOpen} departmentName={departmentName} variant="board" />

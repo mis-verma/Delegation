@@ -1,4 +1,6 @@
-import { useQuery , useMutation, useQueryClient } from "@tanstack/react-query";
+import { useCallback, useRef } from "react";
+import { useQuery , useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { activityQueryOptions } from "../../components/activityTimeline/activityQuery";
 import { useAuth } from "../../context/AuthContext";
 import { taskApi } from "../../api/task";
 import { userApi } from "../../api/users"; // NEW — needed for the assignee picker
@@ -41,17 +43,27 @@ const TASK_KEYS = {
 // enforced server-side in task.service.ts; a non-admin passing a userId here is just ignored).
 // `enabled` lets a caller (e.g. the header's quick search) defer the fetch until it's actually
 // needed, instead of every mount pulling the full list regardless of whether it's used yet.
+// Shared by the list, its meta twin and the route prefetch, so all three hit one cache entry.
+// useTaskSocket is mounted app-wide and invalidates ['tasks'] on every delegation event, so the
+// 2-minute window only skips the refetch-on-revisit; it cannot leave stale rows on screen.
+export const tasksListQueryOptions = (userId?: string, tagIds?: string[]) => ({
+    queryKey: TASK_KEYS.all(userId, tagIds),
+    queryFn:  () => taskApi.getAll(userId, undefined, 1, 200, tagIds),
+    staleTime: 2 * 60_000,
+});
+
 export const useTasksQuery = (userId?: string, enabled = true, tagIds?: string[], options?: DashboardQueryOptions) => {
     const { token } = useAuth();
     return useQuery({
-        queryKey: TASK_KEYS.all(userId, tagIds),
-        queryFn:  () => taskApi.getAll(userId, undefined, 1, 200, tagIds),
+        ...tasksListQueryOptions(userId, tagIds),
         // `select` keeps this hook's `data` a plain Task[], which is what all six call sites
         // already expect — the paging meta rides along in the cache entry and is read through
         // useTasksMetaQuery below rather than by widening every consumer's shape.
         select: (page) => page.data,
         enabled:  !!token && enabled,
         retry: handleQueryRetry,
+        // Changing the label filter keeps the current rows up instead of dropping to a skeleton.
+        placeholderData: keepPreviousData,
         ...options,
     });
 };
@@ -92,11 +104,11 @@ export const useTaskPendingApprovalQuery = (enabled = true, options?: DashboardQ
 export const useTasksMetaQuery = (userId?: string, enabled = true, tagIds?: string[]) => {
     const { token } = useAuth();
     return useQuery({
-        queryKey: TASK_KEYS.all(userId, tagIds),
-        queryFn:  () => taskApi.getAll(userId, undefined, 1, 200, tagIds),
+        ...tasksListQueryOptions(userId, tagIds),
         select: (page) => page.meta,
         enabled:  !!token && enabled,
         retry: handleQueryRetry,
+        placeholderData: keepPreviousData,
     });
 };
 
@@ -168,11 +180,38 @@ export const useComplianceReportQuery = (groupBy: 'day' | 'week' | 'month' | 'ye
 // needed — e.g. the Verification Queue's inline checklist preview, which only wants a task's full
 // checklist tree (absent from the list response) once its row is actually expanded, not for every
 // row in the queue up front.
+export const taskDetailQueryOptions = (id: string) => ({
+    queryKey: TASK_KEYS.detail(id),
+    queryFn:  () => taskApi.getOne(id),
+});
+
+// Warms a delegation's full record and its activity before the card is clicked, same intent
+// rule as the ticket card: a mouse waits 150ms on the card (so sweeping across a board doesn't
+// fire two requests per card), a finger or keyboard focus goes at once. Spread on the card.
+export const usePrefetchTask = (id: string) => {
+    const queryClient = useQueryClient();
+    const { token } = useAuth();
+    const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+    const run = useCallback(() => {
+        if (!token) return;
+        void queryClient.prefetchQuery({ ...taskDetailQueryOptions(id), staleTime: 30_000 });
+        void queryClient.prefetchQuery(activityQueryOptions('Task', id));
+    }, [queryClient, token, id]);
+    const cancel = useCallback(() => clearTimeout(timer.current), []);
+
+    return {
+        onMouseEnter: () => { cancel(); timer.current = setTimeout(run, 150); },
+        onMouseLeave: cancel,
+        onFocus: run,
+        onTouchStart: run,
+    };
+};
+
 export const useTaskQuery = (id: string, enabled = true) => {
     const { token } = useAuth();
     return useQuery({
-        queryKey: TASK_KEYS.detail(id),
-        queryFn:  () => taskApi.getOne(id),
+        ...taskDetailQueryOptions(id),
         enabled:  !!token && !!id && enabled,
         retry: handleQueryRetry,
     });
@@ -257,11 +296,17 @@ export const useDeleteTaskMutation = () =>
 
 // NEW — powers the "Assign to" dropdown in TaskForm.tsx. Calls the same `/users/assignable`
 // endpoint that features/tickets/hook.ts's useAssignableUsersQuery already uses.
+export const assignableUsersAllQueryOptions = () => ({
+    queryKey: ['assignable-users', 'all'] as const,
+    queryFn:  () => userApi.getAssignable().then(r => r.data),
+    // The roster changes when an admin edits users, not every half minute.
+    staleTime: 5 * 60_000,
+});
+
 export const useAssignableUsersQuery = () => {
     const { token } = useAuth();
     return useQuery({
-        queryKey: ['assignable-users', 'all'],
-        queryFn:  () => userApi.getAssignable().then(r => r.data),
+        ...assignableUsersAllQueryOptions(),
         enabled:  !!token,
         retry: handleQueryRetry,
     });

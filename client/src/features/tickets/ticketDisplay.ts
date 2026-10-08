@@ -2,6 +2,15 @@ import { ArrowDown, Minus, ArrowUp, AlertTriangle } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Ticket, TicketStatus } from '../../api/ticket';
 
+/** How long ago, in the smallest useful unit: "Today", "3d", "2w", "5mo". For the card's quiet age mark. */
+export const formatAge = (iso: string): string => {
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+  if (days < 1) return 'Today';
+  if (days < 14) return `${days}d`;
+  if (days < 60) return `${Math.floor(days / 7)}w`;
+  return `${Math.floor(days / 30)}mo`;
+};
+
 export const formatShortDate = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 

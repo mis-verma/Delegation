@@ -22,7 +22,9 @@ import { useTicketStatusMove } from './useTicketStatusMove';
 import { useVerifyTicketMutation } from './hook';
 import type { Ticket } from '../../api/ticket';
 import { TicketBoardColumnsRow } from './board/TicketBoardColumnsRow';
+import { BoardTouchHint } from './board/BoardTouchHint';
 import { DRAG_SLOP_PX } from '../../lib/dragSlop';
+import { STATUS_CONFIG } from './ticketDisplay';
 
 /**
  * The drop is decided by the pointer, not by the card's outline.
@@ -48,6 +50,9 @@ interface TicketBoardProps {
   isVerifier?: boolean;
   onOpen: (ticket: Ticket) => void;
 }
+
+// Screen readers should hear "Pending Approval", not the raw status key.
+const columnName = (id: unknown) => STATUS_CONFIG[id as Ticket['status']]?.label ?? String(id);
 
 // Configures a smooth "snap-back" or "drop" animation
 const dropAnimationConfig: DropAnimation = {
@@ -85,11 +90,11 @@ export const TicketBoard = ({ tickets, departmentNames, isVerifier = false, onOp
       return `Picked up ticket.`;
     },
     onDragOver({ over }: DragOverEvent) {
-      if (over) return `Ticket moved over column ${over.id}.`;
+      if (over) return `Ticket moved over column ${columnName(over.id)}.`;
       return `Ticket is no longer over a column.`;
     },
     onDragEnd({ over }: DragEndEvent) {
-      if (over) return `Ticket dropped into column ${over.id}.`;
+      if (over) return `Ticket dropped into column ${columnName(over.id)}.`;
       return `Ticket drop cancelled.`;
     },
     onDragCancel() {
@@ -150,7 +155,10 @@ export const TicketBoard = ({ tickets, departmentNames, isVerifier = false, onOp
       onDragEnd={handleDragEnd}
       onDragCancel={() => setActiveTicket(null)}
     >
+      <div className="flex flex-col gap-3">
+      <BoardTouchHint />
       <TicketBoardColumnsRow tickets={tickets} draggable onOpen={onOpen} departmentNames={departmentNames} />
+      </div>
 
       <DragOverlay dropAnimation={dropAnimationConfig}>
         {activeTicket && (

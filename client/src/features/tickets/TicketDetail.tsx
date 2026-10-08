@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ShieldCheck, CalendarDays, User, Store as StoreIcon, Layers, ChevronDown, AlertTriangle } from 'lucide-react';
+import { ShieldCheck, Pencil, CalendarDays, User, Store as StoreIcon, Layers, ChevronDown, AlertTriangle } from 'lucide-react';
 import {
   useStoresQuery,
   useTicketQuery,
@@ -24,6 +24,9 @@ import { TicketDetailHeader } from './detail/TicketDetailHeader';
 import { TicketPropertyRow } from './detail/TicketPropertyRow';
 import { VerificationNoteBanner } from '../../components/verificationBanner';
 import { TicketDescription } from './detail/TicketDescription';
+import { TicketAttachments } from './detail/TicketAttachments';
+import { TicketEditForm } from './detail/TicketEditForm';
+import { canChangeTicket } from './ticketPermissions';
 import { TicketStatusHistory } from './detail/TicketStatusHistory';
 import { TicketVerificationActions } from './detail/TicketVerificationActions';
 import { TicketStatusMenu } from './detail/TicketStatusMenu';
@@ -54,13 +57,10 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
   
   const isAdmin = currentUser?.role === "ADMIN" || currentUser?.role === "PC";
   const isVerifier = currentUser?.role === "PC" || currentUser?.role === "ADMIN";
-  const canChangeStatus =
-    currentUser?.role === "ADMIN" ||
-    currentUser?.role === "PC" ||
-    currentUser?.role === "MANAGER" ||
-    ((currentUser?.role === "AGENT" || currentUser?.role === "USER") &&
-      (ticket.assigneeId === currentUser?.id || ticket.userId === currentUser?.id));
-      
+  // One rule for "may change this ticket": moving its status, editing its text, adding photos.
+  const canChangeStatus = canChangeTicket(currentUser, ticket);
+  const canEdit = canChangeStatus && ticket.status !== 'CLOSED';
+
   const { data: assignableUsers } = useAssignableUsersQuery(ticket.departmentId ?? undefined);
   const { data: departments } = useDepartmentsQuery();
   // The current assignee may sit outside this department's assignable roster (moved, or picked
@@ -81,6 +81,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
     : raisedByUser ? `${raisedByUser.firstName} ${raisedByUser.lastName ?? ''}`.trim() : null;
 
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
   // Phone only: Department, Store and Category fold away behind "More details"; the rail shows them all.
   const [moreOpen, setMoreOpen] = useState(false);
   // Phone only: History and Activity share one tab strip; from lg both are on the page.
@@ -290,7 +291,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                   current={ticket.tags ?? []}
                   onSave={(tagIds) => labelsMut.mutate({ id: ticket.id, payload: { tagIds } })}
                   canCreate={isVerifier}
-                  readOnly
+                  readOnly={!canEdit}
                   hideHeading
                   headingClassName={DETAIL_HEADING_CLASS}
                 />
@@ -319,7 +320,35 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
 
               <VerificationNoteBanner note={ticket.verificationNote} approved={ticket.status === 'CLOSED'} verifiedBy={ticket.verifiedBy} />
 
-              <TicketDescription description={ticket.description} />
+              {editing && canEdit ? (
+                <TicketEditForm
+                  ticket={ticket}
+                  isSaving={updateMut.isPending}
+                  onSave={(payload) => updateMut.mutate({ id: ticket.id, payload }, { onSuccess: () => setEditing(false) })}
+                  onCancel={() => setEditing(false)}
+                />
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => setEditing(true)}
+                      className="self-start relative inline-flex items-center gap-1.5 h-8 px-2.5 -ml-2.5 rounded-full text-xs font-display font-semibold text-primary-700 dark:text-primary-300 hover:bg-primary-500/10 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 after:absolute after:-inset-y-1.5 after:inset-x-0"
+                    >
+                      <Pencil size={13} strokeWidth={2.5} />
+                      Edit title and details
+                    </button>
+                  )}
+                  <TicketDescription description={ticket.description} />
+                </div>
+              )}
+
+              <TicketAttachments
+                ticketId={ticket.id}
+                attachments={ticket.attachments ?? []}
+                canEdit={canEdit}
+                onPreview={setPreviewImage}
+              />
               </div>
 
               <div className="flex flex-col gap-5 sm:gap-6 min-w-0 max-lg:order-3">
