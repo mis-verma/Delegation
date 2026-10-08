@@ -112,6 +112,7 @@ const MatrixRow = memo(({ row }: { row: WeeklyReportRow }) => (
       ) : (
         <span className={cn('text-sm font-display font-bold tabular-nums', rateToneClass(row.completion))}>{row.completion}%</span>
       )}
+      {!!row.open && <span className="block text-xs font-display text-primary-600 dark:text-primary-300">{row.open} open</span>}
     </td>
     <td className="px-3 py-1 text-center">
       {row.rate === null ? (
@@ -195,6 +196,7 @@ export const ChecklistWeeklyReport = () => {
     { label: 'Filled on time', value: summary.onTime, tone: 'text-success' },
     { label: 'Filled late', value: summary.late, tone: summary.late ? 'text-warning' : '' },
     { label: 'Not filled', value: summary.missed, tone: summary.missed ? 'text-danger' : '' },
+    ...(summary.open ? [{ label: 'Still open', value: summary.open, tone: 'text-primary-600 dark:text-primary-300' }] : []),
   ], [summary]);
 
   const periodWord = PERIOD_LABEL[period].toLowerCase();
@@ -275,7 +277,7 @@ export const ChecklistWeeklyReport = () => {
       {/* keepPreviousData holds the old window on screen while the next loads: dim it meanwhile. */}
       {data && !!rows?.length && (
         <div className={cn('flex flex-col gap-5 transition-opacity duration-200', isFetching && 'opacity-60')} aria-busy={isFetching}>
-          {summary && summary.due > 0 && (
+          {summary && summary.due + (summary.open ?? 0) > 0 && (
             <dl className={STRIP}>
               {summaryTiles?.map(t => (
                 <div key={t.label} className="flex flex-col gap-0.5 p-3.5 bg-surface">
@@ -285,12 +287,19 @@ export const ChecklistWeeklyReport = () => {
               ))}
             </dl>
           )}
-          {summary && summary.due === 0 && (
-            <p className="text-xs font-display text-text-muted">Nothing was due in this {periodWord}.</p>
-          )}
-          {summary && summary.due > 0 && (
+          {summary && summary.due + (summary.open ?? 0) === 0 && (
             <p className="text-xs font-display text-text-muted">
-              Completion is the share of due runs that got filled, on time or late. On time is the share filled before their cutoff. Compliance is how well the checked answers were answered, with critical questions counted twice and sent-back ones counted as failed.
+              Nothing was due in this {periodWord} yet.
+            </p>
+          )}
+          {!!summary?.open && (
+            <p role="status" className="text-xs font-display font-medium text-primary-700 dark:text-primary-300">
+              {summary.open} checklist{summary.open === 1 ? ' is' : 's are'} still open, so these percentages are not final. An open checklist counts for as much of it as is done so far, and counts fully once it is filled.
+            </p>
+          )}
+          {summary && summary.due + (summary.open ?? 0) > 0 && (
+            <p className="text-xs font-display text-text-muted">
+              Completion is the share of runs that got filled, on time or late, with open runs counted by how much is done. On time is the share filled before their cutoff. Compliance is how well the checked answers were answered, with critical questions counted twice and sent-back ones counted as failed.
             </p>
           )}
 

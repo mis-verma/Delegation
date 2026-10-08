@@ -1288,7 +1288,7 @@ export const checklistInstanceService = {
                 columns.push({ key, label: `${MONTHS[Number(key.slice(5, 7)) - 1]}${key.slice(0, 4) !== from.slice(0, 4) || spanDays > 366 ? ` ${key.slice(2, 4)}` : ""}` })
             }
         }
-        const emptySummary = { due: 0, onTime: 0, late: 0, missed: 0, rate: null as number | null, completion: null as number | null, compliance: null as number | null }
+        const emptySummary = { due: 0, onTime: 0, late: 0, missed: 0, open: 0, rate: null as number | null, completion: null as number | null, compliance: null as number | null }
         const empty = {
             from, to, weekStart: from, kind, columns, days: kind === "day" ? dayKeys : ([] as string[]),
             holidays: {} as Record<string, string>, rows: [], summary: emptySummary,
@@ -1378,31 +1378,42 @@ export const checklistInstanceService = {
             grouped.set(key, g)
         }
 
-        const totals = { due: 0, onTime: 0, late: 0, missed: 0, scored: 0, good: 0 }
+        const totals = { due: 0, onTime: 0, late: 0, missed: 0, open: 0, openProgress: 0, scored: 0, good: 0 }
         const rows = [...grouped.values()].map((g) => {
-            const acc = { onTime: 0, late: 0, missed: 0, scored: 0, good: 0 }
+            // `open` runs are still before their cutoff and not finished. They are not a miss, but they are
+            // not finished work either, so the rates count them in the whole and credit them only for the
+            // share of their questions done so far (`openProgress`, in runs: 0.5 = half a run).
+            const acc = { onTime: 0, late: 0, missed: 0, open: 0, openProgress: 0, scored: 0, good: 0 }
             const byDay = new Map<string, Run>()
-            const byMonth = new Map<string, { onTime: number; late: number; missed: number; scored: number; good: number }>()
+            const byMonth = new Map<string, { onTime: number; late: number; missed: number; open: number; openProgress: number; scored: number; good: number }>()
             for (const r of g.runs) {
                 const st = stateOf(r)
                 const scored = Number(r.wScored), good = Number(r.wGood)
                 if (st === "done") acc.onTime++
                 else if (st === "late") acc.late++
                 else if (st === "missed") acc.missed++
+                else {
+                    acc.open++
+                    acc.openProgress += Number(r.total) > 0 ? Number(r.done) / Number(r.total) : 0
+                }
                 acc.scored += scored
                 acc.good += good
                 const date = r.periodStart.toISOString().slice(0, 10)
                 byDay.set(date, r)
-                const m = byMonth.get(date.slice(0, 7)) ?? { onTime: 0, late: 0, missed: 0, scored: 0, good: 0 }
+                const m = byMonth.get(date.slice(0, 7)) ?? { onTime: 0, late: 0, missed: 0, open: 0, openProgress: 0, scored: 0, good: 0 }
                 if (st === "done") m.onTime++
                 else if (st === "late") m.late++
                 else if (st === "missed") m.missed++
+                else {
+                    m.open++
+                    m.openProgress += Number(r.total) > 0 ? Number(r.done) / Number(r.total) : 0
+                }
                 m.scored += scored
                 m.good += good
                 byMonth.set(date.slice(0, 7), m)
             }
             const due = acc.onTime + acc.late + acc.missed
-            totals.due += due; totals.onTime += acc.onTime; totals.late += acc.late; totals.missed += acc.missed
+            totals.due += due; totals.onTime += acc.onTime; totals.late += acc.late; totals.missed += acc.missed; totals.open += acc.open; totals.openProgress += acc.openProgress
             totals.scored += acc.scored; totals.good += acc.good
 
             const cells = columns.map((col) => {
@@ -1413,7 +1424,8 @@ export const checklistInstanceService = {
                         date: col.key, state: "summary" as CellState, runId: null as string | null, done: 0, total: 0,
                         compliance: m ? pctOf(m.good, m.scored) : null,
                         due: cellDue, onTime: m?.onTime ?? 0, late: m?.late ?? 0, missed: m?.missed ?? 0,
-                        rate: rateOf(m?.onTime ?? 0, cellDue), completion: rateOf((m?.onTime ?? 0) + (m?.late ?? 0), cellDue),
+                        rate: rateOf(m?.onTime ?? 0, cellDue + (m?.open ?? 0)),
+                        completion: rateOf((m?.onTime ?? 0) + (m?.late ?? 0) + (m?.openProgress ?? 0), cellDue + (m?.open ?? 0)),
                     }
                 }
                 const date = col.key
@@ -1431,8 +1443,9 @@ export const checklistInstanceService = {
                 storeId: g.storeId,
                 storeName: storeNames.get(g.storeId) ?? "Store",
                 cells,
-                rate: rateOf(acc.onTime, due),
-                completion: rateOf(acc.onTime + acc.late, due),
+                open: acc.open,
+                rate: rateOf(acc.onTime, due + acc.open),
+                completion: rateOf(acc.onTime + acc.late + acc.openProgress, due + acc.open),
                 compliance: pctOf(acc.good, acc.scored),
             }
         }).sort((a, b) => a.name.localeCompare(b.name) || a.storeName.localeCompare(b.storeName))
@@ -1447,9 +1460,9 @@ export const checklistInstanceService = {
             holidays: holidayByDate,
             rows,
             summary: {
-                due: totals.due, onTime: totals.onTime, late: totals.late, missed: totals.missed,
-                rate: rateOf(totals.onTime, totals.due),
-                completion: rateOf(totals.onTime + totals.late, totals.due),
+                due: totals.due, onTime: totals.onTime, late: totals.late, missed: totals.missed, open: totals.open,
+                rate: rateOf(totals.onTime, totals.due + totals.open),
+                completion: rateOf(totals.onTime + totals.late + totals.openProgress, totals.due + totals.open),
                 compliance: pctOf(totals.good, totals.scored),
             },
         }

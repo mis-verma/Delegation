@@ -17,6 +17,8 @@ export type TrendGroupBy = 'day' | 'week' | 'month' | 'year' | 'none';
  *  keeps a full month; week, month and year stay at 24. */
 const MAX_POINTS_DAY = 31;
 const MAX_POINTS_OTHER = 24;
+/** When the early buckets are empty, at least this many of the newest are still drawn. */
+const MIN_CONTEXT_POINTS = 6;
 
 // The report endpoints name the single whole-range bucket 'range' (groupBy=none), whatever grouping
 // the page asked for, so the label has to follow the bucket, not the control.
@@ -99,7 +101,14 @@ const DASHES = [undefined, '7 4', '2 4', '10 4 2 4'] as const;
 const dashFor = (count: number, index: number) => (count > 1 ? DASHES[index % DASHES.length] : undefined);
 
 export const ReportTrendChart = ({ data, series, groupBy, valueSuffix = '', yDomain }: ReportTrendChartProps) => {
-  const points = useMemo(() => data.slice(-(groupBy === 'day' ? MAX_POINTS_DAY : MAX_POINTS_OTHER)), [data, groupBy]);
+  const points = useMemo(() => {
+    const recent = data.slice(-(groupBy === 'day' ? MAX_POINTS_DAY : MAX_POINTS_OTHER));
+    // Months before the first figure are empty space: start at the first bucket with data, but keep
+    // a few buckets of context so a brand-new report does not shrink to a single point.
+    const firstWithData = recent.findIndex((row) => series.some((s) => row[s.key] != null));
+    if (firstWithData <= 0) return recent;
+    return recent.slice(Math.min(firstWithData, Math.max(0, recent.length - MIN_CONTEXT_POINTS)));
+  }, [data, groupBy, series]);
   const hasValues = useMemo(() => points.some((row) => series.some((s) => row[s.key] != null)), [points, series]);
 
   // Per series, the points whose neighbours are both empty (or missing).
@@ -107,11 +116,14 @@ export const ReportTrendChart = ({ data, series, groupBy, valueSuffix = '', yDom
     const result = new Map<string, Set<number>>();
     for (const s of series) {
       const isolated = new Set<number>();
+      // With a dozen points or fewer, every real figure gets a dot so the points are readable and
+      // hoverable, not just the line between them. With more, only a point with no neighbours does.
+      const dotAll = points.length <= 12;
       points.forEach((row, i) => {
         if (row[s.key] == null) return;
         const before = i > 0 ? points[i - 1][s.key] : null;
         const after = i < points.length - 1 ? points[i + 1][s.key] : null;
-        if (before == null && after == null) isolated.add(i);
+        if (dotAll || (before == null && after == null)) isolated.add(i);
       });
       result.set(s.key, isolated);
     }
@@ -168,7 +180,7 @@ export const ReportTrendChart = ({ data, series, groupBy, valueSuffix = '', yDom
           sr-only table next to it, not inside it. */}
       <div role="img" aria-label={summary}>
         <ResponsiveContainer width="100%" height={series.length > 1 ? CHART_HEIGHT - LEGEND_HEIGHT : CHART_HEIGHT}>
-          <AreaChart data={points} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+          <AreaChart data={points} margin={{ top: 8, right: 12, left: 4, bottom: 0 }}>
             <defs>
               {series.map((s) => (
                 <linearGradient key={s.key} id={`trend-fill-${s.key}`} x1="0" y1="0" x2="0" y2="1">
@@ -194,7 +206,7 @@ export const ReportTrendChart = ({ data, series, groupBy, valueSuffix = '', yDom
               tickLine={false}
               axisLine={false}
               tick={{ fill: 'var(--color-text-secondary)', fontSize: 12 }}
-              width={40}
+              width={48}
               domain={yDomain}
               tickFormatter={(v: unknown) => `${v}${valueSuffix}`}
             />

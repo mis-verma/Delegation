@@ -395,8 +395,8 @@ export type WeeklyReport = {
   columns: { key: string; label: string }[];
   days: string[];
   holidays: Record<string, string>;
-  rows: { definitionId: string; scopeKey: string; name: string; storeId: string; storeName: string; cells: WeeklyCell[]; rate: number | null; completion: number | null; compliance: number | null }[];
-  summary: { due: number; onTime: number; late: number; missed: number; rate: number | null; completion: number | null; compliance: number | null };
+  rows: { definitionId: string; scopeKey: string; name: string; storeId: string; storeName: string; cells: WeeklyCell[]; /** Runs still open before their cutoff: left out of the rates. */ open?: number; rate: number | null; completion: number | null; compliance: number | null }[];
+  summary: { due: number; onTime: number; late: number; missed: number; /** Runs still open before their cutoff: left out of the rates. */ open?: number; rate: number | null; completion: number | null; compliance: number | null };
 };
 
 export const checklistInstanceApi = {
