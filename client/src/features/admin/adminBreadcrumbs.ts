@@ -29,6 +29,9 @@ export function getAdminBreadcrumbs(pathname: string): BreadcrumbTrailItem[] | n
     // crumb and h1 must read the same as the sidebar child.
     return [DASHBOARD, ADMIN_ROOT, { label: 'Recurring Checklists' }];
   }
+  if (pathname.startsWith('/admin/checklist-store-daily')) {
+    return [DASHBOARD, ADMIN_ROOT, { label: 'Store by Day' }];
+  }
   if (pathname.startsWith('/admin/checklist-compliance')) {
     return [DASHBOARD, ADMIN_ROOT, { label: 'Checklist Compliance' }];
   }

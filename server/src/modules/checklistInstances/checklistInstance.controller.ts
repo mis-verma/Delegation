@@ -258,4 +258,13 @@ export const checklistInstanceController = {
         const data = await checklistReportService.byStoreReport(scope, query)
         res.json({ success: true, data })
     }),
+
+    // GET /checklist-instances/reports/store-daily?from=&to=
+    // Store-by-day completion for the grid page. Same scope and range rules as by-store above.
+    storeDailyReport: asyncHandler(async (req: Request, res: Response) => {
+        const query = checklistInstanceByStoreReportQuerySchema.parse(req.query)
+        const scope = resolveChecklistReportScope(req.user!)
+        const data = await checklistReportService.storeDailyReport(scope, query)
+        res.json({ success: true, data })
+    }),
 }

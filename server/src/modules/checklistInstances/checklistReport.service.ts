@@ -270,4 +270,37 @@ export const checklistReportService = {
             }
         })
     },
+
+    /**
+     * One row per ACTIVE store and day that had due runs in the range: the same completion rule as the
+     * trend and by-store reports (due runs only, Not applicable left out), cut by store and by day.
+     * The caller lays it out as a store-by-day grid. Capped like every other range report.
+     */
+    async storeDailyReport(scope: ChecklistReportScope | null, query: { from?: string; to?: string }) {
+        if (!scope) return []
+        const window = resolveReportWindow("day", query.from, query.to)
+        assertRangeAllowed(window, !!query.from)
+        const conditions = filterConditions(scope, window, false, true)
+
+        const [rows] = await db.execute(sql`
+            SELECT r.storeId AS storeId, st.name AS storeName, DATE_FORMAT(r.periodStart, '%Y-%m-%d') AS day, ${GROUP_METRICS}
+            FROM (${runAggregateSql(conditions)}) r
+            JOIN ${stores} st ON st.id = r.storeId
+            GROUP BY r.storeId, st.name, day
+            ORDER BY st.name ASC, day ASC
+        `)
+
+        return (rows as unknown as MetricRow[]).map((r) => {
+            const m = metricsOf(r)
+            return {
+                storeId: String(r.storeId),
+                storeName: String(r.storeName),
+                day: String(r.day),
+                completionRate: m.completionRate,
+                doneItems: m.doneItems,
+                totalItems: m.totalItems,
+                dueRuns: m.dueRuns,
+            }
+        })
+    },
 }

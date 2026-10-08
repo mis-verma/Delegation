@@ -201,6 +201,18 @@ export type ComplianceReportRow = {
   pendingRuns?: number;
 };
 
+/** One store on one day (GET /checklist-instances/reports/store-daily). Days with no due runs are absent. */
+export type ChecklistStoreDailyRow = {
+  storeId: string;
+  storeName: string;
+  /** 'YYYY-MM-DD', the org's own calendar day. */
+  day: string;
+  completionRate: number | null;
+  doneItems: number;
+  totalItems: number;
+  dueRuns: number;
+};
+
 /** One row of the per-store comparison (GET /checklist-instances/reports/by-store). */
 export type ChecklistStoreComplianceRow = {
   storeId: string;
@@ -558,6 +570,12 @@ export const checklistInstanceApi = {
   getComplianceByStore: (from?: string, to?: string) =>
     apiFetch<ApiResponse<ChecklistStoreComplianceRow[]>>(
       `/checklist-instances/reports/by-store${buildQuery({ from: from ? toDayParam(from) : undefined, to: to ? toDayParam(to) : undefined })}`,
+    ),
+
+  /** Completion for every store on every day of the range, for the store-by-day grid. */
+  getStoreDaily: (from: string, to: string) =>
+    apiFetch<ApiResponse<ChecklistStoreDailyRow[]>>(
+      `/checklist-instances/reports/store-daily${buildQuery({ from: toDayParam(from), to: toDayParam(to) })}`,
     ),
 };
 
