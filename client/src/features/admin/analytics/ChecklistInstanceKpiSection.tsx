@@ -26,7 +26,16 @@ interface ChecklistInstanceKpiSectionProps {
 const NOTHING_COUNTED = 'Nothing counted in this period';
 
 export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole, includeDeleted, storeId, assigneeId, scopeLabel, linkCards = true }: ChecklistInstanceKpiSectionProps) => {
-  const { data: rows, isPending, isError, isFetching, refetch } = useChecklistInstanceComplianceReportQuery(groupBy, from, to, { includeDeleted, storeId, assigneeId });
+  // A picked range is one whole-range figure (the same as the headline strip above), so the cards
+  // read a 'none' report; the chart still reads the grouped series so it has points to draw.
+  const hasRange = Boolean(from && to);
+  const chartQuery = useChecklistInstanceComplianceReportQuery(groupBy, from, to, { includeDeleted, storeId, assigneeId });
+  const cardQuery = useChecklistInstanceComplianceReportQuery(hasRange ? 'none' : groupBy, from, to, { includeDeleted, storeId, assigneeId });
+  const { data: rows } = cardQuery;
+  const isPending = cardQuery.isPending || chartQuery.isPending;
+  const isError = cardQuery.isError || chartQuery.isError;
+  const isFetching = cardQuery.isFetching || chartQuery.isFetching;
+  const refetch = () => Promise.all([cardQuery.refetch(), chartQuery.refetch()]);
   const completion = latestWithTrend(rows, 'completionRate', 'rate');
   const compliance = latestWithTrend(rows, 'complianceRate', 'rate');
   const quality = latestWithTrend(rows, 'qualityRate', 'rate');
@@ -52,6 +61,7 @@ export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole, 
       onRetry={() => void refetch()}
       from={from}
       to={to}
+      summaryRows={rows}
       cards={[
         {
           icon: Repeat,
@@ -115,12 +125,12 @@ export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole, 
           hasData: dueRuns.value != null,
           noDataText: NOTHING_COUNTED,
           trend: dueRuns.trend,
-          caption: 'Runs past their deadline',
+          caption: 'Runs due or finished',
           href,
         },
       ]}
       chart={{
-        data: rows ?? [],
+        data: chartQuery.data ?? [],
         groupBy,
         series: [
           { key: 'completionRate', label: 'Completion', color: 'var(--color-primary-500)' },

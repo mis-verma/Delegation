@@ -176,7 +176,7 @@ export const AnalyticsControlBar = ({ groupBy, onGroupByChange, range, onRangeCh
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <span aria-live="polite" className="text-xs font-display text-text-muted tabular-nums">
             {isRefreshing ? 'Updating' : updatedAt ? `Updated ${formatUpdated(updatedAt)}` : ''}
           </span>

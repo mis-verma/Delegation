@@ -182,7 +182,7 @@ export const bucketRange = (bucket: string, groupBy: DisplayGroupBy): { from: st
 const isEmptyRow = (row: ReportRow) =>
   row.dueRuns === 0 || row.totalItems === 0 || (row.createdCount === 0 && row.closedCount === 0);
 
-const withoutEmptyTail = <T extends ReportRow>(rows: T[]): T[] => {
+export const withoutEmptyTail = <T extends ReportRow>(rows: T[]): T[] => {
   let end = rows.length;
   while (end > 0 && isEmptyRow(rows[end - 1]) && rows[end - 1].bucket !== RANGE_BUCKET) end -= 1;
   return end === 0 ? rows : rows.slice(0, end);
@@ -271,7 +271,10 @@ export const latestWithTrend = (
 };
 
 /** The same, for the closed-on-time rate, which is computed per row rather than read from a field. */
-export const slaMetWithTrend = (rows: TatReportRow[] | undefined): { value: number | null; trend: Trend } => {
+export const slaMetWithTrend = (allRows: TatReportRow[] | undefined): { value: number | null; trend: Trend } => {
+  // Same empty-tail rule as every other tile, so on day one of a period this shows last period's
+  // figure instead of "No data" while the tiles beside it show numbers.
+  const rows = allRows && withoutEmptyTail(allRows);
   const latest = rows?.[rows.length - 1];
   const value = slaMetRate(latest);
   if (value == null || !rows || !latest || latest.bucket === RANGE_BUCKET) return { value, trend: NO_TREND };

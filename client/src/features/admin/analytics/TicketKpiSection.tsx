@@ -16,7 +16,16 @@ interface TicketKpiSectionProps {
 const NOTHING_COUNTED = 'Nothing counted in this period';
 
 export const TicketKpiSection = ({ groupBy, from, to, isOrgWideRole }: TicketKpiSectionProps) => {
-  const { data: rows, isPending, isError, isFetching, refetch } = useTicketTatReportQuery(groupBy, from, to);
+  // A picked range is one whole-range figure (the same as the headline strip above), so the cards
+  // read a 'none' report; the chart still reads the grouped series so it has points to draw.
+  const hasRange = Boolean(from && to);
+  const chartQuery = useTicketTatReportQuery(groupBy, from, to);
+  const cardQuery = useTicketTatReportQuery(hasRange ? 'none' : groupBy, from, to);
+  const { data: rows } = cardQuery;
+  const isPending = cardQuery.isPending || chartQuery.isPending;
+  const isError = cardQuery.isError || chartQuery.isError;
+  const isFetching = cardQuery.isFetching || chartQuery.isFetching;
+  const refetch = () => Promise.all([cardQuery.refetch(), chartQuery.refetch()]);
   const closeRate = latestWithTrend(rows, 'completionRate', 'rate');
   const avgTime = latestWithTrend(rows, 'avgTatHours', 'count');
   const overdue = latestWithTrend(rows, 'overdueCount', 'count');
@@ -38,6 +47,7 @@ export const TicketKpiSection = ({ groupBy, from, to, isOrgWideRole }: TicketKpi
       onRetry={() => void refetch()}
       from={from}
       to={to}
+      summaryRows={rows}
       cards={[
         {
           icon: TicketCheck,
@@ -90,7 +100,7 @@ export const TicketKpiSection = ({ groupBy, from, to, isOrgWideRole }: TicketKpi
         },
       ]}
       chart={{
-        data: rows ?? [],
+        data: chartQuery.data ?? [],
         groupBy,
         series: [{ key: 'completionRate', label: 'Closed vs raised', color: 'var(--color-primary-500)' }],
         valueSuffix: '%',

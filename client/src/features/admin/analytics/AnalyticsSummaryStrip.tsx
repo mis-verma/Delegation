@@ -21,6 +21,7 @@ import {
   NO_TREND,
   periodHeading,
   slaMetWithTrend,
+  withoutEmptyTail,
   statCaption,
 } from './analyticsDisplay';
 import type { GroupBy } from './GroupByControl';
@@ -172,7 +173,9 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
   // The tickets the on-time tile counted: the picked range, or else the newest bucket's own days.
   const onTimeWindow = useMemo(() => {
     if (from && to) return { from, to };
-    const latest = tickets.data?.[tickets.data.length - 1];
+    // The same newest non-empty bucket the tile shows, so the list matches the number.
+    const trimmed = tickets.data ? withoutEmptyTail(tickets.data) : undefined;
+    const latest = trimmed?.[trimmed.length - 1];
     return latest ? bucketRange(latest.bucket, reportGroupBy) : null;
   }, [from, to, tickets.data, reportGroupBy]);
 
@@ -203,7 +206,7 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-2 sm:gap-3">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h2 id={headingId} className="text-base sm:text-lg font-display font-bold text-text">Needs attention</h2>
+        <h2 id={headingId} className="text-base sm:text-lg font-display font-bold text-text">At a glance</h2>
         <p className="text-sm font-display text-text-muted">{periodHeading(groupBy, from, to)}</p>
       </div>
 

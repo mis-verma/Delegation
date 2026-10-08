@@ -19,6 +19,7 @@ import { useAuth } from "../../context/AuthContext";
 import { BottomNav } from "../../components/layout";
 import { RouteFallback } from "../../components/skeleton";
 import { Breadcrumbs } from "../../components/breadcrumbs";
+import { PageHeaderTitleContext } from "../../components/pageHeader/pageHeaderContext";
 import { Popover, PopoverAnchor, PopoverContent } from "../../components/ui/popover";
 import { Tooltip, TooltipTrigger, TooltipContent } from "../../components/ui/tooltip";
 import { AdminHeader } from "./AdminHeader";
@@ -259,7 +260,8 @@ export const AdminLayout = () => {
     // and a giant runaway "active" indicator (percentage heights resolving against a far-off
     // ancestor once the link's own box collapsed to just its icon). Same isActive value either way
     // — this form just also survives Slot.
-    const isItemActive = end ? location.pathname === to : location.pathname.startsWith(to);
+    // The Rankings page is part of Overview, so Overview stays lit there.
+    const isItemActive = end ? location.pathname === to || (to === '/admin' && location.pathname === '/admin/rankings') : location.pathname.startsWith(to);
     const isActiveOrChild = isItemActive || hasActiveChild;
     // Collapsed desktop rail: labels are gone entirely (`hidden` removes them from the a11y tree
     // too), so a link's only remaining accessible name was its `title` attribute — which browsers
@@ -647,7 +649,9 @@ export const AdminLayout = () => {
               className="w-full animate-in fade-in slide-in-from-bottom-3 duration-250 ease-out"
             >
               <Suspense fallback={<RouteFallback />}>
-                <Outlet />
+                <PageHeaderTitleContext.Provider value={false}>
+                  <Outlet />
+                </PageHeaderTitleContext.Provider>
               </Suspense>
             </div>
 

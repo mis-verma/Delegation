@@ -15,7 +15,16 @@ interface TaskChecklistKpiSectionProps {
 const NOTHING_COUNTED = 'Nothing counted in this period';
 
 export const TaskChecklistKpiSection = ({ groupBy, from, to, isOrgWideRole }: TaskChecklistKpiSectionProps) => {
-  const { data: rows, isPending, isError, isFetching, refetch } = useTaskComplianceReportQuery(groupBy, from, to);
+  // A picked range is one whole-range figure (the same as the headline strip above), so the cards
+  // read a 'none' report; the chart still reads the grouped series so it has points to draw.
+  const hasRange = Boolean(from && to);
+  const chartQuery = useTaskComplianceReportQuery(groupBy, from, to);
+  const cardQuery = useTaskComplianceReportQuery(hasRange ? 'none' : groupBy, from, to);
+  const { data: rows } = cardQuery;
+  const isPending = cardQuery.isPending || chartQuery.isPending;
+  const isError = cardQuery.isError || chartQuery.isError;
+  const isFetching = cardQuery.isFetching || chartQuery.isFetching;
+  const refetch = () => Promise.all([cardQuery.refetch(), chartQuery.refetch()]);
   const completion = latestWithTrend(rows, 'completionRate', 'rate');
   const quality = latestWithTrend(rows, 'qualityRate', 'rate');
   // Both figures are rates over the checklist items inside delegations, so there is no single
@@ -35,6 +44,7 @@ export const TaskChecklistKpiSection = ({ groupBy, from, to, isOrgWideRole }: Ta
       onRetry={() => void refetch()}
       from={from}
       to={to}
+      summaryRows={rows}
       cards={[
         {
           icon: ClipboardCheck,
@@ -58,7 +68,7 @@ export const TaskChecklistKpiSection = ({ groupBy, from, to, isOrgWideRole }: Ta
         },
       ]}
       chart={{
-        data: rows ?? [],
+        data: chartQuery.data ?? [],
         groupBy,
         series: [
           { key: 'completionRate', label: 'Items done', color: 'var(--color-primary-500)' },

@@ -79,7 +79,9 @@ export const useAnalyticsWindow = () => {
   // the last 30 days.
   // `today` moves at midnight, so a tab left open overnight does not keep ranking yesterday's window.
   const today = useToday();
-  const fallbackWindow = useMemo(() => defaultWindow(groupBy, parseDateParam(today) ?? undefined), [groupBy, today]);
+  // Year grouping would ask for twelve years, which the checklist reports refuse (366 days at most),
+  // so the ranking window for it is the last twelve months.
+  const fallbackWindow = useMemo(() => defaultWindow(groupBy === 'year' ? 'month' : groupBy, parseDateParam(today) ?? undefined), [groupBy, today]);
   const windowFrom = from ?? fallbackWindow.from;
   const windowTo = to ?? fallbackWindow.to;
 
