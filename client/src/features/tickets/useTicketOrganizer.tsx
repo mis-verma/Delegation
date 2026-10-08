@@ -11,6 +11,15 @@ import type { TicketFilters } from './list/TicketFilterFields';
 
 export type TicketView = 'list' | 'board' | 'table' | 'timeline';
 const QUICK_FILTER_VALUES = ['pending', 'completed', 'due', 'delayed'] as const;
+export interface TicketViewSnapshot {
+  view: TicketView;
+  filters: TicketFilters;
+  sort: TicketSortKey;
+  scopeFilter: ScopeFilter;
+  search: string;
+  groupBy: 'department' | 'assignee';
+  quickFilter: TicketQuickFilterKey | null;
+}
 export const DEFAULT_TICKET_FILTERS: TicketFilters = { status: 'all', priority: [], departmentId: '', assigneeIds: [], raisedByIds: [], labelIds: [] };
 
 // Module scope, not recreated per render/hook call — referencing it from inside a useMemo would
@@ -120,10 +129,24 @@ export const useTicketOrganizer = (allTickets: Ticket[], user: AuthUser, departm
     (filters.raisedByIds.length > 0 ? 1 : 0) +
     (filters.labelIds.length > 0 ? 1 : 0);
 
+  // Everything that makes up "how I have this page set up", for a saved view.
+  const snapshot: TicketViewSnapshot = { view, filters, sort, scopeFilter, search, groupBy, quickFilter };
+  const applySnapshot = (s: TicketViewSnapshot) => {
+    setView(s.view);
+    setFilters({ ...DEFAULT_TICKET_FILTERS, ...s.filters });
+    setSort(s.sort);
+    setScopeFilter(s.scopeFilter);
+    setSearch(s.search);
+    setGroupBy(s.groupBy);
+    setQuickFilter(s.quickFilter);
+    setPage(1);
+  };
+
   const hasActiveFilters = search.length > 0 || activeCount > 0 || scopeFilter !== 'ALL' || quickFilter !== null;
 
   return {
     view, setView,
+    snapshot, applySnapshot,
     filters, setFilters,
     sort, setSort,
     scopeFilter, setScopeFilter,

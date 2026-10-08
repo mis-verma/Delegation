@@ -4,7 +4,7 @@ import { AlertTriangle, Check, ChevronDown, ClipboardCheck, Clock, Minus, Search
 import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
-  Button, ChecklistProgressBar, Combobox, ENTITY_CARD_CLASS, EmptyState, IconChip, InlineError, PageHeader, PageNav,
+  Button, ChecklistProgressBar, Combobox, CountBadge, ENTITY_CARD_CLASS, EmptyState, IconChip, InlineError, PageHeader, PageNav,
   PANEL_CLASS, Skeleton, StatusChip, Switch, type DateRangeValue,
 } from '../../../components';
 import { runScores } from '../checklistCompliance';
@@ -366,11 +366,7 @@ export const ChecklistComplianceBoard = () => {
           >
             <SlidersHorizontal size={15} aria-hidden />
             Filters
-            {filterCount > 0 && (
-              <span className="flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-primary-600 text-[0.6875rem] font-bold text-white tabular-nums">
-                {filterCount}
-              </span>
-            )}
+            <CountBadge count={filterCount} label={`${filterCount} ${filterCount === 1 ? 'filter' : 'filters'} on`} />
             <ChevronDown size={15} aria-hidden className={cn('transition-transform duration-200 motion-reduce:transition-none', filtersOpen && 'rotate-180')} />
           </Button>
 

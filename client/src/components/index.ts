@@ -86,6 +86,8 @@ export { InlineError } from './inlineError';
 export { NoticeBanner } from './noticeBanner';
 export { PageHeader } from './pageHeader';
 export { StateChip } from './stateChip';
+export { CountBadge } from './countBadge';
+export { SavedViewsMenu, useSavedViews, type SavedView } from './savedViews';
 export { PeriodStepper } from './periodStepper';
 export { ToggleChip, AddChip } from './toggleChip';
 export { FormChunkFallback } from './formChunkFallback';

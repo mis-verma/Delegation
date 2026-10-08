@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ChevronDown, SlidersHorizontal, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button, Combobox, DateRangePicker, PANEL_CLASS, type ComboboxOption, type DateRangeValue } from '../../../components';
+import { Button, CountBadge, Combobox, DateRangePicker, PANEL_CLASS, type ComboboxOption, type DateRangeValue } from '../../../components';
 import { AUDIT_ENTITY_TYPES, AUDIT_ACTIONS, AUDIT_SOURCES, type AuditLogFilter } from '../../../api/auditLogs';
 import { ENTITY_TYPE_CONFIG, ACTION_CONFIG, SOURCE_CONFIG, countActiveFilters } from './auditLogDisplay';
 import { endOfDay } from '../../../lib/dateRange';
@@ -95,11 +95,7 @@ export const AuditLogFilters = ({ filter, onChange, onClearAll, users }: AuditLo
         >
           <SlidersHorizontal size={15} aria-hidden />
           Filters
-          {count > 0 && (
-            <span className="flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-primary-600 text-xs font-bold text-white tabular-nums">
-              {count}
-            </span>
-          )}
+          <CountBadge count={count} label={`${count} ${count === 1 ? 'filter' : 'filters'} on`} />
           <ChevronDown size={15} aria-hidden className={cn('transition-transform duration-200 motion-reduce:transition-none', open && 'rotate-180')} />
         </Button>
 

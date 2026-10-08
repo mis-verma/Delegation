@@ -627,7 +627,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
           {/* Hidden on phones (only List is available there), but still mounted: ViewToggle's own
               effect is what switches a Board/Table/Timeline view back to List on a narrow screen. */}
           <div className="hidden sm:block">
-            <ViewToggle tabs={VIEW_TABS} value={view} onChange={changeView} />
+            <ViewToggle tabs={VIEW_TABS} value={view} onChange={changeView} storageKey={`view:tasks:${user?.id ?? "anon"}`} />
           </div>
 
           {activeChips.length > 0 && (

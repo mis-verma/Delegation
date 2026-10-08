@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { FileDown, SlidersHorizontal, X } from 'lucide-react';
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Button } from '../button';
+import { CountBadge } from '../countBadge';
 import { useDraggableDialog } from '../modal/useDraggableDialog';
 
 /**
@@ -58,11 +59,7 @@ export const OptionsDialog = ({
           className="text-text-muted group-hover:text-primary-600 transition-colors duration-200"
         />
         <span>Options</span>
-        {activeCount > 0 && (
-          <span className="flex items-center justify-center min-w-[1.1rem] h-[1.1rem] px-1 text-[0.625rem] font-bold rounded-full bg-primary-600 text-white tabular-nums">
-            {activeCount}
-          </span>
-        )}
+        <CountBadge count={activeCount} label={`${activeCount} ${activeCount === 1 ? 'option' : 'options'} on`} />
       </Button>
     </DialogTrigger>
 

@@ -123,7 +123,7 @@ export const UserToolbar = ({
           />
         </div>
 
-        <ViewToggle tabs={VIEW_TABS} value={view} onChange={onView} />
+        <ViewToggle tabs={VIEW_TABS} value={view} onChange={onView} storageKey="view:people" />
 
         <OptionsSheet
           isOpen={showOptions}

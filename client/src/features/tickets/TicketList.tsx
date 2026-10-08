@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { Plus, ChevronDown, Upload, AlertCircle, Inbox, LayoutList, Kanban, Table2, GanttChartSquare } from 'lucide-react';
-import { PageNav, Fab, ViewToggle, EmptyState, type ViewTab } from '../../components';
+import { PageNav, Fab, ViewToggle, SavedViewsMenu, useSavedViews, EmptyState, type ViewTab } from '../../components';
 import { CreatedRangeBanner, CreatedRangePicker } from '../../components/createdRangeBanner';
 import { useCreatedRange } from '../../lib/createdRange';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
@@ -24,7 +24,7 @@ import { ExportDialog } from '../reports';
 import { TicketListSkeleton } from './list/TicketListSkeleton';
 import { TicketGroupedList } from './list/TicketGroupedList';
 import { TicketQuickStats } from './list/TicketQuickStats';
-import { useTicketOrganizer, type TicketView } from './useTicketOrganizer';
+import { useTicketOrganizer, type TicketView, type TicketViewSnapshot } from './useTicketOrganizer';
 import { TicketSettingsMenu } from './TicketSettingsMenu';
 import { TicketActiveTags } from './TicketActiveTags';
 import type { Ticket } from '../../api/ticket';
@@ -108,6 +108,9 @@ export const TicketList = () => {
     return createdRange.range ? everything.filter((t) => createdRange.matches(t.createdAt)) : everything;
   }, [allTicketsData, createdRange]);
   const organizer = useTicketOrganizer(ticketsInRange, user, departmentNames);
+  // Named setups of this page (layout, filters, sort, grouping), kept in this browser for this person.
+  const savedViews = useSavedViews<TicketViewSnapshot>(`savedViews:tickets:${user?.id ?? 'anon'}`);
+  const activeSavedViewId = savedViews.views.find((v) => JSON.stringify(v.state) === JSON.stringify(organizer.snapshot))?.id ?? null;
 
   // `/tickets?open=<id>` opens that ticket's detail sheet directly, then drops the param so it
   // doesn't reopen on every render. Mirrors TaskList's existing `?open=` handling — the Dashboard's
@@ -184,8 +187,15 @@ export const TicketList = () => {
           {/* Hidden on phones (only List is available there), but still mounted: ViewToggle's own
               effect is what switches a saved Board/Table view back to List on a small screen. */}
           <div className="hidden sm:block shrink-0">
-            <ViewToggle tabs={VIEW_TABS} value={organizer.view} onChange={organizer.setView} />
+            <ViewToggle tabs={VIEW_TABS} value={organizer.view} onChange={organizer.setView} storageKey={`view:tickets:${user?.id ?? 'anon'}`} />
           </div>
+          <SavedViewsMenu
+            views={savedViews.views}
+            activeId={activeSavedViewId}
+            onSave={(name) => savedViews.save(name, organizer.snapshot)}
+            onApply={(v) => organizer.applySnapshot(v.state)}
+            onRemove={savedViews.remove}
+          />
 
           <TicketActiveTags organizer={organizer} allTickets={allTicketsData ?? []} />
 

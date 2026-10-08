@@ -8,6 +8,7 @@ import {
   DropdownMenuContent,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '../button';
+import { CountBadge } from '../countBadge';
 import { Modal } from '../modal';
 
 function cn(...inputs: ClassValue[]) {
@@ -99,15 +100,11 @@ export function FiltersPopover<TFilters extends object>({
 
   const triggerInner = (
     <>
-      <Filter size={16} strokeWidth={2.5} className={activeCount > 0 ? "text-primary-600" : "text-text-muted"} />
+      <Filter size={16} strokeWidth={2.5} fill={activeCount > 0 ? 'currentColor' : 'none'} className={activeCount > 0 ? "text-primary-600" : "text-text-muted"} />
       <span className={cn("text-sm font-bold hidden md:inline", activeCount > 0 ? "text-primary-700" : "text-text-secondary")}>
         Filters
       </span>
-      {activeCount > 0 && (
-        <span className="flex items-center justify-center min-w-[1.25rem] h-[1.25rem] px-1.5 text-[0.625rem] font-bold rounded-full bg-primary-600 text-white shadow-sm shadow-primary-600/30 ml-1">
-          {activeCount}
-        </span>
-      )}
+      <CountBadge count={activeCount} label={`${activeCount} ${activeCount === 1 ? 'filter' : 'filters'} on`} className="ml-1" />
     </>
   );
 

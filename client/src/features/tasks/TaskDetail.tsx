@@ -351,9 +351,7 @@ interface TaskEditLayoutProps {
   task: Task;
   isVerifier: boolean;
   isViewOnly: boolean;
-  /** May change the title and description. Off for view-only roles and for a finished delegation. */
   canEditText: boolean;
-  /** May add or remove files. Mirrors the server: creator, assignees and Admin/PC. */
   canAttach: boolean;
   currentUserId?: string;
   canReassign: boolean;
@@ -379,10 +377,8 @@ const TaskEditLayout = ({
     const person = id ? assignableUsers?.find((u) => u.id === id) : undefined;
     return person ? `${person.firstName}${person.lastName ? ` ${person.lastName}` : ''}` : undefined;
   };
-  // The raiser may sit outside the assignable roster, so "You" is the one name that always resolves.
   const raisedBy = task.userId === currentUserId ? 'You' : nameOf(task.userId);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
-  // Phone only: Progress and Activity share one tab strip; from sm both are on the page.
   const [lowerTab, setLowerTab] = useState<'progress' | 'activity'>('progress');
   return (
   
@@ -505,8 +501,6 @@ const TaskEditLayout = ({
       />
 
   
-      {/* Phone: one tab strip instead of dropping the Progress history, which is where who moved
-          it, when, and why lives. From sm both sit on the page. */}
       <div role="tablist" aria-label="Delegation history" className="sm:hidden flex gap-1 rounded-full bg-surface-hover/60 p-1">
         {(['progress', 'activity'] as const).map((k) => (
           <button
@@ -558,8 +552,6 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
   const isViewOnly = isPC || isRestrictedUser || user?.role === 'APPROVAL_MANAGER';
   const isVerifier = isPC || user?.role === 'ADMIN';
   const canReassign = user?.role !== 'AGENT' && user?.role !== 'USER';
-  // Text edits stop once a delegation is done: that is a verified record. Files follow the server's
-  // own rule (creator, assignees, Admin/PC); an approval manager only acts through the queue.
   const canEditText = !isViewOnly && task.status !== 'done';
   const canAttach = user?.role !== 'APPROVAL_MANAGER' && (
     user?.role === 'ADMIN' || user?.role === 'PC' || task.userId === user?.id || (!!user && taskAssigneeIds(task).includes(user.id))

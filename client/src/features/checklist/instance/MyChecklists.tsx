@@ -401,7 +401,7 @@ export const MyChecklists = () => {
             which is exactly the "just show me the cards, overdue on top" view a mobile user
             wants, so there's nothing worth switching away from there to offer a toggle for. */}
         <div className="hidden sm:block">
-          <ViewToggle tabs={VIEW_TABS} value={view} onChange={setView} />
+          <ViewToggle tabs={VIEW_TABS} value={view} onChange={setView} storageKey={`view:checklists:${user?.id ?? "anon"}`} />
         </div>
 
         {/* `sm:ml-auto`, not a bare `ml-auto` — same fix as Tickets/Tasks: the auto-margin was

@@ -81,7 +81,7 @@ export const OrgToolbar = ({
           />
         </div>
 
-        <ViewToggle tabs={VIEW_TABS} value={view} onChange={onView} />
+        <ViewToggle tabs={VIEW_TABS} value={view} onChange={onView} storageKey="view:directory" />
 
         <OptionsSheet
           isOpen={showOptions}
