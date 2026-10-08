@@ -7,6 +7,8 @@ import { memo, useMemo, useRef, useState } from 'react';
 import { Inbox, Plus, AlertTriangle, ChevronDown } from "lucide-react";
 import { EmptyState } from "../../components";
 import { Badge } from "../../components/ui/badge";
+import { BoardTouchHint } from "../../components/BoardTouchHint";
+import { useAuth } from "../../context/AuthContext";
 import { TaskCard } from "./TaskCard";
 import { useTaskStatusMove } from "./useTaskStatusMove";
 import { DRAG_SLOP_PX } from "../../lib/dragSlop";
@@ -93,6 +95,8 @@ interface CardProps {
   fields: CardFieldVisibility;
   isNewlyAssigned?: boolean;
   onMove?: (task: Task, toStatus: Task['status']) => void;
+  /** False for roles the server refuses to move a delegation for; the card is then not draggable. */
+  movable: boolean;
 }
 
 // Wraps TaskCard so the whole card can be picked up and dropped on another column.
@@ -110,8 +114,10 @@ interface CardProps {
 // devices most likely to drag a card in the first place. `manipulation` keeps scrolling and drops the legacy
 // 300ms tap delay; the TouchSensor's press-and-hold constraint is what separates "drag this card"
 // from "scroll the board".
-const DraggableCard = ({ task, ...cardProps }: CardProps) => {
-  const { listeners, setNodeRef, isDragging } = useDraggable({ id: task.id });
+const DraggableCard = ({ task, movable, ...cardProps }: CardProps) => {
+  // A card its viewer cannot move is not draggable at all, rather than letting them drop it, write a
+  // remark and only then read the server's refusal. It still opens on a tap.
+  const { listeners, setNodeRef, isDragging } = useDraggable({ id: task.id, disabled: !movable });
   const pressOrigin = useRef<{ x: number; y: number } | null>(null);
 
   return (
@@ -133,7 +139,7 @@ const DraggableCard = ({ task, ...cardProps }: CardProps) => {
         }
       }}
       className={`touch-manipulation transition-opacity duration-200 ease-out ${
-        isDragging ? 'opacity-40 cursor-grabbing' : 'cursor-grab'
+        isDragging ? 'opacity-40 cursor-grabbing' : movable ? 'cursor-grab' : ''
       }`}
     >
       <TaskCard task={task} {...cardProps} />
@@ -159,6 +165,7 @@ interface ColumnProps {
   fields: CardFieldVisibility;
   newlyAssignedTaskIds?: Set<string>;
   onMove?: (task: Task, toStatus: Task['status']) => void;
+  movable: boolean;
   /** Show at most this many cards, with a "show the rest" toggle below. Omit for no cap. */
   maxVisible?: number;
   /** True when a filter is narrowing the board — changes what an empty column means. */
@@ -172,7 +179,7 @@ interface ColumnProps {
 // props change when a drag starts elsewhere on the board, so memoizing lets React skip it
 // entirely (this depends on `onMove` having a stable identity — see useTaskStatusMove's own
 // comment on `requestMove`).
-const Column = memo(({ columnKey, label, tasks, isDropTarget, fillsRow, assigneeNames, departmentNames, isVerifier, onOpen, onAddTask, fields, newlyAssignedTaskIds, onMove, maxVisible, isFiltered }: ColumnProps) => {
+const Column = memo(({ columnKey, label, tasks, isDropTarget, fillsRow, assigneeNames, departmentNames, isVerifier, onOpen, onAddTask, fields, newlyAssignedTaskIds, onMove, movable, maxVisible, isFiltered }: ColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({ id: columnKey, disabled: !isDropTarget });
   const [expanded, setExpanded] = useState(false);
 
@@ -251,6 +258,7 @@ const Column = memo(({ columnKey, label, tasks, isDropTarget, fillsRow, assignee
               fields={fields}
               isNewlyAssigned={newlyAssignedTaskIds?.has(task.id)}
               onMove={onMove}
+              movable={movable}
             />
           ))
         )}
@@ -290,6 +298,10 @@ const Column = memo(({ columnKey, label, tasks, isDropTarget, fillsRow, assignee
 // invalidation landing.
 const TaskBoardComponent = ({ tasks, assigneeNames, departmentNames, isVerifier = false, onOpen, onAddTask, fields, newlyAssignedTaskIds, isFiltered, groupBy = 'status' }: TaskBoardProps) => {
   const { requestMove, statusRemarkDialog } = useTaskStatusMove();
+  // Same refusal the server gives (task.service.ts update): PC and approval managers act on a
+  // delegation only through the verification queue.
+  const { user } = useAuth();
+  const movable = user?.role !== 'PC' && user?.role !== 'APPROVAL_MANAGER';
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const byStatus = groupBy === 'status';
   const columns = useMemo(
@@ -342,6 +354,8 @@ const TaskBoardComponent = ({ tasks, assigneeNames, departmentNames, isVerifier 
           No `items-start` anywhere: it sized each column to its own contents, so a column holding
           one card was a ~250px drop target beside a column 1000px tall, and releasing below it did
           nothing. Stretched columns make the entire row height a valid target. */}
+      <div className="flex flex-col gap-3">
+      <BoardTouchHint />
       <div
         className={`flex gap-4 items-stretch overflow-x-auto snap-x snap-mandatory pb-2 -mx-4 px-4 sm:-mx-6 sm:px-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
           fitsOneRow ? `xl:grid ${XL_GRID_COLS[columns.length]} xl:overflow-visible xl:snap-none xl:pb-0 xl:mx-0 xl:px-0` : ''
@@ -364,7 +378,8 @@ const TaskBoardComponent = ({ tasks, assigneeNames, departmentNames, isVerifier 
             onAddTask={byStatus && column.key === 'todo' ? onAddTask : undefined}
             fields={fields}
             newlyAssignedTaskIds={newlyAssignedTaskIds}
-            onMove={requestMove}
+            onMove={movable ? requestMove : undefined}
+            movable={movable}
             // Done only ever grows and is almost entirely history. Capped so a board six months
             // old doesn't open with a column of two hundred cards nobody scrolls; every other
             // column holds live work, where hiding anything behind a toggle would be wrong.
@@ -372,6 +387,7 @@ const TaskBoardComponent = ({ tasks, assigneeNames, departmentNames, isVerifier 
             isFiltered={isFiltered}
           />
         ))}
+      </div>
       </div>
 
       {/* Renders the dragged card in a top-level portal with its own transform, instead of
@@ -382,7 +398,7 @@ const TaskBoardComponent = ({ tasks, assigneeNames, departmentNames, isVerifier 
           // No width class: dnd-kit sizes the overlay wrapper from the dragged card's measured
           // rect, so `w-full` makes the ghost exactly the width of the card you picked up. The old
           // fixed `w-60` was right for one column width and wrong at every other breakpoint.
-          <div className="w-full rotate-1 scale-105 shadow-xl cursor-grabbing will-change-transform">
+          <div className="w-full rotate-1 scale-105 ring-2 ring-primary-500/20 rounded-lg cursor-grabbing will-change-transform">
             <TaskCard
               task={activeTask}
               isVerifier={isVerifier}

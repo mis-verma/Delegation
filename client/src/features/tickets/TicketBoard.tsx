@@ -22,7 +22,7 @@ import { useTicketStatusMove } from './useTicketStatusMove';
 import { useVerifyTicketMutation } from './hook';
 import type { Ticket } from '../../api/ticket';
 import { TicketBoardColumnsRow } from './board/TicketBoardColumnsRow';
-import { BoardTouchHint } from './board/BoardTouchHint';
+import { BoardTouchHint } from '../../components/BoardTouchHint';
 import { DRAG_SLOP_PX } from '../../lib/dragSlop';
 import { STATUS_CONFIG } from './ticketDisplay';
 

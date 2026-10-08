@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Hand, X } from 'lucide-react';
 
-const STORAGE_KEY = 'ticket-board-touch-hint-dismissed';
+const STORAGE_KEY = 'board-touch-hint-dismissed';
 
 const shouldShow = () => {
   if (typeof window === 'undefined') return false;

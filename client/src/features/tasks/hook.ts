@@ -514,3 +514,20 @@ export const useDeleteAllSmartTaskConversationsMutation = () => {
         onSuccess: () => queryClient.invalidateQueries({ queryKey: SMART_TASK_CONVERSATION_KEYS.all }),
     });
 };
+// Files on the delegation itself (added when it was created or later). The server lets the
+// creator, the assignees and an Admin/PC add or remove them.
+export const useUploadTaskAttachmentsMutation = (taskId: string) =>
+    useEntityMutation({
+        mutationFn: (files: File[]) => taskApi.uploadAttachments(taskId, files),
+        invalidateKeys: [['tasks']],
+        successMessage: null,
+        errorFallback: 'Failed to add the file',
+    });
+
+export const useDeleteTaskAttachmentMutation = () =>
+    useEntityMutation({
+        mutationFn: (id: string) => taskApi.deleteAttachment(id),
+        invalidateKeys: [['tasks']],
+        successMessage: null,
+        errorFallback: 'Failed to remove the file',
+    });

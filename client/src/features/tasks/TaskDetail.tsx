@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { CheckSquare, Loader2, ChevronRight, MoreHorizontal, Undo2, PauseCircle, CircleDot, Clock, Eye, CheckCircle2, ShieldCheck, Trash2, CalendarDays, Check, Milestone } from 'lucide-react';
-import { Modal, Button, DateRangePicker, ActivityFeed, FullChangeLog, DepartmentChip, useConfirm } from '../../components';
+import { Modal, Button, DateRangePicker, ActivityFeed, FullChangeLog, DepartmentChip, ImageLightbox, useConfirm } from '../../components';
 import { IconChip } from '../../components/iconChip';
 import type { DateRangeValue } from '../../components';
 import { useTaskQuery, useUpdateTaskMutation, useDeleteTaskMutation, useAssignableUsersQuery } from './hook';
@@ -18,6 +18,7 @@ import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuIte
 import { TaskPriorityChipPicker } from './TaskPriorityChipPicker';
 import { DETAIL_HEADING_CLASS, CHIP_TRIGGER_CLASS } from './taskFormFieldStyles';
 import { TaskStatusRemarkDialog } from './TaskStatusRemarkDialog';
+import { TaskAttachments } from './TaskAttachments';
 import { DetailLabelsField } from '../tags/DetailLabelsField';
 import { taskAssigneeIds } from './cardFields';
 import { useAuth } from '../../context/AuthContext';
@@ -310,12 +311,51 @@ const TaskStatusStepper = ({ task, nameOf }: { task: Task; nameOf: (id: string |
 
 
 
+/**
+ * Start-to-due picker that keeps a half-picked range to itself. The picker reports every click, and
+ * the first click of a new range has a start but no due day yet; saving that would send a start day
+ * with the old due day still in place (possibly earlier than it) and then a second save a moment
+ * later. The server also has no way to clear either date, so nothing is saved until both ends are
+ * chosen.
+ */
+const TaskTimelineField = ({ task, onUpdate }: { task: Task; onUpdate: (payload: UpdateTaskPayload) => void }) => {
+  const fromSaved = task.startDate ? new Date(task.startDate) : null;
+  const toSaved = task.dueDate ? new Date(task.dueDate) : null;
+  const savedKey = `${task.startDate ?? ''}|${task.dueDate ?? ''}`;
+  const [draft, setDraft] = useState<DateRangeValue>({ from: fromSaved, to: toSaved });
+  const [syncedKey, setSyncedKey] = useState(savedKey);
+  // The saved dates changed underneath (a refetch, another person's edit): the draft starts over.
+  if (savedKey !== syncedKey) {
+    setSyncedKey(savedKey);
+    setDraft({ from: fromSaved, to: toSaved });
+  }
+
+  return (
+    <DateRangePicker
+      value={draft}
+      onChange={(range: DateRangeValue) => {
+        setDraft(range);
+        if (range.from && range.to) {
+          onUpdate({ startDate: range.from.toISOString(), dueDate: endOfDay(range.to).toISOString() });
+        }
+      }}
+      placeholder="Add dates"
+      triggerClassName={CHIP_TRIGGER_CLASS}
+    />
+  );
+};
+
 const formatRangeDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 
 interface TaskEditLayoutProps {
   task: Task;
   isVerifier: boolean;
   isViewOnly: boolean;
+  /** May change the title and description. Off for view-only roles and for a finished delegation. */
+  canEditText: boolean;
+  /** May add or remove files. Mirrors the server: creator, assignees and Admin/PC. */
+  canAttach: boolean;
+  currentUserId?: string;
   canReassign: boolean;
   assignableUsers: ReturnType<typeof useAssignableUsersQuery>['data'];
   isLoadingUsers: boolean;
@@ -329,7 +369,7 @@ interface TaskEditLayoutProps {
 }
 
 const TaskEditLayout = ({
-  task, isVerifier, isViewOnly, canReassign,
+  task, isVerifier, isViewOnly, canEditText, canAttach, currentUserId, canReassign,
   assignableUsers, isLoadingUsers, departments, isLoadingDepts,
   onSaveTitle, onSaveDescription, onUpdate, onDelete, isDeleting,
 }: TaskEditLayoutProps) => {
@@ -339,7 +379,11 @@ const TaskEditLayout = ({
     const person = id ? assignableUsers?.find((u) => u.id === id) : undefined;
     return person ? `${person.firstName}${person.lastName ? ` ${person.lastName}` : ''}` : undefined;
   };
-  const raisedBy = nameOf(task.userId);
+  // The raiser may sit outside the assignable roster, so "You" is the one name that always resolves.
+  const raisedBy = task.userId === currentUserId ? 'You' : nameOf(task.userId);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  // Phone only: Progress and Activity share one tab strip; from sm both are on the page.
+  const [lowerTab, setLowerTab] = useState<'progress' | 'activity'>('progress');
   return (
   
   <div className="relative flex-1 min-h-0 flex flex-col">
@@ -347,7 +391,7 @@ const TaskEditLayout = ({
      
       <div className="flex flex-col gap-1.5">
         <div className="flex items-start justify-between gap-3">
-          <TitleEditor value={task.title} isViewMode disabled onSave={onSaveTitle} />
+          <TitleEditor value={task.title} isViewMode={!canEditText} disabled={!canEditText} onSave={onSaveTitle} />
           {isVerifier && (
             <button
               type="button"
@@ -398,18 +442,7 @@ const TaskEditLayout = ({
             )
           ) : (
             <div title="Timeline">
-              <DateRangePicker
-                value={{
-                  from: task.startDate ? new Date(task.startDate) : null,
-                  to: task.dueDate ? new Date(task.dueDate) : null,
-                }}
-                onChange={(range: DateRangeValue) => onUpdate({
-                  startDate: range.from ? range.from.toISOString() : undefined,
-                  dueDate: range.to ? endOfDay(range.to).toISOString() : undefined,
-                })}
-                placeholder="Add dates"
-                triggerClassName={CHIP_TRIGGER_CLASS}
-              />
+              <TaskTimelineField task={task} onUpdate={onUpdate} />
             </div>
           )}
 
@@ -450,7 +483,7 @@ const TaskEditLayout = ({
         current={task.tags ?? []}
         onSave={(tagIds) => onUpdate({ tagIds })}
         canCreate={isVerifier}
-        readOnly
+        readOnly={isViewOnly}
         hideHeading
         headingClassName={DETAIL_HEADING_CLASS}
       />
@@ -459,23 +492,49 @@ const TaskEditLayout = ({
         
         <PlainDescriptionEditor
           value={task.description ?? ''}
-          disabled
+          disabled={!canEditText}
           onSave={onSaveDescription}
         />
       </div>
 
+      <TaskAttachments
+        taskId={task.id}
+        attachments={task.attachments ?? []}
+        canEdit={canAttach}
+        onPreview={setPreviewImage}
+      />
+
   
-      <div className="max-sm:hidden">
+      {/* Phone: one tab strip instead of dropping the Progress history, which is where who moved
+          it, when, and why lives. From sm both sit on the page. */}
+      <div role="tablist" aria-label="Delegation history" className="sm:hidden flex gap-1 rounded-full bg-surface-hover/60 p-1">
+        {(['progress', 'activity'] as const).map((k) => (
+          <button
+            key={k}
+            type="button"
+            role="tab"
+            aria-selected={lowerTab === k}
+            onClick={() => setLowerTab(k)}
+            className={`flex-1 h-9 rounded-full text-sm font-display font-semibold cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 transition-colors duration-150 ${lowerTab === k ? 'bg-primary-600 text-white dark:bg-primary-500' : 'text-text-muted'}`}
+          >
+            {k === 'progress' ? 'Progress' : 'Activity'}
+          </button>
+        ))}
+      </div>
+
+      <div className={lowerTab === 'progress' ? '' : 'max-sm:hidden'}>
         <TaskStatusStepper task={task} nameOf={nameOf} />
       </div>
 
-      
-      <ActivityFeed entityType="Task" entityId={task.id} />
-      <FullChangeLog entityType="Task" entityId={task.id} />
+      <div className={`flex flex-col gap-4 sm:gap-5 ${lowerTab === 'activity' ? '' : 'max-sm:hidden'}`}>
+        <ActivityFeed entityType="Task" entityId={task.id} />
+        <FullChangeLog entityType="Task" entityId={task.id} />
+      </div>
     </div>
 
     <div className="pointer-events-none absolute inset-x-0 top-0 h-6 bg-gradient-to-b from-card to-transparent" />
     <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-card to-transparent" />
+    <ImageLightbox src={previewImage} onClose={() => setPreviewImage(null)} />
   </div>
   );
 };
@@ -499,6 +558,12 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
   const isViewOnly = isPC || isRestrictedUser || user?.role === 'APPROVAL_MANAGER';
   const isVerifier = isPC || user?.role === 'ADMIN';
   const canReassign = user?.role !== 'AGENT' && user?.role !== 'USER';
+  // Text edits stop once a delegation is done: that is a verified record. Files follow the server's
+  // own rule (creator, assignees, Admin/PC); an approval manager only acts through the queue.
+  const canEditText = !isViewOnly && task.status !== 'done';
+  const canAttach = user?.role !== 'APPROVAL_MANAGER' && (
+    user?.role === 'ADMIN' || user?.role === 'PC' || task.userId === user?.id || (!!user && taskAssigneeIds(task).includes(user.id))
+  );
   const nextStatus = NEXT_STATUS[task.status as keyof typeof NEXT_STATUS];
 
   const updateMutation = useUpdateTaskMutation({ silent: true });
@@ -529,7 +594,7 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
       open
       description={
         <span className="hidden sm:inline">
-          {isViewOnly ? 'Review this delegation’s details.' : 'Changes save automatically as you edit each field.'}
+          {canEditText ? 'Changes save automatically as you edit each field.' : 'Review this delegation’s details.'}
         </span>
       }
       onClose={onClose}
@@ -552,11 +617,14 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
       }
     >
     
-      <div className="flex flex-col md:flex-row flex-1 min-h-0 h-[70dvh] md:h-[75vh]">
+      <div className="flex flex-col md:flex-row flex-1 min-h-0 md:min-h-[min(30rem,60dvh)]">
         <TaskEditLayout
           task={task}
           isVerifier={isVerifier}
           isViewOnly={isViewOnly}
+          canEditText={canEditText}
+          canAttach={canAttach}
+          currentUserId={user?.id}
           canReassign={canReassign}
           assignableUsers={assignableUsers}
           isLoadingUsers={isLoadingUsers}
