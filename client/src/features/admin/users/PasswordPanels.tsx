@@ -9,7 +9,7 @@ export const PasswordVisibilityToggle = ({ shown, onToggle }: { shown: boolean; 
   <button
     type="button"
     onClick={onToggle}
-    className="flex items-center justify-center size-8 -mr-2 rounded-md text-text-light hover:text-text transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+    className="flex items-center justify-center size-8 pointer-coarse:size-11 -mr-2 rounded-md text-text-light hover:text-text transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
     aria-label={shown ? 'Hide password' : 'Show password'}
   >
     {shown ? <EyeOff size={15} /> : <Eye size={15} />}

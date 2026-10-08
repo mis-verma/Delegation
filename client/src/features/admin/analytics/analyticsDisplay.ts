@@ -180,7 +180,7 @@ export const bucketRange = (bucket: string, groupBy: DisplayGroupBy): { from: st
  * or no tickets raised and none closed (tickets), and a report that is empty throughout is left alone.
  */
 const isEmptyRow = (row: ReportRow) =>
-  row.dueRuns === 0 || (row.createdCount === 0 && row.closedCount === 0);
+  row.dueRuns === 0 || row.totalItems === 0 || (row.createdCount === 0 && row.closedCount === 0);
 
 const withoutEmptyTail = <T extends ReportRow>(rows: T[]): T[] => {
   let end = rows.length;

@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
 import {
   LayoutDashboard,
@@ -95,6 +95,25 @@ const CHILD_LINK_ACTIVE = "bg-primary-50 dark:bg-primary-500/15 text-primary-700
 const CHILD_LINK_INACTIVE = "text-text-muted hover:bg-surface-hover hover:text-text";
 
 // "PC" and "Approval manager", not "Pc" and "Approval_manager".
+// Collapsed rail: the name of an icon appears right beside it, instantly, in the brand colour, the
+// same as the main sidebar. A plain wrapper div is the trigger so Radix never rewrites the link's own
+// classes. Rendered in a portal, so the rail's overflow clipping cannot cut it off.
+const RailTip = ({ label, children }: { label: string; children: ReactNode }) => (
+  <Tooltip delayDuration={0}>
+    <TooltipTrigger asChild>
+      <div className="flex flex-1 min-w-0 justify-center">{children}</div>
+    </TooltipTrigger>
+    <TooltipContent
+      side="right"
+      sideOffset={12}
+      hideArrow
+      className="rounded-lg border border-primary-500/30 bg-primary-700 px-3 py-2 text-sm font-semibold text-white shadow-none dark:bg-primary-600"
+    >
+      {label}
+    </TooltipContent>
+  </Tooltip>
+);
+
 const roleLabel = (role: Role) => ROLE_META[role]?.label ?? role;
 
 // Path-segment match, so '/admin/holidays' never matches a sibling like '/admin/holidays-old'.
@@ -269,7 +288,6 @@ export const AdminLayout = () => {
           collapsedRail && "justify-center px-0",
           isActiveOrChild ? NAV_LINK_ACTIVE : NAV_LINK_INACTIVE
         )}
-        title={collapsedRail ? label : undefined}
       >
         <Icon
           className={cn(
@@ -301,10 +319,7 @@ export const AdminLayout = () => {
       >
         <div className="flex items-center gap-1">
           {collapsedRail && !hasChildren ? (
-            <Tooltip>
-              <TooltipTrigger asChild>{link}</TooltipTrigger>
-              <TooltipContent side="right">{label}</TooltipContent>
-            </Tooltip>
+            <RailTip label={label}>{link}</RailTip>
           ) : collapsedRail && hasChildren ? (
             // Controlled via hover/focus on the anchor + content (not a click-toggling
             // PopoverTrigger) so the icon itself still navigates normally on click — this is a
@@ -574,23 +589,36 @@ export const AdminLayout = () => {
               "flex items-center gap-3 px-3 py-3 mt-2 rounded-xl bg-surface-hover border border-border shrink-0",
               !sidebarOpen && "flex-col gap-2 px-2"
             )}>
-              <span className="relative flex items-center justify-center size-9 rounded-full bg-primary-100 dark:bg-primary-500/20 text-primary-700 dark:text-primary-300 font-display font-bold text-xs shrink-0" title={!sidebarOpen ? user.name : undefined}>
+              {!sidebarOpen ? <RailTip label={user.name}><span className="relative flex items-center justify-center size-9 rounded-full bg-primary-100 dark:bg-primary-500/20 text-primary-700 dark:text-primary-300 font-display font-bold text-xs shrink-0">
+                {initials}
+                <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-success border-2 border-surface-hover" aria-hidden="true" />
+              </span></RailTip> : (
+                <span className="relative flex items-center justify-center size-9 rounded-full bg-primary-100 dark:bg-primary-500/20 text-primary-700 dark:text-primary-300 font-display font-bold text-xs shrink-0">
                 {initials}
                 <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-success border-2 border-surface-hover" aria-hidden="true" />
               </span>
+              )}
               <div className={cn("min-w-0 flex-1 transition-opacity duration-300", !sidebarOpen && "hidden opacity-0")}>
                 <p className="text-sm font-display font-bold text-text truncate">{user.name}</p>
                 {user.role && <p className="text-xs font-display font-medium text-text-muted truncate">{roleLabel(user.role)}</p>}
               </div>
-              <button
+              {!sidebarOpen ? <RailTip label="Log out"><button
                 type="button"
                 onClick={logout}
                 aria-label="Log out"
-                title="Log out"
+                className="shrink-0 inline-flex items-center justify-center size-11 lg:size-9 rounded-lg text-text-muted hover:bg-danger/10 hover:text-danger transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+              >
+                <LogOut className="w-[17px] h-[17px]" strokeWidth={1.75} />
+              </button></RailTip> : (
+                <button
+                type="button"
+                onClick={logout}
+                aria-label="Log out"
                 className="shrink-0 inline-flex items-center justify-center size-11 lg:size-9 rounded-lg text-text-muted hover:bg-danger/10 hover:text-danger transition-colors duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
               >
                 <LogOut className="w-[17px] h-[17px]" strokeWidth={1.75} />
               </button>
+              )}
             </div>
           )}
         </aside>
@@ -602,7 +630,7 @@ export const AdminLayout = () => {
           {/* max-w-(--container-width), not max-w-7xl — matches the same token every other page
               in the app (Dashboard, Tasks, Tickets, Team Overview, Verification Queue) centers on,
               instead of sitting narrower with bigger side margins than its siblings. */}
-          <div className="flex flex-col gap-4 max-w-(--container-width) mx-auto w-full p-3 sm:p-5 lg:p-8 pb-44 md:pb-8">
+          <div className="flex flex-col gap-4 max-w-(--container-width) mx-auto w-full p-3 sm:p-4 lg:px-6 lg:py-5 pb-44 md:pb-6">
 
             {/* Breadcrumbs — always rooted at "Dashboard" so every admin page has a one-click way
                 back to the regular user dashboard, per the section-level trail in adminBreadcrumbs.ts */}

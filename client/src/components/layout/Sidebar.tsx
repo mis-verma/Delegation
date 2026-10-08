@@ -561,7 +561,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
               type="button"
               onClick={logout}
               title="Log out"
-              className="size-8 rounded-lg flex items-center justify-center text-text-muted hover:text-danger hover:bg-danger/10 transition-colors cursor-pointer shrink-0 ml-1"
+              className="size-8 pointer-coarse:size-11 rounded-lg flex items-center justify-center text-text-muted hover:text-danger hover:bg-danger/10 transition-colors cursor-pointer shrink-0 ml-1"
               aria-label="Log out"
             >
               <LogOut size={16} strokeWidth={2} />
@@ -630,7 +630,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
             onClick={onToggleCollapse}
             aria-label={isOpen ? 'Collapse sidebar' : 'Expand sidebar'}
             title={isOpen ? 'Collapse sidebar' : 'Expand sidebar'}
-            className="absolute top-1/2 right-0 -translate-y-1/2 z-30 flex size-6 items-center justify-center rounded-full border border-border bg-surface text-text-muted transition-all duration-200 cursor-pointer hover:text-primary-600 hover:border-primary-300 active:scale-90"
+            className="absolute top-1/2 right-0 -translate-y-1/2 z-30 flex size-6 pointer-coarse:size-9 items-center justify-center rounded-full border border-border bg-surface text-text-muted transition-all duration-200 cursor-pointer hover:text-primary-600 hover:border-primary-300 active:scale-90"
           >
             {isOpen ? <ChevronLeft size={13} strokeWidth={2.5} /> : <ChevronRight size={13} strokeWidth={2.5} />}
           </button>

@@ -1,4 +1,4 @@
-import { memo, useState } from 'react';
+import { memo, useState, type ReactNode } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ActiveRangeBadge, Button, DateRangePicker, ToggleChip, type DateRangeValue } from '../../../components';
@@ -112,6 +112,8 @@ interface AnalyticsControlBarProps extends Omit<GroupByControlProps, 'hideRange'
   updatedAt: number | null;
   isRefreshing: boolean;
   onRefresh: () => void;
+  /** Extra buttons beside Refresh (the page has no title bar of its own to hold them). */
+  actions?: ReactNode;
 }
 
 const formatUpdated = (ms: number) => new Date(ms).toLocaleTimeString(ANALYTICS_LOCALE, { hour: 'numeric', minute: '2-digit' });
@@ -122,7 +124,7 @@ const formatUpdated = (ms: number) => new Date(ms).toLocaleTimeString(ANALYTICS_
  * to the top of the page from lg up; below that it scrolls away so it never eats a phone or a
  * landscape screen.
  */
-export const AnalyticsControlBar = ({ groupBy, onGroupByChange, range, onRangeChange, updatedAt, isRefreshing, onRefresh }: AnalyticsControlBarProps) => {
+export const AnalyticsControlBar = ({ groupBy, onGroupByChange, range, onRangeChange, updatedAt, isRefreshing, onRefresh, actions }: AnalyticsControlBarProps) => {
   const { shown, handleChange } = useCompleteRangeOnly(range, onRangeChange);
   const preset = activePreset(range);
   const hasRange = Boolean(range.from && range.to);
@@ -182,6 +184,7 @@ export const AnalyticsControlBar = ({ groupBy, onGroupByChange, range, onRangeCh
             <RefreshCw size={14} aria-hidden="true" className={isRefreshing ? 'animate-spin motion-reduce:animate-none' : undefined} />
             Refresh
           </Button>
+          {actions}
         </div>
       </div>
     </div>

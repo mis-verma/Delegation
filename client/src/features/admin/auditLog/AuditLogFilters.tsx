@@ -33,13 +33,13 @@ const personName = (u: { firstName: string; lastName: string | null }) =>
 
 // One applied filter, with an X to drop just that one without opening the panel.
 const ActiveFilterChip = ({ label, onRemove }: { label: string; onRemove: () => void }) => (
-  <span className="flex items-center gap-1 h-8 pl-3 pr-1 rounded-full border border-primary-500/30 bg-primary-500/10 text-xs font-display font-medium text-primary-700 dark:text-primary-300">
+  <span className="flex items-center gap-1 h-8 pointer-coarse:h-11 pl-3 pr-1 rounded-full border border-primary-500/30 bg-primary-500/10 text-xs font-display font-medium text-primary-700 dark:text-primary-300">
     {label}
     <button
       type="button"
       onClick={onRemove}
       aria-label={`Remove filter: ${label}`}
-      className="flex items-center justify-center size-6 rounded-full text-primary-700/70 dark:text-primary-300/70 hover:bg-primary-500/15 hover:text-primary-700 dark:hover:text-primary-200 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+      className="flex items-center justify-center size-6 pointer-coarse:size-9 rounded-full text-primary-700/70 dark:text-primary-300/70 hover:bg-primary-500/15 hover:text-primary-700 dark:hover:text-primary-200 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
     >
       <X size={13} aria-hidden />
     </button>
@@ -134,7 +134,7 @@ export const AuditLogFilters = ({ filter, onChange, onClearAll, users }: AuditLo
           <button
             type="button"
             onClick={onClearAll}
-            className="h-8 px-2.5 rounded-lg text-xs font-display font-medium text-text-muted hover:text-danger hover:bg-danger/10 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+            className="h-8 pointer-coarse:h-11 px-2.5 rounded-lg text-xs font-display font-medium text-text-muted hover:text-danger hover:bg-danger/10 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
           >
             Clear all
           </button>

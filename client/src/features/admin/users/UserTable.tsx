@@ -40,7 +40,7 @@ const SortHeader = ({ label, active, dir, onClick }: { label: string; active: bo
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-1.5 -mx-1 px-1 min-h-8 rounded text-white cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+      className="inline-flex items-center gap-1.5 -mx-1 px-1 min-h-8 pointer-coarse:min-h-11 rounded text-white cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-white/70"
     >
       {label}
       <Icon className={cn('size-3.5 shrink-0', !active && 'opacity-50')} aria-hidden />
@@ -69,7 +69,7 @@ const UserTableComponent = ({
         <thead className={HEAD_ROW_CLASS}>
           <tr>
             <th scope="col" className={cn(HEAD_CLASS, 'w-14 min-w-14 sticky left-0 z-10', HEAD_ROW_CLASS)}>
-              <label className="flex items-center justify-center size-8 cursor-pointer">
+              <label className="flex items-center justify-center size-8 pointer-coarse:size-11 cursor-pointer">
                 <input
                   ref={headCheckbox}
                   type="checkbox"

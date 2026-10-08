@@ -112,7 +112,7 @@ export const UserToolbar = ({
                   type="button"
                   onClick={() => onSearchText('')}
                   aria-label="Clear search"
-                  className="flex items-center justify-center size-8 -mr-2 rounded-md text-text-light hover:text-text cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+                  className="flex items-center justify-center size-8 pointer-coarse:size-11 -mr-2 rounded-md text-text-light hover:text-text cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
                 >
                   <X size={15} />
                 </button>

@@ -1,8 +1,8 @@
 import { memo, useCallback, useId, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
-import { AlertTriangle, BarChart3, Building2, ClipboardCheck, FileDown, Info, Repeat, TicketCheck } from 'lucide-react';
+import { AlertTriangle, Building2, ClipboardCheck, FileDown, Info, Repeat, TicketCheck } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Button, InlineError, NoticeBanner, PageHeader, type DateRangeValue } from '../../../components';
+import { Button, InlineError, NoticeBanner, type DateRangeValue } from '../../../components';
 import { useAuth } from '../../../context/AuthContext';
 import { useDepartmentsQuery, useStoresQuery } from '../../tickets/hook';
 import { useUsersQuery } from '../hook';
@@ -274,21 +274,8 @@ export const OrgOverview = () => {
   }, [refetchDepartments, refetchStores, refetchUsers, orgWide]);
 
   return (
-    <div className="flex flex-col gap-6 w-full">
-      <PageHeader
-        icon={BarChart3}
-        title="Overview & Analytics"
-        subtitle="Delegations, store checklists, tickets and stores in one place."
-        actions={
-          orgWide ? (
-            <Button variant="outline" size="sm" onClick={() => navigate('/admin/reports')}>
-              <FileDown size={14} aria-hidden="true" />
-              Reports
-            </Button>
-          ) : undefined
-        }
-      />
-
+    <div className="flex flex-col gap-4 w-full">
+      <h1 className="sr-only">Overview and analytics</h1>
       <ScopeNotice
         role={user?.role}
         departmentId={user?.departmentId}
@@ -306,6 +293,14 @@ export const OrgOverview = () => {
         updatedAt={updatedAt}
         isRefreshing={isRefreshing}
         onRefresh={() => void refresh()}
+        actions={
+          orgWide ? (
+            <Button variant="outline" size="sm" onClick={() => navigate('/admin/reports')}>
+              <FileDown size={14} aria-hidden="true" />
+              Reports
+            </Button>
+          ) : undefined
+        }
       />
 
       <AnalyticsSummaryStrip groupBy={groupBy} from={from} to={to} onViewSection={jumpToSection} isOrgWideRole={orgWide} />
