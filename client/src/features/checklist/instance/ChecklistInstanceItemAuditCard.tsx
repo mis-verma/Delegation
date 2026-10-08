@@ -479,13 +479,13 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
       ) : submission.remarks ? (
         <div className="flex flex-col gap-1 max-w-2xl">
           <p className="text-xs font-semibold text-text-secondary">{isNa ? 'Reason' : 'Remarks'}</p>
-          <p className="text-[15px] sm:text-sm text-text-secondary whitespace-pre-wrap break-words">{submission.remarks}</p>
+          <p className="text-[0.9375rem] sm:text-sm text-text-secondary whitespace-pre-wrap break-words">{submission.remarks}</p>
         </div>
       ) : null}
 
       {editable && (
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-lg border border-dashed border-border-hover px-3 py-2.5">
-          <p className="text-[13px] sm:text-xs text-text-muted">Absent or on leave? You can skip this person.</p>
+          <p className="text-[0.8125rem] sm:text-xs text-text-muted">Absent or on leave? You can skip this person.</p>
           <Button
             variant="outline"
             onClick={openNa}

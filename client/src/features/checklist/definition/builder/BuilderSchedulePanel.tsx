@@ -175,7 +175,7 @@ export const BuilderSchedulePanel = ({
               value={parseDateStr(startDate)}
               onChange={(d) => onStartDateChange(d ? toDateStr(d) : '')}
               placeholder={recurrence === 'ONE_TIME' ? 'Due date' : 'Start date'}
-              triggerClassName={`${CHIP_TRIGGER_CLASS} h-11 sm:h-9 text-[13px] ${startDate ? 'pr-10' : ''}`}
+              triggerClassName={`${CHIP_TRIGGER_CLASS} h-11 sm:h-9 text-[0.8125rem] ${startDate ? 'pr-10' : ''}`}
             />
           </div>
           <TimePicker
@@ -184,7 +184,7 @@ export const BuilderSchedulePanel = ({
             value={opensTime}
             onChange={onOpensTimeChange}
             placeholder="any time"
-            triggerClassName={`${CHIP_TRIGGER_CLASS} h-11 sm:h-9 text-[13px]`}
+            triggerClassName={`${CHIP_TRIGGER_CLASS} h-11 sm:h-9 text-[0.8125rem]`}
           />
           <TimePicker
             popover
@@ -192,7 +192,7 @@ export const BuilderSchedulePanel = ({
             value={cutoffTime}
             onChange={onCutoffTimeChange}
             placeholder="any time"
-            triggerClassName={`${CHIP_TRIGGER_CLASS} h-11 sm:h-9 text-[13px]`}
+            triggerClassName={`${CHIP_TRIGGER_CLASS} h-11 sm:h-9 text-[0.8125rem]`}
           />
         </div>
         {!startDate && <p className="text-xs font-display text-text-muted">Pick a start date to continue.</p>}

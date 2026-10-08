@@ -82,7 +82,7 @@ export const TicketStatusHistory = ({ statusUpdates, onPreview, closure }: Ticke
                       {getStatusChipLabel(key)}
                     </p>
                     {isLatest && (
-                      <span className="px-2 py-0.5 rounded-full bg-primary-700 dark:bg-primary-400 text-white text-[11px] font-bold leading-none">Latest</span>
+                      <span className="px-2 py-0.5 rounded-full bg-primary-700 dark:bg-primary-400 text-white text-[0.6875rem] font-bold leading-none">Latest</span>
                     )}
                   </div>
 
@@ -91,14 +91,14 @@ export const TicketStatusHistory = ({ statusUpdates, onPreview, closure }: Ticke
                   </p>
 
                   {su.remark && (
-                    <p className="text-[15px] sm:text-sm text-text-secondary leading-relaxed whitespace-pre-wrap break-words pl-2.5 border-l-2 border-primary-500/30">
+                    <p className="text-[0.9375rem] sm:text-sm text-text-secondary leading-relaxed whitespace-pre-wrap break-words pl-2.5 border-l-2 border-primary-500/30">
                       {su.remark}
                     </p>
                   )}
 
                   {su.photos && su.photos.length > 0 && (
                     <div className="flex flex-col gap-1.5 pt-1">
-                      <span className="flex items-center gap-1 text-[11px] font-semibold text-text-muted">
+                      <span className="flex items-center gap-1 text-[0.6875rem] font-semibold text-text-muted">
                         <Camera size={12} className="text-text-light" />
                         {su.photos.length} {su.photos.length === 1 ? 'photo' : 'photos'}
                       </span>

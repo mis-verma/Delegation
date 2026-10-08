@@ -115,7 +115,7 @@ const ComplianceRow = memo(({ instance, storeName, nameById, namesLoading }: Com
         <ChecklistProgressBar done={progress} total={100} bare thin tone={overdue && !complete ? 'danger' : 'auto'} className="flex-1" />
         <span className="flex items-baseline gap-1.5 shrink-0 tabular-nums font-display">
           <span className={cn('text-sm font-bold', instanceProgressToneClass(overdue, complete))}>{progress}%</span>
-          <span className="text-[11px] font-medium text-text-muted">{done}/{total}</span>
+          <span className="text-[0.6875rem] font-medium text-text-muted">{done}/{total}</span>
         </span>
       </div>
 
@@ -362,7 +362,7 @@ export const ChecklistComplianceBoard = () => {
             <SlidersHorizontal size={15} aria-hidden />
             Filters
             {filterCount > 0 && (
-              <span className="flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-primary-600 text-[11px] font-bold text-white tabular-nums">
+              <span className="flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-primary-600 text-[0.6875rem] font-bold text-white tabular-nums">
                 {filterCount}
               </span>
             )}

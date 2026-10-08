@@ -44,7 +44,7 @@ export const SignalCard = ({
     />
 
     {/* Eyebrow Badge */}
-    <span className="relative inline-flex items-center gap-2.5 self-start px-3 py-1.5 mb-5 rounded-full border border-primary-700/50 bg-primary-900/50 backdrop-blur-sm text-[10px] font-bold uppercase tracking-widest text-primary-300">
+    <span className="relative inline-flex items-center gap-2.5 self-start px-3 py-1.5 mb-5 rounded-full border border-primary-700/50 bg-primary-900/50 backdrop-blur-sm text-[0.625rem] font-bold uppercase tracking-widest text-primary-300">
       <span className="size-1.5 rounded-full bg-primary-400 shadow-[0_0_8px_rgba(var(--color-primary-400),0.8)] animate-pulse" />
       {eyebrow}
     </span>
@@ -54,7 +54,7 @@ export const SignalCard = ({
       {title}
     </h3>
 
-    <p className="relative text-[14px] leading-relaxed text-primary-100/70">
+    <p className="relative text-[0.875rem] leading-relaxed text-primary-100/70">
       {body}
     </p>
 
@@ -74,7 +74,7 @@ export const SignalCard = ({
       </button>
 
       {meta && (
-        <span className="text-[11px] font-bold uppercase tracking-widest text-text-muted">
+        <span className="text-[0.6875rem] font-bold uppercase tracking-widest text-text-muted">
           {meta}
         </span>
       )}

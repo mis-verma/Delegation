@@ -52,7 +52,7 @@ function ImagePreview({ file, onRemove, onPreview }: { file: File; onRemove: () 
       ) : (
         <div className="size-full flex flex-col items-center justify-center gap-1.5 p-2 text-text-light">
           <ImageOff size={18} strokeWidth={1.75} />
-          <span className="text-[10px] font-medium text-text-muted text-center leading-tight line-clamp-2 break-words">
+          <span className="text-[0.625rem] font-medium text-text-muted text-center leading-tight line-clamp-2 break-words">
             {file.name}
           </span>
         </div>
@@ -127,7 +127,7 @@ export function ImageUploader({
   return (
     <div className="flex flex-col gap-2 w-full group/uploader">
       {label && (
-        <label className="block text-[11px] font-bold text-text-muted transition-colors duration-200 group-focus-within/uploader:text-primary-600 px-1">
+        <label className="block text-[0.6875rem] font-bold text-text-muted transition-colors duration-200 group-focus-within/uploader:text-primary-600 px-1">
           {label}
         </label>
       )}
@@ -229,7 +229,7 @@ export function ImageUploader({
             >
               {hiddenInput}
               <Plus size={18} strokeWidth={2.5} />
-              <span className="text-[10px] font-bold">Add more</span>
+              <span className="text-[0.625rem] font-bold">Add more</span>
             </div>
           )}
         </div>

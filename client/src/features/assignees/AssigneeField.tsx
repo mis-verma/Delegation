@@ -73,7 +73,7 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
               disabled={disabled}
               onClick={() => toggle(u.id)}
               title={`${name} — click to remove`}
-              className={`relative pointer-coarse:after:absolute pointer-coarse:after:-inset-2 flex items-center justify-center size-7 sm:size-8 rounded-full text-xs sm:text-[11px] font-semibold sm:font-bold text-white shrink-0 cursor-pointer transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:hover:scale-100 ${avatarColorClass(name)}`}
+              className={`relative pointer-coarse:after:absolute pointer-coarse:after:-inset-2 flex items-center justify-center size-7 sm:size-8 rounded-full text-xs sm:text-[0.6875rem] font-semibold sm:font-bold text-white shrink-0 cursor-pointer transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:hover:scale-100 ${avatarColorClass(name)}`}
             >
               {getInitials(name)}
             </button>
@@ -171,7 +171,7 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
                       onSelect={(e) => { if (!single) e.preventDefault(); }}
                       className="gap-2"
                     >
-                      <span className={`flex items-center justify-center size-5 rounded-full text-[9px] font-bold text-white shrink-0 ${avatarColorClass(name)}`}>
+                      <span className={`flex items-center justify-center size-5 rounded-full text-[0.5625rem] font-bold text-white shrink-0 ${avatarColorClass(name)}`}>
                         {getInitials(name)}
                       </span>
                       {name}

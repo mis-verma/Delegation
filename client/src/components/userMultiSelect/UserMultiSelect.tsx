@@ -55,12 +55,12 @@ export const UserMultiSelect = ({ departmentId, storeId, storeIds, selected, onC
           checked ? 'bg-primary-500/10 text-text' : 'text-text-secondary hover:bg-surface-hover hover:text-text'
         }`}
       >
-        <span className={`flex items-center justify-center size-7 rounded-full text-[10px] font-bold text-white shrink-0 ${avatarColorClass(name)}`}>
+        <span className={`flex items-center justify-center size-7 rounded-full text-[0.625rem] font-bold text-white shrink-0 ${avatarColorClass(name)}`}>
           {getInitials(name)}
         </span>
         <span className="flex-1 min-w-0 truncate">{name}</span>
         {u.role === 'MANAGER' && (
-          <span className="shrink-0 text-[9px] font-display font-bold px-1.5 py-0.5 rounded-full bg-primary-500/10 text-primary-700 dark:text-primary-400">
+          <span className="shrink-0 text-[0.5625rem] font-display font-bold px-1.5 py-0.5 rounded-full bg-primary-500/10 text-primary-700 dark:text-primary-400">
             HOD
           </span>
         )}
@@ -111,7 +111,7 @@ export const UserMultiSelect = ({ departmentId, storeId, storeIds, selected, onC
       {!isLoading && groups
         ? groups.map(([deptName, deptUsers]) => (
             <div key={deptName} className="flex flex-col gap-0.5">
-              <p className="px-2 pt-2 pb-1 text-[10px] font-display font-bold tracking-wider text-text-light first:pt-1">
+              <p className="px-2 pt-2 pb-1 text-[0.625rem] font-display font-bold tracking-wider text-text-light first:pt-1">
                 {deptName}
               </p>
               {deptUsers.map(renderUserRow)}

@@ -35,7 +35,7 @@ export const BuilderStepper = ({
     <nav aria-label="Checklist builder progress" className={`xl:hidden flex flex-col gap-2 ${className}`}>
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-sm font-display font-bold text-text">{steps[current]?.label}</span>
-        <span className="text-[11px] font-display font-medium text-text-muted tabular-nums">Step {current + 1} of {steps.length}</span>
+        <span className="text-[0.6875rem] font-display font-medium text-text-muted tabular-nums">Step {current + 1} of {steps.length}</span>
       </div>
       <ol className="flex items-center gap-2">
         {steps.map((step, index) => {
@@ -143,7 +143,7 @@ export const BuilderStepper = ({
                   </span>
 
                   {step.description && (
-                    <span className="hidden md:inline text-[11px] text-text-muted">
+                    <span className="hidden md:inline text-[0.6875rem] text-text-muted">
                       {step.description}
                     </span>
                   )}

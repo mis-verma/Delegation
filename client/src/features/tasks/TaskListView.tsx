@@ -101,7 +101,7 @@ const TaskListViewComponent = ({
                 )}
                 {/* No truncate — this was cutting titles down to a handful of words ("Security
                     camera offline since ...") on a narrow phone card. Wraps instead. */}
-                <span className="flex-1 min-w-0 text-[15px] font-display font-semibold text-text tracking-tight leading-snug">
+                <span className="flex-1 min-w-0 text-[0.9375rem] font-display font-semibold text-text tracking-tight leading-snug">
                   {task.title}
                 </span>
                 {/* Who owns it, as a small avatar stack — a glance answers "is this mine?" without

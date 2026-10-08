@@ -35,7 +35,7 @@ const Tile = ({ icon: Icon, label, value, tint }: TileProps) => (
     </span>
     <div className="flex flex-col min-w-0">
       <span className="text-lg font-display font-bold leading-none text-text tabular-nums">{value}</span>
-      <span className="truncate text-[11px] font-medium text-text-muted pt-1">{label}</span>
+      <span className="truncate text-[0.6875rem] font-medium text-text-muted pt-1">{label}</span>
     </div>
   </div>
 );

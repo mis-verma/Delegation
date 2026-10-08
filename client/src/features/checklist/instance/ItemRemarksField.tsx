@@ -114,7 +114,7 @@ const RemarkDialog = ({ item, instanceId, mode, saved, missing, onClose }: Remar
             placeholder={copy.placeholder}
             className="min-h-0 px-3 py-2 rounded-lg resize-none"
           />
-          {removing && <span className="text-[11px] text-text-light">Saving an empty box removes the remark.</span>}
+          {removing && <span className="text-[0.6875rem] text-text-light">Saving an empty box removes the remark.</span>}
         </div>
 
         <DialogFooter>

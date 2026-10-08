@@ -43,7 +43,7 @@ export const ChecklistBlock = ({
             {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           </div>
           <div className="flex-1 min-w-0">
-            <h4 className={`text-[15px] font-medium truncate transition-colors ${
+            <h4 className={`text-[0.9375rem] font-medium truncate transition-colors ${
               isComplete ? 'text-text-muted' : 'text-text'
             }`}>
               {checklist.title}

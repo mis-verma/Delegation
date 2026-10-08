@@ -6,6 +6,8 @@ import type { Tag } from '../../api/tags';
 interface TagChipProps {
   tag: Tag;
   className?: string;
+  /** Keep the name beside the icon on a phone (off by default, see StatusChip). */
+  showLabelOnMobile?: boolean;
 }
 
 /**
@@ -18,13 +20,14 @@ interface TagChipProps {
  * it wins here (via `toneStyle`, since an author-chosen colour can't be a Tailwind class) and the
  * hash stays as the fallback for labels nobody has picked a colour for.
  */
-export const TagChip = ({ tag, className }: TagChipProps) => (
+export const TagChip = ({ tag, className, showLabelOnMobile = false }: TagChipProps) => (
   <IconChip
     icon={TagIcon}
     tone={tag.color ? undefined : labelDotClass(tag.name)}
     toneStyle={tag.color ? { backgroundColor: tag.color } : undefined}
     label={tag.name}
     className={className}
+    iconOnlyOnMobile={!showLabelOnMobile}
     title={`Label: ${tag.name}`}
   />
 );

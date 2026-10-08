@@ -65,7 +65,7 @@ export const ChecklistItemRow = ({
         </span>
 
         <div className="flex-1 min-w-0">
-          <p className={`text-[15px] font-medium leading-snug ${
+          <p className={`text-[0.9375rem] font-medium leading-snug ${
             item.isDone ? 'line-through text-text-light' : 'text-text'
           }`}>
             {item.label}

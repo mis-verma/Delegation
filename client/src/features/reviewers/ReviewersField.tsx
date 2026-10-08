@@ -41,7 +41,7 @@ export const ReviewersField = ({ departmentId, storeId, selected, onChange, clas
         </label>
 
         {selected.length > 0 && (
-          <span className="text-[11px] font-display font-medium text-text-muted flex items-center gap-1">
+          <span className="text-[0.6875rem] font-display font-medium text-text-muted flex items-center gap-1">
             <UserCheck size={12} className="text-primary-700 dark:text-primary-400" />
             <span>{selected.length} reviewer{selected.length === 1 ? '' : 's'}</span>
           </span>
@@ -50,7 +50,7 @@ export const ReviewersField = ({ departmentId, storeId, selected, onChange, clas
 
       <UserMultiSelect departmentId={departmentId} storeId={storeId} selected={selected} onChange={onChange} />
 
-      <p className="text-[11px] font-display text-text-muted">
+      <p className="text-[0.6875rem] font-display text-text-muted">
         {hint ?? "Anyone you add here can approve or reject this — on top of PC/Admin and the department head."}
       </p>
     </div>

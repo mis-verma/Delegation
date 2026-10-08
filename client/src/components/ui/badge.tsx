@@ -9,7 +9,7 @@ const badgeVariants = cva(
   // Not uppercase — every consumer already passes properly-capitalized labels ("Due", "In Progress",
   // "No stores selected"), and forcing multi-word phrases into tracked-out caps read as shouty/
   // robotic rather than a status pill, especially once a label runs past one short word.
-  "inline-flex items-center justify-center rounded-full border px-2.5 py-0.5 sm:py-1 text-[10px] sm:text-[11px] font-display font-bold tracking-wide w-fit whitespace-nowrap shrink-0 gap-1.5 transition-all duration-300 overflow-hidden bg-transparent [&>svg]:size-3.5 [&>svg]:shrink-0 [&>svg]:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+  "inline-flex items-center justify-center rounded-full border px-2.5 py-0.5 sm:py-1 text-[0.625rem] sm:text-[0.6875rem] font-display font-bold tracking-wide w-fit whitespace-nowrap shrink-0 gap-1.5 transition-all duration-300 overflow-hidden bg-transparent [&>svg]:size-3.5 [&>svg]:shrink-0 [&>svg]:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
   {
     variants: {
       variant: {

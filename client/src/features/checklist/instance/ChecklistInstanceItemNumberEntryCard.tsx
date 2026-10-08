@@ -44,7 +44,7 @@ export const ChecklistInstanceItemNumberEntryCard = memo(function ChecklistInsta
         reopenPending={setItemDone.isPending}
         onReopen={() => setItemDone.mutate({ itemId: item.id, isDone: false, numericValue: parsed ?? undefined })}
         subtitle={(rangeHint || item.numberEntryUnit) && (
-          <p className="text-[11px] text-text-muted font-display">
+          <p className="text-[0.6875rem] text-text-muted font-display">
             {[rangeHint, item.numberEntryUnit].filter(Boolean).join(' · ')}
           </p>
         )}

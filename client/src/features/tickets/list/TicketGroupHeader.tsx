@@ -25,7 +25,7 @@ export const TicketGroupHeader = ({ label, groupBy, ticketCount, stats }: Ticket
       </div>
 
       {stats.total > 0 && (
-        <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-display font-semibold px-2.5 py-1 rounded-full bg-primary-500/10 text-primary-700 dark:text-primary-300 shrink-0">
+        <span className="hidden sm:inline-flex items-center gap-1 text-[0.6875rem] font-display font-semibold px-2.5 py-1 rounded-full bg-primary-500/10 text-primary-700 dark:text-primary-300 shrink-0">
           <span className="tabular-nums">{stats.done}/{stats.total}</span>
           <span className="opacity-80">checklist items</span>
         </span>

@@ -55,6 +55,9 @@ export interface StatusChipProps {
   /** Pass `false` to hide the icon circle, or a different Lucide icon to override the default. */
   icon?: LucideIcon | false;
   className?: string;
+  /** Keep the word beside the icon on a phone. Off by default: on small screens the colour and icon
+   *  carry the status and the word is read from the tooltip or a screen reader. */
+  showLabelOnMobile?: boolean;
   /** Extra trailing content inside the chip (e.g. a lock icon marking the status read-only). */
   children?: ReactNode;
 }
@@ -72,12 +75,12 @@ export const getStatusChipLabel = (status: StatusChipStatus) => STATUS_CHIP_CONF
 // eslint-disable-next-line react-refresh/only-export-components
 export const getStatusChipMeta = (status: StatusChipStatus) => STATUS_CHIP_CONFIG[status];
 
-export const StatusChip = ({ status, label, icon, className, children }: StatusChipProps) => {
+export const StatusChip = ({ status, label, icon, className, showLabelOnMobile = false, children }: StatusChipProps) => {
   const config = STATUS_CHIP_CONFIG[status];
   const Icon = icon === false ? false : icon ?? config.icon;
 
   return (
-    <IconChip icon={Icon} tone={config.tone} label={label ?? config.label} className={className}>
+    <IconChip icon={Icon} tone={config.tone} label={label ?? config.label} className={className} iconOnlyOnMobile={!showLabelOnMobile}>
       {children}
     </IconChip>
   );

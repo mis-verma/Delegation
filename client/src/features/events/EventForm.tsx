@@ -13,7 +13,7 @@ const EVENT_TYPES: EventType[] = ['DEADLINE', 'ANNOUNCEMENT', 'BROADCAST'];
 // Textarea, which render one internally) — this matches their built-in label exactly
 // (components/input/Input.tsx, components/textarea/Textarea.tsx) so Type and Date & time don't
 // look like a different, hand-rolled field style sitting next to Title and Description.
-const FIELD_LABEL_CLASS = 'flex items-center gap-1.5 text-[11px] font-bold tracking-wide text-text-muted transition-colors duration-150 group-focus-within/field:text-primary-600 px-1';
+const FIELD_LABEL_CLASS = 'flex items-center gap-1.5 text-[0.6875rem] font-bold tracking-wide text-text-muted transition-colors duration-150 group-focus-within/field:text-primary-600 px-1';
 
 // Quiet, borderless-until-interaction fill instead of a visible box outline at rest — the same
 // Notion-inspired field treatment TicketForm.tsx and TaskForm.tsx both use (their own

@@ -37,7 +37,7 @@ export const PillButton = ({ active, onClick, children }: { active: boolean; onC
 
 export const FilterSection = ({ title, children }: { title: string; children: ReactNode }) => (
   <div className="flex flex-col gap-2.5">
-    <span className="text-[11px] font-bold text-text-light tracking-widest pl-2">
+    <span className="text-[0.6875rem] font-bold text-text-light tracking-widest pl-2">
       {title}
     </span>
     <div className="p-4 rounded-2xl bg-surface-hover border border-border">
@@ -104,7 +104,7 @@ export function FiltersPopover<TFilters extends object>({
         Filters
       </span>
       {activeCount > 0 && (
-        <span className="flex items-center justify-center min-w-[1.25rem] h-[1.25rem] px-1.5 text-[10px] font-bold rounded-full bg-primary-600 text-white shadow-sm shadow-primary-600/30 ml-1">
+        <span className="flex items-center justify-center min-w-[1.25rem] h-[1.25rem] px-1.5 text-[0.625rem] font-bold rounded-full bg-primary-600 text-white shadow-sm shadow-primary-600/30 ml-1">
           {activeCount}
         </span>
       )}
@@ -123,7 +123,7 @@ export function FiltersPopover<TFilters extends object>({
       {chips.map((chip) => (
         <span
           key={chip.key}
-          className="flex items-center gap-1.5 pl-3.5 pr-1.5 py-1.5 text-[10px] font-bold tracking-widest rounded-full bg-primary-50 text-primary-700 border border-primary-200 shadow-sm shrink-0"
+          className="flex items-center gap-1.5 pl-3.5 pr-1.5 py-1.5 text-[0.625rem] font-bold tracking-widest rounded-full bg-primary-50 text-primary-700 border border-primary-200 shadow-sm shrink-0"
         >
           {chip.label}
           <button

@@ -111,7 +111,7 @@ interface MetricPillProps {
 }
 
 export const MetricPill = ({ icon: Icon, children }: MetricPillProps) => (
-  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-hover text-text-secondary text-[11px] font-semibold tracking-wide border border-border transition-colors duration-200 group-hover:bg-surface-active/50 group-hover:border-border-hover">
+  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-hover text-text-secondary text-[0.6875rem] font-semibold tracking-wide border border-border transition-colors duration-200 group-hover:bg-surface-active/50 group-hover:border-border-hover">
     <Icon className="size-3.5 text-text-light shrink-0" strokeWidth={2.5} />
     <span>{children}</span>
   </div>
@@ -147,7 +147,7 @@ export const EntityStatusFilter = ({ value, onChange, counts, inactiveLabel = 'I
       ]).map(({ key, label }) => (
         <TabsTrigger key={key} value={key} className="gap-2 min-h-11 sm:min-h-8 px-3 py-1.5 rounded-full font-display font-bold">
           {label}
-          <span className={cn('text-[10px] font-semibold tabular-nums', value === key ? 'text-text-secondary' : 'text-text-light')}>
+          <span className={cn('text-[0.625rem] font-semibold tabular-nums', value === key ? 'text-text-secondary' : 'text-text-light')}>
             {counts[key]}
           </span>
         </TabsTrigger>

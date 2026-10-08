@@ -113,7 +113,7 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
             title="Back to your dashboard"
           >
             <LayoutDashboard size={16} strokeWidth={2} />
-            <span className="text-[13px] font-display font-semibold">Dashboard</span>
+            <span className="text-[0.8125rem] font-display font-semibold">Dashboard</span>
           </Link>
 
           <span className="hidden sm:block h-8 w-px bg-border shrink-0" aria-hidden="true" />
@@ -122,7 +122,7 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
               app header) — a greeting squeezed between the toggle and the icons only ever showed
               as "Good morn…". Desktop keeps the greeting with the section underneath. */}
           <div className="sm:hidden flex flex-col min-w-0 leading-tight">
-            <span className="text-[15px] font-display font-bold text-text tracking-tight truncate">{pageLabel || 'Admin'}</span>
+            <span className="text-[0.9375rem] font-display font-bold text-text tracking-tight truncate">{pageLabel || 'Admin'}</span>
             <span className="text-xs font-medium text-text-muted">{currentDate}</span>
           </div>
           <div className="hidden sm:flex flex-col min-w-0 leading-tight">
@@ -176,7 +176,7 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
                     <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-success border-2 border-surface" aria-hidden="true" />
                   </span>
                   <span className="hidden lg:flex flex-col items-start min-w-0 leading-tight py-0.5">
-                    <span className="max-w-[120px] truncate text-[13px] font-bold text-text">{user.name}</span>
+                    <span className="max-w-[120px] truncate text-[0.8125rem] font-bold text-text">{user.name}</span>
                     {user.role && (
                       <span className="max-w-[120px] truncate text-xs font-medium text-text-muted mt-0.5">{titleCase(user.role)}</span>
                     )}

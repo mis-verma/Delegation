@@ -46,7 +46,7 @@ const ApprovalLink = memo(({ row }: { row: ApprovalRow }) => {
       <div className="flex-1 min-w-0">
         {/* line-clamp-2, not truncate: this row's icon and chevron leave little width for the title
             on a phone, and truncate cut titles down to a fragment. */}
-        <p className="text-[13px] sm:text-sm font-display font-medium sm:font-semibold text-text line-clamp-2 leading-snug">{row.title}</p>
+        <p className="text-[0.8125rem] sm:text-sm font-display font-medium sm:font-semibold text-text line-clamp-2 leading-snug">{row.title}</p>
         <p className="text-xs font-medium text-text-light flex items-center gap-1.5">
           {row.meta && (
             <>

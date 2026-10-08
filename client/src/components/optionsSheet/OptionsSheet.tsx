@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
-import { ListFilter, SlidersHorizontal, X, Check, ChevronDown, RotateCcw, FileDown, type LucideIcon } from 'lucide-react';
+import { ListFilter, SlidersHorizontal, X, Check, RotateCcw, FileDown, type LucideIcon } from 'lucide-react';
 import { Dialog, DialogTrigger, DialogContent, DialogTitle, DialogDescription, DialogClose } from '@/components/ui/dialog';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Button } from '../button';
 import { useDraggableDialog } from '../modal/useDraggableDialog';
 
@@ -20,7 +19,10 @@ export const OptionSection = ({ icon: Icon, label, children, aside }: { icon: Lu
   <section className="flex flex-col gap-2 min-w-0">
     <div className="flex items-center justify-between gap-2">
       <span className={HEADING_CLASS}>
-        <Icon size={14} className="text-text-light" />
+        {/* A small tinted tile, not a bare grey glyph: the section icons are the sheet's wayfinding. */}
+        <span className="flex items-center justify-center size-6 rounded-md bg-primary-500/10 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300 shrink-0">
+          <Icon size={13} strokeWidth={2.4} />
+        </span>
         {label}
       </span>
       {aside}
@@ -29,15 +31,42 @@ export const OptionSection = ({ icon: Icon, label, children, aside }: { icon: Lu
   </section>
 );
 
-/** Segmented control: equal-width cells on a grey track, picked cell raised. On phones the icon
- *  sits above the label so three options fit without cutting words off. */
+/**
+ * Gradient fills for the icon tiles in this sheet, one per option, so the choices are told apart by
+ * colour as well as by shape. Spelled out in full: Tailwind reads class names from source text and
+ * emits nothing for a name assembled at runtime.
+ */
+const OPTION_TONES = [
+  'bg-gradient-to-br from-primary-500 to-primary-700 dark:from-primary-400 dark:to-primary-600',
+  'bg-gradient-to-br from-coral-400 to-coral-600',
+  'bg-gradient-to-br from-success/80 to-success',
+  'bg-gradient-to-br from-warning/80 to-warning',
+  'bg-gradient-to-br from-status-approve/80 to-status-approve',
+  'bg-gradient-to-br from-info/80 to-info',
+] as const;
+
+const toneAt = (index: number) => OPTION_TONES[index % OPTION_TONES.length];
+
+/** The solid, rounded icon tile used by the choice cards and chips below. */
+const OptionGlyph = ({ icon: Icon, tone, className = 'size-8 rounded-lg' }: { icon: LucideIcon; tone: string; className?: string }) => (
+  <span className={`flex items-center justify-center shrink-0 text-white ${tone} ${className}`}>
+    <Icon className="size-4" strokeWidth={2.4} />
+  </span>
+);
+
+/**
+ * Choice cards for a short either/or (Show, Group by): equal-width cells, each with its own
+ * coloured icon tile above the label. The picked card gets a navy border, a soft tint and a tick, so
+ * it reads without relying on colour alone. Cards stack icon-over-label on phones so three fit
+ * without cutting words off.
+ */
 export const OptionSegmented = <T extends string>({ options, value, onChange }: {
   options: { value: T; label: string; icon: LucideIcon }[];
   value: T;
   onChange: (v: T) => void;
 }) => (
-  <div className="grid gap-1 p-1 rounded-xl bg-surface-hover/70" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
-    {options.map(({ value: v, label, icon: Icon }) => {
+  <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
+    {options.map(({ value: v, label, icon }, index) => {
       const active = v === value;
       return (
         <button
@@ -45,57 +74,49 @@ export const OptionSegmented = <T extends string>({ options, value, onChange }: 
           type="button"
           aria-pressed={active}
           onClick={() => onChange(v)}
-          className={`flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 py-2 sm:py-0 sm:h-9 px-1.5 sm:px-2 rounded-lg text-[11px] sm:text-xs font-display font-semibold transition-colors duration-200 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent] ${
+          className={`relative flex flex-col items-center justify-center gap-1.5 min-h-[4.25rem] pointer-coarse:min-h-[4.5rem] px-1.5 py-2.5 rounded-xl border text-center text-xs font-display font-semibold transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.98] [-webkit-tap-highlight-color:transparent] ${
             active
-              ? 'bg-surface text-text border border-border/60 dark:border-white/[0.08]'
-              : 'text-text-muted border border-transparent hover:text-text'
+              ? 'border-primary-600 dark:border-primary-400 bg-primary-500/10 dark:bg-primary-500/15 text-primary-800 dark:text-primary-100'
+              : 'border-border/60 dark:border-white/[0.08] bg-surface text-text-secondary hover:border-primary-400/60'
           }`}
         >
-          <Icon size={14} className={active ? 'text-primary-600 dark:text-primary-300' : undefined} />
-          <span className="truncate">{label}</span>
+          <OptionGlyph icon={icon} tone={toneAt(index)} />
+          <span className="max-w-full truncate leading-tight">{label}</span>
+          {active && (
+            <span className="absolute top-1.5 right-1.5 flex items-center justify-center size-4 rounded-full bg-primary-600 dark:bg-primary-400 text-white">
+              <Check size={10} strokeWidth={3.5} />
+            </span>
+          )}
         </button>
       );
     })}
   </div>
 );
 
-/** A dropdown picker in the sheet (e.g. Sort by): icon tile + current label + chevron. */
+/**
+ * A one-of-many picker (Sort by, Group board by) shown as a row of chips instead of a dropdown:
+ * every option is visible and one tap away, each with its own coloured icon tile, and the current
+ * one is ticked. Same name and props as the dropdown it replaces, so callers are unchanged.
+ */
 export const OptionSelect = <K extends string>({ labels, icons, value, onChange }: {
   labels: Record<K, string>;
   icons: Record<K, LucideIcon>;
   value: K;
   onChange: (key: K) => void;
-}) => {
-  const ActiveIcon: LucideIcon = icons[value];
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className="flex items-center gap-2 h-11 px-3 rounded-xl border border-border/60 dark:border-white/[0.08] bg-surface hover:border-primary-400/60 text-sm font-semibold text-text cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 transition-colors [-webkit-tap-highlight-color:transparent]"
-        >
-          <span className="flex items-center justify-center size-7 rounded-lg bg-primary-500/10 text-primary-700 dark:text-primary-300">
-            <ActiveIcon size={14} />
-          </span>
-          <span className="flex-1 text-left">{labels[value]}</span>
-          <ChevronDown size={15} className="text-text-light" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-44 rounded-xl p-1.5">
-        {(Object.keys(labels) as K[]).map((key) => {
-          const Icon: LucideIcon = icons[key];
-          return (
-            <DropdownMenuItem key={key} onClick={() => onChange(key)} className="gap-2.5 py-2 cursor-pointer">
-              <Icon size={14} className="text-text-muted" />
-              <span className="font-medium text-sm">{labels[key]}</span>
-              {value === key && <Check size={14} className="ml-auto text-primary-600" />}
-            </DropdownMenuItem>
-          );
-        })}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-};
+}) => (
+  <div className="flex flex-wrap gap-2 pointer-coarse:gap-2.5" role="group">
+    {(Object.keys(labels) as K[]).map((key, index) => (
+      <ChoiceChip
+        key={key}
+        active={value === key}
+        onClick={() => onChange(key)}
+        lead={<OptionGlyph icon={icons[key]} tone={toneAt(index)} className="size-5 sm:size-6 rounded-full" />}
+      >
+        {labels[key]}
+      </ChoiceChip>
+    ))}
+  </div>
+);
 
 /**
  * A pickable chip in the app's icon-chip language: a solid icon circle (or colour dot, or avatar)
@@ -133,7 +154,7 @@ export const ChoiceClear = ({ onClick }: { onClick: () => void }) => (
   <button
     type="button"
     onClick={onClick}
-    className="text-[11px] font-semibold text-text-muted hover:text-danger px-1.5 py-0.5 pointer-coarse:min-h-11 pointer-coarse:px-3 rounded cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+    className="text-[0.6875rem] font-semibold text-text-muted hover:text-danger px-1.5 py-0.5 pointer-coarse:min-h-11 pointer-coarse:px-3 rounded cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
   >
     Clear
   </button>
@@ -167,9 +188,9 @@ export const OptionsSheet = ({
           size="sm"
           title="Options"
           aria-label={activeCount > 0 ? `Options, ${activeCount} active` : 'Options'}
-          className="group relative size-9 pointer-coarse:size-11 shrink-0 rounded-full border border-border p-0 transition-colors duration-200 hover:border-primary-400"
+          className="group relative size-9 pointer-coarse:size-11 shrink-0 rounded-full border border-primary-500/30 bg-primary-500/10 dark:bg-primary-500/15 p-0 transition-colors duration-200 hover:border-primary-500/60 hover:bg-primary-500/15"
         >
-          <ListFilter size={16} strokeWidth={2.5} className="text-text-muted group-hover:text-primary-600 transition-colors duration-200" aria-hidden="true" />
+          <ListFilter size={16} strokeWidth={2.5} className="text-primary-700 dark:text-primary-300" aria-hidden="true" />
           {activeCount > 0 && (
             <span aria-hidden="true" className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary-600 px-1 text-xs font-bold leading-none text-white tabular-nums">
               {activeCount}

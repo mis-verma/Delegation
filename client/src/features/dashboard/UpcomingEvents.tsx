@@ -27,7 +27,7 @@ const EventRow = memo(({ event, now }: { event: Event; now: number }) => {
         <div aria-hidden="true" className={`flex items-center justify-center shrink-0 ${EVENT_TYPE_ICON_TINTS[event.type]}`}>
           <Icon size={14} />
         </div>
-        <p className="text-[13px] sm:text-sm font-display font-medium text-text line-clamp-2 leading-snug">{event.title}</p>
+        <p className="text-[0.8125rem] sm:text-sm font-display font-medium text-text line-clamp-2 leading-snug">{event.title}</p>
       </div>
 
       <div className="flex items-center gap-4 pl-11 sm:pl-0 shrink-0">

@@ -64,13 +64,13 @@ export const EvidenceThumb = memo(function EvidenceThumb({ image, fallbackAlt = 
       )}
 
       <span
-        className={`pointer-events-none absolute -top-1 -left-1 px-1 rounded-full text-[9px] font-display font-semibold text-white ${
+        className={`pointer-events-none absolute -top-1 -left-1 px-1 rounded-full text-[0.5625rem] font-display font-semibold text-white ${
           image.captureMethod === 'LIVE' ? 'bg-success' : 'bg-text-muted'
         }`}
       >
         {image.captureMethod === 'LIVE' ? 'Live' : 'Gallery'}
       </span>
-      <span className="pointer-events-none absolute -bottom-1 left-1/2 -translate-x-1/2 px-1 rounded-full bg-black/70 text-[9px] font-display font-medium text-white whitespace-nowrap tabular-nums">
+      <span className="pointer-events-none absolute -bottom-1 left-1/2 -translate-x-1/2 px-1 rounded-full bg-black/70 text-[0.5625rem] font-display font-medium text-white whitespace-nowrap tabular-nums">
         {formatTimeOnly(image.createdAt)}
       </span>
 

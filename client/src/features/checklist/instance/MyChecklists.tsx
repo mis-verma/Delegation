@@ -7,6 +7,8 @@ import { useCreatedRange } from '../../../lib/createdRange';
 import {
   OptionsSheet, OptionSection, OptionSegmented, OptionSelect, ChoiceChip, ChoiceIcon, ChoiceWrap, ChoiceClear,
 } from '../../../components/optionsSheet';
+import { ChipLegend, type ChipLegendSection } from '../../../components/chipLegend';
+import { getStatusChipMeta } from '../../../components/statusChip';
 import { avatarColorClass } from '../../../lib/avatarColors';
 import { getInitials } from '../../../lib/getInitials';
 import { toggleValue } from '../../../lib/toggleValue';
@@ -121,6 +123,18 @@ const InstancesSkeleton = ({ view }: { view: View }) => {
     </div>
   );
 };
+
+// A checklist card's status chip is one of these three (getInstanceView's chipStatus). The review
+// state beside it keeps its words on a phone, so it is not listed here. Built from the chip's own map.
+const CHECKLIST_LEGEND: ChipLegendSection[] = [
+  {
+    title: 'Status',
+    items: (['due', 'overdue', 'completed'] as const).map((s) => {
+      const meta = getStatusChipMeta(s);
+      return { label: s === 'completed' ? 'Done' : meta.label, icon: meta.icon, tone: meta.tone };
+    }),
+  },
+];
 
 export const MyChecklists = () => {
   const [page, setPage] = useState(1);
@@ -397,6 +411,7 @@ export const MyChecklists = () => {
             and the toolbar is just Options, same as the other list pages. */}
         <div className="flex items-center gap-2.5 shrink-0 ml-auto">
           <CreatedRangePicker createdRange={createdRange} className="shrink-0" />
+          <ChipLegend sections={CHECKLIST_LEGEND} />
           <OptionsSheet
             isOpen={showOptions}
             setIsOpen={setShowOptions}
@@ -498,7 +513,7 @@ export const MyChecklists = () => {
                       active={assigneeIds.includes(p.id)}
                       onClick={() => { setAssigneeIds(toggleValue(assigneeIds, p.id)); setPage(1); }}
                       lead={
-                        <span className={`flex items-center justify-center size-6 rounded-full text-white text-[9px] font-bold shrink-0 ${avatarColorClass(p.name)}`}>
+                        <span className={`flex items-center justify-center size-6 rounded-full text-white text-[0.5625rem] font-bold shrink-0 ${avatarColorClass(p.name)}`}>
                           {getInitials(p.name)}
                         </span>
                       }

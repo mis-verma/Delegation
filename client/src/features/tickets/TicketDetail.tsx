@@ -234,7 +234,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                     ) : (
                       <span title="Assignee" className="inline-flex items-center gap-1.5 min-w-0 pl-1 pr-2.5 py-1 rounded-full border border-border/60 bg-surface text-xs font-semibold text-text max-lg:w-full max-lg:rounded-lg max-lg:py-2 max-lg:text-sm">
                         {assigneeName ? (
-                          <span className={`flex items-center justify-center size-5 rounded-full text-white text-[9px] font-bold shrink-0 ${avatarColorClass(assigneeName)}`}>
+                          <span className={`flex items-center justify-center size-5 rounded-full text-white text-[0.5625rem] font-bold shrink-0 ${avatarColorClass(assigneeName)}`}>
                             {getInitials(assigneeName)}
                           </span>
                         ) : (

@@ -209,6 +209,17 @@ body {
   font-variant-numeric: lining-nums;
 }
 
+/* Small screens: a touch more leading and tracking than the desktop default. Inter is tuned for
+   screens but its small sizes (12-14px) read tighter on a phone held at arm's length, so body copy
+   gets 1.5 line height and a hair of letter spacing. Classes that set their own leading
+   (`leading-*`) and tracking (`tracking-*`) still win, so headings are unchanged. */
+@media (max-width: 639px) {
+  body {
+    line-height: 1.5;
+    letter-spacing: 0.005em;
+  }
+}
+
 /* While Inter downloads, text is drawn in Arial scaled to Inter's metrics, so when the real font swaps
    in the page does not shift or re-wrap. */
 @font-face {

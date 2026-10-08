@@ -35,7 +35,7 @@ export const QuestionTypeMenu = ({ draft, onPick }: QuestionTypeMenuProps) => {
         {QUESTION_GROUPS.map((group, gi) => (
           <div key={group.id}>
             {gi > 0 && <DropdownMenuSeparator />}
-            <DropdownMenuLabel className="text-[11px] font-semibold text-text-muted">{group.label}</DropdownMenuLabel>
+            <DropdownMenuLabel className="text-[0.6875rem] font-semibold text-text-muted">{group.label}</DropdownMenuLabel>
             {QUESTION_TYPES.filter((t) => t.group === group.id).map((entry) => {
               const EntryIcon = entry.icon;
               const selected = entry.id === current.id;
@@ -46,8 +46,8 @@ export const QuestionTypeMenu = ({ draft, onPick }: QuestionTypeMenuProps) => {
                     <EntryIcon strokeWidth={2.25} className="size-3.5! text-current!" />
                   </span>
                   <span className="flex flex-col min-w-0 flex-1">
-                    <span className="text-[13px] font-medium text-text">{entry.label}</span>
-                    <span className="text-[11px] text-text-muted truncate">{entry.hint}</span>
+                    <span className="text-[0.8125rem] font-medium text-text">{entry.label}</span>
+                    <span className="text-[0.6875rem] text-text-muted truncate">{entry.hint}</span>
                   </span>
                   {selected && <Check strokeWidth={2.75} className="size-3.5! text-primary-600! dark:text-primary-300!" />}
                 </DropdownMenuItem>

@@ -52,7 +52,7 @@ export const TicketBoardColumn = memo(({ status, tickets, draggable, onOpen, dep
           </h3>
         </div>
 
-        <span className="flex items-center justify-center shrink-0 min-w-7 h-6 px-2 text-[11px] font-bold text-text-secondary rounded-full bg-surface border border-border/50 tabular-nums">
+        <span className="flex items-center justify-center shrink-0 min-w-7 h-6 px-2 text-[0.6875rem] font-bold text-text-secondary rounded-full bg-surface border border-border/50 tabular-nums">
           {tickets.length}
         </span>
       </div>

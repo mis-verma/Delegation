@@ -15,7 +15,7 @@ import { getInitials } from '../../lib/getInitials';
 // letter-spaced light-grey caps style read as faint noise on a small screen, especially in dark mode.
 export const OptionRow = ({ label, children }: { label: string; children: ReactNode }) => (
   <div className="flex flex-col gap-2 min-w-0">
-    <span className="text-xs font-display font-semibold text-text-secondary sm:text-[11px] sm:font-bold sm:text-text-light sm:tracking-widest">{label}</span>
+    <span className="text-xs font-display font-semibold text-text-secondary sm:text-[0.6875rem] sm:font-bold sm:text-text-light sm:tracking-widest">{label}</span>
     {children}
   </div>
 );
@@ -89,7 +89,7 @@ export const PersonToggle = ({ name, selected, onClick }: { name: string; select
     title={name}
     aria-label={name}
     aria-pressed={selected}
-    className={`relative flex items-center justify-center size-9 sm:size-7 rounded-full text-[11px] sm:text-[10px] font-bold text-white transition-all duration-200 cursor-pointer ${avatarColorClass(name)} ${
+    className={`relative flex items-center justify-center size-9 sm:size-7 rounded-full text-[0.6875rem] sm:text-[0.625rem] font-bold text-white transition-all duration-200 cursor-pointer ${avatarColorClass(name)} ${
       selected ? 'opacity-100 scale-105 ring-2 ring-offset-2 ring-offset-surface ring-primary-400' : 'opacity-60 hover:opacity-100'
     }`}
   >

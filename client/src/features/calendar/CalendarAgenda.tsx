@@ -39,7 +39,7 @@ export const CalendarAgenda = ({ day, today, items, isPending, onOpenItem, onCre
     >
       <div className="flex items-center justify-between gap-3 border-b border-border p-3 sm:p-4">
         <div className="flex min-w-0 flex-col gap-0.5">
-          <span className="text-[11px] font-display font-semibold text-primary-600 dark:text-primary-400">{relativeDayLabel(day, today)}</span>
+          <span className="text-[0.6875rem] font-display font-semibold text-primary-600 dark:text-primary-400">{relativeDayLabel(day, today)}</span>
           <h2 className="text-base sm:text-lg font-display font-bold leading-tight text-text tracking-tight">{heading}</h2>
           <span className="text-xs font-medium text-text-muted">{countLabel}</span>
         </div>
@@ -107,7 +107,7 @@ export const CalendarAgenda = ({ day, today, items, isPending, onOpenItem, onCre
                 </span>
                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span className="line-clamp-2 text-sm font-display font-semibold leading-snug text-text">{item.title}</span>
-                  <span className="text-[11px] font-medium text-text-muted">
+                  <span className="text-[0.6875rem] font-medium text-text-muted">
                     {CALENDAR_ITEM_LABEL[item.type]} &middot; {item.date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
                   </span>
                 </span>

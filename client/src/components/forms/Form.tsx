@@ -45,7 +45,7 @@ export function Form({
             </h2>
           )}
           {description && (
-            <p className="text-[15px] font-medium text-text-muted leading-relaxed">
+            <p className="text-[0.9375rem] font-medium text-text-muted leading-relaxed">
               {description}
             </p>
           )}

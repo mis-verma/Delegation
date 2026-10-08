@@ -63,7 +63,7 @@ export const ReportExportPanel = ({ reportModule, description, filters }: Report
       <p className="text-xs text-text-muted font-display">{description}</p>
 
       <div className="flex flex-col gap-2">
-        <span className="text-[11px] font-display font-medium text-text-secondary tracking-wide">
+        <span className="text-[0.6875rem] font-display font-medium text-text-secondary tracking-wide">
           Period
         </span>
         <div className="flex flex-wrap gap-1.5">
@@ -103,7 +103,7 @@ export const ReportExportPanel = ({ reportModule, description, filters }: Report
 
       {isChecklists && (
         <div className="flex flex-col gap-2">
-          <span className="text-[11px] font-display font-medium text-text-secondary tracking-wide">
+          <span className="text-[0.6875rem] font-display font-medium text-text-secondary tracking-wide">
             Scope
           </span>
           <div className="flex flex-wrap gap-3">
@@ -134,7 +134,7 @@ export const ReportExportPanel = ({ reportModule, description, filters }: Report
 
       {/* Format Toggle */}
       <div className="flex flex-col gap-2">
-        <span className="text-[11px] font-display font-medium text-text-secondary tracking-wide">
+        <span className="text-[0.6875rem] font-display font-medium text-text-secondary tracking-wide">
           Format
         </span>
         <div className="flex gap-1 p-1 bg-surface-hover rounded-lg w-fit">

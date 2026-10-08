@@ -38,7 +38,7 @@ export const PersonRow = ({ name, subtitle, metric, metricTone = 'default', inde
   <div className="flex items-center gap-3 py-2.5 border-b border-border/40 last:border-0">
     {index != null && (
       MEDAL_CLASS[index] ? (
-        <span className={`flex items-center justify-center size-5 rounded-full border text-[10px] font-display font-bold tabular-nums shrink-0 ${MEDAL_CLASS[index]}`}>
+        <span className={`flex items-center justify-center size-5 rounded-full border text-[0.625rem] font-display font-bold tabular-nums shrink-0 ${MEDAL_CLASS[index]}`}>
           {index + 1}
         </span>
       ) : (
@@ -47,7 +47,7 @@ export const PersonRow = ({ name, subtitle, metric, metricTone = 'default', inde
         </span>
       )
     )}
-    <span className={`flex items-center justify-center size-8 rounded-full text-white text-[11px] font-display font-bold shrink-0 ${avatarColorClass(name)}`}>
+    <span className={`flex items-center justify-center size-8 rounded-full text-white text-[0.6875rem] font-display font-bold shrink-0 ${avatarColorClass(name)}`}>
       {getInitials(name)}
     </span>
     <div className="flex-1 min-w-0">

@@ -68,7 +68,8 @@ export const TicketDetailHeader = ({ ticket, statusLabel, onDelete, isDeleting =
             )}
           </button>
 
-          <StatusChip status={ticket.status.toLowerCase() as StatusChipStatus} label={statusLabel} />
+          {/* The one place the word stays on a phone: this chip is the sheet's headline state. */}
+          <StatusChip status={ticket.status.toLowerCase() as StatusChipStatus} label={statusLabel} showLabelOnMobile />
 
           <SheetDescription asChild>
             <span className="hidden sm:inline-flex lg:hidden items-center gap-1.5 text-xs font-medium text-text-muted">

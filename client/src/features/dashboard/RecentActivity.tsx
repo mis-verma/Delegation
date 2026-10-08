@@ -124,7 +124,7 @@ const FeedRow = memo(({ item, now }: FeedRowProps) => {
         {/* overflow-hidden on the column (not just min-w-0): min-w-0 lets it shrink but doesn't stop
             its own children rendering wider than it and bleeding into the status chip's space. */}
         <div className="flex flex-col gap-1 min-w-0 overflow-hidden">
-          <span className="text-[13px] sm:text-sm font-display font-semibold sm:font-bold text-text line-clamp-2 leading-snug group-hover/row:text-primary-600 dark:group-hover/row:text-primary-400 transition-colors duration-200">
+          <span className="text-[0.8125rem] sm:text-sm font-display font-semibold sm:font-bold text-text line-clamp-2 leading-snug group-hover/row:text-primary-600 dark:group-hover/row:text-primary-400 transition-colors duration-200">
             {item.title}
           </span>
           {/* On phones the status rides in this row as a chip beside the kind chip (flex-wrap for

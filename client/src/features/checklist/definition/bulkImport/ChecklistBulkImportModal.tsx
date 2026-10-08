@@ -43,7 +43,7 @@ const pad2 = (n: number) => String(n).padStart(2, '0');
 const toDateStr = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 const parseDateStr = (v: string) => (v ? new Date(`${v}T00:00:00`) : null);
 
-const TH_CLASS = 'text-left font-display font-semibold text-text-muted text-[11px] px-3 py-2';
+const TH_CLASS = 'text-left font-display font-semibold text-text-muted text-[0.6875rem] px-3 py-2';
 
 interface ReviewRowViewProps {
   row: ReviewRow;
@@ -218,7 +218,7 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
             </Button>
             <div className="flex flex-col items-end gap-1.5">
               {!canContinueFromReview && (
-                <p className="text-[11px] font-display text-warning flex items-center gap-1">
+                <p className="text-[0.6875rem] font-display text-warning flex items-center gap-1">
                   <AlertCircle size={12} className="shrink-0" />
                   {includedRows.length === 0
                     ? "You've excluded every row. Include at least one to continue."
@@ -278,7 +278,7 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
               <p className="text-xs font-display text-text-muted">
                 CSV or Excel works best · PDFs are okay too, but less reliable
               </p>
-              <p className="text-[11px] font-display text-text-light">
+              <p className="text-[0.6875rem] font-display text-text-light">
                 Your file should have columns for Checklist Name, Store, and Person (email or name). Department is optional and just for reference.
               </p>
             </div>
@@ -346,11 +346,11 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div role="group" aria-labelledby="bulk-opens-label" className="flex flex-col gap-1.5">
-              <span id="bulk-opens-label" className="text-[11px] font-display font-semibold text-text-muted px-1">Available From (Opens)</span>
+              <span id="bulk-opens-label" className="text-[0.6875rem] font-display font-semibold text-text-muted px-1">Available From (Opens)</span>
               <TimePicker value={opensTime} onChange={setOpensTime} placeholder="Keep existing" />
             </div>
             <div role="group" aria-labelledby="bulk-cutoff-label" className="flex flex-col gap-1.5">
-              <span id="bulk-cutoff-label" className="text-[11px] font-display font-semibold text-text-muted px-1">Cut-off By (Closes)</span>
+              <span id="bulk-cutoff-label" className="text-[0.6875rem] font-display font-semibold text-text-muted px-1">Cut-off By (Closes)</span>
               <TimePicker value={cutoffTime} onChange={setCutoffTime} placeholder="Keep existing" />
             </div>
           </div>
@@ -374,7 +374,7 @@ export const ChecklistBulkImportModal = ({ open, onClose }: ChecklistBulkImportM
               <p className="text-xs font-display font-semibold text-danger flex items-center gap-1.5">
                 <AlertCircle size={13} /> {summary.failed.length} checklist{summary.failed.length === 1 ? '' : 's'} failed
               </p>
-              <ul className="flex flex-col gap-1 text-[11px] font-display text-text-muted max-h-32 overflow-y-auto">
+              <ul className="flex flex-col gap-1 text-[0.6875rem] font-display text-text-muted max-h-32 overflow-y-auto">
                 {summary.failed.map((f) => (
                   <li key={f.definitionId}>
                     {checklistOptions.find((c) => c.value === f.definitionId)?.label ?? f.definitionId}: {f.message}

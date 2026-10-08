@@ -212,7 +212,7 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
       )}
 
       {tags.length > 0 && (
-        <ul className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-display font-medium text-text-muted">
+        <ul className="flex flex-wrap gap-x-3 gap-y-1 text-[0.6875rem] font-display font-medium text-text-muted">
           {tags.map((tag) => {
             const TagIcon = TAG_ICON_BY_LABEL[tag] ?? ListChecks;
             return (
@@ -231,7 +231,7 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
         <div className="flex flex-col gap-3 pt-3.5 mt-auto border-t border-border/60">
           <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-2">
             <div className="flex flex-col gap-0.5">
-              <span className="text-[11px] font-display font-medium text-text-muted">
+              <span className="text-[0.6875rem] font-display font-medium text-text-muted">
                 {definition.currentRate !== null ? (definition.recurrence === 'DAILY' ? 'Today' : 'This run') : 'All time'}
               </span>
               <span className={cn('text-2xl font-display font-bold leading-none tabular-nums', headline === 100 ? 'text-success' : 'text-text')}>
@@ -271,7 +271,7 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
 
 const Stat = ({ label, value, tone }: { label: string; value: number; tone: string }) => (
   <div className="flex flex-col gap-0.5">
-    <span className="text-[11px] font-display text-text-muted">{label}</span>
+    <span className="text-[0.6875rem] font-display text-text-muted">{label}</span>
     <span className={cn('text-sm font-display font-bold tabular-nums', tone)}>{value}%</span>
   </div>
 );

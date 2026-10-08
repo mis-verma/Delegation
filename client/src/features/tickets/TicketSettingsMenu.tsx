@@ -64,7 +64,7 @@ export const TicketSettingsMenu = ({
           active={selected.includes(p.id)}
           onClick={() => onChange(toggleValue(selected, p.id))}
           lead={
-            <span className={`flex items-center justify-center size-5 sm:size-6 rounded-full text-white text-[9px] font-bold shrink-0 ${avatarColorClass(p.name)}`}>
+            <span className={`flex items-center justify-center size-5 sm:size-6 rounded-full text-white text-[0.5625rem] font-bold shrink-0 ${avatarColorClass(p.name)}`}>
               {getInitials(p.name)}
             </span>
           }

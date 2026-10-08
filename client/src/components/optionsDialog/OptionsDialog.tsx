@@ -59,7 +59,7 @@ export const OptionsDialog = ({
         />
         <span>Options</span>
         {activeCount > 0 && (
-          <span className="flex items-center justify-center min-w-[1.1rem] h-[1.1rem] px-1 text-[10px] font-bold rounded-full bg-primary-600 text-white tabular-nums">
+          <span className="flex items-center justify-center min-w-[1.1rem] h-[1.1rem] px-1 text-[0.625rem] font-bold rounded-full bg-primary-600 text-white tabular-nums">
             {activeCount}
           </span>
         )}

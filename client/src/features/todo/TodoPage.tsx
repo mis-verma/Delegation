@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { Plus, Flag, ArrowUpDown, X } from 'lucide-react';
 import { Fab } from '../../components';
+import { ChipLegend, type ChipLegendSection } from '../../components/chipLegend';
 import { CreatedRangeBanner, CreatedRangePicker } from '../../components/createdRangeBanner';
 import { useCreatedRange, useDueRange } from '../../lib/createdRange';
 import {
@@ -20,6 +21,12 @@ import type { Todo, TodoPriority } from '../../api/todos';
 const QUICK_FILTER_VALUES = ['pending', 'completed', 'due', 'delayed'] as const;
 const PRIORITIES: TodoPriority[] = ['high', 'medium', 'low'];
 const SORT_KEYS = Object.keys(TODO_SORT_LABEL) as TodoSortKey[];
+
+// A to-do card shows one coloured chip on a phone, its priority, so that is all the legend lists.
+// Built from the same map the chip reads.
+const TODO_LEGEND: ChipLegendSection[] = [
+  { title: 'Priority', items: PRIORITIES.map((p) => ({ label: PRIORITY_MAP[p].label, icon: PRIORITY_MAP[p].icon, tone: PRIORITY_MAP[p].solid })) },
+];
 
 export const TodoPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -129,6 +136,8 @@ export const TodoPage = () => {
               />
             </OptionSection>
           </OptionsSheet>
+          {/* Row is reversed, so this lands just left of Options. */}
+          <ChipLegend sections={TODO_LEGEND} />
 
           <CreatedRangePicker createdRange={dueRange} label="Due date" className="shrink-0" />
 

@@ -65,7 +65,7 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
       <div className="flex flex-col gap-1 min-w-0 w-full">
         <div className="flex items-start gap-2 min-w-0">
           {/* leading-5 matches the old phone avatar height so the first line and the avatar centre-align. */}
-          <h3 className="flex-1 min-w-0 text-[15px] font-display font-semibold text-text tracking-tight leading-5 sm:leading-6 line-clamp-2 break-words">
+          <h3 className="flex-1 min-w-0 text-[0.9375rem] font-display font-semibold text-text tracking-tight leading-5 sm:leading-6 line-clamp-2 break-words">
             {ticket.title}
           </h3>
           {!hideAssignee && (assigneeName ? (

@@ -85,7 +85,7 @@ const ItemRow = ({
         </span>
 
         <div className="flex-1 min-w-0">
-          <p className={`text-[15px] font-medium leading-snug break-words ${item.isDone ? 'line-through text-text-light' : 'text-text'}`}>
+          <p className={`text-[0.9375rem] font-medium leading-snug break-words ${item.isDone ? 'line-through text-text-light' : 'text-text'}`}>
             {item.label}
           </p>
 
@@ -149,7 +149,7 @@ const ItemRow = ({
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover/img:opacity-100 pointer-coarse:opacity-100 transition-opacity pointer-events-none" />
 
-              <span className={`absolute top-1 left-1 text-[10px] font-bold px-1.5 py-0.5 rounded text-white ${
+              <span className={`absolute top-1 left-1 text-[0.625rem] font-bold px-1.5 py-0.5 rounded text-white ${
                 img.captureMethod === 'LIVE' ? 'bg-primary-600' : 'bg-black/85'
               }`}>
                 {img.captureMethod === 'LIVE' ? 'Live' : 'Gallery'}
@@ -292,7 +292,7 @@ const ChecklistBlock = ({
             {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           </div>
           <div className="flex-1 min-w-0">
-            <h4 className={`text-[15px] font-medium leading-snug line-clamp-2 break-words transition-colors ${isComplete ? 'text-text-muted' : 'text-text'}`}>
+            <h4 className={`text-[0.9375rem] font-medium leading-snug line-clamp-2 break-words transition-colors ${isComplete ? 'text-text-muted' : 'text-text'}`}>
               {checklist.title}
             </h4>
             <div className="flex items-center gap-3 mt-1.5 max-w-xs">
@@ -302,7 +302,7 @@ const ChecklistBlock = ({
                   style={{ width: `${progress}%` }}
                 />
               </div>
-              <span className={`text-[11px] font-bold tabular-nums min-w-8 shrink-0 ${isComplete ? 'text-primary-600' : 'text-text-muted'}`}>
+              <span className={`text-[0.6875rem] font-bold tabular-nums min-w-8 shrink-0 ${isComplete ? 'text-primary-600' : 'text-text-muted'}`}>
                 {doneCount}/{checklist.items.length}
               </span>
             </div>

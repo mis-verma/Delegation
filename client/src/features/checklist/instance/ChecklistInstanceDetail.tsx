@@ -337,7 +337,8 @@ export const ChecklistInstanceDetail = () => {
         </div>
 
         <div className="flex items-center gap-1.5 flex-wrap">
-          <StatusChip status={chipStatus} />
+          {/* The sheet's headline state, so the word stays on a phone. */}
+          <StatusChip status={chipStatus} showLabelOnMobile />
           {(isComplete || instance.verificationStatus !== 'NOT_SUBMITTED') && (
             <IconChip
               icon={verification.icon}

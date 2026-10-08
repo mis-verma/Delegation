@@ -114,14 +114,14 @@ export const ChecklistItemDraftRow = ({
 
           {!expanded && (
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface-hover text-text-secondary text-[11px] font-medium">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface-hover text-text-secondary text-[0.6875rem] font-medium">
                 <User size={11} /> {assigneeLabel}
               </span>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface-hover text-text-secondary text-[11px] font-medium">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface-hover text-text-secondary text-[0.6875rem] font-medium">
                 <ImageIcon size={11} /> {photoSummary}
               </span>
               {draft.requiresLivePhoto && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary-500/10 text-primary-700 dark:text-primary-400 text-[11px] font-medium">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-primary-500/10 text-primary-700 dark:text-primary-400 text-[0.6875rem] font-medium">
                   <Camera size={11} /> Live capture
                 </span>
               )}
@@ -222,14 +222,14 @@ export const ChecklistItemDraftRow = ({
               <span className="flex items-center gap-1.5 text-xs font-medium text-text-secondary tracking-wide">
                 <Camera size={14} className="text-text-light" /> Photo proof
               </span>
-              <span className="text-[11px] font-medium text-text-muted">
+              <span className="text-[0.6875rem] font-medium text-text-muted">
                 — evidence required to mark this step complete
               </span>
             </div>
 
             <div className="grid grid-cols-2 @sm:grid-cols-3 gap-3 items-end">
               <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-medium text-text-muted">Minimum</label>
+                <label className="text-[0.6875rem] font-medium text-text-muted">Minimum</label>
                 <input
                   type="number" min={0}
                   value={draft.requiredImageCount}
@@ -239,7 +239,7 @@ export const ChecklistItemDraftRow = ({
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-[11px] font-medium text-text-muted">Maximum</label>
+                <label className="text-[0.6875rem] font-medium text-text-muted">Maximum</label>
                 <input
                   type="number" min={0}
                   value={draft.maxImageCount}

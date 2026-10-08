@@ -24,7 +24,7 @@ export interface ItemTypeFieldsProps {
 // One label style, one input style, one switch: so every question type's settings read as the
 // same form rather than a different mini-widget per type.
 
-const LABEL = 'text-[11px] font-display font-medium text-text-muted';
+const LABEL = 'text-[0.6875rem] font-display font-medium text-text-muted';
 // The shared Input is a tall (h-12) rounded-xl field. These settings sit inside a question card, so
 // they use a compact 36px field (44px on touch) and keep the caption style used by the other labels.
 const INPUT = 'h-11 sm:h-9 rounded-lg px-3 font-display tabular-nums';
@@ -39,8 +39,8 @@ const SwitchField = ({ id, checked, onChange, label, hint }: { id: string; check
   <div className="flex items-center gap-2.5 w-fit">
     <Switch id={id} checked={checked} onChange={onChange} />
     <label htmlFor={id} className="flex flex-col justify-center min-h-11 sm:min-h-0 cursor-pointer">
-      <span className="text-[13px] font-display font-medium text-text">{label}</span>
-      {hint && <span className="text-[11px] font-display text-text-muted">{hint}</span>}
+      <span className="text-[0.8125rem] font-display font-medium text-text">{label}</span>
+      {hint && <span className="text-[0.6875rem] font-display text-text-muted">{hint}</span>}
     </label>
   </div>
 );
@@ -126,7 +126,7 @@ const AuditFields = ({ draft, onChange, storeIds, validPersonIds }: ItemTypeFiel
       <div className="flex items-center justify-between gap-2">
         <span className={LABEL}>Who gets audited?</span>
         {shown.length > 0 && (
-          <span className="text-[11px] font-display font-medium text-text-muted">
+          <span className="text-[0.6875rem] font-display font-medium text-text-muted">
             {peopleCount(shown.length)}
           </span>
         )}
@@ -213,7 +213,7 @@ const NumberFields = ({ draft, onChange }: ItemTypeFieldsProps) => {
         placeholder="Any"
       />
       {isCash && (
-        <p className="col-span-2 text-[11px] font-display text-text-muted sm:basis-full">
+        <p className="col-span-2 text-[0.6875rem] font-display text-text-muted sm:basis-full">
           If the count doesn’t match, staff must give a reason.
         </p>
       )}
