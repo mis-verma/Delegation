@@ -80,16 +80,21 @@ export const useRemoveLogoMutation = () => {
         onError: (err) => toast.error(errorMessage(err, "Failed to remove logo")),
     })
 }
+// Shared with the route prefetch so a hover on the Admin link and the People & Teams page use one entry.
+export const usersQueryOptions = () => ({
+    queryKey: USER_KEYS.all,
+    queryFn: () => adminApi.getAll().then(r => r.data),
+    // Every user mutation invalidates this list itself, so there is no need to refetch the
+    // whole roster each time the window regains focus.
+    staleTime: 5 * 60_000,
+});
+
 export const useUsersQuery = (enabled: boolean = true) => {
     const { token } = useAuth();
     return useQuery({
-        queryKey: USER_KEYS.all,
-        queryFn: () => adminApi.getAll().then(r => r.data),
+        ...usersQueryOptions(),
         enabled: !!token && enabled,
         retry: handleQueryRetry,
-        // Every user mutation invalidates this list itself, so there is no need to refetch the
-        // whole roster each time the window regains focus.
-        staleTime: 5 * 60_000,
         refetchOnWindowFocus: false,
     });
 };

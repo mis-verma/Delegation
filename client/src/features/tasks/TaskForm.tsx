@@ -3,7 +3,7 @@ import { endOfDay } from './taskDisplay';
 import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { CheckSquare, Check, FileEdit, Type, AlignLeft, SlidersHorizontal } from 'lucide-react';
+import { CheckSquare, Check, FileEdit, Type, AlignLeft, Building2, UserCheck, CalendarDays, Flag } from 'lucide-react';
 import { Input, Modal, DateRangePicker, Button } from '../../components';
 import type { DateRangeValue } from '../../components';
 import { useCreateTaskWithAttachmentsMutation, useAssignableUsersQuery } from './hook';
@@ -19,9 +19,13 @@ import { OWN_SCOPE_ROLES } from '../../api/auth';
 import type { Task } from '../../api/task';
 import { TaskFormDepartmentField } from './TaskFormDepartmentField';
 import { AssigneeField } from '../assignees/AssigneeField';
-import { TaskPriorityChipPicker } from './TaskPriorityChipPicker';
+import { TaskPrioritySegmented } from './form/TaskPrioritySegmented';
+import { TaskQuickDue } from './form/TaskQuickDue';
+import { TaskFormProgress } from './form/TaskFormProgress';
+import { FormField, StepHeading } from '../tickets/form/FormField';
+import { FIELD_TRIGGER_CLASS } from '../tickets/form/formConstants';
 import { TaskFormErrorBanner } from './TaskFormErrorBanner';
-import { FIELD_CARD_CLASS, DETAIL_HEADING_CLASS, CHIP_TRIGGER_CLASS } from './taskFormFieldStyles';
+import { FIELD_CARD_CLASS } from './taskFormFieldStyles';
 
 const taskSchema = z.object({
   title:        z.string().trim().min(1, 'Title is required'),
@@ -30,7 +34,7 @@ const taskSchema = z.object({
   departmentId: z.string().optional().or(z.literal('')),
 });
 
-type TaskFields = z.infer<typeof taskSchema>;
+export type TaskFields = z.infer<typeof taskSchema>;
 
 // Quiet, borderless-until-interaction fill instead of a visible box outline at rest — same
 // reference as the Create Ticket modal. Only applied while a field has no error: Input's own
@@ -65,6 +69,8 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
   // is the only way onSubmit (one handler, native form submission) can tell "Create" apart from
   // "Save as Draft" once react-hook-form's validation passes.
   const [saveAsDraft, setSaveAsDraft] = useState(false);
+  // Focus the title on a desktop so typing can start at once; a phone's keyboard would cover the form.
+  const [autoFocusTitle] = useState(() => !window.matchMedia('(pointer: coarse)').matches);
 
   const {
     register,
@@ -137,58 +143,30 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
     <Modal
       open
       onClose={onClose}
-      // xl (max-w-2xl), down from 3xl (max-w-5xl). A single column doesn't want 1024px of width:
-      // the title input becomes a 900px-wide line for a one-line sentence, which is both harder
-      // to read and further from the label than it should be.
-      size="xl"
-      // Was a fully pre-built rounded-full circle in a hardcoded, dark-mode-unaware bg-primary-100
-      // — Modal.tsx already wraps `icon` in its own size-10 rounded-xl tinted tile (see
-      // ICON_TONE_CLASS), so this was two tinted boxes nested inside each other, of two different
-      // shapes. Every other form (Ticket/Event/Category/Store/User/Department) just passes the
-      // bare icon and lets Modal's own tile do the work — matching that here instead.
+      size="2xl"
       icon={<CheckSquare className="w-5 h-5" />}
       title="Add new delegation"
-      // Says what the two panes are, in the order they're read: what the work is, then who and
-      // when. The old copy ("Define objectives, set priorities…") described the act of filling
-      // a form rather than telling anyone anything.
-      // Desktop-only: on a phone this sentence cost two lines of an already-tight sheet.
-      description={<span className="hidden sm:inline">{ownScopeOnly ? 'Describe the work, pick a department, and name who if you know. Otherwise a manager will assign it.' : 'Describe the work, then set who owns it and by when.'}</span>}
-      // One scrollbar for the whole body instead of a separate one per pane. Two nested scroll
-      // areas meant fields below the fold in the sidebar (Department, Labels) were reachable only
-      // by scrolling inside a region with no visible affordance — so they read as missing.
+      description={<span className="hidden sm:inline">Describe the work on the left, then choose who does it and by when on the right.</span>}
+      // One scrollbar for the whole body instead of a separate one per pane.
       bodyClassName="p-0 sm:p-0 overflow-y-auto"
-      // No rules under the title or above the buttons: the modal's own edge already separates it
-      // from the page, and the panes are plain white, so an internal divider is the only thing
-      // adding a line here.
       headerClassName="border-b-0"
       footerClassName="border-t-0"
       // X on phones only: there the footer is just Draft + Create, so the X is the one dismiss
-      // action. Desktop keeps Cancel instead — two dismiss controls in one dialog is one too many.
+      // action. Desktop keeps Cancel instead.
       closeButtonClassName="sm:hidden"
       footer={
         <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between w-full gap-3">
-          {/* Only the title is mandatory, so say so once here instead of leaving people to
-              discover it by submitting. */}
-          {/* Desktop-only — the red * on the title label already says it on a phone. */}
-          <p className="hidden sm:block text-xs font-medium text-text-light">
-            <span className="text-danger">*</span> Only the title is required. Add the rest now or later.
-          </p>
+          {/* Only the title blocks Create; the rest is listed as "not set yet" so nothing is a surprise. */}
+          <TaskFormProgress control={control} hasPerson={assigneeIds.length > 0} hasDates={!!dateRange.to} />
 
-          {/* Three hand-rolled <button>s with their own duplicated Tailwind soup — missing the
-              font-display class every other form's footer buttons carry, missing the press-feedback
-              (active:scale) the shared Button already gives every other button in the app, and
-              "Cancel"/"Save as draft" looked identical (nothing set them apart in emphasis).
-              Button's own outline/secondary/primary variants already express exactly that
-              hierarchy, and isLoading already swaps in the spinner — no need to hand-roll either. */}
-          {/* Phones: Draft + Create split the full width; Cancel is desktop-only there, the ✕ in the
+          {/* Phones: Draft + Create split the full width; Cancel is desktop-only there, the X in the
               header dismisses instead. Desktop keeps all three right-aligned at natural width. */}
           <div className="grid grid-cols-2 sm:flex sm:items-center sm:justify-end gap-2 sm:gap-3">
             <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={isBusy} className="hidden sm:inline-flex font-display">
               Cancel
             </Button>
-            {/* Same form, same validation (still needs a title) — just tags the submission as a
-                draft before onSubmit reads the flag, so a half-filled-out delegation has somewhere
-                to go besides "finish it now or lose it". */}
+            {/* Same form, same validation (still needs a title); tags the submission as a draft before
+                onSubmit reads the flag, so a half-filled delegation has somewhere to go. */}
             <Button
               type="submit"
               form="task-form"
@@ -197,15 +175,11 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
               onClick={() => setSaveAsDraft(true)}
               disabled={isBusy}
               isLoading={isDraftBusy}
-              className="font-display"
+              className="font-display max-sm:h-11"
             >
               {!isDraftBusy && <FileEdit size={14} strokeWidth={2.5} />}
               {isDraftBusy ? 'Saving…' : <><span className="sm:hidden">Draft</span><span className="hidden sm:inline">Save as draft</span></>}
             </Button>
-            {/* "Create", not "Create delegation" — the narrower modal wrapped the longer label
-                onto two lines, which made the button taller than Cancel beside it. The icon
-                carries the rest of the meaning, and the dialog title already says what's being
-                created. */}
             <Button
               type="submit"
               form="task-form"
@@ -214,7 +188,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
               onClick={() => setSaveAsDraft(false)}
               disabled={isBusy}
               isLoading={isCreateBusy}
-              className="font-display"
+              className="font-display max-sm:h-11"
             >
               {!isCreateBusy && <Check size={16} strokeWidth={2.5} />}
               {isCreateBusy ? 'Creating…' : 'Create'}
@@ -223,46 +197,45 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
         </div>
       }
     >
+      {/* One column on a phone, in the order to fill it in: 1) the work, 2) who and when. From lg up
+          the two steps sit side by side, same layout as the New ticket form. */}
       <form
         id="task-form"
         onSubmit={handleSubmit(onSubmit)}
-        // Single column, not the two panes this used to be. A flex row is as tall as its tallest
-        // child, and the two sides hold two fields and five — so the short side ended in a large
-        // empty rectangle, and no amount of matching padding could even them up. One column has
-        // no tall side, so every field is the same width and nothing is left over.
-        className="flex flex-col w-full"
+        className="grid gap-6 px-5 pb-4 pt-0 sm:p-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] lg:gap-8"
         noValidate
         aria-busy={isBusy}
       >
-        {/* Same layout and design language as the delegation detail sheet: Title and Description
-            with the shared icon labels, then one Details row of chips (assignee, priority, dates,
-            department) using the same chip pickers the detail sheet uses. It was a grid of boxed
-            fields with mixed label styles and an "L / M / H" priority toggle. */}
-        {/* No top padding on phones: the dialog already puts a 20px gap between header and body,
-            and adding 16px on top of it left a hole under the title. */}
-        <div className="flex flex-col gap-5 px-4 pb-4 pt-0 sm:p-5">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="title" className={DETAIL_HEADING_CLASS}>
-              <Type size={14} className="text-text-light" />
-              Title <span className="text-danger">*</span>
-            </label>
+        {/* Step 1: the work itself. */}
+        <div className="flex flex-col gap-5 min-w-0">
+          <StepHeading step={1} title="What needs to be done" subtitle="Say what the work is. Attach anything that helps." />
+
+          <FormField
+            label="Title"
+            htmlFor="title"
+            icon={<Type size={14} className="text-text-light" />}
+            required
+            hint="One line that says the job, so it is clear in a list."
+            error={errors.title?.message}
+          >
             <Input
               id="title"
               placeholder="e.g. Complete the hallmarking audit for the Karol Bagh showroom"
-              error={errors.title?.message}
               className={errors.title ? 'font-display' : QUIET_FIELD_CLASS}
               containerClassName={FIELD_CARD_CLASS}
               {...register('title')}
-              autoFocus
+              // Not on a phone: the keyboard would open at once and cover most of the form.
+              autoFocus={autoFocusTitle}
             />
-          </div>
+          </FormField>
 
           {/* Controller, so a keystroke re-renders this field and not the whole form. */}
-          <div className="flex flex-col gap-1.5">
-            <span className={DETAIL_HEADING_CLASS}>
-              <AlignLeft size={14} className="text-text-light" />
-              Description
-            </span>
+          <FormField
+            label="Description"
+            icon={<AlignLeft size={14} className="text-text-light" />}
+            optional
+            hint="Context, steps, links and what done looks like. Use the paperclip for files or photos."
+          >
             <Controller
               control={control}
               name="description"
@@ -270,8 +243,8 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
                 <TaskDescriptionField
                   value={field.value ?? ''}
                   onChange={field.onChange}
-                  rows={4}
-                  placeholder="Context, constraints, acceptance criteria, links…"
+                  rows={5}
+                  placeholder="e.g. Check every counter's hallmark records against the register, note any gaps, and send the list to the manager by Friday."
                   toolbar={<AttachFilesToolbar onFiles={(list) => setFiles((prev) => [...prev, ...Array.from(list)])} />}
                   containerClassName="border-transparent bg-surface-hover/50 focus-within:bg-surface"
                 >
@@ -281,67 +254,86 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
                 </TaskDescriptionField>
               )}
             />
-          </div>
+          </FormField>
+        </div>
 
-          <div className="flex flex-col gap-2">
-            <span className={DETAIL_HEADING_CLASS}>
-              <SlidersHorizontal size={14} className="text-text-light" />
-              Details
-            </span>
-            <div className="flex flex-wrap items-center gap-2">
-              {/* The flow is department first, then the person: the person list shows only that department's
-                  people, so it stays closed until a department is chosen. */}
-              <div title="Department">
-                <Controller
-                  control={control}
-                  name="departmentId"
-                  render={({ field }) => (
-                    <TaskFormDepartmentField
-                      hideLabel
-                      value={field.value ?? ''}
-                      onChange={field.onChange}
-                      departments={departments}
-                      isLoading={isLoadingDepts}
-                      triggerClassName={`${CHIP_TRIGGER_CLASS} max-w-[13rem]`}
-                    />
-                  )}
+        {/* Step 2: who and when. A bordered panel on desktop, plain on a phone. */}
+        <div className="flex flex-col gap-5 min-w-0 lg:self-start lg:p-4 lg:rounded-lg lg:border lg:border-border/60 lg:bg-surface-hover/30">
+          <StepHeading step={2} title="Who and when" subtitle="Pick the team first, then the people." />
+
+          {/* The flow is department first, then the person: the person list shows only that
+              department's people, so it stays closed until a department is chosen. */}
+          <FormField
+            label="Department"
+            icon={<Building2 size={14} className="text-text-light" />}
+            optional
+            hint={ownScopeOnly ? 'Which team should do this? A manager will assign the person.' : 'Pick the team first. The people list then shows only that team.'}
+          >
+            <Controller
+              control={control}
+              name="departmentId"
+              render={({ field }) => (
+                <TaskFormDepartmentField
+                  hideLabel
+                  value={field.value ?? ''}
+                  onChange={field.onChange}
+                  departments={departments}
+                  isLoading={isLoadingDepts}
+                  triggerClassName={`w-full ${FIELD_TRIGGER_CLASS}`}
                 />
-              </div>
+              )}
+            />
+          </FormField>
 
-              <div title="Assignees" className="flex items-center">
-                {departmentId ? (
-                  <AssigneeField
-                    hideLabel
-                    selectedIds={assigneeIds}
-                    onChange={setAssigneeIds}
-                    users={assignableUsers}
-                    isLoading={isLoadingUsers}
-                  />
-                ) : (
-                  <span className="inline-flex h-8 items-center rounded-full border border-dashed border-border px-3 text-xs font-display text-text-light">
-                    Pick a department first
-                  </span>
-                )}
-              </div>
-
-              <Controller
-                control={control}
-                name="priority"
-                render={({ field }) => (
-                  <TaskPriorityChipPicker value={field.value} onChange={field.onChange} disabled={isBusy} />
-                )}
+          <FormField
+            label="Assign to"
+            icon={<UserCheck size={14} className="text-text-light" />}
+            optional
+            hint={departmentId ? 'Pick one or more people. The first one is the main owner.' : 'Choose a department first.'}
+          >
+            {departmentId ? (
+              <AssigneeField
+                hideLabel
+                selectedIds={assigneeIds}
+                onChange={setAssigneeIds}
+                users={assignableUsers}
+                isLoading={isLoadingUsers}
               />
+            ) : (
+              <span className="inline-flex h-8 w-fit items-center rounded-full border border-dashed border-border px-3 text-xs font-display text-text-light">
+                Pick a department first
+              </span>
+            )}
+          </FormField>
 
-              <div title="Timeline">
-                <DateRangePicker
-                  value={dateRange}
-                  onChange={setDateRange}
-                  placeholder="Add dates"
-                  triggerClassName={CHIP_TRIGGER_CLASS}
-                />
-              </div>
-            </div>
-          </div>
+          <FormField
+            label="Due"
+            icon={<CalendarDays size={14} className="text-text-light" />}
+            optional
+            hint="Pick a quick due day, or open the calendar to set a start day and a due day."
+          >
+            <TaskQuickDue value={dateRange} onChange={setDateRange} />
+            <DateRangePicker
+              value={dateRange}
+              onChange={setDateRange}
+              placeholder="Choose start and due day"
+              triggerClassName={`w-full ${FIELD_TRIGGER_CLASS}`}
+            />
+          </FormField>
+
+          <FormField
+            label="Priority"
+            icon={<Flag size={14} className="text-text-light" />}
+            hint="High is for work that cannot wait. Most delegations are Medium."
+          >
+            <Controller
+              control={control}
+              name="priority"
+              render={({ field }) => (
+                <TaskPrioritySegmented value={field.value} onChange={field.onChange} disabled={isBusy} />
+              )}
+            />
+          </FormField>
 
           {/* No Reviewers picker: PC and Admin verify every delegation by default, same as
               Tickets, so naming one was a manual step that changed nothing. */}

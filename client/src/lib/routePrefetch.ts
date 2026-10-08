@@ -8,6 +8,9 @@ import {
   assignableUsersQueryOptions,
 } from '../features/tickets/hook';
 import { tasksListQueryOptions, assignableUsersAllQueryOptions } from '../features/tasks/hook';
+import { eventsQueryOptions } from '../features/events/hook';
+import { usersQueryOptions } from '../features/admin/hook';
+import { todosQueryOptions } from '../features/todo/hook';
 import { categoriesQueryOptions } from '../features/settings/hook';
 import { tagsQueryOptions } from '../features/tags/hook';
 
@@ -38,6 +41,45 @@ PREFETCHERS['/tasks'] = (qc) => {
   void qc.prefetchQuery(departmentsQueryOptions());
   void qc.prefetchQuery(storesQueryOptions());
   void qc.prefetchQuery(tagsQueryOptions());
+};
+
+PREFETCHERS['/todo'] = (qc) => {
+  void import('../features/todo/TodoPage');
+  void qc.prefetchQuery(todosQueryOptions());
+};
+
+PREFETCHERS['/events'] = (qc) => {
+  void import('../features/events');
+  void qc.prefetchQuery(eventsQueryOptions());
+};
+
+// The calendar lays out delegations, tickets and events on one grid, so it reads all three lists
+// (default keys, the same ones the Delegation and Tickets pages use). Its checklist runs are left
+// out: that query's key depends on a limit the page chooses itself.
+PREFETCHERS['/calendar'] = (qc) => {
+  void import('../features/calendar/CalendarPage');
+  void qc.prefetchQuery(tasksListQueryOptions());
+  void qc.prefetchQuery(ticketsBoardQueryOptions());
+  void qc.prefetchQuery(eventsQueryOptions());
+};
+
+// The Admin link lands on People & Teams. The shared admin shell and that page are lazy chunks, and
+// the page reads the roster, departments and stores.
+PREFETCHERS['/admin/directory'] = (qc) => {
+  void import('../features/admin/AdminLayout');
+  void import('../features/admin/directory');
+  void qc.prefetchQuery(usersQueryOptions());
+  void qc.prefetchQuery(departmentsQueryOptions());
+  void qc.prefetchQuery(storesQueryOptions());
+};
+
+// Checklists builds its list query from filters held in the page's own state (status tile, period,
+// page), so a guessed key would miss and waste requests. Only the page code and the stable store
+// and department lists are warmed.
+PREFETCHERS['/checklists'] = (qc) => {
+  void import('../features/checklist');
+  void qc.prefetchQuery(storesQueryOptions());
+  void qc.prefetchQuery(departmentsQueryOptions());
 };
 
 // Same alias the router has: the admin copy of the page is the very same component.

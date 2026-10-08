@@ -9,11 +9,16 @@ const EVENT_KEY = {
   upcoming: (limit: number) => ['events', 'upcoming', limit] as const,
 };
 
+// Shared with the route prefetch so a hover on Events or Calendar and the page itself use one entry.
+export const eventsQueryOptions = () => ({
+  queryKey: EVENT_KEY.all,
+  queryFn: () => eventApi.getAll().then(r => r.data),
+});
+
 export const useEventsQuery = () => {
   const { token } = useAuth();
   return useQuery({
-    queryKey: EVENT_KEY.all,
-    queryFn: () => eventApi.getAll().then(r => r.data),
+    ...eventsQueryOptions(),
     enabled: !!token,
     retry: handleQueryRetry,
   });

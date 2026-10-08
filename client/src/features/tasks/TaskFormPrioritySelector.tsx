@@ -10,7 +10,8 @@ const PRIORITIES: { value: Task['priority']; label: string; short: string }[] = 
 // Flat tag-pill treatment, same reference as the Create Ticket modal's identical selector: a soft
 // tint fill communicates the pick, not a 2px outlined circle. Unselected stays plain muted text
 // with no fill, so the one that's actually chosen is the only thing that visually pops.
-const PRIORITY_OUTLINE_CLASS: Record<Task['priority'], string> = {
+// eslint-disable-next-line react-refresh/only-export-components
+export const PRIORITY_OUTLINE_CLASS: Record<Task['priority'], string> = {
   low: 'text-text-muted hover:bg-surface-hover',
   medium: 'text-warning/70 hover:bg-warning/5',
   high: 'text-danger/70 hover:bg-danger/5',

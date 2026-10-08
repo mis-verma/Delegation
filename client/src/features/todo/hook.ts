@@ -24,11 +24,16 @@ const beginOptimistic = async (queryClient: QueryClient, patch: (todos: Todo[]) 
 
 // `enabled` lets a caller (e.g. the header's quick search) defer the fetch until it's actually
 // needed, instead of every mount pulling the full list regardless of whether it's used yet.
+// Shared with the route prefetch so a hover on the sidebar link and the page itself use one cache entry.
+export const todosQueryOptions = () => ({
+    queryKey: TODO_KEY.all,
+    queryFn: () => todoApi.getAll().then(r => r.data),
+});
+
 export const useTodosQuery = (enabled = true, options?: DashboardQueryOptions) => {
     const { token } = useAuth();
     return useQuery({
-        queryKey: TODO_KEY.all,
-        queryFn: () => todoApi.getAll().then(r => r.data),
+        ...todosQueryOptions(),
         enabled: !!token && enabled,
         ...options,
     });
