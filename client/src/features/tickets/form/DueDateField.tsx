@@ -14,6 +14,11 @@ interface DueDateFieldProps {
   hideLabel?: boolean;
   /** Extra classes for the date trigger (e.g. the shared chip trigger style). */
   triggerClassName?: string;
+  /**
+   * Ask for the due day and time only. A ticket's start day is informational (the clock runs from
+   * when it is raised), so by default one tap sets the deadline and any start day is dropped.
+   */
+  dueOnly?: boolean;
 }
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
@@ -21,7 +26,7 @@ const toDateStr = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${p
 const toTimeStr = (d: Date) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 
 
-export const DueDateField = ({ mode, control, setValue, errors, categoryTatHours, hideLabel = false, triggerClassName }: DueDateFieldProps) => {
+export const DueDateField = ({ mode, control, setValue, errors, categoryTatHours, hideLabel = false, triggerClassName, dueOnly = true }: DueDateFieldProps) => {
   const dueDate = useWatch({ control, name: 'dueDate' });
   const dueTime = useWatch({ control, name: 'dueTime' });
   const startDate = useWatch({ control, name: 'startDate' });
@@ -33,6 +38,12 @@ export const DueDateField = ({ mode, control, setValue, errors, categoryTatHours
   // but the range needs both ends), the last day is the due day, with a due time. A day picked with no
   // time yet gets the end of the working day rather than midnight, which would already be "late".
   const handleChange = (range: DateRangeValue) => {
+    if (dueOnly && range.to) {
+      setValue('startDate', '', { shouldValidate: true });
+      setValue('dueDate', toDateStr(range.to), { shouldValidate: true });
+      setValue('dueTime', toTimeStr(range.to), { shouldValidate: true });
+      return;
+    }
     if (!range.from && !range.to) {
       setValue('startDate', '', { shouldValidate: true });
       setValue('dueDate', '', { shouldValidate: true });
@@ -63,13 +74,15 @@ export const DueDateField = ({ mode, control, setValue, errors, categoryTatHours
           transition={{ duration: 0.15 }}
           className="-m-1 flex flex-col gap-1.5 overflow-hidden p-1"
         >
-          {!hideLabel && <label className="text-xs font-medium text-text-secondary">Start and due day</label>}
+          {!hideLabel && <label className="text-xs font-medium text-text-secondary">{dueOnly ? "Due date and time" : "Start and due day"}</label>}
           <DateRangePicker
-            value={{ from: start, to: combined }}
+            value={{ from: dueOnly ? null : start, to: combined }}
             onChange={handleChange}
             showTime
             endTimeOnly
-            placeholder={hideLabel ? "Add due date" : "Select start and due day"}
+            dueOnly={dueOnly}
+            minDate={new Date()}
+            placeholder={hideLabel ? "Add due date" : dueOnly ? "Set a due date and time" : "Select start and due day"}
             triggerClassName={triggerClassName ?? "font-display border-transparent bg-surface-hover/50 hover:bg-surface-hover"}
           />
           {(errors.dueDate?.message || errors.dueTime?.message) && (

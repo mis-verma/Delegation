@@ -93,6 +93,7 @@ export const TicketEditForm = ({ ticket, isSaving, onSave, onCancel }: TicketEdi
           value={due}
           onChange={(d) => { setDue(d); setDueError(undefined); }}
           showTime
+          defaultHour={18}
           minDate={new Date()}
           placeholder="Set a due date and time"
           triggerClassName="w-full h-11 sm:h-10 px-3 rounded-lg border-border/60 bg-surface hover:border-primary-400 text-sm"

@@ -317,6 +317,8 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
               value={dateRange}
               onChange={setDateRange}
               placeholder="Choose start and due day"
+              // A new delegation cannot be due before today.
+              minDate={new Date()}
               triggerClassName={`w-full ${FIELD_TRIGGER_CLASS}`}
             />
           </FormField>
