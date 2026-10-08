@@ -107,14 +107,17 @@ export const Dashboard = () => {
                 </div>
               )}
              
-              <div
-                key={location.pathname}
-                className="flex-1 flex flex-col h-full animate-in fade-in duration-200 ease-out motion-reduce:animate-none"
-              >
-                <Suspense fallback={<RouteFallback />}>
+              {/* Suspense stays mounted across navigations; only the fade wrapper is keyed. A keyed
+                  ancestor used to remount the boundary itself, and a fresh boundary always paints its
+                  fallback, so React could never hold the old page while the next chunk downloaded. */}
+              <Suspense fallback={<RouteFallback />}>
+                <div
+                  key={location.pathname}
+                  className="flex-1 flex flex-col h-full animate-in fade-in duration-200 ease-out motion-reduce:animate-none"
+                >
                   {pageUnderMaintenance ? <PageMaintenance pageName={maintenancePageLabel(location.pathname)} /> : <Outlet />}
-                </Suspense>
-              </div>
+                </div>
+              </Suspense>
             </div>
           </PullToRefresh>
         </main>

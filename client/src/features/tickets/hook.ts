@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { useAuth } from '../../context/AuthContext';
 import { ticketApi } from '../../api/ticket';
@@ -159,13 +159,23 @@ const BOARD_LIMIT = 500;
 // whole matching set instead of just whatever 20-row page the server-paginated list happens to
 // be showing. Used by both the Board view (always needed all-at-once to bucket into columns)
 // and the List view (which paginates the *filtered* result client-side — see TicketList.tsx).
+// Shared with routePrefetch so a hover-prefetch and the page's own query hit the same cache entry.
+// useTicketSocket is mounted app-wide and invalidates ['tickets'] on every ticket event, so a
+// longer staleTime only skips the refetch-on-revisit, it can't leave stale rows on screen.
+export const ticketsBoardQueryOptions = (assigneeId?: string) => ({
+  queryKey: ['tickets', 'board', assigneeId] as const,
+  queryFn: () => ticketApi.getAll(1, BOARD_LIMIT, undefined, assigneeId).then(r => r.data),
+  staleTime: 2 * 60_000,
+});
+
 export const useTicketsBoardQuery = (enabled = true, assigneeId?: string) => {
   const { token } = useAuth();
   return useQuery({
-    queryKey: ['tickets', 'board', assigneeId],
-    queryFn: () => ticketApi.getAll(1, BOARD_LIMIT, undefined, assigneeId).then(r => r.data),
+    ...ticketsBoardQueryOptions(assigneeId),
     enabled: !!token && enabled,
     retry: handleQueryRetry,
+    // Switching the assignee filter keeps the current rows up instead of dropping to a skeleton.
+    placeholderData: keepPreviousData,
   });
 };
 
@@ -283,14 +293,18 @@ export const useApplyChecklistTemplateMutation = (ticketId: string) =>
 // stale data after an actual change — it only skips redundant fetches of unchanged data.
 const ORG_STRUCTURE_STALE_TIME = 5 * 60_000;
 
+export const assignableUsersQueryOptions = (departmentId?: string, storeId?: string, storeIds?: string[]) => ({
+  queryKey: ['assignable-users', departmentId ?? 'all', storeId ?? 'all', storeIds?.length ? [...storeIds].sort() : 'all'],
+  queryFn: () => userApi.getAssignable(departmentId, storeId, storeIds).then(r => r.data),
+  staleTime: ORG_STRUCTURE_STALE_TIME,
+});
+
 export const useAssignableUsersQuery = (departmentId?: string, storeId?: string, storeIds?: string[], enabled = true) => {
   const { token } = useAuth();
   return useQuery({
-    queryKey: ['assignable-users', departmentId ?? 'all', storeId ?? 'all', storeIds?.length ? [...storeIds].sort() : 'all'],
-    queryFn: () => userApi.getAssignable(departmentId, storeId, storeIds).then(r => r.data),
+    ...assignableUsersQueryOptions(departmentId, storeId, storeIds),
     enabled: !!token && enabled,
     retry: handleQueryRetry,
-    staleTime: ORG_STRUCTURE_STALE_TIME,
   });
 };
 
@@ -308,25 +322,33 @@ const DEPARTMENT_KEY = {
   all: ["departments"] as const,
 };
 
+export const departmentsQueryOptions = () => ({
+  queryKey: DEPARTMENT_KEY.all,
+  queryFn: () => departmentApi.getAll().then(r => r.data),
+  staleTime: ORG_STRUCTURE_STALE_TIME,
+});
+
 export const useDepartmentsQuery = (enabled: boolean = true) => {
   const { token } = useAuth();
   return useQuery({
-    queryKey: DEPARTMENT_KEY.all,
-    queryFn: () => departmentApi.getAll().then(r => r.data),
+    ...departmentsQueryOptions(),
     enabled: !!token && enabled,
     retry: handleQueryRetry,
-    staleTime: ORG_STRUCTURE_STALE_TIME,
   });
 };
+
+export const storesQueryOptions = () => ({
+  queryKey: ['stores'] as const,
+  queryFn: () => storeApi.getAll().then(r => r.data),
+  staleTime: ORG_STRUCTURE_STALE_TIME,
+});
 
 export const useStoresQuery = (enabled: boolean = true) => {
   const { token } = useAuth();
   return useQuery({
-    queryKey: ['stores'] as const,
-    queryFn: () => storeApi.getAll().then(r => r.data),
+    ...storesQueryOptions(),
     enabled: !!token && enabled,
     retry: handleQueryRetry,
-    staleTime: ORG_STRUCTURE_STALE_TIME,
   });
 };
 

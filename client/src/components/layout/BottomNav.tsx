@@ -1,6 +1,7 @@
 import { NavLink, useLocation } from 'react-router';
 import type { LucideIcon } from 'lucide-react';
 import { NavCountBadge } from './NavCountBadge';
+import { usePrefetchRoute } from '../../lib/routePrefetch';
 import { badgeSummary, useNavBadges, type NavBadgeMap } from './useNavBadges';
 import {
   LayoutDashboard,
@@ -35,6 +36,7 @@ const NAV_ITEMS: NavItem[] = [
 export const BottomNav = () => {
   const location = useLocation();
   const badges = useNavBadges();
+  const prefetchRoute = usePrefetchRoute();
 
   return (
     <nav
@@ -83,6 +85,7 @@ export const BottomNav = () => {
             <NavLink
               key={to}
               to={to}
+              onTouchStart={() => prefetchRoute(to)}
               aria-label={summary ? `${label}, ${summary}` : label}
               className="group relative flex flex-col items-center justify-center gap-1 h-full cursor-pointer select-none outline-none active:scale-[0.94] transition-transform duration-150 [-webkit-tap-highlight-color:transparent]"
             >

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { NavLink, useLocation } from 'react-router';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import { useIsMobile } from '../../lib/useMediaQuery';
+import { usePrefetchRoute } from '../../lib/routePrefetch';
 import { useTaskSummaryQuery } from '../../features/tasks/hook';
 import { useTicketSummaryQuery } from '../../features/tickets/hook';
 import { useTodoSummaryQuery } from '../../features/todo/hook';
@@ -111,6 +112,7 @@ interface SidebarProps {
 
 export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: SidebarProps) => {
   const location = useLocation();
+  const prefetchRoute = usePrefetchRoute();
   const isMobile = useIsMobile();
   const swipeStartX = useRef<number | null>(null);
   const isAdmin = user?.role === 'ADMIN';
@@ -301,6 +303,9 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
             to={to}
             end={to === '/'}
             onClick={handleNavClick}
+            onMouseEnter={() => prefetchRoute(to)}
+            onFocus={() => prefetchRoute(to)}
+            onTouchStart={() => prefetchRoute(to)}
             className={({ isActive }) =>
               [
                 'group/link relative flex flex-1 min-w-0 items-center rounded-xl text-sm transition-colors duration-150 ease-out',

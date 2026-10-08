@@ -10,11 +10,17 @@ import { handleQueryRetry, useEntityMutation } from "../../lib/queryHelpers";
 //
 // Labels change a few times a month and every surface (Delegation's filter row/form/card, and
 // now Tickets' equivalents) reads them, so this is one query shared by all of them.
+export const tagsQueryOptions = () => ({
+    queryKey: ['tags'] as const,
+    queryFn: () => tagApi.getAll().then(r => r.data),
+    // Creating a tag invalidates this key, so a longer window can't hide a new label.
+    staleTime: 5 * 60_000,
+});
+
 export const useTagsQuery = (enabled: boolean = true) => {
     const { token } = useAuth();
     return useQuery({
-        queryKey: ['tags'],
-        queryFn: () => tagApi.getAll().then(r => r.data),
+        ...tagsQueryOptions(),
         enabled: !!token && enabled,
         retry: handleQueryRetry,
     });

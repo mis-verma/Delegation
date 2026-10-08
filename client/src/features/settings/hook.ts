@@ -72,11 +72,17 @@ export const useRemoveMyAvatarMutation = () => {
     });
 };
 
+export const categoriesQueryOptions = () => ({
+    queryKey : CATEGORY_KEY.all,
+    queryFn : () => categoryApi.getAll().then(r => r.data),
+    // Admin edits categories rarely, and every edit invalidates this key.
+    staleTime : 5 * 60_000,
+});
+
 export const useCategoriesQuery = (enabled: boolean = true) => {
     const { token } = useAuth();
     return useQuery({
-        queryKey : CATEGORY_KEY.all,
-        queryFn : () => categoryApi.getAll().then(r => r.data),
+        ...categoriesQueryOptions(),
         enabled : !!token && enabled,
     })
 };
