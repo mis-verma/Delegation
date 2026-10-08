@@ -6,6 +6,7 @@ import { getTicketStatusLabel } from '../../lib/ticketStatusLabel';
 import { getInitials } from '../../lib/getInitials';
 import { avatarColorClass } from '../../lib/avatarColors';
 import { useAuth } from '../../context/AuthContext';
+import { usePrefetchTicket } from './hook';
 import { PRIORITY_CONFIG, formatDueLabel } from './ticketDisplay';
 import { StatusChip, getStatusChipLabel, type StatusChipStatus } from '../../components/statusChip';
 import { PriorityChip } from '../../components/priorityChip';
@@ -50,12 +51,17 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
     ? (ticket.statusUpdates ?? []).find(su => su.toStatus === 'ON_HOLD')?.remark ?? null
     : null;
 
+  const prefetchTicket = usePrefetchTicket();
+
   const statusChip = <StatusChip status={statusChipStatus} label={statusLabel} />;
 
   return (
     <button
       type="button"
       onClick={() => onClick(ticket)}
+      onMouseEnter={() => prefetchTicket(ticket.id)}
+      onFocus={() => prefetchTicket(ticket.id)}
+      onTouchStart={() => prefetchTicket(ticket.id)}
       className="group w-full h-full text-left flex flex-col gap-2 sm:gap-2.5 p-3 sm:p-3.5 rounded-2xl border border-border/60 dark:border-white/[0.06] bg-surface hover:border-primary-500/50 active:bg-surface-hover/50 transition-all duration-200 ease-in-out cursor-pointer select-none outline-none focus-visible:border-primary-500/50 focus-visible:ring-2 focus-visible:ring-primary-500/30 [-webkit-tap-highlight-color:transparent]"
     >
       <div className="flex flex-col gap-1 min-w-0 w-full">

@@ -3,8 +3,9 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowRight, ArrowRightLeft, CalendarClock, Check, ChevronDown, Flag, History, Pencil, Plus, Undo2, UserRound, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ApiError } from '../../api/http';
-import { activityApi, type ActivityEntity, type ActivityEvent, type ActivityFeedData, type ActivityKind } from '../../api/activity';
+import { type ActivityEntity, type ActivityEvent, type ActivityFeedData, type ActivityKind } from '../../api/activity';
 import { Skeleton } from '../skeleton';
+import { activityQueryOptions } from './activityQuery';
 import { useNow } from '../../lib/useNow';
 
 const PAGE = 8;
@@ -187,9 +188,7 @@ const Summary = ({ data }: { data: ActivityFeedData }) => {
 export const ActivityFeed = ({ entityType, entityId }: { entityType: ActivityEntity; entityId: string }) => {
   const [shown, setShown] = useState(PAGE);
   const { data, isPending, error, isError } = useQuery({
-    queryKey: ['activity', entityType, entityId],
-    queryFn: () => activityApi.get(entityType, entityId),
-    staleTime: 30_000,
+    ...activityQueryOptions(entityType, entityId),
     retry: (count, err) => !(err instanceof ApiError && (err.status === 403 || err.status === 404)) && count < 2,
   });
   const visible = useMemo(() => data?.events.slice(0, shown) ?? [], [data, shown]);

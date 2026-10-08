@@ -1,5 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback } from 'react';
 import { toast } from 'sonner';
+import { activityQueryOptions } from '../../components/activityTimeline/activityQuery';
 import { useAuth } from '../../context/AuthContext';
 import { ticketApi } from '../../api/ticket';
 import { ticketBulkImportApi } from '../../api/ticketBulkImport';
@@ -75,11 +77,27 @@ export const useTicketPendingApprovalQuery = (enabled = true, options?: Dashboar
   });
 };
 
+export const ticketDetailQueryOptions = (id: string) => ({
+  queryKey: KEYS.detail(id),
+  queryFn: () => ticketApi.getOne(id).then(r => r.data),
+});
+
+// Warms a ticket's full record and its activity before the card is clicked. The list rows carry
+// no status history, so without this the open sheet starts both fetches only after it mounts.
+export const usePrefetchTicket = () => {
+  const queryClient = useQueryClient();
+  const { token } = useAuth();
+  return useCallback((id: string) => {
+    if (!token) return;
+    void queryClient.prefetchQuery({ ...ticketDetailQueryOptions(id), staleTime: 30_000 });
+    void queryClient.prefetchQuery(activityQueryOptions('Ticket', id));
+  }, [queryClient, token]);
+};
+
 export const useTicketQuery = (id: string) => {
   const { token } = useAuth();
   return useQuery({
-    queryKey: KEYS.detail(id),
-    queryFn: () => ticketApi.getOne(id).then(r => r.data),
+    ...ticketDetailQueryOptions(id),
     enabled: !!token && !!id,
     retry: handleQueryRetry,
   });
