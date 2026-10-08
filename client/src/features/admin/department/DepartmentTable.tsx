@@ -1,7 +1,7 @@
 import { memo, type KeyboardEvent } from 'react';
 import { Building2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ColorIconTile, EntityCardActions, Skeleton, StatusPill } from '../../../components';
+import { ColorIconTile, EntityCardActions, Skeleton, StatusPill, StateChip } from '../../../components';
 import type { Department } from '../../../api/departments';
 import type { PeopleCount } from '../orgCounts';
 
@@ -78,9 +78,7 @@ const DepartmentTableComponent = ({
                       {d.name}
                     </span>
                     {!d.isActive && (
-                      <span className="shrink-0 text-xs font-display font-bold px-1.5 py-0.5 rounded-md border border-border bg-surface-hover text-text-muted">
-                        Deactivated
-                      </span>
+                      <StateChip active={false} label="Inactive" size="sm" />
                     )}
                   </div>
                 </td>

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Building2, Store, UserCog } from 'lucide-react';
+import { Building2, MapPin, Store, UserCog } from 'lucide-react';
 import { Input, Button, Modal, Combobox, InlineError, Skeleton, Switch } from '../../../components';
 import { useCreateDepartmentMutation, useUpdateDepartmentMutation, useUsersQuery } from '../hook';
 import { useDepartmentsQuery, useStoresQuery } from '../../tickets/hook';
@@ -159,7 +159,7 @@ export const DepartmentForm = ({ onClose, department, onCreated, prefillName, ne
     >
       <form id="department-form" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
         <fieldset disabled={isPending} className="flex flex-col gap-5 disabled:opacity-60">
-          <FormSection title="Basics">
+          <FormSection title="Basics" icon={Building2} description="What this team is called.">
             <Input
               id="name"
               label="Department name"
@@ -171,7 +171,7 @@ export const DepartmentForm = ({ onClose, department, onCreated, prefillName, ne
             />
           </FormSection>
 
-          <FormSection title="Placement">
+          <FormSection title="Placement" icon={MapPin} description="Which store it works from, and who leads it.">
             <FormField htmlFor="storeId" label="Store (optional)" icon={Store} hint="Pick the store this department works from.">
               <Controller
                 control={control}

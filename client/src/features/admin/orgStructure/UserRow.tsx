@@ -2,7 +2,7 @@ import { memo, useState } from 'react';
 import { Crown, GripVertical, TriangleAlert } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { Avatar, RoleChip } from '../../../components';
+import { Avatar, RoleChip, StateChip } from '../../../components';
 import { resolveAvatarUrl } from '../../../lib/uploadsBase';
 import type { AdminUser } from '../../../api/admin';
 import { MoveToMenu } from './MoveToMenu';
@@ -90,7 +90,7 @@ export const UserRow = memo(({ user, isHead, storeMismatch, onDragStart, onDragE
               <span className="sr-only">. {storeMismatch}</span>
             </span>
           )}
-          {!user.isActive && <span className={cn(CHIP, 'border-border bg-surface-hover text-text-muted')}>Deactivated</span>}
+          {!user.isActive && <StateChip active={false} label="Deactivated" size="sm" />}
         </div>
       </div>
       <RoleChip role={user.role} className="hidden @sm:inline-flex shrink-0" />

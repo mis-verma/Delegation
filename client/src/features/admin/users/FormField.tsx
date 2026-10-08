@@ -44,10 +44,21 @@ export const FormField = ({ htmlFor, label, icon: Icon, hint, warning, error, ch
   </div>
 );
 
-// A titled group of fields inside a long form. Sentence-case heading, hairline above all but the first.
-export const FormSection = ({ title, children }: { title: string; children: ReactNode }) => (
-  <section className="flex flex-col gap-3 pt-4 border-t border-border first:pt-0 first:border-t-0">
-    <h3 className="text-sm font-display font-semibold text-text">{title}</h3>
+// A titled group of fields inside a long form: its own soft panel with a tinted icon tile, a
+// sentence-case heading and one line saying what the group is for. Border only, no shadow.
+export const FormSection = ({ title, icon: Icon, description, children }: { title: string; icon?: LucideIcon; description?: ReactNode; children: ReactNode }) => (
+  <section className="flex flex-col gap-3.5 rounded-xl border border-border/60 bg-surface-hover/30 dark:bg-surface-hover/20 p-3.5 sm:p-4">
+    <div className="flex items-center gap-2.5">
+      {Icon && (
+        <span className="flex items-center justify-center size-8 rounded-lg shrink-0 bg-gradient-to-br from-primary-500/15 to-primary-700/10 text-primary-700 dark:text-primary-300 ring-1 ring-primary-500/15">
+          <Icon className="size-4" aria-hidden />
+        </span>
+      )}
+      <div className="min-w-0">
+        <h3 className="text-sm font-display font-bold text-text leading-tight">{title}</h3>
+        {description && <p className="text-xs font-display text-text-muted leading-snug">{description}</p>}
+      </div>
+    </div>
     {children}
   </section>
 );

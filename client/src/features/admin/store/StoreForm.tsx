@@ -110,11 +110,11 @@ export const StoreForm = ({ onClose, store, onCreated, prefillName, nested = fal
     >
       <form id="store-form" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
         <fieldset disabled={isPending} className="flex flex-col gap-5 disabled:opacity-60">
-          <FormSection title="Basics">
+          <FormSection title="Basics" icon={StoreIcon} description="The name and code used across checklists.">
             <Input id="name" label="Store name" icon={StoreIcon} placeholder="e.g. Karol Bagh" autoFocus error={errors.name?.message} {...register('name')} />
             <Input id="code" label="Code (optional)" icon={Hash} placeholder="e.g. KB01" autoCapitalize="characters" error={errors.code?.message} {...register('code')} />
           </FormSection>
-          <FormSection title="Location">
+          <FormSection title="Location" icon={MapPin} description="Where the store is.">
             <Input id="address" label="Address (optional)" icon={MapPin} placeholder="e.g. 12 Main Market, Karol Bagh" error={errors.address?.message} {...register('address')} />
           </FormSection>
         </fieldset>

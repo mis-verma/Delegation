@@ -39,9 +39,9 @@ const groupByDay = (logs: AuditLog[]): DayGroup[] => {
 
 // Mirrors AuditLogRow: avatar, a one-line sentence, a chip row and a couple of change pills.
 const RowSkeleton = () => (
-  <div className={cn(PANEL_CLASS, 'flex items-start gap-3 p-3.5')}>
-    <Skeleton className="size-8 rounded-full shrink-0" />
-    <div className="flex flex-col gap-2.5 flex-1 min-w-0">
+  <div className="flex items-stretch gap-3">
+    <Skeleton className="size-8 rounded-full shrink-0 mt-3" />
+    <div className={cn(PANEL_CLASS, 'flex flex-col gap-2.5 flex-1 min-w-0 p-3.5')}>
       <div className="flex items-start justify-between gap-3">
         <Skeleton className="h-4 w-3/4 max-w-md" />
         <Skeleton className="h-4 w-20 shrink-0" />
@@ -132,11 +132,17 @@ export const AuditLogPage = () => {
 
       {!isPending && !isError && shown > 0 && data && (
         <>
-          <div className={cn('flex flex-col gap-5 transition-opacity duration-200', isFetching && 'opacity-60')} aria-busy={isFetching}>
+          <div className={cn('flex flex-col gap-6 transition-opacity duration-200', isFetching && 'opacity-60')} aria-busy={isFetching}>
             {groups.map((group) => (
-              <section key={group.key} aria-label={group.heading} className="flex flex-col gap-2.5">
-                <h2 className="text-xs font-display font-semibold text-text-muted">{group.heading}</h2>
-                <div className="flex flex-col gap-2.5">
+              <section key={group.key} aria-label={group.heading} className="flex flex-col gap-3">
+                <h2 className="sticky top-0 z-10 -mx-1 px-1 py-1 w-fit">
+                  <span className="inline-flex items-center gap-2 h-7 px-3 rounded-full border border-border bg-surface text-xs font-display font-bold text-text-secondary">
+                    <span aria-hidden className="size-1.5 rounded-full bg-primary-500" />
+                    {group.heading}
+                    <span className="tabular-nums font-semibold text-text-muted">{group.logs.length}</span>
+                  </span>
+                </h2>
+                <div className="flex flex-col">
                   {group.logs.map((log) => (
                     <AuditLogRow key={log.id} log={log} resolvers={resolvers} />
                   ))}

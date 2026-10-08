@@ -3,11 +3,12 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronDown, Layers, Store as StoreIcon, Users } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { EntityIconTile, MetricPill, AvatarStack } from '../../../components';
+import { EntityIconTile, MetricPill, AvatarStack, StateChip } from '../../../components';
 import { resolveAvatarUrl } from '../../../lib/uploadsBase';
 import type { DepartmentNode, OrgMovePatch } from './orgStructureDisplay';
 import { fullName, isDepartmentHead, isLeavingDropTarget, readDraggedUser } from './orgStructureDisplay';
 import { UserRow } from './UserRow';
+import { TreeItem, TreeList } from './TreeBranch';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -111,7 +112,7 @@ export const DepartmentSection = memo(({ node, isOpen, forceOpen, onToggle, show
               </span>
             )}
             {!department.isActive && (
-              <span className={cn(HEADER_CHIP, 'border-border bg-surface-hover text-text-muted')}>Deactivated</span>
+              <StateChip active={false} label="Inactive" size="sm" />
             )}
           </div>
         </div>
@@ -140,20 +141,23 @@ export const DepartmentSection = memo(({ node, isOpen, forceOpen, onToggle, show
             transition={{ duration: 0.2, ease: 'easeInOut' }}
             className="overflow-hidden"
           >
-            <div className="flex flex-col gap-1 p-2 border-t border-border/70 bg-surface-hover/40">
+            <div className="p-3 border-t border-border/70 bg-surface-hover/40">
               {node.users.length === 0 ? (
                 <p className="px-2.5 py-3 text-xs font-display text-text-muted">Nobody is in this department yet. Drag someone here, or use Move to on their row.</p>
               ) : (
-                node.users.map((u) => (
-                  <UserRow
-                    key={u.id}
-                    user={u}
-                    isHead={isDepartmentHead(u)}
-                    storeMismatch={node.storeMismatch.get(u.id)}
-                    onDragStart={onUserDragStart}
-                    onDragEnd={onUserDragEnd}
-                  />
-                ))
+                <TreeList label={`People in ${department.name}`}>
+                  {node.users.map((u) => (
+                    <TreeItem key={u.id} tone="leaf" className="pb-1.5 last:pb-0">
+                      <UserRow
+                        user={u}
+                        isHead={isDepartmentHead(u)}
+                        storeMismatch={node.storeMismatch.get(u.id)}
+                        onDragStart={onUserDragStart}
+                        onDragEnd={onUserDragEnd}
+                      />
+                    </TreeItem>
+                  ))}
+                </TreeList>
               )}
             </div>
           </motion.div>

@@ -85,6 +85,7 @@ export { ConfirmDialogProvider, useConfirm } from './confirmDialog';
 export { InlineError } from './inlineError';
 export { NoticeBanner } from './noticeBanner';
 export { PageHeader } from './pageHeader';
+export { StateChip } from './stateChip';
 export { PeriodStepper } from './periodStepper';
 export { ToggleChip, AddChip } from './toggleChip';
 export { FormChunkFallback } from './formChunkFallback';

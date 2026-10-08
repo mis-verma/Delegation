@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react';
 import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { UserPlus, ShieldCheck, Building2, Store, KeyRound, User, Mail, Phone, CalendarOff, Copy, Wand2, Pencil, Shirt, Network } from 'lucide-react';
+import { UserPlus, ClipboardCheck, ShieldCheck, Building2, Store, KeyRound, User, Mail, Phone, CalendarOff, Copy, Wand2, Pencil, Shirt, Network } from 'lucide-react';
 import { Input, Button, Modal, Combobox, AvatarUpload, WeekdayPicker, InlineError, useConfirm } from '../../../components';
 import {
   useCreateUserMutation,
@@ -355,6 +355,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
       title={modalTitle}
       description={modalDescription}
       footer={footer}
+      size="lg"
       showCloseButton={false}
       draggable
     >
@@ -364,7 +365,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
         <>
           <form id="user-form" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
             <fieldset disabled={isPending} className="flex flex-col gap-5 disabled:opacity-70">
-              <FormSection title="Basics">
+              <FormSection title="Basics" icon={User} description="Who they are and how to reach them.">
                 {isEditing && user && (
                   <AvatarUpload
                     name={fullName(user)}
@@ -395,7 +396,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
                 <Input id="phone" label="Phone (optional)" type="tel" inputMode="tel" icon={Phone} autoComplete="off" error={errors.phone?.message} {...register('phone')} />
               </FormSection>
 
-              <FormSection title="Access">
+              <FormSection title="Access" icon={ShieldCheck} description="How they sign in and what they can see.">
                 {!isEditing && (
                   <div className="flex flex-col gap-2">
                     <Controller
@@ -462,7 +463,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
                 </FormField>
               </FormSection>
 
-              <FormSection title="Placement">
+              <FormSection title="Placement" icon={Building2} description="The department and store they work in.">
                 <FormField htmlFor="departmentId" label="Department" icon={Building2} warning={departmentWarning}>
                   <Controller
                     control={control}
@@ -518,7 +519,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
                 </FormField>
               </FormSection>
 
-              <FormSection title="Checklist settings">
+              <FormSection title="Checklist settings" icon={ClipboardCheck} description="Used by audits and daily checklists.">
                 <FormField htmlFor="gender" label="Gender (optional)" icon={User} hint="Used to pick the right uniform checklist in audits.">
                   <Controller
                     control={control}

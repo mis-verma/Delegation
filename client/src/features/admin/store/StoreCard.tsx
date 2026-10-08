@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { MapPin, Store as StoreIcon, Users } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { ENTITY_CARD_CLASS, ColorIconTile, StatusPill, EntityCardActions, Skeleton } from '../../../components';
+import { ENTITY_CARD_CLASS, ColorIconTile, StatusPill, StateChip, EntityCardActions, Skeleton } from '../../../components';
 import type { Store } from '../../../api/stores';
 
 function cn(...inputs: ClassValue[]) {
@@ -50,9 +50,7 @@ export const StoreCard = memo(({ store, activeCount, inactiveCount, isUpdating, 
               <span className="shrink-0 text-xs font-display italic text-text-light">No code</span>
             )}
             {!store.isActive && (
-              <span className="shrink-0 text-xs font-display font-bold px-1.5 py-0.5 rounded-md border border-border bg-surface-hover text-text-muted">
-                Deactivated
-              </span>
+              <StateChip active={false} label="Inactive" size="sm" />
             )}
           </div>
           <p

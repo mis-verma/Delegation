@@ -3,12 +3,13 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ChevronDown, Layers, Store as StoreIcon, Users as UsersIcon } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { EntityIconTile, MetricPill, AvatarStack } from '../../../components';
+import { EntityIconTile, MetricPill, AvatarStack, StateChip } from '../../../components';
 import { resolveAvatarUrl } from '../../../lib/uploadsBase';
 import type { OrgMovePatch, StoreNode } from './orgStructureDisplay';
 import { fullName, isLeavingDropTarget, readDraggedUser } from './orgStructureDisplay';
 import { DepartmentSection } from './DepartmentSection';
 import { UserRow } from './UserRow';
+import { TreeItem, TreeList } from './TreeBranch';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -108,9 +109,7 @@ const StoreSectionComponent = ({
               </span>
             )}
             {!node.store.isActive && (
-              <span className="shrink-0 text-xs font-display font-bold px-1.5 py-0.5 rounded-md border border-border bg-surface-hover text-text-muted">
-                Deactivated
-              </span>
+              <StateChip active={false} label="Inactive" size="sm" />
             )}
           </h3>
           <p className="text-xs font-display text-text-muted">
@@ -153,30 +152,35 @@ const StoreSectionComponent = ({
                     Departments
                     <span className="rounded-full bg-border/60 px-1.5 text-text-secondary tabular-nums">{node.departments.length}</span>
                   </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 items-start gap-3 sm:gap-4">
+                {/* The hierarchy as branches: the store is the root above, each department hangs off
+                    the trunk as a node, and its people hang off the department in turn. */}
+                <TreeList label={`Departments in ${node.store.name}`}>
                   {node.departments.map((d) => (
-                    <DepartmentSection
-                      key={d.department.id}
-                      node={d}
-                      isOpen={isDeptOpen(d.department.id)}
-                      forceOpen={forceOpen}
-                      onToggle={onToggleDept}
-                      onDropUser={onDropUser}
-                      onUserDragStart={onUserDragStart}
-                      onUserDragEnd={onUserDragEnd}
-                    />
+                    <TreeItem key={d.department.id} tone="coral">
+                      <DepartmentSection
+                        node={d}
+                        isOpen={isDeptOpen(d.department.id)}
+                        forceOpen={forceOpen}
+                        onToggle={onToggleDept}
+                        onDropUser={onDropUser}
+                        onUserDragStart={onUserDragStart}
+                        onUserDragEnd={onUserDragEnd}
+                      />
+                    </TreeItem>
                   ))}
                   {node.directUsers.length > 0 && (
-                    <div className="flex flex-col gap-0.5 rounded-xl border border-dashed border-border bg-surface p-2">
-                      <p className="px-2.5 py-1.5 text-xs font-display font-bold text-text-secondary">
-                        Store staff with no department
-                      </p>
-                      {node.directUsers.map((u) => (
-                        <UserRow key={u.id} user={u} onDragStart={onUserDragStart} onDragEnd={onUserDragEnd} />
-                      ))}
-                    </div>
+                    <TreeItem tone="leaf">
+                      <div className="flex flex-col gap-0.5 rounded-xl border border-dashed border-border bg-surface p-2">
+                        <p className="px-2.5 py-1.5 text-xs font-display font-bold text-text-secondary">
+                          Store staff with no department
+                        </p>
+                        {node.directUsers.map((u) => (
+                          <UserRow key={u.id} user={u} onDragStart={onUserDragStart} onDragEnd={onUserDragEnd} />
+                        ))}
+                      </div>
+                    </TreeItem>
                   )}
-                </div>
+                </TreeList>
                 </div>
               )}
             </div>

@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { Building2, Store } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Avatar, RoleChip, PresenceChip } from '../../../components';
+import { Avatar, RoleChip, PresenceChip, StateChip } from '../../../components';
 import type { AdminUser } from '../../../api/admin';
 import { ROLE_META, isDepartmentHead } from '../roleBadge';
 import { resolveAvatarUrl } from '../../../lib/uploadsBase';
@@ -114,12 +114,9 @@ const UserRowComponent = ({
 
       <td className={cn(CELL_CLASS, 'whitespace-nowrap')}>
         {user.isActive ? (
-          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border border-success/25 bg-success/10 text-success font-display font-semibold">
-            <span className="size-1.5 rounded-full bg-success" aria-hidden />
-            Active
-          </span>
+          <StateChip active />
         ) : (
-          <PresenceChip deactivated deactivatedLabel={deactivatedLabel(user)} text="" />
+          <StateChip active={false} label={deactivatedLabel(user)} />
         )}
       </td>
 

@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { Building2, Store, Users } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { ENTITY_CARD_CLASS, ColorIconTile, StatusPill, EntityCardActions, Skeleton } from '../../../components';
+import { ENTITY_CARD_CLASS, ColorIconTile, StatusPill, StateChip, EntityCardActions, Skeleton } from '../../../components';
 import type { Department } from '../../../api/departments';
 
 function cn(...inputs: ClassValue[]) {
@@ -55,9 +55,7 @@ export const DepartmentCard = memo(({
               {department.name}
             </h3>
             {!department.isActive && (
-              <span className="shrink-0 text-xs font-display font-bold px-1.5 py-0.5 rounded-md border border-border bg-surface-hover text-text-muted">
-                Deactivated
-              </span>
+              <StateChip active={false} label="Inactive" size="sm" />
             )}
           </div>
           {storeLabel === undefined ? (

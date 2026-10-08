@@ -1,4 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
+import { StateChip } from '../stateChip';
 import { Pencil, Copy, Trash2, MoreVertical } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -91,9 +92,7 @@ interface StatusPillProps {
 // state spelled out beside it (the old dot pill read as a label, not something you can press).
 export const StatusPill = ({ active, isUpdating, onToggle, ariaLabel, inactiveLabel = 'Inactive' }: StatusPillProps) => (
   <label className="flex items-center gap-2 min-h-11 sm:min-h-9 shrink-0 cursor-pointer">
-    <span className={cn('text-xs font-display font-semibold', active ? 'text-text-secondary' : 'text-text-muted')}>
-      {active ? 'Active' : inactiveLabel}
-    </span>
+    <StateChip active={active} label={active ? 'Active' : inactiveLabel} />
     {isUpdating ? (
       <span className="flex h-6 w-11 items-center justify-center">
         <Loader size="sm" variant="slate" className="size-4" />

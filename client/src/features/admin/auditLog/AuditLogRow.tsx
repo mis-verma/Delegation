@@ -45,13 +45,23 @@ export const AuditLogRow = memo(({ log, resolvers }: { log: AuditLog; resolvers?
   const canExpand = hiddenCount > 0;
   const relative = formatRelative(log.createdAt);
 
-  return (
-    <article className={cn(PANEL_CLASS, 'flex items-start gap-3 p-3.5 transition-colors duration-200 hover:border-border-hover')}>
-      <Avatar name={actorName} size="sm" className="shadow-none" />
+  const ActionIcon = action.icon;
 
-      <div className="flex flex-col gap-2.5 min-w-0 flex-1">
+  return (
+    // A timeline entry: a coloured node for what happened and a line down to the next entry, then the
+    // card. The line of the last entry in a day is hidden by the parent's last-child rule.
+    <article className="group/row flex items-stretch gap-3 pb-2.5 last:pb-0">
+      <div className="flex flex-col items-center shrink-0 pt-3">
+        <span aria-hidden className={cn('flex size-8 items-center justify-center rounded-full text-white ring-4 ring-background', action.tone)}>
+          <ActionIcon size={14} strokeWidth={2.5} />
+        </span>
+        <span aria-hidden className="mt-1 w-0.5 flex-1 rounded-full bg-border group-last/row:hidden" />
+      </div>
+
+      <div className={cn(PANEL_CLASS, 'flex flex-col gap-2.5 min-w-0 flex-1 p-3.5 transition-colors duration-200 hover:border-border-hover')}>
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1 sm:gap-3">
           <p className="min-w-0 text-sm font-display leading-snug text-text-secondary break-words">
+            <Avatar name={actorName} size="xs" className="mr-1.5 align-text-bottom shadow-none" />
             <span className="font-semibold text-text">{actorName}</span>{' '}
             {actionVerb(log.action)}{' '}
             <span className="font-medium text-text-muted">{entity.label}</span>{' '}

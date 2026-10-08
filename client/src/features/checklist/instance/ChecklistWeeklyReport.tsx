@@ -99,14 +99,14 @@ Cell.displayName = 'Cell';
 
 const MatrixRow = memo(({ row }: { row: WeeklyReportRow }) => (
   <tr className="border-b border-border/60 last:border-0">
-    <th scope="row" className="sticky left-0 z-10 bg-surface px-4 py-2 font-normal">
+    <th scope="row" className="sticky left-0 z-10 bg-surface px-3 sm:px-4 py-1.5 font-normal">
       <span className="block text-sm font-display font-semibold text-text leading-snug line-clamp-2">{row.name}</span>
       <span className="block text-xs text-text-muted">{row.storeName}</span>
     </th>
     {row.cells.map(cell => (
       <td key={cell.date} className="px-1 py-1 text-center"><Cell cell={cell} name={row.name} /></td>
     ))}
-    <td className="px-3 py-1 text-center">
+    <td className="px-2 py-1 text-center">
       {row.completion === null ? (
         <span className="text-text-light">-</span>
       ) : (
@@ -114,7 +114,7 @@ const MatrixRow = memo(({ row }: { row: WeeklyReportRow }) => (
       )}
       {!!row.open && <span className="block text-xs font-display text-primary-600 dark:text-primary-300">{row.open} open</span>}
     </td>
-    <td className="px-3 py-1 text-center">
+    <td className="px-2 py-1 text-center">
       {row.rate === null ? (
         <span className="text-text-light">-</span>
       ) : (
@@ -124,7 +124,7 @@ const MatrixRow = memo(({ row }: { row: WeeklyReportRow }) => (
         </span>
       )}
     </td>
-    <td className="px-3 py-1 text-center">
+    <td className="px-2 py-1 text-center">
       {row.compliance === null ? (
         <span className="text-text-light" title="No answers were checked in this period">-</span>
       ) : (
@@ -209,7 +209,7 @@ export const ChecklistWeeklyReport = () => {
   const isMonthView = data?.kind === 'month';
 
   return (
-    <div className="flex flex-col gap-5 w-full">
+    <div className="flex flex-col gap-4 w-full">
       <PageHeader icon={CalendarCheck2} title="Fill Report" subtitle="Who filled their daily checklists, and how well, by day, week, month, quarter or year." />
 
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -276,13 +276,13 @@ export const ChecklistWeeklyReport = () => {
 
       {/* keepPreviousData holds the old window on screen while the next loads: dim it meanwhile. */}
       {data && !!rows?.length && (
-        <div className={cn('flex flex-col gap-5 transition-opacity duration-200', isFetching && 'opacity-60')} aria-busy={isFetching}>
+        <div className={cn('flex flex-col gap-3 transition-opacity duration-200', isFetching && 'opacity-60')} aria-busy={isFetching}>
           {summary && summary.due + (summary.open ?? 0) > 0 && (
             <dl className={STRIP}>
               {summaryTiles?.map(t => (
-                <div key={t.label} className="flex flex-col gap-0.5 p-3.5 bg-surface">
+                <div key={t.label} className="flex flex-col gap-0.5 px-3.5 py-3 bg-surface">
                   <dt className="text-xs font-display text-text-muted">{t.label}</dt>
-                  <dd className={cn('text-xl font-display font-bold tabular-nums text-text', t.tone)}>{t.value}</dd>
+                  <dd className={cn('text-lg sm:text-xl font-display font-bold tabular-nums text-text leading-tight', t.tone)}>{t.value}</dd>
                 </div>
               ))}
             </dl>
@@ -298,9 +298,15 @@ export const ChecklistWeeklyReport = () => {
             </p>
           )}
           {summary && summary.due + (summary.open ?? 0) > 0 && (
-            <p className="text-xs font-display text-text-muted">
-              Completion is the share of runs that got filled, on time or late, with open runs counted by how much is done. On time is the share filled before their cutoff. Compliance is how well the checked answers were answered, with critical questions counted twice and sent-back ones counted as failed.
-            </p>
+            <details className="group text-xs font-display text-text-muted">
+              <summary className="inline-flex items-center gap-1 min-h-9 pointer-coarse:min-h-11 cursor-pointer select-none font-semibold text-text-secondary hover:text-text list-none [&::-webkit-details-marker]:hidden">
+                How these figures are counted
+                <ChevronRight className="size-3.5 transition-transform duration-200 group-open:rotate-90" aria-hidden />
+              </summary>
+              <p className="pb-1 leading-relaxed">
+                Completion is the share of runs that got filled, on time or late, with open runs counted by how much is done. On time is the share filled before their cutoff. Compliance is how well the checked answers were answered, with critical questions counted twice and sent-back ones counted as failed.
+              </p>
+            </details>
           )}
 
           {/* A scroll area has to be reachable and named for keyboard and screen-reader users. */}
@@ -309,7 +315,7 @@ export const ChecklistWeeklyReport = () => {
               <caption className="sr-only">Daily checklist fill status, {range.label}</caption>
               <thead>
                 <tr className="border-b border-border">
-                  <th scope="col" className="sticky left-0 z-10 bg-surface px-4 py-3 text-xs font-display font-semibold text-text-secondary min-w-48">Checklist</th>
+                  <th scope="col" className="sticky left-0 z-10 bg-surface px-3 sm:px-4 py-2.5 text-xs font-display font-semibold text-text-secondary min-w-36 sm:min-w-48">Checklist</th>
                   {data.columns.map((col) => (
                     <th key={col.key} scope="col" className={cn('px-1 py-2 text-center', isMonthView ? 'min-w-14' : data.columns.length > 7 ? 'min-w-10' : 'min-w-12')} title={data.holidays[col.key]}>
                       {isMonthView ? (
@@ -323,9 +329,9 @@ export const ChecklistWeeklyReport = () => {
                       )}
                     </th>
                   ))}
-                  <th scope="col" className="px-3 py-3 text-center text-xs font-display font-semibold text-text-secondary min-w-20" title="Share of due runs that got filled, on time or late">Completion</th>
-                  <th scope="col" className="px-3 py-3 text-center text-xs font-display font-semibold text-text-secondary min-w-20" title="Share of due runs filled on time">On time</th>
-                  <th scope="col" className="px-3 py-3 text-center text-xs font-display font-semibold text-text-secondary min-w-20" title="How well the checked answers were answered">Compliance</th>
+                  <th scope="col" className="px-2 py-2.5 text-center text-xs font-display font-semibold text-text-secondary min-w-16" title="Share of due runs that got filled, on time or late">Completion</th>
+                  <th scope="col" className="px-2 py-2.5 text-center text-xs font-display font-semibold text-text-secondary min-w-16" title="Share of due runs filled on time">On time</th>
+                  <th scope="col" className="px-2 py-2.5 text-center text-xs font-display font-semibold text-text-secondary min-w-16" title="How well the checked answers were answered">Compliance</th>
                 </tr>
               </thead>
               <tbody>
