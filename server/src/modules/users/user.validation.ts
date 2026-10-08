@@ -17,6 +17,11 @@ const nameSchema = z.string().trim().min(1, "Name is required").max(191)
 const lastNameSchema = z.string().trim().max(191).transform((v) => (v === "" ? null : v))
 export const emailSchema = z.string().trim().toLowerCase().email().max(191)
 
+// Weekly day(s) off, 0 = Sunday … 6 = Saturday — the daily checklist generator leaves the person
+// off that day's runs. Up to 6 (a whole week off isn't a week-off). Empty array clears it.
+const weekOffDays = z.array(z.number().int().min(0).max(6)).max(6, "Leave at least one working day")
+    .transform((d) => [...new Set(d)].sort());
+
 export const createUserSchema = z.object({
     email: emailSchema,
     password: passwordSchema,
@@ -34,6 +39,8 @@ export const createUserSchema = z.object({
     reportsToId: objectId.nullable().optional(),
     // Digits only once parsed; "" becomes null (see phone.ts).
     phone: phoneSchema.optional(),
+    // Set at creation too, so a week off chosen in the new-user form is not silently dropped.
+    weekOffDays: weekOffDays.optional(),
 });
 
 // Password changes aren't handled through this update endpoint (see user.service.ts's
@@ -41,11 +48,6 @@ export const createUserSchema = z.object({
 // departmentId/storeId are overridden to also accept `null` (unlike create) so an admin can
 // explicitly clear a user's department/store, not just set a new one — mirrors
 // ticket.validation.ts's assigneeId.
-// Weekly day(s) off, 0 = Sunday … 6 = Saturday — the daily checklist generator leaves the person
-// off that day's runs. Up to 6 (a whole week off isn't a week-off). Empty array clears it.
-const weekOffDays = z.array(z.number().int().min(0).max(6)).max(6, "Leave at least one working day")
-    .transform((d) => [...new Set(d)].sort());
-
 export const updateUserSchema = createUserSchema.omit({ password: true, departmentId: true, storeId: true }).partial().extend({
     isActive: z.boolean().optional(),
     departmentId: objectId.nullable().optional(),

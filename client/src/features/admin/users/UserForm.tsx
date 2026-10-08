@@ -37,7 +37,8 @@ const buildUserSchema = (isEditing: boolean) =>
       phone: z
         .string()
         .trim()
-        .refine((v) => !v || /^[+\d\s\-()]{6,20}$/.test(v), 'Enter a valid phone number')
+        // Same rule as the server: 10 to 15 digits once spaces, dashes, brackets and a leading + go.
+        .refine((v) => !v || /^\d{10,15}$/.test(v.replace(/[\s\-().[\]{}]/g, '').replace(/^\+/, '')), 'Enter a valid phone number (10 to 15 digits)')
         .optional(),
       password: z.string().optional(),
       role: z.enum(['ADMIN', 'APPROVAL_MANAGER', 'SENIOR', 'MANAGER', 'AGENT', 'USER', 'PC'] as const),
@@ -53,13 +54,15 @@ const buildUserSchema = (isEditing: boolean) =>
       weekOffDays: z.array(z.number()).max(6, 'Leave at least one working day'),
     })
     .superRefine((data, ctx) => {
-      if (!isEditing && (!data.password || data.password.length < MIN_PASSWORD_LENGTH)) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['password'],
-          message: `Use at least ${MIN_PASSWORD_LENGTH} characters`,
-        });
-      }
+      if (isEditing) return;
+      const pw = data.password ?? '';
+      const message =
+        pw.length < MIN_PASSWORD_LENGTH ? `Use at least ${MIN_PASSWORD_LENGTH} characters`
+        : pw.length > 72 ? 'Use at most 72 characters'
+        : !/[A-Z]/.test(pw) ? 'Add a capital letter'
+        : !/[0-9]/.test(pw) ? 'Add a number'
+        : null;
+      if (message) ctx.addIssue({ code: 'custom', path: ['password'], message });
     });
 
 type UserFields = z.infer<ReturnType<typeof buildUserSchema>>;
@@ -196,6 +199,19 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
     onClose();
   };
 
+  // After a create, the password panel holds the only copy of the temporary password. Esc, the
+  // overlay or a stray click must not throw it away silently.
+  const requestCloseCreated = async () => {
+    const leave = await confirm({
+      title: 'Close without sharing the password?',
+      description: 'This is the only time the temporary password is shown. If you have not copied it, you will need to reset it.',
+      confirmLabel: 'Close',
+      cancelLabel: 'Go back',
+      variant: 'danger',
+    });
+    if (leave) onClose();
+  };
+
   // Picking a department fills in its store, but only while the store is empty or still holds the
   // value filled in last time, so a store chosen on purpose is never overwritten.
   const autoFilledStore = useRef<string | null>(null);
@@ -226,7 +242,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
       if (data.firstName !== user.firstName) payload.firstName = data.firstName;
       if ((data.lastName ?? '') !== (user.lastName ?? '')) payload.lastName = data.lastName ?? '';
       if (data.email.trim().toLowerCase() !== user.email.toLowerCase()) payload.email = data.email;
-      if ((phone ?? null) !== ((user.phone?.trim() || null))) payload.phone = phone ?? null;
+      if ((phone ?? null) !== ((user.phone?.trim() || null))) payload.phone = phone ?? '';
       if (data.role !== user.role) payload.role = data.role;
       if ((departmentPayload ?? null) !== (user.departmentId ?? null)) payload.departmentId = departmentPayload ?? null;
       if ((storePayload ?? null) !== (user.storeId ?? null)) payload.storeId = storePayload ?? null;
@@ -278,6 +294,11 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
   // A taken email is a problem with one field, so it is shown on that field and focused. Anything
   // else is a problem with the whole save and goes in the banner at the bottom.
   function handleSaveError(err: unknown) {
+    if (isDuplicateEmail(err) && err instanceof Error && /phone/i.test(err.message)) {
+      setError('phone', { type: 'server', message: 'Someone already uses this phone number' });
+      setFocus('phone');
+      return;
+    }
     if (isDuplicateEmail(err)) {
       setError('email', { type: 'server', message: 'Someone already uses this email' });
       setFocus('email');
@@ -320,7 +341,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
   return (
     <Modal
       open
-      onClose={created ? onClose : requestClose}
+      onClose={created ? requestCloseCreated : requestClose}
       icon={<UserPlus className="w-5 h-5" />}
       title={modalTitle}
       description={modalDescription}

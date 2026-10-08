@@ -18,6 +18,8 @@ import { Dropdown, type DropdownAction } from '../../components/dropdown';
 // second copy that could drift to a different morning/afternoon/evening boundary.
 import { greeting } from '../dashboard/dashboardDisplay';
 import { useIsMobile } from '../../lib/useMediaQuery';
+import { ROLE_META } from './roleBadge';
+import type { Role } from '../../api/auth';
 
 // Matches DashboardHeader's own clock: cheap enough to tick on an interval without re-rendering
 // the whole header every second, and 30s is plenty of precision for a minute-resolution display.
@@ -41,7 +43,7 @@ const ICON_BUTTON =
   'hover:text-text hover:bg-surface-hover active:scale-95 ' +
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500';
 
-const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+const roleLabel = (role: Role) => ROLE_META[role]?.label ?? role;
 
 interface AdminHeaderProps {
   onToggleSidebar: () => void;
@@ -168,7 +170,7 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
               trigger={
                 <button
                   title={user.name}
-                  aria-label={`Account menu, ${user.name}${user.role ? `, ${titleCase(user.role)}` : ''}`}
+                  aria-label={`Account menu, ${user.name}${user.role ? `, ${roleLabel(user.role)}` : ''}`}
                   className="flex items-center gap-2.5 h-11 px-1.5 sm:pl-1 sm:pr-3 rounded-full sm:bg-surface-hover sm:border sm:border-border text-text-secondary cursor-pointer transition-all duration-200 hover:bg-surface-active hover:text-text active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 group"
                 >
                   <span className="relative flex items-center justify-center size-8 rounded-full bg-primary-100 dark:bg-primary-500/20 text-primary-700 dark:text-primary-300 font-bold text-xs shrink-0 group-hover:scale-105 transition-transform">
@@ -178,7 +180,7 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
                   <span className="hidden lg:flex flex-col items-start min-w-0 leading-tight py-0.5">
                     <span className="max-w-[120px] truncate text-[0.8125rem] font-bold text-text">{user.name}</span>
                     {user.role && (
-                      <span className="max-w-[120px] truncate text-xs font-medium text-text-muted mt-0.5">{titleCase(user.role)}</span>
+                      <span className="max-w-[120px] truncate text-xs font-medium text-text-muted mt-0.5">{roleLabel(user.role)}</span>
                     )}
                   </span>
                   <ChevronDown size={14} className="hidden sm:inline text-text-light shrink-0 ml-1 group-hover:text-text-muted transition-colors" strokeWidth={2.5} />

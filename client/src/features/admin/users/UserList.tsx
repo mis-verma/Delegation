@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState, lazy, Suspense } from 'react';
+import { toast } from 'sonner';
 import { Plus, SearchX, Users } from 'lucide-react';
 import type { AdminUser, Role } from '../../../api/admin';
 import {
@@ -33,6 +34,8 @@ import {
 } from '../../../components';
 
 const PAGE_SIZE = 24;
+// The server refuses a bulk change over this many people.
+const BULK_LIMIT = 100;
 
 // Lazy-loaded modal chunk. Kept as a function so hovering the New button can start the download
 // before the click (the module system hands the same promise back afterwards).
@@ -120,7 +123,8 @@ export const UserList = () => {
       : null;
 
   // --- Selection (table view only). Only people the current filters still show count. ---
-  const selectedPeople = useMemo(() => filtered.filter(u => selectedIds.has(u.id)), [filtered, selectedIds]);
+  // Never yourself: a bulk role or department change on your own account could lock you out.
+  const selectedPeople = useMemo(() => filtered.filter(u => selectedIds.has(u.id) && u.id !== me?.id), [filtered, selectedIds, me?.id]);
 
   const toggleSelect = useCallback((id: string) => {
     setSelectedIds(prev => {
@@ -146,6 +150,10 @@ export const UserList = () => {
   ) => {
     const ids = selectedPeople.map(u => u.id);
     if (ids.length === 0) return;
+    if (ids.length > BULK_LIMIT) {
+      toast.error(`Pick at most ${BULK_LIMIT} people at a time. You picked ${ids.length}.`);
+      return;
+    }
     const ok = await confirm({ title: copy.title, description: copy.description, confirmLabel: copy.confirmLabel });
     if (!ok) return;
     bulkMut.mutate({ ids, ...change, successMessage: copy.done }, { onSuccess: clearSelection });

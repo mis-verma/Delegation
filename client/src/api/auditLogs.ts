@@ -8,13 +8,13 @@ import type { Role } from './auth';
 export const AUDIT_ENTITY_TYPES = [
   'Ticket', 'Task', 'ChecklistDefinition', 'ChecklistTemplate', 'ChecklistInstance',
   'ChecklistInstanceItem', 'ChecklistInstanceImage', 'ChecklistInstanceItemSubmissionImage',
-  'User', 'Category', 'Department', 'Store', 'Holiday', 'Event', 'Project', 'Settings',
+  'User', 'Category', 'Department', 'Store', 'Holiday', 'DressType', 'Event', 'Project', 'Settings',
 ] as const;
 export type AuditEntityType = (typeof AUDIT_ENTITY_TYPES)[number];
 
 export const AUDIT_ACTIONS = [
   'CREATE', 'UPDATE', 'DELETE', 'VERIFY', 'APPROVE', 'REJECT', 'ACTIVATE', 'DEACTIVATE', 'PASSWORD_RESET',
-  'SUBMIT', 'SEND_BACK', 'REOPEN_APPROVAL', 'REOPEN', 'COMPLETE', 'REASSIGN', 'OFFBOARD',
+  'SUBMIT', 'SEND_BACK', 'REOPEN_APPROVAL', 'REOPEN', 'COMPLETE', 'REASSIGN', 'OFFBOARD', 'WAIVE', 'UNWAIVE',
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

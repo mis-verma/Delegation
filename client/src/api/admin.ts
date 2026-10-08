@@ -46,8 +46,8 @@ export type CreateUserPayload = {
 export type UpdateUserPayload = Partial<Omit<CreateUserPayload, "password" | "departmentId" | "storeId" | "gender" | "dressTypeId" | "reportsToId" | "phone">> & {
     /** null clears it. */
     reportsToId?: string | null;
-    /** null clears it. */
-    phone?: string | null;
+    /** "" clears it (the server turns it into null). */
+    phone?: string;
     isActive?: boolean;
     departmentId?: string | null;
     storeId?: string | null;

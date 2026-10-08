@@ -77,7 +77,9 @@ const ProtectedRoute = () => {
   if (!token) return <Navigate to="/login" replace />;
   // An admin set this password, so it is temporary: nothing else loads until they choose their own.
   if (user?.mustChangePassword) return <Suspense fallback={null}><ForcePasswordChange /></Suspense>;
-  if (maintenance?.maintenanceMode && user?.role !== 'ADMIN') {
+  // PC can switch maintenance on in Settings (server allows ADMIN and PC), so PC must stay exempt
+  // too or they lock themselves out of the page that turns it off.
+  if (maintenance?.maintenanceMode && !(user && ADMIN_AREA_ROLES.includes(user.role))) {
     return <MaintenancePage message={maintenance.maintenanceMessage ?? undefined} />;
   }
   return (

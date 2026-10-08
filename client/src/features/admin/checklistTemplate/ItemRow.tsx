@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { toast } from 'sonner';
 import {
   Check,
   UserCheck,
@@ -37,9 +38,18 @@ export const ItemRow = ({ item, departmentId, assignableUsers, index }: ItemRowP
   const minRef = useRef<HTMLInputElement>(null);
   const maxRef = useRef<HTMLInputElement>(null);
 
+  // Whole numbers only, and the minimum can never pass the maximum. A bad entry goes back to what
+  // is saved with a short reason, instead of failing quietly on the server.
   const handleMinBlur = () => {
     if (!minRef.current) return;
-    const value = Number(minRef.current.value) || 0;
+    const value = Math.max(0, Math.floor(Number(minRef.current.value) || 0));
+    const max = maxRef.current?.value ? Number(maxRef.current.value) : item.maxImageCount;
+    if (max != null && value > max) {
+      toast.error('Minimum photos cannot be more than the maximum.');
+      minRef.current.value = String(item.requiredImageCount);
+      return;
+    }
+    minRef.current.value = String(value);
     if (value !== item.requiredImageCount) {
       updateItem.mutate({ id: item.id, payload: { requiredImageCount: value } });
     }
@@ -47,7 +57,15 @@ export const ItemRow = ({ item, departmentId, assignableUsers, index }: ItemRowP
 
   const handleMaxBlur = () => {
     if (!maxRef.current) return;
-    const value = maxRef.current.value ? Number(maxRef.current.value) : null;
+    const raw = maxRef.current.value;
+    const value = raw ? Math.max(0, Math.floor(Number(raw))) : null;
+    const min = minRef.current ? Math.floor(Number(minRef.current.value) || 0) : item.requiredImageCount;
+    if (value != null && value < min) {
+      toast.error('Maximum photos cannot be less than the minimum.');
+      maxRef.current.value = item.maxImageCount == null ? '' : String(item.maxImageCount);
+      return;
+    }
+    maxRef.current.value = value == null ? '' : String(value);
     if (value !== item.maxImageCount) {
       updateItem.mutate({ id: item.id, payload: { maxImageCount: value } });
     }

@@ -23,6 +23,8 @@ import { Popover, PopoverAnchor, PopoverContent } from "../../components/ui/popo
 import { Tooltip, TooltipTrigger, TooltipContent } from "../../components/ui/tooltip";
 import { AdminHeader } from "./AdminHeader";
 import { getAdminBreadcrumbs } from "./adminBreadcrumbs";
+import { ROLE_META } from './roleBadge';
+import type { Role } from '../../api/auth';
 
 /** Utility for intelligent Tailwind class merging */
 function cn(...inputs: ClassValue[]) {
@@ -92,7 +94,8 @@ const CHILD_LINK_BASE =
 const CHILD_LINK_ACTIVE = "bg-primary-50 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300 font-semibold";
 const CHILD_LINK_INACTIVE = "text-text-muted hover:bg-surface-hover hover:text-text";
 
-const titleCase = (value: string) => value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+// "PC" and "Approval manager", not "Pc" and "Approval_manager".
+const roleLabel = (role: Role) => ROLE_META[role]?.label ?? role;
 
 // Path-segment match, so '/admin/holidays' never matches a sibling like '/admin/holidays-old'.
 const matchesPath = (pathname: string, to: string) => pathname === to || pathname.startsWith(`${to}/`);
@@ -113,9 +116,9 @@ export const AdminLayout = () => {
     .join('')
     .toUpperCase();
 
-  // Overview & Analytics is ADMIN-only (see AdminOverviewRoute in App.tsx) — hidden here too so a
-  // PC user's sidebar doesn't offer a link that just bounces them straight back out to Directory.
-  const nav = user?.role === 'ADMIN' ? NAV : NAV.filter((item) => item.to !== '/admin');
+  // Overview & Analytics is open to ADMIN and PC (AdminOverviewRoute in App.tsx). System Health is
+  // ADMIN-only on the server, so PC would only see a "server may be down" error there: hide it.
+  const nav = user?.role === 'ADMIN' ? NAV : NAV.filter((item) => item.to !== '/admin/system-health');
 
   // Two different breakpoints, two different jobs — see the resize effect below for the full
   // reasoning (same split as the main app's Dashboard.tsx shell). `isMobileViewport` stays at
@@ -489,7 +492,8 @@ export const AdminLayout = () => {
           ref={mobileDrawerRef}
           tabIndex={-1}
           role="dialog"
-          aria-modal="true"
+          aria-modal={sidebarOpen}
+          inert={!sidebarOpen}
           aria-label="Navigation menu"
           className={cn(
             "md:hidden fixed top-0 bottom-0 left-0 z-50 w-72 max-w-[80vw] h-full flex flex-col rounded-r-3xl bg-surface border-r border-border px-4 pt-8 pb-6 transition-[translate] duration-300 ease-in-out focus:outline-none",
@@ -522,7 +526,7 @@ export const AdminLayout = () => {
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-display font-bold text-text truncate">{user.name}</p>
-                {user.role && <p className="text-xs font-display font-medium text-text-muted truncate">{titleCase(user.role)}</p>}
+                {user.role && <p className="text-xs font-display font-medium text-text-muted truncate">{roleLabel(user.role)}</p>}
               </div>
               <button
                 type="button"
@@ -576,7 +580,7 @@ export const AdminLayout = () => {
               </span>
               <div className={cn("min-w-0 flex-1 transition-opacity duration-300", !sidebarOpen && "hidden opacity-0")}>
                 <p className="text-sm font-display font-bold text-text truncate">{user.name}</p>
-                {user.role && <p className="text-xs font-display font-medium text-text-muted truncate">{titleCase(user.role)}</p>}
+                {user.role && <p className="text-xs font-display font-medium text-text-muted truncate">{roleLabel(user.role)}</p>}
               </div>
               <button
                 type="button"

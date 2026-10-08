@@ -4,7 +4,7 @@ import { MotionConfig } from 'framer-motion';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Network, Search, Maximize2, Minimize2, Inbox, Store, Layers, Users, UserX, TriangleAlert, CircleCheck } from 'lucide-react';
-import { Button, EmptyState, InlineError, Input, PANEL_CLASS, PageHeader, Skeleton, ToggleChip } from '../../../components';
+import { Button, EmptyState, InlineError, Input, PANEL_CLASS, PageHeader, Skeleton, ToggleChip, useConfirm } from '../../../components';
 import { StatCard } from '../../dashboard';
 import { adminApi, type AdminUser } from '../../../api/admin';
 import type { Department } from '../../../api/departments';
@@ -63,6 +63,7 @@ interface OrgStructurePageProps {
 export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
   const { data: stores, isPending: storesPending, isError: storesError, refetch: refetchStores } = useStoresQuery();
   const { data: departments, isPending: deptsPending, isError: deptsError, refetch: refetchDepts } = useDepartmentsQuery();
   const { data: users, isPending: usersPending, isError: usersError, refetch: refetchUsers } = useUsersQuery();
@@ -153,8 +154,22 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
 
   // Stable: reads names from the query cache at call time instead of closing over the lists.
   const moveUser = useCallback(
-    (userId: string, patch: OrgMovePatch) => {
-      const first = queryClient.getQueryData<AdminUser[]>(USERS_KEY)?.find((u) => u.id === userId)?.firstName ?? 'Person';
+    async (userId: string, patch: OrgMovePatch) => {
+      const person = queryClient.getQueryData<AdminUser[]>(USERS_KEY)?.find((u) => u.id === userId);
+      const first = person?.firstName ?? 'Person';
+      // Dropping on a store header or "No department" takes the department away. For a head that
+      // also takes their team, so it never happens on one stray drop.
+      if (!patch.departmentId && person?.departmentId) {
+        const ok = await confirm({
+          title: `Take ${first} out of their department?`,
+          description: patch.storeId === null
+            ? 'They will have no department and no store until you move them again.'
+            : 'They will have no department, only the store, until you move them again.',
+          confirmLabel: 'Remove',
+          variant: 'danger',
+        });
+        if (!ok) return;
+      }
       let successMessage: string;
       if (patch.departmentId) {
         const name = queryClient.getQueryData<Department[]>(DEPARTMENTS_KEY)?.find((d) => d.id === patch.departmentId)?.name;
@@ -167,7 +182,7 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
       }
       runMove({ id: userId, patch, successMessage });
     },
-    [queryClient, runMove]
+    [queryClient, runMove, confirm]
   );
 
   const moveTargets = useMemo<MoveTarget[]>(() => {

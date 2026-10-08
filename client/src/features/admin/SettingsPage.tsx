@@ -3,7 +3,8 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Loader2, Settings as SettingsIcon, CheckSquare, Construction, Bell, Clock, ListChecks, KeyRound, Camera, Building2, Database, Upload, type LucideIcon } from 'lucide-react';
-import { Input, Button, Skeleton, PageHeader, Textarea, Switch, BrandLogo } from '../../components';
+import { useBlocker } from 'react-router';
+import { Input, Button, Skeleton, PageHeader, Textarea, Switch, BrandLogo, InlineError, useConfirm } from '../../components';
 import { Loader } from '../../components/loaders';
 import { useSettingsQuery, useUpdateSettingsMutation, useUploadLogoMutation, useRemoveLogoMutation } from './hook';
 import { resolveLogoUrl } from '../../lib/uploadsBase';
@@ -138,7 +139,8 @@ const LogoUpload = ({ src, onUpload, onRemove, isUploading, isRemoving }: LogoUp
 };
 
 export const SettingsPage = () => {
-  const { data: settings, isPending } = useSettingsQuery();
+  const { data: settings, isPending, isError, refetch } = useSettingsQuery();
+  const confirm = useConfirm();
   const mutation = useUpdateSettingsMutation();
   const uploadLogoMutation = useUploadLogoMutation();
   const removeLogoMutation = useRemoveLogoMutation();
@@ -168,8 +170,36 @@ export const SettingsPage = () => {
     }
   }, [settings, reset]);
 
+  // Leaving with unsaved edits (another menu link, back button, closing the tab) asks first.
+  const blocker = useBlocker(isDirty);
+  useEffect(() => {
+    if (blocker.state !== 'blocked') return;
+    void confirm({
+      title: 'Leave without saving?',
+      description: 'Your changes to Settings have not been saved.',
+      confirmLabel: 'Leave',
+      cancelLabel: 'Stay',
+      variant: 'danger',
+    }).then((leave) => (leave ? blocker.proceed() : blocker.reset()));
+  }, [blocker, confirm]);
+  useEffect(() => {
+    if (!isDirty) return;
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [isDirty]);
+
   const onSubmit = (data: SettingsFields) =>
     mutation.mutate({ ...data, maintenanceMessage: data.maintenanceMessage.trim() || null });
+
+  if (isError && !settings) {
+    return (
+      <div className="flex flex-col gap-5 w-full">
+        <PageHeader icon={SettingsIcon} title="Settings" subtitle="Branding, defaults, notifications, sessions and retention. These apply to everyone." />
+        <InlineError message="Could not load the settings. Check your connection and try again." onRetry={() => void refetch()} />
+      </div>
+    );
+  }
 
   if (isPending) {
     return (
@@ -397,7 +427,7 @@ export const SettingsPage = () => {
                     icon={Construction}
                     iconClassName="text-warning"
                     label="Maintenance mode"
-                    description="Takes the app down for everyone except admins."
+                    description="Takes the app down for everyone except admins and PC."
                     checked={field.value}
                     onChange={field.onChange}
                   />

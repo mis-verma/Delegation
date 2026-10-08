@@ -44,7 +44,7 @@ export const AdminTaskList = () => {
                 Team Delegations
               </h1>
               <p className="text-sm text-text-muted max-w-lg leading-relaxed">
-                Every delegation across the organization — filter by person, department, status, or date to narrow your view.
+                Every delegation across the organization. Filter by person, department, status or date to narrow your view.
               </p>
             </div>
           </div>
@@ -54,7 +54,7 @@ export const AdminTaskList = () => {
 
             {/* Person Filter */}
             <Select value={userId || ALL_USERS} onValueChange={v => setUserId(v === ALL_USERS ? "" : v)}>
-              <SelectTrigger className="flex-1 sm:w-56 h-10 text-sm" aria-label="Filter delegations by person">
+              <SelectTrigger className="flex-1 sm:w-56 h-10 pointer-coarse:h-11 text-sm" aria-label="Filter delegations by person">
                 <Users className="w-4 h-4 shrink-0 text-text-light" />
                 <SelectValue />
               </SelectTrigger>
@@ -69,7 +69,7 @@ export const AdminTaskList = () => {
             </Select>
 
             {/* Export Button */}
-            <Button variant="secondary" className="gap-2 shrink-0" onClick={() => setShowExport(true)}>
+            <Button variant="secondary" className="gap-2 shrink-0 pointer-coarse:min-h-11" aria-label="Export delegations" onClick={() => setShowExport(true)}>
               <FileDown className="w-4 h-4" />
               <span className="hidden sm:inline">Export</span>
             </Button>

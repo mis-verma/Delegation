@@ -62,6 +62,12 @@ export function getAdminBreadcrumbs(pathname: string): BreadcrumbTrailItem[] | n
   if (pathname.startsWith('/admin/reports')) {
     return [DASHBOARD, ADMIN_ROOT, { label: 'Reports' }];
   }
+  if (pathname.startsWith('/admin/audit-log')) {
+    return [DASHBOARD, ADMIN_ROOT, { label: 'Audit Log' }];
+  }
+  if (pathname.startsWith('/admin/system-health')) {
+    return [DASHBOARD, ADMIN_ROOT, { label: 'System Health' }];
+  }
   if (pathname.startsWith('/admin/settings')) {
     return [DASHBOARD, ADMIN_ROOT, { label: 'Settings' }];
   }

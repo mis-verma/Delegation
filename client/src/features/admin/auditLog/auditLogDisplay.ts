@@ -3,7 +3,7 @@ import {
   Contact, Sparkles, Building2, CalendarClock, FolderKanban, Settings,
   Plus, Pencil, Trash2, ShieldCheck, ShieldX, Power, PowerOff, KeyRound,
   Store, CalendarOff, CheckCheck, Camera, ImageIcon, Send, Undo2, RotateCcw, ArrowRightLeft, UserMinus,
-  MessageCircle, Bot, UserRound,
+  MessageCircle, Bot, UserRound, Shirt, Ban,
   type LucideIcon,
 } from 'lucide-react';
 import type { AuditEntityType, AuditAction, AuditLog, AuditLogFilter } from '../../../api/auditLogs';
@@ -27,6 +27,7 @@ export const ENTITY_TYPE_CONFIG: Record<AuditEntityType, { label: string; icon: 
   Department: { label: 'Department', icon: Building2 },
   Store: { label: 'Store', icon: Store },
   Holiday: { label: 'Holiday', icon: CalendarOff },
+  DressType: { label: 'Dress Type', icon: Shirt },
   Event: { label: 'Event', icon: CalendarClock },
   Project: { label: 'Project', icon: FolderKanban },
   Settings: { label: 'Settings', icon: Settings },
@@ -51,6 +52,8 @@ export const ACTION_CONFIG: Record<AuditAction, { label: string; icon: LucideIco
   COMPLETE: { label: 'Completed', icon: CheckCheck, tone: 'bg-success' },
   REASSIGN: { label: 'Reassigned', icon: ArrowRightLeft, tone: 'bg-primary-600' },
   OFFBOARD: { label: 'Offboarded', icon: UserMinus, tone: 'bg-danger' },
+  WAIVE: { label: 'Waived', icon: Ban, tone: 'bg-warning' },
+  UNWAIVE: { label: 'Waiver removed', icon: RotateCcw, tone: 'bg-warning' },
 };
 
 // The verb as it reads inside a sentence ("Ravi Shah <verb> Ticket 'Fix store lights'").
@@ -71,6 +74,8 @@ const ACTION_VERB: Record<AuditAction, string> = {
   COMPLETE: 'completed',
   REASSIGN: 'reassigned',
   OFFBOARD: 'offboarded',
+  WAIVE: 'waived',
+  UNWAIVE: 'removed the waiver on',
 };
 
 export const actionVerb = (action: string) =>

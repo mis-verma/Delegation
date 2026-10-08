@@ -38,7 +38,8 @@ export const TemplateBlock = ({ template, departmentName }: TemplateBlockProps) 
   const { data: assignableUsers } = useAssignableUsersQuery(template.departmentId ?? undefined, undefined, undefined, open);
 
   const handleAddItem = () => {
-    if (!newLabel.trim()) return;
+    // Enter twice quickly would add the same step twice while the first save is still running.
+    if (!newLabel.trim() || addItem.isPending) return;
     addItem.mutate(
       { templateId: template.id, payload: { label: newLabel.trim(), order: template.items.length } },
       { onSuccess: () => setNewLabel('') },

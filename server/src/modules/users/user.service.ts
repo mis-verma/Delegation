@@ -219,6 +219,7 @@ export const userService = {
                 dressTypeId: input.dressTypeId ?? null,
                 reportsToId: input.reportsToId ?? null,
                 phone: input.phone ?? null,
+                weekOffDays: input.weekOffDays?.length ? input.weekOffDays : null,
                 rank,
             });
         } catch (err) {

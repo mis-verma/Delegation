@@ -25,10 +25,9 @@ interface UserActionsMenuProps extends UserActionHandlers {
 // to remove them, and it keeps their name on old records.
 const UserActionsMenuComponent = ({ user, isBusy, isSelf, onEdit, onResetPassword, onDeactivate, onReactivate, onDelete }: UserActionsMenuProps) => {
   const items = useMemo<DropdownAction[]>(() => {
-    const list: DropdownAction[] = [
-      { label: 'Edit', icon: Pencil, onClick: () => onEdit(user) },
-      { label: 'Reset password', icon: KeyRound, onClick: () => onResetPassword(user) },
-    ];
+    const list: DropdownAction[] = [{ label: 'Edit', icon: Pencil, onClick: () => onEdit(user) }];
+    // Not for yourself: a reset signs you out at once. Your own password is changed from your profile.
+    if (!isSelf) list.push({ label: 'Reset password', icon: KeyRound, onClick: () => onResetPassword(user) });
     if (!isSelf) {
       list.push(
         user.isActive

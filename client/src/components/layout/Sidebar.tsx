@@ -218,7 +218,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
           ...(seesSmartDelegations ? [SMART_DELEGATIONS_CHILD] : []),
           ...(isPC ? [PENDING_APPROVALS_CHILD] : []),
           ...TASK_CHILDREN,
-          ...(isPC ? TASK_ADMIN_CHILDREN : []),
+          ...(isPC || isAdmin ? TASK_ADMIN_CHILDREN : []),
         ],
       };
     }
@@ -236,7 +236,8 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
     ...(user?.role === 'PC' || user?.role === 'ADMIN' || user?.role === 'APPROVAL_MANAGER'
       ? [{ to: '/verify', icon: ShieldQuestion, label: 'Verification Queue' }]
       : []),
-    ...(isAdmin || isPC ? [{ to: '/team', icon: Building2, label: 'Team Overview' }] : []),
+    // ADMIN only: the /team route is guarded to ADMIN, so a PC link would just bounce home.
+    ...(isAdmin ? [{ to: '/team', icon: Building2, label: 'Team Overview' }] : []),
     ...(isAdmin || isPC ? [{ to: '/admin/directory', icon: ShieldCheck, label: 'Admin' }] : []),
   ];
 

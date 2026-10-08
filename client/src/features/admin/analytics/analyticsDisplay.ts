@@ -176,12 +176,15 @@ export const bucketRange = (bucket: string, groupBy: DisplayGroupBy): { from: st
 /**
  * The rows up to the newest bucket that actually has data. A report zero-fills the current period,
  * so on the first day of a month its bucket reads "0 runs due" and every tile built from it would
- * say "Nothing counted". A row only counts as empty when it reports `dueRuns: 0` (rows without that
- * field, like tickets, are never trimmed), and a report that is empty throughout is left alone.
+ * say "Nothing counted". A row counts as empty when it reports `dueRuns: 0` (checklists, delegations)
+ * or no tickets raised and none closed (tickets), and a report that is empty throughout is left alone.
  */
+const isEmptyRow = (row: ReportRow) =>
+  row.dueRuns === 0 || (row.createdCount === 0 && row.closedCount === 0);
+
 const withoutEmptyTail = <T extends ReportRow>(rows: T[]): T[] => {
   let end = rows.length;
-  while (end > 0 && rows[end - 1].dueRuns === 0 && rows[end - 1].bucket !== RANGE_BUCKET) end -= 1;
+  while (end > 0 && isEmptyRow(rows[end - 1]) && rows[end - 1].bucket !== RANGE_BUCKET) end -= 1;
   return end === 0 ? rows : rows.slice(0, end);
 };
 
