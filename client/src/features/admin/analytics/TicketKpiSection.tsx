@@ -44,6 +44,7 @@ export const TicketKpiSection = ({ groupBy, from, to, isOrgWideRole }: TicketKpi
       isError={isError}
       isFetching={isFetching}
       errorMessage="Could not load the ticket figures."
+      error={cardQuery.error ?? chartQuery.error}
       onRetry={() => void refetch()}
       from={from}
       to={to}

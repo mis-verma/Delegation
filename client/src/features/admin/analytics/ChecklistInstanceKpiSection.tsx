@@ -28,7 +28,7 @@ const NOTHING_COUNTED = 'Nothing counted in this period';
 export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole, includeDeleted, storeId, assigneeId, scopeLabel, linkCards = true }: ChecklistInstanceKpiSectionProps) => {
   // A picked range is one whole-range figure (the same as the headline strip above), so the cards
   // read a 'none' report; the chart still reads the grouped series so it has points to draw.
-  const hasRange = Boolean(from && to);
+  const hasRange = Boolean(from || to);
   const chartQuery = useChecklistInstanceComplianceReportQuery(groupBy, from, to, { includeDeleted, storeId, assigneeId });
   const cardQuery = useChecklistInstanceComplianceReportQuery(hasRange ? 'none' : groupBy, from, to, { includeDeleted, storeId, assigneeId });
   const { data: rows } = cardQuery;
@@ -52,12 +52,13 @@ export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole, 
       icon={Repeat}
       title={scopeLabel || 'Store checklists'}
       description={scopeLabel
-        ? "Only checklists assigned to this selection. A shared checklist counts for everyone it is assigned to. Runs that are not due yet are left out."
-        : "How much of each period's checklist work was finished on time, answered inside the accepted range, backed by photos and approved the first time. Runs that are not due yet are left out."}
+        ? "Only checklists assigned to this selection. A shared checklist counts for everyone it is assigned to. Completion leaves out runs that are not due yet."
+        : "How much of each period's checklist work was finished on time, answered inside the accepted range, backed by photos and approved the first time. Completion leaves out runs that are not due yet."}
       isPending={isPending}
       isError={isError}
       isFetching={isFetching}
       errorMessage="Could not load the store checklist figures."
+      error={cardQuery.error ?? chartQuery.error}
       onRetry={() => void refetch()}
       from={from}
       to={to}

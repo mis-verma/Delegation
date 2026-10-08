@@ -41,6 +41,7 @@ export const TaskChecklistKpiSection = ({ groupBy, from, to, isOrgWideRole }: Ta
       isError={isError}
       isFetching={isFetching}
       errorMessage="Could not load the delegation figures."
+      error={cardQuery.error ?? chartQuery.error}
       onRetry={() => void refetch()}
       from={from}
       to={to}

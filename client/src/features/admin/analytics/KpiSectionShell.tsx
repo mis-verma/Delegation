@@ -2,6 +2,7 @@ import { lazy, Suspense, useId } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { StatCard, type Trend } from '../../dashboard';
 import { ActiveRangeBadge, EntityIconTile, InlineError, PANEL_CLASS, Skeleton } from '../../../components';
+import { ApiError } from '../../../api/http';
 import { defaultWindowLabel, describeLatestPeriod, NO_TREND, statCaption } from './analyticsDisplay';
 import type { ReportTrendChartProps } from './ReportTrendChart';
 
@@ -48,6 +49,8 @@ interface KpiSectionShellProps {
   /** True while a refetch is running with the previous numbers still on screen. */
   isFetching?: boolean;
   errorMessage: string;
+  /** The failed request's error. A 400 carries a reason the viewer can act on ("Pick a period of 366 days or less."). */
+  error?: unknown;
   /** Wired to the report query's refetch. */
   onRetry?: () => void;
   cards: KpiCardConfig[];
@@ -61,7 +64,7 @@ interface KpiSectionShellProps {
 // Shared layout for every KPI group on the analytics page (header, stat cards, chart card, plus
 // loading/error states) — each report just supplies its own data + chart. Adding another chart to
 // the dashboard means writing one thin section component, not repeating this scaffolding.
-export const KpiSectionShell = ({ icon: Icon, title, description, isPending, isError, isFetching = false, errorMessage, onRetry, cards, chart, summaryRows, from, to }: KpiSectionShellProps) => {
+export const KpiSectionShell = ({ icon: Icon, title, description, isPending, isError, isFetching = false, errorMessage, error, onRetry, cards, chart, summaryRows, from, to }: KpiSectionShellProps) => {
   const headingId = useId();
   const { label: periodCaption, isWholeRange } = describeLatestPeriod(summaryRows ?? (chart.data as { bucket: string }[]), chart.groupBy);
 
@@ -81,7 +84,7 @@ export const KpiSectionShell = ({ icon: Icon, title, description, isPending, isE
       </header>
 
       {isError ? (
-        <InlineError message={errorMessage} onRetry={onRetry} />
+        <InlineError message={error instanceof ApiError && error.status === 400 ? error.message : errorMessage} onRetry={error instanceof ApiError && error.status === 400 ? undefined : onRetry} />
       ) : (
         <div className={`flex flex-col gap-4 sm:gap-6 transition-opacity motion-reduce:transition-none ${isFetching && !isPending ? 'opacity-60' : ''}`}>
           {/* Two tiles per row on a phone (a lone last tile spans the row), then the grid opens up:

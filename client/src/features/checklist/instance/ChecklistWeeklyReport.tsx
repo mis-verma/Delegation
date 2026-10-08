@@ -64,9 +64,9 @@ const Cell = memo(({ cell, name }: { cell: WeeklyCell; name: string }) => {
   // A month column adds its runs up: the share filled (on time or late), with the split in the tooltip.
   if (cell.state === 'summary') {
     const due = cell.due ?? 0;
-    const detail = due === 0
+    const detail = due === 0 && !cell.open
       ? 'Nothing was due'
-      : `${due} due: ${cell.onTime ?? 0} on time, ${cell.late ?? 0} late, ${cell.missed ?? 0} not filled${cell.compliance !== null ? `, compliance ${cell.compliance}%` : ''}`;
+      : `${due} due: ${cell.onTime ?? 0} on time, ${cell.late ?? 0} late, ${cell.missed ?? 0} not filled${cell.open ? `, ${cell.open} still open` : ''}${cell.compliance !== null ? `, compliance ${cell.compliance}%` : ''}`;
     return (
       <span role="img" title={`${name}, ${cell.date}: ${detail}`} aria-label={`${name}, ${cell.date}: ${detail}`} className={cn(CELL_BOX, 'w-14 sm:w-14')}>
         {cell.completion == null
@@ -190,7 +190,7 @@ export const ChecklistWeeklyReport = () => {
   const holidayDays = useMemo(() => (data ? data.days.filter(d => data.holidays[d]) : []), [data]);
   const summary = data?.summary;
   const summaryTiles = useMemo(() => summary && [
-    { label: 'Completion rate', value: summary.completion === null ? '-' : `${summary.completion}%`, tone: summary.completion === null ? '' : rateToneClass(summary.completion) },
+    { label: 'Runs filled', value: summary.completion === null ? '-' : `${summary.completion}%`, tone: summary.completion === null ? '' : rateToneClass(summary.completion) },
     { label: 'On-time rate', value: summary.rate === null ? '-' : `${summary.rate}%`, tone: summary.rate === null ? '' : rateToneClass(summary.rate) },
     { label: 'Compliance', value: summary.compliance === null ? '-' : `${summary.compliance}%`, tone: summary.compliance === null ? '' : rateToneClass(summary.compliance) },
     { label: 'Filled on time', value: summary.onTime, tone: 'text-success' },
@@ -304,7 +304,7 @@ export const ChecklistWeeklyReport = () => {
                 <ChevronRight className="size-3.5 transition-transform duration-200 group-open:rotate-90" aria-hidden />
               </summary>
               <p className="pb-1 leading-relaxed">
-                Completion is the share of runs that got filled, on time or late, with open runs counted by how much is done. On time is the share filled before their cutoff. Compliance is how well the checked answers were answered, with critical questions counted twice and sent-back ones counted as failed.
+                Filled is the share of whole checklists that got filled, on time or late, with open ones counted by how much is done. It is not the share of questions done, which the Compliance Board shows. On time is the share filled before their cutoff. Compliance is how well the checked answers were answered, with critical questions counted twice and sent-back ones counted as failed.
               </p>
             </details>
           )}
@@ -329,7 +329,7 @@ export const ChecklistWeeklyReport = () => {
                       )}
                     </th>
                   ))}
-                  <th scope="col" className="px-2 py-2.5 text-center text-xs font-display font-semibold text-text-secondary min-w-16" title="Share of due runs that got filled, on time or late">Completion</th>
+                  <th scope="col" className="px-2 py-2.5 text-center text-xs font-display font-semibold text-text-secondary min-w-16" title="Share of runs that got filled, on time or late. Open runs count for the share already done.">Filled</th>
                   <th scope="col" className="px-2 py-2.5 text-center text-xs font-display font-semibold text-text-secondary min-w-16" title="Share of due runs filled on time">On time</th>
                   <th scope="col" className="px-2 py-2.5 text-center text-xs font-display font-semibold text-text-secondary min-w-16" title="How well the checked answers were answered">Compliance</th>
                 </tr>

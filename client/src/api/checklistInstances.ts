@@ -296,6 +296,8 @@ export type ChecklistInstanceSummary = {
   /** On-track subset of `pending` — incomplete but not yet past its period end. */
   due: number;
   overdue: number;
+  /** Unfinished runs older than the 45-day window: in `total`, but not in `pending` or `overdue`. */
+  olderOpen?: number;
   /** Across every item of every matching instance — powers completion-ratio gauges. */
   totalItems: number;
   doneItems: number;
@@ -383,6 +385,8 @@ export type WeeklyCell = {
   onTime?: number;
   late?: number;
   missed?: number;
+  /** Runs still open before their cutoff (month columns). */
+  open?: number;
   rate?: number | null;
   completion?: number | null;
 };

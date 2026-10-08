@@ -58,13 +58,17 @@ const PERSON_TONE: Record<'flag' | 'done' | 'started' | 'idle' | 'covered', { ic
 const ComplianceRow = memo(({ instance, storeName, nameById, namesLoading }: ComplianceRowProps) => {
   // One pass over the items instead of a filter per assignee, per metric.
   const stats = useMemo(() => {
-    const total = instance.items.length;
+    // Not applicable questions are left out of the counts as well as the percent, so "6/8" and "75%"
+    // always describe the same questions (the History list counts them the same way).
+    let total = 0;
     let done = 0;
     let flagged = 0;
     const byPerson = new Map<string, { completed: number; flagged: number }>();
     for (const item of instance.items) {
+      if (item.isNotApplicable) continue;
+      total += 1;
       if (item.isDone) done += 1;
-      const isFlagged = isFlaggedAnswer(item);
+      const isFlagged = item.isDone && isFlaggedAnswer(item);
       if (isFlagged) flagged += 1;
       if (item.completedBy) {
         const entry = byPerson.get(item.completedBy) ?? { completed: 0, flagged: 0 };
@@ -73,7 +77,6 @@ const ComplianceRow = memo(({ instance, storeName, nameById, namesLoading }: Com
         byPerson.set(item.completedBy, entry);
       }
     }
-    // Percent leaves "not applicable" questions out of both sides; the counts stay raw.
     return { total, done, flagged, byPerson, progress: runScores(instance.items).completion };
   }, [instance.items]);
 
@@ -324,6 +327,8 @@ export const ChecklistComplianceBoard = () => {
   });
   const visibleInstances = instancePage?.data;
   const totalPages = instancePage?.meta.totalPages ?? 1;
+  // Rows can shrink under the viewer (a delete, a status change). Step back instead of showing an empty page.
+  if (instancePage && page > totalPages) setPage(Math.max(1, totalPages));
 
   // Counted by the database rather than by reducing the fetched page: a tile that says "23"
   // derived from the page would silently become the page size the moment the list paginates.
@@ -426,9 +431,9 @@ export const ChecklistComplianceBoard = () => {
               <div className="flex flex-col gap-1.5 w-full sm:w-fit">
                 <span id="compliance-status-label" className={FIELD_LABEL}>Status</span>
                 <Tabs value={status} onValueChange={(v) => setStatus(v as '' | ChecklistInstanceStatus)}>
-                  <TabsList aria-labelledby="compliance-status-label" className={cn(CONTROL_H, 'w-full sm:w-fit')}>
+                  <TabsList aria-labelledby="compliance-status-label" className={cn(CONTROL_H, 'w-full sm:w-fit max-sm:grid max-sm:grid-cols-4 max-sm:h-auto')}>
                     {STATUS_OPTIONS.map(opt => (
-                      <TabsTrigger key={opt.value || 'all'} value={opt.value} className="h-full text-xs">
+                      <TabsTrigger key={opt.value || 'all'} value={opt.value} className="h-full min-h-11 sm:min-h-0 px-1.5 text-xs whitespace-normal leading-tight">
                         {opt.label}
                       </TabsTrigger>
                     ))}
@@ -485,6 +490,11 @@ export const ChecklistComplianceBoard = () => {
         isError={summaryError}
         onRetry={() => refetchSummary()}
       />
+      {!!counts?.olderOpen && (
+        <p className="text-xs font-display text-text-muted -mt-3">
+          {counts.olderOpen} older unfinished {counts.olderOpen === 1 ? 'run is' : 'runs are'} in Total but not in Not completed or Overdue, which look back 45 days. Pick a date range to include them.
+        </p>
+      )}
 
       {isPending && (
         <div className="flex flex-col gap-3">
