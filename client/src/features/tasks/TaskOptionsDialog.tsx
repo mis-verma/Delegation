@@ -248,7 +248,7 @@ export const TaskOptionsDialog = ({
                   key={tag.id}
                   active={filters.tagIds.includes(tag.id)}
                   onClick={() => onChange({ tagIds: toggleValue(filters.tagIds, tag.id) })}
-                  lead={<span className="flex items-center justify-center size-6 shrink-0"><span className={`size-2.5 rounded-full ${labelDotClass(tag.name)}`} /></span>}
+                  lead={<span className="flex items-center justify-center size-6 shrink-0"><span className={`size-2.5 rounded-full ${labelDotClass(tag)}`} /></span>}
                 >
                   {tag.name}
                 </ChoiceChip>

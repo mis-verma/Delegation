@@ -84,7 +84,7 @@ function DropdownMenuItem({
       data-inset={inset}
       data-variant={variant}
       className={cn(
-        "relative flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium outline-none select-none transition-all duration-200 active:scale-[0.98]",
+        "relative flex cursor-pointer items-center gap-3 pointer-coarse:min-h-11 rounded-lg px-3 py-2.5 text-sm font-medium outline-none select-none transition-all duration-200 active:scale-[0.98]",
         "data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[inset]:pl-9",
         "text-text-secondary focus:bg-surface-hover focus:text-text",
         "data-[variant=destructive]:text-danger data-[variant=destructive]:focus:bg-danger/10 data-[variant=destructive]:focus:text-danger",
@@ -107,7 +107,7 @@ function DropdownMenuCheckboxItem({
     <DropdownMenuPrimitive.CheckboxItem
       data-slot="dropdown-menu-checkbox-item"
       className={cn(
-        "relative flex cursor-pointer items-center gap-3 rounded-lg py-2.5 pr-3 pl-9 text-sm font-medium outline-none select-none transition-all duration-200 active:scale-[0.98]",
+        "relative flex cursor-pointer items-center gap-3 pointer-coarse:min-h-11 rounded-lg py-2.5 pr-3 pl-9 text-sm font-medium outline-none select-none transition-all duration-200 active:scale-[0.98]",
         "text-text-secondary focus:bg-surface-hover focus:text-text",
         "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
@@ -146,7 +146,7 @@ function DropdownMenuRadioItem({
     <DropdownMenuPrimitive.RadioItem
       data-slot="dropdown-menu-radio-item"
       className={cn(
-        "relative flex cursor-pointer items-center gap-3 rounded-lg py-2.5 pr-3 pl-9 text-sm font-medium outline-none select-none transition-all duration-200 active:scale-[0.98]",
+        "relative flex cursor-pointer items-center gap-3 pointer-coarse:min-h-11 rounded-lg py-2.5 pr-3 pl-9 text-sm font-medium outline-none select-none transition-all duration-200 active:scale-[0.98]",
         "text-text-secondary focus:bg-surface-hover focus:text-text",
         "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
@@ -232,7 +232,7 @@ function DropdownMenuSubTrigger({
       data-slot="dropdown-menu-sub-trigger"
       data-inset={inset}
       className={cn(
-        "relative flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium outline-none select-none transition-all duration-200 active:scale-[0.98]",
+        "relative flex cursor-pointer items-center gap-3 pointer-coarse:min-h-11 rounded-lg px-3 py-2.5 text-sm font-medium outline-none select-none transition-all duration-200 active:scale-[0.98]",
         "text-text-secondary focus:bg-surface-hover focus:text-text data-[state=open]:bg-surface-hover data-[state=open]:text-text",
         "data-[inset]:pl-9",
         className,

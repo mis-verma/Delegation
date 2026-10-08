@@ -14,6 +14,9 @@ interface PickerShellProps {
   triggerAside?: ReactNode;
   /** Classes for the wrapper around trigger and aside. */
   wrapperClassName?: string;
+  /** No wrapper element at all: the trigger is rendered as is, so a selector that sits straight in a
+   *  flex row keeps its own sizing. */
+  bare?: boolean;
   /** Heading of the phone sheet (the popover has none). */
   title: string;
   /** Pinned under the content on a phone, e.g. a Done button. */
@@ -30,7 +33,7 @@ interface PickerShellProps {
  * layer loses every pick to the dialog's own focus trap.
  */
 export const PickerShell = ({
-  open, onOpenChange, trigger, triggerAside, wrapperClassName, title, sheetFooter, popoverClassName, children,
+  open, onOpenChange, trigger, triggerAside, wrapperClassName, bare = false, title, sheetFooter, popoverClassName, children,
 }: PickerShellProps) => {
   const isPhone = useMediaQuery('(max-width: 639px)');
 
@@ -38,10 +41,14 @@ export const PickerShell = ({
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         {/* asChild trigger, so the clear button beside it stays a separate control. */}
-        <div className={cn('relative', wrapperClassName)}>
+        {bare ? (
           <DialogTrigger asChild>{trigger}</DialogTrigger>
-          {triggerAside}
-        </div>
+        ) : (
+          <div className={cn('relative', wrapperClassName)}>
+            <DialogTrigger asChild>{trigger}</DialogTrigger>
+            {triggerAside}
+          </div>
+        )}
         <DialogContent
           showCloseButton={false}
           className="p-0 gap-0 flex flex-col rounded-t-2xl max-h-[92dvh] overflow-hidden"
@@ -67,10 +74,14 @@ export const PickerShell = ({
 
   return (
     <Popover open={open} modal onOpenChange={onOpenChange}>
-      <div className={cn('relative', wrapperClassName)}>
+      {bare ? (
         <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-        {triggerAside}
-      </div>
+      ) : (
+        <div className={cn('relative', wrapperClassName)}>
+          <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+          {triggerAside}
+        </div>
+      )}
       <PopoverContent
         align="start"
         sideOffset={6}

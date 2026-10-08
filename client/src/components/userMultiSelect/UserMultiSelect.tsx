@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react';
-import { Check, Loader2 } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { Check, Loader2, Search } from 'lucide-react';
 import { useAssignableUsersQuery } from '../../features/tickets/hook';
 import { avatarColorClass } from '../../lib/avatarColors';
 import { getInitials } from '../../lib/getInitials';
@@ -28,7 +28,12 @@ const userLabel = (u: AssignableUser) => `${u.firstName} ${u.lastName ?? ''}`.tr
 // so this is a small bordered checkbox-list instead. Disabled until a scope is chosen since
 // assignable users are scoped server-side by departmentId/storeId(s).
 export const UserMultiSelect = ({ departmentId, storeId, storeIds, selected, onChange, departments, emptyHint }: UserMultiSelectProps) => {
-  const { data: users, isLoading } = useAssignableUsersQuery(departmentId, storeId, storeIds);
+  const { data: allUsers, isLoading } = useAssignableUsersQuery(departmentId, storeId, storeIds);
+  const [query, setQuery] = useState('');
+  // A long team is searchable; a short one is just a list.
+  const showSearch = (allUsers?.length ?? 0) > 8;
+  const needle = query.trim().toLowerCase();
+  const users = needle ? allUsers?.filter((u) => userLabel(u).toLowerCase().includes(needle)) : allUsers;
 
   const toggle = (id: string) => {
     onChange(selected.includes(id) ? selected.filter(s => s !== id) : [...selected, id]);
@@ -51,11 +56,11 @@ export const UserMultiSelect = ({ departmentId, storeId, storeIds, selected, onC
         type="button"
         aria-pressed={checked}
         onClick={() => toggle(u.id)}
-        className={`flex items-center gap-2.5 px-2 py-2 rounded-md text-sm font-display text-left transition-colors duration-150 cursor-pointer ${
+        className={`flex items-center gap-2.5 px-2 py-2 pointer-coarse:min-h-12 pointer-coarse:px-3 rounded-md text-sm font-display text-left transition-colors duration-150 cursor-pointer ${
           checked ? 'bg-primary-500/10 text-text' : 'text-text-secondary hover:bg-surface-hover hover:text-text'
         }`}
       >
-        <span className={`flex items-center justify-center size-7 rounded-full text-[0.625rem] font-bold text-white shrink-0 ${avatarColorClass(name)}`}>
+        <span className={`flex items-center justify-center size-7 pointer-coarse:size-8 rounded-full text-[0.625rem] font-bold text-white shrink-0 ${avatarColorClass(name)}`}>
           {getInitials(name)}
         </span>
         <span className="flex-1 min-w-0 truncate">{name}</span>
@@ -67,7 +72,7 @@ export const UserMultiSelect = ({ departmentId, storeId, storeIds, selected, onC
         {/* Square, not circular — a circle reads as a single-choice radio button, which is
             exactly the opposite of what this list actually does (pick as many as you need). */}
         <span
-          className={`flex items-center justify-center size-4 rounded-[4px] border shrink-0 transition-colors duration-150 ${
+          className={`flex items-center justify-center size-4 pointer-coarse:size-5 rounded-[4px] border shrink-0 transition-colors duration-150 ${
             checked ? 'bg-primary-600 border-primary-600 text-white' : 'border-border-hover text-transparent'
           }`}
         >
@@ -105,8 +110,27 @@ export const UserMultiSelect = ({ departmentId, storeId, storeIds, selected, onC
           <Loader2 size={13} className="animate-spin" /> Loading users…
         </p>
       )}
-      {!isLoading && !users?.length && (
+      {showSearch && (
+        <div className="sticky top-0 z-10 -mt-1.5 -mx-1.5 px-1.5 pt-1.5 pb-1 bg-surface">
+          <div className="relative">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-light pointer-events-none" aria-hidden />
+            {/* 16px on a phone: smaller makes iOS zoom the page on focus. */}
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search people…"
+              aria-label="Search people"
+              className="w-full h-10 pointer-coarse:h-11 rounded-lg border border-border bg-background pl-8 pr-2 text-base sm:text-sm text-text placeholder:text-text-light outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-400/30"
+            />
+          </div>
+        </div>
+      )}
+      {!isLoading && !allUsers?.length && (
         emptyHint ?? <p className="text-xs font-display text-text-muted px-2 py-2">No assignable users in this scope.</p>
+      )}
+      {!isLoading && !!allUsers?.length && !users?.length && (
+        <p className="text-xs font-display text-text-muted px-2 py-2">No one matches "{query.trim()}".</p>
       )}
       {!isLoading && groups
         ? groups.map(([deptName, deptUsers]) => (

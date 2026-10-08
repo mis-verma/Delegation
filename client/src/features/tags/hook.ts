@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../../context/AuthContext";
 import { tagApi } from "../../api/tags";
-import type { CreateTagPayload } from "../../api/tags";
+import type { CreateTagPayload, UpdateTagPayload } from "../../api/tags";
 import { handleQueryRetry, useEntityMutation } from "../../lib/queryHelpers";
 
 // Labels are a shared, org-wide vocabulary — not scoped to Delegation or Tickets specifically —
@@ -34,6 +34,16 @@ export const useCreateTagMutation = () =>
         // every Enter made quick labelling feel slow.
         successMessage: null,
         errorFallback: "Couldn't create that label. Try again.",
+    });
+
+export const useUpdateTagMutation = () =>
+    useEntityMutation({
+        // A recolour (or rename) shows on every delegation and ticket carrying the label, so their
+        // lists refresh along with the label list.
+        mutationFn: ({ id, payload }: { id: string; payload: UpdateTagPayload }) => tagApi.update(id, payload).then(r => r.data),
+        invalidateKeys: [['tags'], ['tasks'], ['tickets']],
+        successMessage: null,
+        errorFallback: "Couldn't change that label. Try again.",
     });
 
 export const useDeleteTagMutation = () =>

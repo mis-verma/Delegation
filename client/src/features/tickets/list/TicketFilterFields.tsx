@@ -69,7 +69,7 @@ export const TicketFilterFields = ({ filters, onChange, departments, assignableU
       {!!tags?.length && (
         <MultiSelectFilterRow
           label="Labels"
-          options={tags.map((tag) => ({ value: tag.id, label: tag.name, dotClassName: labelDotClass(tag.name) }))}
+          options={tags.map((tag) => ({ value: tag.id, label: tag.name, dotClassName: labelDotClass(tag) }))}
           selected={filters.labelIds}
           onChange={(labelIds) => onChange({ labelIds })}
         />

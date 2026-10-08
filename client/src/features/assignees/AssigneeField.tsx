@@ -8,6 +8,10 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
+import { PickerShell } from '../../components/dateTime/PickerShell';
+import { OptionList, type ListOption } from '../../components/dropdown/OptionList';
+import { Button } from '../../components/button';
+import { useMediaQuery } from '../../lib/useMediaQuery';
 import { avatarColorClass } from '../../lib/avatarColors';
 import { getInitials } from '../../lib/getInitials';
 import { FIELD_LABEL_CLASS, FIELD_CARD_CLASS } from '../tasks/taskFormFieldStyles';
@@ -41,6 +45,8 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
   // PC has full parity with ADMIN throughout this app.
   const isAdmin = currentUser?.role === 'ADMIN' || currentUser?.role === 'PC';
   const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const isPhone = useMediaQuery('(max-width: 639px)');
+  const [sheetOpen, setSheetOpen] = useState(false);
   // Reading a ref's .current during render isn't allowed (it can go stale without triggering a
   // re-render), so the trigger's DOM node is tracked in state via a callback ref instead.
   const [triggerEl, setTriggerEl] = useState<HTMLButtonElement | null>(null);
@@ -55,6 +61,45 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
 
   const nameOf = (u: AssignableUser) => `${u.firstName} ${u.lastName ?? ''}`.trim();
   const selectedUsers = (users ?? []).filter((u) => selectedIds.includes(u.id));
+
+  const triggerButton = selectedUsers.length === 0 ? (
+      // Empty state: the "Unassigned" label is part of the clickable trigger itself,
+      // not separate inert text next to it — a plain <span> here reads as a status pill
+      // but does nothing when clicked, which is exactly what looked broken.
+      <button
+        ref={setTriggerEl}
+        type="button"
+        title="Add assignee"
+        aria-label="Add assignee"
+        className="relative pointer-coarse:after:absolute pointer-coarse:after:-inset-y-2 pointer-coarse:after:inset-x-0 flex items-center gap-1.5 h-7 sm:h-8 pl-2 pr-3 rounded-full border border-dashed border-border-hover text-text-light hover:text-primary-600 hover:border-primary-400 transition-colors cursor-pointer shrink-0"
+      >
+        <Plus size={15} strokeWidth={2.5} />
+        <span className="text-xs font-display">Unassigned</span>
+      </button>
+  ) : (
+      <button
+        ref={setTriggerEl}
+        type="button"
+        title={single ? 'Change assignee' : 'Add assignee'}
+        aria-label={single ? 'Change assignee' : 'Add assignee'}
+        className="relative pointer-coarse:after:absolute pointer-coarse:after:-inset-2 flex items-center justify-center size-7 sm:size-8 rounded-full border border-dashed border-border-hover text-text-light hover:text-primary-600 hover:border-primary-400 transition-colors cursor-pointer shrink-0"
+      >
+        <Plus size={15} strokeWidth={2.5} />
+      </button>
+  );
+
+  const sheetOptions: ListOption[] = (users ?? []).map((u) => {
+    const name = nameOf(u);
+    return {
+      value: u.id,
+      label: name,
+      lead: (
+        <span className={`flex items-center justify-center size-8 rounded-full text-xs font-bold text-white shrink-0 ${avatarColorClass(name)}`}>
+          {getInitials(name)}
+        </span>
+      ),
+    };
+  });
 
   return (
     <div className={`group/field flex flex-col gap-1.5 ${FIELD_CARD_CLASS}`}>
@@ -88,34 +133,38 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
           // several people without the menu closing), the menu is still open after you pick
           // someone and the modal body stays frozen. Non-modal keeps the dialog scrollable while
           // the list is open, which is the behaviour a picker inside a scrolling form needs.
-          <DropdownMenu modal={false}>
-            <DropdownMenuTrigger asChild>
-              {selectedUsers.length === 0 ? (
-                // Empty state: the "Unassigned" label is part of the clickable trigger itself,
-                // not separate inert text next to it — a plain <span> here reads as a status pill
-                // but does nothing when clicked, which is exactly what looked broken.
-                <button
-                  ref={setTriggerEl}
-                  type="button"
-                  title="Add assignee"
-                  aria-label="Add assignee"
-                  className="relative pointer-coarse:after:absolute pointer-coarse:after:-inset-y-2 pointer-coarse:after:inset-x-0 flex items-center gap-1.5 h-7 sm:h-8 pl-2 pr-3 rounded-full border border-dashed border-border-hover text-text-light hover:text-primary-600 hover:border-primary-400 transition-colors cursor-pointer shrink-0"
-                >
-                  <Plus size={15} strokeWidth={2.5} />
-                  <span className="text-xs font-display">Unassigned</span>
-                </button>
-              ) : (
-                <button
-                  ref={setTriggerEl}
-                  type="button"
-                  title={single ? 'Change assignee' : 'Add assignee'}
-                  aria-label={single ? 'Change assignee' : 'Add assignee'}
-                  className="relative pointer-coarse:after:absolute pointer-coarse:after:-inset-2 flex items-center justify-center size-7 sm:size-8 rounded-full border border-dashed border-border-hover text-text-light hover:text-primary-600 hover:border-primary-400 transition-colors cursor-pointer shrink-0"
-                >
-                  <Plus size={15} strokeWidth={2.5} />
-                </button>
+          isPhone ? (
+            // Phones get a bottom sheet: a 224px menu with 36px rows is hard to hit, and a long team
+            // needs a search box.
+            <PickerShell
+              bare
+              open={sheetOpen}
+              onOpenChange={setSheetOpen}
+              trigger={triggerButton}
+              title={single ? 'Assign to' : 'Assign to (pick one or more)'}
+              sheetFooter={!single && (
+                <Button variant="primary" onClick={() => setSheetOpen(false)} className="w-full h-11 font-display">
+                  {selectedIds.length ? `Done, ${selectedIds.length} selected` : 'Done'}
+                </Button>
               )}
-            </DropdownMenuTrigger>
+            >
+              <OptionList
+                multiple={!single}
+                options={sheetOptions}
+                selected={selectedIds}
+                isLoading={isLoading}
+                emptyText="No assignable users"
+                searchPlaceholder="Search people…"
+                onToggle={(id) => {
+                  if (single) { onChange([id]); setSheetOpen(false); } else toggle(id);
+                }}
+                topActions={single ? [{ key: 'none', label: 'Unassigned', onSelect: () => { onChange([]); setSheetOpen(false); } }] : undefined}
+                actions={isAdmin ? [{ key: 'create', label: 'Create new user', icon: UserPlus, tone: 'primary' as const, onSelect: () => { setSheetOpen(false); setIsCreatingUser(true); } }] : undefined}
+              />
+            </PickerShell>
+          ) : (
+          <DropdownMenu modal={false}>
+            <DropdownMenuTrigger asChild>{triggerButton}</DropdownMenuTrigger>
             <DropdownMenuContent
               align="start"
               // `pointer-events-auto` is required, not cosmetic. This menu is portalled to
@@ -194,6 +243,7 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
               )}
             </DropdownMenuContent>
           </DropdownMenu>
+          )
         )}
 
         {/* Disabled (read-only) view has no clickable trigger to fold this label into. */}

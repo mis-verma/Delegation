@@ -2,11 +2,17 @@ import { z } from "zod"
 import { createLookupRouter } from "../../utils/lookupModule.js";
 import { tags } from "../../db/schema/index.js"
 
-// `color` exists on the table but is never actually set by any caller — LabelsField.tsx derives
-// its chip color client-side by hashing the name instead — so only `name` is accepted here.
+// `color` is one of the palette keys the label picker offers (client/src/lib/labelColors.ts). It is
+// optional: a label without one is drawn in a colour derived from its name, which is also how every
+// label made before colours could be chosen still looks. The list is checked here so the column
+// only ever holds a key the client can draw.
 // max(191) mirrors the Tag table's actual column width (db/schema/task.ts) — see store.routes.ts's
 // own version of this comment for why that matters (masked 500 vs. clean 400 on an overlong value).
-const tagBodySchema = z.object({ name: z.string().min(1).max(191) })
+const LABEL_COLOR_KEYS = ["indigo", "violet", "fuchsia", "rose", "orange", "amber", "lime", "emerald", "teal", "sky", "blue", "slate"] as const
+const tagBodySchema = z.object({
+  name: z.string().min(1).max(191),
+  color: z.enum(LABEL_COLOR_KEYS).nullable().optional(),
+})
 
 // Delegation labels. The Tag table has been in the schema (with its TaskTag junction and its
 // relations) since the Mongo port with no code on top of it at all — this is that wiring, not a

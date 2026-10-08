@@ -154,7 +154,7 @@ export const TicketSettingsMenu = ({
                 key={tag.id}
                 active={filters.labelIds.includes(tag.id)}
                 onClick={() => patch({ labelIds: toggleValue(filters.labelIds, tag.id) })}
-                lead={<span className="flex items-center justify-center size-5 sm:size-6 shrink-0"><span className={`size-2.5 rounded-full ${labelDotClass(tag.name)}`} /></span>}
+                lead={<span className="flex items-center justify-center size-5 sm:size-6 shrink-0"><span className={`size-2.5 rounded-full ${labelDotClass(tag)}`} /></span>}
               >
                 {tag.name}
               </ChoiceChip>

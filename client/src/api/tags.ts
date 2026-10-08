@@ -3,13 +3,13 @@ import { apiFetch } from './http';
 export type Tag = {
   id: string;
   name: string;
-  /** Optional in the schema; nothing sets it yet, so the UI derives a colour from the name. */
+  /** A colour key from lib/labelColors ("indigo", "emerald", ...). Null means none was chosen, so the UI derives one from the name. */
   color: string | null;
 };
 
 export type ApiResponse<T> = { success: boolean; data: T };
 
-export type CreateTagPayload = { name: string; color?: string };
+export type CreateTagPayload = { name: string; color?: string | null };
 export type UpdateTagPayload = Partial<CreateTagPayload>;
 
 // Labels — shared by Delegation and Tickets, not owned by either. Backed by the shared lookup

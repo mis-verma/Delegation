@@ -15,8 +15,8 @@ interface DueDateFieldProps {
   /** Extra classes for the date trigger (e.g. the shared chip trigger style). */
   triggerClassName?: string;
   /**
-   * Ask for the due day and time only. A ticket's start day is informational (the clock runs from
-   * when it is raised), so by default one tap sets the deadline and any start day is dropped.
+   * Ask for the due day and time only, dropping any start day. Off by default: a ticket takes a start
+   * day and a due day (the range), with a time for each.
    */
   dueOnly?: boolean;
 }
@@ -26,7 +26,7 @@ const toDateStr = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${p
 const toTimeStr = (d: Date) => `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
 
 
-export const DueDateField = ({ mode, control, setValue, errors, categoryTatHours, hideLabel = false, triggerClassName, dueOnly = true }: DueDateFieldProps) => {
+export const DueDateField = ({ mode, control, setValue, errors, categoryTatHours, hideLabel = false, triggerClassName, dueOnly = false }: DueDateFieldProps) => {
   const dueDate = useWatch({ control, name: 'dueDate' });
   const dueTime = useWatch({ control, name: 'dueTime' });
   const startDate = useWatch({ control, name: 'startDate' });

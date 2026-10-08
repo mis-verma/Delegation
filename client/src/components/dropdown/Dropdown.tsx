@@ -38,7 +38,7 @@ export const Dropdown = ({ trigger, items, align = 'end' }: DropdownProps) => (
     
     <DropdownMenuContent 
       align={align} 
-      className="w-56 p-1.5 rounded-xl border border-border bg-surface shadow-xl animate-in fade-in-80 zoom-in-95 duration-200"
+      className="w-56 p-1.5 rounded-xl border border-border bg-surface animate-in fade-in-80 zoom-in-95 duration-200"
     >
       {items.map((item, index) => {
         const Icon = item.icon;

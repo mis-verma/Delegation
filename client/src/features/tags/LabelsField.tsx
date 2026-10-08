@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Tag as TagIcon, X, Plus, Loader2, CornerDownLeft, Trash2, Settings2, Check } from 'lucide-react';
-import { useCreateTagMutation, useDeleteTagMutation } from './hook';
-import { labelChipClass, labelDotClass } from '../../lib/labelColors';
+import { Tag as TagIcon, X, Plus, Loader2, CornerDownLeft, Trash2, Settings2, Check, Palette } from 'lucide-react';
+import { useCreateTagMutation, useDeleteTagMutation, useUpdateTagMutation } from './hook';
+import { LABEL_COLORS, labelChipClass, labelColorKey, labelDotClass, suggestedLabelColor } from '../../lib/labelColors';
 import { FIELD_LABEL_CLASS, FIELD_LABEL_ICON_CLASS } from '../tasks/taskFormFieldStyles';
+import { cn } from '@/lib/utils';
 import type { Tag } from '../../api/tags';
 
 /** Server caps `tagIds` at 12; enforced here too so a full set fails at the field, not on submit. */
@@ -13,7 +14,7 @@ const MAX_SUGGESTIONS = 8;
 
 /**
  * Offered as one-click creates while no labels exist yet. Each becomes a real Tag only when
- * clicked. These six names hash to six different colours; re-check if you change one.
+ * clicked, in the colour its name suggests.
  */
 const STARTER_LABELS = ['Travel', 'Billing', 'Expense', 'Marketing', 'Audit', 'Tax'];
 
@@ -29,14 +30,49 @@ interface LabelsFieldProps {
   hideHeading?: boolean;
 }
 
+/** One row of colour swatches. A 44px tap area on touch around each 28px dot. */
+const ColorSwatches = ({ value, onPick, label }: { value: string; onPick: (key: string) => void; label: string }) => (
+  <div role="radiogroup" aria-label={label} className="flex flex-wrap items-center gap-x-1 gap-y-0.5">
+    {LABEL_COLORS.map((c) => {
+      const active = c.key === value;
+      return (
+        <button
+          key={c.key}
+          type="button"
+          role="radio"
+          aria-checked={active}
+          aria-label={c.name}
+          title={c.name}
+          // Keeps focus in whatever field the person was typing in, so the swatch tap lands.
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => onPick(c.key)}
+          className="group relative flex items-center justify-center size-8 pointer-coarse:size-11 rounded-full cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 [-webkit-tap-highlight-color:transparent]"
+        >
+          <span
+            className={cn(
+              'flex items-center justify-center size-6 rounded-full text-white transition-transform duration-150 group-hover:scale-110 group-active:scale-95',
+              c.dot,
+              active && 'ring-2 ring-offset-2 ring-offset-surface ring-primary-600 dark:ring-primary-300',
+            )}
+          >
+            {active && <Check size={13} strokeWidth={3.5} />}
+          </span>
+        </button>
+      );
+    })}
+  </div>
+);
+
 /**
  * Label field shared by Delegation and Tickets, in both the create forms and the detail sheets.
  *
  * Works like a tag input, no popup: the picked labels are chips inside the box, and the box itself
- * is where you type. Enter (or a comma) attaches a matching label, or creates the typed one on the
- * spot and attaches it — the chip shows at once with a small spinner while the server catches up.
+ * is where you type. Enter (or a comma) attaches a matching label. A name that does not exist yet
+ * opens a small card with a live preview and a colour to choose, then creates the label and attaches
+ * it — the chip shows at once with a small spinner while the server catches up.
  * Unpicked labels sit as a strip of one-tap suggestions right under the box while it has focus.
- * Backspace on an empty box removes the last chip.
+ * Backspace on an empty box removes the last chip. Admin/PC can also open Manage to recolour or
+ * delete labels.
  */
 export const LabelsField = ({
   tags,
@@ -49,15 +85,19 @@ export const LabelsField = ({
   const queryClient = useQueryClient();
   const createTag = useCreateTagMutation();
   const deleteTag = useDeleteTagMutation();
-  // Admin/PC only: a mode where every label shows a bin, for clearing out typos and one-offs
-  // ("Bill" next to "Billing") without a trip to Settings.
+  const updateTag = useUpdateTagMutation();
+  // Admin/PC only: a mode where every label shows a bin and a colour, for tidying up typos and
+  // one-offs ("Bill" next to "Billing") without a trip to Settings.
   const [managing, setManaging] = useState(false);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [recolorId, setRecolorId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
   const [focused, setFocused] = useState(false);
-  // Names being created right now — drawn as chips straight away so Enter feels instant.
-  const [pending, setPending] = useState<string[]>([]);
+  // The colour chosen for the label about to be created; null means "the one its name suggests".
+  const [newColor, setNewColor] = useState<string | null>(null);
+  // Labels being created right now, drawn as chips straight away so Enter feels instant.
+  const [pending, setPending] = useState<{ name: string; color: string }[]>([]);
 
   // Several quick Enters each finish creating on their own schedule; each must append to the
   // selection as it is *then*, not as it was when that Enter was pressed.
@@ -71,14 +111,12 @@ export const LabelsField = ({
 
   const trimmed = query.trim().replace(/,+$/, '').trim();
   const needle = trimmed.toLowerCase();
-  const suggestions = useMemo(
-    () => tags.filter((t) => !selectedIds.includes(t.id) && (!needle || t.name.toLowerCase().includes(needle))),
-    [tags, selectedIds, needle],
-  );
+  const suggestions = tags.filter((t) => !selectedIds.includes(t.id) && (!needle || t.name.toLowerCase().includes(needle)));
   // Case-insensitive, since the server's unique index would 409 "hallmarking" vs "Hallmarking".
   const exactMatch = tags.find((t) => t.name.toLowerCase() === needle);
-  const isPendingName = pending.some((n) => n.toLowerCase() === needle);
-  const canOfferCreate = canCreate && !!trimmed && !exactMatch && !isPendingName && !atCap;
+  const isPendingName = pending.some((p) => p.name.toLowerCase() === needle);
+  const canOfferCreate = canCreate && !!trimmed && !exactMatch && !isPendingName && !atCap && !disabled;
+  const chosenColor = newColor ?? suggestedLabelColor(trimmed).key;
 
   const attach = (id: string) => {
     if (selectedRef.current.includes(id) || selectedRef.current.length + pending.length >= MAX_LABELS) return;
@@ -87,10 +125,10 @@ export const LabelsField = ({
 
   const remove = (id: string) => onChange(selectedIds.filter((x) => x !== id));
 
-  const create = (name: string) => {
-    setPending((p) => [...p, name]);
+  const create = (name: string, color: string) => {
+    setPending((p) => [...p, { name, color }]);
     createTag.mutate(
-      { name },
+      { name, color },
       {
         onSuccess: (tag) => {
           // Put it in the shared list now, so the chip resolves to its real name/colour without
@@ -98,7 +136,7 @@ export const LabelsField = ({
           queryClient.setQueryData<Tag[]>(['tags'], (old) => (old?.some((t) => t.id === tag.id) ? old : [...(old ?? []), tag]));
           if (!selectedRef.current.includes(tag.id)) onChange([...selectedRef.current, tag.id]);
         },
-        onSettled: () => setPending((p) => p.filter((n) => n !== name)),
+        onSettled: () => setPending((p) => p.filter((x) => x.name !== name)),
       },
     );
   };
@@ -106,14 +144,15 @@ export const LabelsField = ({
   const commit = () => {
     if (!trimmed || atCap) return;
     if (exactMatch) attach(exactMatch.id);
-    else if (canOfferCreate) create(trimmed);
+    else if (canOfferCreate) create(trimmed, chosenColor);
     // Someone who can't create still gets Enter-to-pick on the closest match.
     else if (!canCreate && suggestions[0]) attach(suggestions[0].id);
     else return;
     setQuery('');
+    setNewColor(null);
   };
 
-  const showSuggestions = !managing && focused && !disabled && !atCap && (suggestions.length > 0 || canOfferCreate);
+  const showSuggestions = !managing && focused && !disabled && !atCap && suggestions.length > 0;
 
   const deleteLabel = (tag: Tag) => {
     deleteTag.mutate(tag.id, {
@@ -125,8 +164,16 @@ export const LabelsField = ({
     });
   };
 
+  const recolor = (tag: Tag, color: string) => {
+    // Shown at once; the server catches up behind it.
+    queryClient.setQueryData<Tag[]>(['tags'], (old) => old?.map((t) => (t.id === tag.id ? { ...t, color } : t)));
+    updateTag.mutate({ id: tag.id, payload: { color } });
+  };
+
+  const chipBase = 'inline-flex items-center gap-1.5 h-7 pointer-coarse:h-9 rounded-full border text-xs font-display font-semibold';
+
   return (
-    <div className="flex flex-col gap-1.5" aria-describedby={atCap ? 'labels-field-help' : undefined}>
+    <div className="flex flex-col gap-2" aria-describedby={atCap ? 'labels-field-help' : undefined}>
       {!hideHeading && (
         <label htmlFor="labels-field-input" className={FIELD_LABEL_CLASS}>
           <TagIcon className={FIELD_LABEL_ICON_CLASS} />
@@ -140,26 +187,28 @@ export const LabelsField = ({
       {/* The whole box focuses the input, so a tap anywhere in it starts typing. */}
       <div
         onClick={() => inputRef.current?.focus()}
-        className={`flex flex-wrap items-center gap-1.5 min-h-10 px-1.5 py-1.5 rounded-xl border bg-surface transition-all duration-200 ease-in-out ${
+        className={cn(
+          'flex flex-wrap items-center gap-1.5 min-h-11 px-2 py-1.5 rounded-xl border bg-surface transition-[border-color,box-shadow] duration-200 ease-out',
           disabled
             ? 'border-border/60 opacity-60 cursor-not-allowed'
             : focused
-              ? 'border-primary-400 ring-2 ring-primary-500/15 cursor-text'
-              : 'border-border/60 dark:border-white/[0.08] hover:border-border-hover cursor-text'
-        }`}
+              ? 'border-primary-400 ring-4 ring-primary-500/12 cursor-text'
+              : 'border-border/70 dark:border-white/[0.08] hover:border-primary-400/60 cursor-text',
+        )}
       >
         {selected.map((tag) => (
           <span
             key={tag.id}
-            className={`inline-flex items-center gap-1 h-7 pl-2.5 pr-1 rounded-full border text-xs font-display font-semibold animate-in fade-in zoom-in-95 duration-150 ${labelChipClass(tag.name)}`}
+            className={cn(chipBase, 'pl-2 pr-1 animate-in fade-in zoom-in-95 duration-150', labelChipClass(tag))}
           >
+            <span aria-hidden className={cn('size-2 rounded-full shrink-0', labelDotClass(tag))} />
             {tag.name}
             {!disabled && (
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); remove(tag.id); }}
                 aria-label={`Remove label ${tag.name}`}
-                className="flex items-center justify-center size-5 rounded-full hover:bg-current/15 focus-visible:bg-current/15 transition-colors duration-200 cursor-pointer outline-none"
+                className="relative flex items-center justify-center size-5 pointer-coarse:size-7 rounded-full hover:bg-current/15 focus-visible:bg-current/15 transition-colors duration-200 cursor-pointer outline-none"
               >
                 <X size={12} strokeWidth={2.75} />
               </button>
@@ -167,12 +216,10 @@ export const LabelsField = ({
           </span>
         ))}
 
-        {pending.map((name) => (
-          <span
-            key={`pending-${name}`}
-            className={`inline-flex items-center gap-1.5 h-7 pl-2.5 pr-2 rounded-full border text-xs font-display font-semibold opacity-70 ${labelChipClass(name)}`}
-          >
-            {name}
+        {pending.map((p) => (
+          <span key={`pending-${p.name}`} className={cn(chipBase, 'pl-2 pr-2.5 opacity-70', labelChipClass({ name: p.name, color: p.color }))}>
+            <span aria-hidden className={cn('size-2 rounded-full shrink-0', labelDotClass({ name: p.name, color: p.color }))} />
+            {p.name}
             <Loader2 size={12} className="animate-spin" aria-label="Saving" />
           </span>
         ))}
@@ -188,7 +235,7 @@ export const LabelsField = ({
             maxLength={40}
             onFocus={() => setFocused(true)}
             onBlur={() => setFocused(false)}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => { setQuery(e.target.value); setNewColor(null); }}
             onKeyDown={(e) => {
               // Enter or a comma commits, like most tag inputs.
               if (e.key === 'Enter' || (e.key === ',' && trimmed)) {
@@ -204,36 +251,55 @@ export const LabelsField = ({
             }}
             placeholder={used ? 'Add another…' : canCreate ? 'Type a label, press Enter' : 'Search labels'}
             aria-label="Add label"
-            className="flex-1 min-w-[8rem] h-7 px-1.5 bg-transparent text-sm text-text placeholder:text-text-light outline-none"
+            // 16px on a phone: smaller makes iOS zoom the whole page when the field is focused.
+            className="flex-1 min-w-[8rem] h-7 pointer-coarse:h-9 px-1.5 bg-transparent text-base sm:text-sm text-text placeholder:text-text-light outline-none"
           />
         )}
       </div>
+
+      {/* New label: a live preview in the chosen colour, the twelve colours, one button. Shown while
+          a name that does not exist yet is typed, whether or not the input still has focus, so a
+          swatch tap on a phone never makes it vanish. */}
+      {canOfferCreate && (
+        <div className="flex flex-col gap-2.5 p-3 rounded-xl border border-primary-500/20 bg-gradient-to-br from-primary-500/[0.07] to-transparent dark:from-primary-500/10 animate-in fade-in slide-in-from-top-1 duration-150">
+          <div className="flex items-center justify-between gap-3">
+            <span className="flex items-center gap-1.5 text-xs font-display font-semibold text-text-muted">
+              <Palette size={13} aria-hidden /> New label
+            </span>
+            <span className={cn(chipBase, 'pl-2 pr-2.5 max-w-[60%]', labelChipClass({ name: trimmed, color: chosenColor }))}>
+              <span aria-hidden className={cn('size-2 rounded-full shrink-0', labelDotClass({ name: trimmed, color: chosenColor }))} />
+              <span className="truncate">{trimmed}</span>
+            </span>
+          </div>
+
+          <ColorSwatches value={chosenColor} onPick={setNewColor} label="Label colour" />
+
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={commit}
+            className="inline-flex items-center justify-center gap-2 h-10 pointer-coarse:h-11 rounded-lg bg-gradient-to-br from-primary-500 to-primary-700 text-white text-sm font-display font-semibold transition-[filter,transform] duration-150 hover:brightness-110 active:scale-[0.98] cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          >
+            <Plus size={15} strokeWidth={2.75} />
+            Create “{trimmed}”
+            <CornerDownLeft size={13} strokeWidth={2.5} className="opacity-70 max-sm:hidden" aria-hidden />
+          </button>
+        </div>
+      )}
 
       {/* Inline, not floating: pushes content down a little instead of covering the fields
           around it. onMouseDown preventDefault keeps focus in the input so taps land. */}
       {showSuggestions && (
         <div className="flex flex-wrap items-center gap-1.5 px-0.5 animate-in fade-in slide-in-from-top-1 duration-150">
-          {canOfferCreate && (
-            <button
-              type="button"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={commit}
-              className="inline-flex items-center gap-1.5 h-7 pl-2 pr-2.5 rounded-full border border-dashed border-primary-400/70 bg-primary-500/[0.06] dark:bg-primary-500/10 text-xs font-display font-semibold text-primary-700 dark:text-primary-300 hover:bg-primary-500/10 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
-            >
-              <Plus size={12} strokeWidth={2.75} />
-              Create “{trimmed}”
-              <CornerDownLeft size={11} strokeWidth={2.5} className="opacity-60" aria-hidden />
-            </button>
-          )}
           {suggestions.slice(0, MAX_SUGGESTIONS).map((tag) => (
             <button
               key={tag.id}
               type="button"
               onMouseDown={(e) => e.preventDefault()}
-              onClick={() => { attach(tag.id); setQuery(''); }}
-              className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full border border-border/60 dark:border-white/[0.08] bg-surface text-xs font-display font-semibold text-text-secondary hover:border-primary-400/60 hover:text-text transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+              onClick={() => { attach(tag.id); setQuery(''); setNewColor(null); }}
+              className={cn(chipBase, 'px-2.5 hover:brightness-95 dark:hover:brightness-110 active:scale-[0.97] transition-[filter,transform] duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40', labelChipClass(tag))}
             >
-              <span aria-hidden className={`size-2 rounded-full shrink-0 ${labelDotClass(tag.name)}`} />
+              <span aria-hidden className={cn('size-2 rounded-full shrink-0', labelDotClass(tag))} />
               {tag.name}
             </button>
           ))}
@@ -244,8 +310,8 @@ export const LabelsField = ({
             <button
               type="button"
               onMouseDown={(e) => e.preventDefault()}
-              onClick={() => { setManaging(true); setConfirmingId(null); }}
-              className="inline-flex items-center gap-1 h-7 px-2 ml-auto rounded-full text-[0.6875rem] font-display font-semibold text-text-muted hover:text-text hover:bg-surface-hover transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+              onClick={() => { setManaging(true); setConfirmingId(null); setRecolorId(null); }}
+              className="inline-flex items-center gap-1 h-7 pointer-coarse:h-9 px-2 ml-auto rounded-full text-[0.6875rem] font-display font-semibold text-text-muted hover:text-text hover:bg-surface-hover transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
             >
               <Settings2 size={12} strokeWidth={2.5} />
               Manage
@@ -254,16 +320,17 @@ export const LabelsField = ({
         </div>
       )}
 
-      {/* Manage mode: every label with a bin. Deleting takes it off every delegation and ticket
-          that carries it, so the bin first turns the chip into an inline "Delete everywhere?". */}
+      {/* Manage mode: every label with its colour and a bin. Tap the dot to recolour. Deleting takes
+          the label off every delegation and ticket that carries it, so the bin first turns the chip
+          into an inline "Delete everywhere?". */}
       {managing && canCreate && !disabled && (
-        <div className="flex flex-col gap-2 p-2.5 rounded-xl border border-border/60 dark:border-white/[0.08] bg-surface-hover/40 animate-in fade-in slide-in-from-top-1 duration-150">
+        <div className="flex flex-col gap-2.5 p-3 rounded-xl border border-border/60 dark:border-white/[0.08] bg-surface-hover/40 animate-in fade-in slide-in-from-top-1 duration-150">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[0.6875rem] font-display font-semibold text-text-secondary">Delete labels you no longer need</span>
+            <span className="text-[0.6875rem] font-display font-semibold text-text-secondary">Tap a dot to change its colour, or delete one you no longer need</span>
             <button
               type="button"
-              onClick={() => { setManaging(false); setConfirmingId(null); }}
-              className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full bg-surface border border-border text-[0.6875rem] font-display font-semibold text-text hover:border-border-hover transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+              onClick={() => { setManaging(false); setConfirmingId(null); setRecolorId(null); }}
+              className="inline-flex items-center gap-1 h-8 pointer-coarse:h-10 px-3 shrink-0 rounded-full bg-surface border border-border text-[0.6875rem] font-display font-semibold text-text hover:border-border-hover transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
             >
               <Check size={12} strokeWidth={2.75} />
               Done
@@ -274,13 +341,13 @@ export const LabelsField = ({
               const confirming = confirmingId === tag.id;
               const busy = deleteTag.isPending && confirming;
               return confirming ? (
-                <span key={tag.id} className="inline-flex items-center gap-1 h-7 pl-2.5 pr-1 rounded-full border border-danger/40 bg-danger/10 text-xs font-display font-semibold text-danger animate-in fade-in zoom-in-95 duration-150">
+                <span key={tag.id} className="inline-flex items-center gap-1 h-8 pointer-coarse:h-10 pl-2.5 pr-1 rounded-full border border-danger/40 bg-danger/10 text-xs font-display font-semibold text-danger animate-in fade-in zoom-in-95 duration-150">
                   Delete “{tag.name}” everywhere?
                   <button
                     type="button"
                     disabled={busy}
                     onClick={() => deleteLabel(tag)}
-                    className="inline-flex items-center gap-1 h-5 px-2 rounded-full bg-danger text-white text-[0.6875rem] font-bold hover:brightness-110 disabled:opacity-60 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-danger/50"
+                    className="inline-flex items-center gap-1 h-6 pointer-coarse:h-8 px-2.5 rounded-full bg-danger text-white text-[0.6875rem] font-bold hover:brightness-110 disabled:opacity-60 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-danger/50"
                   >
                     {busy && <Loader2 size={11} className="animate-spin" />}
                     Delete
@@ -290,27 +357,45 @@ export const LabelsField = ({
                     disabled={busy}
                     onClick={() => setConfirmingId(null)}
                     aria-label="Keep this label"
-                    className="flex items-center justify-center size-5 rounded-full hover:bg-danger/15 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+                    className="flex items-center justify-center size-6 pointer-coarse:size-8 rounded-full hover:bg-danger/15 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
                   >
                     <X size={12} strokeWidth={2.75} />
                   </button>
                 </span>
               ) : (
-                <span key={tag.id} className="inline-flex items-center gap-1.5 h-7 pl-2.5 pr-1 rounded-full border border-border/60 dark:border-white/[0.08] bg-surface text-xs font-display font-semibold text-text-secondary">
-                  <span aria-hidden className={`size-2 rounded-full shrink-0 ${labelDotClass(tag.name)}`} />
+                <span key={tag.id} className={cn('inline-flex items-center gap-1 h-8 pointer-coarse:h-10 pl-1 pr-1 rounded-full border text-xs font-display font-semibold', labelChipClass(tag))}>
+                  <button
+                    type="button"
+                    onClick={() => setRecolorId((id) => (id === tag.id ? null : tag.id))}
+                    aria-label={`Change the colour of ${tag.name}`}
+                    aria-expanded={recolorId === tag.id}
+                    className="relative flex items-center justify-center size-6 pointer-coarse:size-8 rounded-full hover:bg-current/15 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+                  >
+                    <span aria-hidden className={cn('size-3 rounded-full', labelDotClass(tag))} />
+                  </button>
                   {tag.name}
                   <button
                     type="button"
                     onClick={() => setConfirmingId(tag.id)}
                     aria-label={`Delete label ${tag.name}`}
-                    className="flex items-center justify-center size-5 rounded-full text-text-light hover:text-danger hover:bg-danger/10 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
+                    className="flex items-center justify-center size-6 pointer-coarse:size-8 rounded-full opacity-70 hover:opacity-100 hover:bg-danger/10 hover:text-danger transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
                   >
-                    <Trash2 size={11} strokeWidth={2.5} />
+                    <Trash2 size={12} strokeWidth={2.5} />
                   </button>
                 </span>
               );
             })}
           </div>
+          {recolorId && byId.get(recolorId) && (
+            <div className="flex flex-col gap-1.5 pt-2.5 border-t border-border/60">
+              <span className="text-[0.6875rem] font-display font-semibold text-text-muted">Colour for “{byId.get(recolorId)!.name}”</span>
+              <ColorSwatches
+                value={labelColorKey(byId.get(recolorId)!)}
+                onPick={(key) => recolor(byId.get(recolorId)!, key)}
+                label="Label colour"
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -322,17 +407,21 @@ export const LabelsField = ({
         <div className="flex flex-col gap-1.5">
           <span className="text-[0.6875rem] font-medium text-text-light">No labels yet. Tap one to start:</span>
           <div className="flex items-center gap-1.5 flex-wrap">
-            {STARTER_LABELS.map((name) => (
-              <button
-                key={name}
-                type="button"
-                onClick={() => create(name)}
-                title={`Create the label “${name}”`}
-                className={`px-2.5 h-7 rounded-full border text-xs font-display font-semibold transition-all duration-200 ease-in-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 hover:brightness-95 ${labelChipClass(name)}`}
-              >
-                {name}
-              </button>
-            ))}
+            {STARTER_LABELS.map((name) => {
+              const color = suggestedLabelColor(name);
+              return (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => create(name, color.key)}
+                  title={`Create the label “${name}”`}
+                  className={cn(chipBase, 'px-2.5 transition-[filter,transform] duration-200 ease-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 hover:brightness-95 active:scale-[0.97]', color.chip)}
+                >
+                  <span aria-hidden className={cn('size-2 rounded-full shrink-0', color.dot)} />
+                  {name}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}

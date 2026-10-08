@@ -5,7 +5,7 @@ import { twMerge } from 'tailwind-merge';
 import { Button } from '../button';
 import { CalendarGrid, type DayState } from '../dateTime/CalendarGrid';
 import { PickerShell } from '../dateTime/PickerShell';
-import { TimePanel } from '../dateTime/TimePanel';
+import { ClockPicker } from '../dateTime/ClockPicker';
 import {
   DEFAULT_START_HOUR, addDays, formatClock, formatDay, isSameDay, roundUpToQuarter, startOfDay, withClock,
 } from '../dateTime/calendarCore';
@@ -37,19 +37,6 @@ const QUICK_PICKS: { label: string; resolve: (today: Date) => Date }[] = [
   { label: 'Next month', resolve: (today) => new Date(today.getFullYear(), today.getMonth() + 1, today.getDate()) },
 ];
 
-const HOUR_MARKS = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
-const MINUTE_MARKS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
-
-// A bigger dial on touch screens, where the 28px marks of the mouse dial are too small to hit and
-// neighbouring marks would overlap if they simply grew.
-const DIAL_MOUSE = { size: 148, radius: 58, mark: 'size-7' };
-const DIAL_TOUCH = { size: 216, radius: 88, mark: 'size-10' };
-
-const segClass = (on: boolean) => cn(
-  'px-2 py-1 pointer-coarse:py-2 rounded-md text-sm font-semibold tabular-nums transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40',
-  on ? 'bg-surface text-primary-600 dark:text-primary-300 border border-border' : 'text-text-muted border border-transparent hover:text-text',
-);
-
 export function DatePicker({
   value,
   onChange,
@@ -62,34 +49,22 @@ export function DatePicker({
   defaultHour,
 }: DatePickerProps) {
   const isPhone = useMediaQuery('(max-width: 639px)');
-  const coarse = useMediaQuery('(pointer: coarse)');
-  const dial = coarse ? DIAL_TOUCH : DIAL_MOUSE;
-  const dialCenter = dial.size / 2;
 
   const [open, setOpen] = useState(false);
   const [viewMonth, setViewMonth] = useState(() => startOfDay(value ?? new Date()));
-  const [dialMode, setDialMode] = useState<'hour' | 'minute'>('hour');
   // Phones only: date and time are two tabs of one sheet instead of a calendar stacked on a clock.
   const [panel, setPanel] = useState<'date' | 'time'>('date');
   // Re-read on every open, so a tab left open past midnight doesn't call yesterday "today".
   const [today, setToday] = useState(() => startOfDay(new Date()));
-  const [timeError, setTimeError] = useState<string | null>(null);
 
   const handleOpenChange = (next: boolean) => {
     if (disabled) return;
     if (next) {
       setViewMonth(startOfDay(value ?? new Date()));
-      setDialMode('hour');
       setPanel('date');
       setToday(startOfDay(new Date()));
-      setTimeError(null);
     }
     setOpen(next);
-  };
-
-  const dialMarkPosition = (index: number) => {
-    const angle = (index / 12) * 2 * Math.PI - Math.PI / 2;
-    return { left: dialCenter + dial.radius * Math.cos(angle), top: dialCenter + dial.radius * Math.sin(angle) };
   };
 
   // The time a freshly picked day starts at: the clock already chosen, else a round one.
@@ -104,49 +79,14 @@ export function DatePicker({
   };
 
   const selectDay = (day: Date) => {
-    setTimeError(null);
     onChange(clockFor(day));
     if (!showTime) setOpen(false);
     // Day picked, so the phone sheet moves on to the next question.
     else if (isPhone) setPanel('time');
   };
 
-  // Every time change goes through here, so a past time is refused the same way on the dial and in the
-  // phone's time panel.
-  const changeTime = (next: Date) => {
-    if (minDate && next.getTime() < minDate.getTime()) {
-      setTimeError('That time has already passed.');
-      return;
-    }
-    setTimeError(null);
-    onChange(next);
-  };
-
-  const selectHour = (hour12: number) => {
-    if (!value) return;
-    const isPM = value.getHours() >= 12;
-    const next = new Date(value);
-    next.setHours((hour12 % 12) + (isPM ? 12 : 0));
-    changeTime(next);
-    setDialMode('minute');
-  };
-
-  const selectMinute = (minute: number) => {
-    if (!value) return;
-    const next = new Date(value);
-    next.setMinutes(minute);
-    changeTime(next);
-  };
-
-  const setPeriod = (period: 'AM' | 'PM') => {
-    if (!value) return;
-    const h = value.getHours();
-    const isPM = h >= 12;
-    if ((period === 'PM') === isPM) return;
-    const next = new Date(value);
-    next.setHours(period === 'PM' ? h + 12 : h - 12);
-    changeTime(next);
-  };
+  // Every change from the clock goes through the clock's own past-time check; this just saves it.
+  const changeTime = (next: Date) => onChange(next);
 
   const getDayState = (day: Date): DayState => ({
     disabled: !!minDate && day < startOfDay(minDate),
@@ -170,7 +110,7 @@ export function DatePicker({
               onClick={() => { selectDay(target); setViewMonth(target); }}
               className={cn(
                 'h-9 pointer-coarse:h-11 px-1 rounded-lg text-xs font-display font-semibold whitespace-nowrap transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:cursor-not-allowed disabled:opacity-40 [-webkit-tap-highlight-color:transparent]',
-                isActive ? 'bg-primary-600 text-white' : 'bg-surface-hover text-text-secondary hover:bg-surface-active hover:text-text',
+                isActive ? 'bg-gradient-to-br from-primary-500 to-primary-700 text-white dark:from-primary-400 dark:to-primary-600' : 'bg-surface-hover/80 text-text-secondary hover:bg-primary-500/10 hover:text-primary-700 dark:hover:text-primary-300',
               )}
             >
               {pick.label}
@@ -183,98 +123,25 @@ export function DatePicker({
     </div>
   );
 
-  // Desktop and tablet: the analogue dial. Phones get the TimePanel below instead.
-  const dialColumn = (() => {
-    if (!showTime) return null;
-    if (!value) {
-      return (
-        <div className="hidden sm:flex sm:w-[200px] shrink-0 flex-col items-center justify-center gap-1 sm:border-l sm:pl-5 border-border text-center">
-          <span className="text-xs font-semibold text-text-muted">Pick a day first</span>
-          <span className="text-xs text-text-light">Then set the time here.</span>
-        </div>
-      );
-    }
+  // The clock sits beside the calendar from sm up and is its own tab on a phone. One component for
+  // both, so the time is set the same way on every screen.
+  const clock = showTime && (
+    <ClockPicker value={value} onChange={changeTime} minAt={minDate ?? null} label="Time" />
+  );
 
-    const h24 = value.getHours();
-    const period: 'AM' | 'PM' = h24 >= 12 ? 'PM' : 'AM';
-    const hour12 = h24 % 12 === 0 ? 12 : h24 % 12;
-    const minute = value.getMinutes();
-    const handAngleDeg = dialMode === 'hour' ? (hour12 % 12) * 30 : (minute / 60) * 360;
-
-    return (
-      <div className={cn('hidden sm:flex shrink-0 flex-col items-center gap-3 sm:border-l sm:pl-5 border-border', coarse ? 'sm:w-[17rem]' : 'sm:w-[200px]')}>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center p-0.5 bg-surface-hover rounded-lg">
-            <button type="button" onClick={() => setDialMode('hour')} aria-label="Change hour" className={segClass(dialMode === 'hour')}>
-              {String(hour12).padStart(2, '0')}
-            </button>
-            <span className="px-0.5 text-sm font-bold text-text-light">:</span>
-            <button type="button" onClick={() => setDialMode('minute')} aria-label="Change minutes" className={segClass(dialMode === 'minute')}>
-              {String(minute).padStart(2, '0')}
-            </button>
-          </div>
-
-          <div className="flex p-0.5 bg-surface-hover rounded-lg">
-            {(['AM', 'PM'] as const).map((p) => (
-              <button key={p} type="button" onClick={() => setPeriod(p)} aria-pressed={period === p} className={cn(segClass(period === p), 'text-xs font-bold')}>
-                {p}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <span className="text-xs font-medium text-text-light">{dialMode === 'hour' ? 'Tap the hour' : 'Tap the minutes'}</span>
-
-        <div className="relative shrink-0" style={{ width: dial.size, height: dial.size }}>
-          <div className="absolute inset-0 rounded-full bg-surface-hover/60 border border-border" />
-          <div
-            className="absolute bg-primary-500 rounded-full pointer-events-none transition-transform duration-300 ease-out"
-            style={{
-              width: 2,
-              height: dial.radius - 6,
-              left: dialCenter - 1,
-              top: dialCenter - (dial.radius - 6),
-              transform: `rotate(${handAngleDeg}deg)`,
-              transformOrigin: `1px ${dial.radius - 6}px`,
-            }}
-          />
-          <div className="absolute size-2 rounded-full bg-primary-600 pointer-events-none" style={{ left: dialCenter - 4, top: dialCenter - 4 }} />
-
-          {(dialMode === 'hour' ? HOUR_MARKS : MINUTE_MARKS).map((markValue, i) => {
-            const pos = dialMarkPosition(i);
-            const isActive = dialMode === 'hour' ? markValue === hour12 : markValue === minute;
-            return (
-              <button
-                key={markValue}
-                type="button"
-                onClick={() => (dialMode === 'hour' ? selectHour(markValue) : selectMinute(markValue))}
-                aria-label={dialMode === 'hour' ? `${markValue} o'clock` : `${markValue} minutes`}
-                aria-pressed={isActive}
-                className={cn(
-                  'absolute -translate-x-1/2 -translate-y-1/2 rounded-full text-xs font-semibold transition-colors duration-150 cursor-pointer flex items-center justify-center tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50',
-                  dial.mark,
-                  isActive ? 'bg-primary-600 text-white' : 'text-text-secondary hover:bg-surface-active hover:text-text',
-                )}
-                style={{ left: pos.left, top: pos.top }}
-              >
-                {dialMode === 'minute' ? String(markValue).padStart(2, '0') : markValue}
-              </button>
-            );
-          })}
-        </div>
-
-        {timeError && <p className="text-xs text-danger font-display" role="alert">{timeError}</p>}
-
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          className="w-full h-9 pointer-coarse:h-11 rounded-lg bg-primary-800 hover:bg-primary-900 dark:bg-primary-600 dark:hover:bg-primary-500 text-white text-sm font-display font-semibold tabular-nums transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
-        >
-          Set {formatDay(value)}, {formatClock(value)}
-        </button>
-      </div>
-    );
-  })();
+  const desktopClock = showTime && !isPhone && (
+    <div className="flex w-60 shrink-0 flex-col gap-3 border-l border-border pl-5">
+      {clock}
+      <button
+        type="button"
+        disabled={!value}
+        onClick={() => setOpen(false)}
+        className="w-full h-9 pointer-coarse:h-11 rounded-lg bg-gradient-to-br from-primary-500 to-primary-700 hover:brightness-110 text-white text-sm font-display font-semibold tabular-nums transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {value ? `Set ${formatDay(value)}, ${formatClock(value)}` : 'Pick a day first'}
+      </button>
+    </div>
+  );
 
   const phoneTabs = showTime && (
     <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-surface-hover/80 sm:hidden">
@@ -315,15 +182,15 @@ export function DatePicker({
           type="button"
           disabled={disabled}
           className={cn(
-            'w-full flex items-center gap-2 h-10 pointer-coarse:min-h-11 px-3 rounded-md border bg-surface text-sm transition-all cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30',
+            'w-full flex items-center gap-2.5 h-10 pointer-coarse:min-h-11 px-2.5 rounded-xl border bg-surface text-sm transition-all cursor-pointer outline-none focus-visible:ring-4 focus-visible:ring-primary-500/15 focus-visible:border-primary-400',
             'disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-surface-hover',
-            open ? 'border-primary-500' : 'border-border hover:border-border-hover',
+            open ? 'border-primary-500' : 'border-border/70 hover:border-primary-400/70',
             value && 'pr-9 pointer-coarse:pr-11',
             className,
             triggerClassName,
           )}
         >
-          <CalendarIcon size={15} className="text-text-light shrink-0" />
+          <span className="flex items-center justify-center size-6 rounded-lg bg-primary-500/10 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300 shrink-0"><CalendarIcon size={14} strokeWidth={2.4} /></span>
           <span className={cn('truncate', value ? 'text-text font-medium' : 'text-text-light font-medium')}>
             {value ? formatDay(value) + (showTime ? ` • ${formatClock(value)}` : '') : placeholder}
           </span>
@@ -348,14 +215,10 @@ export function DatePicker({
       <div className="flex flex-col sm:flex-row sm:gap-5">
         <div className={cn(showTime && panel === 'time' && 'max-sm:hidden')}>{dateColumn}</div>
 
-        {/* Phone: the device's own time control plus one-tap working-day times. */}
-        {showTime && (
-          <div className={cn('sm:hidden', panel === 'date' && 'hidden')}>
-            <TimePanel label="Time" value={value} onChange={changeTime} minAt={minDate ?? null} />
-          </div>
-        )}
+        {/* Phone: the clock is its own tab. */}
+        {showTime && isPhone && panel === 'time' && clock}
 
-        {dialColumn}
+        {desktopClock}
       </div>
     </PickerShell>
   );

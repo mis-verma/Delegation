@@ -4,6 +4,9 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { Loader } from '../loaders/Loader';
 import { Popover, PopoverTrigger, PopoverContent } from '../ui/popover';
+import { PickerShell } from '../dateTime/PickerShell';
+import { OptionList } from '../dropdown/OptionList';
+import { useMediaQuery } from '../../lib/useMediaQuery';
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -32,6 +35,8 @@ interface ComboboxProps {
   className?: string;
   onCreateNew?: (query: string) => void;
   createNewLabel?: string;
+  /** Heading of the phone sheet. Defaults to the placeholder without its "Search ..." wording. */
+  label?: string;
 }
 
 const highlightMatch = (label: string, query: string): ReactNode => {
@@ -61,7 +66,9 @@ export const Combobox = ({
   className,
   onCreateNew,
   createNewLabel = 'Create new',
+  label,
 }: ComboboxProps) => {
+  const isPhone = useMediaQuery('(max-width: 639px)');
   const allOptions = useMemo<ComboboxOption[]>(
     () => (emptyOptionLabel !== undefined ? [{ value: '', label: emptyOptionLabel }, ...options] : options),
     [options, emptyOptionLabel]
@@ -121,6 +128,66 @@ export const Combobox = ({
     row?.scrollIntoView({ block: 'nearest' });
   }, [open]);
 
+  const triggerButton = (
+    <button
+      ref={setTriggerEl}
+      type="button"
+      id={id}
+      disabled={disabled || isLoading}
+      aria-expanded={open}
+      className={cn(
+        'press-feedback flex items-center gap-2 w-full h-10 pointer-coarse:min-h-11 pl-3 pr-2 rounded-xl border bg-surface text-sm transition-colors cursor-pointer',
+        'focus:outline-none focus-visible:ring-4 focus-visible:ring-primary-500/15 focus-visible:border-primary-400',
+        'disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-border',
+        open ? 'border-primary-500' : 'border-border/70 hover:border-primary-400/70',
+        className,
+      )}
+    >
+      <span className={cn('flex-1 text-left truncate', selected?.label ? 'text-text font-medium' : 'text-text-muted font-medium')}>
+        {isLoading ? 'Loading...' : (selected?.label || placeholder)}
+      </span>
+      {isLoading ? (
+        <Loader size="sm" variant="slate" className="w-3.5 h-3.5 shrink-0" />
+      ) : (
+        <span className={cn('flex items-center justify-center size-6 rounded-full shrink-0 transition-colors duration-200', open ? 'bg-primary-500/15 text-primary-700 dark:text-primary-300' : 'bg-surface-hover text-text-light')}>
+          <ChevronDown size={14} strokeWidth={2.4} className={cn('transition-transform duration-200', open && 'rotate-180')} />
+        </span>
+      )}
+    </button>
+  );
+
+  // Phones get a bottom sheet instead of a small popover: a list under a field is cramped, can be
+  // covered by the keyboard, and has rows too short to hit. Same choices, bigger rows, own search.
+  if (isPhone) {
+    const sheetTitle = label ?? (placeholder.replace(/^Search\s+/i, '').replace(/[….]+$/, '').trim().replace(/^./, (c) => c.toUpperCase()) || 'Choose an option');
+    return (
+      <PickerShell
+        bare
+        open={open}
+        onOpenChange={(next) => {
+          if (next && (disabled || isLoading)) return;
+          setOpen(next);
+        }}
+        trigger={triggerButton}
+        title={sheetTitle}
+      >
+        <OptionList
+          options={allOptions}
+          selected={[value]}
+          onToggle={(v) => { onChange(v); setOpen(false); }}
+          searchPlaceholder={placeholder === 'Search...' ? 'Search…' : placeholder.replace(/\.{3}$/, '…')}
+          actions={onCreateNew ? [{
+            key: 'create',
+            label: createNewLabel,
+            icon: Plus,
+            tone: 'primary' as const,
+            onSelect: () => { onCreateNew(''); setOpen(false); },
+          }] : undefined}
+        />
+      </PickerShell>
+    );
+  }
+
   return (
     <Popover
       open={open}
@@ -134,32 +201,7 @@ export const Combobox = ({
         }
       }}
     >
-      <PopoverTrigger asChild>
-        <button
-          ref={setTriggerEl}
-          type="button"
-          id={id}
-          disabled={disabled || isLoading}
-          aria-expanded={open}
-          className={cn(
-            'press-feedback flex items-center gap-2 w-full h-10 pointer-coarse:min-h-11 px-3 rounded-md border bg-surface text-sm transition-colors cursor-pointer',
-            'focus:outline-none focus:ring-2 focus:ring-primary-400',
-            'disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-border',
-            open ? 'border-primary-500' : 'border-border hover:border-primary-400',
-            className,
-          )}
-        >
-          <Search size={14} className="text-text-light shrink-0" />
-          <span className={cn('flex-1 text-left truncate', selected?.label ? 'text-text font-medium' : 'text-text-muted font-medium')}>
-            {isLoading ? 'Loading...' : (selected?.label || placeholder)}
-          </span>
-          {isLoading ? (
-            <Loader size="sm" variant="slate" className="w-3.5 h-3.5 shrink-0" />
-          ) : (
-            <ChevronDown size={14} className={cn('shrink-0 text-text-light transition-transform duration-200', open && 'rotate-180')} />
-          )}
-        </button>
-      </PopoverTrigger>
+      <PopoverTrigger asChild>{triggerButton}</PopoverTrigger>
 
       <PopoverContent
         collisionBoundary={triggerEl?.closest('[data-slot="dialog-content"]') ?? undefined}
@@ -184,7 +226,7 @@ export const Combobox = ({
               setHighlightedIndex(0);
             }}
             onKeyDown={handleKeyDown}
-            className="w-full h-11 sm:h-8 rounded-md border border-border bg-background pl-8 pr-2 text-base sm:text-sm text-text placeholder:text-text-light focus:outline-none focus:ring-2 focus:border-primary-400 focus:ring-primary-400/30"
+            className="w-full h-11 sm:h-9 rounded-lg border border-border bg-background pl-8 pr-2 text-base sm:text-sm text-text placeholder:text-text-light focus:outline-none focus:ring-2 focus:border-primary-400 focus:ring-primary-400/30"
           />
         </div>
 
@@ -216,17 +258,21 @@ export const Combobox = ({
                     // surfaces, especially in dark mode where the fill fought the near-black page.
                     'flex items-center justify-between gap-2 px-3 py-2.5 pointer-coarse:min-h-11 rounded-lg text-sm font-display font-medium cursor-pointer transition-colors duration-150',
                     isSelected
-                      ? 'bg-primary-500/10 text-primary-700 dark:text-primary-400 font-semibold'
+                      ? 'bg-gradient-to-r from-primary-500/15 to-primary-500/5 text-primary-700 dark:text-primary-300 font-semibold'
                       : isHighlighted
-                        ? 'bg-surface-hover text-text'
-                        : 'text-text hover:bg-surface-hover',
+                        ? 'bg-primary-500/8 text-text'
+                        : 'text-text hover:bg-primary-500/8',
                     !option.value && !isSelected && 'text-text-muted italic'
                   )}
                 >
                   <span className="truncate">{highlightMatch(option.label, trimmedQuery)}</span>
                   <span className="flex items-center gap-2 shrink-0 min-w-0">
                     {option.hint && <span className="truncate max-w-28 text-xs font-medium text-text-muted">{option.hint}</span>}
-                    {isSelected && <Check size={14} className="shrink-0 text-primary-600 dark:text-primary-400" />}
+                    {isSelected && (
+                      <span className="flex items-center justify-center size-4 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 text-white shrink-0">
+                        <Check size={10} strokeWidth={3.5} />
+                      </span>
+                    )}
                   </span>
                 </li>
               );

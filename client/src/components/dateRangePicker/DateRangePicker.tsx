@@ -5,7 +5,7 @@ import { twMerge } from 'tailwind-merge';
 import { Button } from '../button';
 import { CalendarGrid, type DayState } from '../dateTime/CalendarGrid';
 import { PickerShell } from '../dateTime/PickerShell';
-import { TimePanel } from '../dateTime/TimePanel';
+import { ClockPicker } from '../dateTime/ClockPicker';
 import {
   DEFAULT_DUE_HOUR, DEFAULT_START_HOUR, addDays, formatClock, formatDay, isSameDay, roundUpToQuarter, startOfDay, withClock,
 } from '../dateTime/calendarCore';
@@ -82,6 +82,8 @@ export function DateRangePicker({
   // Re-read on every open, so a tab left open past midnight doesn't call yesterday "today".
   const [today, setToday] = useState(() => startOfDay(new Date()));
   const [tab, setTab] = useState<'date' | 'time'>('date');
+  // Which of the two times the clock is showing, when both a start and an end time are asked for.
+  const [clockFor, setClockFor] = useState<'from' | 'to'>(endTimeOnly || dueOnly ? 'to' : 'from');
   const closeTimer = useRef<number | null>(null);
   useEffect(() => () => {
     if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
@@ -105,6 +107,7 @@ export function DateRangePicker({
       setHoverDate(null);
       setToday(startOfDay(new Date()));
       setTab('date');
+      setClockFor(endTimeOnly || dueOnly ? 'to' : 'from');
     }
     setOpen(next);
   };
@@ -245,7 +248,7 @@ export function DateRangePicker({
             key={preset.label}
             type="button"
             onClick={() => applyPreset(preset)}
-            className="h-8 pointer-coarse:h-11 px-3 rounded-full border border-border/70 bg-surface-hover/50 text-xs font-display font-semibold text-text-secondary hover:border-primary-500/40 hover:text-primary-700 dark:hover:text-primary-300 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]"
+            className="h-8 pointer-coarse:h-11 px-3 rounded-full border border-border/70 bg-surface-hover/60 text-xs font-display font-semibold text-text-secondary hover:border-primary-500/40 hover:bg-primary-500/10 hover:text-primary-700 dark:hover:text-primary-300 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]"
           >
             {preset.label}
           </button>
@@ -260,7 +263,7 @@ export function DateRangePicker({
             <div
               className={cn(
                 'flex flex-col gap-0.5 px-3 py-1.5 rounded-xl border',
-                slot.active ? 'border-primary-500/60 bg-primary-500/5' : 'border-border/60 bg-surface-hover/40',
+                slot.active ? 'border-primary-500/60 bg-gradient-to-br from-primary-500/12 to-transparent' : 'border-border/60 bg-surface-hover/40',
               )}
             >
               <span className="text-xs font-display font-semibold text-text-muted leading-none">{slot.label}</span>
@@ -285,18 +288,46 @@ export function DateRangePicker({
     </div>
   );
 
+  const bothTimes = !endTimeOnly && !dueOnly;
+  const activeClock: 'from' | 'to' = bothTimes ? clockFor : 'to';
   const timeColumn = showTime && (
-    <div className="flex flex-col gap-4 w-full sm:w-56 min-w-0 sm:border-l sm:border-border/60 sm:pl-4">
-      {!endTimeOnly && !dueOnly && (
-        <TimePanel label="Start time" value={draft.from} onChange={(d) => setTime('from', d)} minAt={minDate} onTouch={cancelClose} />
+    <div className="flex flex-col gap-3 w-full sm:w-60 min-w-0 sm:border-l sm:border-border/60 sm:pl-4">
+      {/* Start and end each have a time; one clock serves both, switched here. */}
+      {bothTimes && (
+        <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-surface-hover/80" role="group" aria-label="Which time to set">
+          {([
+            { key: 'from', label: 'Start', date: draft.from },
+            { key: 'to', label: 'End', date: draft.to },
+          ] as const).map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              aria-pressed={clockFor === t.key}
+              onClick={() => setClockFor(t.key)}
+              className={cn(
+                'flex flex-col items-start gap-0.5 min-h-12 px-3 py-1.5 rounded-lg text-left transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40',
+                clockFor === t.key ? 'bg-surface border border-primary-500/30' : 'border border-transparent',
+              )}
+            >
+              <span className="text-xs font-display font-semibold text-text-muted leading-none">{t.label} time</span>
+              <span className={cn('text-sm font-display font-semibold leading-tight tabular-nums', clockFor === t.key ? 'text-text' : 'text-text-secondary')}>
+                {t.date ? formatClock(t.date) : 'Pick a day'}
+              </span>
+            </button>
+          ))}
+        </div>
       )}
-      <TimePanel
-        label={endTimeOnly || dueOnly ? 'Due time' : 'End time'}
-        value={draft.to}
-        onChange={(d) => setTime('to', d)}
-        minAt={toMinAt}
+
+      {/* Keyed by which time it is, so switching starts the clock on the hour again. */}
+      <ClockPicker
+        key={activeClock}
+        label={bothTimes ? undefined : 'Due time'}
+        value={draft[activeClock]}
+        onChange={(d) => setTime(activeClock, d)}
+        minAt={activeClock === 'from' ? minDate : toMinAt}
         onTouch={cancelClose}
       />
+
       {/* From sm up the Done button lives here; on a phone it is pinned under the sheet instead. */}
       <Button variant="primary" size="sm" onClick={() => setOpen(false)} disabled={!complete} className="hidden sm:inline-flex mt-auto">
         Done
@@ -318,7 +349,7 @@ export function DateRangePicker({
           onClick={() => setTab(t.key)}
           className={cn(
             'flex flex-col items-start gap-0.5 min-h-12 px-3 py-1.5 rounded-lg text-left transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:cursor-not-allowed disabled:opacity-50',
-            tab === t.key ? 'bg-surface border border-border' : 'border border-transparent',
+            tab === t.key ? 'bg-surface border border-primary-500/30' : 'border border-transparent',
           )}
         >
           <span className="text-xs font-display font-semibold text-text-muted leading-none">{t.label}</span>
@@ -345,14 +376,14 @@ export function DateRangePicker({
           type="button"
           disabled={disabled}
           className={cn(
-            'flex items-center gap-2.5 w-full h-11 px-4 rounded-xl border bg-surface text-sm transition-all cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30',
+            'flex items-center gap-2.5 w-full h-11 px-2.5 rounded-xl border bg-surface text-sm transition-all cursor-pointer outline-none focus-visible:ring-4 focus-visible:ring-primary-500/15 focus-visible:border-primary-400',
             'disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-surface-hover',
-            open ? 'border-primary-500' : 'border-border hover:border-border-hover',
+            open ? 'border-primary-500' : 'border-border/70 hover:border-primary-400/70',
             hasValue && !disabled && 'pr-10 pointer-coarse:pr-12',
             triggerClassName,
           )}
         >
-          <CalendarIcon size={18} className="text-text-light shrink-0" />
+          <span className="flex items-center justify-center size-7 rounded-lg bg-primary-500/10 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300 shrink-0"><CalendarIcon size={15} strokeWidth={2.4} /></span>
           <span className={cn('truncate font-display', (hasValue || placeholderIsValue) ? 'text-text font-medium' : 'text-text-muted font-medium')}>
             {label}
           </span>
@@ -376,7 +407,7 @@ export function DateRangePicker({
     >
       {phoneTabs}
       {/* Phone shows one tab at a time; from sm up both columns sit side by side. */}
-      <div className={cn('sm:grid sm:gap-4', showTime && 'sm:grid-cols-[19.5rem_14rem]')}>
+      <div className={cn('sm:grid sm:gap-4', showTime && 'sm:grid-cols-[19.5rem_15rem]')}>
         <div className={cn(showTime && tab === 'time' && 'max-sm:hidden')}>{dateColumn}</div>
         {timeColumn && <div className={cn(tab === 'date' && 'max-sm:hidden')}>{timeColumn}</div>}
       </div>

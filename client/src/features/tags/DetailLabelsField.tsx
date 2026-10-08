@@ -43,7 +43,7 @@ export const DetailLabelsField = ({ current, onSave, canCreate, readOnly, headin
         )}
         <div className="flex flex-wrap gap-1.5">
           {current.map((t) => (
-            <span key={t.id} className={`inline-flex items-center h-7 px-2.5 rounded-full border text-xs font-display font-semibold ${labelChipClass(t.name)}`}>
+            <span key={t.id} className={`inline-flex items-center h-7 px-2.5 rounded-full border text-xs font-display font-semibold ${labelChipClass(t)}`}>
               {t.name}
             </span>
           ))}
