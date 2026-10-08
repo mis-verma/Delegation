@@ -94,6 +94,7 @@ const StoreSectionComponent = ({
         aria-disabled={forceOpen || undefined}
         className={cn(
           'flex w-full min-h-11 items-center gap-3 sm:gap-4 p-4 sm:p-5 text-left transition-colors duration-200 hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40',
+          open && 'bg-gradient-to-r from-coral-500/8 to-transparent',
           forceOpen ? 'cursor-default' : 'cursor-pointer'
         )}
       >

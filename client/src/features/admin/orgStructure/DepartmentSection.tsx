@@ -75,7 +75,7 @@ export const DepartmentSection = memo(({ node, isOpen, forceOpen, onToggle, show
       }}
       className={cn(
         // Outline, not ring: no box-shadows on this page. -outline-offset keeps it inside the card edge.
-        '@container flex flex-col rounded-xl border overflow-hidden bg-surface transition-colors duration-200',
+        '@container flex flex-col rounded-2xl border overflow-hidden bg-surface transition-colors duration-200',
         isDropTarget
           ? 'border-primary-400 bg-primary-500/10 dark:bg-primary-500/15 outline outline-2 -outline-offset-2 outline-primary-500/40'
           : 'border-border hover:border-primary-300'
@@ -90,6 +90,7 @@ export const DepartmentSection = memo(({ node, isOpen, forceOpen, onToggle, show
         aria-disabled={forceOpen || undefined}
         className={cn(
           'flex w-full min-h-11 items-start gap-3 p-4 text-left transition-colors duration-200 hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40',
+          open && 'bg-gradient-to-r from-primary-500/8 to-transparent',
           forceOpen ? 'cursor-default' : 'cursor-pointer'
         )}
       >
@@ -139,7 +140,7 @@ export const DepartmentSection = memo(({ node, isOpen, forceOpen, onToggle, show
             transition={{ duration: 0.2, ease: 'easeInOut' }}
             className="overflow-hidden"
           >
-            <div className="flex flex-col gap-0.5 p-2 border-t border-border bg-surface-hover/30">
+            <div className="flex flex-col gap-1 p-2 border-t border-border/70 bg-surface-hover/40">
               {node.users.length === 0 ? (
                 <p className="px-2.5 py-3 text-xs font-display text-text-muted">Nobody is in this department yet. Drag someone here, or use Move to on their row.</p>
               ) : (

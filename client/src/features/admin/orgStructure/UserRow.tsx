@@ -61,7 +61,7 @@ export const UserRow = memo(({ user, isHead, storeMismatch, onDragStart, onDragE
       className={cn(
         // @container: the role chip and the Move to label depend on how wide this row is, not on the
         // screen, because the same row sits in a narrow department column and a full-width list.
-        '@container group flex min-h-12 items-center gap-2 px-2.5 py-2 rounded-lg transition-colors duration-200 hover:bg-surface-hover',
+        '@container group flex min-h-14 items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent transition-colors duration-200 hover:bg-surface hover:border-border/70',
         draggable && 'cursor-grab active:cursor-grabbing',
         isBeingDragged && 'opacity-40',
         className
@@ -70,9 +70,9 @@ export const UserRow = memo(({ user, isHead, storeMismatch, onDragStart, onDragE
       {draggable && (
         <GripVertical className="hidden sm:block size-3.5 -mr-1 text-text-light/0 group-hover:text-text-light shrink-0 transition-colors duration-150" aria-hidden />
       )}
-      <Avatar name={name} src={resolveAvatarUrl(user.avatarUrl)} size="sm" />
+      <Avatar name={name} src={resolveAvatarUrl(user.avatarUrl)} size="md" className={user.isActive ? undefined : 'opacity-60 grayscale'} />
       <div className="min-w-0 flex-1 flex flex-col gap-0.5">
-        <p className={cn('text-sm font-display font-medium leading-snug line-clamp-2 break-words', user.isActive ? 'text-text' : 'text-text-secondary')}>{name}</p>
+        <p className={cn('text-sm font-display font-semibold leading-snug line-clamp-2 break-words', user.isActive ? 'text-text' : 'text-text-secondary')}>{name}</p>
         <p className="text-xs font-display text-text-muted line-clamp-1 break-all">{user.email}</p>
         {reportsToName && <p className="text-xs font-display text-text-muted line-clamp-1">Reports to <span className="font-semibold text-text-secondary">{reportsToName}</span></p>}
         <div className="flex flex-wrap items-center gap-1">

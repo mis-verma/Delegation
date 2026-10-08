@@ -22,9 +22,10 @@ interface UserTableProps extends UserActionHandlers {
   onTogglePage: (ids: string[], select: boolean) => void;
 }
 
-// Solid navy header, same treatment as every other dense table in the product (see TicketTable).
-const HEAD_ROW_CLASS = 'bg-primary-800';
-const HEAD_CLASS = 'px-3 py-3 text-left text-xs font-semibold text-white tracking-tight whitespace-nowrap';
+// A light header: a tinted band with quiet labels, so the people are what stands out. The sticky
+// cells reuse it, which is why it has to be a solid colour.
+const HEAD_ROW_CLASS = 'bg-surface-hover';
+const HEAD_CLASS = 'px-3 py-3 text-left text-xs font-display font-semibold text-text-muted tracking-tight whitespace-nowrap';
 
 const COLUMNS: { key: UserSortKey; label: string }[] = [
   { key: 'role', label: 'Role' },
@@ -40,7 +41,7 @@ const SortHeader = ({ label, active, dir, onClick }: { label: string; active: bo
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-1.5 -mx-1 px-1 min-h-8 pointer-coarse:min-h-11 rounded text-white cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+      className={cn('inline-flex items-center gap-1.5 -mx-1 px-1 min-h-8 pointer-coarse:min-h-11 rounded transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50', active ? 'text-text' : 'text-text-muted hover:text-text')}
     >
       {label}
       <Icon className={cn('size-3.5 shrink-0', !active && 'opacity-50')} aria-hidden />
@@ -64,9 +65,9 @@ const UserTableComponent = ({
   const ariaSort = (key: UserSortKey) => (sort === key ? (dir === 'asc' ? 'ascending' : 'descending') : 'none');
 
   return (
-    <div className="w-full overflow-x-auto rounded-lg border border-border/60">
+    <div className="w-full overflow-x-auto rounded-2xl border border-border/60 bg-surface">
       <table className="w-full min-w-[60rem] border-collapse">
-        <thead className={HEAD_ROW_CLASS}>
+        <thead className={cn(HEAD_ROW_CLASS, 'border-b border-border/60')}>
           <tr>
             <th scope="col" className={cn(HEAD_CLASS, 'w-14 min-w-14 sticky left-0 z-10', HEAD_ROW_CLASS)}>
               <label className="flex items-center justify-center size-8 pointer-coarse:size-11 cursor-pointer">
@@ -76,7 +77,7 @@ const UserTableComponent = ({
                   checked={allSelected}
                   onChange={() => onTogglePage(users.map((u) => u.id), !allSelected)}
                   aria-label="Select everyone on this page"
-                  className="size-4 rounded accent-primary-400 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                  className="size-4 rounded accent-primary-600 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
                 />
               </label>
             </th>
