@@ -41,6 +41,7 @@ const ArchivedDelegationsPage = lazy(() => import('./features/tasks/DraftAndArch
 const TodoPage = lazy(() => import('./features/todo/TodoPage').then(m => ({ default: m.TodoPage })));
 const EventList = lazy(() => import('./features/events/EventList').then(m => ({ default: m.EventList })));
 const CalendarPage = lazy(() => import('./features/calendar/CalendarPage').then(m => ({ default: m.CalendarPage })));
+const RankingsPage = lazy(() => import('./features/admin/analytics/RankingsPage').then(m => ({ default: m.RankingsPage })));
 const OrgOverview = lazy(() => import('./features/admin/analytics').then(m => ({ default: m.OrgOverview })));
 const VerificationQueue = lazy(() => import('./features/verification').then(m => ({ default: m.VerificationQueue })));
 const AdminTaskList = lazy(() => import('./features/admin/AdminTaskList').then(m => ({ default: m.AdminTaskList })));
@@ -290,6 +291,7 @@ const router = createBrowserRouter([
             ),
             children: [
               { path: '/admin', element: <AdminOverviewRoute /> },
+              { path: '/admin/rankings', element: <RankingsPage /> },
               { path: '/admin/analytics', element: <Navigate to="/admin" replace /> },    
               { path: '/admin/reports/tasks', element: <Navigate to="/tasks/team" replace /> },
               { path: '/admin/directory', element: <DirectoryPage /> },

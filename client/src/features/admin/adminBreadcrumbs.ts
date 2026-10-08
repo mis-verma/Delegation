@@ -21,6 +21,9 @@ export function getAdminBreadcrumbs(pathname: string): BreadcrumbTrailItem[] | n
   if (pathname === '/admin') {
     return [DASHBOARD, { label: 'Overview' }];
   }
+  if (pathname === '/admin/rankings') {
+    return [DASHBOARD, { label: 'Overview', to: '/admin' }, { label: 'Rankings' }];
+  }
   if (pathname.startsWith('/admin/scheduled-checklists')) {
     // The sidebar group is "Checklists", but this page is the recurring-checklist list, and its
     // crumb and h1 must read the same as the sidebar child.

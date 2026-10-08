@@ -1,24 +1,22 @@
-import { memo, useCallback, useEffect, useId, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
-import { AlertTriangle, Building2, ClipboardCheck, FileDown, Info, Repeat, TicketCheck } from 'lucide-react';
+import { memo, useCallback, useId } from 'react';
+import { useNavigate, useLocation, useSearchParams } from 'react-router';
+import { AlertTriangle, ClipboardCheck, FileDown, Info, Repeat, TicketCheck } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Button, InlineError, NoticeBanner, type DateRangeValue } from '../../../components';
+import { Button, InlineError, NoticeBanner } from '../../../components';
 import { useAuth } from '../../../context/AuthContext';
 import { useDepartmentsQuery, useStoresQuery } from '../../tickets/hook';
 import { useUsersQuery } from '../hook';
 import { AnalyticsControlBar, type GroupBy } from './GroupByControl';
+import { useAnalyticsWindow, useSearchPatch } from './useAnalyticsWindow';
 import { TaskChecklistKpiSection } from './TaskChecklistKpiSection';
 import { TicketKpiSection } from './TicketKpiSection';
 import { ChecklistInstanceKpiSection } from './ChecklistInstanceKpiSection';
 import { AnalyticsSummaryStrip } from './AnalyticsSummaryStrip';
 import { OrgSnapshotStrip } from './OrgSnapshotStrip';
 import { PerformanceLeadersCard } from './PerformanceLeadersCard';
-import { StoresPerformanceSection } from './StoresPerformanceSection';
 import { TeamLeaderboardRail } from './TeamLeaderboardRail';
 import { useAnalyticsRefresh, useRecentActivityFeed } from './useAnalyticsQueries';
-import { defaultWindow, parseDateParam, toDateParam } from './analyticsDisplay';
 import { RecentActivity } from '../../dashboard/RecentActivity';
-import { endOfDay } from '../../../lib/dateRange';
 import type { Department } from '../../../api/departments';
 import type { Store } from '../../../api/stores';
 import type { AdminUser } from '../../../api/admin';
@@ -27,13 +25,11 @@ const SECTION_TABS = [
   { value: 'delegations', label: 'Delegations', icon: ClipboardCheck },
   { value: 'store-checklists', label: 'Store checklists', icon: Repeat },
   { value: 'tickets', label: 'Tickets', icon: TicketCheck },
-  { value: 'stores', label: 'Stores', icon: Building2 },
 ] as const;
 
 type SectionValue = (typeof SECTION_TABS)[number]['value'];
 
 const DEFAULT_SECTION: SectionValue = 'delegations';
-const DEFAULT_GROUP_BY: GroupBy = 'month';
 const SECTIONS_ANCHOR_ID = 'overview-sections';
 
 const EMPTY_STORES: Store[] = [];
@@ -44,29 +40,6 @@ const EMPTY_USERS: AdminUser[] = [];
 // head only needs their own numbers, not a cross-entity ranking. It also depends on the
 // ADMIN/PC-only /users list, which is not opened up further here.
 const isOrgWide = (role?: string) => role === 'ADMIN' || role === 'PC';
-
-const parseGroupBy = (value: string | null): GroupBy =>
-  value === 'day' || value === 'week' || value === 'month' || value === 'year' ? value : DEFAULT_GROUP_BY;
-
-// The page keeps its time window and open tab in the address (?by=week&from=2026-10-01&to=2026-10-14
-// &tab=tickets), so a refresh or a shared link lands on the same view. This returns one stable
-// updater that merges into whatever the address holds at call time, which keeps callbacks handed to
-// memoised children from changing identity on every URL change.
-const useSearchPatch = () => {
-  const navigate = useNavigate();
-  return useCallback(
-    (patch: Record<string, string | null>) => {
-      const next = new URLSearchParams(window.location.search);
-      for (const [key, value] of Object.entries(patch)) {
-        if (value == null || value === '') next.delete(key);
-        else next.set(key, value);
-      }
-      const search = next.toString();
-      navigate({ search: search ? `?${search}` : '' }, { replace: true, preventScrollReset: true });
-    },
-    [navigate],
-  );
-};
 
 // ---------------------------------------------------------------------------------------------
 // Scope notice (MANAGER and SENIOR only)
@@ -127,20 +100,17 @@ interface OverviewTabsProps {
   groupBy: GroupBy;
   from?: string;
   to?: string;
-  /** The explicit window (picked range, or the default one) for the cross-store ranking tab. */
-  windowFrom: string;
-  windowTo: string;
   isOrgWideRole: boolean;
 }
 
 // Owns the selected tab, so switching tabs re-renders only this block and never the summary or
 // snapshot strips above and below it.
-const OverviewTabs = memo(({ groupBy, from, to, windowFrom, windowTo, isOrgWideRole }: OverviewTabsProps) => {
+const OverviewTabs = memo(({ groupBy, from, to, isOrgWideRole }: OverviewTabsProps) => {
   const headingId = useId();
   const [params] = useSearchParams();
   const patch = useSearchPatch();
 
-  const tabs = useMemo(() => (isOrgWideRole ? SECTION_TABS : SECTION_TABS.filter((t) => t.value !== 'stores')), [isOrgWideRole]);
+  const tabs = SECTION_TABS;
   const requested = params.get('tab');
   const section: SectionValue = tabs.find((t) => t.value === requested)?.value ?? DEFAULT_SECTION;
 
@@ -172,11 +142,6 @@ const OverviewTabs = memo(({ groupBy, from, to, windowFrom, windowTo, isOrgWideR
         <TabsContent value="tickets" className="pt-4 sm:pt-6">
           <TicketKpiSection groupBy={groupBy} from={from} to={to} isOrgWideRole={isOrgWideRole} />
         </TabsContent>
-        {isOrgWideRole && (
-          <TabsContent value="stores" className="pt-4 sm:pt-6">
-            <StoresPerformanceSection from={windowFrom} to={windowTo} />
-          </TabsContent>
-        )}
       </Tabs>
     </section>
   );
@@ -208,63 +173,12 @@ RecentActivitySection.displayName = 'RecentActivitySection';
 // Page
 // ---------------------------------------------------------------------------------------------
 
-// Today's date as a string that changes at local midnight (and when a sleeping tab wakes up), so
-// anything keyed on it recomputes once the day rolls over.
-const useToday = () => {
-  const [today, setToday] = useState(() => toDateParam(new Date()));
-  useEffect(() => {
-    const refresh = () => setToday(toDateParam(new Date()));
-    const now = new Date();
-    const untilMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime() - now.getTime();
-    const timer = window.setTimeout(refresh, untilMidnight + 1000);
-    document.addEventListener('visibilitychange', refresh);
-    return () => {
-      window.clearTimeout(timer);
-      document.removeEventListener('visibilitychange', refresh);
-    };
-  }, [today]);
-  return today;
-};
-
 export const OrgOverview = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [params] = useSearchParams();
-  const patch = useSearchPatch();
   const orgWide = isOrgWide(user?.role);
+  const { patch, groupBy, range, from, to, windowFrom, windowTo, handleGroupBy, handleRange } = useAnalyticsWindow();
 
-  const groupBy = parseGroupBy(params.get('by'));
-  const fromParam = params.get('from');
-  const toParam = params.get('to');
-
-  // A range only counts once BOTH ends are real dates. The picker reports {from, to: null} after
-  // its first tap, which must never reach a query (a start with no end silently runs to "now").
-  const range = useMemo<DateRangeValue>(() => {
-    const from = parseDateParam(fromParam);
-    const to = parseDateParam(toParam);
-    return from && to && from.getTime() <= to.getTime() ? { from, to } : { from: null, to: null };
-  }, [fromParam, toParam]);
-
-  // range.to is a calendar date at local midnight (the picker is not in showTime mode), so wrap it
-  // to the end of that day or the last day would be dropped from the query.
-  const from = useMemo(() => range.from?.toISOString(), [range]);
-  const to = useMemo(() => (range.to ? endOfDay(range.to).toISOString() : undefined), [range]);
-
-  // The ONE window the ranking sections (leaders, leaderboard, stores table) share: the picked
-  // range, or else the last 12 buckets of the grouping (30 days for Day), the same span the control
-  // bar names. Without it ticket and delegation figures were all-time while store checklists were
-  // the last 30 days.
-  // `today` moves at midnight, so a tab left open overnight does not keep ranking yesterday's window.
-  const today = useToday();
-  const fallbackWindow = useMemo(() => defaultWindow(groupBy, parseDateParam(today) ?? undefined), [groupBy, today]);
-  const windowFrom = from ?? fallbackWindow.from;
-  const windowTo = to ?? fallbackWindow.to;
-
-  const handleGroupBy = useCallback((next: GroupBy) => patch({ by: next === DEFAULT_GROUP_BY ? null : next }), [patch]);
-  const handleRange = useCallback(
-    (next: DateRangeValue) => patch({ from: next.from && next.to ? toDateParam(next.from) : null, to: next.from && next.to ? toDateParam(next.to) : null }),
-    [patch],
-  );
   const jumpToSection = useCallback(
     (target: SectionValue) => {
       patch({ tab: target === DEFAULT_SECTION ? null : target });
@@ -273,7 +187,14 @@ export const OrgOverview = () => {
     },
     [patch],
   );
-  const jumpToStores = useCallback(() => jumpToSection('stores'), [jumpToSection]);
+  // The full ranking is its own page now, opened with the same time window.
+  const location = useLocation();
+  const openRankings = useCallback(() => {
+    const next = new URLSearchParams(location.search);
+    next.delete('tab');
+    const search = next.toString();
+    navigate(`/admin/rankings${search ? `?${search}` : ''}`);
+  }, [location.search, navigate]);
 
   const { updatedAt, isRefreshing, refresh } = useAnalyticsRefresh();
 
@@ -330,13 +251,13 @@ export const OrgOverview = () => {
       {orgWide && (
         <div className="@container">
           <div className="grid grid-cols-1 gap-4 sm:gap-6 @3xl:grid-cols-2">
-            <PerformanceLeadersCard from={windowFrom} to={windowTo} onViewFull={jumpToStores} />
+            <PerformanceLeadersCard from={windowFrom} to={windowTo} onViewFull={openRankings} />
             <TeamLeaderboardRail from={windowFrom} to={windowTo} />
           </div>
         </div>
       )}
 
-      <OverviewTabs groupBy={groupBy} from={from} to={to} windowFrom={windowFrom} windowTo={windowTo} isOrgWideRole={orgWide} />
+      <OverviewTabs groupBy={groupBy} from={from} to={to} isOrgWideRole={orgWide} />
 
       <RecentActivitySection />
 
