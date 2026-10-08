@@ -30,7 +30,7 @@ export function getAdminBreadcrumbs(pathname: string): BreadcrumbTrailItem[] | n
     return [DASHBOARD, ADMIN_ROOT, { label: 'Recurring Checklists' }];
   }
   if (pathname.startsWith('/admin/checklist-store-daily')) {
-    return [DASHBOARD, ADMIN_ROOT, { label: 'Store by Day' }];
+    return [DASHBOARD, ADMIN_ROOT, { label: 'Store and Dept Scores' }];
   }
   if (pathname.startsWith('/admin/checklist-compliance')) {
     return [DASHBOARD, ADMIN_ROOT, { label: 'Checklist Compliance' }];

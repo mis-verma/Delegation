@@ -10,6 +10,7 @@ import { parseDateParam, toDateParam, formatPercent } from '../analytics/analyti
 import { NEEDS_ATTENTION_BELOW } from '../analytics/useOwnerRankings';
 import { useSearchPatch } from '../analytics/useAnalyticsWindow';
 import { cn } from '@/lib/utils';
+import { DepartmentMonthlySection } from './DepartmentMonthlySection';
 
 const GOOD_FROM = 80;
 const toneOf = (rate: number | null) =>
@@ -123,8 +124,8 @@ export const StoreDailyPage = () => {
     <div className="flex flex-col gap-4 w-full">
       <PageHeader
         icon={CalendarRange}
-        title="Store completion by day"
-        subtitle="How much of each store's checklist work was done, day by day."
+        title="Store and department scores"
+        subtitle="Checklist completion store by store and day by day, then department by department each month."
       />
 
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border/60 bg-surface p-3">
@@ -214,6 +215,8 @@ export const StoreDailyPage = () => {
           </table>
         </div>
       )}
+
+      <DepartmentMonthlySection />
     </div>
   );
 };

@@ -11,6 +11,7 @@ import {
     checklistDefinitions,
     users,
     stores,
+    departments,
 } from "../../db/schema/index.js"
 import { GATED_BOOLEAN_ITEM_EXPR, FLAGGED_BOOLEAN_ANSWER_EXPR } from "../../utils/checklistBooleanFlags.js"
 import { REPORT_DATE_FORMATS, RANGE_BUCKET, resolveReportWindow, zeroFill, type ReportGroupBy } from "./checklistReportRange.js"
@@ -299,6 +300,54 @@ export const checklistReportService = {
                 completionRate: m.completionRate,
                 doneItems: m.doneItems,
                 totalItems: m.totalItems,
+                dueRuns: m.dueRuns,
+            }
+        })
+    },
+
+    /**
+     * One row per department and month: completion and compliance over the same due-run rules as the
+     * other reports. A run belongs to every department one of its assignees sits in (the rule the
+     * department filters use), so a run shared across departments counts in each. Runs with nobody
+     * assigned have no department and are left out. A department head only gets their own department.
+     */
+    async departmentMonthlyReport(scope: ChecklistReportScope | null, query: { from?: string; to?: string }) {
+        if (!scope) return []
+        const window = resolveReportWindow("month", query.from, query.to)
+        assertRangeAllowed(window, !!query.from)
+        // The department join below does the department scoping, so the per-run filter must not also
+        // demand a department (it would be the same rule twice).
+        const conditions = filterConditions({ ...scope, departmentId: undefined }, window, false, true)
+        const ownDepartment = scope.departmentId ? sql` AND ra.departmentId = ${scope.departmentId}` : sql``
+
+        const [rows] = await db.execute(sql`
+            SELECT ra.departmentId AS departmentId, dep.name AS departmentName,
+                DATE_FORMAT(r.periodStart, '%Y-%m') AS month, ${GROUP_METRICS}
+            FROM (${runAggregateSql(conditions)}) r
+            JOIN (
+                SELECT DISTINCT a.instanceId AS instanceId, u.departmentId AS departmentId
+                FROM ${checklistInstanceAssignees} a
+                JOIN ${users} u ON u.id = a.userId
+                WHERE u.departmentId IS NOT NULL
+            ) ra ON ra.instanceId = r.id${ownDepartment}
+            JOIN ${departments} dep ON dep.id = ra.departmentId
+            GROUP BY ra.departmentId, dep.name, month
+            ORDER BY dep.name ASC, month ASC
+        `)
+
+        return (rows as unknown as MetricRow[]).map((r) => {
+            const m = metricsOf(r)
+            return {
+                departmentId: String(r.departmentId),
+                departmentName: String(r.departmentName),
+                month: String(r.month),
+                completionRate: m.completionRate,
+                complianceRate: m.complianceRate,
+                doneItems: m.doneItems,
+                totalItems: m.totalItems,
+                // Raw weights, so a caller can total months without averaging percentages.
+                weightedGood: n(r.weightedGoodItems),
+                weightedScored: n(r.weightedScoredItems),
                 dueRuns: m.dueRuns,
             }
         })

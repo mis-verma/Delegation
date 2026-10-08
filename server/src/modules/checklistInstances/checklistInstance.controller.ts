@@ -261,6 +261,15 @@ export const checklistInstanceController = {
 
     // GET /checklist-instances/reports/store-daily?from=&to=
     // Store-by-day completion for the grid page. Same scope and range rules as by-store above.
+    // GET /checklist-instances/reports/department-monthly?from=&to=
+    // Department-by-month completion and compliance. Same scope and range rules as by-store above.
+    departmentMonthlyReport: asyncHandler(async (req: Request, res: Response) => {
+        const query = checklistInstanceByStoreReportQuerySchema.parse(req.query)
+        const scope = resolveChecklistReportScope(req.user!)
+        const data = await checklistReportService.departmentMonthlyReport(scope, query)
+        res.json({ success: true, data })
+    }),
+
     storeDailyReport: asyncHandler(async (req: Request, res: Response) => {
         const query = checklistInstanceByStoreReportQuerySchema.parse(req.query)
         const scope = resolveChecklistReportScope(req.user!)

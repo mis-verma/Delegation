@@ -213,6 +213,22 @@ export type ChecklistStoreDailyRow = {
   dueRuns: number;
 };
 
+/** One department in one month (GET /checklist-instances/reports/department-monthly). */
+export type ChecklistDepartmentMonthlyRow = {
+  departmentId: string;
+  departmentName: string;
+  /** 'YYYY-MM' */
+  month: string;
+  completionRate: number | null;
+  complianceRate: number | null;
+  doneItems: number;
+  totalItems: number;
+  /** Raw weights behind complianceRate, so months can be totalled without averaging percentages. */
+  weightedGood: number;
+  weightedScored: number;
+  dueRuns: number;
+};
+
 /** One row of the per-store comparison (GET /checklist-instances/reports/by-store). */
 export type ChecklistStoreComplianceRow = {
   storeId: string;
@@ -570,6 +586,12 @@ export const checklistInstanceApi = {
   getComplianceByStore: (from?: string, to?: string) =>
     apiFetch<ApiResponse<ChecklistStoreComplianceRow[]>>(
       `/checklist-instances/reports/by-store${buildQuery({ from: from ? toDayParam(from) : undefined, to: to ? toDayParam(to) : undefined })}`,
+    ),
+
+  /** Completion and compliance per department per month. */
+  getDepartmentMonthly: (from: string, to: string) =>
+    apiFetch<ApiResponse<ChecklistDepartmentMonthlyRow[]>>(
+      `/checklist-instances/reports/department-monthly${buildQuery({ from: toDayParam(from), to: toDayParam(to) })}`,
     ),
 
   /** Completion for every store on every day of the range, for the store-by-day grid. */
