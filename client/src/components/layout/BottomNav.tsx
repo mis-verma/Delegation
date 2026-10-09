@@ -56,6 +56,7 @@ export const BottomNav = () => {
           if (center) {
             return (
               <NavLink
+                viewTransition
                 key={to}
                 to={to}
                 aria-label={summary ? `${label}, ${summary}` : label}
@@ -83,6 +84,7 @@ export const BottomNav = () => {
 
           return (
             <NavLink
+              viewTransition
               key={to}
               to={to}
               onTouchStart={() => prefetchRoute(to)}

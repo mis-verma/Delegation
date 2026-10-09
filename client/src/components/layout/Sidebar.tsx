@@ -309,6 +309,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
         <div className="group/row flex items-center gap-1.5">
           <RailTip label={label} show={!showLabel}>
           <NavLink
+            viewTransition
             to={to}
             end={to === '/'}
             onClick={handleNavClick}
@@ -386,6 +387,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
 
           {quickCreateTo && showLabel && (
             <NavLink
+              viewTransition
               to={quickCreateTo}
               onClick={handleNavClick}
               title={`New ${label}`}
@@ -432,6 +434,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
 
                   return (
                     <NavLink
+                      viewTransition
                       key={child.to}
                       to={child.to}
                       onClick={handleNavClick}

@@ -275,6 +275,7 @@ export const AdminLayout = () => {
 
     const link = (
       <NavLink
+        viewTransition
         to={to}
         end={end}
         onClick={(e) => {
@@ -394,6 +395,7 @@ export const AdminLayout = () => {
                   const isChildActive = child.to === activeChild;
                   return (
                     <NavLink
+                      viewTransition
                       key={child.to}
                       to={child.to}
                       onClick={() => { handleNavClick(); setFlyoutKey(null); }}
@@ -470,6 +472,7 @@ export const AdminLayout = () => {
                   const isChildActive = child.to === activeChild;
                   return (
                     <NavLink
+                      viewTransition
                       key={child.to}
                       to={child.to}
                       onClick={handleNavClick}
@@ -650,7 +653,7 @@ export const AdminLayout = () => {
             <div
               ref={pageRef}
               key={location.pathname}
-              className="w-full animate-in fade-in slide-in-from-bottom-2 duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
+              className="w-full animate-in fade-in slide-in-from-bottom-2 duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
             >
               <Suspense fallback={<RouteFallback />}>
                 <PageHeaderTitleContext.Provider value={false}>

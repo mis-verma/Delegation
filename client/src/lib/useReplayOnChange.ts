@@ -16,7 +16,7 @@ export const useReplayOnChange = (ref: RefObject<HTMLElement | null>, scope: str
     if (!node || typeof node.animate !== 'function' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     node.animate(
       [{ opacity: 0.35, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }],
-      { duration: 260, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+      { duration: 180, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
     );
   }, [ref, scope, trigger]);
 };

@@ -117,7 +117,7 @@ export const Dashboard = () => {
                 <div
                   ref={pageRef}
                   key={location.pathname}
-                  className="flex-1 flex flex-col h-full animate-in fade-in slide-in-from-bottom-2 duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:animate-none"
+                  className="flex-1 flex flex-col h-full animate-in fade-in slide-in-from-bottom-2 duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:animate-none"
                 >
                   {pageUnderMaintenance ? <PageMaintenance pageName={maintenancePageLabel(location.pathname)} /> : <Outlet />}
                 </div>
