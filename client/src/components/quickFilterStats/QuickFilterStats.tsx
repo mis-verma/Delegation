@@ -87,7 +87,6 @@ const QuickFilterStatsSkeleton = ({ count }: { count: number }) => (
               <Skeleton className="h-7 w-12" />
               <Skeleton className="h-3.5 w-20" />
             </div>
-            <Skeleton className="size-10 lg:size-8 xl:size-10 rounded-xl shrink-0" />
           </div>
         );
       })}
@@ -143,7 +142,7 @@ export function QuickFilterStats<K extends string>({
             className={cn(
               'flex min-h-11 items-center justify-between gap-3 rounded-lg border px-3 font-display transition-colors duration-200 active:scale-[0.985] [-webkit-tap-highlight-color:transparent]',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40',
-              active === null ? 'border-primary-500 bg-primary-500/10 ring-1 ring-primary-500/30 text-primary-600/80 dark:text-primary-300/80' : 'border-border bg-surface text-primary-600/80 dark:text-primary-300/80',
+              active === null ? 'border-primary-600 ring-1 ring-inset ring-primary-600 dark:border-primary-400 dark:ring-primary-400 text-primary-600/80 dark:text-primary-300/80' : 'border-border bg-surface text-primary-600/80 dark:text-primary-300/80',
             )}
           >
             <span className="t-meta font-semibold">{totalLabel} {itemLabel}</span>
@@ -167,7 +166,7 @@ export function QuickFilterStats<K extends string>({
                   // tap-highlight off: Android Chrome otherwise flashes its own grey box on every tap.
                   'flex min-h-16 flex-col items-center justify-center gap-0.5 rounded-lg border px-1 py-2 font-display transition-colors duration-200 cursor-pointer active:scale-[0.985] [-webkit-tap-highlight-color:transparent]',
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40',
-                  isActive ? 'border-primary-500 bg-primary-500/10 ring-1 ring-primary-500/30' : 'border-border bg-surface',
+                  isActive ? 'border-primary-600 ring-1 ring-inset ring-primary-600 dark:border-primary-400 dark:ring-primary-400' : 'border-border bg-surface',
                 )}
               >
                 {/* Wraps instead of cutting: four cells at 320px leave about 70px for "Completed". */}
@@ -181,7 +180,7 @@ export function QuickFilterStats<K extends string>({
 
       <div className={cn(gridClass(shownTiles.length), 'hidden sm:grid')}>
       {shownTiles.map((tile, index) => {
-        const { key, label, icon: Icon } = tile;
+        const { key, label } = tile;
         const isTotalTile = hasTotal && key === 'all';
         // The Total tile is the resting state, so it reads as selected exactly when no bucket is.
         const isActive = isTotalTile ? active === null : active === key;
@@ -212,7 +211,7 @@ export function QuickFilterStats<K extends string>({
               // Was `focus:ring-primary-50/50` — #f0f4f8 at half opacity, i.e. an invisible focus
               // ring on a white surface, on the primary filter control of five different pages.
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
-              isActive ? "border-primary-500 bg-primary-500/10 ring-1 ring-primary-500/30" : "border-border hover:border-primary-500/40"
+              isActive ? "border-primary-600 ring-1 ring-inset ring-primary-600 dark:border-primary-400 dark:ring-primary-400" : "border-border hover:border-primary-500/40"
             )}
           >
             <div className="min-w-0 flex-1">
@@ -226,17 +225,6 @@ export function QuickFilterStats<K extends string>({
                 {label}
                 {share !== null && <span className="t-meta font-bold text-text-muted tabular-nums">{share}%</span>}
               </p>
-            </div>
-
-
-            {/* Icon tile — the StatCard-style treatment this row was missing. No decorative ring
-                behind it and no corner badge on top of it: at this tile's compact size (roughly a
-                third of a Dashboard StatCard) StatCard's own oversized background ring read as a
-                circle wrapped around the icon rather than a subtle flourish, and a badge stacked
-                on top of that made it worse. The border/fill/left-bar changes above already say
-                "selected" on their own. */}
-            <div className={cn("flex items-center justify-center size-10 lg:size-8 xl:size-10 rounded-xl border transition-colors duration-200 shrink-0", isActive ? "border-primary-500/40 bg-primary-500/15" : "border-primary-500/20 bg-primary-500/10")}>
-              <Icon size={18} strokeWidth={2.25} className="size-[18px] lg:size-4 xl:size-[18px] text-primary-600 dark:text-primary-400" />
             </div>
           </button>
         );
