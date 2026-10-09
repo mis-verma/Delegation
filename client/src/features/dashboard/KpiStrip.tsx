@@ -129,7 +129,7 @@ interface MobileTileProps {
 // Mobile: the headline is what is still open, with the total beside it as the secondary figure, and
 // a tap goes straight to that pending list. No toggle, no breakdown: the full card lives at `sm:`.
 const MobileTile = ({ view }: MobileTileProps) => {
-  const shell = 'relative overflow-hidden flex flex-col gap-1.5 p-2.5 rounded-xl min-h-20 bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700 text-white text-left';
+  const shell = 'relative overflow-hidden flex flex-col items-center justify-center gap-1 p-3 rounded-xl min-h-24 bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700 text-white text-center';
 
   if (view.isPending) {
     return <Skeleton className="min-h-20 rounded-xl" />;
@@ -137,7 +137,7 @@ const MobileTile = ({ view }: MobileTileProps) => {
 
   const head = (
     <span className="flex items-center gap-2 min-w-0">
-      <span className="text-xs font-display font-semibold text-white/90">{view.title}</span>
+      <span className="t-meta font-display font-semibold text-white/90">{view.title}</span>
     </span>
   );
 
@@ -146,7 +146,7 @@ const MobileTile = ({ view }: MobileTileProps) => {
       <button type="button" onClick={view.onRetry} className={`${shell} cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400`}>
         {head}
         <span className="text-sm font-display font-bold">No data</span>
-        <span className="text-xs font-display font-medium text-white/70">Tap to retry</span>
+        <span className="t-meta font-display font-medium text-white/70">Tap to retry</span>
       </button>
     );
   }
@@ -160,17 +160,17 @@ const MobileTile = ({ view }: MobileTileProps) => {
     >
       {head}
       <span className="flex items-baseline gap-1.5">
-        <span className="text-xl font-display font-bold tabular-nums leading-none">{view.pending}</span>
-        <span className="text-xs font-display font-medium text-white/70">pending</span>
+        <span className="t-figure font-display font-bold tabular-nums">{view.pending}</span>
+        <span className="t-meta font-display font-medium text-white/70">pending</span>
       </span>
-      <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+      <span className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
         {view.total != null && (
-          <span className="text-xs font-display font-medium text-white/70 tabular-nums">
+          <span className="t-meta font-display font-medium text-white/70 tabular-nums">
             {view.totalLabel === 'Total' ? `of ${view.total} total` : `${view.total} today`}
           </span>
         )}
         {view.overdue > 0 && (
-          <span className="inline-flex items-center h-5 px-1.5 rounded-full bg-danger text-white text-xs font-display font-bold tabular-nums">
+          <span className="inline-flex items-center h-5 px-1.5 rounded-full bg-danger text-white t-meta font-display font-bold tabular-nums">
             {view.overdue} overdue
           </span>
         )}

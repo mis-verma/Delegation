@@ -49,7 +49,7 @@ export const UpcomingEvents = ({ events, isPending, isError = false, onRetry }: 
     <section id="upcoming-events" aria-labelledby="upcoming-events-heading" className={`relative ${DASHBOARD_CARD_CLASS} flex flex-col hover:border-primary-500/30 transition-colors duration-200 overflow-hidden`}>
       <div className="flex items-center justify-between gap-3 sm:gap-4 px-3 sm:px-5 py-2.5 sm:py-4 border-b border-border/40">
         <div className="flex items-center gap-3">
-          <EntityIconTile icon={CalendarClock} className="size-8 sm:size-10" iconClassName="size-4 sm:size-5" />
+          <EntityIconTile icon={CalendarClock} className="size-7 sm:size-10" iconClassName="size-3.5 sm:size-5" />
           <div>
             <h2 id="upcoming-events-heading" className="t-section font-display font-bold text-text tracking-tight">Upcoming events</h2>
             <p className="hidden sm:block text-xs font-medium text-text-muted mt-0.5">Deadlines, announcements and broadcasts</p>

@@ -183,7 +183,7 @@ export const StatCard = ({
 
         {Icon && (
           <div
-            className={`flex items-center justify-center ${compact ? 'size-8 sm:size-10' : 'size-10'} rounded-xl border transition-colors duration-200 motion-reduce:transition-none shrink-0 ${
+            className={`flex items-center justify-center ${compact ? 'size-7 sm:size-10' : 'size-10'} rounded-xl border transition-colors duration-200 motion-reduce:transition-none shrink-0 ${
               highlight
                 ? 'bg-white/15 border-white/20'
                 : `${iconBgClass} ${iconBorderClass} ${iconHoverClass}`
@@ -191,7 +191,7 @@ export const StatCard = ({
           >
             <Icon
               size={18}
-              className={highlight ? 'text-white' : (iconTint ?? 'text-text-muted')}
+              className={`${compact ? 'max-sm:size-3.5' : ''} ${highlight ? 'text-white' : (iconTint ?? 'text-text-muted')}`}
               strokeWidth={2.5}
             />
           </div>

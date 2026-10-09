@@ -118,7 +118,7 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
               className={`${ICON_BUTTON_CLASS} md:hidden -ml-1.5`}
               aria-label="Open menu"
             >
-              <Menu size={20} strokeWidth={2} />
+              <Menu size={18} strokeWidth={2} />
             </button>
           )}
 

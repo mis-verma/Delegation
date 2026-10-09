@@ -207,7 +207,7 @@ export const RecentActivity = ({ feed, isPending, isError = false, onRetry }: Re
           desktop slot the search drops under the title instead of squeezing the heading. */}
       <div className="flex flex-col @2xl:flex-row @2xl:items-center justify-between gap-3 @2xl:gap-4 px-3 sm:px-5 py-2.5 sm:py-4 border-b border-border/40">
         <div className="flex items-center gap-3 sm:gap-3.5 min-w-0">
-          <EntityIconTile icon={Activity} className="size-8 sm:size-10" iconClassName="size-4 sm:size-5" />
+          <EntityIconTile icon={Activity} className="size-7 sm:size-10" iconClassName="size-3.5 sm:size-5" />
           <div>
             <h2 id="recent-activity-heading" className="t-section font-display font-bold text-text tracking-tight">
               Recently created

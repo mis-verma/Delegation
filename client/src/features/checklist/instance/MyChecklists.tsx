@@ -540,7 +540,7 @@ export const MyChecklists = () => {
                       active={assigneeIds.includes(p.id)}
                       onClick={() => { setAssigneeIds(toggleValue(assigneeIds, p.id)); setPage(1); }}
                       lead={
-                        <span className={`flex items-center justify-center size-6 rounded-full text-white text-[0.5625rem] font-bold shrink-0 ${avatarColorClass(p.name)}`}>
+                        <span className={`flex items-center justify-center size-6 rounded-full text-white text-xs font-bold shrink-0 ${avatarColorClass(p.name)}`}>
                           {getInitials(p.name)}
                         </span>
                       }

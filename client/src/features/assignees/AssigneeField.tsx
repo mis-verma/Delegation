@@ -220,7 +220,7 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
                       onSelect={(e) => { if (!single) e.preventDefault(); }}
                       className="gap-2"
                     >
-                      <span className={`flex items-center justify-center size-5 rounded-full text-[0.5625rem] font-bold text-white shrink-0 ${avatarColorClass(name)}`}>
+                      <span className={`flex items-center justify-center size-6 rounded-full text-xs font-bold text-white shrink-0 ${avatarColorClass(name)}`}>
                         {getInitials(name)}
                       </span>
                       {name}

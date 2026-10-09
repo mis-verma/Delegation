@@ -47,7 +47,7 @@ export const BottomNav = () => {
       style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
       aria-label="Mobile navigation bar"
     >
-      <div className="relative h-16 max-w-lg mx-auto grid grid-cols-5 rounded-3xl border border-border bg-surface">
+      <div className="relative h-14 max-w-lg mx-auto grid grid-cols-5 rounded-3xl border border-border bg-surface">
         {NAV_ITEMS.map(({ to, label, icon: Icon, exact, center }) => {
           const isActive = exact ? location.pathname === to : location.pathname.startsWith(to);
           const badge = to in badges ? badges[to as keyof NavBadgeMap] : undefined;
@@ -64,11 +64,11 @@ export const BottomNav = () => {
               >
                 {/* The raised button. The surface-coloured ring cuts a notch into the bar around it. */}
                 <span
-                  className={`absolute -top-6 flex items-center justify-center size-14 rounded-full ring-4 ring-surface bg-gradient-to-br from-primary-500 to-primary-700 text-white transition-transform duration-150 group-active:scale-95 group-focus-visible:ring-primary-500/40 ${
+                  className={`absolute -top-5 flex items-center justify-center size-12 rounded-full ring-4 ring-surface bg-gradient-to-br from-primary-500 to-primary-700 text-white transition-transform duration-150 group-active:scale-95 group-focus-visible:ring-primary-500/40 ${
                     isActive ? 'dark:from-primary-400 dark:to-primary-600' : ''
                   }`}
                 >
-                  <Icon size={24} strokeWidth={2.25} />
+                  <Icon size={22} strokeWidth={2.25} />
                 </span>
                 {badge && <NavCountBadge badge={badge} className="-top-6 left-1/2 ml-3" />}
                 <span
@@ -96,7 +96,7 @@ export const BottomNav = () => {
                   <span className="absolute inset-0 rounded-full bg-primary-500/12 dark:bg-primary-400/15 animate-in fade-in zoom-in-95 duration-200 motion-reduce:animate-none" />
                 )}
                 <Icon
-                  size={21}
+                  size={19}
                   strokeWidth={isActive ? 2.4 : 1.9}
                   className={`relative transition-colors duration-200 ${
                     isActive ? 'text-primary-600 dark:text-primary-300' : 'text-text-muted group-hover:text-text'

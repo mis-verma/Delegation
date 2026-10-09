@@ -123,8 +123,8 @@ export const NeedsApprovalCard = () => {
           {/* One-off warm tile, not EntityIconTile's shared primary/coral: coral there is scoped to
               physical stores, and this block is the one place on the dashboard that reads as
               "waiting on you", so it earns its own accent. */}
-          <div className="flex items-center justify-center size-8 sm:size-10 rounded-lg sm:rounded-xl shrink-0 text-primary-600 dark:text-primary-400 bg-primary-500/10 border border-primary-500/20">
-            <ShieldAlert size={18} strokeWidth={2.25} />
+          <div className="flex items-center justify-center size-7 sm:size-10 rounded-lg sm:rounded-xl shrink-0 text-primary-600 dark:text-primary-400 bg-primary-500/10 border border-primary-500/20">
+            <ShieldAlert className="size-4 sm:size-[18px]" strokeWidth={2.25} />
           </div>
           <div className="min-w-0">
             <h2 id="needs-approval-heading" className="t-section font-display font-bold text-text tracking-tight">

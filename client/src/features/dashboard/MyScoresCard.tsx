@@ -397,8 +397,8 @@ export const MyScoresCard = () => {
           className="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left outline-none transition-colors hover:bg-surface-hover/40 focus-visible:ring-2 focus-visible:ring-primary-500/40 @4xl:pointer-events-none @4xl:hover:bg-transparent"
         >
           <span className="flex min-w-0 items-center gap-2.5">
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-500/10 text-primary-700 ring-1 ring-primary-500/15 dark:text-primary-300">
-              <SlidersHorizontal className="size-4" aria-hidden="true" />
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary-500/10 text-primary-700 ring-1 ring-primary-500/15 dark:text-primary-300 sm:size-8">
+              <SlidersHorizontal className="size-3.5 sm:size-4" aria-hidden="true" />
             </span>
             <span className="min-w-0">
               <span className="block t-meta font-display font-semibold text-text">{canExportReport ? 'Period, measure and people' : 'Period and measure'}</span>

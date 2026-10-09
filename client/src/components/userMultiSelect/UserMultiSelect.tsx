@@ -65,7 +65,7 @@ export const UserMultiSelect = ({ departmentId, storeId, storeIds, selected, onC
         </span>
         <span className="flex-1 min-w-0 truncate">{name}</span>
         {u.role === 'MANAGER' && (
-          <span className="shrink-0 text-[0.5625rem] font-display font-bold px-1.5 py-0.5 rounded-full bg-primary-500/10 text-primary-700 dark:text-primary-400">
+          <span className="shrink-0 text-xs font-display font-bold px-1.5 py-0.5 rounded-full bg-primary-500/10 text-primary-700 dark:text-primary-400">
             HOD
           </span>
         )}
