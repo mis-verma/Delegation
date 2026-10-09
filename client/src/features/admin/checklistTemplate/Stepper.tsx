@@ -25,6 +25,7 @@ export const Stepper = ({ steps, current, onStepClick }: StepperProps) => (
             onClick={clickable ? () => onStepClick(i) : undefined}
             disabled={!clickable}
             aria-current={isActive ? 'step' : undefined}
+            aria-label={`Step ${i + 1}: ${label}`}
             className={`flex items-center gap-2 shrink-0 rounded-lg outline-none pointer-coarse:min-h-11 ${
               clickable ? 'cursor-pointer focus-visible:ring-2 focus-visible:ring-primary-500/40' : 'cursor-default'
             }`}

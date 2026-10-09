@@ -1,4 +1,5 @@
 import { trendFrom, type Trend } from '../../dashboard';
+import { ORG_TZ_OFFSET_MS } from '../../checklist/checklistDisplay';
 import type { TatReportRow } from '../../../api/ticket';
 
 // One place for every number and period label on the Overview page, so the same figure never reads
@@ -139,10 +140,16 @@ export const defaultWindow = (groupBy: DisplayGroupBy, now: Date = new Date()): 
   return { from: from.toISOString(), to: endOfLocalDay(y, m, d).toISOString() };
 };
 
+// The org's own calendar day as instants: the days a report bucket names are org days, so the window a
+// tile opens must start and end at the org's midnight, not this browser's. A browser in another time zone
+// otherwise opens a list that is a few hours off the number on the tile.
+const orgDayStart = (y: number, m: number, d: number) => new Date(Date.UTC(y, m, d) - ORG_TZ_OFFSET_MS);
+const orgDayEnd = (y: number, m: number, d: number) => new Date(Date.UTC(y, m, d + 1) - ORG_TZ_OFFSET_MS - 1);
+
 /**
- * The calendar window a report bucket covers, as ISO strings (browser-local days), so a tile that
- * shows the latest bucket can open the list of exactly those records. Null for the whole-range
- * bucket or a label that does not parse.
+ * The calendar window a report bucket covers, as ISO strings (org days), so a tile that shows the latest
+ * bucket can open the list of exactly those records. Null for the whole-range bucket or a label that
+ * does not parse.
  */
 export const bucketRange = (bucket: string, groupBy: DisplayGroupBy): { from: string; to: string } | null => {
   if (groupBy === 'none' || bucket === RANGE_BUCKET) return null;
@@ -150,27 +157,26 @@ export const bucketRange = (bucket: string, groupBy: DisplayGroupBy): { from: st
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(bucket);
     if (!m) return null;
     const [y, mo, d] = [Number(m[1]), Number(m[2]) - 1, Number(m[3])];
-    return { from: new Date(y, mo, d).toISOString(), to: endOfLocalDay(y, mo, d).toISOString() };
+    return { from: orgDayStart(y, mo, d).toISOString(), to: orgDayEnd(y, mo, d).toISOString() };
   }
   if (groupBy === 'week') {
     const m = /^(\d{4})-W(\d{1,2})$/.exec(bucket);
     if (!m) return null;
     const year = Number(m[1]);
-    const jan4 = new Date(year, 0, 4);
-    const weekOneMonday = new Date(year, 0, 4 - ((jan4.getDay() + 6) % 7));
-    const monday = new Date(weekOneMonday.getFullYear(), weekOneMonday.getMonth(), weekOneMonday.getDate() + (Number(m[2]) - 1) * 7);
-    const sunday = endOfLocalDay(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6);
-    return { from: monday.toISOString(), to: sunday.toISOString() };
+    // ISO week 1 contains January 4th; its Monday is the start. Plain UTC calendar arithmetic on day labels.
+    const jan4Weekday = new Date(Date.UTC(year, 0, 4)).getUTCDay();
+    const mondayDay = 4 - ((jan4Weekday + 6) % 7) + (Number(m[2]) - 1) * 7;
+    return { from: orgDayStart(year, 0, mondayDay).toISOString(), to: orgDayEnd(year, 0, mondayDay + 6).toISOString() };
   }
   if (groupBy === 'month') {
     const m = /^(\d{4})-(\d{2})$/.exec(bucket);
     if (!m) return null;
     const [y, mo] = [Number(m[1]), Number(m[2]) - 1];
-    return { from: new Date(y, mo, 1).toISOString(), to: endOfLocalDay(y, mo + 1, 0).toISOString() };
+    return { from: orgDayStart(y, mo, 1).toISOString(), to: orgDayEnd(y, mo + 1, 0).toISOString() };
   }
   const y = Number(bucket);
   if (!Number.isInteger(y)) return null;
-  return { from: new Date(y, 0, 1).toISOString(), to: endOfLocalDay(y, 11, 31).toISOString() };
+  return { from: orgDayStart(y, 0, 1).toISOString(), to: orgDayEnd(y, 11, 31).toISOString() };
 };
 
 /**

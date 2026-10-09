@@ -55,7 +55,7 @@ export const BuilderAssignPanel = ({ storeIds, assigneeIds, onAssigneeIdsChange,
   <div className="flex flex-col gap-6">
     <fieldset className="flex flex-col gap-2.5">
       <legend className="text-sm font-display font-semibold text-text pb-1">How many copies?</legend>
-      <div role="radiogroup" className="grid gap-2.5 sm:grid-cols-3">
+      <div role="radiogroup" aria-label="How many copies" className="grid gap-2.5 sm:grid-cols-3">
         {MODES.map((m, index) => {
           const on = responseMode === m.value;
           return (

@@ -17,6 +17,11 @@ const envSchema = z.object({
     DB_PASSWORD: z.string().default(''),
     DB_NAME: z.string().default('taskmatrix'),
     DB_CONNECTION_LIMIT: z.coerce.number().default(10),
+    // How the database driver reads and writes DATETIME values: 'Z' (UTC) or an offset like '+05:30'.
+    // Left unset it follows the host machine's own time zone, which is the historic behaviour. Set it to
+    // 'Z' once the host is known to be UTC (or you want it pinned), so a move to a differently configured
+    // server can never shift every stored date.
+    DB_TIMEZONE: z.string().optional(),
 
     CLIENT_URL: z.string().min(1),
     REDIS_URL: z.string().default("redis://localhost:6379"),

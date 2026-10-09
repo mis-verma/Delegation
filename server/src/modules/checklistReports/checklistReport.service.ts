@@ -118,8 +118,8 @@ const goodExpr = sql<number>`SUM(CASE
 // A critical question counts double in Compliance %: weighted twins of scoredExpr/goodExpr above
 // (Answers checked stays the raw count).
 const weightExpr = sql`(CASE WHEN ${item.isCritical} = 1 THEN 2 ELSE 1 END)`
-export const weightedScoredExpr = sql<number>`SUM(CASE WHEN ${sentBack} THEN ${weightExpr} WHEN ${ruleScored} THEN ${weightExpr} ELSE 0 END)`
-export const weightedGoodExpr = sql<number>`SUM(CASE
+const weightedScoredBody = sql`(CASE WHEN ${sentBack} THEN ${weightExpr} WHEN ${ruleScored} THEN ${weightExpr} ELSE 0 END)`
+const weightedGoodBody = sql`(CASE
     WHEN ${item.waivedAt} IS NOT NULL THEN 0
     WHEN ${sentBack} THEN 0
     WHEN ${item.isDone} = 1 AND ${item.isNotApplicable} = 0 AND ${boolScored} AND JSON_CONTAINS(${item.acceptableAnswers}, JSON_QUOTE(${item.booleanAnswer})) THEN ${weightExpr}
@@ -128,6 +128,19 @@ export const weightedGoodExpr = sql<number>`SUM(CASE
         AND (${item.acceptableMin} IS NULL OR ${item.numericValue} >= ${item.acceptableMin})
         AND (${item.acceptableMax} IS NULL OR ${item.numericValue} <= ${item.acceptableMax}) THEN ${weightExpr}
     ELSE 0 END)`
+export const weightedScoredExpr = sql<number>`SUM(${weightedScoredBody})`
+export const weightedGoodExpr = sql<number>`SUM(${weightedGoodBody})`
+
+// The same two figures, counting only the questions credited to people of one department. A department
+// head looking at a checklist shared across departments sees their own people's answers, not the other
+// departments' (who a question is credited to is explained under creditedUser below).
+const creditedToDepartment = (departmentId: string) => sql`EXISTS (
+    SELECT 1 FROM ${users} cu
+    WHERE cu.id = (CASE WHEN ${item.sendBackCount} > 0 AND ${item.sentBackFrom} IS NOT NULL THEN ${item.sentBackFrom} ELSE ${item.completedBy} END)
+      AND cu.departmentId = ${departmentId}
+)`
+export const weightedScoredForDepartment = (departmentId: string) => sql<number>`SUM(CASE WHEN ${creditedToDepartment(departmentId)} THEN ${weightedScoredBody} ELSE 0 END)`
+export const weightedGoodForDepartment = (departmentId: string) => sql<number>`SUM(CASE WHEN ${creditedToDepartment(departmentId)} THEN ${weightedGoodBody} ELSE 0 END)`
 
 // Who a question is credited to: whoever completed it, except a sent-back question, which is credited
 // (as a failure) to the person who had done it when it was sent back.

@@ -135,7 +135,8 @@ AuditRowCard.displayName = 'AuditRowCard';
 
 // Same card shape as a history row, so nothing shifts when the real rows arrive.
 const ListSkeleton = () => (
-  <div className="flex flex-col gap-3" aria-hidden>
+  <div className="flex flex-col gap-3" role="status" aria-label="Loading history">
+    <span className="sr-only">Loading history</span>
     {[0, 1, 2].map(i => (
       <div key={i} className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-3.5 sm:p-4')}>
         <div className="flex items-start justify-between gap-3">
@@ -239,7 +240,7 @@ export const ChecklistHistory = () => {
       )}
 
       {rowCount > 0 && (
-        <div className={cn('flex flex-col gap-3 transition-opacity', refreshing && 'opacity-60')}>
+        <div className={cn('flex flex-col gap-3 transition-opacity', refreshing && 'opacity-60')} aria-busy={refreshing}>
           {tab === 'audits'
             ? auditRows?.map(row => <AuditRowCard key={row.id} row={row} />)
             : checklistRows?.map(instance => (
@@ -265,7 +266,7 @@ export const ChecklistHistory = () => {
         title="History"
         subtitle={orgWide
           ? 'Past audits and checklists across every store.'
-          : 'Past audits and checklists for the people in your department.'}
+          : 'Past audits and checklists for the people who are in your department today.'}
       />
 
       <Tabs value={tab} onValueChange={changeTab} className="gap-6">

@@ -17,6 +17,8 @@ const pool = mysql.createPool({
     // Return JS Date objects (not strings) for DATETIME/TIMESTAMP columns, matching
     // what every service already expects (Mongoose always gave back real Dates).
     dateStrings: false,
+    // Only when configured (see DB_TIMEZONE in env.ts); unset keeps the driver's default.
+    ...(env.DB_TIMEZONE ? { timezone: env.DB_TIMEZONE } : {}),
 });
 
 // The Drizzle client used everywhere else in the app (`import { db } from '../config/db.js'`).

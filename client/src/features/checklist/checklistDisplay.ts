@@ -191,7 +191,7 @@ type InstanceWindow = {
 // written as UTC midnight — so the real instant is "day + HH:mm" minus the org's UTC offset. Same
 // value as the server's CHECKLIST_TIMEZONE_OFFSET_MINUTES default. Without this every opening
 // gate and deadline landed 5½ hours late ("opens 09:00" really opened at 14:30).
-const ORG_TZ_OFFSET_MS = 330 * 60_000;
+export const ORG_TZ_OFFSET_MS = 330 * 60_000;
 
 // The org-local (India) calendar day of an instant, as "YYYY-MM-DD" — same day maths the server's
 // generator uses, so "starts after today" reads the same on every checklist screen.

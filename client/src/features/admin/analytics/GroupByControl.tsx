@@ -145,7 +145,7 @@ export const AnalyticsControlBar = ({ groupBy, onGroupByChange, range, onRangeCh
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
         <GroupByTabs groupBy={groupBy} onGroupByChange={onGroupByChange} />
 
-        <div role="group" aria-label="Time period" className="flex flex-wrap items-center gap-2">
+        <div role="group" aria-label="Time period" className="flex items-center gap-2 overflow-x-auto sm:flex-wrap sm:overflow-visible -mx-1 px-1 pb-0.5 [scrollbar-width:none] [&>*]:shrink-0">
           {PRESETS.map(({ key, label }) => (
             <ToggleChip key={key} on={preset === key} onClick={() => applyPreset(key)}>
               {label}
@@ -164,8 +164,10 @@ export const AnalyticsControlBar = ({ groupBy, onGroupByChange, range, onRangeCh
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between max-sm:justify-end gap-x-4 gap-y-2">
+        {/* The chosen range and grouping are already said by the chips above, so a phone skips this row and
+            keeps its screen for the numbers. */}
+        <div className="hidden sm:flex flex-wrap items-center gap-2">
           <ActiveRangeBadge
             from={range.from && range.to ? range.from.toISOString() : undefined}
             to={range.from && range.to ? endOfDay(range.to).toISOString() : undefined}

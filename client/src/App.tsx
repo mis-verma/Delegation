@@ -150,12 +150,6 @@ const AdminOverviewRoute = () => {
 
 const AnalyticsRoute = createRoleGuard('MANAGER', 'SENIOR');
 
-// Department heads (HOD) — checklist verification is where a MANAGER or SENIOR gets an approval
-// queue of their own: own-department instances only, enforced server-side too (isHod in
-// checklistInstance.service.ts). SENIOR was added to MANAGER on request: a Senior is a department
-// HOD as well, scoped to the department on their user record.
-const ManagerRoute = createRoleGuard('MANAGER', 'SENIOR');
-
 // Checklist History (past audits + checklists): ADMIN/PC see every store, MANAGER/SENIOR only their
 // own department. Same split the API enforces, this just keeps everyone else off the page.
 const HistoryRoute = createRoleGuard('ADMIN', 'PC', 'MANAGER', 'SENIOR');
@@ -235,12 +229,10 @@ const router = createBrowserRouter([
           { path: '/checklists', element: <MyChecklists /> },
           { path: '/checklists/:instanceId', element: <ChecklistInstanceDetail /> },
           { path: '/dashboard', element: <Navigate to="/" replace /> },
-          {
-            element: <ManagerRoute />,
-            children: [
-              { path: '/checklists/approvals', element: <ChecklistApprovals /> },
-            ],
-          },
+          // Anyone can be named a reviewer on a checklist, whatever their role, so this page is open to every
+          // signed-in person. The server returns only what that person may review (their department's runs for
+          // a head, the runs they are named on for anyone else), and an empty list says so.
+          { path: '/checklists/approvals', element: <ChecklistApprovals /> },
           {
             element: <HistoryRoute />,
             children: [

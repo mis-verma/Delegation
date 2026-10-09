@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { usePendingVerificationChecklistInstancesQuery } from '../../features/checklist/hook';
 import { NavLink, useLocation } from 'react-router';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import { useIsMobile } from '../../lib/useMediaQuery';
@@ -57,6 +58,7 @@ const TASK_ADMIN_CHILDREN: NavChild[] = [
 ];
 
 const CHECKLIST_APPROVALS_CHILD: NavChild = { to: '/checklists/approvals', label: 'Team Approvals' };
+const REVIEW_QUEUE_CHILD: NavChild = { to: '/checklists/approvals', label: 'To review' };
 const CHECKLIST_HISTORY_CHILD: NavChild = { to: '/checklists/history', label: 'History' };
 const CHECKLIST_WEEKLY_CHILD: NavChild = { to: '/checklists/weekly', label: 'Weekly report' };
 
@@ -119,6 +121,10 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
   const isPC = user?.role === 'PC';
   const isManager = user?.role === 'MANAGER';
   const isSenior = user?.role === 'SENIOR';
+  // Roles without a review queue of their own can still be named a reviewer on a checklist.
+  const canBeNamedReviewer = !!user && !isAdmin && !isPC && !isManager && !isSenior && user.role !== 'APPROVAL_MANAGER';
+  const { data: reviewQueue } = usePendingVerificationChecklistInstancesQuery(1, canBeNamedReviewer);
+  const hasReviewsWaiting = canBeNamedReviewer && (reviewQueue?.pages[0]?.meta?.total ?? 0) > 0;
   const seesSmartDelegations = isAdmin || isPC || isManager;
   // Used to auto-expand every section with children, always — so an admin landing on /tickets
   // still had Delegation's 3 sub-links pre-opened, eating enough height that the nav overflowed
@@ -204,7 +210,9 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
         // department heads, who sign off their own department's checklists.
         ...(isAdmin || isPC || isManager || isSenior
           ? { children: [CHECKLIST_HISTORY_CHILD, CHECKLIST_WEEKLY_CHILD, ...(isManager || isSenior ? [CHECKLIST_APPROVALS_CHILD] : [])] }
-          : {}),
+          // Someone named as a reviewer on a checklist, whatever their role: a link appears only while
+          // something is waiting for them, so everyone else's menu stays as it was.
+          : hasReviewsWaiting ? { children: [REVIEW_QUEUE_CHILD] } : {}),
       };
     }
     if (item.label === 'Delegation') {

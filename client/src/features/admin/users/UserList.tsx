@@ -100,7 +100,14 @@ export const UserList = () => {
   const { mutate: updateUser } = reactivateMut;
   const { mutate: deleteUser } = deleteMut;
 
-  const handleEdit = useCallback((user: AdminUser) => setEditingUser(user), []);
+  const handleEdit = useCallback((user: AdminUser) => {
+    // A PC cannot change an admin account.
+    if (me?.role === 'PC' && user.role === 'ADMIN') {
+      toast.info('Only an admin can change admin accounts.');
+      return;
+    }
+    setEditingUser(user);
+  }, [me?.role]);
   const handleResetPassword = useCallback((user: AdminUser) => setResetting(user), []);
   // Deactivating goes through the hand-over dialog (their open work moves to someone first).
   const handleDeactivate = useCallback((user: AdminUser) => setOffboarding(user), []);

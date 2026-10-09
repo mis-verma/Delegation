@@ -21,6 +21,7 @@ import { DressTypeFormDialog } from '../dressTypes/DressTypeFormDialog';
 import { useDressTypesQuery } from '../dressTypes/hook';
 import type { AdminUser, Role, UpdateUserPayload } from '../../../api/admin';
 import { ROLE_META, ROLE_ORDER, isDepartmentHead } from '../roleBadge';
+import { useAuth } from '../../../context/AuthContext';
 import { FormField, FormSection } from './FormField';
 import { PasswordSharedPanel, PasswordVisibilityToggle, ResetPasswordSection } from './PasswordPanels';
 import { MIN_PASSWORD_LENGTH, copyText, generatePassword } from './passwordTools';
@@ -98,6 +99,9 @@ const EditPickedButton = ({ label, onClick }: { label: string; onClick: () => vo
 export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) => {
   const isEditing = Boolean(user);
   const confirm = useConfirm();
+  // A PC cannot create or promote an admin (the server refuses it too), so Admin is not offered.
+  const { user: me } = useAuth();
+  const roleOptions = ROLE_OPTIONS.filter((o) => !(me?.role === 'PC' && o.value === 'ADMIN'));
   // Tracked locally (seeded from `user`, then updated straight from each mutation's response)
   // rather than re-read from `user` on every render: `user` is a snapshot captured when this
   // modal was opened, so it won't reflect a photo change made a moment ago in this same session.
@@ -456,7 +460,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
                         value={field.value}
                         onChange={(value) => field.onChange(value as Role)}
                         placeholder="Search roles..."
-                        options={ROLE_OPTIONS}
+                        options={roleOptions}
                       />
                     )}
                   />

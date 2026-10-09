@@ -309,7 +309,7 @@ export const ChecklistInstanceDetail = () => {
     <div className="flex flex-col gap-6 w-full">
       {/* Back on the left, Edit template (admins) on the right. */}
       <div className="flex items-center justify-between gap-3">
-        <Button variant="ghost" size="sm" onClick={() => navigate(-1)} aria-label="Back">
+        <Button variant="ghost" size="sm" onClick={() => (window.history.state?.idx > 0 ? navigate(-1) : navigate('/checklists', { replace: true }))} aria-label="Back">
           <ArrowLeft size={15} aria-hidden />
           Back
         </Button>

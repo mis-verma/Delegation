@@ -311,20 +311,12 @@ const TaskStatusStepper = ({ task, nameOf }: { task: Task; nameOf: (id: string |
 
 
 
-/**
- * Start-to-due picker that keeps a half-picked range to itself. The picker reports every click, and
- * the first click of a new range has a start but no due day yet; saving that would send a start day
- * with the old due day still in place (possibly earlier than it) and then a second save a moment
- * later. The server also has no way to clear either date, so nothing is saved until both ends are
- * chosen.
- */
 const TaskTimelineField = ({ task, onUpdate }: { task: Task; onUpdate: (payload: UpdateTaskPayload) => void }) => {
   const fromSaved = task.startDate ? new Date(task.startDate) : null;
   const toSaved = task.dueDate ? new Date(task.dueDate) : null;
   const savedKey = `${task.startDate ?? ''}|${task.dueDate ?? ''}`;
   const [draft, setDraft] = useState<DateRangeValue>({ from: fromSaved, to: toSaved });
   const [syncedKey, setSyncedKey] = useState(savedKey);
-  // The saved dates changed underneath (a refetch, another person's edit): the draft starts over.
   if (savedKey !== syncedKey) {
     setSyncedKey(savedKey);
     setDraft({ from: fromSaved, to: toSaved });

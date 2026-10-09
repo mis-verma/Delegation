@@ -132,9 +132,20 @@ const filterConditions = (
     return conditions
 }
 
+// With a department, compliance counts only the answers credited to that department's people (who the
+// answer belongs to: the person who completed it, or who had done it when it was sent back). A head sees
+// their own people's answers on a checklist shared across departments, never the other departments'.
+const creditFilter = (departmentId?: string) => departmentId
+    ? sql` AND EXISTS (
+        SELECT 1 FROM ${users} cu
+        WHERE cu.id = (CASE WHEN cii.sendBackCount > 0 AND cii.sentBackFrom IS NOT NULL THEN cii.sentBackFrom ELSE cii.completedBy END)
+          AND cu.departmentId = ${departmentId}
+    )`
+    : sql``
+
 // One row per run with that run's counts. Item facts are summed per run; grouping by bucket or by
 // store happens one level up.
-const runAggregateSql = (conditions: SQL[]) => sql`
+const runAggregateSql = (conditions: SQL[], creditDepartmentId?: string) => sql`
     SELECT
         ci.id AS id,
         ci.storeId AS storeId,
@@ -150,8 +161,8 @@ const runAggregateSql = (conditions: SQL[]) => sql`
         SUM(CASE WHEN ${ANSWERED} AND ${FLAGGED_BOOLEAN_ANSWER_EXPR} THEN 1 ELSE 0 END) AS flaggedItems,
         SUM(CASE WHEN ${SCORED} THEN 1 ELSE 0 END) AS scoredItems,
         SUM(CASE WHEN ${GOOD} THEN 1 ELSE 0 END) AS goodItems,
-        SUM(CASE WHEN ${SCORED} THEN ${WEIGHT} ELSE 0 END) AS weightedScoredItems,
-        SUM(CASE WHEN ${GOOD} THEN ${WEIGHT} ELSE 0 END) AS weightedGoodItems
+        SUM(CASE WHEN ${SCORED}${creditFilter(creditDepartmentId)} THEN ${WEIGHT} ELSE 0 END) AS weightedScoredItems,
+        SUM(CASE WHEN ${GOOD}${creditFilter(creditDepartmentId)} THEN ${WEIGHT} ELSE 0 END) AS weightedGoodItems
     FROM ${checklistInstances} ci
     JOIN ${checklistInstanceItems} cii ON cii.instanceId = ci.id
     JOIN ${checklistDefinitions} d ON d.id = ci.definitionId
@@ -245,7 +256,7 @@ export const checklistReportService = {
         // db.execute() on the mysql2 driver resolves to the raw tuple [rows, fields], not a row array.
         const [rows] = await db.execute(sql`
             SELECT ${bucketExpr} AS bucket, ${GROUP_METRICS}
-            FROM (${runAggregateSql(conditions)}) r
+            FROM (${runAggregateSql(conditions, scope.departmentId)}) r
             GROUP BY bucket
             ORDER BY bucket ASC
         `)
@@ -263,7 +274,7 @@ export const checklistReportService = {
 
         const [rows] = await db.execute(sql`
             SELECT r.storeId AS storeId, st.name AS storeName, ${GROUP_METRICS}
-            FROM (${runAggregateSql(conditions)}) r
+            FROM (${runAggregateSql(conditions, scope.departmentId)}) r
             JOIN ${stores} st ON st.id = r.storeId
             GROUP BY r.storeId, st.name
             ORDER BY st.name ASC
@@ -297,7 +308,7 @@ export const checklistReportService = {
 
         const [rows] = await db.execute(sql`
             SELECT r.storeId AS storeId, st.name AS storeName, DATE_FORMAT(r.periodStart, '%Y-%m-%d') AS day, ${GROUP_METRICS}
-            FROM (${runAggregateSql(conditions)}) r
+            FROM (${runAggregateSql(conditions, scope.departmentId)}) r
             JOIN ${stores} st ON st.id = r.storeId
             GROUP BY r.storeId, st.name, day
             ORDER BY st.name ASC, day ASC
@@ -386,7 +397,7 @@ export const checklistReportService = {
                 r.applicableItems AS applicableItems, r.doneItems AS doneItems,
                 r.weightedScoredItems AS weightedScored, r.weightedGoodItems AS weightedGood,
                 r.verificationStatus AS verificationStatus
-            FROM (${runAggregateSql(conditions)}) r
+            FROM (${runAggregateSql(conditions, scope.departmentId)}) r
             JOIN ${checklistInstances} ci2 ON ci2.id = r.id
             JOIN ${stores} st ON st.id = r.storeId
             WHERE r.isDue = 1

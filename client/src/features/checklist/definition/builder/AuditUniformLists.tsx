@@ -139,6 +139,7 @@ export const AuditUniformLists = ({ draft, onChange }: AuditUniformListsProps) =
                     variant="ghost"
                     size="sm"
                     onClick={() => removeType(id, name)}
+                    aria-label={`Remove ${name}`}
                     className="shrink-0 pointer-coarse:min-h-11 text-text-muted hover:text-danger hover:bg-danger/10"
                   >
                     <X size={13} aria-hidden /> Remove

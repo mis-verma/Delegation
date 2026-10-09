@@ -322,6 +322,8 @@ const taskOwnerStatsByColumn = async (
     column: SQL,
     conditions: SQL[],
     grouped: boolean,
+    /** Credit every assignee (the primary one and the additional ones) instead of the primary one only. */
+    allAssignees = false,
 ): Promise<TaskOwnerStatsRow[]> => {
     const where = sql`WHERE ${sql.join([
         sql`t.deletedAt IS NULL`,
@@ -335,13 +337,24 @@ const taskOwnerStatsByColumn = async (
 
     // db.execute() on the mysql2 driver resolves to the raw mysql2 result tuple [rows, fields],
     // NOT a plain row array — must destructure element 0 (see complianceReport above).
+    // With allAssignees, a delegation shared by several people is one row per person, so each is judged on
+    // it. Without it, only the primary assignee is.
+    const source = allAssignees
+        ? sql`(
+            SELECT t0.*, t0.assigneeId AS ownerKey FROM Task t0 WHERE t0.assigneeId IS NOT NULL
+            UNION ALL
+            SELECT t1.*, taa.userId AS ownerKey FROM Task t1 JOIN TaskAdditionalAssignee taa ON taa.taskId = t1.id
+        ) t`
+        : sql`Task t`;
+    // Done includes work finished and waiting on a reviewer: the assignee has nothing left to do, and it is
+    // not overdue either, so counting it as not done would lower their score with no reason.
     const [rows] = await db.execute(sql`
         SELECT
             ${column} AS ownerId,
             COUNT(*) AS total,
-            COALESCE(SUM(t.status = 'done'), 0) AS done,
+            COALESCE(SUM(t.status IN ('done', 'pending_approval')), 0) AS done,
             COALESCE(SUM(t.status NOT IN ('done', 'draft', 'pending_approval') AND t.dueDate IS NOT NULL AND t.dueDate < ${now}), 0) AS overdueCount
-        FROM Task t
+        FROM ${source}
         ${where}
         ${groupBy}
     `);
@@ -952,6 +965,10 @@ export const taskService = {
         // Same population as ownerStats (taskOwnerStatsByColumn): top-level delegations only, never
         // issues or subtasks. A soft-deleted or draft delegation's checklist items must not count.
         conditions.push(sql`t.deletedAt IS NULL`, sql`t.status <> 'draft'`, sql`t.category = 'delegation'`, sql`t.parentTaskId IS NULL`);
+        // An item counts once it is done or its delegation is past due. Items on work that is still on time
+        // and not done are not a miss yet, so a new period no longer starts at a low score only because
+        // everything in it was created recently.
+        conditions.push(sql`(tci.isDone = 1 OR t.status IN ('done', 'pending_approval') OR (t.dueDate IS NOT NULL AND t.dueDate < UTC_TIMESTAMP()))`);
 
         const whereClause = sql`WHERE ${sql.join(conditions, sql` AND `)}`;
 
@@ -1032,7 +1049,7 @@ export const taskService = {
 
         if (scope === "department") return taskOwnerStatsByColumn(sql`t.departmentId`, baseConditions, true);
         if (scope === "org") return taskOwnerStatsByColumn(sql`NULL`, baseConditions, false);
-        return taskOwnerStatsByColumn(sql`t.assigneeId`, [...baseConditions, sql`t.assigneeId IS NOT NULL`], true);
+        return taskOwnerStatsByColumn(sql`t.ownerKey`, baseConditions, true, true);
     },
 
     // Backs the sidebar's "Delegation" count badge and its hover breakdown — deliberately "mine"

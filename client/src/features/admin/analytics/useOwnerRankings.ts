@@ -29,7 +29,7 @@ export interface RankedRow {
   avgTat: number | null;
   /** Closed on time: closed tickets that have a due time and were closed by it, as a share of those. */
   slaMet: number | null;
-  /** Volume-weighted mean of whichever of the two rates above have data. `null` when neither does. */
+  /** Average of whichever of the two rates above have data, each counting the same. `null` when neither does. */
   overall: number | null;
   ticketVolume: number;
   secondaryVolume: number;
@@ -43,17 +43,14 @@ type TicketOwnerRow = OwnerStatsRow & { closedWithTat?: number; closedOnTime?: n
 
 const pct = (part: number, whole: number): number | null => (whole > 0 ? (part / whole) * 100 : null);
 
-/** Weighted mean of rates, each weighted by how many items sit behind it. A 100% over 2 tickets
- *  no longer outweighs a 60% over 80 checklist items. */
+/** Overall = the plain average of whichever sources have a figure: tickets, and checklists or
+ *  delegations. Each source counts the same, whatever its size. Weighting by item count let a store with
+ *  600 checklist items and 3 tickets be judged on checklists alone, so a bad ticket record never showed.
+ *  `volume` only decides whether a source has anything behind it. */
 export const weightedOverall = (parts: { rate: number | null; volume: number }[]): number | null => {
-  let weighted = 0;
-  let weight = 0;
-  for (const { rate, volume } of parts) {
-    if (rate == null || volume <= 0) continue;
-    weighted += rate * volume;
-    weight += volume;
-  }
-  return weight > 0 ? weighted / weight : null;
+  const usable = parts.filter((p) => p.rate != null && p.volume > 0);
+  if (!usable.length) return null;
+  return usable.reduce((sum, p) => sum + (p.rate as number), 0) / usable.length;
 };
 
 const ticketMetrics = (row: TicketOwnerRow | undefined) => {

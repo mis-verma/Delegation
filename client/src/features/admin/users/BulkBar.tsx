@@ -3,6 +3,7 @@ import { Building2, ChevronDown, ShieldCheck, Store, X } from 'lucide-react';
 import { Button, Dropdown, PANEL_CLASS, type DropdownAction } from '../../../components';
 import type { Role } from '../../../api/admin';
 import { ROLE_META, ROLE_ORDER } from '../roleBadge';
+import { useAuth } from '../../../context/AuthContext';
 import { cn } from '@/lib/utils';
 
 interface BulkBarProps {
@@ -34,9 +35,11 @@ export const BulkBar = ({ count, departments, stores, disabled, onMoveDepartment
     ],
     [stores, onMoveStore],
   );
+  // A PC cannot make anyone an admin (the server refuses it too).
+  const { user: me } = useAuth();
   const roleItems = useMemo<DropdownAction[]>(
-    () => ROLE_ORDER.map((r) => ({ label: ROLE_META[r].label, onClick: () => onChangeRole(r) })),
-    [onChangeRole],
+    () => ROLE_ORDER.filter((r) => !(me?.role === 'PC' && r === 'ADMIN')).map((r) => ({ label: ROLE_META[r].label, onClick: () => onChangeRole(r) })),
+    [onChangeRole, me?.role],
   );
 
   return (

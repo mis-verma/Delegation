@@ -2,6 +2,7 @@ import { memo, useMemo } from 'react';
 import { KeyRound, MoreVertical, Pencil, Trash2, UserCheck, UserMinus } from 'lucide-react';
 import { Dropdown, Loader, type DropdownAction } from '../../../components';
 import type { AdminUser } from '../../../api/admin';
+import { useAuth } from '../../../context/AuthContext';
 
 export interface UserActionHandlers {
   onEdit: (user: AdminUser) => void;
@@ -24,6 +25,9 @@ interface UserActionsMenuProps extends UserActionHandlers {
 // bottom and only offered once someone is deactivated: switching a person off is the normal way
 // to remove them, and it keeps their name on old records.
 const UserActionsMenuComponent = ({ user, isBusy, isSelf, onEdit, onResetPassword, onDeactivate, onReactivate, onDelete }: UserActionsMenuProps) => {
+  // A PC cannot change an admin account (the server refuses it too), so there is nothing to offer.
+  const { user: me } = useAuth();
+  const lockedAdmin = me?.role === 'PC' && user.role === 'ADMIN';
   const items = useMemo<DropdownAction[]>(() => {
     const list: DropdownAction[] = [{ label: 'Edit', icon: Pencil, onClick: () => onEdit(user) }];
     // Not for yourself: a reset signs you out at once. Your own password is changed from your profile.
@@ -40,6 +44,8 @@ const UserActionsMenuComponent = ({ user, isBusy, isSelf, onEdit, onResetPasswor
     }
     return list;
   }, [user, isSelf, onEdit, onResetPassword, onDeactivate, onReactivate, onDelete]);
+
+  if (lockedAdmin) return null;
 
   return (
     <Dropdown

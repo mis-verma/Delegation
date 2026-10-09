@@ -43,7 +43,7 @@ export const StoreList = () => {
   const [editingStore, setEditingStore] = useState<Store | null>(null);
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<EntityStatusFilterValue>('all');
-  const [searchText, setSearchText] = useState('');
+  const [searchText, setSearchText] = useState(() => new URLSearchParams(window.location.search).get('q') ?? '');
   const [sort, setSort] = useState<SortKey>('name');
   const [view, setView] = useDirectoryView();
   // Phones always get cards, whatever the shared view says.

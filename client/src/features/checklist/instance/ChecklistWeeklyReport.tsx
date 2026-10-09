@@ -1,4 +1,5 @@
 import { memo, useMemo, useState } from 'react';
+import { Popover, PopoverContent, PopoverTrigger } from '../../../components/ui/popover';
 import { Link } from 'react-router';
 import { CalendarCheck2, CalendarOff, Check, ChevronLeft, ChevronRight, Clock, Minus, SearchX, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -58,7 +59,8 @@ const CELL_BOX = 'inline-flex items-center justify-center size-11 sm:size-10';
 const Cell = memo(({ cell, name }: { cell: WeeklyCell; name: string }) => {
   const s = STATE[cell.state];
   const percent = cell.total ? Math.round((cell.done / cell.total) * 100) : 0;
-  const label = `${name}, ${shortDate(cell.date)}: ${s.label}${cell.total ? `, ${cell.done} of ${cell.total} done` : ''}${cell.compliance !== null ? `, compliance ${cell.compliance}%` : ''}`;
+  const stateLabel = cell.state === 'open' && cell.done === 0 ? 'Not started' : s.label;
+  const label = `${name}, ${shortDate(cell.date)}: ${stateLabel}${cell.total ? `, ${cell.done} of ${cell.total} done` : ''}${cell.compliance !== null ? `, compliance ${cell.compliance}%` : ''}`;
   const Icon = s.icon;
 
   // A month column adds its runs up: the share filled (on time or late), with the split in the tooltip.
@@ -67,12 +69,28 @@ const Cell = memo(({ cell, name }: { cell: WeeklyCell; name: string }) => {
     const detail = due === 0 && !cell.open
       ? 'Nothing was due'
       : `${due} due: ${cell.onTime ?? 0} on time, ${cell.late ?? 0} late, ${cell.missed ?? 0} not filled${cell.open ? `, ${cell.open} still open` : ''}${cell.compliance !== null ? `, compliance ${cell.compliance}%` : ''}`;
+    const monthName = new Date(`${cell.date}-01T00:00:00Z`).toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+    // A tap opens the split (hover only on a mouse), so a phone can read it too.
     return (
-      <span role="img" title={`${name}, ${cell.date}: ${detail}`} aria-label={`${name}, ${cell.date}: ${detail}`} className={cn(CELL_BOX, 'w-14 sm:w-14')}>
-        {cell.completion == null
-          ? <Minus size={14} className="text-text-light" aria-hidden />
-          : <span className={cn('text-sm font-display font-bold tabular-nums', rateToneClass(cell.completion))}>{cell.completion}%</span>}
-      </span>
+      <Popover>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            title={`${name}, ${monthName}: ${detail}`}
+            aria-label={`${name}, ${monthName}: ${detail}`}
+            className={cn(CELL_BOX, 'w-14 sm:w-14 rounded-lg cursor-pointer hover:bg-surface-hover transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40')}
+          >
+            {cell.completion == null
+              ? <Minus size={14} className="text-text-light" aria-hidden />
+              : <span className={cn('text-sm font-display font-bold tabular-nums', rateToneClass(cell.completion))}>{cell.completion}%</span>}
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-64 p-3">
+          <p className="text-sm font-display font-bold text-text">{name}</p>
+          <p className="text-xs font-display font-medium text-text-muted">{monthName}</p>
+          <p className="mt-2 text-xs font-display text-text-secondary">{detail}</p>
+        </PopoverContent>
+      </Popover>
     );
   }
 

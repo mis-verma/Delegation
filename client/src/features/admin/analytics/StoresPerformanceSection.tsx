@@ -61,7 +61,7 @@ const RankedTableRow = memo(({ row, isTop, isLow, to }: RankedRowProps) => (
   <tr className="border-t border-border/60 hover:bg-surface-hover/50 transition-colors motion-reduce:transition-none">
     <th scope="row" className="sticky left-0 z-10 bg-surface px-4 py-3 text-left font-display font-medium text-text">
       <div className="flex items-center gap-2 flex-wrap">
-        <Link to={to} className="rounded hover:text-primary-700 dark:hover:text-primary-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50">
+        <Link to={`${to}&q=${encodeURIComponent(row.name)}`} className="rounded hover:text-primary-700 dark:hover:text-primary-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50">
           {row.name}
         </Link>
         <RankBadge isTop={isTop} isLow={isLow} />
@@ -85,7 +85,7 @@ const Metric = ({ label, value, toneClass = 'text-text' }: { label: string; valu
 );
 
 const RankedCard = memo(({ row, isTop, isLow, to, secondaryLabel }: RankedRowProps & { secondaryLabel: string }) => (
-  <Link to={to} className={`${ENTITY_CARD_CLASS} gap-3 min-h-11`}>
+  <Link to={`${to}&q=${encodeURIComponent(row.name)}`} className={`${ENTITY_CARD_CLASS} gap-3 min-h-11`}>
     <div className="flex items-start justify-between gap-3">
       <div className="flex flex-col items-start gap-1 min-w-0">
         <p className="font-display font-medium text-text text-sm line-clamp-2 leading-snug">{row.name}</p>
@@ -178,8 +178,7 @@ const RankedTable = ({ title, subtitle, rows, isPending, isError, isFetching, on
 
 // The owner-level view: real numbers, ranked, with who is top and who needs attention called out.
 // Each row's "Overall" figure blends every kind of work that cut actually carries (tickets and
-// delegations for a department, tickets and store checklists for a store), weighted by how many
-// items sit behind each. Delegations have a department but no store, and checklist runs have a
+// delegations for a department, tickets and store checklists for a store), each source counting the same. Delegations have a department but no store, and checklist runs have a
 // store but no department, so no single blend can cover all three for either cut.
 export const StoresPerformanceSection = ({ from, to }: StoresPerformanceSectionProps) => {
   const {

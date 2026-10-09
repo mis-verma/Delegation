@@ -53,7 +53,7 @@ const LeaderEntry = memo(({ icon: Icon, tone, label, row, emptyText, to }: Leade
   if (!row) return <div className={base}>{content}</div>;
   return (
     <Link
-      to={to}
+      to={`${to}&q=${encodeURIComponent(row.name)}`}
       className={`${base} px-1 transition-colors duration-200 motion-reduce:transition-none hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50`}
     >
       {content}

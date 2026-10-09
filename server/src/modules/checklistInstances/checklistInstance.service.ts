@@ -33,7 +33,7 @@ import type { Role } from "../../db/schema/core.js"
 import { emitChecklistEvent } from "../../sockets/checklistEvent.js"
 import { env } from "../../config/env.js"
 import { checklistReportService, type ChecklistReportQuery } from "./checklistReport.service.js"
-import { weightedGoodExpr, weightedScoredExpr } from "../checklistReports/checklistReport.service.js"
+import { weightedGoodExpr, weightedScoredExpr, weightedGoodForDepartment, weightedScoredForDepartment } from "../checklistReports/checklistReport.service.js"
 import type { ChecklistReportScope } from "./checklistReportScope.js"
 import { orgLocalDate, addDays, utcSql, asOrgDay } from "./checklistReportRange.js"
 
@@ -1322,6 +1322,9 @@ export const checklistInstanceService = {
             conditions.push(instanceInDepartmentCondition(departmentId))
         }
 
+        // Whose answers the compliance figure counts: a head's own department, or the one an admin picked.
+        const headDepartmentId = (user.role !== "ADMIN" && user.role !== "PC" ? user.departmentId : departmentId) || undefined
+
         const runs = await db.select({
             id: checklistInstances.id,
             definitionId: checklistInstances.definitionId,
@@ -1338,8 +1341,10 @@ export const checklistInstanceService = {
             completedFirstAt: checklistInstances.completedFirstAt,
             // Answer quality, the same weighted rule as the compliance report: a critical question counts
             // double and a sent-back one counts as a failure.
-            wScored: weightedScoredExpr,
-            wGood: weightedGoodExpr,
+            // Compliance counts the answers given by people of the viewed department (a head's own, or the one
+            // an admin picked), not another department's on a checklist shared between them.
+            wScored: headDepartmentId ? weightedScoredForDepartment(headDepartmentId) : weightedScoredExpr,
+            wGood: headDepartmentId ? weightedGoodForDepartment(headDepartmentId) : weightedGoodExpr,
         })
             .from(checklistInstances)
             .leftJoin(checklistInstanceItems, eq(checklistInstanceItems.instanceId, checklistInstances.id))

@@ -2,6 +2,7 @@ import { Router } from "express"
 import { userController } from "./user.controller.js"
 import { authenticate, requireRole } from "../../middleware/auth/auth.js"
 import { avatarUpload } from "../../config/upload.js"
+import { protectAdminAccounts } from "./adminAccountGuard.js"
 
 // This creates a mini "mini app" of routes that we'll mount under something like /api/users
 // in the main app. Keeping routes in their own file per module keeps things organized.
@@ -28,7 +29,9 @@ userRouter.post("/me/avatar", avatarUpload, userController.uploadMyAvatar)
 userRouter.delete("/me/avatar", userController.removeMyAvatar)
 
 // From this point on, every route ALSO requires the logged-in user to have the 'ADMIN' or 'PC'
-// role — PC has full parity with ADMIN throughout this app, including user management.
+// role. PC has the same rights as ADMIN across the app, with one exception: ADMIN accounts themselves.
+// Every write route below carries protectAdminAccounts, so a PC cannot create, promote, edit, reset,
+// deactivate or delete an admin, however the request is made.
 userRouter.use(requireRole('ADMIN', 'PC'))
 // GET /  -> list every user in the system (admin/PC only)
 userRouter.get("/", userController.list)
@@ -37,21 +40,21 @@ userRouter.get("/", userController.list)
 userRouter.get("/presence", userController.presence)
 // PATCH /bulk -> change department/store/role of many people at once (admin/PC only).
 // Registered before the /:id routes so "bulk" is matched as this literal path, never as :id = "bulk".
-userRouter.patch("/bulk", userController.bulkUpdate)
+userRouter.patch("/bulk", protectAdminAccounts, userController.bulkUpdate)
 // GET /:id -> look up a single user by their Mongo _id (admin/PC only)
 userRouter.get("/:id", userController.getOne)
 // POST / -> create a brand new user account (admin/PC only)
-userRouter.post("/", userController.create)
+userRouter.post("/", protectAdminAccounts, userController.create)
 // PATCH /:id -> partially update a user (e.g. change role, deactivate, etc.) (admin/PC only)
-userRouter.patch("/:id", userController.update)
+userRouter.patch("/:id", protectAdminAccounts, userController.update)
 // GET /:id/offboarding -> what this person still holds; POST /:id/offboard -> hand it over and deactivate them
 userRouter.get("/:id/offboarding", userController.offboardingSummary)
-userRouter.post("/:id/offboard", userController.offboard)
+userRouter.post("/:id/offboard", protectAdminAccounts, userController.offboard)
 // POST /:id/reset-password -> admin/PC sets this user's password directly (admin/PC only)
-userRouter.post("/:id/reset-password", userController.resetPassword)
+userRouter.post("/:id/reset-password", protectAdminAccounts, userController.resetPassword)
 // POST /:id/avatar -> upload/replace this user's profile picture (admin/PC only)
-userRouter.post("/:id/avatar", avatarUpload, userController.uploadAvatar)
+userRouter.post("/:id/avatar", protectAdminAccounts, avatarUpload, userController.uploadAvatar)
 // DELETE /:id/avatar -> remove this user's profile picture (admin/PC only)
-userRouter.delete("/:id/avatar", userController.removeAvatar)
+userRouter.delete("/:id/avatar", protectAdminAccounts, userController.removeAvatar)
 // DELETE /:id -> permanently remove a user (admin/PC only)
-userRouter.delete("/:id", userController.remove)
+userRouter.delete("/:id", protectAdminAccounts, userController.remove)
