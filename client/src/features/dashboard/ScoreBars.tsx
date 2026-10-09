@@ -1,9 +1,9 @@
 import { memo, useId, useMemo, type ReactElement } from 'react';
-import { Bar, BarChart, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, LabelList, Rectangle, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import type { Scores } from '../../api/scores';
-import { SERIES_COLOR, SERIES_HELP, SERIES_LABEL, numbersFor, seriesFor, type ModuleKey, type ScoreMetric, type SeriesKey } from './scoreMetrics';
+import { SERIES_COLOR, SERIES_LABEL, numbersFor, seriesFor, type ModuleKey, type ScoreMetric, type SeriesKey } from './scoreMetrics';
 
 // A soft blue lane behind every bar shows how far from 100% it is, with no gridlines needed.
 const TRACK_FILL = 'color-mix(in oklab, var(--color-primary-500) 9%, transparent)';
@@ -50,7 +50,7 @@ const BarTooltip = ({ active, payload, series }: { active?: boolean; payload?: {
           </div>
         ))
       ) : (
-        <p className="text-xs font-display text-text-muted">Nothing was due in this window.</p>
+        <p className="text-xs font-display text-text-muted">Nothing due</p>
       )}
     </div>
   );
@@ -61,20 +61,33 @@ const Legend = ({ series }: { series: SeriesKey[] }) => (
     {series.map((k) => (
       <span key={k} className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="size-2.5 rounded-sm" style={{ backgroundColor: SERIES_COLOR[k] }} />{SERIES_LABEL[k]}</span>
     ))}
-    <span className="font-medium text-text-muted">{series.length === 1 ? SERIES_HELP[series[0]] : 'Done of what was due, and done on time'}</span>
   </div>
 );
 
-// Module name with a quiet second line when nothing was due, so a missing bar is explained in place.
-const ModuleTick = ({ x, y, payload, rows }: { x?: number; y?: number; payload?: { value: string }; rows: Row[] }) => {
-  const name = payload?.value ?? '';
-  const empty = rows.find((r) => r.name === name)?.hasData === false;
-  return (
-    <g transform={`translate(${x ?? 0},${(y ?? 0) + 6})`}>
-      <text textAnchor="middle" dy={12} fill="var(--color-text-secondary)" fontSize={12} fontWeight={700}>{name}</text>
-      {empty && <text textAnchor="middle" dy={28} fill="var(--color-text-muted)" fontSize={12} fontWeight={500}>Nothing due</text>}
-    </g>
-  );
+// Just the module name. A module with nothing due is shown by its empty outlined bar, not by extra words.
+const ModuleTick = ({ x, y, payload }: { x?: number; y?: number; payload?: { value: string } }) => (
+  <g transform={`translate(${x ?? 0},${(y ?? 0) + 6})`}>
+    <text textAnchor="middle" dy={12} fill="var(--color-text-secondary)" fontSize={12} fontWeight={700}>{payload?.value ?? ''}</text>
+  </g>
+);
+
+interface BarShapeProps {
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  fill?: string;
+  payload?: Row;
+}
+
+// A module with something due is a filled bar. A module with nothing due is an empty bar: the same lane,
+// outlined, with nothing inside, so it reads as "nothing here yet" and not as a score of zero.
+const ScoreBarShape = (props: BarShapeProps) => {
+  const { x = 0, y = 0, width = 0, height = 0, payload } = props;
+  if (payload?.hasData === false) {
+    return <rect x={x + 0.75} y={y + 0.75} width={Math.max(0, width - 1.5)} height={Math.max(0, height - 1.5)} rx={7} ry={7} fill="none" stroke="var(--color-border-hover)" strokeWidth={1.5} />;
+  }
+  return <Rectangle {...(props as object)} radius={[7, 7, 0, 0]} />;
 };
 
 interface ScoreBarsProps {
@@ -112,8 +125,8 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
   const series = seriesFor(metric);
   // One bar per module is allowed to be wider than a pair.
   const barSize = series.length === 1 ? (isMobile ? 56 : 72) : isMobile ? 40 : 52;
-  // A module with nothing due is drawn as zero so its empty lane still shows in the row; its number is not printed.
-  const chartRows = useMemo(() => rows.map((r) => (r.hasData ? r : { ...r, completion: 0, compliance: 0, ontime: 0 })), [rows]);
+  // A module with nothing due is given a full-height value so its outlined empty bar fills the lane; its number is not printed.
+  const chartRows = useMemo(() => rows.map((r) => (r.hasData ? r : { ...r, completion: 100, compliance: 100, ontime: 100 })), [rows]);
   const renderLabel = (props: { x?: number | string; y?: number | string; width?: number | string; value?: unknown; index?: number }): ReactElement | null => {
     const row = chartRows[props.index ?? -1];
     if (!row?.hasData || typeof props.value !== 'number') return null;
@@ -155,7 +168,7 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
                 ))}
               </defs>
               {/* Every module is always listed: interval 0 stops the axis from dropping labels on a narrow card. */}
-              <XAxis dataKey="name" interval={0} height={44} tickLine={false} axisLine={false} tick={<ModuleTick rows={rows} />} />
+              <XAxis dataKey="name" interval={0} height={30} tickLine={false} axisLine={false} tick={<ModuleTick />} />
               {/* The scale lives in the lanes behind the bars and the numbers on top, so a phone gives the
                   width to the bars instead of an axis. */}
               <YAxis domain={[0, 100]} hide={isMobile} ticks={[0, 25, 50, 75, 100]} tickFormatter={(v: number) => `${v}%`} tickLine={false} axisLine={false} width={44} tick={{ fill: 'var(--color-text-muted)', fontSize: 12, fontWeight: 600 }} />
@@ -165,7 +178,7 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
                   key={k}
                   dataKey={k}
                   fill={`url(#${gradientId}-${k})`}
-                  radius={[7, 7, 0, 0]}
+                  shape={<ScoreBarShape />}
                   maxBarSize={barSize}
                   background={{ fill: TRACK_FILL, radius: 7 }}
                   animationDuration={500}
@@ -181,7 +194,7 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
 
       {previous && scores && (
         <ul className="flex flex-col gap-1.5 rounded-lg border border-border/60 bg-surface-hover/30 px-3 py-2.5" aria-label="Change since the previous period">
-          <li className="text-xs font-display font-bold text-text-secondary">Since the previous period</li>
+          <li className="text-xs font-display font-bold text-text-secondary">Since last period</li>
           {rowsFor(scores).map((r, i) => {
             const before = rowsFor(previous)[i];
             return (
@@ -193,7 +206,6 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
           })}
         </ul>
       )}
-      {onOpenModule && <p className="text-xs font-medium text-text-muted">Tap a bar to open the late items for that module.</p>}
 
       <table className="sr-only">
         <caption>Completion, compliance and on-time rate by module</caption>

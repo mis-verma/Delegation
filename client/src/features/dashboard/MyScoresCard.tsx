@@ -86,7 +86,6 @@ const reportRows = (report: ScoreReport, windowLabel: string): TableRows => [
 
 interface ScoreTileProps {
   title: string;
-  icon: typeof Users;
   score: number | null;
   detail: string;
   loading: boolean;
@@ -96,56 +95,39 @@ interface ScoreTileProps {
   change?: number | null;
 }
 
-const TONE_PILL: Record<RateTone, { label: string; className: string } | null> = {
-  success: { label: 'Good', className: 'bg-success/10 text-success' },
-  warning: { label: 'Fair', className: 'bg-warning/10 text-warning' },
-  danger: { label: 'Low', className: 'bg-danger/10 text-danger' },
-  neutral: null,
-};
-
-// On a phone the dial sits left of the title and detail, so three tiles stay short; from `sm` up it is
-// the stacked tile with the dial in the middle.
-const ScoreTile = ({ title, icon: Icon, score, detail, loading, href, change }: ScoreTileProps) => {
+// A small dial with the number inside and the name under it, three across even on a phone. No pills, no
+// sentences: the colour and the number say how it is going, and the detail is in the tooltip.
+const ScoreTile = ({ title, score, detail, loading, href, change }: ScoreTileProps) => {
   // A small count still gets its colour: one finished item out of one is a full, green score.
   const tone = score === null ? 'neutral' : rateTone(score, Number.MAX_SAFE_INTEGER);
   const [from, to] = RING[tone];
-  const pill = TONE_PILL[tone];
-  const tileClass = `grid grid-cols-[7rem_minmax(0,1fr)] grid-rows-[auto_auto] items-center gap-x-3 gap-y-1 rounded-lg border border-border bg-surface-hover/30 p-2.5 sm:flex sm:flex-col sm:items-stretch sm:gap-2 sm:p-3.5 min-w-0 ${href ? 'transition-colors hover:border-border-hover outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40' : ''}`;
+  const tileClass = `flex min-w-0 flex-col items-center gap-1 rounded-lg border border-border bg-surface-hover/30 p-2 sm:p-3 ${href ? 'transition-colors hover:border-border-hover outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40' : ''}`;
   const body = (
     <>
-      <div className="col-start-2 row-start-1 self-end flex items-center justify-between gap-2 min-w-0 sm:self-auto">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="hidden size-7 shrink-0 items-center justify-center rounded-md bg-primary-500/10 text-primary-600 dark:text-primary-400 sm:inline-flex">
-            <Icon className="size-4" aria-hidden="true" />
-          </span>
-          <span className="truncate text-sm sm:text-sm font-display font-semibold sm:font-bold text-text">{title}</span>
-        </div>
-        <span className="flex shrink-0 items-center gap-1.5">
-          {change != null && change !== 0 && (
-            <span className={`inline-flex items-center gap-0.5 text-xs font-display font-bold tabular-nums ${change > 0 ? 'text-success' : 'text-danger'}`} title="Compared with the previous period">
-              {change > 0 ? <ArrowUp className="size-3" aria-hidden="true" /> : <ArrowDown className="size-3" aria-hidden="true" />}
-              {Math.abs(change)}
-            </span>
-          )}
-          {pill && <span className={`rounded-full px-2 py-0.5 text-xs font-display font-bold ${pill.className}`}>{pill.label}</span>}
-        </span>
-      </div>
       <SemiGauge
         percent={score ?? 0}
         showFill={score !== null}
         gradientFrom={from}
         gradientTo={to}
-        ariaLabel={score === null ? `${title}: no data` : `${title}: ${score} percent`}
-        className="col-start-1 row-span-2 row-start-1 sm:mx-auto sm:max-w-64"
+        ariaLabel={score === null ? `${title}: nothing due` : `${title}: ${score} percent`}
+        className="max-w-24 sm:max-w-32"
       >
-        <span className="font-display text-lg sm:text-3xl font-extrabold leading-none text-text">{score === null ? '–' : `${score}%`}</span>
+        <span className="font-display text-sm sm:text-xl font-extrabold leading-none text-text">{loading ? '' : score === null ? '–' : `${score}%`}</span>
       </SemiGauge>
-      <p className="col-start-2 row-start-2 self-start text-xs font-medium text-text-muted sm:text-center sm:min-h-8">
-        {loading ? 'Loading' : score === null ? 'Nothing was due' : detail}
-      </p>
+      <span className="flex max-w-full items-center gap-1 text-xs font-display font-semibold text-text-secondary">
+        <span className="truncate">{title}</span>
+        {change != null && change !== 0 && (
+          <span className={`inline-flex shrink-0 items-center tabular-nums ${change > 0 ? 'text-success' : 'text-danger'}`} title="Compared with the previous period">
+            {change > 0 ? <ArrowUp className="size-3" aria-hidden="true" /> : <ArrowDown className="size-3" aria-hidden="true" />}
+            {Math.abs(change)}
+          </span>
+        )}
+      </span>
     </>
   );
-  return href ? <Link to={href} aria-label={`${title}: open the late items`} className={tileClass}>{body}</Link> : <div className={tileClass}>{body}</div>;
+  return href
+    ? <Link to={href} title={detail || undefined} aria-label={`${title}: open the late items`} className={tileClass}>{body}</Link>
+    : <div title={detail || undefined} className={tileClass}>{body}</div>;
 };
 
 /**
@@ -484,12 +466,12 @@ export const MyScoresCard = () => {
         {activeView === 'bars' ? (
           <ScoreBars scores={data} loading={loading} metric={metric} previous={previous} onOpenModule={(m) => openModule(m)} />
         ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+        <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
           {([
             { key: 'checklist', title: 'Checklist', icon: ClipboardCheck },
             { key: 'ticket', title: 'Tickets', icon: TicketIcon },
             { key: 'delegation', title: 'Delegations', icon: Users },
-          ] as { key: ModuleKey; title: string; icon: typeof Users }[]).map(({ key, title, icon }) => {
+          ] as { key: ModuleKey; title: string; icon: typeof Users }[]).map(({ key, title }) => {
             // Overview keeps the headline score; the other tabs show that one measure for every module.
             const now = data ? numbersFor(data, key) : null;
             const before = previous ? numbersFor(previous, key) : null;
@@ -507,7 +489,6 @@ export const MyScoresCard = () => {
                 key={key}
                 loading={loading}
                 title={title}
-                icon={icon}
                 score={score}
                 href={drillHref(key)}
                 change={score !== null && priorScore !== null ? score - priorScore : null}
