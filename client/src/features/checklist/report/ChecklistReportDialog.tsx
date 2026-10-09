@@ -323,9 +323,9 @@ export const ChecklistReportDialog = ({ onClose }: ChecklistReportDialogProps) =
         )}
       </div>
 
-      <section aria-label="Preview" className="flex flex-col gap-2 pt-4 border-t border-dashed border-border/60">
+      <section aria-label="Preview" className="flex flex-col gap-2 pt-4 border-t border-border/60">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-sm font-display font-bold text-text">Preview</h3>
+          <h3 className="t-card font-display font-bold text-text">Preview</h3>
           {groupBy === 'both' && (
             <div className="flex gap-2">
               <ToggleChip on={previewView === 'person'} onClick={() => setPreviewView('person')}>People</ToggleChip>

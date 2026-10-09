@@ -23,7 +23,7 @@ export const SettingsCard = ({ icon: Icon, title, aside, hint, tone = 'primary',
       <span className={`flex items-center justify-center size-9 rounded-xl shrink-0 ${tone === 'warning' ? 'bg-warning/10 text-warning' : 'bg-primary-500/10 text-primary-600 dark:text-primary-300'}`}>
         <Icon size={17} aria-hidden />
       </span>
-      <h2 className="flex-1 min-w-0 text-base font-display font-bold text-text tracking-tight">{title}</h2>
+      <h2 className="flex-1 min-w-0 t-section font-display font-bold text-text tracking-tight">{title}</h2>
       {aside}
     </div>
     {children}

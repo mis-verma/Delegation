@@ -43,7 +43,7 @@ export const StepHeading = ({ step, title, subtitle }: { step: number; title: st
       {step}
     </span>
     <div className="flex flex-col min-w-0">
-      <h3 className="text-sm font-display font-semibold text-text leading-tight">{title}</h3>
+      <h3 className="t-card font-display font-semibold text-text leading-tight">{title}</h3>
       {subtitle && <p className="text-xs font-display text-text-muted leading-snug">{subtitle}</p>}
     </div>
   </div>

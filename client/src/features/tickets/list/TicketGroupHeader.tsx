@@ -18,7 +18,7 @@ export const TicketGroupHeader = ({ label, groupBy, ticketCount, stats }: Ticket
       <div className="flex items-center gap-2 min-w-0">
         <EntityIconTile icon={Icon} tone={groupBy === 'department' ? 'coral' : 'primary'} className="size-6 sm:size-7 rounded-md shrink-0" iconClassName="size-3.5 sm:size-4" />
         {/* Wraps rather than truncates: a long department or person name must stay readable. */}
-        <h3 className="min-w-0 text-sm font-display font-semibold text-text tracking-tight leading-snug break-words">
+        <h3 className="min-w-0 t-card font-display font-semibold text-text tracking-tight leading-snug break-words">
           {label}
         </h3>
         <span className="text-xs font-semibold text-text-muted tabular-nums shrink-0">{ticketCount}</span>

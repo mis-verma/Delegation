@@ -175,7 +175,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
       )}
 
       {showFollowUp && (
-        <div className="flex flex-col gap-3 pt-3 border-t border-dashed border-border/60">
+        <div className="flex flex-col gap-3 pt-3 border-t border-border/60">
           {requiresReason && (
             pendingAnswer ? (
               <Textarea

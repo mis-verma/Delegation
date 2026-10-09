@@ -51,7 +51,7 @@ export const TodoDrawer = ({ open, onClose }: TodoDrawerProps) => {
           <div className="flex items-center gap-3 min-w-0">
             <GradientIconTile icon={ListTodo} size="sm" />
             <div className="min-w-0">
-              <h2 className="text-sm font-display font-semibold text-text tracking-tight truncate">Your to-do list</h2>
+              <h2 className="t-card font-display font-semibold text-text tracking-tight truncate">Your to-do list</h2>
               <p className="text-xs text-text-muted truncate">Personal tasks, just for you</p>
             </div>
           </div>

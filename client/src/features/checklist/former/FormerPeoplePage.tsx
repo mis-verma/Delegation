@@ -197,7 +197,7 @@ const PersonHistory = ({ person, onBack }: { person: FormerPerson; onBack: () =>
         <Avatar name={fullName(person)} size="xl" />
         <div className="flex flex-col gap-2 min-w-0">
           <div className="flex flex-col gap-0.5">
-            <h2 className="text-lg font-display font-bold text-text leading-snug">
+            <h2 className="t-section font-display font-bold text-text leading-snug">
               {fullName(person)} <span className="text-sm font-medium text-text-muted">(left)</span>
             </h2>
             <p className="text-xs font-display text-text-muted">

@@ -133,7 +133,7 @@ export const CategoryList = () => {
     <div className="flex flex-col gap-5 w-full">
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="min-w-0 sm:flex-1">
-          <h2 className="text-base font-display font-bold text-text tracking-tight">Categories</h2>
+          <h2 className="t-section font-display font-bold text-text tracking-tight">Categories</h2>
           <p className="text-sm font-display text-text-muted">
             {isPending ? "Loading" : `${categories.length} ${categories.length === 1 ? "category" : "categories"}`}. Picking one on a ticket fills in its department, default people and due time.
           </p>

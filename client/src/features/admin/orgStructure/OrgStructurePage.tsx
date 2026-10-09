@@ -45,7 +45,7 @@ const BucketHeader = ({ title, hint, count }: { title: string; hint: string; cou
       <TriangleAlert className="size-4" aria-hidden />
     </span>
     <div className="min-w-0 flex-1 flex flex-col gap-0.5">
-      <h3 className="text-sm font-display font-bold leading-snug text-text">{title}</h3>
+      <h3 className="t-card font-display font-bold leading-snug text-text">{title}</h3>
       <p className="text-xs font-display text-text-muted">{hint}</p>
     </div>
     <span className="shrink-0 rounded-full border border-warning/30 bg-warning/10 px-2.5 py-0.5 text-xs font-display font-bold tabular-nums text-warning">
@@ -270,7 +270,7 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
         ))}
 
         {visibleTree.unassignedDepartments.length > 0 && (
-          <section aria-label="Departments without a store" className="flex flex-col gap-4 rounded-2xl border border-dashed border-warning/40 bg-warning/5 p-4 sm:p-5">
+          <section aria-label="Departments without a store" className="flex flex-col gap-4 rounded-2xl border border-warning/40 bg-warning/5 p-4 sm:p-5">
             <BucketHeader
               title="Departments without a store"
               hint="Pick a store for each of these so their people show up under it."
@@ -308,7 +308,7 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
               moveUser(dragged.id, { departmentId: null, storeId: null });
             }}
             // Outline, not ring: no box-shadows on this page.
-            className={`flex flex-col gap-4 rounded-2xl border border-dashed p-4 sm:p-5 transition-colors duration-200 ${
+            className={`flex flex-col gap-4 rounded-2xl border p-4 sm:p-5 transition-colors duration-200 ${
               isUnassignDropTarget
                 ? 'border-warning bg-warning/15 outline outline-2 -outline-offset-2 outline-warning/40'
                 : 'border-warning/40 bg-warning/5'
@@ -404,7 +404,7 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
             // One slim strip, not a titled panel: the heading and the items share a row, so a clean org
             // costs one line of height and a messy one costs one wrapped row.
             <section aria-label="Needs attention" className={`${PANEL_CLASS} flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3`}>
-              <h2 className="flex items-center gap-2 text-sm font-display font-bold text-text shrink-0">
+              <h2 className="flex items-center gap-2 t-card font-display font-bold text-text shrink-0">
                 {attention.length === 0 && !isPending ? (
                   <CircleCheck className="size-4 text-success" aria-hidden />
                 ) : (

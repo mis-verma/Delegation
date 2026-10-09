@@ -286,7 +286,7 @@ const SectionContainer = ({
           {items.length === 0 ? (
             <div
               ref={setNodeRef}
-              className={`flex items-center justify-center py-6 px-4 text-center rounded-2xl border border-dashed text-xs font-display transition-colors ${
+              className={`flex items-center justify-center py-6 px-4 text-center rounded-2xl border text-xs font-display transition-colors ${
                 isOver ? 'border-primary-400 bg-primary-500/5 text-primary-700 dark:text-primary-300' : 'border-border/70 text-text-muted'
               }`}
             >
@@ -564,7 +564,7 @@ export const BuilderItemsList = ({
       {/* Sections are optional grouping ("Opening", "Closing"): a single quiet row under the
           questions instead of a dashed toolbar above them. */}
       <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-2 min-h-11 sm:min-h-10 pl-3 pr-1 rounded-lg border border-dashed border-border focus-within:border-primary-400 focus-within:border-solid transition-colors">
+        <div className="flex items-center gap-2 min-h-11 sm:min-h-10 pl-3 pr-1 rounded-lg border border-border focus-within:border-primary-400 focus-within:border-solid transition-colors">
           <Layers size={14} className="text-text-light shrink-0" />
           <Input
             label="New section name"

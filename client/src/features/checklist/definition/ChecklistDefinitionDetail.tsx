@@ -348,7 +348,7 @@ export const ChecklistDefinitionDetail = () => {
       {/* Runs Section */}
       <section className="flex flex-col gap-4" aria-labelledby="runs-heading">
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-          <h2 id="runs-heading" className="text-sm font-display font-bold text-text">
+          <h2 id="runs-heading" className="t-card font-display font-bold text-text">
             Runs{instances ? ` (${instances.length}${instances.length === INSTANCE_LIMIT ? '+' : ''})` : ''}
           </h2>
           {instances && instances.length >= INSTANCE_LIMIT && (

@@ -48,7 +48,7 @@ export function SavedViewsMenu<T>({ views, onSave, onApply, onRemove, activeId, 
         </div>
 
         {views.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-xs font-display text-text-muted">
+          <p className="rounded-lg border border-border px-3 py-4 text-center text-xs font-display text-text-muted">
             Nothing saved yet. Set the page up the way you like it, then save it below.
           </p>
         ) : (

@@ -18,7 +18,7 @@ export const ItemCardShell = ({ isLocked, dashed = false, children, className }:
     className={cn(
       PANEL_CLASS,
       'flex flex-col gap-3 p-3.5 sm:p-4',
-      dashed && 'border-dashed border-border-hover bg-surface-hover/40',
+      dashed && 'border-border-hover bg-surface-hover/40',
       isLocked && 'opacity-75',
       className,
     )}

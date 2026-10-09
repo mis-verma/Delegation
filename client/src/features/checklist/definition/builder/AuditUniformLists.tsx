@@ -99,7 +99,7 @@ export const AuditUniformLists = ({ draft, onChange }: AuditUniformListsProps) =
         labelAction={copyMenu(MAIN, (accessories) => onChange({ accessories }))}
       />
 
-      <div className="flex flex-col gap-3 p-3 rounded-lg border border-dashed border-border bg-surface-hover/30">
+      <div className="flex flex-col gap-3 p-3 rounded-lg border border-border bg-surface-hover/30">
         <p className="t-meta font-display text-text-muted leading-relaxed">
           Each person is checked against the list of their dress type. People with no type, or a type
           with an empty list here, get their gender&rsquo;s list, then the main list.

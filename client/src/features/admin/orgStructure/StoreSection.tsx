@@ -140,7 +140,7 @@ const StoreSectionComponent = ({
           >
             <div className="border-t border-border bg-surface-hover/30 p-4 sm:p-5">
               {node.departments.length === 0 && node.directUsers.length === 0 ? (
-                <p className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm font-display text-text-muted">
+                <p className="flex items-center justify-center gap-2 rounded-xl border border-border px-4 py-6 text-center text-sm font-display text-text-muted">
                   <Layers className="size-4 shrink-0 text-text-light" aria-hidden />
                   This store has no departments or staff yet. Assign a department to it from People &amp; Teams.
                 </p>
@@ -170,7 +170,7 @@ const StoreSectionComponent = ({
                   ))}
                   {node.directUsers.length > 0 && (
                     <TreeItem tone="leaf">
-                      <div className="flex flex-col gap-0.5 rounded-xl border border-dashed border-border bg-surface p-2">
+                      <div className="flex flex-col gap-0.5 rounded-xl border border-border bg-surface p-2">
                         <p className="px-2.5 py-1.5 text-xs font-display font-bold text-text-secondary">
                           Store staff with no department
                         </p>

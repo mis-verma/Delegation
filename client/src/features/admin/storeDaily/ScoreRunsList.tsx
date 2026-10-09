@@ -41,12 +41,12 @@ export const ScoreRunsList = ({ scope }: { scope: ScoreScope }) => {
   }
   const { runs, total } = query.data;
   if (runs.length === 0) {
-    return <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-xs font-display text-text-muted">No checklists were due in this period.</p>;
+    return <p className="rounded-lg border border-border px-3 py-4 text-center text-xs font-display text-text-muted">No checklists were due in this period.</p>;
   }
 
   return (
     <section aria-label="Checklists behind this score" className="flex flex-col gap-2">
-      <h3 className="text-sm font-display font-bold text-text">
+      <h3 className="t-card font-display font-bold text-text">
         Checklists behind it <span className="font-semibold text-text-muted tabular-nums">{total == null ? `(weakest ${runs.length})` : `(${runs.length})`}</span>
       </h3>
       <ul className="flex flex-col gap-1.5 max-h-64 overflow-y-auto pr-1">

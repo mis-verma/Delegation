@@ -181,7 +181,7 @@ export const ActivityTimeline = ({ entityType, entityId, limit: initialLimit = P
       {isError && <p className="text-xs font-medium text-danger">Couldn't load activity. Refresh to try again.</p>}
 
       {ready && rows.length === 0 && (
-        <div className="flex items-center gap-3 px-4 py-3.5 rounded-lg border border-dashed border-border">
+        <div className="flex items-center gap-3 px-4 py-3.5 rounded-lg border border-border">
           <span className="flex items-center justify-center size-9 rounded-xl bg-surface-hover text-text-light shrink-0">
             <History size={16} strokeWidth={2.25} />
           </span>

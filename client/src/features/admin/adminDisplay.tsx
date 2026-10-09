@@ -45,7 +45,7 @@ export const EmptyState = ({ label, description, Icon, className }: EmptyStatePr
     aria-label={label}
     className={cn(
       "flex flex-col items-center justify-center py-16 sm:py-20 px-4 text-center",
-      "rounded-3xl border-2 border-dashed border-border",
+      "rounded-3xl border-2 border-border",
       "bg-surface-hover/50",
       "animate-in fade-in duration-500",
       className

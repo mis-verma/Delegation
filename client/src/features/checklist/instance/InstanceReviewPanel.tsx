@@ -286,7 +286,7 @@ interface InstanceReviewPanelProps {
 }
 
 const SectionTitle = ({ children }: { children: string }) => (
-  <h3 className="text-sm font-display font-semibold text-text">{children}</h3>
+  <h3 className="t-card font-display font-semibold text-text">{children}</h3>
 );
 
 // The body of a checklist waiting for review: failing questions first and open, everything else

@@ -55,7 +55,7 @@ export const FormSection = ({ title, icon: Icon, description, children }: { titl
         </span>
       )}
       <div className="min-w-0">
-        <h3 className="text-sm font-display font-bold text-text leading-tight">{title}</h3>
+        <h3 className="t-card font-display font-bold text-text leading-tight">{title}</h3>
         {description && <p className="text-xs font-display text-text-muted leading-snug">{description}</p>}
       </div>
     </div>

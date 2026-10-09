@@ -208,13 +208,13 @@ const TodoColumn = ({ label, dotClassName, todos, emptyMessage, renderRow, maxVi
     <section aria-label={label} className="flex-1 w-full min-w-0 flex flex-col gap-2.5">
       <header className="flex items-center gap-2 px-0.5">
         <span className={`size-2 rounded-full shrink-0 ${dotClassName}`} aria-hidden="true" />
-        <h3 className="text-sm font-display font-semibold text-text tracking-tight">{label}</h3>
+        <h3 className="t-card font-display font-semibold text-text tracking-tight">{label}</h3>
         <span className="text-xs font-semibold text-text-muted tabular-nums">{todos.length}</span>
       </header>
 
       <div className="flex flex-col gap-2">
         {todos.length === 0 ? (
-          <div className="flex items-center justify-center px-4 py-8 text-center border border-dashed border-border/70 rounded-2xl">
+          <div className="flex items-center justify-center px-4 py-8 text-center border border-border/70 rounded-2xl">
             <span className="text-xs font-display font-medium text-text-muted">{emptyMessage}</span>
           </div>
         ) : (

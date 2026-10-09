@@ -46,7 +46,7 @@ export const ResetPasswordForm = () => {
           }}
         >
           <div className="flex flex-col gap-1 pb-2.5 border-b border-primary-500/30">
-            <h2 className="text-lg sm:text-xl font-display font-bold text-text">
+            <h2 className="t-section font-display font-bold text-text">
               Choose a new password
             </h2>
             <p className="text-xs text-text-secondary font-display">

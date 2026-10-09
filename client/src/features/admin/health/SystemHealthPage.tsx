@@ -45,7 +45,7 @@ const LevelChip = ({ level, label }: { level: HealthLevel | 'idle'; label?: stri
 const Tile = ({ icon, title, level, children }: { icon: ReactNode; title: string; level: HealthLevel; children: ReactNode }) => (
   <section className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-4')}>
     <div className="flex items-center justify-between gap-2">
-      <h2 className="flex items-center gap-2 text-sm font-display font-semibold text-text">
+      <h2 className="flex items-center gap-2 t-card font-display font-semibold text-text">
         <span className="text-text-muted">{icon}</span>
         {title}
       </h2>
@@ -170,7 +170,7 @@ export const SystemHealthPage = () => {
           </div>
 
           <section className="flex flex-col gap-2.5">
-            <h2 className="text-sm font-display font-semibold text-text">Background jobs</h2>
+            <h2 className="t-card font-display font-semibold text-text">Background jobs</h2>
             {health.jobs.length === 0 ? (
               <p className="text-xs font-display text-text-muted">No background jobs are registered on this server.</p>
             ) : (
@@ -182,7 +182,7 @@ export const SystemHealthPage = () => {
 
           {health.database.biggestTables.length > 0 && (
             <section className="flex flex-col gap-2.5">
-              <h2 className="text-sm font-display font-semibold text-text">Where the data lives</h2>
+              <h2 className="t-card font-display font-semibold text-text">Where the data lives</h2>
               <ul className={cn(PANEL_CLASS, 'flex flex-col gap-2 p-4')}>
                 {health.database.biggestTables.map(t => (
                   <li key={t.name} className="grid grid-cols-[minmax(0,9rem)_1fr_auto] items-center gap-3 text-xs font-display">
@@ -198,7 +198,7 @@ export const SystemHealthPage = () => {
           )}
 
           <section className="flex flex-col gap-2.5">
-            <h2 className="text-sm font-display font-semibold text-text">Recent server errors</h2>
+            <h2 className="t-card font-display font-semibold text-text">Recent server errors</h2>
             {health.errors.length === 0 ? (
               <p className="text-xs font-display text-text-muted">No unexpected errors since the server last restarted.</p>
             ) : (

@@ -37,7 +37,7 @@ export const DashboardLayoutToolbar = ({ isCustomizing, onStart, onReset, onDone
   }
 
   return (
-    <div className="flex flex-col gap-3 px-4 py-3 rounded-xl border border-dashed border-primary-500/60 bg-primary-500/5">
+    <div className="flex flex-col gap-3 px-4 py-3 rounded-xl border border-primary-500/60 bg-primary-500/5">
     <div role="status" className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
       <div className="flex items-center gap-2 text-xs font-display font-semibold text-primary-700 dark:text-primary-300">
         <LayoutGrid size={14} strokeWidth={2.25} className="text-primary-600 dark:text-primary-300 shrink-0" />

@@ -21,7 +21,7 @@ export const CategoryBarChart = ({ bars }: { bars: CategoryBar[] }) => {
   // centered message says the same thing without the five repeated dashes.
   if (bars.every(bar => bar.total === 0)) {
     return (
-      <div className="flex flex-col items-center justify-center gap-2 h-48 rounded-lg bg-surface-hover/40 border border-dashed border-border/70 text-center px-4">
+      <div className="flex flex-col items-center justify-center gap-2 h-48 rounded-lg bg-surface-hover/40 border border-border/70 text-center px-4">
         <span className="flex items-center justify-center size-9 rounded-full bg-surface text-text-light border border-border/60">
           <BarChart3 size={16} strokeWidth={2} />
         </span>

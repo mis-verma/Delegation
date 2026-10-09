@@ -23,7 +23,7 @@ export const BuilderStepFrame = ({ stepIndex, title, description, children }: Bu
   return (
     <div ref={frameRef} className="flex flex-col gap-4 sm:gap-6">
       <div className="sr-only sm:not-sr-only flex flex-col gap-1">
-        <h2 ref={headingRef} tabIndex={-1} className="font-display text-lg font-bold text-text outline-none">
+        <h2 ref={headingRef} tabIndex={-1} className="font-display t-section font-bold text-text outline-none">
           {title}
         </h2>
         {/* Desktop-only: on a phone the step name plus the stepper above already say where you are. */}

@@ -74,7 +74,7 @@ export const KpiSectionShell = ({ icon: Icon, title, description, isPending, isE
         <div className="flex items-center gap-3 sm:gap-4 min-w-0">
           <EntityIconTile icon={Icon} tone="primary" />
           <div className="min-w-0">
-            <h2 id={headingId} className="text-lg sm:text-xl font-display font-bold text-text">{title}</h2>
+            <h2 id={headingId} className="t-section font-display font-bold text-text">{title}</h2>
             {/* Descriptive sentences are desktop-only: on a phone the numbers come first. */}
             <p className="hidden sm:block text-sm font-display text-text-muted leading-relaxed">{description}</p>
           </div>

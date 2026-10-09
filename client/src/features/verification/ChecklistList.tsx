@@ -60,7 +60,7 @@ export const ChecklistList = ({
   <section className="flex flex-col gap-3 min-w-0" aria-label={heading}>
     <div className="flex flex-wrap items-center justify-between gap-2">
       <div className="flex items-center gap-2">
-        <h2 className="text-sm font-display font-semibold text-text">{heading}</h2>
+        <h2 className="t-card font-display font-semibold text-text">{heading}</h2>
         {!isPending && rows.length > 0 && (
           <span className="px-2 py-0.5 rounded-full bg-border/50 t-meta font-display font-medium text-text-muted tabular-nums">{rows.length}</span>
         )}

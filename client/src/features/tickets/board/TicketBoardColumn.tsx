@@ -47,7 +47,7 @@ export const TicketBoardColumn = memo(({ status, tickets, draggable, onOpen, dep
             <span className={`absolute inset-0 rounded-full blur-sm opacity-60 ${config.dot}`} />
             <span className={`relative size-2 rounded-full shrink-0 ${config.dot}`} aria-hidden="true" />
           </div>
-          <h3 className="text-sm font-display font-semibold text-text tracking-tight leading-tight break-words">
+          <h3 className="t-card font-display font-semibold text-text tracking-tight leading-tight break-words">
             {config.label}
           </h3>
         </div>

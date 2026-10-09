@@ -105,7 +105,7 @@ export const DepartmentMonthlySection = ({ onOpenDetail }: { onOpenDetail: (deta
     <section aria-labelledby="dept-monthly-heading" className="flex flex-col gap-3">
       <div className="flex flex-wrap items-end justify-between gap-2 px-1">
         <div className="flex flex-col gap-0.5">
-          <h2 id="dept-monthly-heading" className="text-base sm:text-lg font-display font-bold text-text">Departments by month</h2>
+          <h2 id="dept-monthly-heading" className="t-section font-display font-bold text-text">Departments by month</h2>
           <p className="text-xs font-display text-text-muted">
             Top number is completion, small number below is compliance. Tap a score for the detail. A run shared by people in two departments counts in both.
           </p>

@@ -47,7 +47,7 @@ const UserCardComponent = ({
   return (
     // justify-start: the footer pins itself with mt-auto, so a taller grid row never spreads the
     // other blocks apart.
-    <article className={cn(ENTITY_CARD_CLASS, 'justify-start gap-4 overflow-hidden', muted && 'border-dashed bg-surface-hover/30', busy && 'pointer-events-none')}>
+    <article className={cn(ENTITY_CARD_CLASS, 'justify-start gap-4 overflow-hidden', muted && 'bg-surface-hover/30', busy && 'pointer-events-none')}>
       {strip && <span aria-hidden className={cn('absolute inset-x-0 top-0 h-1', strip)} />}
 
       <header className="flex items-start justify-between gap-2">

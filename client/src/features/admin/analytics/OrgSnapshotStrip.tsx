@@ -62,7 +62,7 @@ const OrgSnapshotStripBase = ({ stores, departments, users, isPending, isError, 
 
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-3 sm:gap-4">
-      <h2 id={headingId} className="text-lg sm:text-xl font-display font-bold text-text">Your organisation</h2>
+      <h2 id={headingId} className="t-section font-display font-bold text-text">Your organisation</h2>
 
       {isError && <InlineError message="Could not load the organisation counts." onRetry={onRetry} />}
 

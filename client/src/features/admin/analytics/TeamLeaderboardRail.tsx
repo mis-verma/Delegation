@@ -68,7 +68,7 @@ export const TeamLeaderboardRail = ({ from, to }: TeamLeaderboardRailProps) => {
     <section aria-labelledby={headingId} className={`${PANEL_CLASS} p-4 sm:p-5 flex flex-col gap-3 flex-1`}>
       <div className="flex items-center gap-2.5">
         <EntityIconTile icon={Trophy} tone="coral" className="size-8 rounded-lg" />
-        <h2 id={headingId} className="text-sm font-display font-bold text-text">Leaderboard</h2>
+        <h2 id={headingId} className="t-card font-display font-bold text-text">Leaderboard</h2>
       </div>
 
       {query.isError && !query.data ? (

@@ -43,7 +43,7 @@ export const QuickActionsGrid = ({ actions, title = 'Quick actions', description
     <div className="relative z-10 flex items-center gap-3.5 border-b border-border/40 bg-surface/50 px-4 sm:px-5 py-4 backdrop-blur-xl">
       <EntityIconTile icon={Zap} tone="coral" />
       <div>
-        <h2 className="font-display text-base sm:text-lg font-bold tracking-tight text-text">{title}</h2>
+        <h2 className="font-display t-section font-bold tracking-tight text-text">{title}</h2>
         <p className="mt-0.5 font-display text-xs font-medium text-text-muted">{description}</p>
       </div>
     </div>

@@ -718,7 +718,7 @@ export const ChecklistBuilder = () => {
 
                 <div className="flex flex-col gap-3 min-w-0">
                   <div className="flex items-baseline justify-between gap-2">
-                    <h3 className="text-sm font-display font-semibold text-text">
+                    <h3 className="t-card font-display font-semibold text-text">
                       Questions <span className="font-normal text-text-muted tabular-nums">· {itemDrafts.length}</span>
                     </h3>
                     {itemDrafts.length > 1 && (

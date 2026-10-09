@@ -196,7 +196,7 @@ export const ItemRemarksField = memo(function ItemRemarksField({ item, instanceI
               <button
                 type="button"
                 onClick={() => setMode('na')}
-                className="inline-flex items-center gap-1.5 min-h-11 sm:min-h-8 px-3 rounded-full border border-dashed border-border-hover text-xs font-display font-semibold text-text-muted hover:text-text hover:border-text-light transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]"
+                className="inline-flex items-center gap-1.5 min-h-11 sm:min-h-8 px-3 rounded-full border border-border-hover text-xs font-display font-semibold text-text-muted hover:text-text hover:border-text-light transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]"
               >
                 <Ban size={13} />
                 Not applicable

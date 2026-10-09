@@ -170,7 +170,7 @@ export const PersonChecklistView = ({
     <div className={cn(PANEL_CLASS, 'p-4 sm:p-6 flex flex-col gap-6 transition-opacity duration-200', isRefreshing && 'opacity-60')} aria-busy={isRefreshing}>
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex flex-col gap-0.5 min-w-0">
-          <h2 className="text-lg font-display font-bold text-text tracking-tight">{personName}</h2>
+          <h2 className="t-section font-display font-bold text-text tracking-tight">{personName}</h2>
           <p className="text-xs font-display font-medium text-text-muted">Store checklists, delegations, issues and tickets, {phrase}</p>
         </div>
 

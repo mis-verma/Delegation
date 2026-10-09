@@ -48,7 +48,7 @@ export const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, picked
     <div className="flex flex-col gap-5">
       <header className="flex flex-col gap-2">
         <div className="flex items-start justify-between gap-3">
-          {!hideTitle && <h2 className="text-base font-display font-bold text-text leading-snug">{instance.title}</h2>}
+          {!hideTitle && <h2 className="t-section font-display font-bold text-text leading-snug">{instance.title}</h2>}
           <Link
             to={`/checklists/${instance.id}`}
             className="inline-flex items-center gap-1 shrink-0 min-h-11 sm:min-h-8 px-2 -mr-2 rounded-md text-xs font-display font-medium text-text-muted hover:text-text hover:bg-surface-hover transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"

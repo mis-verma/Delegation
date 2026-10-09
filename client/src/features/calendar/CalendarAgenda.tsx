@@ -40,7 +40,7 @@ export const CalendarAgenda = ({ day, today, items, isPending, onOpenItem, onCre
       <div className="flex items-center justify-between gap-3 border-b border-border p-3 sm:p-4">
         <div className="flex min-w-0 flex-col gap-0.5">
           <span className="t-meta font-display font-semibold text-primary-600 dark:text-primary-400">{relativeDayLabel(day, today)}</span>
-          <h2 className="text-base sm:text-lg font-display font-bold leading-tight text-text tracking-tight">{heading}</h2>
+          <h2 className="t-section font-display font-bold leading-tight text-text tracking-tight">{heading}</h2>
           <span className="text-xs font-medium text-text-muted">{countLabel}</span>
         </div>
 

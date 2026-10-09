@@ -54,7 +54,7 @@ export const EmptyState = ({ icon: Icon, title, description, tone = 'neutral', a
   }
 
   return (
-    <div className={`flex flex-col items-center justify-center py-16 px-6 text-center bg-surface/30 rounded-2xl border border-dashed border-border/80 ${className}`}>
+    <div className={`flex flex-col items-center justify-center py-16 px-6 text-center bg-surface/30 rounded-2xl border border-border/80 ${className}`}>
       <div className={`flex items-center justify-center mb-4 size-14 rounded-full border ${TONE_TILE_CLASS[tone]}`}>
         <Icon size={24} strokeWidth={1.5} />
       </div>

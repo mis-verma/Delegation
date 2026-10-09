@@ -300,7 +300,7 @@ export const HolidaysPage = () => {
           <form id="holiday-form" onSubmit={submit} className={cn(PANEL_CLASS, 'flex flex-col gap-4 p-4 sm:p-5', !formOpen && 'hidden lg:flex')}>
             <div className="flex items-center gap-2">
               <CalendarPlus size={16} className="text-text-light" aria-hidden />
-              <h2 className="text-sm font-display font-semibold text-text">Add a holiday</h2>
+              <h2 className="t-card font-display font-semibold text-text">Add a holiday</h2>
             </div>
             <div role="group" aria-labelledby="holiday-date-label" className="flex flex-col gap-1.5">
               <span id="holiday-date-label" className={FIELD_LABEL}>Date</span>
@@ -319,7 +319,7 @@ export const HolidaysPage = () => {
             <Button type="submit" variant="primary" size="lg" disabled={!date || !name.trim()} isLoading={createOne.isPending || checking}>
               Add holiday
             </Button>
-            <div className="flex flex-col gap-2.5 pt-4 border-t border-dashed border-border/60">
+            <div className="flex flex-col gap-2.5 pt-4 border-t border-border/60">
               <Button type="button" variant="outline" size="sm" onClick={() => void addNational()} isLoading={createMany.isPending || checking} className="self-start">
                 <Wand2 size={14} aria-hidden />
                 Add national holidays for {year}

@@ -484,7 +484,7 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
       ) : null}
 
       {editable && (
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-lg border border-dashed border-border-hover px-3 py-2.5">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-lg border border-border-hover px-3 py-2.5">
           <p className="text-sm sm:text-xs text-text-muted">Absent or on leave? You can skip this person.</p>
           <Button
             variant="outline"

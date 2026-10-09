@@ -126,7 +126,7 @@ const RankedTable = ({ title, subtitle, rows, isPending, isError, isFetching, on
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-2">
       <div className="px-1">
-        <h2 id={headingId} className="text-sm font-display font-bold text-text">{title}</h2>
+        <h2 id={headingId} className="t-card font-display font-bold text-text">{title}</h2>
         <p className="text-xs font-display font-medium text-text-muted">{subtitle}</p>
       </div>
 

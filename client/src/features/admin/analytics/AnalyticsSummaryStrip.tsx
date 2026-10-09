@@ -208,7 +208,7 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-2 sm:gap-3">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h2 id={headingId} className="text-base sm:text-lg font-display font-bold text-text">At a glance</h2>
+        <h2 id={headingId} className="t-section font-display font-bold text-text">At a glance</h2>
         <p className="text-sm font-display text-text-muted">{periodHeading(groupBy, from, to)}</p>
       </div>
 

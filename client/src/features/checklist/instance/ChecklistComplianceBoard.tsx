@@ -122,7 +122,7 @@ const ComplianceRow = memo(({ instance, storeName, nameById, namesLoading }: Com
       </div>
 
       {instance.assigneeIds.length > 0 && (
-        <div className="flex flex-wrap gap-2 pt-3 border-t border-dashed border-border/60">
+        <div className="flex flex-wrap gap-2 pt-3 border-t border-border/60">
           {instance.assigneeIds.map(id => {
             const theirs = byPerson.get(id);
             const completedByThem = theirs?.completed ?? 0;
@@ -161,7 +161,7 @@ const ComplianceRowSkeleton = () => (
       <Skeleton className="h-7 w-24 rounded-full" />
     </div>
     <Skeleton className="h-1.5 w-full rounded-full" />
-    <div className="flex gap-2 pt-3 border-t border-dashed border-border/60">
+    <div className="flex gap-2 pt-3 border-t border-border/60">
       <Skeleton className="h-7 w-32 rounded-full" />
       <Skeleton className="h-7 w-28 rounded-full" />
     </div>
@@ -409,7 +409,7 @@ export const ChecklistComplianceBoard = () => {
               <GroupByControl groupBy={groupBy} onGroupByChange={setGroupBy} range={range} onRangeChange={setRange} />
             </div>
 
-            <div className="flex flex-wrap items-end gap-3 pt-4 border-t border-dashed border-border/60">
+            <div className="flex flex-wrap items-end gap-3 pt-4 border-t border-border/60">
               <div className="flex flex-col gap-1.5 w-full sm:w-52">
                 <label htmlFor="compliance-store" className={FIELD_LABEL}>Store</label>
                 <Combobox
@@ -483,7 +483,7 @@ export const ChecklistComplianceBoard = () => {
       />
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-4 border-t border-border/60">
-        <h2 className="text-sm font-display font-bold text-text shrink-0">Who's done what</h2>
+        <h2 className="t-card font-display font-bold text-text shrink-0">Who's done what</h2>
         <p className="text-xs font-display text-text-muted">{listSpan}</p>
       </div>
 

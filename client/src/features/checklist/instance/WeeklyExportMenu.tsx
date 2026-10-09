@@ -57,7 +57,7 @@ export const WeeklyExportMenu = ({ storeId, departmentId, storeName, departmentN
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[min(22rem,calc(100vw-2rem))] flex flex-col gap-4 p-4">
         <div>
-          <h3 className="text-sm font-display font-bold text-text">Export report</h3>
+          <h3 className="t-card font-display font-bold text-text">Export report</h3>
           <p className="text-xs font-medium text-text-muted mt-0.5">
             {storeName ?? 'All stores'}, {departmentName ?? 'all departments'}
           </p>

@@ -128,7 +128,7 @@ export const ScoreTrend = ({ metric = 'overview', scope, id, period, from, to }:
             <button type="button" onClick={() => void refetch()} className="font-bold text-primary-600 hover:underline dark:text-primary-400">Try again</button>
           </div>
         ) : !anyData ? (
-          <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-border text-sm font-medium text-text-muted">Nothing was due in this window.</div>
+          <div className="flex h-full items-center justify-center rounded-lg border border-border text-sm font-medium text-text-muted">Nothing was due in this window.</div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartPoints} accessibilityLayer={false} margin={{ top: 22, right: 4, left: isMobile ? 0 : 4, bottom: 0 }} barCategoryGap={isMobile ? '12%' : '24%'} barGap={3}>

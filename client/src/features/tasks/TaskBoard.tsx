@@ -218,7 +218,7 @@ const Column = memo(({ columnKey, label, tasks, isDropTarget, fillsRow, assignee
           )}
           {/* Wraps rather than truncates: "Pending Approval" next to two badges was being cut to
               "Pending Appro…" in a four-column board. */}
-          <h3 className="text-sm font-display font-bold text-text leading-tight">
+          <h3 className="t-card font-display font-bold text-text leading-tight">
             {label}
           </h3>
           <Badge variant="default" className="min-w-6 justify-center bg-primary-500/10 tabular-nums">

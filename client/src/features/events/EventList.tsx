@@ -130,7 +130,7 @@ export const EventList = () => {
               </div>
 
               <div className="flex flex-col gap-1">
-                <h3 className="text-sm font-display font-semibold text-text leading-tight">{e.title}</h3>
+                <h3 className="t-card font-display font-semibold text-text leading-tight">{e.title}</h3>
                 {e.description && (
                   <p className="text-xs text-text-muted font-display leading-relaxed line-clamp-2">{e.description}</p>
                 )}

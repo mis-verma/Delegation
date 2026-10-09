@@ -192,7 +192,7 @@ export const ChecklistTemplateFormUI = ({ departments, isSaving, saveError, onSu
         <div className="space-y-3">
           <div className="flex items-end justify-between">
             <div>
-              <h3 className="text-sm font-display font-bold text-text">Procedure Steps</h3>
+              <h3 className="t-card font-display font-bold text-text">Procedure Steps</h3>
               <p className="text-xs font-display text-text-muted mt-1">Define the individual steps required to complete this procedure.</p>
             </div>
             <span className="text-xs font-display font-medium text-text-secondary bg-surface-hover px-2.5 py-1 rounded-md border border-border">
@@ -225,7 +225,7 @@ export const ChecklistTemplateFormUI = ({ departments, isSaving, saveError, onSu
           <button
             type="button"
             onClick={() => setItemDrafts(d => [...d, emptyChecklistItemDraft()])}
-            className="w-full py-4 mt-2 border-2 border-dashed border-border rounded-xl text-text-muted font-display font-medium text-sm transition-all duration-300 ease-in-out hover:border-primary-500/40 hover:bg-primary-500/5 hover:text-primary-600 dark:hover:text-primary-400 flex items-center justify-center gap-2 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+            className="w-full py-4 mt-2 border-2 border-border rounded-xl text-text-muted font-display font-medium text-sm transition-all duration-300 ease-in-out hover:border-primary-500/40 hover:bg-primary-500/5 hover:text-primary-600 dark:hover:text-primary-400 flex items-center justify-center gap-2 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
           >
             <Plus className="w-4 h-4 transition-transform duration-300 group-hover:rotate-90 group-hover:scale-110" />
             Add another step
@@ -256,7 +256,7 @@ export const ChecklistTemplateFormUI = ({ departments, isSaving, saveError, onSu
           </div>
 
           <div className="space-y-2">
-            <h3 className="text-sm font-display font-bold text-text">
+            <h3 className="t-card font-display font-bold text-text">
               Procedure Steps <span className="text-text-muted font-medium">({definedSteps.length})</span>
             </h3>
 

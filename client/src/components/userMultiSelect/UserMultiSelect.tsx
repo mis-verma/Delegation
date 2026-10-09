@@ -41,7 +41,7 @@ export const UserMultiSelect = ({ departmentId, storeId, storeIds, selected, onC
 
   if (!departmentId && !storeId && !storeIds?.length) {
     return (
-      <div className="p-3 text-sm font-display text-text-muted bg-surface-hover/40 border border-dashed border-border rounded-lg">
+      <div className="p-3 text-sm font-display text-text-muted bg-surface-hover/40 border border-border rounded-lg">
         Select a department or store first.
       </div>
     );

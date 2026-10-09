@@ -71,7 +71,7 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
         type="button"
         title="Add assignee"
         aria-label="Add assignee"
-        className="relative pointer-coarse:after:absolute pointer-coarse:after:-inset-y-2 pointer-coarse:after:inset-x-0 flex items-center gap-1.5 h-7 sm:h-8 pl-2 pr-3 rounded-full border border-dashed border-border-hover text-text-light hover:text-primary-600 hover:border-primary-400 transition-colors cursor-pointer shrink-0"
+        className="relative pointer-coarse:after:absolute pointer-coarse:after:-inset-y-2 pointer-coarse:after:inset-x-0 flex items-center gap-1.5 h-7 sm:h-8 pl-2 pr-3 rounded-full border border-border-hover text-text-light hover:text-primary-600 hover:border-primary-400 transition-colors cursor-pointer shrink-0"
       >
         <Plus size={15} strokeWidth={2.5} />
         <span className="text-xs font-display">Unassigned</span>
@@ -82,7 +82,7 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
         type="button"
         title={single ? 'Change assignee' : 'Add assignee'}
         aria-label={single ? 'Change assignee' : 'Add assignee'}
-        className="relative pointer-coarse:after:absolute pointer-coarse:after:-inset-2 flex items-center justify-center size-7 sm:size-8 rounded-full border border-dashed border-border-hover text-text-light hover:text-primary-600 hover:border-primary-400 transition-colors cursor-pointer shrink-0"
+        className="relative pointer-coarse:after:absolute pointer-coarse:after:-inset-2 flex items-center justify-center size-7 sm:size-8 rounded-full border border-border-hover text-text-light hover:text-primary-600 hover:border-primary-400 transition-colors cursor-pointer shrink-0"
       >
         <Plus size={15} strokeWidth={2.5} />
       </button>

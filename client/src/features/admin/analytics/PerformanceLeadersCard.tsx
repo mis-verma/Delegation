@@ -89,7 +89,7 @@ const DimensionColumn = ({ icon: Icon, title, rows, isPending, isError, isFetchi
     <div role="group" aria-labelledby={headingId} className={`flex flex-col gap-3 flex-1 min-w-0 ${className}`}>
       <div className="flex items-center gap-2 px-1">
         <Icon size={14} className="text-text-muted" aria-hidden="true" />
-        <h3 id={headingId} className="text-sm font-display font-bold text-text">{title}</h3>
+        <h3 id={headingId} className="t-card font-display font-bold text-text">{title}</h3>
       </div>
       {isError ? (
         <InlineError message="Could not load this ranking." onRetry={onRetry} />
@@ -137,7 +137,7 @@ export const PerformanceLeadersCard = ({ from, to, onViewFull }: PerformanceLead
     <section aria-labelledby={headingId} className={`${PANEL_CLASS} @container p-4 sm:p-5 flex flex-col gap-4`}>
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <h2 id={headingId} className="text-sm font-display font-bold text-text">How stores and departments are doing</h2>
+          <h2 id={headingId} className="t-card font-display font-bold text-text">How stores and departments are doing</h2>
           <p className="hidden sm:block text-xs font-display font-medium text-text-muted">
             Tickets, delegations and checklists. Needs at least {MIN_RANK_VOLUME} items to be ranked.
           </p>

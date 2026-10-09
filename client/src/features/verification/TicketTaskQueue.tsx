@@ -28,7 +28,7 @@ const DepartmentGroupCard = ({ group, onOpen }: { group: DepartmentGroup; onOpen
         <div className={`flex items-center justify-center size-9 rounded-lg shrink-0 ${group.id === UNASSIGNED ? 'bg-surface-hover text-text-muted' : 'bg-primary-500/10 text-primary-600 dark:text-primary-400'}`}>
           {group.id === UNASSIGNED ? <Users size={16} aria-hidden /> : <Building2 size={16} aria-hidden />}
         </div>
-        <h3 className="text-sm font-display font-bold text-text truncate">{group.name}</h3>
+        <h3 className="t-card font-display font-bold text-text truncate">{group.name}</h3>
       </div>
       <ChevronRight size={15} aria-hidden className="shrink-0 text-text-light group-hover:text-primary-500 group-hover:translate-x-0.5 transition-all duration-150" />
     </div>
@@ -46,7 +46,7 @@ const DepartmentGroupCard = ({ group, onOpen }: { group: DepartmentGroup; onOpen
 
 const SectionTitle = ({ title, count }: { title: string; count?: number }) => (
   <div className="flex items-center gap-2">
-    <h2 className="text-sm font-display font-semibold text-text">{title}</h2>
+    <h2 className="t-card font-display font-semibold text-text">{title}</h2>
     {count != null && count > 0 && (
       <span className="px-2 py-0.5 rounded-full bg-border/50 text-xs font-display font-medium text-text-muted tabular-nums">{count}</span>
     )}

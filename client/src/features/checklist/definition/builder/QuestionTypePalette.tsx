@@ -25,7 +25,7 @@ export const QuestionTypePalette = memo(function QuestionTypePalette({ onAdd, st
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-sm font-display font-semibold text-text">Add a question</h2>
+        <h2 className="t-card font-display font-semibold text-text">Add a question</h2>
         <span className="t-meta font-display text-text-muted">Tap a type</span>
       </div>
 
