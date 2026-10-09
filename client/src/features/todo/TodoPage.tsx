@@ -83,7 +83,7 @@ export const TodoPage = () => {
   };
 
   return (
-    <div className="flex flex-col gap-3 mx-auto w-full max-w-(--container-width) transition-all duration-300">
+    <div className="flex flex-col gap-3 pt-2.5 mx-auto w-full max-w-(--container-width) transition-all duration-300">
       {/* No visible title block, same as Delegation and Tickets: the nav item already says To-Do. */}
       <h1 className="sr-only">To-Do</h1>
       <CreatedRangeBanner range={createdRange.range} onClear={createdRange.clear} noun="to-dos" />

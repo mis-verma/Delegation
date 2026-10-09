@@ -469,7 +469,7 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
         <div className="flex items-center gap-3 min-w-0">
           <EntityIconTile icon={TrendingUp} />
           <div>
-            <h2 id="compare-dashboard-heading" className="text-base sm:text-lg font-display font-bold text-text tracking-tight leading-tight">Compare Dashboard</h2>
+            <h2 id="compare-dashboard-heading" className="t-section font-display font-bold text-text tracking-tight leading-tight">Compare Dashboard</h2>
             {/* Every rate below is of items CREATED in the period, compared with the period before.
                 Shown on phones too: without it the numbers read as "everything finished". */}
             <p className="text-xs font-medium text-text-muted mt-0.5">
@@ -672,7 +672,7 @@ export const CompareDashboard = ({ tasks, tickets, period, onPeriodChange }: Com
               icon={TrendingUp}
               title="Nothing to compare yet"
               description="This fills in once your team logs its first delegation or ticket."
-              action={{ label: 'New delegation', icon: Plus, onClick: () => navigate('/tasks?create=1') }}
+              action={{ label: 'New delegation', icon: Plus, onClick: () => navigate('/tasks?create=1', { viewTransition: true }) }}
             />
           </div>
         )}

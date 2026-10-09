@@ -113,7 +113,7 @@ export const TeamProgressCard = memo(({ tasks, isOrgWideRole }: TeamProgressCard
         <div className="flex items-center gap-3 min-w-0">
           <EntityIconTile icon={Users} />
           <div className="flex items-center gap-1.5">
-            <h2 id="team-progress-heading" className="text-base sm:text-lg font-display font-bold text-text tracking-tight leading-tight">
+            <h2 id="team-progress-heading" className="t-section font-display font-bold text-text tracking-tight leading-tight">
               {title}
             </h2>
             <Popover>
@@ -258,6 +258,7 @@ export const TeamProgressCard = memo(({ tasks, isOrgWideRole }: TeamProgressCard
 
       <div className="flex items-center justify-end">
         <Link
+      viewTransition
           to={reportHref}
           className="inline-flex items-center gap-1.5 min-h-11 px-2 rounded-lg text-sm font-display font-semibold text-primary-600 dark:text-primary-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
         >

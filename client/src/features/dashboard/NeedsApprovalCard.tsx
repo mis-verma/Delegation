@@ -126,7 +126,7 @@ export const NeedsApprovalCard = () => {
             <ShieldAlert size={18} strokeWidth={2.25} />
           </div>
           <div className="min-w-0">
-            <h2 id="needs-approval-heading" className="text-sm sm:text-lg font-display font-semibold sm:font-bold text-text tracking-tight">
+            <h2 id="needs-approval-heading" className="t-section font-display font-bold text-text tracking-tight">
               Needs your approval
             </h2>
             <p className="hidden sm:block text-xs font-medium text-text-muted mt-0.5">
@@ -186,6 +186,7 @@ export const NeedsApprovalCard = () => {
             </p>
             {queueHref && (
               <Link
+      viewTransition
                 to={queueHref}
                 className="inline-flex items-center gap-1.5 min-h-11 px-2 rounded-lg text-sm font-display font-semibold text-primary-600 dark:text-primary-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
               >

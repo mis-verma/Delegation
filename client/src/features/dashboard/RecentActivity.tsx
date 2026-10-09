@@ -100,6 +100,7 @@ const FeedRow = memo(({ item, now }: FeedRowProps) => {
 
   return (
     <Link
+      viewTransition
       // `?open=<id>` opens this exact item's detail sheet instead of dropping you on an unfiltered
       // list to go find the thing you just clicked.
       to={isTicket ? `/tickets?open=${item.id}` : `/tasks?open=${item.id}`}
@@ -208,7 +209,7 @@ export const RecentActivity = ({ feed, isPending, isError = false, onRetry }: Re
         <div className="flex items-center gap-3 sm:gap-3.5 min-w-0">
           <EntityIconTile icon={Activity} className="size-8 sm:size-10" iconClassName="size-4 sm:size-5" />
           <div>
-            <h2 id="recent-activity-heading" className="text-sm sm:text-lg font-display font-semibold sm:font-bold text-text tracking-tight">
+            <h2 id="recent-activity-heading" className="t-section font-display font-bold text-text tracking-tight">
               Recently created
             </h2>
             <p className="hidden sm:block text-xs font-medium text-text-muted mt-0.5">Newest tickets and delegations</p>
@@ -261,7 +262,7 @@ export const RecentActivity = ({ feed, isPending, isError = false, onRetry }: Re
                 icon={Sparkles}
                 title="Nothing raised yet"
                 description="New tickets and delegations will show up here."
-                action={{ label: 'New ticket', icon: Plus, onClick: () => navigate('/tickets?create=1') }}
+                action={{ label: 'New ticket', icon: Plus, onClick: () => navigate('/tickets?create=1', { viewTransition: true }) }}
               />
             </div>
           )

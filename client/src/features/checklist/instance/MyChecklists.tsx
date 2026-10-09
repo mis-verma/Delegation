@@ -371,7 +371,7 @@ export const MyChecklists = () => {
   return (
     // Same shared container as Delegation, Tickets and To-Do, centred. Moving between those pages
     // and this one must not shift the content's width or edge.
-    <div className="flex flex-col gap-3 mx-auto w-full max-w-(--container-width)">
+    <div className="flex flex-col gap-3 pt-2.5 mx-auto w-full max-w-(--container-width)">
       <CreatedRangeBanner range={createdRange.range} onClear={createdRange.clear} noun="checklists" />
       <div className="flex flex-col gap-3">
         {/* Same header treatment as Delegation, Tickets and To-Do: no visible title block, the nav

@@ -154,7 +154,7 @@ export const MonthlyTargetCard = memo(({
           <EntityIconTile icon={Target} />
           <div>
             <div className="flex items-center gap-1">
-              <h2 id="delegation-score-heading" className="text-base sm:text-lg font-display font-bold text-text tracking-tight leading-tight">{title}</h2>
+              <h2 id="delegation-score-heading" className="t-section font-display font-bold text-text tracking-tight leading-tight">{title}</h2>
               <Popover>
                 <PopoverTrigger asChild>
                   <button

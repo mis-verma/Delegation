@@ -19,6 +19,7 @@ const EventRow = memo(({ event, now }: { event: Event; now: number }) => {
   const day = relativeDayLabel(event.eventDate, now);
   return (
     <Link
+      viewTransition
       to={`/events?open=${event.id}`}
       aria-label={`${event.title}, ${EVENT_TYPE_LABELS[event.type]}, ${day}`}
       className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 min-h-11 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg hover:bg-surface-hover/60 active:bg-surface-hover transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40"
@@ -50,12 +51,13 @@ export const UpcomingEvents = ({ events, isPending, isError = false, onRetry }: 
         <div className="flex items-center gap-3">
           <EntityIconTile icon={CalendarClock} className="size-8 sm:size-10" iconClassName="size-4 sm:size-5" />
           <div>
-            <h2 id="upcoming-events-heading" className="text-sm sm:text-lg font-display font-semibold sm:font-bold text-text tracking-tight">Upcoming events</h2>
+            <h2 id="upcoming-events-heading" className="t-section font-display font-bold text-text tracking-tight">Upcoming events</h2>
             <p className="hidden sm:block text-xs font-medium text-text-muted mt-0.5">Deadlines, announcements and broadcasts</p>
           </div>
         </div>
 
         <Link
+      viewTransition
           to="/events"
           className="inline-flex items-center min-h-11 px-3 rounded-md text-xs font-display font-medium text-text-muted hover:text-primary-600 hover:bg-surface-hover transition-colors duration-200 shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
         >

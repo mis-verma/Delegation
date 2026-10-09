@@ -121,7 +121,7 @@ export const StatCard = ({
   // No box-shadow and no lift/scale on hover: an interactive card just changes its border colour
   // (same recipe as ENTITY_CARD_CLASS), and the focus ring sits inside the box because the
   // clip-path below would trim an outer one.
-  const rootClass = `group relative isolate flex flex-col gap-3 rounded-2xl ${compact ? 'p-3.5 sm:p-6' : 'p-5 sm:p-6'} transition-colors duration-200 motion-reduce:transition-none [clip-path:inset(0_round_1rem)] ${
+  const rootClass = `group relative isolate flex flex-col gap-3 rounded-2xl ${compact ? 'p-3.5 sm:p-6' : 'p-5 sm:p-6'} transition-[color,background-color,border-color,filter,transform] duration-200 ease-out motion-reduce:transition-none [clip-path:inset(0_round_1rem)] ${
     highlight
       ? decorative
         ? 'bg-gradient-to-br from-primary-900 via-primary-800 to-primary-600 overflow-hidden'
@@ -130,8 +130,8 @@ export const StatCard = ({
   } ${
     isInteractive
       ? highlight
-        ? 'cursor-pointer outline-none hover:brightness-110 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/60'
-        : 'cursor-pointer outline-none hover:border-primary-300 focus-visible:border-primary-300 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/50'
+        ? 'cursor-pointer outline-none hover:brightness-110 active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/60'
+        : 'cursor-pointer outline-none hover:border-primary-300 dark:hover:border-primary-500/50 active:scale-[0.985] focus-visible:border-primary-300 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/50'
       : ''
   }`;
 
@@ -157,7 +157,7 @@ export const StatCard = ({
       <div className="flex items-start justify-between gap-3 sm:gap-4 relative z-10">
         <div className="flex flex-col gap-1.5 min-w-0">
 
-          <span className={`text-xs font-display font-semibold tracking-wide break-words ${highlight ? 'text-white/80' : 'text-text-muted'}`}>
+          <span className={`t-meta font-display font-semibold break-words ${highlight ? 'text-white/80' : 'text-text-muted'}`}>
             {label}
           </span>
 
@@ -210,7 +210,7 @@ export const StatCard = ({
         )}
 
         {caption && (
-          <span className={`text-xs font-medium ${highlight ? 'text-white/70' : 'text-text-muted'}`}>
+          <span className={`t-meta font-medium ${highlight ? 'text-white/70' : 'text-text-muted'}`}>
             {caption}
           </span>
         )}
@@ -228,7 +228,7 @@ export const StatCard = ({
 
   if (href) {
     return (
-      <Link to={href} aria-label={`${label}: ${formatValue(value)}. View details`} className={rootClass}>
+      <Link viewTransition to={href} aria-label={`${label}: ${formatValue(value)}. View details`} className={rootClass}>
         {body}
       </Link>
     );

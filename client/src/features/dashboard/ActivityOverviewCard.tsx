@@ -54,7 +54,7 @@ export const ActivityOverviewCard = memo(({
       <div className="flex items-center gap-3">
         <EntityIconTile icon={BarChart3} />
         <div>
-          <h2 id="activity-overview-heading" className="text-base sm:text-lg font-display font-bold text-text tracking-tight leading-tight">Items created</h2>
+          <h2 id="activity-overview-heading" className="t-section font-display font-bold text-text tracking-tight leading-tight">Items created</h2>
           {/* Shown on every screen size: it says what the bars count (items created in the
               window, not items finished) and whose work it is. */}
           <p className="text-xs font-medium text-text-muted mt-0.5">{allMine ? 'Your delegations' : 'Delegations'}, tickets, checklists and todos created in the {ACTIVITY_GROUP_RANGE_LABEL[activityGroupBy]}</p>

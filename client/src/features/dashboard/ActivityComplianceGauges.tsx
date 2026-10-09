@@ -410,7 +410,7 @@ export const ActivityComplianceGauges = ({ items, activeCategories, groupBy, org
         <div className="flex items-center gap-3">
           <EntityIconTile icon={Sparkles} tone="coral" />
           <div>
-            <h2 id="compliance-heading" className="text-base sm:text-lg font-display font-bold text-text tracking-tight leading-tight">Completion and on-time</h2>
+            <h2 id="compliance-heading" className="t-section font-display font-bold text-text tracking-tight leading-tight">Completion and on-time</h2>
             {/* Shown on every screen size: the range is what tells a reader these are items
                 created in the window, not everything finished in it. */}
             <p className="text-xs font-medium text-text-muted mt-0.5">Of items created in the {rangeText}</p>
@@ -555,7 +555,7 @@ export const ActivityComplianceGauges = ({ items, activeCategories, groupBy, org
       {activeCategories.has('checklist') && (
         <p className="text-xs font-medium text-text-muted text-center">
           Checklist compliance (good answers) is in{' '}
-          <Link to="/admin/checklist-compliance" className="font-bold text-text-secondary underline underline-offset-2 hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 rounded-sm">
+          <Link viewTransition to="/admin/checklist-compliance" className="font-bold text-text-secondary underline underline-offset-2 hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 rounded-sm">
             Admin &gt; Checklist Compliance
           </Link>
           .
@@ -583,7 +583,7 @@ export const ActivityComplianceGauges = ({ items, activeCategories, groupBy, org
               <DrilldownViewAllButton
                 href={CATEGORY_VIEW_ALL_HREF[drilldownCategory]}
                 label={`View all ${ACTIVITY_CATEGORY_LABEL[drilldownCategory].toLowerCase()}s`}
-                onSelect={(link) => { setSelected(null); setDrilldownCategory(null); navigate(link); }}
+                onSelect={(link) => { setSelected(null); setDrilldownCategory(null); navigate(link, { viewTransition: true }); }}
               />
             )
           }
@@ -591,7 +591,7 @@ export const ActivityComplianceGauges = ({ items, activeCategories, groupBy, org
           {drilldownCategory ? (
             <DrilldownList
               rows={drilldownRows}
-              onSelect={(link) => { setSelected(null); setDrilldownCategory(null); navigate(link); }}
+              onSelect={(link) => { setSelected(null); setDrilldownCategory(null); navigate(link, { viewTransition: true }); }}
             />
           ) : (
             <>

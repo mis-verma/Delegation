@@ -1,6 +1,6 @@
 import { memo, useMemo } from 'react';
 import { Link } from 'react-router';
-import { AlertTriangle, ShieldAlert, ListChecks, Send, RotateCw, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, ArrowUpRight, ShieldAlert, ListChecks, Send, RotateCw, type LucideIcon } from 'lucide-react';
 import { Button } from '../../components/button';
 import { Skeleton } from '../../components/skeleton';
 import { PANEL_CLASS } from '../../components/entityCard';
@@ -43,11 +43,11 @@ interface TodayTileProps {
 const TodayTile = memo(({ icon: Icon, label, tone, value, isPending, isError, onRetry, detail, href, phoneHidden }: TodayTileProps) => {
   const hide = phoneHidden ? ' max-sm:hidden' : '';
   const header = (
-    <span className="flex items-center gap-2 min-w-0">
+    <span className="flex items-center gap-2 min-w-0 w-full">
       <span className={`flex items-center justify-center size-7 rounded-lg shrink-0 ${TONE_ICON[tone]}`}>
         <Icon size={14} strokeWidth={2.5} aria-hidden="true" />
       </span>
-      <span className="text-xs font-display font-semibold text-text-secondary">{label}</span>
+      <span className="t-meta font-display font-semibold text-text-secondary">{label}</span>
     </span>
   );
 
@@ -74,13 +74,17 @@ const TodayTile = memo(({ icon: Icon, label, tone, value, isPending, isError, on
   const live = value > 0;
   return (
     <Link
+      viewTransition
       to={href}
       aria-label={`${label}: ${value}. ${detail}`}
-      className={`${PANEL_CLASS} group flex flex-col gap-2 p-3.5 min-h-[6.5rem] transition-colors duration-200 hover:border-primary-500/40 active:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40${hide}`}
+      className={`${PANEL_CLASS} group flex flex-col gap-2 p-3.5 min-h-[6.5rem] transition-[color,background-color,border-color,transform] duration-200 ease-out motion-reduce:transition-none hover:border-primary-300 dark:hover:border-primary-500/50 active:scale-[0.985] active:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40${hide}`}
     >
-      {header}
-      <span className={`text-2xl sm:text-3xl font-display font-bold tabular-nums leading-none ${live ? TONE_NUMBER[tone] : 'text-text-muted'}`}>{value}</span>
-      <span className="text-xs font-medium text-text-muted leading-snug line-clamp-2">{detail}</span>
+      <span className="flex items-center justify-between gap-2">
+        {header}
+        <ArrowUpRight size={16} aria-hidden="true" className="shrink-0 text-primary-600 opacity-0 transition-opacity duration-200 motion-reduce:transition-none group-hover:opacity-100 group-focus-visible:opacity-100 dark:text-primary-400" />
+      </span>
+      <span className={`t-figure font-display font-bold tabular-nums ${live ? TONE_NUMBER[tone] : 'text-text-muted'}`}>{value}</span>
+      <span className="t-meta font-medium text-text-muted line-clamp-2">{detail}</span>
     </Link>
   );
 });
@@ -147,7 +151,7 @@ export const TodayStrip = ({ summaries, onRefresh, isRefreshing }: TodayStripPro
   return (
     <section aria-labelledby="today-heading" className="flex flex-col gap-2.5">
       <div className="flex items-center justify-between gap-3">
-        <h2 id="today-heading" className="text-base sm:text-lg font-display font-bold text-text tracking-tight">Today</h2>
+        <h2 id="today-heading" className="t-section font-display font-bold text-text tracking-tight">Today</h2>
         <div className="flex items-center gap-1">
           {updatedLabel && <span className="text-xs font-medium text-text-light tabular-nums">{updatedLabel}</span>}
           <Button variant="ghost" size="sm" onClick={onRefresh} disabled={isRefreshing} aria-label="Refresh the dashboard" className="shrink-0">

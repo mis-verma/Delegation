@@ -376,7 +376,7 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy, onToggleC
           <EmptyState
             icon={BarChart3}
             title="No items created in this period yet"
-            action={{ label: 'New delegation', icon: Plus, onClick: () => navigate('/tasks?create=1') }}
+            action={{ label: 'New delegation', icon: Plus, onClick: () => navigate('/tasks?create=1', { viewTransition: true }) }}
           />
         </div>
       </div>
@@ -410,7 +410,7 @@ export const ActivityTrendChart = ({ items, activeCategories, groupBy, onToggleC
   const openCategory = (category: ActivityCategory, index: number) => {
     cancelHide();
     setHover(null);
-    navigate(createdRangeHref(CATEGORY_PAGE[category], buckets[index].start, buckets[index].end));
+    navigate(createdRangeHref(CATEGORY_PAGE[category], buckets[index].start, buckets[index].end), { viewTransition: true });
   };
 
   return (

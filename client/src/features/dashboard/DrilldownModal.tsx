@@ -165,7 +165,7 @@ export const DrilldownModal = ({
 
   const go = (link: string) => {
     onClose();
-    navigate(link);
+    navigate(link, { viewTransition: true });
   };
 
   return (

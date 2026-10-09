@@ -153,9 +153,10 @@ const MobileTile = ({ view }: MobileTileProps) => {
 
   return (
     <Link
+      viewTransition
       to={VIEW_ALL_HREF[view.key].pending}
       aria-label={`${view.title}: ${view.pending} pending${view.total != null ? `, ${view.total} ${view.totalLabel.toLowerCase()}` : ''}${view.overdue > 0 ? `, ${view.overdue} overdue` : ''}`}
-      className={`${shell} transition-transform duration-150 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background`}
+      className={`${shell} transition-transform duration-150 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background`}
     >
       {head}
       <span className="flex items-baseline gap-1.5">

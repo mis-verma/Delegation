@@ -87,7 +87,7 @@ const CardSkeleton = ({ label }: { label: string }) => (
 // quietly draw zeros from data that never arrived.
 const CardLoadError = ({ label, message, onRetry }: { label: string; message: string; onRetry: () => void }) => (
   <section aria-label={label} className={`${DASHBOARD_CARD_CLASS} p-4 sm:p-6 flex flex-col gap-3`}>
-    <h2 className="text-base sm:text-lg font-display font-bold text-text tracking-tight">{label}</h2>
+    <h2 className="t-section font-display font-bold text-text tracking-tight">{label}</h2>
     <InlineError message={message} onRetry={onRetry} />
   </section>
 );

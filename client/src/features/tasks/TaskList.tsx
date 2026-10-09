@@ -599,7 +599,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
   );
 
   return (
-    <div className="flex flex-col gap-3 mx-auto w-full max-w-(--container-width) transition-all duration-300">
+    <div className="flex flex-col gap-3 pt-2.5 mx-auto w-full max-w-(--container-width) transition-all duration-300">
       <CreatedRangeBanner range={createdRange.range} onClear={createdRange.clear} noun="delegations" />
 
       <div className="flex flex-col gap-3">

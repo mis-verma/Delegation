@@ -105,6 +105,7 @@ export const StatusBreakdownCard = memo(({
         {!error && variant === 'navy' && <AdminChromeAccents scale="compact" />}
         {href ? (
           <Link
+      viewTransition
             to={href}
             className={`relative flex items-center gap-2 min-w-0 flex-1 min-h-11 py-1 rounded-md transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 ${shell.title} ${shell.focus}`}
           >
