@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router';
+import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { ArrowDown, ArrowUp, SlidersHorizontal, ChartColumn, ChartLine, ChevronDown, ChevronLeft, ChevronRight, CircleGauge, ClipboardCheck, Download, FileSpreadsheet, FileText, Ticket as TicketIcon, Users, type LucideIcon } from 'lucide-react';
@@ -15,8 +15,9 @@ import { csvBlob, xlsxBlob, downloadBlob, stampedFilename, type TableRows } from
 import { useAssignableUsersQuery, useDepartmentsQuery, useStoresQuery } from '../tickets/hook';
 import { PeriodTabControl } from './PeriodTabControl';
 import { ScoreBars } from './ScoreBars';
+import { ScoreDrillPopup } from './ScoreDrillPopup';
 import { ScoreRanking } from './ScoreRanking';
-import { METRIC_LABEL, METRIC_OPTIONS, isMetric, numbersFor, type ModuleKey, type ScoreMetric } from './scoreMetrics';
+import { METRIC_LABEL, METRIC_OPTIONS, isMetric, numbersFor, seriesFor, type ModuleKey, type ScoreMetric } from './scoreMetrics';
 import { ScoreTrend } from './ScoreTrend';
 import { DASHBOARD_CARD_CLASS, rateTone, type RateTone } from './dashboardDisplay';
 import { PERIODS, PERIOD_LABEL, windowFor, type ScorePeriod } from './scorePeriods';
@@ -89,8 +90,8 @@ interface ScoreTileProps {
   score: number | null;
   detail: string;
   loading: boolean;
-  /** Where the late items for this module live; the whole tile opens it. */
-  href?: string | null;
+  /** Tapping the tile opens the popup with the figures and the way to the finished and late items. */
+  onOpen?: () => void;
   /** The score now minus the previous period's, shown when Compare is on. */
   change?: number | null;
 }
@@ -98,11 +99,11 @@ interface ScoreTileProps {
 // A small dial, then the number, the name and the counts under it, three across even on a phone. The dial
 // is a picture only (its end labels would be about 3px at this size); everything you read is real text at
 // a readable size and wraps instead of being cut off.
-const ScoreTile = ({ title, score, detail, loading, href, change }: ScoreTileProps) => {
+const ScoreTile = ({ title, score, detail, loading, onOpen, change }: ScoreTileProps) => {
   // A small count still gets its colour: one finished item out of one is a full, green score.
   const tone = score === null ? 'neutral' : rateTone(score, Number.MAX_SAFE_INTEGER);
   const [from, to] = RING[tone];
-  const tileClass = `flex min-w-0 flex-col items-center gap-1.5 rounded-lg border border-border bg-surface-hover/30 p-2.5 text-center sm:p-3 ${href ? 'transition-colors hover:border-border-hover outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40' : ''}`;
+  const tileClass = `flex min-w-0 flex-col items-center gap-1.5 rounded-lg border border-border bg-surface-hover/30 p-2.5 text-center sm:p-3 ${onOpen ? 'cursor-pointer transition-colors duration-150 hover:border-border-hover active:scale-[0.98] outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40' : ''}`;
   const label = score === null ? `${title}: nothing due` : `${title}: ${score} percent${detail ? `, ${detail}` : ''}`;
   const body = (
     <>
@@ -125,8 +126,8 @@ const ScoreTile = ({ title, score, detail, loading, href, change }: ScoreTilePro
       )}
     </>
   );
-  return href
-    ? <Link to={href} aria-label={`${label}. Open the late items`} className={tileClass}>{body}</Link>
+  return onOpen
+    ? <button type="button" onClick={onOpen} aria-label={`${label}. Open the details`} className={tileClass}>{body}</button>
     : <div role="group" aria-label={label} className={tileClass}>{body}</div>;
 };
 
@@ -236,20 +237,29 @@ export const MyScoresCard = () => {
 
   // Where the late items for a module live, for the subject on the card. A list that cannot be narrowed to
   // the subject (checklists of someone else) has no link rather than a misleading one.
-  const drillHref = (module: 'checklist' | 'ticket' | 'delegation'): string | null => {
+  const drillHref = (module: ModuleKey, kind: 'late' | 'completed'): string | null => {
     const mine = scope === 'person' && (!targetId || targetId === user?.id);
     const id = targetId ?? user?.id ?? '';
+    const late = kind === 'late';
+    const quick = late ? 'delayed' : 'completed';
     if (module === 'delegation') {
-      if (scope === 'person') return mine ? '/tasks?quickFilter=delayed&mine=1' : `/tasks?quickFilter=delayed&assigneeIds=${id}`;
-      return scope === 'department' ? `/tasks?quickFilter=delayed&departmentId=${id}` : `/tasks?quickFilter=delayed&storeId=${id}`;
+      if (scope === 'person') return mine ? `/tasks?quickFilter=${quick}&mine=1` : `/tasks?quickFilter=${quick}&assigneeIds=${id}`;
+      return scope === 'department' ? `/tasks?quickFilter=${quick}&departmentId=${id}` : `/tasks?quickFilter=${quick}&storeId=${id}`;
     }
-    if (module === 'ticket') return scope === 'person' ? `/tickets?quickFilter=delayed&assigneeIds=${id}` : '/tickets?quickFilter=delayed';
-    if (mine) return '/checklists?status=overdue';
-    return scope === 'store' ? `/checklists?status=overdue&store=${id}` : null;
+    if (module === 'ticket') return scope === 'person' ? `/tickets?quickFilter=${quick}&assigneeIds=${id}` : `/tickets?quickFilter=${quick}`;
+    const status = late ? 'overdue' : 'completed';
+    if (mine) return `/checklists?status=${status}`;
+    return scope === 'store' ? `/checklists?status=${status}&store=${id}` : null;
   };
-  const openModule = (module: 'checklist' | 'ticket' | 'delegation') => {
-    const href = drillHref(module);
-    if (href) navigate(href);
+  // A tapped score opens a small popup first; its buttons are what leave the dashboard.
+  // Kept after it closes so the popup can fade out instead of vanishing.
+  const [drillState, setDrillState] = useState<{ module: ModuleKey; open: boolean } | null>(null);
+  const openDrill = (module: ModuleKey) => setDrillState({ module, open: true });
+  const closeDrill = () => setDrillState((d) => (d ? { ...d, open: false } : d));
+  const goTo = (href: string) => {
+    closeDrill();
+    // Let the popup finish closing, then cross-fade to the page (where the browser can) instead of cutting to it.
+    window.setTimeout(() => void navigate(href, { viewTransition: true }), 140);
   };
 
   // Warm the neighbouring windows so the arrows feel instant.
@@ -472,7 +482,7 @@ export const MyScoresCard = () => {
       ) : (
         <div className={`transition-opacity duration-200 ${query.isFetching && data ? 'opacity-60' : ''}`}>
         {activeView === 'bars' ? (
-          <ScoreBars scores={data} loading={loading} metric={metric} previous={previous} onOpenModule={(m) => openModule(m)} />
+          <ScoreBars scores={data} loading={loading} metric={metric} previous={previous} onOpenModule={openDrill} />
         ) : (
         <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
           {([
@@ -498,7 +508,7 @@ export const MyScoresCard = () => {
                 loading={loading}
                 title={title}
                 score={score}
-                href={drillHref(key)}
+                onOpen={() => openDrill(key)}
                 change={score !== null && priorScore !== null ? score - priorScore : null}
                 detail={metric === 'overview' ? overviewDetail : note}
               />
@@ -510,6 +520,24 @@ export const MyScoresCard = () => {
       )}
       </div>
       </div>
+      {drillState && data && (
+        <ScoreDrillPopup
+          open={drillState.open}
+          onOpenChange={(next) => { if (!next) closeDrill(); }}
+          title={drillState.module === 'checklist' ? 'Checklist' : drillState.module === 'ticket' ? 'Tickets' : 'Delegations'}
+          windowLabel={range.label}
+          subject={scope === 'person' && (!targetId || targetId === user?.id) ? undefined : data.name}
+          figures={(() => {
+            const n = numbersFor(data, drillState.module);
+            return (['completion', 'compliance', 'ontime'] as const)
+              .filter((k) => metric === 'overview' || seriesFor(metric).includes(k))
+              .map((k) => ({ key: k, value: n[k], note: n[`${k}Note` as const] }));
+          })()}
+          completedHref={drillHref(drillState.module, 'completed')}
+          lateHref={drillHref(drillState.module, 'late')}
+          onGo={goTo}
+        />
+      )}
     </section>
   );
 };
