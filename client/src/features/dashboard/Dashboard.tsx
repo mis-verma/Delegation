@@ -95,7 +95,7 @@ export const Dashboard = () => {
 
         
         <main className="flex-1 min-w-0 relative">
-          <PullToRefresh onRefresh={handleRefresh} className="relative z-10 h-full overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <PullToRefresh onRefresh={handleRefresh} className="relative z-10 h-full overflow-y-auto overflow-x-hidden overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 
             <div className="px-3 pt-3.5 sm:px-4 lg:px-5 xl:px-6 pb-44 md:pb-8 max-w-(--container-width) mx-auto w-full min-h-full flex flex-col">
               {maintenanceMatch && isAdmin && (

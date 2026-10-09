@@ -23,7 +23,7 @@ export const InfoHint = ({ label, children }: InfoHintProps) => (
         <Info className="size-4" aria-hidden="true" />
       </button>
     </PopoverTrigger>
-    <PopoverContent align="start" className="w-[min(20rem,calc(100vw-2rem))] p-3 text-xs font-medium leading-relaxed text-text-secondary">
+    <PopoverContent align="start" collisionPadding={16} className="w-[min(15rem,calc(100vw-3rem))] sm:w-72 p-3 t-meta font-medium leading-relaxed text-text-secondary">
       {children}
     </PopoverContent>
   </Popover>

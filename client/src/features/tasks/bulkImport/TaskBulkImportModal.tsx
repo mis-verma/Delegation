@@ -176,7 +176,7 @@ export const TaskBulkImportModal = ({ onClose }: TaskBulkImportModalProps) => {
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
           onDrop={onDrop}
-          className={`flex flex-col items-center justify-center gap-3 py-14 px-6 rounded-xl border-2 border-dashed cursor-pointer text-center transition-colors ${
+          className={`flex flex-col items-center justify-center gap-3 py-14 px-6 rounded-xl border-2 cursor-pointer text-center transition-colors ${
             dragOver ? 'border-primary-500 bg-primary-500/5' : 'border-border/80 hover:border-primary-400'
           } ${previewMutation.isPending ? 'pointer-events-none opacity-60' : ''}`}
         >

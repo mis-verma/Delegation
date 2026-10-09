@@ -136,7 +136,7 @@ export const TaskAttachments = ({ taskId, attachments, canEdit, onPreview }: Tas
             type="button"
             onClick={() => inputRef.current?.click()}
             disabled={upload.isPending}
-            className="self-start inline-flex items-center gap-1.5 h-9 pointer-coarse:h-11 px-3 rounded-lg border border-dashed border-border text-xs font-display font-semibold text-text-muted hover:border-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-60 disabled:cursor-wait"
+            className="self-start inline-flex items-center gap-1.5 h-9 pointer-coarse:h-11 px-3 rounded-lg border border-border text-xs font-display font-semibold text-text-muted hover:border-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-60 disabled:cursor-wait"
           >
             {upload.isPending ? <Loader2 size={15} className="animate-spin" /> : <Paperclip size={15} />}
             {upload.isPending ? 'Adding…' : 'Add file'}

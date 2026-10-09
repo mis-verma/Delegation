@@ -300,7 +300,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
                 isLoading={isLoadingUsers}
               />
             ) : (
-              <span className="inline-flex h-8 w-fit items-center rounded-full border border-dashed border-border px-3 text-xs font-display text-text-light">
+              <span className="inline-flex h-8 w-fit items-center rounded-full border border-border px-3 text-xs font-display text-text-light">
                 Pick a department first
               </span>
             )}

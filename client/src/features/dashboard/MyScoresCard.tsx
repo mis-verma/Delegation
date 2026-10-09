@@ -470,7 +470,7 @@ export const MyScoresCard = () => {
 
       <div className="min-w-0 @4xl:col-start-1 @4xl:row-start-2">
       {!ready ? (
-        <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm font-medium text-text-muted">
+        <div className="rounded-lg border border-border px-4 py-8 text-center text-sm font-medium text-text-muted">
           Pick a {SCOPE_LABEL[scope].toLowerCase()} above to see its scores.
         </div>
       ) : activeView === 'trend' ? (

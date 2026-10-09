@@ -154,8 +154,8 @@ export const StatCard = ({
         <span aria-hidden="true" className={`absolute top-2 right-2 size-16 rounded-full border ${ringClass} pointer-events-none ${compact ? 'max-sm:hidden' : ''}`} />
       )}
 
-      <div className="flex items-start justify-between gap-3 sm:gap-4 relative z-10">
-        <div className="flex flex-col gap-1.5 min-w-0">
+      <div className={`flex items-start justify-between gap-3 sm:gap-4 relative z-10 ${compact ? 'max-sm:flex-col-reverse max-sm:items-center max-sm:text-center' : ''}`}>
+        <div className={`flex flex-col gap-1.5 min-w-0 ${compact ? 'max-sm:items-center' : ''}`}>
 
           <span className={`t-meta font-display font-semibold break-words ${highlight ? 'text-white/80' : 'text-text-muted'}`}>
             {label}
@@ -198,7 +198,7 @@ export const StatCard = ({
         )}
       </div>
 
-      <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mt-1.5 relative z-10">
+      <div className={`flex items-center flex-wrap gap-x-2 gap-y-1 mt-1.5 relative z-10 ${compact ? 'max-sm:justify-center' : ''}`}>
         {hasTrend && (
           <Badge
             variant={highlight ? 'outline' : TREND_VARIANT[trendMood]}

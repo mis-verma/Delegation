@@ -122,7 +122,7 @@ const TaskListViewComponent = ({
                         )}
                       </>
                     ) : (
-                      <span className="flex items-center justify-center size-7 rounded-full border border-dashed border-border-hover text-text-light text-xs font-bold">?</span>
+                      <span className="flex items-center justify-center size-7 rounded-full border border-border-hover text-text-light text-xs font-bold">?</span>
                     )}
                   </span>
                 )}

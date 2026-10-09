@@ -86,7 +86,7 @@ export const TicketAttachments = ({ ticketId, attachments, canEdit, onPreview }:
               type="button"
               onClick={() => inputRef.current?.click()}
               disabled={upload.isPending}
-              className="flex aspect-square flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-border text-text-muted hover:border-primary-400 hover:text-primary-700 dark:hover:text-primary-300 text-xs font-display font-semibold transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-60 disabled:cursor-wait"
+              className="flex aspect-square flex-col items-center justify-center gap-1 rounded-xl border border-border text-text-muted hover:border-primary-400 hover:text-primary-700 dark:hover:text-primary-300 text-xs font-display font-semibold transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-60 disabled:cursor-wait"
             >
               {upload.isPending ? <Loader2 size={18} className="animate-spin" /> : <Camera size={18} />}
               {upload.isPending ? 'Adding…' : 'Add photo'}

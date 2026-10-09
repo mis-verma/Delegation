@@ -40,14 +40,14 @@ const ApprovalLink = memo(({ row }: { row: ApprovalRow }) => {
       viewTransition
       className="group/row flex items-center gap-3 min-h-11 rounded-xl border border-border/60 bg-surface px-3 py-2.5 sm:px-3.5 sm:py-3 transition-[color,background-color,border-color,transform] duration-200 active:scale-[0.985] motion-reduce:transition-none hover:border-primary-500/40 hover:bg-primary-500/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
     >
-      <div className={`flex items-center justify-center size-8 sm:size-9 rounded-lg shrink-0 text-white ${ACTIVITY_CATEGORY_DOT_CLASS[row.category]}`}>
-        <Icon size={15} strokeWidth={2.25} />
+      <div className="flex items-center justify-center size-7 rounded-md shrink-0 bg-primary-500/10 text-primary-600 dark:text-primary-400">
+        <Icon size={14} strokeWidth={2} />
       </div>
       <div className="flex-1 min-w-0">
         {/* line-clamp-2, not truncate: this row's icon and chevron leave little width for the title
             on a phone, and truncate cut titles down to a fragment. */}
-        <p className="text-sm sm:text-sm font-display font-medium sm:font-semibold text-text line-clamp-2 leading-snug">{row.title}</p>
-        <p className="text-xs font-medium text-text-light flex items-center gap-1.5">
+        <p className="text-sm font-display font-semibold text-text line-clamp-2 leading-snug">{row.title}</p>
+        <p className="t-meta font-medium text-text-light flex items-center gap-1.5">
           {row.meta && (
             <>
               <span className="truncate">{row.meta}</span>
@@ -57,7 +57,7 @@ const ApprovalLink = memo(({ row }: { row: ApprovalRow }) => {
           <span className="text-primary-600 dark:text-primary-400 font-semibold shrink-0">Waiting {formatRelativeTime(row.waitingSince)}</span>
         </p>
       </div>
-      <ChevronRight size={16} strokeWidth={2.5} className="shrink-0 text-text-light group-hover/row:text-primary-600 dark:group-hover/row:text-primary-400 transition-colors duration-200" />
+      <ChevronRight size={14} strokeWidth={2} className="shrink-0 text-text-light group-hover/row:text-primary-600 dark:group-hover/row:text-primary-400 transition-colors duration-200" />
     </Link>
   );
 });

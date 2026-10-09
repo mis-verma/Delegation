@@ -4,6 +4,8 @@ import { ArrowDown, ArrowUp, ChevronRight, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { scoreApi, type ScoreReport, type ScoreReportRow, type ScoreScope } from '../../api/scores';
 import { Skeleton } from '../../components/skeleton';
+import { getInitials } from '../../lib/getInitials';
+import { avatarColorClass } from '../../lib/avatarColors';
 import { rateTone, type RateTone } from './dashboardDisplay';
 import type { ScoreMetric } from './scoreMetrics';
 
@@ -133,7 +135,7 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
     );
   }
   if (rows.length === 0 && !query.trim()) {
-    return <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm font-medium text-text-muted">Nothing was due for any of the {SUBJECT[scope]} in this window.</div>;
+    return <div className="rounded-lg border border-border px-4 py-8 text-center text-sm font-medium text-text-muted">Nothing was due for any of the {SUBJECT[scope]} in this window.</div>;
   }
 
   return (
@@ -156,7 +158,7 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
             </button>
           ))}
         </div>
-        <p className="text-xs font-medium text-text-muted">{rows.length} {SUBJECT[scope]}. Worst first. Tap a row to open it.</p>
+        <p className="t-meta font-medium text-text-muted">{rows.length} {SUBJECT[scope]}, worst first</p>
       </div>
 
       <label className="relative block">
@@ -171,7 +173,7 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
         />
       </label>
 
-      {rows.length === 0 && <p className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm font-medium text-text-muted">No {SUBJECT[scope]} match &ldquo;{query.trim()}&rdquo;.</p>}
+      {rows.length === 0 && <p className="rounded-lg border border-border px-4 py-6 text-center text-sm font-medium text-text-muted">No {SUBJECT[scope]} match &ldquo;{query.trim()}&rdquo;.</p>}
 
       {/* Phone: one card per row. */}
       <ul className={cn('flex flex-col gap-2', !compact && 'sm:hidden')}>
@@ -184,17 +186,25 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
                 onClick={() => onOpen(c.row.id)}
                 className="flex min-h-14 w-full items-center gap-3 rounded-lg border border-border bg-surface-hover/30 p-3 text-left outline-none transition-colors hover:border-border-hover focus-visible:ring-2 focus-visible:ring-primary-500/40"
               >
-                <span className="flex min-w-0 flex-1 flex-col gap-1.5">
-                  <span className="truncate text-sm font-display font-bold text-text">{c.row.name}</span>
+                <span className="flex min-w-0 flex-1 flex-col gap-2">
+                  <span className="flex items-center gap-2.5">
+                    {scope === 'person' && (
+                      <span aria-hidden="true" className={cn('flex size-8 shrink-0 items-center justify-center rounded-full t-meta font-display font-bold text-white', avatarColorClass(c.row.name))}>{getInitials(c.row.name)}</span>
+                    )}
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-display font-semibold text-text">{c.row.name}</span>
+                      {scope === 'person' && c.row.department && <span className="block truncate t-meta text-text-muted">{c.row.department}</span>}
+                    </span>
+                    <span className="text-lg font-display font-extrabold"><Pct value={value} /></span>
+                    <ChevronRight className="size-4 shrink-0 text-text-light" aria-hidden="true" />
+                  </span>
                   <MiniBar value={value} />
-                  <span className="flex flex-wrap gap-x-3 text-xs font-display font-medium text-text-muted">
-                    <span>Checklist <Pct value={c[metric].checklist} /></span>
-                    <span>Tickets <Pct value={c[metric].ticket} /></span>
-                    <span>Delegations <Pct value={c[metric].delegation} /></span>
+                  <span className="grid grid-cols-3 gap-2 t-meta font-display text-text-muted">
+                    <span className="flex flex-col">Checklist<Pct value={c[metric].checklist} /></span>
+                    <span className="flex flex-col">Tickets<Pct value={c[metric].ticket} /></span>
+                    <span className="flex flex-col">Delegations<Pct value={c[metric].delegation} /></span>
                   </span>
                 </span>
-                <span className="text-lg font-display font-extrabold"><Pct value={value} /></span>
-                <ChevronRight className="size-4 shrink-0 text-text-light" aria-hidden="true" />
               </button>
             </li>
           );
@@ -245,7 +255,7 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
           </tbody>
         </table>
       </div>
-      <p className="text-xs font-medium text-text-muted">Overall is weighted by how much each module had due. A row with nothing due in a module shows a dash there.</p>
+      <p className="hidden t-meta font-medium text-text-muted sm:block">Overall is weighted by how much each module had due. A dash means nothing was due there.</p>
     </div>
   );
 };

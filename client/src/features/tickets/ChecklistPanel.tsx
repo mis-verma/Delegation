@@ -326,7 +326,7 @@ const ChecklistBlock = ({
       <div className={`transition-all duration-300 ease-in-out ${open ? 'opacity-100 max-h-[5000px]' : 'opacity-0 max-h-0 overflow-hidden'}`}>
         <div className="flex flex-col gap-3 sm:gap-4 p-2.5 sm:p-4 bg-surface-hover/30">
           {checklist.items.length === 0 && (
-            <div className="p-6 sm:p-8 text-center text-sm font-medium text-text-muted bg-surface rounded-xl border-2 border-dashed border-border">
+            <div className="p-6 sm:p-8 text-center text-sm font-medium text-text-muted bg-surface rounded-xl border-2 border-border">
               No items in this checklist yet.
             </div>
           )}
@@ -509,7 +509,7 @@ export const ChecklistPanel = ({ ticketId, checklists }: ChecklistPanelProps) =>
             <button
               type="button"
               onClick={() => setItemDrafts(d => [...d, emptyChecklistItemDraft()])}
-              className="group flex items-center justify-center gap-2 min-h-12 py-3 text-sm font-medium text-primary-600 bg-primary-500/5 hover:bg-primary-500/10 border-2 border-primary-200 dark:border-primary-500/30 hover:border-primary-300 rounded-xl border-dashed transition-all w-full cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className="group flex items-center justify-center gap-2 min-h-12 py-3 text-sm font-medium text-primary-600 bg-primary-500/5 hover:bg-primary-500/10 border-2 border-primary-200 dark:border-primary-500/30 hover:border-primary-300 rounded-xl transition-all w-full cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               <span className="flex items-center justify-center w-5 h-5 rounded-full bg-primary-100 dark:bg-primary-500/20 text-primary-600 dark:text-primary-400 group-hover:scale-110 transition-transform">
                 <Plus size={12} strokeWidth={2.5} />

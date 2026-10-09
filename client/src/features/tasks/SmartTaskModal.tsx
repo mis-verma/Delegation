@@ -829,7 +829,7 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
                             // Opacity-tinted, not the raw `-50`/`-300`/`-800` swatches this used to be —
                             // those hex values are identical in dark mode (see index.css), so this
                             // banner used to render as a pale card on a navy modal in dark theme.
-                            <div className="flex items-center justify-between gap-2 rounded-lg border border-dashed border-primary-500/30 bg-primary-500/10 dark:bg-primary-500/15 px-3 py-2 animate-in fade-in duration-200">
+                            <div className="flex items-center justify-between gap-2 rounded-lg border border-primary-500/30 bg-primary-500/10 dark:bg-primary-500/15 px-3 py-2 animate-in fade-in duration-200">
                                 <span className="text-xs text-primary-800 dark:text-primary-200">
                                     No user found for &quot;{unmatchedAssigneeName}&quot;.
                                 </span>

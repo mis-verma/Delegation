@@ -86,7 +86,7 @@ export const TicketBoardColumn = memo(({ status, tickets, draggable, onOpen, dep
           <button
             type="button"
             onClick={() => setShowOlder(true)}
-            className="h-10 pointer-coarse:h-11 rounded-lg border border-dashed border-border text-xs font-display font-semibold text-text-muted hover:border-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+            className="h-10 pointer-coarse:h-11 rounded-lg border border-border text-xs font-display font-semibold text-text-muted hover:border-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
           >
             Show {hiddenCount} older closed
           </button>

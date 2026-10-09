@@ -49,7 +49,7 @@ export const TaskChecklistPanel = ({ taskId, checklists, isAdmin, currentUserId 
 
       {/* Empty State */}
       {checklists.length === 0 && !adding && (
-        <div className="flex flex-col items-center justify-center gap-4 p-8 sm:p-10 text-center bg-surface-hover/40 rounded-2xl border-2 border-dashed border-border">
+        <div className="flex flex-col items-center justify-center gap-4 p-8 sm:p-10 text-center bg-surface-hover/40 rounded-2xl border-2 border-border">
           <div className="flex items-center justify-center text-text-light">
              <CheckSquare size={24} />
           </div>

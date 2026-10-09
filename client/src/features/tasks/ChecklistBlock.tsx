@@ -85,7 +85,7 @@ export const ChecklistBlock = ({
       >
         <div className="flex flex-col gap-3 sm:gap-4 p-3 sm:p-4 bg-surface-hover/30">
           {checklist.items.length === 0 && (
-            <div className="p-6 sm:p-8 text-center text-sm font-medium text-text-muted bg-surface rounded-xl border-2 border-dashed border-border">
+            <div className="p-6 sm:p-8 text-center text-sm font-medium text-text-muted bg-surface rounded-xl border-2 border-border">
               No items in this checklist yet.
             </div>
           )}

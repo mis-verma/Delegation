@@ -168,7 +168,7 @@ const TaskTableComponent = ({
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-2 text-text-light">
-                          <span className="size-6 rounded-full border border-dashed border-border-hover shrink-0" aria-hidden />
+                          <span className="size-6 rounded-full border border-border-hover shrink-0" aria-hidden />
                           Unassigned
                         </span>
                       )}

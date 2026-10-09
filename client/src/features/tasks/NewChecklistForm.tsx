@@ -163,7 +163,7 @@ export const NewChecklistForm = ({ taskId, onDone }: NewChecklistFormProps) => {
           <button
             type="button"
             onClick={() => setItemDrafts(d => [...d, emptyChecklistItemDraft()])}
-            className="group flex items-center justify-center gap-2 py-4 mt-2 text-sm font-medium text-primary-600 bg-primary-500/5 hover:bg-primary-500/10 border-2 border-primary-200 hover:border-primary-300 rounded-xl border-dashed transition-all w-full cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
+            className="group flex items-center justify-center gap-2 py-4 mt-2 text-sm font-medium text-primary-600 bg-primary-500/5 hover:bg-primary-500/10 border-2 border-primary-200 hover:border-primary-300 rounded-xl transition-all w-full cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2"
           >
             <div className="flex items-center justify-center w-6 h-6 rounded-full bg-primary-100 text-primary-600 group-hover:scale-110 transition-transform">
               <Plus size={14} strokeWidth={2.5} />
