@@ -147,8 +147,13 @@ export const StoreDailyPage = () => {
           onChange={setRange}
           placeholder="Custom"
           placeholderIsValue
-          className="w-auto"
-          triggerClassName={cn('h-11 sm:h-8 w-auto gap-1.5 px-3 rounded-full text-xs font-display', !activePreset && 'border-primary-500/50 bg-primary-500/10')}
+          className="w-auto shrink-0"
+          // Made to match the ToggleChips beside it: same height and type, a bare icon instead of a tile, and the
+          // whole range written out (no cut-off) with room on the right for the clear button.
+          triggerClassName={cn(
+            'h-11 sm:h-8 w-auto gap-1.5 pl-2.5 pr-10 rounded-full text-xs font-display [&>span:first-child]:size-4 [&>span:first-child]:bg-transparent [&>span:last-child]:overflow-visible [&>span:last-child]:whitespace-nowrap',
+            activePreset ? 'text-text-secondary hover:border-border-hover' : 'border-primary-500/50 bg-primary-500/10 text-primary-700 dark:text-primary-300',
+          )}
         />
         <Button variant="outline" size="sm" className="ml-auto" onClick={() => void query.refetch()} disabled={query.isFetching} aria-label="Refresh numbers">
           <RefreshCw size={14} aria-hidden="true" className={query.isFetching ? 'animate-spin motion-reduce:animate-none' : undefined} />
