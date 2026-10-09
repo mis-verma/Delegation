@@ -212,8 +212,9 @@ export const HolidaysPage = () => {
     if (ok) removeHoliday(holiday.id);
   }, [confirm, removeHoliday, today]);
 
-  const goPrevYear = useCallback(() => setYear(y => y - 1), []);
-  const goNextYear = useCallback(() => setYear(y => y + 1), []);
+  // The server accepts 2000 to 2100 only; past that the page would show "couldn't load" with a Retry that can never work.
+  const goPrevYear = useCallback(() => setYear(y => Math.max(2000, y - 1)), []);
+  const goNextYear = useCallback(() => setYear(y => Math.min(2100, y + 1)), []);
   const goThisYear = useCallback(() => setYear(thisYear), [thisYear]);
 
   const nextDiff = next ? daysUntil(next.date, today) : null;
@@ -231,6 +232,8 @@ export const HolidaysPage = () => {
             onNext={goNextYear}
             prevLabel="Previous year"
             nextLabel="Next year"
+            prevDisabled={year <= 2000}
+            nextDisabled={year >= 2100}
             todayLabel={year !== thisYear ? 'This year' : undefined}
             onToday={goThisYear}
           />

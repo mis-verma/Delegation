@@ -1,4 +1,5 @@
 import { memo, useCallback, useMemo, useState, type ReactElement } from 'react';
+import { useRefreshOnNewDay } from '../useRefreshOnNewDay';
 import { useParams, useNavigate } from 'react-router';
 import { ArrowLeft, ShieldAlert, ShieldCheck, ShieldQuestion, CornerUpLeft, AlertTriangle, Pencil, Clock, Layers, ClipboardX } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -27,9 +28,8 @@ import { ChecklistSubmitBar } from './ChecklistSubmitBar';
 import { complianceReason, countsAgainstCompliance, waiveNotice } from '../checklistCompliance';
 import { WaiveAction } from './WaiveAction';
 import {
-  complianceToneClass, formatDate, formatDateTime, getInstanceView, instanceProgressToneClass, isInstanceNotYetOpen,
-  RECURRENCE_LABEL,
-} from '../checklistDisplay';
+  complianceToneClass, formatDateTime, getInstanceView, instanceProgressToneClass, isInstanceNotYetOpen,
+  RECURRENCE_LABEL, formatPeriodSpan } from '../checklistDisplay';
 import { useAuth } from '../../../context/AuthContext';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 
@@ -215,6 +215,7 @@ export const ChecklistInstanceDetail = () => {
   const { instanceId = '' } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  useRefreshOnNewDay();
   const { data: instance, isPending, isError, error, refetch } = useChecklistInstanceQuery(instanceId);
   // Reviewer's send-back picking: which questions are ticked while the review bar is in pick mode.
   const [selecting, setSelecting] = useState(false);
@@ -272,7 +273,7 @@ export const ChecklistInstanceDetail = () => {
 
   // Completion leaves "not applicable" questions out of both sides; compliance scores only the
   // answered questions that have a good-answer rule. Same numbers the list cards show.
-  const { done, total, progress, isComplete, overdue, chipStatus, compliance, scored, good, verification } = getInstanceView(instance);
+  const { done, total, progress, isComplete, overdue, chipStatus, compliance, scored, good, verification, doneLate } = getInstanceView(instance);
   // PC has full parity with ADMIN throughout this app.
   const isAdminOrPC = user?.role === 'ADMIN' || user?.role === 'PC';
   // A run whose day ended (counted as missed) is closed to the people it was assigned to; the server
@@ -332,13 +333,14 @@ export const ChecklistInstanceDetail = () => {
         <div className="flex flex-col gap-1">
           <h1 className="text-lg sm:text-xl font-display font-semibold text-text tracking-tight leading-snug">{instance.title}</h1>
           <p className="text-xs font-medium text-text-muted">
-            {RECURRENCE_LABEL[instance.recurrence]} · {formatDate(instance.periodStart)} – {formatDate(instance.periodEnd)}
+            {RECURRENCE_LABEL[instance.recurrence]} · {formatPeriodSpan(instance)}
           </p>
         </div>
 
         <div className="flex items-center gap-1.5 flex-wrap">
           {/* The sheet's headline state, so the word stays on a phone. */}
           <StatusChip status={chipStatus} showLabelOnMobile />
+          {doneLate && <IconChip icon={Clock} tone="bg-warning" label="Done late" />}
           {(isComplete || instance.verificationStatus !== 'NOT_SUBMITTED') && (
             <IconChip
               icon={verification.icon}
@@ -383,7 +385,9 @@ export const ChecklistInstanceDetail = () => {
             <NoticeBanner tone="warning" icon={Clock}>
               {isAdminOrPC
                 ? "This checklist's day has ended and it counts as missed. You can still edit it as an admin."
-                : "This checklist's day has ended, so it counts as missed and can't be filled in any more. Today's checklist is in My Checklists."}
+                : user && instance.assigneeIds.includes(user.id)
+                  ? "This checklist's day has ended, so it counts as missed and can't be filled in any more. Today's checklist is in My Checklists."
+                  : "This checklist's day has ended and it counts as missed. The people it was assigned to can no longer fill it in."}
             </NoticeBanner>
           )}
 

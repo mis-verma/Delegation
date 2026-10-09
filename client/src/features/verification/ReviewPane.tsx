@@ -4,7 +4,7 @@ import { ExternalLink, Flag, CornerUpLeft, CheckCircle2 } from 'lucide-react';
 import { IconChip, Modal, PANEL_CLASS } from '../../components';
 import { cn } from '@/lib/utils';
 import { useAuth } from '../../context/AuthContext';
-import { complianceToneClass, formatDate, formatDateTime, instanceDeadline } from '../checklist/checklistDisplay';
+import { complianceToneClass, formatPeriodSpan, formatDateTime, instanceDeadline } from '../checklist/checklistDisplay';
 import { InstanceReviewPanel } from '../checklist/instance/InstanceReviewPanel';
 import { ReviewActions, SendBackForm } from '../checklist/instance/ReviewActions';
 import { SEND_BACK_NOTE_MAX, composeSendBackNote } from '../checklist/instance/sendBackNote';
@@ -58,7 +58,7 @@ export const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, picked
         </div>
         <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs font-display text-text-muted">
           {row.storeName && <span>{row.storeName}</span>}
-          <span>{formatDate(instance.periodStart)} – {formatDate(instance.periodEnd)}</span>
+          <span>{formatPeriodSpan(instance)}</span>
           {instance.submittedAt && (
             <span>
               {instance.submittedByName ? `Submitted by ${instance.submittedByName}, ` : 'Submitted '}

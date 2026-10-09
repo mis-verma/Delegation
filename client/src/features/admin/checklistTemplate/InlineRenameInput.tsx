@@ -43,7 +43,7 @@ export const InlineRenameInput = ({ value, label, onSave, onCancel, className }:
       ref={inputRef}
       defaultValue={value}
       aria-label={label}
-      maxLength={200}
+      maxLength={191}
       onBlur={commit}
       onKeyDown={(e) => {
         if (e.key === 'Enter') { e.preventDefault(); commit(); }

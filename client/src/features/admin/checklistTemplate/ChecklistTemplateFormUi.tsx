@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useDiscardGuard } from '../useDiscardGuard';
 import { AnimatePresence } from 'framer-motion';
 import {
   Plus,
@@ -48,6 +49,8 @@ export const ChecklistTemplateFormUI = ({ departments, isSaving, saveError, onSu
   const { data: assignableUsers } = useAssignableUsersQuery(departmentId || undefined);
   const departmentName = departments.find(d => d.id === departmentId)?.name ?? 'Global (no department)';
   const definedSteps = itemDrafts.filter(d => d.label.trim());
+  // Esc, an outside click or Cancel must not drop a template the admin has been building.
+  const requestClose = useDiscardGuard(name.trim().length > 0 || definedSteps.length > 0, isSaving, onClose);
 
   const updateDraft = useCallback((i: number, patch: Partial<ChecklistItemDraft>) => {
     setItemDrafts(drafts => drafts.map((d, idx) => (idx === i ? { ...d, ...patch } : d)));
@@ -99,7 +102,7 @@ export const ChecklistTemplateFormUI = ({ departments, isSaving, saveError, onSu
   const footer = (
     <>
       {isFirstStep ? (
-        <Button type="button" variant="outline" onClick={onClose} disabled={isSaving} className="flex-1 sm:flex-none pointer-coarse:h-11">
+        <Button type="button" variant="outline" onClick={requestClose} disabled={isSaving} className="flex-1 sm:flex-none pointer-coarse:h-11">
           Cancel
         </Button>
       ) : (
@@ -125,7 +128,7 @@ export const ChecklistTemplateFormUI = ({ departments, isSaving, saveError, onSu
   return (
     <Modal
       open
-      onClose={() => !isSaving && onClose()}
+      onClose={requestClose}
       icon={<ListChecks className="w-5 h-5" />}
       title="New Task Template"
       description="A reusable set of steps you attach to one task or ticket at a time. For automated scheduling, use Recurring Checklists instead."
@@ -140,6 +143,7 @@ export const ChecklistTemplateFormUI = ({ departments, isSaving, saveError, onSu
             id="name"
             label="Template Name"
             value={name}
+            maxLength={191}
             onChange={e => { setName(e.target.value); setValidationError(null); }}
             placeholder="e.g., Daily Store Opening, Restroom Cleaning…"
             error={validationError ?? undefined}

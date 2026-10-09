@@ -33,6 +33,17 @@ const DEADLINE_FMT = new Intl.DateTimeFormat(undefined, { month: 'short', day: '
 // e.g. "Jan 5, 2026" — used where the year matters (definition/instance detail pages).
 export const formatDate = (iso: string) => DATE_LONG_FMT.format(new Date(iso));
 
+// The days a run covers as text. periodEnd is EXCLUSIVE (a daily run's periodEnd is the next day's
+// midnight), so printing it showed yesterday's run as "Oct 8 - Oct 9". The last real day is one day
+// earlier, and a one-day run is just that one date.
+export const formatPeriodSpan = (instance: { periodStart: string; periodEnd: string }, short = false): string => {
+  const fmt = short ? formatDateShort : formatDate;
+  const last = new Date(new Date(instance.periodEnd).getTime() - 24 * 60 * 60 * 1000);
+  const first = new Date(instance.periodStart);
+  if (last.getTime() <= first.getTime()) return fmt(instance.periodStart);
+  return `${fmt(instance.periodStart)} to ${fmt(last.toISOString())}`;
+};
+
 // e.g. "Jan 5" — used in tighter card layouts (MyChecklists) where the year is implied.
 export const formatDateShort = (iso: string) => DATE_SHORT_FMT.format(new Date(iso));
 
@@ -275,9 +286,11 @@ export type InstanceView = {
   verification: { icon: LucideIcon; tone: string; label: string };
   /** The real cutoff ("Jan 5, 7:00 AM"), or null when the run has no cutoffTime. */
   deadlineTime: string | null;
+  /** Finished, but after its cutoff. Never true for a run still open, and never lost by a later reopen. */
+  doneLate: boolean;
 };
 
-type ViewableInstance = InstanceWindow & { items: ChecklistInstanceItem[]; verificationStatus: ChecklistVerificationStatus };
+type ViewableInstance = InstanceWindow & { items: ChecklistInstanceItem[]; verificationStatus: ChecklistVerificationStatus; completedFirstAt?: string | null };
 
 // One place that turns a run into the numbers every screen shows (card, row, board, table, history,
 // detail), so the same run reads the same everywhere. Not cached: `overdue` depends on the clock.
@@ -298,6 +311,7 @@ export const getInstanceView = (instance: ViewableInstance): InstanceView => {
     good: scores.good,
     verification: verificationChipFor(instance.verificationStatus, isComplete),
     deadlineTime: formatDeadlineTime(instance),
+    doneLate: isComplete && !!instance.completedFirstAt && new Date(instance.completedFirstAt).getTime() > instanceDeadline(instance),
   };
 };
 

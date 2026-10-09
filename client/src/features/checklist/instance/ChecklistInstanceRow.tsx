@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import { Link } from 'react-router';
-import { Check, Circle, ClipboardList, Store } from 'lucide-react';
+import { Check, Circle, ClipboardList, Store, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { ChecklistProgressBar, ENTITY_CARD_CLASS, IconChip, StatusChip } from '../../../components';
@@ -8,8 +8,7 @@ import {
   formatDate,
   formatDateTime,
   getInstanceView,
-  instanceProgressToneClass,
-} from '../checklistDisplay';
+  instanceProgressToneClass, formatPeriodSpan } from '../checklistDisplay';
 import type { ChecklistInstance } from '../../../api/checklistInstances';
 
 interface ChecklistInstanceRowProps {
@@ -28,7 +27,7 @@ const ROW_CLASS = cn(ENTITY_CARD_CLASS, 'justify-start outline-none focus-visibl
 // One row in ChecklistDefinitionDetail's grouped instance list and in the History checklists tab.
 // The row-view sibling of ChecklistInstanceCard (used by MyChecklists' grid instead).
 export const ChecklistInstanceRow = memo(({ instance, storeName }: ChecklistInstanceRowProps) => {
-  const { done, total, progress, isComplete, overdue, chipStatus, progressStatus, deadlineTime, verification } = getInstanceView(instance);
+  const { done, total, progress, isComplete, overdue, chipStatus, progressStatus, deadlineTime, verification, doneLate } = getInstanceView(instance);
 
   if (storeName !== undefined) {
     return (
@@ -43,6 +42,7 @@ export const ChecklistInstanceRow = memo(({ instance, storeName }: ChecklistInst
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <StatusChip status={chipStatus} />
+            {doneLate && <IconChip icon={Clock} tone="bg-warning" label="Done late" />}
             <IconChip icon={verification.icon} tone={verification.tone} label={verification.label} />
           </div>
         </div>
@@ -75,7 +75,7 @@ export const ChecklistInstanceRow = memo(({ instance, storeName }: ChecklistInst
 
       <div className="flex-1 min-w-0 flex flex-col gap-1">
         <p className="text-sm font-display font-medium text-text truncate">
-          {formatDate(instance.periodStart)} – {formatDate(instance.periodEnd)}
+          {formatPeriodSpan(instance)}
           {!isComplete && deadlineTime && <span className="text-text-muted"> · Due {deadlineTime}</span>}
         </p>
         <div className="flex items-center gap-2 flex-wrap">

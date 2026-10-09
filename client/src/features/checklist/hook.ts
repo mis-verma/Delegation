@@ -314,17 +314,6 @@ export const usePeriodReportQuery = (from: string, to: string, storeId?: string,
   });
 };
 
-export const useWeeklyReportQuery = (weekStart: string, storeId?: string, departmentId?: string) => {
-  const { token } = useAuth();
-  return useQuery({
-    queryKey: ['checklist-instances', 'weekly-report', weekStart, storeId ?? '', departmentId ?? ''],
-    queryFn: () => checklistInstanceApi.getWeeklyReport(weekStart, storeId, departmentId).then(r => r.data),
-    enabled: !!token,
-    retry: handleQueryRetry,
-    placeholderData: keepPreviousData,
-  });
-};
-
 export const useChecklistInstancesBoardQuery = (
   filter: { storeId?: string; assigneeId?: string; status?: ChecklistInstanceStatus; from?: string; to?: string; includeDeleted?: boolean; page?: number; limit?: number } = {},
   options: { enabled?: boolean } = {},

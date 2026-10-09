@@ -2,10 +2,8 @@ import { memo, type MouseEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { IconChip, PANEL_CLASS, Skeleton, StatusChip } from '../../../components';
 import {
-  formatDateShort,
   getInstanceView,
-  RECURRENCE_LABEL,
-} from '../checklistDisplay';
+  RECURRENCE_LABEL, formatPeriodSpan } from '../checklistDisplay';
 import type { ChecklistInstance } from '../../../api/checklistInstances';
 
 interface ChecklistInstanceTableProps {
@@ -70,7 +68,7 @@ const TableRow = memo(({ instance, storeName, assignees, assigneeCount, storePen
       </td>
 
       <td className={`${CELL_CLASS} whitespace-nowrap tabular-nums`}>
-        {formatDateShort(instance.periodStart)} – {formatDateShort(instance.periodEnd)}
+        {formatPeriodSpan(instance, true)}
         {!isComplete && deadlineTime && (
           <span className="block text-text-light">Due {deadlineTime}</span>
         )}

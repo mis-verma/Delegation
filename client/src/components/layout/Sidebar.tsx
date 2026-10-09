@@ -366,7 +366,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
               onClick={() => toggleExpanded(to)}
               aria-label={isExpanded ? `Collapse ${label}` : `Expand ${label}`}
               aria-expanded={isExpanded}
-              className="shrink-0 p-1.5 rounded-lg text-text-muted hover:text-text hover:bg-surface-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+              className="shrink-0 flex items-center justify-center size-8 pointer-coarse:size-11 rounded-lg text-text-muted hover:text-text hover:bg-surface-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
             >
               <ChevronDown
                 size={16}

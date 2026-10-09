@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useOrgToday } from '../useOrgToday';
 import { ChevronLeft, ChevronRight, Download, FileSpreadsheet, FileText } from 'lucide-react';
 import { Button } from '../../../components';
 import { Popover, PopoverContent, PopoverTrigger } from '../../../components/ui/popover';
@@ -22,6 +23,9 @@ interface WeeklyExportMenuProps {
   departmentId?: string;
   storeName?: string;
   departmentName?: string;
+  /** When the page passes its own period, the export covers exactly what is on screen and the menu drops its own picker. */
+  period?: ScorePeriod;
+  offset?: number;
 }
 
 /**
@@ -29,14 +33,17 @@ interface WeeklyExportMenuProps {
  * quarter or year, per person, per department or both, narrowed to the store and department picked on
  * the page. The file comes from the same server report the Checklist Reports page uses.
  */
-export const WeeklyExportMenu = ({ storeId, departmentId, storeName, departmentName }: WeeklyExportMenuProps) => {
+export const WeeklyExportMenu = ({ storeId, departmentId, storeName, departmentName, period: pagePeriod, offset: pageOffset }: WeeklyExportMenuProps) => {
   const [open, setOpen] = useState(false);
-  const [period, setPeriod] = useState<ScorePeriod>('week');
-  const [offset, setOffset] = useState(0);
+  const [ownPeriod, setPeriod] = useState<ScorePeriod>('week');
+  const [ownOffset, setOffset] = useState(0);
+  const followsPage = pagePeriod !== undefined && pageOffset !== undefined;
+  const period = followsPage ? pagePeriod : ownPeriod;
+  const offset = followsPage ? pageOffset : ownOffset;
   const [groupBy, setGroupBy] = useState<ChecklistReportGrouping>('person');
   const download = useChecklistReportDownload();
 
-  const range = windowFor(period, offset);
+  const range = windowFor(period, offset, useOrgToday());
   const run = (format: 'csv' | 'xlsx') =>
     download.mutate({ params: { from: range.from, to: range.to, storeId, departmentId, groupBy }, format }, { onSuccess: () => setOpen(false) });
 
@@ -56,6 +63,13 @@ export const WeeklyExportMenu = ({ storeId, departmentId, storeName, departmentN
           </p>
         </div>
 
+        {followsPage ? (
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-display font-semibold text-text-secondary">Period</span>
+            <p className="rounded-lg border border-border/60 bg-surface-hover/40 px-3 py-2 text-sm font-display font-bold text-text">{range.label}</p>
+            <p className="text-xs font-medium text-text-muted">The same period as the page. Change it on the page to export a different one.</p>
+          </div>
+        ) : (
         <div className="flex flex-col gap-2">
           <span className="text-xs font-display font-semibold text-text-secondary">Period</span>
           <PeriodTabControl value={period} options={PERIODS} labels={PERIOD_LABEL} onChange={(next) => { setPeriod(next); setOffset(0); }} fill />
@@ -69,6 +83,7 @@ export const WeeklyExportMenu = ({ storeId, departmentId, storeName, departmentN
             </button>
           </div>
         </div>
+        )}
 
         <div className="flex flex-col gap-2">
           <span className="text-xs font-display font-semibold text-text-secondary">Group by</span>

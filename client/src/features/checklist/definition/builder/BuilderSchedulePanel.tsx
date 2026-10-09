@@ -67,6 +67,11 @@ const Section = ({ icon: Icon, title, aside, children }: { icon: typeof Store; t
   </section>
 );
 
+const startOfToday = () => {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+};
+
 export const BuilderSchedulePanel = ({
   storeIds,
   onStoreIdsChange,
@@ -174,6 +179,8 @@ export const BuilderSchedulePanel = ({
             <DatePicker
               value={parseDateStr(startDate)}
               onChange={(d) => onStartDateChange(d ? toDateStr(d) : '')}
+              // A one-time checklist due yesterday would be missed the moment it is made.
+              minDate={recurrence === 'ONE_TIME' ? startOfToday() : undefined}
               placeholder={recurrence === 'ONE_TIME' ? 'Due date' : 'Start date'}
               triggerClassName={`${CHIP_TRIGGER_CLASS} h-11 sm:h-9 text-[0.8125rem] ${startDate ? 'pr-10' : ''}`}
             />

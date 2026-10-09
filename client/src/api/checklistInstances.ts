@@ -150,6 +150,8 @@ export type ChecklistInstance = {
   periodEnd:        string;
   generatedAt:      string;
   verificationStatus: ChecklistVerificationStatus;
+  /** The first time every question was done. Lateness is judged from this. Null until then (and on older runs). */
+  completedFirstAt?:  string | null;
   /** When the person filling it in pressed Submit (and who). Null until then. */
   submittedAt:        string | null;
   submittedBy:        string | null;
@@ -452,7 +454,7 @@ export const checklistInstanceApi = {
 
   getAuditHistory: (filter: { storeId?: string; personId?: string; from?: string; to?: string } = {}, paging: PageParams = {}) =>
     apiFetch<ApiResponse<AuditHistoryRow[]> & { meta: ChecklistInstancePage }>(
-      `/checklist-instances/audit-history${buildQuery({ ...filter, ...paging })}`,
+      `/checklist-instances/audit-history${buildQuery({ ...filter, from: filter.from ? toDayParam(filter.from) : undefined, to: filter.to ? toDayParam(filter.to) : undefined, ...paging })}`,
     ),
 
   /**
@@ -505,8 +507,6 @@ export const checklistInstanceApi = {
   /** Fill report over any window of up to a year, as day columns or month columns. */
   getPeriodReport: (from: string, to: string, storeId?: string, departmentId?: string) =>
     apiFetch<ApiResponse<WeeklyReport>>(`/checklist-instances/reports/period${buildQuery({ from, to, storeId, departmentId })}`),
-  getWeeklyReport: (weekStart: string, storeId?: string, departmentId?: string) =>
-    apiFetch<ApiResponse<WeeklyReport>>(`/checklist-instances/reports/weekly${buildQuery({ weekStart, storeId, departmentId })}`),
 
   getForDefinition: (definitionId: string, paging: PageParams = {}) =>
     apiFetch<ApiResponse<ChecklistInstance[]> & { meta: ChecklistInstancePage }>(

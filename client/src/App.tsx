@@ -195,7 +195,7 @@ const router = createBrowserRouter([
               <ComingSoon
                 icon={FolderKanban}
                 title="Projects"
-                description="A dedicated space to plan, track, and collaborate on multi-step work — beyond single delegations and tickets."
+                description="A dedicated space to plan, track, and collaborate on multi-step work, beyond single delegations and tickets."
                 features={['Milestones & timelines', 'Cross-team task grouping', 'Progress dashboards']}
               />
             ),
@@ -224,7 +224,7 @@ const router = createBrowserRouter([
                 lockCategory="delegation"
                 title="Smart Delegations"
                 emptyTitle="No smart delegations yet"
-                emptyDescription="Delegations created through the AI — Smart Add on the web, or the WhatsApp bot — will show up here."
+                emptyDescription="Delegations created through the AI (Smart Add on the web, or the WhatsApp bot) will show up here."
               />
             ),
           },

@@ -41,7 +41,7 @@ export const TemplateBlock = ({ template, departmentName }: TemplateBlockProps) 
     // Enter twice quickly would add the same step twice while the first save is still running.
     if (!newLabel.trim() || addItem.isPending) return;
     addItem.mutate(
-      { templateId: template.id, payload: { label: newLabel.trim(), order: template.items.length } },
+      { templateId: template.id, payload: { label: newLabel.trim(), order: template.items.reduce((max, it) => Math.max(max, it.order), -1) + 1 } },
       { onSuccess: () => setNewLabel('') },
     );
   };
@@ -164,6 +164,7 @@ export const TemplateBlock = ({ template, departmentName }: TemplateBlockProps) 
                 id={addInputId}
                 value={newLabel}
                 onChange={e => setNewLabel(e.target.value)}
+                maxLength={191}
                 onKeyDown={e => { if (e.key === 'Enter') handleAddItem(); }}
                 placeholder="Add next step label…"
                 className="flex-1 min-w-0 min-h-11 sm:min-h-8 px-3 py-1.5 text-base sm:text-xs font-display bg-background text-text rounded-lg border border-border/70 focus:outline-none focus:ring-2 focus:ring-primary-500/20 placeholder:text-text-muted transition-all"

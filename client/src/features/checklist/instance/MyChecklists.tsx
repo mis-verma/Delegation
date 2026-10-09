@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import { useRefreshOnNewDay } from '../useRefreshOnNewDay';
 import { AlertCircle, ClipboardCheck, Store, ChevronRight, Clock, AlarmClock, ArrowDownAZ, Repeat, User, LayoutList, Table2, Kanban, Rows3, ArrowUpDown, Building2, ShieldCheck, Users } from 'lucide-react';
 import { useSearchParams } from 'react-router';
 import { Skeleton, PageNav, ViewToggle, EmptyState, InlineError, PANEL_CLASS, type ViewTab } from '../../../components';
@@ -24,7 +25,8 @@ import { ChecklistInstanceCard } from './ChecklistInstanceCard';
 import { ChecklistInstanceTable } from './ChecklistInstanceTable';
 import { ChecklistInstanceBoard } from './ChecklistInstanceBoard';
 import { MyChecklistsQuickStats, type MyChecklistsQuickFilterKey, type MyChecklistsQuickFilterCounts } from './MyChecklistsQuickStats';
-import { RECURRENCE_LABEL, VERIFICATION_STATUS_LABEL, VERIFICATION_CHIP, todayPeriodBoundIso } from '../checklistDisplay';
+import { RECURRENCE_LABEL, VERIFICATION_STATUS_LABEL, VERIFICATION_CHIP, todayPeriodBoundIso, instanceDeadline } from '../checklistDisplay';
+import { useNow } from '../../../lib/useNow';
 import type { ChecklistInstance, ChecklistInstanceStatus, ChecklistVerificationStatus } from '../../../api/checklistInstances';
 import type { ChecklistRecurrence } from '../../../api/checklistDefinitions';
 
@@ -42,7 +44,7 @@ const SORT_LABEL: Record<SortKey, string> = { recent: 'Most recent', dueSoonest:
 const SORT_ICON: Record<SortKey, typeof Clock> = { recent: Clock, dueSoonest: AlarmClock, titleAsc: ArrowDownAZ };
 const SORT_COMPARATORS: Record<SortKey, (a: ChecklistInstance, b: ChecklistInstance) => number> = {
   recent: () => 0, // server already orders by periodStart desc — nothing to re-sort
-  dueSoonest: (a, b) => new Date(a.periodEnd).getTime() - new Date(b.periodEnd).getTime(),
+  dueSoonest: (a, b) => instanceDeadline(a) - instanceDeadline(b),
   titleAsc: (a, b) => a.title.localeCompare(b.title),
 };
 
@@ -286,10 +288,22 @@ export const MyChecklists = () => {
   // from `useChecklistInstanceSummaryQuery`, which counts every real instance untouched, so a
   // three-days-overdue checklist still reads as overdue everywhere else, it just isn't shown as
   // three redundant cards on this one page.
+  const now = useNow();
+  useRefreshOnNewDay();
   const instances = useMemo(() => {
     const latestByChecklist = new Map<string, ChecklistInstance>();
+    // An older run is NOT redundant while it still needs someone: a sent-back one (they must fix it),
+    // a finished one nobody has submitted yet, or one whose cutoff has not passed (an overnight window
+    // whose next run was already generated at midnight). Only abandoned, missed runs are trimmed.
+    const stillNeedsWork = (i: ChecklistInstance) =>
+      i.verificationStatus === 'REJECTED' ||
+      (i.verificationStatus === 'NOT_SUBMITTED' && i.items.length > 0 && i.items.every((it) => it.isDone)) ||
+      instanceDeadline(i) > now;
+    const kept = new Set<ChecklistInstance>();
     for (const instance of sortedInstances) {
-      const key = `${instance.definitionId}:${instance.storeId ?? ''}`;
+      if (stillNeedsWork(instance)) kept.add(instance);
+      // The title says whose it is on a per-person checklist, so those are not merged into one card.
+      const key = `${instance.definitionId}:${instance.storeId ?? ''}:${instance.title}`;
       const current = latestByChecklist.get(key);
       if (!current || new Date(instance.periodStart).getTime() > new Date(current.periodStart).getTime()) {
         latestByChecklist.set(key, instance);
@@ -298,9 +312,9 @@ export const MyChecklists = () => {
     // Order follows sortedInstances' own order (recent/dueSoonest/titleAsc), not insertion order —
     // Map preserves insertion order, which is whatever order the first-seen instance of each
     // checklist happened to appear in, not the sort the viewer picked.
-    const kept = new Set(latestByChecklist.values());
+    for (const latest of latestByChecklist.values()) kept.add(latest);
     return sortedInstances.filter((instance) => kept.has(instance));
-  }, [sortedInstances]);
+  }, [sortedInstances, now]);
 
   // How many rows the active filter matches — taken from the summary counts already fetched
   // above rather than a second request, since they're the same four numbers the tiles show.
@@ -542,8 +556,8 @@ export const MyChecklists = () => {
               : storeId ? 'No checklists for this store'
               : departmentId ? 'No checklists shared with this department'
               : assigneeIds.length ? 'No checklists shared with this person'
-              : 'No checklists assigned to you yet'}
-            description={hasActiveFilters ? 'Try clearing the filter to see all your checklists.' : "Once you're assigned a recurring checklist, it will show up here."}
+              : 'Nothing to fill in right now'}
+            description={hasActiveFilters ? 'Try clearing the filter to see all your checklists.' : "Nothing is due today. It may be a holiday or your day off, or today's checklists have not been created yet. They show up here as soon as they are. If you were never given a checklist, ask an admin to assign one."}
             action={hasActiveFilters ? { label: 'Clear filters', onClick: clearAllFilters } : undefined}
           />
         )}

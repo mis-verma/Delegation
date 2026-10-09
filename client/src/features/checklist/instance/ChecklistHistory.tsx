@@ -2,6 +2,7 @@ import { memo, useCallback, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Ban, Check, ClipboardCheck, History, ListChecks, SearchX, Store, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toDateParam } from '../../admin/analytics/analyticsDisplay';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   DateRangePicker, EmptyState, ImageLightbox, InlineError, PageHeader, PageNav, PANEL_CLASS, SelectDropdown, Skeleton,
@@ -10,8 +11,8 @@ import {
 import { useAuth } from '../../../context/AuthContext';
 import { ADMIN_AREA_ROLES } from '../../../api/auth';
 import { UPLOADS_BASE } from '../../../lib/uploadsBase';
-import { endOfDay } from '../../../lib/dateRange';
 import { useAuditHistoryQuery, useChecklistInstancesBoardQuery, useStoresQuery } from '../hook';
+import { useAssignableUsersQuery } from '../../tickets/hook';
 import { AccessoryTile } from './ChecklistInstanceItemAuditCard';
 import { ChecklistInstanceRow } from './ChecklistInstanceRow';
 import { formatDate, formatTimeOnly } from '../checklistDisplay';
@@ -28,6 +29,14 @@ const lastDays = (n: number): DateRangeValue => {
   const from = startOfDay(new Date(to.getFullYear(), to.getMonth(), to.getDate() - (n - 1)));
   return { from, to };
 };
+type HistoryStatus = '' | 'COMPLETED' | 'OPEN' | 'OVERDUE';
+const STATUS_OPTIONS: { value: HistoryStatus; label: string }[] = [
+  { value: '', label: 'Any status' },
+  { value: 'COMPLETED', label: 'Finished' },
+  { value: 'OPEN', label: 'Not finished' },
+  { value: 'OVERDUE', label: 'Overdue' },
+];
+
 const ALL_TIME: DateRangeValue = { from: null, to: null };
 
 const personName = (row: AuditHistoryRow) => {
@@ -158,20 +167,32 @@ export const ChecklistHistory = () => {
   const [tab, setTab] = useState<Tab>('audits');
   const [range, setRangeState] = useState<DateRangeValue>(() => lastDays(7));
   const [storeId, setStoreIdState] = useState('');
+  const [personId, setPersonIdState] = useState('');
+  const [status, setStatusState] = useState<HistoryStatus>('');
   const [page, setPage] = useState(1);
 
   // Any filter or tab change returns to page one: page 4 of the old result is meaningless against
   // the new one. Done in the setters, not an effect, so the stale page never renders.
   const setRange = (value: DateRangeValue) => { setRangeState(value); setPage(1); };
   const setStoreId = (value: string) => { setStoreIdState(value); setPage(1); };
+  const setPersonId = (value: string) => { setPersonIdState(value); setPage(1); };
+  const setStatus = (value: string) => { setStatusState(value as HistoryStatus); setPage(1); };
   const changeTab = (next: string) => { setTab(next as Tab); setPage(1); };
-  const clearFilters = () => { setRangeState(ALL_TIME); setStoreIdState(''); setPage(1); };
+  const clearFilters = () => { setRangeState(ALL_TIME); setStoreIdState(''); setPersonIdState(''); setStatusState(''); setPage(1); };
 
-  const from = range.from ? startOfDay(range.from).toISOString() : undefined;
-  const to = range.to ? endOfDay(range.to).toISOString() : undefined;
+  // Plain calendar days (the picked day as the person sees it), not instants: both tabs then read the
+  // same days whatever time zone this browser is in. An instant meant a different day on each tab.
+  const from = range.from ? toDateParam(range.from) : undefined;
+  const to = range.to ? toDateParam(range.to) : undefined;
 
   const { data: stores = [], isLoading: storesLoading } = useStoresQuery();
   const storeNameById = useMemo(() => new Map(stores.map(s => [s.id, s.name])), [stores]);
+  // The people you can look at: everyone for ADMIN and PC, the department for a head (the server decides).
+  const { data: assignable } = useAssignableUsersQuery();
+  const personOptions = useMemo(
+    () => [{ value: '', label: 'Everyone' }, ...(assignable ?? []).map(u => ({ value: u.id, label: `${u.firstName} ${u.lastName ?? ''}`.trim() }))],
+    [assignable],
+  );
   const storeOptions = useMemo(
     () => [{ value: '', label: 'All stores' }, ...stores.map(s => ({ value: s.id, label: s.name }))],
     [stores],
@@ -179,12 +200,12 @@ export const ChecklistHistory = () => {
 
   // Only the visible tab's query runs: the other tab's list isn't fetched until it's opened.
   const audits = useAuditHistoryQuery(
-    { storeId: storeId || undefined, from, to },
+    { storeId: storeId || undefined, personId: personId || undefined, from, to },
     { page, limit: PAGE_SIZE },
     { enabled: tab === 'audits' },
   );
   const checklists = useChecklistInstancesBoardQuery(
-    { storeId: storeId || undefined, from, to, page, limit: PAGE_SIZE },
+    { storeId: storeId || undefined, assigneeId: personId || undefined, status: status || undefined, from, to, page, limit: PAGE_SIZE },
     { enabled: tab === 'checklists' },
   );
 
@@ -193,7 +214,10 @@ export const ChecklistHistory = () => {
   const checklistRows = checklists.data?.data;
   const rowCount = (tab === 'audits' ? auditRows : checklistRows)?.length ?? 0;
   const totalPages = active.data?.meta.totalPages ?? 1;
-  const hasFilters = !!range.from || !!range.to || !!storeId;
+  // Rows can shrink under the viewer (a deleted checklist, a filter changed elsewhere). Step back to the last
+  // real page instead of showing an empty one with no pager.
+  if (active.data && !active.isPlaceholderData && page > totalPages) setPage(Math.max(1, totalPages));
+  const hasFilters = !!range.from || !!range.to || !!storeId || !!personId || (tab === 'checklists' && !!status);
   // keepPreviousData keeps the old page on screen while a new filter loads: dim it, don't blank it.
   const refreshing = active.isPlaceholderData;
 
@@ -209,7 +233,7 @@ export const ChecklistHistory = () => {
         <EmptyState
           icon={SearchX}
           title={tab === 'audits' ? 'No audits in this range' : 'No checklists in this range'}
-          description="Try a wider date range or another store."
+          description={hasFilters ? 'Try a wider date range or another store.' : 'Nothing has been recorded yet.'}
           action={hasFilters ? { label: 'Clear filters', onClick: clearFilters } : undefined}
         />
       )}
@@ -271,6 +295,26 @@ export const ChecklistHistory = () => {
                 aria-label="Filter by store"
               />
             </div>
+            <div className="flex flex-col gap-1.5 w-full sm:w-56">
+              <span className="text-xs font-display font-medium text-text-secondary">Person</span>
+              <SelectDropdown
+                value={personId}
+                onChange={setPersonId}
+                options={personOptions}
+                aria-label="Filter by person"
+              />
+            </div>
+            {tab === 'checklists' && (
+              <div className="flex flex-col gap-1.5 w-full sm:w-44">
+                <span className="text-xs font-display font-medium text-text-secondary">Status</span>
+                <SelectDropdown
+                  value={status}
+                  onChange={setStatus}
+                  options={STATUS_OPTIONS}
+                  aria-label="Filter by status"
+                />
+              </div>
+            )}
           </div>
         </div>
 

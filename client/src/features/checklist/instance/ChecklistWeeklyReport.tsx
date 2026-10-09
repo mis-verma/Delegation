@@ -180,14 +180,14 @@ export const ChecklistWeeklyReport = () => {
   const canPickDepartment = user?.role === 'ADMIN' || user?.role === 'PC';
   const { data: stores = [], isPending: storesPending } = useStoresQuery();
   const { data: departments = [], isPending: departmentsPending } = useDepartmentsQuery(canPickDepartment);
-  const range = windowFor(period, offset);
+  const range = windowFor(period, offset, today);
   const { data, isPending, isError, isFetching, refetch } = usePeriodReportQuery(range.from, range.to, storeId || undefined, canPickDepartment ? departmentId || undefined : undefined);
 
   const storeOptions = useMemo(() => stores.map(s => ({ value: s.id, label: s.name })), [stores]);
   const departmentOptions = useMemo(() => departments.map(d => ({ value: d.id, label: d.name })), [departments]);
 
   const rows = data?.rows;
-  const holidayDays = useMemo(() => (data ? data.days.filter(d => data.holidays[d]) : []), [data]);
+  const holidayDays = useMemo(() => (data ? Object.keys(data.holidays).sort() : []), [data]);
   const summary = data?.summary;
   const summaryTiles = useMemo(() => summary && [
     { label: 'Runs filled', value: summary.completion === null ? '-' : `${summary.completion}%`, tone: summary.completion === null ? '' : rateToneClass(summary.completion) },
@@ -258,6 +258,8 @@ export const ChecklistWeeklyReport = () => {
             </div>
           )}
           <WeeklyExportMenu
+            period={period}
+            offset={offset}
             storeId={storeId || undefined}
             departmentId={canPickDepartment ? departmentId || undefined : undefined}
             storeName={stores.find(s => s.id === storeId)?.name}

@@ -61,6 +61,8 @@ export interface StatTileProps {
 // Written placeholders for a tile that has no figure: never a bare dash standing in for a value.
 const NO_DATA_VALUE = 'No data';
 const LOADING_VALUE = 'Loading';
+// A request that failed is not the same as "nothing happened": say it did not load.
+const UNAVAILABLE_VALUE = 'Unavailable';
 
 const MOBILE_TILE_BASE = `${PANEL_CLASS} flex flex-col gap-1 p-3.5 text-left min-w-0`;
 const MOBILE_TILE_INTERACTIVE =
@@ -72,7 +74,7 @@ const MobileStatTile = ({ label, value, caption, trend, lowerIsBetter = false, i
   const isFlat = hasTrend && Number.parseFloat(trend.label) === 0;
   const isGood = trend ? (trend.direction === 'up') !== lowerIsBetter : true;
   const trendClass = isFlat ? 'text-text-muted' : isGood ? 'text-success' : 'text-danger';
-  const isPlaceholder = value === NO_DATA_VALUE || value === LOADING_VALUE;
+  const isPlaceholder = value === NO_DATA_VALUE || value === LOADING_VALUE || value === UNAVAILABLE_VALUE;
   const body = (
     <>
       <span className="text-xs font-display font-semibold text-text-muted leading-snug break-words">{label}</span>
@@ -220,7 +222,7 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
             icon={AlertTriangle}
             iconTint="text-warning"
             label="Overdue now"
-            value={overdue.isError ? NO_DATA_VALUE : overdue.isPending ? LOADING_VALUE : (overdueCount ?? 0)}
+            value={overdue.isError ? UNAVAILABLE_VALUE : overdue.isPending ? LOADING_VALUE : (overdueCount ?? 0)}
             isLoading={overdue.isPending}
             caption={overdue.isPending || overdue.isError ? statCaption({ isPending: overdue.isPending, isError: overdue.isError, hasData: false, noDataText: '' }) : 'Open tickets past their deadline'}
             trend={NO_TREND}
@@ -231,7 +233,7 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
             icon={ShieldCheck}
             iconTint="text-success"
             label="Closed on time"
-            value={onTime.value != null ? formatPercent(onTime.value) : tickets.isPending ? LOADING_VALUE : NO_DATA_VALUE}
+            value={onTime.value != null ? formatPercent(onTime.value) : tickets.isPending ? LOADING_VALUE : tickets.isError ? UNAVAILABLE_VALUE : NO_DATA_VALUE}
             isLoading={tickets.isPending}
             trend={onTime.trend}
             caption={
@@ -245,7 +247,7 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
             icon={ClipboardCheck}
             iconTint="text-primary-600 dark:text-primary-400"
             label="Store checklists completion"
-            value={storeChecklists.value != null ? formatPercent(storeChecklists.value) : instances.isPending ? LOADING_VALUE : NO_DATA_VALUE}
+            value={storeChecklists.value != null ? formatPercent(storeChecklists.value) : instances.isPending ? LOADING_VALUE : instances.isError ? UNAVAILABLE_VALUE : NO_DATA_VALUE}
             isLoading={instances.isPending}
             trend={storeChecklists.trend}
             caption={
@@ -259,7 +261,7 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
             icon={ListChecks}
             iconTint="text-primary-600 dark:text-primary-400"
             label="Delegation checklist items"
-            value={delegationItems.value != null ? formatPercent(delegationItems.value) : tasks.isPending ? LOADING_VALUE : NO_DATA_VALUE}
+            value={delegationItems.value != null ? formatPercent(delegationItems.value) : tasks.isPending ? LOADING_VALUE : tasks.isError ? UNAVAILABLE_VALUE : NO_DATA_VALUE}
             isLoading={tasks.isPending}
             trend={delegationItems.trend}
             caption={

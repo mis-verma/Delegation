@@ -61,6 +61,9 @@ export const useUpdateDressTypeMutation = () => {
     onSuccess: (updated, { payload }) => {
       refresh();
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      // A rename or a gender change shows on audit cards and in the checklist builder too.
+      queryClient.invalidateQueries({ queryKey: ['checklist-definitions'] });
+      queryClient.invalidateQueries({ queryKey: ['checklist-instances'] });
       // A switch flip names the type and the new state; any other edit is just "updated".
       const onlyToggled = payload.isActive !== undefined && payload.name === undefined && payload.gender === undefined;
       toast.success(onlyToggled ? `${updated.name} turned ${payload.isActive ? 'on' : 'off'}` : 'Dress type updated');

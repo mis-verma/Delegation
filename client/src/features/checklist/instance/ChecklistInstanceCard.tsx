@@ -1,14 +1,13 @@
+import { Clock } from 'lucide-react';
 import { memo, useMemo } from 'react';
 import { Link } from 'react-router';
 import { cn } from '@/lib/utils';
 import { ChecklistProgressBar, ENTITY_CARD_CLASS, IconChip, StatusChip } from '../../../components';
 import {
   complianceToneClass,
-  formatDateShort,
   getInstanceView,
   instanceProgressToneClass,
-  RECURRENCE_LABEL,
-} from '../checklistDisplay';
+  RECURRENCE_LABEL, formatPeriodSpan } from '../checklistDisplay';
 import { useAuth } from '../../../context/AuthContext';
 import type { ChecklistInstance } from '../../../api/checklistInstances';
 
@@ -19,7 +18,7 @@ interface ChecklistInstanceCardProps {
 // Memoized: MyChecklists re-renders on every filter/sort/option change and the list can run to 50
 // cards, all of which keep the same `instance` object between those renders.
 export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardProps) => {
-  const { done, total, progress, isComplete, overdue, chipStatus, compliance, deadlineTime, verification } = getInstanceView(instance);
+  const { done, total, progress, isComplete, overdue, chipStatus, compliance, deadlineTime, verification, doneLate } = getInstanceView(instance);
   const showVerification = isComplete || instance.verificationStatus !== 'NOT_SUBMITTED';
   const { user } = useAuth();
   // A shared checklist is done once ONE assignee finishes it. If that was someone else, say so, so
@@ -42,13 +41,14 @@ export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardPr
       <div className="flex flex-col gap-1 min-w-0">
         <p className="text-[0.9375rem] font-display font-semibold text-text tracking-tight leading-snug line-clamp-2">{instance.title}</p>
         <p className="text-[0.6875rem] font-medium text-text-muted">
-          {RECURRENCE_LABEL[instance.recurrence]} · {formatDateShort(instance.periodStart)} – {formatDateShort(instance.periodEnd)}
+          {RECURRENCE_LABEL[instance.recurrence]} · {formatPeriodSpan(instance, true)}
           {!isComplete && deadlineTime && <> · Due {deadlineTime}</>}
         </p>
       </div>
 
       <div className="flex items-center gap-1.5 flex-wrap">
         <StatusChip status={chipStatus} />
+        {doneLate && <IconChip icon={Clock} tone="bg-warning" label="Done late" />}
         {showVerification && (
           <IconChip icon={verification.icon} tone={verification.tone} label={verification.label} />
         )}

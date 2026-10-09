@@ -13,9 +13,8 @@ import {
 } from '../hook';
 import { useFormerPeopleNamesQuery } from '../former/useFormerPeopleNames';
 import {
-  formatDate, formatDeadlineTime, instanceProgressStatus, VERIFICATION_STATUS_LABEL, VERIFICATION_CHIP,
-  instanceProgressToneClass, isInstanceOverdue, isFlaggedAnswer,
-} from '../checklistDisplay';
+  formatDeadlineTime, instanceProgressStatus, VERIFICATION_STATUS_LABEL, VERIFICATION_CHIP,
+  instanceProgressToneClass, isInstanceOverdue, isFlaggedAnswer, formatPeriodSpan } from '../checklistDisplay';
 import { ChecklistComplianceQuickStats, type ComplianceQuickFilterKey, type ComplianceQuickFilterCounts } from './ChecklistComplianceQuickStats';
 import { GroupByControl, type GroupBy } from '../../admin/analytics/GroupByControl';
 import { ChecklistInstanceKpiSection } from '../../admin/analytics/ChecklistInstanceKpiSection';
@@ -103,7 +102,7 @@ const ComplianceRow = memo(({ instance, storeName, nameById, namesLoading }: Com
           <p className="text-sm font-display font-bold text-text line-clamp-2 leading-snug">{instance.title}</p>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-muted font-display">
             {storeName && <span className="flex items-center gap-1"><Store size={11} aria-hidden /> {storeName}</span>}
-            <span>{formatDate(instance.periodStart)} to {formatDate(instance.periodEnd)}</span>
+            <span>{formatPeriodSpan(instance)}</span>
             {!complete && deadlineTime && <span>Due {deadlineTime}</span>}
           </div>
         </div>
@@ -197,6 +196,12 @@ const PAGE_SIZE = 50;
 // Admin-only dashboard answering "who has/hasn't filled their checklist", dynamically filterable
 // by store and by person. Spans every checklist definition's generated instances (unlike
 // ChecklistDefinitionDetail, which only shows instances for one definition at a time).
+const QUICK_TILE_LABEL: Record<Exclude<ComplianceQuickFilterKey, 'all'>, string> = {
+  completed: 'Completed',
+  pending: 'Not completed',
+  overdue: 'Overdue',
+};
+
 export const ChecklistComplianceBoard = () => {
   // Trend + rate-tile report, same component the Overview page's own Audits tab uses, reused
   // (not rebuilt) so this page reads as a report at a glance instead of opening straight onto the
@@ -373,6 +378,10 @@ export const ChecklistComplianceBoard = () => {
           {storeId && <ActiveFilterChip label={storeNameById.get(storeId) ?? 'Store'} onRemove={() => setStoreId('')} />}
           {assigneeId && <ActiveFilterChip label={nameById.get(assigneeId) ?? 'Person'} onRemove={() => setAssigneeId('')} />}
           {status && <ActiveFilterChip label={STATUS_OPTIONS.find((o) => o.value === status)?.label ?? 'Status'} onRemove={() => setStatus('')} />}
+          {/* Picked by tapping a tile below: shown here too, so the list never looks narrowed for no visible reason. */}
+          {quickFilter !== 'all' && (
+            <ActiveFilterChip label={QUICK_TILE_LABEL[quickFilter]} onRemove={() => toggleQuickFilter(quickFilter)} />
+          )}
           {includeDeleted && <ActiveFilterChip label="Deleted checklists shown" onRemove={() => setIncludeDeleted(false)} />}
           {(range.from || range.to) && (
             <ActiveFilterChip
