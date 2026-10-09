@@ -257,9 +257,10 @@ export const MyScoresCard = () => {
   const openDrill = (module: ModuleKey) => setDrillState({ module, open: true });
   const closeDrill = () => setDrillState((d) => (d ? { ...d, open: false } : d));
   const goTo = (href: string) => {
+    // Straight away, in the tap itself: a delayed navigate could be lost if the card re-rendered meanwhile. The
+    // popup closes with it, and the page cross-fades where the browser supports it.
     closeDrill();
-    // Let the popup finish closing, then cross-fade to the page (where the browser can) instead of cutting to it.
-    window.setTimeout(() => void navigate(href, { viewTransition: true }), 140);
+    void navigate(href, { viewTransition: true });
   };
 
   // Warm the neighbouring windows so the arrows feel instant.
