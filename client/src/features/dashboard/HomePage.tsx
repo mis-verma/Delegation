@@ -20,6 +20,7 @@ import { MonthlyTargetCard, type FooterStat, type ScoreStatKey } from './Monthly
 import { ActivityOverviewCard } from './ActivityOverviewCard';
 import { NeedsApprovalCard } from './NeedsApprovalCard';
 import { TodayStrip } from './TodayStrip';
+import { MobileTodayHero } from './MobileTodayHero';
 import { TeamProgressCard } from './TeamProgressCard';
 import { MyScoresCard } from './MyScoresCard';
 import { RecentActivity, RECENT_ACTIVITY_FEED_SIZE } from './RecentActivity';
@@ -406,6 +407,9 @@ export const HomePage = () => {
           onShow={(id) => toggleHidden(id as DashboardCardId)}
         />
       </div>
+
+      {/* Phones only: the three numbers to act on first, above every card. */}
+      {isMobile && !isCustomizing && <MobileTodayHero summaries={summaries} />}
 
       {isCustomizing ? (
         <Suspense fallback={staticGrid}>
