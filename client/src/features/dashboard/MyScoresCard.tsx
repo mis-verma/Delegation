@@ -305,17 +305,17 @@ export const MyScoresCard = () => {
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 min-w-0">
-              <h2 className="text-sm sm:text-lg font-display font-semibold sm:font-bold text-text tracking-tight truncate">{heading}</h2>
+              <h2 className="t-section font-display font-bold text-text tracking-tight line-clamp-2">{heading}</h2>
               <InfoHint label="What do these scores mean?">
                 <p><strong className="text-text">Completion</strong>: how much of the work that came due was done.</p>
                 <p className="mt-1.5"><strong className="text-text">Compliance</strong>: how much was done on time. For checklists, how well the checked answers were answered.</p>
                 <p className="mt-1.5">Work that is not due yet is left out, so a running week or month does not look low. Good is 80% or more, Fair 50 to 79, Low under 50.</p>
               </InfoHint>
             </div>
-            <p className="mt-0.5 hidden text-xs font-medium text-text-muted sm:block">Work that fell due in the window, and how much was done on time</p>
+            <p className="mt-0.5 hidden t-meta font-medium text-text-muted sm:block">Work that fell due in the window, and how much was done on time</p>
           </div>
           <div className="flex items-center justify-between gap-2 sm:justify-end sm:shrink-0">
-            <div role="group" aria-label="Show as" className="inline-flex items-center rounded-lg border border-border p-0.5">
+            <div role="group" aria-label="Show as" className="inline-flex items-center gap-1 rounded-lg border border-border bg-surface-hover/40 p-1">
               {views.map((option) => {
                 const Icon = VIEW_ICON[option];
                 const active = activeView === option;
@@ -327,7 +327,7 @@ export const MyScoresCard = () => {
                     aria-pressed={active}
                     aria-label={`${VIEW_LABEL[option]} view`}
                     title={VIEW_LABEL[option]}
-                    className={`inline-flex size-8 pointer-coarse:size-10 items-center justify-center rounded-md transition-colors ${active ? 'bg-primary-500/10 text-primary-600 dark:text-primary-400' : 'text-text-muted hover:text-text'}`}
+                    className={`inline-flex size-8 pointer-coarse:size-11 items-center justify-center rounded-md transition-colors ${active ? 'bg-gradient-to-br from-primary-500 to-primary-700 text-white dark:from-primary-400 dark:to-primary-600' : 'text-text-muted hover:bg-surface hover:text-text'}`}
                   >
                     <Icon className="size-4" aria-hidden="true" />
                   </button>

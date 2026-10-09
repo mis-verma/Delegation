@@ -1,141 +1,207 @@
-import { memo, useMemo } from 'react';
-import { ArrowDown, ArrowUp, ChevronRight, ClipboardCheck, Ticket as TicketIcon, Users, type LucideIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { memo, useId, useMemo, type ReactElement } from 'react';
+import { Bar, BarChart, CartesianGrid, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { ArrowDown, ArrowUp } from 'lucide-react';
+import { useIsMobile } from '../../lib/useMediaQuery';
+import { ScoreColumn } from './scoreBarShape';
 import type { Scores } from '../../api/scores';
 import { SERIES_COLOR, SERIES_LABEL, numbersFor, seriesFor, type ModuleKey, type ScoreMetric, type SeriesKey } from './scoreMetrics';
 
-const MODULES: { key: ModuleKey; name: string; icon: LucideIcon }[] = [
-  { key: 'checklist', name: 'Checklist', icon: ClipboardCheck },
-  { key: 'ticket', name: 'Tickets', icon: TicketIcon },
-  { key: 'delegation', name: 'Delegations', icon: Users },
+// A faint lane behind every bar shows how far from 100% it is.
+const TRACK_FILL = 'color-mix(in oklab, var(--color-primary-500) 6%, transparent)';
+
+const MODULES: { key: ModuleKey; name: string }[] = [
+  { key: 'checklist', name: 'Checklist' },
+  { key: 'ticket', name: 'Tickets' },
+  { key: 'delegation', name: 'Delegations' },
 ];
 
 interface Row {
   key: ModuleKey;
   name: string;
-  icon: LucideIcon;
   completion: number | null;
   compliance: number | null;
   ontime: number | null;
+  notes: Record<SeriesKey, string>;
   hasData: boolean;
 }
 
 const rowsFor = (s: Scores): Row[] =>
-  MODULES.map(({ key, name, icon }) => {
+  MODULES.map(({ key, name }) => {
     const n = numbersFor(s, key);
-    return { key, name, icon, completion: n.completion, compliance: n.compliance, ontime: n.ontime, hasData: n.hasData };
+    return {
+      key, name, completion: n.completion, compliance: n.compliance, ontime: n.ontime, hasData: n.hasData,
+      notes: { completion: n.completionNote, compliance: n.complianceNote, ontime: n.ontimeNote },
+    };
   });
 
-const delta = (now: number | null, before: number | null) => (now === null || before === null ? null : now - before);
+const BarTooltip = ({ active, payload, series }: { active?: boolean; payload?: { payload?: Row }[]; series: SeriesKey[] }) => {
+  const row = payload?.[0]?.payload;
+  if (!active || !row) return null;
+  return (
+    <div className="flex min-w-44 flex-col gap-2 rounded-lg border border-border bg-surface p-3">
+      <p className="text-sm font-display font-bold text-text">{row.name}</p>
+      {row.hasData ? (
+        series.map((k) => (
+          <div key={k} className="flex items-start gap-2">
+            <span aria-hidden="true" className="mt-1 size-2 shrink-0 rounded-full" style={{ backgroundColor: SERIES_COLOR[k] }} />
+            <div className="min-w-0">
+              <p className="text-xs font-display font-bold text-text">{SERIES_LABEL[k]} {row[k] === null ? 'no data' : `${row[k]}%`}</p>
+              <p className="text-xs font-display text-text-muted">{row.notes[k]}</p>
+            </div>
+          </div>
+        ))
+      ) : (
+        <p className="text-xs font-display text-text-muted">Nothing due</p>
+      )}
+    </div>
+  );
+};
 
-// The number's colour follows how it is going, the bar keeps the measure's own colour.
-const valueTone = (v: number | null) => (v === null ? 'text-text-light' : v >= 80 ? 'text-success' : v >= 70 ? 'text-warning' : 'text-danger');
-
-// One measure of one module: its name, the number, a change since last period and a bar on a fixed 0 to 100
-// scale. With nothing to show it is a dash and an empty, outlined track, never a zero bar.
-const Measure = ({ series, value, change }: { series: SeriesKey; value: number | null; change: number | null }) => (
-  <div className="flex min-w-0 flex-col gap-1.5">
-    <div className="flex items-center justify-between gap-2">
-      <span className="flex items-center gap-1.5 t-meta font-display font-semibold text-text-muted">
-        <span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ backgroundColor: SERIES_COLOR[series] }} />
-        {SERIES_LABEL[series]}
+const Legend = ({ series }: { series: SeriesKey[] }) => (
+  <div className="flex flex-wrap items-center gap-1.5">
+    {series.map((k) => (
+      <span key={k} className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-surface-hover/40 px-2.5 py-1 t-meta font-display font-semibold text-text-secondary">
+        <span aria-hidden="true" className="size-2 rounded-full" style={{ backgroundColor: SERIES_COLOR[k] }} />{SERIES_LABEL[k]}
       </span>
-      {change !== null && change !== 0 && (
-        <span className={cn('inline-flex items-center t-meta font-display font-bold tabular-nums', change > 0 ? 'text-success' : 'text-danger')} title="Since last period">
-          {change > 0 ? <ArrowUp className="size-3" aria-hidden="true" /> : <ArrowDown className="size-3" aria-hidden="true" />}
-          {Math.abs(change)}
-        </span>
-      )}
-    </div>
-    <p className={cn('font-display text-2xl font-bold leading-none tabular-nums', valueTone(value))}>{value === null ? '–' : `${value}%`}</p>
-    <div
-      className={cn('h-2 w-full overflow-hidden rounded-full', value === null ? 'border border-border-hover/70 bg-transparent' : 'bg-border/60')}
-      role="progressbar"
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={value ?? undefined}
-      aria-label={`${SERIES_LABEL[series]}${value === null ? ': nothing due' : ''}`}
-    >
-      {value !== null && (
-        <div
-          className="h-full rounded-full transition-[width] duration-500 motion-reduce:transition-none"
-          style={{ width: `${Math.min(100, Math.max(0, value))}%`, backgroundColor: SERIES_COLOR[series] }}
-        />
-      )}
-    </div>
+    ))}
   </div>
+);
+
+// Just the module name. A module with nothing due is shown by its empty outlined bar, not by extra words.
+const ModuleTick = ({ x, y, payload }: { x?: number; y?: number; payload?: { value: string } }) => (
+  <g transform={`translate(${x ?? 0},${(y ?? 0) + 6})`}>
+    <text textAnchor="middle" dy={12} fill="var(--color-text-secondary)" fontSize={12} fontWeight={700}>{payload?.value ?? ''}</text>
+  </g>
 );
 
 interface ScoreBarsProps {
   scores: Scores | undefined;
   loading: boolean;
-  /** Which measure(s) to show: Overview is completion beside compliance, the others one on their own. */
+  /** Which measure(s) to draw: Overview is completion beside compliance, the others one on their own. */
   metric?: ScoreMetric;
-  /** The window before this one. When given, the change since then shows beside each number. */
+  /** The window before this one. When given, the change since then is shown under the chart. */
   previous?: Scores | undefined;
-  /** Opens that module's late items. Left out where there is no list to open. */
+  /** Tapping a bar opens that module's late items. Left out where there is no list to open. */
   onOpenModule?: (module: ModuleKey) => void;
 }
 
+const delta = (now: number | null, before: number | null) => (now === null || before === null ? null : now - before);
+
+const Delta = ({ label, value }: { label: string; value: number | null }) =>
+  value === null ? (
+    <span className="text-xs font-medium text-text-muted">{label} -</span>
+  ) : (
+    <span className={`inline-flex items-center gap-0.5 text-xs font-display font-bold tabular-nums ${value > 0 ? 'text-success' : value < 0 ? 'text-danger' : 'text-text-muted'}`}>
+      <span className="font-medium text-text-muted">{label}</span>
+      {value > 0 ? <ArrowUp className="size-3" aria-hidden="true" /> : value < 0 ? <ArrowDown className="size-3" aria-hidden="true" /> : null}
+      {value === 0 ? 'same' : `${Math.abs(value)}`}
+    </span>
+  );
+
 /**
- * The score card's main view: one row per module (Checklist, Tickets, Delegations) with its measures side by
- * side, each a number over a thin bar on the same 0 to 100 scale. It replaces a column chart that was mostly
- * empty space and gave a bar for work that was never due.
+ * Completion, compliance and on-time rate for Checklist, Tickets and Delegations as bars on a fixed 0 to
+ * 100 scale, so bars from different windows and people can be compared by eye.
  */
 export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous, onOpenModule }: ScoreBarsProps) => {
+  const isMobile = useIsMobile();
+  const gradientId = useId().replace(/:/g, '');
   const rows = useMemo(() => (scores ? rowsFor(scores) : []), [scores]);
-  const before = useMemo(() => (previous ? rowsFor(previous) : null), [previous]);
   const series = seriesFor(metric);
+  // One bar per module is allowed to be wider than a pair.
+  const barSize = series.length === 1 ? (isMobile ? 56 : 72) : isMobile ? 40 : 52;
+  // A module with nothing due is given a full-height value so its outlined empty bar fills the lane; its number is not printed.
+  const chartRows = useMemo(() => rows.map((r) => (r.hasData ? r : { ...r, completion: 100, compliance: 100, ontime: 100 })), [rows]);
+  const renderLabel = (props: { x?: number | string; y?: number | string; width?: number | string; value?: unknown; index?: number }): ReactElement | null => {
+    const row = chartRows[props.index ?? -1];
+    if (!row?.hasData || typeof props.value !== 'number') return null;
+    return (
+      <text x={Number(props.x) + Number(props.width) / 2} y={Number(props.y) - 6} textAnchor="middle" fontSize={12} fontWeight={700} fill="var(--color-text)">
+        {props.value}%
+      </text>
+    );
+  };
 
   const summary = rows
     .map((r) => `${r.name}: ${r.hasData ? series.map((k) => `${SERIES_LABEL[k].toLowerCase()} ${r[k] ?? 'no data'}%`).join(', ') : 'nothing due'}`)
     .join('. ');
 
-  if (loading && !scores) {
-    return (
-      <div className="flex flex-col gap-2.5" role="status" aria-label="Loading scores">
-        {MODULES.map((m) => (
-          <div key={m.key} className="h-[7.5rem] animate-pulse rounded-xl border border-border/60 bg-surface-hover/40" />
-        ))}
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-col gap-2.5" role="group" aria-label={summary || 'Scores'}>
-      {rows.map((row, i) => {
-        const Icon = row.icon;
-        const inner = (
-          <>
-            <div className="flex items-center gap-2.5">
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-500/10 text-primary-700 ring-1 ring-primary-500/15 dark:text-primary-300">
-                <Icon className="size-4" aria-hidden="true" />
-              </span>
-              <span className="t-card flex-1 truncate font-display font-semibold text-text">{row.name}</span>
-              {onOpenModule && <ChevronRight className="size-4 shrink-0 text-text-light transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden="true" />}
-            </div>
-            <div className={cn('grid gap-x-5 gap-y-3', series.length > 1 ? 'grid-cols-2' : 'grid-cols-1')}>
-              {series.map((k) => (
-                <Measure key={k} series={k} value={row.hasData ? row[k] : null} change={before ? delta(row[k], before[i][k]) : null} />
-              ))}
-            </div>
-          </>
-        );
-        const cardClass = 'group flex flex-col gap-3 rounded-xl border border-border/60 bg-surface-hover/20 p-3 text-left sm:p-4';
-        return onOpenModule ? (
-          <button
-            key={row.key}
-            type="button"
-            onClick={() => onOpenModule(row.key)}
-            aria-label={`${row.name}: open the late items`}
-            className={cn(cardClass, 'cursor-pointer transition-colors duration-150 hover:border-primary-400/60 hover:bg-primary-500/5 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40')}
-          >
-            {inner}
-          </button>
+    <div className="flex flex-col gap-3">
+      <Legend series={series} />
+
+      {/* The height is fixed so the card does not jump while the numbers load or the window changes. */}
+      <div className={`relative h-56 sm:h-64 w-full ${onOpenModule ? '[&_.recharts-bar-rectangle]:cursor-pointer' : ''}`} role="img" aria-label={summary || 'Loading scores'}>
+        {loading && !scores ? (
+          <div className="absolute inset-0 flex items-end justify-around gap-4 px-6 pb-8" role="status" aria-label="Loading scores">
+            {[55, 80, 40].map((h, i) => (
+              <div key={i} className="flex flex-1 items-end justify-center gap-2">
+                <div className="w-6 sm:w-8 rounded-t-md bg-surface-hover animate-pulse" style={{ height: `${h}%` }} />
+                {series.length > 1 && <div className="w-6 sm:w-8 rounded-t-md bg-surface-hover animate-pulse" style={{ height: `${Math.max(20, h - 15)}%` }} />}
+              </div>
+            ))}
+          </div>
         ) : (
-          <div key={row.key} className={cardClass}>{inner}</div>
-        );
-      })}
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartRows} accessibilityLayer={false} margin={{ top: 22, right: 4, left: isMobile ? 0 : 4, bottom: 0 }} barCategoryGap={isMobile ? '10%' : '24%'} barGap={6}>
+              <defs>
+                {series.map((k) => (
+                  <linearGradient key={k} id={`${gradientId}-${k}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={SERIES_COLOR[k]} stopOpacity={0.82} />
+                    <stop offset="100%" stopColor={SERIES_COLOR[k]} stopOpacity={1} />
+                  </linearGradient>
+                ))}
+              </defs>
+              {/* Faint dashed rules at the scale steps, so a bar's height can be read across. */}
+              <CartesianGrid vertical={false} strokeDasharray="3 4" stroke="var(--color-border)" strokeOpacity={0.6} />
+              {/* Every module is always listed: interval 0 stops the axis from dropping labels on a narrow card. */}
+              <XAxis dataKey="name" interval={0} height={30} tickLine={false} axisLine={false} tick={<ModuleTick />} />
+              {/* The scale lives in the lanes behind the bars and the numbers on top, so a phone gives the
+                  width to the bars instead of an axis. */}
+              <YAxis domain={[0, 100]} hide={isMobile} ticks={[0, 25, 50, 75, 100]} tickFormatter={(v: number) => `${v}%`} tickLine={false} axisLine={false} width={44} tick={{ fill: 'var(--color-text-muted)', fontSize: 12, fontWeight: 600 }} />
+              <Tooltip content={<BarTooltip series={series} />} cursor={false} isAnimationActive={false} />
+              {series.map((k) => (
+                <Bar
+                  key={k}
+                  dataKey={k}
+                  fill={`url(#${gradientId}-${k})`}
+                  shape={(p: { x?: number; y?: number; width?: number; height?: number; fill?: string; payload?: Row }) => <ScoreColumn {...p} empty={p.payload?.hasData === false} />}
+                  maxBarSize={barSize}
+                  background={{ fill: TRACK_FILL, radius: 8 }}
+                  animationDuration={500}
+                  onClick={(d: { payload?: Row }) => { if (d.payload) onOpenModule?.(d.payload.key); }}
+                >
+                  <LabelList dataKey={k} position="top" offset={6} content={renderLabel} />
+                </Bar>
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
+      {previous && scores && (
+        <ul className="flex flex-col gap-1.5 rounded-lg border border-border/60 bg-surface-hover/30 px-3 py-2.5" aria-label="Change since the previous period">
+          <li className="text-xs font-display font-bold text-text-secondary">Since last period</li>
+          {rowsFor(scores).map((r, i) => {
+            const before = rowsFor(previous)[i];
+            return (
+              <li key={r.key} className="flex flex-wrap items-center gap-x-4 gap-y-0.5">
+                <span className="w-24 text-xs font-display font-bold text-text">{r.name}</span>
+                {series.map((k) => <Delta key={k} label={SERIES_LABEL[k]} value={delta(r[k], before[k])} />)}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      <table className="sr-only">
+        <caption>Completion, compliance and on-time rate by module</caption>
+        <thead><tr><th scope="col">Module</th><th scope="col">Completion</th><th scope="col">Compliance</th><th scope="col">On time</th></tr></thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.name}><th scope="row">{r.name}</th><td>{r.completion ?? 'No data'}</td><td>{r.compliance ?? 'No data'}</td><td>{r.ontime ?? 'No data'}</td></tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 });
