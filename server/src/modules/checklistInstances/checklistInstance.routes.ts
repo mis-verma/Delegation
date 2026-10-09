@@ -34,6 +34,7 @@ checklistInstanceRouter.get("/reports/weekly", requireRole("ADMIN", "PC", "MANAG
 checklistInstanceRouter.get("/reports/compliance", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), checklistInstanceController.complianceReport)
 checklistInstanceRouter.get("/reports/by-store", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), checklistInstanceController.byStoreReport)
 checklistInstanceRouter.get("/reports/store-daily", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), checklistInstanceController.storeDailyReport)
+checklistInstanceRouter.get("/reports/score-runs", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), checklistInstanceController.scoreRunsReport)
 checklistInstanceRouter.get("/reports/department-monthly", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), checklistInstanceController.departmentMonthlyReport)
 checklistInstanceRouter.get("/:id/item-history", checklistInstanceController.itemHistory)
 checklistInstanceRouter.get("/:id", checklistInstanceController.getOne)

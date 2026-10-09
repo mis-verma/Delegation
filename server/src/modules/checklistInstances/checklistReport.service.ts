@@ -180,6 +180,18 @@ const GROUP_METRICS = sql`
 `
 
 type MetricRow = Record<string, unknown>
+
+export type ScoreRun = {
+    id: string
+    title: string
+    storeName: string
+    day: string
+    doneItems: number
+    totalItems: number
+    completionRate: number | null
+    complianceRate: number | null
+    verificationStatus: string
+}
 const n = (v: unknown) => Number(v ?? 0)
 
 const metricsOf = (r: MetricRow) => ({
@@ -298,8 +310,12 @@ export const checklistReportService = {
                 storeName: String(r.storeName),
                 day: String(r.day),
                 completionRate: m.completionRate,
+                complianceRate: m.complianceRate,
                 doneItems: m.doneItems,
                 totalItems: m.totalItems,
+                // Raw weights behind complianceRate, so cells can be totalled without averaging percentages.
+                weightedGood: n(r.weightedGoodItems),
+                weightedScored: n(r.weightedScoredItems),
                 dueRuns: m.dueRuns,
             }
         })
@@ -351,5 +367,44 @@ export const checklistReportService = {
                 dueRuns: m.dueRuns,
             }
         })
+    },
+
+    /**
+     * The checklists behind one score: every DUE run for the store and/or department in the window,
+     * weakest completion first, with the same completion and compliance rule the grids use. Capped so
+     * a whole-period cell on a big organisation stays a short list; `total` says how many there are.
+     */
+    async scoreRunsReport(scope: ChecklistReportScope | null, query: { from: string; to: string }) {
+        const LIMIT = 60
+        if (!scope) return { runs: [] as ScoreRun[], total: 0 }
+        const window = resolveReportWindow("none", query.from, query.to)
+        assertRangeAllowed(window, true)
+        const conditions = filterConditions(scope, window, false, true)
+
+        const [rows] = await db.execute(sql`
+            SELECT r.id AS id, ci2.title AS title, st.name AS storeName, DATE_FORMAT(r.periodStart, '%Y-%m-%d') AS day,
+                r.applicableItems AS applicableItems, r.doneItems AS doneItems,
+                r.weightedScoredItems AS weightedScored, r.weightedGoodItems AS weightedGood,
+                r.verificationStatus AS verificationStatus
+            FROM (${runAggregateSql(conditions)}) r
+            JOIN ${checklistInstances} ci2 ON ci2.id = r.id
+            JOIN ${stores} st ON st.id = r.storeId
+            WHERE r.isDue = 1
+            ORDER BY (r.doneItems / NULLIF(r.applicableItems, 0)) ASC, r.periodStart DESC, r.id ASC
+            LIMIT ${LIMIT + 1}
+        `)
+
+        const all = (rows as unknown as MetricRow[]).map((r): ScoreRun => ({
+            id: String(r.id),
+            title: String(r.title),
+            storeName: String(r.storeName),
+            day: String(r.day),
+            doneItems: n(r.doneItems),
+            totalItems: n(r.applicableItems),
+            completionRate: ROUND(n(r.doneItems), n(r.applicableItems)),
+            complianceRate: ROUND(n(r.weightedGood), n(r.weightedScored)),
+            verificationStatus: String(r.verificationStatus),
+        }))
+        return { runs: all.slice(0, LIMIT), total: all.length > LIMIT ? null : all.length }
     },
 }

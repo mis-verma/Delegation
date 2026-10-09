@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { CalendarRange, RefreshCw } from 'lucide-react';
@@ -11,6 +11,8 @@ import { NEEDS_ATTENTION_BELOW } from '../analytics/useOwnerRankings';
 import { useSearchPatch } from '../analytics/useAnalyticsWindow';
 import { cn } from '@/lib/utils';
 import { DepartmentMonthlySection } from './DepartmentMonthlySection';
+import { ScoreDetailDialog } from './ScoreDetailDialog';
+import { addFigures, emptyFigures, rateOf, type ScoreDetail, type ScoreFigures } from './scoreFigures';
 
 const GOOD_FROM = 80;
 const toneOf = (rate: number | null) =>
@@ -45,7 +47,16 @@ const presetRange = (key: (typeof PRESETS)[number]['key'], today: Date): DateRan
   return { from: new Date(today.getFullYear(), today.getMonth() - 1, 1), to: new Date(today.getFullYear(), today.getMonth(), 0) };
 };
 
-const CELL = 'px-2 py-2.5 text-center font-display tabular-nums text-sm whitespace-nowrap';
+const CELL = 'p-0 text-center font-display tabular-nums text-sm whitespace-nowrap';
+// The whole cell is the button, so the tap target is the full cell (at least 44px tall on touch).
+const CELL_BUTTON = 'block w-full px-2 py-2.5 pointer-coarse:py-3.5 cursor-pointer outline-none transition-colors duration-150 hover:bg-primary-500/10 focus-visible:bg-primary-500/10 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/50';
+
+const figuresOf = (r: ChecklistStoreDailyRow): ScoreFigures => ({ done: r.doneItems, total: r.totalItems, good: r.weightedGood, scored: r.weightedScored, dueRuns: r.dueRuns });
+
+const longDay = (day: string) => {
+  const d = parseDateParam(day);
+  return d ? d.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' }) : day;
+};
 const STICKY = 'sticky left-0 z-10 bg-surface';
 
 /**
@@ -89,12 +100,12 @@ export const StoreDailyPage = () => {
   });
 
   const days = useMemo(() => (range.from && range.to ? eachDay(range.from, range.to) : []), [range]);
+  const [detail, setDetail] = useState<ScoreDetail | null>(null);
 
-  const { storeRows, dayTotals, grand } = useMemo(() => {
+  const { storeRows, dayTotals, grandFigures, grand } = useMemo(() => {
     const byStore = new Map<string, { name: string; cells: Map<string, ChecklistStoreDailyRow> }>();
-    const totals = new Map<string, { done: number; total: number }>();
-    let gDone = 0;
-    let gTotal = 0;
+    const totals = new Map<string, ScoreFigures>();
+    const grandFigures = emptyFigures();
     for (const r of query.data ?? []) {
       let entry = byStore.get(r.storeId);
       if (!entry) {
@@ -102,22 +113,19 @@ export const StoreDailyPage = () => {
         byStore.set(r.storeId, entry);
       }
       entry.cells.set(r.day, r);
-      const t = totals.get(r.day) ?? { done: 0, total: 0 };
-      t.done += r.doneItems;
-      t.total += r.totalItems;
+      const t = totals.get(r.day) ?? emptyFigures();
+      addFigures(t, figuresOf(r));
       totals.set(r.day, t);
-      gDone += r.doneItems;
-      gTotal += r.totalItems;
+      addFigures(grandFigures, figuresOf(r));
     }
     const rows = [...byStore.entries()]
       .map(([id, e]) => {
-        let done = 0;
-        let total = 0;
-        e.cells.forEach((c) => { done += c.doneItems; total += c.totalItems; });
-        return { id, name: e.name, cells: e.cells, overall: ratio(done, total) };
+        const figures = emptyFigures();
+        e.cells.forEach((c) => addFigures(figures, figuresOf(c)));
+        return { id, name: e.name, cells: e.cells, figures, overall: rateOf(figures.done, figures.total) };
       })
       .sort((a, b) => a.name.localeCompare(b.name));
-    return { storeRows: rows, dayTotals: totals, grand: ratio(gDone, gTotal) };
+    return { storeRows: rows, dayTotals: totals, grandFigures, grand: rateOf(grandFigures.done, grandFigures.total) };
   }, [query.data]);
 
   return (
@@ -149,7 +157,7 @@ export const StoreDailyPage = () => {
       </div>
 
       <p className="text-xs font-display text-text-muted px-1">
-        Each cell is items done out of items due that day. A dash means no checklist was due. Green is {GOOD_FROM}% or more, red is below {NEEDS_ATTENTION_BELOW}%.
+        Each cell is items done out of items due that day. Tap any score to see its completion and compliance. A dash means no checklist was due. Green is {GOOD_FROM}% or more, red is below {NEEDS_ATTENTION_BELOW}%.
       </p>
 
       {query.isError && !query.data ? (
@@ -180,17 +188,34 @@ export const StoreDailyPage = () => {
               {storeRows.map((row) => (
                 <tr key={row.id} className="border-t border-border/60 hover:bg-surface-hover/50 transition-colors motion-reduce:transition-none">
                   <th scope="row" className={cn(STICKY, 'px-4 py-2.5 text-left font-display font-medium text-sm text-text whitespace-nowrap')}>{row.name}</th>
-                  <td className={cn(CELL, 'font-bold', toneOf(row.overall))}>{formatPercent(row.overall)}</td>
+                  <td className={cn(CELL, 'font-bold', toneOf(row.overall))}>
+                    <button
+                      type="button"
+                      className={CELL_BUTTON}
+                      aria-label={`${row.name}, whole period: completion and compliance`}
+                      onClick={() => setDetail({ title: row.name, subtitle: 'The whole period', figures: row.figures, scope: { from, to, storeId: row.id } })}
+                    >
+                      {formatPercent(row.overall)}
+                    </button>
+                  </td>
                   {days.map((day) => {
                     const cell = row.cells.get(day);
                     const rate = cell ? ratio(cell.doneItems, cell.totalItems) : null;
                     return (
-                      <td
-                        key={day}
-                        className={cn(CELL, toneOf(rate))}
-                        title={cell ? `${cell.doneItems} of ${cell.totalItems} items done` : 'Nothing due'}
-                      >
-                        {rate == null ? <span aria-label="Nothing due">-</span> : formatPercent(rate)}
+                      <td key={day} className={cn(CELL, toneOf(rate))}>
+                        {cell ? (
+                          <button
+                            type="button"
+                            className={CELL_BUTTON}
+                            title={`${cell.doneItems} of ${cell.totalItems} items done`}
+                            aria-label={`${row.name}, ${longDay(day)}: completion and compliance`}
+                            onClick={() => setDetail({ title: row.name, subtitle: longDay(day), figures: figuresOf(cell), scope: { from: day, to: day, storeId: row.id } })}
+                          >
+                            {formatPercent(rate)}
+                          </button>
+                        ) : (
+                          <span className="block px-2 py-2.5 pointer-coarse:py-3.5" aria-label="Nothing due">-</span>
+                        )}
                       </td>
                     );
                   })}
@@ -200,13 +225,33 @@ export const StoreDailyPage = () => {
             <tfoot>
               <tr className="border-t border-border bg-surface-hover/40">
                 <th scope="row" className={cn(STICKY, 'px-4 py-2.5 text-left font-display font-bold text-sm text-text bg-surface-hover')}>All stores</th>
-                <td className={cn(CELL, 'font-bold', toneOf(grand))}>{formatPercent(grand)}</td>
+                <td className={cn(CELL, 'font-bold', toneOf(grand))}>
+                  <button
+                    type="button"
+                    className={CELL_BUTTON}
+                    aria-label="All stores, whole period: completion and compliance"
+                    onClick={() => setDetail({ title: 'All stores', subtitle: 'The whole period', figures: grandFigures, scope: { from, to } })}
+                  >
+                    {formatPercent(grand)}
+                  </button>
+                </td>
                 {days.map((day) => {
                   const t = dayTotals.get(day);
                   const rate = t ? ratio(t.done, t.total) : null;
                   return (
                     <td key={day} className={cn(CELL, 'font-semibold', toneOf(rate))}>
-                      {rate == null ? <span aria-label="Nothing due">-</span> : formatPercent(rate)}
+                      {t ? (
+                        <button
+                          type="button"
+                          className={CELL_BUTTON}
+                          aria-label={`All stores, ${longDay(day)}: completion and compliance`}
+                          onClick={() => setDetail({ title: 'All stores', subtitle: longDay(day), figures: t, scope: { from: day, to: day } })}
+                        >
+                          {formatPercent(rate)}
+                        </button>
+                      ) : (
+                        <span className="block px-2 py-2.5 pointer-coarse:py-3.5" aria-label="Nothing due">-</span>
+                      )}
                     </td>
                   );
                 })}
@@ -216,7 +261,9 @@ export const StoreDailyPage = () => {
         </div>
       )}
 
-      <DepartmentMonthlySection />
+      <DepartmentMonthlySection onOpenDetail={setDetail} />
+
+      <ScoreDetailDialog detail={detail} onClose={() => setDetail(null)} />
     </div>
   );
 };

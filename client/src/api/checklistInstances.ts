@@ -208,8 +208,12 @@ export type ChecklistStoreDailyRow = {
   /** 'YYYY-MM-DD', the org's own calendar day. */
   day: string;
   completionRate: number | null;
+  complianceRate: number | null;
   doneItems: number;
   totalItems: number;
+  /** Raw weights behind complianceRate, so cells can be totalled without averaging percentages. */
+  weightedGood: number;
+  weightedScored: number;
   dueRuns: number;
 };
 
@@ -227,6 +231,20 @@ export type ChecklistDepartmentMonthlyRow = {
   weightedGood: number;
   weightedScored: number;
   dueRuns: number;
+};
+
+/** One checklist behind a score cell (GET /checklist-instances/reports/score-runs). */
+export type ChecklistScoreRun = {
+  id: string;
+  title: string;
+  storeName: string;
+  /** 'YYYY-MM-DD' */
+  day: string;
+  doneItems: number;
+  totalItems: number;
+  completionRate: number | null;
+  complianceRate: number | null;
+  verificationStatus: string;
 };
 
 /** One row of the per-store comparison (GET /checklist-instances/reports/by-store). */
@@ -590,6 +608,12 @@ export const checklistInstanceApi = {
   getComplianceByStore: (from?: string, to?: string) =>
     apiFetch<ApiResponse<ChecklistStoreComplianceRow[]>>(
       `/checklist-instances/reports/by-store${buildQuery({ from: from ? toDayParam(from) : undefined, to: to ? toDayParam(to) : undefined })}`,
+    ),
+
+  /** The due checklists behind one score, weakest completion first. `total` is null when more than were returned exist. */
+  getScoreRuns: (from: string, to: string, storeId?: string, departmentId?: string) =>
+    apiFetch<ApiResponse<{ runs: ChecklistScoreRun[]; total: number | null }>>(
+      `/checklist-instances/reports/score-runs${buildQuery({ from: toDayParam(from), to: toDayParam(to), storeId, departmentId })}`,
     ),
 
   /** Completion and compliance per department per month. */

@@ -45,6 +45,14 @@ export const checklistInstanceComplianceReportQuerySchema = z.object({
     to: reportBoundary.optional(),
 })
 
+// The runs behind one score cell: a window plus the store and/or department it belongs to.
+export const checklistInstanceScoreRunsQuerySchema = z.object({
+    from: reportBoundary,
+    to: reportBoundary,
+    storeId: objectId.optional(),
+    departmentId: objectId.optional(),
+})
+
 export const checklistInstanceByStoreReportQuerySchema = z.object({
     from: reportBoundary.optional(),
     to: reportBoundary.optional(),

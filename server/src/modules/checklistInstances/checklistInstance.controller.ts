@@ -1,6 +1,6 @@
 import type { Request, Response } from "express"
 import { checklistInstanceService, type InstanceRecurrence, type InstanceVerificationStatus } from "./checklistInstance.service.js"
-import { setChecklistInstanceItemDoneSchema, verifyChecklistInstanceSchema, sendBackChecklistInstanceSchema, waiveChecklistItemSchema, checklistInstanceComplianceReportQuerySchema, checklistInstanceByStoreReportQuerySchema, listChecklistInstancesQuerySchema, listPendingVerificationQuerySchema, weeklyReportQuerySchema, periodReportQuerySchema, decisionsQuerySchema, summaryQuerySchema } from "./checklistInstance.validation.js"
+import { setChecklistInstanceItemDoneSchema, verifyChecklistInstanceSchema, sendBackChecklistInstanceSchema, waiveChecklistItemSchema, checklistInstanceComplianceReportQuerySchema, checklistInstanceByStoreReportQuerySchema, checklistInstanceScoreRunsQuerySchema, listChecklistInstancesQuerySchema, listPendingVerificationQuerySchema, weeklyReportQuerySchema, periodReportQuerySchema, decisionsQuerySchema, summaryQuerySchema } from "./checklistInstance.validation.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
 import { resolveChecklistReportScope } from "./checklistReportScope.js"
 import { checklistReportService } from "./checklistReport.service.js"
@@ -267,6 +267,17 @@ export const checklistInstanceController = {
         const query = checklistInstanceByStoreReportQuerySchema.parse(req.query)
         const scope = resolveChecklistReportScope(req.user!)
         const data = await checklistReportService.departmentMonthlyReport(scope, query)
+        res.json({ success: true, data })
+    }),
+
+    // GET /checklist-instances/reports/score-runs?from=&to=&storeId=&departmentId=
+    // The checklists behind one score cell. ADMIN/PC may pick any store or department; MANAGER/SENIOR are
+    // held to their own department by the scope, whatever department they ask for.
+    scoreRunsReport: asyncHandler(async (req: Request, res: Response) => {
+        const query = checklistInstanceScoreRunsQuerySchema.parse(req.query)
+        const scope = resolveChecklistReportScope(req.user!, query.storeId)
+        if (scope && !scope.departmentId && query.departmentId) scope.departmentId = query.departmentId
+        const data = await checklistReportService.scoreRunsReport(scope, query)
         res.json({ success: true, data })
     }),
 
