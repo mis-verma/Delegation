@@ -108,7 +108,7 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
     // not the old full-bleed glass bar with a shadow and a gradient underline. The one difference is
     // that this one keeps the logo (the Admin header leaves the brand to its sidebar; here the logo
     // is the way home and the only brand mark on screen).
-    <header className="relative z-30 shrink-0 mx-3 mt-3 rounded-2xl bg-surface border border-border">
+    <header className="relative z-30 shrink-0 mx-3 mt-3 rounded-2xl bg-surface border border-border max-sm:border-border/60 max-sm:bg-gradient-to-br max-sm:from-primary-500/[0.07] max-sm:to-transparent">
       <div className="flex items-center gap-3 sm:gap-4 h-16 px-3 sm:px-5">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           {onToggleSidebar && (

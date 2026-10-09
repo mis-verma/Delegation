@@ -47,7 +47,7 @@ export const BottomNav = () => {
       style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
       aria-label="Mobile navigation bar"
     >
-      <div className="relative h-14 max-w-lg mx-auto grid grid-cols-5 rounded-3xl border border-border bg-surface">
+      <div className="relative h-14 max-w-lg mx-auto grid grid-cols-5 rounded-3xl border border-border/60 bg-surface bg-gradient-to-br from-primary-500/[0.07] to-transparent">
         {NAV_ITEMS.map(({ to, label, icon: Icon, exact, center }) => {
           const isActive = exact ? location.pathname === to : location.pathname.startsWith(to);
           const badge = to in badges ? badges[to as keyof NavBadgeMap] : undefined;
