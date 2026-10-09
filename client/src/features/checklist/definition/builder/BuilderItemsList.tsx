@@ -235,7 +235,7 @@ const SectionContainer = ({
                   <Check size={14} />
                 </Button>
               </div>
-              {isDuplicate && <span className="text-[0.6875rem] font-display text-danger">You already have a section with that name</span>}
+              {isDuplicate && <span className="t-meta font-display text-danger">You already have a section with that name</span>}
             </div>
           ) : (
             <button
@@ -250,7 +250,7 @@ const SectionContainer = ({
           )}
           <span className="text-xs font-display text-text-muted tabular-nums shrink-0">{items.length}</span>
           {isActive && !renaming && (
-            <span className="inline-flex items-center h-5 px-2 rounded-full bg-primary-500/10 text-[0.6875rem] font-display font-semibold text-primary-700 dark:text-primary-300 shrink-0">New questions go here</span>
+            <span className="inline-flex items-center h-5 px-2 rounded-full bg-primary-500/10 t-meta font-display font-semibold text-primary-700 dark:text-primary-300 shrink-0">New questions go here</span>
           )}
         </div>
 
@@ -588,7 +588,7 @@ export const BuilderItemsList = ({
             <Plus size={13} /> Add section
           </Button>
         </div>
-        {isDuplicateSectionName && <span className="px-3 text-[0.6875rem] font-display text-danger">You already have a section with that name.</span>}
+        {isDuplicateSectionName && <span className="px-3 t-meta font-display text-danger">You already have a section with that name.</span>}
       </div>
     </div>
   );

@@ -94,7 +94,7 @@ const RateTile = memo(function RateTile({ icon: Icon, label, rate, emptyLabel, i
           <Icon size={14} className="text-text-muted shrink-0" />
           {label}
         </span>
-        {caption && <span className="text-[0.6875rem] font-display text-text-muted leading-snug">{caption}</span>}
+        {caption && <span className="t-meta font-display text-text-muted leading-snug">{caption}</span>}
       </div>
 
       {rate !== null ? (

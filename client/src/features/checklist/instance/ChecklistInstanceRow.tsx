@@ -35,7 +35,7 @@ export const ChecklistInstanceRow = memo(({ instance, storeName }: ChecklistInst
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div className="min-w-0 flex-1">
             <p className="text-sm font-display font-bold text-text line-clamp-2 leading-snug">{instance.title}</p>
-            <p className="flex items-center gap-2 pt-1 text-xs text-text-muted font-display flex-wrap">
+            <p className="flex items-center gap-2 pt-1 t-meta text-text-muted font-display flex-wrap">
               {storeName && <span className="inline-flex items-center gap-1"><Store size={11} aria-hidden />{storeName}</span>}
               <span>{formatDate(instance.periodStart)}</span>
             </p>
@@ -52,7 +52,7 @@ export const ChecklistInstanceRow = memo(({ instance, storeName }: ChecklistInst
           ) : (
             <span className="flex-1" />
           )}
-          <span className={`text-xs font-display font-medium shrink-0 tabular-nums ${instanceProgressToneClass(overdue, isComplete)}`}>
+          <span className={`t-meta font-display font-medium shrink-0 tabular-nums ${instanceProgressToneClass(overdue, isComplete)}`}>
             {done}/{total}
           </span>
         </div>
@@ -79,7 +79,7 @@ export const ChecklistInstanceRow = memo(({ instance, storeName }: ChecklistInst
           {!isComplete && deadlineTime && <span className="text-text-muted"> · Due {deadlineTime}</span>}
         </p>
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="flex items-center gap-1 text-xs text-text-muted font-display tabular-nums">
+          <span className="flex items-center gap-1 t-meta text-text-muted font-display tabular-nums">
             <ClipboardList size={11} aria-hidden /> {done}/{total}
           </span>
           <Badge variant={isComplete ? 'success' : 'warning'}>
@@ -96,7 +96,7 @@ export const ChecklistInstanceRow = memo(({ instance, storeName }: ChecklistInst
       {overdue ? (
         <span className="shrink-0"><StatusChip status="overdue" /></span>
       ) : (
-        <span className="text-xs text-text-muted font-display shrink-0">{formatDateTime(instance.generatedAt)}</span>
+        <span className="t-meta text-text-muted font-display shrink-0">{formatDateTime(instance.generatedAt)}</span>
       )}
     </Link>
   );

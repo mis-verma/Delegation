@@ -178,7 +178,7 @@ export const LabelsField = ({
         <label htmlFor="labels-field-input" className={FIELD_LABEL_CLASS}>
           <TagIcon className={FIELD_LABEL_ICON_CLASS} />
           Labels
-          <span className="ml-auto text-[0.6875rem] font-medium text-text-light tabular-nums">
+          <span className="ml-auto t-meta font-medium text-text-light tabular-nums">
             {used}/{MAX_LABELS}
           </span>
         </label>
@@ -304,14 +304,14 @@ export const LabelsField = ({
             </button>
           ))}
           {suggestions.length > MAX_SUGGESTIONS && (
-            <span className="text-[0.6875rem] font-medium text-text-light">+{suggestions.length - MAX_SUGGESTIONS} more, keep typing</span>
+            <span className="t-meta font-medium text-text-light">+{suggestions.length - MAX_SUGGESTIONS} more, keep typing</span>
           )}
           {canCreate && tags.length > 0 && (
             <button
               type="button"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => { setManaging(true); setConfirmingId(null); setRecolorId(null); }}
-              className="inline-flex items-center gap-1 h-7 pointer-coarse:h-9 px-2 ml-auto rounded-full text-[0.6875rem] font-display font-semibold text-text-muted hover:text-text hover:bg-surface-hover transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+              className="inline-flex items-center gap-1 h-7 pointer-coarse:h-9 px-2 ml-auto rounded-full t-meta font-display font-semibold text-text-muted hover:text-text hover:bg-surface-hover transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
             >
               <Settings2 size={12} strokeWidth={2.5} />
               Manage
@@ -326,11 +326,11 @@ export const LabelsField = ({
       {managing && canCreate && !disabled && (
         <div className="flex flex-col gap-2.5 p-3 rounded-xl border border-border/60 dark:border-white/[0.08] bg-surface-hover/40 animate-in fade-in slide-in-from-top-1 duration-150">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[0.6875rem] font-display font-semibold text-text-secondary">Tap a dot to change its colour, or delete one you no longer need</span>
+            <span className="t-meta font-display font-semibold text-text-secondary">Tap a dot to change its colour, or delete one you no longer need</span>
             <button
               type="button"
               onClick={() => { setManaging(false); setConfirmingId(null); setRecolorId(null); }}
-              className="inline-flex items-center gap-1 h-8 pointer-coarse:h-10 px-3 shrink-0 rounded-full bg-surface border border-border text-[0.6875rem] font-display font-semibold text-text hover:border-border-hover transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+              className="inline-flex items-center gap-1 h-8 pointer-coarse:h-10 px-3 shrink-0 rounded-full bg-surface border border-border t-meta font-display font-semibold text-text hover:border-border-hover transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
             >
               <Check size={12} strokeWidth={2.75} />
               Done
@@ -347,7 +347,7 @@ export const LabelsField = ({
                     type="button"
                     disabled={busy}
                     onClick={() => deleteLabel(tag)}
-                    className="inline-flex items-center gap-1 h-6 pointer-coarse:h-8 px-2.5 rounded-full bg-danger text-white text-[0.6875rem] font-bold hover:brightness-110 disabled:opacity-60 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-danger/50"
+                    className="inline-flex items-center gap-1 h-6 pointer-coarse:h-8 px-2.5 rounded-full bg-danger text-white t-meta font-bold hover:brightness-110 disabled:opacity-60 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-danger/50"
                   >
                     {busy && <Loader2 size={11} className="animate-spin" />}
                     Delete
@@ -388,7 +388,7 @@ export const LabelsField = ({
           </div>
           {recolorId && byId.get(recolorId) && (
             <div className="flex flex-col gap-1.5 pt-2.5 border-t border-border/60">
-              <span className="text-[0.6875rem] font-display font-semibold text-text-muted">Colour for “{byId.get(recolorId)!.name}”</span>
+              <span className="t-meta font-display font-semibold text-text-muted">Colour for “{byId.get(recolorId)!.name}”</span>
               <ColorSwatches
                 value={labelColorKey(byId.get(recolorId)!)}
                 onPick={(key) => recolor(byId.get(recolorId)!, key)}
@@ -400,12 +400,12 @@ export const LabelsField = ({
       )}
 
       {focused && !!trimmed && !canCreate && suggestions.length === 0 && (
-        <p className="text-[0.6875rem] font-medium text-text-light px-0.5">No label called “{trimmed}”. Only an admin can add new ones.</p>
+        <p className="t-meta font-medium text-text-light px-0.5">No label called “{trimmed}”. Only an admin can add new ones.</p>
       )}
 
       {tags.length === 0 && canCreate && !disabled && pending.length === 0 && (
         <div className="flex flex-col gap-1.5">
-          <span className="text-[0.6875rem] font-medium text-text-light">No labels yet. Tap one to start:</span>
+          <span className="t-meta font-medium text-text-light">No labels yet. Tap one to start:</span>
           <div className="flex items-center gap-1.5 flex-wrap">
             {STARTER_LABELS.map((name) => {
               const color = suggestedLabelColor(name);
@@ -427,7 +427,7 @@ export const LabelsField = ({
       )}
 
       {atCap && (
-        <p id="labels-field-help" className="text-[0.6875rem] font-medium text-text-light">That's the limit of 12. Remove one to add another.</p>
+        <p id="labels-field-help" className="t-meta font-medium text-text-light">That's the limit of 12. Remove one to add another.</p>
       )}
     </div>
   );

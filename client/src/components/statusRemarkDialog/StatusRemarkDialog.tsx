@@ -178,15 +178,15 @@ export const StatusRemarkDialog = ({
           />
           <div className="flex items-start justify-between gap-3">
             {showError ? (
-              <p id="status-remark-error" className="text-[0.6875rem] font-semibold text-danger">
+              <p id="status-remark-error" className="t-meta font-semibold text-danger">
                 A remark is required to change the status.
               </p>
             ) : (
-              <p id="status-remark-hint" className="hidden sm:block text-[0.6875rem] font-medium text-text-muted">
+              <p id="status-remark-hint" className="hidden sm:block t-meta font-medium text-text-muted">
                 Whoever picks this up next sees this on the timeline.
               </p>
             )}
-            <span className="shrink-0 ml-auto px-2 py-0.5 rounded-full bg-surface-hover text-[0.625rem] font-semibold text-text-muted tabular-nums">
+            <span className="shrink-0 ml-auto px-2 py-0.5 rounded-full bg-surface-hover t-meta font-semibold text-text-muted tabular-nums">
               {trimmed.length}/{MAX_REMARK}
             </span>
           </div>

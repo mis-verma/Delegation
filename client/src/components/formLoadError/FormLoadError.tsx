@@ -28,7 +28,7 @@ export const FormLoadError = ({ onClose }: FormLoadErrorProps) => (
     }
   >
     <div className="p-4 mt-2 rounded-2xl bg-surface-hover border border-border shadow-inner shadow-border/50 animate-in fade-in slide-in-from-bottom-2 duration-300">
-      <p className="text-[0.875rem] leading-relaxed text-text-secondary font-medium">
+      <p className="text-sm leading-relaxed text-text-secondary font-medium">
         This usually clears up on a retry — close this and reopen the form.
       </p>
     </div>

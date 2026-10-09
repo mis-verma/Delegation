@@ -18,10 +18,10 @@ interface ChecklistInstanceTableProps {
 // sibling of MyChecklists' grouped card grid. Flat and already-sorted (no re-grouping here),
 // same convention as TicketTable receiving its rows pre-scoped from TicketList.
 const HEAD_ROW_CLASS = 'bg-primary-800';
-const HEAD_CLASS = 'px-3 py-3 text-left text-xs font-semibold text-white tracking-tight whitespace-nowrap';
+const HEAD_CLASS = 'px-3 py-3 text-left t-meta font-semibold text-white tracking-tight whitespace-nowrap';
 // group-hover so the hover tint lands on every cell at once, including the opaque sticky first
 // column (which would otherwise keep its resting background while the rest of the row lights up).
-const CELL_CLASS = 'px-3 py-2.5 align-middle text-xs text-text-secondary transition-colors duration-200 ease-in-out group-hover:bg-surface-hover';
+const CELL_CLASS = 'px-3 py-2.5 align-middle t-meta text-text-secondary transition-colors duration-200 ease-in-out group-hover:bg-surface-hover';
 
 interface TableRowProps {
   instance: ChecklistInstance;

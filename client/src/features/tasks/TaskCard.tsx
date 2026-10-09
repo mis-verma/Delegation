@@ -139,7 +139,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
           ~250px column's title down to "Security camera offlin…"; they're a small floating
           toolbar now, shown on hover or keyboard focus (always on touch, where there's no hover). */}
       <div className="flex items-start gap-2">
-        <h4 className={`flex-1 min-w-0 text-[0.9375rem] sm:text-sm font-display font-semibold text-text tracking-tight leading-snug line-clamp-2 break-words ${onMove || isVerifier ? 'pr-9' : ''}`}>
+        <h4 className={`flex-1 min-w-0 t-card sm:text-sm font-display font-semibold text-text tracking-tight leading-snug line-clamp-2 break-words ${onMove || isVerifier ? 'pr-9' : ''}`}>
           {task.title}
         </h4>
         <TaskSourceBadge aiMeta={task.aiMeta} />
@@ -171,7 +171,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
                   <span className="font-medium text-sm">Move to</span>
                 </DropdownMenuSubTrigger>
                 <DropdownMenuSubContent className="w-52 rounded-xl">
-                  <DropdownMenuLabel className="text-xs text-text-muted font-medium">Move to</DropdownMenuLabel>
+                  <DropdownMenuLabel className="t-meta text-text-muted font-medium">Move to</DropdownMenuLabel>
                   {MOVABLE_STATUSES.map((status) => {
                     // "Done" is reached through the verification flow (Approve) only, for anyone, the
                     // same rule useTaskStatusMove enforces on a drop and task.service.ts on the server.
@@ -230,7 +230,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
       )}
 
       {task.description && (
-        <p className="text-sm sm:text-xs text-text-secondary leading-snug line-clamp-2">
+        <p className="text-sm sm:t-meta text-text-secondary leading-snug line-clamp-2">
           {task.description}
         </p>
       )}
@@ -262,7 +262,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
           — quiet text metadata — so they share one wrapping row, which keeps pills and plain text
           from alternating down the card. */}
       {(fields.created || fields.updated) && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold text-text-light tabular-nums">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 t-meta font-semibold text-text-light tabular-nums">
           {/* Both on: one "updated" time, with the created time in its tooltip. */}
           {fields.created && !fields.updated && (
             <span className="flex items-center gap-1" title={`Created ${formatShortDateTime(task.createdAt)}`}>
@@ -291,7 +291,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
         <div className={`grid gap-2 rounded-lg bg-surface-hover/50 px-2.5 py-2 ${((fields.raisedBy && raisedByName) && showDueCell) ? 'grid-cols-2' : 'grid-cols-1'}`}>
           {fields.raisedBy && raisedByName && (
             <div className="min-w-0 flex flex-col gap-1">
-              <span className="text-xs font-display font-medium text-text-muted">Raised by</span>
+              <span className="t-meta font-display font-medium text-text-muted">Raised by</span>
               <span className="flex items-center gap-1.5 min-w-0">
                 <span className={`flex items-center justify-center size-5 rounded-full text-white text-xs font-bold shrink-0 ${avatarColorClass(raisedByName)}`} aria-hidden="true">
                   {getInitials(raisedByName).slice(0, 1)}
@@ -302,14 +302,14 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
           )}
           {showDueCell && (
             <div className="min-w-0 flex flex-col gap-1">
-              <span className="text-xs font-display font-medium text-text-muted">Due</span>
+              <span className="t-meta font-display font-medium text-text-muted">Due</span>
               <span className="flex items-center gap-1.5 min-w-0">
                 <CalendarDays size={14} strokeWidth={2.25} className={`shrink-0 ${dueTone}`} aria-hidden="true" />
                 <span className={`text-sm font-display font-semibold truncate ${dueTone}`} title={isOverdue ? 'Overdue' : 'Due date'}>
                   {formatShortDate(task.dueDate!)}
                 </span>
                 {task.status !== 'done' && (
-                  <span className={`text-xs font-display font-medium shrink-0 ${dueTone}`}>{daysLeftLabel(task.dueDate!)}</span>
+                  <span className={`t-meta font-display font-medium shrink-0 ${dueTone}`}>{daysLeftLabel(task.dueDate!)}</span>
                 )}
               </span>
             </div>
@@ -340,7 +340,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
                   </div>
                 )}
               </div>
-              <span className="text-xs font-semibold text-text-secondary truncate">
+              <span className="t-meta font-semibold text-text-secondary truncate">
                 {assigneeNames[0]}
                 {assigneeNames.length > 1 ? ` +${assigneeNames.length - 1}` : ''}
               </span>
@@ -353,7 +353,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
               >
                 <User size={13} strokeWidth={2.5} />
               </div>
-              <span className="text-xs font-semibold text-text-light truncate">Unassigned</span>
+              <span className="t-meta font-semibold text-text-light truncate">Unassigned</span>
             </div>
           )
         ) : (

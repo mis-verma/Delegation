@@ -72,8 +72,8 @@
   --color-white: #ffffff;
 
   /* --- Typography --- */
-  --font-sans: "Inter", "Inter Fallback", "Helvetica Neue", Arial, sans-serif;
-  --font-display: "Plus Jakarta Sans", "Inter", "Segoe UI", sans-serif;
+  --font-sans: "Inter", "Inter Fallback", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Plus Jakarta Sans", "Inter", "Noto Sans Devanagari", "Segoe UI", sans-serif;
 
   /* --- Layout (Using rem) --- */
   --container-width: min(96rem, 100% - 3rem);
@@ -207,6 +207,21 @@ body {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
   font-variant-numeric: lining-nums;
+  /* Inter's optical-size axis picks the right drawing for the size on screen. */
+  font-optical-sizing: auto;
+  /* When a fallback face has to stand in (before Inter loads, or for Devanagari), keep the same visual size
+     instead of a smaller or larger look. Ignored where not supported. */
+  font-size-adjust: from-font;
+}
+
+/* Paragraphs avoid a last line with one lonely word; headings balance their lines. */
+@layer base {
+  p, li, dd {
+    text-wrap: pretty;
+  }
+  h1, h2, h3, h4 {
+    text-wrap: balance;
+  }
 }
 
 /* Small screens: a touch more leading and tracking than the desktop default. Inter is tuned for
@@ -415,6 +430,24 @@ body {
 
 /* Button.tsx wraps its label in a span that takes the button's own gap (gap-1.5 / gap-2 per size).
    This utility was referenced but never defined, so icon and text sat touching in every button. */
+/* The type kit: one size and line height per ROLE, so a card title is the same everywhere and nothing
+   needs a one-off text-[0.6875rem]. Size and leading only; weight and colour stay on the element.
+   They are not named text-*, so class merging never mistakes them for a colour.
+     t-title   page title                 1.25rem  (20px on a phone) up to 1.5rem
+     t-section section heading            1.0625rem (17px) up to 1.25rem
+     t-card    card / row title           0.9375rem (15px) up to 1.0625rem, two lines at most
+     t-meta    dates, store, counts, chips 0.75rem  (12px) up to 0.8125rem, the smallest size used for meaning
+     t-figure  a big number in a tile     1.5rem   (24px) up to 2rem
+   The first number is the floor (the phone size) and is in rem, so it follows the user's own text-size
+   setting; the rest is clamp() growing with the viewport. Headings and titles use text-wrap: balance so a
+   two-line title does not end on one orphaned word.
+   Body text is text-sm (14px) and form inputs are text-base (16px, so iOS does not zoom). */
+@utility t-title { font-size: clamp(1.25rem, 1.1rem + 0.5vw, 1.5rem); line-height: 1.3; text-wrap: balance; }
+@utility t-section { font-size: clamp(1.0625rem, 1rem + 0.3vw, 1.25rem); line-height: 1.35; text-wrap: balance; }
+@utility t-card { font-size: clamp(0.9375rem, 0.9rem + 0.2vw, 1.0625rem); line-height: 1.35; text-wrap: balance; }
+@utility t-meta { font-size: clamp(0.75rem, 0.72rem + 0.12vw, 0.8125rem); line-height: 1.4; }
+@utility t-figure { font-size: clamp(1.5rem, 1.25rem + 1vw, 2rem); line-height: 1.1; }
+
 @utility gap-inherit {
   gap: inherit;
 }

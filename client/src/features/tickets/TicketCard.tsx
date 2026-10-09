@@ -65,7 +65,7 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
       <div className="flex flex-col gap-1 min-w-0 w-full">
         <div className="flex items-start gap-2 min-w-0">
           {/* leading-5 matches the old phone avatar height so the first line and the avatar centre-align. */}
-          <h3 className="flex-1 min-w-0 text-[0.9375rem] font-display font-semibold text-text tracking-tight leading-5 sm:leading-6 line-clamp-2 break-words">
+          <h3 className="flex-1 min-w-0 t-card font-display font-semibold text-text tracking-tight leading-5 sm:leading-6 line-clamp-2 break-words">
             {ticket.title}
           </h3>
           {!hideAssignee && (assigneeName ? (
@@ -87,14 +87,14 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
         )}
         {/* The reason is also in the status chip's tooltip, but a phone has no hover. */}
         {onHoldRemark && (
-          <p className="text-xs text-text-muted leading-snug line-clamp-1 break-words">
+          <p className="t-meta text-text-muted leading-snug line-clamp-1 break-words">
             <span className="font-semibold text-text-secondary">On hold:</span> {onHoldRemark}
           </p>
         )}
         {/* One line, never wraps: the department is the only part that truncates. Only drawn when
             there is something to say. */}
         {((isOverdue && !due) || progress !== null || (departmentName && (isBoard ? false : true))) && (
-          <div className="flex items-center gap-x-1.5 min-w-0 whitespace-nowrap text-xs leading-4 font-medium text-text-muted">
+          <div className="flex items-center gap-x-1.5 min-w-0 whitespace-nowrap t-meta leading-4 font-medium text-text-muted">
             {/* "Delayed" in words only where there is no red due chip saying it already. */}
             {isOverdue && !due && <span className="font-semibold text-danger shrink-0">Delayed</span>}
             {progress !== null && (
@@ -147,7 +147,7 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
         {ticket.tags.slice(0, 2).map((tag) => <TagChip key={tag.id} tag={tag} className={tagChipClass} />)}
         {ticket.tags.length > 2 && (
           <span
-            className={`${isBoard ? 'hidden xl:inline' : 'hidden sm:inline'} text-xs font-semibold text-text-muted tabular-nums`}
+            className={`${isBoard ? 'hidden xl:inline' : 'hidden sm:inline'} t-meta font-semibold text-text-muted tabular-nums`}
             title={ticket.tags.map((t) => t.name).join(', ')}
           >
             +{ticket.tags.length - 2}
@@ -163,12 +163,12 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
                 style={{ width: `${progress}%` }}
               />
             </span>
-            <span className="text-xs font-semibold text-text-muted tabular-nums">{progress}%</span>
+            <span className="t-meta font-semibold text-text-muted tabular-nums">{progress}%</span>
           </span>
         )}
 
         <span
-          className={`${progress !== null ? 'hidden sm:inline' : ''} ${progress === null ? 'ml-auto' : ''} shrink-0 text-xs font-medium text-text-light tabular-nums`}
+          className={`${progress !== null ? 'hidden sm:inline' : ''} ${progress === null ? 'ml-auto' : ''} shrink-0 t-meta font-medium text-text-light tabular-nums`}
           title={`Raised ${new Date(ticket.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`}
         >
           {formatAge(ticket.createdAt)}

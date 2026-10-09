@@ -170,7 +170,7 @@ export function QuickFilterStats<K extends string>({
               )}
             >
               <span className={cn('text-base font-bold tabular-nums leading-none', isSelected ? 'text-white' : 'text-text')}>{typeof count === 'number' ? <CountUp value={count} /> : count}</span>
-              <span className={cn('max-w-full line-clamp-2 text-center text-[0.625rem] font-semibold tracking-tight leading-tight', isSelected ? 'text-white/80' : 'text-text-muted')}>{label}</span>
+              <span className={cn('max-w-full line-clamp-2 text-center t-meta font-semibold tracking-tight leading-tight', isSelected ? 'text-white/80' : 'text-text-muted')}>{label}</span>
             </button>
           );
         })}
@@ -236,7 +236,7 @@ export function QuickFilterStats<K extends string>({
                 {/* No `truncate` — these labels are short (1-3 words), but a 2-up mobile grid still
                     isn't wide enough for some of them ("Due Soon", "Assigned to you") at this font
                     size, and an ellipsis mid-word ("Due S...") reads worse than just wrapping. */}
-                <p className="text-[0.6875rem] md:text-xs font-semibold text-white/80 mt-1.5 leading-snug tracking-tight">
+                <p className="t-meta md:text-xs font-semibold text-white/80 mt-1.5 leading-snug tracking-tight">
                   {label}
                 </p>
               </div>
@@ -277,9 +277,9 @@ export function QuickFilterStats<K extends string>({
               {/* See the hero tile's identical comment above — same wrap-not-truncate fix. The
                   share of the total rides on the label line, so "31 Delayed" also says how big a
                   slice that is without doing the maths. */}
-              <p className="flex items-baseline gap-1.5 text-[0.6875rem] md:text-xs font-semibold text-text-muted mt-1.5 leading-snug tracking-tight">
+              <p className="flex items-baseline gap-1.5 t-meta md:text-xs font-semibold text-text-muted mt-1.5 leading-snug tracking-tight">
                 {label}
-                {share !== null && <span className="text-[0.625rem] font-bold text-text-light tabular-nums">{share}%</span>}
+                {share !== null && <span className="t-meta font-bold text-text-light tabular-nums">{share}%</span>}
               </p>
             </div>
 

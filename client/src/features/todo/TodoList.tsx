@@ -99,7 +99,7 @@ export const TodoList = ({ quickFilter = null, priority = 'all', sort, onClearFi
         <div className="flex-1 min-w-0 flex flex-col gap-2 pt-0.5">
           <p
             title={todo.text}
-            className={`text-[0.9375rem] font-display font-semibold tracking-tight leading-snug line-clamp-2 break-words transition-colors duration-200 ${
+            className={`t-card font-display font-semibold tracking-tight leading-snug line-clamp-2 break-words transition-colors duration-200 ${
               todo.completed ? 'text-text-light line-through decoration-text-light/60' : 'text-text'
             }`}
           >

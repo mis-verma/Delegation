@@ -154,7 +154,7 @@ export const TaskBulkImportModal = ({ onClose }: TaskBulkImportModalProps) => {
             <Button variant="outline" onClick={() => setStep('upload')}>Start over</Button>
             <div className="flex flex-col items-end gap-1.5">
               {!canPublish && (
-                <p className="text-[0.6875rem] font-display text-warning flex items-center gap-1">
+                <p className="t-meta font-display text-warning flex items-center gap-1">
                   <AlertCircle size={12} className="shrink-0" />
                   {includedRows.length === 0
                     ? 'Every row is excluded — include at least one to continue.'
@@ -195,7 +195,7 @@ export const TaskBulkImportModal = ({ onClose }: TaskBulkImportModalProps) => {
               {previewMutation.isPending ? 'Reading file…' : 'Drop a file here, or click to browse'}
             </p>
             <p className="text-xs font-display text-text-muted mt-1">CSV or Excel (.xlsx)</p>
-            <p className="text-[0.6875rem] font-display text-text-light mt-2">
+            <p className="t-meta font-display text-text-light mt-2">
               Columns: Title, Description, Assignee (email or name), Priority, Start Date, Due Date, Department, Labels — only Title is required.
             </p>
           </div>
@@ -212,13 +212,13 @@ export const TaskBulkImportModal = ({ onClose }: TaskBulkImportModalProps) => {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border bg-surface-hover/30">
-                  <th className="text-left font-display font-semibold text-text-muted text-[0.6875rem] tracking-wide px-3 py-2">Title</th>
-                  <th className="text-left font-display font-semibold text-text-muted text-[0.6875rem] tracking-wide px-3 py-2">Assignee</th>
-                  <th className="text-left font-display font-semibold text-text-muted text-[0.6875rem] tracking-wide px-3 py-2">Department</th>
-                  <th className="text-left font-display font-semibold text-text-muted text-[0.6875rem] tracking-wide px-3 py-2">Priority</th>
-                  <th className="text-left font-display font-semibold text-text-muted text-[0.6875rem] tracking-wide px-3 py-2">Start</th>
-                  <th className="text-left font-display font-semibold text-text-muted text-[0.6875rem] tracking-wide px-3 py-2">Due</th>
-                  <th className="text-left font-display font-semibold text-text-muted text-[0.6875rem] tracking-wide px-3 py-2">Labels</th>
+                  <th className="text-left font-display font-semibold text-text-muted t-meta tracking-wide px-3 py-2">Title</th>
+                  <th className="text-left font-display font-semibold text-text-muted t-meta tracking-wide px-3 py-2">Assignee</th>
+                  <th className="text-left font-display font-semibold text-text-muted t-meta tracking-wide px-3 py-2">Department</th>
+                  <th className="text-left font-display font-semibold text-text-muted t-meta tracking-wide px-3 py-2">Priority</th>
+                  <th className="text-left font-display font-semibold text-text-muted t-meta tracking-wide px-3 py-2">Start</th>
+                  <th className="text-left font-display font-semibold text-text-muted t-meta tracking-wide px-3 py-2">Due</th>
+                  <th className="text-left font-display font-semibold text-text-muted t-meta tracking-wide px-3 py-2">Labels</th>
                   <th className="w-10" />
                 </tr>
               </thead>
@@ -326,7 +326,7 @@ export const TaskBulkImportModal = ({ onClose }: TaskBulkImportModalProps) => {
               <p className="text-xs font-display font-semibold text-danger flex items-center gap-1.5 mb-1.5">
                 <AlertCircle size={13} /> {summary.failed.length} row{summary.failed.length === 1 ? '' : 's'} failed
               </p>
-              <ul className="flex flex-col gap-1 text-[0.6875rem] font-display text-text-muted max-h-32 overflow-y-auto">
+              <ul className="flex flex-col gap-1 t-meta font-display text-text-muted max-h-32 overflow-y-auto">
                 {summary.failed.map((f) => (
                   <li key={f.rowIndex}>Row {f.rowIndex}: {f.message}</li>
                 ))}

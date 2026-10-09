@@ -182,7 +182,7 @@ export const BuilderSchedulePanel = ({
               // A one-time checklist due yesterday would be missed the moment it is made.
               minDate={recurrence === 'ONE_TIME' ? startOfToday() : undefined}
               placeholder={recurrence === 'ONE_TIME' ? 'Due date' : 'Start date'}
-              triggerClassName={`${CHIP_TRIGGER_CLASS} h-11 sm:h-9 text-[0.8125rem] ${startDate ? 'pr-10' : ''}`}
+              triggerClassName={`${CHIP_TRIGGER_CLASS} h-11 sm:h-9 text-sm ${startDate ? 'pr-10' : ''}`}
             />
           </div>
           <TimePicker
@@ -191,7 +191,7 @@ export const BuilderSchedulePanel = ({
             value={opensTime}
             onChange={onOpensTimeChange}
             placeholder="any time"
-            triggerClassName={`${CHIP_TRIGGER_CLASS} h-11 sm:h-9 text-[0.8125rem]`}
+            triggerClassName={`${CHIP_TRIGGER_CLASS} h-11 sm:h-9 text-sm`}
           />
           <TimePicker
             popover
@@ -199,7 +199,7 @@ export const BuilderSchedulePanel = ({
             value={cutoffTime}
             onChange={onCutoffTimeChange}
             placeholder="any time"
-            triggerClassName={`${CHIP_TRIGGER_CLASS} h-11 sm:h-9 text-[0.8125rem]`}
+            triggerClassName={`${CHIP_TRIGGER_CLASS} h-11 sm:h-9 text-sm`}
           />
         </div>
         {!startDate && <p className="text-xs font-display text-text-muted">Pick a start date to continue.</p>}

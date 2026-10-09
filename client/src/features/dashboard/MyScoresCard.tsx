@@ -118,7 +118,7 @@ const ScoreTile = ({ title, icon: Icon, score, detail, loading, href, change }: 
           <span className="hidden size-7 shrink-0 items-center justify-center rounded-md bg-primary-500/10 text-primary-600 dark:text-primary-400 sm:inline-flex">
             <Icon className="size-4" aria-hidden="true" />
           </span>
-          <span className="truncate text-[0.8125rem] sm:text-sm font-display font-semibold sm:font-bold text-text">{title}</span>
+          <span className="truncate text-sm sm:text-sm font-display font-semibold sm:font-bold text-text">{title}</span>
         </div>
         <span className="flex shrink-0 items-center gap-1.5">
           {change != null && change !== 0 && (

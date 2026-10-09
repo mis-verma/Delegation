@@ -47,7 +47,7 @@ export const AuthBackground = ({
                 <p className="text-text-muted text-xs font-display">
                     {tagline}
                 </p>
-                <p className="text-text-light text-[0.625rem] font-mono tracking-widest uppercase">
+                <p className="text-text-light t-meta font-mono tracking-widest uppercase">
                     &copy; {new Date().getFullYear()} {orgName}
                 </p>
             </div>

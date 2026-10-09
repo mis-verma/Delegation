@@ -18,7 +18,7 @@ export const StateChip = ({ active, label, size = 'md', className }: StateChipPr
   <span
     className={cn(
       'inline-flex items-center gap-1.5 shrink-0 rounded-full border font-display font-semibold whitespace-nowrap',
-      size === 'md' ? 'h-6 pl-2 pr-2.5 text-xs' : 'h-5 pl-1.5 pr-2 text-[0.6875rem]',
+      size === 'md' ? 'h-6 pl-2 pr-2.5 text-xs' : 'h-5 pl-1.5 pr-2 t-meta',
       active
         ? 'border-success/25 bg-gradient-to-r from-success/15 to-success/5 text-success'
         : 'border-border bg-surface-hover/70 text-text-muted',

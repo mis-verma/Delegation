@@ -155,7 +155,7 @@ export const ChoiceClear = ({ onClick }: { onClick: () => void }) => (
   <button
     type="button"
     onClick={onClick}
-    className="text-[0.6875rem] font-semibold text-text-muted hover:text-danger px-1.5 py-0.5 pointer-coarse:min-h-11 pointer-coarse:px-3 rounded cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+    className="t-meta font-semibold text-text-muted hover:text-danger px-1.5 py-0.5 pointer-coarse:min-h-11 pointer-coarse:px-3 rounded cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
   >
     Clear
   </button>

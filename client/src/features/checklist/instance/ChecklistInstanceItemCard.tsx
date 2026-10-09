@@ -76,11 +76,11 @@ export const ChecklistInstanceItemCard = memo(function ChecklistInstanceItemCard
           <Check size={13} strokeWidth={3.25} />
         </span>
         <div className="flex-1 min-w-0 flex flex-col gap-0.5">
-          <p className={`text-sm sm:text-[0.9375rem] font-display font-medium leading-snug ${item.isDone ? 'line-through text-text-light' : 'text-text'}`}>
+          <p className={`text-sm sm:t-card font-display font-medium leading-snug ${item.isDone ? 'line-through text-text-light' : 'text-text'}`}>
             {item.label}
           </p>
           {item.isDone && item.completedAt && (
-            <p className="text-[0.6875rem] text-text-muted font-medium">Completed {formatDateTime(item.completedAt)}</p>
+            <p className="t-meta text-text-muted font-medium">Completed {formatDateTime(item.completedAt)}</p>
           )}
         </div>
       </button>

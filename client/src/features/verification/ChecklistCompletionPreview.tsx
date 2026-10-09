@@ -24,11 +24,11 @@ const ItemRow = ({ item, onFlag }: { item: PreviewItem; onFlag?: (item: PreviewI
         ) : (
           <Circle size={15} className="text-text-light shrink-0 mt-0.5" strokeWidth={2.5} />
         )}
-        <span className={`text-[0.8125rem] font-display flex-1 min-w-0 ${item.isDone ? 'text-text' : 'text-text-muted'}`}>
+        <span className={`text-sm font-display flex-1 min-w-0 ${item.isDone ? 'text-text' : 'text-text-muted'}`}>
           {item.label}
         </span>
         {missingRequiredPhotos && (
-          <span className="inline-flex items-center gap-1 text-[0.625rem] font-display font-bold text-danger shrink-0" title={`Needs ${item.requiredImageCount} photo${item.requiredImageCount === 1 ? '' : 's'}, has ${item.images.length}`}>
+          <span className="inline-flex items-center gap-1 t-meta font-display font-bold text-danger shrink-0" title={`Needs ${item.requiredImageCount} photo${item.requiredImageCount === 1 ? '' : 's'}, has ${item.images.length}`}>
             <AlertTriangle size={11} strokeWidth={2.5} />
             {item.images.length}/{item.requiredImageCount}
           </span>
@@ -112,14 +112,14 @@ export const ChecklistCompletionPreview = ({ checklists, isLoading, onFlagItem }
           a verifier gets from a score/compliance header on other checklist-approval tools, just
           computed from what's already loaded instead of a separate scoring pass. */}
       <div className="flex items-center gap-x-4 gap-y-1 flex-wrap px-0.5">
-        <span className="text-[0.6875rem] font-display font-bold text-text-muted tracking-wide">
+        <span className="t-meta font-display font-bold text-text-muted tracking-wide">
           {compliancePct}% complete
         </span>
-        <span className="text-[0.6875rem] font-display font-medium text-text-light">
+        <span className="t-meta font-display font-medium text-text-light">
           {done}/{total} items done
         </span>
         {missingPhotos > 0 && (
-          <span className="inline-flex items-center gap-1 text-[0.6875rem] font-display font-bold text-danger">
+          <span className="inline-flex items-center gap-1 t-meta font-display font-bold text-danger">
             <AlertTriangle size={11} strokeWidth={2.5} />
             {missingPhotos} missing required photo{missingPhotos === 1 ? '' : 's'}
           </span>
@@ -128,7 +128,7 @@ export const ChecklistCompletionPreview = ({ checklists, isLoading, onFlagItem }
 
       {checklists!.filter((c) => c.items.length > 0).map((checklist) => (
         <div key={checklist.id}>
-          <p className="text-[0.6875rem] font-display font-bold text-text-muted tracking-wide mb-1">
+          <p className="t-meta font-display font-bold text-text-muted tracking-wide mb-1">
             {checklist.title} — {checklist.items.filter((i) => i.isDone).length}/{checklist.items.length} done
           </p>
           <ul className="flex flex-col divide-y divide-border/40">

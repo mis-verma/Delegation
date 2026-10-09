@@ -39,8 +39,8 @@ export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardPr
       className={cn(ENTITY_CARD_CLASS, 'justify-start gap-2.5 p-3.5 sm:p-3.5 active:bg-surface-hover/50 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 [-webkit-tap-highlight-color:transparent]')}
     >
       <div className="flex flex-col gap-1 min-w-0">
-        <p className="text-[0.9375rem] font-display font-semibold text-text tracking-tight leading-snug line-clamp-2">{instance.title}</p>
-        <p className="text-[0.6875rem] font-medium text-text-muted">
+        <p className="t-card font-display font-semibold text-text tracking-tight leading-snug line-clamp-2">{instance.title}</p>
+        <p className="t-meta font-medium text-text-muted">
           {RECURRENCE_LABEL[instance.recurrence]} · {formatPeriodSpan(instance, true)}
           {!isComplete && deadlineTime && <> · Due {deadlineTime}</>}
         </p>
@@ -64,14 +64,14 @@ export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardPr
             count beside it for the detail. */}
         <span className="flex items-baseline gap-1.5 shrink-0 tabular-nums">
           <span className={`text-sm font-display font-bold ${instanceProgressToneClass(overdue, isComplete)}`}>{progress}%</span>
-          <span className="text-[0.6875rem] text-text-muted font-medium">{done}/{total}</span>
+          <span className="t-meta text-text-muted font-medium">{done}/{total}</span>
         </span>
       </div>
       {doneByOthers && (
-        <p className="text-[0.6875rem] font-medium text-text-muted">Done by {doneByOthers}. You do not need to fill it.</p>
+        <p className="t-meta font-medium text-text-muted">Done by {doneByOthers}. You do not need to fill it.</p>
       )}
       {compliance !== null && (
-        <p className="text-[0.6875rem] font-medium text-text-muted">
+        <p className="t-meta font-medium text-text-muted">
           Compliance <span className={`font-display font-bold tabular-nums ${complianceToneClass(compliance)}`}>{compliance}%</span>
         </p>
       )}

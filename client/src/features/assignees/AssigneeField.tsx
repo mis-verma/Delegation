@@ -118,7 +118,7 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
               disabled={disabled}
               onClick={() => toggle(u.id)}
               title={`${name} — click to remove`}
-              className={`relative pointer-coarse:after:absolute pointer-coarse:after:-inset-2 flex items-center justify-center size-7 sm:size-8 rounded-full text-xs sm:text-[0.6875rem] font-semibold sm:font-bold text-white shrink-0 cursor-pointer transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:hover:scale-100 ${avatarColorClass(name)}`}
+              className={`relative pointer-coarse:after:absolute pointer-coarse:after:-inset-2 flex items-center justify-center size-7 sm:size-8 rounded-full text-xs sm:t-meta font-semibold sm:font-bold text-white shrink-0 cursor-pointer transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:hover:scale-100 ${avatarColorClass(name)}`}
             >
               {getInitials(name)}
             </button>

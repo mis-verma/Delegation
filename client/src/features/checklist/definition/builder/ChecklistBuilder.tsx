@@ -722,7 +722,7 @@ export const ChecklistBuilder = () => {
                       Questions <span className="font-normal text-text-muted tabular-nums">· {itemDrafts.length}</span>
                     </h3>
                     {itemDrafts.length > 1 && (
-                      <span className="hidden sm:inline text-[0.6875rem] font-display text-text-muted">Drag to reorder</span>
+                      <span className="hidden sm:inline t-meta font-display text-text-muted">Drag to reorder</span>
                     )}
                   </div>
 
@@ -894,7 +894,7 @@ export const ChecklistBuilder = () => {
                     covers the first 4 (required) steps; a step past that (Reviewers) has nothing
                     to validate and reads as undefined/always-valid rather than blocked. */}
                 {!isStepValid(step) && (
-                  <p className="text-[0.6875rem] font-display text-warning flex items-start gap-1 text-right">
+                  <p className="t-meta font-display text-warning flex items-start gap-1 text-right">
                     <AlertCircle size={12} className="shrink-0 mt-px" />
                     {blockReasonFor(step)}
                   </p>

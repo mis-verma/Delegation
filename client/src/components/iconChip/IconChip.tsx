@@ -67,7 +67,7 @@ export const IconChip = ({ icon: Icon, label, tone = 'bg-primary-600 dark:bg-pri
         engage on a flex child, so a caller constraining the outer pill's width (e.g. a long
         department name in a fixed-width card row) gets an ellipsis instead of blowing out the
         row, without every other caller (which never constrains the width) losing any text. */}
-    <span className={cn('min-w-0 truncate text-[0.6875rem] font-display font-semibold text-text-secondary', iconOnly && 'max-sm:sr-only', labelClassName)}>{label}</span>
+    <span className={cn('min-w-0 truncate t-meta font-display font-semibold text-text-secondary', iconOnly && 'max-sm:sr-only', labelClassName)}>{label}</span>
     {iconOnly ? <span className="contents max-sm:hidden">{children}</span> : children}
   </span>
   );

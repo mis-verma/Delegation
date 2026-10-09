@@ -62,7 +62,7 @@ export const DetailLabelsField = ({ current, onSave, canCreate, readOnly, headin
       <h3 className={headingClassName}>
         <TagIcon size={14} className="text-text-light" />
         Labels
-        <span className="ml-auto text-[0.6875rem] font-medium text-text-light tabular-nums">{ids.length}/12</span>
+        <span className="ml-auto t-meta font-medium text-text-light tabular-nums">{ids.length}/12</span>
       </h3>
       <LabelsField
         hideHeading

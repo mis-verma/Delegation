@@ -41,7 +41,7 @@ const ACTION_HINT: Record<ChecklistConditionalAction, string> = {
 // with the label (15px on phones, 14px from sm) and the two always sit in balance. Equal width, 48px
 // tall on phones so a thumb never misses, 40px with a mouse.
 const ANSWER_BASE =
-  'group flex flex-1 items-center justify-center gap-2 min-h-12 sm:min-h-10 px-4 rounded-xl border text-[0.9375rem] sm:text-sm font-display font-semibold transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.98] [-webkit-tap-highlight-color:transparent]';
+  'group flex flex-1 items-center justify-center gap-2 min-h-12 sm:min-h-10 px-4 rounded-xl border t-card sm:text-sm font-display font-semibold transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.98] [-webkit-tap-highlight-color:transparent]';
 
 export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceItemBooleanCard({ item, instanceId, canWork, isLocked }: ChecklistInstanceItemBooleanCardProps) {
   const reasonId = useId();

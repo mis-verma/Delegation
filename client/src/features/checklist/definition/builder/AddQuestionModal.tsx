@@ -96,7 +96,7 @@ export const AddQuestionModal = ({
           value={draft.label}
           onChange={(e) => patchDraft({ label: e.target.value })}
           placeholder="e.g. Is the cash drawer counted and locked?"
-          className="h-11 rounded-lg px-3.5 text-[0.9375rem] font-display font-medium border-transparent bg-surface-hover/50 placeholder:font-normal hover:bg-surface-hover focus:bg-surface"
+          className="h-11 rounded-lg px-3.5 t-card font-display font-medium border-transparent bg-surface-hover/50 placeholder:font-normal hover:bg-surface-hover focus:bg-surface"
         />
 
         <div className="flex flex-col gap-2.5">

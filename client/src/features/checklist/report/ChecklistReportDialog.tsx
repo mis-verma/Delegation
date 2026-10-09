@@ -98,7 +98,7 @@ interface PreviewRow {
 const PreviewTable = ({ rows, total, noun, isRefreshing }: { rows: PreviewRow[]; total: number; noun: string; isRefreshing: boolean }) => (
   <div className="flex flex-col gap-2">
     <div className={cn('rounded-lg border border-border/60 overflow-hidden transition-opacity duration-200', isRefreshing && 'opacity-60')}>
-      <div className={cn(PREVIEW_GRID, 'py-2 bg-surface-hover/60 border-b border-border/60 text-[0.6875rem] font-display font-medium text-text-muted')}>
+      <div className={cn(PREVIEW_GRID, 'py-2 bg-surface-hover/60 border-b border-border/60 t-meta font-display font-medium text-text-muted')}>
         <span>Name</span>
         <span className={cn('text-right', SM_ONLY)}>Assigned</span>
         <span className="text-right">Completion</span>
@@ -110,7 +110,7 @@ const PreviewTable = ({ rows, total, noun, isRefreshing }: { rows: PreviewRow[];
           <li key={r.key} className={cn(PREVIEW_GRID, 'h-11 hover:bg-surface-hover/40 transition-colors duration-150')}>
             <span className="flex flex-col min-w-0">
               <span className="text-xs font-display font-medium text-text line-clamp-1">{r.name}</span>
-              <span className="text-[0.6875rem] font-display text-text-muted line-clamp-1">{r.sub}</span>
+              <span className="t-meta font-display text-text-muted line-clamp-1">{r.sub}</span>
             </span>
             <span className={cn('text-right text-xs font-display text-text-secondary tabular-nums', SM_ONLY)}>{r.assigned}</span>
             <PercentCell value={r.completionPct} />
@@ -120,7 +120,7 @@ const PreviewTable = ({ rows, total, noun, isRefreshing }: { rows: PreviewRow[];
         ))}
       </ul>
     </div>
-    <p className="text-[0.6875rem] font-display text-text-muted">
+    <p className="t-meta font-display text-text-muted">
       {total > rows.length ? `Showing the first ${rows.length} of ${total} ${noun}. The download has everyone.` : `${total} ${total === 1 ? noun.replace(/s$/, '') : noun} in the download.`}
     </p>
   </div>
@@ -319,7 +319,7 @@ export const ChecklistReportDialog = ({ onClose }: ChecklistReportDialogProps) =
           </TabsList>
         </Tabs>
         {format === 'csv' && groupBy === 'both' && (
-          <p className="text-[0.6875rem] font-display text-text-muted">A CSV holds one table, so you will get the people table. Pick Excel for both.</p>
+          <p className="t-meta font-display text-text-muted">A CSV holds one table, so you will get the people table. Pick Excel for both.</p>
         )}
       </div>
 
@@ -350,7 +350,7 @@ export const ChecklistReportDialog = ({ onClose }: ChecklistReportDialogProps) =
         </div>
 
         {report && !noData && (
-          <p className="text-[0.6875rem] font-display text-text-muted">
+          <p className="t-meta font-display text-text-muted">
             A checklist shared by several people counts for each of them. Compliance is the share of checked answers that were inside the accepted range.
           </p>
         )}

@@ -25,7 +25,7 @@ interface ReviewActionsProps {
 }
 
 const Key = ({ children }: { children: string }) => (
-  <kbd className="hidden lg:inline-flex items-center justify-center min-w-4 px-1 rounded border border-current/30 text-[0.625rem] font-display font-semibold leading-4 opacity-70" aria-hidden>
+  <kbd className="hidden lg:inline-flex items-center justify-center min-w-4 px-1 rounded border border-current/30 t-meta font-display font-semibold leading-4 opacity-70" aria-hidden>
     {children}
   </kbd>
 );

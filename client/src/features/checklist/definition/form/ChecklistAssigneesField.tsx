@@ -31,7 +31,7 @@ export const ChecklistAssigneesField = ({
         </span>
 
         {selected.length > 0 && (
-          <span className="text-[0.6875rem] font-display font-medium text-text-muted flex items-center gap-1">
+          <span className="t-meta font-display font-medium text-text-muted flex items-center gap-1">
             <UserCheck size={12} className="text-primary-700 dark:text-primary-400" />
             <span>{selected.length} assigned</span>
           </span>
@@ -59,7 +59,7 @@ export const ChecklistAssigneesField = ({
       />
 
       {/* Helper Subtext */}
-      <p className="hidden sm:block text-[0.6875rem] font-display text-text-muted">
+      <p className="hidden sm:block t-meta font-display text-text-muted">
         Tick the people who fill this in, or add a whole store or department at once.
       </p>
     </div>

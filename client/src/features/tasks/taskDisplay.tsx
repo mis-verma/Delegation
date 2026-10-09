@@ -3,13 +3,6 @@ import { CheckCircle2, Clock, CircleDashed, ShieldCheck, FileEdit, PauseCircle, 
 import type { LucideIcon } from 'lucide-react';
 import type { Task } from '../../api/task';
 
-// `stripe` is the thin rail on a card or tile — a faint accent beside content, deliberately quiet.
-// `bar` is the same priority at full strength, for a shape that IS the data rather than an accent
-// on it: the Gantt bars, where a 35%-opacity fill on a light background reads as "disabled" and
-// the three priorities become almost indistinguishable from each other and from the empty track.
-// Low is blue rather than grey — grey on a chart looks like missing data, not low priority.
-// `solid`/`icon` feed PriorityChip's icon circle (see IconChip) — a full-strength color, not
-// `accent`'s translucent tint, since a white icon needs real contrast to read against it.
 export const PRIORITY_MAP = {
   low: {
     label: 'Low',

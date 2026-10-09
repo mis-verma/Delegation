@@ -46,7 +46,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
         <label
           htmlFor={id}
           className={cn(
-            "flex items-center gap-1.5 text-[0.6875rem] font-bold tracking-wide text-text-muted transition-colors duration-150 group-focus-within/field:text-primary-600 px-1",
+            "flex items-center gap-1.5 t-meta font-bold tracking-wide text-text-muted transition-colors duration-150 group-focus-within/field:text-primary-600 px-1",
             labelClassName
           )}
         >

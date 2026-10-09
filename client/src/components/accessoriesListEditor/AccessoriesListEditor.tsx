@@ -46,11 +46,11 @@ export const AccessoriesListEditor = ({
     <div className="flex flex-col gap-1.5 w-full">
       {labelAction ? (
         <div className="flex items-center justify-between gap-2">
-          <span className="text-[0.6875rem] font-display font-medium text-text-muted">{label}</span>
+          <span className="t-meta font-display font-medium text-text-muted">{label}</span>
           {labelAction}
         </div>
       ) : (
-        <span className="text-[0.6875rem] font-display font-medium text-text-muted">{label}</span>
+        <span className="t-meta font-display font-medium text-text-muted">{label}</span>
       )}
       <div className="flex flex-wrap items-center gap-1.5 pointer-coarse:gap-2 min-h-10 p-1.5 rounded-xl border border-border bg-surface transition-colors duration-150 focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-500/20">
         {accessories.map((name) => (
@@ -90,7 +90,7 @@ export const AccessoriesListEditor = ({
           </button>
         )}
       </div>
-      {isDuplicate && <span className="text-[0.6875rem] font-display text-danger">That one’s already in the list.</span>}
+      {isDuplicate && <span className="t-meta font-display text-danger">That one’s already in the list.</span>}
     </div>
   );
 };

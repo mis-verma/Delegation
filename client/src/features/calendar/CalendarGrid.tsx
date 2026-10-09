@@ -63,7 +63,7 @@ export const CalendarGrid = ({ days, month, today, selectedDay, itemsByDay, onSe
         {WEEKDAY_LABELS.map((label, i) => (
           <div
             key={label}
-            className={`py-2 text-center text-[0.6875rem] font-display font-semibold tracking-wide ${i === 0 || i === 6 ? 'text-text-light' : 'text-text-muted'}`}
+            className={`py-2 text-center t-meta font-display font-semibold tracking-wide ${i === 0 || i === 6 ? 'text-text-light' : 'text-text-muted'}`}
           >
             {label}
           </div>
@@ -110,7 +110,7 @@ export const CalendarGrid = ({ days, month, today, selectedDay, itemsByDay, onSe
               >
                 <span className={`flex @min-[38rem]:justify-start justify-center`}>
                   <span
-                    className={`inline-flex items-center justify-center size-7 rounded-full text-[0.8125rem] font-display font-semibold tabular-nums ${
+                    className={`inline-flex items-center justify-center size-7 rounded-full text-sm font-display font-semibold tabular-nums ${
                       isToday
                         ? 'bg-primary-600 text-white'
                         : isSelected
@@ -136,7 +136,7 @@ export const CalendarGrid = ({ days, month, today, selectedDay, itemsByDay, onSe
                           className={`size-1.5 rounded-full shrink-0 ${CALENDAR_ITEM_DOT_CLASS[item.type]} ${item.overdue ? 'ring-2 ring-danger/40' : ''}`}
                         />
                       ))}
-                      {dotOverflow > 0 && <span className="text-[0.6875rem] font-display font-bold leading-none text-text-muted">+{dotOverflow}</span>}
+                      {dotOverflow > 0 && <span className="t-meta font-display font-bold leading-none text-text-muted">+{dotOverflow}</span>}
                     </span>
 
                     {/* Roomy cells: two small chips with the real titles, then "+N more". */}
@@ -144,7 +144,7 @@ export const CalendarGrid = ({ days, month, today, selectedDay, itemsByDay, onSe
                       {chips.map((item) => (
                         <span
                           key={item.id}
-                          className={`flex items-center gap-1.5 min-w-0 h-5 px-1.5 rounded-md text-[0.6875rem] font-medium ${
+                          className={`flex items-center gap-1.5 min-w-0 h-5 px-1.5 rounded-md t-meta font-medium ${
                             item.overdue ? 'bg-danger/10 text-danger' : 'bg-surface-hover text-text-secondary'
                           }`}
                         >
@@ -153,7 +153,7 @@ export const CalendarGrid = ({ days, month, today, selectedDay, itemsByDay, onSe
                         </span>
                       ))}
                       {chipOverflow > 0 && (
-                        <span className="px-1.5 text-[0.6875rem] font-display font-semibold text-text-muted">+{chipOverflow} more</span>
+                        <span className="px-1.5 t-meta font-display font-semibold text-text-muted">+{chipOverflow} more</span>
                       )}
                     </span>
                   </>

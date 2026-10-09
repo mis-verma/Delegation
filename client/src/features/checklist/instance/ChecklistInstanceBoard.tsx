@@ -40,7 +40,7 @@ const BoardColumn = memo(({ col, items }: BoardColumnProps) => (
       <div className="flex items-center gap-2.5 min-w-0">
         <span className={`size-2 rounded-full shrink-0 ${col.dot}`} aria-hidden="true" />
         <col.icon size={13} className={`shrink-0 ${col.headerText}`} aria-hidden />
-        <h3 className={`text-[0.8125rem] font-display font-bold tracking-wide truncate ${col.headerText}`}>
+        <h3 className={`text-sm font-display font-bold tracking-wide truncate ${col.headerText}`}>
           {col.label}
         </h3>
       </div>

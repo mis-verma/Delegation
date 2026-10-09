@@ -31,7 +31,7 @@ export const CalendarAddMenu = ({ trigger, onPick, align = 'end' }: CalendarAddM
             </span>
             <span className="flex flex-col min-w-0 flex-1">
               <span className="text-sm font-display font-semibold text-text">{title}</span>
-              <span className="text-[0.6875rem] text-text-muted leading-snug">{hint}</span>
+              <span className="t-meta text-text-muted leading-snug">{hint}</span>
             </span>
           </DropdownMenuItem>
         );

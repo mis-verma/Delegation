@@ -57,7 +57,7 @@ export const ChecklistProgressBar = ({ done, total, className, tone = 'auto', ba
       {!bare && (
         <span
           className={cn(
-            "text-[0.6875rem] font-bold tabular-nums tracking-wider shrink-0 transition-colors duration-500",
+            "t-meta font-bold tabular-nums tracking-wider shrink-0 transition-colors duration-500",
             complete ? "text-success" : "text-text-muted"
           )}
         >

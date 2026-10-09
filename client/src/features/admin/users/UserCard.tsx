@@ -68,7 +68,7 @@ const UserCardComponent = ({
                 onClick={() => onEdit(user)}
                 title={name}
                 className={cn(
-                  'text-left text-base font-display font-bold tracking-tight truncate max-w-full cursor-pointer outline-none transition-colors duration-200',
+                  'text-left t-card font-display font-bold tracking-tight truncate max-w-full cursor-pointer outline-none transition-colors duration-200',
                   'after:absolute after:inset-0 after:rounded-2xl focus-visible:after:ring-2 focus-visible:after:ring-primary-500/50',
                   user.isActive ? 'text-text group-hover:text-primary-600 dark:group-hover:text-primary-400' : 'text-text-muted',
                 )}
@@ -76,7 +76,7 @@ const UserCardComponent = ({
                 {name}
               </button>
             </h3>
-            <p className="text-xs font-display text-text-muted truncate" title={user.email}>{user.email}</p>
+            <p className="t-meta font-display text-text-muted truncate" title={user.email}>{user.email}</p>
           </div>
         </div>
 
@@ -110,7 +110,7 @@ const UserCardComponent = ({
       </div>
 
       <div className="flex items-center justify-between gap-3 pt-3 mt-auto border-t border-border/60">
-        <div className="flex flex-col gap-0.5 min-w-0 text-xs font-display font-medium text-text-light">
+        <div className="flex flex-col gap-0.5 min-w-0 t-meta font-display font-medium text-text-light">
           {user.phone && (
             <span className="inline-flex items-center gap-1 text-text-muted tabular-nums truncate">
               <Phone className="size-3 shrink-0" aria-hidden />

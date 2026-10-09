@@ -50,7 +50,7 @@ export const ChecklistInstanceItemCashTallyCard = memo(function ChecklistInstanc
         reopenPending={setItemDone.isPending}
         onReopen={() => setItemDone.mutate({ itemId: item.id, isDone: false, numericValue: parsed ?? undefined })}
         subtitle={item.cashExpectedAmount != null && (
-          <p className="text-[0.6875rem] text-text-muted font-display">
+          <p className="t-meta text-text-muted font-display">
             Expected {unit}{item.cashExpectedAmount.toLocaleString()}
           </p>
         )}

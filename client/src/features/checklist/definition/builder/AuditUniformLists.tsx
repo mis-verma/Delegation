@@ -30,7 +30,7 @@ const CopyItemsMenu = ({ targetId, sources, onCopy }: { targetId: string; source
       trigger={
         <button
           type="button"
-          className="inline-flex items-center gap-1 h-7 pointer-coarse:h-11 px-2 -mr-1 rounded-md text-[0.6875rem] font-display font-medium text-text-muted cursor-pointer transition-colors duration-150 hover:bg-surface-hover hover:text-text outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+          className="inline-flex items-center gap-1 h-7 pointer-coarse:h-11 px-2 -mr-1 rounded-md t-meta font-display font-medium text-text-muted cursor-pointer transition-colors duration-150 hover:bg-surface-hover hover:text-text outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
         >
           <Copy size={12} aria-hidden />
           Copy items from
@@ -100,7 +100,7 @@ export const AuditUniformLists = ({ draft, onChange }: AuditUniformListsProps) =
       />
 
       <div className="flex flex-col gap-3 p-3 rounded-lg border border-dashed border-border bg-surface-hover/30">
-        <p className="text-[0.6875rem] font-display text-text-muted leading-relaxed">
+        <p className="t-meta font-display text-text-muted leading-relaxed">
           Each person is checked against the list of their dress type. People with no type, or a type
           with an empty list here, get their gender&rsquo;s list, then the main list.
         </p>
@@ -121,7 +121,7 @@ export const AuditUniformLists = ({ draft, onChange }: AuditUniformListsProps) =
         />
 
         <div className="flex flex-col gap-2.5 pt-3 border-t border-border/60">
-          <span className="text-[0.6875rem] font-display font-medium text-text-muted">Dress types</span>
+          <span className="t-meta font-display font-medium text-text-muted">Dress types</span>
 
           {addedIds.map((id) => {
             const type = typeById(id);

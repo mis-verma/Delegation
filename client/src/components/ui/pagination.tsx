@@ -46,7 +46,7 @@ function PaginationLink({
       data-slot="pagination-link"
       data-active={isActive}
       className={cn(
-        "inline-flex items-center justify-center gap-1.5 rounded-xl text-[0.8125rem] sm:text-sm font-bold tracking-wide transition-all duration-200 cursor-pointer active:scale-95",
+        "inline-flex items-center justify-center gap-1.5 rounded-xl text-sm sm:text-sm font-bold tracking-wide transition-all duration-200 cursor-pointer active:scale-95",
         "focus-visible:outline-none focus-visible:ring-4",
         size === "icon" 
           ? "h-10 sm:h-11 min-w-[2.5rem] sm:min-w-[2.75rem] px-2" 

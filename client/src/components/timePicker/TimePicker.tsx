@@ -193,7 +193,7 @@ export function TimePicker({
                   onClick={() => setPeriod('AM')}
                   aria-pressed={period === 'AM'}
                   className={cn(
-                    'px-2 py-1 text-[0.625rem] font-bold transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/50',
+                    'px-2 py-1 t-meta font-bold transition-colors cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/50',
                     period === 'AM' ? 'bg-primary-600 text-white' : 'bg-surface text-text-muted hover:bg-surface-hover',
                   )}
                 >
@@ -204,7 +204,7 @@ export function TimePicker({
                   onClick={() => setPeriod('PM')}
                   aria-pressed={period === 'PM'}
                   className={cn(
-                    'px-2 py-1 text-[0.625rem] font-bold transition-colors cursor-pointer border-l border-border outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/50',
+                    'px-2 py-1 t-meta font-bold transition-colors cursor-pointer border-l border-border outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/50',
                     period === 'PM' ? 'bg-primary-600 text-white' : 'bg-surface text-text-muted hover:bg-surface-hover',
                   )}
                 >
@@ -242,7 +242,7 @@ export function TimePicker({
                     aria-label={dialMode === 'hour' ? `${markValue} o'clock` : `${markValue} minutes`}
                     aria-pressed={isActive}
                     className={cn(
-                      'absolute size-7 -translate-x-1/2 -translate-y-1/2 rounded-full text-[0.6875rem] font-display font-bold transition-colors cursor-pointer flex items-center justify-center tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-primary-500/60 focus-visible:ring-offset-1 focus-visible:ring-offset-surface',
+                      'absolute size-7 -translate-x-1/2 -translate-y-1/2 rounded-full t-meta font-display font-bold transition-colors cursor-pointer flex items-center justify-center tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-primary-500/60 focus-visible:ring-offset-1 focus-visible:ring-offset-surface',
                       isActive ? 'bg-primary-600 text-white shadow-sm' : 'text-text-secondary hover:bg-surface-active',
                     )}
                     style={{ left: pos.left, top: pos.top }}

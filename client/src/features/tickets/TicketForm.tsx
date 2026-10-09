@@ -323,7 +323,7 @@ export const TicketForm = ({ onClose, defaultDueDate }: TicketFormProps) => {
                 )}
                 {selectedCategory.tatHours ? <IconChip icon={Clock} tone="bg-primary-600 dark:bg-primary-400" label={`Due in ${selectedCategory.tatHours}h`} /> : null}
               </div>
-              <p className="text-[0.6875rem] font-display text-text-muted">
+              <p className="t-meta font-display text-text-muted">
                 {selectedCategory.assigneeIds.length === 0
                   ? (assignmentMode === 'AUTO'
                     ? 'Nobody is set for this category yet, so the ticket would have no owner. Switch to Manual and pick someone, or add a person in Settings.'

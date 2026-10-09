@@ -1,7 +1,7 @@
 import { Building2, Store } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const CHIP = 'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-xs font-display font-semibold whitespace-nowrap';
+const CHIP = 'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border t-meta font-display font-semibold whitespace-nowrap';
 
 export const DepartmentHeadChip = () => (
   <span className={cn(CHIP, 'border-primary-500/25 bg-primary-500/10 text-primary-700 dark:text-primary-300')}>Department head</span>
@@ -33,12 +33,12 @@ export const PlaceField = ({ kind, name, muted }: PlaceFieldProps) => {
         <Icon className="size-4" aria-hidden />
       </span>
       <div className="flex flex-col min-w-0">
-        <span className="text-xs font-display font-medium text-text-light leading-tight">
+        <span className="t-meta font-display font-medium text-text-light leading-tight">
           {isStore ? 'Store' : 'Department'}
         </span>
         <span
           className={cn(
-            'text-xs font-display leading-snug truncate',
+            't-meta font-display leading-snug truncate',
             name ? cn('font-semibold', muted ? 'text-text-muted' : 'text-text') : 'font-medium text-text-light',
           )}
           title={name}

@@ -102,12 +102,12 @@ const TicketTimelineComponent = ({ tickets, onOpen }: TicketTimelineProps) => {
           {(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as Ticket['priority'][]).map((key) => (
             <span key={key} className="flex items-center gap-1.5">
               <span aria-hidden className={`w-4 h-2.5 rounded-sm ${PRIORITY_CONFIG[key].bar}`} />
-              <span className="text-[0.6875rem] font-semibold text-text-muted tracking-tight">
+              <span className="t-meta font-semibold text-text-muted tracking-tight">
                 {PRIORITY_CONFIG[key].label}
               </span>
             </span>
           ))}
-          <span className="text-[0.6875rem] font-semibold text-danger tracking-tight">
+          <span className="t-meta font-semibold text-danger tracking-tight">
             Overdue is labelled on the row
           </span>
         </div>
@@ -125,7 +125,7 @@ const TicketTimelineComponent = ({ tickets, onOpen }: TicketTimelineProps) => {
                   {days.map((day, index) => (
                     <div
                       key={day.toISOString()}
-                      className={`flex-1 basis-0 min-w-0 px-1 py-2.5 text-center text-[0.6875rem] font-semibold tabular-nums whitespace-nowrap ${
+                      className={`flex-1 basis-0 min-w-0 px-1 py-2.5 text-center t-meta font-semibold tabular-nums whitespace-nowrap ${
                         index === todayIndex ? 'text-white' : 'text-white/60'
                       }`}
                     >
@@ -155,7 +155,7 @@ const TicketTimelineComponent = ({ tickets, onOpen }: TicketTimelineProps) => {
                           <span className="text-xs font-semibold text-text-secondary tracking-tight leading-snug line-clamp-2 break-words">
                             {ticket.title}
                           </span>
-                          <span className="text-[0.6875rem] leading-4 font-medium break-words">
+                          <span className="t-meta leading-4 font-medium break-words">
                             {overdue && due ? (
                               <span className="text-danger font-semibold">{due.label}</span>
                             ) : (
@@ -233,7 +233,7 @@ const TicketTimelineComponent = ({ tickets, onOpen }: TicketTimelineProps) => {
                     <span className="text-xs font-semibold text-text-secondary tracking-tight leading-snug line-clamp-2 break-words">
                       {ticket.title}
                     </span>
-                    <span className="text-[0.6875rem] leading-4 font-medium text-text-muted break-words">
+                    <span className="t-meta leading-4 font-medium text-text-muted break-words">
                       {ownerName(ticket)}
                     </span>
                   </div>

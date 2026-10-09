@@ -71,7 +71,7 @@ const PersonRow = ({ person, active, onSelect }: { person: AuditPerson; active: 
   >
     <AuditAvatar name={person.name} size="row" />
     <span className="flex-1 min-w-0 flex flex-col">
-      <span className="text-[0.9375rem] sm:text-sm font-semibold leading-snug text-text truncate">
+      <span className="t-card sm:text-sm font-semibold leading-snug text-text truncate">
         {person.name}{person.isMe && <span className="font-medium text-text-muted"> (You)</span>}
       </span>
       {(person.store || person.dressType) && (
@@ -156,7 +156,7 @@ export const AuditPersonPicker = ({ people, selectedId, doneCount, onSelect }: A
       >
         <AuditAvatar name={current.name} size="row" />
         <span className="flex-1 min-w-0 flex flex-col">
-          <span className="text-[0.9375rem] font-semibold leading-snug text-text truncate">
+          <span className="t-card font-semibold leading-snug text-text truncate">
             {current.name}{current.isMe && <span className="font-medium text-text-muted"> (You)</span>}
           </span>
           <span className="text-xs text-text-muted tabular-nums">Person {index + 1} of {people.length}. Tap to switch.</span>

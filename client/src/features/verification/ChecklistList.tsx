@@ -62,7 +62,7 @@ export const ChecklistList = ({
       <div className="flex items-center gap-2">
         <h2 className="text-sm font-display font-semibold text-text">{heading}</h2>
         {!isPending && rows.length > 0 && (
-          <span className="px-2 py-0.5 rounded-full bg-border/50 text-[0.6875rem] font-display font-medium text-text-muted tabular-nums">{rows.length}</span>
+          <span className="px-2 py-0.5 rounded-full bg-border/50 t-meta font-display font-medium text-text-muted tabular-nums">{rows.length}</span>
         )}
       </div>
       <div className="flex items-center gap-2">

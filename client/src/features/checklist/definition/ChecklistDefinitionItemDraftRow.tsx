@@ -147,7 +147,7 @@ const ChecklistDefinitionItemDraftRowImpl = ({
           familiar left handle / tile / content / right actions row from sm up. */}
       <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] sm:grid-cols-[auto_auto_minmax(0,1fr)_auto] items-start gap-x-1 gap-y-2 sm:gap-x-3 p-2.5 sm:p-4 sm:pr-2">
         <div className="col-start-1 row-start-1 flex items-center">{leading}</div>
-        <span className="col-start-2 row-start-1 self-center sm:hidden text-[0.6875rem] font-display font-medium text-text-muted tabular-nums" aria-hidden="true">
+        <span className="col-start-2 row-start-1 self-center sm:hidden t-meta font-display font-medium text-text-muted tabular-nums" aria-hidden="true">
           Question {index + 1}
         </span>
         <span className={`hidden sm:flex col-start-2 row-start-1 items-center justify-center size-10 rounded-lg ${GROUP_TILE[type.group]}`} aria-hidden="true">
@@ -160,7 +160,7 @@ const ChecklistDefinitionItemDraftRowImpl = ({
           <div className="flex items-start gap-3">
             <div className="flex flex-col gap-0.5 flex-1 min-w-0">
               {/* Below sm the visible "Question N" is the strip above; this one stays for screen readers. */}
-              <label htmlFor={`item-label-${draft.key}`} className="sr-only sm:not-sr-only text-[0.6875rem] font-display font-medium text-text-muted tabular-nums">
+              <label htmlFor={`item-label-${draft.key}`} className="sr-only sm:not-sr-only t-meta font-display font-medium text-text-muted tabular-nums">
                 Question {index + 1}
               </label>
               {/* Deliberate raw textarea (not the shared Textarea): it auto-grows with
@@ -174,7 +174,7 @@ const ChecklistDefinitionItemDraftRowImpl = ({
                 placeholder="Type the question staff will see"
                 aria-invalid={isLabelBlank}
                 aria-describedby={problem ? problemId : undefined}
-                className="w-full resize-none field-sizing-content min-h-7 -mx-1.5 px-1.5 py-0.5 rounded-md bg-transparent text-[0.9375rem] leading-snug font-display font-semibold text-text placeholder:font-medium placeholder:text-text-light hover:bg-surface-hover/60 focus:bg-surface-hover/60 focus:outline-none transition-colors duration-150"
+                className="w-full resize-none field-sizing-content min-h-7 -mx-1.5 px-1.5 py-0.5 rounded-md bg-transparent t-card leading-snug font-display font-semibold text-text placeholder:font-medium placeholder:text-text-light hover:bg-surface-hover/60 focus:bg-surface-hover/60 focus:outline-none transition-colors duration-150"
               />
             </div>
             <div className="hidden sm:block shrink-0 pt-3">

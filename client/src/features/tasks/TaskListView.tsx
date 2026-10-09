@@ -101,7 +101,7 @@ const TaskListViewComponent = ({
                 )}
                 {/* No truncate — this was cutting titles down to a handful of words ("Security
                     camera offline since ...") on a narrow phone card. Wraps instead. */}
-                <span className="flex-1 min-w-0 text-[0.9375rem] font-display font-semibold text-text tracking-tight leading-snug">
+                <span className="flex-1 min-w-0 t-card font-display font-semibold text-text tracking-tight leading-snug">
                   {task.title}
                 </span>
                 {/* Who owns it, as a small avatar stack — a glance answers "is this mine?" without
@@ -135,7 +135,7 @@ const TaskListViewComponent = ({
                   on this line (its chip is hidden there), so the tile stays short but still says where
                   it belongs. */}
               {(task.category !== 'delegation' || progress || (fields.department && department)) && (
-                <div className="flex items-center gap-x-1.5 min-w-0 whitespace-nowrap text-xs font-medium text-text-muted">
+                <div className="flex items-center gap-x-1.5 min-w-0 whitespace-nowrap t-meta font-medium text-text-muted">
                   {task.category !== 'delegation' && <span className="shrink-0">{CATEGORY_CONFIG[task.category].label}</span>}
                   {progress && (
                     <>
@@ -177,7 +177,7 @@ const TaskListViewComponent = ({
               {task.tags?.slice(0, 2).map((tag) => <TagChip key={tag.id} tag={tag} className="hidden sm:inline-flex" />)}
               {(task.tags?.length ?? 0) > 2 && (
                 <span
-                  className="hidden sm:inline text-xs font-semibold text-text-muted tabular-nums"
+                  className="hidden sm:inline t-meta font-semibold text-text-muted tabular-nums"
                   title={task.tags!.map((t) => t.name).join(', ')}
                 >
                   +{task.tags!.length - 2}
@@ -192,7 +192,7 @@ const TaskListViewComponent = ({
                       style={{ width: `${checklist.progress}%` }}
                     />
                   </span>
-                  <span className="text-xs font-semibold text-text-muted tabular-nums">
+                  <span className="t-meta font-semibold text-text-muted tabular-nums">
                     {checklist.progress}%
                   </span>
                 </span>

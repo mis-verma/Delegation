@@ -44,7 +44,7 @@ export const ChecklistReviewersField = ({
         </span>
 
         {selected.length > 0 && (
-          <span className="text-[0.6875rem] font-display font-medium text-text-muted flex items-center gap-1">
+          <span className="t-meta font-display font-medium text-text-muted flex items-center gap-1">
             <UserCheck size={12} className="text-primary-700 dark:text-primary-400" />
             <span>{selected.length} reviewer{selected.length === 1 ? '' : 's'}</span>
           </span>
@@ -58,7 +58,7 @@ export const ChecklistReviewersField = ({
         departments={allDepartments}
       />
 
-      <p className="text-[0.6875rem] font-display text-text-muted">
+      <p className="t-meta font-display text-text-muted">
         {isNew && 'Starts with PC pre-selected. '}Anyone you add here can approve or reject this checklist's
         runs, on top of PC/Admin and the department head of anyone assigned. Look for the
         "HOD" badge to add a department head directly.

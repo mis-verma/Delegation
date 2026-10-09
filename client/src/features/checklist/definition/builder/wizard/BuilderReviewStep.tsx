@@ -123,14 +123,14 @@ const SectionCard = ({
           {title}
         </h3>
         {badgeText && (
-          <span className="text-[0.6875rem] font-medium text-text-muted px-1.5 py-0.5 rounded-full bg-muted/50">
+          <span className="t-meta font-medium text-text-muted px-1.5 py-0.5 rounded-full bg-muted/50">
             {badgeText}
           </span>
         )}
       </div>
       <div className="flex items-center gap-2 shrink-0">
         {!valid && (
-          <Badge variant="warning" className="gap-1 text-[0.6875rem] py-0.5 px-2">
+          <Badge variant="warning" className="gap-1 t-meta py-0.5 px-2">
             <AlertTriangle size={11} /> Needs attention
           </Badge>
         )}
@@ -158,7 +158,7 @@ const resolveNames = (ids: string[], pool: UserPool) => {
 };
 
 const Caption =({ children }: { children: ReactNode }) => (
-  <span className="flex items-center gap-1 text-[0.6875rem] font-medium text-text-muted">{children}</span>
+  <span className="flex items-center gap-1 t-meta font-medium text-text-muted">{children}</span>
 );
 
 // Stand-in for a names line while its query is still loading, so the card never says
@@ -353,19 +353,19 @@ export const BuilderReviewStep = ({
                   className="flex items-center justify-between gap-2 pt-1.5 first:pt-0 text-xs font-display"
                 >
                   <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <span className="text-[0.6875rem] font-mono font-medium text-text-muted shrink-0 w-5">
+                    <span className="t-meta font-mono font-medium text-text-muted shrink-0 w-5">
                       {String(index + 1).padStart(2, '0')}.
                     </span>
                     <span className="truncate text-text font-medium" title={item.label}>
                       {item.label}
                     </span>
                     {item.section && (
-                      <span className="shrink-0 text-[0.6875rem] font-display text-text-muted px-1.5 py-0.5 rounded-full bg-muted/50">
+                      <span className="shrink-0 t-meta font-display text-text-muted px-1.5 py-0.5 rounded-full bg-muted/50">
                         {item.section}
                       </span>
                     )}
                   </div>
-                  <Badge variant="outline" className="shrink-0 text-[0.6875rem] py-0 px-1.5">
+                  <Badge variant="outline" className="shrink-0 t-meta py-0 px-1.5">
                     {questionTypeOf(item).label}
                   </Badge>
                 </li>
@@ -398,7 +398,7 @@ export const BuilderReviewStep = ({
                     )}
                   </p>
                   {assignees.leftOut > 0 && (
-                    <p className="text-[0.6875rem] font-display text-warning">
+                    <p className="t-meta font-display text-warning">
                       {assignees.leftOut} {assignees.leftOut === 1 ? 'person is' : 'people are'} not in the selected stores and will be left out.
                     </p>
                   )}
@@ -436,7 +436,7 @@ export const BuilderReviewStep = ({
               <>
                 <p className="text-xs font-display text-text-secondary">{reviewers.names.join(', ') || <span className="italic text-text-muted">No active reviewers picked</span>}</p>
                 {reviewers.leftOut > 0 && (
-                  <p className="text-[0.6875rem] font-display text-warning">
+                  <p className="t-meta font-display text-warning">
                     {reviewers.leftOut} {reviewers.leftOut === 1 ? 'person is' : 'people are'} no longer active and will be left out.
                   </p>
                 )}
