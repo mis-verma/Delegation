@@ -116,28 +116,30 @@ export const CardFooter = ({
   state: ReportState;
 }) => (
   <div className="mt-auto flex flex-col gap-2 pt-3 border-t border-border/60">
-    <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-display font-medium text-text-muted">
-      <span><strong className="font-bold text-text">{openTickets}</strong> tickets</span>
-      <span aria-hidden>·</span>
-      <span><strong className="font-bold text-text">{openTasks}</strong> delegations</span>
-      <span aria-hidden>·</span>
-      {numbers.checklists == null ? (
-        <span className="inline-flex items-center gap-1">
-          {state === 'loading' ? <Skeleton className="h-3.5 w-5" /> : <strong className="font-bold text-text">n/a</strong>}
-          checklists
-        </span>
-      ) : (
-        <span><strong className="font-bold text-text">{numbers.checklists}</strong> checklists</span>
-      )}
-    </p>
+    {(() => {
+      // Only what exists: "0 tickets · 0 delegations" on every card said nothing and crowded the real figure.
+      const parts: { key: string; node: React.ReactNode }[] = [];
+      if (openTickets > 0) parts.push({ key: 'tickets', node: <span><strong className="font-bold text-text">{openTickets}</strong> {openTickets === 1 ? 'ticket' : 'tickets'}</span> });
+      if (openTasks > 0) parts.push({ key: 'delegations', node: <span><strong className="font-bold text-text">{openTasks}</strong> {openTasks === 1 ? 'delegation' : 'delegations'}</span> });
+      if (state === 'loading') parts.push({ key: 'checklists', node: <Skeleton className="h-3.5 w-16" /> });
+      else if (numbers.checklists != null && numbers.checklists > 0) parts.push({ key: 'checklists', node: <span><strong className="font-bold text-text">{numbers.checklists}</strong> {numbers.checklists === 1 ? 'checklist' : 'checklists'}</span> });
+      return (
+        <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs font-display font-medium text-text-muted">
+          {parts.length === 0 ? 'Nothing assigned' : parts.map((p, i) => (
+            <span key={p.key} className="inline-flex items-center gap-1.5">{i > 0 && <span aria-hidden>·</span>}{p.node}</span>
+          ))}
+        </p>
+      );
+    })()}
 
     <div className="flex items-center justify-between gap-2">
-      {numbers.compliance != null ? (
-        <span className="inline-flex items-center gap-1 text-xs font-display font-medium text-text-muted">
-          Compliance
-          <strong className={cn('font-bold tabular-nums', rateToneClass(numbers.compliance))}>{numbers.compliance}%</strong>
-        </span>
-      ) : <span />}
+      {/* Always present, so every card has the same rows and the grid stays level. */}
+      <span className="inline-flex items-center gap-1 text-xs font-display font-medium text-text-muted" title="How well the checked checklist answers were answered. It does not count what was left unchecked.">
+        Compliance
+        {numbers.compliance != null
+          ? <strong className={cn('font-bold tabular-nums', rateToneClass(numbers.compliance))}>{numbers.compliance}%</strong>
+          : <strong className="font-bold text-text-light">-</strong>}
+      </span>
       {state === 'loading' ? (
         <Skeleton className="h-6 w-20 rounded" />
       ) : (

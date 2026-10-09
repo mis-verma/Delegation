@@ -45,7 +45,7 @@ const TONE_COMPACT_ICON_CLASS = {
 export const EmptyState = ({ icon: Icon, title, description, tone = 'neutral', action, size = 'default', className = '' }: EmptyStateProps) => {
   if (size === 'compact') {
     return (
-      <div className={`flex flex-col items-center justify-center gap-1.5 h-28 px-4 text-center border-2 border-dashed border-border/40 rounded-xl bg-surface/30 ${className}`}>
+      <div className={`flex flex-col items-center justify-center gap-1.5 h-28 px-4 text-center border border-border rounded-xl bg-surface/30 ${className}`}>
         <Icon size={16} className={TONE_COMPACT_ICON_CLASS[tone]} strokeWidth={1.75} />
         <p className="text-xs font-display font-medium text-text-muted">{title}</p>
         {description && <p className="t-meta font-display text-text-light">{description}</p>}

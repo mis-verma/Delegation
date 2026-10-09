@@ -49,12 +49,12 @@ const LeaderEntry = memo(({ icon: Icon, tone, label, row, emptyText, to }: Leade
     </>
   );
 
-  const base = 'flex items-center gap-2.5 min-w-0 min-h-11 rounded-lg';
+  const base = 'flex items-center gap-2.5 min-w-0 min-h-11 rounded-lg px-1';
   if (!row) return <div className={base}>{content}</div>;
   return (
     <Link
       to={`${to}&q=${encodeURIComponent(row.name)}`}
-      className={`${base} px-1 transition-colors duration-200 motion-reduce:transition-none hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50`}
+      className={`${base} transition-colors duration-200 motion-reduce:transition-none hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50`}
     >
       {content}
     </Link>
@@ -100,15 +100,22 @@ const DimensionColumn = ({ icon: Icon, title, rows, isPending, isError, isFetchi
         </div>
       ) : (
         <div className={`flex flex-col gap-2.5 transition-opacity motion-reduce:transition-none ${isFetching ? 'opacity-60' : ''}`}>
-          <LeaderEntry icon={Trophy} tone="success" label="Top" row={top} emptyText="Not enough data yet" to={to} />
-          <LeaderEntry
-            icon={AlertTriangle}
-            tone="danger"
-            label="Needs attention"
-            row={low}
-            emptyText={hasEligible ? `None below ${NEEDS_ATTENTION_BELOW}%` : 'Not enough data yet'}
-            to={to}
-          />
+          {/* Two "Not enough data yet" rows said the same thing twice; say it once. */}
+          {!top && !low && !hasEligible ? (
+            <p className="px-1 py-2 text-sm font-display font-medium text-text-muted">Not enough data yet</p>
+          ) : (
+            <>
+              <LeaderEntry icon={Trophy} tone="success" label="Top" row={top} emptyText="Needs at least two to compare" to={to} />
+              <LeaderEntry
+                icon={AlertTriangle}
+                tone="danger"
+                label="Needs attention"
+                row={low}
+                emptyText={hasEligible ? `None below ${NEEDS_ATTENTION_BELOW}%` : 'Not enough data yet'}
+                to={to}
+              />
+            </>
+          )}
         </div>
       )}
     </div>
@@ -132,7 +139,7 @@ export const PerformanceLeadersCard = ({ from, to, onViewFull }: PerformanceLead
         <div className="min-w-0">
           <h2 id={headingId} className="text-sm font-display font-bold text-text">How stores and departments are doing</h2>
           <p className="hidden sm:block text-xs font-display font-medium text-text-muted">
-            Based on tickets and checklist work. Needs at least {MIN_RANK_VOLUME} items to be ranked.
+            Tickets, delegations and checklists. Needs at least {MIN_RANK_VOLUME} items to be ranked.
           </p>
         </div>
         <Button type="button" variant="ghost" size="sm" onClick={onViewFull} className="shrink-0 max-sm:min-h-11">

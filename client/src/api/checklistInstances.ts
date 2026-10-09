@@ -275,7 +275,7 @@ const buildQuery = (params: Record<string, string | number | boolean | undefined
 // The checklist report endpoints filter on calendar days (a run's periodStart is a day label), so
 // they want plain 'YYYY-MM-DD', not an instant. A caller holding a local-midnight ISO string (the
 // picked day) gets back the same local day it picked; an already-plain date passes through.
-const toDayParam = (value: string): string => {
+export const toDayParam = (value: string): string => {
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return value;

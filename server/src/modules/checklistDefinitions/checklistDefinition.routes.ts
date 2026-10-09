@@ -19,6 +19,7 @@ checklistDefinitionRouter.post("/", checklistDefinitionController.create)
 checklistDefinitionRouter.put("/:id", checklistDefinitionController.update)
 checklistDefinitionRouter.patch("/:id/active", checklistDefinitionController.setActive)
 checklistDefinitionRouter.delete("/:id", checklistDefinitionController.remove)
+checklistDefinitionRouter.post("/:id/restore", checklistDefinitionController.restore)
 
 // Bulk-assign an existing checklist to many stores/people at once via an uploaded file — see
 // checklistBulkImport.service.ts. No route-ordering concern here: ":id" only ever matches a

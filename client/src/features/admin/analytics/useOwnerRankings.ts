@@ -2,7 +2,8 @@ import { useCallback, useMemo } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../../context/AuthContext';
 import { useDepartmentsQuery, useStoresQuery } from '../../tickets/hook';
-import { checklistInstanceApi, type ChecklistStoreComplianceRow } from '../../../api/checklistInstances';
+import { checklistInstanceApi, toDayParam, type ChecklistStoreComplianceRow } from '../../../api/checklistInstances';
+import { scoreApi } from '../../../api/scores';
 import { handleQueryRetry } from '../../../lib/queryHelpers';
 import { useTicketOwnerStatsQuery, useTaskOwnerStatsQuery } from './useAnalyticsQueries';
 import type { OwnerStatsRow } from '../../../api/ticket';
@@ -33,7 +34,10 @@ export interface RankedRow {
   overall: number | null;
   ticketVolume: number;
   secondaryVolume: number;
-  /** ticketVolume + secondaryVolume: what the minimum-volume rule checks. */
+  /** Departments only: checklist completion over the runs that were due, counted like the other sources. */
+  checklistRate: number | null;
+  checklistVolume: number;
+  /** ticketVolume + secondaryVolume + checklistVolume: what the minimum-volume rule checks. */
   volume: number;
 }
 
@@ -72,6 +76,7 @@ const buildRow = (
   ticket: TicketOwnerRow | undefined,
   secondaryRate: number | null,
   secondaryVolume: number,
+  checklist: { rate: number | null; volume: number } = { rate: null, volume: 0 },
 ): RankedRow => {
   const { ticketVolume, ...metrics } = ticketMetrics(ticket);
   return {
@@ -82,10 +87,13 @@ const buildRow = (
     overall: weightedOverall([
       { rate: metrics.ticketCompletion, volume: ticketVolume },
       { rate: secondaryRate, volume: secondaryVolume },
+      { rate: checklist.rate, volume: checklist.volume },
     ]),
     ticketVolume,
     secondaryVolume,
-    volume: ticketVolume + secondaryVolume,
+    checklistRate: checklist.rate,
+    checklistVolume: checklist.volume,
+    volume: ticketVolume + secondaryVolume + checklist.volume,
   };
 };
 
@@ -145,6 +153,23 @@ export const useOwnerRankings = (from?: string, to?: string) => {
   const deptTaskRows = deptTasksQuery.data;
   const storeChecklistRows = storeChecklistQuery.data;
 
+  // Each department's checklist completion, from the same score report the dashboard card uses. A department
+  // that works in checklists (no tickets, no delegations) used to have nothing to be ranked on. If this call
+  // fails the ranking still shows, just without the checklist part.
+  const deptChecklistQuery = useQuery({
+    queryKey: ['scores', 'ranking-report', from, to],
+    queryFn: () => scoreApi.report({ from: toDayParam(from as string), to: toDayParam(to as string) }),
+    enabled: !!token && !!from && !!to,
+    retry: handleQueryRetry,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    placeholderData: keepPreviousData,
+  });
+  const deptChecklistById = useMemo(
+    () => new Map((deptChecklistQuery.data?.departments ?? []).map((r) => [r.id, r.checklist])),
+    [deptChecklistQuery.data],
+  );
+
   const deptTicketsById = useMemo(() => new Map((deptTicketRows ?? []).map((r) => [r.ownerId, r as TicketOwnerRow])), [deptTicketRows]);
   const storeTicketsById = useMemo(() => new Map((storeTicketRows ?? []).map((r) => [r.ownerId, r as TicketOwnerRow])), [storeTicketRows]);
   const deptTasksById = useMemo(() => new Map<string | null, TaskOwnerStatsRow>((deptTaskRows ?? []).map((r) => [r.ownerId, r])), [deptTaskRows]);
@@ -159,9 +184,13 @@ export const useOwnerRankings = (from?: string, to?: string) => {
       .filter((dept) => dept.isActive !== false)
       .map((dept) => {
         const tasks = deptTasksById.get(dept.id);
-        return buildRow(dept.id, dept.name, deptTicketsById.get(dept.id), tasks ? pct(tasks.done, tasks.total) : null, tasks?.total ?? 0);
+        const checklist = deptChecklistById.get(dept.id);
+        return buildRow(
+          dept.id, dept.name, deptTicketsById.get(dept.id), tasks ? pct(tasks.done, tasks.total) : null, tasks?.total ?? 0,
+          { rate: checklist && checklist.due > 0 ? checklist.completionPct : null, volume: checklist?.due ?? 0 },
+        );
       }),
-    [departments, deptTicketsById, deptTasksById],
+    [departments, deptTicketsById, deptTasksById, deptChecklistById],
   );
 
   const storeRows: RankedRow[] = useMemo(
@@ -174,6 +203,7 @@ export const useOwnerRankings = (from?: string, to?: string) => {
     [stores, storeTicketsById, storeChecklistById],
   );
 
+  // The checklist report is not in this list on purpose: a failure there only drops that one part of the score.
   const departmentQueries = [departmentsQuery, deptTicketsQuery, deptTasksQuery];
   const storeQueries = [storesQuery, storeTicketsQuery, storeChecklistQuery];
 

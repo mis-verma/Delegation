@@ -275,4 +275,8 @@ export const checklistDefinitionApi = {
 
   remove: (id: string) =>
     apiFetch<ApiResponse<{ deleted: boolean }>>(`/checklist-definitions/${id}`, { method: 'DELETE' }),
+
+  /** Undo a delete: the checklist and every run come back as they were. */
+  restore: (id: string) =>
+    apiFetch<ApiResponse<unknown>>(`/checklist-definitions/${id}/restore`, { method: 'POST' }),
 };

@@ -471,7 +471,6 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
     const [pendingQueue, setPendingQueue] = useState<Slot[]>([]);
     const [parsed, setParsed] = useState<SmartTaskParseResult | null>(null);
     const [review, setReview] = useState<ReviewState | null>(null);
-    const [awaitingRetry, setAwaitingRetry] = useState(false);
     const [initialInputMode, setInitialInputMode] = useState<"voice" | "text">("text");
     const [voiceRecorderBusy, setVoiceRecorderBusy] = useState(false);
     const [skipConfirmation, setSkipConfirmation] = useState(false);
@@ -673,23 +672,10 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
         }, 220);
     };
 
-    const handleCreate = useCallback(async () => {
+    // The review is already on screen and Create is the decision, so there is no "Create this task?" popup in
+    // front of it: the success toast confirms it. Only an input that said "no confirmation needed" creates by itself.
+    const handleCreate = useCallback(() => {
         if (!review || !parsed) return;
-
-        setAwaitingRetry(false);
-
-        if (!skipConfirmation) {
-            const ok = await confirm({
-                title: "Create this task?",
-                description: `"${review.title}" will be created and assigned right away.`,
-                confirmLabel: "Yes, create it",
-                cancelLabel: "No, go back",
-            });
-            if (!ok) {
-                setAwaitingRetry(true);
-                return;
-            }
-        }
 
         createMutation.mutate(
             {
@@ -721,14 +707,14 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
                 },
             }
         );
-    }, [review, parsed, confirm, createMutation, updateConversationMutation, initialInputMode, skipConfirmation, onClose]);
+    }, [review, parsed, createMutation, updateConversationMutation, initialInputMode, onClose]);
 
     useEffect(() => {
-        if (review && parsed && !hasAutoPromptedRef.current) {
+        if (review && parsed && skipConfirmation && !hasAutoPromptedRef.current) {
             hasAutoPromptedRef.current = true;
             handleCreate();
         }
-    }, [review, parsed, handleCreate]);
+    }, [review, parsed, skipConfirmation, handleCreate]);
 
     const [prefillFirstName, ...prefillRestName] = (unmatchedAssigneeName ?? "").trim().split(/\s+/);
     const prefillLastName = prefillRestName.join(" ");
@@ -757,9 +743,9 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
                             : "Type in English or Hinglish — I'll parse the details."
             }
             footer={
-                review && awaitingRetry && (
-                    <Button variant="primary" onClick={handleCreate} isLoading={createMutation.isPending}>
-                        Confirm &amp; Create
+                review && !skipConfirmation && (
+                    <Button variant="primary" onClick={() => handleCreate()} isLoading={createMutation.isPending}>
+                        Create task
                     </Button>
                 )
             }

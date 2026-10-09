@@ -52,6 +52,11 @@ export const checklistDefinitionController = {
         res.json({ success: true, data: definition })
     }),
 
+    restore: asyncHandler(async (req: Request, res: Response) => {
+        const definition = await checklistDefinitionService.restore(req.params.id, req.user!.sub)
+        res.json({ success: true, data: definition })
+    }),
+
     remove: asyncHandler(async (req: Request, res: Response) => {
         await checklistDefinitionService.remove(req.params.id, req.user!.sub)
         res.json({ success: true, data: { deleted: true } })

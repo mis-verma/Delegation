@@ -197,7 +197,7 @@ export const StoresPerformanceSection = ({ from, to }: StoresPerformanceSectionP
       <div className="flex items-start justify-between gap-x-4 gap-y-1 flex-wrap px-1">
         <ActiveRangeBadge from={from} to={to} />
         <p className="text-xs font-display font-medium text-text-muted max-w-xl basis-full sm:basis-auto sm:flex-1">
-          Overall blends ticket completion with delegation completion for departments, or with checklist completion for stores. Best first. Needs at least {MIN_RANK_VOLUME} items to be ranked.
+          Overall blends ticket, delegation and checklist completion for departments, and ticket and checklist completion for stores. Best first. Needs at least {MIN_RANK_VOLUME} items to be ranked.
         </p>
         <p className="text-xs font-display font-semibold text-text-secondary shrink-0">
           Store checklist completion:{' '}
@@ -209,7 +209,7 @@ export const StoresPerformanceSection = ({ from, to }: StoresPerformanceSectionP
 
       <RankedTable
         title="Departments"
-        subtitle="Tickets and delegations"
+        subtitle="Tickets, delegations and checklists"
         rows={departmentRows}
         isPending={departmentsPending}
         isError={departmentsError}

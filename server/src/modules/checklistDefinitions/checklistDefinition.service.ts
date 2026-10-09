@@ -10,7 +10,7 @@ import {
     departments,
     type CHECKLIST_RECURRENCES,
 } from "../../db/schema/index.js"
-import { eq, and, asc, inArray, notInArray, isNull, sql } from "drizzle-orm"
+import { eq, and, asc, inArray, notInArray, isNull, isNotNull, sql } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
 import { cached, cacheKey } from "../../config/queryCache.js"
 import { env } from "../../config/env.js"
@@ -677,5 +677,18 @@ export const checklistDefinitionService = {
         await auditService.record({ entityType: "ChecklistDefinition", entityId: id, action: "DELETE", actorId, before: existing })
         emitToStores("checklist-definition:deleted", existing.storeIds, { definitionId: id })
         return existing
+    },
+
+    // Undo for remove(). The delete only stamps deletedAt (every item, run and photo is kept), so putting it
+    // back is clearing that stamp: the checklist, its runs and its schedule all come back as they were.
+    async restore(id: string, actorId: string) {
+        const [row] = await db.select({ id: checklistDefinitions.id }).from(checklistDefinitions)
+            .where(and(eq(checklistDefinitions.id, id), isNotNull(checklistDefinitions.deletedAt))).limit(1)
+        if (!row) throw AppError.notFound("That checklist is not deleted")
+        await db.update(checklistDefinitions).set({ deletedAt: null, updatedAt: new Date() }).where(eq(checklistDefinitions.id, id))
+        const restored = await this.getById(id)
+        await auditService.record({ entityType: "ChecklistDefinition", entityId: id, action: "RESTORE", actorId, after: restored })
+        emitToStores("checklist-definition:updated", restored.storeIds, { definitionId: id })
+        return restored
     },
 }

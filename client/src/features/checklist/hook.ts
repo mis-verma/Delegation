@@ -133,11 +133,25 @@ export const useDeleteChecklistDefinitionMutation = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => checklistDefinitionApi.remove(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['checklist-definitions'] });
-      queryClient.invalidateQueries({ queryKey: ['checklist-instances'] });
-      queryClient.invalidateQueries({ queryKey: ['analytics'] });
-      toast.success('Checklist deleted');
+    onSuccess: (_result, id) => {
+      const refresh = () => {
+        queryClient.invalidateQueries({ queryKey: ['checklist-definitions'] });
+        queryClient.invalidateQueries({ queryKey: ['checklist-instances'] });
+        queryClient.invalidateQueries({ queryKey: ['analytics'] });
+      };
+      refresh();
+      // The delete only hides the checklist, so a mistake can be taken back for a few seconds.
+      toast.success('Checklist deleted', {
+        duration: 8000,
+        action: {
+          label: 'Undo',
+          onClick: () => {
+            checklistDefinitionApi.restore(id)
+              .then(() => { refresh(); toast.success('Checklist restored'); })
+              .catch((err) => toast.error(errorMessage(err, "Couldn't restore the checklist")));
+          },
+        },
+      });
     },
     onError: (err) => toast.error(errorMessage(err, "Couldn't delete checklist")),
   });
