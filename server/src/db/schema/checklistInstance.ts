@@ -83,6 +83,10 @@ export const checklistInstances = mysqlTable(
     // Same one-shot convention for "every question is done but it was never submitted": the person
     // gets one nudge to press Submit, so a finished checklist does not sit there unseen by the reviewer.
     submitReminderSentAt: datetime('submitReminderSentAt', { mode: 'date' }),
+    // The first time every question was done. Lateness is judged from this, so an admin reopen or a
+    // send-back followed by a good redo cannot turn an on-time run into a late one. Null until then
+    // (and on runs finished before this column existed: reports fall back to the last answer's time).
+    completedFirstAt: datetime('completedFirstAt', { mode: 'date' }),
     // One-shot stamps for the approval chase (checklistDraftReminder.job.ts): a reminder to the
     // reviewers after 24h in PENDING_APPROVAL, an escalation to Admin/PC after 48h. Both are cleared
     // when the run leaves PENDING_APPROVAL so a resubmission can chase again.

@@ -151,6 +151,7 @@ type RunRow = {
     total: number
     done: number
     lastDoneAt: Date | null
+    completedFirstAt: Date | null
 }
 
 type RunFlags = {
@@ -274,6 +275,7 @@ export const checklistReportService = {
                 total: sql<number>`COUNT(${item.id})`,
                 done: sql<number>`COALESCE(SUM(${item.isDone}), 0)`,
                 lastDoneAt: sql<Date | null>`MAX(${item.completedAt})`.mapWith(item.completedAt),
+                completedFirstAt: checklistInstances.completedFirstAt,
             })
                 .from(checklistInstances)
                 .leftJoin(item, eq(item.instanceId, checklistInstances.id))
@@ -281,6 +283,7 @@ export const checklistReportService = {
                 .groupBy(
                     checklistInstances.id, checklistInstances.periodStart, checklistInstances.periodEnd, checklistInstances.cutoffTime,
                     checklistInstances.opensTime, checklistInstances.verificationStatus, checklistInstances.rejectionCount, checklistInstances.submittedAt,
+                    checklistInstances.completedFirstAt,
                 ),
             // Who each run belongs to, with the person's details, so there is no per-person lookup.
             db.select({
@@ -351,7 +354,7 @@ export const checklistReportService = {
                 skip,
                 partial: !complete && !missed && total > 0 ? done / total : 0,
                 complete,
-                onTime: complete && (!r.lastDoneAt || r.lastDoneAt.getTime() <= deadline),
+                onTime: complete && (() => { const doneAt = r.completedFirstAt ?? r.lastDoneAt; return !doneAt || doneAt.getTime() <= deadline })(),
                 missed,
                 submitted: r.submittedAt != null || status === "PENDING_APPROVAL" || status === "APPROVED",
                 approved: status === "APPROVED",
@@ -508,7 +511,9 @@ const addSheet = (
     sheet.addRow([title]).font = { bold: true, size: 14 }
     sheet.addRow([`Period: ${report.from} to ${report.to}`])
     sheet.addRow([`Store: ${report.storeName ?? "All stores"}    Department: ${report.departmentName ?? "All departments"}`])
-    sheet.addRow([`Generated: ${generatedLocal}`])
+    const offsetMin = env.CHECKLIST_TIMEZONE_OFFSET_MINUTES
+    const zone = `UTC${offsetMin < 0 ? "-" : "+"}${String(Math.floor(Math.abs(offsetMin) / 60)).padStart(2, "0")}:${String(Math.abs(offsetMin) % 60).padStart(2, "0")}`
+    sheet.addRow([`Generated: ${generatedLocal} (${zone})`])
     sheet.addRow([])
 
     const headerRow = sheet.addRow(columns.map((c) => c.label))

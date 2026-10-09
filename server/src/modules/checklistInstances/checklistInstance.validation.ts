@@ -113,6 +113,12 @@ export const listChecklistInstancesQuerySchema = z.object({
     from: optionalBoundary,
     to: optionalBoundary,
     status: z.enum(["OPEN", "DUE", "COMPLETED", "OVERDUE"]).optional(),
+    // Checked here instead of cast from req.query: ?storeId=a&storeId=b arrives as an array and would
+    // reach the database as one.
+    definitionId: objectId.optional(),
+    storeId: objectId.optional(),
+    assigneeId: objectId.optional(),
+    personId: objectId.optional(),
 })
 
 // GET /checklist-instances/summary: only from/to need checking, the rest is scoped in the controller.
@@ -147,13 +153,3 @@ export const periodReportQuerySchema = z.object({
 }).refine((q) => q.from <= q.to, "From must be on or before To")
   .refine((q) => Date.parse(q.to + "T00:00:00Z") - Date.parse(q.from + "T00:00:00Z") <= 366 * 86_400_000, "Pick at most one year")
 
-// Monday of the week to report on (org-local YYYY-MM-DD); anything that is not a real day is a 400.
-export const weeklyReportQuerySchema = z.object({
-    weekStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date like 2026-09-28")
-        .refine((d) => !Number.isNaN(Date.parse(d + "T00:00:00Z")), "That is not a real date")
-        // Mondays only: a mid-week start would silently show a week that is not Monday to Sunday.
-        .refine((d) => Number.isNaN(Date.parse(d + "T00:00:00Z")) || new Date(d + "T00:00:00Z").getUTCDay() === 1, "Pick a Monday."),
-    storeId: z.string().min(1).optional(),
-    // ADMIN/PC can narrow to one department; a department head is always held to their own.
-    departmentId: z.string().min(1).optional(),
-})

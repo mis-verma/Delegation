@@ -2,7 +2,7 @@ import { z } from "zod"
 import { CHECKLIST_TEMPLATE_TARGETS } from "../../db/schema/ticket.js"
 
 const templateItemShape = z.object({
-    label: z.string().min(1),
+    label: z.string().trim().min(1).max(191),
     order: z.number().int().min(0).optional(),
     requiredImageCount: z.number().int().min(0).optional(),
     maxImageCount: z.number().int().min(0).optional(),
@@ -14,7 +14,7 @@ const templateItemShape = z.object({
 })
 
 export const createChecklistTemplateSchema = z.object({
-    name: z.string().min(1),
+    name: z.string().trim().min(1).max(191),
     appliesTo: z.enum(CHECKLIST_TEMPLATE_TARGETS),
     // Optional — scopes which users can be picked as an item's defaultAssigneeId.
     departmentId: z.string().min(1).optional(),
@@ -25,14 +25,14 @@ export const createChecklistTemplateSchema = z.object({
 // changes (switching a template between Task/Ticket would leave any already-applied checklists
 // meaningless).
 export const updateChecklistTemplateSchema = z.object({
-    name: z.string().min(1).optional(),
+    name: z.string().trim().min(1).max(191).optional(),
     departmentId: z.string().min(1).nullable().optional(),
 })
 
 export const createChecklistTemplateItemSchema = templateItemShape
 
 export const updateChecklistTemplateItemSchema = z.object({
-    label: z.string().min(1).optional(),
+    label: z.string().trim().min(1).max(191).optional(),
     order: z.number().int().min(0).optional(),
     requiredImageCount: z.number().int().min(0).optional(),
     maxImageCount: z.number().int().min(0).nullable().optional(),

@@ -377,7 +377,7 @@ export const notificationService = {
         ...(await notificationService.notifyMany(assigneeIds, {
           type: 'CHECKLIST_OVERDUE',
           title: 'Checklist overdue',
-          message: `"${instance.title}" is overdue — fill it in as soon as you can.`,
+          message: `"${instance.title}" is overdue. Fill it in as soon as you can.`,
           checklistInstanceId: instance._id.toString(),
         })),
       );
@@ -405,7 +405,7 @@ export const notificationService = {
     return notificationService.notifyMany(assigneeIds, {
       type: 'CHECKLIST_DRAFT_REMINDER',
       title: 'Finish your checklist',
-      message: `You started "${instance.title}" but haven't finished it — ${instance.remaining} item${instance.remaining === 1 ? '' : 's'} left.`,
+      message: `You started "${instance.title}" but haven't finished it. ${instance.remaining} item${instance.remaining === 1 ? '' : 's'} left.`,
       checklistInstanceId: instance._id.toString(),
     });
   },

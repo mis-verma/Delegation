@@ -330,6 +330,13 @@
       "when": 1791372693633,
       "tag": "0046_task_status_on_hold",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "5",
+      "when": 1791524528668,
+      "tag": "0047_checklist_completed_first_at",
+      "breakpoints": true
     }
   ]
 }

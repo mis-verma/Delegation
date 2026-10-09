@@ -3,7 +3,7 @@
 // generated yet. See utils/period.ts for the period-math this relies on.
 import { scheduleJob } from '../utils/jobTracker.js';
 import { createId } from "@paralleldrive/cuid2"
-import { eq, and, inArray, asc, lte, isNull } from "drizzle-orm"
+import { eq, and, inArray, asc, lte, isNull, sql } from "drizzle-orm"
 import { db } from "../config/db.js"
 import {
     checklistDefinitions,
@@ -29,7 +29,13 @@ import type { Gender } from "../db/schema/core.js"
 import { getCurrentPeriod, type Period } from "../utils/period.js"
 import { env } from "../config/env.js"
 import { emitChecklistEvent } from "../sockets/checklistEvent.js"
-import { syncVerificationStatus, dropChecklistSummaries } from "../modules/checklistInstances/checklistInstance.service.js"
+import { syncVerificationStatus, dropChecklistSummaries, deadlineExpr, localNowExpr } from "../modules/checklistInstances/checklistInstance.service.js"
+
+// Opens and cutoff times are a window inside ONE day. Copied onto a weekly, monthly, quarterly or yearly
+// run they would close it after its first day (deadline = start date + cutoff), so those runs get no
+// time window and keep their whole period.
+const timeWindowFor = (recurrence: ChecklistRecurrence, opensTime: string | null, cutoffTime: string | null) =>
+    recurrence === "DAILY" || recurrence === "ONE_TIME" ? { opensTime, cutoffTime } : { opensTime: null, cutoffTime: null }
 
 // Caps how many due checklist definitions get processed in a single hourly sweep, same rationale
 // as the batch caps in slaSweep.job.ts/taskDeadlineReminder.job.ts. In practice the number of
@@ -401,8 +407,7 @@ const generateInstanceForStore = async (
                 recurrence: definition.recurrence,
                 storeId,
                 scopeKey: scope.key,
-                opensTime: definition.opensTime,
-                cutoffTime: definition.cutoffTime,
+                ...timeWindowFor(definition.recurrence, definition.opensTime, definition.cutoffTime),
                 periodKey: period.periodKey,
                 periodStart: period.periodStart,
                 periodEnd: period.periodEnd,
@@ -740,8 +745,7 @@ const mergeIntoStartedRun = async (tx: Tx, run: RunRow, working: GenerationDefin
 
     await tx.update(checklistInstances).set({
         title: working.name,
-        opensTime: working.opensTime,
-        cutoffTime: working.cutoffTime,
+        ...timeWindowFor(working.recurrence, working.opensTime, working.cutoffTime),
         updatedAt: now,
     }).where(eq(checklistInstances.id, run.id))
     await tx.delete(checklistInstanceAssignees).where(eq(checklistInstanceAssignees.instanceId, run.id))
@@ -763,12 +767,27 @@ export const syncLiveInstances = async (definition: GenerationDefinition, now: D
     const summary: LiveRunsSummary = { refreshed: 0, updated: 0, kept: 0 }
     const period = getCurrentPeriod(definition.recurrence, definition.startDate, now, env.CHECKLIST_TIMEZONE_OFFSET_MINUTES)
     if (!period) return summary
-    const working = await applyWorkingDayRules(definition, period)
+
+    // An overnight checklist (opens 18:00, cuts off 07:00) is still live in the morning of the next day:
+    // the run of the day before is the one people are filling in at 02:00, and an edit made then must
+    // reach it too, not only the run that opens that evening.
+    const periods = [period]
+    const overnight = definition.recurrence === "DAILY" && !!definition.opensTime && !!definition.cutoffTime && definition.cutoffTime < definition.opensTime
+    if (overnight) {
+        const previous = getCurrentPeriod(definition.recurrence, definition.startDate, new Date(now.getTime() - 24 * 60 * 60 * 1000), env.CHECKLIST_TIMEZONE_OFFSET_MINUTES)
+        if (previous && previous.periodKey !== period.periodKey) periods.push(previous)
+    }
+
+    for (const target of periods) {
+    const working = await applyWorkingDayRules(definition, target)
     const scopesAt = working ? await buildScopeResolver(working) : null
 
     const runs = await db.select({ id: checklistInstances.id }).from(checklistInstances).where(and(
         eq(checklistInstances.definitionId, definition.id),
-        eq(checklistInstances.periodKey, period.periodKey),
+        eq(checklistInstances.periodKey, target.periodKey),
+        // The earlier day's run is only touched while it is still open for filling: once its cutoff has
+        // passed it is a record of what happened, and an edit must not rewrite or remove a miss.
+        target === period ? undefined : sql`${deadlineExpr} > ${localNowExpr}`,
     ))
 
     for (const { id } of runs) {
@@ -804,8 +823,7 @@ export const syncLiveInstances = async (definition: GenerationDefinition, now: D
                 await tx.update(checklistInstances).set({
                     title: scoped.name,
                     recurrence: scoped.recurrence,
-                    opensTime: scoped.opensTime,
-                    cutoffTime: scoped.cutoffTime,
+                    ...timeWindowFor(scoped.recurrence, scoped.opensTime, scoped.cutoffTime),
                     updatedAt: now,
                 }).where(eq(checklistInstances.id, id))
                 await tx.delete(checklistInstanceAssignees).where(eq(checklistInstanceAssignees.instanceId, id))
@@ -829,6 +847,7 @@ export const syncLiveInstances = async (definition: GenerationDefinition, now: D
             // One run failing to update must not stop the rest — it simply keeps its old version.
             console.error(`Updating checklist run ${id} for definition ${definition.id} failed:`, err)
         }
+    }
     }
     return summary
 }
@@ -929,7 +948,9 @@ const generateDueInstances = async () => {
 // polling buys nothing, while hourly stays cheap and tolerates brief downtime near midnight.
 export const startChecklistInstanceGenerator = () => {
     generateDueInstances().catch((err) => console.error("Initial checklist instance generation failed:", err))
-    scheduleJob("checklist-generator", "0 * * * *", 60, () => {
+    // Every half hour, not hourly: local midnight is 18:30 UTC at the default +05:30 offset, so an hourly
+    // sweep at :00 made every new day wait 30 minutes while yesterday's runs had already left everyone's list.
+    scheduleJob("checklist-generator", "0,30 * * * *", 30, () => {
         generateDueInstances().catch((err) => console.error("Checklist instance sweep failed:", err))
     })
 }

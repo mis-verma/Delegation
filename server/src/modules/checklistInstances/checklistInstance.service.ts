@@ -244,7 +244,7 @@ export const assertInstanceOpen = (instance: { opensTime: string | null; periodS
     // UTC offset. Without this, "opens 09:00" in India only opened at 14:30.
     opensAt.setTime(opensAt.getTime() - env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000)
     if (Date.now() < opensAt.getTime()) {
-        throw AppError.badRequest(`This checklist doesn't open until ${instance.opensTime} — come back then.`)
+        throw AppError.badRequest(`This checklist doesn't open until ${instance.opensTime}. Come back then.`)
     }
 }
 
@@ -296,7 +296,7 @@ const auditItemSnapshot = (item: Record<string, unknown>) => ({
 // promised the person who deleted it. This is the one condition that makes "deleted" actually mean
 // "gone from view" everywhere an instance list is built, while the underlying rows (and this
 // condition's own NOT EXISTS) stay reversible if the definition is ever restored.
-const parentNotDeletedExpr = sql`NOT EXISTS (
+export const parentNotDeletedExpr = sql`NOT EXISTS (
     SELECT 1 FROM ${checklistDefinitions} d
     WHERE d.id = ${checklistInstances.definitionId} AND d.deletedAt IS NOT NULL
 )`
@@ -305,9 +305,9 @@ const parentNotDeletedExpr = sql`NOT EXISTS (
 // it's compared against the org's local "now" — UTC_TIMESTAMP() shifted by the org offset — not
 // NOW(), which is the DB session's zone (UTC on the server). That mismatch flagged a 09:00 cutoff
 // overdue only at 14:30 India time. periodEnd goes through DATE() for the same reason.
-const localNowExpr = sql`DATE_ADD(UTC_TIMESTAMP(), INTERVAL ${env.CHECKLIST_TIMEZONE_OFFSET_MINUTES} MINUTE)`
+export const localNowExpr = sql`DATE_ADD(UTC_TIMESTAMP(), INTERVAL ${env.CHECKLIST_TIMEZONE_OFFSET_MINUTES} MINUTE)`
 
-const deadlineExpr = sql`CASE
+export const deadlineExpr = sql`CASE
     WHEN ${checklistInstances.cutoffTime} IS NULL THEN TIMESTAMP(DATE(${checklistInstances.periodEnd}))
     WHEN ${checklistInstances.opensTime} IS NOT NULL AND ${checklistInstances.cutoffTime} < ${checklistInstances.opensTime}
         THEN TIMESTAMP(DATE_ADD(DATE(${checklistInstances.periodStart}), INTERVAL 1 DAY), CONCAT(${checklistInstances.cutoffTime}, ':00'))
@@ -576,7 +576,7 @@ const VALUE_VALIDATORS_BY_ITEM_TYPE: Record<string, (item: any, values: ItemValu
         // same "why" slot Yes/No's ASK_REASON uses) so reviewers see it next to the count.
         if (item.cashExpectedAmount != null && v.numericValue !== item.cashExpectedAmount && !v.conditionalReasonValue?.trim()) {
             const diff = (v.numericValue ?? 0) - item.cashExpectedAmount
-            throw AppError.badRequest(`Count is ${diff < 0 ? "short" : "over"} by ${Math.abs(diff)} — add a reason before saving`)
+            throw AppError.badRequest(`Count is ${diff < 0 ? "short" : "over"} by ${Math.abs(diff)}. Add a reason before saving`)
         }
     },
     SIGNATURE: (_item, v) => assertSignatureSatisfied(v.signatureValue),
@@ -606,14 +606,14 @@ const assertConditionalActionsSatisfied = async (item: any, values: ItemValueInp
         const images = await db.select().from(checklistInstanceImages).where(eq(checklistInstanceImages.checklistInstanceItemId, item.id))
         const qualifying = item.requiresLivePhoto ? images.filter((img) => img.captureMethod === "LIVE").length : images.length
         if (qualifying < 1) {
-            throw AppError.badRequest("Upload a photo before completing this item — your answer requires one")
+            throw AppError.badRequest("Upload a photo before completing this item. Your answer requires one")
         }
     }
 
     if (actions.includes("ASK_REASON")) {
         const reason = values.conditionalReasonValue ?? item.conditionalReasonValue
         if (!reason?.trim()) {
-            throw AppError.badRequest("Enter a reason before completing this item — your answer requires one")
+            throw AppError.badRequest("Enter a reason before completing this item. Your answer requires one")
         }
     }
 }
@@ -680,6 +680,11 @@ export const syncVerificationStatus = async (instanceId: string) => {
     const [instance] = await db.select().from(checklistInstances).where(eq(checklistInstances.id, instanceId)).limit(1)
     if (!instance) return
 
+    // The first time the whole run is done is the time it counts as finished, whatever happens to it after.
+    if (allDone && !instance.completedFirstAt) {
+        await db.update(checklistInstances).set({ completedFirstAt: new Date() }).where(eq(checklistInstances.id, instanceId))
+    }
+
     // Finishing the last question no longer sends the run for review by itself: the person confirms
     // with Submit (see submit() below), so nothing leaves their hands by accident. This only keeps a
     // submitted run honest: once something on it is reopened (an admin reopen, a live edit adding a
@@ -689,6 +694,12 @@ export const syncVerificationStatus = async (instanceId: string) => {
         await db.update(checklistInstances)
             .set({ verificationStatus: "NOT_SUBMITTED", submittedAt: null, submittedBy: null, approvalReminderSentAt: null, approvalEscalatedAt: null, updatedAt: new Date() })
             .where(eq(checklistInstances.id, instanceId))
+        // On a run from a past day, an unfinished, not-submitted run counts as missed and its people are
+        // locked out. Reopening an answer is the admin asking for it to be fixed, so it goes back as sent
+        // back (REJECTED), which stays workable like any other send-back.
+        if ((await missedInstanceIds([instanceId])).size) {
+            await db.update(checklistInstances).set({ verificationStatus: "REJECTED" }).where(eq(checklistInstances.id, instanceId))
+        }
     }
 }
 
@@ -1123,10 +1134,13 @@ export const checklistInstanceService = {
         if (!rows.length) return { data: [], meta: buildMeta(p, total) }
 
         const submissionIds = rows.map((r) => r.id)
+        // Fixed order, so the tiles do not reshuffle between loads.
         const accessories = await db.select().from(checklistInstanceItemSubmissionAccessories)
             .where(inArray(checklistInstanceItemSubmissionAccessories.submissionId, submissionIds))
+            .orderBy(asc(checklistInstanceItemSubmissionAccessories.createdAt), asc(checklistInstanceItemSubmissionAccessories.id))
         const images = await db.select().from(checklistInstanceItemSubmissionImages)
             .where(inArray(checklistInstanceItemSubmissionImages.submissionId, submissionIds))
+            .orderBy(asc(checklistInstanceItemSubmissionImages.createdAt), asc(checklistInstanceItemSubmissionImages.id))
 
         const data = rows.map((r) => ({
             ...r,
@@ -1321,6 +1335,7 @@ export const checklistInstanceService = {
             total: sql<number>`COUNT(${checklistInstanceItems.id})`,
             done: sql<number>`COALESCE(SUM(${checklistInstanceItems.isDone}), 0)`,
             lastDoneAt: sql<Date | null>`MAX(${checklistInstanceItems.completedAt})`.mapWith(checklistInstanceItems.completedAt),
+            completedFirstAt: checklistInstances.completedFirstAt,
             // Answer quality, the same weighted rule as the compliance report: a critical question counts
             // double and a sent-back one counts as a failure.
             wScored: weightedScoredExpr,
@@ -1332,6 +1347,7 @@ export const checklistInstanceService = {
             .groupBy(
                 checklistInstances.id, checklistInstances.definitionId, checklistInstances.title, checklistInstances.storeId, checklistInstances.scopeKey,
                 checklistInstances.periodStart, checklistInstances.periodEnd, checklistInstances.cutoffTime, checklistInstances.opensTime,
+                checklistInstances.completedFirstAt,
             )
         if (!runs.length) return empty
 
@@ -1360,7 +1376,9 @@ export const checklistInstanceService = {
             const total = Number(r.total), done = Number(r.done)
             const complete = total > 0 && done === total
             const deadline = deadlineOf(r)
-            if (complete) return r.lastDoneAt && r.lastDoneAt.getTime() > deadline ? "late" : "done"
+            // Late is judged from the first time it was all done, not from the latest answer.
+            const doneAt = r.completedFirstAt ?? r.lastDoneAt
+            if (complete) return doneAt && doneAt.getTime() > deadline ? "late" : "done"
             return now > deadline ? "missed" : "open"
         }
         const pctOf = (good: number, scored: number) => (scored > 0 ? Math.round((good / scored) * 100) : null)
@@ -1485,12 +1503,6 @@ export const checklistInstanceService = {
                 compliance: pctOf(totals.good, totals.scored),
             },
         }
-    },
-
-    /** The Monday-to-Sunday view the old page asked for: the same report over seven days. */
-    async weeklyReport(user: AccessTokenPayload, weekStart: string, storeId?: string, departmentId?: string) {
-        const end = new Date(Date.parse(`${weekStart}T00:00:00.000Z`) + 6 * 86_400_000).toISOString().slice(0, 10)
-        return this.periodReport(user, weekStart, end, storeId, departmentId)
     },
 
     // GET /checklist-instances/:id/item-history. Every save and reopen of a question is already written
@@ -1856,6 +1868,8 @@ export const checklistInstanceService = {
                 verificationNote: note,
                 approvalReminderSentAt: null,
                 approvalEscalatedAt: null,
+                // Sent back: once it is fixed and left unsubmitted again, the person gets the nudge again.
+                submitReminderSentAt: null,
                 rejectionCount: sql`${checklistInstances.rejectionCount} + 1`,
                 updatedAt: now,
             }).where(eq(checklistInstances.id, id))
@@ -1957,6 +1971,7 @@ export const checklistInstanceService = {
                     verificationNote: input.note ?? null,
                     approvalReminderSentAt: null,
                     approvalEscalatedAt: null,
+                    submitReminderSentAt: null,
                     rejectionCount: sql`${checklistInstances.rejectionCount} + 1`,
                     updatedAt: now,
                 }).where(eq(checklistInstances.id, id))

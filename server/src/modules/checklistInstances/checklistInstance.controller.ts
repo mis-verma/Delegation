@@ -1,6 +1,6 @@
 import type { Request, Response } from "express"
 import { checklistInstanceService, type InstanceRecurrence, type InstanceVerificationStatus } from "./checklistInstance.service.js"
-import { setChecklistInstanceItemDoneSchema, verifyChecklistInstanceSchema, sendBackChecklistInstanceSchema, waiveChecklistItemSchema, checklistInstanceComplianceReportQuerySchema, checklistInstanceByStoreReportQuerySchema, checklistInstanceScoreRunsQuerySchema, listChecklistInstancesQuerySchema, listPendingVerificationQuerySchema, weeklyReportQuerySchema, periodReportQuerySchema, decisionsQuerySchema, summaryQuerySchema } from "./checklistInstance.validation.js"
+import { setChecklistInstanceItemDoneSchema, verifyChecklistInstanceSchema, sendBackChecklistInstanceSchema, waiveChecklistItemSchema, checklistInstanceComplianceReportQuerySchema, checklistInstanceByStoreReportQuerySchema, checklistInstanceScoreRunsQuerySchema, listChecklistInstancesQuerySchema, listPendingVerificationQuerySchema, periodReportQuerySchema, decisionsQuerySchema, summaryQuerySchema } from "./checklistInstance.validation.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
 import { resolveChecklistReportScope } from "./checklistReportScope.js"
 import { checklistReportService } from "./checklistReport.service.js"
@@ -50,15 +50,14 @@ export const checklistInstanceController = {
     // the explicit "show me the full audit history anyway" toggle. Still capped by role regardless
     // of what the client sends, in case the route's own gate ever loosens.
     list: asyncHandler(async (req: Request, res: Response) => {
-        const { definitionId, storeId, assigneeId } = req.query
-        const { page, limit, from, to, status } = listChecklistInstancesQuerySchema.parse(req.query)
+        const { page, limit, from, to, status, definitionId, storeId, assigneeId } = listChecklistInstancesQuerySchema.parse(req.query)
         const isOrgWide = req.user!.role === "ADMIN" || req.user!.role === "PC"
         const includeDeleted = isOrgWide && (req.query.includeDeleted === "1" || req.query.includeDeleted === "true")
         const result = await checklistInstanceService.listAll({
-            definitionId: definitionId as string | undefined,
-            storeId: storeId as string | undefined,
+            definitionId,
+            storeId,
             status,
-            assigneeId: assigneeId as string | undefined,
+            assigneeId,
             // A department head (MANAGER/SENIOR) only ever gets their own department's checklists,
             // whatever the query says. No department on their record means no match at all: the id
             // below belongs to no department, so the filter resolves to an empty result instead of
@@ -83,12 +82,12 @@ export const checklistInstanceController = {
     // GET /checklist-instances/audit-history?from=&to=&storeId=&page=&limit= (ADMIN/PC everything,
     // MANAGER/SENIOR their own department's people: the scoping lives in the service).
     auditHistory: asyncHandler(async (req: Request, res: Response) => {
-        const { page, limit, from, to } = listChecklistInstancesQuerySchema.parse(req.query)
+        const { page, limit, from, to, storeId, personId } = listChecklistInstancesQuerySchema.parse(req.query)
         const result = await checklistInstanceService.auditHistory(req.user!, {
             from,
             to,
-            storeId: req.query.storeId as string | undefined,
-            personId: req.query.personId as string | undefined,
+            storeId,
+            personId,
             page,
             limit,
         })
@@ -180,11 +179,6 @@ export const checklistInstanceController = {
         const { from, to, storeId, departmentId } = periodReportQuerySchema.parse(req.query)
         res.json({ success: true, data: await checklistInstanceService.periodReport(req.user!, from, to, storeId, departmentId) })
     }),
-    weeklyReport: asyncHandler(async (req: Request, res: Response) => {
-        const { weekStart, storeId, departmentId } = weeklyReportQuerySchema.parse(req.query)
-        res.json({ success: true, data: await checklistInstanceService.weeklyReport(req.user!, weekStart, storeId, departmentId) })
-    }),
-
     getOne: asyncHandler(async (req: Request, res: Response) => {
         const instance = await checklistInstanceService.getById(req.params.id, req.user!)
         res.json({ success: true, data: instance })

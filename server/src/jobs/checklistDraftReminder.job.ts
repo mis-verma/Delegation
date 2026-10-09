@@ -11,17 +11,13 @@ import { db } from "../config/db.js"
 import { checklistDefinitions, checklistInstances, checklistInstanceAssignees, checklistInstanceItems, checklistInstanceReviewers } from "../db/schema/index.js"
 import { notificationService } from "../modules/notifications/notification.service.js"
 import { env } from "../config/env.js"
+import { deadlineExpr, localNowExpr, parentNotDeletedExpr } from "../modules/checklistInstances/checklistInstance.service.js"
+import { missedFromPastDayExpr } from "../modules/checklistInstances/checklistMissedRun.js"
 
 const REMINDER_BATCH_SIZE = 500;
 
-// Same deadline rule as checklistOverdueNotifier.job.ts — re-expressed here rather than shared,
-// see that file's comment for why. Keep both in sync if the deadline rule ever changes.
-const deadlineExpr = sql`CASE
-    WHEN ${checklistInstances.cutoffTime} IS NULL THEN ${checklistInstances.periodEnd}
-    WHEN ${checklistInstances.opensTime} IS NOT NULL AND ${checklistInstances.cutoffTime} < ${checklistInstances.opensTime}
-        THEN TIMESTAMP(DATE_ADD(DATE(${checklistInstances.periodStart}), INTERVAL 1 DAY), CONCAT(${checklistInstances.cutoffTime}, ':00'))
-    ELSE TIMESTAMP(DATE(${checklistInstances.periodStart}), CONCAT(${checklistInstances.cutoffTime}, ':00'))
-END`
+// Deadline and org-local "now" are the shared expressions, so a reminder never goes to someone whose
+// run is already locked.
 
 const notifyDraftInstances = async () => {
     if (env.CHECKLIST_DRAFT_REMINDER_HOURS <= 0) return
@@ -41,7 +37,9 @@ const notifyDraftInstances = async () => {
         .innerJoin(checklistInstanceItems, eq(checklistInstanceItems.instanceId, checklistInstances.id))
         .where(and(
             isNull(checklistInstances.draftReminderSentAt),
-            sql`${deadlineExpr} > NOW()`,
+            sql`${deadlineExpr} > ${localNowExpr}`,
+            sql`NOT ${missedFromPastDayExpr}`,
+            parentNotDeletedExpr,
         ))
         .groupBy(checklistInstances.id, checklistInstances.title, checklistInstances.storeId)
         .having(sql`SUM(CASE WHEN ${checklistInstanceItems.isDone} THEN 1 ELSE 0 END) > 0
