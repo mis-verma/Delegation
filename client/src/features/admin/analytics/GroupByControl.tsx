@@ -145,7 +145,7 @@ export const AnalyticsControlBar = ({ groupBy, onGroupByChange, range, onRangeCh
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
         <GroupByTabs groupBy={groupBy} onGroupByChange={onGroupByChange} />
 
-        <div role="group" aria-label="Time period" className="flex items-center gap-2 overflow-x-auto sm:flex-wrap sm:overflow-visible -mx-1 px-1 pb-0.5 [scrollbar-width:none] [&>*]:shrink-0">
+        <div role="group" aria-label="Time period" className="flex flex-wrap items-center gap-2">
           {PRESETS.map(({ key, label }) => (
             <ToggleChip key={key} on={preset === key} onClick={() => applyPreset(key)}>
               {label}
@@ -158,22 +158,22 @@ export const AnalyticsControlBar = ({ groupBy, onGroupByChange, range, onRangeCh
             onChange={handleChange}
             placeholder="Custom"
             placeholderIsValue
-            className="w-auto"
-            triggerClassName={`h-11 sm:h-8 w-auto gap-1.5 px-3 rounded-full text-xs font-display ${isCustom ? 'border-primary-500/50 bg-primary-500/10' : ''}`}
+            className="w-auto shrink-0"
+            triggerClassName={`h-11 sm:h-8 w-auto gap-1.5 pl-2.5 ${hasRange ? "pr-10" : "pr-3"} rounded-full text-xs font-display [&>span:first-child]:size-4 [&>span:first-child]:bg-transparent [&>span:last-child]:overflow-visible [&>span:last-child]:whitespace-nowrap ${isCustom ? 'border-primary-500/50 bg-primary-500/10 text-primary-700 dark:text-primary-300' : 'text-text-secondary hover:border-border-hover'}`}
           />
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between max-sm:justify-end gap-x-4 gap-y-2">
-        {/* The chosen range and grouping are already said by the chips above, so a phone skips this row and
-            keeps its screen for the numbers. */}
-        <div className="hidden sm:flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        {/* Which window the numbers cover. A phone shows it too: with no chip lit (the default) nothing else
+            says it. Only the "By month" chip, which repeats the tabs above, is left out there. */}
+        <div className="flex flex-wrap items-center gap-2">
           <ActiveRangeBadge
             from={range.from && range.to ? range.from.toISOString() : undefined}
             to={range.from && range.to ? endOfDay(range.to).toISOString() : undefined}
             emptyLabel={defaultWindowLabel(groupBy)}
           />
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full border border-border bg-surface-hover/60 text-xs font-display font-medium text-text-muted">
+          <span className="hidden sm:inline-flex items-center px-2.5 py-1 rounded-full border border-border bg-surface-hover/60 text-xs font-display font-medium text-text-muted">
             By {groupLabel}
           </span>
         </div>
