@@ -40,12 +40,17 @@ export const ReviewActions = ({ onSendBack, onApprove, busy, approving, pickedCo
       onClick={onSendBack}
     >
       <CornerUpLeft size={14} aria-hidden />
-      {pickedCount > 0 ? `Send back ${pickedCount} ${pickedCount === 1 ? 'question' : 'questions'}` : 'Send back'}
+      {pickedCount > 0 ? (
+        <>
+          Send back <span className="sm:hidden">({pickedCount})</span>
+          <span className="hidden sm:inline">{pickedCount} {pickedCount === 1 ? 'question' : 'questions'}</span>
+        </>
+      ) : 'Send back'}
       {showKeys && <Key>S</Key>}
     </Button>
     <Button
       size="sm"
-      className={cn('bg-success text-white hover:bg-success/90 hover:text-white', stretch && 'flex-1 sm:flex-none')}
+      className={cn('bg-success-strong text-white hover:bg-success-strong/90 hover:text-white', stretch && 'flex-1 sm:flex-none')}
       disabled={busy || pickedCount > 0}
       title={pickedCount > 0 ? 'Untick the questions first, or send them back' : undefined}
       isLoading={approving}

@@ -44,11 +44,6 @@ export const STATUS_ICON = {
 } satisfies Record<Task['status'], React.ReactNode>;
 
 
-// The statuses a "Move to" menu offers, in board order. Lives here rather than in TaskCard now
-// that the card, the table view and the timeline view all render the same menu — three private
-// copies of this array is exactly how the modules' stat tiles drifted apart before. Deliberately
-// stops at pending_approval: done is reachable only through the single-stage verify() decision,
-// never a raw "move to" pick.
 export const MOVABLE_STATUSES: Task['status'][] = ['todo', 'in_progress', 'on_hold', 'pending_approval', 'done'];
 
 
@@ -99,47 +94,31 @@ export const STATUS_CONFIG = {
 >;
 
 
-// Per-task completion weight for scoring/reporting: Done counts fully, In Progress/Pending
-// Approval count as half-credit (whether or not its due date has already passed — being actively
-// worked still counts for something), and anything not yet started (todo) counts as zero,
-// overdue or not. Only an explicit "done" status is full credit.
 export const TASK_SCORE: Record<Task['status'], number> = {
   draft: 0,
   todo: 0,
-  // Weighted by how far along the work is: started is a quarter, handed in for approval is three
-  // quarters, only approved-and-done is the full mark. (Both used to be 50, so submitting for approval
-  // earned nothing over merely starting.)
+  
   in_progress: 0.25,
   pending_approval: 0.75,
   done: 1,
-  // Paused work earns nothing extra, and the due date keeps running while it is held.
   on_hold: 0,
 };
 
-// A due date picked on a calendar has no time of its own. Saved as midnight it made a delegation due
-// "today" overdue from 00:00 that same day; saving the last minute of the chosen day means it is due
-// all day and only overdue once the day is over, on the card, the dashboard and the server alike.
 export const endOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 0, 0);
 
 export const taskScorePercent = (status: Task['status']) => Math.round(TASK_SCORE[status] * 100);
 
 export const NEXT_STATUS: Record<Task['status'], Task['status'] | null> = {
-  // "Advance to To Do" is this delegation's Publish action — same mechanism (and same remark
-  // prompt) as any other status move, not a special case.
+
   draft: 'todo',
   todo: 'in_progress',
   in_progress: 'pending_approval',
-  // pending_approval -> done happens only through TaskVerifyActions (the single-stage verify()
-  // decision), never this raw "advance" button.
   pending_approval: null,
   done: null,
-  // Resuming is the "advance" from a hold.
   on_hold: 'in_progress',
 };
 
-// Self-service "undo" — deliberately only in_progress -> todo. Reverting out of pending_approval
-// or done has to go through TaskVerifyActions (REJECT), not a raw status edit, since that path
-// also records a verification note and notifies the assignee.
+
 export const PREV_STATUS: Record<Task['status'], Task['status'] | null> = {
   draft: null,
   todo: null,

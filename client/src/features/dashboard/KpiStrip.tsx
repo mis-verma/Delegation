@@ -165,7 +165,7 @@ const MobileTile = ({ view }: MobileTileProps) => {
       <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
         {view.total != null && (
           <span className="text-xs font-display font-medium text-white/70 tabular-nums">
-            of {view.total} {view.totalLabel === 'Total' ? 'total' : 'today'}
+            {view.totalLabel === 'Total' ? `of ${view.total} total` : `${view.total} today`}
           </span>
         )}
         {view.overdue > 0 && (

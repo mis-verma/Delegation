@@ -60,14 +60,14 @@ interface QuickFilterStatsProps<K extends string> {
   onClearFilter?: () => void;
 }
 
-// Phone row: equal-width cells, one per tile, never scrolls. Up to five fit one row at 360px;
-// six or more wrap to rows of three rather than shrinking cells below a readable width.
-const mobileColumns = (count: number) => (count <= 5 ? count : 3);
+// Phone row: equal-width cells, one per tile, never scrolls. Up to four fit one row; five or more wrap
+// to rows of three, because a fifth cell at 320px is too narrow for "Completed" and gets clipped.
+const mobileColumns = (count: number) => (count <= 4 ? count : 3);
 
 /** Same grid, same tile boxes — so nothing reflows when the counts arrive. */
 const QuickFilterStatsSkeleton = ({ count, variant }: { count: number; variant: 'default' | 'navy' }) => (
   <>
-    <div className="grid sm:hidden gap-1" style={{ gridTemplateColumns: `repeat(${mobileColumns(count)}, minmax(0, 1fr))` }}>
+    <div className="grid sm:hidden gap-2" style={{ gridTemplateColumns: `repeat(${mobileColumns(count)}, minmax(0, 1fr))` }}>
       {Array.from({ length: count }).map((_, i) => (
         <Skeleton key={i} className="h-[52px] rounded-xl" />
       ))}
@@ -138,7 +138,7 @@ export function QuickFilterStats<K extends string>({
           label) instead of a horizontally-scrolling pill strip: the strip always sliced its last
           chip at the screen edge ("22 Du…"), which read as broken. Same filter behavior and colors.
           Desktop/tablet keep the full card grid untouched. */}
-      <div className="grid sm:hidden gap-1" style={{ gridTemplateColumns: `repeat(${mobileColumns(shownTiles.length)}, minmax(0, 1fr))` }}>
+      <div className="grid sm:hidden gap-2" style={{ gridTemplateColumns: `repeat(${mobileColumns(shownTiles.length)}, minmax(0, 1fr))` }}>
         {shownTiles.map((tile) => {
           const { key, label } = tile;
           const isTotalTile = hasTotal && key === 'all';

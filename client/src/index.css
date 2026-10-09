@@ -70,6 +70,8 @@
   --color-text-muted: #64748b;
   --color-text-light: #94a3b8;
   --color-white: #ffffff;
+  /* Filled success buttons: the plain success green is too light for white text. */
+  --color-success-strong: #047857;
 
   /* --- Typography --- */
   --font-sans: "Inter", "Inter Fallback", "Noto Sans Devanagari", "Helvetica Neue", Arial, sans-serif;

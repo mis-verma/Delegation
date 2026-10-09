@@ -146,7 +146,7 @@ export const ChecklistQueueRow = memo(function ChecklistQueueRow({
               <CornerUpLeft size={14} aria-hidden />
               Send back
             </Button>
-            <Button size="sm" className="bg-success text-white hover:bg-success/90 hover:text-white" onClick={() => onApprove(id)}>
+            <Button size="sm" className="bg-success-strong text-white hover:bg-success-strong/90 hover:text-white" onClick={() => onApprove(id)}>
               <Check size={14} aria-hidden />
               Approve
             </Button>

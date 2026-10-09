@@ -95,13 +95,15 @@ interface ScoreTileProps {
   change?: number | null;
 }
 
-// A small dial with the number inside and the name under it, three across even on a phone. No pills, no
-// sentences: the colour and the number say how it is going, and the detail is in the tooltip.
+// A small dial, then the number, the name and the counts under it, three across even on a phone. The dial
+// is a picture only (its end labels would be about 3px at this size); everything you read is real text at
+// a readable size and wraps instead of being cut off.
 const ScoreTile = ({ title, score, detail, loading, href, change }: ScoreTileProps) => {
   // A small count still gets its colour: one finished item out of one is a full, green score.
   const tone = score === null ? 'neutral' : rateTone(score, Number.MAX_SAFE_INTEGER);
   const [from, to] = RING[tone];
-  const tileClass = `flex min-w-0 flex-col items-center gap-1 rounded-lg border border-border bg-surface-hover/30 p-2 sm:p-3 ${href ? 'transition-colors hover:border-border-hover outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40' : ''}`;
+  const tileClass = `flex min-w-0 flex-col items-center gap-1.5 rounded-lg border border-border bg-surface-hover/30 p-2.5 text-center sm:p-3 ${href ? 'transition-colors hover:border-border-hover outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40' : ''}`;
+  const label = score === null ? `${title}: nothing due` : `${title}: ${score} percent${detail ? `, ${detail}` : ''}`;
   const body = (
     <>
       <SemiGauge
@@ -109,25 +111,23 @@ const ScoreTile = ({ title, score, detail, loading, href, change }: ScoreTilePro
         showFill={score !== null}
         gradientFrom={from}
         gradientTo={to}
-        ariaLabel={score === null ? `${title}: nothing due` : `${title}: ${score} percent`}
-        className="max-w-24 sm:max-w-32"
-      >
-        <span className="font-display text-sm sm:text-xl font-extrabold leading-none text-text">{loading ? '' : score === null ? '–' : `${score}%`}</span>
-      </SemiGauge>
-      <span className="flex max-w-full items-center gap-1 text-xs font-display font-semibold text-text-secondary">
-        <span className="truncate">{title}</span>
-        {change != null && change !== 0 && (
-          <span className={`inline-flex shrink-0 items-center tabular-nums ${change > 0 ? 'text-success' : 'text-danger'}`} title="Compared with the previous period">
-            {change > 0 ? <ArrowUp className="size-3" aria-hidden="true" /> : <ArrowDown className="size-3" aria-hidden="true" />}
-            {Math.abs(change)}
-          </span>
-        )}
-      </span>
+        endLabels={false}
+        className="max-w-20 sm:max-w-28"
+      />
+      <span className="t-figure font-display font-extrabold tabular-nums text-text">{loading ? ' ' : score === null ? '–' : `${score}%`}</span>
+      <span className="t-meta font-display font-semibold leading-snug text-text-secondary break-words">{title}</span>
+      {!loading && score !== null && detail && <span className="t-meta font-display leading-snug text-text-muted break-words">{detail}</span>}
+      {change != null && change !== 0 && (
+        <span className={`inline-flex items-center t-meta font-display font-bold tabular-nums ${change > 0 ? 'text-success' : 'text-danger'}`} title="Compared with the previous period">
+          {change > 0 ? <ArrowUp className="size-3" aria-hidden="true" /> : <ArrowDown className="size-3" aria-hidden="true" />}
+          {Math.abs(change)}
+        </span>
+      )}
     </>
   );
   return href
-    ? <Link to={href} title={detail || undefined} aria-label={`${title}: open the late items`} className={tileClass}>{body}</Link>
-    : <div title={detail || undefined} className={tileClass}>{body}</div>;
+    ? <Link to={href} aria-label={`${label}. Open the late items`} className={tileClass}>{body}</Link>
+    : <div role="group" aria-label={label} className={tileClass}>{body}</div>;
 };
 
 /**

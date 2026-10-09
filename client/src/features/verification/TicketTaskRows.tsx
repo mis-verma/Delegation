@@ -148,9 +148,9 @@ const QueueRow = ({ icon, title, facts, chips, note, evidence, onOpen, onApprove
             <span className="flex items-center justify-center size-9 rounded-lg bg-primary-500/10 text-primary-600 dark:text-primary-300 shrink-0">{icon}</span>
             <span className="flex flex-col gap-1.5 flex-1 min-w-0">
               <span className="text-sm font-display font-semibold text-text line-clamp-2 leading-snug group-hover/info:text-primary-600 dark:group-hover/info:text-primary-400 transition-colors">{title}</span>
-              <span className="flex items-center gap-1.5 text-xs font-display text-text-muted">
-                <UserRound size={12} className="shrink-0 text-text-light" aria-hidden />
-                <span className="min-w-0 truncate">{facts}</span>
+              <span className="flex items-start gap-1.5 text-xs font-display text-text-muted">
+                <UserRound size={12} className="shrink-0 mt-0.5 text-text-light" aria-hidden />
+                <span className="min-w-0 line-clamp-2">{facts}</span>
               </span>
               <span className="flex items-center gap-1.5 flex-wrap">
                 {chips}
@@ -174,12 +174,12 @@ const QueueRow = ({ icon, title, facts, chips, note, evidence, onOpen, onApprove
         </div>
 
         {!rejecting && (
-          <div className="flex items-center gap-2 self-end sm:self-start shrink-0">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:self-start sm:shrink-0">
             <button
               type="button"
               onClick={onToggleExpanded}
               aria-expanded={expanded}
-              className="inline-flex items-center gap-1 h-11 sm:h-9 px-2.5 rounded-lg text-xs font-display font-semibold text-text-secondary hover:bg-surface-hover hover:text-text transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+              className="inline-flex items-center justify-center gap-1 h-11 sm:h-9 px-2.5 w-full sm:w-auto rounded-lg text-xs font-display font-semibold text-text-secondary hover:bg-surface-hover hover:text-text transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
             >
               <ChevronDown size={14} strokeWidth={2.5} className={cn('transition-transform duration-200', expanded && 'rotate-180')} aria-hidden />
               {expanded ? 'Hide' : 'Checklist'}
@@ -187,7 +187,7 @@ const QueueRow = ({ icon, title, facts, chips, note, evidence, onOpen, onApprove
             <Button
               size="sm"
               variant="outline"
-              className="pointer-coarse:min-h-11 border-danger/30 text-danger hover:bg-danger/10 hover:border-danger/50 hover:text-danger"
+              className="flex-1 sm:flex-none pointer-coarse:min-h-11 border-danger/30 text-danger hover:bg-danger/10 hover:border-danger/50 hover:text-danger"
               onClick={() => setRejecting(true)}
             >
               <X size={14} aria-hidden />
@@ -195,7 +195,7 @@ const QueueRow = ({ icon, title, facts, chips, note, evidence, onOpen, onApprove
             </Button>
             <Button
               size="sm"
-              className="pointer-coarse:min-h-11 bg-success text-white hover:bg-success/90 hover:text-white"
+              className="flex-1 sm:flex-none pointer-coarse:min-h-11 bg-success-strong text-white hover:bg-success-strong/90 hover:text-white"
               onClick={onApprove}
             >
               <Check size={14} aria-hidden />
