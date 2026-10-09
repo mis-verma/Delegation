@@ -1,5 +1,6 @@
 import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
+import { useReplayOnChange } from '../../lib/useReplayOnChange';
 import {
   LayoutDashboard,
   Contact,
@@ -129,6 +130,8 @@ const activeChildTo = (children: AdminNavChild[] | undefined, pathname: string) 
 export const AdminLayout = () => {
   const { logout, user } = useAuth();
   const location = useLocation();
+  const pageRef = useRef<HTMLDivElement>(null);
+  useReplayOnChange(pageRef, location.pathname, location.search);
 
   const initials = (user?.name ?? 'U')
     .split(' ')
@@ -645,8 +648,9 @@ export const AdminLayout = () => {
                 orchestration — and with it `mode="wait"`, which had been delaying every incoming
                 admin page until the outgoing one finished leaving. */}
             <div
+              ref={pageRef}
               key={location.pathname}
-              className="w-full animate-in fade-in slide-in-from-bottom-3 duration-250 ease-out"
+              className="w-full animate-in fade-in slide-in-from-bottom-2 duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
             >
               <Suspense fallback={<RouteFallback />}>
                 <PageHeaderTitleContext.Provider value={false}>
