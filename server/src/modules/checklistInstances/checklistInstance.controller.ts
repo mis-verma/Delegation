@@ -179,6 +179,11 @@ export const checklistInstanceController = {
         const { from, to, storeId, departmentId } = periodReportQuerySchema.parse(req.query)
         res.json({ success: true, data: await checklistInstanceService.periodReport(req.user!, from, to, storeId, departmentId) })
     }),
+    // GET /checklist-instances/reports/departments?from=&to=&storeId=
+    departmentScores: asyncHandler(async (req: Request, res: Response) => {
+        const { from, to, storeId } = periodReportQuerySchema.parse(req.query)
+        res.json({ success: true, data: await checklistInstanceService.periodDepartmentScores(req.user!, from, to, storeId) })
+    }),
     getOne: asyncHandler(async (req: Request, res: Response) => {
         const instance = await checklistInstanceService.getById(req.params.id, req.user!)
         res.json({ success: true, data: instance })

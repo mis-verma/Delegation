@@ -410,6 +410,10 @@ export type WeeklyCell = {
   rate?: number | null;
   completion?: number | null;
 };
+/** One store's or department's totals over a report window. */
+export type ReportScore = { due: number; onTime: number; late: number; missed: number; open?: number; rate: number | null; completion: number | null; compliance: number | null };
+export type StoreScore = ReportScore & { storeId: string; storeName: string };
+export type DepartmentScore = ReportScore & { departmentId: string; departmentName: string };
 export type WeeklyReport = {
   from: string;
   to: string;
@@ -420,6 +424,7 @@ export type WeeklyReport = {
   days: string[];
   holidays: Record<string, string>;
   rows: { definitionId: string; scopeKey: string; name: string; storeId: string; storeName: string; cells: WeeklyCell[]; /** Runs still open before their cutoff: left out of the rates. */ open?: number; rate: number | null; completion: number | null; compliance: number | null }[];
+  byStore: StoreScore[];
   summary: { due: number; onTime: number; late: number; missed: number; /** Runs still open before their cutoff: left out of the rates. */ open?: number; rate: number | null; completion: number | null; compliance: number | null };
 };
 
@@ -507,6 +512,10 @@ export const checklistInstanceApi = {
   /** Fill report over any window of up to a year, as day columns or month columns. */
   getPeriodReport: (from: string, to: string, storeId?: string, departmentId?: string) =>
     apiFetch<ApiResponse<WeeklyReport>>(`/checklist-instances/reports/period${buildQuery({ from, to, storeId, departmentId })}`),
+
+  /** Department scoreboard over the same window as the fill report. */
+  getDepartmentScores: (from: string, to: string, storeId?: string) =>
+    apiFetch<ApiResponse<DepartmentScore[]>>(`/checklist-instances/reports/departments${buildQuery({ from, to, storeId })}`),
 
   getForDefinition: (definitionId: string, paging: PageParams = {}) =>
     apiFetch<ApiResponse<ChecklistInstance[]> & { meta: ChecklistInstancePage }>(

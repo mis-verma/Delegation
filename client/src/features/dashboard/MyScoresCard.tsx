@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { ArrowDown, ArrowUp, ChartColumn, ChartLine, ChevronDown, ChevronLeft, ChevronRight, CircleGauge, ClipboardCheck, Download, FileSpreadsheet, FileText, Ticket as TicketIcon, Users, type LucideIcon } from 'lucide-react';
+import { ArrowDown, ArrowUp, SlidersHorizontal, ChartColumn, ChartLine, ChevronDown, ChevronLeft, ChevronRight, CircleGauge, ClipboardCheck, Download, FileSpreadsheet, FileText, Ticket as TicketIcon, Users, type LucideIcon } from 'lucide-react';
 import { Button, Combobox, type ComboboxOption } from '../../components';
 import { SemiGauge } from '../../components/semiGauge/SemiGauge';
 import { InfoHint } from '../../components/infoHint/InfoHint';
@@ -363,12 +363,12 @@ export const MyScoresCard = () => {
           the left, the controls as a panel on the right. */}
       <div className="flex flex-col gap-3 @4xl:grid @4xl:grid-cols-[minmax(0,1fr)_20rem] @4xl:grid-rows-[auto_1fr] @4xl:gap-x-5">
       {/* The date steps stay in view: the day or week is the thing people change most. */}
-      <div className="flex w-full items-center gap-1 @4xl:col-start-1 @4xl:row-start-1">
-        <button type="button" onClick={() => setOffset((o) => o - 1)} aria-label={`Previous ${period}`} className="inline-flex size-9 pointer-coarse:size-11 items-center justify-center rounded-lg border border-border text-text-muted hover:border-border-hover hover:text-text">
+      <div className="flex w-full items-center gap-1 rounded-xl border border-border bg-surface-hover/30 p-1 @4xl:col-start-1 @4xl:row-start-1">
+        <button type="button" onClick={() => setOffset((o) => o - 1)} aria-label={`Previous ${period}`} className="inline-flex size-9 pointer-coarse:size-11 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-surface hover:text-text outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40">
           <ChevronLeft className="size-4" aria-hidden="true" />
         </button>
-        <span className="min-w-0 flex-1 truncate text-center text-xs font-display font-bold text-text">{range.label}</span>
-        <button type="button" onClick={() => setOffset((o) => Math.min(0, o + 1))} disabled={offset >= 0} aria-label={`Next ${period}`} className="inline-flex size-9 pointer-coarse:size-11 items-center justify-center rounded-lg border border-border text-text-muted hover:border-border-hover hover:text-text disabled:opacity-40 disabled:hover:border-border">
+        <span className="min-w-0 flex-1 truncate text-center text-sm font-display font-semibold text-text">{range.label}</span>
+        <button type="button" onClick={() => setOffset((o) => Math.min(0, o + 1))} disabled={offset >= 0} aria-label={`Next ${period}`} className="inline-flex size-9 pointer-coarse:size-11 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-surface hover:text-text outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-40 disabled:hover:bg-transparent">
           <ChevronRight className="size-4" aria-hidden="true" />
         </button>
       </div>
@@ -383,12 +383,19 @@ export const MyScoresCard = () => {
           onClick={toggleMore}
           aria-expanded={moreOpen}
           aria-controls="scores-more"
-          className="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg px-3 text-left outline-none transition-colors hover:bg-surface-hover/40 focus-visible:ring-2 focus-visible:ring-primary-500/40 @4xl:pointer-events-none @4xl:hover:bg-transparent"
+          className="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left outline-none transition-colors hover:bg-surface-hover/40 focus-visible:ring-2 focus-visible:ring-primary-500/40 @4xl:pointer-events-none @4xl:hover:bg-transparent"
         >
-          <span className="min-w-0">
-            <span className="block text-xs font-display font-semibold text-text">{canExportReport ? 'Period, measure and people' : 'Period and measure'}</span>
-            <span className="block truncate text-xs font-medium text-text-muted">
-              {range.label} · {METRIC_LABEL[metric]} · {scope === 'person' && !targetId ? 'Me' : data?.name ?? SCOPE_LABEL[scope]}
+          <span className="flex min-w-0 items-center gap-2.5">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-500/10 text-primary-700 ring-1 ring-primary-500/15 dark:text-primary-300">
+              <SlidersHorizontal className="size-4" aria-hidden="true" />
+            </span>
+            <span className="min-w-0">
+              <span className="block t-meta font-display font-semibold text-text">{canExportReport ? 'Period, measure and people' : 'Period and measure'}</span>
+              <span className="mt-1 flex flex-wrap items-center gap-1">
+                {[range.label, METRIC_LABEL[metric], scope === 'person' && !targetId ? 'Me' : data?.name ?? SCOPE_LABEL[scope]].map((chip) => (
+                  <span key={chip} className="max-w-full truncate rounded-full bg-primary-500/10 px-2 py-0.5 t-meta font-display font-semibold text-primary-700 dark:text-primary-300">{chip}</span>
+                ))}
+              </span>
             </span>
           </span>
           <ChevronDown className={cn('size-4 shrink-0 text-text-muted transition-transform duration-300 @4xl:hidden', moreOpen && 'rotate-180')} aria-hidden="true" />
@@ -428,6 +435,7 @@ export const MyScoresCard = () => {
                       onClick={() => setCompare(!compare)}
                       aria-pressed={compare}
                       title="Show the change since the previous period"
+                      aria-label="Compare with the previous period"
                       className={`inline-flex shrink-0 h-9 pointer-coarse:h-11 items-center gap-1 rounded-lg border px-2.5 text-xs font-display font-bold transition-colors ${compare ? 'border-primary-500 bg-primary-500/10 text-primary-700 dark:text-primary-300' : 'border-border text-text-muted hover:border-border-hover hover:text-text'}`}
                     >
                       <ArrowUp className="size-3" aria-hidden="true" /><ArrowDown className="-ml-1.5 size-3" aria-hidden="true" />

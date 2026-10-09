@@ -1,13 +1,14 @@
 import { memo, useMemo, useState } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '../../../components/ui/popover';
 import { Link } from 'react-router';
-import { CalendarCheck2, CalendarOff, Check, ChevronLeft, ChevronRight, Clock, Minus, SearchX, X } from 'lucide-react';
+import { Building2, CalendarCheck2, CalendarOff, Check, ChevronLeft, ChevronRight, Clock, ListChecks, Minus, SearchX, Store, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Combobox, EmptyState, InlineError, PageHeader, PANEL_CLASS, Skeleton } from '../../../components';
-import { useStoresQuery, usePeriodReportQuery } from '../hook';
+import { useStoresQuery, usePeriodReportQuery, useDepartmentScoresQuery } from '../hook';
 import { useDepartmentsQuery } from '../../tickets/hook';
 import { useAuth } from '../../../context/AuthContext';
 import { WeeklyExportMenu } from './WeeklyExportMenu';
+import { ReportScoreboard, type ScoreboardItem } from './ReportScoreboard';
 import { rateToneClass } from '../checklistDisplay';
 import { useOrgToday } from '../useOrgToday';
 import { PeriodTabControl } from '../../dashboard/PeriodTabControl';
@@ -15,6 +16,13 @@ import { PERIOD_LABEL, PERIODS, windowFor, type ScorePeriod } from '../../dashbo
 import type { WeeklyCell, WeeklyCellState, WeeklyReport } from '../../../api/checklistInstances';
 
 type WeeklyReportRow = WeeklyReport['rows'][number];
+
+type ReportView = 'checklists' | 'departments' | 'stores';
+const VIEWS: { key: ReportView; label: string; icon: typeof Store }[] = [
+  { key: 'checklists', label: 'Checklists', icon: ListChecks },
+  { key: 'departments', label: 'Departments', icon: Building2 },
+  { key: 'stores', label: 'Stores', icon: Store },
+];
 
 // Indexed by getUTCDay(), so Sunday is first.
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -193,6 +201,7 @@ export const ChecklistWeeklyReport = () => {
   const [offset, setOffset] = useState(0);
   const [storeId, setStoreId] = useState('');
   const [departmentId, setDepartmentId] = useState('');
+  const [view, setView] = useState<ReportView>('checklists');
   const { user } = useAuth();
   // Admin and PC pick any department; a department head is always held to their own on the server.
   const canPickDepartment = user?.role === 'ADMIN' || user?.role === 'PC';
@@ -200,6 +209,19 @@ export const ChecklistWeeklyReport = () => {
   const { data: departments = [], isPending: departmentsPending } = useDepartmentsQuery(canPickDepartment);
   const range = windowFor(period, offset, today);
   const { data, isPending, isError, isFetching, refetch } = usePeriodReportQuery(range.from, range.to, storeId || undefined, canPickDepartment ? departmentId || undefined : undefined);
+
+  const departmentScores = useDepartmentScoresQuery(range.from, range.to, storeId || undefined, view === 'departments');
+  const departmentItems = useMemo<ScoreboardItem[] | undefined>(
+    () => departmentScores.data?.map(d => ({ id: d.departmentId, name: d.departmentName, due: d.due, missed: d.missed, open: d.open ?? 0, completion: d.completion, compliance: d.compliance })),
+    [departmentScores.data],
+  );
+  const storeItems = useMemo<ScoreboardItem[] | undefined>(
+    () => data?.byStore.map(s => ({ id: s.storeId, name: s.storeName, due: s.due, missed: s.missed, open: s.open ?? 0, completion: s.completion, compliance: s.compliance })),
+    [data],
+  );
+  // A name or figure on a scoreboard opens that group's own checklists in the matrix.
+  const openStore = (id: string) => { setStoreId(id); setView('checklists'); };
+  const openDepartment = (id: string) => { if (canPickDepartment) setDepartmentId(id); setView('checklists'); };
 
   const storeOptions = useMemo(() => stores.map(s => ({ value: s.id, label: s.name })), [stores]);
   const departmentOptions = useMemo(() => departments.map(d => ({ value: d.id, label: d.name })), [departments]);
@@ -228,7 +250,26 @@ export const ChecklistWeeklyReport = () => {
 
   return (
     <div className="flex flex-col gap-4 w-full">
-      <PageHeader icon={CalendarCheck2} title="Fill Report" subtitle="Who filled their daily checklists, and how well, by day, week, month, quarter or year." />
+      <PageHeader icon={CalendarCheck2} title="Report" subtitle="Checklist scores by checklist, department and store, with the winner for each week, month or year." />
+
+      <div role="tablist" aria-label="Report view" className="inline-flex w-full sm:w-fit gap-1 rounded-xl border border-border bg-surface-hover/40 p-1">
+        {VIEWS.map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={view === key}
+            onClick={() => setView(key)}
+            className={cn(
+              'inline-flex flex-1 sm:flex-none items-center justify-center gap-1.5 min-h-11 sm:min-h-9 rounded-lg px-3.5 text-sm font-display font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary-500/40',
+              view === key ? 'bg-gradient-to-br from-primary-500 to-primary-600 text-white' : 'text-text-secondary hover:text-text',
+            )}
+          >
+            <Icon className="size-4" aria-hidden="true" />
+            {label}
+          </button>
+        ))}
+      </div>
 
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-col gap-2 w-full sm:w-auto">
@@ -249,6 +290,7 @@ export const ChecklistWeeklyReport = () => {
           </div>
         </div>
         <div className="flex flex-wrap items-end gap-3 w-full sm:w-auto">
+          {view !== 'stores' && (
           <div className="flex flex-col gap-1.5 flex-1 min-w-40 sm:flex-none sm:w-52">
             <label htmlFor="weekly-store" className="text-xs font-display font-medium text-text-secondary">Store</label>
             <Combobox
@@ -261,7 +303,8 @@ export const ChecklistWeeklyReport = () => {
               className="h-11 rounded-xl"
             />
           </div>
-          {canPickDepartment && (
+          )}
+          {canPickDepartment && view !== 'departments' && (
             <div className="flex flex-col gap-1.5 flex-1 min-w-40 sm:flex-none sm:w-52">
               <label htmlFor="weekly-department" className="text-xs font-display font-medium text-text-secondary">Department</label>
               <Combobox
@@ -275,27 +318,35 @@ export const ChecklistWeeklyReport = () => {
               />
             </div>
           )}
-          <WeeklyExportMenu
+          {view === 'checklists' && <WeeklyExportMenu
             period={period}
             offset={offset}
             storeId={storeId || undefined}
             departmentId={canPickDepartment ? departmentId || undefined : undefined}
             storeName={stores.find(s => s.id === storeId)?.name}
             departmentName={canPickDepartment ? departments.find(d => d.id === departmentId)?.name : user?.role ? 'your department' : undefined}
-          />
+          />}
         </div>
       </div>
 
-      {isPending && <ReportSkeleton />}
+      {view === 'departments' && (
+        <ReportScoreboard noun="department" items={departmentItems} loading={departmentScores.isPending} error={departmentScores.isError} onRetry={() => void departmentScores.refetch()} windowLabel={range.label} onOpen={openDepartment} />
+      )}
 
-      {isError && <InlineError message="We couldn't load the fill report. Check your connection and try again." onRetry={() => refetch()} />}
+      {view === 'stores' && (
+        <ReportScoreboard noun="store" items={storeItems} loading={isPending} error={isError} onRetry={() => void refetch()} windowLabel={range.label} onOpen={openStore} />
+      )}
 
-      {!isPending && !isError && rows?.length === 0 && (
+      {view === 'checklists' && isPending && <ReportSkeleton />}
+
+      {view === 'checklists' && isError && <InlineError message="We couldn't load the report. Check your connection and try again." onRetry={() => refetch()} />}
+
+      {view === 'checklists' && !isPending && !isError && rows?.length === 0 && (
         <EmptyState icon={SearchX} title={`No daily checklists in this ${periodWord}`} description="Try another period, store or department." action={emptyAction} />
       )}
 
       {/* keepPreviousData holds the old window on screen while the next loads: dim it meanwhile. */}
-      {data && !!rows?.length && (
+      {view === 'checklists' && data && !!rows?.length && (
         <div className={cn('flex flex-col gap-3 transition-opacity duration-200', isFetching && 'opacity-60')} aria-busy={isFetching}>
           {summary && summary.due + (summary.open ?? 0) > 0 && (
             <dl className={STRIP}>

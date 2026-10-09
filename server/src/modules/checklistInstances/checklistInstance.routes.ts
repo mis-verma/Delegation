@@ -30,6 +30,7 @@ checklistInstanceRouter.get("/former-people/:userId/runs", requireRole("ADMIN", 
 checklistInstanceRouter.get("/", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), checklistInstanceController.list)
 checklistInstanceRouter.get("/summary", checklistInstanceController.summary)
 checklistInstanceRouter.get("/reports/period", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), checklistInstanceController.periodReport)
+checklistInstanceRouter.get("/reports/departments", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), checklistInstanceController.departmentScores)
 checklistInstanceRouter.get("/reports/compliance", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), checklistInstanceController.complianceReport)
 checklistInstanceRouter.get("/reports/by-store", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), checklistInstanceController.byStoreReport)
 checklistInstanceRouter.get("/reports/store-daily", requireRole("ADMIN", "PC", "MANAGER", "SENIOR"), checklistInstanceController.storeDailyReport)

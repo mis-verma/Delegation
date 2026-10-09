@@ -1306,6 +1306,7 @@ export const checklistInstanceService = {
         const empty = {
             from, to, weekStart: from, kind, columns, days: kind === "day" ? dayKeys : ([] as string[]),
             holidays: {} as Record<string, string>, rows: [], summary: emptySummary,
+            byStore: [] as { storeId: string; storeName: string; due: number; onTime: number; late: number; missed: number; open: number; rate: number | null; completion: number | null; compliance: number | null }[],
         }
 
         const conditions = [
@@ -1421,6 +1422,8 @@ export const checklistInstanceService = {
         }
 
         const totals = { due: 0, onTime: 0, late: 0, missed: 0, open: 0, openProgress: 0, scored: 0, good: 0 }
+        // The same counts again, added up per store, for the store scoreboard.
+        const storeTotals = new Map<string, typeof totals>()
         const rows = [...grouped.values()].map((g) => {
             // `open` runs are still before their cutoff and not finished. They are not a miss, but they are
             // not finished work either, so the rates count them in the whole and credit them only for the
@@ -1457,6 +1460,10 @@ export const checklistInstanceService = {
             const due = acc.onTime + acc.late + acc.missed
             totals.due += due; totals.onTime += acc.onTime; totals.late += acc.late; totals.missed += acc.missed; totals.open += acc.open; totals.openProgress += acc.openProgress
             totals.scored += acc.scored; totals.good += acc.good
+            const st = storeTotals.get(g.storeId) ?? { due: 0, onTime: 0, late: 0, missed: 0, open: 0, openProgress: 0, scored: 0, good: 0 }
+            st.due += due; st.onTime += acc.onTime; st.late += acc.late; st.missed += acc.missed; st.open += acc.open; st.openProgress += acc.openProgress
+            st.scored += acc.scored; st.good += acc.good
+            storeTotals.set(g.storeId, st)
 
             const cells = columns.map((col) => {
                 if (kind === "month") {
@@ -1501,6 +1508,13 @@ export const checklistInstanceService = {
             days: kind === "day" ? dayKeys : ([] as string[]),
             holidays: holidayByDate,
             rows,
+            byStore: [...storeTotals.entries()].map(([id, t]) => ({
+                storeId: id, storeName: storeNames.get(id) ?? "Store",
+                due: t.due, onTime: t.onTime, late: t.late, missed: t.missed, open: t.open,
+                rate: rateOf(t.onTime, t.due + t.open),
+                completion: rateOf(t.onTime + t.late + t.openProgress, t.due + t.open),
+                compliance: pctOf(t.good, t.scored),
+            })),
             summary: {
                 due: totals.due, onTime: totals.onTime, late: totals.late, missed: totals.missed, open: totals.open,
                 rate: rateOf(totals.onTime, totals.due + totals.open),
@@ -1508,6 +1522,20 @@ export const checklistInstanceService = {
                 compliance: pctOf(totals.good, totals.scored),
             },
         }
+    },
+
+    /**
+     * Department scoreboard for a window: the same fill-report figures, one set per department, where a
+     * department's compliance counts only its own people's answers. ADMIN/PC get every department; a
+     * department head gets just their own (periodReport already holds them to it).
+     */
+    async periodDepartmentScores(user: AccessTokenPayload, from: string, to: string, storeId?: string) {
+        const isOrgWide = user.role === "ADMIN" || user.role === "PC"
+        const list = await db.select({ id: departments.id, name: departments.name }).from(departments)
+            .where(isOrgWide ? undefined : eq(departments.id, user.departmentId ?? ""))
+            .orderBy(asc(departments.name))
+        const reports = await Promise.all(list.map((dep) => this.periodReport(user, from, to, storeId, dep.id)))
+        return list.map((dep, i) => ({ departmentId: dep.id, departmentName: dep.name, ...reports[i].summary }))
     },
 
     // GET /checklist-instances/:id/item-history. Every save and reopen of a question is already written
