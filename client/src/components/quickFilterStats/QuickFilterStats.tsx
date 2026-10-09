@@ -69,7 +69,7 @@ const QuickFilterStatsSkeleton = ({ count, variant }: { count: number; variant: 
   <>
     <div className="grid sm:hidden gap-2" style={{ gridTemplateColumns: `repeat(${mobileColumns(count)}, minmax(0, 1fr))` }}>
       {Array.from({ length: count }).map((_, i) => (
-        <Skeleton key={i} className="h-[52px] rounded-xl" />
+        <Skeleton key={i} className="h-16 rounded-lg" />
       ))}
     </div>
     <div className={cn(gridClass(count), 'hidden sm:grid')}>
@@ -134,46 +134,58 @@ export function QuickFilterStats<K extends string>({
 
   return (
     <>
-      {/* Mobile row — below `sm` this replaces the full card grid. Equal-width cells (count over
-          label) instead of a horizontally-scrolling pill strip: the strip always sliced its last
-          chip at the screen edge ("22 Du…"), which read as broken. Same filter behavior and colors.
-          Desktop/tablet keep the full card grid untouched. */}
-      <div className="grid sm:hidden gap-2" style={{ gridTemplateColumns: `repeat(${mobileColumns(shownTiles.length)}, minmax(0, 1fr))` }}>
-        {shownTiles.map((tile) => {
-          const { key, label } = tile;
-          const isTotalTile = hasTotal && key === 'all';
-          const isActive = isTotalTile ? active === null : active === key;
-          const count = isTotalTile ? total : counts[key as K];
-          const handleClick = () => (isTotalTile ? onClearFilter?.() : onToggle(key as K));
-          // Selection is a solid navy fill that moves to whichever cell is tapped — the lead cell
-          // is only navy while nothing is filtered. Replaced a colored border + tint on the tapped
-          // cell (next to a still-navy Total), which read as a stray outline rather than a choice.
-          const isSelected = variant === 'navy' ? isActive : isActive && !isTotalTile;
-          const purpose = key === 'all'
-            ? `Show all ${itemLabel}`
-            : isActive ? `Clear "${label}" filter` : `Show only ${label.toLowerCase()} ${itemLabel}`;
-
-          return (
-            <button
-              key={key}
-              type="button"
-              onClick={handleClick}
-              aria-pressed={isActive}
-              aria-label={purpose}
-              className={cn(
-                // tap-highlight off: Android Chrome otherwise flashes its own grey box on every tap.
-                'flex flex-col items-center justify-center gap-1 min-h-[52px] px-0.5 rounded-xl border font-display transition-colors duration-200 cursor-pointer active:scale-[0.97] [-webkit-tap-highlight-color:transparent]',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface',
-                isSelected
-                  ? 'border-transparent bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700 dark:from-primary-700 dark:via-primary-600 dark:to-primary-500 text-white'
-                  : 'border-border bg-surface text-text-secondary',
-              )}
-            >
-              <span className={cn('text-base font-bold tabular-nums leading-none', isSelected ? 'text-white' : 'text-text')}>{typeof count === 'number' ? <CountUp value={count} /> : count}</span>
-              <span className={cn('max-w-full line-clamp-2 text-center t-meta font-semibold tracking-tight leading-tight', isSelected ? 'text-white/80' : 'text-text-muted')}>{label}</span>
-            </button>
-          );
-        })}
+      {/* Phones: the Total is one slim full-width bar on top (it is the "show everything" control, not a
+          bucket), then the status buckets share one even row underneath, so five tiles never leave a hole
+          in a 3-up grid. Each cell is the label over the number, the same look as the dashboard's
+          "Needs you today" block. Selection is a solid navy fill that moves to the tapped cell. */}
+      <div className="flex flex-col gap-2 sm:hidden">
+        {hasTotal && (
+          <button
+            type="button"
+            onClick={() => onClearFilter?.()}
+            aria-pressed={active === null}
+            aria-label={`Show all ${itemLabel}`}
+            className={cn(
+              'flex min-h-11 items-center justify-between gap-3 rounded-lg border px-3 font-display transition-colors duration-200 active:scale-[0.985] [-webkit-tap-highlight-color:transparent]',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40',
+              active === null
+                ? 'border-transparent bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700 text-white dark:from-primary-700 dark:via-primary-600 dark:to-primary-500'
+                : 'border-border/60 bg-surface bg-gradient-to-br from-primary-500/[0.07] to-transparent text-text-secondary',
+            )}
+          >
+            <span className="t-meta font-semibold">{totalLabel} {itemLabel}</span>
+            <span className={cn('text-lg font-bold tabular-nums', active === null ? 'text-white' : 'text-text')}><CountUp value={total ?? 0} /></span>
+          </button>
+        )}
+        <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${mobileColumns(tiles.length)}, minmax(0, 1fr))` }}>
+          {tiles.map((tile) => {
+            const { key, label } = tile;
+            const isActive = active === key;
+            const count = counts[key];
+            const purpose = isActive ? `Clear "${label}" filter` : `Show only ${label.toLowerCase()} ${itemLabel}`;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => onToggle(key)}
+                aria-pressed={isActive}
+                aria-label={purpose}
+                className={cn(
+                  // tap-highlight off: Android Chrome otherwise flashes its own grey box on every tap.
+                  'flex min-h-16 flex-col items-center justify-center gap-0.5 rounded-lg border px-1 py-2 font-display transition-colors duration-200 cursor-pointer active:scale-[0.985] [-webkit-tap-highlight-color:transparent]',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40',
+                  isActive
+                    ? 'border-transparent bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700 text-white dark:from-primary-700 dark:via-primary-600 dark:to-primary-500'
+                    : 'border-border/60 bg-surface text-text-muted',
+                )}
+              >
+                {/* Wraps instead of cutting: four cells at 320px leave about 70px for "Completed". */}
+                <span className={cn('max-w-full line-clamp-2 text-center t-meta font-semibold leading-tight tracking-tight', isActive ? 'text-white/85' : 'text-text-muted')}>{label}</span>
+                <span className={cn('text-xl font-bold tabular-nums leading-tight', isActive ? 'text-white' : 'text-text')}><CountUp value={count} /></span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div className={cn(gridClass(shownTiles.length), 'hidden sm:grid')}>
