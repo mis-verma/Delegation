@@ -5,7 +5,8 @@ import type { GroupBy } from './GroupByControl';
 import { defaultWindow, parseDateParam, toDateParam } from './analyticsDisplay';
 import { endOfDay } from '../../../lib/dateRange';
 
-export const DEFAULT_GROUP_BY: GroupBy = 'month';
+// Week, because the page opens on this month (below): a month cut by month would be a single bar.
+export const DEFAULT_GROUP_BY: GroupBy = 'week';
 
 const parseGroupBy = (value: string | null): GroupBy =>
   value === 'day' || value === 'week' || value === 'month' || value === 'year' ? value : DEFAULT_GROUP_BY;
@@ -60,13 +61,22 @@ export const useAnalyticsWindow = () => {
   const fromParam = params.get('from');
   const toParam = params.get('to');
 
+  // `today` moves at midnight, so a tab left open overnight does not keep showing yesterday's window.
+  const today = useToday();
+  // ?range=all is "no range picked": the last twelve buckets of the grouping. Without it and without a
+  // picked from/to, the page opens on this month, so its winners and totals are about now, not the year.
+  const showAll = params.get('range') === 'all';
+
   // A range only counts once BOTH ends are real dates. The picker reports {from, to: null} after
   // its first tap, which must never reach a query (a start with no end silently runs to "now").
   const range = useMemo<DateRangeValue>(() => {
     const from = parseDateParam(fromParam);
     const to = parseDateParam(toParam);
-    return from && to && from.getTime() <= to.getTime() ? { from, to } : { from: null, to: null };
-  }, [fromParam, toParam]);
+    if (from && to && from.getTime() <= to.getTime()) return { from, to };
+    if (showAll) return { from: null, to: null };
+    const now = parseDateParam(today) ?? new Date();
+    return { from: new Date(now.getFullYear(), now.getMonth(), 1), to: new Date(now.getFullYear(), now.getMonth(), now.getDate()) };
+  }, [fromParam, toParam, showAll, today]);
 
   // range.to is a calendar date at local midnight (the picker is not in showTime mode), so wrap it
   // to the end of that day or the last day would be dropped from the query.
@@ -77,8 +87,6 @@ export const useAnalyticsWindow = () => {
   // range, or else the last 12 buckets of the grouping (30 days for Day), the same span the control
   // bar names. Without it ticket and delegation figures were all-time while store checklists were
   // the last 30 days.
-  // `today` moves at midnight, so a tab left open overnight does not keep ranking yesterday's window.
-  const today = useToday();
   // Year grouping would ask for twelve years, which the checklist reports refuse (366 days at most),
   // so the ranking window for it is the last twelve months.
   const fallbackWindow = useMemo(() => defaultWindow(groupBy === 'year' ? 'month' : groupBy, parseDateParam(today) ?? undefined), [groupBy, today]);
@@ -87,7 +95,11 @@ export const useAnalyticsWindow = () => {
 
   const handleGroupBy = useCallback((next: GroupBy) => patch({ by: next === DEFAULT_GROUP_BY ? null : next }), [patch]);
   const handleRange = useCallback(
-    (next: DateRangeValue) => patch({ from: next.from && next.to ? toDateParam(next.from) : null, to: next.from && next.to ? toDateParam(next.to) : null }),
+    // Clearing the range (tapping the lit chip again) asks for the long view explicitly; otherwise the page
+    // would fall straight back to its this-month default and the chip could never be turned off.
+    (next: DateRangeValue) => patch(next.from && next.to
+      ? { from: toDateParam(next.from), to: toDateParam(next.to), range: null }
+      : { from: null, to: null, range: 'all' }),
     [patch],
   );
 
