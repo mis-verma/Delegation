@@ -124,6 +124,22 @@ export function QuickFilterStats<K extends string>({
     ? [{ ...statusTiles(['all'])[0], label: totalLabel }, ...tiles]
     : tiles;
 
+  // The phone's Total bar is split by status: done, late, due soon, and the rest still open. Built only from
+  // buckets the page has; pending already includes due and late, so they are taken out of it.
+  const countOf = (k: string) => (tiles.some((t) => t.key === k) ? counts[k as K] ?? 0 : 0);
+  const barOf = (k: string) => tiles.find((t) => t.key === k)?.accentBar ?? '';
+  const lateKey = tiles.some((t) => t.key === 'delayed') ? 'delayed' : 'overdue';
+  const doneN = countOf('completed');
+  const lateN = countOf(lateKey);
+  const dueN = countOf('due');
+  const openN = Math.max(0, countOf('pending') - lateN - dueN);
+  const mix = [
+    { label: 'Completed', value: doneN, bar: barOf('completed') },
+    { label: 'Late', value: lateN, bar: barOf(lateKey) },
+    { label: 'Due', value: dueN, bar: barOf('due') },
+    { label: 'Open', value: openN, bar: barOf('pending') },
+  ].filter((m) => m.value > 0 && m.bar);
+
   if (isLoading) return <QuickFilterStatsSkeleton count={shownTiles.length} />;
 
   return (
@@ -149,9 +165,14 @@ export function QuickFilterStats<K extends string>({
             <span className="text-lg font-bold tabular-nums text-primary-700 dark:text-primary-300"><CountUp value={total ?? 0} /></span>
           </button>
         )}
+        {hasTotal && !!total && mix.length > 0 && (
+          <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-surface-hover" role="img" aria-label={mix.map((m) => `${m.label} ${m.value}`).join(', ')}>
+            {mix.map((m) => <span key={m.label} className={cn('h-full', m.bar)} style={{ width: `${(m.value / total) * 100}%` }} />)}
+          </div>
+        )}
         <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${mobileColumns(tiles.length)}, minmax(0, 1fr))` }}>
           {tiles.map((tile) => {
-            const { key, label } = tile;
+            const { key, label, accentBar } = tile;
             const isActive = active === key;
             const count = counts[key];
             const purpose = isActive ? `Clear "${label}" filter` : `Show only ${label.toLowerCase()} ${itemLabel}`;
@@ -170,7 +191,7 @@ export function QuickFilterStats<K extends string>({
                 )}
               >
                 {/* Wraps instead of cutting: four cells at 320px leave about 70px for "Completed". */}
-                <span className="max-w-full line-clamp-2 text-center t-meta font-semibold leading-tight tracking-tight text-primary-600/80 dark:text-primary-300/80">{label}</span>
+                <span className="flex max-w-full items-center justify-center gap-1 text-center t-meta font-semibold leading-tight tracking-tight text-primary-600/80 dark:text-primary-300/80"><span aria-hidden="true" className={cn('size-1.5 shrink-0 rounded-full', accentBar)} /><span className="line-clamp-2">{label}</span></span>
                 <span className="text-xl font-bold tabular-nums leading-tight text-primary-700 dark:text-primary-300"><CountUp value={count} /></span>
               </button>
             );
@@ -180,7 +201,7 @@ export function QuickFilterStats<K extends string>({
 
       <div className={cn(gridClass(shownTiles.length), 'hidden sm:grid')}>
       {shownTiles.map((tile, index) => {
-        const { key, label } = tile;
+        const { key, label, accentBar } = tile;
         const isTotalTile = hasTotal && key === 'all';
         // The Total tile is the resting state, so it reads as selected exactly when no bucket is.
         const isActive = isTotalTile ? active === null : active === key;
@@ -214,6 +235,8 @@ export function QuickFilterStats<K extends string>({
               isActive ? "border-primary-600 ring-1 ring-inset ring-primary-600 dark:border-primary-400 dark:ring-primary-400" : "border-border hover:border-primary-500/40"
             )}
           >
+            {/* The status colour, once: a thin bar across the top. The number stays blue on every tile. */}
+            <span aria-hidden="true" className={cn('absolute inset-x-0 top-0 h-1', accentBar)} />
             <div className="min-w-0 flex-1">
               <p className="text-2xl font-bold tracking-tight leading-none tabular-nums text-primary-700 dark:text-primary-300">
                 {typeof count === 'number' ? <CountUp value={count} /> : count}
@@ -222,6 +245,7 @@ export function QuickFilterStats<K extends string>({
                   share of the total rides on the label line, so "31 Delayed" also says how big a
                   slice that is without doing the maths. */}
               <p className="flex items-baseline gap-1.5 t-meta md:text-xs font-semibold text-primary-600/80 dark:text-primary-300/80 mt-1.5 leading-snug tracking-tight">
+                <span aria-hidden="true" className={cn('size-2 shrink-0 self-center rounded-full', accentBar)} />
                 {label}
                 {share !== null && <span className="t-meta font-bold text-text-muted tabular-nums">{share}%</span>}
               </p>

@@ -19,8 +19,6 @@ import { DashboardOverview } from './DashboardOverview';
 import { MonthlyTargetCard, type FooterStat, type ScoreStatKey } from './MonthlyTargetCard';
 import { ActivityOverviewCard } from './ActivityOverviewCard';
 import { NeedsApprovalCard } from './NeedsApprovalCard';
-import { TodayStrip } from './TodayStrip';
-import { MobileTodayHero } from './MobileTodayHero';
 import { FocusNowCard } from './FocusNowCard';
 import { TeamProgressCard } from './TeamProgressCard';
 import { MyScoresCard } from './MyScoresCard';
@@ -158,7 +156,7 @@ export const HomePage = () => {
   const todos = useMemo(() => todosData ?? [], [todosData]);
   // The "things need you" list asks the server directly for each kind it shows, so an older run sent back
   // or left unsubmitted is never missed because it fell outside the latest 25. Front-line staff only.
-  const focusOptions = { ...DASHBOARD_QUERY_OPTIONS, enabled: frontLine };
+  const focusOptions = DASHBOARD_QUERY_OPTIONS;
   const { data: sentBackRuns } = useMyChecklistInstancesQuery({ verificationStatus: 'REJECTED' }, { limit: 50 }, focusOptions);
   const { data: overdueRuns } = useMyChecklistInstancesQuery({ status: 'OVERDUE' }, { limit: 50 }, focusOptions);
   const { data: unsentRuns } = useMyChecklistInstancesQuery({ status: 'COMPLETED', verificationStatus: 'NOT_SUBMITTED' }, { limit: 50 }, focusOptions);
@@ -291,9 +289,9 @@ export const HomePage = () => {
   const renderCard = (id: DashboardCardId): ReactNode => {
     switch (id) {
       case 'todayStrip':
-        // Front-line staff get the "things need you" list above the cards instead.
-        if (frontLine) return null;
-        return <TodayStrip summaries={summaries} onRefresh={refresh} isRefreshing={isRefreshing} />;
+        // Replaced for everyone by the "things need you" list above the cards: the strip only repeated
+        // counts the cards and the approvals card already show.
+        return null;
       case 'needsApproval':
         return <NeedsApprovalCard />;
       case 'kpiStrip':
@@ -433,8 +431,18 @@ export const HomePage = () => {
       {/* Phones only: the three numbers to act on first, above every card. */}
       {/* Front-line staff: the exact things to do now, most urgent first, above everything. Everyone else
           keeps the counts block on a phone. */}
-      {frontLine && <FocusNowCard tasks={assignedTasks} tickets={myAssignedTickets} checklists={focusChecklists} todos={todos} now={now} />}
-      {!frontLine && isMobile && !isCustomizing && <MobileTodayHero summaries={summaries} />}
+      {!isCustomizing && (
+        <FocusNowCard
+          tasks={assignedTasks}
+          tickets={myAssignedTickets}
+          checklists={focusChecklists}
+          todos={todos}
+          now={now}
+          updatedAt={summaries.updatedAt}
+          onRefresh={refresh}
+          isRefreshing={isRefreshing}
+        />
+      )}
 
       {isCustomizing ? (
         <Suspense fallback={staticGrid}>

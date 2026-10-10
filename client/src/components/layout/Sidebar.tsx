@@ -11,16 +11,17 @@ import { useChecklistInstanceSummaryQuery } from '../../features/checklist/hook'
 import { SidebarSummaryBadge, type SidebarSummaryData } from './SidebarSummaryBadge';
 import {
   LayoutDashboard,
-  CheckSquare,
+  LayoutGrid,
+  ClipboardList,
+  Megaphone,
+  CalendarDays,
   FolderKanban,
-  Calendar,
   Settings,
   LogOut,
   TicketCheck,
   ShieldCheck,
   ClipboardCheck,
   ShieldQuestion,
-  CalendarClock,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -63,14 +64,15 @@ const CHECKLIST_HISTORY_CHILD: NavChild = { to: '/checklists/history', label: 'H
 const CHECKLIST_WEEKLY_CHILD: NavChild = { to: '/checklists/weekly', label: 'Report' };
 
 const NAV: NavItem[] = [
-  { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/tasks', icon: CheckSquare, label: 'Delegation', children: TASK_CHILDREN },
+  // One icon per module, the same in the sidebar, the bottom bar and the dashboard cards.
+  { to: '/', icon: LayoutGrid, label: 'Dashboard' },
+  { to: '/tasks', icon: ClipboardList, label: 'Delegation', children: TASK_CHILDREN },
   { to: '/tickets', icon: TicketCheck, label: 'Tickets' },
   { to: '/todo', icon: ListTodo, label: 'To-Do' },
-  { to: '/events', icon: CalendarClock, label: 'Events' },
+  { to: '/events', icon: Megaphone, label: 'Events' },
   { to: '/checklists', icon: ClipboardCheck, label: 'Checklists' },
   { to: '/projects', icon: FolderKanban, label: 'Projects' },
-  { to: '/calendar', icon: Calendar, label: 'Calendar' },
+  { to: '/calendar', icon: CalendarDays, label: 'Calendar' },
 ];
 
 const SETTINGS_ITEM: NavItem = { to: '/settings', icon: Settings, label: 'Settings' };
@@ -338,13 +340,13 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
                   className={[
                     // No grey tile behind every icon: a row of identical boxes read as busy. The
                     // icon sits straight on the row, which fills solid when active and tints on hover.
-                    'relative z-10 flex items-center justify-center shrink-0 size-7 transition-colors duration-150',
-                    isActive || hasActiveChild ? 'text-primary-600 dark:text-primary-300' : 'text-text-light group-hover/link:text-text-muted',
+                    'relative z-10 flex items-center justify-center shrink-0 size-8 rounded-lg transition-colors duration-150',
+                    isActive || hasActiveChild ? 'bg-primary-500/12 text-primary-600 dark:bg-primary-400/15 dark:text-primary-300' : 'text-text-muted group-hover/link:text-text',
                   ].join(' ')}
                 >
                   <Icon
-                    size={20}
-                    strokeWidth={isActive || hasActiveChild ? 2.1 : 1.75}
+                    size={19}
+                    strokeWidth={isActive || hasActiveChild ? 2.2 : 1.9}
                     className="transition-transform duration-200 group-hover/link:scale-105"
                   />
                 </span>

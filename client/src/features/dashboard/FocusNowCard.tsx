@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Link } from 'react-router';
-import { BellRing, CheckCheck, ChevronRight, ClipboardList, ListChecks, ListTodo, TicketCheck, type LucideIcon } from 'lucide-react';
+import { BellRing, CheckCheck, ChevronRight, ClipboardCheck, ClipboardList, ListTodo, RotateCw, TicketCheck, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PANEL_CLASS } from '../../components/entityCard';
 import { instanceDeadline, isInstanceOverdue } from '../checklist/checklistDisplay';
@@ -52,6 +52,10 @@ interface FocusNowCardProps {
   checklists: ChecklistInstance[];
   todos: Todo[];
   now: number;
+  /** When the counts last arrived (ms), for the small "Updated" note beside Refresh. */
+  updatedAt?: number;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
 /**
@@ -59,7 +63,7 @@ interface FocusNowCardProps {
  * one tap from the item. Sent back and overdue in red, ready to submit in orange, due today in blue. When
  * nothing needs them it says so plainly, so the dashboard always answers "am I on track".
  */
-export const FocusNowCard = ({ tasks, tickets, checklists, todos, now }: FocusNowCardProps) => {
+export const FocusNowCard = ({ tasks, tickets, checklists, todos, now, updatedAt, onRefresh, isRefreshing }: FocusNowCardProps) => {
   const items = useMemo(() => {
     const endOfDay = new Date(now);
     endOfDay.setHours(23, 59, 59, 999);
@@ -70,13 +74,13 @@ export const FocusNowCard = ({ tasks, tickets, checklists, todos, now }: FocusNo
       const done = c.items.length > 0 && c.items.every((i) => i.isDone);
       const deadline = instanceDeadline(c);
       if (c.verificationStatus === 'REJECTED') {
-        out.push({ key: `c-${c.id}`, icon: ListChecks, title: c.title, reason: 'sentBack', at: deadline, detail: 'Fix the marked questions and send again', href: `/checklists/${c.id}` });
+        out.push({ key: `c-${c.id}`, icon: ClipboardCheck, title: c.title, reason: 'sentBack', at: deadline, detail: 'Fix the marked questions and send again', href: `/checklists/${c.id}` });
       } else if (done && c.verificationStatus === 'NOT_SUBMITTED') {
-        out.push({ key: `c-${c.id}`, icon: ListChecks, title: c.title, reason: 'submit', at: deadline, detail: 'All done, send it for approval', href: `/checklists/${c.id}` });
+        out.push({ key: `c-${c.id}`, icon: ClipboardCheck, title: c.title, reason: 'submit', at: deadline, detail: 'All done, send it for approval', href: `/checklists/${c.id}` });
       } else if (!done && isInstanceOverdue(c, done)) {
-        out.push({ key: `c-${c.id}`, icon: ListChecks, title: c.title, reason: 'overdue', at: deadline, detail: `Checklist, ${ago(deadline, now)}`, href: `/checklists/${c.id}` });
+        out.push({ key: `c-${c.id}`, icon: ClipboardCheck, title: c.title, reason: 'overdue', at: deadline, detail: `Checklist, ${ago(deadline, now)}`, href: `/checklists/${c.id}` });
       } else if (!done && deadline <= end) {
-        out.push({ key: `c-${c.id}`, icon: ListChecks, title: c.title, reason: 'dueToday', at: deadline, detail: `Checklist, by ${time(deadline)}`, href: `/checklists/${c.id}` });
+        out.push({ key: `c-${c.id}`, icon: ClipboardCheck, title: c.title, reason: 'dueToday', at: deadline, detail: `Checklist, by ${time(deadline)}`, href: `/checklists/${c.id}` });
       }
     }
 
@@ -105,6 +109,18 @@ export const FocusNowCard = ({ tasks, tickets, checklists, todos, now }: FocusNo
   }, [tasks, tickets, checklists, todos, now]);
 
   const urgent = items.filter((i) => i.reason === 'sentBack' || i.reason === 'overdue').length;
+  const refresh = onRefresh && (
+    <button
+      type="button"
+      onClick={onRefresh}
+      disabled={isRefreshing}
+      aria-label="Refresh the dashboard"
+      title={updatedAt ? `Updated ${new Date(updatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : undefined}
+      className="ml-auto inline-flex size-9 pointer-coarse:size-11 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-surface-hover hover:text-text disabled:opacity-50"
+    >
+      <RotateCw className={cn('size-4', isRefreshing && 'motion-safe:animate-spin')} aria-hidden="true" />
+    </button>
+  );
   const shown = items.slice(0, SHOW);
 
   if (items.length === 0) {
@@ -117,6 +133,7 @@ export const FocusNowCard = ({ tasks, tickets, checklists, todos, now }: FocusNo
           <h2 className="t-card font-display font-bold text-text">You're on track</h2>
           <p className="t-meta text-text-muted">Nothing is overdue or due today. Nice work.</p>
         </div>
+        {refresh}
       </section>
     );
   }
@@ -135,6 +152,7 @@ export const FocusNowCard = ({ tasks, tickets, checklists, todos, now }: FocusNo
             {urgent > 0 ? `${urgent} ${urgent === 1 ? 'is' : 'are'} late or sent back. Start there.` : 'All due today. Do these first.'}
           </p>
         </div>
+        {refresh}
       </div>
 
       <ul className="flex flex-col divide-y divide-border/60">

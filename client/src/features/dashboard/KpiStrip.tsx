@@ -1,11 +1,15 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import { AlertTriangle, ChevronRight, ClipboardList, TicketCheck, ListChecks, ListTodo, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, ChevronRight, ClipboardCheck, ClipboardList, TicketCheck, ListTodo, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DrilldownModal, type DrilldownRow } from './DrilldownModal';
 import { Skeleton } from '../../components/skeleton';
 import { PANEL_CLASS } from '../../components/entityCard';
 import { CountUp } from '../../components/countUp';
+import { RadialGauge } from '../../components';
+import { useQuery } from '@tanstack/react-query';
+import { scoreApi, type Scores } from '../../api/scores';
+import { windowFor } from './scorePeriods';
 import { useNow } from '../../lib/useNow';
 import { isInstanceOverdue } from '../checklist/checklistDisplay';
 import { isTaskOverdue, isTicketLate, taskDrilldownRow } from './dashboardDisplay';
@@ -93,7 +97,7 @@ const MiniStat = ({ label, value, onClick }: { label: string; value: number | nu
     </>
   );
   return onClick ? (
-    <button type="button" onClick={onClick} className="min-w-0 rounded-lg px-1 py-1 text-left outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary-500/40">
+    <button type="button" onClick={onClick} className="min-w-0 rounded-lg px-1 py-1 text-center outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary-500/40">
       {body}
     </button>
   ) : (
@@ -101,7 +105,20 @@ const MiniStat = ({ label, value, onClick }: { label: string; value: number | nu
   );
 };
 
-const ModuleCard = ({ view, onOpen }: { view: ModuleView; onOpen: (kind: DrillKind) => void }) => {
+// The score beside the big number: this month's overall score (completion and compliance counted equally),
+// or for To-do, which has no score, the share of to-dos done.
+const scoreFor = (key: ModuleKey, s: Scores | undefined, view: ModuleView): { value: number | null; label: string } => {
+  if (key === 'todo') return { value: view.total ? Math.round(((view.completed ?? 0) / view.total) * 100) : null, label: 'Done' };
+  if (!s) return { value: null, label: 'Score' };
+  const m = key === 'delegation' ? s.delegation : key === 'tickets' ? s.ticket : s.checklist;
+  if (m.due === 0) return { value: null, label: 'Score' };
+  const parts = [m.completionPct, m.compliancePct].filter((v): v is number => v !== null);
+  return { value: parts.length ? Math.round(parts.reduce((a, c) => a + c, 0) / parts.length) : null, label: 'Score' };
+};
+
+const gaugeColor = (v: number | null) => (v === null ? 'var(--color-border-hover)' : v >= 80 ? 'var(--color-success)' : v >= 50 ? 'var(--color-warning)' : 'var(--color-danger)');
+
+const ModuleCard = ({ view, onOpen, score }: { view: ModuleView; onOpen: (kind: DrillKind) => void; score: { value: number | null; label: string } }) => {
   const Icon = view.icon;
   if (view.isPending) {
     return (
@@ -137,7 +154,29 @@ const ModuleCard = ({ view, onOpen }: { view: ModuleView; onOpen: (kind: DrillKi
         </button>
       ) : (
         <>
-          <div className="flex items-end justify-between gap-2">
+          {/* Tablet and desktop: the open count big, bold and centred on the left, the score ring on the right. */}
+          <div className="hidden sm:grid grid-cols-2 items-center gap-2">
+            <button type="button" onClick={() => onOpen('pending')} className="flex flex-col items-center justify-center rounded-xl py-1 outline-none transition-colors hover:bg-surface-hover/60 focus-visible:ring-2 focus-visible:ring-primary-500/40">
+              <span className="text-4xl xl:text-5xl font-display font-extrabold tabular-nums leading-none text-primary-700 dark:text-primary-300">
+                <CountUp value={view.pending ?? 0} />
+              </span>
+              <span className="mt-1.5 t-meta font-semibold text-text-muted">Pending</span>
+              {view.overdue > 0 && (
+                <span className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-danger/10 px-2 py-0.5 t-meta font-display font-bold tabular-nums text-danger">
+                  <AlertTriangle className="size-3" aria-hidden="true" />{view.overdue} overdue
+                </span>
+              )}
+            </button>
+            <div className="flex flex-col items-center justify-center border-l border-border/60" title={score.label === 'Done' ? 'Share of to-dos done' : "This month's overall score: completion and compliance counted equally"}>
+              <RadialGauge percent={score.value ?? 0} size={84} variant="circle" gradientFrom={gaugeColor(score.value)} gradientTo={gaugeColor(score.value)}>
+                <span className={cn('text-base font-display font-extrabold tabular-nums', score.value === null ? 'text-text-light' : 'text-text')}>{score.value === null ? '-' : `${score.value}%`}</span>
+              </RadialGauge>
+              <span className="mt-1 t-meta font-semibold text-text-muted">{score.label === 'Done' ? 'Done' : 'Score this month'}</span>
+            </div>
+          </div>
+
+          {/* Phone: number on the left, overdue chip on the right. */}
+          <div className="flex sm:hidden items-end justify-between gap-2">
             <button type="button" onClick={() => onOpen('pending')} className="min-w-0 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40">
               <span className="block t-figure font-display font-bold tabular-nums leading-none text-primary-700 dark:text-primary-300">
                 <CountUp value={view.pending ?? 0} />
@@ -159,7 +198,7 @@ const ModuleCard = ({ view, onOpen }: { view: ModuleView; onOpen: (kind: DrillKi
           <p className="sm:hidden truncate t-meta text-text-muted tabular-nums">
             {view.completed ?? 0} done · {view.newToday ?? 0} new · {view.total ?? 0} {view.totalLabel === 'Total' ? 'total' : 'today'}
           </p>
-          <div className="hidden sm:grid grid-cols-3 gap-1 border-t border-border/60 pt-2">
+          <div className="hidden sm:grid grid-cols-3 gap-1 border-t border-border/60 pt-2 text-center">
             <MiniStat label="Completed" value={view.completed} onClick={() => onOpen('completed')} />
             <MiniStat label="New today" value={view.newToday} onClick={() => onOpen('newToday')} />
             <MiniStat label={view.totalLabel === 'Total' ? 'Total' : 'Total today'} value={view.total} />
@@ -195,7 +234,7 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
       {
         // Pending/New today are all-time and Completed/Total are today's, exactly as the My
         // checklists page counts them, so the tile and the page it opens always agree.
-        key: 'checklist', icon: ListChecks, title: 'Checklist', noun: 'checklists', href: '/checklists', totalLabel: 'Today',
+        key: 'checklist', icon: ClipboardCheck, title: 'Checklist', noun: 'checklists', href: '/checklists', totalLabel: 'Today',
         isPending: checklist.isPending || checklistToday.isPending, isError: checklist.isError || checklistToday.isError,
         onRetry: () => { if (checklist.isError) checklist.onRetry(); if (checklistToday.isError) checklistToday.onRetry(); },
         total: ct?.total ?? null, pending: c?.pending ?? null, completed: ct?.completed ?? null, newToday: c?.newToday ?? null, overdue: c?.overdue ?? 0,
@@ -208,6 +247,15 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
       },
     ];
   }, [tasks, tickets, todos, checklist, checklistToday]);
+
+  // This month's scores for the signed-in person, for the ring on each card. Same query key as the Scores
+  // card's month view, so the two share one fetch.
+  const month = windowFor('month', 0);
+  const monthScores = useQuery({
+    queryKey: ['scores', 'person', 'me', month.from, month.to],
+    queryFn: () => scoreApi.get({ scope: 'person', from: month.from, to: month.to }),
+    staleTime: 60_000,
+  });
 
   const drilldown = useMemo(() => {
     if (!openDrill) return null;
@@ -275,7 +323,7 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
     <div className="flex flex-col gap-3">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
         {views.map((view) => (
-          <ModuleCard key={view.key} view={view} onOpen={(kind) => setOpenDrill({ key: view.key, kind })} />
+          <ModuleCard key={view.key} view={view} score={scoreFor(view.key, monthScores.data, view)} onOpen={(kind) => setOpenDrill({ key: view.key, kind })} />
         ))}
       </div>
 

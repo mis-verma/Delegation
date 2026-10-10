@@ -4,7 +4,7 @@ import { NavCountBadge } from './NavCountBadge';
 import { usePrefetchRoute } from '../../lib/routePrefetch';
 import { badgeSummary, useNavBadges, type NavBadgeMap } from './useNavBadges';
 import {
-  LayoutDashboard,
+  LayoutGrid,
   ClipboardList,
   TicketCheck,
   ClipboardCheck,
@@ -23,7 +23,7 @@ interface NavItem {
 // Delegation sits in the middle, raised: it is the screen people live in, and a centre button is the
 // easiest one to reach with a thumb. Two tabs either side.
 const NAV_ITEMS: NavItem[] = [
-  { to: '/', label: 'Home', icon: LayoutDashboard, exact: true },
+  { to: '/', label: 'Home', icon: LayoutGrid, exact: true },
   { to: '/tickets', label: 'Tickets', icon: TicketCheck, exact: false },
   { to: '/tasks', label: 'Delegation', icon: ClipboardList, exact: false, center: true },
   { to: '/todo', label: 'To-Do', icon: ListTodo, exact: false },
