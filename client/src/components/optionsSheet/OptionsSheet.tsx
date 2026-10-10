@@ -192,9 +192,9 @@ export const OptionsSheet = ({
             size="sm"
             title="Options"
             aria-label={activeCount > 0 ? `Options, ${activeCount} active` : 'Options'}
-            className="group size-9 pointer-coarse:size-11 shrink-0 rounded-full border border-primary-500/30 bg-primary-500/10 dark:bg-primary-500/15 p-0 transition-colors duration-200 hover:border-primary-500/60 hover:bg-primary-500/15"
+            className="group size-9 pointer-coarse:size-11 shrink-0 rounded-full border border-border bg-surface text-text-secondary p-0 transition-colors duration-150 hover:border-border-hover hover:bg-surface hover:text-text"
           >
-            <ListFilter size={16} strokeWidth={2.5} className="text-primary-700 dark:text-primary-300" aria-hidden="true" />
+            <ListFilter size={16} aria-hidden="true" />
           </Button>
         </DialogTrigger>
         <CountBadge

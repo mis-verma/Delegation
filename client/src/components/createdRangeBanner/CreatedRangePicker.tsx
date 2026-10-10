@@ -111,10 +111,8 @@ export const CreatedRangePicker = ({ createdRange, className, label: emptyLabel 
           type="button"
           title={label}
           className={cn(
-            'inline-flex size-9 pointer-coarse:size-11 items-center justify-center rounded-full border text-sm font-display font-medium outline-none cursor-pointer transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-500/40',
-            applied
-              ? 'border-primary-500/40 bg-primary-500/10 text-primary-700 dark:text-primary-300'
-              : 'border-border bg-surface text-text-secondary hover:border-border-hover hover:text-text',
+            // Same look as the Options button beside it, picked or not; the banner above says a range is on.
+            'inline-flex size-9 pointer-coarse:size-11 items-center justify-center rounded-full border border-border bg-surface text-text-secondary text-sm font-display font-medium outline-none cursor-pointer transition-colors duration-150 hover:border-border-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40',
             className,
           )}
         >

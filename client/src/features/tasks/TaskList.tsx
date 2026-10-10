@@ -21,8 +21,9 @@ import { TASK_VIEWS, TASK_VIEW_LABEL, TASK_VIEW_ICON, defaultTaskView, isTaskVie
 import { useIsMobile } from "../../lib/useMediaQuery";
 import { SmartTaskModal } from "./SmartTaskModal";
 import { TaskBulkImportModal } from "./bulkImport/TaskBulkImportModal";
-import { TaskOptionsDialog } from "./TaskOptionsDialog";
+import { TaskOptionsDialog, type TaskScopeKey } from "./TaskOptionsDialog";
 import { ChipLegend, type ChipLegendSection } from "../../components/chipLegend";
+import { PhoneScopeSwitch } from "../../components/phoneScopeSwitch/PhoneScopeSwitch";
 import { getStatusChipMeta } from "../../components/statusChip";
 import { TaskQuickStats, type QuickFilterKey } from "./TaskQuickStats";
 import { type BoardGroupBy } from "./taskBoardGroups";
@@ -340,6 +341,16 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
   // toggle-off behavior as the quick-stat tiles above.
   const isAssignedToMe = !!user && filters.assigneeIds.length === 1 && filters.assigneeIds[0] === user.id;
   const isAssignedByMe = !!user && filters.raisedByIds.length === 1 && filters.raisedByIds[0] === user.id;
+  // Everyone / Assigned to me / Assigned by me: in the Options sheet on bigger screens, as two pills on a phone.
+  const scope: { value: TaskScopeKey; onChange: (next: TaskScopeKey) => void } | undefined = !userId && user ? {
+    value: isAssignedToMe ? 'mine' : isAssignedByMe ? 'byMe' : 'all',
+    // One patch for both fields — updateFilters reads `filters` from this render, so
+    // two back-to-back calls would have the second overwrite the first.
+    onChange: (next) => updateFilters({
+      assigneeIds: next === 'mine' ? [user.id] : isAssignedToMe ? [] : filters.assigneeIds,
+      raisedByIds: next === 'byMe' ? [user.id] : isAssignedByMe ? [] : filters.raisedByIds,
+    }),
+  } : undefined;
 
   const saveFilters = () => {
     try {
@@ -561,6 +572,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
 
       
             <ChipLegend sections={TASK_LEGEND} />
+            <div className="hidden sm:contents">
             <TaskOptionsDialog
               isOpen={showOptions}
               setIsOpen={setShowOptions}
@@ -585,16 +597,9 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
               hideCategory={!!lockCategory}
               resultCount={sorted.length}
               totalCount={scopeFiltered.length}
-              scope={!userId && user ? {
-                value: isAssignedToMe ? 'mine' : isAssignedByMe ? 'byMe' : 'all',
-                // One patch for both fields — updateFilters reads `filters` from this render, so
-                // two back-to-back calls would have the second overwrite the first.
-                onChange: (next) => updateFilters({
-                  assigneeIds: next === 'mine' ? [user.id] : isAssignedToMe ? [] : filters.assigneeIds,
-                  raisedByIds: next === 'byMe' ? [user.id] : isAssignedByMe ? [] : filters.raisedByIds,
-                }),
-              } : undefined}
+              scope={scope}
             />
+            </div>
     </>
   );
 
@@ -680,8 +685,16 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
               inside `headerActions` is `hidden md:block`, so on mobile this only ever holds
               Options, and an unconditional auto-margin pushed that one pill hard right, leaving a
               dead gap in front of it. */}
+          {scope && (
+            <PhoneScopeSwitch
+              options={[{ value: 'mine', label: 'Assigned to me' }, { value: 'byMe', label: 'Created by me' }]}
+              value={scope.value}
+              allValue="all"
+              onChange={scope.onChange}
+            />
+          )}
           <div className="flex items-center gap-2.5 flex-wrap shrink-0 ml-auto">
-            <CreatedRangePicker createdRange={createdRange} />
+            <CreatedRangePicker createdRange={createdRange} className="hidden sm:inline-flex" />
             {headerActions}
           </div>
         </div>

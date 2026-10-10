@@ -10,6 +10,7 @@ import { OWN_SCOPE_ROLES } from '../../api/auth';
 import { useDepartmentsQuery, useStoresQuery, useAssignableUsersQuery, useTicketsBoardQuery, BOARD_LIMIT } from './hook';
 import { NoticeBanner } from '../../components/noticeBanner';
 import { ChipLegend, type ChipLegendSection } from '../../components/chipLegend';
+import { PhoneScopeSwitch } from '../../components/phoneScopeSwitch/PhoneScopeSwitch';
 import { getStatusChipMeta } from '../../components/statusChip';
 import { STATUS_CONFIG, PRIORITY_CONFIG } from './ticketDisplay';
 import { useCategoriesQuery } from '../settings/hook';
@@ -189,13 +190,22 @@ export const TicketList = () => {
           <div className="hidden sm:block shrink-0">
             <ViewToggle tabs={VIEW_TABS} value={organizer.view} onChange={organizer.setView} storageKey={`view:tickets:${user?.id ?? 'anon'}`} />
           </div>
-          <SavedViewsMenu
-            views={savedViews.views}
-            activeId={activeSavedViewId}
-            onSave={(name) => savedViews.save(name, organizer.snapshot)}
-            onApply={(v) => organizer.applySnapshot(v.state)}
-            onRemove={savedViews.remove}
+          {/* Phones get one simple switch instead of saved views, the date picker and the filter sheet. */}
+          <PhoneScopeSwitch
+            options={[{ value: 'ASSIGNED_TO_ME', label: 'Assigned to me' }, { value: 'CREATED_BY_ME', label: 'Created by me' }]}
+            value={organizer.scopeFilter}
+            allValue="ALL"
+            onChange={(v) => { organizer.setScopeFilter(v); organizer.setPage(1); }}
           />
+          <div className="hidden sm:contents">
+            <SavedViewsMenu
+              views={savedViews.views}
+              activeId={activeSavedViewId}
+              onSave={(name) => savedViews.save(name, organizer.snapshot)}
+              onApply={(v) => organizer.applySnapshot(v.state)}
+              onRemove={savedViews.remove}
+            />
+          </div>
 
           <TicketActiveTags organizer={organizer} allTickets={allTicketsData ?? []} />
 
@@ -206,7 +216,7 @@ export const TicketList = () => {
           {/* `order-first` below sm: Options stays put at the left edge and any active-filter chips
               wrap in after it, instead of Options jumping sideways each time a chip appears. */}
           <div className="flex items-center gap-x-3 gap-y-2.5 flex-wrap shrink-0 ml-auto">
-            <CreatedRangePicker createdRange={createdRange} className="shrink-0" />
+            <CreatedRangePicker createdRange={createdRange} className="hidden sm:inline-flex shrink-0" />
             <div className="hidden md:block">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -243,6 +253,7 @@ export const TicketList = () => {
             </div>
 
             <ChipLegend sections={TICKET_LEGEND} />
+            <div className="hidden sm:contents">
             <TicketSettingsMenu
               isOpen={showOptions}
               setIsOpen={setShowOptions}
@@ -253,6 +264,7 @@ export const TicketList = () => {
               canExport={canExport}
               onExport={() => setShowExport(true)}
             />
+            </div>
             <Fab
               actions={[
                 { key: 'create', label: 'New Ticket', icon: Plus, onClick: () => setShowForm(true) },

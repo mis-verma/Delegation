@@ -295,17 +295,21 @@ export const MyChecklists = () => {
     // An older run is NOT redundant while it still needs someone: a sent-back one (they must fix it),
     // a finished one nobody has submitted yet, or one whose cutoff has not passed (an overnight window
     // whose next run was already generated at midnight). Only abandoned, missed runs are trimmed.
+    // A submitted run (waiting for approval or verified) never needs the person again, whatever its cutoff.
     const stillNeedsWork = (i: ChecklistInstance) =>
       i.verificationStatus === 'REJECTED' ||
-      (i.verificationStatus === 'NOT_SUBMITTED' && i.items.length > 0 && i.items.every((it) => it.isDone)) ||
-      instanceDeadline(i) > now;
+      (i.verificationStatus === 'NOT_SUBMITTED' &&
+        ((i.items.length > 0 && i.items.every((it) => it.isDone)) || instanceDeadline(i) > now));
     // This page is for today's work. A run from an earlier day shows only while it still needs the person:
     // sent back, finished but not yet submitted, or an overnight window still open. A verified, waiting or
     // missed run from yesterday is history (the History and Report pages keep it), not a card to act on.
     const todayStart = new Date(todayPeriodBoundIso()).getTime();
     const kept = new Set<ChecklistInstance>();
     for (const instance of sortedInstances) {
-      const fromToday = new Date(instance.periodEnd).getTime() >= todayStart;
+      // A daily run is today's only when it starts today (its end can sit on today's midnight).
+      const fromToday = instance.recurrence === 'DAILY'
+        ? new Date(instance.periodStart).getTime() >= todayStart
+        : new Date(instance.periodEnd).getTime() >= todayStart;
       if (!fromToday) {
         if (stillNeedsWork(instance)) kept.add(instance);
         continue;

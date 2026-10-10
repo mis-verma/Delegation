@@ -26,9 +26,9 @@ export const ChipLegend = ({ sections }: { sections: ChipLegendSection[] }) => (
         type="button"
         aria-label="What do the icons mean?"
         title="What do the icons mean?"
-        className="sm:hidden flex items-center justify-center size-11 shrink-0 rounded-full border border-border/60 text-text-muted hover:text-text hover:bg-surface-hover cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 transition-colors [-webkit-tap-highlight-color:transparent]"
+        className="sm:hidden flex items-center justify-center size-11 shrink-0 rounded-full border border-border bg-surface text-text-secondary hover:border-border-hover hover:text-text cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 transition-colors [-webkit-tap-highlight-color:transparent]"
       >
-        <CircleHelp size={17} strokeWidth={2.25} aria-hidden />
+        <CircleHelp size={16} aria-hidden />
       </button>
     </PopoverTrigger>
     <PopoverContent align="end" className="w-72 max-w-[calc(100vw-2rem)] p-3 rounded-xl">
