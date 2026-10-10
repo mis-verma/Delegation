@@ -64,7 +64,7 @@ export const TaskDescriptionField = ({
         disabled={disabled}
         placeholder={placeholder}
         rows={rows}
-        className="w-full px-3 py-2.5 text-sm font-display text-text bg-transparent outline-none resize-y placeholder:text-text-light disabled:text-text-light disabled:cursor-not-allowed"
+        className="w-full px-3 py-2.5 text-base sm:text-sm font-display text-text bg-transparent outline-none resize-y placeholder:text-text-light disabled:text-text-light disabled:cursor-not-allowed"
       />
 
       {toolbar && (

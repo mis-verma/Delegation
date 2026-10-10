@@ -199,7 +199,7 @@ export const LabelsField = ({
         {selected.map((tag) => (
           <span
             key={tag.id}
-            className={cn(chipBase, 'pl-2 pr-1 animate-in fade-in zoom-in-95 duration-150', labelChipClass(tag))}
+            className={cn(chipBase, 'pl-2 pr-1', labelChipClass(tag))}
           >
             <span aria-hidden className={cn('size-2 rounded-full shrink-0', labelDotClass(tag))} />
             {tag.name}
@@ -208,7 +208,8 @@ export const LabelsField = ({
                 type="button"
                 onClick={(e) => { e.stopPropagation(); remove(tag.id); }}
                 aria-label={`Remove label ${tag.name}`}
-                className="relative flex items-center justify-center size-5 pointer-coarse:size-7 rounded-full hover:bg-current/15 focus-visible:bg-current/15 transition-colors duration-200 cursor-pointer outline-none"
+                // 28px circle on touch, padded to a 44px target by the ::after.
+                className="relative flex items-center justify-center size-5 pointer-coarse:size-7 pointer-coarse:after:absolute pointer-coarse:after:-inset-2 pointer-coarse:after:content-[''] rounded-full hover:bg-current/15 focus-visible:bg-current/15 transition-colors duration-200 cursor-pointer outline-none"
               >
                 <X size={12} strokeWidth={2.75} />
               </button>
@@ -261,7 +262,7 @@ export const LabelsField = ({
           a name that does not exist yet is typed, whether or not the input still has focus, so a
           swatch tap on a phone never makes it vanish. */}
       {canOfferCreate && (
-        <div className="flex flex-col gap-2.5 p-3 rounded-xl border border-primary-500/20 bg-gradient-to-br from-primary-500/[0.07] to-transparent dark:from-primary-500/10 animate-in fade-in slide-in-from-top-1 duration-150">
+        <div className="flex flex-col gap-2.5 p-3 rounded-xl border border-primary-500/20 bg-primary-500/5 dark:bg-primary-500/10">
           <div className="flex items-center justify-between gap-3">
             <span className="flex items-center gap-1.5 text-xs font-display font-semibold text-text-muted">
               <Palette size={13} aria-hidden /> New label
@@ -278,7 +279,7 @@ export const LabelsField = ({
             type="button"
             onMouseDown={(e) => e.preventDefault()}
             onClick={commit}
-            className="inline-flex items-center justify-center gap-2 h-10 pointer-coarse:h-11 rounded-lg bg-gradient-to-br from-primary-500 to-primary-700 text-white text-sm font-display font-semibold transition-[filter,transform] duration-150 hover:brightness-110 active:scale-[0.98] cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+            className="inline-flex items-center justify-center gap-2 h-10 pointer-coarse:h-11 rounded-lg bg-primary-600 text-white text-sm font-display font-semibold transition-[background-color,transform] duration-150 ease-out hover:bg-primary-700 active:scale-[0.985] cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
           >
             <Plus size={15} strokeWidth={2.75} />
             Create “{trimmed}”
@@ -290,7 +291,7 @@ export const LabelsField = ({
       {/* Inline, not floating: pushes content down a little instead of covering the fields
           around it. onMouseDown preventDefault keeps focus in the input so taps land. */}
       {showSuggestions && (
-        <div className="flex flex-wrap items-center gap-1.5 px-0.5 animate-in fade-in slide-in-from-top-1 duration-150">
+        <div className="flex flex-wrap items-center gap-1.5 px-0.5">
           {suggestions.slice(0, MAX_SUGGESTIONS).map((tag) => (
             <button
               key={tag.id}
@@ -324,7 +325,7 @@ export const LabelsField = ({
           the label off every delegation and ticket that carries it, so the bin first turns the chip
           into an inline "Delete everywhere?". */}
       {managing && canCreate && !disabled && (
-        <div className="flex flex-col gap-2.5 p-3 rounded-xl border border-border/60 dark:border-white/[0.08] bg-surface-hover/40 animate-in fade-in slide-in-from-top-1 duration-150">
+        <div className="flex flex-col gap-2.5 p-3 rounded-xl border border-border/60 dark:border-white/[0.08] bg-surface-hover/40">
           <div className="flex items-center justify-between gap-2">
             <span className="t-meta font-display font-semibold text-text-secondary">Tap a dot to change its colour, or delete one you no longer need</span>
             <button
@@ -341,7 +342,7 @@ export const LabelsField = ({
               const confirming = confirmingId === tag.id;
               const busy = deleteTag.isPending && confirming;
               return confirming ? (
-                <span key={tag.id} className="inline-flex items-center gap-1 h-8 pointer-coarse:h-10 pl-2.5 pr-1 rounded-full border border-danger/40 bg-danger/10 text-xs font-display font-semibold text-danger animate-in fade-in zoom-in-95 duration-150">
+                <span key={tag.id} className="inline-flex items-center gap-1 h-8 pointer-coarse:h-10 pl-2.5 pr-1 rounded-full border border-danger/40 bg-danger/10 text-xs font-display font-semibold text-danger">
                   Delete “{tag.name}” everywhere?
                   <button
                     type="button"

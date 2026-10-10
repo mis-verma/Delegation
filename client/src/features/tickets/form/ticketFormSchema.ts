@@ -46,7 +46,11 @@ export const buildTicketSchema = ({ requirePerson }: { requirePerson: boolean })
         if (data.assignmentMode !== 'MANUAL' || !data.dueDate || !data.dueTime) return true;
         return new Date(`${data.dueDate}T${data.dueTime}`).getTime() > Date.now();
       },
-      { message: 'Due date/time must be in the future', path: ['dueTime'] },
+      { message: 'Pick a due time that is still ahead', path: ['dueDate'] },
+    )
+    .refine(
+      (data) => data.assignmentMode !== 'MANUAL' || !data.startDate || !data.dueDate || data.startDate <= data.dueDate,
+      { message: 'The start day has to be on or before the due day', path: ['startDate'] },
     );
 
 export type TicketFields = z.infer<typeof baseTicketSchema>;

@@ -107,7 +107,7 @@ export const ChecklistQueueRow = memo(function ChecklistQueueRow({
           data-queue-row={id}
           aria-current={active ? 'true' : undefined}
           onClick={() => onOpen(id)}
-          className="flex items-start gap-3 min-w-0 text-left cursor-pointer outline-none rounded-md transition-transform duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40"
+          className="flex items-start gap-3 min-w-0 text-left cursor-pointer outline-none rounded-md focus-visible:ring-2 focus-visible:ring-primary-500/40"
         >
           <Repeat size={16} aria-hidden className="mt-0.5 shrink-0 text-text-light" />
           <span className="flex flex-col gap-1 min-w-0 flex-1">

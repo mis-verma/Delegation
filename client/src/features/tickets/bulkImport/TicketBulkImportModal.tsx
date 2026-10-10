@@ -221,7 +221,7 @@ export const TicketBulkImportModal = ({ onClose }: TicketBulkImportModalProps) =
       {step === 'review' && (
         <div className="flex flex-col gap-3">
           <p className="text-xs font-display text-text-muted">
-            {includedRows.length} of {rows.length} row{rows.length === 1 ? '' : 's'} included · rows outlined in amber need a second look, red need fixing.
+            {includedRows.length} of {rows.length} row{rows.length === 1 ? '' : 's'} included. Rows outlined in amber need a second look, red ones need fixing.
           </p>
 
           <div className="overflow-x-auto rounded-lg border border-border">

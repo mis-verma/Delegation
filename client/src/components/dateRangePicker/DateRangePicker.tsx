@@ -40,6 +40,8 @@ interface DateRangePickerProps {
   endTimeOnly?: boolean;
   /** One day is enough: a single tap sets the due day and no start day is asked for. */
   dueOnly?: boolean;
+  /** Hide the quick-choice row, for forms that already show their own quick-day chips beside the picker. */
+  hidePresets?: boolean;
   /** Earliest moment that can be picked. Earlier days are greyed out and an earlier time is refused. */
   minDate?: Date;
 }
@@ -71,6 +73,7 @@ export function DateRangePicker({
   placeholderIsValue = false,
   endTimeOnly = false,
   dueOnly = false,
+  hidePresets = false,
   minDate,
 }: DateRangePickerProps) {
   const isPhone = useMediaQuery('(max-width: 639px)');
@@ -242,7 +245,7 @@ export function DateRangePicker({
 
   const dateColumn = (
     <div className="flex flex-col gap-3 w-full sm:w-[19.5rem] min-w-0">
-      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Quick choices">
+      {!hidePresets && <div className="flex flex-wrap gap-1.5" role="group" aria-label="Quick choices">
         {presets.map((preset) => (
           <button
             key={preset.label}
@@ -253,7 +256,7 @@ export function DateRangePicker({
             {preset.label}
           </button>
         ))}
-      </div>
+      </div>}
 
       {/* What has been picked and which tap comes next. */}
       <div className={cn('grid items-center gap-2', slots.length === 2 ? 'grid-cols-[1fr_auto_1fr]' : 'grid-cols-1')}>

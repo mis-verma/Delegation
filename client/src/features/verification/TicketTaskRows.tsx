@@ -48,7 +48,7 @@ const HOUR_MS = 3_600_000;
 // Against the 24 hour promise: quiet under 12 hours, amber from 12, red past 24.
 const waitingLook = (sinceMs: number, now: number) => {
   const hours = (now - sinceMs) / HOUR_MS;
-  if (hours >= 24) return { tone: 'bg-danger', text: 'text-danger', suffix: ' · over 24h' };
+  if (hours >= 24) return { tone: 'bg-danger', text: 'text-danger', suffix: ', over 24h' };
   if (hours >= 12) return { tone: 'bg-warning', text: 'text-warning', suffix: '' };
   return { tone: 'bg-text-muted', text: undefined, suffix: '' };
 };
@@ -85,7 +85,7 @@ const EvidenceStrip = ({ files }: { files: EvidenceFile[] }) => {
 interface QueueRowProps {
   icon: ReactNode;
   title: string;
-  /** Plain-text facts under the title, e.g. "Raised by Asha · Handled by Ravi". */
+  /** Plain-text facts under the title, e.g. "Raised by Asha, handled by Ravi". */
   facts: string;
   /** Chips: priority and department, then how long it has waited. */
   chips: ReactNode;
@@ -143,7 +143,7 @@ const QueueRow = ({ icon, title, facts, chips, note, evidence, onOpen, onApprove
           <button
             type="button"
             onClick={onOpen}
-            className="group/info flex items-start gap-3 min-w-0 flex-1 text-left cursor-pointer outline-none rounded-lg transition-transform duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40"
+            className="group/info flex items-start gap-3 min-w-0 flex-1 text-left cursor-pointer outline-none rounded-lg focus-visible:ring-2 focus-visible:ring-primary-500/40"
           >
             <span className="flex items-center justify-center size-9 rounded-lg bg-surface-hover text-text-muted shrink-0">{icon}</span>
             <span className="flex flex-col gap-1.5 flex-1 min-w-0">
@@ -164,7 +164,7 @@ const QueueRow = ({ icon, title, facts, chips, note, evidence, onOpen, onApprove
                   )}>
                     {attentionNeeded && <AlertTriangle size={11} strokeWidth={2.5} aria-hidden />}
                     {summary.done}/{summary.total} done
-                    {summary.missingPhotos > 0 && ` · ${summary.missingPhotos} photo${summary.missingPhotos === 1 ? '' : 's'} missing`}
+                    {summary.missingPhotos > 0 && `, ${summary.missingPhotos} photo${summary.missingPhotos === 1 ? '' : 's'} missing`}
                   </span>
                 )}
               </span>
@@ -211,13 +211,13 @@ const QueueRow = ({ icon, title, facts, chips, note, evidence, onOpen, onApprove
       )}
 
       {expanded && (
-        <div className="pt-4 border-t border-border/50 animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="pt-4 border-t border-border/50">
           {preview(flagForCorrection)}
         </div>
       )}
 
       {rejecting && (
-        <div className="flex flex-col gap-3 pt-4 border-t border-border/50 animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="flex flex-col gap-3 pt-4 border-t border-border/50">
           <SendBackForm
             autoFocus
             quickReasons
@@ -273,7 +273,7 @@ export const TicketRow = memo(function TicketRow({ ticket, now, departmentName, 
       <QueueRow
         icon={<TicketIcon size={18} aria-hidden />}
         title={ticket.title}
-        facts={[raisedByName ? `Raised by ${raisedByName}` : null, ticket.assignee ? `Handled by ${ticket.assignee.firstName}` : 'Unassigned'].filter(Boolean).join(' · ')}
+        facts={[raisedByName ? `Raised by ${raisedByName}` : null, ticket.assignee ? `handled by ${ticket.assignee.firstName}` : 'nobody working on it yet'].filter(Boolean).join(', ').replace(/^./, (c) => c.toUpperCase())}
         chips={
           <>
             <PriorityChip meta={PRIORITY_CONFIG[ticket.priority]} />
@@ -317,7 +317,7 @@ export const TaskRow = memo(function TaskRow({ task, now, departmentName, raised
       <QueueRow
         icon={<CheckSquare size={18} aria-hidden />}
         title={task.title}
-        facts={[raisedByName ? `Raised by ${raisedByName}` : null, task.dueDate ? `Due ${new Date(task.dueDate).toLocaleDateString()}` : 'No due date'].filter(Boolean).join(' · ')}
+        facts={[raisedByName ? `Raised by ${raisedByName}` : null, task.dueDate ? `due ${new Date(task.dueDate).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}` : 'no due date'].filter(Boolean).join(', ').replace(/^./, (c) => c.toUpperCase())}
         chips={
           <>
             <PriorityChip meta={PRIORITY_MAP[task.priority]} />

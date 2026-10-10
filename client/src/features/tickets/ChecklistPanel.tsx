@@ -7,7 +7,7 @@ import {
   Button, EmptyState,
   ChecklistItemDraftRow, emptyChecklistItemDraft, moveDraftItem, type ChecklistItemDraft,
 } from '../../components';
-import { SECTION_HEADER } from './detail/detailConstants';
+import { DETAIL_SECTION_HEADING } from './detail/detailConstants';
 import {
   useAddChecklistMutation,
   useDeleteChecklistMutation,
@@ -104,7 +104,7 @@ const ItemRow = ({
                 className={`text-xs ${photosSatisfied ? 'bg-primary-50 dark:bg-primary-500/10' : 'bg-warning/10'}`}
               >
                 <Camera size={12} strokeWidth={2.5} />
-                {qualifying}/{item.requiredImageCount} {item.requiresLivePhoto ? 'Live' : 'Photos'}
+                {qualifying}/{item.requiredImageCount} {item.requiresLivePhoto ? 'camera photos' : 'photos'}
               </Badge>
             )}
           </div>
@@ -139,20 +139,21 @@ const ItemRow = ({
       </div>
 
       {images.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3 pl-0 sm:pl-9 max-w-xl">
+        <div className="grid grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3 pl-0 sm:pl-9 max-w-xl">
           {images.map(img => (
             <div key={img.id} className="relative group/img aspect-square w-full overflow-hidden rounded-lg border border-border bg-surface-hover">
               <img
                 src={`${UPLOADS_BASE}${img.url}`}
                 alt={img.originalFilename ?? 'evidence'}
-                className="size-full object-cover transition-transform duration-300 group-hover/img:scale-110"
+                loading="lazy"
+                className="size-full object-cover"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover/img:opacity-100 pointer-coarse:opacity-100 transition-opacity pointer-events-none" />
 
               <span className={`absolute top-1 left-1 t-meta font-bold px-1.5 py-0.5 rounded text-white ${
-                img.captureMethod === 'LIVE' ? 'bg-primary-600' : 'bg-black/85'
+                img.captureMethod === 'LIVE' ? 'bg-black/70' : 'bg-black/50'
               }`}>
-                {img.captureMethod === 'LIVE' ? 'Live' : 'Gallery'}
+                {img.captureMethod === 'LIVE' ? 'Camera' : 'Gallery'}
               </span>
 
               {canWork && (
@@ -161,7 +162,7 @@ const ItemRow = ({
                   onClick={() => deleteImage.mutate(img.id)}
                   disabled={deleteImage.isPending}
                   aria-label="Remove image"
-                  className="absolute top-1 right-1 flex items-center justify-center size-8 rounded-full bg-danger/90 text-white opacity-0 group-hover/img:opacity-100 pointer-coarse:opacity-100 transition-all hover:bg-danger hover:scale-105 cursor-pointer outline-none focus:opacity-100 after:absolute after:-inset-1.5 focus-visible:ring-2 focus-visible:ring-danger/50 disabled:opacity-50"
+                  className="absolute top-1 right-1 flex items-center justify-center size-8 rounded-full bg-danger/90 text-white opacity-0 group-hover/img:opacity-100 pointer-coarse:opacity-100 transition-colors hover:bg-danger cursor-pointer outline-none focus:opacity-100 after:absolute after:-inset-1.5 focus-visible:ring-2 focus-visible:ring-danger/50 disabled:opacity-50"
                 >
                   {deleteImage.isPending ? <Loader2 size={12} className="animate-spin" /> : <X size={14} strokeWidth={2.5} />}
                 </button>
@@ -183,7 +184,7 @@ const ItemRow = ({
             <textarea
               value={remarks}
               onChange={e => setRemarks(e.target.value)}
-              placeholder="Add remarks or notes…"
+              placeholder="Add a note, or say why this step can't be done"
               rows={2}
               className="w-full px-3 py-2.5 text-base sm:text-sm text-text bg-surface rounded-lg border border-border focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 placeholder:text-text-light resize-none transition-all outline-none"
             />
@@ -201,9 +202,9 @@ const ItemRow = ({
 
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-2 flex-wrap">
               <div className="grid grid-cols-2 sm:flex sm:items-center gap-2">
-                <label className="flex items-center justify-center gap-2 text-sm font-medium px-4 min-h-11 sm:min-h-9 rounded-lg border border-info/30 text-info bg-info/10 hover:bg-info/20 cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-info/30">
+                <label className="flex items-center justify-center gap-2 text-sm font-medium px-4 min-h-11 sm:min-h-9 rounded-lg border border-border text-text-secondary bg-surface hover:bg-surface-hover cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-border-hover">
                   <Camera size={16} />
-                  Take Photo
+                  Camera
                   <input
                     type="file" accept="image/*" capture="environment" multiple
                     className="sr-only" onChange={e => { handleFiles(e.target.files, 'LIVE'); e.target.value = ''; }}
@@ -219,7 +220,7 @@ const ItemRow = ({
                   />
                 </label>
 
-                {uploadImages.isPending && <Loader2 size={18} className="animate-spin text-info" aria-label="Uploading" />}
+                {uploadImages.isPending && <Loader2 size={18} className="animate-spin text-text-muted" aria-label="Uploading" />}
               </div>
 
               <div className="flex flex-col-reverse sm:flex-row sm:items-center gap-2 sm:ml-auto">
@@ -230,17 +231,17 @@ const ItemRow = ({
                   className="flex items-center justify-center gap-1.5 text-sm font-medium px-4 min-h-11 sm:min-h-9 rounded-lg text-text-secondary hover:text-text hover:bg-surface-hover cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-border-hover"
                 >
                   {updateRemarks.isPending && <Loader2 size={16} className="animate-spin" />}
-                  Save Notes
+                  Save note
                 </button>
 
                 <button
                   type="button"
                   onClick={() => completeItem.mutate(item.id)}
                   disabled={completeItem.isPending}
-                  className="flex items-center justify-center gap-2 text-sm font-medium px-5 min-h-11 sm:min-h-9 rounded-lg bg-primary-600 text-white hover:bg-primary-700 cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 active:scale-95"
+                  className="flex items-center justify-center gap-2 text-sm font-medium px-5 min-h-11 sm:min-h-9 rounded-lg bg-primary-600 text-white hover:bg-primary-700 cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
                 >
                   {completeItem.isPending ? <Loader2 size={16} className="animate-spin" /> : <CheckSquare size={16} />}
-                  Complete Item
+                  Mark done
                 </button>
               </div>
             </div>
@@ -399,8 +400,9 @@ export const ChecklistPanel = ({ ticketId, checklists }: ChecklistPanelProps) =>
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <h3 className={SECTION_HEADER}>
-          Checklists
+        <h3 className={DETAIL_SECTION_HEADING}>
+          <ListChecks size={16} className="text-text-light" aria-hidden />
+          Checklist
         </h3>
         {isAdmin && !adding && (
           <button

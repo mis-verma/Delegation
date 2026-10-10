@@ -205,7 +205,7 @@ export const ticketBulkImportService = {
         if (mimetype === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") {
             return { rows: await parseXlsxRows(buffer) }
         }
-        throw AppError.unprocessable("Unsupported file type — upload a CSV or Excel (.xlsx) file.")
+        throw AppError.unprocessable("That file type isn't supported. Upload a CSV or Excel (.xlsx) file.")
     },
 
     async matchRows(rawRows: TicketBulkImportRawRow[], actor: AccessTokenPayload): Promise<TicketBulkImportPreviewResult> {

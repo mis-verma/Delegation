@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { Plus, ChevronDown, Upload, AlertCircle, Inbox, LayoutList, Kanban, Table2, GanttChartSquare } from 'lucide-react';
-import { PageNav, Fab, ViewToggle, SavedViewsMenu, useSavedViews, EmptyState, type ViewTab } from '../../components';
+import { PageNav, Fab, ViewToggle, SavedViewsMenu, useSavedViews, EmptyState, InlineError, Button, type ViewTab } from '../../components';
 import { CreatedRangeBanner, CreatedRangePicker } from '../../components/createdRangeBanner';
 import { useCreatedRange } from '../../lib/createdRange';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
@@ -83,7 +83,7 @@ export const TicketList = () => {
   // from an earlier, unfiltered fetch while the correctly-scoped fetch was thrown away.
   const [searchParams, setSearchParams] = useSearchParams();
   const assigneeIdFilter = searchParams.get('assigneeIds') ?? undefined;
-  const { data: allTicketsData, isPending, isError } = useTicketsBoardQuery(true, assigneeIdFilter);
+  const { data: allTicketsData, isPending, isError, refetch } = useTicketsBoardQuery(true, assigneeIdFilter);
   // Opened from a chart bar: only tickets created inside that bar's period (see lib/createdRange).
   const createdRange = useCreatedRange();
   const ticketsInRange = useMemo(() => {
@@ -91,6 +91,12 @@ export const TicketList = () => {
     return createdRange.range ? everything.filter((t) => createdRange.matches(t.createdAt)) : everything;
   }, [allTicketsData, createdRange]);
   const organizer = useTicketOrganizer(ticketsInRange, user, departmentNames);
+  // Top of the results, so a page change brings the new page's first ticket into view.
+  const resultsTopRef = useRef<HTMLDivElement>(null);
+  const changePage = (page: number) => {
+    organizer.setPage(page);
+    resultsTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
   // Named setups of this page (layout, filters, sort, grouping), kept in this browser for this person.
   const savedViews = useSavedViews<TicketViewSnapshot>(`savedViews:tickets:${user?.id ?? 'anon'}`);
   const activeSavedViewId = savedViews.views.find((v) => JSON.stringify(v.state) === JSON.stringify(organizer.snapshot))?.id ?? null;
@@ -183,7 +189,10 @@ export const TicketList = () => {
           {/* Phones get one simple switch instead of saved views and the date picker. The filter
               sheet stays for team leads and above (see Options below). */}
           <PhoneScopeSwitch
-            options={[{ value: 'ASSIGNED_TO_ME', label: 'Assigned to me' }, { value: 'CREATED_BY_ME', label: 'Created by me' }]}
+            options={[
+              { value: 'ASSIGNED_TO_ME', label: 'Assigned to me', shortLabel: 'Mine' },
+              { value: 'CREATED_BY_ME', label: 'Created by me', shortLabel: 'By me' },
+            ]}
             value={organizer.scopeFilter}
             allValue="ALL"
             onChange={(v) => { organizer.setScopeFilter(v); organizer.setPage(1); }}
@@ -208,39 +217,36 @@ export const TicketList = () => {
               wrap in after it, instead of Options jumping sideways each time a chip appears. */}
           <div className="flex items-center gap-x-3 gap-y-2.5 flex-wrap shrink-0 ml-auto">
             <CreatedRangePicker createdRange={createdRange} className="hidden sm:inline-flex shrink-0" />
-            <div className="hidden md:block">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className="group inline-flex items-center h-9 rounded-full bg-primary-800 hover:bg-primary-900 dark:bg-primary-600 dark:hover:bg-primary-500 text-white text-sm font-display font-semibold tracking-tight ring-1 ring-inset ring-white/10 transition-all duration-200 ease-in-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-surface active:scale-[0.98] data-[state=open]:bg-primary-900 dark:data-[state=open]:bg-primary-500"
-                  >
-                    <span className="flex items-center gap-2 pl-3.5 pr-3">
-                      <span className="flex items-center justify-center size-5 rounded-full bg-white/15">
-                        <Plus size={13} strokeWidth={3} className="transition-transform duration-300 group-hover:rotate-90" />
-                      </span>
-                      New Ticket
-                    </span>
-                    <span className="flex items-center self-stretch pl-2 pr-3 border-l border-white/15">
-                      <ChevronDown size={14} strokeWidth={2.5} className="opacity-80 transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                    </span>
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 rounded-xl">
-                  <DropdownMenuItem onClick={() => setShowForm(true)} className="gap-2.5 py-2 cursor-pointer">
-                    <Plus size={15} className="text-primary-600" />
-                    <span className="font-medium text-sm">New Ticket</span>
-                  </DropdownMenuItem>
-                  {/* Admin/PC only, same gate as the server route — bulk-creating tickets for
-                      other people is a distinct, more powerful capability than a plain create. */}
-                  {isVerifier && (
+            {/* One click opens the form. Admin/PC also get a small chevron for Bulk import (same
+                gate as the server route: creating tickets for other people in bulk is theirs only). */}
+            <div className="hidden md:flex items-center">
+              <Button
+                size="sm"
+                onClick={() => setShowForm(true)}
+                className={`h-9 font-display font-semibold ${isVerifier ? 'rounded-r-none' : ''}`}
+              >
+                <Plus size={16} strokeWidth={2.5} aria-hidden />
+                New ticket
+              </Button>
+              {isVerifier && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      size="sm"
+                      aria-label="More ways to add tickets"
+                      className="h-9 px-2 rounded-l-none border-l-border/70"
+                    >
+                      <ChevronDown size={16} strokeWidth={2.5} aria-hidden />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-52 rounded-xl">
                     <DropdownMenuItem onClick={() => setShowBulkImport(true)} className="gap-2.5 py-2 cursor-pointer">
-                      <Upload size={15} className="text-primary-600" />
-                      <span className="font-medium text-sm">Bulk Import</span>
+                      <Upload size={16} className="text-text-muted" />
+                      <span className="font-medium text-sm">Bulk import</span>
                     </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
             </div>
 
             {/* Front-line staff only ever see their own tickets, so on a phone the scope pills are all
@@ -259,22 +265,24 @@ export const TicketList = () => {
             </div>
             <Fab
               actions={[
-                { key: 'create', label: 'New Ticket', icon: Plus, onClick: () => setShowForm(true) },
-                ...(isVerifier ? [{ key: 'bulk-import', label: 'Bulk Import', icon: Upload, onClick: () => setShowBulkImport(true) }] : []),
+                { key: 'create', label: 'New ticket', icon: Plus, onClick: () => setShowForm(true) },
+                ...(isVerifier ? [{ key: 'bulk-import', label: 'Bulk import', icon: Upload, onClick: () => setShowBulkImport(true) }] : []),
               ]}
             />
           </div>
         </div>
       </div>
 
-      {/* Main Display Area */}
+      {/* Main Display Area. The anchor sits just above the results, with room for the sticky
+          navbar so a page change doesn't tuck the first ticket under it. */}
+      <div ref={resultsTopRef} className="scroll-mt-24" aria-hidden />
       {isPending && <TicketListSkeleton view={organizer.view} />}
 
       {isError && (
-        <div className="flex items-start sm:items-center gap-2.5 p-3 sm:p-4 rounded-xl bg-danger/10 border border-danger/20 text-danger text-xs font-display">
-          <AlertCircle size={16} className="shrink-0" />
-          <span>Failed to load tickets. Please check your network connection and try again.</span>
-        </div>
+        <InlineError
+          message="Tickets didn't load. Check your connection and try again."
+          onRetry={() => { void refetch(); }}
+        />
       )}
 
       {/* Every page is loaded, up to a safety stop. Reaching it means older tickets exist that no
@@ -292,8 +300,8 @@ export const TicketList = () => {
           size={isMobile ? 'compact' : undefined}
           title={isMobile ? 'Nothing here' : 'No tickets found'}
           description={isMobile ? undefined : organizer.hasActiveFilters
-            ? "No tickets match the current filters. Try adjusting or clearing them to see more."
-            : "You're all caught up! There are no tickets assigned to this view."}
+            ? 'No tickets match these filters. Clear them to see more.'
+            : 'Nothing here yet. Tickets you raise or are given show up here.'}
           action={organizer.hasActiveFilters ? { label: 'Clear all filters', onClick: organizer.handleResetFilters } : undefined}
         />
       )}
@@ -332,7 +340,7 @@ export const TicketList = () => {
 
       {organizer.view === 'list' && organizer.totalPages > 1 && (
         <div className="pt-4 border-t border-border/40 flex justify-center">
-          <PageNav page={organizer.safePage} totalPages={organizer.totalPages} onPageChange={organizer.setPage} />
+          <PageNav page={organizer.safePage} totalPages={organizer.totalPages} onPageChange={changePage} />
         </div>
       )}
 
@@ -342,8 +350,8 @@ export const TicketList = () => {
       {showExport && (
         <ExportDialog
           reportModule="tickets"
-          title="Export Tickets"
-          description="Every ticket created in the selected period — status, priority, department, assignee, and TAT."
+          title="Export tickets"
+          description="Every ticket created in the chosen period, with its status, priority, department, assignee and due time."
           onClose={() => setShowExport(false)}
         />
       )}

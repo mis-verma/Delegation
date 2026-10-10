@@ -33,6 +33,19 @@ export const canMoveTask = (task: Task, user: Viewer): boolean =>
  * for someone else, or their own draft, so the person doing the work can't move their own due date
  * (assertFrontLineCanEdit in task.service.ts). After approval only an Admin edits anything.
  */
+/**
+ * Why the detail sheet is read-only (fully or in part) for this person, in plain words, or null when
+ * they can edit it. Same rules as canMutateTask / canMoveTask / canEditTaskContent, in that order.
+ */
+export const viewOnlyReason = (task: Task, user: Viewer): string | null => {
+  if (!user || canEditTaskContent(task, user)) return null;
+  if (user.role === 'PC') return 'PC reviews delegations from the approval queue.';
+  if (user.role === 'APPROVAL_MANAGER') return 'Approval managers review delegations from the approval queue.';
+  if (task.status === 'done' && user.role !== 'ADMIN') return 'This delegation is approved and closed. Only an admin can change it.';
+  if (!canMutateTask(task, user)) return "You can see this delegation, but you are not on it, so you can't change it.";
+  return 'Only the person who raised this can change the details. You can move the status and add files.';
+};
+
 export const canEditTaskContent = (task: Task, user: Viewer): boolean => {
   if (!canMoveTask(task, user) || !user) return false;
   if (user.role !== 'USER' && user.role !== 'AGENT') return true;

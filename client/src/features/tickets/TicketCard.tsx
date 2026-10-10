@@ -5,10 +5,9 @@ import { getChecklistProgress } from '../../lib/checklistProgress';
 import { getTicketStatusLabel } from '../../lib/ticketStatusLabel';
 import { getInitials } from '../../lib/getInitials';
 import { avatarColorClass } from '../../lib/avatarColors';
-import { useAuth } from '../../context/AuthContext';
 import { usePrefetchTicket } from './hook';
 import { PRIORITY_CONFIG, formatDueLabel, formatAge } from './ticketDisplay';
-import { StatusChip, getStatusChipLabel, type StatusChipStatus } from '../../components/statusChip';
+import { StatusChip, type StatusChipStatus } from '../../components/statusChip';
 import { PriorityChip } from '../../components/priorityChip';
 import { DepartmentChip } from '../../components/departmentChip';
 import { IconChip } from '../../components/iconChip';
@@ -32,7 +31,6 @@ interface TicketCardProps {
  * from `sm`. Also the board's kanban card, so it has to read well narrow too.
  */
 const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list', hideAssignee = false }: TicketCardProps) => {
-  const { user } = useAuth();
   const { totalItems, doneItems, progress } = getChecklistProgress(ticket.checklists);
 
   const due = formatDueLabel(ticket);
@@ -44,7 +42,7 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
   const tagChipClass = isBoard ? 'hidden xl:inline-flex' : 'hidden sm:inline-flex';
   const priorityInfo = PRIORITY_CONFIG[ticket.priority];
   const statusChipStatus = ticket.status.toLowerCase() as StatusChipStatus;
-  const statusLabel = getTicketStatusLabel(ticket.status, user?.role, getStatusChipLabel(statusChipStatus));
+  const statusLabel = getTicketStatusLabel(ticket.status);
   const assigneeName = ticket.assignee ? ticket.assignee.firstName : null;
   // statusUpdates is newest-first, so the first ON_HOLD entry is the reason it is on hold now.
   const onHoldRemark = ticket.status === 'ON_HOLD'
@@ -81,9 +79,10 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
             </span>
           ))}
         </div>
-        {/* What the ticket is about, in place of the ticket code: two lines at most. */}
+        {/* What the ticket is about: two lines at most, and not on a phone, where the title has to
+            carry the card and every card stays the same short height. */}
         {ticket.description?.trim() && (
-          <p className="text-sm text-text-secondary leading-snug line-clamp-2 break-words">{ticket.description.trim()}</p>
+          <p className="max-sm:hidden text-sm text-text-secondary leading-snug line-clamp-2 break-words">{ticket.description.trim()}</p>
         )}
         {/* The reason is also in the status chip's tooltip, but a phone has no hover. */}
         {onHoldRemark && (
@@ -91,23 +90,17 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
             <span className="font-semibold text-text-secondary">On hold:</span> {onHoldRemark}
           </p>
         )}
-        {/* One line, never wraps: the department is the only part that truncates. Only drawn when
-            there is something to say. */}
-        {((isOverdue && !due) || progress !== null || (departmentName && (isBoard ? false : true))) && (
-          <div className="flex items-center gap-x-1.5 min-w-0 whitespace-nowrap t-meta leading-4 font-medium text-text-muted">
-            {/* "Delayed" in words only where there is no red due chip saying it already. */}
-            {isOverdue && !due && <span className="font-semibold text-danger shrink-0">Delayed</span>}
+        {/* One line, never wraps: the department is the only part that truncates. Parts are joined
+            with commas. Only drawn when there is something to say. */}
+        {((isOverdue && !due) || progress !== null || (departmentName && !isBoard)) && (
+          <div className="flex items-center min-w-0 whitespace-nowrap t-meta leading-4 font-medium text-text-muted">
+            {/* "Late" in words only where there is no red due chip saying it already. */}
+            {isOverdue && !due && <span className="font-semibold text-danger shrink-0">Late</span>}
             {progress !== null && (
-              <>
-                {isOverdue && !due && <span aria-hidden>·</span>}
-                <span className="tabular-nums shrink-0">Checklist {doneItems}/{totalItems}</span>
-              </>
+              <span className="tabular-nums shrink-0">{isOverdue && !due ? ', ' : ''}Checklist {doneItems}/{totalItems}</span>
             )}
-            {departmentName && (
-              <>
-                {((isOverdue && !due) || progress !== null) && <span aria-hidden className="sm:hidden">·</span>}
-                <span className="min-w-0 truncate sm:hidden">{departmentName}</span>
-              </>
+            {departmentName && !isBoard && (
+              <span className="min-w-0 truncate sm:hidden">{(isOverdue && !due) || progress !== null ? ', ' : ''}{departmentName}</span>
             )}
           </div>
         )}
@@ -135,9 +128,8 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
         {due && (
           <IconChip
             icon={CalendarDays}
-            tone={isOverdue ? 'bg-danger' : 'bg-primary-700'}
+            tone={isOverdue ? 'bg-danger' : 'bg-text-muted'}
             label={due.text}
-            title={isOverdue ? 'Delayed: past its target time' : 'Target resolution date'}
             className={isOverdue ? 'border-danger/30' : undefined}
             labelClassName={isOverdue ? 'text-danger' : undefined}
           />
@@ -159,7 +151,7 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
           <span className="hidden sm:flex items-center gap-1.5 ml-auto shrink-0">
             <span className="w-12 h-1.5 rounded-full bg-surface-hover overflow-hidden">
               <span
-                className="block h-full rounded-full bg-primary-600 transition-all duration-300 ease-in-out"
+                className="block h-full rounded-full bg-text-muted transition-all duration-300 ease-in-out"
                 style={{ width: `${progress}%` }}
               />
             </span>

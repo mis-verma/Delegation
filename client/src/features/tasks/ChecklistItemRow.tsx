@@ -57,8 +57,8 @@ export const ChecklistItemRow = ({
         <span
           className={`mt-0.5 flex items-center justify-center w-6 h-6 rounded-md shrink-0 transition-all ${
             item.isDone
-              ? 'bg-primary-500 text-white shadow-xs'
-              : 'bg-surface text-text-light border-[1.5px] border-border-hover shadow-xs'
+              ? 'bg-success text-white'
+              : 'bg-surface text-text-light border-[1.5px] border-border-hover'
           }`}
         >
           {item.isDone && <CheckSquare size={14} strokeWidth={3} />}
@@ -83,7 +83,7 @@ export const ChecklistItemRow = ({
             {item.requiredImageCount > 0 && (
               <Badge
                 variant={photosSatisfied ? 'default' : 'warning'}
-                className={`text-xs ${photosSatisfied ? 'bg-primary-50 dark:bg-primary-500/10' : 'bg-warning/10'}`}
+                className={`text-xs ${photosSatisfied ? 'bg-success/10 text-success' : 'bg-warning/10'}`}
               >
                 <Camera size={12} strokeWidth={2.5} />
                 {qualifying}/{item.requiredImageCount} {item.requiresLivePhoto ? 'Live' : 'Photos'}
@@ -99,7 +99,7 @@ export const ChecklistItemRow = ({
               type="button"
               onClick={() => updateItem.mutate({ id: item.id, payload: { isDone: false } })}
               disabled={updateItem.isPending}
-              className="p-1.5 text-text-light hover:text-warning hover:bg-warning/10 rounded-md transition-colors cursor-pointer disabled:opacity-50 outline-none focus-visible:ring-2 focus-visible:ring-warning/30"
+              className="flex items-center justify-center size-8 pointer-coarse:size-11 text-text-light hover:text-warning hover:bg-warning/10 rounded-md transition-colors cursor-pointer disabled:opacity-50 outline-none focus-visible:ring-2 focus-visible:ring-warning/30"
               title="Reopen item"
               aria-label="Reopen item"
             >
@@ -111,7 +111,7 @@ export const ChecklistItemRow = ({
               type="button"
               onClick={() => deleteItem.mutate(item.id)}
               disabled={deleteItem.isPending}
-              className="p-1.5 text-text-light hover:text-danger hover:bg-danger/10 rounded-md transition-colors cursor-pointer disabled:opacity-50 outline-none focus-visible:ring-2 focus-visible:ring-danger/30"
+              className="flex items-center justify-center size-8 pointer-coarse:size-11 text-text-light hover:text-danger hover:bg-danger/10 rounded-md transition-colors cursor-pointer disabled:opacity-50 outline-none focus-visible:ring-2 focus-visible:ring-danger/30"
               title="Delete item"
               aria-label="Delete item"
             >
@@ -129,9 +129,8 @@ export const ChecklistItemRow = ({
               <img
                 src={`${UPLOADS_BASE}${img.url}`}
                 alt={img.originalFilename ?? 'evidence'}
-                className="w-20 h-20 object-cover transition-transform duration-300 group-hover/img:scale-110"
+                className="w-20 h-20 object-cover"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover/img:opacity-100 transition-opacity" />
 
               <span className={`absolute top-1 left-1 text-xs font-bold px-1.5 py-0.5 rounded text-white ${
                 img.captureMethod === 'LIVE' ? 'bg-primary-600' : 'bg-black/85'
@@ -145,7 +144,7 @@ export const ChecklistItemRow = ({
                   onClick={() => deleteImage.mutate(img.id)}
                   disabled={deleteImage.isPending}
                   aria-label="Remove image"
-                  className="absolute top-1 right-1 flex items-center justify-center w-6 h-6 rounded-full bg-danger/90 text-white opacity-0 group-hover/img:opacity-100 transition-all hover:bg-danger hover:scale-105 cursor-pointer shadow-xs outline-none focus:opacity-100 focus-visible:ring-2 focus-visible:ring-danger/50 disabled:opacity-50"
+                  className="absolute top-1 right-1 flex items-center justify-center w-6 h-6 rounded-full bg-danger/90 text-white opacity-0 group-hover/img:opacity-100 pointer-coarse:opacity-100 after:absolute after:-inset-2.5 transition-opacity hover:bg-danger cursor-pointer outline-none focus:opacity-100 focus-visible:ring-2 focus-visible:ring-danger/50 disabled:opacity-50"
                 >
                   {deleteImage.isPending ? <Loader2 size={12} className="animate-spin" /> : <X size={14} strokeWidth={2.5} />}
                 </button>
@@ -168,9 +167,9 @@ export const ChecklistItemRow = ({
             <textarea
               value={remarks}
               onChange={e => setRemarks(e.target.value)}
-              placeholder="Add remarks or notes..."
+              placeholder="Add a remark, e.g. why this can't be done yet"
               rows={2}
-              className="w-full px-3 py-2 text-sm text-text bg-surface rounded-lg border border-border focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 placeholder:text-text-light resize-none transition-all outline-none"
+              className="w-full px-3 py-2 text-base sm:text-sm text-text bg-surface rounded-lg border border-border focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 placeholder:text-text-light resize-none transition-all outline-none"
             />
 
             {(uploadImages.isError || completeItem.isError) && (
@@ -186,16 +185,16 @@ export const ChecklistItemRow = ({
 
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-2 flex-wrap">
               <div className="flex items-center gap-2 flex-wrap">
-                <label className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg border border-info/30 text-info bg-info/10 hover:bg-info/20 cursor-pointer transition-colors shadow-xs focus-within:ring-2 focus-within:ring-info/30">
+                <label className="flex items-center gap-2 text-sm font-medium px-4 py-2 pointer-coarse:min-h-11 rounded-lg border border-border text-text-secondary bg-surface hover:bg-surface-hover cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-border-hover">
                   <Camera size={16} />
-                  Take Photo
+                  Take photo
                   <input
                     type="file" accept="image/*" capture="environment" multiple
                     className="sr-only" onChange={e => { handleFiles(e.target.files, 'LIVE'); e.target.value = ''; }}
                   />
                 </label>
 
-                <label className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg border border-border text-text-secondary bg-surface hover:bg-surface-hover cursor-pointer transition-colors shadow-xs focus-within:ring-2 focus-within:ring-border-hover">
+                <label className="flex items-center gap-2 text-sm font-medium px-4 py-2 pointer-coarse:min-h-11 rounded-lg border border-border text-text-secondary bg-surface hover:bg-surface-hover cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-border-hover">
                   <ImageIcon size={16} />
                   Gallery
                   <input
@@ -212,20 +211,20 @@ export const ChecklistItemRow = ({
                   type="button"
                   onClick={() => updateRemarks.mutate({ id: item.id, remarks })}
                   disabled={updateRemarks.isPending || !remarks.trim()}
-                  className="flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-lg text-text-secondary hover:text-text hover:bg-surface-hover cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-border-hover"
+                  className="flex items-center gap-1.5 text-sm font-medium px-4 py-2 pointer-coarse:min-h-11 rounded-lg text-text-secondary hover:text-text hover:bg-surface-hover cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-border-hover"
                 >
                   {updateRemarks.isPending && <Loader2 size={16} className="animate-spin" />}
-                  Save Notes
+                  Save remark
                 </button>
 
                 <button
                   type="button"
                   onClick={() => completeItem.mutate(item.id)}
                   disabled={completeItem.isPending}
-                  className="flex items-center justify-center gap-2 text-sm font-medium px-5 py-2 rounded-lg bg-primary-600 text-white hover:bg-primary-700 cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-xs outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 active:scale-95"
+                  className="flex items-center justify-center gap-2 text-sm font-medium px-5 py-2 pointer-coarse:min-h-11 rounded-lg border border-border-hover bg-surface text-text hover:bg-surface-hover cursor-pointer transition-colors duration-150 ease-out disabled:opacity-50 disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
                 >
                   {completeItem.isPending ? <Loader2 size={16} className="animate-spin" /> : <CheckSquare size={16} />}
-                  Complete Item
+                  Mark done
                 </button>
               </div>
             </div>

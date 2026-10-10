@@ -116,17 +116,22 @@ export const useTicketQuery = (id: string) => {
   });
 };
 
+// No toasts of its own: the New ticket form says "Ticket created" itself once any photos have
+// uploaded too (with an Open action), and shows a failure next to its Create button.
 export const useCreateTicketMutation = () =>
   useEntityMutation({
     mutationFn: (payload: CreateTicketPayload) => ticketApi.create(payload).then(r => r.data),
     invalidateKeys: [['tickets']],
-    successMessage: 'Ticket created',
-    errorFallback: 'Failed to create ticket',
+    successMessage: null,
+    errorFallback: "Couldn't create the ticket. Check your connection and try again.",
+    errorToast: false,
   });
 
 // `silent: true` drops the success toast — for edits whose result is already visible on screen
 // (a label chip appearing), same as useUpdateTaskMutation's option.
-export const useUpdateTicketMutation = (options?: { silent?: boolean }) =>
+// `inlineError: true` drops the error toast, for a caller that shows the failure next to its own
+// Save button (the edit form), so the same message doesn't appear twice.
+export const useUpdateTicketMutation = (options?: { silent?: boolean; inlineError?: boolean }) =>
   useEntityMutation({
     mutationFn: ({ id, payload }: { id: string; payload: UpdateTicketPayload }) =>
       ticketApi.update(id, payload).then(r => r.data),
@@ -139,7 +144,8 @@ export const useUpdateTicketMutation = (options?: { silent?: boolean }) =>
       apply: ({ id, payload }) => (old) => patchEntityInCache<Ticket>(old, id, payload),
     },
     successMessage: options?.silent ? null : 'Ticket updated',
-    errorFallback: 'Failed to update ticket',
+    errorFallback: "Couldn't save the ticket. Try again.",
+    errorToast: !options?.inlineError,
   });
 
 // The restricted status-update flow: a non-verifier moves a ticket to In Progress/On Hold/In
@@ -152,7 +158,7 @@ export const useAddTicketStatusUpdateMutation = (ticketId: string) =>
     setDetailData: (updated) => ({ key: KEYS.detail(updated.id), data: updated }),
     invalidateKeys: [['tickets']],
     successMessage: 'Status updated',
-    errorFallback: 'Failed to update status',
+    errorFallback: "Couldn't change the status. Try again.",
   });
 
 // Same endpoint as useAddTicketStatusUpdateMutation, but the ticket id travels in the payload
@@ -165,7 +171,7 @@ export const useTicketStatusMoveMutation = () =>
     setDetailData: (updated) => ({ key: KEYS.detail(updated.id), data: updated }),
     invalidateKeys: [['tickets']],
     successMessage: 'Status updated',
-    errorFallback: 'Failed to update status',
+    errorFallback: "Couldn't change the status. Try again.",
   });
 
 // The server's largest page. Lists that filter client-side read every page of this size.
@@ -235,8 +241,8 @@ export const useVerifyTicketMutation = () =>
       ticketApi.verify(id, payload).then(r => r.data),
     setDetailData: (updated) => ({ key: KEYS.detail(updated.id), data: updated }),
     invalidateKeys: [['tickets']],
-    successMessage: (updated) => (updated.status === 'CLOSED' ? 'Ticket verified and closed' : 'Ticket sent back'),
-    errorFallback: 'Failed to verify ticket',
+    successMessage: (updated) => (updated.status === 'CLOSED' ? 'Ticket approved and closed' : 'Ticket sent back'),
+    errorFallback: "Couldn't save the decision. Try again.",
   });
 
 // `withdraw` is the raiser taking back their own unstarted ticket: same request, their own wording.
@@ -245,7 +251,7 @@ export const useDeleteTicketMutation = (options?: { withdraw?: boolean }) =>
     mutationFn: (id: string) => ticketApi.delete(id),
     invalidateKeys: [['tickets']],
     successMessage: options?.withdraw ? 'Ticket withdrawn' : 'Ticket deleted',
-    errorFallback: options?.withdraw ? "Couldn't withdraw the ticket" : 'Failed to delete ticket',
+    errorFallback: options?.withdraw ? "Couldn't withdraw the ticket" : "Couldn't delete the ticket",
   });
 
 export const useAddChecklistMutation = (ticketId: string) =>
@@ -253,7 +259,7 @@ export const useAddChecklistMutation = (ticketId: string) =>
     mutationFn: (payload: CreateChecklistPayload) => ticketApi.addChecklist(ticketId, payload).then(r => r.data),
     invalidateKeys: [KEYS.detail(ticketId), ['tickets']],
     successMessage: 'Checklist added',
-    errorFallback: 'Failed to add checklist',
+    errorFallback: "Couldn't add checklist. Try again.",
   });
 
 export const useDeleteChecklistMutation = (ticketId: string) =>
@@ -261,7 +267,7 @@ export const useDeleteChecklistMutation = (ticketId: string) =>
     mutationFn: (id: string) => ticketApi.deleteChecklist(id),
     invalidateKeys: [KEYS.detail(ticketId), ['tickets']],
     successMessage: 'Checklist deleted',
-    errorFallback: 'Failed to delete checklist',
+    errorFallback: "Couldn't delete checklist. Try again.",
   });
 
 export const useUpdateChecklistItemMutation = (ticketId: string) =>
@@ -269,7 +275,7 @@ export const useUpdateChecklistItemMutation = (ticketId: string) =>
     mutationFn: ({ id, payload }: { id: string; payload: UpdateChecklistItemPayload }) =>
       ticketApi.updateChecklistItem(id, payload).then(r => r.data),
     invalidateKeys: [KEYS.detail(ticketId), ['tickets']],
-    errorFallback: 'Failed to update item',
+    errorFallback: "Couldn't update item. Try again.",
   });
 
 export const useDeleteChecklistItemMutation = (ticketId: string) =>
@@ -277,7 +283,7 @@ export const useDeleteChecklistItemMutation = (ticketId: string) =>
     mutationFn: (id: string) => ticketApi.deleteChecklistItem(id),
     invalidateKeys: [KEYS.detail(ticketId)],
     successMessage: 'Item deleted',
-    errorFallback: 'Failed to delete item',
+    errorFallback: "Couldn't delete item. Try again.",
   });
 
 export const useUpdateChecklistItemRemarksMutation = (ticketId: string) =>
@@ -286,7 +292,7 @@ export const useUpdateChecklistItemRemarksMutation = (ticketId: string) =>
       ticketApi.updateChecklistItemRemarks(id, remarks).then(r => r.data),
     invalidateKeys: [KEYS.detail(ticketId)],
     successMessage: 'Remarks saved',
-    errorFallback: 'Failed to save remarks',
+    errorFallback: "Couldn't save remarks. Try again.",
   });
 
 export const useCompleteChecklistItemMutation = (ticketId: string) =>
@@ -294,7 +300,7 @@ export const useCompleteChecklistItemMutation = (ticketId: string) =>
     mutationFn: (id: string) => ticketApi.completeChecklistItem(id).then(r => r.data),
     invalidateKeys: [KEYS.detail(ticketId)],
     successMessage: 'Item marked complete',
-    errorFallback: 'Failed to complete item',
+    errorFallback: "Couldn't complete item. Try again.",
   });
 
 export const useUploadChecklistImagesMutation = (ticketId: string) =>
@@ -303,7 +309,7 @@ export const useUploadChecklistImagesMutation = (ticketId: string) =>
       ticketApi.uploadChecklistImages(itemId, files, captureMethod).then(r => r.data),
     invalidateKeys: [KEYS.detail(ticketId)],
     successMessage: 'Photos uploaded',
-    errorFallback: 'Failed to upload photos',
+    errorFallback: "Couldn't upload photos. Try again.",
   });
 
 export const useDeleteChecklistImageMutation = (ticketId: string) =>
@@ -311,7 +317,7 @@ export const useDeleteChecklistImageMutation = (ticketId: string) =>
     mutationFn: (id: string) => ticketApi.deleteChecklistImage(id),
     invalidateKeys: [KEYS.detail(ticketId)],
     successMessage: 'Photo deleted',
-    errorFallback: 'Failed to delete photo',
+    errorFallback: "Couldn't delete photo. Try again.",
   });
 
 
@@ -332,7 +338,7 @@ export const useApplyChecklistTemplateMutation = (ticketId: string) =>
     mutationFn: (templateId: string) => checklistTemplateApi.applyToTicket(ticketId, templateId),
     invalidateKeys: [KEYS.detail(ticketId)],
     successMessage: 'Template applied',
-    errorFallback: 'Failed to apply template',
+    errorFallback: "Couldn't apply template. Try again.",
   });
 
 // Org structure (who's assignable, which departments/stores exist) changes on the order of "an
@@ -409,7 +415,7 @@ export const useStoresQuery = (enabled: boolean = true) => {
 export const useTicketBulkImportPreviewMutation = () =>
   useMutation({
     mutationFn: (file: File) => ticketBulkImportApi.preview(file).then(r => r.data),
-    onError: (err) => toast.error(errorMessage(err, 'Failed to read that file')),
+    onError: (err) => toast.error(errorMessage(err, "Couldn't read that file")),
   });
 
 export const useTicketBulkImportPublishMutation = () => {
@@ -420,7 +426,7 @@ export const useTicketBulkImportPublishMutation = () => {
       queryClient.invalidateQueries({ queryKey: ['tickets'] });
       queryClient.invalidateQueries({ queryKey: ['analytics'] });
     },
-    onError: (err) => toast.error(errorMessage(err, 'Failed to publish this batch')),
+    onError: (err) => toast.error(errorMessage(err, "Couldn't publish this batch")),
   });
 };
 
@@ -431,7 +437,7 @@ export const useUploadTicketAttachmentsMutation = (ticketId: string) =>
     mutationFn: (files: File[]) => ticketApi.uploadAttachments(ticketId, files),
     invalidateKeys: [['tickets']],
     successMessage: null,
-    errorFallback: 'Failed to add the photo',
+    errorFallback: "Couldn't add the photo. Try again.",
   });
 
 export const useDeleteTicketAttachmentMutation = () =>
@@ -439,5 +445,5 @@ export const useDeleteTicketAttachmentMutation = () =>
     mutationFn: (id: string) => ticketApi.deleteAttachment(id),
     invalidateKeys: [['tickets']],
     successMessage: null,
-    errorFallback: 'Failed to remove the photo',
+    errorFallback: "Couldn't remove the photo. Try again.",
   });

@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import { Camera, Loader2, X } from 'lucide-react';
 import { useConfirm } from '@/components/confirmDialog';
 import { useUploadTicketAttachmentsMutation, useDeleteTicketAttachmentMutation } from '../hook';
-import { UPLOADS_BASE } from './detailConstants';
+import { UPLOADS_BASE, DETAIL_SECTION_HEADING } from './detailConstants';
 import type { TicketAttachment } from '../../../api/ticket';
 
 interface TicketAttachmentsProps {
@@ -48,10 +48,10 @@ export const TicketAttachments = ({ ticketId, attachments, canEdit, canRemove, o
 
   return (
     <section className="flex flex-col gap-2" aria-label="Photos">
-      <h3 className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-text-muted sm:text-text-secondary">
-        <Camera size={14} className="text-text-light" />
+      <h3 className={DETAIL_SECTION_HEADING}>
+        <Camera size={16} className="text-text-light" aria-hidden />
         Photos
-        {attachments.length > 0 && <span className="tabular-nums text-text-light">({attachments.length})</span>}
+        {attachments.length > 0 && <span className="tabular-nums font-medium text-text-light">({attachments.length})</span>}
       </h3>
       <div className="grid grid-cols-3 sm:grid-cols-4 xl:grid-cols-5 gap-2">
         {attachments.map((a) => {
@@ -66,6 +66,12 @@ export const TicketAttachments = ({ ticketId, attachments, canEdit, canRemove, o
               >
                 <img src={url} alt={a.originalFilename ?? 'Ticket photo'} loading="lazy" className="size-full object-cover" />
               </button>
+              {a.captureMethod === 'LIVE' && (
+                <span className="pointer-events-none absolute bottom-1 left-1 inline-flex items-center gap-1 rounded-md bg-surface/90 px-1.5 py-0.5 t-meta font-semibold text-text">
+                  <Camera size={12} aria-hidden />
+                  Camera
+                </span>
+              )}
               {canRemove(a) && (
                 <button
                   type="button"
@@ -89,7 +95,7 @@ export const TicketAttachments = ({ ticketId, attachments, canEdit, canRemove, o
               type="button"
               onClick={() => inputRef.current?.click()}
               disabled={upload.isPending}
-              className="flex aspect-square flex-col items-center justify-center gap-1 rounded-xl border border-border text-text-muted hover:border-primary-400 hover:text-primary-700 dark:hover:text-primary-300 text-xs font-display font-semibold transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-60 disabled:cursor-wait"
+              className="flex aspect-square flex-col items-center justify-center gap-1 rounded-xl border border-border text-text-muted hover:border-border-hover hover:text-text t-meta font-display font-semibold transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-60 disabled:cursor-wait"
             >
               {upload.isPending ? <Loader2 size={18} className="animate-spin" /> : <Camera size={18} />}
               {upload.isPending ? 'Adding…' : 'Add photo'}

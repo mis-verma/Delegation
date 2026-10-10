@@ -5,7 +5,10 @@ import { IconChip } from '../iconChip';
 interface DepartmentChipProps {
   name: string;
   className?: string;
-  /** Keep the name beside the icon on a phone (off by default, see StatusChip). */
+  /** Opt in to a bare coloured circle on a phone (see StatusChip). Off by default. A long name
+   *  still truncates when its row is narrower than the chip. */
+  iconOnlyOnMobile?: boolean;
+  /** @deprecated The name now shows on a phone by default. */
   showLabelOnMobile?: boolean;
 }
 
@@ -13,6 +16,6 @@ interface DepartmentChipProps {
 // departments stay visually distinguishable — the color assignment lives in
 // lib/departmentTagColors, this component is just the shared chip markup around it, so tasks and
 // tickets render the same department tag instead of each hand-rolling their own.
-export const DepartmentChip = ({ name, className, showLabelOnMobile = false }: DepartmentChipProps) => (
-  <IconChip icon={Building2} tone={departmentDotClass(name)} label={name} className={className} iconOnlyOnMobile={!showLabelOnMobile} />
+export const DepartmentChip = ({ name, className, iconOnlyOnMobile = false }: DepartmentChipProps) => (
+  <IconChip icon={Building2} tone={departmentDotClass(name)} label={name} title={name} className={className} iconOnlyOnMobile={iconOnlyOnMobile} />
 );

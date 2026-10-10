@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import { IconChip } from '../iconChip';
+import { cn } from '../../lib/utils';
 
 export interface PriorityChipMeta {
   label: string;
@@ -11,7 +12,9 @@ export interface PriorityChipMeta {
 interface PriorityChipProps {
   meta: PriorityChipMeta;
   className?: string;
-  /** Keep the word beside the icon on a phone (off by default, see StatusChip). */
+  /** Opt in to a bare coloured circle on a phone (see StatusChip). Off by default. */
+  iconOnlyOnMobile?: boolean;
+  /** @deprecated The word now shows on a phone by default. */
   showLabelOnMobile?: boolean;
 }
 
@@ -19,6 +22,6 @@ interface PriorityChipProps {
 // Ticket's PRIORITY_CONFIG — both carry this {label, solid, icon} shape alongside their other,
 // non-chip fields like `bar`/`stripe` for the Gantt views) — shared here so tasks and tickets
 // render priority identically instead of each hand-rolling the same markup.
-export const PriorityChip = ({ meta, className, showLabelOnMobile = false }: PriorityChipProps) => (
-  <IconChip icon={meta.icon} tone={meta.solid} label={meta.label} className={className} iconOnlyOnMobile={!showLabelOnMobile} />
+export const PriorityChip = ({ meta, className, iconOnlyOnMobile = false }: PriorityChipProps) => (
+  <IconChip icon={meta.icon} tone={meta.solid} label={meta.label} className={cn('shrink-0', className)} iconOnlyOnMobile={iconOnlyOnMobile} />
 );

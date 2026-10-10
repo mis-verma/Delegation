@@ -25,7 +25,7 @@ export const TaskFormAssigneeField = ({ value, onChange, users, isLoading, disab
       emptyOptionLabel="Unassigned"
       options={(users ?? []).map((u) => ({
         value: u.id,
-        label: `${u.firstName} ${u.lastName ?? ''}`.trim() + ` — ${u.role}`,
+        label: `${u.firstName} ${u.lastName ?? ''}`.trim() + `, ${u.role}`,
       }))}
     />
   </div>

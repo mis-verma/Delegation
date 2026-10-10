@@ -461,7 +461,7 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
         {
             id: createId(),
             from: "bot",
-            text: 'Tell me what needs to happen — e.g. "Harsh ko MDO department ke liye dashboard banana hai, kal tak."',
+            text: 'Tell me what needs to happen, e.g. "Harsh ko MDO department ke liye dashboard banana hai, kal tak."',
             timestamp: Date.now(),
         },
     ]);
@@ -573,8 +573,8 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
             .filter(Boolean)
             .join(", ");
 
-        const closing = skipConfirmation ? "Creating this now — no confirmation needed." : "Review and tweak if necessary.";
-        addMessage("bot", `Here is what I prepared — ${summary}. ${closing}`);
+        const closing = skipConfirmation ? "Creating it now, nothing else to confirm." : "Review and tweak if necessary.";
+        addMessage("bot", `Here is what I prepared: ${summary}. ${closing}`);
         setReview(mapDraftToReview(finalDraft));
         setPendingSlot(null);
         setPendingQueue([]);
@@ -609,7 +609,7 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
                     if (assigneeGuessed) {
                         addMessage(
                             "bot",
-                            `I couldn't pick out a clear assignee, but "${initialDraft.assigneeName}" looks like a name in your message — no active user matches it though.`
+                            `I couldn't pick out a clear assignee, but "${initialDraft.assigneeName}" looks like a name in your message, but no active user matches it.`
                         );
                     }
 
@@ -739,8 +739,8 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
                     : view === "history"
                         ? "Your past Smart Add conversations."
                         : view === "transcript"
-                            ? "Read-only — a past conversation."
-                            : "Type in English or Hinglish — I'll parse the details."
+                            ? "A past conversation. Read only."
+                            : "Type in English or Hinglish. I'll fill in the details."
             }
             footer={
                 review && !skipConfirmation && (
@@ -981,7 +981,7 @@ export const SmartTaskModal = ({ onClose }: SmartTaskModalProps) => {
                         />
                         {parsed && parsed.confidence < 0.6 && (
                             <p className="text-xs font-medium text-warning bg-warning/10 border border-warning/20 rounded px-3 py-2">
-                                Low confidence extraction ({Math.round(parsed.confidence * 100)}%) — please review all fields carefully before creating.
+                                I'm not sure I got all of this right. Check each field before you create it.
                             </p>
                         )}
                     </div>

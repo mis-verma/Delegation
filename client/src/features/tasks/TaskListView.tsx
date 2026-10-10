@@ -100,8 +100,8 @@ const TaskListViewComponent = ({
                   />
                 )}
                 {/* No truncate — this was cutting titles down to a handful of words ("Security
-                    camera offline since ...") on a narrow phone card. Wraps instead. */}
-                <span className="flex-1 min-w-0 t-card font-display font-semibold text-text tracking-tight leading-snug">
+                    camera offline since ...") on a narrow phone card. Two lines, then an ellipsis. */}
+                <span className="flex-1 min-w-0 t-card font-display font-semibold text-text tracking-tight leading-snug line-clamp-2 break-words">
                   {task.title}
                 </span>
                 {/* Who owns it, as a small avatar stack — a glance answers "is this mine?" without
@@ -135,17 +135,16 @@ const TaskListViewComponent = ({
                   on this line (its chip is hidden there), so the tile stays short but still says where
                   it belongs. */}
               {(task.category !== 'delegation' || progress || (fields.department && department)) && (
-                <div className="flex items-center gap-x-1.5 min-w-0 whitespace-nowrap t-meta font-medium text-text-muted">
+                <div className="flex items-center min-w-0 whitespace-nowrap t-meta font-medium text-text-muted">
                   {task.category !== 'delegation' && <span className="shrink-0">{CATEGORY_CONFIG[task.category].label}</span>}
                   {progress && (
-                    <>
-                      {task.category !== 'delegation' && <span aria-hidden>·</span>}
-                      <span className="tabular-nums shrink-0">Checklist {progress.done}/{progress.total}</span>
-                    </>
+                    <span className="tabular-nums shrink-0">
+                      {task.category !== 'delegation' && ', '}Checklist {progress.done}/{progress.total}
+                    </span>
                   )}
                   {fields.department && department && (
                     <span className="sm:hidden min-w-0 truncate">
-                      {(task.category !== 'delegation' || progress) && <span aria-hidden>· </span>}
+                      {(task.category !== 'delegation' || progress) && ', '}
                       {department}
                     </span>
                   )}

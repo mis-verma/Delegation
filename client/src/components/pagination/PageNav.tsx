@@ -27,9 +27,17 @@ const getPageList = (current: number, total: number): PageToken[] => {
 interface PageNavProps {
   page: number;
   totalPages: number;
+  /** Called with the new page number. Callers scroll their list back to the top here. */
   onPageChange: (page: number) => void;
   className?: string;
 }
+
+const PHONE_ARROW_CLASS = cn(
+  "flex items-center justify-center size-11 rounded-xl border border-border/60 bg-surface text-text-secondary cursor-pointer transition-colors duration-150 ease-out",
+  "hover:border-border-hover hover:text-text active:bg-surface-hover",
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40",
+  "disabled:opacity-50 disabled:pointer-events-none disabled:cursor-not-allowed",
+);
 
 // --- Main Component ---
 export const PageNav = ({ page, totalPages, onPageChange, className }: PageNavProps) => {
@@ -42,7 +50,33 @@ export const PageNav = ({ page, totalPages, onPageChange, className }: PageNavPr
       aria-label="Pagination" 
       className={cn("flex items-center justify-center w-full font-sans", className)}
     >
-      <ul className="flex items-center gap-2 sm:gap-1.5">
+      {/* Phone: "<  Page 3 of 9  >". A row of number buttons does not fit at 320px and a page
+          number is rarely the target on a phone anyway; next/previous is. */}
+      <div className="flex sm:hidden items-center justify-center gap-3 w-full">
+        <button
+          type="button"
+          onClick={() => page > 1 && onPageChange(page - 1)}
+          disabled={page <= 1}
+          aria-label="Previous page"
+          className={PHONE_ARROW_CLASS}
+        >
+          <ChevronLeft className="size-5" strokeWidth={2.5} />
+        </button>
+        <p className="min-w-0 text-center t-card font-medium text-text-secondary tabular-nums" aria-live="polite">
+          Page <span className="font-semibold text-text">{page}</span> of {totalPages}
+        </p>
+        <button
+          type="button"
+          onClick={() => page < totalPages && onPageChange(page + 1)}
+          disabled={page >= totalPages}
+          aria-label="Next page"
+          className={PHONE_ARROW_CLASS}
+        >
+          <ChevronRight className="size-5" strokeWidth={2.5} />
+        </button>
+      </div>
+
+      <ul className="hidden sm:flex items-center gap-1.5">
         
         {/* Previous Button */}
         <li>
@@ -82,7 +116,7 @@ export const PageNav = ({ page, totalPages, onPageChange, className }: PageNavPr
                   "flex items-center justify-center h-11 min-w-11 px-2 text-sm sm:text-sm font-bold rounded-xl border transition-all duration-200 cursor-pointer active:scale-95",
                   "focus-visible:outline-none focus-visible:ring-4",
                   p === page
-                    ? "bg-primary-600 border-primary-600 text-white shadow-md shadow-primary-600/30 hover:bg-primary-700 focus-visible:ring-primary-500/20"
+                    ? "bg-primary-600 border-primary-600 text-white hover:bg-primary-700 focus-visible:ring-primary-500/20"
                     : "border-transparent text-text-secondary hover:bg-surface-hover hover:border-border/60 hover:text-text focus-visible:ring-primary-500/10"
                 )}
               >

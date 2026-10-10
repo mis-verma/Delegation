@@ -28,6 +28,8 @@ interface DatePickerProps {
   /** With `showTime`: the hour (0-23) a freshly picked day starts at. Defaults to the next quarter
    *  hour for today and 9 AM for any other day, never the raw current minute (3:47 PM). */
   defaultHour?: number;
+  /** Drop the built-in Today / Tomorrow row, for a form that already shows its own quick choices. */
+  hideQuickPicks?: boolean;
 }
 
 const QUICK_PICKS: { label: string; resolve: (today: Date) => Date }[] = [
@@ -47,6 +49,7 @@ export function DatePicker({
   showTime = false,
   minDate,
   defaultHour,
+  hideQuickPicks = false,
 }: DatePickerProps) {
   const isPhone = useMediaQuery('(max-width: 639px)');
 
@@ -96,6 +99,7 @@ export function DatePicker({
   const dateColumn = (
     <div className="flex flex-col gap-3 w-full sm:w-[17.5rem] min-w-0">
       {/* One row of four, not a wrapping 3 + 1. */}
+      {!hideQuickPicks && (
       <div className="grid grid-cols-4 gap-1" role="group" aria-label="Quick choices">
         {QUICK_PICKS.map((pick) => {
           const target = startOfDay(pick.resolve(today));
@@ -118,6 +122,7 @@ export function DatePicker({
           );
         })}
       </div>
+      )}
 
       <CalendarGrid month={viewMonth} onMonthChange={setViewMonth} getDayState={getDayState} onSelect={selectDay} today={today} />
     </div>
@@ -192,7 +197,7 @@ export function DatePicker({
         >
           <span className="flex items-center justify-center size-6 rounded-lg bg-primary-500/10 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300 shrink-0"><CalendarIcon size={14} strokeWidth={2.4} /></span>
           <span className={cn('truncate', value ? 'text-text font-medium' : 'text-text-light font-medium')}>
-            {value ? formatDay(value) + (showTime ? ` • ${formatClock(value)}` : '') : placeholder}
+            {value ? formatDay(value) + (showTime ? `, ${formatClock(value)}` : '') : placeholder}
           </span>
         </button>
       }

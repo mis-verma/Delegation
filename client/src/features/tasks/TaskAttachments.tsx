@@ -1,10 +1,9 @@
-import { useRef } from 'react';
 import { Paperclip, Loader2, X, Download } from 'lucide-react';
 import { useConfirm } from '../../components';
 import { UPLOADS_BASE } from '../../lib/uploadsBase';
 import { useUploadTaskAttachmentsMutation, useDeleteTaskAttachmentMutation } from './hook';
-import { ACCEPTED_ATTACHMENT_TYPES, attachmentIconFor, attachmentTypeLabel, formatFileSize, isImageAttachment } from './taskAttachmentDisplay';
-import { DETAIL_HEADING_CLASS } from './taskFormFieldStyles';
+import { AttachFilesToolbar } from './AttachFilesToolbar';
+import { attachmentIconFor, attachmentTypeLabel, formatFileSize, isImageAttachment } from './taskAttachmentDisplay';
 import type { TaskAttachment } from '../../api/task';
 
 interface TaskAttachmentsProps {
@@ -27,7 +26,6 @@ const REMOVE_BUTTON =
  * nothing the viewer could add.
  */
 export const TaskAttachments = ({ taskId, attachments, canEdit, canRemove = canEdit, onPreview }: TaskAttachmentsProps) => {
-  const inputRef = useRef<HTMLInputElement>(null);
   const upload = useUploadTaskAttachmentsMutation(taskId);
   const remove = useDeleteTaskAttachmentMutation();
   const confirm = useConfirm();
@@ -36,12 +34,6 @@ export const TaskAttachments = ({ taskId, attachments, canEdit, canRemove = canE
 
   const images = attachments.filter((a) => isImageAttachment(a.mimeType));
   const files = attachments.filter((a) => !isImageAttachment(a.mimeType));
-
-  const handleFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const picked = Array.from(e.target.files ?? []);
-    e.target.value = '';
-    if (picked.length) upload.mutate(picked);
-  };
 
   const handleRemove = async (attachment: TaskAttachment) => {
     const ok = await confirm({
@@ -56,10 +48,10 @@ export const TaskAttachments = ({ taskId, attachments, canEdit, canRemove = canE
 
   return (
     <section className="flex flex-col gap-2" aria-label="Files">
-      <h3 className={DETAIL_HEADING_CLASS}>
-        <Paperclip size={14} className="text-text-light" />
+      <h3 className="flex items-center gap-1.5 t-section font-display font-bold text-text">
+        <Paperclip size={16} className="text-text-light" aria-hidden />
         Files
-        {attachments.length > 0 && <span className="tabular-nums text-text-light">({attachments.length})</span>}
+        {attachments.length > 0 && <span className="tabular-nums font-semibold text-text-light">({attachments.length})</span>}
       </h3>
 
       {images.length > 0 && (
@@ -104,7 +96,7 @@ export const TaskAttachments = ({ taskId, attachments, canEdit, canRemove = canE
                   <p className="text-sm font-display font-semibold text-text truncate" title={a.originalFilename ?? undefined}>
                     {a.originalFilename ?? 'Untitled file'}
                   </p>
-                  <p className="text-xs text-text-muted tabular-nums">{attachmentTypeLabel(a.mimeType)} · {formatFileSize(a.sizeBytes)}</p>
+                  <p className="text-xs text-text-muted tabular-nums">{attachmentTypeLabel(a.mimeType)}, {formatFileSize(a.sizeBytes)}</p>
                 </div>
                 <a
                   href={`${UPLOADS_BASE}${a.url}`}
@@ -132,19 +124,17 @@ export const TaskAttachments = ({ taskId, attachments, canEdit, canRemove = canE
         </ul>
       )}
 
+      {/* Same File and Photo buttons as the New delegation form (Photo opens the camera on a phone). */}
       {canEdit && (
-        <>
-          <input ref={inputRef} type="file" accept={ACCEPTED_ATTACHMENT_TYPES} multiple className="hidden" onChange={handleFiles} />
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            disabled={upload.isPending}
-            className="self-start inline-flex items-center gap-1.5 h-9 pointer-coarse:h-11 px-3 rounded-lg border border-border text-xs font-display font-semibold text-text-muted hover:border-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-60 disabled:cursor-wait"
-          >
-            {upload.isPending ? <Loader2 size={15} className="animate-spin" /> : <Paperclip size={15} />}
-            {upload.isPending ? 'Adding…' : 'Add file'}
-          </button>
-        </>
+        <div className="flex items-center gap-2">
+          <AttachFilesToolbar bordered onFiles={(list) => upload.mutate(Array.from(list))} disabled={upload.isPending} />
+          {upload.isPending && (
+            <span className="inline-flex items-center gap-1.5 t-meta font-display text-text-muted" role="status">
+              <Loader2 size={14} className="animate-spin" aria-hidden />
+              Adding…
+            </span>
+          )}
+        </div>
       )}
     </section>
   );

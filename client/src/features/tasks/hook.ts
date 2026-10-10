@@ -19,6 +19,7 @@ import type {
 import { handleQueryRetry, useEntityMutation, patchEntityInCache, errorMessage } from "../../lib/queryHelpers";
 import type { ConfirmSmartTaskPayload } from "../../api/task";
 import { taskBulkImportApi } from "../../api/taskBulkImport";
+import { PUBLISH_REMARK } from "./taskStatusModel";
 import type { TaskBulkImportPublishPayload } from "../../api/taskBulkImport";
 import { toast } from "sonner";
 import type { SummaryScope } from "../../api/http";
@@ -181,7 +182,7 @@ export const useRestoreTaskMutation = () =>
 // the same way a later todo -> in_progress move would, is friction with nothing real behind it.
 export const usePublishDraftTaskMutation = () =>
     useEntityMutation({
-        mutationFn: (id: string) => taskApi.update(id, { status: 'todo', statusRemark: 'Published from draft.' }),
+        mutationFn: (id: string) => taskApi.update(id, { status: 'todo', statusRemark: PUBLISH_REMARK }),
         invalidateKeys: [['tasks']],
         successMessage: 'Delegation published',
         errorFallback: 'Failed to publish delegation',
@@ -245,8 +246,8 @@ export const useCreateTaskMutation = () =>
     useEntityMutation({
         mutationFn: (payload: CreateTaskPayload) => taskApi.create(payload),
         invalidateKeys: [['tasks']],
-        successMessage: 'Task created',
-        errorFallback: 'Failed to create task',
+        successMessage: 'Delegation created',
+        errorFallback: "Couldn't create the delegation",
     });
 
 // Create + upload any files staged in the form, as one mutation — there's no task id to upload
@@ -273,15 +274,19 @@ export const useCreateTaskWithAttachmentsMutation = () =>
             return { ...created, filesFailed };
         },
         invalidateKeys: [['tasks']],
-        // The toast is the caller's (TaskForm), which knows whether the files made it.
+        // The toast is the caller's (TaskForm), which knows whether the files made it. A failure is
+        // shown inline next to the form's buttons, so no error toast either.
         successMessage: null,
         errorFallback: "Couldn't create the delegation",
+        errorToast: false,
     });
 
 // `silent: true` drops the success toast (still errors loudly on failure) — used by TaskDetail's
 // per-field autosave, where a toast on every single edit is noise; the board/row quick-status
 // actions call this with no options so they keep the confirmation toast.
-export const useUpdateTaskMutation = (options?: { silent?: boolean }) =>
+// `quietErrors: true` drops the error toast too, for callers that show the failure beside the field
+// that failed (TaskDetail's title and description editors: "Not saved. Retry").
+export const useUpdateTaskMutation = (options?: { silent?: boolean; quietErrors?: boolean }) =>
     useEntityMutation({
         mutationFn: ({ id, payload }: { id: string; payload: UpdateTaskPayload }) =>
             taskApi.update(id, payload),
@@ -293,8 +298,9 @@ export const useUpdateTaskMutation = (options?: { silent?: boolean }) =>
             keyPrefixes: [['tasks']],
             apply: ({ id, payload }) => (old) => patchEntityInCache<Task>(old, id, payload),
         },
-        successMessage: options?.silent ? null : 'Task updated',
-        errorFallback: 'Failed to update task',
+        successMessage: options?.silent ? null : 'Delegation updated',
+        errorFallback: "Couldn't save the change",
+        errorToast: !options?.quietErrors,
     });
 
 // Powers the PC verification queue — tasks waiting on a given status (pending_approval),
@@ -318,8 +324,8 @@ export const useVerifyTaskMutation = () =>
             taskApi.verify(id, payload),
         setDetailData: (updatedTask) => ({ key: TASK_KEYS.detail(updatedTask.id), data: updatedTask }),
         invalidateKeys: [['tasks']],
-        successMessage: (updatedTask) => (updatedTask.status === 'done' ? 'Task verified and marked done' : 'Task sent back'),
-        errorFallback: 'Failed to verify task',
+        successMessage: (updatedTask) => (updatedTask.status === 'done' ? 'Delegation approved' : 'Delegation sent back'),
+        errorFallback: "Couldn't save the decision",
     });
 
 export const useDeleteTaskMutation = () =>
@@ -327,8 +333,18 @@ export const useDeleteTaskMutation = () =>
         mutationFn: (id: string) => taskApi.delete(id),
         removeKey: (_result, id) => TASK_KEYS.detail(id),
         invalidateKeys: [['tasks']],
-        successMessage: 'Task deleted',
-        errorFallback: 'Failed to delete task',
+        successMessage: 'Delegation deleted',
+        errorFallback: "Couldn't delete the delegation",
+    });
+
+// The creator throwing away their own unpublished draft (the server allows it for drafts only).
+export const useDiscardDraftMutation = () =>
+    useEntityMutation({
+        mutationFn: (id: string) => taskApi.delete(id),
+        removeKey: (_result, id) => TASK_KEYS.detail(id),
+        invalidateKeys: [['tasks']],
+        successMessage: 'Draft discarded',
+        errorFallback: "Couldn't discard the draft",
     });
 
 // NEW — powers the "Assign to" dropdown in TaskForm.tsx. Calls the same `/users/assignable`
@@ -484,8 +500,8 @@ export const useCreateSmartTaskMutation = () =>
     useEntityMutation({
         mutationFn : (payload : ConfirmSmartTaskPayload) => taskApi.createFromSmart(payload),
         invalidateKeys : [["tasks"]], 
-        successMessage : "Task created from AI Input",
-        errorFallback : "Failed to create task"
+        successMessage : "Delegation created",
+        errorFallback : "Couldn't create the delegation"
     })
 
 export const useParseSmartTaskMutation = () =>

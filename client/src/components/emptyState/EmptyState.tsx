@@ -15,8 +15,8 @@ export interface EmptyStateProps {
   /** 'success' is the "queue actually cleared" read (Verification Queue, checklist approvals) —
    *  everything else (nothing here yet, nothing matched a filter) stays neutral. */
   tone?: 'neutral' | 'success';
-  /** Only ever shown on the default size — a compact board-column slot has no room for it, and
-   *  showing a "clear filters" action mid-board would fight the column header's own filter bar. */
+  /** The next step (e.g. "Clear filters"). Shown on both sizes; the compact one draws it as a
+   *  small outline button under the title. Leave it off for a board column. */
   action?: EmptyStateAction;
   /** 'default' is the full page-level treatment (icon tile, bold title, generous padding) used
    *  wherever an empty state is the main thing on screen. 'compact' is the single-line form for
@@ -45,10 +45,16 @@ const TONE_COMPACT_ICON_CLASS = {
 export const EmptyState = ({ icon: Icon, title, description, tone = 'neutral', action, size = 'default', className = '' }: EmptyStateProps) => {
   if (size === 'compact') {
     return (
-      <div className={`flex flex-col items-center justify-center gap-1.5 h-28 px-4 text-center border border-border rounded-xl bg-surface/30 ${className}`}>
+      <div className={`flex flex-col items-center justify-center gap-1.5 min-h-28 px-4 py-4 text-center border border-border rounded-xl bg-surface/30 ${className}`}>
         <Icon size={16} className={TONE_COMPACT_ICON_CLASS[tone]} strokeWidth={1.75} />
-        <p className="text-xs font-display font-medium text-text-muted">{title}</p>
+        <p className="t-meta font-display font-medium text-text-muted">{title}</p>
         {description && <p className="t-meta font-display text-text-light">{description}</p>}
+        {action && (
+          <Button variant="outline" size="sm" onClick={action.onClick} className="min-h-11 sm:min-h-0 rounded-full font-medium">
+            {action.icon && <action.icon size={13} />}
+            {action.label}
+          </Button>
+        )}
       </div>
     );
   }

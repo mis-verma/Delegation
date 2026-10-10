@@ -3,6 +3,7 @@ import { X } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '../ui/dialog';
 import { useMediaQuery } from '../../lib/useMediaQuery';
+import { useCloseOnBack } from '../../lib/useCloseOnBack';
 import { cn } from '@/lib/utils';
 
 interface PickerShellProps {
@@ -36,6 +37,8 @@ export const PickerShell = ({
   open, onOpenChange, trigger, triggerAside, wrapperClassName, bare = false, title, sheetFooter, popoverClassName, children,
 }: PickerShellProps) => {
   const isPhone = useMediaQuery('(max-width: 639px)');
+  // The phone back gesture closes the sheet instead of leaving the page.
+  useCloseOnBack(open && isPhone, () => onOpenChange(false));
 
   if (isPhone) {
     return (
@@ -62,8 +65,9 @@ export const PickerShell = ({
               <X size={18} strokeWidth={2.5} />
             </DialogClose>
           </div>
-          <DialogDescription className="sr-only">Choose from the calendar, then confirm.</DialogDescription>
-          <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pb-4 flex flex-col gap-3">{children}</div>
+          <DialogDescription className="sr-only">Make your choice below.</DialogDescription>
+          {/* With no footer the last row would sit under the home bar, so the body pads for it. */}
+          <div className={cn('flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 flex flex-col gap-3', sheetFooter ? 'pb-4' : 'pb-[max(1rem,env(safe-area-inset-bottom))]')}>{children}</div>
           {sheetFooter && (
             <div className="shrink-0 border-t border-border/60 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">{sheetFooter}</div>
           )}

@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import { DETAIL_HEADING_CLASS } from '../../tasks/taskFormFieldStyles';
 
 interface FormFieldProps {
   label: string;
@@ -7,7 +6,8 @@ interface FormFieldProps {
   /** Red star after the label. Leave off for optional fields and pass `optional` instead. */
   required?: boolean;
   optional?: boolean;
-  /** One plain sentence on what to put here. Hidden while an error is showing. */
+  /** One plain sentence on what to put here. Hidden while an error is showing, and below `sm`
+   *  (a phone keeps the label and the control; errors always show). */
   hint?: ReactNode;
   error?: string;
   htmlFor?: string;
@@ -21,7 +21,7 @@ interface FormFieldProps {
  */
 export const FormField = ({ label, icon, required, optional, hint, error, htmlFor, children }: FormFieldProps) => (
   <div className="flex flex-col gap-1.5">
-    <label htmlFor={htmlFor} className={DETAIL_HEADING_CLASS}>
+    <label htmlFor={htmlFor} className="flex items-center gap-1.5 t-card font-medium text-text">
       {icon}
       {label}
       {required && <span className="text-danger" aria-hidden>*</span>}
@@ -29,9 +29,9 @@ export const FormField = ({ label, icon, required, optional, hint, error, htmlFo
     </label>
     {children}
     {error ? (
-      <p className="text-xs text-danger font-display" role="alert">{error}</p>
+      <p className="t-meta text-danger font-display" role="alert">{error}</p>
     ) : hint ? (
-      <p className="text-xs text-text-muted font-display">{hint}</p>
+      <p className="hidden sm:block t-meta text-text-muted font-display">{hint}</p>
     ) : null}
   </div>
 );

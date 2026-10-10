@@ -3,6 +3,7 @@ import { StatusChip, type StatusChipStatus } from '../../components';
 import { useNow } from '../../lib/useNow';
 import { STATUS_LABEL } from './taskDisplay';
 import { waitingLine } from './taskStatusModel';
+import { TaskScoreBadge } from './TaskScoreBadge';
 import type { Task } from '../../api/task';
 
 const CHIP_KEY: Record<Task['status'], StatusChipStatus> = {
@@ -17,19 +18,24 @@ const CHIP_KEY: Record<Task['status'], StatusChipStatus> = {
 interface TaskStatusCardProps {
   task: Task;
   nameOf: (id: string | null | undefined) => string | undefined;
+  /** Used for the "waiting for the <department> manager to pick someone" line. */
+  departmentName?: string;
 }
 
 /**
- * Where a delegation stands: the status chip, who it is waiting on, and when it is due. No
- * progress bar of its own; the score panel right below already carries one.
+ * Where a delegation stands: the status chip with its score beside it, who it is waiting on, and
+ * when it is due. The stepper below shows the path; this card is the one place the score lives.
  */
-export const TaskStatusCard = ({ task, nameOf }: TaskStatusCardProps) => {
+export const TaskStatusCard = ({ task, nameOf, departmentName }: TaskStatusCardProps) => {
   const now = useNow();
-  const { who, due } = waitingLine(task, now, nameOf);
+  const { who, due } = waitingLine(task, now, nameOf, departmentName);
 
   return (
-    <section aria-label="Status" className="flex flex-col gap-2.5 rounded-xl border border-border/60 bg-surface-hover/30 p-3 sm:p-4">
-      <StatusChip status={CHIP_KEY[task.status]} label={STATUS_LABEL[task.status]} className="self-start" />
+    <section aria-label="Status" className="flex flex-col gap-2 rounded-xl border border-border/60 bg-surface-hover/30 p-3 sm:p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <StatusChip status={CHIP_KEY[task.status]} label={STATUS_LABEL[task.status]} />
+        {task.status !== 'draft' && <TaskScoreBadge status={task.status} />}
+      </div>
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-display">
         <span className="inline-flex items-center gap-1.5 text-text-secondary min-w-0">

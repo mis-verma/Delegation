@@ -107,6 +107,10 @@ export const updateTaskSchema = createTaskSchema.partial().extend({
     status : z.enum(TASK_STATUSES).optional(),
     assigneeId : objectId.nullable().optional(),
     departmentId : objectId.nullable().optional(),
+    // null clears the date (the detail sheet's "clear" on the due picker); update() already
+    // writes null for a falsy value.
+    startDate : z.string().datetime().nullable().optional(),
+    dueDate : z.string().datetime().nullable().optional(),
     reminderMinutesBefore : z.number().int().positive().nullable().optional(),
     // Why the status change is being made. Not a Task column — the service peels it off and writes
     // it to TaskStatusUpdate. Required (enforced in the service, which is the only place that can

@@ -176,7 +176,7 @@ export const Combobox = ({
           selected={[value]}
           onToggle={(v) => { onChange(v); setOpen(false); }}
           searchPlaceholder={placeholder === 'Search...' ? 'Search…' : placeholder.replace(/\.{3}$/, '…')}
-          actions={onCreateNew ? [{
+          topActions={onCreateNew ? [{
             key: 'create',
             label: createNewLabel,
             icon: Plus,

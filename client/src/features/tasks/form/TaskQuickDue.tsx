@@ -31,10 +31,10 @@ export const TaskQuickDue = ({ value, onChange }: { value: DateRangeValue; onCha
             type="button"
             aria-pressed={selected}
             onClick={() => onChange({ from: value.from && value.from > date ? null : value.from, to: date })}
-            className={`h-8 pointer-coarse:h-11 px-3 rounded-full border text-xs font-display font-semibold transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent] ${
+            className={`h-8 pointer-coarse:h-11 px-3 rounded-full border t-meta font-display transition-colors duration-150 ease-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent] ${
               selected
-                ? 'bg-primary-500/10 dark:bg-primary-500/15 border-primary-500/40 text-primary-700 dark:text-primary-300'
-                : 'border-border/60 bg-surface text-text-secondary hover:border-primary-400'
+                ? 'border-border-hover bg-surface-hover text-text font-bold'
+                : 'border-border/60 bg-surface text-text-secondary font-semibold hover:border-border-hover'
             }`}
           >
             {label}

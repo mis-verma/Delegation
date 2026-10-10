@@ -4,6 +4,12 @@ import { Toaster as Sonner, toast, type ToasterProps } from "sonner"
 import { useTheme } from "@/context/ThemeContext"
 import { useIsMobile } from "@/lib/useMediaQuery"
 
+const PHONE_OFFSET = {
+  bottom: "calc(10.5rem + env(safe-area-inset-bottom))",
+  left: "0.75rem",
+  right: "0.75rem",
+}
+
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme } = useTheme()
   const isMobile = useIsMobile()
@@ -62,9 +68,13 @@ const Toaster = ({ ...props }: ToasterProps) => {
         } as CSSProperties
       }
       {...props}
-      // Under the thumb on a phone (clear of the bottom bar), top-right on a larger screen.
+      // Under the thumb on a phone, top-right on a larger screen. The phone offset clears the bottom
+      // bar AND the Fab above it (Fab sits at 6.25rem + safe area, about 3.5rem tall). Sonner only
+      // applies `mobileOffset` up to 600px, so `offset` carries the same values on 601 to 767px,
+      // where useIsMobile still says phone.
       position={isMobile ? "bottom-center" : "top-right"}
-      mobileOffset={{ bottom: "6rem", left: "0.75rem", right: "0.75rem" }}
+      offset={isMobile ? PHONE_OFFSET : undefined}
+      mobileOffset={PHONE_OFFSET}
     />
   )
 }

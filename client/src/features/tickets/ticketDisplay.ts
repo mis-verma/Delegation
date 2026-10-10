@@ -1,6 +1,7 @@
 import { ArrowDown, Minus, ArrowUp, AlertTriangle } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Ticket, TicketStatus } from '../../api/ticket';
+import { TICKET_STATUS_LABEL } from '../../lib/ticketStatusLabel';
 
 /** How long ago, in the smallest useful unit: "Today", "3d", "2w", "5mo". For the card's quiet age mark. */
 export const formatAge = (iso: string): string => {
@@ -27,29 +28,29 @@ export const formatShortDateTime = (iso: string) => {
 // <StatusChip status={...} /> from components/statusChip instead of this className.
 export const STATUS_CONFIG: Record<TicketStatus, { label: string; className: string; dot: string }> = {
   OPEN: {
-    label: 'Open',
+    label: TICKET_STATUS_LABEL.OPEN,
     className: 'bg-surface-hover text-text-secondary ring-border',
     dot: 'bg-text-muted',
   },
   IN_PROGRESS: {
-    label: 'In Progress',
+    label: TICKET_STATUS_LABEL.IN_PROGRESS,
     className: 'bg-warning/10 text-warning ring-warning/20',
     dot: 'bg-warning',
   },
   // Same status-approve token Task's pending_approval uses, so the review stage reads
   // consistently across entities.
   PENDING_APPROVAL: {
-    label: 'Pending Approval',
+    label: TICKET_STATUS_LABEL.PENDING_APPROVAL,
     className: 'bg-status-approve/10 text-status-approve ring-status-approve/20',
     dot: 'bg-status-approve',
   },
   CLOSED: {
-    label: 'Closed',
+    label: TICKET_STATUS_LABEL.CLOSED,
     className: 'bg-success/10 text-success ring-success/20',
     dot: 'bg-success',
   },
   ON_HOLD: {
-    label: 'On Hold',
+    label: TICKET_STATUS_LABEL.ON_HOLD,
     className: 'bg-surface-hover text-text-muted ring-border',
     dot: 'bg-border',
   },
@@ -108,10 +109,15 @@ export const PRIORITY_CONFIG: Record<Ticket['priority'], { label: string; classN
 export const hoursUntil = (due: Date, now = Date.now()): number =>
   Math.max(1 / 60, Math.round(((due.getTime() - now) / 3_600_000) * 10_000) / 10_000);
 
+/** "6 PM" on the hour, "6:30 PM" otherwise. */
+export const formatClockShort = (d: Date) =>
+  d.toLocaleTimeString(undefined, d.getMinutes() === 0 ? { hour: 'numeric' } : { hour: 'numeric', minute: '2-digit' });
+
 /**
- * The one wording for a ticket's target date, shared by the card, table and timeline so they agree:
- * "Today" / "Tomorrow" / "Yesterday", otherwise "5 Oct". `label` adds a "Delayed" prefix when the
- * ticket is overdue and not closed. Null when the ticket has no target date.
+ * The one wording for a ticket's due time, shared by the card, table, timeline and detail sheet so
+ * they agree: "Due today, 6 PM", "Due tomorrow, 6 PM", "Due 12 Oct, 6 PM", and once it has passed
+ * on an open ticket "Late since 10 Oct" ("Late since 4 PM" the same day). `text` and `label` are
+ * the same string; both stay so older callers keep working. Null when the ticket has no due time.
  */
 export const formatDueLabel = (
   ticket: Pick<Ticket, 'tatDueAt' | 'status' | 'isOverdue'>,
@@ -119,12 +125,12 @@ export const formatDueLabel = (
   if (!ticket.tatDueAt) return null;
   const startOfDay = (d: Date) => new Date(d).setHours(0, 0, 0, 0);
   const due = new Date(ticket.tatDueAt);
+  if (isNaN(due.getTime())) return null;
   const days = Math.round((startOfDay(due) - startOfDay(new Date())) / 86_400_000);
-  const text =
-    days === 0 ? 'Today'
-    : days === 1 ? 'Tomorrow'
-    : days === -1 ? 'Yesterday'
-    : due.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  const day = due.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
   const overdue = ticket.isOverdue && ticket.status !== 'CLOSED';
-  return { text, label: overdue ? `Delayed · ${text}` : text, overdue };
+  const text = overdue
+    ? `Late since ${days === 0 ? formatClockShort(due) : day}`
+    : `Due ${days === 0 ? 'today' : days === 1 ? 'tomorrow' : day}, ${formatClockShort(due)}`;
+  return { text, label: text, overdue };
 };

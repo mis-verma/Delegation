@@ -1,23 +1,26 @@
 import { useState } from 'react';
-import { Calendar, Copy, Check, Trash2, Loader2, X } from 'lucide-react';
+import { Calendar, Copy, Check, Trash2, Loader2, X, MoreHorizontal } from 'lucide-react';
 import { SheetHeader, SheetDescription, SheetTitle, SheetClose } from '@/components/ui/sheet';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { StatusChip, type StatusChipStatus } from '../../../components';
 import { ticketCode } from '../ticketDisplay';
 import type { Ticket } from '../../../api/ticket';
 
 interface TicketDetailHeaderProps {
   ticket: Ticket;
-  /** Role-aware status wording, already resolved by the caller. */
+  /** Status wording, already resolved by the caller. */
   statusLabel: string;
-  /** Pass to show the round delete button (admins only). */
+  /** Who raised it ("You", "Ravi"), for the phone's line under the title. Null when unknown. */
+  raisedByName?: string | null;
+  /** Pass to offer "Delete ticket" in the header's More menu (admins only). */
   onDelete?: () => void;
   isDeleting?: boolean;
 }
 
-const formatDate = (dateString: string) => {
+const formatDate = (dateString: string, withYear = true) => {
   const date = new Date(dateString);
   if (isNaN(date.getTime())) return dateString;
-  return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  return date.toLocaleDateString(undefined, withYear ? { day: 'numeric', month: 'short', year: 'numeric' } : { day: 'numeric', month: 'short' });
 };
 
 // 36px visible on a phone, 40px from sm; the after: layer pads the tap area out to 44px on a phone.
@@ -26,15 +29,13 @@ const ICON_BUTTON =
 
 /**
  * The sheet's sticky top bar. Row one: ticket code (tap to copy), the live status chip (so the
- * state is still visible after the body has scrolled), when it was raised (sm and up; lg moves it
- * into the properties rail), then delete and close on the right, both with 44px touch targets.
- * Row two: the title, clamped to two lines on a phone and free to wrap from sm up. The shared
- * sheet's own absolute close button is switched off because it is only 40px and floats over the
- * wrapping chips; this one sits in the row instead.
+ * state is still visible after the body has scrolled), when it was raised (sm to lg; lg moves it
+ * into the properties rail), then a More menu (Delete, admins only) and close on the right, 8px
+ * apart so a thumb can't hit the wrong one. Row two: the title, clamped to two lines on a phone
+ * (tap it to read all of it). A phone gets "Raised by Ravi, 10 Oct" under it.
  */
-export const TicketDetailHeader = ({ ticket, statusLabel, onDelete, isDeleting = false }: TicketDetailHeaderProps) => {
+export const TicketDetailHeader = ({ ticket, statusLabel, raisedByName, onDelete, isDeleting = false }: TicketDetailHeaderProps) => {
   const [copied, setCopied] = useState(false);
-  // Tap the title to read all of it; it is clamped to two lines on a phone.
   const [titleOpen, setTitleOpen] = useState(false);
   const code = ticketCode(ticket.id);
 
@@ -48,6 +49,10 @@ export const TicketDetailHeader = ({ ticket, statusLabel, onDelete, isDeleting =
     }
   };
 
+  const raisedLine = raisedByName
+    ? `Raised by ${raisedByName}, ${formatDate(ticket.createdAt, false)}`
+    : `Raised ${formatDate(ticket.createdAt, false)}`;
+
   return (
     <SheetHeader className="gap-1.5 border-b-0 pl-4 pr-2 pt-2 pb-1 sm:pl-6 sm:pr-4 sm:pt-3 sm:pb-4 lg:pl-8 lg:pr-6 text-left">
       <div className="flex items-center gap-2">
@@ -56,55 +61,73 @@ export const TicketDetailHeader = ({ ticket, statusLabel, onDelete, isDeleting =
           <button
             type="button"
             onClick={handleCopyId}
-            className="group relative inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full bg-primary-500/10 hover:bg-primary-500/15 text-primary-700 dark:text-primary-300 text-xs font-mono font-bold transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-95 [-webkit-tap-highlight-color:transparent] after:absolute after:-inset-y-2 after:inset-x-0"
+            className="group relative inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full bg-surface-hover hover:bg-surface-active text-text-secondary t-meta font-mono font-bold transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent] after:absolute after:-inset-y-2 after:inset-x-0"
             title="Copy ticket code"
             aria-label={`Copy ticket code ${code}`}
           >
             <span>{code}</span>
             {copied ? (
-              <Check size={13} className="text-success" strokeWidth={2.5} />
+              <Check size={14} className="text-success" strokeWidth={2.5} />
             ) : (
-              <Copy size={13} className="opacity-60 group-hover:opacity-100 transition-opacity" strokeWidth={2.5} />
+              <Copy size={14} className="opacity-60 group-hover:opacity-100 transition-opacity" strokeWidth={2.5} />
             )}
           </button>
 
-          {/* The one place the word stays on a phone: this chip is the sheet's headline state. */}
-          <StatusChip status={ticket.status.toLowerCase() as StatusChipStatus} label={statusLabel} showLabelOnMobile />
+          <StatusChip status={ticket.status.toLowerCase() as StatusChipStatus} label={statusLabel} />
 
           <SheetDescription asChild>
-            <span className="hidden sm:inline-flex lg:hidden items-center gap-1.5 text-xs font-medium text-text-muted">
-              <Calendar size={13} className="shrink-0 text-text-light" strokeWidth={2.25} />
+            <span className="hidden sm:inline-flex lg:hidden items-center gap-1.5 t-meta font-medium text-text-muted">
+              <Calendar size={14} className="shrink-0 text-text-light" strokeWidth={2.25} />
               Raised {formatDate(ticket.createdAt)}
             </span>
           </SheetDescription>
         </div>
 
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex shrink-0 items-center gap-2">
           {onDelete && (
-            <button
-              type="button"
-              disabled={isDeleting}
-              onClick={onDelete}
-              aria-label="Delete ticket"
-              title="Delete ticket"
-              className={`${ICON_BUTTON} hover:text-danger hover:bg-danger/10 active:bg-danger/10 focus-visible:ring-danger/40`}
-            >
-              {isDeleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
-            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  aria-label="More actions"
+                  title="More actions"
+                  className={`${ICON_BUTTON} hover:text-text hover:bg-surface-hover focus-visible:ring-primary-500/40`}
+                >
+                  {isDeleting ? <Loader2 size={16} className="animate-spin" /> : <MoreHorizontal size={18} strokeWidth={2.5} />}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48 p-1.5 rounded-xl">
+                <DropdownMenuItem
+                  onClick={onDelete}
+                  className="gap-2.5 min-h-11 sm:min-h-9 text-sm font-medium text-danger focus:text-danger cursor-pointer"
+                >
+                  <Trash2 size={16} className="text-danger" />
+                  Delete ticket
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
-          <SheetClose className={`${ICON_BUTTON} hover:text-text hover:bg-surface-hover active:scale-90 focus-visible:ring-primary-500/40`}>
+          <SheetClose className={`${ICON_BUTTON} hover:text-text hover:bg-surface-hover focus-visible:ring-primary-500/40`}>
             <X size={18} strokeWidth={2.5} />
             <span className="sr-only">Close</span>
           </SheetClose>
         </div>
       </div>
 
-      <SheetTitle
-        onClick={() => setTitleOpen((o) => !o)}
-        className={`pr-2 text-lg sm:text-xl lg:text-2xl font-display font-semibold text-text tracking-tight leading-snug break-words select-text ${titleOpen ? '' : 'line-clamp-2 sm:line-clamp-3'}`}
-      >
-        {ticket.title}
+      <SheetTitle className="t-title font-display font-semibold text-text tracking-tight">
+        {/* A real button so the tap-to-read-all works from a keyboard and says what it does. */}
+        <button
+          type="button"
+          onClick={() => setTitleOpen((o) => !o)}
+          aria-expanded={titleOpen}
+          className="w-full pr-2 text-left leading-snug break-words cursor-pointer rounded-md outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+        >
+          <span className={titleOpen ? '' : 'line-clamp-2 sm:line-clamp-3'}>{ticket.title}</span>
+        </button>
       </SheetTitle>
+
+      <p className="sm:hidden t-meta font-medium text-text-muted">{raisedLine}</p>
     </SheetHeader>
   );
 };

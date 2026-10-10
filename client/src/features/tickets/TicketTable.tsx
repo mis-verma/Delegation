@@ -1,9 +1,8 @@
 import { memo } from 'react';
-import { useAuth } from '../../context/AuthContext';
 import { getTicketStatusLabel } from '../../lib/ticketStatusLabel';
 import { StatusChip, PriorityChip, DepartmentChip, TagChip } from '../../components';
 import { PRIORITY_CONFIG, formatDueLabel, formatShortDateTime } from './ticketDisplay';
-import { getStatusChipLabel, type StatusChipStatus } from '../../components/statusChip';
+import type { StatusChipStatus } from '../../components/statusChip';
 import type { Ticket } from '../../api/ticket';
 
 interface TicketTableProps {
@@ -39,7 +38,6 @@ const FROM_2XL = 'hidden 2xl:table-cell';
  * other Ticket view; status changes happen there, not inline in this table.
  */
 const TicketTableComponent = ({ tickets, departmentNames, storeNames, categoryNames, assigneeNames, onOpen }: TicketTableProps) => {
-  const { user } = useAuth();
 
   return (
     <div className="w-full overflow-x-auto rounded-lg border border-border/60">
@@ -66,7 +64,7 @@ const TicketTableComponent = ({ tickets, departmentNames, storeNames, categoryNa
             const category = ticket.categoryId ? categoryNames.get(ticket.categoryId) : undefined;
             const raisedBy = assigneeNames.get(ticket.userId);
             const statusChipStatus = ticket.status.toLowerCase() as StatusChipStatus;
-            const statusLabel = getTicketStatusLabel(ticket.status, user?.role, getStatusChipLabel(statusChipStatus));
+            const statusLabel = getTicketStatusLabel(ticket.status);
 
             return (
               <tr
@@ -101,23 +99,23 @@ const TicketTableComponent = ({ tickets, departmentNames, storeNames, categoryNa
                 </td>
 
                 <td className={`${CELL_CLASS} ${FROM_LG}`}>
-                  {department ? <DepartmentChip name={department} /> : <span className="text-text-light">—</span>}
+                  {department ? <DepartmentChip name={department} /> : <span className="text-text-light">Not set</span>}
                 </td>
 
                 <td className={`${CELL_CLASS} ${FROM_2XL} whitespace-nowrap`}>
-                  {store ?? <span className="text-text-light">—</span>}
+                  {store ?? <span className="text-text-light">Not set</span>}
                 </td>
 
                 <td className={`${CELL_CLASS} ${FROM_XL} whitespace-nowrap`}>
-                  {category ?? <span className="text-text-light">—</span>}
+                  {category ?? <span className="text-text-light">Not set</span>}
                 </td>
 
                 <td className={`${CELL_CLASS} whitespace-nowrap`}>
-                  {ticket.assignee ? ticket.assignee.firstName : <span className="text-text-light">Unassigned</span>}
+                  {ticket.assignee ? ticket.assignee.firstName : <span className="text-text-light">Nobody yet</span>}
                 </td>
 
                 <td className={`${CELL_CLASS} ${FROM_2XL} whitespace-nowrap`}>
-                  {raisedBy ?? <span className="text-text-light">—</span>}
+                  {raisedBy ?? <span className="text-text-light">Not set</span>}
                 </td>
 
                 <td className={`${CELL_CLASS} whitespace-nowrap tabular-nums`}>
@@ -126,7 +124,7 @@ const TicketTableComponent = ({ tickets, departmentNames, storeNames, categoryNa
                       {due.label}
                     </span>
                   ) : (
-                    <span className="text-text-light">—</span>
+                    <span className="text-text-light">Not set</span>
                   )}
                 </td>
 

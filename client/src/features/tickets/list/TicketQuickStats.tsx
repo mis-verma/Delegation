@@ -24,7 +24,7 @@ interface TicketQuickStatsProps {
 }
 
 export const TicketQuickStats = ({ counts, total, active, onToggle, onClear, isLoading }: TicketQuickStatsProps) => (
-  <div className="relative w-full animate-in fade-in slide-in-from-top-4 duration-700 ease-out fill-mode-both">
+  <div className="relative w-full">
     <QuickFilterStats
       tiles={TILES}
       counts={counts}

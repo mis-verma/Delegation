@@ -226,7 +226,7 @@ const TaskTimelineComponent = ({
                           <button
                             type="button"
                             onClick={() => onOpen(task)}
-                            title={`${task.title} — ${priority.label} priority${overdue ? ', overdue' : ''}${
+                            title={`${task.title}, ${priority.label} priority${overdue ? ', overdue' : ''}${
                               clippedStart || clippedEnd ? '. Extends beyond the visible range.' : ''
                             }`}
                             className={`absolute top-1/2 -translate-y-1/2 h-5 ${priority.bar} cursor-pointer transition-all duration-200 ease-in-out hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 ${

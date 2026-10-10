@@ -631,6 +631,12 @@ export const ticketService = {
     }
     assertCanSetReviewers(input.reviewerIds, user)
 
+    // Priority orders the work for the whole team, so only a manager or above re-ranks it. The raiser
+    // still sets it once, when the ticket is created.
+    if (input.priority !== undefined && input.priority !== ticket.priority && (user.role === "AGENT" || user.role === "USER")) {
+      throw AppError.forbidden("Only a manager or above can change a ticket's priority.")
+    }
+
     // Status moves go through the status-update route (remark, history row, alerts) or through verify.
     // The only move left here is a verifier putting a ticket back to Open; anything else on this route
     // skipped those checks (On Hold with no remark, a closed ticket pushed back into review).
@@ -675,7 +681,7 @@ export const ticketService = {
       // verification decision, not a plain status change — verify() (PATCH /tickets/:id/verify,
       // action=APPROVE) is the one place that sets all three atomically under the same
       // optimistic-concurrency guard, and is now the only way to reach CLOSED going forward.
-      throw AppError.badRequest("A ticket can only be closed by approving it — send it for review first, then approve it from there.")
+      throw AppError.badRequest("A ticket is closed by approving it. Mark it completed first, then approve it.")
     } else if (input.status === "PENDING_APPROVAL" && before.status !== "PENDING_APPROVAL") {
       // Fresh read with the exact `with` needed for the checklist gate, replacing the old
       // mid-flight `ticket.populate(...)` call on the already-fetched Mongoose document.
@@ -686,7 +692,7 @@ export const ticketService = {
       // ticket too — otherwise the raiser/assignee (who already has ordinary mutate rights via
       // assertCanMutate) could reopen it themselves, silently discarding PC's decision.
       if (user.role !== "ADMIN" && user.role !== "PC") {
-        throw AppError.forbidden("Only a verifier can reopen a ticket that's already been closed.")
+        throw AppError.forbidden("Only an admin or PC can reopen a closed ticket.")
       }
       patch.closedAt = null;
       // The old verification is no longer valid for whatever state the ticket moves back into —
@@ -757,6 +763,12 @@ export const ticketService = {
     if (!ticket) throw AppError.notFound("Ticket not found")
     assertCanMutate(user, ticket)
 
+    // Front-line staff move only the work they are doing: for USER/AGENT that means the assignee.
+    // Someone who only raised the ticket can still edit or withdraw it, just not move it.
+    if ((user.role === "AGENT" || user.role === "USER") && ticket.assigneeId !== user.sub) {
+      throw AppError.forbidden("Only the person working on this ticket can change its status.")
+    }
+
     const before = ticket;
 
     // Moving a ticket to the status it is already in is not a move. Without this a double tap on
@@ -767,7 +779,7 @@ export const ticketService = {
     // Closed is final for the people working it, and handed-in work waits for the reviewer: only a verifier
     // can move a ticket out of either (the reviewer's Reject is the way back to work).
     if (before.status === "CLOSED" && !isVerifierRole(user)) {
-      throw AppError.forbidden("Only a verifier can reopen a ticket that's already been closed.")
+      throw AppError.forbidden("Only an admin or PC can reopen a closed ticket.")
     }
     if (before.status === "PENDING_APPROVAL" && !isVerifierRole(user)) {
       throw AppError.forbidden("This ticket is waiting for approval. The reviewer can send it back if it needs more work.")

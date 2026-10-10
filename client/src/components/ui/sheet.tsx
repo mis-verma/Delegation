@@ -3,8 +3,12 @@ import * as SheetPrimitive from "@radix-ui/react-dialog"
 import { XIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { useCloseOnBack } from "@/lib/useCloseOnBack"
 
 function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
+  // A controlled sheet closes on the phone back gesture (top-most layer only), like Modal.
+  const { open, onOpenChange } = props
+  useCloseOnBack(!!open && !!onOpenChange, () => onOpenChange?.(false))
   return <SheetPrimitive.Root data-slot="sheet" {...props} />
 }
 

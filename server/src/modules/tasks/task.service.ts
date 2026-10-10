@@ -1039,6 +1039,13 @@ export const taskService = {
         const [task] = await db.select().from(tasks).where(where).limit(1);
         if (!task) throw AppError.notFound("Delegation not found");
 
+        // ADMIN/PC archive any delegation they can see. Everyone else may only discard a draft they
+        // wrote themselves: it was never published, so nobody else has seen or worked on it.
+        const isVerifier = user.role === "ADMIN" || user.role === "PC";
+        if (!isVerifier && !(task.userId === user.sub && task.status === "draft")) {
+            throw AppError.forbidden("You can only discard your own drafts.");
+        }
+
         const deletedAt = new Date();
         await db.update(tasks).set({ deletedAt, updatedAt: deletedAt }).where(eq(tasks.id, id));
 

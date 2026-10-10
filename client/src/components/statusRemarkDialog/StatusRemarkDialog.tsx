@@ -1,9 +1,12 @@
 import { useRef, useState, type FormEvent, type ReactNode } from 'react';
-import { ArrowRight, MessageSquareText, PenLine } from 'lucide-react';
+import { ArrowRight, Check, MessageSquareText, PenLine } from 'lucide-react';
+import { useMediaQuery } from '../../lib/useMediaQuery';
 import { Modal } from '../modal';
 import { Button } from '../button';
 
 export const MAX_REMARK = 1000;
+/** The counter only appears once the note gets near the limit. */
+const COUNTER_FROM = 800;
 
 interface StatusRemarkDialogProps {
   /** Name of the thing being moved, shown beside the from → to chips. */
@@ -13,8 +16,11 @@ interface StatusRemarkDialogProps {
   to: ReactNode;
   /** Confirm button text, e.g. "Move to In Review". */
   confirmLabel: string;
-  /** One line under the title saying where the remark ends up. */
+  /** One line under the title saying where the remark ends up. Desktop only. */
   description: string;
+  /** A short line that matters on a phone too (e.g. "The raiser is told about this"). Shown under
+   *  the title below `sm`, where `description` is hidden. */
+  phoneNote?: string;
   placeholder?: string;
   onCancel: () => void;
   onConfirm: (remark: string) => void;
@@ -66,8 +72,11 @@ interface StatusRemarkDialogProps {
 export const StatusRemarkDialog = ({
   itemTitle, from, to, confirmLabel, description, placeholder,
   onCancel, onConfirm, isSubmitting = false, nested = false, history, attachments, suggestions,
-  optional = false, confirmWithNoteLabel, title,
+  optional = false, confirmWithNoteLabel, title, phoneNote,
 }: StatusRemarkDialogProps) => {
+  // A touch keyboard jumping up over the dialog before the person has read it hides the from/to
+  // card and the suggestions, so only a mouse/trackpad device gets the box focused straight away.
+  const isTouch = useMediaQuery('(pointer: coarse)');
   const [remark, setRemark] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [touched, setTouched] = useState(false);
@@ -88,11 +97,18 @@ export const StatusRemarkDialog = ({
       open
       onClose={onCancel}
       modal={!nested}
+      // Typed text is never lost to a stray tap behind the dialog; X, Escape and back ask first.
+      dirty={!isEmpty}
       size="lg"
       icon={<MessageSquareText className="w-5 h-5 text-primary-600" />}
       title={title ?? (optional ? 'Add a note?' : 'Add a remark')}
       // Desktop-only: three lines of header on a phone for something the form itself makes clear.
-      description={<span className="hidden sm:inline">{description}</span>}
+      description={
+        <>
+          <span className="hidden sm:inline">{description}</span>
+          {phoneNote && <span className="sm:hidden t-meta">{phoneNote}</span>}
+        </>
+      }
       // Phones: header X instead of the footer Cancel, and the confirm button spans the sheet —
       // same pattern as the New Delegation form.
       closeButtonClassName="sm:hidden"
@@ -150,12 +166,13 @@ export const StatusRemarkDialog = ({
                   type="button"
                   onClick={() => { setRemark(s); textareaRef.current?.focus(); }}
                   aria-pressed={remark === s}
-                  className={`h-11 sm:h-8 px-3.5 sm:px-3 rounded-full border text-xs font-medium transition-colors duration-150 cursor-pointer [-webkit-tap-highlight-color:transparent] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
+                  className={`inline-flex items-center gap-1.5 h-11 sm:h-8 px-3.5 sm:px-3 rounded-full border t-meta transition-colors duration-150 ease-out cursor-pointer [-webkit-tap-highlight-color:transparent] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
                     remark === s
-                      ? 'border-transparent bg-primary-700 text-white'
-                      : 'border-border/60 bg-surface text-text-secondary hover:border-primary-400 active:bg-surface-hover'
+                      ? 'border-border-hover bg-surface-hover text-text font-semibold'
+                      : 'border-border/60 bg-surface text-text-secondary font-medium hover:border-border-hover active:bg-surface-hover'
                   }`}
                 >
+                  {remark === s && <Check size={13} strokeWidth={2.75} aria-hidden="true" />}
                   {s}
                 </button>
               ))}
@@ -165,7 +182,7 @@ export const StatusRemarkDialog = ({
           <textarea
             ref={textareaRef}
             id="status-remark"
-            autoFocus
+            autoFocus={!isTouch}
             value={remark}
             onChange={(e) => setRemark(e.target.value)}
             onBlur={() => setTouched(true)}
@@ -188,9 +205,11 @@ export const StatusRemarkDialog = ({
                 Whoever picks this up next sees this on the timeline.
               </p>
             )}
-            <span className="shrink-0 ml-auto px-2 py-0.5 rounded-full bg-surface-hover t-meta font-semibold text-text-muted tabular-nums">
-              {trimmed.length}/{MAX_REMARK}
-            </span>
+            {remark.length >= COUNTER_FROM && (
+              <span className="shrink-0 ml-auto px-2 py-0.5 rounded-full bg-surface-hover t-meta font-semibold text-text-muted tabular-nums">
+                {remark.length}/{MAX_REMARK}
+              </span>
+            )}
           </div>
         </div>
 

@@ -125,7 +125,7 @@ export function QuickFilterStats<K extends string>({
             aria-label={purpose}
             title={purpose}
             className={cn(
-              'flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl border bg-surface px-1 py-2 text-center font-display outline-none',
+              'flex min-w-0 flex-col items-center justify-start gap-0.5 rounded-xl border bg-surface px-0.5 py-2 text-center font-display outline-none',
               'sm:flex-row sm:items-start sm:justify-between sm:gap-3 sm:p-4 sm:text-left',
               'transition-[border-color,box-shadow,transform] duration-150 active:scale-[0.985] [-webkit-tap-highlight-color:transparent]',
               'focus-visible:ring-2 focus-visible:ring-primary-500/50',
@@ -140,7 +140,9 @@ export function QuickFilterStats<K extends string>({
               )}>
                 <CountUp value={count} />
               </span>
-              <span className={cn('mt-1 sm:mt-1.5 block truncate text-[0.6875rem] sm:text-xs', isActive ? 'font-bold text-text' : 'font-medium text-text-muted')}>{label}</span>
+              {/* Phone: up to two lines, never an ellipsis. Five tiles at 320px leave about 50px each, so a
+                  long word may hyphenate rather than get cut. The grid row keeps every tile the same height. */}
+              <span className={cn('mt-1 sm:mt-1.5 block max-sm:t-meta max-sm:leading-tight max-sm:line-clamp-2 max-sm:hyphens-auto max-sm:[overflow-wrap:anywhere] sm:truncate sm:text-xs', isActive ? 'font-bold text-text' : 'font-medium text-text-muted')}>{label}</span>
             </span>
             <span aria-hidden="true" className={cn('hidden sm:flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors duration-150', isActive ? cn(accentBar, 'text-white') : cn(bgTint, iconTint))}>
               <Icon className="size-4" />

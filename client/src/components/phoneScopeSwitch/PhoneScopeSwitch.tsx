@@ -1,8 +1,10 @@
 import { cn } from '@/lib/utils';
 
 interface PhoneScopeSwitchProps<T extends string> {
-  /** The two choices, e.g. "Assigned to me" and "Created by me". */
-  options: Array<{ value: T; label: string }>;
+  /** The two choices, e.g. "Assigned to me" and "Created by me". `shortLabel` (e.g. "Mine",
+   *  "By me") replaces the label on screens under 360px wide, where two long labels plus a filter
+   *  button don't fit. */
+  options: Array<{ value: T; label: string; shortLabel?: string }>;
   value: T;
   /** The value that means "no choice", picked again when the active one is tapped. */
   allValue: T;
@@ -23,15 +25,22 @@ export const PhoneScopeSwitch = <T extends string>({ options, value, allValue, o
           key={o.value}
           type="button"
           aria-pressed={active}
+          aria-label={o.label}
           onClick={() => onChange(active ? allValue : o.value)}
           className={cn(
-            'h-10 rounded-full border px-3 text-[13px] font-display font-semibold truncate outline-none cursor-pointer transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]',
+            'min-w-0 h-11 rounded-full border px-2 t-meta leading-tight font-display truncate outline-none cursor-pointer transition-colors duration-150 ease-out focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]',
+            // Picked: a calm outline and bold word, not a solid blue pill.
             active
-              ? 'border-primary-600 bg-primary-600 text-white'
-              : 'border-border bg-surface text-text-secondary active:bg-surface-hover',
+              ? 'border-primary-600 bg-surface text-primary-700 dark:border-primary-400 dark:text-primary-300 font-bold'
+              : 'border-border bg-surface text-text-secondary font-semibold hover:border-border-hover active:bg-surface-hover',
           )}
         >
-          {o.label}
+          {o.shortLabel ? (
+            <>
+              <span className="max-[359px]:hidden">{o.label}</span>
+              <span className="hidden max-[359px]:inline">{o.shortLabel}</span>
+            </>
+          ) : o.label}
         </button>
       );
     })}

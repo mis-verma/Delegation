@@ -58,6 +58,9 @@ type EntityMutationConfig<TVars, TResult> = {
   // null/omitted = no success toast (e.g. checkbox-toggle mutations that should feel instant).
   successMessage?: string | ((result: TResult, vars: TVars) => string) | null;
   errorFallback: string;
+  // Default true. Set false when the caller shows the failure itself, next to the field or button
+  // that failed, so the same message doesn't also pop up as a toast.
+  errorToast?: boolean;
   // Patch the cache immediately, before the server responds, so the UI reflects the change with
   // no perceptible wait — checkbox toggles, drag-drop status moves, etc. Rolled back on error.
   optimisticUpdate?: OptimisticUpdate<TVars>;
@@ -120,7 +123,7 @@ export function useEntityMutation<TVars, TResult>(config: EntityMutationConfig<T
       context?.snapshots.forEach(([, entries]) => {
         entries.forEach(([entryKey, data]) => queryClient.setQueryData(entryKey, data));
       });
-      toast.error(errorMessage(err, config.errorFallback));
+      if (config.errorToast !== false) toast.error(errorMessage(err, config.errorFallback));
     },
   });
 }

@@ -25,7 +25,7 @@ const formatDuration = (ms: number) => {
 };
 
 const TRANSCRIBE_ERROR_MESSAGE = "Sorry, I couldn't transcribe that. Please try again or type your message.";
-const MIC_BLOCKED_MESSAGE = "Microphone access is blocked — enable it in your browser's site settings, or type your message instead.";
+const MIC_BLOCKED_MESSAGE = "Microphone access is blocked. Turn it on in your browser's site settings, or type your message instead.";
 
 // Records a short voice note (native MediaRecorder, no extra dependency), transcribes it via
 // POST /tasks/ai/transcribe, and hands the resulting text back to the caller — which feeds it

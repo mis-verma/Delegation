@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Plus, UserPlus } from 'lucide-react';
 import {
   DropdownMenu,
@@ -18,6 +18,7 @@ import { FIELD_LABEL_CLASS, FIELD_CARD_CLASS } from '../tasks/taskFormFieldStyle
 import { useAuth } from '../../context/AuthContext';
 import { UserForm } from '../admin/users/UserForm';
 import type { AssignableUser } from '../../api/users';
+import { useDepartmentsQuery } from '../tickets/hook';
 
 interface AssigneeFieldProps {
   selectedIds: string[];
@@ -33,14 +34,36 @@ interface AssigneeFieldProps {
    *  behaviour), and an explicit "Unassigned" item is offered to clear it. Delegation's own
    *  multi-assignee behaviour (the default) is unchanged. */
   single?: boolean;
+  /** Second line under each person in the picker. Defaults to their department's name (looked up
+   *  from the cached departments list); return null/undefined for no line. */
+  hintFor?: (user: AssignableUser) => string | null | undefined;
 }
 
-// Shows only the currently-assigned people as solid avatars, plus a dashed "+" trigger that
-// opens a checklist of everyone else — instead of always showing every assignable user inline.
-// Shared by Delegation (multi-assignee: TaskForm/TaskDetail split the result back into
-// assigneeId + additionalAssigneeIds) and Ticket (single-assignee, via `single`) so both entities
-// get the same picker experience instead of Ticket hand-rolling a plain text dropdown.
-export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false, disabled = false, hideLabel = false, single = false }: AssigneeFieldProps) => {
+const nameOf = (u: AssignableUser) => `${u.firstName} ${u.lastName ?? ''}`.trim();
+
+/** "[avatar] First name" on a phone, the full name from sm up, and a small "Main" tag on the
+ *  first person of several (the primary assignee). Display only: the whole row is one button. */
+const PersonChip = ({ user, main }: { user: AssignableUser; main: boolean }) => {
+  const name = nameOf(user);
+  return (
+    <span className="inline-flex items-center gap-1.5 h-8 pl-1 pr-2.5 rounded-full border border-border/60 bg-surface min-w-0 max-w-full">
+      <span className={`flex items-center justify-center size-6 rounded-full t-meta font-bold text-white shrink-0 ${avatarColorClass(name)}`} aria-hidden="true">
+        {getInitials(name)}
+      </span>
+      <span className="min-w-0 truncate t-meta font-semibold text-text">
+        {user.firstName}
+        {user.lastName && <span className="hidden sm:inline"> {user.lastName}</span>}
+      </span>
+      {main && <span className="shrink-0 rounded-full bg-surface-hover px-1.5 t-meta font-semibold text-text-muted">Main</span>}
+    </span>
+  );
+};
+
+// The picked people as name chips, and one tap target (the whole row) that opens the picker. Removing
+// someone only happens inside the picker (untick, or "Unassigned"), so a stray tap on a chip can't
+// silently drop a person. Shared by Delegation (multi-assignee: TaskForm/TaskDetail split the result
+// back into assigneeId + additionalAssigneeIds) and Ticket (single-assignee, via `single`).
+export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false, disabled = false, hideLabel = false, single = false, hintFor }: AssigneeFieldProps) => {
   const { user: currentUser } = useAuth();
   // PC has full parity with ADMIN throughout this app.
   const isAdmin = currentUser?.role === 'ADMIN' || currentUser?.role === 'PC';
@@ -50,6 +73,14 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
   // Reading a ref's .current during render isn't allowed (it can go stale without triggering a
   // re-render), so the trigger's DOM node is tracked in state via a callback ref instead.
   const [triggerEl, setTriggerEl] = useState<HTMLButtonElement | null>(null);
+  // Who was picked when the list opened goes first. Frozen at open time so rows don't jump about
+  // while someone ticks several people in a row.
+  const [pinnedIds, setPinnedIds] = useState<string[]>([]);
+
+  const { data: departments } = useDepartmentsQuery(!disabled && !hintFor);
+  const departmentName = useMemo(() => new Map((departments ?? []).map((d) => [d.id, d.name])), [departments]);
+  const hintOf = (u: AssignableUser): string | undefined =>
+    (hintFor ? hintFor(u) : u.departmentId ? departmentName.get(u.departmentId) : undefined) ?? undefined;
 
   const toggle = (id: string) => {
     if (single) {
@@ -59,40 +90,60 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
     onChange(selectedIds.includes(id) ? selectedIds.filter((x) => x !== id) : [...selectedIds, id]);
   };
 
-  const nameOf = (u: AssignableUser) => `${u.firstName} ${u.lastName ?? ''}`.trim();
-  const selectedUsers = (users ?? []).filter((u) => selectedIds.includes(u.id));
+  // In selectedIds order, so the first one (the primary assignee) is the one marked "Main".
+  const selectedUsers = selectedIds
+    .map((id) => (users ?? []).find((u) => u.id === id))
+    .filter((u): u is AssignableUser => !!u);
 
-  const triggerButton = selectedUsers.length === 0 ? (
-      // Empty state: the "Unassigned" label is part of the clickable trigger itself,
-      // not separate inert text next to it — a plain <span> here reads as a status pill
-      // but does nothing when clicked, which is exactly what looked broken.
-      <button
-        ref={setTriggerEl}
-        type="button"
-        title="Add assignee"
-        aria-label="Add assignee"
-        className="relative pointer-coarse:after:absolute pointer-coarse:after:-inset-y-2 pointer-coarse:after:inset-x-0 flex items-center gap-1.5 h-7 sm:h-8 pl-2 pr-3 rounded-full border border-border-hover text-text-light hover:text-primary-600 hover:border-primary-400 transition-colors cursor-pointer shrink-0"
-      >
-        <Plus size={15} strokeWidth={2.5} />
-        <span className="text-xs font-display">Unassigned</span>
-      </button>
-  ) : (
-      <button
-        ref={setTriggerEl}
-        type="button"
-        title={single ? 'Change assignee' : 'Add assignee'}
-        aria-label={single ? 'Change assignee' : 'Add assignee'}
-        className="relative pointer-coarse:after:absolute pointer-coarse:after:-inset-2 flex items-center justify-center size-7 sm:size-8 rounded-full border border-border-hover text-text-light hover:text-primary-600 hover:border-primary-400 transition-colors cursor-pointer shrink-0"
-      >
-        <Plus size={15} strokeWidth={2.5} />
-      </button>
+  const orderedUsers = useMemo(() => {
+    const pinned = new Set(pinnedIds);
+    const all = users ?? [];
+    return [...all.filter((u) => pinned.has(u.id)), ...all.filter((u) => !pinned.has(u.id))];
+  }, [users, pinnedIds]);
+
+  const onPickerOpenChange = (next: boolean) => {
+    if (next) setPinnedIds(selectedIds);
+    setSheetOpen(next);
+  };
+
+  const chips = selectedUsers.map((u, i) => <PersonChip key={u.id} user={u} main={!single && i === 0 && selectedUsers.length > 1} />);
+
+  const pickerLabel = single
+    ? selectedUsers.length ? `Assignee: ${nameOf(selectedUsers[0])}. Change` : 'Choose an assignee'
+    : selectedUsers.length ? `Assignees: ${selectedUsers.map(nameOf).join(', ')}. Add or remove people` : 'Add people';
+
+  const triggerButton = (
+    <button
+      ref={setTriggerEl}
+      type="button"
+      aria-label={pickerLabel}
+      title={single ? 'Change assignee' : 'Add or remove people'}
+      className="group/assign flex flex-wrap items-center gap-1.5 min-h-11 max-w-full min-w-0 rounded-xl text-left cursor-pointer outline-none transition-colors duration-150 ease-out focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]"
+    >
+      {chips}
+      {selectedUsers.length === 0 ? (
+        <span className="inline-flex items-center gap-1.5 h-8 pl-2 pr-3 rounded-full border border-border-hover t-meta font-medium text-text-muted transition-colors duration-150 group-hover/assign:border-primary-400 group-hover/assign:text-primary-600">
+          <Plus size={15} strokeWidth={2.5} aria-hidden="true" />
+          Unassigned
+        </span>
+      ) : single ? (
+        <span className="inline-flex items-center h-8 px-3 rounded-full border border-border-hover t-meta font-medium text-text-muted transition-colors duration-150 group-hover/assign:border-primary-400 group-hover/assign:text-primary-600">
+          Change
+        </span>
+      ) : (
+        <span className="flex items-center justify-center size-8 rounded-full border border-border-hover text-text-muted transition-colors duration-150 group-hover/assign:border-primary-400 group-hover/assign:text-primary-600" aria-hidden="true">
+          <Plus size={15} strokeWidth={2.5} />
+        </span>
+      )}
+    </button>
   );
 
-  const sheetOptions: ListOption[] = (users ?? []).map((u) => {
+  const sheetOptions: ListOption[] = orderedUsers.map((u) => {
     const name = nameOf(u);
     return {
       value: u.id,
       label: name,
+      hint: hintOf(u),
       lead: (
         <span className={`flex items-center justify-center size-8 rounded-full text-xs font-bold text-white shrink-0 ${avatarColorClass(name)}`}>
           {getInitials(name)}
@@ -109,21 +160,8 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
         </label>
       )}
       <div className="flex flex-wrap items-center gap-1.5 min-h-10">
-        {selectedUsers.map((u) => {
-          const name = nameOf(u);
-          return (
-            <button
-              key={u.id}
-              type="button"
-              disabled={disabled}
-              onClick={() => toggle(u.id)}
-              title={`${name} — click to remove`}
-              className={`relative pointer-coarse:after:absolute pointer-coarse:after:-inset-2 flex items-center justify-center size-7 sm:size-8 rounded-full text-xs sm:t-meta font-semibold sm:font-bold text-white shrink-0 cursor-pointer transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:hover:scale-100 ${avatarColorClass(name)}`}
-            >
-              {getInitials(name)}
-            </button>
-          );
-        })}
+        {/* Read-only: the names, with no picker affordance. */}
+        {disabled && chips}
 
         {!disabled && (
           // modal={false} is load-bearing, not a preference. Radix's DropdownMenu defaults to
@@ -139,7 +177,7 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
             <PickerShell
               bare
               open={sheetOpen}
-              onOpenChange={setSheetOpen}
+              onOpenChange={onPickerOpenChange}
               trigger={triggerButton}
               title={single ? 'Assign to' : 'Assign to (pick one or more)'}
               sheetFooter={!single && (
@@ -158,12 +196,14 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
                 onToggle={(id) => {
                   if (single) { onChange([id]); setSheetOpen(false); } else toggle(id);
                 }}
-                topActions={single ? [{ key: 'none', label: 'Unassigned', onSelect: () => { onChange([]); setSheetOpen(false); } }] : undefined}
-                actions={isAdmin ? [{ key: 'create', label: 'Create new user', icon: UserPlus, tone: 'primary' as const, onSelect: () => { setSheetOpen(false); setIsCreatingUser(true); } }] : undefined}
+                topActions={[
+                  ...(single ? [{ key: 'none', label: 'Unassigned', onSelect: () => { onChange([]); setSheetOpen(false); } }] : []),
+                  ...(isAdmin ? [{ key: 'create', label: 'Create new user', icon: UserPlus, tone: 'primary' as const, onSelect: () => { setSheetOpen(false); setIsCreatingUser(true); } }] : []),
+                ]}
               />
             </PickerShell>
           ) : (
-          <DropdownMenu modal={false}>
+          <DropdownMenu modal={false} open={sheetOpen} onOpenChange={onPickerOpenChange}>
             <DropdownMenuTrigger asChild>{triggerButton}</DropdownMenuTrigger>
             <DropdownMenuContent
               align="start"
@@ -202,13 +242,27 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
                 </>
               )}
 
+              {isAdmin && (
+                <>
+                  <DropdownMenuItem
+                    onSelect={() => setIsCreatingUser(true)}
+                    className="gap-2 text-primary-600 dark:text-primary-400"
+                  >
+                    <UserPlus size={14} />
+                    Create new user
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
+
               {isLoading ? (
                 <div className="px-2 py-1.5 text-xs text-text-light">Loading team…</div>
               ) : (users ?? []).length === 0 ? (
                 <div className="px-2 py-1.5 text-xs text-text-light">No assignable users</div>
               ) : (
-                (users ?? []).map((u) => {
+                orderedUsers.map((u) => {
                   const name = nameOf(u);
+                  const hint = hintOf(u);
                   const checked = selectedIds.includes(u.id);
                   return (
                     <DropdownMenuCheckboxItem
@@ -223,24 +277,15 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
                       <span className={`flex items-center justify-center size-6 rounded-full text-xs font-bold text-white shrink-0 ${avatarColorClass(name)}`}>
                         {getInitials(name)}
                       </span>
-                      {name}
+                      <span className="flex min-w-0 flex-col">
+                        <span className="line-clamp-2 break-words">{name}</span>
+                        {hint && <span className="t-meta text-text-muted truncate">{hint}</span>}
+                      </span>
                     </DropdownMenuCheckboxItem>
                   );
                 })
               )}
 
-              {isAdmin && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onSelect={() => setIsCreatingUser(true)}
-                    className="gap-2 text-primary-600 dark:text-primary-400"
-                  >
-                    <UserPlus size={14} />
-                    Create new user
-                  </DropdownMenuItem>
-                </>
-              )}
             </DropdownMenuContent>
           </DropdownMenu>
           )
@@ -248,7 +293,7 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
 
         {/* Disabled (read-only) view has no clickable trigger to fold this label into. */}
         {disabled && selectedUsers.length === 0 && (
-          <span className="text-xs text-text-light">Unassigned</span>
+          <span className="t-meta text-text-light">Unassigned</span>
         )}
       </div>
 

@@ -2,6 +2,7 @@ import { useCallback, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { TaskStatusRemarkDialog } from './TaskStatusRemarkDialog';
 import { useUpdateTaskMutation } from './hook';
+import { STATUS_LABEL } from './taskDisplay';
 import { useAuth } from '../../context/AuthContext';
 import type { Task } from '../../api/task';
 
@@ -19,7 +20,8 @@ import type { Task } from '../../api/task';
  * the move UI and forget to render the gate.
  */
 export const useTaskStatusMove = () => {
-  const updateMutation = useUpdateTaskMutation();
+  // Silent: the toast below names the status it moved to, which a generic "updated" didn't.
+  const updateMutation = useUpdateTaskMutation({ silent: true });
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
   const [pendingMove, setPendingMove] = useState<{ task: Task; toStatus: Task['status'] } | null>(null);
@@ -44,7 +46,7 @@ export const useTaskStatusMove = () => {
     // checklist gate. Block it client-side with a clear reason instead of letting the request
     // round-trip into a 400.
     if (toStatus === 'done') {
-      toast.error('Mark a delegation done by approving it from the verify screen — not from here.');
+      toast.error('A delegation is marked done when a reviewer approves it.');
       return;
     }
 
@@ -53,18 +55,18 @@ export const useTaskStatusMove = () => {
     // Draft) to Pending Approval, "arriving" for review despite never being marked as started —
     // the four-stage stepper on the detail sheet already presents this as a strict pipeline.
     if (toStatus === 'pending_approval' && task.status !== 'in_progress') {
-      toast.error('Move this delegation to In Progress before sending it for review.');
+      toast.error(`Move this delegation to ${STATUS_LABEL.in_progress} before marking it completed.`);
       return;
     }
 
     // Mirrors the on-hold rules in task.service.ts: only To do or In progress can be paused, and a
     // held delegation resumes to In progress before it goes anywhere else.
     if (toStatus === 'on_hold' && task.status !== 'todo' && task.status !== 'in_progress') {
-      toast.error('Only a delegation that is To do or In progress can be put on hold.');
+      toast.error(`Only a delegation that is ${STATUS_LABEL.todo} or ${STATUS_LABEL.in_progress} can be put on hold.`);
       return;
     }
     if (task.status === 'on_hold' && toStatus !== 'in_progress') {
-      toast.error('Resume this delegation to In Progress first.');
+      toast.error(`Resume this delegation to ${STATUS_LABEL.in_progress} first.`);
       return;
     }
 
@@ -80,9 +82,15 @@ export const useTaskStatusMove = () => {
       isSubmitting={updateMutation.isPending}
       onCancel={() => setPendingMove(null)}
       onConfirm={(statusRemark) => {
+        const toStatus = pendingMove.toStatus;
         updateMutation.mutate(
-          { id: pendingMove.task.id, payload: { status: pendingMove.toStatus, statusRemark: statusRemark || undefined } },
-          { onSuccess: () => setPendingMove(null) },
+          { id: pendingMove.task.id, payload: { status: toStatus, statusRemark: statusRemark || undefined } },
+          {
+            onSuccess: () => {
+              setPendingMove(null);
+              toast.success(toStatus === 'pending_approval' ? 'Marked completed, waiting for approval' : `Moved to ${STATUS_LABEL[toStatus]}`);
+            },
+          },
         );
       }}
     />

@@ -4,6 +4,7 @@ import { TicketStatusRemarkDialog } from './TicketStatusRemarkDialog';
 import { useTicketStatusMoveMutation } from './hook';
 import { RESTRICTED_STATUSES, type Ticket, type RestrictedStatus } from '../../api/ticket';
 import { useAuth } from '../../context/AuthContext';
+import { OWN_SCOPE_ROLES } from '../../api/auth';
 
 /**
  * The gate every board-initiated ticket status change goes through.
@@ -29,11 +30,17 @@ export const useTicketStatusMove = () => {
   const requestMove = (ticket: Ticket, toStatus: Ticket['status']) => {
     if (ticket.status === toStatus) return;
 
+    // Same rule as the server: front-line staff only move tickets they are working on themselves.
+    if (user && OWN_SCOPE_ROLES.includes(user.role) && ticket.assigneeId !== user.id) {
+      toast.error('Only the person working on this ticket can change its status.');
+      return;
+    }
+
     // Same rule as the server: closed is final, and handed-in work waits for the reviewer.
     if (!isVerifier && (ticket.status === 'CLOSED' || ticket.status === 'PENDING_APPROVAL')) {
       toast.error(ticket.status === 'CLOSED' ? 'This ticket is closed.' : 'This ticket is waiting for approval.', {
         description: ticket.status === 'CLOSED'
-          ? 'Only a verifier can reopen it.'
+          ? 'Only an admin or PC can reopen it.'
           : 'The reviewer can send it back if it needs more work.',
       });
       return;
@@ -43,10 +50,10 @@ export const useTicketStatusMove = () => {
     // so a move back to Open literally cannot be recorded. Rather than let it through unlogged —
     // the bug this whole flow exists to close — it's refused with the reason.
     if (!canMoveTo(toStatus)) {
-      toast.error(`A ticket can't be moved back to ${toStatus === 'OPEN' ? 'Open' : 'Closed'} from the board.`, {
+      toast.error(toStatus === 'OPEN' ? "A ticket can't be moved back to Open from the board." : "A ticket can't be closed from the board.", {
         description: toStatus === 'OPEN'
-          ? 'Reopening is not a recordable status change. Use the ticket sheet.'
-          : 'Closing happens through verification so the approval is recorded.',
+          ? 'Open the ticket to move it back.'
+          : 'Approve it instead, so the decision is recorded.',
       });
       return;
     }

@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 export interface ListOption {
   value: string;
   label: string;
-  /** Small secondary text on the right (a department, a code). It is searched too. */
+  /** A second, smaller line under the label (a person's department, a code). It is searched too. */
   hint?: string;
   /** Leading visual: an avatar, a coloured icon tile. */
   lead?: ReactNode;
@@ -32,9 +32,10 @@ interface OptionListProps {
   searchPlaceholder?: string;
   emptyText?: string;
   isLoading?: boolean;
-  /** Rows that act instead of pick ("Create new"), after the list. */
+  /** Rows that act instead of pick, after the list. Put a create row ("New label") in
+   *  `topActions` instead, so it is reachable without scrolling a long list. */
   actions?: ListAction[];
-  /** Rows that act instead of pick, above the list ("Unassigned"). */
+  /** Rows that act instead of pick, above the list ("New category", "Unassigned"). */
   topActions?: ListAction[];
 }
 
@@ -49,7 +50,7 @@ const highlight = (label: string, query: string): ReactNode => {
   return (
     <>
       {label.slice(0, idx)}
-      <mark className="font-bold rounded-sm px-0.5 bg-primary-600 text-white">{label.slice(idx, idx + query.length)}</mark>
+      <mark className="font-bold bg-transparent text-text">{label.slice(idx, idx + query.length)}</mark>
       {label.slice(idx + query.length)}
     </>
   );
@@ -69,7 +70,7 @@ const ActionRow = ({ action }: { action: ListAction }) => {
       )}
     >
       {Icon && <Icon size={16} className="shrink-0" aria-hidden />}
-      <span className="truncate">{action.label}</span>
+      <span className="min-w-0 line-clamp-2 break-words">{action.label}</span>
     </button>
   );
 };
@@ -96,7 +97,9 @@ export const OptionList = ({
   return (
     <div className="flex flex-col gap-2 min-h-0">
       {showSearch && (
-        <div className="relative shrink-0">
+        // Sticky inside the sheet's scroll area, so the search stays in reach at any scroll depth.
+        <div className="sticky top-0 z-10 shrink-0 bg-surface pb-1">
+          <div className="relative">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-light pointer-events-none" aria-hidden />
           {/* 16px on a phone: smaller makes iOS zoom the whole page when the field is focused. */}
           <input
@@ -107,8 +110,9 @@ export const OptionList = ({
             aria-label={searchPlaceholder}
             autoComplete="off"
             enterKeyHint="search"
-            className="w-full h-11 rounded-xl border border-border bg-background pl-9 pr-3 text-base text-text placeholder:text-text-light outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-500/12"
+            className="w-full h-11 rounded-xl border border-border bg-background pl-9 pr-3 text-base sm:text-sm text-text placeholder:text-text-light outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-500/12"
           />
+          </div>
         </div>
       )}
 
@@ -132,30 +136,31 @@ export const OptionList = ({
                   onClick={() => onToggle(option.value)}
                   className={cn(
                     'flex items-center gap-3 w-full min-h-12 px-3 py-2 rounded-xl text-left text-sm font-display font-medium cursor-pointer outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]',
+                    // Picked rows are neutral: a grey row, bold text and the tick. No blue wash.
                     isSelected
-                      ? 'bg-gradient-to-r from-primary-500/15 to-primary-500/5 text-primary-800 dark:text-primary-200 font-semibold'
-                      : 'text-text hover:bg-primary-500/8 active:bg-primary-500/10',
+                      ? 'bg-surface-hover text-text font-semibold'
+                      : 'text-text hover:bg-surface-hover active:bg-surface-hover',
                     !option.value && !isSelected && 'text-text-muted italic',
                   )}
                 >
                   {option.lead}
-                  <span className="flex-1 min-w-0 truncate">{highlight(option.label, query.trim())}</span>
-                  {option.hint && <span className="shrink-0 max-w-28 truncate text-xs font-medium text-text-muted">{option.hint}</span>}
+                  <span className="flex flex-1 min-w-0 flex-col">
+                    <span className="line-clamp-2 break-words leading-snug">{highlight(option.label, query.trim())}</span>
+                    {option.hint && <span className="t-meta font-medium text-text-muted line-clamp-1 break-all">{option.hint}</span>}
+                  </span>
                   {multiple ? (
                     <span
                       aria-hidden
                       className={cn(
                         'flex items-center justify-center size-5 rounded-[5px] border shrink-0 transition-colors duration-150',
-                        isSelected ? 'bg-gradient-to-br from-primary-500 to-primary-700 border-transparent text-white' : 'border-border-hover text-transparent',
+                        isSelected ? 'bg-primary-600 border-primary-600 text-white' : 'border-border-hover text-transparent',
                       )}
                     >
                       <Check size={13} strokeWidth={3} />
                     </span>
                   ) : (
                     isSelected && (
-                      <span className="flex items-center justify-center size-5 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 text-white shrink-0" aria-hidden>
-                        <Check size={12} strokeWidth={3.5} />
-                      </span>
+                      <Check size={18} strokeWidth={2.75} className="shrink-0 text-primary-600 dark:text-primary-400" aria-hidden />
                     )
                   )}
                 </button>

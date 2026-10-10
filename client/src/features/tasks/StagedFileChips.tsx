@@ -20,24 +20,34 @@ export const StagedFileChips = ({ files, onRemove }: StagedFileChipsProps) => {
   if (!files.length) return null;
 
   return (
-    <div className="flex flex-wrap gap-2">
+    // Three square tiles a row on a phone, so nothing ever runs off a 320px screen. Photos show as
+    // a thumbnail; anything else as a file tile with its (cut) name and size.
+    <ul className="grid grid-cols-3 sm:grid-cols-5 gap-2" aria-label="Files to upload">
       {files.map((f, i) => {
         const Icon = attachmentIconFor(f.type);
         return (
-          <span key={i} className="flex items-center gap-1.5 text-xs bg-surface-hover border border-border rounded-full pl-1.5 pr-1.5 py-1">
+          <li key={i} className="relative aspect-square min-w-0 rounded-lg border border-border bg-surface-hover overflow-hidden">
             {previewUrls[i] ? (
-              <img src={previewUrls[i]} alt="" className="size-5 rounded-full object-cover shrink-0" />
+              <img src={previewUrls[i]} alt={f.name} className="size-full object-cover" />
             ) : (
-              <Icon size={14} className="text-text-light shrink-0" />
+              <div className="flex size-full flex-col items-center justify-center gap-1 p-2 text-center">
+                <Icon size={20} className="text-text-light shrink-0" aria-hidden="true" />
+                <span className="w-full min-w-0 truncate t-meta font-medium text-text" title={f.name}>{f.name}</span>
+                <span className="t-meta text-text-light">{formatFileSize(f.size)}</span>
+              </div>
             )}
-            <span className="font-medium text-text">{f.name}</span>
-            <span className="text-text-light">({formatFileSize(f.size)})</span>
-            <button type="button" onClick={() => onRemove(i)} className="text-text-light hover:text-danger cursor-pointer">
-              <X size={12} />
+            {/* 24px circle on screen, 44px to a finger (the ::after pad). */}
+            <button
+              type="button"
+              onClick={() => onRemove(i)}
+              aria-label={`Remove ${f.name}`}
+              className="absolute top-1 right-1 flex items-center justify-center size-6 rounded-full bg-black/60 text-white cursor-pointer transition-colors duration-150 ease-out hover:bg-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 after:absolute after:-inset-2.5 after:content-['']"
+            >
+              <X size={14} strokeWidth={2.5} aria-hidden="true" />
             </button>
-          </span>
+          </li>
         );
       })}
-    </div>
+    </ul>
   );
 };

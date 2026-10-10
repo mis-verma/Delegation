@@ -376,7 +376,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
           ) : showDoneBadge ? (
             <StatusChip status="completed" label="Done" />
           ) : showReviewBadge ? (
-            <StatusChip status="in_review" label="In review" icon={ShieldQuestion} />
+            <StatusChip status="in_review" label={STATUS_LABEL.pending_approval} icon={ShieldQuestion} />
           ) : null}
         </div>
       </div>

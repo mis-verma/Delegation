@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ShieldCheck, Pencil, CalendarDays, User, Store as StoreIcon, Layers, ChevronDown, AlertTriangle, Undo2 } from 'lucide-react';
+import { ShieldCheck, Pencil, CalendarDays, User, Store as StoreIcon, Layers, ChevronDown, AlertCircle } from 'lucide-react';
 import {
   useStoresQuery,
   useTicketQuery,
@@ -15,11 +15,13 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { useCategoriesQuery } from '../settings/hook';
 import { DetailLabelsField } from '../tags/DetailLabelsField';
 import { useAuth } from '../../context/AuthContext';
+import { OWN_SCOPE_ROLES } from '../../api/auth';
 import { getTicketStatusLabel } from '../../lib/ticketStatusLabel';
 import { getInitials } from '../../lib/getInitials';
 import { avatarColorClass } from '../../lib/avatarColors';
+import { errorMessage } from '../../lib/queryHelpers';
 import { STATUS_OPTIONS, STATUS_UPDATE_OPTIONS, HAND_IN_LABEL } from './detail/detailConstants';
-import { PRIORITY_CONFIG, formatShortDateTime } from './ticketDisplay';
+import { PRIORITY_CONFIG, formatShortDateTime, formatDueLabel } from './ticketDisplay';
 import { TicketDetailHeader } from './detail/TicketDetailHeader';
 import { TicketPropertyRow } from './detail/TicketPropertyRow';
 import { VerificationNoteBanner } from '../../components/verificationBanner';
@@ -31,6 +33,7 @@ import { TicketStatusHistory } from './detail/TicketStatusHistory';
 import { TicketVerificationActions } from './detail/TicketVerificationActions';
 import { TicketStatusMenu } from './detail/TicketStatusMenu';
 import { TicketStatusRemarkDialog } from './TicketStatusRemarkDialog';
+import { ChecklistPanel } from './ChecklistPanel';
 import { useConfirm } from '@/components/confirmDialog';
 import type { AssignableUser } from '../../api/users';
 import type { Role } from '../../api/auth';
@@ -44,27 +47,37 @@ interface TicketDetailProps {
   onClose: () => void;
 }
 
+const EDIT_FORM_ID = 'ticket-edit-form';
+// Roles that may send a ticket to another person (the server refuses USER/AGENT; assertCanMutate
+// keeps a Manager to their department or store and a Senior to their store).
+const ROUTING_ROLES: readonly Role[] = ['ADMIN', 'PC', 'MANAGER', 'SENIOR'];
+
 export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailProps) => {
   const { data: fresh, isPending } = useTicketQuery(initialTicket.id);
   const ticket = fresh ?? initialTicket;
-  
-  const { user: currentUser } = useAuth();
-  const canAssign = currentUser?.role === "ADMIN" || currentUser?.role === "PC" || currentUser?.role === "MANAGER";
 
-  const isAdmin = currentUser?.role === "ADMIN" || currentUser?.role === "PC";
-  const isVerifier = currentUser?.role === "PC" || currentUser?.role === "ADMIN";
-  // One rule for "may change this ticket": moving its status, editing its text, adding photos.
+  const { user: currentUser } = useAuth();
+  const role = currentUser?.role;
+  const isAdmin = role === 'ADMIN' || role === 'PC';
+  const isVerifier = isAdmin;
+  // Front-line staff (USER/AGENT): their own work only, no routing, priority or due changes.
+  const ownScope = !!role && OWN_SCOPE_ROLES.includes(role);
+  // One rule for "may change this ticket": editing its text, adding photos, moving its status.
   const canChangeStatus = canChangeTicket(currentUser, ticket);
   const canEdit = canChangeStatus && ticket.status !== 'CLOSED';
+  // Picking the person: whoever can route tickets and may change this one, never on a closed ticket.
+  const canRoute = canEdit && !!role && ROUTING_ROLES.includes(role);
   // The raiser can take back a ticket nobody has started yet. Only judged on the full record
   // (`fresh`), which carries the status history the decision depends on.
   const canWithdraw = !!fresh && canWithdrawTicket(currentUser, ticket);
   // Removing a ticket photo: anyone who may edit the ticket, but proof photos from a status change
   // and photos on a closed ticket stay unless an Admin removes them (ticketAttachment.service.ts).
   const canRemovePhoto = (a: TicketAttachment) =>
-    currentUser?.role === 'ADMIN' || (canEdit && !a.statusUpdateId);
+    role === 'ADMIN' || (canEdit && !a.statusUpdateId);
 
   const updateMut = useUpdateTicketMutation();
+  // The edit form shows a failed save next to its own Save button, so no toast as well.
+  const editMut = useUpdateTicketMutation({ inlineError: true });
   const labelsMut = useUpdateTicketMutation({ silent: true });
   const deleteMut = useDeleteTicketMutation({ withdraw: !isAdmin });
   const verifyMut = useVerifyTicketMutation();
@@ -82,7 +95,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
   const storeName = ticket.storeId ? stores?.find(s => s.id === ticket.storeId)?.name : undefined;
   const categoryName = ticket.categoryId ? categories?.find(c => c.id === ticket.categoryId)?.name : undefined;
   // Raised-by is only a user id on the ticket. "You" when it is the viewer, otherwise looked up in
-  // the roster already loaded for the assignee picker; the row is left out when neither resolves.
+  // the roster already loaded for the assignee picker; left out when neither resolves.
   const raisedByUser = assignableUsers?.find(u => u.id === ticket.userId);
   const raisedByName = ticket.userId === currentUser?.id
     ? 'You'
@@ -90,6 +103,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
 
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  const [editDirty, setEditDirty] = useState(false);
   // Phone only: Department, Store and Category fold away behind "More details"; the rail shows them all.
   const [moreOpen, setMoreOpen] = useState(false);
   // Phone only: History and Activity share one tab strip; from lg both are on the page.
@@ -97,6 +111,38 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
   const statusUpdateMut = useAddTicketStatusUpdateMutation(ticket.id);
 
   const confirm = useConfirm();
+  const confirmDiscard = () => confirm({
+    title: 'Discard changes?',
+    description: 'Your edits to this ticket will be lost.',
+    confirmLabel: 'Discard',
+    cancelLabel: 'Keep editing',
+    variant: 'danger',
+  });
+
+  // Every way out of the sheet (X, Escape, phone back) asks first while the edit form has changes.
+  // Returning the promise tells the phone back handler the sheet is still deciding.
+  const requestClose = () => {
+    if (!(editing && editDirty)) {
+      onClose();
+      return true;
+    }
+    return confirmDiscard().then((ok) => {
+      if (ok) onClose();
+      return ok;
+    });
+  };
+
+  const startEditing = () => {
+    editMut.reset();
+    setEditDirty(false);
+    setEditing(true);
+  };
+  const cancelEditing = async () => {
+    if (editDirty && !(await confirmDiscard())) return;
+    setEditing(false);
+    setEditDirty(false);
+  };
+
   // Asked first: a delete takes the ticket off every list for everyone working on it.
   const handleDelete = async () => {
     const ok = await confirm({
@@ -123,14 +169,10 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
     deleteMut.mutate(ticket.id, { onSuccess: onClose });
   };
 
-  const isOverdue = ticket.isOverdue && ticket.status !== 'CLOSED';
+  const due = formatDueLabel(ticket);
 
-  // One status control for everyone who can change status. Verifiers get every status; everyone
-  // else gets the three work moves (In Progress / On Hold / Completed) until the ticket is waiting
-  // on review or closed. Only On Hold opens the remark popup (remark required, optional proof
-  // photos), the same gate a board drag goes through; In Progress and Completed are one tap, and
-  // Completed hands the ticket straight to PC for approval. This replaces the old
-  // always-open "Update Status" panel, which pinned a textarea and six buttons over half the sheet.
+  // On Hold opens the remark popup (remark required, optional proof photos), the same gate a board
+  // drag goes through; Mark completed opens it with the note optional; In progress is one tap.
   const [quickStatusPick, setQuickStatusPick] = useState<RestrictedStatus | null>(null);
   const [quickStatusPhotos, setQuickStatusPhotos] = useState<File[]>([]);
   const [quickStatusCaptureMethod, setQuickStatusCaptureMethod] = useState<CaptureMethod>('GALLERY');
@@ -141,56 +183,57 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
     setQuickStatusCaptureMethod(method);
   };
 
-  const workerCanMove = canChangeStatus && ticket.status !== 'CLOSED' && ticket.status !== 'PENDING_APPROVAL';
-  // 'CLOSED' is deliberately excluded from the picker even for a verifier — closing is a
-  // verification decision (TicketVerificationActions' Approve button below, only shown once the
-  // ticket is actually PENDING_APPROVAL), not a plain status pick. The server backs this up too
-  // (ticket.service.ts's update() now refuses a direct move to CLOSED for the same reason: it
-  // used to skip the checklist gate and never recorded who approved it).
-  // Handing in reads "Mark completed" in the menu for everyone, matching the dialog it opens.
-  const statusOptions = (isVerifier ? STATUS_OPTIONS : workerCanMove ? STATUS_UPDATE_OPTIONS : [])
-    .filter(s => s.value !== ticket.status && s.value !== 'CLOSED')
-    .map(s => (s.value === 'PENDING_APPROVAL' ? { ...s, label: HAND_IN_LABEL } : s));
-
-  const handlePickStatus = (next: TicketStatus) => {
-    // On Hold must be explained. Completed (which sends it to PC for approval) opens a small popup
-    // where the note is the person's choice. In Progress is one tap with no popup.
-    if (next === 'ON_HOLD' || next === 'PENDING_APPROVAL') setQuickStatusPick(next);
-    else if ((RESTRICTED_STATUSES as readonly string[]).includes(next)) statusUpdateMut.mutate({ status: next as RestrictedStatus });
-    else updateMut.mutate({ id: ticket.id, payload: { status: next } });
-  };
-
-  const statusChipStatus = ticket.status.toLowerCase() as StatusChipStatus;
-  const statusLabel = getTicketStatusLabel(
-    ticket.status,
-    currentUser?.role,
-    STATUS_OPTIONS.find(s => s.value === ticket.status)?.label ?? ticket.status,
-  );
-  const assigneeName = ticket.assignee?.firstName ?? null;
   // Admin/PC, the department's Manager or a named reviewer; never the person it is assigned to (lib/canApproveWork).
   const showVerify = ticket.status === 'PENDING_APPROVAL' && canApproveWork(currentUser, {
     departmentId: ticket.departmentId,
     assigneeIds: ticket.assignee ? [ticket.assignee.id] : [],
     reviewers: ticket.reviewers,
   });
-  const showFooter = showVerify || statusOptions.length > 0 || canWithdraw;
+  // Work moves belong to the person doing the work. For front-line staff that means the assignee
+  // only: someone who just raised the ticket can edit or withdraw it, not move it (the server
+  // refuses it too). Nobody but a verifier moves a closed or handed-in ticket.
+  const workerCanMove = canChangeStatus
+    && ticket.status !== 'CLOSED'
+    && ticket.status !== 'PENDING_APPROVAL'
+    && (!ownScope || ticket.assigneeId === currentUser?.id);
+  // 'CLOSED' is never a plain pick, even for a verifier: closing is the Approve decision. While the
+  // viewer can approve, Approve and Send back are the only choices on screen.
+  const statusOptions = showVerify
+    ? []
+    : (isVerifier ? STATUS_OPTIONS : workerCanMove ? STATUS_UPDATE_OPTIONS : [])
+      .filter(s => s.value !== ticket.status && s.value !== 'CLOSED')
+      .map(s => (s.value === 'PENDING_APPROVAL' ? { ...s, label: HAND_IN_LABEL } : s));
+
+  const handlePickStatus = (next: TicketStatus) => {
+    if (next === 'ON_HOLD' || next === 'PENDING_APPROVAL') setQuickStatusPick(next);
+    else if ((RESTRICTED_STATUSES as readonly string[]).includes(next)) statusUpdateMut.mutate({ status: next as RestrictedStatus });
+    else updateMut.mutate({ id: ticket.id, payload: { status: next } });
+  };
+
+  const statusChipStatus = ticket.status.toLowerCase() as StatusChipStatus;
+  const statusLabel = getTicketStatusLabel(ticket.status);
+  const assigneeName = ticket.assignee?.firstName ?? null;
+  const showFooter = editing || showVerify || statusOptions.length > 0 || canWithdraw;
   const hasHistory = (ticket.statusUpdates?.length ?? 0) > 0;
   // With no status history there is nothing to switch between, so Activity is the only view.
   const shownTab = hasHistory ? lowerTab : 'activity';
+  // The list row already carries the full ticket, so a loading bar only helps when it doesn't.
+  const showLoadingBar = isPending && initialTicket.statusUpdates === undefined;
 
   return (
-    <Sheet open onOpenChange={v => { if (!v) onClose(); }}>
+    <Sheet open onOpenChange={v => { if (!v) return requestClose(); }}>
       {/* Phone: full-screen sheet. sm/md: a 600 / 680px panel. lg/xl: wide enough for the body to
           split into a reading column plus a properties rail. shadow-none: the shared sheet's own
           drop shadow is not part of this app's border-only elevation. The shared close button is
           off, the header draws its own 44px one. */}
       <SheetContent
         showCloseButton={false}
+        // With unsaved edits a stray tap outside does nothing; X, Escape and back ask first.
+        onInteractOutside={(e) => { if (editing && editDirty) e.preventDefault(); }}
         className="w-full sm:max-w-[600px] md:max-w-[680px] lg:max-w-[880px] xl:max-w-[1040px] p-0 flex flex-col h-full overflow-hidden font-sans shadow-none"
       >
-        {/* Indeterminate loading bar */}
-        {isPending && (
-          <div className="absolute top-0 left-0 right-0 z-50 h-[3px] w-full bg-primary-500/15 overflow-hidden">
+        {showLoadingBar && (
+          <div className="absolute top-0 left-0 right-0 z-50 h-[3px] w-full bg-primary-500/15 overflow-hidden" aria-hidden>
             <div className="h-full bg-primary-500 w-1/2 rounded-r-full animate-[slide_1.5s_ease-in-out_infinite]" />
           </div>
         )}
@@ -198,6 +241,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
         <TicketDetailHeader
           ticket={ticket}
           statusLabel={statusLabel}
+          raisedByName={raisedByName}
           onDelete={isAdmin ? handleDelete : undefined}
           isDeleting={deleteMut.isPending}
         />
@@ -236,18 +280,18 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
 
                   {storeName && (
                     <TicketPropertyRow label="Store" chipOrderClass={moreOpen ? 'max-lg:order-6' : 'max-lg:order-6 max-lg:hidden'}>
-                      <IconChip icon={StoreIcon} tone="bg-primary-700 dark:bg-primary-400" label={storeName} title="Store" className="max-w-full" />
+                      <IconChip icon={StoreIcon} tone="bg-text-muted" label={storeName} title="Store" className="max-w-full" />
                     </TicketPropertyRow>
                   )}
 
                   {categoryName && (
                     <TicketPropertyRow label="Category" chipOrderClass={moreOpen ? 'max-lg:order-7' : 'max-lg:order-7 max-lg:hidden'}>
-                      <IconChip icon={Layers} tone="bg-primary-700 dark:bg-primary-400" label={categoryName} title="Category" className="max-w-full" />
+                      <IconChip icon={Layers} tone="bg-text-muted" label={categoryName} title="Category" className="max-w-full" />
                     </TicketPropertyRow>
                   )}
 
                   <TicketPropertyRow label="Assignee" chipOrderClass="max-lg:order-1 max-lg:w-full">
-                    {canAssign ? (
+                    {canRoute ? (
                       // The shared picker keeps its 32px avatar and carries its own invisible 44px
                       // touch hit area, so nothing is stretched from out here.
                       <div title="Assignee" className="flex items-center max-lg:w-full">
@@ -260,17 +304,17 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                         />
                       </div>
                     ) : (
-                      <span title="Assignee" className="inline-flex items-center gap-1.5 min-w-0 pl-1 pr-2.5 py-1 rounded-full border border-border/60 bg-surface text-xs font-semibold text-text max-lg:w-full max-lg:rounded-lg max-lg:py-2 max-lg:text-sm">
+                      <span title="Assignee" className="inline-flex items-center gap-1.5 min-w-0 pl-1 pr-2.5 py-1 rounded-full border border-border/60 bg-surface t-meta font-semibold text-text max-lg:w-full max-lg:rounded-lg max-lg:py-2 max-lg:text-sm">
                         {assigneeName ? (
                           <span className={`flex items-center justify-center size-6 rounded-full text-white text-xs font-bold shrink-0 ${avatarColorClass(assigneeName)}`}>
                             {getInitials(assigneeName)}
                           </span>
                         ) : (
-                          <span className="flex items-center justify-center size-5 rounded-full bg-surface-hover text-text-light shrink-0">
-                            <User size={11} />
+                          <span className="flex items-center justify-center size-6 rounded-full bg-surface-hover text-text-light shrink-0">
+                            <User size={14} />
                           </span>
                         )}
-                        <span className="truncate">{assigneeName ?? 'Unassigned'}</span>
+                        <span className="truncate">{assigneeName ?? 'Nobody yet'}</span>
                       </span>
                     )}
                   </TicketPropertyRow>
@@ -281,15 +325,14 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                     </TicketPropertyRow>
                   )}
 
-                  {ticket.tatDueAt ? (
+                  {due ? (
                     <TicketPropertyRow label="Due" chipOrderClass="max-lg:order-4">
                       <IconChip
                         icon={CalendarDays}
-                        tone={isOverdue ? 'bg-danger' : 'bg-primary-700 dark:bg-primary-400'}
-                        label={`${isOverdue ? 'Delayed · ' : 'Due '}${new Date(ticket.tatDueAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`}
-                        title="SLA deadline"
-                        className={isOverdue ? 'border-danger/30' : undefined}
-                        labelClassName={isOverdue ? 'text-danger' : undefined}
+                        tone={due.overdue ? 'bg-danger' : 'bg-text-muted'}
+                        label={due.text}
+                        className={due.overdue ? 'border-danger/30' : undefined}
+                        labelClassName={due.overdue ? 'text-danger' : undefined}
                       />
                     </TicketPropertyRow>
                   ) : null}
@@ -303,17 +346,17 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                       type="button"
                       onClick={() => setMoreOpen(o => !o)}
                       aria-expanded={moreOpen}
-                      className="lg:hidden order-8 relative inline-flex items-center gap-1 h-7 px-2.5 rounded-full text-xs font-display font-semibold text-primary-700 dark:text-primary-300 hover:bg-primary-500/10 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 after:absolute after:-inset-y-2 after:inset-x-0"
+                      className="lg:hidden order-8 relative inline-flex items-center gap-1 h-7 px-2.5 rounded-full t-meta font-display font-semibold text-text-secondary hover:text-text hover:bg-surface-hover cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 after:absolute after:-inset-y-2 after:inset-x-0"
                     >
                       {moreOpen ? 'Fewer details' : 'More details'}
-                      <ChevronDown size={13} strokeWidth={2.5} className={`transition-transform duration-200 ${moreOpen ? 'rotate-180' : ''}`} />
+                      <ChevronDown size={14} strokeWidth={2.5} className={`transition-transform duration-200 ${moreOpen ? 'rotate-180' : ''}`} />
                     </button>
                   )}
                 </dl>
               </section>
 
               {/* Same inline label field as the create form; each change saves at once. Editable by
-                  whoever can reassign the ticket, read-only chips for everyone else. */}
+                  whoever may change the ticket, read-only chips for everyone else. */}
               <div className="min-w-0 lg:border-t lg:border-border/50 lg:pt-4 empty:hidden">
                 <DetailLabelsField
                   current={ticket.tags ?? []}
@@ -332,17 +375,10 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                   named reviewers still show them, read-only. */}
               {ticket.reviewers.length > 0 && (
                 <div className="flex items-start gap-2 text-sm">
-                  <ShieldCheck size={15} className="mt-0.5 text-text-light shrink-0" />
+                  <ShieldCheck size={16} className="mt-0.5 text-text-light shrink-0" />
                   <span className="min-w-0 break-words text-text-secondary">
                     Reviewers: {ticket.reviewers.map((r) => `${r.firstName}${r.lastName ? ` ${r.lastName}` : ''}`).join(', ')}
                   </span>
-                </div>
-              )}
-
-              {isOverdue && ticket.tatDueAt && (
-                <div className="lg:hidden flex items-center gap-2 rounded-lg border border-danger/25 bg-danger/10 px-3 py-2 text-sm font-display font-semibold text-danger">
-                  <AlertTriangle size={15} className="shrink-0" aria-hidden />
-                  Delayed, due {new Date(ticket.tatDueAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
                 </div>
               )}
 
@@ -351,20 +387,22 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
               {editing && canEdit ? (
                 <TicketEditForm
                   ticket={ticket}
-                  isSaving={updateMut.isPending}
-                  canChangeDue={currentUser?.role !== 'USER' && currentUser?.role !== 'AGENT' && ticket.status !== 'PENDING_APPROVAL'}
-                  onSave={(payload) => updateMut.mutate({ id: ticket.id, payload }, { onSuccess: () => setEditing(false) })}
-                  onCancel={() => setEditing(false)}
+                  formId={EDIT_FORM_ID}
+                  canChangeDue={!ownScope && ticket.status !== 'PENDING_APPROVAL'}
+                  canChangePriority={!ownScope}
+                  onDirtyChange={setEditDirty}
+                  onSave={(payload) => editMut.mutate({ id: ticket.id, payload }, { onSuccess: () => { setEditing(false); setEditDirty(false); } })}
+                  onCancel={() => { setEditing(false); setEditDirty(false); }}
                 />
               ) : (
                 <div className="flex flex-col gap-2">
                   {canEdit && (
                     <button
                       type="button"
-                      onClick={() => setEditing(true)}
-                      className="self-start relative inline-flex items-center gap-1.5 h-8 px-2.5 -ml-2.5 rounded-full text-xs font-display font-semibold text-primary-700 dark:text-primary-300 hover:bg-primary-500/10 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 after:absolute after:-inset-y-1.5 after:inset-x-0"
+                      onClick={startEditing}
+                      className="self-start relative inline-flex items-center gap-1.5 h-8 px-2.5 -ml-2.5 rounded-full t-meta font-display font-semibold text-text-secondary hover:text-text hover:bg-surface-hover cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 after:absolute after:-inset-y-1.5 after:inset-x-0"
                     >
-                      <Pencil size={13} strokeWidth={2.5} />
+                      <Pencil size={14} strokeWidth={2.5} />
                       Edit title and details
                     </button>
                   )}
@@ -379,17 +417,17 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                 canRemove={canRemovePhoto}
                 onPreview={setPreviewImage}
               />
+
+              {/* The server won't take Mark completed while a checklist step is neither done nor
+                  explained, so the checklist has to be workable right here. */}
+              {(ticket.checklists?.length ?? 0) > 0 && (
+                <ChecklistPanel ticketId={ticket.id} checklists={ticket.checklists} />
+              )}
               </div>
 
               <div className="flex flex-col gap-5 sm:gap-6 min-w-0 max-lg:order-3">
-
-              {/* No standalone attachments/comments UI here (removed by request, same call as
-                  Delegation's own — TaskDetail.tsx carries the identical reasoning): every status
-                  change already goes through TicketStatusRemarkDialog below, which takes a mandatory
-                  remark and optional proof photos, so this sheet already has one place to say
-                  something and show evidence without a second, separate mechanism duplicating it. */}
               {hasHistory && (
-                <div role="tablist" aria-label="Ticket history" className="lg:hidden flex gap-1 rounded-full bg-surface-hover/60 p-1">
+                <div role="tablist" aria-label="Ticket history" className="lg:hidden grid grid-cols-2 gap-1 rounded-xl bg-surface-hover/70 p-1">
                   {(['history', 'activity'] as const).map(k => (
                     <button
                       key={k}
@@ -397,7 +435,9 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                       role="tab"
                       aria-selected={shownTab === k}
                       onClick={() => setLowerTab(k)}
-                      className={`flex-1 h-9 rounded-full text-sm font-display font-semibold cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 transition-colors duration-150 ${shownTab === k ? 'bg-primary-600 text-white dark:bg-primary-500' : 'text-text-muted'}`}
+                      className={`h-11 rounded-lg border text-sm font-display font-semibold cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 transition-colors duration-150 ${
+                        shownTab === k ? 'bg-surface border-border/60 text-text' : 'border-transparent text-text-muted hover:text-text'
+                      }`}
                     >
                       {k === 'history' ? 'History' : 'Activity'}
                     </button>
@@ -427,59 +467,73 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
         </div>
 
         {/* Sticky action bar. A flex sibling of the scrolling body (not an overlay), so nothing is
-            ever hidden behind it; padded for the iPhone home indicator. Phone: stacked, buttons
-            full width. sm and up: one right-aligned row (it wraps when the reject note is open). */}
+            ever hidden behind it and it stays above the phone keyboard; padded for the iPhone home
+            indicator. While editing it holds only Cancel and Save. */}
         {showFooter && (
-          <div className="shrink-0 flex flex-col gap-2 border-t border-border/60 bg-surface px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:flex-row sm:flex-wrap sm:items-start sm:justify-end sm:gap-3 sm:px-6 sm:py-3.5 lg:px-8">
-            {/* Single-stage verify: one PC/Admin check decides it. */}
-            {showVerify && (
-              <div className="min-w-0 sm:flex-1 sm:basis-72 sm:max-w-md">
-                <TicketVerificationActions
-                  isPending={verifyMut.isPending}
-                  onApprove={() => verifyMut.mutate({ id: ticket.id, payload: { action: 'APPROVE' } }, { onSuccess: onClose })}
-                  onReject={note => verifyMut.mutate({ id: ticket.id, payload: { action: 'REJECT', note } }, { onSuccess: onClose })}
-                />
+          editing ? (
+            <div className="shrink-0 flex flex-col gap-2 border-t border-border/60 bg-surface px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-end sm:gap-3 sm:px-6 sm:py-3.5 lg:px-8">
+              {editMut.isError && (
+                <p role="alert" className="flex items-start gap-1.5 t-meta font-medium font-display text-danger min-w-0 sm:mr-auto">
+                  <AlertCircle size={14} className="shrink-0 mt-0.5" aria-hidden />
+                  <span className="min-w-0 break-words">{errorMessage(editMut.error, "Couldn't save the ticket. Try again.")}</span>
+                </p>
+              )}
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-3">
+                <Button variant="outline" onClick={cancelEditing} disabled={editMut.isPending} className="h-11 sm:h-10 font-display">
+                  Cancel
+                </Button>
+                <Button type="submit" form={EDIT_FORM_ID} variant="primary" isLoading={editMut.isPending} className="h-11 sm:h-10 font-display">
+                  Save
+                </Button>
               </div>
-            )}
-            {/* Secondary to the status button, so it is a quiet text button rather than a second CTA. */}
-            {canWithdraw && (
-              <Button
-                variant="ghost"
-                size="md"
-                onClick={handleWithdraw}
-                isLoading={deleteMut.isPending}
-                disabled={deleteMut.isPending}
-                className="max-sm:w-full max-sm:h-11 gap-2 font-display text-danger hover:text-danger hover:bg-danger/10"
-              >
-                {!deleteMut.isPending && <Undo2 size={15} strokeWidth={2.5} />}
-                Withdraw ticket
-              </Button>
-            )}
-            {statusOptions.length > 0 && (
-              <div className="flex w-full sm:w-auto">
+            </div>
+          ) : (
+            <div className="shrink-0 flex flex-col gap-2 border-t border-border/60 bg-surface px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-3 sm:px-6 sm:py-3.5 lg:px-8">
+              {/* Single-stage verify: one reviewer's decision closes it or sends it back. */}
+              {showVerify && (
+                <div className="min-w-0 sm:flex-1 sm:basis-72 sm:max-w-md">
+                  <TicketVerificationActions
+                    ticketTitle={ticket.title}
+                    isPending={verifyMut.isPending}
+                    onApprove={() => verifyMut.mutate({ id: ticket.id, payload: { action: 'APPROVE' } }, { onSuccess: onClose })}
+                    onSendBack={note => verifyMut.mutate({ id: ticket.id, payload: { action: 'REJECT', note } }, { onSuccess: onClose })}
+                  />
+                </div>
+              )}
+              {statusOptions.length > 0 && (
                 <TicketStatusMenu
                   options={statusOptions}
+                  current={ticket.status}
                   onPick={handlePickStatus}
                   isBusy={updateMut.isPending || statusUpdateMut.isPending}
-                  emphasis={showVerify ? 'secondary' : 'primary'}
                 />
-              </div>
-            )}
-          </div>
+              )}
+              {/* A quiet text button: on a phone it sits small and centred under the main button,
+                  never as a red bar competing with it. */}
+              {canWithdraw && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleWithdraw}
+                  isLoading={deleteMut.isPending}
+                  disabled={deleteMut.isPending}
+                  className="max-sm:order-last max-sm:self-center sm:order-first font-display text-danger hover:text-danger hover:bg-danger/10"
+                >
+                  Withdraw ticket
+                </Button>
+              )}
+            </div>
+          )
         )}
 
         <ImageLightbox src={previewImage} onClose={() => setPreviewImage(null)} />
 
       </SheetContent>
 
-      {/* Mandatory remark for every restricted-status quick change — see the statusActions
-          comment above. Deliberately NOT passing `nested` here: this sheet is a shadcn/ui Sheet,
-          not the shared Modal that prop was built against, and its Radix Dialog portals outside
-          the Sheet's own DOM subtree — with `nested` (modal={false}) the Sheet's own
-          dismissable-layer treats a click inside the remark dialog as an outside click and closes
-          the whole sheet before the click ever reaches the dialog's submit button, silently
-          dropping the status change. A plain, independently-modal dialog (the default) stacks
-          correctly on top of the Sheet with no such conflict. */}
+      {/* Remark popup for On hold and Mark completed. Deliberately not `nested`: this sheet is a
+          shadcn Sheet whose Radix Dialog portals outside its own DOM subtree, and with `nested`
+          (modal={false}) the Sheet would read a tap inside the popup as an outside tap and close
+          before the submit lands. A plain, independently modal dialog stacks on top cleanly. */}
       {quickStatusPick && (
         <TicketStatusRemarkDialog
           ticket={ticket}

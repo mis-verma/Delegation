@@ -158,7 +158,7 @@ export const TaskBulkImportModal = ({ onClose }: TaskBulkImportModalProps) => {
                 <p className="t-meta font-display text-warning flex items-center gap-1">
                   <AlertCircle size={12} className="shrink-0" />
                   {includedRows.length === 0
-                    ? 'Every row is excluded — include at least one to continue.'
+                    ? 'Every row is left out. Include at least one to continue.'
                     : `Resolve ${unresolvedCount} row${unresolvedCount === 1 ? '' : 's'} to continue.`}
                 </p>
               )}
@@ -197,7 +197,7 @@ export const TaskBulkImportModal = ({ onClose }: TaskBulkImportModalProps) => {
             </p>
             <p className="text-xs font-display text-text-muted mt-1">CSV or Excel (.xlsx)</p>
             <p className="t-meta font-display text-text-light mt-2">
-              Columns: Title, Description, Assignee (email or name), Priority, Start Date, Due Date, Department, Labels — only Title is required.
+              Columns: Title, Description, Assignee (email or name), Priority, Start Date, Due Date, Department, Labels. Only Title is required.
             </p>
           </div>
         </label>

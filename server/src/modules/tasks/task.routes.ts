@@ -36,9 +36,11 @@ taskRouter.patch("/:id" , taskController.update)
 // task.service.ts's assertCanVerify, and the identical decision already made for checklist
 // instances (checklistInstance.routes.ts).
 taskRouter.patch("/:id/verify", taskController.verify)
-taskRouter.delete("/:id" , requireRole("ADMIN", "PC"),taskController.remove)
-// Restore from the Archived Delegations view — same role gate as delete, since only ADMIN/PC can
-// ever archive a delegation in the first place (route above).
+// No role gate at the router: ADMIN/PC may archive any delegation they can see, and anyone else may
+// discard only their own unpublished draft. Both rules need the row, so remove() checks them.
+taskRouter.delete("/:id" , taskController.remove)
+// Restore from the Archived Delegations view. ADMIN/PC only: a creator who discarded their own
+// draft meant to throw it away (route above).
 taskRouter.patch("/:id/restore", requireRole("ADMIN", "PC"), taskController.restore)
 
 taskRouter.post("/", taskController.create)

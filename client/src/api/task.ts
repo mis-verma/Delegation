@@ -134,9 +134,12 @@ export type ConfirmSmartTaskPayload = {
     channel: "whatsapp" | "web";
 }
 
-export type UpdateTaskPayload = Partial<Omit<CreateTaskPayload, 'assigneeId' | 'departmentId' | 'reminderMinutesBefore'>> & {
+export type UpdateTaskPayload = Partial<Omit<CreateTaskPayload, 'assigneeId' | 'departmentId' | 'reminderMinutesBefore' | 'startDate' | 'dueDate'>> & {
     assigneeId?: string | null;
     departmentId?: string | null;
+    /** null clears the date. */
+    startDate?: string | null;
+    dueDate?: string | null;
     reminderMinutesBefore?: number | null;
     /** Required by the server whenever `status` differs from what's stored. */
     statusRemark?: string;

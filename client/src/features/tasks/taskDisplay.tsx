@@ -47,13 +47,15 @@ export const STATUS_ICON = {
 export const MOVABLE_STATUSES: Task['status'][] = ['todo', 'in_progress', 'on_hold', 'pending_approval', 'done'];
 
 
+// The one set of status names Delegation uses everywhere, for every role: chips, filters, the
+// detail footer and stepper, toasts and history. Change a word here, not at a call site.
 export const STATUS_LABEL = {
   draft: 'Draft',
-  todo: 'To Do',
-  in_progress: 'In Progress',
-  pending_approval: 'Pending Approval',
+  todo: 'To do',
+  in_progress: 'In progress',
+  pending_approval: 'Waiting for approval',
   done: 'Done',
-  on_hold: 'On Hold',
+  on_hold: 'On hold',
 } satisfies Record<Task['status'], string>;
 
 
@@ -64,17 +66,17 @@ export const STATUS_CONFIG = {
     indicator: 'bg-text-light/35 transition-colors duration-200',
   },
   todo: {
-    label: 'To Do',
+    label: STATUS_LABEL.todo,
     badge: 'bg-status-todo/10 text-status-todo border-status-todo/20 transition-all duration-200 ease-in-out',
     indicator: 'bg-status-todo/35 transition-colors duration-200',
   },
   in_progress: {
-    label: 'In Progress',
+    label: STATUS_LABEL.in_progress,
     badge: 'bg-status-progress/10 text-status-progress border-status-progress/20 transition-all duration-200 ease-in-out',
     indicator: 'bg-status-progress/35 transition-colors duration-200',
   },
   pending_approval: {
-    label: 'Pending Approval',
+    label: STATUS_LABEL.pending_approval,
     badge: 'bg-status-approve/10 text-status-approve border-status-approve/20 transition-all duration-200 ease-in-out',
     indicator: 'bg-status-approve/35 transition-colors duration-200',
   },
@@ -84,7 +86,7 @@ export const STATUS_CONFIG = {
     indicator: 'bg-status-done/35 transition-colors duration-200',
   },
   on_hold: {
-    label: 'On Hold',
+    label: STATUS_LABEL.on_hold,
     badge: 'bg-warning/10 text-warning border-warning/20 transition-all duration-200 ease-in-out',
     indicator: 'bg-warning/35 transition-colors duration-200',
   },

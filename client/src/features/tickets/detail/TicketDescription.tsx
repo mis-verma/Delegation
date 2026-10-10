@@ -17,7 +17,7 @@ const renderFormattedText = (text: string) => {
           href={part}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-semibold underline underline-offset-4 decoration-primary-600/30 hover:decoration-primary-600 transition-colors break-all"
+          className="text-text font-semibold no-underline hover:text-text-secondary transition-colors break-all"
           onClick={(e) => e.stopPropagation()}
         >
           {part}
@@ -52,7 +52,7 @@ export const TicketDescription = ({ description }: TicketDescriptionProps) => {
             <button
               type="button"
               onClick={() => setIsExpanded(!isExpanded)}
-              className="self-start inline-flex items-center gap-1 min-h-11 sm:min-h-8 text-xs font-semibold text-primary-700 dark:text-primary-300 hover:underline cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 rounded"
+              className="self-start inline-flex items-center gap-1 min-h-11 sm:min-h-8 t-meta font-semibold text-text-secondary hover:text-text cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 rounded"
             >
               {isExpanded ? 'Show less' : 'Show more'}
               {isExpanded ? <ChevronUp size={14} strokeWidth={2.5} /> : <ChevronDown size={14} strokeWidth={2.5} />}

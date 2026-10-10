@@ -18,11 +18,11 @@ interface RingProps {
 }
 
 // A small progress ring: a faint full circle with the earned part drawn over it.
-const ScoreRing = ({ percent, size, stroke, className, scalable = false }: RingProps & { scalable?: boolean }) => {
+const ScoreRing = ({ percent, size, stroke, className }: RingProps) => {
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
   return (
-    <svg {...(scalable ? {} : { width: size, height: size })} viewBox={`0 0 ${size} ${size}`} aria-hidden="true" className={cn('shrink-0 -rotate-90', scalable && 'size-full', className)}>
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true" className={cn('shrink-0 -rotate-90', className)}>
       <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="currentColor" strokeOpacity={0.18} strokeWidth={stroke} />
       <circle
         cx={size / 2}
@@ -42,39 +42,12 @@ const ScoreRing = ({ percent, size, stroke, className, scalable = false }: RingP
 
 interface TaskScoreBadgeProps {
   status: Task['status'];
-  /** `chip` (default) is the small pill on cards; `panel` is the larger readout on the detail sheet. */
-  variant?: 'chip' | 'panel';
 }
 
-const SCORE_STEPS: Task['status'][] = ['todo', 'in_progress', 'pending_approval', 'done'];
-
-export const TaskScoreBadge = ({ status, variant = 'chip' }: TaskScoreBadgeProps) => {
+/** The small score pill, on cards and beside the status chip in the detail sheet's status card. */
+export const TaskScoreBadge = ({ status }: TaskScoreBadgeProps) => {
   const percent = taskScorePercent(status);
   const color = scoreColor(status);
-
-  if (variant === 'panel') {
-    const stepIndex = SCORE_STEPS.indexOf(status);
-    return (
-      <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-surface-hover/40 p-3" role="group" aria-label={`Delegation score ${percent} percent`}>
-        <div className={cn('relative flex size-14 shrink-0 items-center justify-center sm:size-[72px]', color)}>
-          <ScoreRing percent={percent} size={60} stroke={5} scalable />
-          <span className="absolute text-xs font-display font-bold leading-none tracking-tight text-text tabular-nums sm:text-base">{percent}%</span>
-        </div>
-        <div className="flex flex-col gap-1.5 min-w-0 flex-1">
-          <p className="text-xs font-display font-semibold text-text">Delegation score</p>
-          {/* Four steps, filled up to the current one, so the score reads as progress along a path. */}
-          <div className="flex gap-1" aria-hidden="true">
-            {SCORE_STEPS.map((step, i) => (
-              <span key={step} className={cn('h-1.5 flex-1 rounded-full', i <= stepIndex ? 'bg-current' : 'bg-border', i <= stepIndex && color)} />
-            ))}
-          </div>
-          <p className="text-xs font-display text-text-muted">
-            {percent === 100 ? 'Finished and approved' : percent === 0 ? 'Not started yet' : `${percent}% so far. The rest comes when it is done and approved.`}
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <span

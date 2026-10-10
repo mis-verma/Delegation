@@ -2,12 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { Wand2, Save, Inbox, X, Plus, ChevronDown, Upload } from "lucide-react";
-import { Skeleton, Fab, ViewToggle, EmptyState, InlineError, type ViewTab } from "../../components";
+import { Skeleton, Fab, ViewToggle, EmptyState, InlineError, Button, type ViewTab } from "../../components";
 import { CreatedRangeBanner, CreatedRangePicker } from "../../components/createdRangeBanner";
 import { useCreatedRange } from "../../lib/createdRange";
 import { ExportDialog } from "../reports";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import { useTasksQuery, useTasksMetaQuery, useAssignableUsersQuery } from "./hook";
+import { useQueryClient } from "@tanstack/react-query";
+import { useTasksQuery, useTasksMetaQuery, useAssignableUsersQuery, taskDetailQueryOptions } from "./hook";
 import { useTagsQuery } from "../tags/hook";
 import { useDepartmentsQuery, useStoresQuery } from "../tickets/hook";
 import type { Task } from '../../api/task';
@@ -107,6 +108,7 @@ const filtersStorageKey = (userId?: string, lockCategory?: CategoryFilterKey) =>
 
 export const TaskList = ({ userId, hideHeader = false, lockCategory, title, emptyTitle, emptyDescription }: TaskListProps = {}) => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const isVerifier = user?.role === "PC" || user?.role === "ADMIN";
   const ownScopeOnly = !!user && OWN_SCOPE_ROLES.includes(user.role);
@@ -192,6 +194,13 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
     // ever fires once per navigation instead of looping.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (match) handleOpen(match);
+    // Not in the loaded list (just created and the refetch hasn't landed, or a draft, which the list
+    // never carries): fetch that one delegation instead of silently doing nothing.
+    else {
+      queryClient.fetchQuery(taskDetailQueryOptions(openId))
+        .then((task) => handleOpen(task))
+        .catch(() => toast.error("Couldn't open that delegation. It may have been deleted."));
+    }
     setSearchParams(prev => {
       const next = new URLSearchParams(prev);
       next.delete('open');
@@ -201,14 +210,13 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
   }, [searchParams, tasks]);
 
   // Same one-shot-param pattern as `open` above — the sidebar's "+" quick-create link has no
-  // route of its own to land on (SmartTaskModal opens from local state, not a route), so it deep-
-  // links here instead and this effect is what actually opens the modal on arrival.
-  // Smart Task is Admin/PC only (and so are its server routes), so everyone else lands on the
-  // ordinary New Delegation form instead.
+  // route of its own to land on (the form opens from local state, not a route), so it deep-links
+  // here instead and this effect is what actually opens the form on arrival. Always the ordinary
+  // New delegation form, for every role; Smart Add is one tap away in the button's menu.
   useEffect(() => {
     if (!searchParams.get('create')) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (isVerifier) setShowSmartModal(true); else setShowForm(true);
+    setShowForm(true);
     setSearchParams(prev => {
       const next = new URLSearchParams(prev);
       next.delete('create');
@@ -477,6 +485,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
   const activeCount = activeChips.length;
 
   const isEmpty = sorted.length === 0;
+  const isFiltered = activeCount > 0 || quickFilter !== null;
 
   // Pulled out of the header markup so the `hideHeader` case (this list embedded in another page,
   // which supplies its own title) can render the same controls without a second copy of them.
@@ -485,65 +494,46 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
           
             {!userId && (
               <>
-                <div className="hidden md:block">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      {/* Solid navy at rest, not the app's quiet primary: this is the page's one
-                          create action, and the grey resting state read as disabled next to the
-                          navy Total tile above it. Split look: action on the left, a divided
-                          chevron on the right saying "more ways to create". */}
-                      <button
-                        type="button"
-                        className="group inline-flex items-center h-9 rounded-full bg-primary-800 hover:bg-primary-900 dark:bg-primary-600 dark:hover:bg-primary-500 text-white text-sm font-display font-semibold tracking-tight ring-1 ring-inset ring-white/10 transition-all duration-200 ease-in-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-surface active:scale-[0.98] data-[state=open]:bg-primary-900 dark:data-[state=open]:bg-primary-500"
-                      >
-                        <span className="flex items-center gap-2 pl-3.5 pr-3">
-                          <span className="flex items-center justify-center size-5 rounded-full bg-white/15">
-                            <Plus size={13} strokeWidth={3} className="transition-transform duration-300 group-hover:rotate-90" />
-                          </span>
-                          New Delegation
-                        </span>
-                        <span className="flex items-center self-stretch pl-2 pr-3 border-l border-white/15">
-                          <ChevronDown size={14} strokeWidth={2.5} className="opacity-80 transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                        </span>
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" sideOffset={8} className="w-72 rounded-xl p-1.5">
-                      {[
-                        { key: 'new', icon: Plus, title: 'New Delegation', hint: 'Assign work with a due date', onClick: () => setShowForm(true), tile: 'bg-primary-600', show: true, soon: false },
-                        { key: 'smart', icon: Wand2, title: 'Smart Task', hint: 'Type it in plain words, form fills itself', onClick: () => isVerifier && setShowSmartModal(true), tile: 'bg-warning', show: true, soon: !isVerifier },
-                        // Admin/PC only, and absent rather than shown-disabled for anyone else —
-                        // a real, ready feature scoped to who may bulk-create for other people.
-                        { key: 'bulk', icon: Upload, title: 'Bulk Import', hint: 'Upload a sheet, create many at once', onClick: () => setShowBulkImport(true), tile: 'bg-success', show: isVerifier, soon: false },
-                      ].filter((item) => item.show).map(({ key, icon: ItemIcon, title: itemTitle, hint, onClick, tile, soon }) => (
-                        <DropdownMenuItem key={key} onClick={onClick} disabled={soon} className="gap-3 px-2 py-2 rounded-lg cursor-pointer">
-                          {/* Solid tile + white glyph, same as the icon chips. `!` beats the menu
-                              item's own descendant rule that greys every svg inside it. */}
-                          <span className={`flex items-center justify-center size-9 rounded-lg shrink-0 ${tile} ${soon ? 'opacity-50' : ''}`}>
-                            <ItemIcon size={16} strokeWidth={2.5} className="text-white!" />
-                          </span>
-                          <span className="flex flex-col min-w-0 flex-1">
-                            <span className="text-sm font-display font-semibold text-text">{itemTitle}</span>
-                            <span className="text-xs text-text-muted leading-snug">{hint}</span>
-                          </span>
-                          {soon && (
-                            <span className="text-xs font-display font-bold px-1.5 py-0.5 rounded-full bg-surface-hover border border-border text-text-light">
-                              Soon
+                {/* One plain primary button that opens the form straight away. Admin/PC get a small
+                    chevron beside it for the other two ways to create (Smart Add, Bulk import). */}
+                <div className="hidden md:flex items-center gap-1">
+                  <Button variant="primary" size="sm" onClick={() => setShowForm(true)} className="font-display">
+                    <Plus size={14} strokeWidth={2.5} />
+                    New delegation
+                  </Button>
+                  {isVerifier && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="px-2" aria-label="More ways to create">
+                          <ChevronDown size={14} strokeWidth={2.5} />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" sideOffset={6} className="w-64 rounded-xl p-1.5">
+                        {[
+                          { key: 'smart', icon: Wand2, title: 'Smart Add', hint: 'Type it in plain words, the form fills itself', onClick: () => setShowSmartModal(true) },
+                          { key: 'bulk', icon: Upload, title: 'Bulk import', hint: 'Upload a sheet, create many at once', onClick: () => setShowBulkImport(true) },
+                        ].map(({ key, icon: ItemIcon, title: itemTitle, hint, onClick }) => (
+                          <DropdownMenuItem key={key} onClick={onClick} className="gap-3 px-2 py-2 rounded-lg cursor-pointer">
+                            <ItemIcon size={16} strokeWidth={2.25} className="shrink-0" />
+                            <span className="flex flex-col min-w-0 flex-1">
+                              <span className="text-sm font-display font-semibold text-text">{itemTitle}</span>
+                              <span className="t-meta text-text-muted leading-snug">{hint}</span>
                             </span>
-                          )}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                 </div>
 
                 <Fab
                   actions={[
-                    { key: 'new', label: 'New Delegation', icon: Plus, onClick: () => setShowForm(true) },
-                    // Verifier-only, like Bulk Import — a disabled entry with a "Soon" badge was a
+                    { key: 'new', label: 'New delegation', icon: Plus, onClick: () => setShowForm(true) },
+                    // Verifier-only, like Bulk import: a disabled entry with a "Soon" badge was a
                     // dead button in every regular user's menu.
                     ...(isVerifier ? [
-                      { key: 'smart', label: 'Smart Task', icon: Wand2, onClick: () => setShowSmartModal(true) },
-                      { key: 'bulk-import', label: 'Bulk Import', icon: Upload, onClick: () => setShowBulkImport(true) },
+                      { key: 'smart', label: 'Smart Add', icon: Wand2, onClick: () => setShowSmartModal(true) },
+                      { key: 'bulk-import', label: 'Bulk import', icon: Upload, onClick: () => setShowBulkImport(true) },
                     ] : []),
                   ]}
                 />
@@ -621,16 +611,16 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
               {activeChips.map(chip => (
                 <span
                   key={chip.key}
-                  className="flex items-center gap-1.5 pl-3 pr-1.5 py-1 text-xs font-semibold rounded-lg bg-primary-50/80 text-primary-700 border border-primary-200/60 dark:bg-primary-900/20 dark:border-primary-800/80 dark:text-primary-300"
+                  className="flex items-center gap-1 pl-3 pr-1 py-0.5 t-meta font-semibold rounded-lg bg-surface text-text border border-border-hover"
                 >
                   {chip.label}
                   <button
                     type="button"
                     onClick={chip.onClear}
                     aria-label={`Clear ${chip.label} filter`}
-                    className="p-1 rounded-md hover:bg-primary-200/50 dark:hover:bg-primary-800/50 transition-colors duration-200 ease-in-out cursor-pointer"
+                    className="flex items-center justify-center size-7 pointer-coarse:size-11 -my-1 pointer-coarse:-my-2.5 rounded-md text-text-muted hover:text-text hover:bg-surface-hover transition-colors duration-150 ease-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
                   >
-                    <X size={12} />
+                    <X size={13} />
                   </button>
                 </span>
               ))}
@@ -665,7 +655,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
               dead gap in front of it. */}
           {scope && (
             <PhoneScopeSwitch
-              options={[{ value: 'mine', label: 'Assigned to me' }, { value: 'byMe', label: 'Created by me' }]}
+              options={[{ value: 'mine', label: 'Assigned to me', shortLabel: 'Mine' }, { value: 'byMe', label: 'Created by me', shortLabel: 'By me' }]}
               value={scope.value}
               allValue="all"
               onChange={scope.onChange}
@@ -678,8 +668,27 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
         </div>
       </div>
 
+      {/* Phones only ever show the List view, so their skeleton is list rows, not board columns. */}
       {isPending && (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 items-start">
+        <ul className="sm:hidden flex flex-col gap-3" aria-hidden>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <li key={i} className="flex flex-col gap-2.5 p-3 rounded-2xl border border-border/60 bg-surface">
+              <div className="flex items-start gap-2">
+                <Skeleton className="h-4 flex-1 rounded-md" />
+                <Skeleton className="size-7 rounded-full" />
+              </div>
+              <Skeleton className="h-3 w-1/3 rounded-md" />
+              <div className="flex gap-1.5">
+                <Skeleton className="h-6 w-20 rounded-full" />
+                <Skeleton className="h-6 w-16 rounded-full" />
+                <Skeleton className="h-6 w-20 rounded-full" />
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+      {isPending && (
+          <div className="hidden sm:grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 items-start">
               {Array.from({ length: 4 }).map((_, col) => (
                   <div key={col} className="flex flex-col gap-4 p-3 bg-surface-hover/30 border border-border/50 rounded-xl">
                       <Skeleton className="h-6 w-32 rounded-md mx-2 mt-2" />
@@ -706,14 +715,15 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
       {!isPending && !isError && isEmpty && (
         // Phones get the compact one-line version: the full icon + heading + paragraph block took
         // most of the screen to say "nothing here".
+        // A picked quick-stat tile narrows the list just like a filter does, so it counts as one here.
         <EmptyState
           icon={Inbox}
           size={isMobile ? 'compact' : undefined}
-          title={emptyTitle ?? (isMobile ? 'Nothing here' : 'No delegations found')}
-          description={isMobile ? undefined : activeCount > 0
-            ? "No delegations match the current filters. Try adjusting or clearing them to see more."
-            : (emptyDescription ?? "You're all caught up! There are no delegations assigned to this view.")}
-          action={activeCount > 0 ? { label: 'Clear all filters', onClick: clearFilters } : undefined}
+          title={isFiltered ? 'No delegations match these filters' : (emptyTitle ?? (isMobile ? 'Nothing here yet' : 'No delegations yet'))}
+          description={isMobile ? undefined : isFiltered
+            ? 'Clear the filters to see everything again.'
+            : (emptyDescription ?? 'Delegations given to you or by you show up here.')}
+          action={isFiltered ? { label: 'Clear filters', onClick: clearFilters } : undefined}
         />
       )}
 
@@ -766,7 +776,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
               onAddTask={openCreateForm}
               fields={fieldVisibility}
               newlyAssignedTaskIds={newlyAssignedTaskIds}
-              isFiltered={activeCount > 0 || quickFilter !== null}
+              isFiltered={isFiltered}
               groupBy={boardGroupBy}
             />
           )}
@@ -785,7 +795,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
         <ExportDialog
           reportModule="tasks"
           title="Export Delegations"
-          description="Every delegation created in the selected period — status, priority, department, and assignee."
+          description="Every delegation created in the selected period, with status, priority, department and assignee."
           onClose={() => setShowExport(false)}
         />
       )}

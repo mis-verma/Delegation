@@ -74,3 +74,8 @@ export const useConfirm = () => {
   if (!ctx) throw new Error('useConfirm must be used within a ConfirmDialogProvider');
   return ctx;
 };
+
+/** Same as useConfirm but returns null outside the provider instead of throwing, for shared
+ *  components (Modal) that may render somewhere the provider doesn't reach. */
+// eslint-disable-next-line react-refresh/only-export-components
+export const useOptionalConfirm = () => useContext(ConfirmContext);

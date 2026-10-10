@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Clock, PauseCircle, CheckCircle2, CircleDot, Eye } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { IconChip } from '../iconChip';
+import { cn } from '../../lib/utils';
 
 export type StatusChipStatus =
   | 'due'
@@ -55,8 +56,10 @@ export interface StatusChipProps {
   /** Pass `false` to hide the icon circle, or a different Lucide icon to override the default. */
   icon?: LucideIcon | false;
   className?: string;
-  /** Keep the word beside the icon on a phone. Off by default: on small screens the colour and icon
-   *  carry the status and the word is read from the tooltip or a screen reader. */
+  /** Opt in to a bare coloured circle on a phone (word moves to the tooltip and screen reader). Only
+   *  for the few rows too tight for the word; everywhere else the word shows on every screen. */
+  iconOnlyOnMobile?: boolean;
+  /** @deprecated The word now shows on a phone by default. Kept so older callers still compile. */
   showLabelOnMobile?: boolean;
   /** Extra trailing content inside the chip (e.g. a lock icon marking the status read-only). */
   children?: ReactNode;
@@ -75,12 +78,13 @@ export const getStatusChipLabel = (status: StatusChipStatus) => STATUS_CHIP_CONF
 // eslint-disable-next-line react-refresh/only-export-components
 export const getStatusChipMeta = (status: StatusChipStatus) => STATUS_CHIP_CONFIG[status];
 
-export const StatusChip = ({ status, label, icon, className, showLabelOnMobile = false, children }: StatusChipProps) => {
+export const StatusChip = ({ status, label, icon, className, iconOnlyOnMobile = false, children }: StatusChipProps) => {
   const config = STATUS_CHIP_CONFIG[status];
   const Icon = icon === false ? false : icon ?? config.icon;
 
+  // shrink-0: status words are short, so a tight row should wrap the chip, never clip it to "In Pr...".
   return (
-    <IconChip icon={Icon} tone={config.tone} label={label ?? config.label} className={className} iconOnlyOnMobile={!showLabelOnMobile}>
+    <IconChip icon={Icon} tone={config.tone} label={label ?? config.label} className={cn('shrink-0', className)} iconOnlyOnMobile={iconOnlyOnMobile}>
       {children}
     </IconChip>
   );

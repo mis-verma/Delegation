@@ -21,7 +21,7 @@ const DepartmentGroupCard = ({ group, onOpen }: { group: DepartmentGroup; onOpen
   <button
     type="button"
     onClick={() => onOpen(group.id)}
-    className="flex flex-col gap-3 p-4 rounded-xl border border-border/60 bg-surface text-left hover:border-border-hover active:scale-[0.985] transition-[border-color,transform] duration-150 ease-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30"
+    className="flex flex-col gap-3 p-4 rounded-xl border border-border/60 bg-surface text-left hover:border-border-hover transition-colors duration-150 ease-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30"
   >
     <div className="flex items-center justify-between gap-2">
       <div className="flex items-center gap-2 min-w-0">
@@ -35,7 +35,7 @@ const DepartmentGroupCard = ({ group, onOpen }: { group: DepartmentGroup; onOpen
 
     <div className="flex items-center justify-between gap-2 pt-3 border-t border-border/60">
       <span className="t-meta font-display font-medium text-text-muted">
-        <strong className="font-display font-bold text-text">{group.tickets.length}</strong> tickets · <strong className="font-display font-bold text-text">{group.tasks.length}</strong> delegations
+        <strong className="font-display font-bold text-text">{group.tickets.length}</strong> tickets, <strong className="font-display font-bold text-text">{group.tasks.length}</strong> delegations
       </span>
       <span className="t-meta font-display font-semibold text-text-muted tabular-nums">
         {group.tickets.length + group.tasks.length} pending

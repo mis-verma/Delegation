@@ -7,7 +7,7 @@ type Status = Task['status'];
 export const FORWARD_LABEL: Partial<Record<Status, string>> = {
   draft: 'Publish',
   todo: 'Start work',
-  in_progress: 'Send for approval',
+  in_progress: 'Mark completed',
   on_hold: 'Resume work',
 };
 
@@ -23,6 +23,7 @@ export const CAN_HOLD: Status[] = ['todo', 'in_progress'];
 export const BACK_LABEL: Partial<Record<Status, string>> = {
   in_progress: 'Move back to To do',
   pending_approval: 'Take back to In progress',
+  done: 'Reopen',
 };
 
 /**
@@ -41,9 +42,25 @@ export const isMoveBlocked = (from: Status, to: Status): boolean =>
 /** Button wording for the remark dialog, so it names the action and not just the next column. */
 export const confirmLabelFor = (from: Status, to: Status, toLabel: string): string => {
   if (to === 'on_hold') return 'Put on hold';
+  if (from === 'done') return 'Reopen';
   if (BACK_STATUS[from] === to) return BACK_LABEL[from] ?? `Move to ${toLabel}`;
   return FORWARD_LABEL[from] ?? `Move to ${toLabel}`;
 };
+
+/**
+ * What a draft still lacks before it can go out, as one sentence, or null when it is ready. It needs
+ * someone to do it (a person, or a department whose manager will pick one) and a due date. Used by
+ * both Publish buttons: the Drafts page and the detail sheet.
+ */
+export const draftPublishProblem = (task: Task): string | null => {
+  const missing: string[] = [];
+  if (!task.assigneeId && !task.additionalAssigneeIds.length && !task.departmentId) missing.push('a person or a department');
+  if (!task.dueDate) missing.push('a due date');
+  return missing.length ? `Add ${missing.join(' and ')} before publishing.` : null;
+};
+
+/** The fixed note a published draft's first status move carries (the server wants one on every move). */
+export const PUBLISH_REMARK = 'Published from draft.';
 
 const DAY_MS = 86_400_000;
 const HOUR_MS = 3_600_000;
@@ -66,10 +83,21 @@ export interface WaitingLine {
  * "Waiting for Priya to approve, 2 days" plus "Due in 3 days" or "Delayed by 2 days": the answer
  * people open a delegation for. `now` comes from useNow() so the render stays pure.
  */
-export const waitingLine = (task: Task, now: number, nameOf: (id: string | null | undefined) => string | undefined): WaitingLine => {
+export const waitingLine = (
+  task: Task,
+  now: number,
+  nameOf: (id: string | null | undefined) => string | undefined,
+  departmentName?: string,
+): WaitingLine => {
   const assignee = nameOf(task.assigneeId) ?? 'the assignee';
   const arrived = (status: Status) =>
     (task.statusUpdates ?? []).find((u) => u.toStatus === status)?.createdAt;
+  // Sent to a department with nobody on it yet (how front-line staff raise work): its manager
+  // picks the person, so that is who it waits on.
+  const unassigned = !task.assigneeId && !task.additionalAssigneeIds.length;
+  const pickSomeone = departmentName
+    ? `Waiting for the ${departmentName} manager to pick someone`
+    : 'Waiting for someone to be assigned';
 
   let who: string;
   switch (task.status) {
@@ -77,10 +105,10 @@ export const waitingLine = (task: Task, now: number, nameOf: (id: string | null 
       who = 'Draft, not published yet';
       break;
     case 'todo':
-      who = `Waiting for ${assignee} to start`;
+      who = unassigned ? pickSomeone : `Waiting for ${assignee} to start`;
       break;
     case 'in_progress':
-      who = `${assignee} is working on it`;
+      who = unassigned ? pickSomeone : `${assignee} is working on it`;
       break;
     case 'pending_approval': {
       const since = arrived('pending_approval');

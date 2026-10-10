@@ -40,10 +40,10 @@ export const AdminTaskList = () => {
               <ClipboardList className="w-6 h-6" />
             </div>
             <div className="flex flex-col gap-1">
-              <h1 className="text-2xl font-bold tracking-tight text-text">
-                Team Delegations
+              <h1 className="t-section font-display font-bold text-text">
+                Team delegations
               </h1>
-              <p className="text-sm text-text-muted max-w-lg leading-relaxed">
+              <p className="hidden sm:block text-sm text-text-muted max-w-lg leading-relaxed">
                 Every delegation across the organization. Filter by person, department, status or date to narrow your view.
               </p>
             </div>
@@ -86,7 +86,7 @@ export const AdminTaskList = () => {
         {showExport && (
           <ExportDialog
             reportModule="tasks"
-            title="Export Delegations"
+            title="Export delegations"
             description="Every delegation created in the selected period, with its status, priority, department and assignee."
             onClose={() => setShowExport(false)}
           />

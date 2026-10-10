@@ -39,11 +39,11 @@ export const ChecklistBlock = ({
         aria-expanded={open}
       >
         <div className="flex items-center gap-3 sm:gap-3.5 flex-1 min-w-0">
-          <div className="p-1 rounded-md bg-surface border border-border text-text-muted group-hover:text-text-secondary group-hover:border-border-hover transition-colors shadow-xs shrink-0">
+          <div className="p-1 rounded-md bg-surface border border-border text-text-muted group-hover:text-text-secondary group-hover:border-border-hover transition-colors shrink-0">
             {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           </div>
           <div className="flex-1 min-w-0">
-            <h4 className={`t-card font-medium truncate transition-colors ${
+            <h4 className={`t-card font-medium line-clamp-2 break-words leading-snug transition-colors ${
               isComplete ? 'text-text-muted' : 'text-text'
             }`}>
               {checklist.title}
@@ -71,7 +71,7 @@ export const ChecklistBlock = ({
             type="button"
             onClick={(e) => { e.stopPropagation(); deleteChecklist.mutate(checklist.id); }}
             disabled={deleteChecklist.isPending}
-            className="p-2 text-text-light hover:text-danger hover:bg-danger/10 rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-danger/30"
+            className="flex items-center justify-center size-9 pointer-coarse:size-11 text-text-light hover:text-danger hover:bg-danger/10 rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-danger/30"
             title="Delete checklist"
             aria-label="Delete checklist"
           >
@@ -85,7 +85,7 @@ export const ChecklistBlock = ({
       >
         <div className="flex flex-col gap-3 sm:gap-4 p-3 sm:p-4 bg-surface-hover/30">
           {checklist.items.length === 0 && (
-            <div className="p-6 sm:p-8 text-center text-sm font-medium text-text-muted bg-surface rounded-xl border-2 border-border">
+            <div className="p-6 sm:p-8 text-center text-sm font-medium text-text-muted bg-surface rounded-xl border border-border">
               No items in this checklist yet.
             </div>
           )}
