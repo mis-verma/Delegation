@@ -256,6 +256,18 @@ export const OrgOverview = () => {
 
       <AnalyticsSummaryStrip groupBy={groupBy} from={from} to={to} onViewSection={jumpToSection} isOrgWideRole={orgWide} />
 
+      {/* The size of the organisation sits with the headline numbers, not at the end of the page. */}
+      {orgWide && (
+        <OrgSnapshotStrip
+          stores={storesQuery.data ?? EMPTY_STORES}
+          departments={departmentsQuery.data ?? EMPTY_DEPARTMENTS}
+          users={usersQuery.data ?? EMPTY_USERS}
+          isPending={snapshotPending}
+          isError={snapshotError}
+          onRetry={retrySnapshot}
+        />
+      )}
+
       {/* Admin and PC: checklists, tickets and delegations side by side for the whole organisation, as
           completion, compliance and on time, with every department ranked under it. */}
       {orgWide && <MyScoresCard initialScope="org" />}
@@ -274,17 +286,6 @@ export const OrgOverview = () => {
       <OverviewTabs groupBy={groupBy} from={from} to={to} isOrgWideRole={orgWide} />
 
       <RecentActivitySection />
-
-      {orgWide && (
-        <OrgSnapshotStrip
-          stores={storesQuery.data ?? EMPTY_STORES}
-          departments={departmentsQuery.data ?? EMPTY_DEPARTMENTS}
-          users={usersQuery.data ?? EMPTY_USERS}
-          isPending={snapshotPending}
-          isError={snapshotError}
-          onRetry={retrySnapshot}
-        />
-      )}
     </div>
   );
 };

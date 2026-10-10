@@ -17,7 +17,7 @@ import { env } from "../../config/env.js"
 import { AppError } from "../../utils/AppError.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { CreateChecklistDefinitionInput, UpdateChecklistDefinitionInput, SetChecklistDefinitionActiveInput } from "./checklistDefinition.validation.js"
-import { generateInstanceForDefinition, loadDefinitionForGeneration, syncLiveInstances, type LiveRunsSummary } from "../../jobs/checklistInstanceGenerator.job.js"
+import { dropUntouchedCurrentRunsFor, generateInstanceForDefinition, loadDefinitionForGeneration, syncLiveInstances, type LiveRunsSummary } from "../../jobs/checklistInstanceGenerator.job.js"
 import { auditService } from "../audit/audit.service.js";
 import { emitChecklistEvent } from "../../sockets/checklistEvent.js"
 import { GATED_BOOLEAN_ITEM_EXPR, FLAGGED_BOOLEAN_ANSWER_EXPR } from "../../utils/checklistBooleanFlags.js"
@@ -651,6 +651,19 @@ export const checklistDefinitionService = {
         const [existing] = await db.select({ id: checklistDefinitions.id }).from(checklistDefinitions).where(and(eq(checklistDefinitions.id, id), NOT_DELETED)).limit(1)
         if (!existing) throw AppError.notFound("Checklist not found")
         await db.update(checklistDefinitions).set({ isActive: input.isActive, updatedAt: new Date() }).where(eq(checklistDefinitions.id, id))
+        // Pause takes effect now, not at midnight: today's run nobody started leaves everyone's list and is
+        // never counted as missed. Resume brings the current run straight back instead of waiting for the
+        // next sweep. Either side failing must not undo the switch, so it is logged, and the sweep catches up.
+        try {
+            if (!input.isActive) {
+                await dropUntouchedCurrentRunsFor(id)
+            } else {
+                const definition = await loadDefinitionForGeneration(id)
+                if (definition) await generateInstanceForDefinition(definition, new Date())
+            }
+        } catch (err) {
+            console.error(`[checklistDefinition.setActive] ${id} switched, but its current runs were not updated`, err)
+        }
         const updated = await this.getById(id)
         // Its own action: deactivating a checklist silently stops instances being generated, which
         // is the kind of change people later swear nobody made.

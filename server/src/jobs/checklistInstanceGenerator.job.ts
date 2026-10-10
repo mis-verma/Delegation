@@ -3,7 +3,7 @@
 // generated yet. See utils/period.ts for the period-math this relies on.
 import { scheduleJob } from '../utils/jobTracker.js';
 import { createId } from "@paralleldrive/cuid2"
-import { eq, and, inArray, asc, lte, isNull, sql } from "drizzle-orm"
+import { eq, and, inArray, asc, lte, gt, isNull, sql } from "drizzle-orm"
 import { db } from "../config/db.js"
 import {
     checklistDefinitions,
@@ -886,6 +886,39 @@ export const dropUntouchedDailyRunsOn = async (dateStr: string): Promise<number>
     }
     // Without this the board's cached summary kept counting the runs just removed until its TTL ran out.
     if (removed > 0) await dropChecklistSummaries([...affectedAssignees]).catch((err) => console.error("Clearing checklist summary cache after a holiday failed:", err))
+    return removed
+}
+
+// Pausing a checklist: its runs for the current period (today's daily run, this week's or month's run)
+// that nobody has started are removed, so from the pause on they are not on anyone's list and cannot be
+// counted as missed. A run someone already started, or one sent for review, is real work and stays. Past
+// periods are history and are never touched. Resuming lets the generator create the current run again.
+export const dropUntouchedCurrentRunsFor = async (definitionId: string, now: Date = new Date()): Promise<number> => {
+    const runs = await db.select({ id: checklistInstances.id, storeId: checklistInstances.storeId }).from(checklistInstances)
+        .where(and(eq(checklistInstances.definitionId, definitionId), gt(checklistInstances.periodEnd, now)))
+
+    let removed = 0
+    const affectedAssignees = new Set<string>()
+    for (const { id, storeId } of runs) {
+        try {
+            const gone = await db.transaction(async (tx) => {
+                const [run] = await tx.select().from(checklistInstances).where(eq(checklistInstances.id, id)).for("update").limit(1)
+                if (!run || await runHasProgress(tx, run)) return false
+                const links = await tx.select({ userId: checklistInstanceAssignees.userId }).from(checklistInstanceAssignees)
+                    .where(eq(checklistInstanceAssignees.instanceId, id))
+                await tx.delete(checklistInstances).where(eq(checklistInstances.id, id))
+                for (const l of links) affectedAssignees.add(l.userId)
+                return true
+            })
+            if (gone) {
+                removed++
+                emitChecklistEvent("checklist-instance:updated", { storeId }, { instanceId: id })
+            }
+        } catch (err) {
+            console.error(`Removing paused run ${id} failed:`, err)
+        }
+    }
+    if (removed > 0) await dropChecklistSummaries([...affectedAssignees]).catch((err) => console.error("Clearing checklist summary cache after a pause failed:", err))
     return removed
 }
 

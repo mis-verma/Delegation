@@ -7,9 +7,17 @@ interface PersonRowProps {
   subtitle?: string;
   metric?: ReactNode;
   metricTone?: 'default' | 'success' | 'danger';
-  /** Renders a zero-padded rank number (01, 02, ...) to the left of the avatar, e.g. for a leaderboard. */
+  /** Renders the rank to the left of the avatar, e.g. for a leaderboard. */
   index?: number;
+  /** 0 to 100: draws a thin bar under the name, coloured like the figure. */
+  progress?: number;
 }
+
+const BAR_TONE_CLASS: Record<NonNullable<PersonRowProps['metricTone']>, string> = {
+  default: 'bg-primary-500',
+  success: 'bg-success',
+  danger: 'bg-danger',
+};
 
 const METRIC_TONE_CLASS: Record<NonNullable<PersonRowProps['metricTone']>, string> = {
   default: 'text-primary-700 dark:text-primary-400',
@@ -34,25 +42,25 @@ const MEDAL_CLASS: Record<number, string> = {
 // hand-rolled implementations (features/team/PersonCard.tsx, features/admin/users/UserCard.tsx,
 // and StoresPerformanceSection's inline leaderboard rows), all built on the same already-shared
 // getInitials/avatarColorClass helpers.
-export const PersonRow = ({ name, subtitle, metric, metricTone = 'default', index }: PersonRowProps) => (
+export const PersonRow = ({ name, subtitle, metric, metricTone = 'default', index, progress }: PersonRowProps) => (
   <div className="flex items-center gap-3 py-2.5 border-b border-border/40 last:border-0">
+    {/* Every rank is the same round chip; the top three get their medal colour, the rest stay neutral. */}
     {index != null && (
-      MEDAL_CLASS[index] ? (
-        <span className={`flex items-center justify-center size-5 rounded-full border t-meta font-display font-bold tabular-nums shrink-0 ${MEDAL_CLASS[index]}`}>
-          {index + 1}
-        </span>
-      ) : (
-        <span className="w-5 text-xs font-display font-bold text-text-light tabular-nums shrink-0 text-center">
-          {String(index + 1).padStart(2, '0')}
-        </span>
-      )
+      <span className={`flex items-center justify-center size-6 rounded-full border t-meta font-display font-bold tabular-nums shrink-0 ${MEDAL_CLASS[index] ?? 'bg-surface-hover text-text-secondary border-border/60'}`}>
+        {index + 1}
+      </span>
     )}
     <span className={`flex items-center justify-center size-8 rounded-full text-white t-meta font-display font-bold shrink-0 ${avatarColorClass(name)}`}>
       {getInitials(name)}
     </span>
     <div className="flex-1 min-w-0">
       <p className="text-sm font-display font-medium text-text truncate">{name}</p>
-      {subtitle && <p className="text-xs font-display text-text-muted truncate">{subtitle}</p>}
+      {subtitle && <p className="t-meta font-display text-text-muted truncate">{subtitle}</p>}
+      {progress != null && (
+        <span className="mt-1.5 block h-1.5 w-full overflow-hidden rounded-full bg-surface-hover" aria-hidden="true">
+          <span className={`block h-full rounded-full ${BAR_TONE_CLASS[metricTone]}`} style={{ width: `${Math.max(0, Math.min(100, progress))}%` }} />
+        </span>
+      )}
     </div>
     {metric != null && (
       <span className={`text-base font-display font-bold tabular-nums shrink-0 ${METRIC_TONE_CLASS[metricTone]}`}>{metric}</span>

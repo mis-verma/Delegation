@@ -25,7 +25,7 @@ interface TeamLeaderboardRailProps {
 }
 
 const LeaderboardRow = memo(({ row, index }: { row: LeaderRow; index: number }) => (
-  <PersonRow index={index} name={row.name} subtitle={row.departmentName} metric={formatPercent(row.score)} />
+  <PersonRow index={index} name={row.name} subtitle={row.departmentName} metric={formatPercent(row.score)} progress={row.score} metricTone={row.score >= 80 ? 'success' : row.score < 50 ? 'danger' : 'default'} />
 ));
 
 // Top 5 people, on the same two measures as the Report page: completion across checklists, tickets and
@@ -68,7 +68,10 @@ export const TeamLeaderboardRail = ({ from, to }: TeamLeaderboardRailProps) => {
     <section aria-labelledby={headingId} className={`${PANEL_CLASS} p-4 sm:p-5 flex flex-col gap-3 flex-1`}>
       <div className="flex items-center gap-2.5">
         <EntityIconTile icon={Trophy} tone="coral" className="size-8 rounded-lg" />
-        <h2 id={headingId} className="t-card font-display font-bold text-text">Leaderboard</h2>
+        <div className="min-w-0">
+          <h2 id={headingId} className="t-card font-display font-bold text-text">Leaderboard</h2>
+          <p className="t-meta text-text-muted">Top 5 people by overall score</p>
+        </div>
       </div>
 
       {query.isError && !query.data ? (

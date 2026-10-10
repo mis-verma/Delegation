@@ -29,32 +29,40 @@ interface LeaderEntryProps {
   to: string;
 }
 
+const FIGURE_TONE = { success: 'text-success', danger: 'text-danger' } as const;
+const BAR_TONE = { success: 'bg-success', danger: 'bg-danger' } as const;
+
 const LeaderEntry = memo(({ icon: Icon, tone, label, row, emptyText, to }: LeaderEntryProps) => {
+  const value = row?.overall ?? null;
   const content = (
     <>
-      <span className={`flex items-center justify-center size-8 rounded-lg border shrink-0 ${TONE_CLASS[tone]}`}>
-        <Icon size={14} aria-hidden="true" />
+      <span className="flex items-center gap-2">
+        <span className={`flex items-center justify-center size-7 rounded-lg border shrink-0 ${TONE_CLASS[tone]}`}>
+          <Icon size={14} aria-hidden="true" />
+        </span>
+        <span className="flex-1 t-meta font-display font-semibold text-text-muted">{label}</span>
+        {row && <span className={`t-card font-display font-bold tabular-nums ${FIGURE_TONE[tone]}`}>{formatPercent(value)}</span>}
       </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-xs font-display font-semibold tracking-wide text-text-muted">{label}</p>
-        {row ? (
-          <div className="flex items-start justify-between gap-2">
-            <p className="min-w-0 text-sm font-display font-bold text-text line-clamp-2 leading-snug">{row.name}</p>
-            <span className="shrink-0 text-sm font-display font-medium text-text-muted tabular-nums">{formatPercent(row.overall)}</span>
-          </div>
-        ) : (
-          <p className="text-sm font-display font-medium text-text-muted">{emptyText}</p>
-        )}
-      </div>
+      {row ? (
+        <>
+          <span className="block text-sm font-display font-semibold text-text line-clamp-2 leading-snug">{row.name}</span>
+          <span className="block h-1.5 w-full overflow-hidden rounded-full bg-surface-hover" aria-hidden="true">
+            <span className={`block h-full rounded-full ${BAR_TONE[tone]}`} style={{ width: `${Math.max(0, Math.min(100, value ?? 0))}%` }} />
+          </span>
+        </>
+      ) : (
+        <span className="block t-meta text-text-muted">{emptyText}</span>
+      )}
     </>
   );
 
-  const base = 'flex items-center gap-2.5 min-w-0 min-h-11 rounded-lg px-1';
+  const base = 'flex min-w-0 flex-col gap-2 rounded-lg border border-border/60 bg-surface p-3';
   if (!row) return <div className={base}>{content}</div>;
   return (
     <Link
+      viewTransition
       to={`${to}&q=${encodeURIComponent(row.name)}`}
-      className={`${base} transition-colors duration-200 motion-reduce:transition-none hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50`}
+      className={`${base} transition-[border-color,transform] duration-150 motion-reduce:transition-none hover:border-border-hover active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50`}
     >
       {content}
     </Link>
@@ -99,10 +107,10 @@ const DimensionColumn = ({ icon: Icon, title, rows, isPending, isError, isFetchi
           <Skeleton className="h-11 rounded-lg" />
         </div>
       ) : (
-        <div className={`flex flex-col gap-2.5 transition-opacity motion-reduce:transition-none ${isFetching ? 'opacity-60' : ''}`}>
+        <div className={`grid grid-cols-1 gap-2 @md:grid-cols-2 transition-opacity motion-reduce:transition-none ${isFetching ? 'opacity-60' : ''}`}>
           {/* Two "Not enough data yet" rows said the same thing twice; say it once. */}
           {!top && !low && !hasEligible ? (
-            <p className="px-1 py-2 text-sm font-display font-medium text-text-muted">Not enough data yet</p>
+            <p className="@md:col-span-2 rounded-lg border border-border/60 px-3 py-3 t-meta text-text-muted">Not enough data yet</p>
           ) : (
             <>
               <LeaderEntry icon={Trophy} tone="success" label="Top" row={top} emptyText="Needs at least two to compare" to={to} />

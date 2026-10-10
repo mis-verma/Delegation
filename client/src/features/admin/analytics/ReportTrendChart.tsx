@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 import { Activity } from 'lucide-react';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { DotItemDotProps } from 'recharts';
-import { EmptyState } from '../../../components';
 import { formatBucket, formatPercent } from './analyticsDisplay';
 
 export interface TrendSeries {
@@ -148,12 +147,19 @@ export const ReportTrendChart = ({ data, series, groupBy, valueSuffix = '', yDom
 
   if (!points.length || !hasValues) {
     return (
-      <EmptyState
-        size="compact"
-        icon={Activity}
-        title="No data for this period"
-        description="Try a wider date range or a different grouping."
-      />
+      <div className="relative flex h-48 items-end justify-around gap-3 overflow-hidden rounded-xl border border-border/60 bg-surface px-6 pb-6 sm:h-56">
+        {/* A faint outline of the chart that would be here, so the empty card still reads as a chart. */}
+        {[38, 62, 46, 78, 54, 70, 42].map((h, i) => (
+          <span key={i} aria-hidden="true" className="w-full max-w-12 rounded-t-lg bg-primary-500/[0.07] dark:bg-primary-400/10" style={{ height: `${h}%` }} />
+        ))}
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-gradient-to-t from-surface/90 via-surface/60 to-transparent px-4 text-center">
+          <span className="flex size-9 items-center justify-center rounded-xl bg-primary-500/10 text-primary-600 dark:text-primary-400">
+            <Activity className="size-4" aria-hidden="true" />
+          </span>
+          <p className="text-sm font-display font-semibold text-text">Nothing to show for this period</p>
+          <p className="t-meta text-text-muted">Pick a longer period, or wait for work to come due.</p>
+        </div>
+      </div>
     );
   }
 

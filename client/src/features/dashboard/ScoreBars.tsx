@@ -108,8 +108,8 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
   const rows = useMemo(() => (scores ? rowsFor(scores) : []), [scores]);
   const series = seriesFor(metric);
   // One bar per module is allowed to be wider than a pair.
-  const barSize = series.length === 1 ? (isMobile ? 56 : 72) : isMobile ? 40 : 52;
-  // A module with nothing due is given a full-height value so its outlined empty bar fills the lane; its number is not printed.
+  const barSize = series.length === 1 ? (isMobile ? 64 : 96) : isMobile ? 44 : 64;
+  // A module with nothing due is given a full-height value so its soft "Nothing due" column fills the lane; its number is not printed.
   const chartRows = useMemo(() => rows.map((r) => (r.hasData ? r : { ...r, completion: 100, compliance: 100, ontime: 100 })), [rows]);
   const renderLabel = (props: { x?: number | string; y?: number | string; width?: number | string; value?: unknown; index?: number }): ReactElement | null => {
     const row = chartRows[props.index ?? -1];
@@ -142,7 +142,7 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartRows} accessibilityLayer={false} margin={{ top: 22, right: 4, left: isMobile ? 0 : 4, bottom: 0 }} barCategoryGap={isMobile ? '10%' : '24%'} barGap={6}>
+            <BarChart data={chartRows} accessibilityLayer={false} margin={{ top: 22, right: 4, left: isMobile ? 0 : 4, bottom: 0 }} barCategoryGap={isMobile ? '10%' : '16%'} barGap={6}>
               <defs>
                 {series.map((k) => (
                   <linearGradient key={k} id={`${gradientId}-${k}`} x1="0" y1="0" x2="0" y2="1">

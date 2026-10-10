@@ -75,7 +75,7 @@ export const ScoreTrend = ({ metric = 'overview', scope, id, period, from, to }:
     staleTime: 60_000,
   });
   const points = useMemo(() => data?.buckets.map((b) => pointOf(b, module)) ?? [], [data, module]);
-  // A slice with nothing due is given a full-height value so its dashed empty bar fills the lane; its number is not printed.
+  // A slice with nothing due is given a full-height value so its soft "Nothing due" column fills the lane; its number is not printed.
   const chartPoints = useMemo(() => points.map((p) => (p.due > 0 ? p : { ...p, completion: 100, compliance: 100, ontime: 100 })), [points]);
   const renderLabel = (props: { x?: number | string; y?: number | string; width?: number | string; value?: unknown; index?: number }): ReactElement | null => {
     const point = chartPoints[props.index ?? -1];
@@ -137,7 +137,7 @@ export const ScoreTrend = ({ metric = 'overview', scope, id, period, from, to }:
               <YAxis domain={[0, 100]} hide={isMobile} ticks={[0, 25, 50, 75, 100]} tickFormatter={(v: number) => `${v}%`} tickLine={false} axisLine={false} width={44} tick={{ fill: 'var(--color-text-muted)', fontSize: 12, fontWeight: 600 }} />
               <Tooltip content={<TrendTooltip series={series} />} cursor={false} isAnimationActive={false} />
               {series.map((k) => (
-                <Bar key={k} dataKey={k} fill={SERIES_COLOR[k]} shape={(p: { x?: number; y?: number; width?: number; height?: number; fill?: string; payload?: { due: number } }) => <ScoreColumn {...p} radius={6} empty={(p.payload?.due ?? 1) === 0} />} maxBarSize={series.length === 1 ? (isMobile ? 28 : 44) : isMobile ? 20 : 30} background={{ fill: TRACK_FILL, radius: 7 }} animationDuration={500}>
+                <Bar key={k} dataKey={k} fill={SERIES_COLOR[k]} shape={(p: { x?: number; y?: number; width?: number; height?: number; fill?: string; payload?: { due: number } }) => <ScoreColumn {...p} radius={6} empty={(p.payload?.due ?? 1) === 0} />} maxBarSize={series.length === 1 ? (isMobile ? 34 : 56) : isMobile ? 24 : 38} background={{ fill: TRACK_FILL, radius: 7 }} animationDuration={500}>
                   {points.length <= 7 && series.length === 1 && <LabelList dataKey={k} position="top" content={renderLabel} />}
                 </Bar>
               ))}
@@ -145,7 +145,7 @@ export const ScoreTrend = ({ metric = 'overview', scope, id, period, from, to }:
           </ResponsiveContainer>
         )}
       </div>
-      <p className="t-meta font-medium text-text-muted">Each bar is a slice of the window. Dashed empty bars had nothing due.</p>
+      <p className="t-meta font-medium text-text-muted">Each bar is a slice of the window. Pale columns had nothing due.</p>
     </div>
   );
 };

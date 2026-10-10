@@ -123,7 +123,7 @@ export const useSetChecklistDefinitionActiveMutation = () => {
     onSuccess: (updated) => {
       queryClient.setQueryData(KEYS.definitionDetail(updated.id), updated);
       queryClient.invalidateQueries({ queryKey: ['checklist-definitions'] });
-      toast.success(updated.isActive ? 'Checklist resumed' : 'Checklist paused');
+      toast.success(updated.isActive ? "Checklist resumed. Today's run is back on people's lists." : "Checklist paused. It is off everyone's list and won't count until you resume it.");
     },
     onError: (err) => toast.error(errorMessage(err, "Couldn't update checklist")),
   });
