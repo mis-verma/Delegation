@@ -43,6 +43,7 @@ const EventList = lazy(() => import('./features/events/EventList').then(m => ({ 
 const CalendarPage = lazy(() => import('./features/calendar/CalendarPage').then(m => ({ default: m.CalendarPage })));
 const StoreDailyPage = lazy(() => import('./features/admin/storeDaily/StoreDailyPage').then(m => ({ default: m.StoreDailyPage })));
 const RankingsPage = lazy(() => import('./features/admin/analytics/RankingsPage').then(m => ({ default: m.RankingsPage })));
+const ScorecardPage = lazy(() => import('./features/admin/analytics/ScorecardPage').then(m => ({ default: m.ScorecardPage })));
 const OrgOverview = lazy(() => import('./features/admin/analytics').then(m => ({ default: m.OrgOverview })));
 const VerificationQueue = lazy(() => import('./features/verification').then(m => ({ default: m.VerificationQueue })));
 const AdminTaskList = lazy(() => import('./features/admin/AdminTaskList').then(m => ({ default: m.AdminTaskList })));
@@ -285,6 +286,7 @@ const router = createBrowserRouter([
             children: [
               { path: '/admin', element: <AdminOverviewRoute /> },
               { path: '/admin/rankings', element: <RankingsPage /> },
+              { path: '/admin/scorecard', element: <ScorecardPage /> },
               { path: '/admin/checklist-store-daily', element: <StoreDailyPage /> },
               { path: '/admin/analytics', element: <Navigate to="/admin" replace /> },    
               { path: '/admin/reports/tasks', element: <Navigate to="/tasks/team" replace /> },

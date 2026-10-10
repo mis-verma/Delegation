@@ -6,7 +6,7 @@ import { scoreService } from "./score.service.js"
 const DATE = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date like 2026-09-01")
 const querySchema = z
     .object({
-        scope: z.enum(["person", "department", "store"]).default("person"),
+        scope: z.enum(["person", "department", "store", "org"]).default("person"),
         // Left out for a person, it means the caller's own scores.
         id: z.string().min(1).max(191).optional(),
         from: DATE,
@@ -14,7 +14,7 @@ const querySchema = z
     })
     .refine((q) => q.from <= q.to, "From must be on or before To")
     .refine((q) => Date.parse(q.to) - Date.parse(q.from) <= 366 * 86_400_000, "Pick at most one year")
-    .refine((q) => q.scope === "person" || !!q.id, "Pick a department or store")
+    .refine((q) => q.scope === "person" || q.scope === "org" || !!q.id, "Pick a department or store")
 
 const reportSchema = z
     .object({ from: DATE, to: DATE, stores: z.enum(["1", "0"]).optional() })
@@ -23,7 +23,7 @@ const reportSchema = z
 
 const trendSchema = z
     .object({
-        scope: z.enum(["person", "department", "store"]).default("person"),
+        scope: z.enum(["person", "department", "store", "org"]).default("person"),
         id: z.string().min(1).max(191).optional(),
         period: z.enum(["day", "week", "month", "quarter", "year"]),
         from: DATE,
@@ -31,7 +31,7 @@ const trendSchema = z
     })
     .refine((q) => q.from <= q.to, "From must be on or before To")
     .refine((q) => Date.parse(q.to) - Date.parse(q.from) <= 366 * 86_400_000, "Pick at most one year")
-    .refine((q) => q.scope === "person" || !!q.id, "Pick a department or store")
+    .refine((q) => q.scope === "person" || q.scope === "org" || !!q.id, "Pick a department or store")
 
 export const scoreController = {
     trend: asyncHandler(async (req: Request, res: Response) => {

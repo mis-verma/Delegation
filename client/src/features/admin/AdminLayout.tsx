@@ -12,6 +12,7 @@ import {
   History,
   HeartPulse,
   Radio,
+  Gauge,
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -67,6 +68,8 @@ const CHECKLIST_CHILDREN: AdminNavChild[] = [
 
 const NAV: AdminNavItem[] = [
   { to: '/admin', icon: LayoutDashboard, label: 'Overview & Analytics', end: true },
+  // Checklists, tickets and delegations side by side by department, store or person.
+  { to: '/admin/scorecard', icon: Gauge, label: 'Scorecard', end: false },
   { to: '/admin/directory', icon: Contact, label: 'People & Teams', end: false },
   { to: '/admin/presence', icon: Radio, label: "Who's Online", end: false },
   { to: '/admin/scheduled-checklists', icon: Repeat, label: 'Checklists', end: false, children: CHECKLIST_CHILDREN },

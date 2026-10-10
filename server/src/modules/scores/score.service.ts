@@ -13,7 +13,7 @@ import { checklistReportService, type PersonRow, type ReportMetrics } from "../c
 const TASK_WEIGHT: Record<string, number> = { draft: 0, todo: 0, in_progress: 0.25, pending_approval: 0.75, done: 1, on_hold: 0 }
 const DAY_MS = 86_400_000
 
-export type ScoreScope = "person" | "department" | "store"
+export type ScoreScope = "person" | "department" | "store" | "org"
 
 export type ChecklistScore = {
     score: number | null
@@ -190,6 +190,17 @@ export const scoreService = {
                 taskWhere: or(eq(tasks.assigneeId, id), inArray(tasks.id, db.select({ taskId: taskAdditionalAssignees.taskId }).from(taskAdditionalAssignees).where(eq(taskAdditionalAssignees.userId, id)))),
                 ticketWhere: eq(tickets.assigneeId, id),
                 checklistFor: (v, from, to) => peopleOf(v, from, to, {}, id),
+            }
+        }
+
+        // The whole organisation in one figure per module: every delegation, ticket and checklist run. ADMIN and PC only.
+        if (scope === "org") {
+            if (!orgWide) throw AppError.forbidden()
+            return {
+                name: "Whole organisation",
+                taskWhere: undefined,
+                ticketWhere: undefined,
+                checklistFor: (v, from, to) => peopleOf(v, from, to, {}),
             }
         }
 

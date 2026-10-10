@@ -22,7 +22,7 @@ import { ScoreTrend } from './ScoreTrend';
 import { DASHBOARD_CARD_CLASS, rateTone, type RateTone } from './dashboardDisplay';
 import { PERIODS, PERIOD_LABEL, windowFor, type ScorePeriod } from './scorePeriods';
 
-const SCOPE_LABEL: Record<ScoreScope, string> = { person: 'Person', department: 'Department', store: 'Store' };
+const SCOPE_LABEL: Record<ScoreScope, string> = { org: 'Organisation', person: 'Person', department: 'Department', store: 'Store' };
 type ScoreView = 'bars' | 'dials' | 'trend';
 const VIEWS: readonly ScoreView[] = ['bars', 'dials', 'trend'];
 const VIEW_LABEL: Record<ScoreView, string> = { bars: 'Bars', dials: 'Dials', trend: 'Trend' };
@@ -41,7 +41,7 @@ const loadPrefs = (userId: string | undefined): Partial<ScorePrefs> => {
 };
 const isView = (v: unknown): v is ScoreView => v === 'bars' || v === 'dials' || v === 'trend';
 const isPeriod = (v: unknown): v is ScorePeriod => typeof v === 'string' && (PERIODS as readonly string[]).includes(v);
-const PICK_PLACEHOLDER: Record<ScoreScope, string> = { person: 'Me', department: 'Pick a department', store: 'Pick a store' };
+const PICK_PLACEHOLDER: Record<ScoreScope, string> = { org: '', person: 'Me', department: 'Pick a department', store: 'Pick a store' };
 
 const RING: Record<RateTone, [string, string]> = {
   success: ['var(--color-success)', 'var(--color-success)'],
@@ -136,19 +136,21 @@ const ScoreTile = ({ title, score, detail, loading, onOpen, change }: ScoreTileP
  * own. A department head can also open their own department. Admin and PC can open any person,
  * department or store.
  */
-export const MyScoresCard = () => {
+/** `initialScope`: where the card opens. The Admin Overview opens it on the whole organisation. */
+export const MyScoresCard = ({ initialScope = 'person' }: { initialScope?: ScoreScope } = {}) => {
   const { user } = useAuth();
   const role = user?.role;
   const orgWide = role === 'ADMIN' || role === 'PC';
   const isHod = role === 'MANAGER' || role === 'SENIOR';
   const scopes = useMemo<ScoreScope[]>(
-    () => (orgWide ? ['person', 'department', 'store'] : isHod ? ['person', 'department'] : ['person']),
+    // Admin and PC also get the whole organisation in one view: every checklist, ticket and delegation.
+    () => (orgWide ? ['org', 'person', 'department', 'store'] : isHod ? ['person', 'department'] : ['person']),
     [orgWide, isHod],
   );
   const canPickPerson = !!role && !OWN_SCOPE_ROLES.includes(role);
   const canExportReport = orgWide || isHod;
 
-  const [scope, setScope] = useState<ScoreScope>('person');
+  const [scope, setScope] = useState<ScoreScope>(() => (initialScope === 'org' && !orgWide ? 'person' : initialScope));
   const initialPrefs = useMemo(() => loadPrefs(user?.id), [user?.id]);
   const [period, setPeriodState] = useState<ScorePeriod>(() => (isPeriod(initialPrefs.period) ? initialPrefs.period : 'month'));
   const [offset, setOffset] = useState(0);
@@ -212,7 +214,7 @@ export const MyScoresCard = () => {
   // something else overrides it; switching view puts it back.
   const ownDefault = scope === 'department' ? user?.departmentId ?? '' : scope === 'store' ? user?.storeId ?? '' : '';
   const effectivePick = picked || ownDefault;
-  const ready = scope === 'person' || !!effectivePick;
+  const ready = scope === 'person' || scope === 'org' || !!effectivePick;
   const targetId = effectivePick || undefined;
 
   const range = windowFor(period, offset);
@@ -242,6 +244,10 @@ export const MyScoresCard = () => {
     const id = targetId ?? user?.id ?? '';
     const late = kind === 'late';
     const quick = late ? 'delayed' : 'completed';
+    if (scope === 'org') {
+      if (module === 'checklist') return kind === 'late' ? '/admin/checklist-compliance' : '/admin/checklist-weekly';
+      return module === 'ticket' ? `/tickets?quickFilter=${quick}` : `/tasks?quickFilter=${quick}`;
+    }
     if (module === 'delegation') {
       if (scope === 'person') return mine ? `/tasks?quickFilter=${quick}&mine=1` : `/tasks?quickFilter=${quick}&assigneeIds=${id}`;
       return scope === 'department' ? `/tasks?quickFilter=${quick}&departmentId=${id}` : `/tasks?quickFilter=${quick}&storeId=${id}`;
@@ -308,7 +314,7 @@ export const MyScoresCard = () => {
   };
 
   const heading = scope === 'person' && !targetId ? 'Your scores' : `${data?.name ?? SCOPE_LABEL[scope]} scores`;
-  const showPicker = scope === 'person' ? canPickPerson : !(scope === 'department' && isHod);
+  const showPicker = scope === 'org' ? false : scope === 'person' ? canPickPerson : !(scope === 'department' && isHod);
 
   return (
     <section ref={cardRef} className={`${DASHBOARD_CARD_CLASS} @container flex flex-col gap-3 p-3 sm:p-4 min-w-0`} aria-label="Scores">
@@ -460,7 +466,7 @@ export const MyScoresCard = () => {
                 <PeriodTabControl value={metric} options={METRIC_OPTIONS} labels={METRIC_LABEL} onChange={setMetric} fill dense />
 
                 {canExportReport && (
-                  <ScoreRanking compact={isWide} metric={metric} scope={scope} from={range.from} to={range.to} onOpen={(id) => { setPicked(id); setMoreOpen(false); }} />
+                  <ScoreRanking compact={isWide} metric={metric} scope={scope} from={range.from} to={range.to} onOpen={(id) => { if (scope === 'org') setScope('department'); setPicked(id); setMoreOpen(false); }} />
                 )}
               </div>
             )}

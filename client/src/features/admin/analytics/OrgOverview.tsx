@@ -17,6 +17,7 @@ import { PerformanceLeadersCard } from './PerformanceLeadersCard';
 import { TeamLeaderboardRail } from './TeamLeaderboardRail';
 import { useAnalyticsRefresh, useRecentActivityFeed } from './useAnalyticsQueries';
 import { RecentActivity } from '../../dashboard/RecentActivity';
+import { MyScoresCard } from '../../dashboard/MyScoresCard';
 import type { Department } from '../../../api/departments';
 import type { Store } from '../../../api/stores';
 import type { AdminUser } from '../../../api/admin';
@@ -240,15 +241,24 @@ export const OrgOverview = () => {
         onRefresh={() => void refresh()}
         actions={
           orgWide ? (
+            <>
+            <Button variant="outline" size="sm" onClick={() => navigate('/admin/scorecard')}>
+              Scorecard
+            </Button>
             <Button variant="outline" size="sm" onClick={() => navigate('/admin/reports')}>
               <FileDown size={14} aria-hidden="true" />
               Reports
             </Button>
+            </>
           ) : undefined
         }
       />
 
       <AnalyticsSummaryStrip groupBy={groupBy} from={from} to={to} onViewSection={jumpToSection} isOrgWideRole={orgWide} />
+
+      {/* Admin and PC: checklists, tickets and delegations side by side for the whole organisation, as
+          completion, compliance and on time, with every department ranked under it. */}
+      {orgWide && <MyScoresCard initialScope="org" />}
 
       {/* Who is top and who is low, right on the page: the full ranked table lives in the Stores
           tab below, this is the glance view of it. Org-wide roles only. */}

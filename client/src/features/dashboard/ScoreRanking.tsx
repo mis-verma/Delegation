@@ -13,7 +13,7 @@ type Metric = 'completion' | 'compliance' | 'ontime';
 type SortKey = 'name' | 'overall' | 'checklist' | 'ticket' | 'delegation';
 
 const METRIC_LABEL: Record<Metric, string> = { completion: 'Completion', compliance: 'Compliance', ontime: 'On time' };
-const SUBJECT: Record<ScoreScope, string> = { person: 'people', department: 'departments', store: 'stores' };
+const SUBJECT: Record<ScoreScope, string> = { org: 'departments', person: 'people', department: 'departments', store: 'stores' };
 const BAR: Record<RateTone, string> = { success: 'bg-success', warning: 'bg-warning', danger: 'bg-danger', neutral: 'bg-text-light' };
 const TEXT: Record<RateTone, string> = { success: 'text-success', warning: 'text-warning', danger: 'text-danger', neutral: 'text-text-muted' };
 
@@ -87,7 +87,8 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
   });
 
   const rows = useMemo(() => {
-    const source = scope === 'person' ? data?.people : scope === 'department' ? data?.departments : data?.stores;
+    // The whole-organisation view lists its departments.
+    const source = scope === 'person' ? data?.people : scope === 'department' || scope === 'org' ? data?.departments : data?.stores;
     const needle = query.trim().toLowerCase();
     const list = (source ?? [])
       .filter((r) => !needle || r.name.toLowerCase().includes(needle) || r.department.toLowerCase().includes(needle))

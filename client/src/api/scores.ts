@@ -1,6 +1,6 @@
 import { apiFetch } from './http';
 
-export type ScoreScope = 'person' | 'department' | 'store';
+export type ScoreScope = 'person' | 'department' | 'store' | 'org';
 export type TrendPeriod = 'day' | 'week' | 'month' | 'quarter' | 'year';
 
 export interface ChecklistScore {
