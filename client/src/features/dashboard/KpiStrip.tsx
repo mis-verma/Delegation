@@ -1,17 +1,15 @@
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
-import { ClipboardList, TicketCheck, ListChecks, ListTodo, type LucideIcon } from 'lucide-react';
-import { StatusBreakdownCard } from './StatusBreakdownCard';
+import { AlertTriangle, ChevronRight, ClipboardList, TicketCheck, ListChecks, ListTodo, type LucideIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { DrilldownModal, type DrilldownRow } from './DrilldownModal';
-import { AdminChromeAccents } from '../admin/AdminChromeAccents';
 import { Skeleton } from '../../components/skeleton';
+import { PANEL_CLASS } from '../../components/entityCard';
+import { CountUp } from '../../components/countUp';
 import { useNow } from '../../lib/useNow';
 import { isInstanceOverdue } from '../checklist/checklistDisplay';
 import { isTaskOverdue, isTicketLate, taskDrilldownRow } from './dashboardDisplay';
 import { createdRangeHref } from '../../lib/createdRange';
-import { scoreApi, type Scores } from '../../api/scores';
-import { windowFor } from './scorePeriods';
 import type { DashboardSummaries } from './useDashboardSummaries';
 import type { Task } from '../../api/task';
 import type { Ticket } from '../../api/ticket';
@@ -19,14 +17,6 @@ import type { Todo } from '../../api/todos';
 import type { ChecklistInstance } from '../../api/checklistInstances';
 
 type ModuleKey = 'delegation' | 'tickets' | 'checklist' | 'todo';
-// This month's completion and compliance of a module, for the Scores tab inside its card.
-const scoresOf = (key: ModuleKey, s: Scores | undefined): { completion: number | null; compliance: number | null; due: number } | null => {
-  if (!s) return null;
-  if (key === 'delegation') return { completion: s.delegation.completionPct, compliance: s.delegation.compliancePct, due: s.delegation.due };
-  if (key === 'tickets') return { completion: s.ticket.completionPct, compliance: s.ticket.compliancePct, due: s.ticket.due };
-  if (key === 'checklist') return { completion: s.checklist.completionPct, compliance: s.checklist.compliancePct, due: s.checklist.due };
-  return null;
-};
 type DrillKind = 'pending' | 'completed' | 'newToday' | 'overdue';
 
 interface KpiStripProps {
@@ -39,7 +29,7 @@ interface KpiStripProps {
   ticketList: Ticket[];
   todoList: Todo[];
   checklistList: ChecklistInstance[];
-  /** Front-line staff: just the counts, no Counts / Scores switch on the cards. */
+  /** Kept for callers; the cards are the same for everyone now (no Counts / Scores switch). */
   simple?: boolean;
 }
 
@@ -91,97 +81,96 @@ const checklistRow = (c: ChecklistInstance): DrilldownRow => {
   return { id: c.id, title: c.title, link: `/checklists/${c.id}`, createdAt: c.generatedAt, completed, overdue: isInstanceOverdue(c, completed) };
 };
 
-/**
- * Mirrors StatusBreakdownCard's real structure (same shell, header divider and right-hand total
- * box) so what loads in looks like what was loading. On the navy shell the shared Skeleton's
- * default fill is overridden to `bg-white/10` so the placeholders read against the dark ground.
- */
-const KpiCardSkeleton = () => (
-  <div
-    className="relative flex flex-col overflow-hidden rounded-2xl border border-transparent bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700"
-    role="status"
-    aria-label="Loading"
-  >
-    <div className="relative z-10 flex items-center gap-2 px-4 min-h-11 border-b border-white/10 overflow-hidden">
-      <AdminChromeAccents scale="compact" />
-      <Skeleton className="size-4 rounded shrink-0 bg-white/10" />
-      <Skeleton className="h-4 w-28 rounded-md bg-white/10" />
-    </div>
-    <div className="relative z-10 flex items-stretch gap-3 p-3">
-      <div className="flex-1 flex flex-col justify-center gap-3 px-1">
-        {[0, 1, 2].map((i) => (
-          <div key={i} className="flex items-center justify-between gap-4">
-            <Skeleton className="h-3.5 w-20 rounded bg-white/10" />
-            <Skeleton className="h-3.5 w-6 rounded bg-white/10" />
-          </div>
-        ))}
-      </div>
-      <div className="flex flex-col items-center justify-center gap-1.5 w-24 sm:w-28 shrink-0 rounded-xl border border-white/15 bg-white/5">
-        <Skeleton className="h-7 w-12 rounded-md bg-white/10" />
-        <Skeleton className="h-3 w-10 rounded bg-white/10" />
-      </div>
-    </div>
-  </div>
-);
-
-interface MobileTileProps {
-  view: ModuleView;
-}
-
-// Mobile: the headline is what is still open, with the total beside it as the secondary figure, and
-// a tap goes straight to that pending list. No toggle, no breakdown: the full card lives at `sm:`.
-const MobileTile = ({ view }: MobileTileProps) => {
-  const shell = 'relative overflow-hidden flex flex-col items-center justify-center gap-0.5 p-2.5 rounded-xl min-h-[4.5rem] bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700 text-white text-center';
-
-  if (view.isPending) {
-    return <Skeleton className="min-h-20 rounded-xl" />;
-  }
-
-  const head = (
-    <span className="flex items-center gap-2 min-w-0">
-      <span className="t-meta font-display font-semibold text-white/90">{view.title}</span>
-    </span>
+// One card per module, the same on a phone and a desktop: a white card with the module's name, the
+// open count as the headline (blue, bold) with a red overdue chip beside it, and Completed, New today
+// and Total underneath. Every figure opens the matching preview. A phone shows the same card, a little
+// tighter, two across.
+const MiniStat = ({ label, value, onClick }: { label: string; value: number | null; onClick?: () => void }) => {
+  const body = (
+    <>
+      <span className="block text-base sm:text-lg font-display font-bold tabular-nums leading-tight text-text">{value ?? '-'}</span>
+      <span className="block truncate t-meta text-text-muted">{label}</span>
+    </>
   );
-
-  if (view.isError || view.pending == null) {
-    return (
-      <button type="button" onClick={view.onRetry} className={`${shell} cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400`}>
-        {head}
-        <span className="text-sm font-display font-bold">No data</span>
-        <span className="t-meta font-display font-medium text-white/70">Tap to retry</span>
-      </button>
-    );
-  }
-
-  return (
-    <Link
-      viewTransition
-      to={VIEW_ALL_HREF[view.key].pending}
-      aria-label={`${view.title}: ${view.pending} pending${view.total != null ? `, ${view.total} ${view.totalLabel.toLowerCase()}` : ''}${view.overdue > 0 ? `, ${view.overdue} overdue` : ''}`}
-      className={`${shell} transition-transform duration-150 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background`}
-    >
-      {head}
-      <span className="flex items-baseline gap-1.5">
-        <span className="t-figure font-display font-bold tabular-nums leading-tight">{view.pending}</span>
-        <span className="t-meta font-display font-medium text-white/70">pending</span>
-      </span>
-      <span className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
-        {view.total != null && (
-          <span className="t-meta font-display font-medium text-white/70 tabular-nums">
-            {view.totalLabel === 'Total' ? `of ${view.total} total` : `${view.total} today`}
-          </span>
-        )}
-        {view.overdue > 0 && (
-          <span className="inline-flex items-center h-4.5 px-1.5 rounded-full bg-danger text-white text-[0.6875rem] font-display font-bold tabular-nums">
-            {view.overdue} overdue
-          </span>
-        )}
-      </span>
-    </Link>
+  return onClick ? (
+    <button type="button" onClick={onClick} className="min-w-0 rounded-lg px-1 py-1 text-left outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary-500/40">
+      {body}
+    </button>
+  ) : (
+    <div className="min-w-0 px-1 py-1">{body}</div>
   );
 };
 
-export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistList, simple = false }: KpiStripProps) => {
+const ModuleCard = ({ view, onOpen }: { view: ModuleView; onOpen: (kind: DrillKind) => void }) => {
+  const Icon = view.icon;
+  if (view.isPending) {
+    return (
+      <div className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-3 sm:p-4')} role="status" aria-label={`Loading ${view.noun}`}>
+        <Skeleton className="h-5 w-28" />
+        <Skeleton className="h-8 w-16" />
+        <Skeleton className="hidden sm:block h-10 w-full" />
+      </div>
+    );
+  }
+  const failed = view.isError || view.pending == null;
+  return (
+    <section aria-label={view.title} className={cn(PANEL_CLASS, 'flex min-w-0 flex-col gap-2.5 sm:gap-3 p-3 sm:p-4 transition-colors hover:border-border-hover')}>
+      <header className="flex items-center gap-2">
+        <span className="flex size-7 sm:size-8 shrink-0 items-center justify-center rounded-lg bg-primary-500/10 text-primary-600 dark:text-primary-400">
+          <Icon className="size-3.5 sm:size-4" aria-hidden="true" />
+        </span>
+        <h3 className="min-w-0 flex-1 truncate t-card font-display font-bold text-text">{view.title}</h3>
+        <Link
+          viewTransition
+          to={view.href}
+          aria-label={`Open ${view.title}`}
+          className="inline-flex size-8 sm:size-auto sm:min-h-8 shrink-0 items-center justify-center gap-0.5 rounded-lg sm:px-1.5 t-meta font-display font-semibold text-primary-600 hover:bg-surface-hover dark:text-primary-400"
+        >
+          <span className="hidden sm:inline">View all</span>
+          <ChevronRight className="size-4" aria-hidden="true" />
+        </Link>
+      </header>
+
+      {failed ? (
+        <button type="button" onClick={view.onRetry} className="rounded-lg border border-border/60 px-3 py-3 text-left t-meta text-text-muted hover:border-border-hover">
+          Couldn't load {view.noun}. Tap to try again.
+        </button>
+      ) : (
+        <>
+          <div className="flex items-end justify-between gap-2">
+            <button type="button" onClick={() => onOpen('pending')} className="min-w-0 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40">
+              <span className="block t-figure font-display font-bold tabular-nums leading-none text-primary-700 dark:text-primary-300">
+                <CountUp value={view.pending ?? 0} />
+              </span>
+              <span className="mt-1 block t-meta font-medium text-text-muted">Pending</span>
+            </button>
+            {view.overdue > 0 && (
+              <button
+                type="button"
+                onClick={() => onOpen('overdue')}
+                className="inline-flex shrink-0 items-center gap-1 rounded-full bg-danger/10 px-2 py-1 t-meta font-display font-bold tabular-nums text-danger outline-none hover:bg-danger/15 focus-visible:ring-2 focus-visible:ring-danger/40"
+              >
+                <AlertTriangle className="size-3" aria-hidden="true" />
+                {view.overdue} overdue
+              </button>
+            )}
+          </div>
+          {/* Phone: one short line. Tablet and desktop: three figures you can open. */}
+          <p className="sm:hidden truncate t-meta text-text-muted tabular-nums">
+            {view.completed ?? 0} done · {view.newToday ?? 0} new · {view.total ?? 0} {view.totalLabel === 'Total' ? 'total' : 'today'}
+          </p>
+          <div className="hidden sm:grid grid-cols-3 gap-1 border-t border-border/60 pt-2">
+            <MiniStat label="Completed" value={view.completed} onClick={() => onOpen('completed')} />
+            <MiniStat label="New today" value={view.newToday} onClick={() => onOpen('newToday')} />
+            <MiniStat label={view.totalLabel === 'Total' ? 'Total' : 'Total today'} value={view.total} />
+          </div>
+        </>
+      )}
+    </section>
+  );
+};
+
+export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistList }: KpiStripProps) => {
   const now = useNow();
   const [openDrill, setOpenDrill] = useState<{ key: ModuleKey; kind: DrillKind } | null>(null);
   const { tasks, tickets, todos, checklist, checklistToday } = summaries;
@@ -282,47 +271,12 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
     };
   }, [openDrill, views, now, taskList, ticketList, todoList, checklistList]);
 
-  // This month's scores for the signed-in person. The same query key as the Scores card's month view, so the two share one fetch.
-  const month = windowFor('month', 0);
-  const monthScores = useQuery({
-    queryKey: ['scores', 'person', 'me', month.from, month.to],
-    queryFn: () => scoreApi.get({ scope: 'person', from: month.from, to: month.to }),
-    staleTime: 60_000,
-  });
-
   return (
     <div className="flex flex-col gap-3">
-      <div className="grid sm:hidden grid-cols-2 gap-2.5">
-        {views.map((view) => <MobileTile key={view.key} view={view} />)}
-      </div>
-
-      <div className="hidden sm:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        {views.map((view) => {
-          if (view.isPending) return <KpiCardSkeleton key={view.key} />;
-          const open = (kind: DrillKind) => () => setOpenDrill({ key: view.key, kind });
-          const scored = scoresOf(view.key, monthScores.data);
-          return (
-            <StatusBreakdownCard
-              key={view.key}
-              variant="navy"
-              icon={view.icon}
-              title={view.title}
-              href={view.href}
-              total={view.isError ? null : view.total}
-              totalLabel={view.totalLabel}
-              error={view.isError ? { message: `Couldn't load ${view.noun}.`, onRetry: view.onRetry } : undefined}
-              overdue={{ value: view.overdue, onClick: open('overdue') }}
-              rows={[
-                { label: 'Pending', value: view.pending, onClick: open('pending') },
-                { label: 'Completed', value: view.completed, onClick: open('completed') },
-                { label: 'New today', value: view.newToday, onClick: open('newToday') },
-              ]}
-              // To-do has no score, so its card has no tab.
-              scores={simple || view.key === 'todo' ? undefined : monthScores.isPending ? 'loading' : scored ?? undefined}
-              scoresPeriod={month.label}
-            />
-          );
-        })}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+        {views.map((view) => (
+          <ModuleCard key={view.key} view={view} onOpen={(kind) => setOpenDrill({ key: view.key, kind })} />
+        ))}
       </div>
 
       {drilldown && (
