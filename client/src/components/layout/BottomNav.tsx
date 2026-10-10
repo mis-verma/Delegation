@@ -72,7 +72,7 @@ export const BottomNav = () => {
                 </span>
                 {badge && <NavCountBadge badge={badge} className="-top-6 left-1/2 ml-3" />}
                 <span
-                  className={`relative text-xs leading-none font-display ${
+                  className={`relative text-[0.6875rem] leading-none font-display tracking-tight ${
                     isActive ? 'text-primary-700 dark:text-primary-300 font-bold' : 'text-text-secondary font-semibold'
                   }`}
                 >
@@ -105,7 +105,7 @@ export const BottomNav = () => {
                 {badge && <NavCountBadge badge={badge} className="-top-1.5 left-1/2 ml-1.5" />}
               </span>
               <span
-                className={`relative text-xs leading-none font-display transition-colors duration-200 ${
+                className={`relative text-[0.6875rem] leading-none font-display tracking-tight transition-colors duration-200 ${
                   isActive ? 'text-primary-700 dark:text-primary-300 font-bold' : 'text-text-muted font-medium group-hover:text-text'
                 }`}
               >

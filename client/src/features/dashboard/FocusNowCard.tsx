@@ -149,7 +149,7 @@ export const FocusNowCard = ({ tasks, tickets, checklists, todos, now }: FocusNo
               >
                 <Icon className="size-4 shrink-0 text-text-muted" aria-hidden="true" />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-display font-semibold text-text">{item.title}</span>
+                  <span className="block truncate text-sm font-display font-medium sm:font-semibold text-text">{item.title}</span>
                   <span className="block truncate t-meta text-text-muted">{item.detail}</span>
                 </span>
                 <span className={cn('shrink-0 rounded-full px-2 py-0.5 t-meta font-display font-semibold', REASON_TONE[item.reason])}>{REASON_LABEL[item.reason]}</span>

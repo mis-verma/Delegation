@@ -39,15 +39,15 @@ const ApprovalLink = memo(({ row }: { row: ApprovalRow }) => {
     <Link
       to={row.link}
       viewTransition
-      className="group/row flex items-center gap-3 min-h-11 rounded-xl border border-border/60 bg-surface px-3 py-2.5 sm:px-3.5 sm:py-3 transition-[color,background-color,border-color,transform] duration-200 active:scale-[0.985] motion-reduce:transition-none hover:border-primary-500/40 hover:bg-primary-500/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+      className="group/row flex items-center gap-2.5 sm:gap-3 min-h-11 rounded-lg border border-border/60 bg-surface px-2.5 py-2 sm:px-3.5 sm:py-3 transition-[color,background-color,border-color,transform] duration-200 active:scale-[0.985] motion-reduce:transition-none hover:border-primary-500/40 hover:bg-primary-500/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
     >
-      <div className="flex items-center justify-center size-7 rounded-md shrink-0 bg-primary-500/10 text-primary-600 dark:text-primary-400">
-        <Icon size={14} strokeWidth={2} />
+      <div className="flex items-center justify-center size-6 sm:size-7 rounded-md shrink-0 bg-primary-500/10 text-primary-600 dark:text-primary-400">
+        <Icon className="size-3.5" strokeWidth={2} />
       </div>
       <div className="flex-1 min-w-0">
         {/* line-clamp-2, not truncate: this row's icon and chevron leave little width for the title
             on a phone, and truncate cut titles down to a fragment. */}
-        <p className="text-sm font-display font-semibold text-text line-clamp-2 leading-snug">{row.title.replace(/\.(\s+·|\s*$)/, '$1')}</p>
+        <p className="truncate sm:whitespace-normal sm:line-clamp-2 text-sm font-display font-medium sm:font-semibold text-text leading-snug">{row.title.replace(/\.(\s+·|\s*$)/, '$1')}</p>
         <p className="t-meta font-medium text-text-light flex items-center gap-1.5">
           {row.meta && (
             <>

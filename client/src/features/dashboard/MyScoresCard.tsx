@@ -14,6 +14,7 @@ import { scoreApi, type ScoreReport, type ScoreReportRow, type Scores, type Scor
 import { csvBlob, xlsxBlob, downloadBlob, stampedFilename, type TableRows } from '../../lib/exportTable';
 import { useAssignableUsersQuery, useDepartmentsQuery, useStoresQuery } from '../tickets/hook';
 import { PeriodTabControl } from './PeriodTabControl';
+import { useIsMobile } from '../../lib/useMediaQuery';
 import { ScoreBars } from './ScoreBars';
 import { ScoreDrillPopup } from './ScoreDrillPopup';
 import { ScoreRanking } from './ScoreRanking';
@@ -191,7 +192,10 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
   const [view, setViewState] = useState<ScoreView>(() => (isView(initialPrefs.view) ? initialPrefs.view : 'bars'));
   const [compare, setCompareState] = useState<boolean>(() => initialPrefs.compare === true);
   const [metricChoice, setMetricState] = useState<ScoreMetric>(() => (isMetric(initialPrefs.metric) ? initialPrefs.metric : 'overview'));
-  const metric: ScoreMetric = simple ? 'overview' : metricChoice;
+  // On a phone the card is a glance: this month's bars, nothing to set. Not when a page sets the window.
+  const isPhone = useIsMobile();
+  const glance = isPhone && !pageWindow;
+  const metric: ScoreMetric = simple || glance ? 'overview' : metricChoice;
   const navigate = useNavigate();
 
   // Every change to view, period or compare is saved. A storage that refuses (private window) just forgets.
@@ -223,7 +227,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
   // A ranked row opens that department (or person, or store) on the card itself.
   const openRanked = (id: string) => { if (scope === 'org') setScope('department'); setPicked(id); setMoreOpen(false); };
   const views = VIEWS;
-  const activeView: ScoreView = simple ? 'dials' : view;
+  const activeView: ScoreView = glance ? 'bars' : simple ? 'dials' : view;
   const setView = (next: ScoreView) => { setViewState(next); remember({ view: next }); };
 
   const people = useAssignableUsersQuery();
@@ -251,8 +255,8 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
   const targetId = effectivePick || undefined;
 
   // In simple mode only Week and Month exist; anything else saved earlier reads as Month.
-  const shownPeriod: ScorePeriod = simple && period !== 'week' ? 'month' : period;
-  const range = pageWindow ?? windowFor(shownPeriod, offset);
+  const shownPeriod: ScorePeriod = glance ? 'month' : simple && period !== 'week' ? 'month' : period;
+  const range = pageWindow ?? windowFor(shownPeriod, glance ? 0 : offset);
   // With the page's window, the trend is cut to suit its length.
   const trendPeriod: ScorePeriod = pageWindow ? periodForSpan(spanDays(pageWindow.from, pageWindow.to)) : period;
   const queryClient = useQueryClient();
@@ -272,9 +276,9 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
     : windowFor(period, offset - 1);
   const previousQuery = useQuery<Scores>({
     ...scoreQuery(scope, targetId, previousRange.from, previousRange.to),
-    enabled: ready && compare && !simple && (activeView === 'bars' || activeView === 'dials'),
+    enabled: ready && compare && !simple && !glance && (activeView === 'bars' || activeView === 'dials'),
   });
-  const previous = compare && !simple ? previousQuery.data : undefined;
+  const previous = compare && !simple && !glance ? previousQuery.data : undefined;
 
   // Where the late items for a module live, for the subject on the card. A list that cannot be narrowed to
   // the subject (checklists of someone else) has no link rather than a misleading one.
@@ -369,9 +373,10 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
                 <p className="mt-1.5">Work that is not due yet is left out, so a running week or month does not look low. Good is 80% or more, Fair 50 to 79, Low under 50.</p>
               </InfoHint>
             </div>
+            {glance && <p className="mt-0.5 t-meta font-medium text-text-muted">{range.label}</p>}
             <p className="mt-0.5 hidden t-meta font-medium text-text-muted sm:block">What came due, how much got done, and how much was done right or on time</p>
           </div>
-          {!simple && <div className="flex items-center justify-between gap-2 sm:justify-end sm:shrink-0">
+          {!simple && !glance && <div className="flex items-center justify-between gap-2 sm:justify-end sm:shrink-0">
             {moreHref && (
               <Link viewTransition to={moreHref} className="inline-flex min-h-9 pointer-coarse:min-h-11 items-center gap-0.5 rounded-lg px-2 text-sm font-display font-semibold text-primary-600 hover:underline dark:text-primary-400">
                 Full scorecard <ChevronRight className="size-4" aria-hidden="true" />
@@ -425,7 +430,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
           the left, the controls as a panel on the right. */}
       <div className={simple ? 'flex flex-col gap-3' : 'flex flex-col gap-3 @4xl:grid @4xl:grid-cols-[minmax(0,1fr)_20rem] @4xl:grid-rows-[auto_1fr_auto] @4xl:gap-x-5 @4xl:gap-y-3'}>
       {/* The date steps stay in view: the day or week is the thing people change most. */}
-      {pageWindow ? (
+      {glance ? null : pageWindow ? (
         <div className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-border bg-surface-hover/30 px-3 py-2 @4xl:col-start-1 @4xl:row-start-1">
           <span className="truncate text-sm font-display font-semibold text-text">{range.label}</span>
           <span className="shrink-0 t-meta text-text-muted">from the period above</span>
@@ -444,11 +449,11 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
       </div>
       )}
 
-      {simple && (
+      {simple && !glance && (
         <PeriodTabControl value={period === 'week' ? 'week' : 'month'} options={SIMPLE_PERIODS} labels={PERIOD_LABEL} onChange={(next) => { setPeriod(next); setOffset(0); }} fill />
       )}
 
-      {!simple && (<>
+      {!simple && !glance && (<>
       {/* Everything that picks WHAT is shown (person, department or store, the day, week or month, the measure,
           and the list of everyone with its search) is folded under one row, so the card stays short and opens on
           the signed-in person's own scores. A phone starts folded; a desktop starts open. The fold is a CSS grid

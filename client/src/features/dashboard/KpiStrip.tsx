@@ -131,7 +131,7 @@ interface MobileTileProps {
 // Mobile: the headline is what is still open, with the total beside it as the secondary figure, and
 // a tap goes straight to that pending list. No toggle, no breakdown: the full card lives at `sm:`.
 const MobileTile = ({ view }: MobileTileProps) => {
-  const shell = 'relative overflow-hidden flex flex-col items-center justify-center gap-1 p-3 rounded-xl min-h-24 bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700 text-white text-center';
+  const shell = 'relative overflow-hidden flex flex-col items-center justify-center gap-0.5 p-2.5 rounded-xl min-h-[4.5rem] bg-gradient-to-br from-primary-900 via-primary-800 to-primary-700 text-white text-center';
 
   if (view.isPending) {
     return <Skeleton className="min-h-20 rounded-xl" />;
@@ -162,7 +162,7 @@ const MobileTile = ({ view }: MobileTileProps) => {
     >
       {head}
       <span className="flex items-baseline gap-1.5">
-        <span className="t-figure font-display font-bold tabular-nums">{view.pending}</span>
+        <span className="t-figure font-display font-bold tabular-nums leading-tight">{view.pending}</span>
         <span className="t-meta font-display font-medium text-white/70">pending</span>
       </span>
       <span className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
@@ -172,7 +172,7 @@ const MobileTile = ({ view }: MobileTileProps) => {
           </span>
         )}
         {view.overdue > 0 && (
-          <span className="inline-flex items-center h-5 px-1.5 rounded-full bg-danger text-white t-meta font-display font-bold tabular-nums">
+          <span className="inline-flex items-center h-4.5 px-1.5 rounded-full bg-danger text-white text-[0.6875rem] font-display font-bold tabular-nums">
             {view.overdue} overdue
           </span>
         )}

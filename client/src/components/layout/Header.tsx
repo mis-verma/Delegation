@@ -109,7 +109,7 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
     // that this one keeps the logo (the Admin header leaves the brand to its sidebar; here the logo
     // is the way home and the only brand mark on screen).
     <header className="relative z-30 shrink-0 mx-3 mt-3 rounded-2xl bg-surface border border-border max-sm:border-border/60 max-sm:bg-gradient-to-br max-sm:from-primary-500/[0.07] max-sm:to-transparent">
-      <div className="flex items-center gap-3 sm:gap-4 h-16 px-3 sm:px-5">
+      <div className="flex items-center gap-3 sm:gap-4 h-14 sm:h-16 px-3 sm:px-5">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           {onToggleSidebar && (
             <button
@@ -148,7 +148,7 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
           {/* Phones: the page (or a greeting on Home) with today's date under it. */}
           {phoneTitle && (
             <div className="sm:hidden flex flex-col min-w-0 leading-tight">
-              <span className="text-base font-display font-bold text-text tracking-tight truncate">{phoneTitle}</span>
+              <span className="text-[0.9375rem] font-display font-bold text-text tracking-tight truncate">{phoneTitle}</span>
               <span className="text-xs font-medium text-text-muted truncate">{phoneDate}</span>
             </div>
           )}
