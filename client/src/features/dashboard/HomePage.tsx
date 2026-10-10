@@ -21,6 +21,7 @@ import { ActivityOverviewCard } from './ActivityOverviewCard';
 import { NeedsApprovalCard } from './NeedsApprovalCard';
 import { TodayStrip } from './TodayStrip';
 import { MobileTodayHero } from './MobileTodayHero';
+import { FocusNowCard } from './FocusNowCard';
 import { TeamProgressCard } from './TeamProgressCard';
 import { MyScoresCard } from './MyScoresCard';
 import { RecentActivity, RECENT_ACTIVITY_FEED_SIZE } from './RecentActivity';
@@ -46,6 +47,7 @@ import {
   taskDrilldownRow,
 } from './dashboardDisplay';
 import type { Task } from '../../api/task';
+import type { ChecklistInstance } from '../../api/checklistInstances';
 import type { Ticket } from '../../api/ticket';
 
 // The two heaviest cards are ADMIN/PC only and sit well below the fold, so their code (and the
@@ -99,6 +101,8 @@ export const HomePage = () => {
   const { user } = useAuth();
   const userId = user?.id;
   const isOrgWideRole = user?.role === 'ADMIN' || user?.role === 'PC';
+  // User and Agent: their own work only, so the dashboard drops filters, views and settings for them.
+  const frontLine = !!user && OWN_SCOPE_ROLES.includes(user.role);
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
   // Re-read every minute and when the tab comes back, so overdue and "today" stay true on a
@@ -152,6 +156,18 @@ export const HomePage = () => {
   // Feed and previews only: a page of recent runs, not every instance the user was ever assigned.
   const { data: checklistData } = useMyChecklistInstancesQuery({}, { limit: 25 }, DASHBOARD_QUERY_OPTIONS);
   const todos = useMemo(() => todosData ?? [], [todosData]);
+  // The "things need you" list asks the server directly for each kind it shows, so an older run sent back
+  // or left unsubmitted is never missed because it fell outside the latest 25. Front-line staff only.
+  const focusOptions = { ...DASHBOARD_QUERY_OPTIONS, enabled: frontLine };
+  const { data: sentBackRuns } = useMyChecklistInstancesQuery({ verificationStatus: 'REJECTED' }, { limit: 50 }, focusOptions);
+  const { data: overdueRuns } = useMyChecklistInstancesQuery({ status: 'OVERDUE' }, { limit: 50 }, focusOptions);
+  const { data: unsentRuns } = useMyChecklistInstancesQuery({ status: 'COMPLETED', verificationStatus: 'NOT_SUBMITTED' }, { limit: 50 }, focusOptions);
+  const { data: dueRuns } = useMyChecklistInstancesQuery({ status: 'DUE' }, { limit: 50 }, focusOptions);
+  const focusChecklists = useMemo(() => {
+    const byId = new Map<string, ChecklistInstance>();
+    for (const list of [sentBackRuns, overdueRuns, unsentRuns, dueRuns, checklistData]) for (const c of list ?? []) byId.set(c.id, c);
+    return [...byId.values()];
+  }, [sentBackRuns, overdueRuns, unsentRuns, dueRuns, checklistData]);
   const checklistInstances = useMemo(() => checklistData ?? [], [checklistData]);
 
   const isPending = ticketsPending || tasksPending;
@@ -182,6 +198,8 @@ export const HomePage = () => {
     [visibleTasks, userId],
   );
   const teamTasks = isOrgWideRole ? visibleTasks : tasks;
+  // Tickets this person has to work on (not ones they only raised), for the "things need you" list.
+  const myAssignedTickets = useMemo(() => visibleTickets.filter((t) => t.assigneeId === userId), [visibleTickets, userId]);
 
   const feed = useMemo<FeedItem[]>(
     () => [
@@ -273,6 +291,8 @@ export const HomePage = () => {
   const renderCard = (id: DashboardCardId): ReactNode => {
     switch (id) {
       case 'todayStrip':
+        // Front-line staff get the "things need you" list above the cards instead.
+        if (frontLine) return null;
         return <TodayStrip summaries={summaries} onRefresh={refresh} isRefreshing={isRefreshing} />;
       case 'needsApproval':
         return <NeedsApprovalCard />;
@@ -284,6 +304,7 @@ export const HomePage = () => {
             ticketList={visibleTickets}
             todoList={todos}
             checklistList={checklistInstances}
+            simple={frontLine}
           />
         );
       case 'quickActions':
@@ -344,12 +365,12 @@ export const HomePage = () => {
           </Suspense>
         );
       case 'myScores':
-        return <MyScoresCard />;
+        return <MyScoresCard simple={frontLine} />;
       case 'teamProgress':
         if (tasksFailed) return <CardLoadError label={CARD_LABEL.teamProgress} message="Couldn't load delegations." onRetry={retryTasks} />;
         return tasksPending ? <CardSkeleton label="team progress" /> : <TeamProgressCard tasks={teamTasks} isOrgWideRole={isOrgWideRole} />;
       case 'recentActivity':
-        return <RecentActivity feed={feed} isPending={isPending} isError={tasksFailed || ticketsFailed} onRetry={retryWork} />;
+        return <RecentActivity feed={feed} isPending={isPending} isError={tasksFailed || ticketsFailed} onRetry={retryWork} simple={frontLine} />;
       case 'upcomingEvents':
         return <UpcomingEvents events={upcomingEvents ?? []} isPending={eventsPending} isError={eventsFailed} onRetry={retryEvents} />;
     }
@@ -397,7 +418,8 @@ export const HomePage = () => {
           top at full width, so each one can be moved, resized or left alone like the rest. */}
       {/* Desktop only — dragging/resizing cards by a small grip handle isn't a touch-friendly
           interaction. */}
-      <div className="hidden sm:block">
+      {/* Customize is for people who manage the page; front-line staff get a fixed, simple dashboard. */}
+      <div className={frontLine ? 'hidden' : 'hidden sm:block'}>
         <DashboardLayoutToolbar
           isCustomizing={isCustomizing}
           onStart={() => setIsCustomizing(true)}
@@ -409,7 +431,10 @@ export const HomePage = () => {
       </div>
 
       {/* Phones only: the three numbers to act on first, above every card. */}
-      {isMobile && !isCustomizing && <MobileTodayHero summaries={summaries} />}
+      {/* Front-line staff: the exact things to do now, most urgent first, above everything. Everyone else
+          keeps the counts block on a phone. */}
+      {frontLine && <FocusNowCard tasks={assignedTasks} tickets={myAssignedTickets} checklists={focusChecklists} todos={todos} now={now} />}
+      {!frontLine && isMobile && !isCustomizing && <MobileTodayHero summaries={summaries} />}
 
       {isCustomizing ? (
         <Suspense fallback={staticGrid}>

@@ -143,6 +143,9 @@ const shiftDay = (day: string, n: number) => {
 // How a window of that length is cut for the trend.
 const periodForSpan = (days: number): ScorePeriod => (days <= 1 ? 'day' : days <= 7 ? 'week' : days <= 31 ? 'month' : days <= 92 ? 'quarter' : 'year');
 
+// Front-line staff only switch between these two.
+const SIMPLE_PERIODS: readonly ScorePeriod[] = ['week', 'month'];
+
 // One labelled control in the side panel: a small caption over the control, so each row says what it picks.
 const PanelRow = ({ label, children }: { label: string; children: React.ReactNode }) => (
   <div className="flex flex-col gap-1.5">
@@ -156,12 +159,14 @@ const PanelRow = ({ label, children }: { label: string; children: React.ReactNod
  * own. A department head can also open their own department. Admin and PC can open any person,
  * department or store, or the whole organisation. `initialScope`: where the card opens.
  */
-export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, moreHref }: {
+export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, moreHref, simple = false }: {
   initialScope?: ScoreScope;
   /** The page's own period ('YYYY-MM-DD' days). When given, the card follows it and hides its own period controls. */
   window?: { from: string; to: string; label: string };
   /** A page with every department, store and person side by side; shown as a link in the header. */
   moreHref?: string;
+  /** Front-line staff: their own three dials and a Week / Month switch. No views, measures, filters or export. */
+  simple?: boolean;
 } = {}) => {
   const { user } = useAuth();
   const role = user?.role;
@@ -185,7 +190,8 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
   const [exporting, setExporting] = useState(false);
   const [view, setViewState] = useState<ScoreView>(() => (isView(initialPrefs.view) ? initialPrefs.view : 'bars'));
   const [compare, setCompareState] = useState<boolean>(() => initialPrefs.compare === true);
-  const [metric, setMetricState] = useState<ScoreMetric>(() => (isMetric(initialPrefs.metric) ? initialPrefs.metric : 'overview'));
+  const [metricChoice, setMetricState] = useState<ScoreMetric>(() => (isMetric(initialPrefs.metric) ? initialPrefs.metric : 'overview'));
+  const metric: ScoreMetric = simple ? 'overview' : metricChoice;
   const navigate = useNavigate();
 
   // Every change to view, period or compare is saved. A storage that refuses (private window) just forgets.
@@ -217,7 +223,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
   // A ranked row opens that department (or person, or store) on the card itself.
   const openRanked = (id: string) => { if (scope === 'org') setScope('department'); setPicked(id); setMoreOpen(false); };
   const views = VIEWS;
-  const activeView: ScoreView = view;
+  const activeView: ScoreView = simple ? 'dials' : view;
   const setView = (next: ScoreView) => { setViewState(next); remember({ view: next }); };
 
   const people = useAssignableUsersQuery();
@@ -244,7 +250,9 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
   const ready = scope === 'person' || scope === 'org' || !!effectivePick;
   const targetId = effectivePick || undefined;
 
-  const range = pageWindow ?? windowFor(period, offset);
+  // In simple mode only Week and Month exist; anything else saved earlier reads as Month.
+  const shownPeriod: ScorePeriod = simple && period !== 'week' ? 'month' : period;
+  const range = pageWindow ?? windowFor(shownPeriod, offset);
   // With the page's window, the trend is cut to suit its length.
   const trendPeriod: ScorePeriod = pageWindow ? periodForSpan(spanDays(pageWindow.from, pageWindow.to)) : period;
   const queryClient = useQueryClient();
@@ -264,9 +272,9 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
     : windowFor(period, offset - 1);
   const previousQuery = useQuery<Scores>({
     ...scoreQuery(scope, targetId, previousRange.from, previousRange.to),
-    enabled: ready && compare && (activeView === 'bars' || activeView === 'dials'),
+    enabled: ready && compare && !simple && (activeView === 'bars' || activeView === 'dials'),
   });
-  const previous = compare ? previousQuery.data : undefined;
+  const previous = compare && !simple ? previousQuery.data : undefined;
 
   // Where the late items for a module live, for the subject on the card. A list that cannot be narrowed to
   // the subject (checklists of someone else) has no link rather than a misleading one.
@@ -363,7 +371,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
             </div>
             <p className="mt-0.5 hidden t-meta font-medium text-text-muted sm:block">What came due, how much got done, and how much was done right or on time</p>
           </div>
-          <div className="flex items-center justify-between gap-2 sm:justify-end sm:shrink-0">
+          {!simple && <div className="flex items-center justify-between gap-2 sm:justify-end sm:shrink-0">
             {moreHref && (
               <Link viewTransition to={moreHref} className="inline-flex min-h-9 pointer-coarse:min-h-11 items-center gap-0.5 rounded-lg px-2 text-sm font-display font-semibold text-primary-600 hover:underline dark:text-primary-400">
                 Full scorecard <ChevronRight className="size-4" aria-hidden="true" />
@@ -408,14 +416,14 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
-          </div>
+          </div>}
         </div>
 
       </header>
 
       {/* Phone and tablet: steps, then the fold, then the chart, in one column. Wide screen: the chart and the steps on
           the left, the controls as a panel on the right. */}
-      <div className="flex flex-col gap-3 @4xl:grid @4xl:grid-cols-[minmax(0,1fr)_20rem] @4xl:grid-rows-[auto_1fr_auto] @4xl:gap-x-5 @4xl:gap-y-3">
+      <div className={simple ? 'flex flex-col gap-3' : 'flex flex-col gap-3 @4xl:grid @4xl:grid-cols-[minmax(0,1fr)_20rem] @4xl:grid-rows-[auto_1fr_auto] @4xl:gap-x-5 @4xl:gap-y-3'}>
       {/* The date steps stay in view: the day or week is the thing people change most. */}
       {pageWindow ? (
         <div className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-border bg-surface-hover/30 px-3 py-2 @4xl:col-start-1 @4xl:row-start-1">
@@ -436,6 +444,11 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
       </div>
       )}
 
+      {simple && (
+        <PeriodTabControl value={period === 'week' ? 'week' : 'month'} options={SIMPLE_PERIODS} labels={PERIOD_LABEL} onChange={(next) => { setPeriod(next); setOffset(0); }} fill />
+      )}
+
+      {!simple && (<>
       {/* Everything that picks WHAT is shown (person, department or store, the day, week or month, the measure,
           and the list of everyone with its search) is folded under one row, so the card stays short and opens on
           the signed-in person's own scores. A phone starts folded; a desktop starts open. The fold is a CSS grid
@@ -524,6 +537,8 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
           </div>
         </div>
       </div>
+
+      </>)}
 
       <div className="min-w-0 @4xl:col-start-1 @4xl:row-start-2">
       {!ready ? (

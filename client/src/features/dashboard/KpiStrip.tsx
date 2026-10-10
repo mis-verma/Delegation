@@ -39,6 +39,8 @@ interface KpiStripProps {
   ticketList: Ticket[];
   todoList: Todo[];
   checklistList: ChecklistInstance[];
+  /** Front-line staff: just the counts, no Counts / Scores switch on the cards. */
+  simple?: boolean;
 }
 
 interface ModuleView {
@@ -179,7 +181,7 @@ const MobileTile = ({ view }: MobileTileProps) => {
   );
 };
 
-export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistList }: KpiStripProps) => {
+export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistList, simple = false }: KpiStripProps) => {
   const now = useNow();
   const [openDrill, setOpenDrill] = useState<{ key: ModuleKey; kind: DrillKind } | null>(null);
   const { tasks, tickets, todos, checklist, checklistToday } = summaries;
@@ -316,7 +318,7 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
                 { label: 'New today', value: view.newToday, onClick: open('newToday') },
               ]}
               // To-do has no score, so its card has no tab.
-              scores={view.key === 'todo' ? undefined : monthScores.isPending ? 'loading' : scored ?? undefined}
+              scores={simple || view.key === 'todo' ? undefined : monthScores.isPending ? 'loading' : scored ?? undefined}
               scoresPeriod={month.label}
             />
           );

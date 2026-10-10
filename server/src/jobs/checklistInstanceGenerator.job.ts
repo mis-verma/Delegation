@@ -919,7 +919,17 @@ export const dropUntouchedCurrentRunsFor = async (definitionId: string, now: Dat
         }
     }
     if (removed > 0) await dropChecklistSummaries([...affectedAssignees]).catch((err) => console.error("Clearing checklist summary cache after a pause failed:", err))
+    await clearSummariesForDefinition(definitionId)
     return removed
+}
+
+// Everyone ever assigned a run of this checklist: pausing or resuming changes what their own list shows
+// (older open runs are hidden while paused), so their cached counts must not wait for the timeout.
+export const clearSummariesForDefinition = async (definitionId: string): Promise<void> => {
+    const everyone = await db.selectDistinct({ userId: checklistInstanceAssignees.userId }).from(checklistInstanceAssignees)
+        .innerJoin(checklistInstances, eq(checklistInstances.id, checklistInstanceAssignees.instanceId))
+        .where(eq(checklistInstances.definitionId, definitionId))
+    if (everyone.length) await dropChecklistSummaries(everyone.map((e) => e.userId)).catch((err) => console.error("Clearing checklist summary cache failed:", err))
 }
 
 // Dry run of dropUntouchedDailyRunsOn for the "add a holiday" confirmation: how many of that day's

@@ -17,7 +17,7 @@ import { env } from "../../config/env.js"
 import { AppError } from "../../utils/AppError.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { CreateChecklistDefinitionInput, UpdateChecklistDefinitionInput, SetChecklistDefinitionActiveInput } from "./checklistDefinition.validation.js"
-import { dropUntouchedCurrentRunsFor, generateInstanceForDefinition, loadDefinitionForGeneration, syncLiveInstances, type LiveRunsSummary } from "../../jobs/checklistInstanceGenerator.job.js"
+import { clearSummariesForDefinition, dropUntouchedCurrentRunsFor, generateInstanceForDefinition, loadDefinitionForGeneration, syncLiveInstances, type LiveRunsSummary } from "../../jobs/checklistInstanceGenerator.job.js"
 import { auditService } from "../audit/audit.service.js";
 import { emitChecklistEvent } from "../../sockets/checklistEvent.js"
 import { GATED_BOOLEAN_ITEM_EXPR, FLAGGED_BOOLEAN_ANSWER_EXPR } from "../../utils/checklistBooleanFlags.js"
@@ -660,6 +660,8 @@ export const checklistDefinitionService = {
             } else {
                 const definition = await loadDefinitionForGeneration(id)
                 if (definition) await generateInstanceForDefinition(definition, new Date())
+                // The older runs hidden while paused come back on people's lists; clear their cached counts.
+                await clearSummariesForDefinition(id)
             }
         } catch (err) {
             console.error(`[checklistDefinition.setActive] ${id} switched, but its current runs were not updated`, err)

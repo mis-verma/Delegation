@@ -876,6 +876,17 @@ const instanceConditions = (filter: InstanceListFilter): SQL | undefined => {
     // The assignee lives in the checklistInstanceAssignees junction table, not on the instance, so
     // these are EXISTS subqueries against it. Nothing matching simply yields no rows (and zero
     // counts) — there is no "no filter" fallthrough to guard against.
+    // A person's own list (My Checklists, its tiles and badges) leaves out a paused checklist's runs that
+    // were never handed in: an older day still open, or one nobody touched. Pausing means "off everyone's
+    // list". A run sent back for fixing, or one waiting for review, still shows. Boards and reports
+    // (no userId) keep every run, since that is history.
+    if (filter.userId) {
+        conditions.push(sql`NOT (
+            ${checklistInstances.verificationStatus} = 'NOT_SUBMITTED' AND ${checklistInstances.rejectionCount} = 0
+            AND EXISTS (SELECT 1 FROM ${checklistDefinitions} pd WHERE pd.id = ${checklistInstances.definitionId} AND pd.isActive = false)
+        )`)
+    }
+
     const assigneeFilter = filter.assigneeId ?? filter.userId
     if (assigneeFilter) {
         // Assignees only. Someone who's merely on an AUDIT item's "who gets audited" list is the

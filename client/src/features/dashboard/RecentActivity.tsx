@@ -30,6 +30,8 @@ interface RecentActivityProps {
    *  would read as "nothing has been raised". Rows that did load still render. */
   isError?: boolean;
   onRetry?: () => void;
+  /** Just the list: no search box or sort button. */
+  simple?: boolean;
 }
 
 type SortOrder = 'newest' | 'oldest';
@@ -176,7 +178,7 @@ const FeedSkeleton = () => (
   </div>
 );
 
-export const RecentActivity = ({ feed, isPending, isError = false, onRetry }: RecentActivityProps) => {
+export const RecentActivity = ({ feed, isPending, isError = false, onRetry, simple = false }: RecentActivityProps) => {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortOrder>('newest');
@@ -218,7 +220,7 @@ export const RecentActivity = ({ feed, isPending, isError = false, onRetry }: Re
 
         {/* Search and sort are desktop-only: a five-row feed on a phone is read top to bottom, not
             queried; each module's own page has real search. */}
-        <div className="hidden sm:flex items-center gap-2 sm:shrink-0">
+        <div className={simple ? 'hidden' : 'hidden sm:flex items-center gap-2 sm:shrink-0'}>
           <Input
             id="recent-activity-search"
             type="search"
