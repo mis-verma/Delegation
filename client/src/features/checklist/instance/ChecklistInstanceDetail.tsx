@@ -3,6 +3,7 @@ import { useRefreshOnNewDay } from '../useRefreshOnNewDay';
 import { useParams, useNavigate } from 'react-router';
 import { ArrowDown, ArrowLeft, CheckCheck, ShieldAlert, ShieldCheck, ShieldQuestion, CornerUpLeft, AlertTriangle, Pencil, Clock, Layers, ClipboardX } from 'lucide-react';
 import { PeriodTabControl } from '../../dashboard/PeriodTabControl';
+import { useMyExtraWorkingDaysQuery } from '../../admin/holidays/hook';
 import { cn } from '@/lib/utils';
 import {
   Button, ChecklistProgressBar, IconChip, InlineError, NoticeBanner, PANEL_CLASS, Skeleton, StatusChip, VerificationNoteBanner,
@@ -240,6 +241,8 @@ export const ChecklistInstanceDetail = () => {
   const startSelecting = useCallback(() => setSelecting(true), []);
   const stopSelecting = useCallback(() => { setSelecting(false); setPicked(new Set()); }, []);
   const selectedIds = useMemo(() => [...picked], [picked]);
+  // Runs made for an extra working day (overtime) get a tag, so the person knows why it exists.
+  const { data: myExtraDays } = useMyExtraWorkingDaysQuery();
   // "Left to do" hides the questions already answered, so the person sees only what is still open.
   const [show, setShow] = useState<'all' | 'left'>('all');
   // After approving or sending back, return to the page the reviewer came from (the queue, the
@@ -310,6 +313,7 @@ export const ChecklistInstanceDetail = () => {
   // Only show section headers when the checklist actually has any — most checklists were built
   // before this feature (or never use it) and should keep rendering as one plain flat list.
   const hasSections = instance.items.some(i => i.section);
+  const overtime = (myExtraDays ?? []).find((d) => d.date === instance.periodStart.slice(0, 10));
   // Answered = done or marked Not applicable. Used for "left", the filter and the section counts.
   const answered = (i: (typeof instance.items)[number]) => i.isDone || i.isNotApplicable;
   const left = Math.max(0, total - done);
@@ -373,6 +377,7 @@ export const ChecklistInstanceDetail = () => {
           {/* The sheet's headline state, so the word stays on a phone. */}
           <StatusChip status={chipStatus} showLabelOnMobile />
           {doneLate && <IconChip icon={Clock} tone="bg-warning" label="Done late" />}
+          {overtime && <IconChip icon={Clock} tone="bg-warning" label={`Overtime: ${overtime.reason}`} />}
           {(isComplete || instance.verificationStatus !== 'NOT_SUBMITTED') && (
             <IconChip
               icon={verification.icon}

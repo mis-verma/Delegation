@@ -1,4 +1,5 @@
 import { memo, useId, useState } from 'react';
+import { toast } from 'sonner';
 import { Camera, ImageUp, Zap, AlertTriangle, Check, X } from 'lucide-react';
 import {
   useSetChecklistInstanceItemDoneMutation,
@@ -67,13 +68,29 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
   const [reasonDraft, setReasonDraft] = useState(item.conditionalReasonValue ?? '');
   const images = item.images ?? [];
 
+  // After an answer is saved: a short message with Undo, so a mistaken tap can be taken back without an
+  // admin. The server allows that only for the person who answered and only for a few seconds.
+  const confirmSaved = (value: 'YES' | 'NO') => {
+    toast.success(`Answered ${value === 'YES' ? labels.yes : labels.no}`, {
+      description: item.label,
+      duration: 8000,
+      action: {
+        label: 'Undo',
+        onClick: () => setItemDone.mutate(
+          { itemId: item.id, isDone: false, booleanAnswer: value },
+          { onError: () => toast.error('Too late to undo. Ask an admin to reopen it.') },
+        ),
+      },
+    });
+  };
+
   const pickAnswer = (value: 'YES' | 'NO') => {
     if (!interactive || setItemDone.isPending) return;
     if (isTriggering(value)) {
       setPendingAnswer(value);
       return;
     }
-    setItemDone.mutate({ itemId: item.id, isDone: true, booleanAnswer: value });
+    setItemDone.mutate({ itemId: item.id, isDone: true, booleanAnswer: value }, { onSuccess: () => confirmSaved(value) });
   };
 
   const canConfirm =
@@ -89,7 +106,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
         booleanAnswer: pendingAnswer,
         conditionalReasonValue: requiresReason ? reasonDraft.trim() : undefined,
       },
-      { onSuccess: () => setPendingAnswer(null) },
+      { onSuccess: () => { confirmSaved(pendingAnswer); setPendingAnswer(null); } },
     );
   };
 
@@ -102,7 +119,10 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
   // item was already completed with the triggering answer (so the reason/photos stay visible).
   const showFollowUp = pendingAnswer != null || (item.isDone && isTriggering((item.booleanAnswer ?? '') as 'YES' | 'NO'));
   const answerLocked = !interactive || item.isDone;
-  const shownAnswer = pendingAnswer ?? item.booleanAnswer;
+  // A reopened question keeps its old answer on file, but it is open again: show neither button as picked
+  // (it used to look already answered), and say what it was before in small text instead.
+  const shownAnswer = pendingAnswer ?? (item.isDone ? item.booleanAnswer : null);
+  const previousAnswer = !item.isDone && !pendingAnswer && item.booleanAnswer ? (item.booleanAnswer === 'YES' ? labels.yes : labels.no) : null;
 
   return (
     <ItemCardShell isLocked={isLocked}>
@@ -132,6 +152,10 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
         </div>
       )}
 
+      {previousAnswer && interactive && (
+        <p className="t-meta text-text-muted">Reopened. It was answered {previousAnswer} before. Answer it again.</p>
+      )}
+
       <div className="flex items-center gap-2 sm:max-w-md">
         <button
           type="button"
@@ -141,8 +165,8 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
           className={cn(
             ANSWER_BASE,
             shownAnswer === 'YES'
-              ? 'border-success bg-success/10 text-success'
-              : 'border-border text-text-secondary hover:border-success/50 hover:bg-success/5',
+              ? item.isDone ? 'border-success-strong bg-success-strong text-white' : 'border-success bg-success/10 text-success'
+              : 'border-border text-text hover:border-success/60 hover:bg-success/5 [&>svg]:text-success',
             // Once answered, the chosen one stays clear and only the other one fades.
             answerLocked ? cn('cursor-not-allowed', shownAnswer !== 'YES' && 'opacity-50') : 'cursor-pointer',
           )}
@@ -158,8 +182,8 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
           className={cn(
             ANSWER_BASE,
             shownAnswer === 'NO'
-              ? 'border-danger bg-danger/10 text-danger'
-              : 'border-border text-text-secondary hover:border-danger/50 hover:bg-danger/5',
+              ? item.isDone ? 'border-danger bg-danger text-white' : 'border-danger bg-danger/10 text-danger'
+              : 'border-border text-text hover:border-danger/60 hover:bg-danger/5 [&>svg]:text-danger',
             answerLocked ? cn('cursor-not-allowed', shownAnswer !== 'NO' && 'opacity-50') : 'cursor-pointer',
           )}
         >

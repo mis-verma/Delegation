@@ -40,10 +40,15 @@ export const ChecklistInstanceItemRatingCard = memo(function ChecklistInstanceIt
 
       <ItemError error={setItemDone.error} fallback="Couldn't save that rating." />
 
+      {!item.isDone && item.numericValue != null && interactive && (
+        <p className="t-meta text-text-muted">Reopened. It was rated {item.numericValue} out of {scale} before. Rate it again.</p>
+      )}
+
       <div className="flex items-center gap-2">
         <div className="flex items-center" aria-busy={setItemDone.isPending} onMouseLeave={() => setHovered(null)}>
           {Array.from({ length: scale }, (_, i) => i + 1).map((value) => {
-            const filled = value <= (hovered ?? item.numericValue ?? 0);
+            // A reopened rating starts empty again; its old value is mentioned above the stars.
+            const filled = value <= (hovered ?? (item.isDone ? item.numericValue ?? 0 : 0));
             return (
               <button
                 key={value}

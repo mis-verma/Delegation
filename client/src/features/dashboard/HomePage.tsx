@@ -20,6 +20,8 @@ import { MonthlyTargetCard, type FooterStat, type ScoreStatKey } from './Monthly
 import { ActivityOverviewCard } from './ActivityOverviewCard';
 import { NeedsApprovalCard } from './NeedsApprovalCard';
 import { FocusNowCard } from './FocusNowCard';
+import { OvertimeNotice } from './OvertimeNotice';
+import { useOrgToday } from '../checklist/useOrgToday';
 import { TeamProgressCard } from './TeamProgressCard';
 import { MyScoresCard } from './MyScoresCard';
 import { RecentActivity, RECENT_ACTIVITY_FEED_SIZE } from './RecentActivity';
@@ -101,6 +103,7 @@ export const HomePage = () => {
   const isOrgWideRole = user?.role === 'ADMIN' || user?.role === 'PC';
   // User and Agent: their own work only, so the dashboard drops filters, views and settings for them.
   const frontLine = !!user && OWN_SCOPE_ROLES.includes(user.role);
+  const orgToday = useOrgToday();
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
   // Re-read every minute and when the tab comes back, so overdue and "today" stay true on a
@@ -431,6 +434,7 @@ export const HomePage = () => {
       {/* Phones only: the three numbers to act on first, above every card. */}
       {/* Front-line staff: the exact things to do now, most urgent first, above everything. Everyone else
           keeps the counts block on a phone. */}
+      {!isCustomizing && <OvertimeNotice today={orgToday} />}
       {!isCustomizing && (
         <FocusNowCard
           tasks={assignedTasks}

@@ -296,6 +296,10 @@ const auditItemSnapshot = (item: Record<string, unknown>) => ({
 // promised the person who deleted it. This is the one condition that makes "deleted" actually mean
 // "gone from view" everywhere an instance list is built, while the underlying rows (and this
 // condition's own NOT EXISTS) stay reversible if the definition is ever restored.
+// How long the person who answered a question may still undo it themselves (the Undo button on the
+// "Answered" message lasts a little less than this).
+const UNDO_WINDOW_MS = 12_000
+
 export const parentNotDeletedExpr = sql`NOT EXISTS (
     SELECT 1 FROM ${checklistDefinitions} d
     WHERE d.id = ${checklistInstances.definitionId} AND d.deletedAt IS NOT NULL
@@ -1602,7 +1606,10 @@ export const checklistInstanceService = {
         // Once something is done it stays done: only an admin may reopen it. A reviewer sending a
         // run back (verify, REJECT) reopens every item itself, so nobody else needs to undo their
         // own finished work — and a stray tap on a tick can no longer quietly un-complete a step.
-        if (!isDone && item.isDone && user.role !== "ADMIN") {
+        // One exception: the person who answered it may take it back within a few seconds (the Undo on the
+        // "Answered" message), so a mistaken tap does not need an admin. After that it is final again.
+        const justAnsweredByThem = item.completedBy === user.sub && !!item.completedAt && Date.now() - item.completedAt.getTime() <= UNDO_WINDOW_MS
+        if (!isDone && item.isDone && user.role !== "ADMIN" && !justAnsweredByThem) {
             throw AppError.forbidden("This step is already done. Only an admin can reopen it.")
         }
 

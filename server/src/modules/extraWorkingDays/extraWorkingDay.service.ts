@@ -1,7 +1,7 @@
-import { asc, eq, like } from "drizzle-orm"
+import { asc, eq, gte, like } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
 import { db } from "../../config/db.js"
-import { extraWorkingDays } from "../../db/schema/core.js"
+import { extraWorkingDays, users } from "../../db/schema/core.js"
 import { AppError } from "../../utils/AppError.js"
 import { auditService } from "../audit/audit.service.js"
 import { dropRunsNoLongerWorkingOn, generateDueInstances } from "../../jobs/checklistInstanceGenerator.job.js"
@@ -15,6 +15,24 @@ export const extraWorkingDayService = {
     async list(year?: number) {
         const where = year ? like(extraWorkingDays.date, `${year}-%`) : undefined
         return db.select().from(extraWorkingDays).where(where).orderBy(asc(extraWorkingDays.date))
+    },
+
+    // The extra working days that cover one person, from yesterday on: the same matching rule as the
+    // generator (everyone, their department, their home store, or them by name).
+    async mine(userId: string) {
+        const [me] = await db.select({ departmentId: users.departmentId, storeId: users.storeId }).from(users).where(eq(users.id, userId)).limit(1)
+        if (!me) return []
+        const yesterday = orgLocalDate(Date.now() - 86_400_000)
+        const rows = await db.select().from(extraWorkingDays).where(gte(extraWorkingDays.date, yesterday)).orderBy(asc(extraWorkingDays.date))
+        return rows
+            .filter((d) => {
+                const ids = d.targetIds ?? []
+                if (d.scope === "ALL") return true
+                if (d.scope === "PEOPLE") return ids.includes(userId)
+                if (d.scope === "DEPARTMENT") return !!me.departmentId && ids.includes(me.departmentId)
+                return !!me.storeId && ids.includes(me.storeId)
+            })
+            .map((d) => ({ id: d.id, date: d.date, reason: d.reason }))
     },
 
     async create(input: CreateExtraWorkingDayInput, actorId: string) {

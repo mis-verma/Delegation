@@ -10,6 +10,11 @@ export const extraWorkingDayController = {
         res.json({ success: true, data: await extraWorkingDayService.list(year) })
     }),
 
+    // GET /extra-working-days/mine -> the days that cover the signed-in person, yesterday onwards
+    mine: asyncHandler(async (req: Request, res: Response) => {
+        res.json({ success: true, data: await extraWorkingDayService.mine(req.user!.sub) })
+    }),
+
     // POST /extra-working-days { date, reason, scope, targetIds }
     create: asyncHandler(async (req: Request, res: Response) => {
         const input = createExtraWorkingDaySchema.parse(req.body)

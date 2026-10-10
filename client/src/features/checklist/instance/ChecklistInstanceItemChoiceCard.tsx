@@ -24,7 +24,10 @@ export const ChecklistInstanceItemChoiceCard = memo(function ChecklistInstanceIt
   // approval). Changing it now goes through Reopen, like every other item type.
   const editable = interactive && !item.isDone;
   const options = useMemo(() => item.options ?? [], [item.options]);
-  const textValue = item.textValue ?? '';
+  // A reopened question keeps its old answer on file but is open again: nothing shows as picked, and the
+  // old answer is mentioned in small text instead.
+  const textValue = item.isDone ? item.textValue ?? '' : '';
+  const previousAnswer = !item.isDone && item.textValue ? item.textValue : null;
 
   // The dropdown has no native "Select an option" row, so an unanswered one gets a placeholder entry
   // that choose() ignores. An answer that is no longer in the list still shows rather than blanking.
@@ -50,6 +53,10 @@ export const ChecklistInstanceItemChoiceCard = memo(function ChecklistInstanceIt
 
       <ItemError error={setItemDone.error} fallback="Couldn't save that answer." />
 
+      {previousAnswer && interactive && (
+        <p className="t-meta text-text-muted">Reopened. It was answered "{previousAnswer}" before. Answer it again.</p>
+      )}
+
       {item.itemType === 'DROPDOWN' ? (
         <SelectDropdown
           value={textValue}
@@ -63,7 +70,7 @@ export const ChecklistInstanceItemChoiceCard = memo(function ChecklistInstanceIt
           {options.map((opt) => (
             <ToggleChip
               key={opt}
-              on={item.textValue === opt}
+              on={item.isDone && item.textValue === opt}
               disabled={!editable}
               onClick={() => choose(opt)}
               className="rounded-lg"

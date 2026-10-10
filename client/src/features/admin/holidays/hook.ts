@@ -138,3 +138,15 @@ export const useDeleteExtraWorkingDayMutation = () => {
     onError: (err) => toast.error(errorMessage(err, "Couldn't remove the extra working day")),
   });
 };
+
+// The signed-in person's own extra working days (dashboard notice, Overtime tag on a run). Anyone may ask.
+export const useMyExtraWorkingDaysQuery = () => {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: [...EXTRA_KEY, 'mine'],
+    queryFn: () => extraWorkingDayApi.mine(),
+    enabled: !!token,
+    retry: handleQueryRetry,
+    staleTime: 10 * 60_000,
+  });
+};
