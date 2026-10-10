@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { toast } from "sonner";
-import { Wand2, AlertCircle, Save, Inbox, X, Plus, ChevronDown, Upload } from "lucide-react";
-import { Skeleton, Fab, ViewToggle, EmptyState, type ViewTab } from "../../components";
+import { Wand2, Save, Inbox, X, Plus, ChevronDown, Upload } from "lucide-react";
+import { Skeleton, Fab, ViewToggle, EmptyState, InlineError, type ViewTab } from "../../components";
 import { CreatedRangeBanner, CreatedRangePicker } from "../../components/createdRangeBanner";
 import { useCreatedRange } from "../../lib/createdRange";
 import { ExportDialog } from "../reports";
@@ -147,10 +147,10 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
     return withLock(DEFAULT_FILTERS);
   });
 
-  const { data: tasks, isPending, isError } = useTasksQuery(userId, true, filters.tagIds);
-  // Shares useTasksQuery's cache entry — no extra request. Every other count on this page is
-  // derived client-side from the fetched array, so when the server has more rows than one page
-  // holds those counts describe the page, not the org; `meta.total` is what makes that visible.
+  const { data: tasks, isPending, isError, refetch: refetchTasks } = useTasksQuery(userId, true, filters.tagIds);
+  // Shares useTasksQuery's cache entry — no extra request. The list now reads every page, so this
+  // only matters past the hook's safety stop (MAX_LIST_PAGES), where the counts would otherwise
+  // describe a cut-down list without saying so.
   const { data: listMeta } = useTasksMetaQuery(userId, true, filters.tagIds);
   const { data: tags } = useTagsQuery();
   const { data: assignableUsers } = useAssignableUsersQuery();
@@ -203,10 +203,12 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
   // Same one-shot-param pattern as `open` above — the sidebar's "+" quick-create link has no
   // route of its own to land on (SmartTaskModal opens from local state, not a route), so it deep-
   // links here instead and this effect is what actually opens the modal on arrival.
+  // Smart Task is Admin/PC only (and so are its server routes), so everyone else lands on the
+  // ordinary New Delegation form instead.
   useEffect(() => {
     if (!searchParams.get('create')) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setShowSmartModal(true);
+    if (isVerifier) setShowSmartModal(true); else setShowForm(true);
     setSearchParams(prev => {
       const next = new URLSearchParams(prev);
       next.delete('create');
@@ -549,7 +551,9 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
             )}
 
       
-            <div className="hidden sm:contents">
+            {/* On a phone only managers and up get Options (filters, sort, export); front-line staff
+                see just their own work, which the scope pills already cover. */}
+            <div className={ownScopeOnly ? 'hidden sm:contents' : 'contents'}>
             <TaskOptionsDialog
               isOpen={showOptions}
               setIsOpen={setShowOptions}
@@ -645,14 +649,11 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
 
        
 
-          {/* Only when the server actually has more than it sent. Says so plainly rather than
-              letting the stat tiles above present a partial count as the total. */}
+          {/* Only when the list stopped short of everything (the hook's page cap). Said in plain
+              visible words, not a tooltip, since the tiles above count only what loaded. */}
           {listMeta?.hasNext && (
-            <span
-              className="text-xs font-semibold tracking-tight text-warning tabular-nums"
-              title={`This page holds the ${listMeta.limit} most recent delegations. Counts above describe these, not all ${listMeta.total}.`}
-            >
-              Newest {listMeta.limit} of {listMeta.total}
+            <span className="t-meta font-semibold tracking-tight text-warning tabular-nums">
+              Showing the newest {listMeta.limit} of {listMeta.total}. Counts above cover these only.
             </span>
           )}
 
@@ -699,13 +700,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
 
       
       {isError && (
-        <div className="flex items-start gap-3 p-4 bg-danger/5 rounded-xl border border-danger/20 text-danger">
-          <AlertCircle size={18} className="mt-0.5 shrink-0" />
-          <div>
-            <h4 className="text-sm font-medium">Error Loading Delegations</h4>
-            <p className="text-sm mt-1 opacity-90">Failed to connect to the server. Please refresh the page.</p>
-          </div>
-        </div>
+        <InlineError message="We couldn't load your delegations. Check your connection and try again." onRetry={() => void refetchTasks()} />
       )}
 
       {!isPending && !isError && isEmpty && (

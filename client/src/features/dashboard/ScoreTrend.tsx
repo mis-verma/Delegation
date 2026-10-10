@@ -6,6 +6,7 @@ import { PeriodTabControl } from './PeriodTabControl';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { scoreApi, type ScoreScope, type ScoreTrend as ScoreTrendData, type TrendBucket, type TrendPeriod } from '../../api/scores';
 import { Skeleton } from '../../components/skeleton';
+import { InlineError } from '../../components/inlineError';
 import { SERIES_COLOR, SERIES_LABEL, seriesFor, type ModuleKey, type ScoreMetric, type SeriesKey } from './scoreMetrics';
 
 const MODULE_KEYS: readonly ModuleKey[] = ['checklist', 'ticket', 'delegation'];
@@ -109,9 +110,8 @@ export const ScoreTrend = ({ metric = 'overview', scope, id, period, from, to }:
             {[45, 70, 55, 85, 60, 75, 50].map((h, i) => <Skeleton key={i} className="w-5 rounded-t-md sm:w-8" style={{ height: `${h}%` }} />)}
           </div>
         ) : isError ? (
-          <div className="flex h-full items-center justify-center text-sm font-medium text-text-muted">
-            Could not load the trend.&nbsp;
-            <button type="button" onClick={() => void refetch()} className="font-bold text-primary-600 hover:underline dark:text-primary-400">Try again</button>
+          <div className="flex h-full items-center">
+            <InlineError className="w-full" message="Couldn't load the trend." onRetry={() => void refetch()} />
           </div>
         ) : !anyData ? (
           <div className="flex h-full items-center justify-center rounded-lg border border-border text-sm font-medium text-text-muted">Nothing was due in this window.</div>

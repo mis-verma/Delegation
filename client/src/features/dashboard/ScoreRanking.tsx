@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUp, ChevronRight, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { scoreApi, type ScoreReport, type ScoreReportRow, type ScoreScope } from '../../api/scores';
 import { Skeleton } from '../../components/skeleton';
+import { InlineError } from '../../components/inlineError';
 import { getInitials } from '../../lib/getInitials';
 import { avatarColorClass } from '../../lib/avatarColors';
 import { rateTone, type RateTone } from './dashboardDisplay';
@@ -143,12 +144,7 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
     );
   }
   if (isError) {
-    return (
-      <div className="rounded-lg border border-border px-4 py-6 text-center text-sm font-medium text-text-muted">
-        Could not load the ranking.{' '}
-        <button type="button" onClick={() => void refetch()} className="font-bold text-primary-600 hover:underline dark:text-primary-400">Try again</button>
-      </div>
-    );
+    return <InlineError message="Couldn't load the ranking." onRetry={() => void refetch()} />;
   }
   if (rows.length === 0 && !query.trim()) {
     return <div className="rounded-lg border border-border px-4 py-8 text-center text-sm font-medium text-text-muted">Nothing was due for any of the {SUBJECT[scope]} in this window.</div>;

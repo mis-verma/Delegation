@@ -3,7 +3,7 @@ import {
   pointerWithin, rectIntersection, defaultDropAnimationSideEffects,
   type CollisionDetection, type DropAnimation, type DragStartEvent, type DragEndEvent,
 } from '@dnd-kit/core';
-import { memo, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { Inbox, Plus, AlertTriangle, ChevronDown } from "lucide-react";
 import { EmptyState } from "../../components";
 import { Badge } from "../../components/ui/badge";
@@ -11,6 +11,7 @@ import { BoardTouchHint } from "../../components/BoardTouchHint";
 import { useAuth } from "../../context/AuthContext";
 import { TaskCard } from "./TaskCard";
 import { useTaskStatusMove } from "./useTaskStatusMove";
+import { canMoveTask } from "./taskPermissions";
 import { DRAG_SLOP_PX } from "../../lib/dragSlop";
 import { isOverdueTask } from "./taskFilters";
 import { buildBoardColumns, type BoardGroupBy } from "./taskBoardGroups";
@@ -165,7 +166,8 @@ interface ColumnProps {
   fields: CardFieldVisibility;
   newlyAssignedTaskIds?: Set<string>;
   onMove?: (task: Task, toStatus: Task['status']) => void;
-  movable: boolean;
+  /** Per card: may the viewer move this one (taskPermissions' canMoveTask)? Stable identity. */
+  canMove: (task: Task) => boolean;
   /** Show at most this many cards, with a "show the rest" toggle below. Omit for no cap. */
   maxVisible?: number;
   /** True when a filter is narrowing the board — changes what an empty column means. */
@@ -179,7 +181,7 @@ interface ColumnProps {
 // props change when a drag starts elsewhere on the board, so memoizing lets React skip it
 // entirely (this depends on `onMove` having a stable identity — see useTaskStatusMove's own
 // comment on `requestMove`).
-const Column = memo(({ columnKey, label, tasks, isDropTarget, fillsRow, assigneeNames, departmentNames, isVerifier, onOpen, onAddTask, fields, newlyAssignedTaskIds, onMove, movable, maxVisible, isFiltered }: ColumnProps) => {
+const Column = memo(({ columnKey, label, tasks, isDropTarget, fillsRow, assigneeNames, departmentNames, isVerifier, onOpen, onAddTask, fields, newlyAssignedTaskIds, onMove, canMove, maxVisible, isFiltered }: ColumnProps) => {
   const { setNodeRef, isOver } = useDroppable({ id: columnKey, disabled: !isDropTarget });
   const [expanded, setExpanded] = useState(false);
 
@@ -246,21 +248,24 @@ const Column = memo(({ columnKey, label, tasks, isDropTarget, fillsRow, assignee
           // not of anything matching. Different fact, different next move.
           <EmptyState size="compact" icon={Inbox} title={isFiltered ? 'None match your filters' : 'No delegations here'} />
         ) : (
-          visible.map(task => (
-            <DraggableCard
-              key={task.id}
-              task={task}
-              isVerifier={isVerifier}
-              onOpen={onOpen}
-              assigneeNames={resolveAssigneeNames(task, assigneeNames)}
-              raisedByName={resolveRaisedByName(task, assigneeNames)}
-              departmentName={task.departmentId ? departmentNames?.get(task.departmentId) : undefined}
-              fields={fields}
-              isNewlyAssigned={newlyAssignedTaskIds?.has(task.id)}
-              onMove={onMove}
-              movable={movable}
-            />
-          ))
+          visible.map(task => {
+            const movable = canMove(task);
+            return (
+              <DraggableCard
+                key={task.id}
+                task={task}
+                isVerifier={isVerifier}
+                onOpen={onOpen}
+                assigneeNames={resolveAssigneeNames(task, assigneeNames)}
+                raisedByName={resolveRaisedByName(task, assigneeNames)}
+                departmentName={task.departmentId ? departmentNames?.get(task.departmentId) : undefined}
+                fields={fields}
+                isNewlyAssigned={newlyAssignedTaskIds?.has(task.id)}
+                onMove={movable ? onMove : undefined}
+                movable={movable}
+              />
+            );
+          })
         )}
       </div>
 
@@ -298,10 +303,11 @@ const Column = memo(({ columnKey, label, tasks, isDropTarget, fillsRow, assignee
 // invalidation landing.
 const TaskBoardComponent = ({ tasks, assigneeNames, departmentNames, isVerifier = false, onOpen, onAddTask, fields, newlyAssignedTaskIds, isFiltered, groupBy = 'status' }: TaskBoardProps) => {
   const { requestMove, statusRemarkDialog } = useTaskStatusMove();
-  // Same refusal the server gives (task.service.ts update): PC and approval managers act on a
-  // delegation only through the verification queue.
+  // Same refusals the server gives (task.service.ts update), card by card: PC and approval managers
+  // act only through the verification queue, a Manager can't move a colleague's delegation, and an
+  // approved one is closed to everyone but an Admin. Such a card isn't draggable and has no Move to.
   const { user } = useAuth();
-  const movable = user?.role !== 'PC' && user?.role !== 'APPROVAL_MANAGER';
+  const canMove = useCallback((task: Task) => canMoveTask(task, user), [user]);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const byStatus = groupBy === 'status';
   const columns = useMemo(
@@ -334,7 +340,7 @@ const TaskBoardComponent = ({ tasks, assigneeNames, departmentNames, isVerifier 
     if (!newStatus) return;
 
     const task = tasks.find(t => t.id === event.active.id);
-    if (task) requestMove(task, newStatus);
+    if (task && canMove(task)) requestMove(task, newStatus);
   };
 
   return (
@@ -378,8 +384,8 @@ const TaskBoardComponent = ({ tasks, assigneeNames, departmentNames, isVerifier 
             onAddTask={byStatus && column.key === 'todo' ? onAddTask : undefined}
             fields={fields}
             newlyAssignedTaskIds={newlyAssignedTaskIds}
-            onMove={movable ? requestMove : undefined}
-            movable={movable}
+            onMove={requestMove}
+            canMove={canMove}
             // Done only ever grows and is almost entirely history. Capped so a board six months
             // old doesn't open with a column of two hundred cards nobody scrolls; every other
             // column holds live work, where hiding anything behind a toggle would be wrong.

@@ -7,7 +7,9 @@ import { useCreatedRange } from '../../lib/createdRange';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/context/AuthContext';
 import { OWN_SCOPE_ROLES } from '../../api/auth';
-import { useDepartmentsQuery, useStoresQuery, useAssignableUsersQuery, useTicketsBoardQuery, BOARD_LIMIT } from './hook';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { useDepartmentsQuery, useStoresQuery, useAssignableUsersQuery, useTicketsBoardQuery, ticketDetailQueryOptions, BOARD_MAX_TICKETS } from './hook';
 import { NoticeBanner } from '../../components/noticeBanner';
 import { PhoneScopeSwitch } from '../../components/phoneScopeSwitch/PhoneScopeSwitch';
 import { useCategoriesQuery } from '../settings/hook';
@@ -39,6 +41,7 @@ const VIEW_TABS: ViewTab<TicketView>[] = [
 
 export const TicketList = () => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const isMobile = useIsMobile();
   const [showForm, setShowForm] = useState(false);
   const [showBulkImport, setShowBulkImport] = useState(false);
@@ -105,6 +108,14 @@ export const TicketList = () => {
     // once per navigation rather than looping.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (match) setSelectedTicket(match);
+    else {
+      // Not in the loaded list (filtered out by a person link, or older than the list reaches):
+      // ask for that one ticket. The server answers 403/404 when it was removed or isn't visible.
+      queryClient
+        .fetchQuery({ ...ticketDetailQueryOptions(openId), retry: false, staleTime: 30_000 })
+        .then((ticket) => setSelectedTicket(ticket))
+        .catch(() => toast.error("We couldn't open that ticket. It may have been removed, or it isn't one you can see."));
+    }
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
@@ -169,7 +180,8 @@ export const TicketList = () => {
           <div className="hidden sm:block shrink-0">
             <ViewToggle tabs={VIEW_TABS} value={organizer.view} onChange={organizer.setView} storageKey={`view:tickets:${user?.id ?? 'anon'}`} />
           </div>
-          {/* Phones get one simple switch instead of saved views, the date picker and the filter sheet. */}
+          {/* Phones get one simple switch instead of saved views and the date picker. The filter
+              sheet stays for team leads and above (see Options below). */}
           <PhoneScopeSwitch
             options={[{ value: 'ASSIGNED_TO_ME', label: 'Assigned to me' }, { value: 'CREATED_BY_ME', label: 'Created by me' }]}
             value={organizer.scopeFilter}
@@ -231,7 +243,9 @@ export const TicketList = () => {
               </DropdownMenu>
             </div>
 
-            <div className="hidden sm:contents">
+            {/* Front-line staff only ever see their own tickets, so on a phone the scope pills are all
+                they need. Anyone who looks after a team keeps filters and export on a phone too. */}
+            <div className={ownScopeOnly ? 'hidden sm:contents' : 'contents'}>
             <TicketSettingsMenu
               isOpen={showOptions}
               setIsOpen={setShowOptions}
@@ -263,11 +277,11 @@ export const TicketList = () => {
         </div>
       )}
 
-      {/* The server is asked for the newest BOARD_LIMIT tickets; a full page means older ones exist
-          that no view here shows, so say so rather than let the list look complete. */}
-      {!isPending && !isError && (allTicketsData?.length ?? 0) >= BOARD_LIMIT && (
+      {/* Every page is loaded, up to a safety stop. Reaching it means older tickets exist that no
+          view here shows, so say so rather than let the list look complete. */}
+      {!isPending && !isError && (allTicketsData?.length ?? 0) >= BOARD_MAX_TICKETS && (
         <NoticeBanner tone="warning" icon={AlertCircle}>
-          Showing the newest {BOARD_LIMIT} tickets. Use the filters or search to narrow it down; older tickets are not listed here.
+          Showing the newest {BOARD_MAX_TICKETS.toLocaleString()} tickets. Older ones are not listed here.
         </NoticeBanner>
       )}
 
@@ -297,7 +311,6 @@ export const TicketList = () => {
         <TicketBoard
           tickets={organizer.sorted}
           departmentNames={departmentNames}
-          isVerifier={isVerifier}
           onOpen={setSelectedTicket}
         />
       )}

@@ -7,6 +7,7 @@ import { eq, and, isNull, inArray } from "drizzle-orm";
 import { AppError } from "../../utils/AppError.js";
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js";
 import { assertCanMutate } from "../tickets/ticket.service.js";
+import { auditService } from "../audit/audit.service.js";
 
 export const ticketAttachmentService = {
     async upload(ticketId: string, files: Express.Multer.File[], user: AccessTokenPayload) {
@@ -52,12 +53,36 @@ export const ticketAttachmentService = {
             throw AppError.forbidden("You don't have access to this ticket's attachments");
         }
 
+        // A proof photo sent with a status change is part of that step's record (the reviewer judged
+        // the hand-in on it), and photos on a closed ticket are part of what was approved. Only an
+        // Admin can still take either off.
+        if (user.role !== "ADMIN") {
+            if (attachment.statusUpdateId) {
+                throw AppError.forbidden("This photo was sent with a status change, so it stays on the ticket's history.");
+            }
+            if (ticket?.status === "CLOSED") {
+                throw AppError.forbidden("This ticket is closed, so its photos can't be removed. Ask an admin if one has to go.");
+            }
+        }
+
+        await db.delete(ticketAttachments).where(eq(ticketAttachments.id, attachmentId));
+
+        // The file goes from disk only once the row is gone, so a failed delete never leaves a row
+        // pointing at a missing file.
         const absolutePath = path.resolve(process.cwd(), "uploads", "ticket-attachments", path.basename(attachment.url));
         fs.unlink(absolutePath, (err) => {
             if (err) console.error("Failed to delete attachment file from disk:", err);
         });
 
-        await db.delete(ticketAttachments).where(eq(ticketAttachments.id, attachmentId));
+        // Its own entity type (the snapshot carries ticketId), so it lands in the audit log's Tickets
+        // group without being read as a change to the ticket's own fields in that ticket's feed.
+        await auditService.record({
+            entityType: "TicketAttachment",
+            entityId: attachment.id,
+            action: "DELETE",
+            actorId: user.sub,
+            before: attachment,
+        });
         return attachment;
     },
 };

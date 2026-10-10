@@ -10,7 +10,7 @@ import { taskCommentApi } from "../../api/taskComment";
 import type { CreateTaskCommentPayload } from "../../api/taskComment";
 import { smartTaskConversationApi } from "../../api/smartTaskConversation";
 import type { SmartTaskConversationMessage, PatchSmartTaskConversationPayload } from "../../api/smartTaskConversation";
-import type { CreateTaskPayload, UpdateTaskPayload, VerifyTaskPayload, Task } from "../../api/task";
+import type { CreateTaskPayload, UpdateTaskPayload, VerifyTaskPayload, Task, TaskListPage, ListMeta } from "../../api/task";
 import type {
     CreateTaskChecklistPayload,
     UpdateTaskChecklistItemPayload,
@@ -46,9 +46,33 @@ const TASK_KEYS = {
 // Shared by the list, its meta twin and the route prefetch, so all three hit one cache entry.
 // useTaskSocket is mounted app-wide and invalidates ['tasks'] on every delegation event, so the
 // 2-minute window only skips the refetch-on-revisit; it cannot leave stale rows on screen.
+// Pages of 200 (the server's ceiling), read until the server says there are no more. The list's
+// tiles and filters count client-side, so a single page made "Delayed" miss every older overdue
+// delegation. MAX_LIST_PAGES is a safety stop (4,000 rows), the same one useTeamWork uses.
+const LIST_PAGE_SIZE = 200;
+const MAX_LIST_PAGES = 20;
+
+const fetchAllTaskPages = async (userId?: string, tagIds?: string[]): Promise<TaskListPage> => {
+    const all: Task[] = [];
+    let meta: ListMeta | undefined;
+    for (let page = 1; page <= MAX_LIST_PAGES; page++) {
+        const res = await taskApi.getAll(userId, undefined, page, LIST_PAGE_SIZE, tagIds);
+        all.push(...res.data);
+        meta = res.meta;
+        if (!res.meta?.hasNext) break;
+    }
+    // One combined page: `total` is the server's real count and `hasNext` is only still true when the
+    // safety stop cut the list short, which is what the list's "newest N of M" note reads.
+    const total = meta?.total ?? all.length;
+    return {
+        data: all,
+        meta: { page: 1, limit: all.length, total, totalPages: 1, hasNext: all.length < total },
+    };
+};
+
 export const tasksListQueryOptions = (userId?: string, tagIds?: string[]) => ({
     queryKey: TASK_KEYS.all(userId, tagIds),
-    queryFn:  () => taskApi.getAll(userId, undefined, 1, 200, tagIds),
+    queryFn:  () => fetchAllTaskPages(userId, tagIds),
     staleTime: 2 * 60_000,
 });
 
@@ -229,16 +253,29 @@ export const useCreateTaskMutation = () =>
 // attachments against until create() has actually returned one, so this awaits that first, then
 // uploads (if any files were staged) before resolving. Lets TaskForm's own attach toolbar work
 // the same way the Activity composer's does: pick files while writing, they land once you submit.
+//
+// Once create() has returned, the delegation exists. A failed upload after that must not fail the
+// whole mutation: the form used to stay open saying "Failed to create task", and pressing Create
+// again made a second copy. So the upload's failure is reported as `filesFailed` on a successful
+// result instead, and the form closes with a toast saying the files need adding again.
 export const useCreateTaskWithAttachmentsMutation = () =>
     useEntityMutation({
-        mutationFn: async ({ payload, files }: { payload: CreateTaskPayload; files: File[] }) => {
+        mutationFn: async ({ payload, files }: { payload: CreateTaskPayload; files: File[] }): Promise<Task & { filesFailed: boolean }> => {
             const created = await taskApi.create(payload);
-            if (files.length) await taskApi.uploadAttachments(created.id, files);
-            return created;
+            let filesFailed = false;
+            if (files.length) {
+                try {
+                    await taskApi.uploadAttachments(created.id, files);
+                } catch {
+                    filesFailed = true;
+                }
+            }
+            return { ...created, filesFailed };
         },
         invalidateKeys: [['tasks']],
-        successMessage: (created) => (created.status === 'draft' ? 'Saved as draft' : 'Task created'),
-        errorFallback: 'Failed to create task',
+        // The toast is the caller's (TaskForm), which knows whether the files made it.
+        successMessage: null,
+        errorFallback: "Couldn't create the delegation",
     });
 
 // `silent: true` drops the success toast (still errors loudly on failure) — used by TaskDetail's

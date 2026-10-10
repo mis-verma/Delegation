@@ -4,7 +4,7 @@ import { ArrowDown, ArrowUp } from 'lucide-react';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { ScoreColumn } from './scoreBarShape';
 import type { Scores } from '../../api/scores';
-import { SERIES_COLOR, SERIES_LABEL, numbersFor, seriesFor, type ModuleKey, type ScoreMetric, type SeriesKey } from './scoreMetrics';
+import { SERIES_COLOR, SERIES_LABEL, SERIES_PHONE_LABEL, numbersFor, seriesFor, type ModuleKey, type ScoreMetric, type SeriesKey } from './scoreMetrics';
 
 // A faint lane behind every bar shows how far from 100% it is.
 const TRACK_FILL = 'color-mix(in oklab, var(--color-primary-500) 6%, transparent)';
@@ -57,11 +57,11 @@ const BarTooltip = ({ active, payload, series }: { active?: boolean; payload?: {
   );
 };
 
-const Legend = ({ series }: { series: SeriesKey[] }) => (
+const Legend = ({ series, labels }: { series: SeriesKey[]; labels: Record<SeriesKey, string> }) => (
   <div className="flex flex-wrap items-center gap-1.5">
     {series.map((k) => (
       <span key={k} className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-surface-hover/40 px-2.5 py-1 t-meta font-display font-semibold text-text-secondary">
-        <span aria-hidden="true" className="size-2 rounded-full" style={{ backgroundColor: SERIES_COLOR[k] }} />{SERIES_LABEL[k]}
+        <span aria-hidden="true" className="size-2 rounded-full" style={{ backgroundColor: SERIES_COLOR[k] }} />{labels[k]}
       </span>
     ))}
   </div>
@@ -83,6 +83,8 @@ interface ScoreBarsProps {
   previous?: Scores | undefined;
   /** Tapping a bar opens that module's late items. Left out where there is no list to open. */
   onOpenModule?: (module: ModuleKey) => void;
+  /** Phone only: when no module had anything due, this one line replaces three blank columns. */
+  emptyText?: string;
 }
 
 const delta = (now: number | null, before: number | null) => (now === null || before === null ? null : now - before);
@@ -102,7 +104,14 @@ const Delta = ({ label, value }: { label: string; value: number | null }) =>
  * Completion, compliance and on-time rate for Checklist, Tickets and Delegations as bars on a fixed 0 to
  * 100 scale, so bars from different windows and people can be compared by eye.
  */
-export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous, onOpenModule }: ScoreBarsProps) => {
+// Chart margins and axis room, shared by the chart and its loading skeleton so the skeleton's bars
+// stand exactly where the real ones will.
+const CHART_TOP = 22;
+const X_AXIS_HEIGHT = 30;
+const Y_AXIS_WIDTH = 44;
+const BAR_GAP = 6;
+
+export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous, onOpenModule, emptyText = 'Nothing due yet' }: ScoreBarsProps) => {
   const isMobile = useIsMobile();
   const gradientId = useId().replace(/:/g, '');
   const rows = useMemo(() => (scores ? rowsFor(scores) : []), [scores]);
@@ -111,11 +120,14 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
   const barSize = series.length === 1 ? (isMobile ? 64 : 96) : isMobile ? 44 : 64;
   // A module with nothing due is given a full-height value so its soft "Nothing due" column fills the lane; its number is not printed.
   const chartRows = useMemo(() => rows.map((r) => (r.hasData ? r : { ...r, completion: 100, compliance: 100, ontime: 100 })), [rows]);
+  // A phone with nothing due anywhere gets one plain line, not three pale columns.
+  const allEmpty = isMobile && rows.length > 0 && rows.every((r) => !r.hasData);
   const renderLabel = (props: { x?: number | string; y?: number | string; width?: number | string; value?: unknown; index?: number }): ReactElement | null => {
     const row = chartRows[props.index ?? -1];
     if (!row?.hasData || typeof props.value !== 'number') return null;
+    // On a phone the figure is the thing to read: bigger and bolder than the 12px module names.
     return (
-      <text x={Number(props.x) + Number(props.width) / 2} y={Number(props.y) - 6} textAnchor="middle" fontSize={12} fontWeight={700} fill="var(--color-text)">
+      <text x={Number(props.x) + Number(props.width) / 2} y={Number(props.y) - 6} textAnchor="middle" fontSize={isMobile ? 15 : 12} fontWeight={isMobile ? 800 : 700} fill="var(--color-text)">
         {props.value}%
       </text>
     );
@@ -127,22 +139,32 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
 
   return (
     <div className="flex flex-col gap-3">
-      <Legend series={series} />
+      <Legend series={series} labels={isMobile ? SERIES_PHONE_LABEL : SERIES_LABEL} />
 
       {/* The height is fixed so the card does not jump while the numbers load or the window changes. */}
-      <div className={`relative h-56 sm:h-64 w-full ${onOpenModule ? '[&_.recharts-bar-rectangle]:cursor-pointer' : ''}`} role="img" aria-label={summary || 'Loading scores'}>
+      <div className={`relative h-56 sm:h-64 w-full ${onOpenModule ? '[&_.recharts-bar-rectangle]:cursor-pointer' : ''}`} role="img" aria-label={allEmpty ? emptyText : summary || 'Loading scores'}>
         {loading && !scores ? (
-          <div className="absolute inset-0 flex items-end justify-around gap-4 px-6 pb-8" role="status" aria-label="Loading scores">
+          // Same plot area, bar width and gap as the chart below, so the bars grow in place.
+          <div
+            className="absolute inset-0 flex"
+            style={{ paddingTop: CHART_TOP, paddingBottom: X_AXIS_HEIGHT, paddingLeft: isMobile ? 0 : Y_AXIS_WIDTH + 4, paddingRight: 4 }}
+            role="status"
+            aria-label="Loading scores"
+          >
             {[55, 80, 40].map((h, i) => (
-              <div key={i} className="flex flex-1 items-end justify-center gap-2">
-                <div className="w-6 sm:w-8 rounded-t-md bg-surface-hover animate-pulse" style={{ height: `${h}%` }} />
-                {series.length > 1 && <div className="w-6 sm:w-8 rounded-t-md bg-surface-hover animate-pulse" style={{ height: `${Math.max(20, h - 15)}%` }} />}
+              <div key={i} className="flex flex-1 items-end justify-center" style={{ gap: BAR_GAP }}>
+                <div className="rounded-t-lg bg-surface-hover animate-pulse" style={{ height: `${h}%`, width: barSize }} />
+                {series.length > 1 && <div className="rounded-t-lg bg-surface-hover animate-pulse" style={{ height: `${Math.max(20, h - 15)}%`, width: barSize }} />}
               </div>
             ))}
           </div>
+        ) : allEmpty ? (
+          <div className="flex h-full items-center justify-center rounded-lg border border-border/60 px-4 text-center text-sm font-medium text-text-muted">
+            {emptyText}
+          </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartRows} accessibilityLayer={false} margin={{ top: 22, right: 4, left: isMobile ? 0 : 4, bottom: 0 }} barCategoryGap={isMobile ? '10%' : '16%'} barGap={6}>
+            <BarChart data={chartRows} accessibilityLayer={false} margin={{ top: CHART_TOP, right: 4, left: isMobile ? 0 : 4, bottom: 0 }} barCategoryGap={isMobile ? '10%' : '16%'} barGap={BAR_GAP}>
               <defs>
                 {series.map((k) => (
                   <linearGradient key={k} id={`${gradientId}-${k}`} x1="0" y1="0" x2="0" y2="1">
@@ -152,11 +174,12 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
                 ))}
               </defs>
               {/* Every module is always listed: interval 0 stops the axis from dropping labels on a narrow card. */}
-              <XAxis dataKey="name" interval={0} height={30} tickLine={false} axisLine={false} tick={<ModuleTick />} />
+              <XAxis dataKey="name" interval={0} height={X_AXIS_HEIGHT} tickLine={false} axisLine={false} tick={<ModuleTick />} />
               {/* The scale lives in the lanes behind the bars and the numbers on top, so a phone gives the
                   width to the bars instead of an axis. */}
-              <YAxis domain={[0, 100]} hide={isMobile} ticks={[0, 25, 50, 75, 100]} tickFormatter={(v: number) => `${v}%`} tickLine={false} axisLine={false} width={44} tick={{ fill: 'var(--color-text-muted)', fontSize: 12, fontWeight: 600 }} />
-              <Tooltip content={<BarTooltip series={series} />} cursor={false} isAnimationActive={false} />
+              <YAxis domain={[0, 100]} hide={isMobile} ticks={[0, 25, 50, 75, 100]} tickFormatter={(v: number) => `${v}%`} tickLine={false} axisLine={false} width={Y_AXIS_WIDTH} tick={{ fill: 'var(--color-text-muted)', fontSize: 12, fontWeight: 600 }} />
+              {/* Hover only: on a touch screen a tap opens the module's popup, and a tooltip under it would just repeat it. */}
+              {!isMobile && <Tooltip content={<BarTooltip series={series} />} cursor={false} isAnimationActive={false} />}
               {series.map((k, i) => (
                 <Bar
                   key={k}

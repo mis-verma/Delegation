@@ -24,6 +24,7 @@ import { taskAssigneeIds } from './cardFields';
 import { useAuth } from '../../context/AuthContext';
 import type { Task, UpdateTaskPayload } from '../../api/task';
 import { canApproveWork } from '../../lib/canApproveWork';
+import { canEditTaskContent, canMoveTask } from './taskPermissions';
 
 
 const TitleEditor = ({ value, disabled, onSave, isViewMode }: { value: string, disabled: boolean, onSave: (val: string) => void, isViewMode: boolean }) => {
@@ -103,7 +104,8 @@ const PlainDescriptionEditor = ({ value, disabled, onSave, toolbar, children }: 
 
 interface TaskFooterProps {
   task: Task;
-  isPC: boolean;
+  /** May move this delegation's status (see taskPermissions' canMoveTask). */
+  canMove: boolean;
   /** May approve or send back this delegation (see lib/canApproveWork). */
   canApprove: boolean;
   nextStatus: Task['status'] | null;
@@ -114,7 +116,7 @@ interface TaskFooterProps {
   onClose: () => void;
 }
 
-const TaskFooter = ({ task, isPC, canApprove, nextStatus, onAdvance, onBack, onHold, isAdvancing, onClose }: TaskFooterProps) => {
+const TaskFooter = ({ task, canMove, canApprove, nextStatus, onAdvance, onBack, onHold, isAdvancing, onClose }: TaskFooterProps) => {
   const needsDecision = canApprove && task.status === 'pending_approval';
   return (
     <div className="flex flex-col w-full">
@@ -140,7 +142,7 @@ const TaskFooter = ({ task, isPC, canApprove, nextStatus, onAdvance, onBack, onH
         </div>
       
         <div className="flex items-center gap-2 sm:flex-wrap">
-          {nextStatus && !isPC && (
+          {nextStatus && canMove && (
             <Button
               variant="outline"
               size="sm"
@@ -153,7 +155,7 @@ const TaskFooter = ({ task, isPC, canApprove, nextStatus, onAdvance, onBack, onH
               <span className="truncate">{FORWARD_LABEL[task.status] ?? `Move to ${STATUS_LABEL[nextStatus as keyof typeof STATUS_LABEL]}`}</span>
             </Button>
           )}
-          {(onBack || onHold) && !isPC && (
+          {(onBack || onHold) && canMove && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="px-2.5 pointer-coarse:min-h-11 pointer-coarse:min-w-11" aria-label="More status actions">
@@ -180,7 +182,7 @@ const TaskFooter = ({ task, isPC, canApprove, nextStatus, onAdvance, onBack, onH
             variant="outline"
             size="sm"
             onClick={onClose}
-            className={`px-6 ${nextStatus && !isPC ? 'max-sm:hidden' : 'max-sm:flex-1'}`}
+            className={`px-6 ${nextStatus && canMove ? 'max-sm:hidden' : 'max-sm:flex-1'}`}
           >
             Close
           </Button>
@@ -347,6 +349,7 @@ interface TaskEditLayoutProps {
   isViewOnly: boolean;
   canEditText: boolean;
   canAttach: boolean;
+  canRemoveFiles: boolean;
   currentUserId?: string;
   canReassign: boolean;
   assignableUsers: ReturnType<typeof useAssignableUsersQuery>['data'];
@@ -361,7 +364,7 @@ interface TaskEditLayoutProps {
 }
 
 const TaskEditLayout = ({
-  task, isVerifier, isViewOnly, canEditText, canAttach, currentUserId, canReassign,
+  task, isVerifier, isViewOnly, canEditText, canAttach, canRemoveFiles, currentUserId, canReassign,
   assignableUsers, isLoadingUsers, departments, isLoadingDepts,
   onSaveTitle, onSaveDescription, onUpdate, onDelete, isDeleting,
 }: TaskEditLayoutProps) => {
@@ -389,7 +392,7 @@ const TaskEditLayout = ({
               onClick={() => onDelete(task.id)}
               aria-label="Delete delegation"
               title="Delete delegation"
-              className="flex items-center justify-center size-8 rounded-full text-text-light hover:text-danger hover:bg-danger/10 active:bg-danger/10 disabled:opacity-50 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-danger/40 [-webkit-tap-highlight-color:transparent]"
+              className="flex items-center justify-center size-8 pointer-coarse:size-11 shrink-0 rounded-full text-text-light hover:text-danger hover:bg-danger/10 active:bg-danger/10 disabled:opacity-50 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-danger/40 [-webkit-tap-highlight-color:transparent]"
             >
               {isDeleting ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
             </button>
@@ -491,6 +494,7 @@ const TaskEditLayout = ({
         taskId={task.id}
         attachments={task.attachments ?? []}
         canEdit={canAttach}
+        canRemove={canRemoveFiles}
         onPreview={setPreviewImage}
       />
 
@@ -541,20 +545,20 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
   const [advanceTo, setAdvanceTo] = useState<Task['status'] | null>(null);
 
   const isPC = user?.role === 'PC';
-  // Front-line staff (User, Agent) move the status of work given to them but can't change its details,
-  // same rule as the server. They edit only what they raised for someone else, or their own draft.
-  const isFrontLine = user?.role === 'USER' || user?.role === 'AGENT';
-  const isCreator = !!user && task.userId === user.id;
-  const isAssignee = !!user && taskAssigneeIds(task).includes(user.id);
-  const frontLineCanEdit = isCreator && (task.status === 'draft' || !isAssignee);
-
-  const isViewOnly = isPC || user?.role === 'APPROVAL_MANAGER' || (isFrontLine && !frontLineCanEdit);
+  // Same rules as the server's update(), in one shared place (taskPermissions): who may move the
+  // status, and who may change the details. A Manager looking at a colleague's delegation, PC, an
+  // approval manager, front-line staff on work given to them, and anyone but an Admin once it is
+  // approved all get a read-only sheet.
+  const canMove = canMoveTask(task, user);
+  const isViewOnly = !canEditTaskContent(task, user);
   const isVerifier = isPC || user?.role === 'ADMIN';
   const canReassign = user?.role !== 'AGENT' && user?.role !== 'USER';
-  const canEditText = !isViewOnly && task.status !== 'done';
+  const canEditText = !isViewOnly;
   const canAttach = user?.role !== 'APPROVAL_MANAGER' && (
     user?.role === 'ADMIN' || user?.role === 'PC' || task.userId === user?.id || (!!user && taskAssigneeIds(task).includes(user.id))
   );
+  // Files on an approved delegation are part of the record: only an Admin may take one off.
+  const canRemoveFiles = canAttach && (task.status !== 'done' || user?.role === 'ADMIN');
   const nextStatus = NEXT_STATUS[task.status as keyof typeof NEXT_STATUS];
 
   const updateMutation = useUpdateTaskMutation({ silent: true });
@@ -596,7 +600,7 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
       footer={
         <TaskFooter
           task={task}
-          isPC={isPC}
+          canMove={canMove}
           canApprove={canApproveWork(user, { departmentId: task.departmentId ?? null, assigneeIds: taskAssigneeIds(task), reviewers: task.reviewers })}
           nextStatus={nextStatus}
           onAdvance={() => nextStatus && setAdvanceTo(nextStatus)}
@@ -615,6 +619,7 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
           isViewOnly={isViewOnly}
           canEditText={canEditText}
           canAttach={canAttach}
+          canRemoveFiles={canRemoveFiles}
           currentUserId={user?.id}
           canReassign={canReassign}
           assignableUsers={assignableUsers}

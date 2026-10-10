@@ -100,6 +100,15 @@ export const PRIORITY_CONFIG: Record<Ticket['priority'], { label: string; classN
 };
 
 /**
+ * A picked due moment as the server's `tatHours` (it only takes "hours from now"). Kept as a
+ * fraction, not rounded up to whole hours, so a ticket due at 6:00 PM is due at 6:00 PM and not up
+ * to 6:59. Floored at one minute because the server needs a positive number; the forms already
+ * refuse a time in the past.
+ */
+export const hoursUntil = (due: Date, now = Date.now()): number =>
+  Math.max(1 / 60, Math.round(((due.getTime() - now) / 3_600_000) * 10_000) / 10_000);
+
+/**
  * The one wording for a ticket's target date, shared by the card, table and timeline so they agree:
  * "Today" / "Tomorrow" / "Yesterday", otherwise "5 Oct". `label` adds a "Delayed" prefix when the
  * ticket is overdue and not closed. Null when the ticket has no target date.

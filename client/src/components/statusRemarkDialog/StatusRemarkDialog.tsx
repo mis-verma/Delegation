@@ -50,6 +50,8 @@ interface StatusRemarkDialogProps {
   optional?: boolean;
   /** Confirm text once a note is typed, in optional mode. Defaults to `${confirmLabel} with note`. */
   confirmWithNoteLabel?: string;
+  /** Dialog heading. Defaults to "Add a note?" in optional mode, otherwise "Add a remark". */
+  title?: string;
 }
 
 /**
@@ -64,7 +66,7 @@ interface StatusRemarkDialogProps {
 export const StatusRemarkDialog = ({
   itemTitle, from, to, confirmLabel, description, placeholder,
   onCancel, onConfirm, isSubmitting = false, nested = false, history, attachments, suggestions,
-  optional = false, confirmWithNoteLabel,
+  optional = false, confirmWithNoteLabel, title,
 }: StatusRemarkDialogProps) => {
   const [remark, setRemark] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -88,7 +90,7 @@ export const StatusRemarkDialog = ({
       modal={!nested}
       size="lg"
       icon={<MessageSquareText className="w-5 h-5 text-primary-600" />}
-      title={optional ? 'Add a note?' : 'Add a remark'}
+      title={title ?? (optional ? 'Add a note?' : 'Add a remark')}
       // Desktop-only: three lines of header on a phone for something the form itself makes clear.
       description={<span className="hidden sm:inline">{description}</span>}
       // Phones: header X instead of the footer Cancel, and the confirm button spans the sheet —

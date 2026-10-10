@@ -95,7 +95,10 @@ export const Dashboard = () => {
         <main className="flex-1 min-w-0 relative">
           <PullToRefresh onRefresh={handleRefresh} className="relative z-10 h-full overflow-y-auto overflow-x-hidden overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 
-            <div className="px-3 pt-3.5 sm:px-4 lg:px-5 xl:px-6 pb-[calc(8rem+env(safe-area-inset-bottom))] md:pb-8 max-w-(--container-width) mx-auto w-full min-h-full flex flex-col">
+            {/* Bottom space on a phone clears the fixed bottom bar (about 4.75rem plus the safe area) with
+                about 1rem to spare. Home has no floating add button, so it stops there; other pages keep
+                the extra room their add button needs. */}
+            <div className={`px-3 pt-3.5 sm:px-4 lg:px-5 xl:px-6 ${isHome ? 'pb-[calc(6rem+env(safe-area-inset-bottom))]' : 'pb-[calc(8rem+env(safe-area-inset-bottom))]'} md:pb-8 max-w-(--container-width) mx-auto w-full min-h-full flex flex-col`}>
               {maintenanceMatch && isAdmin && (
                 <div
                   role="status"

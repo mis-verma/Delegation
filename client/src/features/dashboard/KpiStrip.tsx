@@ -33,7 +33,7 @@ interface KpiStripProps {
   ticketList: Ticket[];
   todoList: Todo[];
   checklistList: ChecklistInstance[];
-  /** Kept for callers; the cards are the same for everyone now (no Counts / Scores switch). */
+  /** Front-line staff: every tile counts their own work, so no "Team" / "Yours" tags. */
   simple?: boolean;
 }
 
@@ -45,6 +45,9 @@ interface ModuleView {
   href: string;
   /** What the headline Total box counts: "Total", or "Today" for the checklist tile. */
   totalLabel: string;
+  /** Whose work the tile counts, for roles where tiles differ: Delegation and Tickets count what the
+   *  role can see (the team, or everyone for Admin/PC), Checklist and To-do the viewer's own. */
+  scope: 'team' | 'mine';
   isPending: boolean;
   isError: boolean;
   onRetry: () => void;
@@ -88,20 +91,23 @@ const checklistRow = (c: ChecklistInstance): DrilldownRow => {
 // One card per module, the same on a phone and a desktop: a white card with the module's name, the
 // open count as the headline (blue, bold) with a red overdue chip beside it, and Completed, New today
 // and Total underneath. Every figure opens the matching preview. A phone shows the same card, a little
-// tighter, two across.
-const MiniStat = ({ label, value, onClick }: { label: string; value: number | null; onClick?: () => void }) => {
+// tighter, two across, with short labels ("Done", "New") so the three figures fit side by side.
+const MiniStat = ({ label, shortLabel, value, onClick }: { label: string; shortLabel: string; value: number | null; onClick?: () => void }) => {
   const body = (
     <>
-      <span className="block text-base sm:text-lg font-display font-bold tabular-nums leading-tight text-text">{value ?? '-'}</span>
-      <span className="block truncate t-meta text-text-muted">{label}</span>
+      <span className="block text-sm sm:text-lg font-display font-semibold sm:font-bold tabular-nums leading-tight text-text">{value ?? '-'}</span>
+      <span className="block truncate t-meta text-text-muted">
+        <span className="sm:hidden">{shortLabel}</span>
+        <span className="hidden sm:inline">{label}</span>
+      </span>
     </>
   );
   return onClick ? (
-    <button type="button" onClick={onClick} className="min-w-0 rounded-lg px-1 py-1 text-center outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary-500/40">
+    <button type="button" onClick={onClick} className="min-w-0 min-h-11 sm:min-h-0 rounded-lg px-1 py-1 text-center outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary-500/40">
       {body}
     </button>
   ) : (
-    <div className="min-w-0 px-1 py-1">{body}</div>
+    <div className="min-w-0 min-h-11 sm:min-h-0 px-1 py-1">{body}</div>
   );
 };
 
@@ -118,30 +124,44 @@ const scoreFor = (key: ModuleKey, s: Scores | undefined, view: ModuleView): { va
 
 const gaugeColor = (v: number | null) => (v === null ? 'var(--color-border-hover)' : v >= 80 ? 'var(--color-success)' : v >= 50 ? 'var(--color-warning)' : 'var(--color-danger)');
 
-const ModuleCard = ({ view, onOpen, score }: { view: ModuleView; onOpen: (kind: DrillKind) => void; score: { value: number | null; label: string } }) => {
+const ModuleCard = ({ view, onOpen, score, scopeTag }: { view: ModuleView; onOpen: (kind: DrillKind) => void; score: { value: number | null; label: string }; scopeTag?: string }) => {
   const Icon = view.icon;
   if (view.isPending) {
+    // Same blocks, at the same heights, as the loaded tile below, so nothing jumps when it lands.
     return (
-      <div className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-3 sm:p-4')} role="status" aria-label={`Loading ${view.noun}`}>
-        <Skeleton className="h-5 w-28" />
-        <Skeleton className="h-8 w-16" />
-        <Skeleton className="hidden sm:block h-10 w-full" />
+      <div className={cn(PANEL_CLASS, 'flex flex-col gap-2.5 sm:gap-3 p-3 sm:p-4')} role="status" aria-label={`Loading ${view.noun}`}>
+        <div className="flex h-10 sm:h-8 items-center gap-2">
+          <Skeleton className="hidden sm:block size-8 shrink-0 rounded-lg" />
+          <Skeleton className="h-5 w-24" />
+        </div>
+        <div className="flex h-11 flex-col justify-end gap-1 sm:hidden">
+          <Skeleton className="h-6 w-12" />
+          <Skeleton className="h-3.5 w-14" />
+        </div>
+        <Skeleton className="hidden sm:block h-28 w-full rounded-xl" />
+        <div className="grid grid-cols-3 gap-1 border-t border-border/60 pt-2">
+          {[0, 1, 2].map((i) => <Skeleton key={i} className="mx-auto h-11 sm:h-12 w-10 sm:w-14 rounded-lg" />)}
+        </div>
       </div>
     );
   }
   const failed = view.isError || view.pending == null;
   return (
-    <section aria-label={view.title} className={cn(PANEL_CLASS, 'flex min-w-0 flex-col gap-2.5 sm:gap-3 p-3 sm:p-4 transition-colors hover:border-border-hover')}>
+    <section aria-label={scopeTag ? `${view.title}, ${scopeTag.toLowerCase()}` : view.title} className={cn(PANEL_CLASS, 'flex min-w-0 flex-col gap-2.5 sm:gap-3 p-3 sm:p-4 transition-colors hover:border-border-hover')}>
       <header className="flex items-center gap-2">
-        <span className="flex size-7 sm:size-8 shrink-0 items-center justify-center rounded-lg bg-primary-500/10 text-primary-600 dark:text-primary-400">
-          <Icon className="size-3.5 sm:size-4" aria-hidden="true" />
+        {/* Desktop only: on a phone the tile took the room the module's name needs. */}
+        <span className="hidden sm:flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-500/10 text-primary-600 dark:text-primary-400">
+          <Icon className="size-4" aria-hidden="true" />
         </span>
-        <h3 className="min-w-0 flex-1 truncate t-card font-display font-bold text-text">{view.title}</h3>
+        <div className="min-w-0 flex-1">
+          <h3 className="line-clamp-2 leading-snug t-card font-display font-bold text-text">{view.title}</h3>
+          {scopeTag && <p className="t-meta text-text-muted">{scopeTag}</p>}
+        </div>
         <Link
           viewTransition
           to={view.href}
           aria-label={`Open ${view.title}`}
-          className="inline-flex size-8 sm:size-auto sm:min-h-8 shrink-0 items-center justify-center gap-0.5 rounded-lg sm:px-1.5 t-meta font-display font-semibold text-primary-600 hover:bg-surface-hover dark:text-primary-400"
+          className="inline-flex size-10 sm:size-auto sm:min-h-8 shrink-0 items-center justify-center gap-0.5 rounded-lg sm:px-1.5 t-meta font-display font-semibold text-primary-600 hover:bg-surface-hover dark:text-primary-400"
         >
           <span className="hidden sm:inline">View all</span>
           <ChevronRight className="size-4" aria-hidden="true" />
@@ -175,8 +195,9 @@ const ModuleCard = ({ view, onOpen, score }: { view: ModuleView; onOpen: (kind: 
             </div>
           </div>
 
-          {/* Phone: number on the left, overdue chip on the right. */}
-          <div className="flex sm:hidden items-end justify-between gap-2">
+          {/* Phone: number on the left, overdue chip on the right. With a three-digit count the chip
+              drops under the number instead of running into it. */}
+          <div className="flex sm:hidden flex-wrap items-end justify-between gap-x-2 gap-y-1.5">
             <button type="button" onClick={() => onOpen('pending')} className="min-w-0 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40">
               <span className="block t-figure font-display font-bold tabular-nums leading-none text-primary-700 dark:text-primary-300">
                 <CountUp value={view.pending ?? 0} />
@@ -194,14 +215,12 @@ const ModuleCard = ({ view, onOpen, score }: { view: ModuleView; onOpen: (kind: 
               </button>
             )}
           </div>
-          {/* Phone: one short line. Tablet and desktop: three figures you can open. */}
-          <p className="sm:hidden truncate t-meta text-text-muted tabular-nums">
-            {view.completed ?? 0} done · {view.newToday ?? 0} new · {view.total ?? 0} {view.totalLabel === 'Total' ? 'total' : 'today'}
-          </p>
-          <div className="hidden sm:grid grid-cols-3 gap-1 border-t border-border/60 pt-2 text-center">
-            <MiniStat label="Completed" value={view.completed} onClick={() => onOpen('completed')} />
-            <MiniStat label="New today" value={view.newToday} onClick={() => onOpen('newToday')} />
-            <MiniStat label={view.totalLabel === 'Total' ? 'Total' : 'Total today'} value={view.total} />
+          {/* Three figures you can open, as a small three-column grid at every size (a single
+              "12 done, 3 new, 45 total" line was cut off on a phone). */}
+          <div className="grid grid-cols-3 gap-1 border-t border-border/60 pt-2 text-center">
+            <MiniStat label="Completed" shortLabel="Done" value={view.completed} onClick={() => onOpen('completed')} />
+            <MiniStat label="New today" shortLabel="New" value={view.newToday} onClick={() => onOpen('newToday')} />
+            <MiniStat label={view.totalLabel === 'Total' ? 'Total' : 'Total today'} shortLabel={view.totalLabel === 'Total' ? 'Total' : 'Today'} value={view.total} />
           </div>
         </>
       )}
@@ -209,7 +228,9 @@ const ModuleCard = ({ view, onOpen, score }: { view: ModuleView; onOpen: (kind: 
   );
 };
 
-export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistList }: KpiStripProps) => {
+const SCOPE_TAG: Record<ModuleView['scope'], string> = { team: 'Team', mine: 'Yours' };
+
+export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistList, simple = false }: KpiStripProps) => {
   const now = useNow();
   const [openDrill, setOpenDrill] = useState<{ key: ModuleKey; kind: DrillKind } | null>(null);
   const { tasks, tickets, todos, checklist, checklistToday } = summaries;
@@ -222,26 +243,26 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
     const ct = checklistToday.data;
     return [
       {
-        key: 'delegation', icon: ClipboardList, title: 'Delegation', noun: 'delegations', href: '/tasks', totalLabel: 'Total',
+        key: 'delegation', icon: ClipboardList, title: 'Delegation', noun: 'delegations', href: '/tasks', totalLabel: 'Total', scope: 'team',
         isPending: tasks.isPending, isError: tasks.isError, onRetry: tasks.onRetry,
         total: t?.total ?? null, pending: t?.pending ?? null, completed: t?.completed ?? null, newToday: t?.newToday ?? null, overdue: t?.overdue ?? 0,
       },
       {
-        key: 'tickets', icon: TicketCheck, title: 'Tickets', noun: 'tickets', href: '/tickets', totalLabel: 'Total',
+        key: 'tickets', icon: TicketCheck, title: 'Tickets', noun: 'tickets', href: '/tickets', totalLabel: 'Total', scope: 'team',
         isPending: tickets.isPending, isError: tickets.isError, onRetry: tickets.onRetry,
         total: k?.total ?? null, pending: k?.pending ?? null, completed: k?.completed ?? null, newToday: k?.newToday ?? null, overdue: k?.overdue ?? 0,
       },
       {
         // Pending/New today are all-time and Completed/Total are today's, exactly as the My
         // checklists page counts them, so the tile and the page it opens always agree.
-        key: 'checklist', icon: ClipboardCheck, title: 'Checklist', noun: 'checklists', href: '/checklists', totalLabel: 'Today',
+        key: 'checklist', icon: ClipboardCheck, title: 'Checklist', noun: 'checklists', href: '/checklists', totalLabel: 'Today', scope: 'mine',
         isPending: checklist.isPending || checklistToday.isPending, isError: checklist.isError || checklistToday.isError,
         onRetry: () => { if (checklist.isError) checklist.onRetry(); if (checklistToday.isError) checklistToday.onRetry(); },
         total: ct?.total ?? null, pending: c?.pending ?? null, completed: ct?.completed ?? null, newToday: c?.newToday ?? null, overdue: c?.overdue ?? 0,
       },
       {
         // Always the viewer's own todos, even for an admin: todos have no org-wide view.
-        key: 'todo', icon: ListTodo, title: 'Todo', noun: 'todos', href: '/todo', totalLabel: 'Total',
+        key: 'todo', icon: ListTodo, title: 'To-do', noun: 'to-dos', href: '/todo', totalLabel: 'Total', scope: 'mine',
         isPending: todos.isPending, isError: todos.isError, onRetry: todos.onRetry,
         total: d?.total ?? null, pending: d?.pending ?? null, completed: d?.completed ?? null, newToday: d?.newToday ?? null, overdue: d?.overdue ?? 0,
       },
@@ -323,7 +344,14 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
     <div className="flex flex-col gap-3">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
         {views.map((view) => (
-          <ModuleCard key={view.key} view={view} score={scoreFor(view.key, monthScores.data, view)} onOpen={(kind) => setOpenDrill({ key: view.key, kind })} />
+          <ModuleCard
+            key={view.key}
+            view={view}
+            score={scoreFor(view.key, monthScores.data, view)}
+            // Managers, Seniors, Admin and PC: the tiles count different people's work, so each says whose.
+            scopeTag={simple ? undefined : SCOPE_TAG[view.scope]}
+            onOpen={(kind) => setOpenDrill({ key: view.key, kind })}
+          />
         ))}
       </div>
 

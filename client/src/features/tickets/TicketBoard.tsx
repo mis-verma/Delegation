@@ -25,6 +25,9 @@ import { TicketBoardColumnsRow } from './board/TicketBoardColumnsRow';
 import { BoardTouchHint } from '../../components/BoardTouchHint';
 import { DRAG_SLOP_PX } from '../../lib/dragSlop';
 import { STATUS_CONFIG } from './ticketDisplay';
+import { useAuth } from '../../context/AuthContext';
+import { useConfirm } from '@/components/confirmDialog';
+import { canApproveWork } from '../../lib/canApproveWork';
 
 /**
  * The drop is decided by the pointer, not by the card's outline.
@@ -47,7 +50,6 @@ const collisionDetection: CollisionDetection = (args) => {
 interface TicketBoardProps {
   tickets: Ticket[];
   departmentNames?: Map<string, string>;
-  isVerifier?: boolean;
   onOpen: (ticket: Ticket) => void;
 }
 
@@ -65,7 +67,9 @@ const dropAnimationConfig: DropAnimation = {
   }),
 };
 
-export const TicketBoard = ({ tickets, departmentNames, isVerifier = false, onOpen }: TicketBoardProps) => {
+export const TicketBoard = ({ tickets, departmentNames, onOpen }: TicketBoardProps) => {
+  const { user } = useAuth();
+  const confirm = useConfirm();
   const verifyMutation = useVerifyTicketMutation();
   const { requestMove, statusRemarkDialog } = useTicketStatusMove();
   const [activeTicket, setActiveTicket] = useState<Ticket | null>(null);
@@ -120,22 +124,36 @@ export const TicketBoard = ({ tickets, departmentNames, isVerifier = false, onOp
     const ticket = tickets.find(t => t.id === event.active.id);
     if (!ticket || ticket.status === newStatus) return;
 
-    // Validation rule
+    // Dropping into Closed is an approval, so it follows the approval rules and asks first.
     if (newStatus === 'CLOSED') {
-      // Server-side /verify is PC/ADMIN-only (see ticket.routes.ts) — reject client-side with a
-      // clear reason instead of letting the request round-trip into a 403, same posture as
-      // useTaskStatusMove's own "done" guard.
-      if (!isVerifier) {
-        toast.error('Only a verifier can close a ticket. Send it for review instead.');
-        return;
-      }
       if (ticket.status !== 'PENDING_APPROVAL') {
-        toast.error('Move to Pending Approval before closing a ticket.', {
-          description: 'Only fully reviewed tickets can be closed.',
+        toast.error('Only completed work can be closed.', {
+          description: 'Mark it completed first, then the reviewer approves it.',
         });
         return; // The dropAnimationConfig will smoothly snap it back to its original column
       }
-      verifyMutation.mutate({ id: ticket.id, payload: { action: 'APPROVE' } });
+      // Same rule as the Approve button and the server's assertCanVerify (lib/canApproveWork).
+      const canApprove = canApproveWork(user, {
+        departmentId: ticket.departmentId,
+        assigneeIds: ticket.assigneeId ? [ticket.assigneeId] : [],
+        reviewers: ticket.reviewers,
+      });
+      if (!canApprove) {
+        toast.error("You can't approve this ticket.", {
+          description: ticket.assigneeId === user?.id
+            ? 'It is assigned to you, so someone else has to review it.'
+            : 'The reviewer approves it from the ticket or the Verification page.',
+        });
+        return;
+      }
+      void confirm({
+        title: 'Approve and close this ticket?',
+        description: `"${ticket.title}" will be closed as approved. Open the ticket first if you want to check the work or add a note.`,
+        confirmLabel: 'Approve and close',
+        cancelLabel: 'Not yet',
+      }).then((ok) => {
+        if (ok) verifyMutation.mutate({ id: ticket.id, payload: { action: 'APPROVE' } });
+      });
       return;
     }
 

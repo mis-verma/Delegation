@@ -8,8 +8,11 @@ import type { TicketAttachment } from '../../../api/ticket';
 interface TicketAttachmentsProps {
   ticketId: string;
   attachments: TicketAttachment[];
-  /** Adds the "Add photo" tile and a remove button on each photo. */
+  /** Adds the "Add photo" tile. */
   canEdit: boolean;
+  /** Whether this photo gets a remove button. Same rule as the server: proof photos sent with a
+   *  status change and photos on a closed ticket stay, except for an Admin. */
+  canRemove: (attachment: TicketAttachment) => boolean;
   onPreview: (url: string) => void;
 }
 
@@ -18,7 +21,7 @@ interface TicketAttachmentsProps {
  * that come with a status change stay in the History list. Hidden when there is nothing to show
  * and nothing the viewer could add.
  */
-export const TicketAttachments = ({ ticketId, attachments, canEdit, onPreview }: TicketAttachmentsProps) => {
+export const TicketAttachments = ({ ticketId, attachments, canEdit, canRemove, onPreview }: TicketAttachmentsProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const upload = useUploadTicketAttachmentsMutation(ticketId);
   const remove = useDeleteTicketAttachmentMutation();
@@ -63,7 +66,7 @@ export const TicketAttachments = ({ ticketId, attachments, canEdit, onPreview }:
               >
                 <img src={url} alt={a.originalFilename ?? 'Ticket photo'} loading="lazy" className="size-full object-cover" />
               </button>
-              {canEdit && (
+              {canRemove(a) && (
                 <button
                   type="button"
                   onClick={() => handleRemove(a)}

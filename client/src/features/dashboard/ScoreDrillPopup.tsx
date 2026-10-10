@@ -1,5 +1,5 @@
-import { CheckCheck, ChevronRight, Clock } from 'lucide-react';
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../../components/ui/dialog';
+import { CheckCheck, ChevronRight, Clock, X } from 'lucide-react';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '../../components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { rateToneClass } from '../checklist/checklistDisplay';
 import { SERIES_LABEL, type SeriesKey } from './scoreMetrics';
@@ -47,8 +47,16 @@ const GoButton = ({ icon: Icon, label, hint, primary, onClick }: { icon: typeof 
  */
 export const ScoreDrillPopup = ({ open, onOpenChange, title, windowLabel, subject, figures, completedHref, lateHref, onGo }: ScoreDrillPopupProps) => (
   <Dialog open={open} onOpenChange={onOpenChange}>
-    <DialogContent className="sm:max-w-sm gap-4 p-5 sm:p-6">
-      <div className="flex flex-col gap-0.5 pr-10">
+    {/* px/pt only on a phone: a plain p-5 overrode the sheet's safe-area bottom padding and sat the
+        buttons on the iPhone home bar. Our own close button, 44px on touch (the built-in one is 40px). */}
+    <DialogContent showCloseButton={false} className="sm:max-w-sm gap-4 px-5 pt-5 sm:p-6">
+      <DialogClose
+        aria-label="Close"
+        className="absolute top-3 right-3 z-10 flex size-10 pointer-coarse:size-11 items-center justify-center rounded-full text-text-muted outline-none transition-colors hover:bg-surface-hover hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40"
+      >
+        <X size={18} strokeWidth={2.5} aria-hidden="true" />
+      </DialogClose>
+      <div className="flex flex-col gap-0.5 pr-12">
         <DialogTitle className="text-lg font-display font-bold text-text">{title}</DialogTitle>
         <DialogDescription className="t-meta text-text-muted">{subject ? `${subject}, ${windowLabel}` : windowLabel}</DialogDescription>
       </div>

@@ -12,6 +12,9 @@ interface TaskAttachmentsProps {
   attachments: TaskAttachment[];
   /** Adds the "Add file" button and a remove button on each file. */
   canEdit: boolean;
+  /** Narrows the remove buttons only (an approved delegation keeps its files unless an Admin removes
+   *  them). Defaults to canEdit. */
+  canRemove?: boolean;
   onPreview: (url: string) => void;
 }
 
@@ -23,7 +26,7 @@ const REMOVE_BUTTON =
  * everything else (PDF, CSV, video) as a row you can open. Hidden when there is nothing to show and
  * nothing the viewer could add.
  */
-export const TaskAttachments = ({ taskId, attachments, canEdit, onPreview }: TaskAttachmentsProps) => {
+export const TaskAttachments = ({ taskId, attachments, canEdit, canRemove = canEdit, onPreview }: TaskAttachmentsProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const upload = useUploadTaskAttachmentsMutation(taskId);
   const remove = useDeleteTaskAttachmentMutation();
@@ -73,7 +76,7 @@ export const TaskAttachments = ({ taskId, attachments, canEdit, onPreview }: Tas
                 >
                   <img src={url} alt={a.originalFilename ?? 'Delegation photo'} loading="lazy" className="size-full object-cover" />
                 </button>
-                {canEdit && (
+                {canRemove && (
                   <button
                     type="button"
                     onClick={() => handleRemove(a)}
@@ -112,7 +115,7 @@ export const TaskAttachments = ({ taskId, attachments, canEdit, onPreview }: Tas
                 >
                   <Download size={15} />
                 </a>
-                {canEdit && (
+                {canRemove && (
                   <button
                     type="button"
                     onClick={() => handleRemove(a)}

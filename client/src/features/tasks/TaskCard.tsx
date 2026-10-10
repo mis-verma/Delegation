@@ -14,7 +14,8 @@ import {
 import { useDeleteTaskMutation, usePrefetchTask } from "./hook";
 import { TaskVerifyActions } from "./TaskVerifyActions";
 import { PRIORITY_MAP } from "./taskDisplay";
-import { isOverdueTask } from "./taskFilters";
+import { isOverdueTask, OVERDUE_EXEMPT_STATUSES } from "./taskFilters";
+import { isMoveBlocked } from "./taskStatusModel";
 import { TaskScoreBadge } from "./TaskScoreBadge";
 import { TaskSourceBadge } from "./TaskSourceBadge";
 import { coverPhotoFor } from "./taskAttachmentDisplay";
@@ -96,7 +97,10 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
   // ("3d left" vs "3 days left") whenever both could have applied.
   const showDueCell = fields.dueDate && !!task.dueDate;
   // Plain once it is done; amber on the due day itself; red when it has slipped.
-  const dueIsToday = !!task.dueDate && task.status !== 'done' && !isOverdue && new Date(task.dueDate).toDateString() === new Date().toDateString();
+  // A delegation whose clock has stopped (done, or handed in for approval) shows its date plainly,
+  // with no countdown and no "overdue" (same rule as isOverdueTask).
+  const clockStopped = OVERDUE_EXEMPT_STATUSES.has(task.status);
+  const dueIsToday = !!task.dueDate && !clockStopped && !isOverdue && new Date(task.dueDate).toDateString() === new Date().toDateString();
   const dueTone = task.status === 'done' ? 'text-text-secondary' : isOverdue ? 'text-danger' : dueIsToday ? 'text-warning' : 'text-text';
   // The footer shows Done / In review / verify actions for these states, so the score pill would
   // just be a second reading of the same status.
@@ -173,15 +177,14 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
                 <DropdownMenuSubContent className="w-52 rounded-xl">
                   <DropdownMenuLabel className="t-meta text-text-muted font-medium">Move to</DropdownMenuLabel>
                   {MOVABLE_STATUSES.map((status) => {
-                    // "Done" is reached through the verification flow (Approve) only, for anyone, the
-                    // same rule useTaskStatusMove enforces on a drop and task.service.ts on the server.
-                    // "Pending Approval" must arrive from "In Progress". Showing both disabled says the
-                    // option exists but is not available from here, rather than hiding it.
-                    const blocked = status === 'done' || (status === 'pending_approval' && task.status !== 'in_progress');
+                    // Same pipeline rules as TaskMoveMenu and the server (isMoveBlocked): "Done" only
+                    // through approval, "Pending Approval" only from "In Progress", and so on. Shown
+                    // disabled rather than hidden: the option exists, just not from here.
+                    const blocked = isMoveBlocked(task.status, status);
                     return (
                       <DropdownMenuItem
                         key={status}
-                        disabled={status === task.status || blocked}
+                        disabled={blocked}
                         onClick={() => onMove(task, status)}
                         className="gap-2.5 py-2 cursor-pointer"
                       >
@@ -308,7 +311,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
                 <span className={`text-sm font-display font-semibold truncate ${dueTone}`} title={isOverdue ? 'Overdue' : 'Due date'}>
                   {formatShortDate(task.dueDate!)}
                 </span>
-                {task.status !== 'done' && (
+                {!clockStopped && (
                   <span className={`t-meta font-display font-medium shrink-0 ${dueTone}`}>{daysLeftLabel(task.dueDate!)}</span>
                 )}
               </span>

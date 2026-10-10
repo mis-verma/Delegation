@@ -514,8 +514,12 @@ export const ticketService = {
     const vis = await visibilityFilter(user)
     if (vis) conditions.push(vis)
     if (status) conditions.push(eq(tickets.status, status as TicketRow["status"]))
-    if (assigneeId && (user.role === "ADMIN" || user.role === "PC")) {
-      conditions.push(or(eq(tickets.userId, assigneeId), eq(tickets.assigneeId, assigneeId))!)
+    // One person's tickets = the ones assigned to them (the same rule ownerStats credits), never the
+    // ones they only raised. Honoured for every role that can see other people's work; it is ANDed
+    // with visibilityFilter above, so a manager or senior only narrows their own reach. USER/AGENT
+    // already see only their own tickets, so the filter means nothing for them and is ignored.
+    if (assigneeId && user.role !== "USER" && user.role !== "AGENT") {
+      conditions.push(eq(tickets.assigneeId, assigneeId))
     }
     if (overdue !== undefined) conditions.push(eq(tickets.isOverdue, overdue))
     const dateColumn = dateField === "closedAt" ? tickets.closedAt : tickets.createdAt
@@ -882,6 +886,21 @@ export const ticketService = {
       throw AppError.badRequest("This ticket isn't pending approval.")
     }
 
+    // A send-back is a real move back to work, so it gets its own history step with the reviewer's
+    // note; without it the history jumped from Pending Approval straight to the next In Progress
+    // move with nothing in between. Approval needs no row: the history reads closedAt/verifiedAt.
+    // Written only after the guarded UPDATE won, so a losing concurrent call can't add a second one.
+    if (input.action === "REJECT") {
+      await db.insert(ticketStatusUpdates).values({
+        id: createId(),
+        ticketId: id,
+        changedBy: user.sub,
+        fromStatus: fromStatus,
+        toStatus: "IN_PROGRESS",
+        remark: input.note?.trim() ?? "",
+      })
+    }
+
     const [afterRow] = await db.select().from(tickets).where(eq(tickets.id, id)).limit(1)
 
     await auditService.record({
@@ -906,9 +925,27 @@ export const ticketService = {
   // cascade if it's ever needed again). Nothing else is touched: children stay exactly as they
   // were so the ticket is fully recoverable, not just its own row. Every read path in this file
   // (list/getById/update/addStatusUpdate/verify/reports) hides it from here on via NOT_DELETED.
+  //
+  // ADMIN/PC can delete any ticket. Anyone else can only withdraw a ticket they raised themselves,
+  // and only while nobody has started on it: still OPEN with no status history at all. Once work
+  // has begun (or it was ever moved and moved back), the history belongs to the people working it.
   async remove(id: string, user: AccessTokenPayload) {
     const [ticket] = await db.select().from(tickets).where(and(eq(tickets.id, id), NOT_DELETED)).limit(1)
     if (!ticket) throw AppError.notFound("Ticket not found")
+
+    const withdrawn = !isVerifierRole(user)
+    if (withdrawn) {
+      if (ticket.userId !== user.sub) {
+        throw AppError.forbidden("Only the person who raised this ticket can withdraw it.")
+      }
+      const [started] = await db.select({ id: ticketStatusUpdates.id })
+        .from(ticketStatusUpdates)
+        .where(eq(ticketStatusUpdates.ticketId, id))
+        .limit(1)
+      if (ticket.status !== "OPEN" || started) {
+        throw AppError.badRequest("Work on this ticket has already started, so it can't be withdrawn. Ask an admin if it needs to go.")
+      }
+    }
 
     const deletedAt = new Date()
     await db.update(tickets).set({ deletedAt, updatedAt: deletedAt }).where(eq(tickets.id, id))
@@ -921,6 +958,8 @@ export const ticketService = {
       action: "DELETE",
       actorId: user.sub,
       before: ticket,
+      // Tells a raiser's own withdrawal apart from an admin removing someone else's ticket.
+      after: withdrawn ? { withdrawnByRaiser: true } : undefined,
     })
     await dropTicketSummaries()
     return ticket;

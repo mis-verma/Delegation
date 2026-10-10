@@ -17,6 +17,8 @@ import { Dropdown, type DropdownAction } from '../dropdown';
 import { BrandLogo } from '../brandLogo';
 import { usePublicSettingsQuery } from '../../lib/maintenance';
 import { resolveLogoUrl } from '../../lib/uploadsBase';
+import { useIsMobile } from '../../lib/useMediaQuery';
+import { cn } from '@/lib/utils';
 // Same greeting the Admin header and the Dashboard use, so the three never disagree on where morning ends.
 import { greeting as timeGreeting } from '../../features/dashboard/dashboardDisplay';
 
@@ -87,12 +89,16 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
   const firstName = (user?.name ?? '').split(' ')[0];
   const isHome = location.pathname === '/';
   const phoneTitle = isHome ? timeGreeting(now) : pageLabel;
-  const phoneDateOnly = now.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+  const phoneDateOnly = now.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '');
   // Home: the name rides on the second line so "Good afternoon" fits a 360px bar uncut.
-  const phoneDate = isHome && firstName ? `${firstName} · ${phoneDateOnly}` : phoneDateOnly;
+  const phoneDate = isHome && firstName ? `${firstName}, ${phoneDateOnly}` : phoneDateOnly;
 
+  // Phones: the theme toggle lives in the account menu (as in the Admin header), so the greeting
+  // and the name have the bar's width to themselves.
+  const isMobile = useIsMobile();
   const accountActions: DropdownAction[] = [
     { label: 'Dashboard', to: '/', icon: LayoutDashboard },
+    ...(isMobile ? [{ label: theme === 'light' ? 'Dark mode' : 'Light mode', onClick: toggleTheme, icon: theme === 'light' ? Moon : Sun }] : []),
     { label: 'Settings', to: '/settings', icon: Settings },
     {
       label: 'Sign out',
@@ -109,7 +115,7 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
     // that this one keeps the logo (the Admin header leaves the brand to its sidebar; here the logo
     // is the way home and the only brand mark on screen).
     <header className="relative z-30 shrink-0 mx-3 mt-3 rounded-2xl bg-surface border border-border max-sm:border-border/60 max-sm:bg-gradient-to-br max-sm:from-primary-500/[0.07] max-sm:to-transparent">
-      <div className="flex items-center gap-3 sm:gap-4 h-14 sm:h-16 px-3 sm:px-5">
+      <div className="flex items-center gap-2 sm:gap-4 h-14 sm:h-16 px-3 sm:px-5">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           {onToggleSidebar && (
             <button
@@ -131,14 +137,14 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
             {customLogoSrc ? (
               // An org's own uploaded logo has no guaranteed visual weight of its own (unlike
               // BrandLogo's self-contained tile below), so it sits in a quiet tinted frame.
-              <span className="flex items-center justify-center size-9 sm:size-10 rounded-xl bg-primary-500/10 border border-primary-500/20 transition-transform duration-200 group-hover:scale-105">
+              <span className="flex items-center justify-center size-9 sm:size-10 rounded-xl bg-primary-500/10 border border-primary-500/20">
                 <img src={customLogoSrc} alt={orgName} className="h-6 w-auto object-contain" />
               </span>
             ) : (
-              <span className="inline-flex rounded-xl transition-transform duration-200 group-hover:scale-105">
-                {/* The mark alone on a phone; from sm up the name sits beside it, so the logo reads as a logo on
-                    tablets and desktops instead of a small blue square. */}
-                <BrandLogo className="size-10 sm:size-11" textClassName="hidden sm:inline-flex text-lg" />
+              <span className="inline-flex rounded-xl">
+                {/* The mark alone on a phone (36px, so the greeting and name fit a 360px bar); from sm up
+                    the name sits beside it, so the logo reads as a logo on tablets and desktops. */}
+                <BrandLogo className="size-9 sm:size-11" textClassName="hidden sm:inline-flex text-lg" />
               </span>
             )}
           </NavLink>
@@ -175,7 +181,7 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
             {user && <NotificationBell badgeRing={false} />}
             <button
               onClick={toggleTheme}
-              className={`${ICON_BUTTON_CLASS} overflow-hidden`}
+              className={cn(ICON_BUTTON_CLASS, 'hidden sm:inline-flex overflow-hidden')}
               title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
               aria-label="Toggle visual theme"
             >
@@ -194,7 +200,7 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
                   aria-label={`Account menu, ${user.name}${user.role ? `, ${titleCase(user.role)}` : ''}`}
                   className="flex items-center gap-2.5 h-11 px-1.5 sm:pl-1 sm:pr-3 rounded-full sm:bg-surface-hover sm:border sm:border-border text-text-secondary cursor-pointer transition-all duration-200 hover:bg-surface-active hover:text-text active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 group"
                 >
-                  <span className="relative flex items-center justify-center size-8 rounded-full bg-primary-100 dark:bg-primary-500/20 text-primary-700 dark:text-primary-300 font-bold text-xs shrink-0 group-hover:scale-105 transition-transform">
+                  <span className="relative flex items-center justify-center size-8 rounded-full bg-primary-100 dark:bg-primary-500/20 text-primary-700 dark:text-primary-300 font-bold text-xs shrink-0">
                     {initials || <User size={14} strokeWidth={2.5} />}
                     <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-success border-2 border-surface" aria-hidden="true" />
                   </span>

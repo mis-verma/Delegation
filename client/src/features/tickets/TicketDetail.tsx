@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ShieldCheck, Pencil, CalendarDays, User, Store as StoreIcon, Layers, ChevronDown, AlertTriangle } from 'lucide-react';
+import { ShieldCheck, Pencil, CalendarDays, User, Store as StoreIcon, Layers, ChevronDown, AlertTriangle, Undo2 } from 'lucide-react';
 import {
   useStoresQuery,
   useTicketQuery,
@@ -10,7 +10,7 @@ import {
   useAddTicketStatusUpdateMutation,
   useDepartmentsQuery,
 } from './hook';
-import { ImageLightbox, ActivityFeed, FullChangeLog, IconChip, StatusChip, PriorityChip, DepartmentChip, type StatusChipStatus } from '../../components';
+import { Button, ImageLightbox, ActivityFeed, FullChangeLog, IconChip, StatusChip, PriorityChip, DepartmentChip, type StatusChipStatus } from '../../components';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { useCategoriesQuery } from '../settings/hook';
 import { DetailLabelsField } from '../tags/DetailLabelsField';
@@ -18,7 +18,7 @@ import { useAuth } from '../../context/AuthContext';
 import { getTicketStatusLabel } from '../../lib/ticketStatusLabel';
 import { getInitials } from '../../lib/getInitials';
 import { avatarColorClass } from '../../lib/avatarColors';
-import { STATUS_OPTIONS, STATUS_UPDATE_OPTIONS } from './detail/detailConstants';
+import { STATUS_OPTIONS, STATUS_UPDATE_OPTIONS, HAND_IN_LABEL } from './detail/detailConstants';
 import { PRIORITY_CONFIG, formatShortDateTime } from './ticketDisplay';
 import { TicketDetailHeader } from './detail/TicketDetailHeader';
 import { TicketPropertyRow } from './detail/TicketPropertyRow';
@@ -26,7 +26,7 @@ import { VerificationNoteBanner } from '../../components/verificationBanner';
 import { TicketDescription } from './detail/TicketDescription';
 import { TicketAttachments } from './detail/TicketAttachments';
 import { TicketEditForm } from './detail/TicketEditForm';
-import { canChangeTicket } from './ticketPermissions';
+import { canChangeTicket, canWithdrawTicket } from './ticketPermissions';
 import { TicketStatusHistory } from './detail/TicketStatusHistory';
 import { TicketVerificationActions } from './detail/TicketVerificationActions';
 import { TicketStatusMenu } from './detail/TicketStatusMenu';
@@ -36,7 +36,7 @@ import type { AssignableUser } from '../../api/users';
 import type { Role } from '../../api/auth';
 import { AssigneeField } from '../assignees/AssigneeField';
 import { DETAIL_HEADING_CLASS } from '../tasks/taskFormFieldStyles';
-import { RESTRICTED_STATUSES, type Ticket, type TicketStatus, type RestrictedStatus, type CaptureMethod } from '../../api/ticket';
+import { RESTRICTED_STATUSES, type Ticket, type TicketAttachment, type TicketStatus, type RestrictedStatus, type CaptureMethod } from '../../api/ticket';
 import { canApproveWork } from '../../lib/canApproveWork';
 
 interface TicketDetailProps {
@@ -48,19 +48,26 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
   const { data: fresh, isPending } = useTicketQuery(initialTicket.id);
   const ticket = fresh ?? initialTicket;
   
-  const updateMut = useUpdateTicketMutation();
-  const labelsMut = useUpdateTicketMutation({ silent: true });
-  const deleteMut = useDeleteTicketMutation();
-  const verifyMut = useVerifyTicketMutation();
-
   const { user: currentUser } = useAuth();
   const canAssign = currentUser?.role === "ADMIN" || currentUser?.role === "PC" || currentUser?.role === "MANAGER";
-  
+
   const isAdmin = currentUser?.role === "ADMIN" || currentUser?.role === "PC";
   const isVerifier = currentUser?.role === "PC" || currentUser?.role === "ADMIN";
   // One rule for "may change this ticket": moving its status, editing its text, adding photos.
   const canChangeStatus = canChangeTicket(currentUser, ticket);
   const canEdit = canChangeStatus && ticket.status !== 'CLOSED';
+  // The raiser can take back a ticket nobody has started yet. Only judged on the full record
+  // (`fresh`), which carries the status history the decision depends on.
+  const canWithdraw = !!fresh && canWithdrawTicket(currentUser, ticket);
+  // Removing a ticket photo: anyone who may edit the ticket, but proof photos from a status change
+  // and photos on a closed ticket stay unless an Admin removes them (ticketAttachment.service.ts).
+  const canRemovePhoto = (a: TicketAttachment) =>
+    currentUser?.role === 'ADMIN' || (canEdit && !a.statusUpdateId);
+
+  const updateMut = useUpdateTicketMutation();
+  const labelsMut = useUpdateTicketMutation({ silent: true });
+  const deleteMut = useDeleteTicketMutation({ withdraw: !isAdmin });
+  const verifyMut = useVerifyTicketMutation();
 
   const { data: assignableUsers } = useAssignableUsersQuery(ticket.departmentId ?? undefined);
   const { data: departments } = useDepartmentsQuery();
@@ -103,6 +110,19 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
     deleteMut.mutate(ticket.id, { onSuccess: onClose });
   };
 
+  // The raiser's own take-back. Asked first because it can't be undone from here.
+  const handleWithdraw = async () => {
+    const ok = await confirm({
+      title: 'Withdraw this ticket?',
+      description: `"${ticket.title}" will be taken off every list. Nobody has started on it yet, so nothing is lost. If you still need it later, raise it again.`,
+      confirmLabel: 'Withdraw ticket',
+      cancelLabel: 'Keep it',
+      variant: 'danger',
+    });
+    if (!ok) return;
+    deleteMut.mutate(ticket.id, { onSuccess: onClose });
+  };
+
   const isOverdue = ticket.isOverdue && ticket.status !== 'CLOSED';
 
   // One status control for everyone who can change status. Verifiers get every status; everyone
@@ -127,8 +147,10 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
   // ticket is actually PENDING_APPROVAL), not a plain status pick. The server backs this up too
   // (ticket.service.ts's update() now refuses a direct move to CLOSED for the same reason: it
   // used to skip the checklist gate and never recorded who approved it).
+  // Handing in reads "Mark completed" in the menu for everyone, matching the dialog it opens.
   const statusOptions = (isVerifier ? STATUS_OPTIONS : workerCanMove ? STATUS_UPDATE_OPTIONS : [])
-    .filter(s => s.value !== ticket.status && s.value !== 'CLOSED');
+    .filter(s => s.value !== ticket.status && s.value !== 'CLOSED')
+    .map(s => (s.value === 'PENDING_APPROVAL' ? { ...s, label: HAND_IN_LABEL } : s));
 
   const handlePickStatus = (next: TicketStatus) => {
     // On Hold must be explained. Completed (which sends it to PC for approval) opens a small popup
@@ -151,7 +173,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
     assigneeIds: ticket.assignee ? [ticket.assignee.id] : [],
     reviewers: ticket.reviewers,
   });
-  const showFooter = showVerify || statusOptions.length > 0;
+  const showFooter = showVerify || statusOptions.length > 0 || canWithdraw;
   const hasHistory = (ticket.statusUpdates?.length ?? 0) > 0;
   // With no status history there is nothing to switch between, so Activity is the only view.
   const shownTab = hasHistory ? lowerTab : 'activity';
@@ -354,6 +376,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                 ticketId={ticket.id}
                 attachments={ticket.attachments ?? []}
                 canEdit={canEdit}
+                canRemove={canRemovePhoto}
                 onPreview={setPreviewImage}
               />
               </div>
@@ -417,6 +440,20 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                   onReject={note => verifyMut.mutate({ id: ticket.id, payload: { action: 'REJECT', note } }, { onSuccess: onClose })}
                 />
               </div>
+            )}
+            {/* Secondary to the status button, so it is a quiet text button rather than a second CTA. */}
+            {canWithdraw && (
+              <Button
+                variant="ghost"
+                size="md"
+                onClick={handleWithdraw}
+                isLoading={deleteMut.isPending}
+                disabled={deleteMut.isPending}
+                className="max-sm:w-full max-sm:h-11 gap-2 font-display text-danger hover:text-danger hover:bg-danger/10"
+              >
+                {!deleteMut.isPending && <Undo2 size={15} strokeWidth={2.5} />}
+                Withdraw ticket
+              </Button>
             )}
             {statusOptions.length > 0 && (
               <div className="flex w-full sm:w-auto">

@@ -1,10 +1,12 @@
 import type { TicketStatus, RestrictedStatus } from '../../../api/ticket';
 
+/** The hand-in action's name everywhere it is offered: the status menu, the dialog and its button. */
+export const HAND_IN_LABEL = 'Mark completed';
 
 export const STATUS_UPDATE_OPTIONS: { value: RestrictedStatus; label: string }[] = [
   { value: 'IN_PROGRESS', label: 'In Progress' },
   { value: 'ON_HOLD', label: 'On Hold' },
-  { value: 'PENDING_APPROVAL', label: 'Completed' },
+  { value: 'PENDING_APPROVAL', label: HAND_IN_LABEL },
 ];
 
 export const STATUS_OPTIONS: { value: TicketStatus; label: string }[] = [

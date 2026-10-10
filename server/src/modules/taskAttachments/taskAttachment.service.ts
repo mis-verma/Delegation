@@ -65,6 +65,12 @@ export const taskAttachmentService = {
 
         const [task] = await db.select().from(tasks).where(and(eq(tasks.id, attachment.taskId), isNull(tasks.deletedAt))).limit(1);
         if (task) await assertCanAttach(user, task);
+        // An approved delegation is closed, and its files are part of what was approved: only an
+        // Admin may take one off (same rule as every other change on a done delegation, see
+        // task.service.ts's update()).
+        if (task && task.status === "done" && user.role !== "ADMIN") {
+            throw AppError.forbidden("This delegation is approved and closed. Only an admin can remove its files.");
+        }
         if (!task && user.role !== "ADMIN" && user.role !== "PC" && attachment.uploadedBy !== user.sub) {
             throw AppError.forbidden("You don't have access to this delegation's attachments");
         }

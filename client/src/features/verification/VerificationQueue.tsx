@@ -6,7 +6,7 @@ import { EmptyState, InlineError, PageHeader, PANEL_CLASS, useConfirm } from '..
 import { Breadcrumbs } from '../../components/breadcrumbs';
 import { useMediaQuery } from '../../lib/useMediaQuery';
 import { useTicketsByStatusQuery } from '../tickets/hook';
-import { useTasksByStatusQuery } from '../tasks/hook';
+import { usePendingTasksQuery } from './usePendingTasksQuery';
 import type { Ticket } from '../../api/ticket';
 import type { Task } from '../../api/task';
 import type { ChecklistInstance } from '../../api/checklistInstances';
@@ -58,11 +58,11 @@ export const VerificationQueue = () => {
   const isDesktop = useMediaQuery('(min-width: 1024px)');
   const confirm = useConfirm();
 
-  // Tickets and delegations: one query each, as before.
+  // Tickets and delegations: one query each, every page, plus the server's own totals.
   const ticketsQuery = useTicketsByStatusQuery('PENDING_APPROVAL');
-  const tasksQuery = useTasksByStatusQuery('pending_approval');
-  const tickets = ticketsQuery.data ?? NO_TICKETS;
-  const tasks = tasksQuery.data ?? NO_TASKS;
+  const tasksQuery = usePendingTasksQuery('pending_approval');
+  const tickets = ticketsQuery.data?.data ?? NO_TICKETS;
+  const tasks = tasksQuery.data?.data ?? NO_TASKS;
 
   // Checklists: 50 a page, everything derived once.
   const checklistQuery = useChecklistQueueQuery();
@@ -111,13 +111,21 @@ export const VerificationQueue = () => {
   const checklistCount = filtersActive || !hasMore ? visibleRows.length : Math.max(visibleRows.length, checklistTotal - heldInLoaded);
   const inDept = <T extends { departmentId: string | null }>(list: T[]) =>
     params.dept ? list.filter((i) => (i.departmentId ?? UNASSIGNED) === params.dept).length : list.length;
-  const ticketCount = inDept(filteredTickets);
-  const taskCount = inDept(filteredTasks);
+  // Rows decided a moment ago are hidden while their Undo runs, so they don't count as waiting.
+  const notHeld = <T extends { id: string }>(list: T[]) => list.filter((i) => !heldIds.has(i.id));
+  const heldTickets = tickets.length - notHeld(tickets).length;
+  const heldTasks = tasks.length - notHeld(tasks).length;
+  // The server's count, not the rows in hand: every page is loaded, but this stays right even if
+  // the loader's safety stop was ever reached.
+  const ticketTotal = Math.max(0, (ticketsQuery.data?.total ?? tickets.length) - heldTickets);
+  const taskTotal = Math.max(0, (tasksQuery.data?.total ?? tasks.length) - heldTasks);
+  const ticketCount = filtersActive ? inDept(notHeld(filteredTickets)) : ticketTotal;
+  const taskCount = filtersActive ? inDept(notHeld(filteredTasks)) : taskTotal;
   const counts = checklistQuery.isPending || ticketsQuery.isPending || tasksQuery.isPending
     ? null
     : { all: checklistCount + ticketCount + taskCount, checklists: checklistCount, tickets: ticketCount, delegations: taskCount };
 
-  const waitingTotal = tickets.length + tasks.length + Math.max(0, checklistTotal - heldInLoaded);
+  const waitingTotal = ticketTotal + taskTotal + Math.max(0, checklistTotal - heldInLoaded);
   const oldestWaiting = useMemo(() => {
     const times = [
       ...allRows.filter((r) => !heldIds.has(r.id)).map((r) => r.waitingSince),

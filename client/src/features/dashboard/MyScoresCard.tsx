@@ -7,6 +7,7 @@ import { ArrowDown, ArrowUp, SlidersHorizontal, ChartColumn, ChartLine, ChevronD
 import { Button, Combobox, Switch, type ComboboxOption } from '../../components';
 import { SemiGauge } from '../../components/semiGauge/SemiGauge';
 import { InfoHint } from '../../components/infoHint/InfoHint';
+import { InlineError } from '../../components/inlineError';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel } from '../../components/ui/dropdown-menu';
 import { useAuth } from '../../context/AuthContext';
 import { OWN_SCOPE_ROLES } from '../../api/auth';
@@ -378,7 +379,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
           </div>
           {!simple && !glance && <div className="flex items-center justify-between gap-2 sm:justify-end sm:shrink-0">
             {moreHref && (
-              <Link viewTransition to={moreHref} className="inline-flex min-h-9 pointer-coarse:min-h-11 items-center gap-0.5 rounded-lg px-2 text-sm font-display font-semibold text-primary-600 hover:underline dark:text-primary-400">
+              <Link viewTransition to={moreHref} className="inline-flex min-h-9 pointer-coarse:min-h-11 items-center gap-0.5 rounded-lg px-2 text-sm font-display font-semibold text-primary-600 transition-colors hover:bg-surface-hover dark:text-primary-400">
                 Full scorecard <ChevronRight className="size-4" aria-hidden="true" />
               </Link>
             )}
@@ -473,7 +474,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
             <span className="min-w-0">
               <span className="block t-meta font-display font-semibold text-text">{canExportReport ? 'Period, measure and people' : 'Period and measure'}</span>
               <span className="mt-1 flex flex-wrap items-center gap-1 @4xl:hidden">
-                {[range.label, METRIC_LABEL[metric], scope === 'person' && !targetId ? 'Me' : data?.name ?? SCOPE_LABEL[scope]].map((chip) => (
+                {[range.label, metric === 'overview' ? 'Overall score' : METRIC_LABEL[metric], scope === 'person' && !targetId ? 'Me' : data?.name ?? SCOPE_LABEL[scope]].map((chip) => (
                   <span key={chip} className="max-w-full truncate rounded-full bg-primary-500/10 px-2 py-0.5 t-meta font-display font-semibold text-primary-700 dark:text-primary-300">{chip}</span>
                 ))}
               </span>
@@ -553,14 +554,19 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
       ) : activeView === 'trend' ? (
         <ScoreTrend metric={metric} scope={scope} id={targetId} period={trendPeriod} from={range.from} to={range.to} />
       ) : query.isError && !data ? (
-        <div className="rounded-lg border border-border px-4 py-6 text-center text-sm font-medium text-text-muted">
-          Could not load the scores.{' '}
-          <button type="button" onClick={() => void query.refetch()} className="font-bold text-primary-600 dark:text-primary-400 hover:underline">Try again</button>
-        </div>
+        <InlineError message="Couldn't load the scores." onRetry={() => void query.refetch()} />
       ) : (
-        <div className={`transition-opacity duration-200 ${query.isFetching && data ? 'opacity-60' : ''}`}>
+        // No dim while the next window loads: the old numbers stay as they are until the new ones land.
+        <div>
         {activeView === 'bars' ? (
-          <ScoreBars scores={data} loading={loading} metric={metric} previous={previous} onOpenModule={openDrill} />
+          <ScoreBars
+            scores={data}
+            loading={loading}
+            metric={metric}
+            previous={previous}
+            onOpenModule={openDrill}
+            emptyText={glance ? 'Nothing due yet this month' : 'Nothing was due in this window'}
+          />
         ) : (
         <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
           {([

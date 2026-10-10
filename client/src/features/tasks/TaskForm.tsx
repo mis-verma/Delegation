@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toast } from 'sonner';
 import { endOfDay } from './taskDisplay';
 import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -91,7 +92,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
   // Choosing a department narrows the person picker to that department's people, for every role (front-line
   // staff only see the picker once a department is chosen). With no department it lists everyone allowed.
   const departmentId = useWatch({ control, name: 'departmentId' });
-  const { data: departmentPeople, isLoading: isLoadingDepartmentPeople } = useDepartmentPeopleQuery(departmentId || undefined, undefined, undefined, !!departmentId);
+  const { data: departmentPeople, isLoading: isLoadingDepartmentPeople } = useDepartmentPeopleQuery(departmentId || undefined, undefined, undefined, !!departmentId && !ownScopeOnly);
   const assignableUsers = departmentId ? departmentPeople : allAssignable;
   const isLoadingUsers = departmentId ? isLoadingDepartmentPeople : isLoadingAllUsers;
   // A different department means a different set of people: the old pick no longer applies.
@@ -131,7 +132,12 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
         files,
       },
       {
-        onSuccess: (createdTask) => {
+        onSuccess: ({ filesFailed, ...createdTask }) => {
+          if (filesFailed) {
+            toast.warning("Delegation created, but the files didn't upload. Open it to add them again.");
+          } else {
+            toast.success(createdTask.status === 'draft' ? 'Saved as draft' : 'Delegation created');
+          }
           onCreated?.(createdTask);
           onClose();
         },
@@ -157,7 +163,8 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
       footer={
         <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between w-full gap-3">
           {/* Only the title blocks Create; the rest is listed as "not set yet" so nothing is a surprise. */}
-          <TaskFormProgress control={control} hasPerson={assigneeIds.length > 0} hasDates={!!dateRange.to} />
+          {/* No "person not set" nudge for front-line staff: picking one isn't theirs to do. */}
+          <TaskFormProgress control={control} hasPerson={ownScopeOnly || assigneeIds.length > 0} hasDates={!!dateRange.to} />
 
           {/* Phones: Draft + Create split the full width; Cancel is desktop-only there, the X in the
               header dismisses instead. Desktop keeps all three right-aligned at natural width. */}
@@ -259,7 +266,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
 
         {/* Step 2: who and when. A bordered panel on desktop, plain on a phone. */}
         <div className="flex flex-col gap-5 min-w-0 lg:self-start lg:p-4 lg:rounded-lg lg:border lg:border-border/60 lg:bg-surface-hover/30">
-          <StepHeading step={2} title="Who and when" subtitle="Pick the team first, then the people." />
+          <StepHeading step={2} title="Who and when" subtitle={ownScopeOnly ? 'Pick the team. Its manager chooses who does it.' : 'Pick the team first, then the people.'} />
 
           {/* The flow is department first, then the person: the person list shows only that
               department's people, so it stays closed until a department is chosen. */}
@@ -285,26 +292,30 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
             />
           </FormField>
 
-          <FormField
-            label="Assign to"
-            icon={<UserCheck size={14} className="text-text-light" />}
-            optional
-            hint={departmentId ? 'Pick one or more people. The first one is the main owner.' : 'Choose a department first.'}
-          >
-            {departmentId ? (
-              <AssigneeField
-                hideLabel
-                selectedIds={assigneeIds}
-                onChange={setAssigneeIds}
-                users={assignableUsers}
-                isLoading={isLoadingUsers}
-              />
-            ) : (
-              <span className="inline-flex h-8 w-fit items-center rounded-full border border-border px-3 text-xs font-display text-text-light">
-                Pick a department first
-              </span>
-            )}
-          </FormField>
+          {/* Front-line staff send the work to a department and its head picks the person (the
+              server tells the department's Manager/Senior), so they get no person picker. */}
+          {!ownScopeOnly && (
+            <FormField
+              label="Assign to"
+              icon={<UserCheck size={14} className="text-text-light" />}
+              optional
+              hint={departmentId ? 'Pick one or more people. The first one is the main owner.' : 'Choose a department first.'}
+            >
+              {departmentId ? (
+                <AssigneeField
+                  hideLabel
+                  selectedIds={assigneeIds}
+                  onChange={setAssigneeIds}
+                  users={assignableUsers}
+                  isLoading={isLoadingUsers}
+                />
+              ) : (
+                <span className="inline-flex h-8 w-fit items-center rounded-full border border-border px-3 text-xs font-display text-text-light">
+                  Pick a department first
+                </span>
+              )}
+            </FormField>
+          )}
 
           <FormField
             label="Due"
@@ -348,7 +359,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
           />
 
           {mutation.isError && (
-            <TaskFormErrorBanner error={mutation.error} fallback="Failed to create task. Please verify your inputs and try again." />
+            <TaskFormErrorBanner error={mutation.error} fallback="Couldn't create the delegation. Check the fields and try again." />
           )}
         </div>
       </form>

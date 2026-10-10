@@ -3,6 +3,7 @@ import { tags } from "../../db/schema/index.js"
 import { parse as parseCsv } from "csv-parse/sync"
 import ExcelJS from "exceljs"
 import { AppError } from "../../utils/AppError.js"
+import { env } from "../../config/env.js"
 import { matchExactOrFuzzy, looksLikeEmail, type MatchConfidence } from "../../utils/fuzzyMatch.js"
 import { taskService } from "./task.service.js"
 import { userService } from "../users/user.service.js"
@@ -156,7 +157,12 @@ const parseXlsxRows = async (buffer: Buffer): Promise<TaskBulkImportRawRow[]> =>
         const record: Record<string, string> = {}
         sheet.getRow(r).eachCell({ includeEmpty: true }, (cell, colNumber) => {
             const header = headers[colNumber]
-            if (header) record[header] = String(cell.value ?? "").trim()
+            if (!header) return
+            // A real Excel date cell arrives as a Date at UTC midnight of that day. String() of it is
+            // a long server-local text, so hand resolveDate the plain YYYY-MM-DD instead.
+            record[header] = cell.value instanceof Date
+                ? cell.value.toISOString().slice(0, 10)
+                : String(cell.value ?? "").trim()
         })
         const built = buildRowFromRecord(record, r - 1)
         if (built) rows.push(built)
@@ -175,11 +181,46 @@ const resolvePriority = (raw: string | undefined): { priority: "low" | "medium" 
     return { priority: "medium", matched: !n }
 }
 
-const resolveDate = (raw: string | undefined): DateField => {
+// Sheets here are filled in Indian style, so a numeric date is read day first: 05/03/2026 is
+// 5 March, never May 3 (which is what `new Date(raw)` made of it). ISO 2026-03-05 is read as written.
+const DAY_FIRST_DATE = /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2}|\d{4})$/
+const ISO_DATE = /^(\d{4})-(\d{1,2})-(\d{1,2})$/
+const MINUTE_MS = 60_000
+
+// The instant a calendar day starts (00:00) or ends (23:59) in the org's own timezone, the same
+// 23:59 the create form puts on a due day (endOfDay in the client's taskDisplay.tsx). Null for a
+// day that doesn't exist, like 31/02.
+const orgDayBoundary = (year: number, month: number, day: number, edge: "start" | "end"): Date | null => {
+    const probe = new Date(Date.UTC(year, month - 1, day))
+    if (probe.getUTCFullYear() !== year || probe.getUTCMonth() !== month - 1 || probe.getUTCDate() !== day) return null
+    const localMs = edge === "end" ? Date.UTC(year, month - 1, day, 23, 59) : Date.UTC(year, month - 1, day)
+    return new Date(localMs - env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * MINUTE_MS)
+}
+
+const resolveDate = (raw: string | undefined, edge: "start" | "end"): DateField => {
     if (!raw) return { raw: "", iso: null, valid: true }
-    const d = new Date(raw)
-    if (Number.isNaN(d.getTime())) return { raw, iso: null, valid: false }
-    return { raw, iso: d.toISOString(), valid: true }
+    const text = raw.trim()
+
+    let parts: { year: number; month: number; day: number } | null = null
+    const dayFirst = DAY_FIRST_DATE.exec(text)
+    const iso = ISO_DATE.exec(text)
+    if (dayFirst) {
+        const year = Number(dayFirst[3])
+        parts = { day: Number(dayFirst[1]), month: Number(dayFirst[2]), year: year < 100 ? 2000 + year : year }
+    } else if (iso) {
+        parts = { year: Number(iso[1]), month: Number(iso[2]), day: Number(iso[3]) }
+    } else {
+        // Anything else ("5 Mar 2026", a full timestamp): let Date read it, then take the org-local
+        // calendar day it falls on so it still lands on that day's start or end.
+        const parsed = new Date(text)
+        if (Number.isNaN(parsed.getTime())) return { raw, iso: null, valid: false }
+        const local = new Date(parsed.getTime() + env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * MINUTE_MS)
+        parts = { year: local.getUTCFullYear(), month: local.getUTCMonth() + 1, day: local.getUTCDate() }
+    }
+
+    const at = orgDayBoundary(parts.year, parts.month, parts.day, edge)
+    if (!at) return { raw, iso: null, valid: false }
+    return { raw, iso: at.toISOString(), valid: true }
 }
 
 export const taskBulkImportService = {
@@ -237,8 +278,8 @@ export const taskBulkImportService = {
                 departmentMatchConfidence: departmentMatch.confidence,
                 priority,
                 priorityMatched,
-                startDate: resolveDate(raw.startDate),
-                dueDate: resolveDate(raw.dueDate),
+                startDate: resolveDate(raw.startDate, "start"),
+                dueDate: resolveDate(raw.dueDate, "end"),
                 tagIds,
                 unmatchedLabelNames,
             }

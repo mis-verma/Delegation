@@ -49,17 +49,55 @@ export const formatRelativeTime = (isoDate: string) => {
   return new Date(isoDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 };
 
-// "Today" / "Tomorrow" / "Mon, Oct 12" for an upcoming date, so a list of deadlines reads as
+// One short date for every dashboard list ("Mon 12 Oct"), so Recently created and Upcoming events
+// never show the same day two different ways side by side.
+const SHORT_DATE = new Intl.DateTimeFormat(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+const shortDate = (isoDate: string) => SHORT_DATE.format(new Date(isoDate)).replace(',', '');
+
+const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+const calendarDaysBetween = (from: number, to: number) => Math.round((startOfDay(new Date(to)) - startOfDay(new Date(from))) / 86_400_000);
+
+// "Today" / "Tomorrow" / "Mon 12 Oct" for an upcoming date, so a list of deadlines reads as
 // days away rather than a column of bare calendar dates. Compares local calendar days, not 24h
 // spans, so 11pm tonight and 1am tomorrow land on different labels.
 export const relativeDayLabel = (isoDate: string, now: number): string => {
-  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-  const days = Math.round((startOfDay(new Date(isoDate)) - startOfDay(new Date(now))) / 86_400_000);
+  const days = calendarDaysBetween(now, new Date(isoDate).getTime());
   if (days === 0) return 'Today';
   if (days === 1) return 'Tomorrow';
   if (days === -1) return 'Yesterday';
-  return new Date(isoDate).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  return shortDate(isoDate);
 };
+
+// The past-tense twin of relativeDayLabel for the dashboard feed: "Just now", "12 min ago",
+// "3 hours ago", then "Yesterday" and the same "Mon 12 Oct" date the events list uses.
+export const pastDayLabel = (isoDate: string, now: number): string => {
+  const at = new Date(isoDate).getTime();
+  const minutes = Math.floor((now - at) / 60_000);
+  if (minutes < 1) return 'Just now';
+  if (minutes < 60) return `${minutes} min ago`;
+  const days = calendarDaysBetween(at, now);
+  if (days === 0) {
+    const hours = Math.floor(minutes / 60);
+    return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
+  }
+  if (days === 1) return 'Yesterday';
+  return shortDate(isoDate);
+};
+
+// How long something has sat in a queue, in whole units: "under an hour", "5 hours", "3 days".
+// Unlike a relative time ("Yesterday"), it reads naturally after "Waiting".
+export const waitingFor = (isoDate: string, now: number): string => {
+  const hours = Math.floor((now - new Date(isoDate).getTime()) / 3_600_000);
+  if (hours < 1) return 'under an hour';
+  if (hours < 24) return `${hours} ${hours === 1 ? 'hour' : 'hours'}`;
+  const days = Math.floor(hours / 24);
+  return `${days} ${days === 1 ? 'day' : 'days'}`;
+};
+
+// The one header tile every dashboard card uses: same size, radius and soft tint, so no card's
+// header reads heavier than its neighbour's. Hidden on a phone, where the title needs the width.
+export const CARD_ICON_TILE_CLASS =
+  'hidden sm:flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary-500/10 text-primary-600 dark:text-primary-300';
 
 // Takes the time as an argument on purpose. Called with no argument it read the clock inside, so the
 // compiler saw a call with no inputs and computed it once per mount: the header kept saying "Good
@@ -314,7 +352,7 @@ export type ActivityCategory = 'checklist' | 'todo' | 'ticket' | 'delegation';
 export const ACTIVITY_CATEGORY_ORDER: ActivityCategory[] = ['checklist', 'todo', 'ticket', 'delegation'];
 export const ACTIVITY_CATEGORY_LABEL: Record<ActivityCategory, string> = {
   checklist: 'Checklist',
-  todo: 'Todo',
+  todo: 'To-do',
   ticket: 'Ticket',
   delegation: 'Delegation',
 };

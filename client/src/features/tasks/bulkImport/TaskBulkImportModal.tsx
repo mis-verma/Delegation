@@ -128,6 +128,7 @@ export const TaskBulkImportModal = ({ onClose }: TaskBulkImportModalProps) => {
         rows: includedRows.map((r) => ({
           rowIndex: r.rowIndex,
           title: r.title.trim(),
+          description: r.raw.description?.trim() || undefined,
           assigneeId: r.assigneeId || undefined,
           priority: r.priority,
           startDate: r.startDate.iso ?? undefined,

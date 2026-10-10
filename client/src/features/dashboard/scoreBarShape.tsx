@@ -24,8 +24,9 @@ export const ScoreColumn = ({ empty, radius = 8, words = true, ...props }: Colum
   if (empty) {
     const cx = x + width / 2;
     const cy = y + height / 2;
-    // Two short lines need about 44px across; a thinner column stays a plain placeholder.
-    const showWords = words && width >= 44 && height >= 60;
+    // "Nothing / due" needs about 44px across; a column down to 32px says "None"; thinner stays plain.
+    const showWords = words && width >= 32 && height >= 60;
+    const twoLines = width >= 44;
     return (
       <g>
         <rect
@@ -41,8 +42,14 @@ export const ScoreColumn = ({ empty, radius = 8, words = true, ...props }: Colum
         />
         {showWords && (
           <text x={cx} y={cy} textAnchor="middle" fill="var(--color-text-muted)" fontSize={12} fontWeight={600}>
-            <tspan x={cx} dy={-4}>Nothing</tspan>
-            <tspan x={cx} dy={15}>due</tspan>
+            {twoLines ? (
+              <>
+                <tspan x={cx} dy={-4}>Nothing</tspan>
+                <tspan x={cx} dy={15}>due</tspan>
+              </>
+            ) : (
+              <tspan x={cx} dy={4}>None</tspan>
+            )}
           </text>
         )}
       </g>

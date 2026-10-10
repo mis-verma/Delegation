@@ -91,10 +91,8 @@ export const BottomNav = () => {
               aria-label={summary ? `${label}, ${summary}` : label}
               className="group relative flex flex-col items-center justify-center gap-1 h-full cursor-pointer select-none outline-none active:scale-[0.94] transition-transform duration-150 [-webkit-tap-highlight-color:transparent]"
             >
+              {/* Active is the icon colour and a bold label only: no tinted pill behind the icon. */}
               <span className="relative flex items-center justify-center w-12 h-8">
-                {isActive && (
-                  <span className="absolute inset-0 rounded-full bg-primary-500/12 dark:bg-primary-400/15 animate-in fade-in zoom-in-95 duration-200 motion-reduce:animate-none" />
-                )}
                 <Icon
                   size={19}
                   strokeWidth={isActive ? 2.4 : 1.9}

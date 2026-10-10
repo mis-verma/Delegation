@@ -14,6 +14,9 @@ export const OvertimeNotice = ({ today }: { today: string }) => {
   const next = (data ?? []).find((d) => d.date >= today);
   if (!next) return null;
   const isToday = next.date === today;
+  // An admin may already end the reason with a full stop; don't add a second one.
+  const reason = next.reason.trim();
+  const reasonSentence = /[.!?]$/.test(reason) ? reason : `${reason}.`;
   return (
     <section aria-label="Extra working day" className={cn(PANEL_CLASS, 'flex items-center gap-3 px-4 py-3')}>
       <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-warning/10 text-warning">
@@ -23,7 +26,7 @@ export const OvertimeNotice = ({ today }: { today: string }) => {
         <p className="t-card font-display font-semibold text-text">
           {isToday ? 'Today is an extra working day' : `Extra working day: ${DAY.format(new Date(`${next.date}T00:00:00Z`))}`}
         </p>
-        <p className="truncate t-meta text-text-muted">{next.reason}. Your checklists run that day.</p>
+        <p className="t-meta text-text-muted">{reasonSentence} Your checklists run that day.</p>
       </div>
     </section>
   );

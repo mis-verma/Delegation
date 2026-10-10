@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Navigate } from 'react-router';
 import {
   FileEdit,
   Archive,
@@ -20,6 +21,7 @@ import { Badge } from '../../components/ui/badge';
 import { cn } from '../../lib/utils';
 import { useDraftTasksQuery, useArchivedTasksQuery, usePublishDraftTaskMutation, useRestoreTaskMutation } from './hook';
 import { useDepartmentsQuery } from '../tickets/hook';
+import { useAuth } from '../../context/AuthContext';
 import { TaskDetail } from './TaskDetail';
 import { PRIORITY_MAP, STATUS_LABEL } from './taskDisplay';
 import { CATEGORY_CONFIG, formatShortDate } from './cardFields';
@@ -162,8 +164,19 @@ export const DraftDelegationsPage = () => {
  * uses. Read-only rows, not click-through to TaskDetail: the detail endpoint excludes soft-deleted
  * rows everywhere (same NOT_DELETED guard the rest of the app relies on), so there's no detail view
  * to open here — Restore is the one real action, and it's what brings the row back into that view.
+ *
+ * Admin and PC only: they are the only roles the server lets delete or restore a delegation, so for
+ * anyone else this page would be a list with a button that always fails. A typed-in link goes back
+ * to Delegation instead.
  */
 export const ArchivedDelegationsPage = () => {
+  const { user } = useAuth();
+  if (!user) return null;
+  if (user.role !== 'ADMIN' && user.role !== 'PC') return <Navigate to="/tasks" replace />;
+  return <ArchivedDelegationsList />;
+};
+
+const ArchivedDelegationsList = () => {
   const { data: tasks, isPending } = useArchivedTasksQuery();
   const { data: departments } = useDepartmentsQuery();
   const restoreMutation = useRestoreTaskMutation();

@@ -6,10 +6,15 @@ export type ScoreMetric = 'overview' | SeriesKey;
 export type ModuleKey = 'checklist' | 'ticket' | 'delegation';
 
 export const METRIC_OPTIONS: readonly ScoreMetric[] = ['overview', 'completion', 'compliance', 'ontime'];
-export const METRIC_LABEL: Record<ScoreMetric, string> = { overview: 'Overview', completion: 'Completion', compliance: 'Compliance', ontime: 'On time' };
+// 'overview' is the overall score (completion and compliance counted equally). Its tab says "Overall",
+// the short form of the "Overall score" name used everywhere else, because the measure tabs share one
+// narrow row of four.
+export const METRIC_LABEL: Record<ScoreMetric, string> = { overview: 'Overall', completion: 'Completion', compliance: 'Compliance', ontime: 'On time' };
 export const isMetric = (v: unknown): v is ScoreMetric => typeof v === 'string' && (METRIC_OPTIONS as readonly string[]).includes(v);
 
 export const SERIES_LABEL: Record<SeriesKey, string> = { completion: 'Completion', compliance: 'Compliance', ontime: 'On time' };
+/** Plain words for the phone legend, where there is no hint to explain "completion" and "compliance". */
+export const SERIES_PHONE_LABEL: Record<SeriesKey, string> = { completion: 'Done', compliance: 'On time or right', ontime: 'On time' };
 // Blue in three weights, so the three read as one family and a colour means the same in every view.
 export const SERIES_COLOR: Record<SeriesKey, string> = {
   completion: 'var(--color-primary-500)',

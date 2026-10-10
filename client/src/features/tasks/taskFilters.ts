@@ -32,7 +32,17 @@ export interface TaskFilters {
 }
 
 /**
- * Past its due date and not finished.
+ * Statuses whose due date no longer runs. Done is finished, a draft hasn't gone out yet, and work
+ * waiting for approval has been handed in, so the assignee's clock has stopped. On hold is NOT here:
+ * pausing work doesn't move its deadline.
+ *
+ * The same set the server uses for its summary, scores and owner stats (task.service.ts and
+ * score.service.ts), so a tile here and a number on the dashboard can't disagree.
+ */
+export const OVERDUE_EXEMPT_STATUSES: ReadonlySet<Task['status']> = new Set(['done', 'draft', 'pending_approval']);
+
+/**
+ * Past its due date and still running (see OVERDUE_EXEMPT_STATUSES).
  *
  * Was declared three times over — TaskList's quick-filter predicates, TaskBoard's per-column
  * count and TaskCard's own footer chip — in three slightly different shapes, one of which
@@ -40,7 +50,7 @@ export interface TaskFilters {
  * never disagree with the column header counting it.
  */
 export const isOverdueTask = (t: Task) =>
-  !!t.dueDate && t.status !== 'done' && new Date(t.dueDate).getTime() < Date.now();
+  !!t.dueDate && !OVERDUE_EXEMPT_STATUSES.has(t.status) && new Date(t.dueDate).getTime() < Date.now();
 
 export const CATEGORY_PREDICATES: Record<CategoryFilterKey, (t: Task) => boolean> = {
   all: () => true,

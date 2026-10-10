@@ -2,6 +2,9 @@ import { History, ArrowRight, Camera, ImageUp, ImagePlus } from 'lucide-react';
 import { StatusRemarkDialog } from '../../components/statusRemarkDialog';
 import { StatusChip, getStatusChipLabel, type StatusChipStatus } from '../../components/statusChip';
 import { StatusPhotoThumbnail } from './detail/StatusPhotoThumbnail';
+import { HAND_IN_LABEL } from './detail/detailConstants';
+import { useAuth } from '../../context/AuthContext';
+import { getTicketStatusLabel } from '../../lib/ticketStatusLabel';
 import type { Ticket, CaptureMethod } from '../../api/ticket';
 
 interface TicketStatusRemarkDialogProps {
@@ -23,10 +26,14 @@ interface TicketStatusRemarkDialogProps {
 // carries each status's color on this chip (see IconChip) — so "Open" and "In Progress" rendered
 // as identical plain gray pills here despite being color-coded everywhere else in the app. Keeping
 // the default icon is what makes these "the latest chips" instead of a flattened-out copy of them.
-const chip = (status: Ticket['status']) => {
-  const key = status.toLowerCase() as StatusChipStatus;
-  return <StatusChip status={key} label={getStatusChipLabel(key)} />;
-};
+// Role-aware wording (a plain user sees "Under Review" for Pending Approval), same as the rest of
+// the ticket screens.
+const chipLabel = (status: Ticket['status'], role: string | undefined) =>
+  getTicketStatusLabel(status, role, getStatusChipLabel(status.toLowerCase() as StatusChipStatus));
+
+const chip = (status: Ticket['status'], role: string | undefined) => (
+  <StatusChip status={status.toLowerCase() as StatusChipStatus} label={chipLabel(status, role)} />
+);
 
 // Short, not TicketStatusHistory's own full "Sep 17, 2026, 4:32 PM" — this sits inside a compact
 // dialog next to a live textarea, not a dedicated history panel with room to spare.
@@ -47,7 +54,7 @@ const relativeTime = (isoDate: string) => {
 // this in can see what already happened without cancelling out to scroll down to the ticket's own
 // Status History section. Same StatusChip the from/to row above already uses, just smaller —
 // "latest chips" throughout, not a different, older-looking list style underneath a modern header.
-const HistoryPreview = ({ statusUpdates }: { statusUpdates: Ticket['statusUpdates'] }) => {
+const HistoryPreview = ({ statusUpdates, role }: { statusUpdates: Ticket['statusUpdates']; role: string | undefined }) => {
   const recent = (statusUpdates ?? []).slice(0, 3);
   if (recent.length === 0) return null;
 
@@ -63,9 +70,9 @@ const HistoryPreview = ({ statusUpdates }: { statusUpdates: Ticket['statusUpdate
             key={su.id}
             className="flex items-center gap-2 flex-wrap px-2.5 py-2 rounded-lg border border-border/60 bg-surface-hover/30 text-xs"
           >
-            <StatusChip status={su.fromStatus.toLowerCase() as StatusChipStatus} label={getStatusChipLabel(su.fromStatus.toLowerCase() as StatusChipStatus)} />
+            {chip(su.fromStatus, role)}
             <ArrowRight size={10} strokeWidth={3} className="text-text-light shrink-0" />
-            <StatusChip status={su.toStatus.toLowerCase() as StatusChipStatus} label={getStatusChipLabel(su.toStatus.toLowerCase() as StatusChipStatus)} />
+            {chip(su.toStatus, role)}
             <span className="text-text-muted font-medium ml-auto shrink-0 tabular-nums">{relativeTime(su.createdAt)}</span>
             {su.remark && (
               <p className="basis-full min-w-0 text-text-secondary font-medium leading-snug break-words line-clamp-2" title={su.remark}>
@@ -139,26 +146,35 @@ const PhotoAttachments = ({
 export const TicketStatusRemarkDialog = ({
   ticket, toStatus, onCancel, onConfirm, isSubmitting, nested,
   photos, onAddPhotos, onRemovePhoto,
-}: TicketStatusRemarkDialogProps) => (
-  <StatusRemarkDialog
-    itemTitle={ticket.title}
-    from={chip(ticket.status)}
-    to={chip(toStatus)}
-    confirmLabel={toStatus === 'ON_HOLD' ? 'Put on hold' : `Move to ${getStatusChipLabel(toStatus.toLowerCase() as StatusChipStatus)}`}
-    optional={toStatus !== 'ON_HOLD'}
-    description={toStatus === 'ON_HOLD'
-      ? "Say why it's on hold and when work should resume. Everyone working on this ticket sees it."
-      : 'Add a note for the reviewer if you want to. You can also move it without one.'}
-    placeholder={toStatus === 'ON_HOLD'
-      ? "e.g. Waiting for the vendor's replacement part. Work resumes when it arrives."
-      : 'e.g. Replaced the printer cable and tested a print. Working again.'}
-    onCancel={onCancel}
-    onConfirm={onConfirm}
-    isSubmitting={isSubmitting}
-    nested={nested}
-    attachments={photos && onAddPhotos && onRemovePhoto && (
-      <PhotoAttachments photos={photos} onAddPhotos={onAddPhotos} onRemovePhoto={onRemovePhoto} />
-    )}
-    history={<HistoryPreview statusUpdates={ticket.statusUpdates} />}
-  />
-);
+}: TicketStatusRemarkDialogProps) => {
+  const { user } = useAuth();
+  const role = user?.role;
+  // Handing in is called "Mark completed" in the status menu, so the dialog and its button say the same.
+  const handIn = toStatus === 'PENDING_APPROVAL';
+  return (
+    <StatusRemarkDialog
+      itemTitle={ticket.title}
+      from={chip(ticket.status, role)}
+      to={chip(toStatus, role)}
+      title={handIn ? `${HAND_IN_LABEL}?` : undefined}
+      confirmLabel={toStatus === 'ON_HOLD' ? 'Put on hold' : handIn ? HAND_IN_LABEL : `Move to ${chipLabel(toStatus, role)}`}
+      optional={toStatus !== 'ON_HOLD'}
+      description={toStatus === 'ON_HOLD'
+        ? "Say why it's on hold and when work should resume. Everyone working on this ticket sees it."
+        : handIn
+          ? 'It goes to the reviewer for approval. Add a note for them if you want to.'
+          : 'Add a note if you want to. You can also move it without one.'}
+      placeholder={toStatus === 'ON_HOLD'
+        ? "e.g. Waiting for the vendor's replacement part. Work resumes when it arrives."
+        : 'e.g. Replaced the printer cable and tested a print. Working again.'}
+      onCancel={onCancel}
+      onConfirm={onConfirm}
+      isSubmitting={isSubmitting}
+      nested={nested}
+      attachments={photos && onAddPhotos && onRemovePhoto && (
+        <PhotoAttachments photos={photos} onAddPhotos={onAddPhotos} onRemovePhoto={onRemovePhoto} />
+      )}
+      history={<HistoryPreview statusUpdates={ticket.statusUpdates} role={role} />}
+    />
+  );
+};

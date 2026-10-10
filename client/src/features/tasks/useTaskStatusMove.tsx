@@ -2,6 +2,7 @@ import { useCallback, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { TaskStatusRemarkDialog } from './TaskStatusRemarkDialog';
 import { useUpdateTaskMutation } from './hook';
+import { useAuth } from '../../context/AuthContext';
 import type { Task } from '../../api/task';
 
 /**
@@ -19,6 +20,8 @@ import type { Task } from '../../api/task';
  */
 export const useTaskStatusMove = () => {
   const updateMutation = useUpdateTaskMutation();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
   const [pendingMove, setPendingMove] = useState<{ task: Task; toStatus: Task['status'] } | null>(null);
 
   // useCallback, not a plain function: this is handed to TaskBoard's Column as `onMove`, and
@@ -28,6 +31,12 @@ export const useTaskStatusMove = () => {
   // would look correct but the "laggy pickup" it was fixing would come right back.
   const requestMove = useCallback((task: Task, toStatus: Task['status']) => {
     if (task.status === toStatus) return;
+
+    // An approved delegation is closed; only an Admin may reopen it (task.service.ts update()).
+    if (task.status === 'done' && !isAdmin) {
+      toast.error('This delegation is approved and closed. Only an admin can reopen it.');
+      return;
+    }
 
     // Mirrors task.service.ts's update() guard — "done" only ever happens through the
     // verification flow (TaskVerifyActions' Approve), never a raw status change, for anyone,
@@ -62,7 +71,7 @@ export const useTaskStatusMove = () => {
     // Never commits on its own: the server requires a remark for any status change, and a path
     // that skipped it would both fail and be a way around the rule the detail modal enforces.
     setPendingMove({ task, toStatus });
-  }, []);
+  }, [isAdmin]);
 
   const statusRemarkDialog: ReactNode = pendingMove && (
     <TaskStatusRemarkDialog

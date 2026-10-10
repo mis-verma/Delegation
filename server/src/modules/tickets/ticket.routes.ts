@@ -36,7 +36,9 @@ ticketRouter.post('/:id/status-updates', ticketAttachmentUpload, ticketControlle
 // ticket has to be checked in the service against the specific row, not generically at the
 // router. See ticket.service.ts's assertCanVerify, and the same decision made for Task/verify.
 ticketRouter.patch('/:id/verify', ticketController.verify);
-ticketRouter.delete('/:id', requireRole('ADMIN', 'PC'), ticketController.remove);
+// No role gate: ADMIN/PC delete anything, and the person who raised a ticket can withdraw it while
+// nobody has started on it. Both rules need the ticket row, so ticket.service.ts#remove decides.
+ticketRouter.delete('/:id', ticketController.remove);
 
 ticketRouter.post('/:ticketId/checklists', requireRole('ADMIN', 'PC'), checklistController.addToTicket);
 ticketRouter.post('/:ticketId/checklists/from-template/:templateId', requireRole('ADMIN', 'PC'), checklistController.addFromTemplateToTicket);

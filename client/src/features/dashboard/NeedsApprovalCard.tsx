@@ -1,14 +1,15 @@
 import { memo, useMemo } from 'react';
 import { Link } from 'react-router';
-import { ShieldAlert, TicketCheck, CheckSquare, ClipboardCheck, ChevronRight, ArrowUpRight, CheckCheck, type LucideIcon } from 'lucide-react';
+import { ShieldAlert, TicketCheck, CheckSquare, ClipboardCheck, ChevronRight, CheckCheck, type LucideIcon } from 'lucide-react';
 import { IconChip } from '../../components/iconChip';
 import { Skeleton } from '../../components/skeleton';
 import { EmptyState } from '../../components/emptyState';
 import { InlineError } from '../../components/inlineError';
 import { useIsMobile } from '../../lib/useMediaQuery';
+import { useNow } from '../../lib/useNow';
 import { useApprovalSources } from './useApprovalSources';
 import { PANEL_CLASS } from '../../components/entityCard';
-import { formatRelativeTime, ACTIVITY_CATEGORY_LABEL, ACTIVITY_CATEGORY_DOT_CLASS } from './dashboardDisplay';
+import { waitingFor, ACTIVITY_CATEGORY_LABEL, ACTIVITY_CATEGORY_DOT_CLASS, CARD_ICON_TILE_CLASS } from './dashboardDisplay';
 
 type ApprovalCategory = 'ticket' | 'delegation' | 'checklist';
 
@@ -33,32 +34,29 @@ const PREVIEW_LIMIT = 6;
 // Phones get the three oldest; six full rows was a screen and a half of scrolling on its own.
 const MOBILE_PREVIEW_LIMIT = 3;
 
-const ApprovalLink = memo(({ row }: { row: ApprovalRow }) => {
+// A plain divided row (no box of its own inside the card's box), the same row style as the other
+// dashboard lists. Hover is a neutral wash, never a blue tint or an underline.
+const ApprovalLink = memo(({ row, now }: { row: ApprovalRow; now: number }) => {
   const Icon = CATEGORY_ICON[row.category];
+  const waiting = waitingFor(row.waitingSince, now);
   return (
     <Link
       to={row.link}
       viewTransition
-      className="group/row flex items-center gap-2.5 sm:gap-3 min-h-11 rounded-lg border border-border/60 bg-surface px-2.5 py-2 sm:px-3.5 sm:py-3 transition-[color,background-color,border-color,transform] duration-200 active:scale-[0.985] motion-reduce:transition-none hover:border-primary-500/40 hover:bg-primary-500/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+      className="flex items-center gap-3 min-h-14 px-4 sm:px-5 py-3 outline-none transition-colors duration-150 hover:bg-surface-hover/50 active:bg-surface-hover focus-visible:bg-surface-hover"
     >
-      <div className="flex items-center justify-center size-6 sm:size-7 rounded-md shrink-0 bg-primary-500/10 text-primary-600 dark:text-primary-400">
-        <Icon className="size-3.5" strokeWidth={2} />
-      </div>
-      <div className="flex-1 min-w-0">
-        {/* line-clamp-2, not truncate: this row's icon and chevron leave little width for the title
-            on a phone, and truncate cut titles down to a fragment. */}
-        <p className="truncate sm:whitespace-normal sm:line-clamp-2 text-sm font-display font-medium sm:font-semibold text-text leading-snug">{row.title.replace(/\.(\s+·|\s*$)/, '$1')}</p>
-        <p className="t-meta font-medium text-text-light flex items-center gap-1.5">
-          {row.meta && (
-            <>
-              <span className="truncate">{row.meta}</span>
-              <span className="size-1 rounded-full bg-border shrink-0" />
-            </>
-          )}
-          <span className="text-primary-600 dark:text-primary-400 font-semibold shrink-0">Waiting {formatRelativeTime(row.waitingSince)}</span>
+      <span className="flex items-center justify-center size-7 rounded-lg shrink-0 bg-primary-500/10 text-primary-600 dark:text-primary-300">
+        <Icon className="size-3.5" strokeWidth={2} aria-hidden="true" />
+      </span>
+      <div className="flex flex-1 min-w-0 flex-col gap-0.5">
+        {/* line-clamp-2, not truncate: the icon and chevron leave little width for the title on a
+            phone, and truncate cut titles down to a fragment. */}
+        <p className="line-clamp-2 text-sm font-display font-medium sm:font-semibold text-text leading-snug">{row.title.replace(/\.(\s+·|\s*$)/, '$1')}</p>
+        <p className="t-meta font-medium text-text-muted">
+          {row.meta ? `${row.meta}, waiting ${waiting}` : `Waiting ${waiting}`}
         </p>
       </div>
-      <ChevronRight size={14} strokeWidth={2} className="shrink-0 text-text-light group-hover/row:text-primary-600 dark:group-hover/row:text-primary-400 transition-colors duration-200" />
+      <ChevronRight size={16} strokeWidth={2} className="shrink-0 text-text-muted" aria-hidden="true" />
     </Link>
   );
 });
@@ -76,6 +74,8 @@ ApprovalLink.displayName = 'ApprovalLink';
 export const NeedsApprovalCard = () => {
   const { reviewsAllWork, isHod, queueHref, tasks, tickets, checklists, isPending, hasError, total } = useApprovalSources();
   const isMobile = useIsMobile();
+  // "Waiting 5 hours" moves on while the dashboard is left open.
+  const now = useNow();
 
   const rows = useMemo<ApprovalRow[]>(() => {
     const combined: ApprovalRow[] = [
@@ -117,20 +117,20 @@ export const NeedsApprovalCard = () => {
   const allCaughtUp = nothingToShow && !hasError && !isPending;
 
   return (
-    <section aria-labelledby="needs-approval-heading" className={`${PANEL_CLASS} flex flex-col`}>
-      <div className="flex items-center justify-between gap-3 px-3 py-2.5 sm:px-5 sm:py-4 border-b border-border/40">
-        <div className="flex items-center gap-3.5 min-w-0">
-          {/* One-off warm tile, not EntityIconTile's shared primary/coral: coral there is scoped to
-              physical stores, and this block is the one place on the dashboard that reads as
-              "waiting on you", so it earns its own accent. */}
-          <div className="flex items-center justify-center size-7 sm:size-10 rounded-lg sm:rounded-xl shrink-0 text-primary-600 dark:text-primary-400 bg-primary-500/10 border border-primary-500/20">
-            <ShieldAlert className="size-4 sm:size-[18px]" strokeWidth={2.25} />
+    <section aria-labelledby="needs-approval-heading" className={`${PANEL_CLASS} flex flex-col overflow-hidden`}>
+      {/* Header and rows share the same side padding (px-4, sm:px-5), so their left edges line up. */}
+      <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5 sm:py-4 border-b border-border/40">
+        <div className="flex items-center gap-3 min-w-0">
+          {/* The shared dashboard header tile, desktop only: on a phone it pushed "Review all" to a
+              second line. */}
+          <div className={CARD_ICON_TILE_CLASS}>
+            <ShieldAlert className="size-4" strokeWidth={2.25} aria-hidden="true" />
           </div>
           <div className="min-w-0">
             <h2 id="needs-approval-heading" className="t-section font-display font-bold text-text tracking-tight">
               Needs your approval
             </h2>
-            <p className="hidden sm:block text-xs font-medium text-text-muted mt-0.5">
+            <p className="hidden sm:block t-meta font-medium text-text-muted">
               Waiting on your sign-off
             </p>
           </div>
@@ -146,56 +146,68 @@ export const NeedsApprovalCard = () => {
             <Link
               viewTransition
               to={queueHref}
-              className="inline-flex items-center gap-1 min-h-11 sm:min-h-9 px-2 rounded-lg text-sm font-display font-semibold text-primary-600 dark:text-primary-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+              className="inline-flex items-center gap-0.5 min-h-11 sm:min-h-9 px-2 rounded-lg text-sm font-display font-semibold text-primary-600 dark:text-primary-400 transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
             >
               Review all
-              <ArrowUpRight size={14} strokeWidth={2.5} aria-hidden="true" />
+              <ChevronRight size={16} strokeWidth={2.25} aria-hidden="true" />
             </Link>
           )}
         </div>
       </div>
 
-      <div className="flex flex-col gap-2 p-2.5 sm:gap-3 sm:p-4">
-        {failedSources.map((source) => (
-          <InlineError key={source.label} message={`Couldn't load ${source.label} waiting for approval.`} onRetry={source.retry} />
-        ))}
+      {failedSources.length > 0 && (
+        <div className="flex flex-col gap-2 px-4 py-3 sm:px-5">
+          {failedSources.map((source) => (
+            <InlineError key={source.label} message={`Couldn't load ${source.label} waiting for approval.`} onRetry={source.retry} />
+          ))}
+        </div>
+      )}
 
-        {isPending && nothingToShow ? (
-          <div className="flex flex-col gap-1.5" role="status" aria-label="Loading approvals">
-            {Array.from({ length: 3 }, (_, i) => <Skeleton key={i} className="h-[3.25rem] rounded-xl" />)}
-          </div>
-        ) : allCaughtUp ? (
-          // No CTA: this block is derived from other people's submissions, so there is nothing for
-          // the viewer to go and create.
+      {isPending && nothingToShow ? (
+        <div className="flex flex-col divide-y divide-border/60" role="status" aria-label="Loading approvals">
+          {Array.from({ length: 3 }, (_, i) => (
+            <div key={i} className="flex min-h-14 items-center gap-3 px-4 py-3 sm:px-5">
+              <Skeleton className="size-7 shrink-0 rounded-lg" />
+              <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-3.5 w-1/3" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : allCaughtUp ? (
+        // No CTA: this block is derived from other people's submissions, so there is nothing for
+        // the viewer to go and create.
+        <div className="p-4 sm:p-5">
           <EmptyState size="compact" tone="success" icon={CheckCheck} title="All caught up" description="Nothing is waiting on your review right now." />
-        ) : (
-          !nothingToShow && (
-            <>
-              {/* Desktop-only: on a phone these chips just restate the rows right below them. */}
-              {(['ticket', 'delegation', 'checklist'] as const).filter((c) => categoryTotals[c] > 0).length > 1 && (
-              <div className="hidden sm:flex flex-wrap gap-2 px-1">
-                {(['ticket', 'delegation', 'checklist'] as const)
-                  .filter((c) => categoryTotals[c] > 0)
-                  .map((c) => (
-                    <IconChip
-                      key={c}
-                      icon={CATEGORY_ICON[c]}
-                      label={`${categoryTotals[c]} ${ACTIVITY_CATEGORY_LABEL[c].toLowerCase()}${categoryTotals[c] === 1 ? '' : 's'}`}
-                      tone={ACTIVITY_CATEGORY_DOT_CLASS[c]}
-                    />
-                  ))}
-              </div>
-              )}
+        </div>
+      ) : (
+        !nothingToShow && (
+          <>
+            {/* Desktop-only: on a phone these chips just restate the rows right below them. */}
+            {(['ticket', 'delegation', 'checklist'] as const).filter((c) => categoryTotals[c] > 0).length > 1 && (
+            <div className="hidden sm:flex flex-wrap gap-2 px-5 pt-4 pb-1">
+              {(['ticket', 'delegation', 'checklist'] as const)
+                .filter((c) => categoryTotals[c] > 0)
+                .map((c) => (
+                  <IconChip
+                    key={c}
+                    icon={CATEGORY_ICON[c]}
+                    label={`${categoryTotals[c]} ${ACTIVITY_CATEGORY_LABEL[c].toLowerCase()}${categoryTotals[c] === 1 ? '' : 's'}`}
+                    tone={ACTIVITY_CATEGORY_DOT_CLASS[c]}
+                  />
+                ))}
+            </div>
+            )}
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-1.5 sm:gap-2">
-                {visible.map((row) => <ApprovalLink key={`${row.category}-${row.id}`} row={row} />)}
-              </div>
-            </>
-          )
-        )}
+            <div className="flex flex-col divide-y divide-border/60">
+              {visible.map((row) => <ApprovalLink key={`${row.category}-${row.id}`} row={row} now={now} />)}
+            </div>
+          </>
+        )
+      )}
 
-        {remaining > 0 && <p className="px-1 t-meta font-medium text-text-light">+{remaining} more waiting</p>}
-      </div>
+      {remaining > 0 && <p className="border-t border-border/60 px-4 py-2.5 sm:px-5 t-meta font-medium text-text-muted">{remaining} more waiting</p>}
     </section>
   );
 };

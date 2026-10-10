@@ -11,6 +11,7 @@ import { checklistReportService, type PersonRow, type ReportMetrics } from "../c
 // Same weights as TASK_SCORE on the client: started is a quarter, handed in for approval three
 // quarters, only done is the full mark.
 const TASK_WEIGHT: Record<string, number> = { draft: 0, todo: 0, in_progress: 0.25, pending_approval: 0.75, done: 1, on_hold: 0 }
+const OVERDUE_EXEMPT_STATUSES = new Set(["done", "draft", "pending_approval"])
 const DAY_MS = 86_400_000
 
 export type ScoreScope = "person" | "department" | "store" | "org"
@@ -105,7 +106,10 @@ const foldTasks = (rows: readonly TaskLike[], now: Date): DelegationScore => {
         due: due.length,
         done: done.length,
         onTime,
-        overdue: due.filter((t) => t.status !== "done" && t.dueDate !== null && t.dueDate < now).length,
+        // One overdue rule for delegations everywhere (list, dashboard summary, ownerStats): past due and
+        // not done, draft or waiting for approval. Handed-in work has stopped the assignee's clock;
+        // on hold still counts.
+        overdue: due.filter((t) => !OVERDUE_EXEMPT_STATUSES.has(t.status) && t.dueDate !== null && t.dueDate < now).length,
     }
 }
 

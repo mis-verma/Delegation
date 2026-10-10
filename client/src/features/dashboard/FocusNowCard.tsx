@@ -3,6 +3,8 @@ import { Link } from 'react-router';
 import { BellRing, CheckCheck, ChevronRight, ClipboardCheck, ClipboardList, ListTodo, RotateCw, TicketCheck, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PANEL_CLASS } from '../../components/entityCard';
+import { Skeleton } from '../../components/skeleton';
+import { InlineError } from '../../components/inlineError';
 import { instanceDeadline, isInstanceOverdue } from '../checklist/checklistDisplay';
 import { isTaskOverdue, isTicketLate } from './dashboardDisplay';
 import type { Task } from '../../api/task';
@@ -44,6 +46,10 @@ const ago = (ms: number, now: number) => {
   return `${days} day${days === 1 ? '' : 's'} late`;
 };
 
+// Same soft tile every dashboard card header uses (see CARD_ICON_TILE_CLASS), but always shown: here
+// its colour is the signal (red when something is late, green when nothing is waiting).
+const TILE_CLASS = 'flex size-9 shrink-0 items-center justify-center rounded-lg';
+
 interface FocusNowCardProps {
   /** Delegations assigned to this person. */
   tasks: Task[];
@@ -52,18 +58,48 @@ interface FocusNowCardProps {
   checklists: ChecklistInstance[];
   todos: Todo[];
   now: number;
-  /** When the counts last arrived (ms), for the small "Updated" note beside Refresh. */
+  /** True until every list this card reads has arrived. Shows skeleton rows, never "on track". */
+  isPending?: boolean;
+  /** A list failed to load, so the card cannot honestly say nothing is waiting. */
+  isError?: boolean;
+  onRetry?: () => void;
+  /** When the counts last arrived (ms), shown as "Updated 10:42" under the heading. */
   updatedAt?: number;
   onRefresh?: () => void;
   isRefreshing?: boolean;
 }
 
+const FocusSkeleton = () => (
+  <section aria-label="Loading what needs you" role="status" className={cn(PANEL_CLASS, 'flex flex-col overflow-hidden')}>
+    <div className="flex items-center gap-3 px-4 py-3">
+      <Skeleton className="size-9 shrink-0 rounded-lg" />
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <Skeleton className="h-5 w-40" />
+        <Skeleton className="h-3.5 w-28" />
+        <Skeleton className="h-3.5 w-20" />
+      </div>
+    </div>
+    <div className="flex flex-col divide-y divide-border/60 border-t border-border/60">
+      {Array.from({ length: 3 }, (_, i) => (
+        <div key={i} className="flex min-h-16 items-center gap-3 px-4 py-2.5">
+          <Skeleton className="size-4 shrink-0 rounded" />
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-3.5 w-1/2" />
+          </div>
+        </div>
+      ))}
+    </div>
+  </section>
+);
+
 /**
  * "What do I do now": one short list of the person's own work that needs them, most urgent first, each row
  * one tap from the item. Sent back and overdue in red, ready to submit in orange, due today in blue. When
- * nothing needs them it says so plainly, so the dashboard always answers "am I on track".
+ * nothing needs them it says so plainly, so the dashboard always answers "am I on track". It only says so
+ * once every list has loaded: while loading it shows skeleton rows, and after a failure it shows the error.
  */
-export const FocusNowCard = ({ tasks, tickets, checklists, todos, now, updatedAt, onRefresh, isRefreshing }: FocusNowCardProps) => {
+export const FocusNowCard = ({ tasks, tickets, checklists, todos, now, isPending = false, isError = false, onRetry, updatedAt, onRefresh, isRefreshing }: FocusNowCardProps) => {
   const items = useMemo(() => {
     const endOfDay = new Date(now);
     endOfDay.setHours(23, 59, 59, 999);
@@ -108,30 +144,58 @@ export const FocusNowCard = ({ tasks, tickets, checklists, todos, now, updatedAt
     return out.sort((a, b) => ORDER[a.reason] - ORDER[b.reason] || a.at - b.at);
   }, [tasks, tickets, checklists, todos, now]);
 
+  if (isPending) return <FocusSkeleton />;
+
   const urgent = items.filter((i) => i.reason === 'sentBack' || i.reason === 'overdue').length;
+  const updated = updatedAt ? <p className="t-meta text-text-muted tabular-nums">Updated {time(updatedAt)}</p> : null;
   const refresh = onRefresh && (
     <button
       type="button"
       onClick={onRefresh}
       disabled={isRefreshing}
       aria-label="Refresh the dashboard"
-      title={updatedAt ? `Updated ${new Date(updatedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}` : undefined}
       className="ml-auto inline-flex size-9 pointer-coarse:size-11 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-surface-hover hover:text-text disabled:opacity-50"
     >
       <RotateCw className={cn('size-4', isRefreshing && 'motion-safe:animate-spin')} aria-hidden="true" />
     </button>
   );
   const shown = items.slice(0, SHOW);
+  const error = isError && (
+    <div className="px-4 pb-3">
+      <InlineError message="Some of your work didn't load, so this list may be missing items." onRetry={onRetry} />
+    </div>
+  );
 
   if (items.length === 0) {
+    // Nothing found, but a list failed: say that instead of "on track", which might not be true.
+    if (isError) {
+      return (
+        <section aria-labelledby="focus-now-heading" className={cn(PANEL_CLASS, 'flex flex-col')}>
+          <div className="flex items-center gap-3 px-4 py-3">
+            <span className={cn(TILE_CLASS, 'bg-danger/10 text-danger')}>
+              <BellRing className="size-4" aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <h2 id="focus-now-heading" className="t-section font-display font-bold text-text">Do now</h2>
+              {updated}
+            </div>
+            {refresh}
+          </div>
+          <div className="px-4 pb-3">
+            <InlineError message="Couldn't load your work, so we can't say what needs you yet." onRetry={onRetry} />
+          </div>
+        </section>
+      );
+    }
     return (
-      <section aria-label="Do now" className={cn(PANEL_CLASS, 'flex items-center gap-3 p-4 border-success/30 bg-success/5')}>
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-success/15 text-success">
-          <CheckCheck className="size-5" aria-hidden="true" />
+      <section aria-labelledby="focus-now-heading" className={cn(PANEL_CLASS, 'flex items-center gap-3 px-4 py-3 border-success/30 bg-success/5')}>
+        <span className={cn(TILE_CLASS, 'bg-success/15 text-success')}>
+          <CheckCheck className="size-4" aria-hidden="true" />
         </span>
         <div className="min-w-0">
-          <h2 className="t-card font-display font-bold text-text">You're on track</h2>
+          <h2 id="focus-now-heading" className="t-section font-display font-bold text-text">You're on track</h2>
           <p className="t-meta text-text-muted">Nothing is overdue or due today. Nice work.</p>
+          {updated}
         </div>
         {refresh}
       </section>
@@ -140,22 +204,24 @@ export const FocusNowCard = ({ tasks, tickets, checklists, todos, now, updatedAt
 
   return (
     <section aria-labelledby="focus-now-heading" className={cn(PANEL_CLASS, 'flex flex-col overflow-hidden', urgent > 0 ? 'border-danger/30' : 'border-primary-500/30')}>
-      <div className={cn('flex items-center gap-3 px-4 py-3', urgent > 0 ? 'bg-danger/[0.07]' : 'bg-primary-500/[0.06]')}>
-        <span className={cn('flex size-10 shrink-0 items-center justify-center rounded-xl text-white', urgent > 0 ? 'bg-danger' : 'bg-primary-600')}>
-          <BellRing className="size-5 motion-safe:animate-[bell-ring_1.2s_ease-in-out_1]" aria-hidden="true" />
+      <div className="flex items-center gap-3 px-4 py-3">
+        <span className={cn(TILE_CLASS, urgent > 0 ? 'bg-danger/10 text-danger' : 'bg-primary-500/10 text-primary-600 dark:text-primary-300')}>
+          <BellRing className="size-4 motion-safe:animate-[bell-ring_1.2s_ease-in-out_1]" aria-hidden="true" />
         </span>
         <div className="min-w-0">
-          <h2 id="focus-now-heading" className="t-card font-display font-bold text-text">
+          <h2 id="focus-now-heading" className="t-section font-display font-bold text-text">
             {items.length} {items.length === 1 ? 'thing needs' : 'things need'} you
           </h2>
           <p className={cn('t-meta font-medium', urgent > 0 ? 'text-danger' : 'text-text-muted')}>
             {urgent > 0 ? `${urgent} ${urgent === 1 ? 'is' : 'are'} late or sent back. Start there.` : 'All due today. Do these first.'}
           </p>
+          {updated}
         </div>
         {refresh}
       </div>
+      {error}
 
-      <ul className="flex flex-col divide-y divide-border/60">
+      <ul className="flex flex-col divide-y divide-border/60 border-t border-border/60">
         {shown.map((item) => {
           const Icon = item.icon;
           return (
@@ -163,15 +229,19 @@ export const FocusNowCard = ({ tasks, tickets, checklists, todos, now, updatedAt
               <Link
                 viewTransition
                 to={item.href}
-                className="group flex min-h-14 items-center gap-3 px-4 py-2.5 outline-none transition-colors hover:bg-surface-hover/50 active:bg-surface-hover focus-visible:bg-surface-hover"
+                className="group flex min-h-16 items-center gap-3 px-4 py-2.5 outline-none transition-colors hover:bg-surface-hover/50 active:bg-surface-hover focus-visible:bg-surface-hover"
               >
                 <Icon className="size-4 shrink-0 text-text-muted" aria-hidden="true" />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-display font-medium sm:font-semibold text-text">{item.title}</span>
-                  <span className="block truncate t-meta text-text-muted">{item.detail}</span>
+                <span className="flex min-w-0 flex-1 flex-col gap-1">
+                  {/* The title has the row to itself and wraps to two lines; the reason chip sits on the
+                      line under it, beside the detail, so it no longer cuts the title short. */}
+                  <span className="line-clamp-2 leading-snug text-sm font-display font-medium sm:font-semibold text-text">{item.title}</span>
+                  <span className="flex flex-wrap items-center gap-1.5">
+                    <span className={cn('shrink-0 rounded-full px-2 py-0.5 t-meta font-display font-semibold', REASON_TONE[item.reason])}>{REASON_LABEL[item.reason]}</span>
+                    <span className="min-w-0 t-meta text-text-muted">{item.detail}</span>
+                  </span>
                 </span>
-                <span className={cn('shrink-0 rounded-full px-2 py-0.5 t-meta font-display font-semibold', REASON_TONE[item.reason])}>{REASON_LABEL[item.reason]}</span>
-                <ChevronRight className="size-4 shrink-0 text-text-light transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+                <ChevronRight className="size-4 shrink-0 text-text-muted" aria-hidden="true" />
               </Link>
             </li>
           );

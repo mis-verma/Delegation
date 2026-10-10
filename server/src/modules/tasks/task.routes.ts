@@ -62,6 +62,9 @@ taskRouter.post("/:id/attachments", taskAttachmentUpload, taskAttachmentControll
 taskRouter.get("/:taskId/comments", taskCommentController.list) // GET /tasks/:taskId/comments -> the task's activity feed
 taskRouter.post("/:taskId/comments", taskCommentAttachmentUpload, taskCommentController.create) // POST /tasks/:taskId/comments -> post a comment (text/attachments/location)
 
-taskRouter.post("/ai/parse", taskAiController.parse)
-taskRouter.post("/ai/create", taskAiController.create)
-taskRouter.post("/ai/transcribe", voiceNoteUpload, taskAiController.transcribe)
+// Smart Task is offered to ADMIN/PC only in the web app, so the HTTP routes match. The WhatsApp and
+// DoubleTick bots don't come through here: they call extractTaskFromText/createFromSmartInput
+// directly from their own webhook controllers, so their senders are unaffected by this gate.
+taskRouter.post("/ai/parse", requireRole("ADMIN", "PC"), taskAiController.parse)
+taskRouter.post("/ai/create", requireRole("ADMIN", "PC"), taskAiController.create)
+taskRouter.post("/ai/transcribe", requireRole("ADMIN", "PC"), voiceNoteUpload, taskAiController.transcribe)

@@ -1,4 +1,5 @@
 import type { Task } from '../../api/task';
+import { OVERDUE_EXEMPT_STATUSES } from './taskFilters';
 
 type Status = Task['status'];
 
@@ -23,6 +24,19 @@ export const BACK_LABEL: Partial<Record<Status, string>> = {
   in_progress: 'Move back to To do',
   pending_approval: 'Take back to In progress',
 };
+
+/**
+ * True when a "Move to" option can't be taken from where the delegation is now, so the menus show it
+ * disabled. Same pipeline the server enforces in update(): Done only through approval, Pending
+ * Approval only from In Progress, On Hold only from To do or In Progress, and a held delegation
+ * resumes to In Progress first. (Who may move at all is taskPermissions' canMoveTask.)
+ */
+export const isMoveBlocked = (from: Status, to: Status): boolean =>
+  to === from
+  || to === 'done'
+  || (to === 'pending_approval' && from !== 'in_progress')
+  || (to === 'on_hold' && !CAN_HOLD.includes(from))
+  || (from === 'on_hold' && to !== 'in_progress');
 
 /** Button wording for the remark dialog, so it names the action and not just the next column. */
 export const confirmLabelFor = (from: Status, to: Status, toLabel: string): string => {
@@ -86,6 +100,9 @@ export const waitingLine = (task: Task, now: number, nameOf: (id: string | null 
 
   if (task.status === 'done' || !task.dueDate) return { who, due: null };
   const diff = new Date(task.dueDate).getTime() - now;
+  // Past due but no longer running (handed in for approval, or still a draft): not delayed, and
+  // "due in" would be wrong, so say nothing. Same rule as isOverdueTask.
+  if (diff < 0 && OVERDUE_EXEMPT_STATUSES.has(task.status)) return { who, due: null };
   return {
     who,
     due: diff < 0

@@ -191,6 +191,30 @@ export const notificationService = {
     });
   },
 
+  // Delegation equivalent of notifyTicketUnassigned: published (not a draft) with nobody on it, which
+  // is what front-line staff do when they send work to a department. The department's heads
+  // (its Manager; a Senior can't open other people's delegations) are told so they can pick someone; with no department, or no active head in it,
+  // the Admins and PCs are. Same TASK_ASSIGNED type, so the notification opens the delegation.
+  async notifyTaskUnassigned(task: { _id: string; title: string; departmentId?: string | null }, actorId: string) {
+    let recipientIds: string[] = [];
+    if (task.departmentId) {
+      const heads = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(eq(users.role, 'MANAGER'), eq(users.departmentId, task.departmentId), eq(users.isActive, true)));
+      recipientIds = heads.map((h) => h.id);
+    }
+    if (!recipientIds.length) recipientIds = await activeVerifierIds();
+    recipientIds = recipientIds.filter((id) => id !== actorId);
+
+    return notificationService.notifyMany(recipientIds, {
+      type: 'TASK_ASSIGNED',
+      title: 'New delegation needs a person',
+      message: `"${task.title}" was raised and nobody is working on it yet. Pick someone for it.`,
+      taskId: task._id,
+    });
+  },
+
   // Called when a ticket/task is handed in for approval (ticket -> PENDING_APPROVAL, task ->
   // pending_approval). Tells everyone who can approve it: the PCs of its department or store, the
   // department's Manager (who may approve their own department's work) and any named reviewers. When

@@ -567,6 +567,14 @@ export const taskService = {
                 userId: task!.userId,
                 assigneeId: task!.assigneeId,
             }));
+        } else {
+            // The assignee named in the message didn't match anyone: the department's heads (or
+            // Admin/PC) are told, same as a form create with nobody on it.
+            await notifySafely(() => notificationService.notifyTaskUnassigned({
+                _id: task!.id,
+                title: task!.title,
+                departmentId: task!.departmentId,
+            }, user.sub));
         }
 
         return task!;
@@ -665,6 +673,14 @@ export const taskService = {
                 assigneeId: task.assigneeId,
                 additionalAssigneeIds,
             }));
+        } else if (task.status !== "draft" && !additionalAssigneeIds?.length) {
+            // Sent to a department with nobody on it (how front-line staff raise work): its heads
+            // need to hear about it, or it just sits there.
+            await notifySafely(() => notificationService.notifyTaskUnassigned({
+                _id: task.id,
+                title: task.title,
+                departmentId: task.departmentId,
+            }, user.sub));
         }
 
         await auditService.record({ entityType: "Task", entityId: task.id, action: "CREATE", actorId: user.sub, after: task });
@@ -710,6 +726,16 @@ export const taskService = {
         // on hold without the usual rules.
         if (beforeStatus === "done" && input.status !== undefined && input.status !== "done" && user.role !== "ADMIN") {
             throw AppError.forbidden("Only a verifier can reopen a delegation that's already been verified.")
+        }
+        // Once approved, a delegation is a closed record: its title, people, dates, priority and labels
+        // are what was signed off. Only an Admin may change any of it. A PATCH that only re-sends
+        // status "done" changes nothing and is let through.
+        if (beforeStatus === "done" && user.role !== "ADMIN") {
+            const changesSomething = Object.entries(input).some(([field, value]) =>
+                value !== undefined && field !== "statusRemark" && !(field === "status" && value === "done"));
+            if (changesSomething) {
+                throw AppError.forbidden("This delegation is approved and closed. Only an admin can change it.")
+            }
         }
 
         if (input.status === "done" && beforeStatus !== "done") {
@@ -879,6 +905,13 @@ export const taskService = {
                     assigneeId: task.assigneeId,
                     additionalAssigneeIds: currentAdditionalIds,
                 }));
+            } else {
+                // Published with nobody on it: same heads-up a create with no assignee sends.
+                await notifySafely(() => notificationService.notifyTaskUnassigned({
+                    _id: task.id,
+                    title: task.title,
+                    departmentId: task.departmentId,
+                }, user.sub));
             }
         } else if (task.status !== "draft") {
             const beforeAdditional = new Set(beforeAdditionalIds);

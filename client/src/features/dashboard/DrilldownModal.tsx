@@ -49,17 +49,17 @@ const DrilldownRowButton = memo(({ row, onSelect }: { row: DrilldownRow; onSelec
     <button
       type="button"
       onClick={() => onSelect(row.link)}
-      className="group flex items-center gap-3 min-h-11 rounded-xl border border-border/60 bg-surface px-3 py-2.5 text-left transition-colors duration-200 hover:border-primary-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 cursor-pointer"
+      className="group flex items-center gap-3 min-h-11 rounded-xl border border-border/60 bg-surface px-3 py-2.5 text-left transition-colors duration-200 hover:border-border-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 cursor-pointer"
     >
-      <div className="flex-1 min-w-0">
+      <div className="flex flex-1 min-w-0 flex-col gap-0.5">
         <p className="text-sm font-display font-semibold text-text line-clamp-2 leading-snug">{row.title}</p>
-        <p className="text-xs font-medium text-text-light mt-0.5">{formatRelativeTime(row.createdAt)}</p>
+        <p className="t-meta font-medium text-text-muted">{formatRelativeTime(row.createdAt)}</p>
       </div>
       {/* Same icon-circle-in-a-pill StatusChip every Ticket/Delegation status display already
           renders through. `completed`/`overdue`/`pending` are real StatusChipStatus values, so no
           mapping is needed. */}
       <StatusChip status={state} className="shrink-0" />
-      <ChevronRight size={16} strokeWidth={2.5} className="shrink-0 text-text-light group-hover:text-primary-500 transition-colors duration-200" />
+      <ChevronRight size={16} strokeWidth={2.5} className="shrink-0 text-text-muted" aria-hidden="true" />
     </button>
   );
 });
@@ -109,7 +109,7 @@ export const DrilldownList = ({ rows, total, cappedNote, isLoading = false, view
         ))}
       </div>
 
-      {footnote && <p className="text-xs font-medium text-text-light text-center">{footnote}</p>}
+      {footnote && <p className="t-meta font-medium text-text-muted text-center">{footnote}</p>}
     </>
   );
 };
@@ -186,9 +186,12 @@ export const DrilldownModal = ({
       // need as much breathing room as a form does, and the rows below already carry their own
       // padding. Scoped to just this modal, not the shared Modal default every form dialog in the
       // app still uses.
+      // Top padding only on the body and footer: a py-3 here overrode Modal's safe-area bottom
+      // padding and put the last row or the View all button on the iPhone home bar. Modal's own
+      // close button is already 44px on touch.
       headerClassName="px-4 py-3"
-      bodyClassName="gap-3 px-4 py-3"
-      footerClassName="px-4 py-3"
+      bodyClassName="gap-3 px-4 pt-3"
+      footerClassName="px-4 pt-3"
       footer={viewAllHref && <DrilldownViewAllButton href={viewAllHref} label={viewAllLabel} onSelect={go} />}
       // The one modal every KPI card, chart bucket, and gauge on the dashboard opens through — it
       // sits on top of the exact number it's explaining, so being able to drag it a little aside

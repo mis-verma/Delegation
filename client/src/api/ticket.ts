@@ -110,6 +110,8 @@ export type TicketAttachment = {
   sizeBytes:        number;
   captureMethod:    CaptureMethod;
   ticketId:         string;
+  /** Set when the photo was sent as proof with a status change. Those stay on the record. */
+  statusUpdateId?:  string | null;
   uploadedBy:       { id: string; email: string; firstName: string; role: string } | null;
   createdAt:        string;
 };

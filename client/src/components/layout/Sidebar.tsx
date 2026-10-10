@@ -49,13 +49,14 @@ interface NavItem {
 
 const TASK_CHILDREN: NavChild[] = [
   { to: '/tasks/draft', label: 'Draft Delegations' },
-  { to: '/tasks/archived', label: 'Archived' },
 ];
 
 const PENDING_APPROVALS_CHILD: NavChild = { to: '/tasks?status=pending_approval', label: 'Pending Approvals' };
 const SMART_DELEGATIONS_CHILD: NavChild = { to: '/tasks/smart', label: 'Smart Delegations' };
+// Only Admin and PC can delete or restore a delegation (server route gate), so only they get Archived.
 const TASK_ADMIN_CHILDREN: NavChild[] = [
   { to: '/tasks/team', label: 'Team Delegations' },
+  { to: '/tasks/archived', label: 'Archived' },
 ];
 
 const CHECKLIST_APPROVALS_CHILD: NavChild = { to: '/checklists/approvals', label: 'Team Approvals' };

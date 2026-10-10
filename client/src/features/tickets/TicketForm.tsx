@@ -24,6 +24,7 @@ import { FormProgress } from './form/FormProgress';
 import { PrioritySegmented } from './form/PrioritySegmented';
 import { QuickDueOptions } from './form/QuickDueOptions';
 import { FIELD_TRIGGER_CLASS } from './form/formConstants';
+import { hoursUntil } from './ticketDisplay';
 import { TaskDescriptionField } from '../tasks/TaskDescriptionField';
 import { StagedFileChips } from '../tasks/StagedFileChips';
 import { useAuth } from '../../context/AuthContext';
@@ -143,7 +144,7 @@ export const TicketForm = ({ onClose, defaultDueDate }: TicketFormProps) => {
 
   const onSubmit = useCallback((data: TicketFields) => {
     const tatHours = data.assignmentMode === 'MANUAL' && data.dueDate && data.dueTime
-      ? Math.max(1, Math.ceil((new Date(`${data.dueDate}T${data.dueTime}`).getTime() - Date.now()) / (60 * 60 * 1000)))
+      ? hoursUntil(new Date(`${data.dueDate}T${data.dueTime}`))
       : undefined;
 
     mutation.mutate(

@@ -34,9 +34,8 @@ export const paginatioinSchema = z.object({
     // paginated list default.
     limit : z.coerce.number().int().min(1).max(500).default(20),
     status : z.enum(TICKET_STATUSES).optional(),
-    // Lets an ADMIN/PC filter the list down to one person's tickets (e.g. the Team Overview
-    // drill-down) — ignored for a non-privileged caller, same treatment as task.service.ts's
-    // filterUserId.
+    // Narrows the list to tickets assigned to one person (e.g. the Team Overview drill-down), inside
+    // whatever the caller can already see. Ignored for USER/AGENT, who only see their own anyway.
     assigneeId : objectId.optional(),
     // Backs the on-time/overdue stat-card drill-downs on OrgOverview (AnalyticsSummaryStrip) —
     // the exact tickets behind a real ownerStats() count, not a client-side filter over whatever

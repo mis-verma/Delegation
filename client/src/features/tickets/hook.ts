@@ -168,34 +168,53 @@ export const useTicketStatusMoveMutation = () =>
     errorFallback: 'Failed to update status',
   });
 
-// Powers the PC verification queue — tickets waiting on a given status (PENDING_APPROVAL), scoped
-// server-side to whatever the requester is allowed to see (PC/ADMIN get their whole department).
-export const useTicketsByStatusQuery = (status: TicketStatus, limit = 100, enabled = true) => {
+// The server's largest page. Lists that filter client-side read every page of this size.
+export const BOARD_LIMIT = 500;
+// A safety stop so a runaway total can't loop for ever: 10 pages is 5,000 tickets.
+const MAX_PAGES = 10;
+/** The most tickets a "load everything" list will ever hold. Reaching it means some were left out. */
+export const BOARD_MAX_TICKETS = BOARD_LIMIT * MAX_PAGES;
+
+// Reads page 1, then every remaining page at once (same idea as features/team/useTeamWork.ts), so
+// counts and client-side filters see the whole set instead of the newest 500. `total` is the
+// server's own count, which stays right even if the safety stop was hit. Shaped `{ data }` so the
+// optimistic patcher (patchEntityInCache) reaches these rows too.
+const fetchAllTickets = async (status?: TicketStatus, assigneeId?: string): Promise<{ data: Ticket[]; total: number }> => {
+  const first = await ticketApi.getAll(1, BOARD_LIMIT, status, assigneeId);
+  const pages = Math.min(first.meta?.totalPages ?? 1, MAX_PAGES);
+  const rest = pages > 1
+    ? await Promise.all(Array.from({ length: pages - 1 }, (_, i) => ticketApi.getAll(i + 2, BOARD_LIMIT, status, assigneeId)))
+    : [];
+  // Newest first across pages; a ticket raised between two page reads can shift one row onto the
+  // next page, so drop the repeat rather than show it twice.
+  const byId = new Map<string, Ticket>();
+  for (const page of [first, ...rest]) for (const t of page.data) if (!byId.has(t.id)) byId.set(t.id, t);
+  const data = [...byId.values()];
+  return { data, total: first.meta?.total ?? data.length };
+};
+
+// Powers the verification queue: every ticket waiting on a given status (PENDING_APPROVAL), scoped
+// server-side to whatever the requester is allowed to see. All pages, so nothing past the first
+// page drops out of the queue or its counts.
+export const useTicketsByStatusQuery = (status: TicketStatus, enabled = true) => {
   const { token } = useAuth();
   return useQuery({
     queryKey: ['tickets', 'by-status', status],
-    queryFn: () => ticketApi.getAll(1, limit, status).then(r => r.data),
+    queryFn: () => fetchAllTickets(status),
     enabled: !!token && enabled,
     retry: handleQueryRetry,
   });
 };
 
-// Powers the Tickets Board view — unlike the list view's 20-per-page pagination, a board needs
-// to see effectively all tickets at once to bucket them correctly into status columns. Known v1
-// limitation: more than BOARD_LIMIT open tickets means the board undercounts rather than
-// paginating further — acceptable for now, a one-line constant bump if it becomes a real issue.
-export const BOARD_LIMIT = 500;
-
-// Fetches (up to BOARD_LIMIT) tickets unpaginated, so search/filter/sort can run against the
-// whole matching set instead of just whatever 20-row page the server-paginated list happens to
-// be showing. Used by both the Board view (always needed all-at-once to bucket into columns)
+// Every ticket the viewer can see, so search/filter/sort and the stat tiles run against the whole
+// matching set. Used by both the Board view (always needed all-at-once to bucket into columns)
 // and the List view (which paginates the *filtered* result client-side — see TicketList.tsx).
 // Shared with routePrefetch so a hover-prefetch and the page's own query hit the same cache entry.
 // useTicketSocket is mounted app-wide and invalidates ['tickets'] on every ticket event, so a
 // longer staleTime only skips the refetch-on-revisit, it can't leave stale rows on screen.
 export const ticketsBoardQueryOptions = (assigneeId?: string) => ({
   queryKey: ['tickets', 'board', assigneeId] as const,
-  queryFn: () => ticketApi.getAll(1, BOARD_LIMIT, undefined, assigneeId).then(r => r.data),
+  queryFn: () => fetchAllTickets(undefined, assigneeId).then((r) => r.data),
   staleTime: 2 * 60_000,
 });
 
@@ -220,12 +239,13 @@ export const useVerifyTicketMutation = () =>
     errorFallback: 'Failed to verify ticket',
   });
 
-export const useDeleteTicketMutation = () =>
+// `withdraw` is the raiser taking back their own unstarted ticket: same request, their own wording.
+export const useDeleteTicketMutation = (options?: { withdraw?: boolean }) =>
   useEntityMutation({
     mutationFn: (id: string) => ticketApi.delete(id),
     invalidateKeys: [['tickets']],
-    successMessage: 'Ticket deleted',
-    errorFallback: 'Failed to delete ticket',
+    successMessage: options?.withdraw ? 'Ticket withdrawn' : 'Ticket deleted',
+    errorFallback: options?.withdraw ? "Couldn't withdraw the ticket" : 'Failed to delete ticket',
   });
 
 export const useAddChecklistMutation = (ticketId: string) =>

@@ -3,6 +3,7 @@ import { Button, Input, DatePicker } from '../../../components';
 import { TaskDescriptionField } from '../../tasks/TaskDescriptionField';
 import { PrioritySegmented } from '../form/PrioritySegmented';
 import type { TicketPriority } from '../form/formConstants';
+import { hoursUntil } from '../ticketDisplay';
 import type { Ticket, UpdateTicketPayload } from '../../../api/ticket';
 
 interface TicketEditFormProps {
@@ -54,7 +55,7 @@ export const TicketEditForm = ({ ticket, isSaving, canChangeDue, onSave, onCance
     if (titleChanged) payload.title = title.trim();
     if (descriptionChanged) payload.description = description.trim();
     if (priorityChanged) payload.priority = priority;
-    if (dueChanged && due) payload.tatHours = Math.max(1, Math.ceil((due.getTime() - Date.now()) / 3_600_000));
+    if (dueChanged && due) payload.tatHours = hoursUntil(due);
     onSave(payload);
   };
 
