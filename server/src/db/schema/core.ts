@@ -86,6 +86,30 @@ export const holidays = mysqlTable(
 );
 
 // ---------------------------------------------------------------------------
+// ExtraWorkingDay — the opposite of a Holiday: a date people work although it is normally off for
+// them (Sunday overtime, a stock-count weekend). On that date the daily checklist generator makes
+// runs for the people it covers even when the checklist does not run on that weekday, their own
+// week-off falls on it, or it is a holiday. Everyone else stays off. `scope` says who works:
+// everyone, or only the departments / stores / people in `targetIds`.
+// ---------------------------------------------------------------------------
+export const EXTRA_WORKING_DAY_SCOPES = ['ALL', 'DEPARTMENT', 'STORE', 'PEOPLE'] as const;
+
+export const extraWorkingDays = mysqlTable(
+  'ExtraWorkingDay',
+  {
+    id: varchar('id', { length: 191 }).primaryKey().$defaultFn(() => createId()),
+    date: varchar('date', { length: 10 }).notNull(),
+    reason: varchar('reason', { length: 191 }).notNull(),
+    scope: mysqlEnum('scope', EXTRA_WORKING_DAY_SCOPES).notNull().default('ALL'),
+    targetIds: json('targetIds').$type<string[]>().notNull(),
+    createdBy: varchar('createdBy', { length: 191 }).notNull(),
+    createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
+    updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
+  },
+  (table) => [index('ExtraWorkingDay_date_idx').on(table.date)],
+);
+
+// ---------------------------------------------------------------------------
 // DressType — a named way of dressing for work ("Saree", "Coat, pant and heels", "Formal shirt").
 // Admin-defined, any number. An AUDIT question can carry a tick-list per type
 // (ChecklistDefinitionItem.accessoriesByType, keyed by this id) and a person's User.dressTypeId

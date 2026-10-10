@@ -3,6 +3,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { toast } from 'sonner';
 import { useAuth } from '../../../context/AuthContext';
 import { holidayApi, type NewHoliday } from '../../../api/holidays';
+import { extraWorkingDayApi, type NewExtraWorkingDay } from '../../../api/extraWorkingDays';
 import { handleQueryRetry } from '../../../lib/queryHelpers';
 
 const errorMessage = (err: unknown, fallback: string) => (err instanceof Error ? err.message : fallback);
@@ -85,5 +86,55 @@ export const useDeleteHolidayMutation = () => {
       });
     },
     onError: (err) => toast.error(errorMessage(err, "Couldn't remove the holiday")),
+  });
+};
+
+// ---------------------------------------------------------------------------------------------
+// Extra working days: dates people work although they are normally off (Sunday overtime).
+// ---------------------------------------------------------------------------------------------
+
+const EXTRA_KEY = ['extra-working-days'] as const;
+
+export const useExtraWorkingDaysQuery = (year: number) => {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: [...EXTRA_KEY, year],
+    queryFn: () => extraWorkingDayApi.getByYear(year).then(r => r.data),
+    enabled: !!token,
+    retry: handleQueryRetry,
+    placeholderData: keepPreviousData,
+  });
+};
+
+// Adding or removing one changes which checklists exist today, so the lists and counts reload with it.
+const useRefreshAfterExtraChange = () => {
+  const queryClient = useQueryClient();
+  return useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: EXTRA_KEY });
+    queryClient.invalidateQueries({ queryKey: ['checklist-instances'] });
+  }, [queryClient]);
+};
+
+export const useCreateExtraWorkingDayMutation = () => {
+  const refresh = useRefreshAfterExtraChange();
+  return useMutation({
+    mutationFn: (payload: NewExtraWorkingDay) => extraWorkingDayApi.create(payload),
+    onSuccess: () => {
+      refresh();
+      toast.success('Extra working day added', { description: "Checklists for the people working that day are created on the day. Today's appear in a moment." });
+    },
+    onError: (err) => toast.error(errorMessage(err, "Couldn't add the extra working day")),
+  });
+};
+
+export const useDeleteExtraWorkingDayMutation = () => {
+  const refresh = useRefreshAfterExtraChange();
+  return useMutation({
+    mutationFn: (id: string) => extraWorkingDayApi.remove(id),
+    onSuccess: (res) => {
+      refresh();
+      toast.success('Extra working day removed', { description: runsNote(res.removedRuns) });
+    },
+    onError: (err) => toast.error(errorMessage(err, "Couldn't remove the extra working day")),
   });
 };

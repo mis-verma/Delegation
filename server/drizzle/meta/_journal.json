@@ -337,6 +337,13 @@
       "when": 1791524528668,
       "tag": "0047_checklist_completed_first_at",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "5",
+      "when": 1791616674226,
+      "tag": "0048_extra_working_days",
+      "breakpoints": true
     }
   ]
 }

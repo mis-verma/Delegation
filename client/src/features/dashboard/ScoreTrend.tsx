@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactElement } from 'react';
 import { ScoreColumn } from './scoreBarShape';
 import { useQuery } from '@tanstack/react-query';
-import { Bar, BarChart, CartesianGrid, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { PeriodTabControl } from './PeriodTabControl';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { scoreApi, type ScoreScope, type ScoreTrend as ScoreTrendData, type TrendBucket, type TrendPeriod } from '../../api/scores';
@@ -118,7 +118,6 @@ export const ScoreTrend = ({ metric = 'overview', scope, id, period, from, to }:
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartPoints} accessibilityLayer={false} margin={{ top: 22, right: 4, left: isMobile ? 0 : 4, bottom: 0 }} barCategoryGap={isMobile ? '12%' : '24%'} barGap={3}>
-              <CartesianGrid vertical={false} strokeDasharray="3 4" stroke="var(--color-border)" strokeOpacity={0.6} />
               <XAxis dataKey="label" interval={0} tickFormatter={(v: string) => (isMobile && chartPoints.length > 6 ? String(v).slice(0, 3) : v)} tickLine={false} axisLine={false} dy={8} tick={{ fill: 'var(--color-text-secondary)', fontSize: 12, fontWeight: 600 }} />
               <YAxis domain={[0, 100]} hide={isMobile} ticks={[0, 25, 50, 75, 100]} tickFormatter={(v: number) => `${v}%`} tickLine={false} axisLine={false} width={44} tick={{ fill: 'var(--color-text-muted)', fontSize: 12, fontWeight: 600 }} />
               <Tooltip content={<TrendTooltip series={series} />} cursor={false} isAnimationActive={false} />

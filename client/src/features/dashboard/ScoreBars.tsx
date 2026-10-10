@@ -1,5 +1,5 @@
 import { memo, useId, useMemo, type ReactElement } from 'react';
-import { Bar, BarChart, CartesianGrid, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { ScoreColumn } from './scoreBarShape';
@@ -151,8 +151,6 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
                   </linearGradient>
                 ))}
               </defs>
-              {/* Faint dashed rules at the scale steps, so a bar's height can be read across. */}
-              <CartesianGrid vertical={false} strokeDasharray="3 4" stroke="var(--color-border)" strokeOpacity={0.6} />
               {/* Every module is always listed: interval 0 stops the axis from dropping labels on a narrow card. */}
               <XAxis dataKey="name" interval={0} height={30} tickLine={false} axisLine={false} tick={<ModuleTick />} />
               {/* The scale lives in the lanes behind the bars and the numbers on top, so a phone gives the

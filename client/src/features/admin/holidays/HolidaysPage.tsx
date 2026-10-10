@@ -9,6 +9,7 @@ import { useConfirm } from '@/components/confirmDialog';
 import { useOrgToday } from '../../checklist/useOrgToday';
 import { useCreateHolidayMutation, useCreateHolidaysMutation, useDeleteHolidayMutation, useHolidaysQuery, previewHolidayClears } from './hook';
 import type { Holiday } from '../../../api/holidays';
+import { ExtraWorkingDaysSection } from './ExtraWorkingDaysSection';
 
 const DAY_MS = 86_400_000;
 
@@ -224,7 +225,7 @@ export const HolidaysPage = () => {
       <PageHeader
         icon={CalendarOff}
         title="Holidays"
-        subtitle="Days off for everyone. No daily checklists are created on these days."
+        subtitle="Days off for everyone, and extra working days such as Sunday overtime."
         actions={
           <PeriodStepper
             label={String(year)}
@@ -338,6 +339,11 @@ export const HolidaysPage = () => {
             </NoticeBanner>
           </div>
         </aside>
+      </div>
+
+      {/* The opposite of a holiday: days people work although they are normally off. */}
+      <div className="border-t border-border/60 pt-6">
+        <ExtraWorkingDaysSection year={year} today={today} />
       </div>
     </div>
   );

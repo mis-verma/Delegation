@@ -248,7 +248,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
       : []),
     // ADMIN only: the /team route is guarded to ADMIN, so a PC link would just bounce home.
     ...(isAdmin ? [{ to: '/team', icon: Building2, label: 'Team Overview' }] : []),
-    ...(isAdmin || isPC ? [{ to: '/admin/directory', icon: ShieldCheck, label: 'Admin' }] : []),
+    ...(isAdmin || isPC ? [{ to: '/admin/scorecard', icon: ShieldCheck, label: 'Admin' }] : []),
   ];
 
   const handleNavClick = () => {

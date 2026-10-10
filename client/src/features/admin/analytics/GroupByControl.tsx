@@ -1,8 +1,8 @@
 import { memo, useState, type ReactNode } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { CalendarDays, RefreshCw } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ActiveRangeBadge, Button, DateRangePicker, ToggleChip, type DateRangeValue } from '../../../components';
-import { endOfDay } from '../../../lib/dateRange';
+import { Button, DateRangePicker, type DateRangeValue } from '../../../components';
+import { PeriodTabControl } from '../../dashboard/PeriodTabControl';
 import { ANALYTICS_LOCALE, defaultWindowLabel, toDateParam } from './analyticsDisplay';
 
 export type GroupBy = 'day' | 'week' | 'month' | 'year';
@@ -78,6 +78,10 @@ export const GroupByControl = ({ groupBy, onGroupByChange, range, onRangeChange,
 
 type PresetKey = 'week' | 'month' | 'last30' | 'quarter';
 
+type PeriodTab = PresetKey | 'all' | 'custom';
+const PERIOD_TABS: readonly PeriodTab[] = ['week', 'month', 'last30', 'quarter', 'all'];
+const PERIOD_TAB_LABEL: Record<PeriodTab, string> = { week: 'This week', month: 'This month', last30: 'Last 30 days', quarter: 'This quarter', all: 'Longer view', custom: 'Custom' };
+
 const PRESETS: { key: PresetKey; label: string }[] = [
   { key: 'week', label: 'This week' },
   { key: 'month', label: 'This month' },
@@ -129,62 +133,58 @@ export const AnalyticsControlBar = ({ groupBy, onGroupByChange, range, onRangeCh
   const preset = activePreset(range);
   const hasRange = Boolean(range.from && range.to);
   const isCustom = hasRange && preset === null;
-
-  const applyPreset = (key: PresetKey) => {
-    if (preset === key) {
-      onRangeChange({ from: null, to: null });
-      return;
-    }
-    onRangeChange(presetRange(key));
+  // One tab row for the period: the four presets and the long view (no range: the last 12 periods).
+  const periodValue: PeriodTab = preset ?? (hasRange ? 'custom' : 'all');
+  const choosePeriod = (key: PeriodTab) => {
+    if (key === 'custom') return;
+    onRangeChange(key === 'all' ? { from: null, to: null } : presetRange(key));
   };
-
-  const groupLabel = GROUP_BY_OPTIONS.find((o) => o.value === groupBy)?.label.toLowerCase() ?? groupBy;
+  const rangeText = hasRange && range.from && range.to
+    ? `${range.from.toLocaleDateString(ANALYTICS_LOCALE, { day: 'numeric', month: 'short' })} to ${range.to.toLocaleDateString(ANALYTICS_LOCALE, { day: 'numeric', month: 'short', year: 'numeric' })}`
+    : defaultWindowLabel(groupBy);
 
   return (
-    <div className="lg:sticky lg:top-0 z-20 flex flex-col gap-3 rounded-2xl border border-border/60 bg-background/95 backdrop-blur p-3">
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-        <GroupByTabs groupBy={groupBy} onGroupByChange={onGroupByChange} />
+    <div className="lg:sticky lg:top-0 z-20 flex flex-col gap-3 rounded-2xl border border-border/60 bg-surface/95 backdrop-blur p-3 sm:p-4">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <span className="px-0.5 t-meta font-display font-semibold text-text-muted">Period</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <PeriodTabControl
+              value={periodValue === 'custom' ? ('custom' as PeriodTab) : periodValue}
+              options={PERIOD_TABS}
+              labels={{ ...PERIOD_TAB_LABEL, all: defaultWindowLabel(groupBy) }}
+              onChange={choosePeriod}
+            />
+            {/* Any other dates: the picker, dressed as one more option; lit when the range is custom. */}
+            <DateRangePicker
+              value={shown}
+              onChange={handleChange}
+              placeholder="Custom dates"
+              placeholderIsValue
+              className="w-auto shrink-0"
+              triggerClassName={`h-11 sm:h-9 w-auto gap-1.5 pl-2.5 ${isCustom ? 'pr-10' : 'pr-3'} rounded-lg text-sm font-display [&>span:first-child]:size-4 [&>span:first-child]:bg-transparent [&>span:last-child]:overflow-visible [&>span:last-child]:whitespace-nowrap ${isCustom ? 'border-primary-500 bg-primary-600 text-white [&_*]:text-white' : 'text-text-secondary hover:border-border-hover'}`}
+            />
+          </div>
+        </div>
 
-        <div role="group" aria-label="Time period" className="flex flex-wrap items-center gap-2">
-          {PRESETS.map(({ key, label }) => (
-            <ToggleChip key={key} on={preset === key} onClick={() => applyPreset(key)}>
-              {label}
-            </ToggleChip>
-          ))}
-          {/* The Custom chip is the range picker itself, dressed as a chip; it lights up when the
-              range matches none of the presets. */}
-          <DateRangePicker
-            value={shown}
-            onChange={handleChange}
-            placeholder="Custom"
-            placeholderIsValue
-            className="w-auto shrink-0"
-            triggerClassName={`h-11 sm:h-8 w-auto gap-1.5 pl-2.5 ${hasRange ? "pr-10" : "pr-3"} rounded-full text-xs font-display [&>span:first-child]:size-4 [&>span:first-child]:bg-transparent [&>span:last-child]:overflow-visible [&>span:last-child]:whitespace-nowrap ${isCustom ? 'border-primary-500/50 bg-primary-500/10 text-primary-700 dark:text-primary-300' : 'text-text-secondary hover:border-border-hover'}`}
-          />
+        <div className="flex flex-col gap-1.5">
+          <span className="px-0.5 t-meta font-display font-semibold text-text-muted">Show by</span>
+          <GroupByTabs groupBy={groupBy} onGroupByChange={onGroupByChange} />
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        {/* Which window the numbers cover. A phone shows it too: with no chip lit (the default) nothing else
-            says it. Only the "By month" chip, which repeats the tabs above, is left out there. */}
-        <div className="flex flex-wrap items-center gap-2">
-          <ActiveRangeBadge
-            from={range.from && range.to ? range.from.toISOString() : undefined}
-            to={range.from && range.to ? endOfDay(range.to).toISOString() : undefined}
-            emptyLabel={defaultWindowLabel(groupBy)}
-          />
-          <span className="hidden sm:inline-flex items-center px-2.5 py-1 rounded-full border border-border bg-surface-hover/60 text-xs font-display font-medium text-text-muted">
-            By {groupLabel}
-          </span>
-        </div>
-
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-border/60 pt-3">
+        <span className="inline-flex min-w-0 items-center gap-2 text-sm font-display font-semibold text-text">
+          <CalendarDays className="size-4 shrink-0 text-primary-600 dark:text-primary-400" aria-hidden="true" />
+          <span className="truncate">{rangeText}</span>
+        </span>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <span aria-live="polite" className="text-xs font-display text-text-muted tabular-nums">
+          <span aria-live="polite" className="hidden sm:inline t-meta text-text-muted tabular-nums">
             {isRefreshing ? 'Updating' : updatedAt ? `Updated ${formatUpdated(updatedAt)}` : ''}
           </span>
-          <Button variant="outline" size="sm" onClick={onRefresh} disabled={isRefreshing} aria-label="Refresh numbers">
+          <Button variant="outline" size="sm" onClick={onRefresh} disabled={isRefreshing} aria-label="Refresh numbers" className="pointer-coarse:min-h-11">
             <RefreshCw size={14} aria-hidden="true" className={isRefreshing ? 'animate-spin motion-reduce:animate-none' : undefined} />
-            Refresh
+            <span className="hidden sm:inline">Refresh</span>
           </Button>
           {actions}
         </div>

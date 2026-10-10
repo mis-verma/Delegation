@@ -22,6 +22,7 @@ import {
     checklistInstanceItemSubmissionImages,
     users,
     holidays,
+    extraWorkingDays,
     departments,
 } from "../db/schema/index.js"
 import type { ChecklistRecurrence, ChecklistResponseMode } from "../db/schema/checklistDefinition.js"
@@ -433,28 +434,93 @@ const isHoliday = async (dateStr: string): Promise<boolean> => {
     return !!row
 }
 
-// Working days + personal week-offs + company holidays (DAILY only — a weekly/monthly run spans
-// several days, so one person's day off or one public holiday shouldn't cancel it). periodStart is
-// the org-local calendar day written as UTC midnight (utils/period.ts), so its UTC weekday IS the
-// local weekday. Returns the definition to stamp this period from (for a DAILY one, with today's
-// off-duty assignees filtered out), or null when nothing should run today: a holiday, not a
-// working day, or everyone assigned is off. No run means nothing to miss, so no score drops.
+// Working days + personal week-offs + company holidays + extra working days (DAILY only — a weekly/monthly
+// run spans several days, so one person's day off or one public holiday shouldn't cancel it). periodStart
+// is the org-local calendar day written as UTC midnight (utils/period.ts), so its UTC weekday IS the local
+// weekday. Returns the definition to stamp this period from (for a DAILY one, with the people not working
+// today filtered out), or null when nothing should run: a holiday, not a working day, or everyone assigned
+// is off. No run means nothing to miss, so no score drops.
+//
+// An extra working day (Admin -> Holidays -> Extra working days, e.g. Sunday overtime) turns the day ON
+// for the people it covers, whatever the checklist's weekdays, their own week-off or a holiday say.
+// Everyone it does not cover keeps the normal rules.
 const applyWorkingDayRules = async (definition: GenerationDefinition, period: Period): Promise<GenerationDefinition | null> => {
     if (definition.recurrence !== "DAILY") return definition
-    if (await isHoliday(period.periodStart.toISOString().slice(0, 10))) return null
+    const dateStr = period.periodStart.toISOString().slice(0, 10)
     const weekday = period.periodStart.getUTCDay()
-    if (definition.activeWeekdays && !definition.activeWeekdays.includes(weekday)) return null
-    if (!definition.assigneeIds.length) return definition
+    const extras = await db.select({ scope: extraWorkingDays.scope, targetIds: extraWorkingDays.targetIds })
+        .from(extraWorkingDays).where(eq(extraWorkingDays.date, dateStr))
+    const dayOn = !(await isHoliday(dateStr)) && (!definition.activeWeekdays || definition.activeWeekdays.includes(weekday))
 
-    const people = await db.select({ id: users.id, weekOffDays: users.weekOffDays, isActive: users.isActive }).from(users).where(inArray(users.id, definition.assigneeIds))
-    // A deactivated person is treated like someone who is off: they never get a run.
-    const offToday = new Set(people.filter((p) => !p.isActive || (p.weekOffDays ?? []).includes(weekday)).map((p) => p.id))
-    if (!offToday.size) return definition
+    if (!definition.assigneeIds.length) {
+        if (dayOn) return definition
+        // A store checklist with nobody named: an extra day for everyone runs it everywhere, one for some
+        // stores runs it in those stores only.
+        if (extras.some((e) => e.scope === "ALL")) return definition
+        const extraStores = new Set(extras.filter((e) => e.scope === "STORE").flatMap((e) => e.targetIds ?? []))
+        const storeIds = definition.storeIds.filter((id) => extraStores.has(id))
+        return storeIds.length ? { ...definition, storeIds } : null
+    }
 
-    const working = definition.assigneeIds.filter((id) => !offToday.has(id))
+    const people = await db.select({ id: users.id, weekOffDays: users.weekOffDays, isActive: users.isActive, departmentId: users.departmentId, storeId: users.storeId })
+        .from(users).where(inArray(users.id, definition.assigneeIds))
+    const coveredByExtra = (p: (typeof people)[number]) => extras.some((e) => {
+        const ids = e.targetIds ?? []
+        if (e.scope === "ALL") return true
+        if (e.scope === "PEOPLE") return ids.includes(p.id)
+        if (e.scope === "DEPARTMENT") return !!p.departmentId && ids.includes(p.departmentId)
+        return !!p.storeId && ids.includes(p.storeId)
+    })
+    // A deactivated person never gets a run. Everyone else works if it is a normal working day for them,
+    // or an extra working day covers them.
+    const workingIds = new Set(people
+        .filter((p) => p.isActive && ((dayOn && !(p.weekOffDays ?? []).includes(weekday)) || coveredByExtra(p)))
+        .map((p) => p.id))
+    const working = definition.assigneeIds.filter((id) => workingIds.has(id))
     // Everyone on this checklist is off today — no run, rather than an overdue one nobody was ever
     // going to fill.
-    return working.length ? { ...definition, assigneeIds: working } : null
+    if (!working.length) return null
+    return working.length === definition.assigneeIds.length ? definition : { ...definition, assigneeIds: working }
+}
+
+// Removing an extra working day for today: runs nobody started on that day, whose checklist would not run
+// there now, are taken back off people's lists. Started runs are real work and stay.
+export const dropRunsNoLongerWorkingOn = async (dateStr: string): Promise<number> => {
+    const dayStart = new Date(`${dateStr}T00:00:00.000Z`)
+    const runs = await db.select({ id: checklistInstances.id, storeId: checklistInstances.storeId, definitionId: checklistInstances.definitionId })
+        .from(checklistInstances)
+        .where(and(eq(checklistInstances.recurrence, "DAILY"), eq(checklistInstances.periodStart, dayStart)))
+    if (!runs.length) return 0
+    const definitions = await loadDefinitionsForGeneration([...new Set(runs.map((r) => r.definitionId))])
+    const fakePeriod = { periodKey: dateStr, periodStart: dayStart, periodEnd: dayStart } as Period
+    const workingByDef = new Map<string, GenerationDefinition | null>()
+    for (const [id, def] of definitions) workingByDef.set(id, await applyWorkingDayRules(def, fakePeriod))
+
+    let removed = 0
+    const affected = new Set<string>()
+    for (const run of runs) {
+        const working = workingByDef.get(run.definitionId)
+        if (working && working.storeIds.includes(run.storeId)) continue
+        try {
+            const gone = await db.transaction(async (tx) => {
+                const [row] = await tx.select().from(checklistInstances).where(eq(checklistInstances.id, run.id)).for("update").limit(1)
+                if (!row || await runHasProgress(tx, row)) return false
+                const links = await tx.select({ userId: checklistInstanceAssignees.userId }).from(checklistInstanceAssignees)
+                    .where(eq(checklistInstanceAssignees.instanceId, run.id))
+                await tx.delete(checklistInstances).where(eq(checklistInstances.id, run.id))
+                for (const l of links) affected.add(l.userId)
+                return true
+            })
+            if (gone) {
+                removed++
+                emitChecklistEvent("checklist-instance:updated", { storeId: run.storeId }, { instanceId: run.id })
+            }
+        } catch (err) {
+            console.error(`Removing extra-day run ${run.id} failed:`, err)
+        }
+    }
+    if (affected.size) await dropChecklistSummaries([...affected]).catch((err) => console.error("Clearing checklist summary cache after an extra working day was removed failed:", err))
+    return removed
 }
 
 // Stamps out the currently-due ChecklistInstance for one definition, across every store it's live
@@ -950,7 +1016,7 @@ export const previewDailyRunsOn = async (dateStr: string): Promise<{ untouchedRu
     return { untouchedRuns, startedRuns }
 }
 
-const generateDueInstances = async () => {
+export const generateDueInstances = async () => {
     const now = new Date()
     // Widen the pre-filter by the same org-timezone offset getCurrentPeriod uses, so a definition
     // whose startDate is "today" in local time but still "tomorrow" by raw UTC clock isn't excluded

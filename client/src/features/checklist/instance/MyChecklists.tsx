@@ -299,33 +299,27 @@ export const MyChecklists = () => {
       i.verificationStatus === 'REJECTED' ||
       (i.verificationStatus === 'NOT_SUBMITTED' && i.items.length > 0 && i.items.every((it) => it.isDone)) ||
       instanceDeadline(i) > now;
-    // This page is for today and yesterday. A finished run from three days ago that was never submitted is
-    // history now (the Report and History pages keep it), not something to put in front of the person
-    // each morning. A sent-back run stays, because they still have to fix it, and so does the newest approved
-    // run of a checklist that has nothing newer here, as its "last done" reference.
-    const yesterdayStart = new Date(todayPeriodBoundIso()).getTime() - 86_400_000;
-    const inWindow = (i: ChecklistInstance) => i.verificationStatus === 'REJECTED' || new Date(i.periodEnd).getTime() >= yesterdayStart;
+    // This page is for today's work. A run from an earlier day shows only while it still needs the person:
+    // sent back, finished but not yet submitted, or an overnight window still open. A verified, waiting or
+    // missed run from yesterday is history (the History and Report pages keep it), not a card to act on.
+    const todayStart = new Date(todayPeriodBoundIso()).getTime();
     const kept = new Set<ChecklistInstance>();
-    const lastApproved = new Map<string, ChecklistInstance>();
     for (const instance of sortedInstances) {
-      // The title says whose it is on a per-person checklist, so those are not merged into one card.
-      const key = `${instance.definitionId}:${instance.storeId ?? ''}:${instance.title}`;
-      if (!inWindow(instance)) {
-        const seen = lastApproved.get(key);
-        if (instance.verificationStatus === 'APPROVED' && (!seen || new Date(instance.periodStart).getTime() > new Date(seen.periodStart).getTime())) lastApproved.set(key, instance);
+      const fromToday = new Date(instance.periodEnd).getTime() >= todayStart;
+      if (!fromToday) {
+        if (stillNeedsWork(instance)) kept.add(instance);
         continue;
       }
+      // The title says whose it is on a per-person checklist, so those are not merged into one card.
+      const key = `${instance.definitionId}:${instance.storeId ?? ''}:${instance.title}`;
       if (stillNeedsWork(instance)) kept.add(instance);
       const current = latestByChecklist.get(key);
       if (!current || new Date(instance.periodStart).getTime() > new Date(current.periodStart).getTime()) {
         latestByChecklist.set(key, instance);
       }
     }
-    // Order follows sortedInstances' own order (recent/dueSoonest/titleAsc), not insertion order —
-    // Map preserves insertion order, which is whatever order the first-seen instance of each
-    // checklist happened to appear in, not the sort the viewer picked.
+    // Order follows sortedInstances' own order (recent/dueSoonest/titleAsc), not insertion order.
     for (const latest of latestByChecklist.values()) kept.add(latest);
-    for (const [key, approved] of lastApproved) if (!latestByChecklist.has(key)) kept.add(approved);
     return sortedInstances.filter((instance) => kept.has(instance));
   }, [sortedInstances, now]);
 
