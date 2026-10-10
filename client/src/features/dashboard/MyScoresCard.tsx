@@ -502,7 +502,13 @@ export const MyScoresCard = ({ initialScope = 'person' }: { initialScope?: Score
             const before = previous ? numbersFor(previous, key) : null;
             const pick = (n: ReturnType<typeof numbersFor> | null, fallback: number | null | undefined) =>
               n === null ? null : metric === 'completion' ? n.completion : metric === 'compliance' ? n.compliance : metric === 'ontime' ? n.ontime : fallback ?? null;
-            const headline = (d: typeof data) => (d ? (key === 'checklist' ? d.checklist.score : key === 'ticket' ? d.ticket.score : d.delegation.score) : null);
+            // Overview shows the overall score, the same rule as the Report page and the Scorecard: completion and
+            // compliance counted equally (completion alone when nothing was checked).
+            const headline = (d: typeof data) => {
+              if (!d || d[key].due === 0) return null;
+              const parts = [d[key].completionPct, d[key].compliancePct].filter((v): v is number => v !== null);
+              return parts.length ? Math.round(parts.reduce((x, y) => x + y, 0) / parts.length) : null;
+            };
             const score = pick(now, headline(data));
             const priorScore = pick(before, headline(previous));
             const note = now === null ? '' : metric === 'completion' ? now.completionNote : metric === 'compliance' ? now.complianceNote : metric === 'ontime' ? now.ontimeNote : '';
@@ -517,7 +523,7 @@ export const MyScoresCard = ({ initialScope = 'person' }: { initialScope?: Score
                 score={score}
                 onOpen={() => openDrill(key)}
                 change={score !== null && priorScore !== null ? score - priorScore : null}
-                detail={metric === 'overview' ? overviewDetail : note}
+                detail={metric === 'overview' ? (overviewDetail ? `Overall score. ${overviewDetail}` : 'Overall score') : note}
               />
             );
           })}

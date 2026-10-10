@@ -26,8 +26,8 @@ const MODULES: { key: Module; label: string }[] = [
   { key: 'delegation', label: 'Delegations' },
 ];
 const MEASURES: { key: Measure; label: string; short: string }[] = [
-  { key: 'completion', label: 'Completion', short: 'Done' },
-  { key: 'compliance', label: 'Compliance', short: 'Right' },
+  { key: 'completion', label: 'Completion', short: 'Completion' },
+  { key: 'compliance', label: 'Compliance', short: 'Compliance' },
   { key: 'ontime', label: 'On time', short: 'On time' },
 ];
 const VIEW_LABEL: Record<ViewBy, string> = { department: 'Departments', store: 'Stores', person: 'People' };
@@ -88,7 +88,7 @@ const ModuleSummary = ({ label, module, data }: { label: string; module: Module;
         {MEASURES.map((m) => (
           <div key={m.key} className="flex flex-col gap-0.5 rounded-lg border border-border/60 px-2 py-2 text-center">
             <dt className="t-meta text-text-muted">{m.label}</dt>
-            <dd className="text-xl font-display"><Pct value={valueOf(data, m.key)} strong /></dd>
+            <dd className="text-lg sm:text-xl font-display"><Pct value={valueOf(data, m.key)} strong /></dd>
           </div>
         ))}
       </dl>
@@ -204,15 +204,20 @@ const MobileRow = memo(({ row, rank, measures, onOpen }: { row: ScoreReportRow &
           <span className="block truncate text-sm font-display font-semibold text-text">{row.name}</span>
           {row.department && <span className="block truncate t-meta text-text-muted">{row.department}</span>}
         </span>
-        <span className="text-lg font-display"><Pct value={row.overall} strong /></span>
+        <span className="flex shrink-0 flex-col items-end leading-tight">
+          <span className="text-lg font-display"><Pct value={row.overall} strong /></span>
+          <span className="t-meta text-text-muted">overall</span>
+        </span>
       </span>
-      <span className="grid grid-cols-3 gap-2 border-t border-border/60 pt-2 text-center">
+      <span className="grid gap-x-2 gap-y-1 border-t border-border/60 pt-2 t-meta" style={{ gridTemplateColumns: `minmax(0,1.4fr) repeat(${measures.length}, minmax(0,1fr))` }}>
+        <span aria-hidden="true" />
+        {measures.map((ms) => <span key={ms} className="text-center font-semibold text-text-muted">{MEASURES.find((x) => x.key === ms)!.short}</span>)}
         {MODULES.map(({ key, label }) => (
-          <span key={key} className="flex flex-col gap-0.5">
-            <span className="t-meta text-text-muted">{label}</span>
-            {row[key].due === 0
-              ? <span className="t-meta text-text-light">-</span>
-              : <span className="t-meta">{measures.map((ms, i) => <span key={ms}>{i > 0 && <span className="text-text-light"> / </span>}<Pct value={valueOf(row[key], ms)} /></span>)}</span>}
+          <span key={key} className="contents">
+            <span className="truncate text-text-secondary">{label}</span>
+            {measures.map((ms) => (
+              <span key={ms} className="text-center">{row[key].due === 0 ? <span className="text-text-light">-</span> : <Pct value={valueOf(row[key], ms)} />}</span>
+            ))}
           </span>
         ))}
       </span>
@@ -384,7 +389,7 @@ export const ScorecardPage = () => {
                     ) : (
                       MODULES.map((m) => <SortHead key={m.key} label={m.label} sortKey={`${m.key}.${measures[0]}`} active={sortKey} ascending={ascending} onSort={sortBy} className="border-l border-border/60" />)
                     )}
-                    <SortHead label="Overall" sortKey="overall" active={sortKey} ascending={ascending} onSort={sortBy} className="border-l border-border/60" />
+                    <SortHead label="Overall score" sortKey="overall" active={sortKey} ascending={ascending} onSort={sortBy} className="border-l border-border/60" />
                   </tr>
                   {measures.length > 1 && (
                     <tr className="bg-surface-hover/40">
@@ -419,7 +424,7 @@ export const ScorecardPage = () => {
         )}
 
         <p className="t-meta text-text-muted">
-          Completion: done out of what was due (a checklist run counts once all its questions are done). Compliance: done right (checklists) or done in time (tickets and delegations). On time: of what was finished, the share finished before its cutoff. Overall: completion and compliance counted equally. A dash means nothing was due.
+          Completion: done out of what was due (a checklist run counts once all its questions are done). Compliance: done right (checklists) or done in time (tickets and delegations). On time: of what was finished, the share finished before its cutoff. Overall score: completion and compliance of every module with work due, counted equally. A dash means nothing was due.
         </p>
       </section>
 

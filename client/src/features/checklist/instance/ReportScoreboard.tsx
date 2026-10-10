@@ -93,7 +93,10 @@ const Card = memo(({ item, rank, onOpen }: { item: Ranked; rank: number | null; 
     <span className="flex items-center gap-2.5">
       <RankMark rank={rank} />
       <span className="min-w-0 flex-1 text-sm font-display font-semibold text-text leading-snug line-clamp-2">{item.name}</span>
-      <span className={cn('shrink-0 text-lg font-display font-bold tabular-nums', item.score === null ? 'text-text-light' : rateToneClass(item.score))}>{item.score === null ? '-' : `${item.score}%`}</span>
+      <span className="flex shrink-0 flex-col items-end leading-tight">
+        <span className={cn('text-lg font-display font-bold tabular-nums', item.score === null ? 'text-text-light' : rateToneClass(item.score))}>{item.score === null ? '-' : `${item.score}%`}</span>
+        <span className="t-meta text-text-muted">overall score</span>
+      </span>
     </span>
     <span className="grid grid-cols-3 gap-2 border-t border-border/60 pt-2.5 text-center">
       {[
@@ -176,7 +179,7 @@ export const ReportScoreboard = ({ noun, items, loading, error, onRetry, windowL
             <tr>
               <th scope="col" className="pl-4 pr-1 py-2.5 w-12"><span className="sr-only">Rank</span></th>
               <th scope="col" className="px-2 py-2.5 text-xs font-display font-semibold text-text-secondary capitalize">{noun}</th>
-              <th scope="col" className={HEAD} title="Completion and compliance, counted equally">Score</th>
+              <th scope="col" className={HEAD} title="Overall score: completion and compliance, counted equally">Overall score</th>
               <th scope="col" className={HEAD} title="Share of due checklists that got filled">Completion</th>
               <th scope="col" className={HEAD} title="How well the checked answers were answered">Compliance</th>
               <th scope="col" className={HEAD} title="Checklists that were due">Due</th>
@@ -194,7 +197,7 @@ export const ReportScoreboard = ({ noun, items, loading, error, onRetry, windowL
       </div>
 
       <p className="t-meta text-text-muted">
-        Score is completion and compliance counted equally. Tap a name or a figure to see that {noun}'s checklists.
+        Overall score is completion and compliance counted equally. Tap a name or a figure to see that {noun}'s checklists.
       </p>
     </div>
   );
