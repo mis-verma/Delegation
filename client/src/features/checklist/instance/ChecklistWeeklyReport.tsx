@@ -262,7 +262,7 @@ export const ChecklistWeeklyReport = () => {
             onClick={() => setView(key)}
             className={cn(
               'inline-flex flex-1 sm:flex-none items-center justify-center gap-1.5 min-h-11 sm:min-h-9 rounded-lg px-3.5 text-sm font-display font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-primary-500/40',
-              view === key ? 'bg-gradient-to-br from-primary-500 to-primary-600 text-white' : 'text-text-secondary hover:text-text',
+              view === key ? 'bg-primary-600 text-white dark:bg-primary-500' : 'text-text-secondary hover:text-text',
             )}
           >
             <Icon className="size-4" aria-hidden="true" />

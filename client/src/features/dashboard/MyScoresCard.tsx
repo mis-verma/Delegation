@@ -344,7 +344,7 @@ export const MyScoresCard = ({ initialScope = 'person' }: { initialScope?: Score
                     aria-pressed={active}
                     aria-label={`${VIEW_LABEL[option]} view`}
                     title={VIEW_LABEL[option]}
-                    className={`inline-flex size-8 pointer-coarse:size-11 items-center justify-center rounded-md transition-colors ${active ? 'bg-gradient-to-br from-primary-500 to-primary-700 text-white dark:from-primary-400 dark:to-primary-600' : 'text-text-muted hover:bg-surface hover:text-text'}`}
+                    className={`inline-flex size-8 pointer-coarse:size-11 items-center justify-center rounded-md transition-colors ${active ? 'bg-primary-600 text-white dark:bg-primary-500' : 'text-text-muted hover:bg-surface hover:text-text'}`}
                   >
                     <Icon className="size-4" aria-hidden="true" />
                   </button>
