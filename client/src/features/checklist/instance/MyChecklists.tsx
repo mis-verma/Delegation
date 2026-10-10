@@ -217,7 +217,7 @@ export const MyChecklists = () => {
   };
   // `isPending` is only true when there is no data at all (keepPreviousData holds the last page
   // while a new filter loads), so skeletons show on first load and the list just dims after that.
-  const { data: allInstances = [], isPending, isError, isPlaceholderData, refetch } = useMyChecklistInstancesQuery(instanceFilter, { page, limit: PAGE_SIZE });
+  const { data: allInstances = [], isPending, isError, refetch } = useMyChecklistInstancesQuery(instanceFilter, { page, limit: PAGE_SIZE });
 
   const activeOptionsCount = (storeId ? 1 : 0) + (recurrence ? 1 : 0) + (verificationStatus ? 1 : 0) + (departmentId ? 1 : 0) + (assigneeIds.length > 0 ? 1 : 0);
 
@@ -359,8 +359,6 @@ export const MyChecklists = () => {
   }, [view, instances, groupBy, peopleNameById, storeNameById, peopleLoading, storesLoading]);
 
   const hasActiveFilters = !!quickFilter || activeOptionsCount > 0;
-  // Showing the previous page while the next one loads: keep it, but make it read as stale.
-  const refreshing = isPlaceholderData;
 
   return (
     // Same shared container as Delegation, Tickets and To-Do, centred. Moving between those pages
@@ -549,7 +547,7 @@ export const MyChecklists = () => {
         </div>
       </div>
 
-      <div className={cn('flex flex-col gap-6 transition-opacity duration-200', refreshing && 'opacity-60')}>
+      <div className="flex flex-col gap-6">
         {isPending && <InstancesSkeleton view={view} />}
 
         {isError && (

@@ -62,23 +62,21 @@ interface QuickFilterStatsProps<K extends string> {
 
 /** Same strip, same cells, so nothing moves when the counts arrive. */
 const QuickFilterStatsSkeleton = ({ count }: { count: number }) => (
-  <div className={gridClass(count)} role="status" aria-label="Loading counts">
+  <div className="grid gap-1.5 sm:gap-3" style={gridStyle(count)} role="status" aria-label="Loading counts">
     {Array.from({ length: count }).map((_, i) => (
-      <div key={i} className={cn('flex items-start justify-between gap-3 rounded-xl border border-border bg-surface p-3 sm:p-4', i === 0 && leadSpan(count))}>
+      <div key={i} className="flex items-start justify-between gap-3 rounded-xl border border-border bg-surface p-2 sm:p-4">
         <div className="flex flex-col gap-2">
           <Skeleton className="h-7 w-12" />
           <Skeleton className="h-3 w-16" />
         </div>
-        <Skeleton className="size-8 sm:size-9 rounded-lg" />
+        <Skeleton className="hidden sm:block size-9 rounded-lg" />
       </div>
     ))}
   </div>
 );
 
-// Two across on a phone, all in one row from a wide screen. With an odd count the first card (the Total)
-// takes the whole first row on a phone, so the rest pair up with no gap.
-const gridClass = (count: number) => cn('grid grid-cols-2 gap-2.5 sm:gap-3', count >= 5 ? 'lg:grid-cols-5' : count === 3 ? 'sm:grid-cols-3' : 'lg:grid-cols-4');
-const leadSpan = (count: number) => (count % 2 === 1 ? 'col-span-2 lg:col-span-1' : '');
+// One row on every screen, phones included: as many equal columns as there are cards.
+const gridStyle = (count: number) => ({ gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` });
 
 // Only late work gets a colour (red); every other number is plain dark text.
 const LATE = new Set<string>(['delayed', 'overdue']);
@@ -106,11 +104,11 @@ export function QuickFilterStats<K extends string>({
 
 
   return (
-    <div className={gridClass(shownTiles.length)}>
+    <div className="grid gap-1.5 sm:gap-3" style={gridStyle(shownTiles.length)}>
       {/* Simple cards: the number big on the left, its name under it, a soft coloured icon on the right. Only
-          late work gets a red number; a zero is quiet grey. The picked card just gets a dark border. */}
-      {shownTiles.map((tile, index) => {
-        const { key, label, icon: Icon, bgTint, iconTint } = tile;
+          late work gets a red number; a zero is quiet grey. The picked card's icon fills with its colour and its name turns bold; no border or line. */}
+      {shownTiles.map((tile) => {
+        const { key, label, icon: Icon, bgTint, iconTint, accentBar } = tile;
         const isTotalTile = hasTotal && key === 'all';
         const isActive = isTotalTile ? active === null : active === key;
         const count = (isTotalTile ? total : counts[key as K]) ?? 0;
@@ -127,20 +125,24 @@ export function QuickFilterStats<K extends string>({
             aria-label={purpose}
             title={purpose}
             className={cn(
-              'flex min-w-0 items-start justify-between gap-3 rounded-xl border bg-surface p-3 sm:p-4 text-left font-display outline-none',
+              'flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl border bg-surface px-1 py-2 text-center font-display outline-none',
+              'sm:flex-row sm:items-start sm:justify-between sm:gap-3 sm:p-4 sm:text-left',
               'transition-[border-color,box-shadow,transform] duration-150 active:scale-[0.985] [-webkit-tap-highlight-color:transparent]',
               'focus-visible:ring-2 focus-visible:ring-primary-500/50',
-              index === 0 && leadSpan(shownTiles.length),
-              isActive ? 'border-text ring-1 ring-inset ring-text' : 'border-border hover:border-border-hover',
+              'border-border hover:border-border-hover',
             )}
           >
-            <span className="min-w-0">
-              <span className={cn('block text-2xl sm:text-3xl font-bold tabular-nums leading-none', count === 0 ? 'text-text-light' : LATE.has(key) ? 'text-danger' : 'text-text')}>
+            <span className="min-w-0 max-w-full">
+              <span className={cn(
+                'block text-lg sm:text-3xl font-extrabold sm:font-bold tabular-nums leading-none',
+                // On a phone there is no icon tile, so the picked card's number takes its colour instead.
+                isActive ? cn(iconTint, 'sm:text-text') : count === 0 ? 'text-text-light' : LATE.has(key) ? 'text-danger' : 'text-text',
+              )}>
                 <CountUp value={count} />
               </span>
-              <span className={cn('mt-1.5 block truncate t-meta', isActive ? 'font-semibold text-text' : 'font-medium text-text-muted')}>{label}</span>
+              <span className={cn('mt-1 sm:mt-1.5 block truncate text-[0.6875rem] sm:text-xs', isActive ? 'font-bold text-text' : 'font-medium text-text-muted')}>{label}</span>
             </span>
-            <span aria-hidden="true" className={cn('flex size-8 sm:size-9 shrink-0 items-center justify-center rounded-lg', bgTint, iconTint)}>
+            <span aria-hidden="true" className={cn('hidden sm:flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors duration-150', isActive ? cn(accentBar, 'text-white') : cn(bgTint, iconTint))}>
               <Icon className="size-4" />
             </span>
           </button>

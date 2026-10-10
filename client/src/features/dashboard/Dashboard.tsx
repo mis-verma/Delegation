@@ -1,6 +1,5 @@
 import { Suspense, useState, useCallback, useEffect, useRef } from 'react';
 import { Outlet, useLocation } from 'react-router';
-import { useReplayOnChange } from '../../lib/useReplayOnChange';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext';
 import { Construction } from 'lucide-react';
@@ -15,7 +14,6 @@ export const Dashboard = () => {
   const { user, logout } = useAuth();
   const location = useLocation();
   const pageRef = useRef<HTMLDivElement>(null);
-  useReplayOnChange(pageRef, location.pathname, location.search);
   const queryClient = useQueryClient();
   // Two different breakpoints doing two different jobs. `isMobileViewport` (768px, `md`) decides
   // structure — is the sidebar an overlay drawer at all, same threshold every other `md:` class in

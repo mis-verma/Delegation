@@ -1,6 +1,5 @@
 import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router';
-import { useReplayOnChange } from '../../lib/useReplayOnChange';
 import {
   LayoutDashboard,
   Contact,
@@ -134,7 +133,6 @@ export const AdminLayout = () => {
   const { logout, user } = useAuth();
   const location = useLocation();
   const pageRef = useRef<HTMLDivElement>(null);
-  useReplayOnChange(pageRef, location.pathname, location.search);
 
   const initials = (user?.name ?? 'U')
     .split(' ')
