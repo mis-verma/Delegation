@@ -9,11 +9,12 @@ import { avatarColorClass } from '../../lib/avatarColors';
 import { rateTone, type RateTone } from './dashboardDisplay';
 import type { ScoreMetric } from './scoreMetrics';
 
-type Metric = 'completion' | 'compliance' | 'ontime';
+type Metric = 'overview' | 'completion' | 'compliance' | 'ontime';
 type SortKey = 'name' | 'overall' | 'checklist' | 'ticket' | 'delegation';
 
-const METRIC_LABEL: Record<Metric, string> = { completion: 'Completion', compliance: 'Compliance', ontime: 'On time' };
+const METRIC_LABEL: Record<Metric, string> = { overview: 'Overall score', completion: 'Completion', compliance: 'Compliance', ontime: 'On time' };
 const SUBJECT: Record<ScoreScope, string> = { org: 'departments', person: 'people', department: 'departments', store: 'stores' };
+const SUBJECT_ONE: Record<ScoreScope, string> = { org: 'department', person: 'person', department: 'department', store: 'store' };
 const BAR: Record<RateTone, string> = { success: 'bg-success', warning: 'bg-warning', danger: 'bg-danger', neutral: 'bg-text-light' };
 const TEXT: Record<RateTone, string> = { success: 'text-success', warning: 'text-warning', danger: 'text-danger', neutral: 'text-text-muted' };
 
@@ -22,6 +23,8 @@ interface Computed {
   completion: Record<'overall' | 'checklist' | 'ticket' | 'delegation', number | null>;
   compliance: Record<'overall' | 'checklist' | 'ticket' | 'delegation', number | null>;
   ontime: Record<'overall' | 'checklist' | 'ticket' | 'delegation', number | null>;
+  /** The overall score: completion and compliance counted equally, per module and across them all. */
+  overview: Record<'overall' | 'checklist' | 'ticket' | 'delegation', number | null>;
   due: number;
 }
 
@@ -38,9 +41,21 @@ const compute = (row: ScoreReportRow): Computed => {
   const withCompliance = parts.filter((p) => p.compliance !== null && p.due > 0);
   const complianceDue = withCompliance.reduce((s, p) => s + p.due, 0);
   const overallCompliance = complianceDue ? Math.round(withCompliance.reduce((s, p) => s + (p.compliance as number) * p.due, 0) / complianceDue) : null;
+  const avg = (values: (number | null)[]) => {
+    const real = values.filter((v): v is number => v !== null);
+    return real.length ? Math.round(real.reduce((a, b) => a + b, 0) / real.length) : null;
+  };
+  const moduleScore = (p: (typeof parts)[number]) => (p.due > 0 ? avg([p.completion, p.compliance]) : null);
+  const live = parts.filter((p) => p.due > 0);
   return {
     row,
     due,
+    overview: {
+      overall: avg(live.flatMap((p) => [p.completion, p.compliance])),
+      checklist: moduleScore(parts[0]),
+      ticket: moduleScore(parts[1]),
+      delegation: moduleScore(parts[2]),
+    },
     completion: { overall: due ? Math.round((done / due) * 100) : null, checklist: parts[0].completion, ticket: parts[1].completion, delegation: parts[2].completion },
     compliance: { overall: overallCompliance, checklist: parts[0].compliance, ticket: parts[1].compliance, delegation: parts[2].compliance },
     // Overall on time: of everything finished, how much was finished on time.
@@ -75,7 +90,7 @@ interface ScoreRankingProps {
  */
 export const ScoreRanking = ({ compact = false, metric: controlled, scope, from, to, onOpen }: ScoreRankingProps) => {
   const [localMetric, setMetric] = useState<Metric>('completion');
-  const metric: Metric = controlled ? (controlled === 'overview' ? 'completion' : controlled) : localMetric;
+  const metric: Metric = controlled ?? localMetric;
   const [query, setQuery] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('overall');
   const [ascending, setAscending] = useState(true);
@@ -159,7 +174,7 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
             </button>
           ))}
         </div>
-        <p className="t-meta font-medium text-text-muted">{rows.length} {SUBJECT[scope]}, worst first</p>
+        <p className="t-meta font-medium text-text-muted">{rows.length} {rows.length === 1 ? SUBJECT_ONE[scope] : SUBJECT[scope]}, worst first</p>
       </div>
 
       <label className="relative block">
@@ -256,7 +271,11 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
           </tbody>
         </table>
       </div>
-      <p className="hidden t-meta font-medium text-text-muted sm:block">Overall is weighted by how much each module had due. A dash means nothing was due there.</p>
+      <p className="hidden t-meta font-medium text-text-muted sm:block">
+        {metric === 'overview'
+          ? 'Overall score: completion and compliance counted equally. A dash means nothing was due there.'
+          : 'The big figure is across all three, weighted by how much each had due. A dash means nothing was due there.'}
+      </p>
     </div>
   );
 };

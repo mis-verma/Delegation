@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { ArrowDown, ArrowUp, SlidersHorizontal, ChartColumn, ChartLine, ChevronDown, ChevronLeft, ChevronRight, CircleGauge, ClipboardCheck, Download, FileSpreadsheet, FileText, Ticket as TicketIcon, Users, type LucideIcon } from 'lucide-react';
-import { Button, Combobox, type ComboboxOption } from '../../components';
+import { Button, Combobox, Switch, type ComboboxOption } from '../../components';
 import { SemiGauge } from '../../components/semiGauge/SemiGauge';
 import { InfoHint } from '../../components/infoHint/InfoHint';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel } from '../../components/ui/dropdown-menu';
@@ -22,7 +22,8 @@ import { ScoreTrend } from './ScoreTrend';
 import { DASHBOARD_CARD_CLASS, rateTone, type RateTone } from './dashboardDisplay';
 import { PERIODS, PERIOD_LABEL, windowFor, type ScorePeriod } from './scorePeriods';
 
-const SCOPE_LABEL: Record<ScoreScope, string> = { org: 'Organisation', person: 'Person', department: 'Department', store: 'Store' };
+// Short enough for four equal columns in the narrow side panel.
+const SCOPE_LABEL: Record<ScoreScope, string> = { org: 'Company', person: 'Person', department: 'Department', store: 'Store' };
 type ScoreView = 'bars' | 'dials' | 'trend';
 const VIEWS: readonly ScoreView[] = ['bars', 'dials', 'trend'];
 const VIEW_LABEL: Record<ScoreView, string> = { bars: 'Bars', dials: 'Dials', trend: 'Trend' };
@@ -136,6 +137,14 @@ const ScoreTile = ({ title, score, detail, loading, onOpen, change }: ScoreTileP
  * own. A department head can also open their own department. Admin and PC can open any person,
  * department or store.
  */
+// One labelled control in the side panel: a small caption over the control, so each row says what it picks.
+const PanelRow = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  <div className="flex flex-col gap-1.5">
+    <span className="px-0.5 t-meta font-display font-semibold text-text-muted">{label}</span>
+    {children}
+  </div>
+);
+
 /** `initialScope`: where the card opens. The Admin Overview opens it on the whole organisation. */
 export const MyScoresCard = ({ initialScope = 'person' }: { initialScope?: ScoreScope } = {}) => {
   const { user } = useAuth();
@@ -428,14 +437,15 @@ export const MyScoresCard = ({ initialScope = 'person' }: { initialScope?: Score
         >
           <div className="min-h-0 overflow-hidden">
             {(everOpened || isWide) && (
-              <div className="flex flex-col gap-2.5 border-t border-border/60 p-2.5">
+              <div className="flex flex-col gap-3 border-t border-border/60 p-3">
                 {scopes.length > 1 && (
-                  <PeriodTabControl value={scope} options={scopes} labels={SCOPE_LABEL} onChange={(next) => { setScope(next); setPicked(''); }} fill dense />
+                  <PanelRow label="Show">
+                    <PeriodTabControl value={scope} options={scopes} labels={SCOPE_LABEL} onChange={(next) => { setScope(next); setPicked(''); }} columns />
+                  </PanelRow>
                 )}
 
-                {/* The picker and Compare sit on one row. */}
-                <div className="flex items-center gap-2">
-                  {showPicker && (
+                {showPicker && (
+                  <PanelRow label={scope === 'person' ? 'Person' : scope === 'department' ? 'Department' : 'Store'}>
                     <Combobox
                       value={effectivePick}
                       onChange={setPicked}
@@ -443,27 +453,29 @@ export const MyScoresCard = ({ initialScope = 'person' }: { initialScope?: Score
                       emptyOptionLabel={scope === 'person' ? 'Me' : undefined}
                       placeholder={PICK_PLACEHOLDER[scope]}
                       isLoading={scope === 'person' ? people.isPending : scope === 'department' ? departments.isPending : stores.isPending}
-                      className="h-9 min-w-0 flex-1 pointer-coarse:min-h-9 text-xs sm:text-sm"
+                      className="h-9 w-full pointer-coarse:min-h-11 text-xs sm:text-sm"
                     />
-                  )}
-                  {(activeView === 'bars' || activeView === 'dials') && (
-                    <button
-                      type="button"
-                      onClick={() => setCompare(!compare)}
-                      aria-pressed={compare}
-                      title="Show the change since the previous period"
-                      aria-label="Compare with the previous period"
-                      className={`inline-flex shrink-0 h-9 pointer-coarse:h-11 items-center gap-1 rounded-lg border px-2.5 text-xs font-display font-bold transition-colors ${compare ? 'border-primary-500 bg-primary-500/10 text-primary-700 dark:text-primary-300' : 'border-border text-text-muted hover:border-border-hover hover:text-text'}`}
-                    >
-                      <ArrowUp className="size-3" aria-hidden="true" /><ArrowDown className="-ml-1.5 size-3" aria-hidden="true" />
-                      <span className="hidden min-[420px]:inline">Compare</span>
-                    </button>
-                  )}
-                </div>
+                  </PanelRow>
+                )}
 
-                <PeriodTabControl value={period} options={PERIODS} labels={PERIOD_LABEL} onChange={(next) => { setPeriod(next); setOffset(0); }} fill dense />
+                <PanelRow label="Period">
+                  <PeriodTabControl value={period} options={PERIODS} labels={PERIOD_LABEL} onChange={(next) => { setPeriod(next); setOffset(0); }} columns />
+                </PanelRow>
 
-                <PeriodTabControl value={metric} options={METRIC_OPTIONS} labels={METRIC_LABEL} onChange={setMetric} fill dense />
+                <PanelRow label="Measure">
+                  <PeriodTabControl value={metric} options={METRIC_OPTIONS} labels={METRIC_LABEL} onChange={setMetric} columns />
+                </PanelRow>
+
+                {(activeView === 'bars' || activeView === 'dials') && (
+                  <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-lg border border-border/60 px-3 py-2">
+                    <span className="min-w-0">
+                      <span className="block t-meta font-display font-semibold text-text">Compare with last period</span>
+                      <span className="block t-meta text-text-muted">Shows the change under the chart</span>
+                    </span>
+                    <Switch checked={compare} onChange={setCompare} />
+                  </label>
+                )}
+
 
                 {canExportReport && (
                   <ScoreRanking compact={isWide} metric={metric} scope={scope} from={range.from} to={range.to} onOpen={(id) => { if (scope === 'org') setScope('department'); setPicked(id); setMoreOpen(false); }} />

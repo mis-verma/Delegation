@@ -2,12 +2,14 @@ import { useMemo, useState, type ReactElement } from 'react';
 import { ScoreColumn } from './scoreBarShape';
 import { useQuery } from '@tanstack/react-query';
 import { Bar, BarChart, CartesianGrid, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { cn } from '@/lib/utils';
+import { PeriodTabControl } from './PeriodTabControl';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { scoreApi, type ScoreScope, type ScoreTrend as ScoreTrendData, type TrendBucket, type TrendPeriod } from '../../api/scores';
 import { Skeleton } from '../../components/skeleton';
 import { SERIES_COLOR, SERIES_LABEL, seriesFor, type ModuleKey, type ScoreMetric, type SeriesKey } from './scoreMetrics';
 
+const MODULE_KEYS: readonly ModuleKey[] = ['checklist', 'ticket', 'delegation'];
+const MODULE_LABEL: Record<ModuleKey, string> = { checklist: 'Checklist', ticket: 'Tickets', delegation: 'Delegations' };
 const MODULES: { key: ModuleKey; label: string }[] = [
   { key: 'checklist', label: 'Checklist' },
   { key: 'ticket', label: 'Tickets' },
@@ -91,23 +93,7 @@ export const ScoreTrend = ({ metric = 'overview', scope, id, period, from, to }:
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div role="radiogroup" aria-label="Module" className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-surface-hover/50 p-0.5">
-          {MODULES.map((m) => (
-            <button
-              key={m.key}
-              type="button"
-              role="radio"
-              aria-checked={module === m.key}
-              onClick={() => setModule(m.key)}
-              className={cn(
-                'min-h-8 rounded-full px-3 text-xs font-display font-medium sm:font-bold outline-none transition-colors pointer-coarse:min-h-11 focus-visible:ring-2 focus-visible:ring-primary-500/40',
-                module === m.key ? 'bg-surface text-primary-700 ring-1 ring-border dark:text-primary-300' : 'text-text-muted hover:text-text',
-              )}
-            >
-              {m.label}
-            </button>
-          ))}
-        </div>
+        <PeriodTabControl value={module} options={MODULE_KEYS} labels={MODULE_LABEL} onChange={setModule} />
         <div className="flex flex-wrap items-center gap-1.5">
           {series.map((k) => (
             <span key={k} className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-surface-hover/40 px-2.5 py-1 t-meta font-display font-semibold text-text-secondary">
