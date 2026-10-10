@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { ClipboardCheck, Download, FileSpreadsheet, FileText } from 'lucide-react';
 import { toast } from 'sonner';
-import { EmptyState, InlineError, Skeleton, PANEL_CLASS } from '../../components';
+import { Button, EmptyState, InlineError, Skeleton, PANEL_CLASS } from '../../components';
 import { CATEGORY_PREDICATES } from '../tasks/taskFilters';
 import { rateToneClass } from '../checklist/checklistDisplay';
 import { CategoryBarChart, type CategoryBar } from './CategoryBarChart';
@@ -13,7 +13,7 @@ import type { ChecklistReportMetrics } from '../../api/checklistReports';
 import type { Task } from '../../api/task';
 import type { Ticket } from '../../api/ticket';
 import { useTeamTaskChecklistTotals } from './useTeamChecklistReport';
-import { TEAM_PERIOD_OPTIONS, TEAM_PERIOD_PHRASE, type ReportState, type TeamPeriod, type TeamPeriodRange } from './teamDisplay';
+import { TEAM_PERIOD_LABELS, TEAM_PERIOD_PHRASE, selectPersonWork, type ReportState, type TeamPeriod, type TeamPeriodRange } from './teamDisplay';
 
 interface PersonChecklistViewProps {
   personName: string;
@@ -35,11 +35,11 @@ interface PersonChecklistViewProps {
   onRetryReport: () => void;
 }
 
-const periodLabel = (period: TeamPeriod) => TEAM_PERIOD_OPTIONS.find((o) => o.key === period)?.label ?? '';
+const STAT_TILE_CLASS = 'flex flex-col gap-1 rounded-xl border border-border/60 bg-surface p-4 min-w-0';
 
 interface BigStatProps {
   label: string;
-  /** null renders as "n/a" in a muted tone. */
+  /** null renders as a muted "-"; `detail` then says why there is no number. */
   value: string | null;
   valueClassName?: string;
   /** The raw counts behind the number, e.g. "7 of 7 completed". */
@@ -49,13 +49,13 @@ interface BigStatProps {
 }
 
 const BigStat = ({ label, value, valueClassName, detail, hint }: BigStatProps) => (
-  <div className="flex flex-col gap-1 p-4 rounded-lg bg-surface-hover/50 min-w-0">
-    <span className="text-xs font-display font-semibold text-text-muted">{label}</span>
-    <span className={cn('text-3xl font-display font-bold tabular-nums leading-tight', value === null ? 'text-text-light/70' : valueClassName ?? 'text-text')}>
-      {value ?? 'n/a'}
+  <div className={STAT_TILE_CLASS}>
+    <span className="t-meta font-display font-semibold text-text-muted">{label}</span>
+    <span className={cn('t-figure font-display font-bold tabular-nums', value === null ? 'text-text-light' : valueClassName ?? 'text-text')}>
+      {value ?? '-'}
     </span>
-    <span className="text-xs font-display font-medium text-text-secondary">{detail}</span>
-    {hint && <span className="text-xs font-display text-text-muted">{hint}</span>}
+    <span className="t-meta font-display font-medium text-text-secondary">{detail}</span>
+    {hint && <span className="t-meta font-display text-text-muted">{hint}</span>}
   </div>
 );
 
@@ -84,20 +84,10 @@ export const PersonChecklistView = ({
   const phrase = TEAM_PERIOD_PHRASE[period];
   const taskTotals = useTeamTaskChecklistTotals(range, departmentId, personId);
 
-  const periodTasks = useMemo(
-    () => tasks.filter((t) =>
-      t.departmentId === departmentId
-      && (t.assigneeId === personId || t.userId === personId || t.additionalAssigneeIds.includes(personId))
-      && new Date(t.createdAt).getTime() >= range.startMs),
-    [tasks, personId, departmentId, range.startMs],
-  );
-
-  const periodTickets = useMemo(
-    () => tickets.filter((t) =>
-      t.departmentId === departmentId
-      && (t.assigneeId === personId || t.userId === personId)
-      && new Date(t.createdAt).getTime() >= range.startMs),
-    [tickets, personId, departmentId, range.startMs],
+  // The same selector the person card uses, so the card and this screen always agree.
+  const { tasks: periodTasks, tickets: periodTickets } = useMemo(
+    () => selectPersonWork(tasks, tickets, personId, departmentId, range),
+    [tasks, tickets, personId, departmentId, range],
   );
 
   const goToTasks = (category: 'task' | 'issue' | 'delegation') =>
@@ -124,7 +114,7 @@ export const PersonChecklistView = ({
     ['Generated', new Date().toLocaleString()],
     ['Person', personName],
     ['Department', departmentName],
-    ['Period', `${periodLabel(period)} (${range.from} to ${range.to})`],
+    ['Period', `${TEAM_PERIOD_LABELS[period]} (${range.from} to ${range.to})`],
     [],
     ['Store checklists', 'Value'],
     ['Checklists assigned', checklist?.assigned ?? 0],
@@ -156,36 +146,35 @@ export const PersonChecklistView = ({
     toast.success(`Exported as ${format.toUpperCase()}`);
   };
 
+  // No per-category colour: the chart colours each bar by its own rate, so red means a low rate,
+  // not "this is the Issue bar".
   const bars: CategoryBar[] = [
-    { key: 'task', label: 'Direct Task', barClassName: 'bg-primary-500', onClick: () => goToTasks('task'), ...taskStats },
-    { key: 'issue', label: 'Issue', barClassName: 'bg-danger', onClick: () => goToTasks('issue'), ...issueStats },
-    { key: 'delegation', label: 'Delegation', barClassName: 'bg-info', onClick: () => goToTasks('delegation'), ...delegationStats },
-    { key: 'ticket', label: 'Ticket', barClassName: 'bg-coral-500', onClick: goToTickets, ...ticketStats },
-    { key: 'todo', label: 'Todo Task', barClassName: 'bg-warning', onClick: () => navigate(`/tasks?assigneeIds=${personId}`), ...todoStats },
+    { key: 'task', label: 'Direct Task', onClick: () => goToTasks('task'), ...taskStats },
+    { key: 'issue', label: 'Issue', onClick: () => goToTasks('issue'), ...issueStats },
+    { key: 'delegation', label: 'Delegation', onClick: () => goToTasks('delegation'), ...delegationStats },
+    { key: 'ticket', label: 'Ticket', onClick: goToTickets, ...ticketStats },
+    { key: 'todo', label: 'Todo Task', onClick: () => navigate(`/tasks?assigneeIds=${personId}`), ...todoStats },
   ];
 
   const m = checklist;
 
   return (
-    <div className={cn(PANEL_CLASS, 'p-4 sm:p-6 flex flex-col gap-6 transition-opacity duration-200', isRefreshing && 'opacity-60')} aria-busy={isRefreshing}>
+    // No dim while the next period loads (the old numbers stay put); the page header says "Updating…".
+    <div className={cn(PANEL_CLASS, 'p-4 sm:p-6 flex flex-col gap-6')} aria-busy={isRefreshing}>
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex flex-col gap-0.5 min-w-0">
           <h2 className="t-section font-display font-bold text-text tracking-tight">{personName}</h2>
-          <p className="text-xs font-display font-medium text-text-muted">Store checklists, delegations, issues and tickets, {phrase}</p>
+          <p className="t-meta font-display font-medium text-text-muted">Store checklists, delegations, issues and tickets, {phrase}</p>
         </div>
 
         {/* Downloads exactly what's on screen, generated in the browser (see lib/exportTable), so
             the file can never disagree with what this person is looking at. */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              aria-label="Export this person's numbers"
-              className="inline-flex items-center justify-center gap-1.5 min-h-11 sm:min-h-8 px-3 rounded-lg border border-border/60 bg-surface text-xs font-display font-semibold text-text-secondary hover:bg-surface-hover hover:border-border hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 transition-all duration-200 ease-in-out cursor-pointer"
-            >
+            <Button variant="outline" size="sm" aria-label="Export this person's numbers">
               <Download size={13} strokeWidth={2.5} />
               Export
-            </button>
+            </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-48">
             <DropdownMenuItem onClick={() => handleExport('csv')} className="gap-2">
@@ -201,11 +190,11 @@ export const PersonChecklistView = ({
       </div>
 
       <section aria-labelledby="team-store-checklists" className="flex flex-col gap-3">
-        <h3 id="team-store-checklists" className="text-base font-display font-bold text-text">Store checklists</h3>
+        <h3 id="team-store-checklists" className="t-section font-display font-bold text-text">Store checklists</h3>
 
         {reportState === 'loading' ? (
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-32 rounded-lg" />)}
+            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}
           </div>
         ) : reportState === 'error' ? (
           <InlineError message="Could not load this person's store checklist numbers." onRetry={onRetryReport} />
@@ -224,14 +213,14 @@ export const PersonChecklistView = ({
                 label="On time"
                 value={pctText(m.onTimePct)}
                 valueClassName={m.onTimePct === null ? undefined : rateToneClass(m.onTimePct)}
-                detail={`${m.onTime} of ${m.assigned} on time`}
+                detail={m.completed > 0 ? `${m.onTime} of ${m.completed} finished on time` : 'Nothing finished yet'}
               />
               <BigStat
                 label="Compliance"
                 value={m.answersChecked > 0 ? pctText(m.compliancePct) : null}
                 valueClassName={m.compliancePct === null ? undefined : rateToneClass(m.compliancePct)}
                 detail={m.answersChecked > 0 ? `${m.answersChecked} answers checked` : 'No scored answers in this period'}
-                hint="Answers that matched the good answer set for the question"
+                hint="Checked answers that were right"
               />
               <BigStat
                 label="Sent back"
@@ -241,7 +230,7 @@ export const PersonChecklistView = ({
               />
             </div>
             {m.missed > 0 && (
-              <p className="text-xs font-display font-medium text-danger">
+              <p className="t-meta font-display font-medium text-danger">
                 {m.missed} {m.missed === 1 ? 'checklist was' : 'checklists were'} missed: past the cutoff and not finished.
               </p>
             )}
@@ -250,7 +239,7 @@ export const PersonChecklistView = ({
       </section>
 
       <section aria-labelledby="team-delegations" className="flex flex-col gap-3">
-        <h3 id="team-delegations" className="text-base font-display font-bold text-text">Delegations, issues and tickets</h3>
+        <h3 id="team-delegations" className="t-section font-display font-bold text-text">Delegations, issues and tickets</h3>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <BigStat
@@ -259,18 +248,18 @@ export const PersonChecklistView = ({
             valueClassName={workRate === null ? undefined : rateToneClass(workRate)}
             detail={workRate === null ? `None were created ${phrase}` : `${workDone} of ${workTotal} marked done`}
           />
-          <div className="flex flex-col gap-1 p-4 rounded-lg bg-surface-hover/50 min-w-0">
-            <span className="text-xs font-display font-semibold text-text-muted">Photo proof</span>
+          <div className={STAT_TILE_CLASS}>
+            <span className="t-meta font-display font-semibold text-text-muted">Photo proof</span>
             {taskTotals.isPending ? (
-              <Skeleton className="h-9 w-20" />
+              <Skeleton className="h-7 w-16" />
             ) : (
-              <span className={cn('text-3xl font-display font-bold tabular-nums leading-tight', photo?.photoRate == null ? 'text-text-light/70' : rateToneClass(photo.photoRate))}>
-                {photo?.photoRate == null ? 'n/a' : `${photo.photoRate}%`}
+              <span className={cn('t-figure font-display font-bold tabular-nums', photo?.photoRate == null ? 'text-text-light' : rateToneClass(photo.photoRate))}>
+                {photo?.photoRate == null ? '-' : `${photo.photoRate}%`}
               </span>
             )}
-            <span className="text-xs font-display font-medium text-text-secondary">
+            <span className="t-meta font-display font-medium text-text-secondary">
               {taskTotals.isError
-                ? 'Could not load'
+                ? "Photo numbers didn't load"
                 : photo?.photoRate == null
                   ? 'No photo-evidence items in this period'
                   : `${photo.photoOk} of ${photo.photoItems} required photos uploaded`}

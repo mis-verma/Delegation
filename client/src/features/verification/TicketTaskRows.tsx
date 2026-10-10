@@ -77,7 +77,7 @@ const EvidenceStrip = ({ files }: { files: EvidenceFile[] }) => {
           </a>
         );
       })}
-      {extra > 0 && <span className="text-xs font-display font-semibold text-text-muted tabular-nums">+{extra} more</span>}
+      {extra > 0 && <span className="t-meta font-display font-semibold text-text-muted tabular-nums">+{extra} more</span>}
     </div>
   );
 };
@@ -130,8 +130,8 @@ const QueueRow = ({ icon, title, facts, chips, note, evidence, onOpen, onApprove
       onPointerEnter={onWarm}
       onFocus={onWarm}
       className={cn(
-        'group flex flex-col gap-3.5 p-3.5 sm:p-4 rounded-xl border transition-colors duration-150',
-        selection?.checked ? 'border-primary-500 bg-primary-500/5' : 'border-border/60 bg-surface hover:border-border-hover',
+        'group flex flex-col gap-3 p-3 sm:p-4 rounded-xl border transition-colors duration-150',
+        selection?.checked ? 'border-border-hover bg-surface' : 'border-border/60 bg-surface hover:border-border-hover',
       )}
     >
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4">
@@ -143,12 +143,12 @@ const QueueRow = ({ icon, title, facts, chips, note, evidence, onOpen, onApprove
           <button
             type="button"
             onClick={onOpen}
-            className="group/info flex items-start gap-3 min-w-0 flex-1 text-left cursor-pointer outline-none rounded-lg focus-visible:ring-2 focus-visible:ring-primary-500/40"
+            className="group/info flex items-start gap-3 min-w-0 flex-1 text-left cursor-pointer outline-none rounded-lg transition-transform duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40"
           >
-            <span className="flex items-center justify-center size-9 rounded-lg bg-primary-500/10 text-primary-600 dark:text-primary-300 shrink-0">{icon}</span>
+            <span className="flex items-center justify-center size-9 rounded-lg bg-surface-hover text-text-muted shrink-0">{icon}</span>
             <span className="flex flex-col gap-1.5 flex-1 min-w-0">
-              <span className="text-sm font-display font-semibold text-text line-clamp-2 leading-snug group-hover/info:text-primary-600 dark:group-hover/info:text-primary-400 transition-colors">{title}</span>
-              <span className="flex items-start gap-1.5 text-xs font-display text-text-muted">
+              <span className="t-card font-display font-semibold text-text line-clamp-2 leading-snug">{title}</span>
+              <span className="flex items-start gap-1.5 t-meta font-display text-text-muted">
                 <UserRound size={12} className="shrink-0 mt-0.5 text-text-light" aria-hidden />
                 <span className="min-w-0 line-clamp-2">{facts}</span>
               </span>
@@ -159,7 +159,7 @@ const QueueRow = ({ icon, title, facts, chips, note, evidence, onOpen, onApprove
                 )}
                 {summary && summary.total > 0 && (
                   <span className={cn(
-                    'inline-flex items-center gap-1 shrink-0 text-xs font-display font-bold px-1.5 py-0.5 rounded',
+                    'inline-flex items-center gap-1 shrink-0 t-meta font-display font-bold px-1.5 py-0.5 rounded',
                     complete ? 'bg-success/10 text-success' : attentionNeeded ? 'bg-danger/10 text-danger' : 'bg-border/40 text-text-muted',
                   )}>
                     {attentionNeeded && <AlertTriangle size={11} strokeWidth={2.5} aria-hidden />}
@@ -175,19 +175,14 @@ const QueueRow = ({ icon, title, facts, chips, note, evidence, onOpen, onApprove
 
         {!rejecting && (
           <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:self-start sm:shrink-0">
-            <button
-              type="button"
-              onClick={onToggleExpanded}
-              aria-expanded={expanded}
-              className="inline-flex items-center justify-center gap-1 h-11 sm:h-9 px-2.5 w-full sm:w-auto rounded-lg text-xs font-display font-semibold text-text-secondary hover:bg-surface-hover hover:text-text transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
-            >
+            <Button size="sm" variant="ghost" className="w-full sm:w-auto" onClick={onToggleExpanded} aria-expanded={expanded}>
               <ChevronDown size={14} strokeWidth={2.5} className={cn('transition-transform duration-200', expanded && 'rotate-180')} aria-hidden />
               {expanded ? 'Hide' : 'Checklist'}
-            </button>
+            </Button>
             <Button
               size="sm"
               variant="outline"
-              className="flex-1 sm:flex-none pointer-coarse:min-h-11 border-danger/30 text-danger hover:bg-danger/10 hover:border-danger/50 hover:text-danger"
+              className="flex-1 sm:flex-none border-danger/30 text-danger hover:bg-danger/10 hover:border-danger/50 hover:text-danger"
               onClick={() => setRejecting(true)}
             >
               <X size={14} aria-hidden />
@@ -195,7 +190,7 @@ const QueueRow = ({ icon, title, facts, chips, note, evidence, onOpen, onApprove
             </Button>
             <Button
               size="sm"
-              className="flex-1 sm:flex-none pointer-coarse:min-h-11 bg-success-strong text-white hover:bg-success-strong/90 hover:text-white"
+              className="flex-1 sm:flex-none bg-success-strong text-white hover:bg-success-strong/90 hover:text-white"
               onClick={onApprove}
             >
               <Check size={14} aria-hidden />

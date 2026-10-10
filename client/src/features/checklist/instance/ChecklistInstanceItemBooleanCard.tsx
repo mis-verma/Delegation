@@ -132,7 +132,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
         </div>
       )}
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 sm:max-w-md">
         <button
           type="button"
           disabled={answerLocked}
@@ -143,7 +143,8 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
             shownAnswer === 'YES'
               ? 'border-success bg-success/10 text-success'
               : 'border-border text-text-secondary hover:border-success/50 hover:bg-success/5',
-            answerLocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
+            // Once answered, the chosen one stays clear and only the other one fades.
+            answerLocked ? cn('cursor-not-allowed', shownAnswer !== 'YES' && 'opacity-50') : 'cursor-pointer',
           )}
         >
           <Check className="size-[1.15em] shrink-0" strokeWidth={shownAnswer === 'YES' ? 3 : 2.5} aria-hidden />
@@ -159,7 +160,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
             shownAnswer === 'NO'
               ? 'border-danger bg-danger/10 text-danger'
               : 'border-border text-text-secondary hover:border-danger/50 hover:bg-danger/5',
-            answerLocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
+            answerLocked ? cn('cursor-not-allowed', shownAnswer !== 'NO' && 'opacity-50') : 'cursor-pointer',
           )}
         >
           <X className="size-[1.15em] shrink-0" strokeWidth={shownAnswer === 'NO' ? 3 : 2.5} aria-hidden />

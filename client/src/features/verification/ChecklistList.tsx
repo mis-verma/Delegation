@@ -5,7 +5,7 @@ import type { ChecklistRow } from './verificationModel';
 
 // Same card shape as a real row, so nothing shifts when the data arrives.
 const SkeletonRow = () => (
-  <li className="flex flex-col gap-2.5 p-3 sm:p-3.5 rounded-lg border border-border/60 bg-surface" aria-hidden>
+  <li className="flex flex-col gap-3 p-3 sm:p-4 rounded-xl border border-border/60 bg-surface" aria-hidden>
     <div className="flex items-start justify-between gap-3">
       <div className="flex flex-col gap-1.5 flex-1 min-w-0">
         <Skeleton className="h-4 w-2/3" />
@@ -32,7 +32,7 @@ interface ChecklistListProps {
   onClearFilters: () => void;
   /** Opens today's decisions from the empty state. Omit to leave the action out. */
   onShowDecided?: () => void;
-  /** "Approve all clean": how many, progress while it runs, and the handler. Omit to hide the button. */
+  /** "Approve N with no issues": how many, progress while it runs, and the handler. Omit to hide the button. */
   cleanCount?: number;
   bulk?: { done: number; total: number } | null;
   onApproveAllClean?: () => void;
@@ -60,7 +60,7 @@ export const ChecklistList = ({
   <section className="flex flex-col gap-3 min-w-0" aria-label={heading}>
     <div className="flex flex-wrap items-center justify-between gap-2">
       <div className="flex items-center gap-2">
-        <h2 className="t-card font-display font-semibold text-text">{heading}</h2>
+        <h2 className="t-section font-display font-bold text-text">{heading}</h2>
         {!isPending && rows.length > 0 && (
           <span className="px-2 py-0.5 rounded-full bg-border/50 t-meta font-display font-medium text-text-muted tabular-nums">{rows.length}</span>
         )}
@@ -69,7 +69,7 @@ export const ChecklistList = ({
         {onShowShortcuts && (
           <Button size="sm" variant="ghost" className="hidden lg:inline-flex" onClick={onShowShortcuts}>
             <Keyboard size={14} aria-hidden />
-            ? Shortcuts
+            Shortcuts
           </Button>
         )}
         {onApproveAllClean && cleanCount > 0 && (
@@ -82,7 +82,7 @@ export const ChecklistList = ({
             onClick={onApproveAllClean}
           >
             {!bulk && <CheckCheck size={14} aria-hidden />}
-            {bulk ? `Approving ${Math.min(bulk.done + 1, bulk.total)} of ${bulk.total}` : `Approve all clean (${cleanCount})`}
+            {bulk ? `Approving ${Math.min(bulk.done + 1, bulk.total)} of ${bulk.total}` : `Approve ${cleanCount} with no issues`}
           </Button>
         )}
       </div>
@@ -90,7 +90,7 @@ export const ChecklistList = ({
 
     {loadFailed && <InlineError message="We couldn't load the checklists waiting for review. Check your connection and try again." onRetry={onRetry} />}
 
-    {isPending && <ul className="flex flex-col gap-2.5"><SkeletonRow /><SkeletonRow /><SkeletonRow /></ul>}
+    {isPending && <ul className="flex flex-col gap-3"><SkeletonRow /><SkeletonRow /><SkeletonRow /></ul>}
 
     {!isPending && !loadFailed && rows.length === 0 && (
       filtersActive ? (
@@ -112,7 +112,7 @@ export const ChecklistList = ({
     )}
 
     {rows.length > 0 && (
-      <ul className="flex flex-col gap-2.5">
+      <ul className="flex flex-col gap-3">
         {rows.map((row) => (
           <ChecklistQueueRow
             key={row.id}
@@ -134,7 +134,7 @@ export const ChecklistList = ({
         <Button variant="outline" size="sm" isLoading={isFetchingMore} onClick={onLoadMore}>
           Load more ({remaining} remaining)
         </Button>
-        <p className="text-xs font-display text-text-muted text-center">Sorting and filters work on the checklists loaded so far.</p>
+        <p className="t-meta font-display text-text-muted text-center">Sorting and filters work on the checklists loaded so far.</p>
       </div>
     )}
   </section>

@@ -1,4 +1,5 @@
 import { CheckCircle2, Circle, AlertTriangle, ImageOff, Flag } from 'lucide-react';
+import { Skeleton } from '../../components';
 import { summarizeChecklists, type PreviewItem, type PreviewChecklist } from './checklistSummary';
 
 // Task and Ticket each have their own generated Checklist/ChecklistItem/ChecklistImage types
@@ -41,7 +42,9 @@ const ItemRow = ({ item, onFlag }: { item: PreviewItem; onFlag?: (item: PreviewI
             type="button"
             onClick={() => onFlag(item)}
             title="Flag this item in the correction note"
-            className="shrink-0 inline-flex items-center justify-center size-5 rounded text-text-light opacity-0 group-hover/item:opacity-100 hover:text-danger hover:bg-danger/10 transition-all duration-150 cursor-pointer outline-none focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-danger/30"
+            aria-label={`Flag ${item.label}`}
+            // Hover-only on a pointer screen; a touch screen never hovers, so it stays visible and finger-sized there.
+            className="shrink-0 inline-flex items-center justify-center size-5 pointer-coarse:size-11 rounded text-text-light pointer-coarse:opacity-100 sm:opacity-0 sm:group-hover/item:opacity-100 hover:text-danger hover:bg-danger/10 transition-all duration-150 cursor-pointer outline-none focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-danger/30"
           >
             <Flag size={11} strokeWidth={2.5} />
           </button>
@@ -49,7 +52,7 @@ const ItemRow = ({ item, onFlag }: { item: PreviewItem; onFlag?: (item: PreviewI
       </div>
 
       {item.images.length > 0 && (
-        <div className="flex items-center gap-1.5 pl-[23px] flex-wrap">
+        <div className="flex items-center gap-1.5 pl-6 flex-wrap">
           {item.images.map((img) => (
             <a
               key={img.id}
@@ -85,9 +88,9 @@ interface ChecklistCompletionPreviewProps {
 export const ChecklistCompletionPreview = ({ checklists, isLoading, onFlagItem }: ChecklistCompletionPreviewProps) => {
   if (isLoading) {
     return (
-      <div className="flex flex-col gap-2 animate-pulse">
+      <div className="flex flex-col gap-2" aria-hidden>
         {Array.from({ length: 2 }).map((_, i) => (
-          <div key={i} className="h-4 w-2/3 rounded bg-border/50" />
+          <Skeleton key={i} className="h-4 w-2/3" />
         ))}
       </div>
     );
@@ -97,7 +100,7 @@ export const ChecklistCompletionPreview = ({ checklists, isLoading, onFlagItem }
 
   if (total === 0) {
     return (
-      <p className="flex items-center gap-1.5 text-xs font-display text-text-muted">
+      <p className="flex items-center gap-1.5 t-meta font-display text-text-muted">
         <ImageOff size={13} className="shrink-0" />
         No checklist on this item.
       </p>
@@ -112,7 +115,7 @@ export const ChecklistCompletionPreview = ({ checklists, isLoading, onFlagItem }
           a verifier gets from a score/compliance header on other checklist-approval tools, just
           computed from what's already loaded instead of a separate scoring pass. */}
       <div className="flex items-center gap-x-4 gap-y-1 flex-wrap px-0.5">
-        <span className="t-meta font-display font-bold text-text-muted tracking-wide">
+        <span className="t-meta font-display font-bold text-text-muted">
           {compliancePct}% complete
         </span>
         <span className="t-meta font-display font-medium text-text-light">
@@ -127,9 +130,9 @@ export const ChecklistCompletionPreview = ({ checklists, isLoading, onFlagItem }
       </div>
 
       {checklists!.filter((c) => c.items.length > 0).map((checklist) => (
-        <div key={checklist.id}>
-          <p className="t-meta font-display font-bold text-text-muted tracking-wide mb-1">
-            {checklist.title} — {checklist.items.filter((i) => i.isDone).length}/{checklist.items.length} done
+        <div key={checklist.id} className="flex flex-col gap-1.5">
+          <p className="t-meta font-display font-bold text-text-muted">
+            {checklist.title}: {checklist.items.filter((i) => i.isDone).length}/{checklist.items.length} done
           </p>
           <ul className="flex flex-col divide-y divide-border/40">
             {checklist.items.map((item) => <ItemRow key={item.id} item={item} onFlag={onFlagItem} />)}

@@ -13,7 +13,7 @@ interface RiskChipsProps {
 }
 
 // The "should I open this one?" read-out on a checklist row: how well it was answered, what is
-// missing, whether it was sent back before, and a green Clean tag when there is nothing to check.
+// missing, whether it was sent back before, and a green "No issues" tag when there is nothing to check.
 export const RiskChips = memo(function RiskChips({ risk, className }: RiskChipsProps) {
   return (
     <div className={cn('flex flex-wrap items-center gap-1.5', className)}>
@@ -21,7 +21,7 @@ export const RiskChips = memo(function RiskChips({ risk, className }: RiskChipsP
         <IconChip
           icon={Flag}
           tone="bg-danger"
-          label={risk.criticalFailed === 1 ? 'Critical failed' : `Critical failed (${risk.criticalFailed})`}
+          label={risk.criticalFailed === 1 ? 'Critical question failed' : `${risk.criticalFailed} critical questions failed`}
           className="border-danger/40 bg-danger/10"
           title="A question marked critical was not answered acceptably"
         />
@@ -40,9 +40,14 @@ export const RiskChips = memo(function RiskChips({ risk, className }: RiskChipsP
         />
       )}
       {risk.sentBackTimes > 0 && (
-        <IconChip icon={CornerUpLeft} tone="bg-danger" label={`Sent back before ${risk.sentBackTimes}x`} title="Total times questions in this run were sent back" />
+        <IconChip
+          icon={CornerUpLeft}
+          tone="bg-danger"
+          label={risk.sentBackTimes === 1 ? 'Sent back once' : `Sent back ${risk.sentBackTimes} times`}
+          title="Total times questions in this run were sent back"
+        />
       )}
-      {risk.clean && <IconChip icon={CheckCircle2} tone="bg-success" label="Clean" title="Fully compliant, photos in, never sent back" />}
+      {risk.clean && <IconChip icon={CheckCircle2} tone="bg-success" label="No issues" title="Fully compliant, photos in, never sent back" />}
     </div>
   );
 });

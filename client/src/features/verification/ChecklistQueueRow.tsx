@@ -80,12 +80,12 @@ export const ChecklistQueueRow = memo(function ChecklistQueueRow({
     : null;
 
   return (
-    <li className="relative rounded-lg">
+    <li className="relative rounded-xl">
       {/* Shown behind the row while it is dragged on a touch screen. */}
-      <div ref={approveHintRef} aria-hidden className={cn('absolute inset-0 flex items-center justify-start gap-2 pl-4 rounded-lg bg-success/15 text-success text-xs font-display font-semibold opacity-0', lgHidden)}>
+      <div ref={approveHintRef} aria-hidden className={cn('absolute inset-0 flex items-center justify-start gap-2 pl-4 rounded-xl bg-success/15 text-success t-meta font-display font-semibold opacity-0', lgHidden)}>
         <Check size={16} /> Approve
       </div>
-      <div ref={sendBackHintRef} aria-hidden className={cn('absolute inset-0 flex items-center justify-end gap-2 pr-4 rounded-lg bg-danger/15 text-danger text-xs font-display font-semibold opacity-0', lgHidden)}>
+      <div ref={sendBackHintRef} aria-hidden className={cn('absolute inset-0 flex items-center justify-end gap-2 pr-4 rounded-xl bg-danger/15 text-danger t-meta font-display font-semibold opacity-0', lgHidden)}>
         Send back <CornerUpLeft size={16} />
       </div>
 
@@ -96,32 +96,33 @@ export const ChecklistQueueRow = memo(function ChecklistQueueRow({
         onTouchEnd={onTouchEnd}
         onTouchCancel={onTouchEnd}
         className={cn(
-          'relative flex flex-col gap-2.5 p-3 sm:p-3.5 rounded-lg border bg-surface touch-pan-y transition-[border-color,background-color] duration-150',
-          active ? 'border-primary-500 bg-primary-500/5' : 'border-border/60 hover:border-border-hover',
+          'relative flex flex-col gap-3 p-3 sm:p-4 rounded-xl border bg-surface touch-pan-y transition-[border-color,background-color] duration-150',
+          active ? 'border-border-hover' : 'border-border/60 hover:border-border-hover',
           risk.criticalFailed > 0 && !active && 'border-danger/40',
         )}
       >
+        {/* The press scale sits on the button, not the row: the row's transform is the swipe. */}
         <button
           type="button"
           data-queue-row={id}
           aria-current={active ? 'true' : undefined}
           onClick={() => onOpen(id)}
-          className="group/open flex items-start gap-3 min-w-0 text-left cursor-pointer outline-none rounded-md focus-visible:ring-2 focus-visible:ring-primary-500/40"
+          className="flex items-start gap-3 min-w-0 text-left cursor-pointer outline-none rounded-md transition-transform duration-150 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-primary-500/40"
         >
-          <Repeat size={16} aria-hidden className="mt-0.5 shrink-0 text-primary-500" />
+          <Repeat size={16} aria-hidden className="mt-0.5 shrink-0 text-text-light" />
           <span className="flex flex-col gap-1 min-w-0 flex-1">
             <span className="flex items-start justify-between gap-3">
-              <span className="text-sm font-display font-semibold text-text leading-snug line-clamp-2 group-hover/open:text-primary-600 dark:group-hover/open:text-primary-400 transition-colors duration-150">
+              <span className={cn('t-card font-display text-text leading-snug line-clamp-2', active ? 'font-bold' : 'font-semibold')}>
                 {instance.title}
               </span>
               <span
-                className={cn('shrink-0 text-xs font-display font-medium tabular-nums', waitingDays >= 3 ? 'text-warning' : 'text-text-muted')}
+                className={cn('shrink-0 t-meta font-display font-medium tabular-nums', waitingDays >= 3 ? 'text-warning' : 'text-text-muted')}
                 title={`Waiting: ${waiting}`}
               >
                 {waiting}
               </span>
             </span>
-            <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs font-display text-text-muted">
+            <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 t-meta font-display text-text-muted">
               {row.storeName && (
                 <span className="inline-flex items-center gap-1">
                   <Store size={12} aria-hidden /> {row.storeName}

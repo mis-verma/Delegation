@@ -6,8 +6,8 @@ import { handleQueryRetry } from '../../lib/queryHelpers';
 import type { TeamPeriodRange } from './teamDisplay';
 
 // One request for the whole Team Overview page: every person and every department that had a
-// store checklist run in the period. Kept on screen while a new period loads (the page dims it),
-// so changing the period never flashes the grid back to skeletons.
+// store checklist run in the period. Kept on screen while a new period loads (the page header shows
+// "Updating…", no dim), so changing the period never flashes the grid back to skeletons.
 export const useTeamChecklistReport = (range: Pick<TeamPeriodRange, 'from' | 'to'>) => {
   const { token } = useAuth();
   return useQuery({

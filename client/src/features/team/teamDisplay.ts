@@ -1,7 +1,12 @@
 import type { ChecklistReportMetrics } from '../../api/checklistReports';
+import type { Task } from '../../api/task';
+import type { Ticket } from '../../api/ticket';
 import { ENTITY_CARD_CLASS } from '../../components/entityCard';
 import { cn } from '../../lib/utils';
 import { todayPeriodBoundIso } from '../checklist/checklistDisplay';
+
+// Plain functions and constants live in this .ts file, not alongside the card components: a plain
+// export next to components breaks Vite's Fast Refresh boundary for that file.
 
 /** One overdue ticket or task: enough to list it and jump straight to it. */
 export interface OverdueItem {
@@ -11,40 +16,23 @@ export interface OverdueItem {
   kind: 'ticket' | 'task';
 }
 
-/** Shared by DepartmentCard and PersonCard: the gauge is a completion rate measured against an
- *  implicit "should be closing most of what's raised" target, so it earns the red->amber->green
- *  read every other performance-vs-target gauge in the app uses, instead of staying one flat
- *  navy tone regardless of whether the number is 12% or 96%. Neutral (border-toned) with no data,
- *  since a department/person that hasn't raised anything yet isn't a performance problem.
- *
- *  Lives in a plain .ts file, not alongside the card components: a plain function exported next
- *  to components breaks Vite's Fast Refresh boundary for that file. */
-export const completionGaugeColor = (rate: number | null) => {
-  if (rate == null) return 'var(--color-border)';
-  if (rate >= 80) return 'var(--color-success)';
-  if (rate >= 50) return 'var(--color-warning)';
-  return 'var(--color-danger)';
-};
-
 // ---------------------------------------------------------------------------
 // Card chrome shared by DepartmentCard and PersonCard
 // ---------------------------------------------------------------------------
 
 /** The card is a plain `div`; its name is a real button (TEAM_CARD_LINK_CLASS) whose ::after
  *  stretches over the whole card, so the card is one keyboard-focusable click target while the
- *  overdue badge (relative z-10) stays its own independent control. */
+ *  overdue badge (relative z-10) stays its own independent control. Hover is the border colour
+ *  from ENTITY_CARD_CLASS plus a small press; no entrance animation, so a period change never
+ *  replays it. */
 export const TEAM_CARD_CLASS = cn(
   ENTITY_CARD_CLASS,
-  'gap-3 sm:p-4 animate-in fade-in slide-in-from-bottom-1 motion-reduce:animate-none',
+  'gap-3 sm:p-4 cursor-pointer active:scale-[0.985] transition-[border-color,transform] duration-150 ease-out',
 );
 
 export const TEAM_CARD_LINK_CLASS =
-  'text-left text-sm font-display font-bold text-text break-words outline-none transition-colors duration-200 ease-in-out ' +
-  'after:absolute after:inset-0 after:rounded-2xl focus-visible:after:ring-2 focus-visible:after:ring-primary-500/40 ' +
-  'group-hover:text-primary-600 dark:group-hover:text-primary-400 cursor-pointer';
-
-/** Staggered entrance, capped at 8 steps so a long roster's last card isn't left waiting. */
-export const staggerStyle = (index: number) => ({ animationFillMode: 'backwards' as const, animationDelay: `${Math.min(index, 8) * 40}ms` });
+  'text-left t-card font-display font-bold leading-snug line-clamp-2 text-text break-words outline-none ' +
+  'after:absolute after:inset-0 after:rounded-2xl focus-visible:after:ring-2 focus-visible:after:ring-primary-500/40 cursor-pointer';
 
 // ---------------------------------------------------------------------------
 // Period
@@ -58,6 +46,10 @@ export const TEAM_PERIOD_OPTIONS: { key: TeamPeriod; label: string }[] = [
   { key: 'month', label: 'This month' },
   { key: 'last30', label: 'Last 30 days' },
 ];
+
+/** The same options in the shape PeriodTabControl takes. */
+export const TEAM_PERIOD_KEYS = TEAM_PERIOD_OPTIONS.map((o) => o.key);
+export const TEAM_PERIOD_LABELS = Object.fromEntries(TEAM_PERIOD_OPTIONS.map((o) => [o.key, o.label])) as Record<TeamPeriod, string>;
 
 /** Reads after a verb or noun: "created this week", "Store checklists, in the last 30 days". */
 export const TEAM_PERIOD_PHRASE: Record<TeamPeriod, string> = {
@@ -104,6 +96,32 @@ export const teamPeriodRange = (period: TeamPeriod): TeamPeriodRange => {
   };
 };
 
+/** Tickets and delegations count toward the period they were created in. Every period ends today,
+ *  so only the start bound filters: something raised after the range was computed (the page left
+ *  open past midnight) still counts instead of silently dropping out. */
+export const isInTeamPeriod = (createdAt: string, range: Pick<TeamPeriodRange, 'startMs'>) =>
+  Date.parse(createdAt) >= range.startMs;
+
+/** One person's tickets and tasks in one department and period: the single rule behind both the
+ *  person card and the person screen, so the two can never disagree. A task counts for its main
+ *  assignee, its extra assignees and its creator; a ticket for its assignee and its raiser. */
+export const selectPersonWork = (
+  tasks: Task[],
+  tickets: Ticket[],
+  personId: string,
+  departmentId: string,
+  range: Pick<TeamPeriodRange, 'startMs'>,
+) => ({
+  tasks: tasks.filter((t) =>
+    t.departmentId === departmentId
+    && (t.assigneeId === personId || t.userId === personId || t.additionalAssigneeIds.includes(personId))
+    && isInTeamPeriod(t.createdAt, range)),
+  tickets: tickets.filter((t) =>
+    t.departmentId === departmentId
+    && (t.assigneeId === personId || t.userId === personId)
+    && isInTeamPeriod(t.createdAt, range)),
+});
+
 // ---------------------------------------------------------------------------
 // Card numbers: tickets + delegations + store checklist runs
 // ---------------------------------------------------------------------------
@@ -131,22 +149,32 @@ export const EMPTY_CHECKLIST_METRICS: ChecklistReportMetrics = {
 export interface WorkTotals {
   /** Closed tickets + done delegations. */
   done: number;
-  /** Every ticket + delegation ever raised for this department/person. */
+  /** Every ticket + delegation raised for this department/person in the period. */
   total: number;
   overdue: number;
 }
 
+/** The app-wide "Overall score": completion and compliance counted equally, i.e. the average of
+ *  whichever of the two exist (completion alone until anything was checked). null with neither. */
+export const overallScore = (completion: number | null, compliance: number | null) => {
+  const parts = [completion, compliance].filter((v): v is number => v != null);
+  return parts.length > 0 ? Math.round(parts.reduce((sum, v) => sum + v, 0) / parts.length) : null;
+};
+
 export interface CardNumbers {
-  /** (closed tickets + done tasks + completed checklist runs) / (tickets + tasks + assigned runs);
-   *  null when there is nothing to measure, so a quiet card never reads as a 0% failure. */
+  /** Completion: (closed tickets + done tasks + completed checklist runs) / (tickets + tasks +
+   *  assigned runs); null when there is nothing to measure, so a quiet card never reads as a 0%
+   *  failure. */
   rate: number | null;
+  /** Overall score from `rate` and `compliance` (see overallScore). */
+  score: number | null;
   done: number;
   total: number;
   /** Overdue tickets/tasks plus missed checklist runs. */
   overdue: number;
   missedChecklists: number;
-  /** Assigned checklist runs in the period; null while the report has no answer yet. */
-  checklists: number | null;
+  /** Assigned checklist runs in the period not completed yet; null while the report has no answer. */
+  openChecklists: number | null;
   /** Checklist compliance %, only when the report scored at least one answer. */
   compliance: number | null;
 }
@@ -156,13 +184,16 @@ export const summarizeCard = (work: WorkTotals, checklist: ChecklistReportMetric
   const m = state === 'ready' ? checklist ?? EMPTY_CHECKLIST_METRICS : EMPTY_CHECKLIST_METRICS;
   const total = work.total + m.assigned;
   const done = work.done + m.completed;
+  const rate = total > 0 ? Math.round((done / total) * 100) : null;
+  const compliance = state === 'ready' && m.answersChecked > 0 ? m.compliancePct : null;
   return {
-    rate: total > 0 ? Math.round((done / total) * 100) : null,
+    rate,
+    score: overallScore(rate, compliance),
     done,
     total,
     overdue: work.overdue + m.missed,
     missedChecklists: m.missed,
-    checklists: state === 'ready' ? m.assigned : null,
-    compliance: state === 'ready' && m.answersChecked > 0 ? m.compliancePct : null,
+    openChecklists: state === 'ready' ? Math.max(m.assigned - m.completed, 0) : null,
+    compliance,
   };
 };

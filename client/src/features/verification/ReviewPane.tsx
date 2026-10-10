@@ -18,9 +18,9 @@ export interface SendBackPayload {
 }
 
 const Tile = ({ label, value, tone }: { label: string; value: string; tone?: string }) => (
-  <div className="flex flex-col gap-0.5 p-3 rounded-lg border border-border/60 bg-surface-hover/40">
-    <span className="text-xs font-display text-text-muted">{label}</span>
-    <span className={cn('text-lg font-display font-bold tabular-nums text-text', tone)}>{value}</span>
+  <div className="flex flex-col gap-0.5 p-2.5 sm:p-3 rounded-lg border border-border/60 bg-surface-hover/40">
+    <span className="t-meta font-display text-text-muted">{label}</span>
+    <span className={cn('t-figure font-display font-bold tabular-nums text-text', tone)}>{value}</span>
   </div>
 );
 
@@ -42,7 +42,7 @@ export const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, picked
   const { user } = useAuth();
   // Mirrors the server: department heads, PC and Admin, never on a run they fill in themselves.
   const canWaive = !!user && ['ADMIN', 'PC', 'MANAGER', 'SENIOR'].includes(user.role) && !instance.assigneeIds.includes(user.id);
-  const photos = risk.photosNeeded > 0 ? `${risk.photosHave}/${risk.photosNeeded}` : 'None needed';
+  const photos = risk.photosNeeded > 0 ? `${risk.photosHave}/${risk.photosNeeded}` : 'None';
 
   return (
     <div className="flex flex-col gap-5">
@@ -51,12 +51,12 @@ export const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, picked
           {!hideTitle && <h2 className="t-section font-display font-bold text-text leading-snug">{instance.title}</h2>}
           <Link
             to={`/checklists/${instance.id}`}
-            className="inline-flex items-center gap-1 shrink-0 min-h-11 sm:min-h-8 px-2 -mr-2 rounded-md text-xs font-display font-medium text-text-muted hover:text-text hover:bg-surface-hover transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+            className="inline-flex items-center gap-1 shrink-0 min-h-11 sm:min-h-8 px-2 -mr-2 rounded-md t-meta font-display font-medium text-text-muted hover:text-text hover:bg-surface-hover transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
           >
             Open full page <ExternalLink size={12} aria-hidden />
           </Link>
         </div>
-        <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs font-display text-text-muted">
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 t-meta font-display text-text-muted">
           {row.storeName && <span>{row.storeName}</span>}
           <span>{formatPeriodSpan(instance)}</span>
           {instance.submittedAt && (
@@ -68,16 +68,21 @@ export const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, picked
         </p>
         <div className="flex flex-wrap items-center gap-1.5">
           {risk.criticalFailed > 0 && (
-            <IconChip icon={Flag} tone="bg-danger" label="Critical failed" className="border-danger/40 bg-danger/10" />
+            <IconChip icon={Flag} tone="bg-danger" label="Critical question failed" className="border-danger/40 bg-danger/10" />
           )}
           {risk.sentBackTimes > 0 && (
-            <IconChip icon={CornerUpLeft} tone="bg-danger" label={`Sent back ${risk.sentBackTimes}x`} title="Total times questions in this run were sent back" />
+            <IconChip
+              icon={CornerUpLeft}
+              tone="bg-danger"
+              label={risk.sentBackTimes === 1 ? 'Sent back once' : `Sent back ${risk.sentBackTimes} times`}
+              title="Total times questions in this run were sent back"
+            />
           )}
-          {risk.clean && <IconChip icon={CheckCircle2} tone="bg-success" label="Clean" />}
+          {risk.clean && <IconChip icon={CheckCircle2} tone="bg-success" label="No issues" />}
         </div>
       </header>
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
         <Tile label="Completion" value={`${risk.completion}%`} />
         <Tile
           label="Compliance"
@@ -89,7 +94,7 @@ export const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, picked
         <Tile
           label="Photos"
           value={photos}
-          tone={risk.photosNeeded === 0 ? 'text-text-muted text-sm leading-7' : risk.photosHave < risk.photosNeeded ? 'text-danger' : 'text-success'}
+          tone={risk.photosNeeded === 0 ? 'text-text-muted' : risk.photosHave < risk.photosNeeded ? 'text-danger' : 'text-success'}
         />
       </div>
 
@@ -162,7 +167,7 @@ export const ReviewPaneFooter = memo(function ReviewPaneFooter({ row, draft, onA
 
   return (
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full">
-      <p className="text-xs font-display text-text-secondary">
+      <p className="t-meta font-display text-text-secondary">
         {count > 0
           ? `${count} ${count === 1 ? 'question' : 'questions'} picked. Send them back, or untick them to approve.`
           : 'Approve it, or tick the questions that were not done properly.'}

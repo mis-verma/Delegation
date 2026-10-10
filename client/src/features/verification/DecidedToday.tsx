@@ -24,18 +24,18 @@ interface DecisionRowProps {
 const DecisionRow = memo(function DecisionRow({ decision, canReopen, reopening, onReopen }: DecisionRowProps) {
   const chip = ACTION_CHIP[decision.action];
   return (
-    <li className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 p-3 sm:p-3.5 rounded-lg border border-border/60 bg-surface">
+    <li className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 p-3 sm:p-4 rounded-xl border border-border/60 bg-surface">
       <div className="flex flex-col gap-1.5 min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
           <IconChip icon={chip.icon} tone={chip.tone} label={chip.label} />
           <Link
             to={`/checklists/${decision.instanceId}`}
-            className="text-sm font-display font-semibold text-text leading-snug rounded-sm hover:text-primary-600 dark:hover:text-primary-400 transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+            className="t-card font-display font-semibold text-text leading-snug line-clamp-2 rounded-sm hover:underline underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
           >
             {decision.title}
           </Link>
         </div>
-        <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs font-display text-text-muted">
+        <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 t-meta font-display text-text-muted">
           {decision.storeName && <span>{decision.storeName}</span>}
           <span>{decision.action === 'SUBMIT' ? 'By' : 'Decided by'} {decision.actorName}</span>
           <span className="tabular-nums">{formatTimeOnly(decision.at)}</span>
@@ -43,7 +43,7 @@ const DecisionRow = memo(function DecisionRow({ decision, canReopen, reopening, 
             <span>{decision.itemCount} {decision.itemCount === 1 ? 'question' : 'questions'}</span>
           )}
         </p>
-        {decision.note && <p className="text-xs font-display text-text-secondary whitespace-pre-wrap break-words line-clamp-3">{decision.note}</p>}
+        {decision.note && <p className="t-meta font-display text-text-secondary whitespace-pre-wrap break-words line-clamp-3">{decision.note}</p>}
       </div>
       {decision.action === 'APPROVE' && canReopen && (
         <Button size="sm" variant="outline" className="self-end sm:self-start shrink-0" isLoading={reopening} onClick={() => onReopen(decision)}>
@@ -56,7 +56,7 @@ const DecisionRow = memo(function DecisionRow({ decision, canReopen, reopening, 
 });
 
 const SkeletonRow = () => (
-  <li className="flex flex-col gap-2 p-3.5 rounded-lg border border-border/60 bg-surface" aria-hidden>
+  <li className="flex flex-col gap-3 p-3 sm:p-4 rounded-xl border border-border/60 bg-surface" aria-hidden>
     <div className="flex items-center gap-2">
       <Skeleton className="h-6 w-20 rounded-full" />
       <Skeleton className="h-4 w-1/2" />
@@ -72,7 +72,7 @@ interface DecidedTodayProps {
 
 /** Today's decisions on checklists: approved, sent back and submitted, newest first. */
 export const DecidedToday = ({ onShowWaiting }: DecidedTodayProps) => {
-  const { data, isPending, isError, isFetching, refetch } = useChecklistDecisionsQuery();
+  const { data, isPending, isError, refetch } = useChecklistDecisionsQuery();
   const canReopen = useCanReopen();
   const confirm = useConfirm();
   const reopen = useReopenApprovalMutation();
@@ -97,7 +97,7 @@ export const DecidedToday = ({ onShowWaiting }: DecidedTodayProps) => {
   }
 
   if (isPending) {
-    return <ul className="flex flex-col gap-2" aria-hidden>{Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} />)}</ul>;
+    return <ul className="flex flex-col gap-3" aria-hidden>{Array.from({ length: 4 }).map((_, i) => <SkeletonRow key={i} />)}</ul>;
   }
 
   if (decisions.length === 0) {
@@ -106,7 +106,7 @@ export const DecidedToday = ({ onShowWaiting }: DecidedTodayProps) => {
         icon={History}
         title="No decisions yet today"
         description="Approved and sent back checklists show up here as you work through the waiting list."
-        action={{ label: 'Go to waiting', onClick: onShowWaiting, icon: Undo2 }}
+        action={{ label: 'Back to the waiting list', onClick: onShowWaiting, icon: Undo2 }}
       />
     );
   }
@@ -114,7 +114,7 @@ export const DecidedToday = ({ onShowWaiting }: DecidedTodayProps) => {
   return (
     <div className="flex flex-col gap-3">
       {isError && <InlineError message="Showing the last list we loaded. The refresh failed." onRetry={() => refetch()} />}
-      <ul className={isFetching ? 'flex flex-col gap-2 opacity-70 transition-opacity duration-150' : 'flex flex-col gap-2 transition-opacity duration-150'}>
+      <ul className="flex flex-col gap-3">
         {decisions.map((d) => (
           <DecisionRow
             key={d.id}

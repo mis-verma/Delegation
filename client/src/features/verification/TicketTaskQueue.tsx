@@ -21,23 +21,23 @@ const DepartmentGroupCard = ({ group, onOpen }: { group: DepartmentGroup; onOpen
   <button
     type="button"
     onClick={() => onOpen(group.id)}
-    className="group flex flex-col gap-3 p-4 rounded-2xl border border-border/60 bg-surface text-left hover:border-primary-300 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30"
+    className="flex flex-col gap-3 p-4 rounded-xl border border-border/60 bg-surface text-left hover:border-border-hover active:scale-[0.985] transition-[border-color,transform] duration-150 ease-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30"
   >
     <div className="flex items-center justify-between gap-2">
-      <div className="flex items-center gap-2.5 min-w-0">
-        <div className={`flex items-center justify-center size-9 rounded-lg shrink-0 ${group.id === UNASSIGNED ? 'bg-surface-hover text-text-muted' : 'bg-primary-500/10 text-primary-600 dark:text-primary-400'}`}>
+      <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center justify-center size-9 rounded-lg shrink-0 bg-surface-hover text-text-muted">
           {group.id === UNASSIGNED ? <Users size={16} aria-hidden /> : <Building2 size={16} aria-hidden />}
         </div>
         <h3 className="t-card font-display font-bold text-text truncate">{group.name}</h3>
       </div>
-      <ChevronRight size={15} aria-hidden className="shrink-0 text-text-light group-hover:text-primary-500 group-hover:translate-x-0.5 transition-all duration-150" />
+      <ChevronRight size={15} aria-hidden className="shrink-0 text-text-light" />
     </div>
 
     <div className="flex items-center justify-between gap-2 pt-3 border-t border-border/60">
-      <span className="text-xs font-display font-medium text-text-muted">
+      <span className="t-meta font-display font-medium text-text-muted">
         <strong className="font-display font-bold text-text">{group.tickets.length}</strong> tickets · <strong className="font-display font-bold text-text">{group.tasks.length}</strong> delegations
       </span>
-      <span className="inline-flex items-center justify-center text-xs font-display font-bold px-2 py-0.5 rounded bg-primary-600 text-white">
+      <span className="t-meta font-display font-semibold text-text-muted tabular-nums">
         {group.tickets.length + group.tasks.length} pending
       </span>
     </div>
@@ -46,9 +46,9 @@ const DepartmentGroupCard = ({ group, onOpen }: { group: DepartmentGroup; onOpen
 
 const SectionTitle = ({ title, count }: { title: string; count?: number }) => (
   <div className="flex items-center gap-2">
-    <h2 className="t-card font-display font-semibold text-text">{title}</h2>
+    <h2 className="t-section font-display font-bold text-text">{title}</h2>
     {count != null && count > 0 && (
-      <span className="px-2 py-0.5 rounded-full bg-border/50 text-xs font-display font-medium text-text-muted tabular-nums">{count}</span>
+      <span className="px-2 py-0.5 rounded-full bg-border/50 t-meta font-display font-medium text-text-muted tabular-nums">{count}</span>
     )}
   </div>
 );
@@ -189,7 +189,7 @@ export const TicketTaskQueue = ({
   if (isPending) {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3" aria-hidden>
-        {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[104px] rounded-2xl" />)}
+        {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-[104px] rounded-xl" />)}
       </div>
     );
   }
@@ -223,7 +223,7 @@ export const TicketTaskQueue = ({
           <Button size="sm" variant="ghost" onClick={toggleSelectAll}>{allSelected ? 'Clear selection' : 'Select all'}</Button>
           <Button
             size="sm"
-            className="bg-success text-white hover:bg-success/90 hover:text-white"
+            className="bg-success-strong text-white hover:bg-success-strong/90 hover:text-white"
             disabled={selectedIds.size === 0 || bulkApproving}
             onClick={bulkApprove}
           >

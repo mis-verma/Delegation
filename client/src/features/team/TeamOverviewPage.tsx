@@ -1,21 +1,32 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { Building2, Users } from 'lucide-react';
-import { useTicketsQuery, useDepartmentsQuery } from '../tickets/hook';
-import { useTasksQuery } from '../tasks/hook';
+import { useDepartmentsQuery } from '../tickets/hook';
+import { useTeamWork } from './useTeamWork';
 import { useUsersQuery } from '../admin/hook';
-import { EmptyState, InlineError, PageHeader, ToggleChip } from '../../components';
+import { PeriodTabControl } from '../dashboard/PeriodTabControl';
+import { EmptyState, InlineError, PageHeader } from '../../components';
 import { Breadcrumbs, type BreadcrumbTrailItem } from '../../components/breadcrumbs';
-import { cn } from '../../lib/utils';
+import type { Task } from '../../api/task';
+import type { Ticket } from '../../api/ticket';
 import { DepartmentCard, type DepartmentCardRow } from './DepartmentCard';
 import { PersonCard, type PersonCardRow } from './PersonCard';
 import { PersonChecklistView } from './PersonChecklistView';
 import { TeamCardSkeleton } from './TeamCardParts';
 import { useTeamChecklistReport } from './useTeamChecklistReport';
-import { TEAM_PERIOD_OPTIONS, teamPeriodRange, type OverdueItem, type ReportState, type TeamPeriod } from './teamDisplay';
+import {
+  TEAM_PERIOD_KEYS,
+  TEAM_PERIOD_LABELS,
+  isInTeamPeriod,
+  selectPersonWork,
+  teamPeriodRange,
+  type OverdueItem,
+  type ReportState,
+  type TeamPeriod,
+} from './teamDisplay';
 
-// Tickets and delegations rolled up for one department or one person, built in a single pass over
-// the lists (the old code re-filtered every ticket/task for every department and person).
+// Tickets and delegations rolled up for one department or one person, all created in the selected
+// period (the checklist report is period-scoped too, so every number on a card is the same window).
 interface WorkAcc {
   done: number;
   total: number;
@@ -35,6 +46,28 @@ const accFor = (map: Map<string, WorkAcc>, key: string) => {
   return acc;
 };
 
+const addTicket = (acc: WorkAcc, t: Ticket, now: number) => {
+  const closed = t.status === 'CLOSED';
+  acc.total += 1;
+  if (closed) acc.done += 1;
+  else acc.openTickets += 1;
+  if (!closed && !!t.tatDueAt && new Date(t.tatDueAt).getTime() < now) {
+    acc.overdueItems.push({ id: t.id, title: t.title, link: `/tickets?open=${t.id}`, kind: 'ticket' });
+  }
+};
+
+const addTask = (acc: WorkAcc, t: Task, now: number) => {
+  const done = t.status === 'done';
+  acc.total += 1;
+  if (done) acc.done += 1;
+  else acc.openTasks += 1;
+  if (!done && !!t.dueDate && new Date(t.dueDate).getTime() < now) {
+    acc.overdueItems.push({ id: t.id, title: t.title, link: `/tasks?open=${t.id}`, kind: 'task' });
+  }
+};
+
+const NO_TICKETS: Ticket[] = [];
+
 const GRID_CLASS = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3';
 
 // Department -> Person -> detail drill-down for ADMIN/PC (both have full org-wide access, see
@@ -51,11 +84,12 @@ export const TeamOverviewPage = () => {
 
   const { data: departments, isPending: departmentsPending, isError: departmentsError, refetch: refetchDepartments } = useDepartmentsQuery();
   const { data: users, isPending: usersPending, isError: usersError, refetch: refetchUsers } = useUsersQuery(true);
-  const { data: ticketPage, isPending: ticketsPending } = useTicketsQuery(1, 100);
-  const { data: tasks, isPending: tasksPending } = useTasksQuery();
+  // Every ticket and delegation of the period, all pages (not just the first 100 / 200).
+  const work = useTeamWork(range);
+  const { data: tickets = NO_TICKETS, isPending: ticketsPending } = work.tickets;
+  const { data: tasks, isPending: tasksPending } = work.tasks;
   const report = useTeamChecklistReport(range);
 
-  const tickets = useMemo(() => ticketPage?.data ?? [], [ticketPage]);
   const isPending = departmentsPending || usersPending || ticketsPending || tasksPending;
 
   // 'error' wins over any leftover data: a failed refetch must not leave the previous period's
@@ -68,38 +102,18 @@ export const TeamOverviewPage = () => {
   // eslint-disable-next-line react-hooks/purity
   const now = useMemo(() => Date.now(), []);
 
-  const work = useMemo(() => {
+  // Departments in a single pass over the lists (the old code re-filtered every ticket/task for
+  // every department).
+  const workByDepartment = useMemo(() => {
     const byDepartment = new Map<string, WorkAcc>();
-    const byPerson = new Map<string, WorkAcc>();
-
     for (const t of tickets) {
-      const closed = t.status === 'CLOSED';
-      const overdue = !closed && !!t.tatDueAt && new Date(t.tatDueAt).getTime() < now;
-      const apply = (acc: WorkAcc) => {
-        acc.total += 1;
-        if (closed) acc.done += 1;
-        else acc.openTickets += 1;
-        if (overdue) acc.overdueItems.push({ id: t.id, title: t.title, link: `/tickets?open=${t.id}`, kind: 'ticket' });
-      };
-      if (t.departmentId) apply(accFor(byDepartment, t.departmentId));
-      for (const id of new Set([t.assigneeId, t.userId])) if (id) apply(accFor(byPerson, id));
+      if (t.departmentId && isInTeamPeriod(t.createdAt, range)) addTicket(accFor(byDepartment, t.departmentId), t, now);
     }
-
     for (const t of tasks ?? []) {
-      const done = t.status === 'done';
-      const overdue = !done && !!t.dueDate && new Date(t.dueDate).getTime() < now;
-      const apply = (acc: WorkAcc) => {
-        acc.total += 1;
-        if (done) acc.done += 1;
-        else acc.openTasks += 1;
-        if (overdue) acc.overdueItems.push({ id: t.id, title: t.title, link: `/tasks?open=${t.id}`, kind: 'task' });
-      };
-      if (t.departmentId) apply(accFor(byDepartment, t.departmentId));
-      for (const id of new Set([t.assigneeId, t.userId])) if (id) apply(accFor(byPerson, id));
+      if (t.departmentId && isInTeamPeriod(t.createdAt, range)) addTask(accFor(byDepartment, t.departmentId), t, now);
     }
-
-    return { byDepartment, byPerson };
-  }, [tickets, tasks, now]);
+    return byDepartment;
+  }, [tickets, tasks, range, now]);
 
   const checklistByDepartment = useMemo(
     () => new Map((report.data?.departments ?? []).flatMap((d) => (d.departmentId ? [[d.departmentId, d] as const] : []))),
@@ -115,7 +129,7 @@ export const TeamOverviewPage = () => {
     for (const u of users ?? []) if (u.departmentId) headcount.set(u.departmentId, (headcount.get(u.departmentId) ?? 0) + 1);
 
     return (departments ?? []).map((dept) => {
-      const acc = work.byDepartment.get(dept.id) ?? newAcc();
+      const acc = workByDepartment.get(dept.id) ?? newAcc();
       return {
         id: dept.id,
         name: dept.name,
@@ -127,23 +141,32 @@ export const TeamOverviewPage = () => {
         workTotal: acc.total,
       };
     });
-  }, [departments, users, work]);
+  }, [departments, users, workByDepartment]);
 
-  const personRows: PersonCardRow[] = useMemo(() => (users ?? [])
-    .filter((u) => u.departmentId === departmentId)
-    .map((u): PersonCardRow => {
-      const acc = work.byPerson.get(u.id) ?? newAcc();
-      return {
-        id: u.id,
-        name: `${u.firstName} ${u.lastName ?? ''}`.trim(),
-        role: u.role,
-        openTickets: acc.openTickets,
-        openTasks: acc.openTasks,
-        overdueItems: acc.overdueItems,
-        workDone: acc.done,
-        workTotal: acc.total,
-      };
-    }), [users, departmentId, work]);
+  // People go through selectPersonWork, the same selector the person screen uses, so a card and
+  // the screen it opens always count the same tickets and delegations. Only one department's
+  // roster at a time, so filtering per person is cheap.
+  const personRows: PersonCardRow[] = useMemo(() => {
+    if (!departmentId) return [];
+    return (users ?? [])
+      .filter((u) => u.departmentId === departmentId)
+      .map((u): PersonCardRow => {
+        const acc = newAcc();
+        const mine = selectPersonWork(tasks ?? [], tickets, u.id, departmentId, range);
+        for (const t of mine.tickets) addTicket(acc, t, now);
+        for (const t of mine.tasks) addTask(acc, t, now);
+        return {
+          id: u.id,
+          name: `${u.firstName} ${u.lastName ?? ''}`.trim(),
+          role: u.role,
+          openTickets: acc.openTickets,
+          openTasks: acc.openTasks,
+          overdueItems: acc.overdueItems,
+          workDone: acc.done,
+          workTotal: acc.total,
+        };
+      });
+  }, [users, departmentId, tasks, tickets, range, now]);
 
   const selectedDepartment = departmentRows.find((d) => d.id === departmentId);
   const selectedPerson = personRows.find((p) => p.id === personId);
@@ -165,21 +188,24 @@ export const TeamOverviewPage = () => {
   };
 
   return (
-    <div className="flex flex-col gap-4 w-full pb-10">
-      <PageHeader
-        icon={Building2}
-        title="Team Overview"
-        subtitle="Store checklists, delegations and tickets for every department and person."
-        actions={
-          <div role="group" aria-label="Period" className="flex flex-wrap items-center gap-2">
-            {TEAM_PERIOD_OPTIONS.map((opt) => (
-              <ToggleChip key={opt.key} on={period === opt.key} onClick={() => setPeriod(opt.key)}>
-                {opt.label}
-              </ToggleChip>
-            ))}
-          </div>
-        }
-      />
+    <div className="flex flex-col gap-6 pt-2.5 w-full pb-10">
+      {/* Two copies of the one period control, toggled in CSS: PageHeader's actions slot sizes to
+          its content, so on a phone the tabs get their own full-width row under the title instead. */}
+      <div className="flex flex-col gap-3">
+        <PageHeader
+          icon={Building2}
+          title="Team Overview"
+          subtitle="Store checklists, delegations and tickets for every department and person."
+          actions={
+            <div className="hidden sm:flex items-center gap-3">
+              {/* Old numbers stay on screen (no dim) while the next period loads; this says so. */}
+              {isRefreshing && <span className="t-meta font-display text-text-muted" aria-live="polite">Updating…</span>}
+              <PeriodTabControl value={period} options={TEAM_PERIOD_KEYS} labels={TEAM_PERIOD_LABELS} onChange={setPeriod} />
+            </div>
+          }
+        />
+        <PeriodTabControl value={period} options={TEAM_PERIOD_KEYS} labels={TEAM_PERIOD_LABELS} onChange={setPeriod} fill className="sm:hidden" />
+      </div>
 
       {/* Only shown once there's an actual trail: at the top level it would be a single,
           unclickable crumb that just repeats the title above it. */}
@@ -204,14 +230,13 @@ export const TeamOverviewPage = () => {
         departmentRows.length === 0 ? (
           <EmptyState icon={Building2} title="No departments yet" description="Departments you add in Admin will show up here." />
         ) : (
-          <div className={cn(GRID_CLASS, 'transition-opacity duration-200', isRefreshing && 'opacity-60')} aria-busy={isRefreshing}>
-            {departmentRows.map((row, index) => (
+          <div className={GRID_CLASS} aria-busy={isRefreshing}>
+            {departmentRows.map((row) => (
               <DepartmentCard
                 key={row.id}
                 row={row}
                 checklist={checklistByDepartment.get(row.id)}
                 reportState={reportState}
-                index={index}
                 onClick={() => openDepartment(row.id)}
               />
             ))}
@@ -221,14 +246,13 @@ export const TeamOverviewPage = () => {
         personRows.length === 0 ? (
           <EmptyState icon={Users} title="No one is assigned to this department yet" />
         ) : (
-          <div className={cn(GRID_CLASS, 'transition-opacity duration-200', isRefreshing && 'opacity-60')} aria-busy={isRefreshing}>
-            {personRows.map((row, index) => (
+          <div className={GRID_CLASS} aria-busy={isRefreshing}>
+            {personRows.map((row) => (
               <PersonCard
                 key={row.id}
                 row={row}
                 checklist={checklistByPerson.get(row.id)}
                 reportState={reportState}
-                index={index}
                 onClick={() => openPerson(row.id)}
               />
             ))}

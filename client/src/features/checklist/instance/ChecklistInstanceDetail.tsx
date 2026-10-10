@@ -1,7 +1,8 @@
 import { memo, useCallback, useMemo, useState, type ReactElement } from 'react';
 import { useRefreshOnNewDay } from '../useRefreshOnNewDay';
 import { useParams, useNavigate } from 'react-router';
-import { ArrowLeft, ShieldAlert, ShieldCheck, ShieldQuestion, CornerUpLeft, AlertTriangle, Pencil, Clock, Layers, ClipboardX } from 'lucide-react';
+import { ArrowDown, ArrowLeft, CheckCheck, ShieldAlert, ShieldCheck, ShieldQuestion, CornerUpLeft, AlertTriangle, Pencil, Clock, Layers, ClipboardX } from 'lucide-react';
+import { PeriodTabControl } from '../../dashboard/PeriodTabControl';
 import { cn } from '@/lib/utils';
 import {
   Button, ChecklistProgressBar, IconChip, InlineError, NoticeBanner, PANEL_CLASS, Skeleton, StatusChip, VerificationNoteBanner,
@@ -102,6 +103,8 @@ interface DetailItemRowProps {
   overdue: boolean;
   /** Render the section heading above this item. */
   showHeader: boolean;
+  /** Done and total questions in this item's section, for the heading. */
+  sectionCount?: { done: number; total: number };
   isFirst: boolean;
   selecting: boolean;
   picked: boolean;
@@ -114,7 +117,7 @@ interface DetailItemRowProps {
 // re-renders only the rows whose own props changed instead of every card on the page. React Query
 // keeps untouched `item` objects referentially equal between refetches, so the memo holds.
 const DetailItemRow = memo(({
-  item, instanceId, canWork, isLocked, currentUserId, overdue, showHeader, isFirst, selecting, picked, onTogglePicked, canWaive,
+  item, instanceId, canWork, isLocked, currentUserId, overdue, showHeader, sectionCount, isFirst, selecting, picked, onTogglePicked, canWaive,
 }: DetailItemRowProps) => {
   const canEdit = canWork && !isLocked;
   const reason = complianceReason(item);
@@ -122,15 +125,20 @@ const DetailItemRow = memo(({
   return (
     <>
       {showHeader && (
-        <div className={`flex items-center gap-2 ${isFirst ? '' : 'pt-2'}`}>
-          <Layers size={12} className="text-text-light shrink-0" aria-hidden />
-          <h2 className="text-xs font-display font-bold text-text-secondary whitespace-nowrap">
+        <div className={`flex items-center gap-2 ${isFirst ? '' : 'pt-3'}`}>
+          <Layers size={14} className="text-text-muted shrink-0" aria-hidden />
+          <h2 className="t-card font-display font-bold text-text">
             {item.section ?? 'Ungrouped'}
           </h2>
+          {sectionCount && (
+            <span className={cn('shrink-0 t-meta font-semibold tabular-nums', sectionCount.done === sectionCount.total ? 'text-success' : 'text-text-muted')}>
+              {sectionCount.done}/{sectionCount.total}
+            </span>
+          )}
           <div className="h-px flex-1 bg-border/60" />
         </div>
       )}
-      <div className="flex flex-col gap-1.5">
+      <div id={`item-${item.id}`} className="flex flex-col gap-1.5 scroll-mt-28">
         {selecting && (
           <label className={`flex items-center gap-2.5 px-3.5 min-h-11 rounded-lg border text-xs font-display font-semibold cursor-pointer transition-colors duration-150 ${picked ? 'border-danger/40 bg-danger/10 text-danger' : 'border-border/60 bg-surface text-text-secondary hover:bg-surface-hover'}`}>
             <input
@@ -162,15 +170,18 @@ const DetailItemRow = memo(({
             <WaiveAction instanceId={instanceId} item={item} />
           </div>
         )}
-        {item.isNotApplicable ? (
-          <NotApplicableItemCard item={item} instanceId={instanceId} canEdit={canEdit} />
-        ) : (
-          ITEM_CARD_RENDERERS[item.itemType](item, { instanceId, canWork, isLocked, currentUserId })
-        )}
-        {/* Shown for done items too, and read-only for reviewers: a remark used to vanish
-            the moment its item was ticked, so nobody reviewing ever saw it. Audit
-            questions get the same Add remark / Not applicable row as every other type. */}
-        <ItemRemarksField item={item} instanceId={instanceId} required={overdue} canEdit={canEdit} />
+        {/* The question and its Add remark / Not applicable row sit in ONE card, so the row reads as part of
+            the question it belongs to. Shown for done items too, and read-only for reviewers. */}
+        <div className="overflow-hidden rounded-2xl border border-border/60 bg-surface [&>*:first-child]:rounded-none [&>*:first-child]:border-0">
+          {item.isNotApplicable ? (
+            <NotApplicableItemCard item={item} instanceId={instanceId} canEdit={canEdit} />
+          ) : (
+            ITEM_CARD_RENDERERS[item.itemType](item, { instanceId, canWork, isLocked, currentUserId })
+          )}
+          <div className="border-t border-border/50 px-3 py-2 sm:px-4 empty:hidden">
+            <ItemRemarksField item={item} instanceId={instanceId} required={overdue} canEdit={canEdit} />
+          </div>
+        </div>
       </div>
     </>
   );
@@ -229,6 +240,8 @@ export const ChecklistInstanceDetail = () => {
   const startSelecting = useCallback(() => setSelecting(true), []);
   const stopSelecting = useCallback(() => { setSelecting(false); setPicked(new Set()); }, []);
   const selectedIds = useMemo(() => [...picked], [picked]);
+  // "Left to do" hides the questions already answered, so the person sees only what is still open.
+  const [show, setShow] = useState<'all' | 'left'>('all');
   // After approving or sending back, return to the page the reviewer came from (the queue, the
   // approvals list, a notification's source). Opened from a bookmark with no history, fall back to the
   // queue that fits their role.
@@ -297,6 +310,25 @@ export const ChecklistInstanceDetail = () => {
   // Only show section headers when the checklist actually has any — most checklists were built
   // before this feature (or never use it) and should keep rendering as one plain flat list.
   const hasSections = instance.items.some(i => i.section);
+  // Answered = done or marked Not applicable. Used for "left", the filter and the section counts.
+  const answered = (i: (typeof instance.items)[number]) => i.isDone || i.isNotApplicable;
+  const left = Math.max(0, total - done);
+  const shownItems = show === 'left' ? instance.items.filter((i) => !answered(i)) : instance.items;
+  const sectionCounts = new Map<string, { done: number; total: number }>();
+  for (const i of instance.items) {
+    const key = i.section ?? '';
+    const c = sectionCounts.get(key) ?? { done: 0, total: 0 };
+    c.total += 1;
+    if (answered(i)) c.done += 1;
+    sectionCounts.set(key, c);
+  }
+  // Scrolls to the first question still open, in the full list.
+  const goToNext = () => {
+    const next = instance.items.find((i) => !answered(i));
+    if (!next) return;
+    if (show === 'left' && !shownItems.includes(next)) setShow('all');
+    requestAnimationFrame(() => document.getElementById(`item-${next.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  };
   const verificationNote = instance.verificationNote;
   const showBanners =
     isMissed ||
@@ -331,7 +363,7 @@ export const ChecklistInstanceDetail = () => {
           chip language as the list cards. */}
       <div className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-4 sm:p-5')}>
         <div className="flex flex-col gap-1">
-          <h1 className="text-lg sm:text-xl font-display font-semibold text-text tracking-tight leading-snug">{instance.title}</h1>
+          <h1 className="t-title font-display font-semibold text-text tracking-tight leading-snug">{instance.title.replace(/\.\s*$/, '')}</h1>
           <p className="text-xs font-medium text-text-muted">
             {RECURRENCE_LABEL[instance.recurrence]} · {formatPeriodSpan(instance)}
           </p>
@@ -424,8 +456,47 @@ export const ChecklistInstanceDetail = () => {
         </div>
       )}
 
+      {/* Stays at the top while scrolling: how much is done and how much is left, a jump to the next open
+          question, and a switch to see only what is left. For the person filling it in. */}
+      {canWork && !isLocked && total > 0 && (
+        <div className="sticky top-0 z-20 -mt-3">
+          <div className={cn(PANEL_CLASS, 'flex flex-col gap-2 bg-surface px-3 py-2.5 sm:px-4')}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="t-card font-display font-semibold text-text tabular-nums">
+                {left === 0 ? (
+                  <span className="inline-flex items-center gap-1.5 text-success"><CheckCheck className="size-4" aria-hidden /> All {total} done{canSubmit ? '. Submit it below.' : ''}</span>
+                ) : (
+                  <>
+                    <span className="text-success">{done} done</span>
+                    <span className="text-text-light"> · </span>
+                    <span className={overdue ? 'text-danger' : 'text-text'}>{left} left</span>
+                    <span className="t-meta font-medium text-text-muted"> of {total}</span>
+                  </>
+                )}
+              </p>
+              <div className="flex items-center gap-2">
+                {left > 0 && (
+                  <Button variant="outline" size="sm" onClick={goToNext}>
+                    Next question
+                    <ArrowDown size={14} aria-hidden />
+                  </Button>
+                )}
+                <PeriodTabControl value={show} options={['all', 'left'] as const} labels={{ all: 'All', left: `Left ${left}` }} onChange={setShow} />
+              </div>
+            </div>
+            <ChecklistProgressBar done={done} total={total} tone={overdue ? 'danger' : 'auto'} bare />
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col gap-3">
-        {instance.items.map((item, idx) => (
+        {show === 'left' && shownItems.length === 0 && (
+          <div className={cn(PANEL_CLASS, 'flex items-center gap-3 p-4')}>
+            <CheckCheck className="size-5 text-success shrink-0" aria-hidden />
+            <p className="t-card font-display font-semibold text-text">Every question is answered.{canSubmit ? ' Submit it below.' : ''}</p>
+          </div>
+        )}
+        {shownItems.map((item, idx) => (
           <DetailItemRow
             key={item.id}
             item={item}
@@ -434,7 +505,8 @@ export const ChecklistInstanceDetail = () => {
             isLocked={isLocked}
             currentUserId={user?.id}
             overdue={overdue}
-            showHeader={hasSections && (idx === 0 || instance.items[idx - 1].section !== item.section)}
+            showHeader={hasSections && (idx === 0 || shownItems[idx - 1].section !== item.section)}
+            sectionCount={hasSections ? sectionCounts.get(item.section ?? '') : undefined}
             isFirst={idx === 0}
             selecting={selecting}
             picked={picked.has(item.id)}

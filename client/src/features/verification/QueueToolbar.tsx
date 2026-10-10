@@ -3,6 +3,7 @@ import { AlarmClock, Building2, CalendarClock, CalendarPlus, Clock, History, Lay
 import { Combobox } from '../../components';
 import { OptionsSheet, OptionSection, OptionSelect, OptionSegmented, ChoiceChip, ChoiceIcon, ChoiceWrap, ChoiceClear } from '../../components/optionsSheet';
 import { cn } from '@/lib/utils';
+import { PeriodTabControl } from '../dashboard/PeriodTabControl';
 import type { QueueLookups } from './useChecklistQueue';
 import type { QueueParams, QueueParamsPatch } from './useQueueParams';
 import { AGE_OPTIONS, SORT_OPTIONS, UNASSIGNED, type AgeFilter, type QueueTab, type QueueView, type SortKey } from './verificationModel';
@@ -26,6 +27,8 @@ interface QueueToolbarProps {
 const SORT_LABEL = Object.fromEntries(SORT_OPTIONS.map((o) => [o.value, o.label])) as Record<SortKey, string>;
 const SORT_ICON: Record<SortKey, typeof Clock> = { oldest: Clock, overdue: AlarmClock, compliance: ShieldCheck, newest: CalendarPlus };
 
+const VIEW_OPTIONS: readonly QueueView[] = ['waiting', 'decided'];
+
 const TYPE_LABEL: Record<QueueTab, string> = { all: 'All', checklists: 'Checklists', tickets: 'Tickets', delegations: 'Delegations' };
 
 const AGE_SEGMENTS = AGE_OPTIONS.map((o) => ({
@@ -36,13 +39,13 @@ const AGE_SEGMENTS = AGE_OPTIONS.map((o) => ({
 
 /** One removable chip for an applied filter. */
 const AppliedChip = ({ label, onRemove }: { label: string; onRemove: () => void }) => (
-  <span className="flex items-center gap-1 h-8 pl-3 pr-1 rounded-full border border-primary-500/30 bg-primary-500/10 text-xs font-display font-medium text-primary-700 dark:text-primary-300">
+  <span className="flex items-center gap-1 h-8 pl-3 pr-1 rounded-full border border-border/60 bg-surface t-meta font-display font-semibold text-text">
     <span className="truncate max-w-[12rem]">{label}</span>
     <button
       type="button"
       onClick={onRemove}
       aria-label={`Remove filter: ${label}`}
-      className="relative flex items-center justify-center size-6 shrink-0 rounded-full text-primary-700/70 dark:text-primary-300/70 hover:bg-primary-500/15 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-coarse:after:absolute pointer-coarse:after:-inset-2.5"
+      className="relative flex items-center justify-center size-6 shrink-0 rounded-full text-text-muted hover:text-text hover:bg-surface-hover transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-coarse:after:absolute pointer-coarse:after:-inset-2.5"
     >
       <X size={13} aria-hidden />
     </button>
@@ -108,13 +111,15 @@ export const QueueToolbar = ({ params, patch, lookups, attentionAvailable, filte
           {/* What was the two tab strips on the page: whether to look at the work waiting or at what was
               decided today, and which kind of work. Everything about the view now lives in this one place. */}
           <OptionSection icon={History} label="Show">
-            <OptionSegmented
-              options={[
-                { value: 'waiting' as QueueView, label: `Waiting${counts ? ` ${counts.all}` : ''}`, icon: Clock },
-                { value: 'decided' as QueueView, label: `Decided today${decidedCount != null ? ` ${decidedCount}` : ''}`, icon: History },
-              ]}
+            <PeriodTabControl
               value={params.view}
-              onChange={(view: QueueView) => patch({ view, open: null }, { replace: false })}
+              options={VIEW_OPTIONS}
+              labels={{
+                waiting: `Waiting${counts ? ` ${counts.all}` : ''}`,
+                decided: `Decided today${decidedCount != null ? ` ${decidedCount}` : ''}`,
+              }}
+              onChange={(view) => patch({ view, open: null }, { replace: false })}
+              fill
             />
           </OptionSection>
 
@@ -203,7 +208,7 @@ export const QueueToolbar = ({ params, patch, lookups, attentionAvailable, filte
               </ChoiceChip>
             </ChoiceWrap>
             {!attentionAvailable && (
-              <p className="text-xs font-display text-text-muted">Only applies to checklists. Switch the Type to All or Checklists to use it.</p>
+              <p className="t-meta font-display text-text-muted">Only applies to checklists. Switch the Type to All or Checklists to use it.</p>
             )}
           </OptionSection>
           </>)}
@@ -223,7 +228,7 @@ export const QueueToolbar = ({ params, patch, lookups, attentionAvailable, filte
           <button
             type="button"
             onClick={onClear}
-            className="h-8 px-2.5 rounded-lg text-xs font-display font-medium text-text-muted hover:text-danger hover:bg-danger/10 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+            className="h-8 px-2.5 pointer-coarse:h-11 pointer-coarse:px-3 rounded-lg t-meta font-display font-medium text-text-muted hover:text-danger hover:bg-danger/10 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
           >
             Clear all
           </button>

@@ -226,8 +226,8 @@ export const VerificationQueue = () => {
     const ids = cleanRows.map((r) => r.id);
     if (ids.length === 0) return;
     const ok = await confirm({
-      title: `Approve ${ids.length} clean ${ids.length === 1 ? 'checklist' : 'checklists'}?`,
-      description: `${filtersActive ? 'These are the clean ones in your current view. ' : ''}Each one is fully compliant, has its photos and was never sent back. They are approved right away.`,
+      title: `Approve ${ids.length} ${ids.length === 1 ? 'checklist' : 'checklists'} with no issues?`,
+      description: `${filtersActive ? 'These are the ones with no issues in your current view. ' : ''}Each one is fully compliant, has its photos and was never sent back. They are approved right away.`,
       confirmLabel: `Approve ${ids.length}`,
     });
     if (!ok) return;
@@ -257,14 +257,16 @@ export const VerificationQueue = () => {
   const dayTotal = reviewedCount === null ? 0 : reviewedCount + waitingTotal;
   const loadingTotals = checklistQuery.isPending || ticketsQuery.isPending || tasksQuery.isPending;
 
+  // The subtitle sits inside the header's <p>, where the shared Skeleton's <div> is not allowed, so
+  // this is a span with the same shimmer look.
   const subtitle = loadingTotals
-    ? <span className="block h-4 w-56 animate-pulse rounded-md bg-surface-active" aria-hidden />
+    ? <span className="block h-4 w-56 skeleton-shimmer rounded-md bg-surface-active" aria-hidden />
     : waitingTotal === 0
       ? 'Nothing is waiting for your review'
       : `${waitingTotal} waiting for your review${oldestWaiting ? `. Oldest waiting: ${formatWaiting(oldestWaiting, now)}` : ''}`;
 
   const counter = reviewedCount !== null && dayTotal > 0 ? (
-    <span role="status" className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full border border-border/60 bg-surface text-xs font-display font-medium text-text-secondary tabular-nums">
+    <span role="status" className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full border border-border/60 bg-surface t-meta font-display font-medium text-text-secondary tabular-nums">
       <CheckCheck size={13} aria-hidden className="text-success" />
       {reviewedCount} of {dayTotal} reviewed today
     </span>
@@ -291,7 +293,7 @@ export const VerificationQueue = () => {
   const closeHelp = useCallback(() => setHelpOpen(false), []);
 
   return (
-    <div className="flex flex-col gap-5 w-full max-w-(--container-width) mx-auto">
+    <div className="flex flex-col gap-6 pt-2.5 w-full max-w-(--container-width) mx-auto">
       <PageHeader icon={ShieldCheck} title="Verification" subtitle={subtitle} actions={counter} />
 
       {/* Search and one Options button, always. What used to be two tab strips (Waiting or Decided today,

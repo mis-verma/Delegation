@@ -19,11 +19,11 @@ export const ShortcutsHelp = ({ open, onClose }: { open: boolean; onClose: () =>
         <div key={keys} className="flex items-center justify-between gap-4 py-2.5 first:pt-0 last:pb-0">
           <dt className="text-sm font-display text-text-secondary">{does}</dt>
           <dd>
-            <kbd className="inline-flex items-center px-2 py-0.5 rounded-md border border-border bg-surface-hover text-xs font-display font-semibold text-text">{keys}</kbd>
+            <kbd className="inline-flex items-center px-2 py-0.5 rounded-md border border-border bg-surface-hover t-meta font-display font-semibold text-text">{keys}</kbd>
           </dd>
         </div>
       ))}
     </dl>
-    <p className="text-xs font-display text-text-muted">Shortcuts pause while you type in a box.</p>
+    <p className="t-meta font-display text-text-muted">Shortcuts pause while you type in a box.</p>
   </Modal>
 );
