@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { Plus, Flag, ArrowUpDown, X } from 'lucide-react';
 import { Fab } from '../../components';
-import { ChipLegend, type ChipLegendSection } from '../../components/chipLegend';
 import { CreatedRangeBanner, CreatedRangePicker } from '../../components/createdRangeBanner';
 import { useCreatedRange, useDueRange } from '../../lib/createdRange';
 import {
@@ -21,12 +20,6 @@ import type { Todo, TodoPriority } from '../../api/todos';
 const QUICK_FILTER_VALUES = ['pending', 'completed', 'due', 'delayed'] as const;
 const PRIORITIES: TodoPriority[] = ['high', 'medium', 'low'];
 const SORT_KEYS = Object.keys(TODO_SORT_LABEL) as TodoSortKey[];
-
-// A to-do card shows one coloured chip on a phone, its priority, so that is all the legend lists.
-// Built from the same map the chip reads.
-const TODO_LEGEND: ChipLegendSection[] = [
-  { title: 'Priority', items: PRIORITIES.map((p) => ({ label: PRIORITY_MAP[p].label, icon: PRIORITY_MAP[p].icon, tone: PRIORITY_MAP[p].solid })) },
-];
 
 export const TodoPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -103,7 +96,8 @@ export const TodoPage = () => {
         {/* One controls row, same as the other list pages: Options on the left, the add button on
             the right on desktop (phones use the + button instead). */}
         {/* Right-aligned and in reverse order, so Options sits at the far right with Created on and the add button to its left. */}
-        <div className="flex flex-row-reverse items-center gap-3">
+        {/* Phones skip this row: no filter sheet or date picker there, the + button adds a to-do. */}
+        <div className="hidden sm:flex flex-row-reverse items-center gap-3">
           <OptionsSheet
             isOpen={showOptions}
             setIsOpen={setShowOptions}
@@ -136,8 +130,6 @@ export const TodoPage = () => {
               />
             </OptionSection>
           </OptionsSheet>
-          {/* Row is reversed, so this lands just left of Options. */}
-          <ChipLegend sections={TODO_LEGEND} />
 
           <CreatedRangePicker createdRange={dueRange} label="Due date" className="shrink-0" />
 

@@ -9,10 +9,7 @@ import { useAuth } from '@/context/AuthContext';
 import { OWN_SCOPE_ROLES } from '../../api/auth';
 import { useDepartmentsQuery, useStoresQuery, useAssignableUsersQuery, useTicketsBoardQuery, BOARD_LIMIT } from './hook';
 import { NoticeBanner } from '../../components/noticeBanner';
-import { ChipLegend, type ChipLegendSection } from '../../components/chipLegend';
 import { PhoneScopeSwitch } from '../../components/phoneScopeSwitch/PhoneScopeSwitch';
-import { getStatusChipMeta } from '../../components/statusChip';
-import { STATUS_CONFIG, PRIORITY_CONFIG } from './ticketDisplay';
 import { useCategoriesQuery } from '../settings/hook';
 import { useTagsQuery } from '../tags/hook';
 import { TicketForm } from './TicketForm';
@@ -38,24 +35,6 @@ const VIEW_TABS: ViewTab<TicketView>[] = [
   { key: 'board', label: 'Board', icon: Kanban, mobileHidden: true },
   { key: 'table', label: 'Table', icon: Table2, mobileHidden: true },
   { key: 'timeline', label: 'Timeline', icon: GanttChartSquare, mobileHidden: true },
-];
-
-const STATUS_LEGEND_ORDER = ['OPEN', 'IN_PROGRESS', 'ON_HOLD', 'PENDING_APPROVAL', 'CLOSED'] as const;
-const PRIORITY_LEGEND_ORDER = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const;
-
-// Built from the same maps the chips read, so the legend can never drift from what a card shows.
-const TICKET_LEGEND: ChipLegendSection[] = [
-  {
-    title: 'Status',
-    items: STATUS_LEGEND_ORDER.map((s) => {
-      const meta = getStatusChipMeta(s.toLowerCase() as Parameters<typeof getStatusChipMeta>[0]);
-      return { label: STATUS_CONFIG[s].label, icon: meta.icon, tone: meta.tone };
-    }),
-  },
-  {
-    title: 'Priority',
-    items: PRIORITY_LEGEND_ORDER.map((p) => ({ label: PRIORITY_CONFIG[p].label, icon: PRIORITY_CONFIG[p].icon, tone: PRIORITY_CONFIG[p].solid })),
-  },
 ];
 
 export const TicketList = () => {
@@ -252,7 +231,6 @@ export const TicketList = () => {
               </DropdownMenu>
             </div>
 
-            <ChipLegend sections={TICKET_LEGEND} />
             <div className="hidden sm:contents">
             <TicketSettingsMenu
               isOpen={showOptions}

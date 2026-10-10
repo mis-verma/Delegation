@@ -22,9 +22,7 @@ import { useIsMobile } from "../../lib/useMediaQuery";
 import { SmartTaskModal } from "./SmartTaskModal";
 import { TaskBulkImportModal } from "./bulkImport/TaskBulkImportModal";
 import { TaskOptionsDialog, type TaskScopeKey } from "./TaskOptionsDialog";
-import { ChipLegend, type ChipLegendSection } from "../../components/chipLegend";
 import { PhoneScopeSwitch } from "../../components/phoneScopeSwitch/PhoneScopeSwitch";
-import { getStatusChipMeta } from "../../components/statusChip";
 import { TaskQuickStats, type QuickFilterKey } from "./TaskQuickStats";
 import { type BoardGroupBy } from "./taskBoardGroups";
 import { CATEGORY_PREDICATES, SORT_COMPARATORS, isOverdueTask, type CategoryFilterKey, type TaskSortKey, type TaskFilters } from "./taskFilters";
@@ -67,7 +65,6 @@ interface TaskListProps {
   emptyDescription?: string;
 }
 
-
 const QUICK_FILTER_PREDICATES: Record<QuickFilterKey, (t: Task) => boolean> = {
   pending: (t) => t.status !== 'done',
   completed: (t) => t.status === 'done',
@@ -107,24 +104,6 @@ const filtersFromUrl = (searchParams: URLSearchParams): Partial<TaskFilters> => 
 // priority/etc. the next time it loads there too.
 const filtersStorageKey = (userId?: string, lockCategory?: CategoryFilterKey) =>
   `task-filters:${userId ?? 'anon'}${lockCategory ? `:${lockCategory}` : ''}`;
-
-
-// Built from the same maps the card chips read, so the legend can never drift from what a card shows.
-// A card only ever shows two status chips (Done, In review); the rest of a delegation's state is
-// the column or group it sits in.
-const TASK_LEGEND: ChipLegendSection[] = [
-  {
-    title: 'Status',
-    items: [
-      { label: 'Done', icon: getStatusChipMeta('completed').icon, tone: getStatusChipMeta('completed').tone },
-      { label: 'In review', icon: getStatusChipMeta('in_review').icon, tone: getStatusChipMeta('in_review').tone },
-    ],
-  },
-  {
-    title: 'Priority',
-    items: (['high', 'medium', 'low'] as const).map((p) => ({ label: PRIORITY_MAP[p].label, icon: PRIORITY_MAP[p].icon, tone: PRIORITY_MAP[p].solid })),
-  },
-];
 
 export const TaskList = ({ userId, hideHeader = false, lockCategory, title, emptyTitle, emptyDescription }: TaskListProps = {}) => {
   const { user } = useAuth();
@@ -179,7 +158,6 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
   const { data: stores } = useStoresQuery();
   const { data: notifications } = useNotificationsQuery();
   const markNotificationRead = useMarkNotificationReadMutation();
-
 
   const unreadAssignmentByTaskId = useMemo(
     () => new Map(
@@ -571,7 +549,6 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
             )}
 
       
-            <ChipLegend sections={TASK_LEGEND} />
             <div className="hidden sm:contents">
             <TaskOptionsDialog
               isOpen={showOptions}

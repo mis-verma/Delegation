@@ -8,8 +8,6 @@ import { useCreatedRange } from '../../../lib/createdRange';
 import {
   OptionsSheet, OptionSection, OptionSegmented, OptionSelect, ChoiceChip, ChoiceIcon, ChoiceWrap, ChoiceClear,
 } from '../../../components/optionsSheet';
-import { ChipLegend, type ChipLegendSection } from '../../../components/chipLegend';
-import { getStatusChipMeta } from '../../../components/statusChip';
 import { avatarColorClass } from '../../../lib/avatarColors';
 import { getInitials } from '../../../lib/getInitials';
 import { toggleValue } from '../../../lib/toggleValue';
@@ -125,18 +123,6 @@ const InstancesSkeleton = ({ view }: { view: View }) => {
     </div>
   );
 };
-
-// A checklist card's status chip is one of these three (getInstanceView's chipStatus). The review
-// state beside it keeps its words on a phone, so it is not listed here. Built from the chip's own map.
-const CHECKLIST_LEGEND: ChipLegendSection[] = [
-  {
-    title: 'Status',
-    items: (['due', 'overdue', 'completed'] as const).map((s) => {
-      const meta = getStatusChipMeta(s);
-      return { label: s === 'completed' ? 'Done' : meta.label, icon: meta.icon, tone: meta.tone };
-    }),
-  },
-];
 
 export const MyChecklists = () => {
   const [page, setPage] = useState(1);
@@ -280,52 +266,24 @@ export const MyChecklists = () => {
   // this only needs to re-sort the page the server already scoped.
   const sortedInstances = useMemo(() => [...allInstances].sort(SORT_COMPARATORS[sort]), [allInstances, sort]);
 
-  // A missed daily/weekly checklist used to pile up as one card per missed period — miss three
-  // days and you got three separate "Store Opening Walkthrough" cards, all still overdue. Only the
-  // newest period per (definition, store) actually needs to be *worked on*; the older ones are the
-  // exact same task that's still open, not a distinct piece of work. This only trims what's
-  // rendered here — the summary counts above (and the overdue banner/notifications) still come
-  // from `useChecklistInstanceSummaryQuery`, which counts every real instance untouched, so a
-  // three-days-overdue checklist still reads as overdue everywhere else, it just isn't shown as
-  // three redundant cards on this one page.
+  // This page is today's work, and a checklist's last time (its cutoff, e.g. 6:30 PM) is where it ends:
+  // a run shows while that time has not passed, then leaves the list. Only two kinds stay after it,
+  // because the person still has to act: one sent back to fix, and one finished but not yet submitted.
+  // Waiting, verified and missed runs are history (History and Report keep them). Tapping the Overdue or
+  // Completed tile still lists those on purpose. The tile counts come from the server, untouched.
   const now = useNow();
   useRefreshOnNewDay();
   const instances = useMemo(() => {
-    const latestByChecklist = new Map<string, ChecklistInstance>();
-    // An older run is NOT redundant while it still needs someone: a sent-back one (they must fix it),
-    // a finished one nobody has submitted yet, or one whose cutoff has not passed (an overnight window
-    // whose next run was already generated at midnight). Only abandoned, missed runs are trimmed.
-    // A submitted run (waiting for approval or verified) never needs the person again, whatever its cutoff.
-    const stillNeedsWork = (i: ChecklistInstance) =>
-      i.verificationStatus === 'REJECTED' ||
-      (i.verificationStatus === 'NOT_SUBMITTED' &&
-        ((i.items.length > 0 && i.items.every((it) => it.isDone)) || instanceDeadline(i) > now));
-    // This page is for today's work. A run from an earlier day shows only while it still needs the person:
-    // sent back, finished but not yet submitted, or an overnight window still open. A verified, waiting or
-    // missed run from yesterday is history (the History and Report pages keep it), not a card to act on.
+    if (quickFilter === 'overdue') return sortedInstances;
     const todayStart = new Date(todayPeriodBoundIso()).getTime();
-    const kept = new Set<ChecklistInstance>();
-    for (const instance of sortedInstances) {
-      // A daily run is today's only when it starts today (its end can sit on today's midnight).
-      const fromToday = instance.recurrence === 'DAILY'
-        ? new Date(instance.periodStart).getTime() >= todayStart
-        : new Date(instance.periodEnd).getTime() >= todayStart;
-      if (!fromToday) {
-        if (stillNeedsWork(instance)) kept.add(instance);
-        continue;
-      }
-      // The title says whose it is on a per-person checklist, so those are not merged into one card.
-      const key = `${instance.definitionId}:${instance.storeId ?? ''}:${instance.title}`;
-      if (stillNeedsWork(instance)) kept.add(instance);
-      const current = latestByChecklist.get(key);
-      if (!current || new Date(instance.periodStart).getTime() > new Date(current.periodStart).getTime()) {
-        latestByChecklist.set(key, instance);
-      }
-    }
-    // Order follows sortedInstances' own order (recent/dueSoonest/titleAsc), not insertion order.
-    for (const latest of latestByChecklist.values()) kept.add(latest);
-    return sortedInstances.filter((instance) => kept.has(instance));
-  }, [sortedInstances, now]);
+    const needsAction = (i: ChecklistInstance) =>
+      i.verificationStatus === 'REJECTED' ||
+      (i.verificationStatus === 'NOT_SUBMITTED' && i.items.length > 0 && i.items.every((it) => it.isDone));
+    return sortedInstances.filter((i) =>
+      instanceDeadline(i) > now ||
+      needsAction(i) ||
+      (quickFilter === 'completed' && new Date(i.periodStart).getTime() >= todayStart));
+  }, [sortedInstances, now, quickFilter]);
 
   // How many rows the active filter matches — taken from the summary counts already fetched
   // above rather than a second request, since they're the same four numbers the tiles show.
@@ -415,8 +373,8 @@ export const MyChecklists = () => {
       {/* Same "Store scope box + Options button" pair Delegation and Tickets both put in their own
           toolbar row — Store as a permanent, always-visible box (it's the one org-scope dimension
           checklist instances carry), Sort tucked inside Options since it's a view preference, not
-          a narrowing filter. */}
-      <div className="flex items-center gap-3 flex-wrap">
+          a narrowing filter. Phones skip the whole row: today's cards are all they need. */}
+      <div className="hidden sm:flex items-center gap-3 flex-wrap">
         {/* View lives in the toolbar, not inside Options — same as Delegation/Tickets: it changes
             what the whole page looks like, so it reads as a place you are, not a setting. Hidden
             below `sm` entirely, not just Table — Board (the default) already reorders to
@@ -434,7 +392,6 @@ export const MyChecklists = () => {
             and the toolbar is just Options, same as the other list pages. */}
         <div className="flex items-center gap-2.5 shrink-0 ml-auto">
           <CreatedRangePicker createdRange={createdRange} className="shrink-0" />
-          <ChipLegend sections={CHECKLIST_LEGEND} />
           <OptionsSheet
             isOpen={showOptions}
             setIsOpen={setShowOptions}
