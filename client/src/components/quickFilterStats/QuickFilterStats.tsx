@@ -60,51 +60,26 @@ interface QuickFilterStatsProps<K extends string> {
   onClearFilter?: () => void;
 }
 
-// Phone row: equal-width cells, one per tile, never scrolls. Up to four fit one row; five or more wrap
-// to rows of three, because a fifth cell at 320px is too narrow for "Completed" and gets clipped.
-const mobileColumns = (count: number) => (count <= 4 ? count : 3);
-
-/** Same grid, same tile boxes — so nothing reflows when the counts arrive. */
+/** Same strip, same cells, so nothing moves when the counts arrive. */
 const QuickFilterStatsSkeleton = ({ count }: { count: number }) => (
   <>
-    <div className="grid sm:hidden gap-2" style={{ gridTemplateColumns: `repeat(${mobileColumns(count)}, minmax(0, 1fr))` }}>
-      {Array.from({ length: count }).map((_, i) => (
-        <Skeleton key={i} className="h-16 rounded-lg" />
-      ))}
-    </div>
-    <div className={cn(gridClass(count), 'hidden sm:grid')}>
-      {Array.from({ length: count }).map((_, i) => {
-        return (
-          <div
-            key={i}
-            className={cn(
-              'flex items-center justify-between gap-3 lg:gap-2.5 xl:gap-3 rounded-lg p-3.5 md:p-4 lg:p-3 xl:p-4',
-              i === 0 && leadSpanClass(count),
-              'bg-surface border border-border',
-            )}
-          >
-            <div className="flex flex-col gap-1.5 min-w-0">
-              <Skeleton className="h-7 w-12" />
-              <Skeleton className="h-3.5 w-20" />
-            </div>
-          </div>
-        );
-      })}
-    </div>
+  <Skeleton className="sm:hidden h-24 rounded-xl" />
+  <div
+    className="hidden sm:grid gap-px overflow-hidden rounded-xl border border-border/60 bg-border/60"
+    style={{ gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))` }}
+    role="status"
+    aria-label="Loading counts"
+  >
+    {Array.from({ length: count }).map((_, i) => (
+      <div key={i} className="flex flex-col gap-2 bg-surface px-3 py-3 sm:px-4">
+        <Skeleton className="h-3 w-16" />
+        <Skeleton className="h-6 w-10" />
+      </div>
+    ))}
+  </div>
   </>
 );
 
-// The row was a fixed 4-up. Delegation now leads with a "Total" tile, so the column count follows
-// the tiles it was actually given rather than being hardcoded to what the first caller needed.
-const gridClass = (count: number) =>
-  cn('grid grid-cols-2 gap-3 md:gap-4', count >= 5 ? 'lg:grid-cols-5' : 'lg:grid-cols-4');
-
-// An odd tile count leaves the last tile alone in a half-width cell on the 2-up mobile grid. The
-// lead tile is the summary one, so it takes the whole row there instead and the remainder pairs up.
-const leadSpanClass = (count: number) => (count % 2 === 1 ? 'col-span-2 lg:col-span-1' : '');
-
-// Every tile is the plain surface (white, or the dark theme's surface) with blue numbers and labels;
-// the picked one gets a blue border and tint. The old navy lead tile is gone.
 export function QuickFilterStats<K extends string>({
   tiles,
   counts,
@@ -142,118 +117,113 @@ export function QuickFilterStats<K extends string>({
 
   if (isLoading) return <QuickFilterStatsSkeleton count={shownTiles.length} />;
 
+  // Phone: the buckets share one row under the Total (no 3 + 2 grid with an empty grey cell).
+  const phoneCells = tiles.length;
+
   return (
-    <>
-      {/* Phones: the Total is one slim full-width bar on top (it is the "show everything" control, not a
-          bucket), then the status buckets share one even row underneath, so five tiles never leave a hole
-          in a 3-up grid. Each cell is the label over the number, the same look as the dashboard's
-          "Needs you today" block. Every cell is white (the dark theme's surface) with blue type; the picked one gets a blue border and tint. */}
-      <div className="flex flex-col gap-2 sm:hidden">
+    <div className="flex flex-col gap-2">
+      <div className="sm:hidden overflow-hidden rounded-xl border border-border/60 bg-surface">
         {hasTotal && (
           <button
             type="button"
             onClick={() => onClearFilter?.()}
             aria-pressed={active === null}
             aria-label={`Show all ${itemLabel}`}
-            className={cn(
-              'flex min-h-11 items-center justify-between gap-3 rounded-lg border px-3 font-display transition-colors duration-200 active:scale-[0.985] [-webkit-tap-highlight-color:transparent]',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40',
-              active === null ? 'border-primary-600 ring-1 ring-inset ring-primary-600 dark:border-primary-400 dark:ring-primary-400 text-primary-600/80 dark:text-primary-300/80' : 'border-border bg-surface text-primary-600/80 dark:text-primary-300/80',
-            )}
+            className="relative flex min-h-11 w-full items-center justify-between gap-3 border-b border-border/60 px-3 py-2 text-left font-display outline-none active:bg-surface-hover [-webkit-tap-highlight-color:transparent] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/50"
           >
-            <span className="t-meta font-semibold">{totalLabel} {itemLabel}</span>
-            <span className="text-lg font-bold tabular-nums text-primary-700 dark:text-primary-300"><CountUp value={total ?? 0} /></span>
+            <span className={cn('t-meta', active === null ? 'font-semibold text-text' : 'font-medium text-text-muted')}>{totalLabel} {itemLabel}</span>
+            <span className={cn('text-lg font-bold tabular-nums leading-none', active === null ? 'text-primary-700 dark:text-primary-300' : (total ?? 0) === 0 ? 'text-text-light' : 'text-text')}>
+              <CountUp value={total ?? 0} />
+            </span>
+            {active === null && <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-0.5 bg-primary-600 dark:bg-primary-400" />}
           </button>
         )}
-        {hasTotal && !!total && mix.length > 0 && (
-          <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-surface-hover" role="img" aria-label={mix.map((m) => `${m.label} ${m.value}`).join(', ')}>
-            {mix.map((m) => <span key={m.label} className={cn('h-full', m.bar)} style={{ width: `${(m.value / total) * 100}%` }} />)}
-          </div>
-        )}
-        <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${mobileColumns(tiles.length)}, minmax(0, 1fr))` }}>
+        <div className="grid divide-x divide-border/60" style={{ gridTemplateColumns: `repeat(${phoneCells}, minmax(0, 1fr))` }}>
           {tiles.map((tile) => {
             const { key, label, accentBar } = tile;
             const isActive = active === key;
-            const count = counts[key];
-            const purpose = isActive ? `Clear "${label}" filter` : `Show only ${label.toLowerCase()} ${itemLabel}`;
+            const count = counts[key] ?? 0;
             return (
               <button
                 key={key}
                 type="button"
                 onClick={() => onToggle(key)}
                 aria-pressed={isActive}
-                aria-label={purpose}
-                className={cn(
-                  // tap-highlight off: Android Chrome otherwise flashes its own grey box on every tap.
-                  'flex min-h-16 flex-col items-center justify-center gap-0.5 rounded-lg border px-1 py-2 font-display transition-colors duration-200 cursor-pointer active:scale-[0.985] [-webkit-tap-highlight-color:transparent]',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40',
-                  isActive ? 'border-primary-600 ring-1 ring-inset ring-primary-600 dark:border-primary-400 dark:ring-primary-400' : 'border-border bg-surface',
-                )}
+                aria-label={isActive ? `Clear "${label}" filter` : `Show only ${label.toLowerCase()} ${itemLabel}`}
+                className="relative flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 px-1 py-2 font-display outline-none active:bg-surface-hover [-webkit-tap-highlight-color:transparent] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/50"
               >
-                {/* Wraps instead of cutting: four cells at 320px leave about 70px for "Completed". */}
-                <span className="flex max-w-full items-center justify-center gap-1 text-center t-meta font-semibold leading-tight tracking-tight text-primary-600/80 dark:text-primary-300/80"><span aria-hidden="true" className={cn('size-1.5 shrink-0 rounded-full', accentBar)} /><span className="line-clamp-2">{label}</span></span>
-                <span className="text-xl font-bold tabular-nums leading-tight text-primary-700 dark:text-primary-300"><CountUp value={count} /></span>
+                <span className={cn('text-lg font-bold tabular-nums leading-none', isActive ? 'text-primary-700 dark:text-primary-300' : count === 0 ? 'text-text-light' : 'text-text')}>
+                  <CountUp value={count} />
+                </span>
+                <span className={cn('flex max-w-full items-center gap-1 text-[0.6875rem] leading-tight', isActive ? 'font-semibold text-text' : 'font-medium text-text-muted')}>
+                  <span aria-hidden="true" className={cn('size-1.5 shrink-0 rounded-full', accentBar)} />
+                  <span className="truncate">{label}</span>
+                </span>
+                {isActive && <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-0.5 bg-primary-600 dark:bg-primary-400" />}
               </button>
             );
           })}
         </div>
       </div>
 
-      <div className={cn(gridClass(shownTiles.length), 'hidden sm:grid')}>
-      {shownTiles.map((tile, index) => {
-        const { key, label, accentBar } = tile;
-        const isTotalTile = hasTotal && key === 'all';
-        // The Total tile is the resting state, so it reads as selected exactly when no bucket is.
-        const isActive = isTotalTile ? active === null : active === key;
-        const count = isTotalTile ? total : counts[key as K];
-        const handleClick = () => (isTotalTile ? onClearFilter?.() : onToggle(key as K));
-        // Only meaningful against a real total, and never on the Total tile itself (always 100%).
-        const share = hasTotal && !isTotalTile && total ? Math.round(((count ?? 0) / total) * 100) : null;
-        // `title` alone never appears on touch, where it was the only thing saying these tiles
-        // filter at all. It stays for pointer users, but the same sentence is now also the
-        // accessible name (aria-label) so the affordance survives on any device without needing a
-        // dedicated resting glyph. `all` is the shared "clear the filter" key (see statusTiles), so
-        // it needs the opposite sentence — "Show only all delegations" would have been nonsense.
-        const purpose = key === 'all'
-          ? `Show all ${itemLabel}`
-          : isActive ? `Clear "${label}" filter` : `Show only ${label.toLowerCase()} ${itemLabel}`;
-
-        return (
-          <button
-            key={key}
-            type="button"
-            onClick={handleClick}
-            aria-pressed={isActive}
-            aria-label={purpose}
-            title={purpose}
-            className={cn(
-              "group relative flex items-center gap-4 lg:gap-2.5 xl:gap-4 overflow-hidden rounded-lg p-3.5 md:p-4 lg:p-3 xl:p-4 text-left transition-all duration-200 cursor-pointer bg-surface border",
-              index === 0 && leadSpanClass(shownTiles.length),
-              // Was `focus:ring-primary-50/50` — #f0f4f8 at half opacity, i.e. an invisible focus
-              // ring on a white surface, on the primary filter control of five different pages.
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 focus-visible:ring-offset-surface",
-              isActive ? "border-primary-600 ring-1 ring-inset ring-primary-600 dark:border-primary-400 dark:ring-primary-400" : "border-border hover:border-primary-500/40"
-            )}
-          >
-            {/* The status colour, once: a thin bar across the top. The number stays blue on every tile. */}
-            <span aria-hidden="true" className={cn('absolute inset-x-0 top-0 h-1', accentBar)} />
-            <div className="min-w-0 flex-1">
-              <p className="text-2xl font-bold tracking-tight leading-none tabular-nums text-primary-700 dark:text-primary-300">
-                {typeof count === 'number' ? <CountUp value={count} /> : count}
-              </p>
-              {/* See the hero tile's identical comment above — same wrap-not-truncate fix. The
-                  share of the total rides on the label line, so "31 Delayed" also says how big a
-                  slice that is without doing the maths. */}
-              <p className="flex items-baseline gap-1.5 t-meta md:text-xs font-semibold text-primary-600/80 dark:text-primary-300/80 mt-1.5 leading-snug tracking-tight">
-                <span aria-hidden="true" className={cn('size-2 shrink-0 self-center rounded-full', accentBar)} />
-                {label}
-                {share !== null && <span className="t-meta font-bold text-text-muted tabular-nums">{share}%</span>}
-              </p>
-            </div>
-          </button>
-        );
-      })}
+      {/* One strip, cells split by thin lines, instead of a row of big empty boxes. Each cell: the label (with
+          its status dot) in grey, the number under it. A zero is quiet, a real count is bold; the picked cell
+          gets a blue line along its bottom and a blue number. Five cells go three and two on a phone. */}
+      <div
+        className="hidden sm:grid gap-px overflow-hidden rounded-xl border border-border/60 bg-border/60"
+        style={{ gridTemplateColumns: `repeat(${shownTiles.length}, minmax(0, 1fr))` }}
+      >
+        {shownTiles.map((tile) => {
+          const { key, label, accentBar } = tile;
+          const isTotalTile = hasTotal && key === 'all';
+          // The Total cell is the resting state, so it reads as picked exactly when no bucket is.
+          const isActive = isTotalTile ? active === null : active === key;
+          const count = (isTotalTile ? total : counts[key as K]) ?? 0;
+          const handleClick = () => (isTotalTile ? onClearFilter?.() : onToggle(key as K));
+          // How big a slice this is of everything, beside the number. Not on the Total cell (always 100%).
+          const share = hasTotal && !isTotalTile && total ? Math.round((count / total) * 100) : null;
+          const purpose = key === 'all'
+            ? `Show all ${itemLabel}`
+            : isActive ? `Clear "${label}" filter` : `Show only ${label.toLowerCase()} ${itemLabel}`;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={handleClick}
+              aria-pressed={isActive}
+              aria-label={purpose}
+              title={purpose}
+              className={cn(
+                'relative flex min-w-0 flex-col items-start gap-1 bg-surface px-3 py-2.5 sm:px-4 sm:py-3 text-left font-display outline-none',
+                'transition-colors duration-150 hover:bg-surface-hover/60 active:bg-surface-hover [-webkit-tap-highlight-color:transparent]',
+                'focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/50',
+              )}
+            >
+              <span className={cn('flex max-w-full items-center gap-1.5 t-meta', isActive ? 'font-semibold text-text' : 'font-medium text-text-muted')}>
+                <span aria-hidden="true" className={cn('size-2 shrink-0 rounded-full', accentBar)} />
+                <span className="truncate">{label}</span>
+              </span>
+              <span className="flex items-baseline gap-1.5">
+                <span className={cn(
+                  'text-xl sm:text-2xl font-bold tabular-nums leading-none',
+                  isActive ? 'text-primary-700 dark:text-primary-300' : count === 0 ? 'text-text-light' : 'text-text',
+                )}>
+                  <CountUp value={count} />
+                </span>
+                {share !== null && count > 0 && <span className="hidden sm:inline t-meta font-medium text-text-light tabular-nums">{share}%</span>}
+              </span>
+              {isActive && <span aria-hidden="true" className="absolute inset-x-0 bottom-0 h-0.5 bg-primary-600 dark:bg-primary-400" />}
+            </button>
+          );
+        })}
       </div>
-    </>
+
+      {/* Where there is a Total: one thin bar split by status, so the mix is visible at a glance. */}
+      {hasTotal && !!total && mix.length > 0 && (
+        <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-surface-hover" role="img" aria-label={mix.map((m) => `${m.label} ${m.value}`).join(', ')}>
+          {mix.map((m) => <span key={m.label} className={cn('h-full', m.bar)} style={{ width: `${(m.value / total) * 100}%` }} />)}
+        </div>
+      )}
+    </div>
   );
 }
