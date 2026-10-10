@@ -89,12 +89,12 @@ const delta = (now: number | null, before: number | null) => (now === null || be
 
 const Delta = ({ label, value }: { label: string; value: number | null }) =>
   value === null ? (
-    <span className="text-xs font-medium text-text-muted">{label} -</span>
+    <span className="text-xs font-medium text-text-muted">{label} <span className="text-text-light">no data</span></span>
   ) : (
     <span className={`inline-flex items-center gap-0.5 text-xs font-display font-bold tabular-nums ${value > 0 ? 'text-success' : value < 0 ? 'text-danger' : 'text-text-muted'}`}>
       <span className="font-medium text-text-muted">{label}</span>
       {value > 0 ? <ArrowUp className="size-3" aria-hidden="true" /> : value < 0 ? <ArrowDown className="size-3" aria-hidden="true" /> : null}
-      {value === 0 ? 'same' : `${Math.abs(value)}`}
+      {value === 0 ? 'no change' : `${Math.abs(value)} pts`}
     </span>
   );
 
@@ -159,12 +159,12 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
                   width to the bars instead of an axis. */}
               <YAxis domain={[0, 100]} hide={isMobile} ticks={[0, 25, 50, 75, 100]} tickFormatter={(v: number) => `${v}%`} tickLine={false} axisLine={false} width={44} tick={{ fill: 'var(--color-text-muted)', fontSize: 12, fontWeight: 600 }} />
               <Tooltip content={<BarTooltip series={series} />} cursor={false} isAnimationActive={false} />
-              {series.map((k) => (
+              {series.map((k, i) => (
                 <Bar
                   key={k}
                   dataKey={k}
                   fill={`url(#${gradientId}-${k})`}
-                  shape={(p: { x?: number; y?: number; width?: number; height?: number; fill?: string; payload?: Row }) => <ScoreColumn {...p} empty={p.payload?.hasData === false} />}
+                  shape={(p: { x?: number; y?: number; width?: number; height?: number; fill?: string; payload?: Row }) => <ScoreColumn {...p} empty={p.payload?.hasData === false} words={i === 0} />}
                   maxBarSize={barSize}
                   background={{ fill: TRACK_FILL, radius: 8 }}
                   animationDuration={500}
@@ -183,6 +183,8 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
           <li className="text-xs font-display font-bold text-text-secondary">Since last period</li>
           {rowsFor(scores).map((r, i) => {
             const before = rowsFor(previous)[i];
+            // A module with nothing due in either period has nothing to compare; leave it out.
+            if (!r.hasData && !before.hasData) return null;
             return (
               <li key={r.key} className="flex flex-wrap items-center gap-x-4 gap-y-0.5">
                 <span className="w-24 text-xs font-display font-bold text-text">{r.name}</span>

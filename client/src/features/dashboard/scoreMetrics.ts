@@ -13,7 +13,7 @@ export const SERIES_LABEL: Record<SeriesKey, string> = { completion: 'Completion
 // Blue in three weights, so the three read as one family and a colour means the same in every view.
 export const SERIES_COLOR: Record<SeriesKey, string> = {
   completion: 'var(--color-primary-500)',
-  compliance: 'var(--color-primary-800)',
+  compliance: 'var(--color-series-compliance)',
   ontime: 'var(--color-primary-400)',
 };
 export const SERIES_HELP: Record<SeriesKey, string> = {

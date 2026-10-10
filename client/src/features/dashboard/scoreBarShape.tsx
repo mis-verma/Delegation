@@ -9,6 +9,8 @@ interface ColumnProps {
   /** Nothing was due: draw a soft placeholder column instead of a filled bar. */
   empty: boolean;
   radius?: number;
+  /** Write "Nothing due" in the column. Off for the second column of a pair, so it is said once per module. */
+  words?: boolean;
 }
 
 /**
@@ -17,13 +19,13 @@ interface ColumnProps {
  * it when there is room, so it reads as "nothing here yet" and never as a score of zero. Colours come
  * from the theme tokens, so it follows light and dark.
  */
-export const ScoreColumn = ({ empty, radius = 8, ...props }: ColumnProps) => {
+export const ScoreColumn = ({ empty, radius = 8, words = true, ...props }: ColumnProps) => {
   const { x = 0, y = 0, width = 0, height = 0 } = props;
   if (empty) {
     const cx = x + width / 2;
     const cy = y + height / 2;
     // Two short lines need about 44px across; a thinner column stays a plain placeholder.
-    const showWords = width >= 44 && height >= 60;
+    const showWords = words && width >= 44 && height >= 60;
     return (
       <g>
         <rect

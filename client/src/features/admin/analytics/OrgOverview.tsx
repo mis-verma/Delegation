@@ -1,4 +1,4 @@
-import { memo, useCallback, useId } from 'react';
+import { memo, useCallback, useId, useMemo } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router';
 import { AlertTriangle, ClipboardCheck, FileDown, Info, Repeat, TicketCheck } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -18,6 +18,7 @@ import { TeamLeaderboardRail } from './TeamLeaderboardRail';
 import { useAnalyticsRefresh, useRecentActivityFeed } from './useAnalyticsQueries';
 import { RecentActivity } from '../../dashboard/RecentActivity';
 import { MyScoresCard } from '../../dashboard/MyScoresCard';
+import { toDayParam } from '../../../api/checklistInstances';
 import type { Department } from '../../../api/departments';
 import type { Store } from '../../../api/stores';
 import type { AdminUser } from '../../../api/admin';
@@ -203,6 +204,14 @@ export const OrgOverview = () => {
 
   const { updatedAt, isRefreshing, refresh } = useAnalyticsRefresh();
 
+  // The organisation scores follow this page's period bar, so the page never shows two windows at once.
+  const scoreWindow = useMemo(() => {
+    const from = toDayParam(windowFrom);
+    const to = toDayParam(windowTo);
+    const fmt = (day: string) => new Date(`${day}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    return { from, to, label: from === to ? fmt(from) : `${fmt(from)} to ${fmt(to)}` };
+  }, [windowFrom, windowTo]);
+
   const departmentsQuery = useDepartmentsQuery();
   const storesQuery = useStoresQuery();
   const usersQuery = useUsersQuery(orgWide);
@@ -270,7 +279,7 @@ export const OrgOverview = () => {
 
       {/* Admin and PC: checklists, tickets and delegations side by side for the whole organisation, as
           completion, compliance and on time, with every department ranked under it. */}
-      {orgWide && <MyScoresCard initialScope="org" />}
+      {orgWide && <MyScoresCard initialScope="org" window={scoreWindow} moreHref="/admin/scorecard" />}
 
       {/* Who is top and who is low, right on the page: the full ranked table lives in the Stores
           tab below, this is the glance view of it. Org-wide roles only. */}

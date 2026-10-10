@@ -122,8 +122,8 @@ export const ScoreTrend = ({ metric = 'overview', scope, id, period, from, to }:
               <XAxis dataKey="label" interval={0} tickFormatter={(v: string) => (isMobile && chartPoints.length > 6 ? String(v).slice(0, 3) : v)} tickLine={false} axisLine={false} dy={8} tick={{ fill: 'var(--color-text-secondary)', fontSize: 12, fontWeight: 600 }} />
               <YAxis domain={[0, 100]} hide={isMobile} ticks={[0, 25, 50, 75, 100]} tickFormatter={(v: number) => `${v}%`} tickLine={false} axisLine={false} width={44} tick={{ fill: 'var(--color-text-muted)', fontSize: 12, fontWeight: 600 }} />
               <Tooltip content={<TrendTooltip series={series} />} cursor={false} isAnimationActive={false} />
-              {series.map((k) => (
-                <Bar key={k} dataKey={k} fill={SERIES_COLOR[k]} shape={(p: { x?: number; y?: number; width?: number; height?: number; fill?: string; payload?: { due: number } }) => <ScoreColumn {...p} radius={6} empty={(p.payload?.due ?? 1) === 0} />} maxBarSize={series.length === 1 ? (isMobile ? 34 : 56) : isMobile ? 24 : 38} background={{ fill: TRACK_FILL, radius: 7 }} animationDuration={500}>
+              {series.map((k, i) => (
+                <Bar key={k} dataKey={k} fill={SERIES_COLOR[k]} shape={(p: { x?: number; y?: number; width?: number; height?: number; fill?: string; payload?: { due: number } }) => <ScoreColumn {...p} radius={6} empty={(p.payload?.due ?? 1) === 0} words={i === 0} />} maxBarSize={series.length === 1 ? (isMobile ? 34 : 56) : isMobile ? 24 : 38} background={{ fill: TRACK_FILL, radius: 7 }} animationDuration={500}>
                   {points.length <= 7 && series.length === 1 && <LabelList dataKey={k} position="top" content={renderLabel} />}
                 </Bar>
               ))}

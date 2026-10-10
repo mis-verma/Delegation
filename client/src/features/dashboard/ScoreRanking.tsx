@@ -272,9 +272,7 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
         </table>
       </div>
       <p className="hidden t-meta font-medium text-text-muted sm:block">
-        {metric === 'overview'
-          ? 'Overall score: completion and compliance counted equally. A dash means nothing was due there.'
-          : 'The big figure is across all three, weighted by how much each had due. A dash means nothing was due there.'}
+        {metric === 'overview' ? 'Overall score: completion and compliance counted equally.' : 'Big figure: all three together.'}
       </p>
     </div>
   );

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { ArrowDown, ArrowUp, SlidersHorizontal, ChartColumn, ChartLine, ChevronDown, ChevronLeft, ChevronRight, CircleGauge, ClipboardCheck, Download, FileSpreadsheet, FileText, Ticket as TicketIcon, Users, type LucideIcon } from 'lucide-react';
@@ -119,10 +119,11 @@ const ScoreTile = ({ title, score, detail, loading, onOpen, change }: ScoreTileP
       <span className="t-figure font-display font-extrabold tabular-nums text-text">{loading ? ' ' : score === null ? '–' : `${score}%`}</span>
       <span className="t-meta font-display font-semibold leading-snug text-text-secondary break-words">{title}</span>
       {!loading && score !== null && detail && <span className="t-meta font-display leading-snug text-text-muted break-words">{detail}</span>}
+      {!loading && score === null && <span className="t-meta font-display text-text-light">Nothing due</span>}
       {change != null && change !== 0 && (
-        <span className={`inline-flex items-center t-meta font-display font-bold tabular-nums ${change > 0 ? 'text-success' : 'text-danger'}`} title="Compared with the previous period">
+        <span className={`inline-flex items-center gap-0.5 t-meta font-display font-bold tabular-nums ${change > 0 ? 'text-success' : 'text-danger'}`}>
           {change > 0 ? <ArrowUp className="size-3" aria-hidden="true" /> : <ArrowDown className="size-3" aria-hidden="true" />}
-          {Math.abs(change)}
+          {Math.abs(change)} pts <span className="font-medium text-text-muted">vs last period</span>
         </span>
       )}
     </>
@@ -132,11 +133,16 @@ const ScoreTile = ({ title, score, detail, loading, onOpen, change }: ScoreTileP
     : <div role="group" aria-label={label} className={tileClass}>{body}</div>;
 };
 
-/**
- * Checklist, ticket and delegation score for a day, week, month, quarter or year. Everyone sees their
- * own. A department head can also open their own department. Admin and PC can open any person,
- * department or store.
- */
+// Days in a window, both ends included, and a day moved by n days ('YYYY-MM-DD' in, out).
+const spanDays = (from: string, to: string) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000) + 1;
+const shiftDay = (day: string, n: number) => {
+  const d = new Date(`${day}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+// How a window of that length is cut for the trend.
+const periodForSpan = (days: number): ScorePeriod => (days <= 1 ? 'day' : days <= 7 ? 'week' : days <= 31 ? 'month' : days <= 92 ? 'quarter' : 'year');
+
 // One labelled control in the side panel: a small caption over the control, so each row says what it picks.
 const PanelRow = ({ label, children }: { label: string; children: React.ReactNode }) => (
   <div className="flex flex-col gap-1.5">
@@ -145,8 +151,18 @@ const PanelRow = ({ label, children }: { label: string; children: React.ReactNod
   </div>
 );
 
-/** `initialScope`: where the card opens. The Admin Overview opens it on the whole organisation. */
-export const MyScoresCard = ({ initialScope = 'person' }: { initialScope?: ScoreScope } = {}) => {
+/**
+ * Checklist, ticket and delegation scores for a day, week, month, quarter or year. Everyone sees their
+ * own. A department head can also open their own department. Admin and PC can open any person,
+ * department or store, or the whole organisation. `initialScope`: where the card opens.
+ */
+export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, moreHref }: {
+  initialScope?: ScoreScope;
+  /** The page's own period ('YYYY-MM-DD' days). When given, the card follows it and hides its own period controls. */
+  window?: { from: string; to: string; label: string };
+  /** A page with every department, store and person side by side; shown as a link in the header. */
+  moreHref?: string;
+} = {}) => {
   const { user } = useAuth();
   const role = user?.role;
   const orgWide = role === 'ADMIN' || role === 'PC';
@@ -160,7 +176,9 @@ export const MyScoresCard = ({ initialScope = 'person' }: { initialScope?: Score
   const canExportReport = orgWide || isHod;
 
   const [scope, setScope] = useState<ScoreScope>(() => (initialScope === 'org' && !orgWide ? 'person' : initialScope));
-  const initialPrefs = useMemo(() => loadPrefs(user?.id), [user?.id]);
+  // The Admin card keeps its own saved settings: picking Day on the dashboard must not change it.
+  const prefsId = `${user?.id ?? 'anon'}${initialScope === 'org' ? '-admin' : ''}`;
+  const initialPrefs = useMemo(() => loadPrefs(prefsId), [prefsId]);
   const [period, setPeriodState] = useState<ScorePeriod>(() => (isPeriod(initialPrefs.period) ? initialPrefs.period : 'month'));
   const [offset, setOffset] = useState(0);
   const [picked, setPicked] = useState('');
@@ -173,7 +191,7 @@ export const MyScoresCard = ({ initialScope = 'person' }: { initialScope?: Score
   // Every change to view, period or compare is saved. A storage that refuses (private window) just forgets.
   const remember = (next: Partial<ScorePrefs>) => {
     try {
-      localStorage.setItem(`${PREFS_KEY}-${user?.id ?? 'anon'}`, JSON.stringify({ ...loadPrefs(user?.id), ...next }));
+      localStorage.setItem(`${PREFS_KEY}-${prefsId}`, JSON.stringify({ ...loadPrefs(prefsId), ...next }));
     } catch {
       /* nothing to do */
     }
@@ -181,8 +199,6 @@ export const MyScoresCard = ({ initialScope = 'person' }: { initialScope?: Score
   const setPeriod = (next: ScorePeriod) => { setPeriodState(next); remember({ period: next }); };
   const setCompare = (next: boolean) => { setCompareState(next); remember({ compare: next }); };
   const setMetric = (next: ScoreMetric) => { setMetricState(next); remember({ metric: next }); };
-  // Closed by default, so the card opens on the signed-in person's own scores. Open, it shows the measure tabs
-  // and, for Admin, PC and department heads, everyone they may see, with a search box.
   // Closed by default at every size, so the card opens on the chart. (A wide card shows the controls as a side panel instead.)
   const [moreOpen, setMoreOpen] = useState(false);
   const [everOpened, setEverOpened] = useState(false);
@@ -198,6 +214,8 @@ export const MyScoresCard = ({ initialScope = 'person' }: { initialScope?: Score
     return () => observer.disconnect();
   }, []);
   const toggleMore = () => { setMoreOpen((v) => !v); setEverOpened(true); };
+  // A ranked row opens that department (or person, or store) on the card itself.
+  const openRanked = (id: string) => { if (scope === 'org') setScope('department'); setPicked(id); setMoreOpen(false); };
   const views = VIEWS;
   const activeView: ScoreView = view;
   const setView = (next: ScoreView) => { setViewState(next); remember({ view: next }); };
@@ -226,7 +244,9 @@ export const MyScoresCard = ({ initialScope = 'person' }: { initialScope?: Score
   const ready = scope === 'person' || scope === 'org' || !!effectivePick;
   const targetId = effectivePick || undefined;
 
-  const range = windowFor(period, offset);
+  const range = pageWindow ?? windowFor(period, offset);
+  // With the page's window, the trend is cut to suit its length.
+  const trendPeriod: ScorePeriod = pageWindow ? periodForSpan(spanDays(pageWindow.from, pageWindow.to)) : period;
   const queryClient = useQueryClient();
   const query = useQuery<Scores>({
     ...scoreQuery(scope, targetId, range.from, range.to),
@@ -239,7 +259,9 @@ export const MyScoresCard = ({ initialScope = 'person' }: { initialScope?: Score
   const loading = ready && !data && query.isPending;
 
   // The window before this one, only fetched while Compare is on and the view can show a change.
-  const previousRange = windowFor(period, offset - 1);
+  const previousRange = pageWindow
+    ? { from: shiftDay(pageWindow.from, -spanDays(pageWindow.from, pageWindow.to)), to: shiftDay(pageWindow.from, -1) }
+    : windowFor(period, offset - 1);
   const previousQuery = useQuery<Scores>({
     ...scoreQuery(scope, targetId, previousRange.from, previousRange.to),
     enabled: ready && compare && (activeView === 'bars' || activeView === 'dials'),
@@ -334,13 +356,19 @@ export const MyScoresCard = ({ initialScope = 'person' }: { initialScope?: Score
               <h2 className="t-section font-display font-bold text-text tracking-tight line-clamp-2">{heading}</h2>
               <InfoHint label="What do these scores mean?">
                 <p><strong className="text-text">Completion</strong>: how much of the work that came due was done.</p>
-                <p className="mt-1.5"><strong className="text-text">Compliance</strong>: how much was done on time. For checklists, how well the checked answers were answered.</p>
+                <p className="mt-1.5"><strong className="text-text">Compliance</strong>: for checklists, how many checked answers were right. For tickets and delegations, how much was done on time.</p>
+                <p className="mt-1.5"><strong className="text-text">Overall score</strong>: completion and compliance counted equally.</p>
                 <p className="mt-1.5">Work that is not due yet is left out, so a running week or month does not look low. Good is 80% or more, Fair 50 to 79, Low under 50.</p>
               </InfoHint>
             </div>
-            <p className="mt-0.5 hidden t-meta font-medium text-text-muted sm:block">Work that fell due in the window, and how much was done on time</p>
+            <p className="mt-0.5 hidden t-meta font-medium text-text-muted sm:block">What came due, how much got done, and how much was done right or on time</p>
           </div>
           <div className="flex items-center justify-between gap-2 sm:justify-end sm:shrink-0">
+            {moreHref && (
+              <Link viewTransition to={moreHref} className="inline-flex min-h-9 pointer-coarse:min-h-11 items-center gap-0.5 rounded-lg px-2 text-sm font-display font-semibold text-primary-600 hover:underline dark:text-primary-400">
+                Full scorecard <ChevronRight className="size-4" aria-hidden="true" />
+              </Link>
+            )}
             <div role="group" aria-label="Show as" className="inline-flex items-center gap-1 rounded-lg border border-border bg-surface-hover/40 p-1">
               {views.map((option) => {
                 const Icon = VIEW_ICON[option];
@@ -387,17 +415,26 @@ export const MyScoresCard = ({ initialScope = 'person' }: { initialScope?: Score
 
       {/* Phone and tablet: steps, then the fold, then the chart, in one column. Wide screen: the chart and the steps on
           the left, the controls as a panel on the right. */}
-      <div className="flex flex-col gap-3 @4xl:grid @4xl:grid-cols-[minmax(0,1fr)_20rem] @4xl:grid-rows-[auto_1fr] @4xl:gap-x-5">
+      <div className="flex flex-col gap-3 @4xl:grid @4xl:grid-cols-[minmax(0,1fr)_20rem] @4xl:grid-rows-[auto_1fr_auto] @4xl:gap-x-5 @4xl:gap-y-3">
       {/* The date steps stay in view: the day or week is the thing people change most. */}
+      {pageWindow ? (
+        <div className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-border bg-surface-hover/30 px-3 py-2 @4xl:col-start-1 @4xl:row-start-1">
+          <span className="truncate text-sm font-display font-semibold text-text">{range.label}</span>
+          <span className="shrink-0 t-meta text-text-muted">from the period above</span>
+        </div>
+      ) : (
       <div className="flex w-full items-center gap-1 rounded-xl border border-border bg-surface-hover/30 p-1 @4xl:col-start-1 @4xl:row-start-1">
         <button type="button" onClick={() => setOffset((o) => o - 1)} aria-label={`Previous ${period}`} className="inline-flex size-9 pointer-coarse:size-11 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-surface hover:text-text outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40">
           <ChevronLeft className="size-4" aria-hidden="true" />
         </button>
-        <span className="min-w-0 flex-1 truncate text-center text-sm font-display font-semibold text-text">{range.label}</span>
+        <span className="min-w-0 flex-1 truncate text-center text-sm font-display font-semibold text-text">
+          {activeView === 'trend' && period === 'day' ? (offset === 0 ? 'Last 7 days' : `7 days to ${range.label}`) : range.label}
+        </span>
         <button type="button" onClick={() => setOffset((o) => Math.min(0, o + 1))} disabled={offset >= 0} aria-label={`Next ${period}`} className="inline-flex size-9 pointer-coarse:size-11 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-surface hover:text-text outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-40 disabled:hover:bg-transparent">
           <ChevronRight className="size-4" aria-hidden="true" />
         </button>
       </div>
+      )}
 
       {/* Everything that picks WHAT is shown (person, department or store, the day, week or month, the measure,
           and the list of everyone with its search) is folded under one row, so the card stays short and opens on
@@ -417,7 +454,7 @@ export const MyScoresCard = ({ initialScope = 'person' }: { initialScope?: Score
             </span>
             <span className="min-w-0">
               <span className="block t-meta font-display font-semibold text-text">{canExportReport ? 'Period, measure and people' : 'Period and measure'}</span>
-              <span className="mt-1 flex flex-wrap items-center gap-1">
+              <span className="mt-1 flex flex-wrap items-center gap-1 @4xl:hidden">
                 {[range.label, METRIC_LABEL[metric], scope === 'person' && !targetId ? 'Me' : data?.name ?? SCOPE_LABEL[scope]].map((chip) => (
                   <span key={chip} className="max-w-full truncate rounded-full bg-primary-500/10 px-2 py-0.5 t-meta font-display font-semibold text-primary-700 dark:text-primary-300">{chip}</span>
                 ))}
@@ -458,9 +495,11 @@ export const MyScoresCard = ({ initialScope = 'person' }: { initialScope?: Score
                   </PanelRow>
                 )}
 
-                <PanelRow label="Period">
-                  <PeriodTabControl value={period} options={PERIODS} labels={PERIOD_LABEL} onChange={(next) => { setPeriod(next); setOffset(0); }} columns />
-                </PanelRow>
+                {!pageWindow && (
+                  <PanelRow label="Period">
+                    <PeriodTabControl value={period} options={PERIODS} labels={PERIOD_LABEL} onChange={(next) => { setPeriod(next); setOffset(0); }} columns />
+                  </PanelRow>
+                )}
 
                 <PanelRow label="Measure">
                   <PeriodTabControl value={metric} options={METRIC_OPTIONS} labels={METRIC_LABEL} onChange={setMetric} columns />
@@ -477,8 +516,8 @@ export const MyScoresCard = ({ initialScope = 'person' }: { initialScope?: Score
                 )}
 
 
-                {canExportReport && (
-                  <ScoreRanking compact={isWide} metric={metric} scope={scope} from={range.from} to={range.to} onOpen={(id) => { if (scope === 'org') setScope('department'); setPicked(id); setMoreOpen(false); }} />
+                {canExportReport && !isWide && (
+                  <ScoreRanking metric={metric} scope={scope} from={range.from} to={range.to} onOpen={openRanked} />
                 )}
               </div>
             )}
@@ -492,7 +531,7 @@ export const MyScoresCard = ({ initialScope = 'person' }: { initialScope?: Score
           Pick a {SCOPE_LABEL[scope].toLowerCase()} above to see its scores.
         </div>
       ) : activeView === 'trend' ? (
-        <ScoreTrend metric={metric} scope={scope} id={targetId} period={period} from={range.from} to={range.to} />
+        <ScoreTrend metric={metric} scope={scope} id={targetId} period={trendPeriod} from={range.from} to={range.to} />
       ) : query.isError && !data ? (
         <div className="rounded-lg border border-border px-4 py-6 text-center text-sm font-medium text-text-muted">
           Could not load the scores.{' '}
@@ -524,9 +563,8 @@ export const MyScoresCard = ({ initialScope = 'person' }: { initialScope?: Score
             const score = pick(now, headline(data));
             const priorScore = pick(before, headline(previous));
             const note = now === null ? '' : metric === 'completion' ? now.completionNote : metric === 'compliance' ? now.complianceNote : metric === 'ontime' ? now.ontimeNote : '';
-            const overviewDetail = !data ? '' : key === 'checklist'
-              ? `${data.checklist.completed} of ${data.checklist.due} done${data.checklist.submitted ? `, ${data.checklist.approved} of ${data.checklist.submitted} approved` : ''}`
-              : key === 'ticket' ? `${data.ticket.onTime} of ${data.ticket.due} on time` : `${data.delegation.done} of ${data.delegation.due} done`;
+            // The overall score is the average of these two, so the dial says them.
+            const overviewDetail = !now ? '' : `Completion ${now.completion ?? '-'}%, compliance ${now.compliance ?? '-'}%`.replace(/-%/g, '-');
             return (
               <ScoreTile
                 key={key}
@@ -535,7 +573,7 @@ export const MyScoresCard = ({ initialScope = 'person' }: { initialScope?: Score
                 score={score}
                 onOpen={() => openDrill(key)}
                 change={score !== null && priorScore !== null ? score - priorScore : null}
-                detail={metric === 'overview' ? (overviewDetail ? `Overall score. ${overviewDetail}` : 'Overall score') : note}
+                detail={metric === 'overview' ? overviewDetail : note}
               />
             );
           })}
@@ -544,6 +582,13 @@ export const MyScoresCard = ({ initialScope = 'person' }: { initialScope?: Score
         </div>
       )}
       </div>
+
+      {canExportReport && isWide && (
+        <section aria-label="Ranking" className="flex flex-col gap-2 border-t border-border/60 pt-4 @4xl:col-span-2 @4xl:row-start-3">
+          <h3 className="t-card font-display font-bold text-text">Ranking</h3>
+          <ScoreRanking metric={metric} scope={scope} from={range.from} to={range.to} onOpen={openRanked} />
+        </section>
+      )}
       </div>
       {drillState && data && (
         <ScoreDrillPopup

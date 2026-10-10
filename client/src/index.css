@@ -35,6 +35,8 @@
      colour key), so Delegation, Ticket, Checklist and To-Do can be told apart at a glance. */
   --color-activity-delegation: #4c2f9e;
   --color-activity-ticket: #0d9488;
+  /* Score charts: compliance is teal so it never reads as a second shade of completion's blue. */
+  --color-series-compliance: #0f9f8f;
   --color-activity-todo: #475569;
 
   /* --- Violet accent (kept small: highlights, decorative blobs, the sidebar's active mark). The token keeps its old "coral" name; it was champagne gold and is now violet so nothing reads yellow. --- */
@@ -276,6 +278,7 @@ body {
   --color-activity-checklist: var(--color-primary-400);
   --color-activity-delegation: #a48bf0;
   --color-activity-ticket: #3cc0b2;
+  --color-series-compliance: #3cc0b2;
   --color-activity-todo: #9aa7bd;
   color-scheme: dark;
 }
