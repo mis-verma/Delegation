@@ -8,6 +8,8 @@ import type { Ticket, UpdateTicketPayload } from '../../../api/ticket';
 interface TicketEditFormProps {
   ticket: Ticket;
   isSaving: boolean;
+  /** Managers and above, before the work is handed in. The people working it can't move their own deadline. */
+  canChangeDue: boolean;
   onSave: (payload: UpdateTicketPayload) => void;
   onCancel: () => void;
 }
@@ -21,7 +23,7 @@ const validate = (title: string, description: string) => ({
 const LABEL = 'text-xs sm:text-sm font-medium text-text-muted sm:text-text-secondary';
 
 /** Edits the ticket's title, description, priority and due date in place of the read-only description. */
-export const TicketEditForm = ({ ticket, isSaving, onSave, onCancel }: TicketEditFormProps) => {
+export const TicketEditForm = ({ ticket, isSaving, canChangeDue, onSave, onCancel }: TicketEditFormProps) => {
   const [title, setTitle] = useState(ticket.title);
   const [description, setDescription] = useState(ticket.description ?? '');
   const [priority, setPriority] = useState<TicketPriority>(ticket.priority);
@@ -36,7 +38,7 @@ export const TicketEditForm = ({ ticket, isSaving, onSave, onCancel }: TicketEdi
   const descriptionChanged = description.trim() !== (ticket.description ?? '').trim();
   const priorityChanged = priority !== ticket.priority;
   // Clearing the picker is not a change: the server has no way to remove a deadline once it is set.
-  const dueChanged = !!due && due.getTime() !== (initialDue?.getTime() ?? null);
+  const dueChanged = canChangeDue && !!due && due.getTime() !== (initialDue?.getTime() ?? null);
   // Decided when Save is pressed, not on every render: "still ahead" depends on the clock.
   const [dueError, setDueError] = useState<string | undefined>(undefined);
   const unchanged = !titleChanged && !descriptionChanged && !priorityChanged && !dueChanged;
@@ -87,6 +89,7 @@ export const TicketEditForm = ({ ticket, isSaving, onSave, onCancel }: TicketEdi
         <PrioritySegmented value={priority} onChange={setPriority} />
       </div>
 
+      {canChangeDue && (
       <div className="flex flex-col gap-1.5">
         <span className={LABEL}>Due</span>
         <DatePicker
@@ -108,6 +111,7 @@ export const TicketEditForm = ({ ticket, isSaving, onSave, onCancel }: TicketEdi
           </p>
         )}
       </div>
+      )}
 
       <div className="flex items-center justify-end gap-2">
         <Button type="button" variant="outline" size="sm" onClick={onCancel} disabled={isSaving} className="font-display max-sm:h-11">

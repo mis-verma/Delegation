@@ -37,6 +37,7 @@ import type { Role } from '../../api/auth';
 import { AssigneeField } from '../assignees/AssigneeField';
 import { DETAIL_HEADING_CLASS } from '../tasks/taskFormFieldStyles';
 import { RESTRICTED_STATUSES, type Ticket, type TicketStatus, type RestrictedStatus, type CaptureMethod } from '../../api/ticket';
+import { canApproveWork } from '../../lib/canApproveWork';
 
 interface TicketDetailProps {
   ticket: Ticket;
@@ -144,7 +145,12 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
     STATUS_OPTIONS.find(s => s.value === ticket.status)?.label ?? ticket.status,
   );
   const assigneeName = ticket.assignee?.firstName ?? null;
-  const showVerify = isVerifier && ticket.status === 'PENDING_APPROVAL';
+  // Admin/PC, the department's Manager or a named reviewer; never the person it is assigned to (lib/canApproveWork).
+  const showVerify = ticket.status === 'PENDING_APPROVAL' && canApproveWork(currentUser, {
+    departmentId: ticket.departmentId,
+    assigneeIds: ticket.assignee ? [ticket.assignee.id] : [],
+    reviewers: ticket.reviewers,
+  });
   const showFooter = showVerify || statusOptions.length > 0;
   const hasHistory = (ticket.statusUpdates?.length ?? 0) > 0;
   // With no status history there is nothing to switch between, so Activity is the only view.
@@ -324,6 +330,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                 <TicketEditForm
                   ticket={ticket}
                   isSaving={updateMut.isPending}
+                  canChangeDue={currentUser?.role !== 'USER' && currentUser?.role !== 'AGENT' && ticket.status !== 'PENDING_APPROVAL'}
                   onSave={(payload) => updateMut.mutate({ id: ticket.id, payload }, { onSuccess: () => setEditing(false) })}
                   onCancel={() => setEditing(false)}
                 />

@@ -5,7 +5,9 @@ import { objectId } from "../../utils/index.js"
 export const createTaskSchema = z.object({
     title : z.string().min(1),
     description : z.string().optional(),
-    status : z.enum(TASK_STATUSES).optional(),
+    // A new delegation starts as a draft or as To do. Anything later (done, waiting for approval) has to be
+    // reached by working it and having it approved, so a create can't skip straight there.
+    status : z.enum(["draft", "todo"]).optional(),
     priority : z.enum(TASK_PRIORITIES).optional(),
     startDate : z.string().datetime().optional(),
     dueDate : z.string().datetime().optional(),
@@ -101,6 +103,8 @@ export const taskOwnerStatsQuerySchema = z.object({
 })
 
 export const updateTaskSchema = createTaskSchema.partial().extend({
+    // Every status on update; the service decides which moves are allowed.
+    status : z.enum(TASK_STATUSES).optional(),
     assigneeId : objectId.nullable().optional(),
     departmentId : objectId.nullable().optional(),
     reminderMinutesBefore : z.number().int().positive().nullable().optional(),

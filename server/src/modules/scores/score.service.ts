@@ -88,7 +88,7 @@ const foldChecklist = (rows: readonly (ReportMetrics & { answersChecked: number 
 }
 
 type TaskLike = { status: string; dueDate: Date | null; finishedAt: Date | null }
-type TicketLike = { status: string; tatDueAt: Date | null; closedAt: Date | null }
+type TicketLike = { status: string; tatDueAt: Date | null; closedAt: Date | null; submittedAt: Date | null }
 
 // Delegations: only what has come due (or is already done). Drafts are private and never count.
 const foldTasks = (rows: readonly TaskLike[], now: Date): DelegationScore => {
@@ -113,7 +113,12 @@ const foldTasks = (rows: readonly TaskLike[], now: Date): DelegationScore => {
 const foldTickets = (rows: readonly TicketLike[], now: Date): TicketScore => {
     const due = rows.filter((t) => t.status === "CLOSED" || (t.tatDueAt !== null && t.tatDueAt < now))
     const closed = due.filter((t) => t.status === "CLOSED")
-    const onTime = closed.filter((t) => t.closedAt && t.tatDueAt && t.closedAt <= t.tatDueAt).length
+    // Judged from when the work was handed in, so a slow approval doesn't make the worker late. Tickets
+    // closed before the hand-in time was recorded fall back to their closing time.
+    const onTime = closed.filter((t) => {
+        const finished = t.submittedAt ?? t.closedAt
+        return finished && t.tatDueAt && finished <= t.tatDueAt
+    }).length
     return { score: pct(onTime, due.length), completionPct: pct(closed.length, due.length), compliancePct: pct(onTime, due.length), onTimePct: pct(onTime, closed.length), due: due.length, closed: closed.length, onTime, late: due.length - onTime }
 }
 
@@ -246,7 +251,7 @@ export const scoreService = {
                 .from(tasks)
                 .where(and(isNull(tasks.deletedAt), gte(tasks.dueDate, start), lt(tasks.dueDate, end), target.taskWhere)),
             db
-                .select({ status: tickets.status, tatDueAt: tickets.tatDueAt, closedAt: tickets.closedAt })
+                .select({ status: tickets.status, tatDueAt: tickets.tatDueAt, closedAt: tickets.closedAt, submittedAt: tickets.submittedAt })
                 .from(tickets)
                 .where(and(isNull(tickets.deletedAt), gte(tickets.tatDueAt, start), lt(tickets.tatDueAt, end), target.ticketWhere)),
         ])
@@ -300,7 +305,7 @@ export const scoreService = {
                 .from(tasks)
                 .where(and(isNull(tasks.deletedAt), gte(tasks.dueDate, start), lt(tasks.dueDate, end), isNotNull(tasks.assigneeId), onlyDepartment ? eq(tasks.departmentId, onlyDepartment) : undefined)),
             db
-                .select({ status: tickets.status, tatDueAt: tickets.tatDueAt, closedAt: tickets.closedAt, assigneeId: tickets.assigneeId, departmentId: tickets.departmentId })
+                .select({ status: tickets.status, tatDueAt: tickets.tatDueAt, closedAt: tickets.closedAt, submittedAt: tickets.submittedAt, assigneeId: tickets.assigneeId, departmentId: tickets.departmentId })
                 .from(tickets)
                 .where(and(isNull(tickets.deletedAt), gte(tickets.tatDueAt, start), lt(tickets.tatDueAt, end), isNotNull(tickets.assigneeId), onlyDepartment ? eq(tickets.departmentId, onlyDepartment) : undefined)),
         ])

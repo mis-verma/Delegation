@@ -55,7 +55,7 @@ export const paginatioinSchema = z.object({
     // card's percentage and its drilldown's row set now describe the exact same population.
     dateField : z.enum(["createdAt", "closedAt"]).optional().default("createdAt"),
     // Drill-down for the SLA tiles, using the same definitions as the reports: overdue_open =
-    // overdue right now and not closed; closed_late / closed_on_time = closedAt vs tatDueAt among
+    // overdue right now and not closed; closed_late / closed_on_time = hand-in time (submittedAt, else closedAt) vs tatDueAt among
     // closed tickets that have a TAT.
     sla : z.enum(["overdue_open", "closed_late", "closed_on_time"]).optional(),
 })

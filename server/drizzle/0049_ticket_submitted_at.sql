@@ -1,0 +1,1 @@
+ALTER TABLE `Ticket` ADD `submittedAt` datetime;

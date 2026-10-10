@@ -366,7 +366,7 @@ export const TicketForm = ({ onClose, defaultDueDate }: TicketFormProps) => {
                   required={!ownScopeOnly}
                   optional={ownScopeOnly}
                   hint={ownScopeOnly
-                    ? 'Leave empty and the department picks it up.'
+                    ? 'Leave empty and the department head is told to pick someone.'
                     : departmentId || selectedCategory ? 'Who will work on it.' : 'Choose a department first.'}
                   error={errors.assigneeId?.message}
                 >

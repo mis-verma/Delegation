@@ -328,7 +328,11 @@ const CAN_VERIFY_BY_ROLE: Partial<Record<AccessTokenPayload["role"], (ticket: { 
 // CAN_VERIFY_BY_ROLE already grants — additive, never a replacement. This is also why
 // PATCH /tickets/:id/verify no longer role-gates at the router: a reviewer can be any role at
 // all, so the check has to happen here, against this specific ticket.
-const assertCanVerify = async (ticket: { id: string; departmentId: string | null }, user: AccessTokenPayload) => {
+const assertCanVerify = async (ticket: { id: string; departmentId: string | null; assigneeId: string | null }, user: AccessTokenPayload) => {
+  // Nobody but an Admin approves a ticket assigned to themselves.
+  if (user.role !== "ADMIN" && ticket.assigneeId === user.sub) {
+    throw AppError.forbidden("You can't approve a ticket assigned to you. Someone else has to review it.")
+  }
   if (CAN_VERIFY_BY_ROLE[user.role]?.(ticket, user)) return
   const [reviewer] = await db.select({ id: ticketReviewers.id })
     .from(ticketReviewers)
@@ -364,6 +368,16 @@ export const assertCanMutate = (user: AccessTokenPayload, ticket: Pick<TicketRow
   throw AppError.forbidden()
 };
 
+const isVerifierRole = (user: AccessTokenPayload) => user.role === "ADMIN" || user.role === "PC"
+
+// Named reviewers can approve, so only ADMIN/PC may name them; anyone else could add themselves and
+// approve their own ticket.
+const assertCanSetReviewers = (reviewerIds: string[] | undefined, user: AccessTokenPayload) => {
+  if (reviewerIds !== undefined && !isVerifierRole(user)) {
+    throw AppError.forbidden("Only an admin or PC can choose who reviews a ticket.")
+  }
+}
+
 // Shim passed to notificationService (still Mongoose-backed, migrated in a later pass) — its
 // param types are `any`-typed fields, so a plain object using our string cuids works fine.
 const notificationTarget = (ticket: Pick<TicketRow, "id" | "title" | "departmentId" | "storeId" | "userId" | "assigneeId">) => ({
@@ -386,7 +400,7 @@ const roomTarget = (ticket: Pick<TicketRow, "userId" | "assigneeId" | "departmen
 // closed; overdueCount = of those, overdue right now and still open). The closed* fields and
 // avgTatHours describe the tickets CLOSED in the window, the same cohort the bucketed report uses:
 // closedOnTime/closedLate only count closed tickets that have a TAT (closedWithTat is their
-// denominator), on time meaning closedAt <= tatDueAt.
+// denominator), on time meaning handed in (submittedAt, else closedAt) by tatDueAt.
 export type OwnerStatsRow = {
   ownerId: string | null
   total: number
@@ -471,8 +485,8 @@ const ownerStatsByColumn = async (
       COALESCE(SUM(${createdIn} AND tickets.isOverdue = 1 AND tickets.status <> 'CLOSED'), 0) AS overdueCount,
       COALESCE(SUM(${closedIn}), 0) AS closedInPeriod,
       COALESCE(SUM(${closedIn} AND tickets.tatDueAt IS NOT NULL), 0) AS closedWithTat,
-      COALESCE(SUM(${closedIn} AND tickets.tatDueAt IS NOT NULL AND tickets.closedAt <= tickets.tatDueAt), 0) AS closedOnTime,
-      COALESCE(SUM(${closedIn} AND tickets.tatDueAt IS NOT NULL AND tickets.closedAt > tickets.tatDueAt), 0) AS closedLate,
+      COALESCE(SUM(${closedIn} AND tickets.tatDueAt IS NOT NULL AND COALESCE(tickets.submittedAt, tickets.closedAt) <= tickets.tatDueAt), 0) AS closedOnTime,
+      COALESCE(SUM(${closedIn} AND tickets.tatDueAt IS NOT NULL AND COALESCE(tickets.submittedAt, tickets.closedAt) > tickets.tatDueAt), 0) AS closedLate,
       AVG(CASE WHEN ${closedIn} THEN TIMESTAMPDIFF(SECOND, tickets.createdAt, tickets.closedAt) / 3600 END) AS avgTatHours
     FROM Ticket tickets
     ${where}
@@ -509,7 +523,7 @@ export const ticketService = {
     if (from) conditions.push(gte(dateColumn, new Date(from)))
     if (to) conditions.push(lte(dateColumn, new Date(to)))
     // Same definitions the reports use, so a tile's drill-down lists exactly the tickets it counted:
-    // overdue = flagged overdue and still open; closed on time/late = closedAt vs tatDueAt among
+    // overdue = flagged overdue and still open; closed on time/late = hand-in time (submittedAt, else closedAt) vs tatDueAt among
     // closed tickets that have a TAT.
     // The reports narrow by resolveReportScope (MANAGER: own department, SENIOR: own store), so the
     // drill-down applies the same scope or a manager's list total would not match the tile.
@@ -519,8 +533,8 @@ export const ticketService = {
       if (scope.storeId) conditions.push(eq(tickets.storeId, scope.storeId))
     }
     if (sla === "overdue_open") conditions.push(eq(tickets.isOverdue, true), ne(tickets.status, "CLOSED"))
-    if (sla === "closed_late") conditions.push(isNotNull(tickets.closedAt), isNotNull(tickets.tatDueAt), sql`${tickets.closedAt} > ${tickets.tatDueAt}`)
-    if (sla === "closed_on_time") conditions.push(isNotNull(tickets.closedAt), isNotNull(tickets.tatDueAt), sql`${tickets.closedAt} <= ${tickets.tatDueAt}`)
+    if (sla === "closed_late") conditions.push(isNotNull(tickets.closedAt), isNotNull(tickets.tatDueAt), sql`COALESCE(${tickets.submittedAt}, ${tickets.closedAt}) > ${tickets.tatDueAt}`)
+    if (sla === "closed_on_time") conditions.push(isNotNull(tickets.closedAt), isNotNull(tickets.tatDueAt), sql`COALESCE(${tickets.submittedAt}, ${tickets.closedAt}) <= ${tickets.tatDueAt}`)
     const where = conditions.length ? and(...conditions) : undefined
 
     const [rows, totalRows] = await Promise.all([
@@ -551,6 +565,7 @@ export const ticketService = {
   },
 
   async create(input: CreateTicketInput, user: AccessTokenPayload) {
+    assertCanSetReviewers(input.reviewerIds, user)
     const tatHours = input.tatHours ?? settingsService.getCached().defaultTatHours
     const id = createId()
     const now = new Date()
@@ -589,6 +604,9 @@ export const ticketService = {
 
     if (afterRow!.assigneeId) {
       await notifySafely(() => notificationService.notifyTicketAssigned(notificationTarget(afterRow!)))
+    } else {
+      // Nobody to work it yet: the department's heads (or Admins/PCs) are told so it isn't left unseen.
+      await notifySafely(() => notificationService.notifyTicketUnassigned({ _id: id, title: afterRow!.title, departmentId: afterRow!.departmentId }, user.sub))
     }
 
     await dropTicketSummaries()
@@ -606,6 +624,27 @@ export const ticketService = {
     // on their own; only someone with actual authority over routing should.
     if ((input.assigneeId !== undefined || input.departmentId !== undefined) && (user.role === "AGENT" || user.role === "USER")) {
       throw AppError.forbidden("Only a manager or above can reassign a ticket's assignee or department.")
+    }
+    assertCanSetReviewers(input.reviewerIds, user)
+
+    // Status moves go through the status-update route (remark, history row, alerts) or through verify.
+    // The only move left here is a verifier putting a ticket back to Open; anything else on this route
+    // skipped those checks (On Hold with no remark, a closed ticket pushed back into review).
+    if (input.status !== undefined && input.status !== ticket.status) {
+      if (!isVerifierRole(user)) throw AppError.forbidden("Use the status buttons to move this ticket.")
+      if (input.status !== "OPEN") throw AppError.badRequest("Use the status buttons to move this ticket.")
+    }
+
+    // The due time decides Delayed and the on-time score, so the people working the ticket can't move it:
+    // changing it restarts the clock and clears the Delayed mark. Managers and above can, and nobody can
+    // once the work is handed in or closed.
+    if (input.tatHours !== undefined && input.tatHours !== ticket.tatHours) {
+      if (user.role === "USER" || user.role === "AGENT") {
+        throw AppError.forbidden("Only a manager or above can change a ticket's due time.")
+      }
+      if (ticket.status === "CLOSED" || ticket.status === "PENDING_APPROVAL") {
+        throw AppError.badRequest("The due time can't change once the ticket is handed in or closed.")
+      }
     }
 
     const before = ticket;
@@ -669,6 +708,7 @@ export const ticketService = {
     if (input.status === "PENDING_APPROVAL" && before.status !== "PENDING_APPROVAL") {
       const effectiveTatDueAt = patch.tatDueAt !== undefined ? patch.tatDueAt : before.tatDueAt
       patch.isOverdue = overdueAtHandOver(patch.isOverdue ?? before.isOverdue, effectiveTatDueAt, new Date())
+      patch.submittedAt = new Date()
     }
 
     await db.update(tickets).set(patch).where(eq(tickets.id, id))
@@ -701,7 +741,7 @@ export const ticketService = {
     }
 
     if (input.status === "PENDING_APPROVAL" && before.status !== "PENDING_APPROVAL") {
-      await notifySafely(() => notificationService.notifyPendingVerification(notificationTarget(afterRow!)));
+      await notifySafely(async () => notificationService.notifyPendingVerification({ ...notificationTarget(afterRow!), reviewerIds: await ticketReviewerIds(id) }));
     }
 
     await dropTicketSummaries()
@@ -720,6 +760,14 @@ export const ticketService = {
     if (input.status === before.status) {
       throw AppError.conflict("This ticket is already in that status.")
     }
+    // Closed is final for the people working it, and handed-in work waits for the reviewer: only a verifier
+    // can move a ticket out of either (the reviewer's Reject is the way back to work).
+    if (before.status === "CLOSED" && !isVerifierRole(user)) {
+      throw AppError.forbidden("Only a verifier can reopen a ticket that's already been closed.")
+    }
+    if (before.status === "PENDING_APPROVAL" && !isVerifierRole(user)) {
+      throw AppError.forbidden("This ticket is waiting for approval. The reviewer can send it back if it needs more work.")
+    }
 
     if (input.status === "PENDING_APPROVAL" && before.status !== "PENDING_APPROVAL") {
       const checklistsWithItems = await getTicketChecklistsWithItems(id)
@@ -729,11 +777,17 @@ export const ticketService = {
     const patch: Partial<typeof tickets.$inferInsert> = { status: input.status, updatedAt: new Date() }
     if (before.status === "CLOSED") {
       patch.closedAt = null;
+      // The old approval no longer describes the ticket once it is reopened.
+      patch.verifiedBy = null;
+      patch.verifiedAt = null;
+      patch.verificationNote = null;
     }
     // Same hand-over stamp as update() — decided now, in the same UPDATE, because the SLA sweep
     // never looks at a PENDING_APPROVAL ticket.
     if (input.status === "PENDING_APPROVAL" && before.status !== "PENDING_APPROVAL") {
       patch.isOverdue = overdueAtHandOver(before.isOverdue, before.tatDueAt, new Date())
+      // On time is judged from this hand-in moment (see the reports), not from when it is approved.
+      patch.submittedAt = new Date()
     }
 
     const statusUpdateId = createId()
@@ -782,7 +836,7 @@ export const ticketService = {
     emitTicketEvent("ticket:updated", target, populated);
 
     if (input.status === "PENDING_APPROVAL" && before.status !== "PENDING_APPROVAL") {
-      await notifySafely(() => notificationService.notifyPendingVerification(notificationTarget(afterRow!)));
+      await notifySafely(async () => notificationService.notifyPendingVerification({ ...notificationTarget(afterRow!), reviewerIds: await ticketReviewerIds(id) }));
     }
 
     if (input.status === "ON_HOLD" && before.status !== "ON_HOLD") {
@@ -875,7 +929,7 @@ export const ticketService = {
   // Bucketed ticket report. Two cohorts, deliberately separate:
   //  - CLOSED in the bucket (by closedAt): closedCount, avgTatHours ("avg time to close", elapsed
   //    createdAt -> closedAt), and the on-time split. A closed ticket is on time when
-  //    closedAt <= tatDueAt, late when closedAt > tatDueAt; tickets without a TAT are in neither
+  //    handed in (submittedAt, else closedAt) by tatDueAt, late after it; tickets without a TAT are in neither
   //    (closedWithTatCount is the on-time denominator).
   //  - CREATED in the bucket (by createdAt): createdCount and overdueCount, which is tickets that
   //    are overdue RIGHT NOW and still open (a closed ticket is never "overdue").
@@ -910,8 +964,8 @@ export const ticketService = {
         COUNT(*) AS closedCount,
         AVG(TIMESTAMPDIFF(SECOND, tickets.createdAt, tickets.closedAt) / 3600) AS avgTatHours,
         COALESCE(SUM(tickets.tatDueAt IS NOT NULL), 0) AS closedWithTatCount,
-        COALESCE(SUM(tickets.tatDueAt IS NOT NULL AND tickets.closedAt <= tickets.tatDueAt), 0) AS closedOnTimeCount,
-        COALESCE(SUM(tickets.tatDueAt IS NOT NULL AND tickets.closedAt > tickets.tatDueAt), 0) AS closedLateCount
+        COALESCE(SUM(tickets.tatDueAt IS NOT NULL AND COALESCE(tickets.submittedAt, tickets.closedAt) <= tickets.tatDueAt), 0) AS closedOnTimeCount,
+        COALESCE(SUM(tickets.tatDueAt IS NOT NULL AND COALESCE(tickets.submittedAt, tickets.closedAt) > tickets.tatDueAt), 0) AS closedLateCount
       FROM Ticket tickets
       ${closedWhere}
       GROUP BY bucket
@@ -974,7 +1028,7 @@ export const ticketService = {
    * leaderboard and the org-wide on-time/overdue stat cards on OrgOverview: real GROUP BY
    * aggregates (see ownerStatsByColumn for the exact cohorts), so they are right at any ticket
    * count and use the same definitions as tatReport above (overdue = overdue now and still open;
-   * closed on time = closedAt <= tatDueAt among closed tickets with a TAT; avg time to close =
+   * closed on time = handed in (submittedAt, else closedAt) by tatDueAt among closed tickets with a TAT; avg time to close =
    * tickets closed in the period).
    *
    * scope 'user' credits the ASSIGNEE only (one grouped query, not the old assignee + raiser +

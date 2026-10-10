@@ -58,7 +58,13 @@ type VerifiableEntity = {
   userId?: any;
   assigneeId?: any;
   additionalAssigneeIds?: any[];
+  /** People named as reviewers on this item; they can approve it, so they hear it is waiting. */
+  reviewerIds?: string[];
 };
+
+// Active Admins and PCs: the people who can approve anything, used when nobody closer is found.
+const activeVerifierIds = async () =>
+  (await db.select({ id: users.id }).from(users).where(and(inArray(users.role, ['ADMIN', 'PC']), eq(users.isActive, true)))).map((u) => u.id);
 
 // Sends a notification to one specific user over their personal Socket.IO "room" (user:<id>),
 // so if they have the app open, the notification appears instantly without needing to refresh.
@@ -120,7 +126,7 @@ export const notificationService = {
       const heads = await db
         .select({ id: users.id })
         .from(users)
-        .where(and(eq(users.role, 'MANAGER'), eq(users.departmentId, ticket.departmentId.toString())));
+        .where(and(eq(users.role, 'MANAGER'), eq(users.departmentId, ticket.departmentId.toString()), eq(users.isActive, true)));
       recipientIds.push(...heads.map((h) => h.id));
     }
 
@@ -129,6 +135,29 @@ export const notificationService = {
       type: 'TICKET_ASSIGNED',
       title: 'Ticket assigned',
       message: `Ticket "${ticket.title}" has been assigned.`,
+      ticketId: ticket._id.toString(),
+    });
+  },
+
+  // A ticket raised with nobody to work it (sent to a department, or a category with no owner). Without
+  // this nobody heard about it: the department's heads (Manager/Senior) are told so they can pick someone,
+  // and when the department has none, or there is no department, the Admins and PCs are.
+  async notifyTicketUnassigned(ticket: { _id: any; title: string; departmentId?: any }, actorId: string) {
+    let recipientIds: string[] = [];
+    if (ticket.departmentId) {
+      const heads = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(inArray(users.role, ['MANAGER', 'SENIOR']), eq(users.departmentId, ticket.departmentId.toString()), eq(users.isActive, true)));
+      recipientIds = heads.map((h) => h.id);
+    }
+    if (!recipientIds.length) recipientIds = await activeVerifierIds();
+    recipientIds = recipientIds.filter((id) => id !== actorId);
+
+    return notificationService.notifyMany(recipientIds, {
+      type: 'TICKET_ASSIGNED',
+      title: 'New ticket needs a person',
+      message: `"${ticket.title}" was raised and nobody is working it yet. Pick someone for it.`,
       ticketId: ticket._id.toString(),
     });
   },
@@ -162,20 +191,35 @@ export const notificationService = {
     });
   },
 
-  // Called when a ticket/task is handed off for PC verification (ticket -> PENDING_APPROVAL, task
-  // -> pending_approval) - notifies every PC scoped to that department/store that something's
-  // waiting on them. Mirrors notifyTicketAssigned's "look up the right people, notifyMany" shape.
+  // Called when a ticket/task is handed in for approval (ticket -> PENDING_APPROVAL, task ->
+  // pending_approval). Tells everyone who can approve it: the PCs of its department or store, the
+  // department's Manager (who may approve their own department's work) and any named reviewers. When
+  // nobody like that exists (no department, no PC there), every active Admin and PC is told instead, so
+  // nothing waits for approval with no one aware of it. The people who did the work are never told.
   async notifyPendingVerification(entity: VerifiableEntity, kind: 'TICKET' | 'TASK' = 'TICKET') {
     const scopeConditions = [];
     if (entity.departmentId) scopeConditions.push(eq(users.departmentId, entity.departmentId.toString()));
     if (entity.storeId) scopeConditions.push(eq(users.storeId, entity.storeId.toString()));
-    if (!scopeConditions.length) return []; // nothing to scope PCs by - no one to notify
 
-    const pcs = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(and(eq(users.role, 'PC'), or(...scopeConditions)));
-    const recipientIds = pcs.map((p) => p.id);
+    let recipientIds: string[] = [...(entity.reviewerIds ?? [])];
+    if (scopeConditions.length) {
+      const pcs = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(eq(users.role, 'PC'), eq(users.isActive, true), or(...scopeConditions)));
+      recipientIds.push(...pcs.map((p) => p.id));
+    }
+    if (entity.departmentId) {
+      const heads = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(and(eq(users.role, 'MANAGER'), eq(users.departmentId, entity.departmentId.toString()), eq(users.isActive, true)));
+      recipientIds.push(...heads.map((h) => h.id));
+    }
+    if (!recipientIds.length) recipientIds = await activeVerifierIds();
+
+    const workers = new Set([entity.assigneeId, ...(entity.additionalAssigneeIds ?? [])].filter(Boolean).map((id) => id.toString()));
+    recipientIds = recipientIds.filter((id) => !workers.has(id));
     if (!recipientIds.length) return [];
 
     const idField = kind === 'TICKET' ? { ticketId: entity._id.toString() } : { taskId: entity._id.toString() };

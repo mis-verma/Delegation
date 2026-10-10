@@ -23,6 +23,7 @@ import { DetailLabelsField } from '../tags/DetailLabelsField';
 import { taskAssigneeIds } from './cardFields';
 import { useAuth } from '../../context/AuthContext';
 import type { Task, UpdateTaskPayload } from '../../api/task';
+import { canApproveWork } from '../../lib/canApproveWork';
 
 
 const TitleEditor = ({ value, disabled, onSave, isViewMode }: { value: string, disabled: boolean, onSave: (val: string) => void, isViewMode: boolean }) => {
@@ -103,7 +104,8 @@ const PlainDescriptionEditor = ({ value, disabled, onSave, toolbar, children }: 
 interface TaskFooterProps {
   task: Task;
   isPC: boolean;
-  isVerifier: boolean;
+  /** May approve or send back this delegation (see lib/canApproveWork). */
+  canApprove: boolean;
   nextStatus: Task['status'] | null;
   onAdvance: () => void;
   onBack: (() => void) | null;
@@ -112,8 +114,8 @@ interface TaskFooterProps {
   onClose: () => void;
 }
 
-const TaskFooter = ({ task, isPC, isVerifier, nextStatus, onAdvance, onBack, onHold, isAdvancing, onClose }: TaskFooterProps) => {
-  const needsDecision = isVerifier && task.status === 'pending_approval';
+const TaskFooter = ({ task, isPC, canApprove, nextStatus, onAdvance, onBack, onHold, isAdvancing, onClose }: TaskFooterProps) => {
+  const needsDecision = canApprove && task.status === 'pending_approval';
   return (
     <div className="flex flex-col w-full">
 
@@ -539,9 +541,14 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
   const [advanceTo, setAdvanceTo] = useState<Task['status'] | null>(null);
 
   const isPC = user?.role === 'PC';
-  const isRestrictedUser = user?.role === 'USER';
-  
-  const isViewOnly = isPC || isRestrictedUser || user?.role === 'APPROVAL_MANAGER';
+  // Front-line staff (User, Agent) move the status of work given to them but can't change its details,
+  // same rule as the server. They edit only what they raised for someone else, or their own draft.
+  const isFrontLine = user?.role === 'USER' || user?.role === 'AGENT';
+  const isCreator = !!user && task.userId === user.id;
+  const isAssignee = !!user && taskAssigneeIds(task).includes(user.id);
+  const frontLineCanEdit = isCreator && (task.status === 'draft' || !isAssignee);
+
+  const isViewOnly = isPC || user?.role === 'APPROVAL_MANAGER' || (isFrontLine && !frontLineCanEdit);
   const isVerifier = isPC || user?.role === 'ADMIN';
   const canReassign = user?.role !== 'AGENT' && user?.role !== 'USER';
   const canEditText = !isViewOnly && task.status !== 'done';
@@ -590,7 +597,7 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
         <TaskFooter
           task={task}
           isPC={isPC}
-          isVerifier={isVerifier}
+          canApprove={canApproveWork(user, { departmentId: task.departmentId ?? null, assigneeIds: taskAssigneeIds(task), reviewers: task.reviewers })}
           nextStatus={nextStatus}
           onAdvance={() => nextStatus && setAdvanceTo(nextStatus)}
           onHold={CAN_HOLD.includes(task.status) ? () => setAdvanceTo('on_hold') : null}

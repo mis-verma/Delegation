@@ -49,6 +49,9 @@ export const tickets = mysqlTable(
     startDate: datetime('startDate', { mode: 'date' }),
     isOverdue: boolean('isOverdue').notNull().default(false),
     closedAt: datetime('closedAt', { mode: 'date' }),
+    // When the work was last handed in for approval (moved to PENDING_APPROVAL). On time is judged from
+    // this, not from closedAt, so a slow approval never makes the person who did the work late.
+    submittedAt: datetime('submittedAt', { mode: 'date' }),
     userId: varchar('userId', { length: 191 }).notNull().references(() => users.id),
     assigneeId: varchar('assigneeId', { length: 191 }).references(() => users.id),
     storeId: varchar('storeId', { length: 191 }).references(() => stores.id),

@@ -204,7 +204,16 @@ const CAN_VERIFY_BY_ROLE: Partial<Record<AccessTokenPayload["role"], (task: { de
 // CAN_VERIFY_BY_ROLE already grants — additive, never a replacement. This is also why
 // PATCH /tasks/:id/verify no longer role-gates at the router: a reviewer can be any role at all,
 // so the check has to happen here, against this specific task.
-const assertCanVerify = async (task: { id: string; departmentId: string | null }, user: AccessTokenPayload) => {
+const assertCanVerify = async (task: { id: string; departmentId: string | null; assigneeId: string | null }, user: AccessTokenPayload) => {
+    // Nobody but an Admin approves work assigned to themselves (primary or additional assignee).
+    if (user.role !== "ADMIN") {
+        const additional = (await db.select({ userId: taskAdditionalAssignees.userId })
+            .from(taskAdditionalAssignees)
+            .where(eq(taskAdditionalAssignees.taskId, task.id))).map((r) => r.userId);
+        if (task.assigneeId === user.sub || additional.includes(user.sub)) {
+            throw AppError.forbidden("You can't approve a delegation assigned to you. Someone else has to review it.");
+        }
+    }
     if (CAN_VERIFY_BY_ROLE[user.role]?.(task, user)) return;
     const [reviewer] = await db.select({ id: taskReviewers.id })
         .from(taskReviewers)
@@ -226,6 +235,38 @@ const buildMutationCondition = async (user: AccessTokenPayload) => {
     return additionalIds.length
         ? or(selfAndDepartmentCondition(user), inArray(tasks.id, additionalIds))
         : selfAndDepartmentCondition(user);
+};
+
+// Named reviewers can approve, so only ADMIN/PC may name them. Otherwise anyone could add themselves as
+// reviewer on their own delegation and approve their own work.
+const assertCanSetReviewers = (reviewerIds: string[] | undefined, user: AccessTokenPayload) => {
+    if (reviewerIds === undefined) return;
+    if (user.role !== "ADMIN" && user.role !== "PC") {
+        throw AppError.forbidden("Only an admin or PC can choose who reviews a delegation.");
+    }
+};
+
+// What a front-line person (USER/AGENT) may change on a delegation besides its status. They own
+// the content only of what they raised for someone else, or of their own draft. The person doing the work
+// can't retitle it, move its dates or change who else is on it, so they can't push their own due date
+// out to dodge "overdue".
+const FRONT_LINE_CONTENT_FIELDS = [
+    "title", "description", "priority", "startDate", "dueDate", "reminderMinutesBefore", "reminderChannel",
+    "projectId", "additionalAssigneeIds", "tagIds",
+] as const;
+const assertFrontLineCanEdit = (
+    existing: { userId: string; assigneeId: string | null; status: string },
+    isAdditionalAssignee: boolean,
+    input: UpdateTaskInput,
+    user: AccessTokenPayload,
+) => {
+    if (user.role !== "USER" && user.role !== "AGENT") return;
+    const touchesContent = FRONT_LINE_CONTENT_FIELDS.some((field) => input[field] !== undefined);
+    if (!touchesContent) return;
+    const isCreator = existing.userId === user.sub;
+    const isAssignee = existing.assigneeId === user.sub || isAdditionalAssignee;
+    if (isCreator && (existing.status === "draft" || !isAssignee)) return;
+    throw AppError.forbidden("You can update the status of this delegation, not its details. Ask the person who gave it to you.");
 };
 
 // Replaces the whole additionalAssigneeIds set for a task with `userIds` — same delete-all-and-
@@ -518,6 +559,16 @@ export const taskService = {
         await auditService.record({ entityType: "Task", entityId: task!.id, action: "CREATE", actorId: user.sub, after: task });
         await dropTaskSummaries();
 
+        // Smart Task (web) and WhatsApp delegations reach the assignee the same way a normal create does.
+        if (task!.assigneeId) {
+            await notifySafely(() => notificationService.notifyTaskAssigned({
+                _id: task!.id,
+                title: task!.title,
+                userId: task!.userId,
+                assigneeId: task!.assigneeId,
+            }));
+        }
+
         return task!;
     },
 
@@ -577,6 +628,7 @@ export const taskService = {
 
     async create(input: CreateTaskInput, user: AccessTokenPayload) {
         const { additionalAssigneeIds, tagIds, reviewerIds, startDate, dueDate, ...rest } = input;
+        assertCanSetReviewers(reviewerIds, user);
         const id = createId();
 
         // wrapped in a transaction (source had none)
@@ -604,7 +656,8 @@ export const taskService = {
             return created!;
         });
 
-        if (task.assigneeId) {
+        // A draft is private to its creator, so the people on it hear about it when it is published.
+        if (task.assigneeId && task.status !== "draft") {
             await notifySafely(() => notificationService.notifyTaskAssigned({
                 _id: task.id,
                 title: task.title,
@@ -639,8 +692,25 @@ export const taskService = {
         if ((input.assigneeId !== undefined || input.departmentId !== undefined) && (user.role === "AGENT" || user.role === "USER")) {
             throw AppError.forbidden("Only a manager or above can reassign a delegation's assignee or department.")
         }
+        assertCanSetReviewers(input.reviewerIds, user);
+        if (user.role === "USER" || user.role === "AGENT") {
+            const additionalIds = await additionalAssigneeTaskIds(user.sub);
+            assertFrontLineCanEdit(existing, additionalIds.includes(existing.id), input, user);
+        }
 
         const beforeStatus = existing.status;
+
+        // A delegation that went out can't be pulled back into a private draft, where only its creator
+        // would see it: that hid work from the assignee and the reviewers.
+        if (input.status === "draft" && beforeStatus !== "draft") {
+            throw AppError.badRequest("A delegation that has gone out can't be turned back into a draft.")
+        }
+        // Reopening a verified delegation is checked on its own, before the other moves: as part of the
+        // chain below it used to end the checks, so an admin could jump from done straight to review or
+        // on hold without the usual rules.
+        if (beforeStatus === "done" && input.status !== undefined && input.status !== "done" && user.role !== "ADMIN") {
+            throw AppError.forbidden("Only a verifier can reopen a delegation that's already been verified.")
+        }
 
         if (input.status === "done" && beforeStatus !== "done") {
             // Same call as Ticket's own CLOSED guard (ticket.service.ts's update()): this used to
@@ -651,14 +721,6 @@ export const taskService = {
             // /tasks/:id/verify, action=APPROVE) is the one place that does all of that atomically
             // under its own optimistic-concurrency guard, and is now the only way to reach "done".
             throw AppError.badRequest("A delegation can only be marked done by approving it — send it for review first, then approve it from there.")
-        } else if (beforeStatus === "done" && input.status !== undefined && input.status !== "done") {
-            // Symmetric with the guard above: only a verifier can move a task OUT of "done" too —
-            // otherwise the creator/assignee (who already has ordinary mutate rights) could reopen
-            // an already-verified task themselves, silently discarding PC's decision with no
-            // re-verification gate.
-            if (user.role !== "ADMIN") {
-                throw AppError.forbidden("Only a verifier can reopen a delegation that's already been verified.")
-            }
         } else if (input.status === "on_hold" && beforeStatus !== "on_hold") {
             // Only live work can be paused: not a draft, not something already waiting on review.
             if (beforeStatus !== "todo" && beforeStatus !== "in_progress") {
@@ -693,6 +755,10 @@ export const taskService = {
 
         const { additionalAssigneeIds, tagIds, reviewerIds, startDate, dueDate, statusRemark, ...rest } = input;
         const beforeTagIds = await taskTagIds(id);
+        // Who else was on it before this edit, so only people newly added get told (see the alerts below).
+        const beforeAdditionalIds = additionalAssigneeIds !== undefined
+            ? (await db.select({ userId: taskAdditionalAssignees.userId }).from(taskAdditionalAssignees).where(eq(taskAdditionalAssignees.taskId, id))).map((r) => r.userId)
+            : [];
 
         // Every status move must say why. Tickets have always worked this way; delegations moved
         // between columns with nothing recorded, so a board that changed under you gave no way to
@@ -721,6 +787,10 @@ export const taskService = {
         // verification fields stale/misleading — clear them so the record doesn't keep showing a
         // verifiedBy/verifiedAt/verificationNote for a decision that no longer describes the
         // task's current state.
+        // The hand-in moment: approval time and on-time scoring are measured from here, not from approval.
+        if (input.status === "pending_approval" && beforeStatus !== "pending_approval") {
+            update.submittedAt = new Date();
+        }
         if (beforeStatus === "done" && input.status !== undefined && input.status !== "done") {
             update.verifiedBy = null;
             update.verifiedAt = null;
@@ -773,12 +843,58 @@ export const taskService = {
             }, task);
         }
 
+        const currentAdditionalIds = (await db.select({ userId: taskAdditionalAssignees.userId })
+            .from(taskAdditionalAssignees)
+            .where(eq(taskAdditionalAssignees.taskId, id))).map((r) => r.userId);
+
         if (input.status === "pending_approval" && beforeStatus !== "pending_approval") {
+            const reviewerIds = ((await reviewersByTask([id])).get(id) ?? []).map((r) => r.id);
             await notifySafely(() => notificationService.notifyPendingVerification({
                 _id: task.id,
                 title: task.title,
                 departmentId: task.departmentId ?? undefined,
+                assigneeId: task.assigneeId ?? undefined,
+                additionalAssigneeIds: currentAdditionalIds,
+                reviewerIds,
             }, 'TASK'));
+        }
+
+        if (input.status === "on_hold" && beforeStatus !== "on_hold" && remark) {
+            await notifySafely(() => notificationService.notifyTicketOnHold({
+                _id: task.id,
+                title: task.title,
+                userId: task.userId,
+                assigneeId: task.assigneeId ?? undefined,
+            }, remark, user.sub, 'TASK'));
+        }
+
+        // Published from a draft: everyone on it hears about it now. Otherwise, only people newly put on it
+        // (a reassignment or an added helper) do, not the ones already there.
+        if (beforeStatus === "draft" && task.status !== "draft") {
+            if (task.assigneeId || currentAdditionalIds.length) {
+                await notifySafely(() => notificationService.notifyTaskAssigned({
+                    _id: task.id,
+                    title: task.title,
+                    userId: task.userId,
+                    assigneeId: task.assigneeId,
+                    additionalAssigneeIds: currentAdditionalIds,
+                }));
+            }
+        } else if (task.status !== "draft") {
+            const beforeAdditional = new Set(beforeAdditionalIds);
+            const newPrimary = task.assigneeId && task.assigneeId !== existing.assigneeId && !beforeAdditional.has(task.assigneeId) ? task.assigneeId : null;
+            const newAdditional = additionalAssigneeIds !== undefined
+                ? currentAdditionalIds.filter((uid) => !beforeAdditional.has(uid) && uid !== existing.assigneeId)
+                : [];
+            if (newPrimary || newAdditional.length) {
+                await notifySafely(() => notificationService.notifyTaskAssigned({
+                    _id: task.id,
+                    title: task.title,
+                    userId: task.userId,
+                    assigneeId: newPrimary,
+                    additionalAssigneeIds: newAdditional,
+                }));
+            }
         }
 
         const afterTagIds = tagIds !== undefined ? await taskTagIds(id) : beforeTagIds;
@@ -1128,8 +1244,8 @@ export const taskService = {
     // "Needs your approval" dashboard card (ADMIN/PC only — gated at the route; both roles
     // already resolve to org-wide in buildVisibilityCondition, and any ADMIN/PC can verify any
     // pending_approval task per CAN_VERIFY_BY_ROLE above, so no per-task assignment to filter by).
-    // Oldest-waiting-first — Task has no "entered pending_approval at" column (submittedAt exists
-    // on the schema but nothing ever writes it), so this over-fetches a small pool by createdAt,
+    // Oldest-waiting-first — submittedAt is only written from now on (older rows have none), so this
+    // over-fetches a small pool by createdAt,
     // looks up each row's real transition time from TaskStatusUpdate, and re-sorts by that. Same
     // batch-fetch-then-map shape ticket.service.ts#pendingApproval uses, not a derived-table join.
     //

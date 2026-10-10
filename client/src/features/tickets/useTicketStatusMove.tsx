@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { TicketStatusRemarkDialog } from './TicketStatusRemarkDialog';
 import { useTicketStatusMoveMutation } from './hook';
 import { RESTRICTED_STATUSES, type Ticket, type RestrictedStatus } from '../../api/ticket';
+import { useAuth } from '../../context/AuthContext';
 
 /**
  * The gate every board-initiated ticket status change goes through.
@@ -17,6 +18,8 @@ import { RESTRICTED_STATUSES, type Ticket, type RestrictedStatus } from '../../a
  */
 export const useTicketStatusMove = () => {
   const moveMutation = useTicketStatusMoveMutation();
+  const { user } = useAuth();
+  const isVerifier = user?.role === 'ADMIN' || user?.role === 'PC';
   const [pendingMove, setPendingMove] = useState<{ ticket: Ticket; toStatus: RestrictedStatus } | null>(null);
 
   /** True when this target can be reached by a remark-gated move. */
@@ -25,6 +28,16 @@ export const useTicketStatusMove = () => {
 
   const requestMove = (ticket: Ticket, toStatus: Ticket['status']) => {
     if (ticket.status === toStatus) return;
+
+    // Same rule as the server: closed is final, and handed-in work waits for the reviewer.
+    if (!isVerifier && (ticket.status === 'CLOSED' || ticket.status === 'PENDING_APPROVAL')) {
+      toast.error(ticket.status === 'CLOSED' ? 'This ticket is closed.' : 'This ticket is waiting for approval.', {
+        description: ticket.status === 'CLOSED'
+          ? 'Only a verifier can reopen it.'
+          : 'The reviewer can send it back if it needs more work.',
+      });
+      return;
+    }
 
     // `TicketStatusUpdate.toStatus` is a MySQL enum of exactly IN_PROGRESS/ON_HOLD/PENDING_APPROVAL,
     // so a move back to Open literally cannot be recorded. Rather than let it through unlogged —
