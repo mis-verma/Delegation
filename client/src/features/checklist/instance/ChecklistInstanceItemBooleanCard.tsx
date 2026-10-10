@@ -1,6 +1,5 @@
 import { memo, useId, useState } from 'react';
-import { toast } from 'sonner';
-import { Camera, ImageUp, Zap, AlertTriangle, Check, X } from 'lucide-react';
+import { Camera, ImageUp, Zap, AlertTriangle } from 'lucide-react';
 import {
   useSetChecklistInstanceItemDoneMutation,
   useUploadChecklistInstanceImagesMutation,
@@ -68,29 +67,13 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
   const [reasonDraft, setReasonDraft] = useState(item.conditionalReasonValue ?? '');
   const images = item.images ?? [];
 
-  // After an answer is saved: a short message with Undo, so a mistaken tap can be taken back without an
-  // admin. The server allows that only for the person who answered and only for a few seconds.
-  const confirmSaved = (value: 'YES' | 'NO') => {
-    toast.success(`Answered ${value === 'YES' ? labels.yes : labels.no}`, {
-      description: item.label,
-      duration: 8000,
-      action: {
-        label: 'Undo',
-        onClick: () => setItemDone.mutate(
-          { itemId: item.id, isDone: false, booleanAnswer: value },
-          { onError: () => toast.error('Too late to undo. Ask an admin to reopen it.') },
-        ),
-      },
-    });
-  };
-
   const pickAnswer = (value: 'YES' | 'NO') => {
     if (!interactive || setItemDone.isPending) return;
     if (isTriggering(value)) {
       setPendingAnswer(value);
       return;
     }
-    setItemDone.mutate({ itemId: item.id, isDone: true, booleanAnswer: value }, { onSuccess: () => confirmSaved(value) });
+    setItemDone.mutate({ itemId: item.id, isDone: true, booleanAnswer: value });
   };
 
   const canConfirm =
@@ -106,7 +89,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
         booleanAnswer: pendingAnswer,
         conditionalReasonValue: requiresReason ? reasonDraft.trim() : undefined,
       },
-      { onSuccess: () => { confirmSaved(pendingAnswer); setPendingAnswer(null); } },
+      { onSuccess: () => setPendingAnswer(null) },
     );
   };
 
@@ -166,12 +149,11 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
             ANSWER_BASE,
             shownAnswer === 'YES'
               ? item.isDone ? 'border-success-strong bg-success-strong text-white' : 'border-success bg-success/10 text-success'
-              : 'border-border text-text hover:border-success/60 hover:bg-success/5 [&>svg]:text-success',
+              : 'border-border text-text hover:border-success/60 hover:bg-success/5',
             // Once answered, the chosen one stays clear and only the other one fades.
             answerLocked ? cn('cursor-not-allowed', shownAnswer !== 'YES' && 'opacity-50') : 'cursor-pointer',
           )}
         >
-          <Check className="size-[1.15em] shrink-0" strokeWidth={shownAnswer === 'YES' ? 3 : 2.5} aria-hidden />
           {labels.yes}
         </button>
         <button
@@ -183,11 +165,10 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
             ANSWER_BASE,
             shownAnswer === 'NO'
               ? item.isDone ? 'border-danger bg-danger text-white' : 'border-danger bg-danger/10 text-danger'
-              : 'border-border text-text hover:border-danger/60 hover:bg-danger/5 [&>svg]:text-danger',
+              : 'border-border text-text hover:border-danger/60 hover:bg-danger/5',
             answerLocked ? cn('cursor-not-allowed', shownAnswer !== 'NO' && 'opacity-50') : 'cursor-pointer',
           )}
         >
-          <X className="size-[1.15em] shrink-0" strokeWidth={shownAnswer === 'NO' ? 3 : 2.5} aria-hidden />
           {labels.no}
         </button>
       </div>
