@@ -11,6 +11,7 @@ import { useQuery } from '@tanstack/react-query';
 import { scoreApi, type Scores } from '../../api/scores';
 import { windowFor } from './scorePeriods';
 import { useNow } from '../../lib/useNow';
+import { useOrgToday } from '../checklist/useOrgToday';
 import { isInstanceOverdue } from '../checklist/checklistDisplay';
 import { isTaskOverdue, isTicketLate, taskDrilldownRow } from './dashboardDisplay';
 import { createdRangeHref } from '../../lib/createdRange';
@@ -271,7 +272,8 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
 
   // This month's scores for the signed-in person, for the ring on each card. Same query key as the Scores
   // card's month view, so the two share one fetch.
-  const month = windowFor('month', 0);
+  const orgToday = useOrgToday();
+  const month = windowFor('month', 0, orgToday);
   const monthScores = useQuery({
     queryKey: ['scores', 'person', 'me', month.from, month.to],
     queryFn: () => scoreApi.get({ scope: 'person', from: month.from, to: month.to }),

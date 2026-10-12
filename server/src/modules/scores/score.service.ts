@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, isNotNull, isNull, lt, or, type SQL } from "drizzle-orm"
+import { and, eq, gte, inArray, isNotNull, isNull, lt, or, sql, type SQL } from "drizzle-orm"
 import { db } from "../../config/db.js"
 import { env } from "../../config/env.js"
 import { departments, stores, users } from "../../db/schema/core.js"
@@ -55,7 +55,12 @@ export type TrendPeriod = "day" | "week" | "month" | "quarter" | "year"
 export type TrendBucket = { label: string; from: string; to: string; checklist: ChecklistScore; ticket: TicketScore; delegation: DelegationScore }
 export type ScoreTrend = { scope: ScoreScope; id: string; name: string; period: TrendPeriod; buckets: TrendBucket[] }
 
-export type ScoreReportRow = { id: string; name: string; department: string; role?: string; checklist: ChecklistScore; ticket: TicketScore; delegation: DelegationScore }
+/** `left`: a person who has since left (deactivated); their name already carries the "(left)" tag. */
+export type ScoreReportRow = { id: string; name: string; department: string; role?: string; left?: boolean; checklist: ChecklistScore; ticket: TicketScore; delegation: DelegationScore }
+
+/** Ids of the two catch-all rows: work with no department (Departments) and with no assignee (People). */
+export const NO_DEPARTMENT_ROW_ID = "no-department"
+export const UNASSIGNED_ROW_ID = "unassigned"
 export type ScoreReport = { from: string; to: string; generatedAt: string; departments: ScoreReportRow[]; people: ScoreReportRow[]; stores: ScoreReportRow[]; notes: string[] }
 
 export const SCORE_REPORT_NOTES = [
@@ -65,6 +70,8 @@ export const SCORE_REPORT_NOTES = [
     "On time: of the items that were finished (runs, tickets, delegations), the share finished before their deadline. Compliance counts unfinished late items as misses too, so it can be lower.",
     "A person is scored on what is assigned to them, as the main or an additional assignee. A department is scored on what belongs to the department, so its figures can differ from the sum of its people.",
     "Overall score: completion and compliance of every module with something due, counted equally.",
+    "Nothing is dropped: tickets and delegations with no department sit on the No department row, work with no assignee sits on the Unassigned row of People, and people who have left keep their own row (marked left) for the period. A checklist shared by people of two departments counts once in each.",
+    "A store is scored on its own records: checklist runs of that store, tickets of that store, and delegations of the departments that belong to that store (the same store the delegation list filters on).",
 ]
 
 const pct = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 100) : null)
@@ -218,7 +225,43 @@ type Target = { name: string; taskWhere: SQL | undefined; ticketWhere: SQL | und
 const peopleOf = (viewer: AccessTokenPayload, from: string, to: string, filters: { departmentId?: string; storeId?: string }, onlyUserId?: string) =>
     checklistReportService.build(viewer, { from, to, groupBy: "person", ...filters }, onlyUserId).then((r) => r.people)
 
+export type OrgCounts = {
+    stores: { active: number; inactive: number }
+    departments: { active: number; inactive: number }
+    employees: { active: number; joinedLast30Days: number }
+    /** Active departments with at least one active Manager or Senior (a department head). */
+    departmentsWithLead: number
+}
+
 export const scoreService = {
+    /**
+     * The four counts behind the Overview's "Your organisation" tiles, in four small aggregate queries, so the
+     * page no longer downloads the whole roster just to count it. ADMIN and PC only, like the roster itself.
+     */
+    async orgCounts(viewer: AccessTokenPayload): Promise<OrgCounts> {
+        if (viewer.role !== "ADMIN" && viewer.role !== "PC") throw AppError.forbidden()
+        const joinedSince = new Date(Date.now() - 30 * DAY_MS)
+        const [[storeRow], [deptRow], [userRow], [leadRow]] = await Promise.all([
+            db.select({ total: sql<number>`COUNT(*)`, active: sql<number>`COALESCE(SUM(${stores.isActive}), 0)` }).from(stores),
+            db.select({ total: sql<number>`COUNT(*)`, active: sql<number>`COALESCE(SUM(${departments.isActive}), 0)` }).from(departments),
+            db
+                .select({ active: sql<number>`COALESCE(SUM(${users.isActive}), 0)`, joined: sql<number>`COALESCE(SUM(CASE WHEN ${users.isActive} = 1 AND ${users.createdAt} >= ${joinedSince} THEN 1 ELSE 0 END), 0)` })
+                .from(users),
+            db
+                .select({ total: sql<number>`COUNT(*)` })
+                .from(departments)
+                .where(and(eq(departments.isActive, true), sql`EXISTS (SELECT 1 FROM ${users} hd WHERE hd.departmentId = ${departments.id} AND hd.isActive = 1 AND hd.role IN ('MANAGER', 'SENIOR'))`)),
+        ])
+        const storesActive = Number(storeRow?.active ?? 0)
+        const departmentsActive = Number(deptRow?.active ?? 0)
+        return {
+            stores: { active: storesActive, inactive: Number(storeRow?.total ?? 0) - storesActive },
+            departments: { active: departmentsActive, inactive: Number(deptRow?.total ?? 0) - departmentsActive },
+            employees: { active: Number(userRow?.active ?? 0), joinedLast30Days: Number(userRow?.joined ?? 0) },
+            departmentsWithLead: Number(leadRow?.total ?? 0),
+        }
+    },
+
     /**
      * Who may open what. A person: yourself, anyone for ADMIN/PC, your own department for MANAGER/SENIOR.
      * A department: ADMIN/PC any, MANAGER/SENIOR only their own. A store: ADMIN/PC only. Fails closed.
@@ -272,8 +315,9 @@ export const scoreService = {
         if (!store) throw AppError.notFound("Store not found")
         return {
             name: store.name,
-            // Delegations have no store of their own, so they follow the store of whoever they are assigned to.
-            taskWhere: inArray(tasks.assigneeId, db.select({ id: users.id }).from(users).where(eq(users.storeId, id))),
+            // Delegations have no store of their own, so they follow the store of their department (the same
+            // rule as the delegation list's store filter, so the drill link opens exactly these).
+            taskWhere: inArray(tasks.departmentId, db.select({ id: departments.id }).from(departments).where(eq(departments.storeId, id))),
             ticketWhere: eq(tickets.storeId, id),
             checklistFor: (v, from, to) => peopleOf(v, from, to, { storeId: id }),
         }
@@ -381,6 +425,7 @@ export const scoreService = {
         const deptName = new Map(deptRows.map((d) => [d.id, d.name]))
         const nameOfDept = (id: string | null) => (id ? deptName.get(id) ?? "Unknown" : "No department")
         const checklistByPerson = new Map((checklist?.people ?? []).map((p) => [p.userId, p]))
+        // Keyed by department id; the checklist report's "No department" group has a null id.
         const checklistByDept = new Map((checklist?.departments ?? []).map((d) => [d.departmentId, d]))
 
         const reportTasks = taskRows.map((t) => ({ ...t, finishedAt: finishedAt(t) }))
@@ -398,28 +443,56 @@ export const scoreService = {
         const tasksByDept = groupRows(reportTasks, (t) => t.departmentId)
         const ticketsByDept = groupRows(ticketRows, (t) => t.departmentId)
 
-        const people = peopleRows
-            .map((p) => {
-                const c = checklistByPerson.get(p.id)
-                return rowFor(now, p.id, `${p.firstName} ${p.lastName ?? ""}`.trim(), nameOfDept(p.departmentId), p.role, foldChecklist(c ? [c] : []), ticketsByPerson.get(p.id) ?? [], tasksByPerson.get(p.id) ?? [])
-            })
-            .filter(hasData)
-            .sort((a, b) => a.department.localeCompare(b.department) || a.name.localeCompare(b.name))
+        // People who have left but still have work in the window: their runs are inside the department
+        // totals, so they get a row of their own (marked left) instead of vanishing from the list.
+        const workIds = new Set<string>()
+        for (const p of checklist?.people ?? []) workIds.add(p.userId)
+        for (const [id] of tasksByPerson) workIds.add(id)
+        for (const [id] of ticketsByPerson) workIds.add(id)
+        const known = new Set(peopleRows.map((p) => p.id))
+        const missingIds = [...workIds].filter((id) => !known.has(id))
+        const formerRows = missingIds.length
+            ? await db
+                .select({ id: users.id, firstName: users.firstName, lastName: users.lastName, role: users.role, departmentId: users.departmentId })
+                .from(users)
+                .where(and(inArray(users.id, missingIds), eq(users.isActive, false), onlyDepartment ? eq(users.departmentId, onlyDepartment) : undefined))
+            : []
 
-        const depts = deptRows
-            .map((d) => {
-                const c = checklistByDept.get(d.id)
-                return rowFor(now, d.id, d.name, d.name, undefined, foldChecklist(c ? [c] : []), ticketsByDept.get(d.id) ?? [], tasksByDept.get(d.id) ?? [])
-            })
-            .filter(hasData)
-            .sort((a, b) => a.name.localeCompare(b.name))
+        const fullName = (p: { firstName: string; lastName: string | null }) => `${p.firstName} ${p.lastName ?? ""}`.trim()
+        const personRow = (p: (typeof peopleRows)[number], left: boolean): ScoreReportRow => {
+            const c = checklistByPerson.get(p.id)
+            const row = rowFor(now, p.id, left ? `${fullName(p)} (left)` : fullName(p), nameOfDept(p.departmentId), p.role, foldChecklist(c ? [c] : []), ticketsByPerson.get(p.id) ?? [], tasksByPerson.get(p.id) ?? [])
+            return left ? { ...row, left: true } : row
+        }
 
-        return { departments: depts, people }
+        // Work nobody is assigned to: no main assignee and no additional one. It belongs to a department
+        // (or to none), so the department rows already count it; this row makes People add up too.
+        const extraIds = new Set(extraAssigneeRows.map((e) => e.taskId))
+        const unassignedTasks = reportTasks.filter((t) => !t.assigneeId && !extraIds.has(t.id))
+        const unassignedTickets = ticketRows.filter((t) => !t.assigneeId)
+        const unassigned = rowFor(now, UNASSIGNED_ROW_ID, "Unassigned", "", undefined, foldChecklist([]), unassignedTickets, unassignedTasks)
+
+        const people = [...peopleRows.map((p) => personRow(p, false)), ...formerRows.map((p) => personRow(p, true)), unassigned]
+            .filter(hasData)
+            .sort((a, b) => (a.id === UNASSIGNED_ROW_ID ? 1 : 0) - (b.id === UNASSIGNED_ROW_ID ? 1 : 0) || a.department.localeCompare(b.department) || a.name.localeCompare(b.name))
+
+        const depts = deptRows.map((d) => {
+            const c = checklistByDept.get(d.id)
+            return rowFor(now, d.id, d.name, d.name, undefined, foldChecklist(c ? [c] : []), ticketsByDept.get(d.id) ?? [], tasksByDept.get(d.id) ?? [])
+        })
+        // Work with no department (and the checklist runs of people with none) sits on one more row, so the
+        // departments add up to the organisation. A head only sees their own department, so no such row.
+        if (!onlyDepartment) {
+            const c = checklistByDept.get(null)
+            depts.push(rowFor(now, NO_DEPARTMENT_ROW_ID, "No department", "No department", undefined, foldChecklist(c ? [c] : []), ticketRows.filter((t) => !t.departmentId), reportTasks.filter((t) => !t.departmentId)))
+        }
+
+        return { departments: depts.filter(hasData).sort((a, b) => (a.id === NO_DEPARTMENT_ROW_ID ? 1 : 0) - (b.id === NO_DEPARTMENT_ROW_ID ? 1 : 0) || a.name.localeCompare(b.name)), people }
     },
 
     /**
      * Every active store, scored with the store card's rules (checklist runs of the store, tickets of the
-     * store, delegations following the store of their main assignee), in one grouped pass: one checklist
+     * store, delegations following the store of their department), in one grouped pass: one checklist
      * build split by store, one ticket and one delegation query, grouped in memory. Used to be the whole
      * forScope query set once per store.
      */
@@ -433,10 +506,10 @@ export const scoreService = {
                 return null
             }),
             db
-                .select({ ...taskCols, storeId: users.storeId })
+                .select({ ...taskCols, storeId: departments.storeId })
                 .from(tasks)
-                .innerJoin(users, eq(users.id, tasks.assigneeId))
-                .where(and(DELEGATION_ONLY, gte(tasks.dueDate, start), lt(tasks.dueDate, end), isNotNull(users.storeId))),
+                .innerJoin(departments, eq(departments.id, tasks.departmentId))
+                .where(and(DELEGATION_ONLY, gte(tasks.dueDate, start), lt(tasks.dueDate, end), isNotNull(departments.storeId))),
             db
                 .select({ ...ticketCols, storeId: tickets.storeId })
                 .from(tickets)

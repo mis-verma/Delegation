@@ -57,7 +57,7 @@ export const ScoreDrillPopup = ({ open, onOpenChange, title, windowLabel, subjec
         <X size={18} strokeWidth={2.5} aria-hidden="true" />
       </DialogClose>
       <div className="flex flex-col gap-0.5 pr-12">
-        <DialogTitle className="text-lg font-display font-bold text-text">{title}</DialogTitle>
+        <DialogTitle className="t-section font-display font-bold text-text">{title}</DialogTitle>
         <DialogDescription className="t-meta text-text-muted">{subject ? `${subject}, ${windowLabel}` : windowLabel}</DialogDescription>
       </div>
 
@@ -68,7 +68,7 @@ export const ScoreDrillPopup = ({ open, onOpenChange, title, windowLabel, subjec
               <span className="block text-sm font-display font-semibold text-text">{SERIES_LABEL[f.key]}</span>
               <span className="block t-meta text-text-muted">{f.note}</span>
             </span>
-            <span className={cn('text-lg font-display font-bold tabular-nums', f.value === null ? 'text-text-light' : rateToneClass(f.value))}>
+            <span className={cn('t-figure font-display font-bold tabular-nums', f.value === null ? 'text-text-light' : rateToneClass(f.value))}>
               {f.value === null ? '-' : `${f.value}%`}
             </span>
           </li>

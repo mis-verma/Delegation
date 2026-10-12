@@ -85,18 +85,17 @@ const NAV: AdminNavItem[] = [
   { to: '/admin/settings', icon: Settings, label: 'Settings', end: false },
 ];
 
-// Light, token-based "chrome" (bg-surface + border), matching the header — not the navy gradient
-// this used to be. A soft tinted pill marks the current page instead of a solid white-on-navy one,
-// which reads calmer/more professional than a loud fill against a light rail.
+// Light, token-based "chrome" (bg-surface + border), matching the header. The current page is a neutral
+// surface with bold text and a small pip on the left edge: no blue tint behind it.
 const NAV_LINK_BASE =
   "group relative flex flex-1 min-w-0 items-center gap-3 px-3 py-2.5 min-h-11 lg:min-h-0 rounded-xl text-sm font-medium transition-all duration-300 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 active:scale-[0.98]";
-const NAV_LINK_ACTIVE = "bg-primary-50 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300 font-semibold";
+const NAV_LINK_ACTIVE = "bg-surface-hover text-text font-bold";
 const NAV_LINK_INACTIVE = "text-text-secondary hover:bg-surface-hover hover:text-text";
-const NAV_ICON_ACTIVE = "text-primary-600 dark:text-primary-300";
+const NAV_ICON_ACTIVE = "text-text";
 const NAV_ICON_INACTIVE = "text-text-light group-hover:text-text-muted";
 const CHILD_LINK_BASE =
   "relative flex items-center min-w-0 min-h-11 lg:min-h-0 rounded-lg px-3 py-2 text-xs font-medium transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500";
-const CHILD_LINK_ACTIVE = "bg-primary-50 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300 font-semibold";
+const CHILD_LINK_ACTIVE = "bg-surface-hover text-text font-bold";
 const CHILD_LINK_INACTIVE = "text-text-muted hover:bg-surface-hover hover:text-text";
 
 // "PC" and "Approval manager", not "Pc" and "Approval_manager".
@@ -308,9 +307,9 @@ export const AdminLayout = () => {
           {label}
         </span>
 
-        {/* Active Indicator Pip (desktop rail, collapsed only) */}
-        {collapsedRail && isActiveOrChild && (
-          <span className="absolute left-1 w-1 h-1/2 bg-primary-600 dark:bg-primary-400 rounded-full" />
+        {/* Active indicator pip on the left edge, open or collapsed rail */}
+        {isActiveOrChild && (
+          <span aria-hidden="true" className="absolute left-0 w-1 h-1/2 bg-primary-600 dark:bg-primary-400 rounded-full" />
         )}
       </NavLink>
     );
@@ -430,6 +429,7 @@ export const AdminLayout = () => {
                         isChildActive ? "bg-surface-hover text-text" : "text-text-secondary hover:bg-surface-hover hover:text-text"
                       )}
                     >
+                      {isChildActive && <span aria-hidden="true" className="absolute left-0 top-1/2 h-1/2 w-1 -translate-y-1/2 rounded-full bg-primary-600 dark:bg-primary-400" />}
                       <span className="truncate">{child.label}</span>
                     </NavLink>
                   );

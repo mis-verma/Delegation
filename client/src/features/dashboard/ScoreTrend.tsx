@@ -5,6 +5,7 @@ import { Bar, BarChart, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } 
 import { PeriodTabControl } from './PeriodTabControl';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { scoreApi, type ScoreScope, type ScoreTrend as ScoreTrendData, type TrendBucket, type TrendPeriod } from '../../api/scores';
+import { SCORE_QUERY_OPTIONS } from './scoreQueries';
 import { Skeleton } from '../../components/skeleton';
 import { InlineError } from '../../components/inlineError';
 import { SERIES_COLOR, SERIES_LABEL, seriesFor, type ModuleKey, type ScoreMetric, type SeriesKey } from './scoreMetrics';
@@ -75,7 +76,7 @@ export const ScoreTrend = ({ metric = 'overview', scope, id, period, from, to }:
   const { data, isPending, isError, refetch } = useQuery<ScoreTrendData>({
     queryKey: ['scores', 'trend', scope, id ?? 'me', period, from, to],
     queryFn: () => scoreApi.trend({ scope, id, period, from, to }),
-    staleTime: 60_000,
+    ...SCORE_QUERY_OPTIONS,
   });
   const points = useMemo(() => data?.buckets.map((b) => pointOf(b, module)) ?? [], [data, module]);
   // A slice with nothing due is given a full-height value so its soft "Nothing due" column fills the lane; its number is not printed.

@@ -39,8 +39,8 @@ export const delegationDrillHref = (subject: DrillSubject, from: string, to: str
   const params = new URLSearchParams();
   if (subject.kind === 'person' && subject.id) params.set('assigneeIds', subject.id);
   if (subject.kind === 'department' && subject.id) params.set('departmentId', subject.id);
-  // The list's store filter follows the delegation's department. (The store score follows the main
-  // assignee's store, so on rare cross-store work the two can differ by a row.)
+  // The list's store filter follows the delegation's department, and so does the store score
+  // (departments of that store), so this link opens exactly the delegations the figure counted.
   if (subject.kind === 'store' && subject.id) params.set('storeId', subject.id);
   params.set('category', 'delegation');
   withDue(params, from, to);
@@ -69,6 +69,9 @@ export const checklistDrillHref = (orgWide: boolean, subject: DrillSubject, from
   params.set('status', kind === 'late' ? 'COMPLETED' : 'OVERDUE');
   return `/checklists/history?${params.toString()}`;
 };
+
+/** Delegations past their due date and not done, right now (the live "behind" count), for the people the viewer can see. */
+export const overdueDelegationsHref = () => '/tasks?category=delegation&quickFilter=delayed';
 
 /** The Scorecard opened on one row, for the same window. */
 export const scorecardRowHref = (view: 'person' | 'department' | 'store', id: string, from: string, to: string) =>

@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import type { DateRangeValue } from '../../../components';
 import type { GroupBy } from './GroupByControl';
 import { defaultWindow, parseDateParam, toDateParam } from './analyticsDisplay';
 import { endOfDay } from '../../../lib/dateRange';
+import { useOrgToday } from '../../checklist/useOrgToday';
 
 // Week, because the page opens on this month (below): a month cut by month would be a single bar.
 export const DEFAULT_GROUP_BY: GroupBy = 'week';
@@ -31,24 +32,6 @@ export const useSearchPatch = () => {
   );
 };
 
-// Today's date as a string that changes at local midnight (and when a sleeping tab wakes up), so
-// anything keyed on it recomputes once the day rolls over.
-const useToday = () => {
-  const [today, setToday] = useState(() => toDateParam(new Date()));
-  useEffect(() => {
-    const refresh = () => setToday(toDateParam(new Date()));
-    const now = new Date();
-    const untilMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime() - now.getTime();
-    const timer = window.setTimeout(refresh, untilMidnight + 1000);
-    document.addEventListener('visibilitychange', refresh);
-    return () => {
-      window.clearTimeout(timer);
-      document.removeEventListener('visibilitychange', refresh);
-    };
-  }, [today]);
-  return today;
-};
-
 /**
  * The time window an analytics page shows, kept in the address (?by=week&from=2026-10-01&to=...), so
  * the Overview and the full Rankings page read, change and share exactly the same one.
@@ -61,8 +44,9 @@ export const useAnalyticsWindow = () => {
   const fromParam = params.get('from');
   const toParam = params.get('to');
 
-  // `today` moves at midnight, so a tab left open overnight does not keep showing yesterday's window.
-  const today = useToday();
+  // The org's own calendar day (not the device clock), moving at the org's midnight, so a tab left open
+  // overnight, or a phone in another time zone, does not name a different month than the server does.
+  const today = useOrgToday();
   // ?range=all is "no range picked": the last twelve buckets of the grouping. Without it and without a
   // picked from/to, the page opens on this month, so its winners and totals are about now, not the year.
   const showAll = params.get('range') === 'all';

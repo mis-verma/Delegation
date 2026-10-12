@@ -1,7 +1,8 @@
+import { useMemo } from 'react';
 import { TicketCheck, Timer, AlertTriangle, Clock } from 'lucide-react';
 import { KpiSectionShell } from './KpiSectionShell';
 import { useTicketTatReportQuery } from './useAnalyticsQueries';
-import { bucketRange, latestWithTrend, formatPercent, formatDuration, withoutEmptyTail } from './analyticsDisplay';
+import { bucketRange, latestWithTrend, formatPercent, formatDuration, slaMetRate, slaMetWithTrend, withoutEmptyTail } from './analyticsDisplay';
 import type { GroupBy } from './GroupByControl';
 
 interface TicketKpiSectionProps {
@@ -25,7 +26,10 @@ export const TicketKpiSection = ({ groupBy, from, to, isOrgWideRole }: TicketKpi
   const isPending = cardQuery.isPending || chartQuery.isPending;
   const isError = cardQuery.isError || chartQuery.isError;
   const refetch = () => Promise.all([cardQuery.refetch(), chartQuery.refetch()]);
-  const closeRate = latestWithTrend(rows, 'completionRate', 'rate');
+  // Of the tickets closed in the period that had a due time, the share closed by it. Never above 100%, unlike
+  // closed against raised, which passes 100% whenever older tickets get closed.
+  const onTime = slaMetWithTrend(rows);
+  const chartData = useMemo(() => (chartQuery.data ?? []).map((r) => ({ ...r, onTimeRate: slaMetRate(r) })), [chartQuery.data]);
   const avgTime = latestWithTrend(rows, 'avgTatHours', 'count');
   const overdue = latestWithTrend(rows, 'overdueCount', 'count');
   const closedLate = latestWithTrend(rows, 'closedLateCount', 'count');
@@ -54,7 +58,7 @@ export const TicketKpiSection = ({ groupBy, from, to, isOrgWideRole }: TicketKpi
     <KpiSectionShell
       icon={TicketCheck}
       title="Tickets"
-      description="Tickets closed compared with tickets raised in each period. The ratio can pass 100% when older tickets get closed."
+      description="How many tickets were closed by their due time, how long they take to close, and what is overdue."
       isPending={isPending}
       isError={isError}
       errorMessage="Could not load the ticket figures."
@@ -67,13 +71,14 @@ export const TicketKpiSection = ({ groupBy, from, to, isOrgWideRole }: TicketKpi
         {
           icon: TicketCheck,
           iconTint: 'text-primary-600 dark:text-primary-400',
-          label: 'Closed vs raised',
-          value: formatPercent(closeRate.value),
-          raw: closeRate.value,
+          label: 'Closed on time',
+          value: formatPercent(onTime.value),
+          raw: onTime.value,
           unit: '%',
-          hasData: closeRate.value != null,
-          noDataText: NOTHING_COUNTED,
-          trend: closeRate.trend,
+          hasData: onTime.value != null,
+          noDataText: 'No closed tickets with a due time',
+          trend: onTime.trend,
+          caption: 'Of tickets closed, closed by the due time',
           href: `${base}?quickFilter=completed`,
         },
         {
@@ -119,13 +124,11 @@ export const TicketKpiSection = ({ groupBy, from, to, isOrgWideRole }: TicketKpi
         },
       ]}
       chart={{
-        data: chartQuery.data ?? [],
+        data: chartData,
         groupBy,
-        series: [{ key: 'completionRate', label: 'Closed vs raised', color: 'var(--color-primary-500)' }],
+        series: [{ key: 'onTimeRate', label: 'Closed on time', color: 'var(--color-primary-500)' }],
         valueSuffix: '%',
-        // A ratio of closed to raised can pass 100, so the top of the axis follows the data, but
-        // never past 200% (a gap where nothing was raised comes back as no value, not 0%).
-        yDomain: [0, (max: number) => Math.min(Math.max(Math.ceil(max / 10) * 10, 100), 200)],
+        yDomain: [0, 100],
       }}
     />
   );

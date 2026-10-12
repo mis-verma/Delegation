@@ -9,5 +9,7 @@ scoreRouter.use(authenticate)
 scoreRouter.get("/", scoreController.scores)
 // The table behind the export: every department and person the viewer may see. The service gates the role.
 scoreRouter.get("/report", scoreController.report)
+// Store, department and employee counts for the Overview's organisation tiles (Admin and PC; the service gates the role).
+scoreRouter.get("/org-counts", scoreController.orgCounts)
 // The same scores over time (a few buckets), for the Trend view. Same access rules as the card.
 scoreRouter.get("/trend", scoreController.trend)

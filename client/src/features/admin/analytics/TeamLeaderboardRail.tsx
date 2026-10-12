@@ -4,6 +4,7 @@ import { Trophy } from 'lucide-react';
 import { PersonRow, EntityIconTile, EmptyState, ExportMenu, InlineError, PANEL_CLASS, Skeleton } from '../../../components';
 import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable';
 import { toDayParam } from '../../../api/checklistInstances';
+import { UNASSIGNED_ROW_ID } from '../../../api/scores';
 import { moduleOverall, overallOf, totalDue } from '../../dashboard/scoreMetrics';
 import { useScoreReport } from '../../dashboard/scoreQueries';
 import { scorecardRowHref } from '../../dashboard/scoreDrill';
@@ -55,6 +56,8 @@ export const TeamLeaderboardRail = ({ from, to }: TeamLeaderboardRailProps) => {
   const leaderboard: LeaderRow[] = useMemo(() => {
     const rows: LeaderRow[] = [];
     for (const p of query.data?.people ?? []) {
+      // Only current people are ranked: not someone who has left, and not the Unassigned row.
+      if (p.left || p.id === UNASSIGNED_ROW_ID) continue;
       const due = totalDue(p);
       const score = overallOf(p);
       if (due < MIN_RANK_VOLUME || score === null) continue;

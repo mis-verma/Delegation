@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { toDayParam } from '../../../api/checklistInstances';
-import type { ScoreReportRow } from '../../../api/scores';
+import { NO_DEPARTMENT_ROW_ID, type ScoreReportRow } from '../../../api/scores';
 import { overallOf, totalDue } from '../../dashboard/scoreMetrics';
 import { useScoreReport, useStoreScoreReport } from '../../dashboard/scoreQueries';
 import { useTicketOwnerStatsQuery } from './useAnalyticsQueries';
@@ -92,7 +92,8 @@ export const useOwnerRankings = (from?: string, to?: string) => {
   const storeTat = useMemo(() => new Map((storeTatQuery.data ?? []).map((r) => [r.ownerId, r.avgTatHours])), [storeTatQuery.data]);
 
   const departmentRows: RankedRow[] = useMemo(
-    () => (reportQuery.data?.departments ?? []).map((r) => toRankedRow(r, 'delegation', deptTat.get(r.id) ?? null)),
+    // The "No department" row is not a team, so it is never named Top or Needs attention (it stays on the Scorecard).
+    () => (reportQuery.data?.departments ?? []).filter((r) => r.id !== NO_DEPARTMENT_ROW_ID).map((r) => toRankedRow(r, 'delegation', deptTat.get(r.id) ?? null)),
     [reportQuery.data, deptTat],
   );
   const storeRows: RankedRow[] = useMemo(

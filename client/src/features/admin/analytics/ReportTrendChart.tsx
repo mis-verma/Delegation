@@ -3,7 +3,7 @@ import { Activity } from 'lucide-react';
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { DotItemDotProps } from 'recharts';
 import { EmptyState } from '../../../components';
-import { formatPercent, trendBucketLabel, visibleTrendPoints } from './analyticsDisplay';
+import { formatPercent, trendBucketLabel, trendTrimNote, visibleTrendPoints } from './analyticsDisplay';
 
 export interface TrendSeries {
   key: string;
@@ -94,6 +94,7 @@ const dashFor = (count: number, index: number) => (count > 1 ? DASHES[index % DA
 export const ReportTrendChart = ({ data, series, groupBy, valueSuffix = '', yDomain }: ReportTrendChartProps) => {
   // The same points the section's Export writes out.
   const points = useMemo(() => visibleTrendPoints(data, series.map((s) => s.key), groupBy), [data, groupBy, series]);
+  const trimNote = trendTrimNote(data.length, points.length, groupBy);
   const hasValues = useMemo(() => points.some((row) => series.some((s) => row[s.key] != null)), [points, series]);
 
   // Per series, the points whose neighbours are both empty (or missing).
@@ -212,6 +213,8 @@ export const ReportTrendChart = ({ data, series, groupBy, valueSuffix = '', yDom
           </AreaChart>
         </ResponsiveContainer>
       </div>
+
+      {trimNote && <p className="px-1 t-meta text-text-muted">{trimNote}</p>}
 
       <table className="sr-only">
         <caption>Trend data</caption>

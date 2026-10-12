@@ -54,11 +54,17 @@ export interface ScoreTrend {
   buckets: TrendBucket[];
 }
 
+/** Catch-all rows the report adds so totals add up: work with no department, and work with no assignee. */
+export const NO_DEPARTMENT_ROW_ID = 'no-department';
+export const UNASSIGNED_ROW_ID = 'unassigned';
+
 export interface ScoreReportRow {
   id: string;
   name: string;
   department: string;
   role?: string;
+  /** A person who has since left: their name already ends in "(left)". */
+  left?: boolean;
   checklist: ChecklistScore;
   ticket: TicketScore;
   delegation: DelegationScore;
@@ -75,8 +81,18 @@ export interface ScoreReport {
   notes: string[];
 }
 
+export interface OrgCounts {
+  stores: { active: number; inactive: number };
+  departments: { active: number; inactive: number };
+  employees: { active: number; joinedLast30Days: number };
+  /** Active departments with an active Manager or Senior. */
+  departmentsWithLead: number;
+}
+
 /** `from` and `to` are calendar days, YYYY-MM-DD, both included. A person without `id` is the caller. */
 export const scoreApi = {
+  /** The four counts behind the Overview's organisation tiles (Admin and PC). */
+  orgCounts: () => apiFetch<{ success: boolean; data: OrgCounts }>('/scores/org-counts').then((r) => r.data),
   get: (params: { scope: ScoreScope; id?: string; from: string; to: string }) => {
     const query = new URLSearchParams({ scope: params.scope, from: params.from, to: params.to });
     if (params.id) query.set('id', params.id);

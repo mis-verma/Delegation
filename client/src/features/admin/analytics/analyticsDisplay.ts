@@ -229,6 +229,19 @@ export const visibleTrendPoints = <T extends Record<string, unknown>>(data: T[],
   return recent.slice(Math.min(firstWithData, Math.max(0, recent.length - MIN_CONTEXT_POINTS)));
 };
 
+/**
+ * One plain line for when the chart draws fewer points than the report holds (only the newest buckets
+ * are drawn, and empty ones before the first figure are skipped), so a long series is never cut silently.
+ */
+export const trendTrimNote = (total: number, shown: number, groupBy: DisplayGroupBy): string | null => {
+  if (shown >= total) return null;
+  const unit = groupBy === 'day' ? 'day' : groupBy === 'week' ? 'week' : groupBy === 'month' ? 'month' : groupBy === 'year' ? 'year' : 'period';
+  const max = groupBy === 'day' ? MAX_POINTS_DAY : MAX_POINTS_OTHER;
+  return total > max
+    ? `Showing the latest ${shown} of ${total} ${unit}s. Pick a shorter period to see the rest.`
+    : `Starts at the first ${unit} with figures.`;
+};
+
 // ---------------------------------------------------------------------------------------------
 // Trends
 // ---------------------------------------------------------------------------------------------

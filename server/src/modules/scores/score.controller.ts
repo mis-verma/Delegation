@@ -39,6 +39,9 @@ export const scoreController = {
         const { scope, id, period, from, to } = trendSchema.parse(req.query)
         res.json({ success: true, data: await scoreService.trend(req.user!, scope, id ?? req.user!.sub, period, from, to) })
     }),
+    orgCounts: asyncHandler(async (req: Request, res: Response) => {
+        res.json({ success: true, data: await scoreService.orgCounts(req.user!) })
+    }),
     report: asyncHandler(async (req: Request, res: Response) => {
         const { from, to, stores } = reportSchema.parse(req.query)
         const parts = { people: stores !== "only", stores: stores === "1" || stores === "only" }

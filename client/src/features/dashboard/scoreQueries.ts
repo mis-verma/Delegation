@@ -39,6 +39,19 @@ export const storeScoreReportQuery = (from: string, to: string) => ({
   ...SCORE_QUERY_OPTIONS,
 });
 
+/** Store, department and employee counts for the Overview's organisation tiles (Admin and PC): four small aggregates, not the roster. */
+export const useOrgCounts = (enabled = true) => {
+  const { token } = useAuth();
+  return useQuery({
+    queryKey: ['scores', 'org-counts'] as const,
+    queryFn: () => scoreApi.orgCounts(),
+    enabled: enabled && !!token,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    retry: handleQueryRetry,
+  });
+};
+
 export const useScoreReport = (from: string | undefined, to: string | undefined, enabled = true) => {
   const { token } = useAuth();
   return useQuery({

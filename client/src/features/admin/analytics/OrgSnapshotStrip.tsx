@@ -1,58 +1,38 @@
-import { memo, useId, useMemo } from 'react';
+import { memo, useId } from 'react';
 import { useNavigate } from 'react-router';
 import { Store, Building2, Users, ShieldCheck } from 'lucide-react';
 import { InlineError } from '../../../components';
 import { StatTile } from './AnalyticsSummaryStrip';
-import type { AdminUser } from '../../../api/admin';
-import type { Department } from '../../../api/departments';
-import type { Store as StoreType } from '../../../api/stores';
+import type { OrgCounts } from '../../../api/scores';
 
 interface OrgSnapshotStripProps {
-  stores: StoreType[];
-  departments: Department[];
-  users: AdminUser[];
+  /** From the small org-counts request, not the whole roster. */
+  counts: OrgCounts | undefined;
   isPending: boolean;
-  /** A failed request used to fall through `stores ?? []` into "0 Stores", reading as an empty org
-   *  rather than a request that failed. Shows a retryable error and keeps every tile off a number. */
+  /** A failed request used to fall through into "0 Stores", reading as an empty org rather than a
+   *  request that failed. Shows a retryable error and keeps every tile off a number. */
   isError: boolean;
   onRetry?: () => void;
 }
 
-const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
-
-// The shape of the organisation, as the last thing on the Overview: how many stores, departments
-// and people are active, and how many departments have a lead. Every figure counts active records
-// only, so a closed store or a person who has left does not inflate it. Each tile opens the matching
-// tab of People & Teams.
-const OrgSnapshotStripBase = ({ stores, departments, users, isPending, isError, onRetry }: OrgSnapshotStripProps) => {
+// The shape of the organisation, below the performance cards: how many stores, departments and people
+// are active, and how many departments have a lead (a Manager or a Senior). Every figure counts active
+// records only, so a closed store or a person who has left does not inflate it. Each tile opens the
+// matching tab of People & Teams.
+const OrgSnapshotStripBase = ({ counts, isPending, isError, onRetry }: OrgSnapshotStripProps) => {
   const headingId = useId();
   const navigate = useNavigate();
 
-  const stats = useMemo(() => {
-    const activeStores = stores.filter((s) => s.isActive);
-    const activeDepartments = departments.filter((d) => d.isActive);
-    const activeUsers = users.filter((u) => u.isActive);
-
-    // "now" only needs to be approximately current for this 30-day window.
-    // eslint-disable-next-line react-hooks/purity
-    const now = Date.now();
-    const newHires = activeUsers.filter((u) => now - new Date(u.createdAt).getTime() <= THIRTY_DAYS_MS).length;
-
-    // MANAGER is this app's Head of Department (HOD), see the ROLE_RANK comment in the schema.
-    const departmentsWithHod = new Set(activeUsers.filter((u) => u.role === 'MANAGER' && u.departmentId).map((u) => u.departmentId));
-    const hodCovered = activeDepartments.filter((d) => departmentsWithHod.has(d.id)).length;
-
-    return {
-      activeStores: activeStores.length,
-      inactiveStores: stores.length - activeStores.length,
-      activeDepartments: activeDepartments.length,
-      inactiveDepartments: departments.length - activeDepartments.length,
-      activeUsers: activeUsers.length,
-      newHires,
-      hodCovered,
-      hodMissing: activeDepartments.length - hodCovered,
-    };
-  }, [stores, departments, users]);
+  const stats = {
+    activeStores: counts?.stores.active ?? 0,
+    inactiveStores: counts?.stores.inactive ?? 0,
+    activeDepartments: counts?.departments.active ?? 0,
+    inactiveDepartments: counts?.departments.inactive ?? 0,
+    activeUsers: counts?.employees.active ?? 0,
+    newHires: counts?.employees.joinedLast30Days ?? 0,
+    hodCovered: counts?.departmentsWithLead ?? 0,
+    hodMissing: Math.max(0, (counts?.departments.active ?? 0) - (counts?.departmentsWithLead ?? 0)),
+  };
 
   const unavailable = isPending || isError;
   // Written out, never a bare dash standing in for a number.

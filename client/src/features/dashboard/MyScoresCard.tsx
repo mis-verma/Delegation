@@ -13,6 +13,7 @@ import { scoreApi, type ScoreReport, type ScoreReportRow, type Scores, type Scor
 import { exportTitle, formatExportDate, type TableRows } from '../../lib/exportTable';
 import { useAssignableUsersQuery, useDepartmentsQuery, useStoresQuery } from '../tickets/hook';
 import { PeriodTabControl } from './PeriodTabControl';
+import { useOrgToday } from '../checklist/useOrgToday';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { ScoreBars } from './ScoreBars';
 import { ScoreDrillPopup } from './ScoreDrillPopup';
@@ -246,7 +247,9 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
 
   // In simple mode only Week and Month exist; anything else saved earlier reads as Month.
   const shownPeriod: ScorePeriod = glance ? 'month' : simple && period !== 'week' ? 'month' : period;
-  const range = pageWindow ?? windowFor(shownPeriod, glance ? 0 : offset);
+  // The org's calendar day, not the device clock, names the week and month.
+  const orgToday = useOrgToday();
+  const range = pageWindow ?? windowFor(shownPeriod, glance ? 0 : offset, orgToday);
   // With the page's window, the trend is cut to suit its length.
   const trendPeriod: ScorePeriod = pageWindow ? periodForSpan(spanDays(pageWindow.from, pageWindow.to)) : period;
   const queryClient = useQueryClient();
@@ -263,7 +266,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
   // The window before this one, only fetched while Compare is on and the view can show a change.
   const previousRange = pageWindow
     ? { from: shiftDay(pageWindow.from, -spanDays(pageWindow.from, pageWindow.to)), to: shiftDay(pageWindow.from, -1) }
-    : windowFor(period, offset - 1);
+    : windowFor(period, offset - 1, orgToday);
   const previousQuery = useQuery<Scores>({
     ...scoreQuery(scope, targetId, previousRange.from, previousRange.to),
     enabled: ready && compare && !simple && !glance && (activeView === 'bars' || activeView === 'dials'),
@@ -302,14 +305,15 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
     void navigate(href, { viewTransition: true });
   };
 
-  // Warm the neighbouring windows so the arrows feel instant.
+  // Warm the neighbouring windows so the arrows feel instant. Only where there are arrows: a page that sets
+  // the window has none, and the phone glance shows this month only, so neither fetches periods nobody opens.
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || pageWindow || glance) return;
     for (const o of [offset - 1, ...(offset < 0 ? [offset + 1] : [])]) {
-      const w = windowFor(period, o);
+      const w = windowFor(period, o, orgToday);
       void queryClient.prefetchQuery(scoreQuery(scope, targetId, w.from, w.to));
     }
-  }, [ready, period, offset, scope, targetId, queryClient]);
+  }, [ready, pageWindow, glance, period, offset, scope, targetId, queryClient, orgToday]);
 
   // What is on screen: this person, department or store, for this window. Everyone can export their own.
   // The Trend view exports its slices; Bars and Dials export the three modules.
@@ -452,7 +456,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
           aria-controls="scores-more"
           className="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left outline-none transition-colors hover:bg-surface-hover/40 focus-visible:ring-2 focus-visible:ring-primary-500/40 @4xl:pointer-events-none @4xl:hover:bg-transparent"
         >
-          <span className="flex min-w-0 items-center gap-2.5">
+          <span className="flex min-w-0 items-center gap-3">
             <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary-500/10 text-primary-700 ring-1 ring-primary-500/15 dark:text-primary-300 sm:size-8">
               <SlidersHorizontal className="size-3.5 sm:size-4" aria-hidden="true" />
             </span>
@@ -553,7 +557,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
             emptyText={glance ? 'Nothing due yet this month' : 'Nothing was due in this window'}
           />
         ) : (
-        <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
           {([
             { key: 'checklist', title: 'Checklist', icon: ClipboardCheck },
             { key: 'ticket', title: 'Tickets', icon: TicketIcon },

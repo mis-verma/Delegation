@@ -1,18 +1,23 @@
 import { memo, useId, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, ClipboardCheck, ListChecks, ShieldCheck, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, ClipboardCheck, ClipboardX, Hourglass, ListChecks, ShieldCheck, type LucideIcon } from 'lucide-react';
 import { StatCard, type Trend } from '../../dashboard';
 import { DrilldownModal, type DrilldownRow } from '../../dashboard/DrilldownModal';
 import { ExportMenu, InlineError, PANEL_CLASS, Skeleton } from '../../../components';
 import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable';
 import { useAuth } from '../../../context/AuthContext';
 import { ticketApi } from '../../../api/ticket';
+import { toDayParam } from '../../../api/checklistInstances';
+import { checklistDrillHref, overdueDelegationsHref } from '../../dashboard/scoreDrill';
+import { scoreQuery } from '../../dashboard/scoreQueries';
 import { handleQueryRetry } from '../../../lib/queryHelpers';
 import {
   useTaskComplianceReportQuery,
   useTicketTatReportQuery,
   useChecklistInstanceComplianceReportQuery,
   useTicketOwnerStatsQuery,
+  useTaskOwnerStatsQuery,
 } from './useAnalyticsQueries';
 import {
   bucketRange,
@@ -40,6 +45,9 @@ interface AnalyticsSummaryStripProps {
   /** ADMIN/PC only: the drill-down modal's "View all tickets" button points at /admin/tickets,
    *  which MANAGER/SENIOR cannot open. */
   isOrgWideRole: boolean;
+  /** The window the missed-checklist count covers: the picked range, or the page's default window. */
+  windowFrom?: string;
+  windowTo?: string;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -78,20 +86,20 @@ const MobileStatTile = ({ label, value, caption, trend, lowerIsBetter = false, i
   const isPlaceholder = value === NO_DATA_VALUE || value === LOADING_VALUE || value === UNAVAILABLE_VALUE;
   const body = (
     <>
-      <span className="text-xs font-display font-semibold text-text-muted leading-snug break-words">{label}</span>
+      <span className="t-meta font-display font-semibold text-text-muted leading-snug break-words">{label}</span>
       {isLoading ? (
         <Skeleton className="h-7 w-14 rounded-md" />
       ) : (
         <span
-          className={`${isPlaceholder ? 'text-xl' : 'text-2xl'} font-display font-bold leading-none tabular-nums ${isPlaceholder ? 'text-text-muted' : 'text-text'}`}
+          className={`${isPlaceholder ? 't-card' : 't-figure'} font-display font-bold leading-none tabular-nums ${isPlaceholder ? 'text-text-muted' : 'text-text'}`}
         >
           {typeof value === 'number' ? value.toLocaleString('en-IN') : value}
         </span>
       )}
       {hasTrend && (
-        <span className={`text-xs font-display font-semibold tabular-nums ${trendClass}`}>{trend.label}</span>
+        <span className={`t-meta font-display font-semibold tabular-nums ${trendClass}`}>{trend.label}</span>
       )}
-      {caption && <span className="text-xs font-display text-text-muted leading-snug line-clamp-2">{caption}</span>}
+      {caption && <span className="t-meta font-display text-text-muted leading-snug line-clamp-2">{caption}</span>}
     </>
   );
 
@@ -149,9 +157,10 @@ const DRILLDOWN_META: Record<DrilldownKind, { title: string; icon: LucideIcon }>
 // (open tickets already past their deadline), so it ignores the date picker; the other three cover
 // the period named in the heading. With a range picked they total the whole range; with none they
 // show the newest period against the one before it.
-const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWideRole }: AnalyticsSummaryStripProps) => {
+const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWideRole, windowFrom, windowTo }: AnalyticsSummaryStripProps) => {
   const headingId = useId();
-  const { token } = useAuth();
+  const navigate = useNavigate();
+  const { token, user } = useAuth();
   const [drilldownKind, setDrilldownKind] = useState<DrilldownKind | null>(null);
 
   const hasRange = Boolean(from && to);
@@ -163,6 +172,22 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
   // Open tickets past their deadline right now: no date range, because "overdue now" is not a
   // question about a period.
   const overdue = useTicketOwnerStatsQuery('org');
+
+  // Delegations past their due date and not done (waiting-for-approval work has stopped the clock), live.
+  const overdueDelegations = useTaskOwnerStatsQuery('org');
+  const overdueDelegationCount = overdueDelegations.data?.[0]?.overdueCount;
+  // Checklist runs that came due in the window and were not finished, from the same score the Scorecard
+  // reads: the whole organisation for Admin and PC, a head's own department otherwise.
+  const dayFrom = windowFrom ? toDayParam(windowFrom) : undefined;
+  const dayTo = windowTo ? toDayParam(windowTo) : undefined;
+  const checklistSubject = isOrgWideRole ? { kind: 'org' as const } : user?.departmentId ? { kind: 'department' as const, id: user.departmentId } : null;
+  const checklistScores = useQuery({
+    ...scoreQuery(isOrgWideRole ? 'org' : 'department', isOrgWideRole ? undefined : user?.departmentId ?? undefined, dayFrom ?? '', dayTo ?? ''),
+    enabled: !!token && !!dayFrom && !!dayTo && checklistSubject !== null,
+  });
+  const missedChecklists = checklistScores.data?.checklist;
+  const missedCount = missedChecklists?.missed ?? 0;
+  const lateChecklists = missedChecklists ? Math.max(0, missedChecklists.completed - missedChecklists.onTime) : 0;
 
   const overdueCount = overdue.data?.[0]?.overdueCount;
   const onTime = useMemo(() => slaMetWithTrend(tickets.data), [tickets.data]);
@@ -201,19 +226,21 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
   const drilldownTotal = drilldown.data?.meta?.total ?? drilldownRows.length;
   const drilldownMeta = drilldownKind ? DRILLDOWN_META[drilldownKind] : null;
 
-  const failed = [overdue, tickets, instances, tasks].filter((q) => q.isError);
+  const failed = [overdue, overdueDelegations, checklistScores, tickets, instances, tasks].filter((q) => q.isError);
   // The four headline numbers as label and value. A figure that did not load is left empty.
   const exportRows = (): TableRows => {
     const change = (t: Trend) => (t.label === NO_TREND.label ? '' : t.label);
     return [
       ['Figure', 'Value', 'Covers', 'Change vs previous'],
-      ['Overdue now', overdue.isError ? null : overdueCount ?? 0, 'Open tickets past their deadline, right now', ''],
+      ['Overdue tickets', overdue.isError ? null : overdueCount ?? 0, 'Open tickets past their deadline, right now', ''],
+      ['Overdue delegations', overdueDelegations.isError ? null : overdueDelegationCount ?? 0, 'Delegations past their due date and not done, right now', ''],
+      ['Missed checklists', checklistScores.isError || !missedChecklists ? null : missedCount, `Runs that came due and were not finished, ${dayFrom ?? ''} to ${dayTo ?? ''}`, ''],
       ['Closed on time %', exportPct(onTime.value), onTimePeriod.label, change(onTime.trend)],
       ['Store checklists completion %', exportPct(storeChecklists.value), storePeriod.label, change(storeChecklists.trend)],
       ['Delegation steps done %', exportPct(delegationItems.value), delegationPeriod.label, change(delegationItems.trend)],
     ];
   };
-  const anyPending = [overdue, tickets, instances, tasks].some((q) => q.isPending);
+  const anyPending = [overdue, overdueDelegations, tickets, instances, tasks].some((q) => q.isPending) || (checklistSubject !== null && !!dayFrom && checklistScores.isPending);
 
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-2 sm:gap-3">
@@ -237,11 +264,11 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
       )}
 
       <div className="@container">
-        <div className={`grid grid-cols-2 gap-3 sm:gap-4 @4xl:grid-cols-4`}>
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 @4xl:grid-cols-3">
           <StatTile
             icon={AlertTriangle}
             iconTint="text-warning"
-            label="Overdue now"
+            label="Overdue tickets"
             value={overdue.isError ? UNAVAILABLE_VALUE : overdue.isPending ? LOADING_VALUE : (overdueCount ?? 0)}
             isLoading={overdue.isPending}
             caption={overdue.isPending || overdue.isError ? statCaption({ isPending: overdue.isPending, isError: overdue.isError, hasData: false, noDataText: '' }) : 'Open tickets past their deadline'}
@@ -249,6 +276,32 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
             lowerIsBetter
             onClick={() => setDrilldownKind('overdue')}
           />
+          <StatTile
+            icon={Hourglass}
+            iconTint="text-warning"
+            label="Overdue delegations"
+            value={overdueDelegations.isError ? UNAVAILABLE_VALUE : overdueDelegations.isPending ? LOADING_VALUE : (overdueDelegationCount ?? 0)}
+            isLoading={overdueDelegations.isPending}
+            caption={overdueDelegations.isPending || overdueDelegations.isError ? statCaption({ isPending: overdueDelegations.isPending, isError: overdueDelegations.isError, hasData: false, noDataText: '' }) : 'Past their due date, not done'}
+            trend={NO_TREND}
+            lowerIsBetter
+            onClick={() => navigate(overdueDelegationsHref())}
+          />
+          {checklistSubject && (
+            <StatTile
+              icon={ClipboardX}
+              iconTint="text-warning"
+              label="Missed checklists"
+              value={checklistScores.isError ? UNAVAILABLE_VALUE : !missedChecklists ? LOADING_VALUE : missedCount}
+              isLoading={checklistScores.isPending}
+              caption={checklistScores.isPending || checklistScores.isError ? statCaption({ isPending: checklistScores.isPending, isError: checklistScores.isError, hasData: false, noDataText: '' }) : lateChecklists > 0 ? `Not finished, plus ${lateChecklists} finished late` : 'Came due and not finished'}
+              trend={NO_TREND}
+              lowerIsBetter
+              onClick={() => {
+                if (dayFrom && dayTo) navigate(checklistDrillHref(isOrgWideRole, checklistSubject, dayFrom, dayTo, 'notDone'));
+              }}
+            />
+          )}
           <StatTile
             icon={ShieldCheck}
             iconTint="text-success"

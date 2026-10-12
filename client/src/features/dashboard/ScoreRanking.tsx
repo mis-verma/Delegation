@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ArrowDown, ArrowUp, ChevronRight, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { type ScoreReportRow, type ScoreScope } from '../../api/scores';
+import { NO_DEPARTMENT_ROW_ID, UNASSIGNED_ROW_ID, type ScoreReportRow, type ScoreScope } from '../../api/scores';
 import { useScoreReport, useStoreScoreReport } from './scoreQueries';
 import { overallOf } from './scoreMetrics';
 import { Skeleton } from '../../components/skeleton';
@@ -112,6 +112,9 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
     const source = isStore ? (reportData as ScoreReportRow[] | undefined) : scope === 'person' ? peopleReport.data?.people : peopleReport.data?.departments;
     const needle = query.trim().toLowerCase();
     const list = (source ?? [])
+      // The catch-all rows (work with no department, work with no assignee) are not a person or a
+      // department that can be opened on the card; they live on the Scorecard.
+      .filter((r) => r.id !== UNASSIGNED_ROW_ID && r.id !== NO_DEPARTMENT_ROW_ID)
       .filter((r) => !needle || r.name.toLowerCase().includes(needle) || r.department.toLowerCase().includes(needle))
       .map(compute);
     const value = (c: Computed): number | string | null => {
@@ -221,15 +224,15 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
                 className="flex min-h-14 w-full items-center gap-3 rounded-lg border border-border bg-surface-hover/30 p-3 text-left outline-none transition-colors hover:border-border-hover focus-visible:ring-2 focus-visible:ring-primary-500/40"
               >
                 <span className="flex min-w-0 flex-1 flex-col gap-2">
-                  <span className="flex items-center gap-2.5">
+                  <span className="flex items-center gap-3">
                     {scope === 'person' && (
                       <span aria-hidden="true" className={cn('flex size-8 shrink-0 items-center justify-center rounded-full t-meta font-display font-bold text-white', avatarColorClass(c.row.name))}>{getInitials(c.row.name)}</span>
                     )}
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-display font-semibold text-text">{c.row.name}</span>
-                      {scope === 'person' && c.row.department && <span className="block truncate t-meta text-text-muted">{c.row.department}</span>}
+                      <span className="block line-clamp-2 text-sm font-display font-semibold leading-snug text-text">{c.row.name}</span>
+                      {scope === 'person' && c.row.department && <span className="block line-clamp-2 t-meta text-text-muted">{c.row.department}</span>}
                     </span>
-                    <span className="text-lg font-display font-extrabold"><Pct value={value} /></span>
+                    <span className="t-figure font-display font-extrabold"><Pct value={value} /></span>
                     <ChevronRight className="size-4 shrink-0 text-text-light" aria-hidden="true" />
                   </span>
                   <MiniBar value={value} />

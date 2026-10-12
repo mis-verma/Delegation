@@ -5,7 +5,6 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button, InlineError, NoticeBanner } from '../../../components';
 import { useAuth } from '../../../context/AuthContext';
 import { useDepartmentsQuery, useStoresQuery } from '../../tickets/hook';
-import { useUsersQuery } from '../hook';
 import { AnalyticsControlBar, type GroupBy } from './GroupByControl';
 import { useAnalyticsWindow, useSearchPatch } from './useAnalyticsWindow';
 import { TaskChecklistKpiSection } from './TaskChecklistKpiSection';
@@ -20,9 +19,9 @@ import { useAnalyticsRefresh, useRecentActivityFeed } from './useAnalyticsQuerie
 import { RecentActivity } from '../../dashboard/RecentActivity';
 import { MyScoresCard } from '../../dashboard/MyScoresCard';
 import { toDayParam } from '../../../api/checklistInstances';
+import { useOrgCounts } from '../../dashboard/scoreQueries';
 import type { Department } from '../../../api/departments';
 import type { Store } from '../../../api/stores';
-import type { AdminUser } from '../../../api/admin';
 
 const SECTION_TABS = [
   { value: 'delegations', label: 'Delegations', icon: ClipboardCheck },
@@ -34,10 +33,6 @@ type SectionValue = (typeof SECTION_TABS)[number]['value'];
 
 const DEFAULT_SECTION: SectionValue = 'delegations';
 const SECTIONS_ANCHOR_ID = 'overview-sections';
-
-const EMPTY_STORES: Store[] = [];
-const EMPTY_DEPARTMENTS: Department[] = [];
-const EMPTY_USERS: AdminUser[] = [];
 
 // Comparing performance across stores and departments is an org-wide (owner) view: a department
 // head only needs their own numbers, not a cross-entity ranking. It also depends on the
@@ -205,6 +200,12 @@ export const OrgOverview = () => {
     navigate(`/admin/rankings${search ? `?${search}` : ''}`);
   }, [location.search, navigate]);
 
+  // The Scorecard opens on the period this page is showing, so the window carries over.
+  const openScorecard = useCallback(() => {
+    const next = new URLSearchParams({ from: toDayParam(windowFrom), to: toDayParam(windowTo) });
+    navigate(`/admin/scorecard?${next.toString()}`);
+  }, [navigate, windowFrom, windowTo]);
+
   const { updatedAt, isRefreshing, refresh } = useAnalyticsRefresh();
 
   // The organisation scores follow this page's period bar, so the page never shows two windows at once.
@@ -215,21 +216,13 @@ export const OrgOverview = () => {
     return { from, to, label: from === to ? fmt(from) : `${fmt(from)} to ${fmt(to)}` };
   }, [windowFrom, windowTo]);
 
-  const departmentsQuery = useDepartmentsQuery();
-  const storesQuery = useStoresQuery();
-  const usersQuery = useUsersQuery(orgWide);
-
-  const snapshotPending = departmentsQuery.isPending || storesQuery.isPending || (orgWide && usersQuery.isPending);
-  const snapshotError = departmentsQuery.isError || storesQuery.isError || (orgWide && usersQuery.isError);
-  const { refetch: refetchDepartments } = departmentsQuery;
-  const { refetch: refetchStores } = storesQuery;
-  const { refetch: refetchUsers } = usersQuery;
-  const retrySnapshot = useCallback(() => {
-    void refetchDepartments();
-    void refetchStores();
-    // The users list is ADMIN/PC only; refetch() ignores `enabled`, so guard it here.
-    if (orgWide) void refetchUsers();
-  }, [refetchDepartments, refetchStores, refetchUsers, orgWide]);
+  // Names for the department head's scope notice only. Admin and PC get the four organisation counts
+  // from one small request instead of the whole roster, so they never download these lists here.
+  const departmentsQuery = useDepartmentsQuery(!orgWide);
+  const storesQuery = useStoresQuery(!orgWide);
+  const countsQuery = useOrgCounts(orgWide);
+  const { refetch: refetchCounts } = countsQuery;
+  const retrySnapshot = useCallback(() => void refetchCounts(), [refetchCounts]);
 
   return (
     <div className="flex flex-col gap-4 w-full">
@@ -254,10 +247,10 @@ export const OrgOverview = () => {
         actions={
           orgWide ? (
             <>
-            <Button variant="outline" size="sm" onClick={() => navigate('/admin/scorecard')}>
+            <Button variant="outline" size="sm" className="pointer-coarse:min-h-11" onClick={openScorecard}>
               Scorecard
             </Button>
-            <Button variant="outline" size="sm" onClick={() => navigate('/admin/reports')}>
+            <Button variant="outline" size="sm" className="pointer-coarse:min-h-11" onClick={() => navigate('/admin/reports')}>
               <FileDown size={14} aria-hidden="true" />
               Reports
             </Button>
@@ -266,22 +259,10 @@ export const OrgOverview = () => {
         }
       />
 
-      <AnalyticsSummaryStrip groupBy={groupBy} from={from} to={to} onViewSection={jumpToSection} isOrgWideRole={orgWide} />
+      <AnalyticsSummaryStrip groupBy={groupBy} from={from} to={to} windowFrom={windowFrom} windowTo={windowTo} onViewSection={jumpToSection} isOrgWideRole={orgWide} />
 
       {/* Admin and PC decide the approvals, so how many are waiting and for how long sits right under the headline numbers. */}
       {orgWide && <ApprovalWaitingStrip from={windowFrom} to={windowTo} />}
-
-      {/* The size of the organisation sits with the headline numbers, not at the end of the page. */}
-      {orgWide && (
-        <OrgSnapshotStrip
-          stores={storesQuery.data ?? EMPTY_STORES}
-          departments={departmentsQuery.data ?? EMPTY_DEPARTMENTS}
-          users={usersQuery.data ?? EMPTY_USERS}
-          isPending={snapshotPending}
-          isError={snapshotError}
-          onRetry={retrySnapshot}
-        />
-      )}
 
       {/* Admin and PC: checklists, tickets and delegations side by side for the whole organisation, as
           completion, compliance and on time, with every department ranked under it. */}
@@ -299,6 +280,9 @@ export const OrgOverview = () => {
       )}
 
       <OverviewTabs groupBy={groupBy} from={from} to={to} windowFrom={windowFrom} windowTo={windowTo} isOrgWideRole={orgWide} />
+
+      {/* The size of the organisation is background, so it sits below the performance cards. */}
+      {orgWide && <OrgSnapshotStrip counts={countsQuery.data} isPending={countsQuery.isPending} isError={countsQuery.isError} onRetry={retrySnapshot} />}
 
       <RecentActivitySection />
     </div>
