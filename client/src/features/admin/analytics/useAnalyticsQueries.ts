@@ -177,6 +177,8 @@ export const useAnalyticsRefresh = () => {
         queryClient.invalidateQueries({ queryKey: ['departments'] }),
         queryClient.invalidateQueries({ queryKey: ['stores'] }),
         queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
+        // Scores (leaders, leaderboard, scorecard, rankings) live under their own root.
+        queryClient.invalidateQueries({ queryKey: ['scores'] }),
       ]);
     } finally {
       setIsRefreshing(false);

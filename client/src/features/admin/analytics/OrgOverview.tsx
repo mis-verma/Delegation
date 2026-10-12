@@ -13,6 +13,7 @@ import { TicketKpiSection } from './TicketKpiSection';
 import { ChecklistInstanceKpiSection } from './ChecklistInstanceKpiSection';
 import { AnalyticsSummaryStrip } from './AnalyticsSummaryStrip';
 import { OrgSnapshotStrip } from './OrgSnapshotStrip';
+import { ApprovalWaitingStrip } from './ApprovalWaitingStrip';
 import { PerformanceLeadersCard } from './PerformanceLeadersCard';
 import { TeamLeaderboardRail } from './TeamLeaderboardRail';
 import { useAnalyticsRefresh, useRecentActivityFeed } from './useAnalyticsQueries';
@@ -102,12 +103,14 @@ interface OverviewTabsProps {
   groupBy: GroupBy;
   from?: string;
   to?: string;
+  windowFrom?: string;
+  windowTo?: string;
   isOrgWideRole: boolean;
 }
 
 // Owns the selected tab, so switching tabs re-renders only this block and never the summary or
 // snapshot strips above and below it.
-const OverviewTabs = memo(({ groupBy, from, to, isOrgWideRole }: OverviewTabsProps) => {
+const OverviewTabs = memo(({ groupBy, from, to, windowFrom, windowTo, isOrgWideRole }: OverviewTabsProps) => {
   const headingId = useId();
   const [params] = useSearchParams();
   const patch = useSearchPatch();
@@ -135,7 +138,7 @@ const OverviewTabs = memo(({ groupBy, from, to, isOrgWideRole }: OverviewTabsPro
         </TabsList>
 
         <TabsContent value="delegations" className="pt-4 sm:pt-6">
-          <TaskChecklistKpiSection groupBy={groupBy} from={from} to={to} isOrgWideRole={isOrgWideRole} />
+          <TaskChecklistKpiSection groupBy={groupBy} from={from} to={to} windowFrom={windowFrom} windowTo={windowTo} isOrgWideRole={isOrgWideRole} />
         </TabsContent>
         <TabsContent value="store-checklists" className="pt-4 sm:pt-6">
           <ChecklistInstanceKpiSection groupBy={groupBy} from={from} to={to} isOrgWideRole={isOrgWideRole} />
@@ -265,6 +268,9 @@ export const OrgOverview = () => {
 
       <AnalyticsSummaryStrip groupBy={groupBy} from={from} to={to} onViewSection={jumpToSection} isOrgWideRole={orgWide} />
 
+      {/* Admin and PC decide the approvals, so how many are waiting and for how long sits right under the headline numbers. */}
+      {orgWide && <ApprovalWaitingStrip from={windowFrom} to={windowTo} />}
+
       {/* The size of the organisation sits with the headline numbers, not at the end of the page. */}
       {orgWide && (
         <OrgSnapshotStrip
@@ -292,7 +298,7 @@ export const OrgOverview = () => {
         </div>
       )}
 
-      <OverviewTabs groupBy={groupBy} from={from} to={to} isOrgWideRole={orgWide} />
+      <OverviewTabs groupBy={groupBy} from={from} to={to} windowFrom={windowFrom} windowTo={windowTo} isOrgWideRole={orgWide} />
 
       <RecentActivitySection />
     </div>

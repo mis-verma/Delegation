@@ -1,6 +1,6 @@
 import { memo, useMemo, useState } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '../../../components/ui/popover';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { Building2, CalendarCheck2, CalendarOff, Check, ChevronLeft, ChevronRight, Clock, ListChecks, Minus, SearchX, Store, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Combobox, EmptyState, ExportMenu, InlineError, PageHeader, PANEL_CLASS, Skeleton } from '../../../components';
@@ -199,10 +199,19 @@ const ReportSkeleton = () => (
 export const ChecklistWeeklyReport = () => {
   // Kept fresh: a tab left open past midnight rolls over instead of highlighting yesterday.
   const today = useOrgToday();
-  const [period, setPeriod] = useState<ScorePeriod>('week');
-  const [offset, setOffset] = useState(0);
-  const [storeId, setStoreId] = useState('');
-  const [departmentId, setDepartmentId] = useState('');
+  // A link from a score can open this on one department and period (?departmentId=&period=&offset=).
+  // Read once; after that the pickers on the page own the state.
+  const [urlParams] = useSearchParams();
+  const [period, setPeriod] = useState<ScorePeriod>(() => {
+    const p = urlParams.get('period');
+    return PERIODS.find((x) => x === p) ?? 'week';
+  });
+  const [offset, setOffset] = useState(() => {
+    const n = Number(urlParams.get('offset'));
+    return Number.isInteger(n) && n <= 0 && n > -1000 ? n : 0;
+  });
+  const [storeId, setStoreId] = useState(() => urlParams.get('storeId') ?? '');
+  const [departmentId, setDepartmentId] = useState(() => urlParams.get('departmentId') ?? '');
   const [view, setView] = useState<ReportView>('checklists');
   const { user } = useAuth();
   // Admin and PC pick any department; a department head is always held to their own on the server.

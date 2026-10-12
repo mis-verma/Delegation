@@ -3,6 +3,8 @@ import { Link } from 'react-router';
 import { Trophy, AlertTriangle, Building2, Store, ArrowRight } from 'lucide-react';
 import { ActiveRangeBadge, Button, ExportMenu, InlineError, PANEL_CLASS, Skeleton } from '../../../components';
 import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable';
+import { toDayParam } from '../../../api/checklistInstances';
+import { scorecardRowHref } from '../../dashboard/scoreDrill';
 import { MIN_RANK_VOLUME, NEEDS_ATTENTION_BELOW, rankRows, useOwnerRankings, type RankedRow } from './useOwnerRankings';
 import { formatPercent } from './analyticsDisplay';
 
@@ -27,13 +29,14 @@ interface LeaderEntryProps {
   row: RankedRow | null;
   /** What to show when there is no row to name. */
   emptyText: string;
-  to: string;
+  /** Where the named row opens: its row on the Scorecard. */
+  hrefFor: (id: string) => string;
 }
 
 const FIGURE_TONE = { success: 'text-success', danger: 'text-danger' } as const;
 const BAR_TONE = { success: 'bg-success', danger: 'bg-danger' } as const;
 
-const LeaderEntry = memo(({ icon: Icon, tone, label, row, emptyText, to }: LeaderEntryProps) => {
+const LeaderEntry = memo(({ icon: Icon, tone, label, row, emptyText, hrefFor }: LeaderEntryProps) => {
   const value = row?.overall ?? null;
   const content = (
     <>
@@ -62,7 +65,7 @@ const LeaderEntry = memo(({ icon: Icon, tone, label, row, emptyText, to }: Leade
   return (
     <Link
       viewTransition
-      to={`${to}&q=${encodeURIComponent(row.name)}`}
+      to={hrefFor(row.id)}
       className={`${base} transition-[border-color,transform] duration-150 motion-reduce:transition-none hover:border-border-hover active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50`}
     >
       {content}
@@ -76,14 +79,13 @@ interface DimensionColumnProps {
   rows: RankedRow[];
   isPending: boolean;
   isError: boolean;
-  isFetching: boolean;
   onRetry: () => void;
-  /** Where a row goes when it is clicked. */
-  to: string;
+  /** Where a row goes when it is clicked: that department or store on the Scorecard. */
+  hrefFor: (id: string) => string;
   className?: string;
 }
 
-const DimensionColumn = ({ icon: Icon, title, rows, isPending, isError, isFetching, onRetry, to, className = '' }: DimensionColumnProps) => {
+const DimensionColumn = ({ icon: Icon, title, rows, isPending, isError, onRetry, hrefFor, className = '' }: DimensionColumnProps) => {
   const headingId = useId();
   const { top, low, hasEligible } = useMemo(() => {
     const { sorted, topId, lowId } = rankRows(rows);
@@ -108,20 +110,20 @@ const DimensionColumn = ({ icon: Icon, title, rows, isPending, isError, isFetchi
           <Skeleton className="h-11 rounded-lg" />
         </div>
       ) : (
-        <div className={`grid grid-cols-1 gap-2 @md:grid-cols-2 transition-opacity motion-reduce:transition-none ${isFetching ? 'opacity-60' : ''}`}>
+        <div className={`grid grid-cols-1 gap-2 @md:grid-cols-2`}>
           {/* Two "Not enough data yet" rows said the same thing twice; say it once. */}
           {!top && !low && !hasEligible ? (
             <p className="@md:col-span-2 rounded-lg border border-border/60 px-3 py-3 t-meta text-text-muted">Not enough data yet</p>
           ) : (
             <>
-              <LeaderEntry icon={Trophy} tone="success" label="Top" row={top} emptyText="Needs at least two to compare" to={to} />
+              <LeaderEntry icon={Trophy} tone="success" label="Top" row={top} emptyText="Needs at least two to compare" hrefFor={hrefFor} />
               <LeaderEntry
                 icon={AlertTriangle}
                 tone="danger"
                 label="Needs attention"
                 row={low}
                 emptyText={hasEligible ? `None below ${NEEDS_ATTENTION_BELOW}%` : 'Not enough data yet'}
-                to={to}
+                hrefFor={hrefFor}
               />
             </>
           )}
@@ -133,13 +135,14 @@ const DimensionColumn = ({ icon: Icon, title, rows, isPending, isError, isFetchi
 
 // The owner-level "who's top, who's low" summary, scoped to the page's own date range and shown on
 // the Overview itself. It reads the same ranked rows as the full Rankings page (useOwnerRankings),
-// so the two never disagree. Rows open the people and teams directory, the nearest page that
-// lists a single department or store.
+// so the two never disagree. Rows open that department or store on the Scorecard, for the same window.
 export const PerformanceLeadersCard = ({ from, to, onViewFull }: PerformanceLeadersCardProps) => {
   const headingId = useId();
+  const dayFrom = from ? toDayParam(from) : undefined;
+  const dayTo = to ? toDayParam(to) : undefined;
   const {
     departmentRows, storeRows, departmentsPending, storesPending, departmentsError, storesError,
-    departmentsFetching, storesFetching, retryDepartments, retryStores,
+    retryDepartments, retryStores,
   } = useOwnerRankings(from, to);
 
   // The names on the card (top and needs attention, per group) with the figures behind each.
@@ -191,9 +194,8 @@ export const PerformanceLeadersCard = ({ from, to, onViewFull }: PerformanceLead
           rows={departmentRows}
           isPending={departmentsPending}
           isError={departmentsError}
-          isFetching={departmentsFetching}
           onRetry={retryDepartments}
-          to="/admin/directory?tab=departments"
+          hrefFor={(id) => scorecardRowHref('department', id, dayFrom ?? '', dayTo ?? '')}
         />
         <DimensionColumn
           icon={Store}
@@ -201,9 +203,8 @@ export const PerformanceLeadersCard = ({ from, to, onViewFull }: PerformanceLead
           rows={storeRows}
           isPending={storesPending}
           isError={storesError}
-          isFetching={storesFetching}
           onRetry={retryStores}
-          to="/admin/directory?tab=stores"
+          hrefFor={(id) => scorecardRowHref('store', id, dayFrom ?? '', dayTo ?? '')}
           className="@2xl:pl-6"
         />
       </div>

@@ -276,6 +276,7 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
     queryKey: ['scores', 'person', 'me', month.from, month.to],
     queryFn: () => scoreApi.get({ scope: 'person', from: month.from, to: month.to }),
     staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 
   const drilldown = useMemo(() => {

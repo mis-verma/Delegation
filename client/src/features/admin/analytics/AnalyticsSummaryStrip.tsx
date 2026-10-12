@@ -202,10 +202,6 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
   const drilldownMeta = drilldownKind ? DRILLDOWN_META[drilldownKind] : null;
 
   const failed = [overdue, tickets, instances, tasks].filter((q) => q.isError);
-  const isStale = [overdue, tickets, instances, tasks].some((q) => q.isPlaceholderData);
-
-  const dim = isStale ? 'opacity-60' : '';
-
   // The four headline numbers as label and value. A figure that did not load is left empty.
   const exportRows = (): TableRows => {
     const change = (t: Trend) => (t.label === NO_TREND.label ? '' : t.label);
@@ -214,7 +210,7 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
       ['Overdue now', overdue.isError ? null : overdueCount ?? 0, 'Open tickets past their deadline, right now', ''],
       ['Closed on time %', exportPct(onTime.value), onTimePeriod.label, change(onTime.trend)],
       ['Store checklists completion %', exportPct(storeChecklists.value), storePeriod.label, change(storeChecklists.trend)],
-      ['Delegation checklist items %', exportPct(delegationItems.value), delegationPeriod.label, change(delegationItems.trend)],
+      ['Delegation steps done %', exportPct(delegationItems.value), delegationPeriod.label, change(delegationItems.trend)],
     ];
   };
   const anyPending = [overdue, tickets, instances, tasks].some((q) => q.isPending);
@@ -241,7 +237,7 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
       )}
 
       <div className="@container">
-        <div className={`grid grid-cols-2 gap-3 sm:gap-4 @4xl:grid-cols-4 transition-opacity motion-reduce:transition-none ${dim}`}>
+        <div className={`grid grid-cols-2 gap-3 sm:gap-4 @4xl:grid-cols-4`}>
           <StatTile
             icon={AlertTriangle}
             iconTint="text-warning"
@@ -284,7 +280,7 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
           <StatTile
             icon={ListChecks}
             iconTint="text-primary-600 dark:text-primary-400"
-            label="Delegation checklist items"
+            label="Delegation steps done"
             value={delegationItems.value != null ? formatPercent(delegationItems.value) : tasks.isPending ? LOADING_VALUE : tasks.isError ? UNAVAILABLE_VALUE : NO_DATA_VALUE}
             isLoading={tasks.isPending}
             trend={delegationItems.trend}

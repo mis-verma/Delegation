@@ -51,8 +51,6 @@ interface KpiSectionShellProps {
   description: string;
   isPending: boolean;
   isError: boolean;
-  /** True while a refetch is running with the previous numbers still on screen. */
-  isFetching?: boolean;
   errorMessage: string;
   /** The failed request's error. A 400 carries a reason the viewer can act on ("Pick a period of 366 days or less."). */
   error?: unknown;
@@ -76,7 +74,7 @@ const exportNumber = (value: number | null | undefined, unit: KpiCardConfig['uni
 // Shared layout for every KPI group on the analytics page (header, stat cards, chart card, plus
 // loading/error states) — each report just supplies its own data + chart. Adding another chart to
 // the dashboard means writing one thin section component, not repeating this scaffolding.
-export const KpiSectionShell = ({ icon: Icon, title, description, isPending, isError, isFetching = false, errorMessage, error, onRetry, cards, chart, summaryRows, from, to }: KpiSectionShellProps) => {
+export const KpiSectionShell = ({ icon: Icon, title, description, isPending, isError, errorMessage, error, onRetry, cards, chart, summaryRows, from, to }: KpiSectionShellProps) => {
   const headingId = useId();
   const { label: periodCaption, isWholeRange } = describeLatestPeriod(summaryRows ?? (chart.data as { bucket: string }[]), chart.groupBy);
 
@@ -140,7 +138,7 @@ export const KpiSectionShell = ({ icon: Icon, title, description, isPending, isE
       {isError ? (
         <InlineError message={error instanceof ApiError && error.status === 400 ? error.message : errorMessage} onRetry={error instanceof ApiError && error.status === 400 ? undefined : onRetry} />
       ) : (
-        <div className={`flex flex-col gap-4 sm:gap-6 transition-opacity motion-reduce:transition-none ${isFetching && !isPending ? 'opacity-60' : ''}`}>
+        <div className="flex flex-col gap-4 sm:gap-6">
           {/* Two tiles per row on a phone (a lone last tile spans the row), then the grid opens up:
               caps at 2 columns for a 2-card section instead of reserving a column that sits empty,
               3 columns from `lg`, and one row of 4 at `xl` only when the cards divide evenly by 4

@@ -3,6 +3,8 @@ import { Link } from 'react-router';
 import { Trophy, AlertTriangle, Building2 } from 'lucide-react';
 import { ActiveRangeBadge, EmptyState, ExportMenu, InlineError, PANEL_CLASS, ENTITY_CARD_CLASS, Skeleton } from '../../../components';
 import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable';
+import { toDayParam } from '../../../api/checklistInstances';
+import { scorecardRowHref } from '../../dashboard/scoreDrill';
 import { MIN_RANK_VOLUME, NEEDS_ATTENTION_BELOW, rankRows, useOwnerRankings, type RankedRow } from './useOwnerRankings';
 import { useChecklistInstanceComplianceReportQuery } from './useAnalyticsQueries';
 import { formatDuration, formatPercent, statCaption } from './analyticsDisplay';
@@ -52,17 +54,17 @@ interface RankedRowProps {
   row: RankedRow;
   isTop: boolean;
   isLow: boolean;
-  to: string;
+  hrefFor: (id: string) => string;
 }
 
 const HEAD_CELL = 'font-display font-semibold text-xs text-text-muted px-4 py-3 whitespace-nowrap';
 const NUMBER_CELL = 'px-4 py-3 text-right font-display tabular-nums';
 
-const RankedTableRow = memo(({ row, isTop, isLow, to }: RankedRowProps) => (
+const RankedTableRow = memo(({ row, isTop, isLow, hrefFor }: RankedRowProps) => (
   <tr className="border-t border-border/60 hover:bg-surface-hover/50 transition-colors motion-reduce:transition-none">
     <th scope="row" className="sticky left-0 z-10 bg-surface px-4 py-3 text-left font-display font-medium text-text">
       <div className="flex items-center gap-2 flex-wrap">
-        <Link to={`${to}&q=${encodeURIComponent(row.name)}`} className="rounded hover:text-primary-700 dark:hover:text-primary-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50">
+        <Link to={hrefFor(row.id)} className="rounded hover:text-primary-700 dark:hover:text-primary-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50">
           {row.name}
         </Link>
         <RankBadge isTop={isTop} isLow={isLow} />
@@ -85,8 +87,8 @@ const Metric = ({ label, value, toneClass = 'text-text' }: { label: string; valu
   </div>
 );
 
-const RankedCard = memo(({ row, isTop, isLow, to, secondaryLabel }: RankedRowProps & { secondaryLabel: string }) => (
-  <Link to={`${to}&q=${encodeURIComponent(row.name)}`} className={`${ENTITY_CARD_CLASS} gap-3 min-h-11`}>
+const RankedCard = memo(({ row, isTop, isLow, hrefFor, secondaryLabel }: RankedRowProps & { secondaryLabel: string }) => (
+  <Link to={hrefFor(row.id)} className={`${ENTITY_CARD_CLASS} gap-3 min-h-11`}>
     <div className="flex items-start justify-between gap-3">
       <div className="flex flex-col items-start gap-1 min-w-0">
         <p className="font-display font-medium text-text text-sm line-clamp-2 leading-snug">{row.name}</p>
@@ -110,19 +112,18 @@ interface RankedTableProps {
   rows: RankedRow[];
   isPending: boolean;
   isError: boolean;
-  isFetching: boolean;
   onRetry: () => void;
   emptyLabel: string;
   nameColumnLabel: string;
   secondaryLabel: string;
-  /** Where each row opens: the directory tab that lists this kind of entity. */
-  to: string;
+  /** Where each row opens: that department or store on the Scorecard. */
+  hrefFor: (id: string) => string;
   /** The page's window, for the export's title. */
   windowFrom?: string;
   windowTo?: string;
 }
 
-const RankedTable = ({ title, subtitle, rows, isPending, isError, isFetching, onRetry, emptyLabel, nameColumnLabel, secondaryLabel, to, windowFrom, windowTo }: RankedTableProps) => {
+const RankedTable = ({ title, subtitle, rows, isPending, isError, onRetry, emptyLabel, nameColumnLabel, secondaryLabel, hrefFor, windowFrom, windowTo }: RankedTableProps) => {
   const headingId = useId();
   // Best overall first, so who is top and who is low reads straight off the row order.
   const { sorted, topId, lowId } = useMemo(() => rankRows(rows), [rows]);
@@ -169,7 +170,7 @@ const RankedTable = ({ title, subtitle, rows, isPending, isError, isFetching, on
           <EmptyState size="compact" icon={Building2} title={emptyLabel} description="Rows appear here once there is activity to rank." />
         </div>
       ) : (
-        <div className={`transition-opacity motion-reduce:transition-none ${isFetching ? 'opacity-60' : ''}`}>
+        <div>
           <div className={`${PANEL_CLASS} hidden md:block overflow-x-auto`}>
             <table className="w-full text-sm">
               <caption className="sr-only">{title} ranked by overall score, best first</caption>
@@ -186,7 +187,7 @@ const RankedTable = ({ title, subtitle, rows, isPending, isError, isFetching, on
               </thead>
               <tbody>
                 {sorted.map((row) => (
-                  <RankedTableRow key={row.id} row={row} isTop={row.id === topId} isLow={row.id === lowId} to={to} />
+                  <RankedTableRow key={row.id} row={row} isTop={row.id === topId} isLow={row.id === lowId} hrefFor={hrefFor} />
                 ))}
               </tbody>
             </table>
@@ -195,7 +196,7 @@ const RankedTable = ({ title, subtitle, rows, isPending, isError, isFetching, on
           {/* Phone: a stack of cards instead of a cramped scrolling table. */}
           <div className="md:hidden flex flex-col gap-3">
             {sorted.map((row) => (
-              <RankedCard key={row.id} row={row} isTop={row.id === topId} isLow={row.id === lowId} to={to} secondaryLabel={secondaryLabel} />
+              <RankedCard key={row.id} row={row} isTop={row.id === topId} isLow={row.id === lowId} hrefFor={hrefFor} secondaryLabel={secondaryLabel} />
             ))}
           </div>
         </div>
@@ -205,14 +206,16 @@ const RankedTable = ({ title, subtitle, rows, isPending, isError, isFetching, on
 };
 
 // The owner-level view: real numbers, ranked, with who is top and who needs attention called out.
-// Each row's "Overall" figure blends every kind of work that cut actually carries (tickets and
-// delegations for a department, tickets and store checklists for a store), each source counting the same. Delegations have a department but no store, and checklist runs have a
-// store but no department, so no single blend can cover all three for either cut.
+// Each row's "Overall" is the shared Overall score (completion and compliance counted equally), the
+// same figure the Scorecard shows. Rows open that department or store on the Scorecard.
 export const StoresPerformanceSection = ({ from, to }: StoresPerformanceSectionProps) => {
   const {
     departmentRows, storeRows, departmentsPending, storesPending, departmentsError, storesError,
-    departmentsFetching, storesFetching, retryDepartments, retryStores,
+    retryDepartments, retryStores,
   } = useOwnerRankings(from, to);
+
+  const dayFrom = from ? toDayParam(from) : undefined;
+  const dayTo = to ? toDayParam(to) : undefined;
 
   // Page-level context for the store table: one figure over the same window as every row below it
   // ('none' = a single bucket for the whole from/to), not the newest bucket of a grouped series.
@@ -225,7 +228,7 @@ export const StoresPerformanceSection = ({ from, to }: StoresPerformanceSectionP
       <div className="flex items-start justify-between gap-x-4 gap-y-1 flex-wrap px-1">
         <ActiveRangeBadge from={from} to={to} />
         <p className="text-xs font-display font-medium text-text-muted max-w-xl basis-full sm:basis-auto sm:flex-1">
-          Overall blends ticket, delegation and checklist completion for departments, and ticket and checklist completion for stores. Best first. Needs at least {MIN_RANK_VOLUME} items to be ranked.
+          Overall score: completion and compliance counted equally across checklists, tickets and delegations. Best first. Needs at least {MIN_RANK_VOLUME} items to be ranked.
         </p>
         <p className="text-xs font-display font-semibold text-text-secondary shrink-0">
           Store checklist completion:{' '}
@@ -241,12 +244,11 @@ export const StoresPerformanceSection = ({ from, to }: StoresPerformanceSectionP
         rows={departmentRows}
         isPending={departmentsPending}
         isError={departmentsError}
-        isFetching={departmentsFetching}
         onRetry={retryDepartments}
         emptyLabel="No department data yet"
         nameColumnLabel="Department"
         secondaryLabel="Delegations done"
-        to="/admin/directory?tab=departments"
+        hrefFor={(id) => scorecardRowHref('department', id, dayFrom ?? '', dayTo ?? '')}
         windowFrom={from}
         windowTo={to}
       />
@@ -257,12 +259,11 @@ export const StoresPerformanceSection = ({ from, to }: StoresPerformanceSectionP
         rows={storeRows}
         isPending={storesPending}
         isError={storesError}
-        isFetching={storesFetching}
         onRetry={retryStores}
         emptyLabel="No store data yet"
         nameColumnLabel="Store"
         secondaryLabel="Checklists done"
-        to="/admin/directory?tab=stores"
+        hrefFor={(id) => scorecardRowHref('store', id, dayFrom ?? '', dayTo ?? '')}
         windowFrom={from}
         windowTo={to}
       />

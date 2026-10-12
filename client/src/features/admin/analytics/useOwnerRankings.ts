@@ -1,16 +1,12 @@
 import { useCallback, useMemo } from 'react';
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { useAuth } from '../../../context/AuthContext';
-import { useDepartmentsQuery, useStoresQuery } from '../../tickets/hook';
-import { checklistInstanceApi, toDayParam, type ChecklistStoreComplianceRow } from '../../../api/checklistInstances';
-import { scoreApi } from '../../../api/scores';
-import { handleQueryRetry } from '../../../lib/queryHelpers';
-import { useTicketOwnerStatsQuery, useTaskOwnerStatsQuery } from './useAnalyticsQueries';
-import type { OwnerStatsRow } from '../../../api/ticket';
-import type { TaskOwnerStatsRow } from '../../../api/task';
+import { toDayParam } from '../../../api/checklistInstances';
+import type { ScoreReportRow } from '../../../api/scores';
+import { overallOf, totalDue } from '../../dashboard/scoreMetrics';
+import { useScoreReport, useStoreScoreReport } from '../../dashboard/scoreQueries';
+import { useTicketOwnerStatsQuery } from './useAnalyticsQueries';
 
-/** A row needs at least this many tickets plus checklist items or delegations before it can be
- *  called "Top" or "Needs attention". One bad ticket in a quiet store is not a trend. */
+/** A row needs at least this many items due (checklists, tickets and delegations together) before it can
+ *  be called "Top" or "Needs attention". One bad ticket in a quiet store is not a trend. */
 export const MIN_RANK_VOLUME = 5;
 /** "Needs attention" only appears for a row whose overall figure is below this. A low-ranked row
  *  that is still doing fine is just lower down the list. */
@@ -21,81 +17,37 @@ export const NEEDS_ATTENTION_BELOW = 70;
 export interface RankedRow {
   id: string;
   name: string;
-  /** Tickets closed out of tickets raised in the window. */
+  /** Tickets closed out of tickets due in the window. */
   ticketCompletion: number | null;
   /** Delegation completion for the Departments cut, store checklist completion for the Stores cut. */
   secondaryRate: number | null;
+  /** Checklist completion over the runs that were due. */
+  checklistRate: number | null;
+  /** Tickets due in the window that are not closed. */
   openIssues: number;
   /** Average hours from raised to closed, for tickets closed in the window. */
   avgTat: number | null;
-  /** Closed on time: closed tickets that have a due time and were closed by it, as a share of those. */
+  /** Closed on time: of the tickets closed, the share closed by their due time. */
   slaMet: number | null;
-  /** Average of whichever of the two rates above have data, each counting the same. `null` when neither does. */
+  /** The Overall score, the one rule every score view uses (overallOf): completion and compliance of every
+   *  module with something due, counted equally. Null when nothing was due. */
   overall: number | null;
-  ticketVolume: number;
-  secondaryVolume: number;
-  /** Departments only: checklist completion over the runs that were due, counted like the other sources. */
-  checklistRate: number | null;
-  checklistVolume: number;
-  /** ticketVolume + secondaryVolume + checklistVolume: what the minimum-volume rule checks. */
+  /** Everything due in the window across checklists, tickets and delegations: what the minimum-volume rule checks. */
   volume: number;
 }
 
-// The owner stats endpoint also returns the on-time counts. They are optional here so this file
-// keeps compiling whichever build of the API types is in place.
-type TicketOwnerRow = OwnerStatsRow & { closedWithTat?: number; closedOnTime?: number; closedInPeriod?: number };
-
-const pct = (part: number, whole: number): number | null => (whole > 0 ? (part / whole) * 100 : null);
-
-/** Overall = the plain average of whichever sources have a figure: tickets, and checklists or
- *  delegations. Each source counts the same, whatever its size. Weighting by item count let a store with
- *  600 checklist items and 3 tickets be judged on checklists alone, so a bad ticket record never showed.
- *  `volume` only decides whether a source has anything behind it. */
-export const weightedOverall = (parts: { rate: number | null; volume: number }[]): number | null => {
-  const usable = parts.filter((p) => p.rate != null && p.volume > 0);
-  if (!usable.length) return null;
-  return usable.reduce((sum, p) => sum + (p.rate as number), 0) / usable.length;
-};
-
-const ticketMetrics = (row: TicketOwnerRow | undefined) => {
-  // Nothing raised AND nothing closed in the window: no figures at all. A window where tickets were
-  // only closed (raised earlier) still has a real average time and on-time rate.
-  if (!row || (row.total === 0 && !row.closedInPeriod)) return { openIssues: 0, avgTat: null, slaMet: null, ticketCompletion: null, ticketVolume: 0 };
-  return {
-    openIssues: row.total - row.closed,
-    avgTat: row.avgTatHours,
-    slaMet: pct(row.closedOnTime ?? 0, row.closedWithTat ?? 0),
-    ticketCompletion: row.total > 0 ? pct(row.closed, row.total) : null,
-    ticketVolume: row.total,
-  };
-};
-
-const buildRow = (
-  id: string,
-  name: string,
-  ticket: TicketOwnerRow | undefined,
-  secondaryRate: number | null,
-  secondaryVolume: number,
-  checklist: { rate: number | null; volume: number } = { rate: null, volume: 0 },
-): RankedRow => {
-  const { ticketVolume, ...metrics } = ticketMetrics(ticket);
-  return {
-    id,
-    name,
-    ...metrics,
-    secondaryRate,
-    overall: weightedOverall([
-      { rate: metrics.ticketCompletion, volume: ticketVolume },
-      { rate: secondaryRate, volume: secondaryVolume },
-      { rate: checklist.rate, volume: checklist.volume },
-    ]),
-    ticketVolume,
-    secondaryVolume,
-    checklistRate: checklist.rate,
-    checklistVolume: checklist.volume,
-    volume: ticketVolume + secondaryVolume + checklist.volume,
-  };
-};
+const toRankedRow = (row: ScoreReportRow, secondary: 'delegation' | 'checklist', avgTat: number | null): RankedRow => ({
+  id: row.id,
+  name: row.name,
+  ticketCompletion: row.ticket.completionPct,
+  secondaryRate: row[secondary].completionPct,
+  checklistRate: row.checklist.completionPct,
+  openIssues: Math.max(0, row.ticket.due - row.ticket.closed),
+  avgTat,
+  slaMet: row.ticket.onTimePct,
+  overall: overallOf(row),
+  volume: totalDue(row),
+});
 
 export interface RankedTable {
   /** Best overall first; rows with no figure last. */
@@ -122,108 +74,42 @@ export const rankRows = (rows: RankedRow[]): RankedTable => {
   return { sorted, topId: top?.id ?? null, lowId: low?.id ?? null };
 };
 
-/** The owner-level "who's top, who's low" ranking: by department (Tickets + Delegations) and by
- *  store (Tickets + Store checklists). Shared by the glance card on the Overview and the full
- *  Stores table, so both always show the same numbers. */
+/** The owner-level "who's top, who's low" ranking, by department and by store. The Overall score and the
+ *  counts come from the shared score report (the same request and the same rule as the Scorecard, the
+ *  leaderboard and the card's ranking). Only the average time to close still comes from the ticket owner
+ *  stats, because the score report does not carry it. Shared by the glance card on the Overview and the
+ *  full Stores table, so both always show the same numbers. */
 export const useOwnerRankings = (from?: string, to?: string) => {
-  const { token } = useAuth();
-  const departmentsQuery = useDepartmentsQuery();
-  const storesQuery = useStoresQuery();
-  const deptTicketsQuery = useTicketOwnerStatsQuery('department', from, to);
-  const storeTicketsQuery = useTicketOwnerStatsQuery('store', from, to);
-  const deptTasksQuery = useTaskOwnerStatsQuery('department', from, to);
+  const dayFrom = from ? toDayParam(from) : undefined;
+  const dayTo = to ? toDayParam(to) : undefined;
+  const reportQuery = useScoreReport(dayFrom, dayTo);
+  const storeReportQuery = useStoreScoreReport(dayFrom, dayTo);
+  // Only the average time to close: if these fail the rankings still show, just without that column.
+  const deptTatQuery = useTicketOwnerStatsQuery('department', from, to);
+  const storeTatQuery = useTicketOwnerStatsQuery('store', from, to);
 
-  // One grouped request for every store, over the same from/to as the ticket figures beside it.
-  // This replaced one request per store, which grew with the org and used each store's latest
-  // bucket rather than the window being looked at.
-  const storeChecklistQuery = useQuery({
-    queryKey: ['analytics', 'checklist-by-store', from, to],
-    queryFn: () => checklistInstanceApi.getComplianceByStore(from, to).then((r) => r.data),
-    enabled: !!token,
-    retry: handleQueryRetry,
-    staleTime: 60_000,
-    refetchOnWindowFocus: false,
-    placeholderData: keepPreviousData,
-  });
+  const deptTat = useMemo(() => new Map((deptTatQuery.data ?? []).map((r) => [r.ownerId, r.avgTatHours])), [deptTatQuery.data]);
+  const storeTat = useMemo(() => new Map((storeTatQuery.data ?? []).map((r) => [r.ownerId, r.avgTatHours])), [storeTatQuery.data]);
 
-  const departments = departmentsQuery.data;
-  const stores = storesQuery.data;
-  const deptTicketRows = deptTicketsQuery.data;
-  const storeTicketRows = storeTicketsQuery.data;
-  const deptTaskRows = deptTasksQuery.data;
-  const storeChecklistRows = storeChecklistQuery.data;
-
-  // Each department's checklist completion, from the same score report the dashboard card uses. A department
-  // that works in checklists (no tickets, no delegations) used to have nothing to be ranked on. If this call
-  // fails the ranking still shows, just without the checklist part.
-  const deptChecklistQuery = useQuery({
-    queryKey: ['scores', 'ranking-report', from, to],
-    queryFn: () => scoreApi.report({ from: toDayParam(from as string), to: toDayParam(to as string) }),
-    enabled: !!token && !!from && !!to,
-    retry: handleQueryRetry,
-    staleTime: 60_000,
-    refetchOnWindowFocus: false,
-    placeholderData: keepPreviousData,
-  });
-  const deptChecklistById = useMemo(
-    () => new Map((deptChecklistQuery.data?.departments ?? []).map((r) => [r.id, r.checklist])),
-    [deptChecklistQuery.data],
-  );
-
-  const deptTicketsById = useMemo(() => new Map((deptTicketRows ?? []).map((r) => [r.ownerId, r as TicketOwnerRow])), [deptTicketRows]);
-  const storeTicketsById = useMemo(() => new Map((storeTicketRows ?? []).map((r) => [r.ownerId, r as TicketOwnerRow])), [storeTicketRows]);
-  const deptTasksById = useMemo(() => new Map<string | null, TaskOwnerStatsRow>((deptTaskRows ?? []).map((r) => [r.ownerId, r])), [deptTaskRows]);
-  const storeChecklistById = useMemo(
-    () => new Map<string, ChecklistStoreComplianceRow>((storeChecklistRows ?? []).map((r) => [r.storeId, r])),
-    [storeChecklistRows],
-  );
-
-  // Deactivated departments and stores are not ranked: they are not coming back.
   const departmentRows: RankedRow[] = useMemo(
-    () => (departments ?? [])
-      .filter((dept) => dept.isActive !== false)
-      .map((dept) => {
-        const tasks = deptTasksById.get(dept.id);
-        const checklist = deptChecklistById.get(dept.id);
-        return buildRow(
-          dept.id, dept.name, deptTicketsById.get(dept.id), tasks ? pct(tasks.done, tasks.total) : null, tasks?.total ?? 0,
-          { rate: checklist && checklist.due > 0 ? checklist.completionPct : null, volume: checklist?.due ?? 0 },
-        );
-      }),
-    [departments, deptTicketsById, deptTasksById, deptChecklistById],
+    () => (reportQuery.data?.departments ?? []).map((r) => toRankedRow(r, 'delegation', deptTat.get(r.id) ?? null)),
+    [reportQuery.data, deptTat],
   );
-
   const storeRows: RankedRow[] = useMemo(
-    () => (stores ?? [])
-      .filter((store) => store.isActive !== false)
-      .map((store) => {
-        const checklist = storeChecklistById.get(store.id);
-        return buildRow(store.id, store.name, storeTicketsById.get(store.id), checklist?.completionRate ?? null, checklist?.items ?? 0);
-      }),
-    [stores, storeTicketsById, storeChecklistById],
+    () => (storeReportQuery.data ?? []).map((r) => toRankedRow(r, 'checklist', storeTat.get(r.id) ?? null)),
+    [storeReportQuery.data, storeTat],
   );
 
-  // The checklist report is not in this list on purpose: a failure there only drops that one part of the score.
-  const departmentQueries = [departmentsQuery, deptTicketsQuery, deptTasksQuery];
-  const storeQueries = [storesQuery, storeTicketsQuery, storeChecklistQuery];
-
-  const retryDepartments = useCallback(() => {
-    for (const q of [departmentsQuery, deptTicketsQuery, deptTasksQuery]) if (q.isError) void q.refetch();
-  }, [departmentsQuery, deptTicketsQuery, deptTasksQuery]);
-  const retryStores = useCallback(() => {
-    for (const q of [storesQuery, storeTicketsQuery, storeChecklistQuery]) if (q.isError) void q.refetch();
-  }, [storesQuery, storeTicketsQuery, storeChecklistQuery]);
+  const retryDepartments = useCallback(() => { if (reportQuery.isError) void reportQuery.refetch(); }, [reportQuery]);
+  const retryStores = useCallback(() => { if (storeReportQuery.isError) void storeReportQuery.refetch(); }, [storeReportQuery]);
 
   return {
     departmentRows,
     storeRows,
-    departmentsPending: departmentQueries.some((q) => q.isPending),
-    storesPending: storeQueries.some((q) => q.isPending),
-    departmentsError: departmentQueries.some((q) => q.isError),
-    storesError: storeQueries.some((q) => q.isError),
-    /** A refetch is running with the previous rows still on screen. */
-    departmentsFetching: departmentQueries.some((q) => q.isFetching),
-    storesFetching: storeQueries.some((q) => q.isFetching),
+    departmentsPending: reportQuery.isPending,
+    storesPending: storeReportQuery.isPending,
+    departmentsError: reportQuery.isError && !reportQuery.data,
+    storesError: storeReportQuery.isError && !storeReportQuery.data,
     retryDepartments,
     retryStores,
   };

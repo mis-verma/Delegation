@@ -34,7 +34,6 @@ export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole, 
   const { data: rows } = cardQuery;
   const isPending = cardQuery.isPending || chartQuery.isPending;
   const isError = cardQuery.isError || chartQuery.isError;
-  const isFetching = cardQuery.isFetching || chartQuery.isFetching;
   const refetch = () => Promise.all([cardQuery.refetch(), chartQuery.refetch()]);
   const completion = latestWithTrend(rows, 'completionRate', 'rate');
   const compliance = latestWithTrend(rows, 'complianceRate', 'rate');
@@ -56,7 +55,6 @@ export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole, 
         : "How much of each period's checklist work was finished on time, answered inside the accepted range, backed by photos and approved the first time. Completion leaves out runs that are not due yet."}
       isPending={isPending}
       isError={isError}
-      isFetching={isFetching}
       errorMessage="Could not load the store checklist figures."
       error={cardQuery.error ?? chartQuery.error}
       onRetry={() => void refetch()}

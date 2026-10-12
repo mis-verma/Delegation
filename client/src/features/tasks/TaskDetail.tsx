@@ -42,7 +42,6 @@ const useAutoGrow = (value: string) => {
   return ref;
 };
 
-/** "Not saved. Retry" under a field whose auto-save failed. The typed text stays in the field. */
 const NotSaved = ({ onRetry }: { onRetry: () => void }) => (
   <p role="alert" className="flex items-center gap-2 t-meta font-display font-medium text-danger">
     Not saved.
@@ -56,11 +55,7 @@ const NotSaved = ({ onRetry }: { onRetry: () => void }) => (
   </p>
 );
 
-/**
- * Local text plus its save state, shared by the title and description editors. The local text only
- * follows the saved value while nothing is in flight or failed: a failed save rolls the cache back,
- * and re-syncing then would wipe what the person typed.
- */
+
 const useAutoSavedText = (value: string, save: (next: string) => Promise<unknown>) => {
   const [text, setText] = useState(value);
   const [prevValue, setPrevValue] = useState(value);
@@ -105,7 +100,6 @@ const TitleEditor = ({ value, onSave, onDirtyChange, isViewMode }: EditorProps &
   const handleBlur = () => {
     const trimmed = text.trim();
     if (!trimmed) {
-      // A delegation always has a title: put the old one back and say why.
       setText(value);
       setEmptyError(true);
       return;
@@ -171,9 +165,7 @@ const PlainDescriptionEditor = ({ value, disabled, onSave, onDirtyChange, childr
 
 interface TaskFooterProps {
   task: Task;
-  /** May move this delegation's status (see taskPermissions' canMoveTask). */
   canMove: boolean;
-  /** May approve or send back this delegation (see lib/canApproveWork). */
   canApprove: boolean;
   nextStatus: Task['status'] | null;
   onAdvance: () => void;
@@ -337,11 +329,8 @@ const StepRow = ({
 
 const TaskStatusStepper = ({ task, nameOf }: { task: Task; nameOf: (id: string | null | undefined) => string | undefined }) => {
   const isDraft = task.status === 'draft';
-  // Newest first, so find() is the latest arrival in that status.
   const latest = (status: Task['status']) => (task.statusUpdates ?? []).find((u) => u.toStatus === status) ?? null;
 
-  // On hold sits outside the four steps: the steps reached before the pause stay done, and an
-  // "On hold since" row marks where it stopped.
   const hold = task.status === 'on_hold' ? latest('on_hold') : null;
   const heldFrom: Task['status'] = hold?.fromStatus === 'in_progress' ? 'in_progress' : 'todo';
   const currentIndex = task.status === 'on_hold' ? STATUS_ORDER.indexOf(heldFrom) : STATUS_ORDER.indexOf(task.status);
@@ -412,10 +401,6 @@ const TaskStatusStepper = ({ task, nameOf }: { task: Task; nameOf: (id: string |
 };
 
 
-/**
- * The due date in the detail sheet. One due day by default; managers and up can add a start day.
- * Clearing it saves null.
- */
 const TaskTimelineField = ({ task, onUpdate, canSetStart }: { task: Task; onUpdate: (payload: UpdateTaskPayload) => void; canSetStart: boolean }) => {
   const fromSaved = task.startDate ? new Date(task.startDate) : null;
   const toSaved = task.dueDate ? new Date(task.dueDate) : null;
@@ -494,8 +479,6 @@ const TaskEditLayout = ({
 }: TaskEditLayoutProps) => {
   const departmentName = task.departmentId ? departments?.find((d) => d.id === task.departmentId)?.name : undefined;
   const selectedIds = taskAssigneeIds(task);
-  // Same as the New delegation form: with a department set, the people picker lists that department's
-  // people (plus whoever is already on it, so nobody silently drops off the chips).
   const pickerUsers = task.departmentId
     ? allUsers?.filter((u) => u.departmentId === task.departmentId || selectedIds.includes(u.id))
     : allUsers;
@@ -539,7 +522,6 @@ const TaskEditLayout = ({
             </button>
           )}
         </div>
-        {/* Raised by on its own line on a phone; one line with a comma from sm up. */}
         <p className="flex flex-col sm:flex-row sm:gap-1 t-meta font-display font-medium text-text-muted">
           {raisedBy && <span>Raised by {raisedBy}<span className="hidden sm:inline">,</span></span>}
           <span>created {formatStepDate(created)}, {formatStepTime(created)}</span>
@@ -648,8 +630,7 @@ const TaskEditLayout = ({
         onPreview={setPreviewImage}
       />
 
-      {/* The server won't take "Mark completed" while a checklist item is neither done nor explained,
-          so the checklists are worked right here. */}
+    
       {(task.checklists?.length ?? 0) > 0 && (
         <TaskChecklistPanel
           taskId={task.id}
@@ -705,16 +686,12 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
 
   const [advanceTo, setAdvanceTo] = useState<Task['status'] | null>(null);
   const [dirtyFields, setDirtyFields] = useState<{ title: boolean; description: boolean }>({ title: false, description: false });
-  // A title or description edit not yet saved (or whose save failed) makes closing ask first.
   const handleDirtyChange = useCallback((field: 'title' | 'description', dirty: boolean) => {
     setDirtyFields((prev) => (prev[field] === dirty ? prev : { ...prev, [field]: dirty }));
   }, []);
 
   const isPC = user?.role === 'PC';
-  // Same rules as the server's update(), in one shared place (taskPermissions): who may move the
-  // status, and who may change the details. A Manager looking at a colleague's delegation, PC, an
-  // approval manager, front-line staff on work given to them, and anyone but an Admin once it is
-  // approved all get a read-only sheet, with the reason said at the top.
+
   const canMove = canMoveTask(task, user);
   const isViewOnly = !canEditTaskContent(task, user);
   const readOnlyReason = viewOnlyReason(task, user);
@@ -724,12 +701,9 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
   const canAttach = user?.role !== 'APPROVAL_MANAGER' && (
     user?.role === 'ADMIN' || user?.role === 'PC' || task.userId === user?.id || (!!user && taskAssigneeIds(task).includes(user.id))
   );
-  // Files on an approved delegation are part of the record: only an Admin may take one off.
   const canRemoveFiles = canAttach && (task.status !== 'done' || user?.role === 'ADMIN');
   const nextStatus = NEXT_STATUS[task.status as keyof typeof NEXT_STATUS];
 
-  // Three mutation instances, so a field save never spins the status button and vice versa:
-  // chips and dates (error toast), title and description (failure shown beside the field), status.
   const fieldMutation = useUpdateTaskMutation({ silent: true });
   const textMutation = useUpdateTaskMutation({ silent: true, quietErrors: true });
   const statusMutation = useUpdateTaskMutation({ silent: true });
@@ -745,7 +719,6 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
   const saveTitle = (title: string) => textMutation.mutateAsync({ id: task.id, payload: { title } });
   const saveDescription = (description: string) => textMutation.mutateAsync({ id: task.id, payload: { description } });
 
-  // Narrowing to a department takes off anyone who isn't in it, after asking.
   const changeDepartment = async (departmentId: string | null) => {
     if (departmentId === (task.departmentId ?? null)) return;
     const current = taskAssigneeIds(task);
@@ -772,8 +745,6 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
     handleUpdate({ departmentId, assigneeId: kept[0] ?? null, additionalAssigneeIds: kept.slice(1) });
   };
 
-  // Publishing a draft is its first step out, not a status change anyone needs to explain: same
-  // fixed note as the Drafts page, and the same check for what it still lacks.
   const publish = () => {
     const problem = draftPublishProblem(task);
     if (problem) {

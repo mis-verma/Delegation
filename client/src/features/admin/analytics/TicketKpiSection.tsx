@@ -1,7 +1,7 @@
 import { TicketCheck, Timer, AlertTriangle, Clock } from 'lucide-react';
 import { KpiSectionShell } from './KpiSectionShell';
 import { useTicketTatReportQuery } from './useAnalyticsQueries';
-import { latestWithTrend, formatPercent, formatDuration } from './analyticsDisplay';
+import { bucketRange, latestWithTrend, formatPercent, formatDuration, withoutEmptyTail } from './analyticsDisplay';
 import type { GroupBy } from './GroupByControl';
 
 interface TicketKpiSectionProps {
@@ -24,16 +24,31 @@ export const TicketKpiSection = ({ groupBy, from, to, isOrgWideRole }: TicketKpi
   const { data: rows } = cardQuery;
   const isPending = cardQuery.isPending || chartQuery.isPending;
   const isError = cardQuery.isError || chartQuery.isError;
-  const isFetching = cardQuery.isFetching || chartQuery.isFetching;
   const refetch = () => Promise.all([cardQuery.refetch(), chartQuery.refetch()]);
   const closeRate = latestWithTrend(rows, 'completionRate', 'rate');
   const avgTime = latestWithTrend(rows, 'avgTatHours', 'count');
   const overdue = latestWithTrend(rows, 'overdueCount', 'count');
   const closedLate = latestWithTrend(rows, 'closedLateCount', 'count');
 
-  // The ticket list reads ?quickFilter= (pending / completed / due / delayed). It has no date or
-  // "closed late" filter yet, so those two tiles open the nearest list instead of the exact set.
+  // The ticket list reads ?quickFilter= (pending / completed / due / delayed) and, for a score link,
+  // ?sla=closed_late with the window the tickets were due in.
   const base = isOrgWideRole ? '/admin/tickets' : '/tickets';
+  // The days the "Closed late" figure covers: the picked range, or else the newest bucket's own days.
+  const lateHref = (() => {
+    let window: { from: string; to: string } | null = null;
+    if (from && to) window = { from, to };
+    else if (rows) {
+      const trimmed = withoutEmptyTail(rows);
+      const latest = trimmed[trimmed.length - 1];
+      window = latest ? bucketRange(latest.bucket, groupBy) : null;
+    }
+    const params = new URLSearchParams({ sla: 'closed_late' });
+    if (window) {
+      params.set('dueFrom', window.from);
+      params.set('dueTo', window.to);
+    }
+    return `${base}?${params.toString()}`;
+  })();
 
   return (
     <KpiSectionShell
@@ -42,7 +57,6 @@ export const TicketKpiSection = ({ groupBy, from, to, isOrgWideRole }: TicketKpi
       description="Tickets closed compared with tickets raised in each period. The ratio can pass 100% when older tickets get closed."
       isPending={isPending}
       isError={isError}
-      isFetching={isFetching}
       errorMessage="Could not load the ticket figures."
       error={cardQuery.error ?? chartQuery.error}
       onRetry={() => void refetch()}
@@ -101,7 +115,7 @@ export const TicketKpiSection = ({ groupBy, from, to, isOrgWideRole }: TicketKpi
           trend: closedLate.trend,
           lowerIsBetter: true,
           caption: 'Closed after the due time',
-          href: `${base}?quickFilter=completed`,
+          href: lateHref,
         },
       ]}
       chart={{

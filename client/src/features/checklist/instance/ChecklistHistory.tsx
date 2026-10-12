@@ -1,8 +1,9 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useSearchParams } from 'react-router';
 import { Ban, Check, ClipboardCheck, History, ListChecks, SearchX, Store, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { toDateParam } from '../../admin/analytics/analyticsDisplay';
+import { parseDateParam, toDateParam } from '../../admin/analytics/analyticsDisplay';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   DateRangePicker, EmptyState, ImageLightbox, InlineError, PageHeader, PageNav, PANEL_CLASS, SelectDropdown, Skeleton,
@@ -165,11 +166,21 @@ export const ChecklistHistory = () => {
   const { user } = useAuth();
   const orgWide = !!user && ADMIN_AREA_ROLES.includes(user.role);
 
-  const [tab, setTab] = useState<Tab>('audits');
-  const [range, setRangeState] = useState<DateRangeValue>(() => lastDays(7));
-  const [storeId, setStoreIdState] = useState('');
-  const [personId, setPersonIdState] = useState('');
-  const [status, setStatusState] = useState<HistoryStatus>('');
+  // A link from a score opens this on one person or store and window (?tab=checklists&from=&to=&person=&store=&status=).
+  // Read once; after that the filters on the page own the state.
+  const [urlParams] = useSearchParams();
+  const [tab, setTab] = useState<Tab>(() => (urlParams.get('tab') === 'checklists' ? 'checklists' : 'audits'));
+  const [range, setRangeState] = useState<DateRangeValue>(() => {
+    const linkedFrom = parseDateParam(urlParams.get('from'));
+    const linkedTo = parseDateParam(urlParams.get('to'));
+    return linkedFrom && linkedTo && linkedFrom.getTime() <= linkedTo.getTime() ? { from: linkedFrom, to: linkedTo } : lastDays(7);
+  });
+  const [storeId, setStoreIdState] = useState(() => urlParams.get('store') ?? '');
+  const [personId, setPersonIdState] = useState(() => urlParams.get('person') ?? '');
+  const [status, setStatusState] = useState<HistoryStatus>(() => {
+    const s = urlParams.get('status');
+    return STATUS_OPTIONS.some((o) => o.value === s) ? (s as HistoryStatus) : '';
+  });
   const [page, setPage] = useState(1);
 
   // Any filter or tab change returns to page one: page 4 of the old result is meaningless against
@@ -219,7 +230,7 @@ export const ChecklistHistory = () => {
   // real page instead of showing an empty one with no pager.
   if (active.data && !active.isPlaceholderData && page > totalPages) setPage(Math.max(1, totalPages));
   const hasFilters = !!range.from || !!range.to || !!storeId || !!personId || (tab === 'checklists' && !!status);
-  // keepPreviousData keeps the old page on screen while a new filter loads: dim it, don't blank it.
+  // keepPreviousData keeps the old page on screen while a new filter loads.
   const refreshing = active.isPlaceholderData;
 
   const panel = (
@@ -240,7 +251,7 @@ export const ChecklistHistory = () => {
       )}
 
       {rowCount > 0 && (
-        <div className={cn('flex flex-col gap-3 transition-opacity', refreshing && 'opacity-60')} aria-busy={refreshing}>
+        <div className="flex flex-col gap-3" aria-busy={refreshing}>
           {tab === 'audits'
             ? auditRows?.map(row => <AuditRowCard key={row.id} row={row} />)
             : checklistRows?.map(instance => (

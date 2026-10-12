@@ -39,8 +39,10 @@ export const delegationDrillHref = (subject: DrillSubject, from: string, to: str
   const params = new URLSearchParams();
   if (subject.kind === 'person' && subject.id) params.set('assigneeIds', subject.id);
   if (subject.kind === 'department' && subject.id) params.set('departmentId', subject.id);
-  // A store's delegations follow the store of their main assignee, the same rule the store score uses.
-  if (subject.kind === 'store' && subject.id) params.set('assigneeStoreId', subject.id);
+  // The list's store filter follows the delegation's department. (The store score follows the main
+  // assignee's store, so on rare cross-store work the two can differ by a row.)
+  if (subject.kind === 'store' && subject.id) params.set('storeId', subject.id);
+  params.set('category', 'delegation');
   withDue(params, from, to);
   if (kind === 'late') params.set('sla', 'done_late');
   else params.set('quickFilter', 'delayed');

@@ -3,8 +3,9 @@ import { useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { Wand2, Save, Inbox, X, Plus, ChevronDown, Upload } from "lucide-react";
 import { Skeleton, Fab, ViewToggle, EmptyState, InlineError, Button, type ViewTab } from "../../components";
-import { CreatedRangeBanner, CreatedRangePicker } from "../../components/createdRangeBanner";
+import { CreatedRangeBanner, CreatedRangePicker, ScoreDrillBanner } from "../../components/createdRangeBanner";
 import { useCreatedRange } from "../../lib/createdRange";
+import { taskMatchesDrill, useScoreDrill } from "../../lib/scoreDrill";
 import { ExportDialog } from "../reports";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { useQueryClient } from "@tanstack/react-query";
@@ -382,13 +383,16 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
   const mineOnly = searchParams.get('mine') === '1';
   // Opened from a chart bar: only delegations created inside that bar's period (see lib/createdRange).
   const createdRange = useCreatedRange();
+  // Opened from a score: only delegations due in that window, finished late or not done (department, store and people come from the filters).
+  const scoreDrill = useScoreDrill(false);
   const mineFiltered = useMemo(() => {
     const everything = tasks ?? [];
     const mine = !mineOnly || !user
       ? everything
       : everything.filter(t => t.userId === user.id || t.assigneeId === user.id || t.additionalAssigneeIds.includes(user.id));
-    return createdRange.range ? mine.filter(t => createdRange.matches(t.createdAt)) : mine;
-  }, [tasks, mineOnly, user, createdRange]);
+    const created = createdRange.range ? mine.filter(t => createdRange.matches(t.createdAt)) : mine;
+    return scoreDrill.active ? created.filter(t => taskMatchesDrill(scoreDrill, t)) : created;
+  }, [tasks, mineOnly, user, createdRange, scoreDrill]);
 
   // The store box sits above the stat tiles and scopes the page, so it's applied before the counts
   // are taken — otherwise picking a store would narrow the board while the tiles above it kept
@@ -578,6 +582,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
   return (
     <div className="flex flex-col gap-3 pt-2.5 mx-auto w-full max-w-(--container-width) transition-all duration-300">
       <CreatedRangeBanner range={createdRange.range} onClear={createdRange.clear} noun="delegations" />
+      <ScoreDrillBanner drill={scoreDrill} noun="delegations" />
 
       <div className="flex flex-col gap-3">
         {!hideHeader && (

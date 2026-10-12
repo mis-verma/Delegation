@@ -2,8 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { Plus, ChevronDown, Upload, AlertCircle, Inbox, LayoutList, Kanban, Table2, GanttChartSquare } from 'lucide-react';
 import { PageNav, Fab, ViewToggle, SavedViewsMenu, useSavedViews, EmptyState, InlineError, Button, type ViewTab } from '../../components';
-import { CreatedRangeBanner, CreatedRangePicker } from '../../components/createdRangeBanner';
+import { CreatedRangeBanner, CreatedRangePicker, ScoreDrillBanner } from '../../components/createdRangeBanner';
 import { useCreatedRange } from '../../lib/createdRange';
+import { ticketMatchesDrill, useScoreDrill } from '../../lib/scoreDrill';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/context/AuthContext';
 import { OWN_SCOPE_ROLES } from '../../api/auth';
@@ -86,10 +87,13 @@ export const TicketList = () => {
   const { data: allTicketsData, isPending, isError, refetch } = useTicketsBoardQuery(true, assigneeIdFilter);
   // Opened from a chart bar: only tickets created inside that bar's period (see lib/createdRange).
   const createdRange = useCreatedRange();
+  // Opened from a score: only tickets due in that window, late or not done, for that department or store.
+  const scoreDrill = useScoreDrill(true);
   const ticketsInRange = useMemo(() => {
     const everything = allTicketsData ?? [];
-    return createdRange.range ? everything.filter((t) => createdRange.matches(t.createdAt)) : everything;
-  }, [allTicketsData, createdRange]);
+    const created = createdRange.range ? everything.filter((t) => createdRange.matches(t.createdAt)) : everything;
+    return scoreDrill.active ? created.filter((t) => ticketMatchesDrill(scoreDrill, t)) : created;
+  }, [allTicketsData, createdRange, scoreDrill]);
   const organizer = useTicketOrganizer(ticketsInRange, user, departmentNames);
   // Top of the results, so a page change brings the new page's first ticket into view.
   const resultsTopRef = useRef<HTMLDivElement>(null);
@@ -158,6 +162,11 @@ export const TicketList = () => {
   return (
     <div className="flex flex-col gap-3 pt-2.5 mx-auto w-full min-w-0 max-w-(--container-width) transition-all duration-300">
       <CreatedRangeBanner range={createdRange.range} onClear={createdRange.clear} noun="tickets" />
+      <ScoreDrillBanner
+        drill={scoreDrill}
+        noun="tickets"
+        scopeLabel={[scoreDrill.departmentId && departmentNames.get(scoreDrill.departmentId), scoreDrill.storeId && storeNames.get(scoreDrill.storeId)].filter(Boolean).join(', ') || undefined}
+      />
 
       <div className="flex flex-col gap-3 sm:gap-4">
         {/* Same header treatment as Delegation: the visible title block is gone — you arrive from

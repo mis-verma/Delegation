@@ -1,5 +1,6 @@
 import { ClipboardCheck, Camera } from 'lucide-react';
 import { KpiSectionShell } from './KpiSectionShell';
+import { DelegationScoreStrip } from './DelegationScoreStrip';
 import { useTaskComplianceReportQuery } from './useAnalyticsQueries';
 import { latestWithTrend, formatPercent } from './analyticsDisplay';
 import type { GroupBy } from './GroupByControl';
@@ -8,13 +9,16 @@ interface TaskChecklistKpiSectionProps {
   groupBy: GroupBy;
   from?: string;
   to?: string;
+  /** The window the delegation figures at the top cover: the picked range, or the page's default window. */
+  windowFrom?: string;
+  windowTo?: string;
   /** /tasks/team (the org-wide destination) is PC/ADMIN-gated. */
   isOrgWideRole: boolean;
 }
 
 const NOTHING_COUNTED = 'Nothing counted in this period';
 
-export const TaskChecklistKpiSection = ({ groupBy, from, to, isOrgWideRole }: TaskChecklistKpiSectionProps) => {
+export const TaskChecklistKpiSection = ({ groupBy, from, to, windowFrom, windowTo, isOrgWideRole }: TaskChecklistKpiSectionProps) => {
   // A picked range is one whole-range figure (the same as the headline strip above), so the cards
   // read a 'none' report; the chart still reads the grouped series so it has points to draw.
   const hasRange = Boolean(from && to);
@@ -23,7 +27,6 @@ export const TaskChecklistKpiSection = ({ groupBy, from, to, isOrgWideRole }: Ta
   const { data: rows } = cardQuery;
   const isPending = cardQuery.isPending || chartQuery.isPending;
   const isError = cardQuery.isError || chartQuery.isError;
-  const isFetching = cardQuery.isFetching || chartQuery.isFetching;
   const refetch = () => Promise.all([cardQuery.refetch(), chartQuery.refetch()]);
   const completion = latestWithTrend(rows, 'completionRate', 'rate');
   const quality = latestWithTrend(rows, 'qualityRate', 'rate');
@@ -33,13 +36,14 @@ export const TaskChecklistKpiSection = ({ groupBy, from, to, isOrgWideRole }: Ta
   const href = isOrgWideRole ? '/tasks/team' : '/tasks';
 
   return (
+    <div className="flex flex-col gap-6 sm:gap-8">
+    <DelegationScoreStrip from={windowFrom} to={windowTo} isOrgWideRole={isOrgWideRole} />
     <KpiSectionShell
       icon={ClipboardCheck}
-      title="Delegations"
+      title="Checklist items inside delegations"
       description="How many checklist items inside delegations are done, and how many of the ones that need a photo have one."
       isPending={isPending}
       isError={isError}
-      isFetching={isFetching}
       errorMessage="Could not load the delegation figures."
       error={cardQuery.error ?? chartQuery.error}
       onRetry={() => void refetch()}
@@ -50,7 +54,7 @@ export const TaskChecklistKpiSection = ({ groupBy, from, to, isOrgWideRole }: Ta
         {
           icon: ClipboardCheck,
           iconTint: 'text-primary-600 dark:text-primary-400',
-          label: 'Delegation checklist items',
+          label: 'Checklist items done',
           value: formatPercent(completion.value),
           raw: completion.value,
           unit: '%',
@@ -83,5 +87,6 @@ export const TaskChecklistKpiSection = ({ groupBy, from, to, isOrgWideRole }: Ta
         yDomain: [0, 100],
       }}
     />
+    </div>
   );
 };

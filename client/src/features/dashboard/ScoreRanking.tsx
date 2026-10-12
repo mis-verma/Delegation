@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { ArrowDown, ArrowUp, ChevronRight, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { scoreApi, type ScoreReport, type ScoreReportRow, type ScoreScope } from '../../api/scores';
+import { type ScoreReportRow, type ScoreScope } from '../../api/scores';
+import { useScoreReport, useStoreScoreReport } from './scoreQueries';
+import { overallOf } from './scoreMetrics';
 import { Skeleton } from '../../components/skeleton';
 import { InlineError } from '../../components/inlineError';
 import { ExportMenu } from '../../components/exportMenu';
@@ -32,8 +33,10 @@ interface Computed {
   due: number;
 }
 
-// Overall is weighted by how much each module had due, so a module with 2 items does not count like one
-// with 200. Compliance is averaged the same way over the modules that have a compliance figure.
+// On the Overall score tab, the big figure is overallOf (completion and compliance of every module with
+// something due, counted equally): the one rule every score view uses. On the Completion, Compliance and
+// On time tabs the big figure is one measure taken across all modules, weighted by what each module had
+// due, so a module with 2 items does not count like one with 200.
 const compute = (row: ScoreReportRow): Computed => {
   const parts = [
     { due: row.checklist.due, done: row.checklist.completed, completion: row.checklist.completionPct, compliance: row.checklist.compliancePct, ontime: row.checklist.onTimePct, onTime: row.checklist.onTime },
@@ -50,12 +53,11 @@ const compute = (row: ScoreReportRow): Computed => {
     return real.length ? Math.round(real.reduce((a, b) => a + b, 0) / real.length) : null;
   };
   const moduleScore = (p: (typeof parts)[number]) => (p.due > 0 ? avg([p.completion, p.compliance]) : null);
-  const live = parts.filter((p) => p.due > 0);
   return {
     row,
     due,
     overview: {
-      overall: avg(live.flatMap((p) => [p.completion, p.compliance])),
+      overall: overallOf(row),
       checklist: moduleScore(parts[0]),
       ticket: moduleScore(parts[1]),
       delegation: moduleScore(parts[2]),
@@ -99,15 +101,15 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
   const [sortKey, setSortKey] = useState<SortKey>('overall');
   const [ascending, setAscending] = useState(true);
 
-  const { data, isPending, isError, refetch } = useQuery<ScoreReport>({
-    queryKey: ['scores', 'ranking', scope === 'store' ? 'store' : 'people', from, to],
-    queryFn: () => scoreApi.report({ from, to, stores: scope === 'store' }),
-    staleTime: 60_000,
-  });
+  // The same two shared requests as the Scorecard and the Overview, so every view agrees for one window.
+  const isStore = scope === 'store';
+  const peopleReport = useScoreReport(from, to, !isStore);
+  const storeReport = useStoreScoreReport(from, to, isStore);
+  const { data: reportData, isPending, isError, refetch } = isStore ? storeReport : peopleReport;
 
   const rows = useMemo(() => {
     // The whole-organisation view lists its departments.
-    const source = scope === 'person' ? data?.people : scope === 'department' || scope === 'org' ? data?.departments : data?.stores;
+    const source = isStore ? (reportData as ScoreReportRow[] | undefined) : scope === 'person' ? peopleReport.data?.people : peopleReport.data?.departments;
     const needle = query.trim().toLowerCase();
     const list = (source ?? [])
       .filter((r) => !needle || r.name.toLowerCase().includes(needle) || r.department.toLowerCase().includes(needle))
@@ -125,7 +127,7 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
       const diff = typeof x === 'string' ? x.localeCompare(y as string) : x - (y as number);
       return ascending ? diff : -diff;
     });
-  }, [data, scope, metric, sortKey, ascending, query]);
+  }, [reportData, peopleReport.data, isStore, scope, metric, sortKey, ascending, query]);
 
   const sortBy = (key: SortKey) => {
     if (key === sortKey) setAscending((v) => !v);

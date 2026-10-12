@@ -17,7 +17,8 @@ import { useIsMobile } from '../../lib/useMediaQuery';
 import { ScoreBars } from './ScoreBars';
 import { ScoreDrillPopup } from './ScoreDrillPopup';
 import { ScoreRanking } from './ScoreRanking';
-import { METRIC_LABEL, METRIC_OPTIONS, MODULE_EXPORT_HEAD, MODULE_ROWS, isMetric, moduleExportCells, numbersFor, seriesFor, type ModuleKey, type ScoreMetric } from './scoreMetrics';
+import { scoreQuery } from './scoreQueries';
+import { METRIC_LABEL, METRIC_OPTIONS, MODULE_EXPORT_HEAD, MODULE_ROWS, isMetric, moduleExportCells, moduleOverall, numbersFor, seriesFor, type ModuleKey, type ScoreMetric } from './scoreMetrics';
 import { ScoreTrend } from './ScoreTrend';
 import { DASHBOARD_CARD_CLASS, rateTone, type RateTone } from './dashboardDisplay';
 import { PERIODS, PERIOD_LABEL, windowFor, type ScorePeriod } from './scorePeriods';
@@ -50,12 +51,6 @@ const RING: Record<RateTone, [string, string]> = {
   danger: ['var(--color-danger)', 'var(--color-danger)'],
   neutral: ['var(--color-primary-400)', 'var(--color-primary-700)'],
 };
-
-const scoreQuery = (scope: ScoreScope, id: string | undefined, from: string, to: string) => ({
-  queryKey: ['scores', scope, id ?? 'me', from, to],
-  queryFn: () => scoreApi.get({ scope, id, from, to }),
-  staleTime: 60_000,
-});
 
 // Column set shared by the department and people tables in the full report.
 const REPORT_COLUMNS = [
@@ -571,11 +566,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
               n === null ? null : metric === 'completion' ? n.completion : metric === 'compliance' ? n.compliance : metric === 'ontime' ? n.ontime : fallback ?? null;
             // Overview shows the overall score, the same rule as the Report page and the Scorecard: completion and
             // compliance counted equally (completion alone when nothing was checked).
-            const headline = (d: typeof data) => {
-              if (!d || d[key].due === 0) return null;
-              const parts = [d[key].completionPct, d[key].compliancePct].filter((v): v is number => v !== null);
-              return parts.length ? Math.round(parts.reduce((x, y) => x + y, 0) / parts.length) : null;
-            };
+            const headline = (d: typeof data) => (d ? moduleOverall(d, key) : null);
             const score = pick(now, headline(data));
             const priorScore = pick(before, headline(previous));
             const note = now === null ? '' : metric === 'completion' ? now.completionNote : metric === 'compliance' ? now.complianceNote : metric === 'ontime' ? now.ontimeNote : '';
