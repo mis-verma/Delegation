@@ -1,7 +1,8 @@
 import { memo, useId, useMemo } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Trophy } from 'lucide-react';
-import { PersonRow, EntityIconTile, EmptyState, InlineError, PANEL_CLASS, Skeleton } from '../../../components';
+import { PersonRow, EntityIconTile, EmptyState, ExportMenu, InlineError, PANEL_CLASS, Skeleton } from '../../../components';
+import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable';
 import { useAuth } from '../../../context/AuthContext';
 import { toDayParam } from '../../../api/checklistInstances';
 import { scoreApi } from '../../../api/scores';
@@ -16,6 +17,11 @@ interface LeaderRow {
   name: string;
   departmentName: string;
   score: number;
+  due: number;
+  done: number;
+  completion: number;
+  /** Checklist compliance, when any answer was checked. */
+  compliance: number | null;
 }
 
 interface TeamLeaderboardRailProps {
@@ -57,10 +63,19 @@ export const TeamLeaderboardRail = ({ from, to }: TeamLeaderboardRailProps) => {
         name: p.name,
         departmentName: p.department || 'No department',
         score: compliance === null ? completion : (completion + compliance) / 2,
+        due,
+        done,
+        completion,
+        compliance,
       });
     }
     return rows.sort((a, b) => b.score - a.score || a.name.localeCompare(b.name)).slice(0, LEADERBOARD_SIZE);
   }, [query.data]);
+
+  const exportRows = (): TableRows => [
+    ['Rank', 'Person', 'Department', 'Overall score', 'Completion %', 'Checklist compliance %', 'Done', 'Due'],
+    ...leaderboard.map((r, i) => [i + 1, r.name, r.departmentName, exportPct(r.score), exportPct(r.completion), exportPct(r.compliance), r.done, r.due]),
+  ];
 
   return (
     // flex-1, not a natural-height card: this sits in a right rail next to a taller column, and
@@ -68,10 +83,18 @@ export const TeamLeaderboardRail = ({ from, to }: TeamLeaderboardRailProps) => {
     <section aria-labelledby={headingId} className={`${PANEL_CLASS} p-4 sm:p-5 flex flex-col gap-3 flex-1`}>
       <div className="flex items-center gap-2.5">
         <EntityIconTile icon={Trophy} tone="coral" className="size-8 rounded-lg" />
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h2 id={headingId} className="t-card font-display font-bold text-text">Leaderboard</h2>
           <p className="t-meta text-text-muted">Top 5 people by overall score</p>
         </div>
+        <ExportMenu
+          disabled={leaderboard.length === 0}
+          aria-label="Export the leaderboard"
+          filename="overview-leaderboard"
+          sheetName="Leaderboard"
+          title={exportTitle({ what: 'Overview, leaderboard, top 5 people', from, to })}
+          getRows={exportRows}
+        />
       </div>
 
       {query.isError && !query.data ? (

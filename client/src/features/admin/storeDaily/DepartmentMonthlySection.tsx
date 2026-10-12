@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { Building2 } from 'lucide-react';
-import { EmptyState, InlineError, Skeleton, ToggleChip } from '../../../components';
+import { EmptyState, ExportMenu, InlineError, Skeleton, ToggleChip } from '../../../components';
+import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable';
 import { useAuth } from '../../../context/AuthContext';
 import { checklistInstanceApi, type ChecklistDepartmentMonthlyRow } from '../../../api/checklistInstances';
 import { handleQueryRetry } from '../../../lib/queryHelpers';
@@ -101,6 +102,18 @@ export const DepartmentMonthlySection = ({ onOpenDetail }: { onOpenDetail: (deta
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [query.data]);
 
+  // The table as on screen: completion and compliance for the whole span, then for each month.
+  const exportRows = (): TableRows => [
+    ['Department', 'Overall completion %', 'Overall compliance %', ...keys.flatMap((k) => [`${longMonth(k)} completion %`, `${longMonth(k)} compliance %`])],
+    ...rows.map((r) => [
+      r.name, exportPct(r.completion), exportPct(r.compliance),
+      ...keys.flatMap((k) => {
+        const c = r.cells.get(k);
+        return c ? [exportPct(ratio(c.doneItems, c.totalItems)), exportPct(ratio(c.weightedGood, c.weightedScored))] : [null, null];
+      }),
+    ]),
+  ];
+
   return (
     <section aria-labelledby="dept-monthly-heading" className="flex flex-col gap-3">
       <div className="flex flex-wrap items-end justify-between gap-2 px-1">
@@ -110,10 +123,20 @@ export const DepartmentMonthlySection = ({ onOpenDetail }: { onOpenDetail: (deta
             Top number is completion, small number below is compliance. Tap a score for the detail. A run shared by people in two departments counts in both.
           </p>
         </div>
-        <div role="group" aria-label="Period" className="flex flex-wrap items-center gap-2">
-          {SPANS.map((s) => (
-            <ToggleChip key={s.months} on={months === s.months} onClick={() => setMonths(s.months)}>{s.label}</ToggleChip>
-          ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <div role="group" aria-label="Period" className="flex flex-wrap items-center gap-2">
+            {SPANS.map((s) => (
+              <ToggleChip key={s.months} on={months === s.months} onClick={() => setMonths(s.months)}>{s.label}</ToggleChip>
+            ))}
+          </div>
+          <ExportMenu
+            disabled={!query.data || rows.length === 0}
+            aria-label="Export department scores by month"
+            filename="department-scores-by-month"
+            sheetName="Departments by month"
+            title={exportTitle({ what: 'Department scores by month, checklist completion and compliance', from, to, period: SPANS.find((x) => x.months === months)?.label })}
+            getRows={exportRows}
+          />
         </div>
       </div>
 

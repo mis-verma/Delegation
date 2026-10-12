@@ -5,7 +5,8 @@ import { useDepartmentsQuery } from '../tickets/hook';
 import { useTeamWork } from './useTeamWork';
 import { useUsersQuery } from '../admin/hook';
 import { PeriodTabControl } from '../dashboard/PeriodTabControl';
-import { EmptyState, InlineError, PageHeader } from '../../components';
+import { EmptyState, ExportMenu, InlineError, PageHeader } from '../../components';
+import { exportTitle, type TableRows } from '../../lib/exportTable';
 import { Breadcrumbs, type BreadcrumbTrailItem } from '../../components/breadcrumbs';
 import type { Task } from '../../api/task';
 import type { Ticket } from '../../api/ticket';
@@ -19,6 +20,7 @@ import {
   TEAM_PERIOD_LABELS,
   isInTeamPeriod,
   selectPersonWork,
+  summarizeCard,
   teamPeriodRange,
   type OverdueItem,
   type ReportState,
@@ -181,6 +183,34 @@ export const TeamOverviewPage = () => {
     ...(personId ? [{ label: selectedPerson?.name ?? '…' }] : []),
   ];
 
+  // The cards on screen as rows: the same numbers each card shows (summarizeCard), in the same order.
+  const exportRows = (): TableRows => {
+    const head = (name: string, second: string) => [name, second, 'Overall score', 'Completion %', 'Done', 'Due', 'Checklist compliance %', 'Open tickets', 'Open delegations', 'Open checklists', 'Overdue', 'Missed checklists'];
+    const cells = (r: { workDone: number; workTotal: number; overdueItems: OverdueItem[]; openTickets: number; openTasks: number }, checklist: Parameters<typeof summarizeCard>[1]) => {
+      const n = summarizeCard({ done: r.workDone, total: r.workTotal, overdue: r.overdueItems.length }, checklist, reportState);
+      // Without the checklist report the card shows no overall score, so neither does the file.
+      return [reportState === 'error' ? null : n.score, n.rate, n.done, n.total, n.compliance, r.openTickets, r.openTasks, n.openChecklists, n.overdue, n.missedChecklists];
+    };
+    return departmentId
+      ? [head('Person', 'Role'), ...personRows.map((p) => [p.name, p.role, ...cells(p, checklistByPerson.get(p.id))])]
+      : [head('Department', 'People'), ...departmentRows.map((d) => [d.name, d.headcount, ...cells(d, checklistByDepartment.get(d.id))])];
+  };
+  const exportMenu = !personId && (
+    <ExportMenu
+      disabled={isPending || reportState === 'loading' || (departmentId ? personRows.length === 0 : departmentRows.length === 0)}
+      aria-label={departmentId ? 'Export the people in this department' : 'Export the departments'}
+      filename={departmentId ? 'team-overview-people' : 'team-overview-departments'}
+      sheetName="Team Overview"
+      title={exportTitle({
+        what: departmentId ? `Team overview, ${selectedDepartment?.name ?? 'department'}, people` : 'Team overview, departments',
+        from: range.from,
+        to: range.to,
+        period: TEAM_PERIOD_LABELS[period],
+      })}
+      getRows={exportRows}
+    />
+  );
+
   const loadFailed = departmentsError || usersError;
   const retryLoad = () => {
     if (departmentsError) refetchDepartments();
@@ -201,6 +231,7 @@ export const TeamOverviewPage = () => {
               {/* Old numbers stay on screen (no dim) while the next period loads; this says so. */}
               {isRefreshing && <span className="t-meta font-display text-text-muted" aria-live="polite">Updating…</span>}
               <PeriodTabControl value={period} options={TEAM_PERIOD_KEYS} labels={TEAM_PERIOD_LABELS} onChange={setPeriod} />
+              {exportMenu}
             </div>
           }
         />
@@ -210,6 +241,16 @@ export const TeamOverviewPage = () => {
       {/* Only shown once there's an actual trail: at the top level it would be a single,
           unclickable crumb that just repeats the title above it. */}
       {departmentId && <Breadcrumbs items={breadcrumbs} />}
+
+      {/* Phone: the period row has no room left, so Export heads the list instead. */}
+      {exportMenu && !loadFailed && !isPending && (
+        <div className="flex items-center justify-between gap-2 sm:hidden">
+          <p className="t-meta font-display font-medium text-text-muted">
+            {departmentId ? `${personRows.length} ${personRows.length === 1 ? 'person' : 'people'}` : `${departmentRows.length} ${departmentRows.length === 1 ? 'department' : 'departments'}`}
+          </p>
+          {exportMenu}
+        </div>
+      )}
 
       {/* The report is a separate request from tickets/delegations, so a failure here is its own
           strip with Retry and the rest of the page keeps working. The person screen shows its own. */}

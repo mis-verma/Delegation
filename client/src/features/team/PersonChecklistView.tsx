@@ -1,13 +1,11 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router';
-import { ClipboardCheck, Download, FileSpreadsheet, FileText } from 'lucide-react';
-import { toast } from 'sonner';
-import { Button, EmptyState, InlineError, Skeleton, PANEL_CLASS } from '../../components';
+import { ClipboardCheck } from 'lucide-react';
+import { EmptyState, ExportMenu, InlineError, Skeleton, PANEL_CLASS } from '../../components';
 import { CATEGORY_PREDICATES } from '../tasks/taskFilters';
 import { rateToneClass } from '../checklist/checklistDisplay';
 import { CategoryBarChart, type CategoryBar } from './CategoryBarChart';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '../../components/ui/dropdown-menu';
-import { csvBlob, xlsxBlob, downloadBlob, stampedFilename, type TableRows } from '../../lib/exportTable';
+import { exportTitle, type TableRows } from '../../lib/exportTable';
 import { cn } from '../../lib/utils';
 import type { ChecklistReportMetrics } from '../../api/checklistReports';
 import type { Task } from '../../api/task';
@@ -109,27 +107,22 @@ export const PersonChecklistView = ({
   const photo = taskTotals.data;
   const todoStats = { done: photo?.doneItems ?? 0, total: photo?.totalItems ?? 0 };
 
+  // Numbers as numbers (85, not "85%"), so the sheet can sum and sort; empty where there is no figure.
   const buildExportRows = (): TableRows => [
-    ['Team overview export'],
-    ['Generated', new Date().toLocaleString()],
-    ['Person', personName],
-    ['Department', departmentName],
-    ['Period', `${TEAM_PERIOD_LABELS[period]} (${range.from} to ${range.to})`],
-    [],
     ['Store checklists', 'Value'],
     ['Checklists assigned', checklist?.assigned ?? 0],
     ['Completed', checklist?.completed ?? 0],
-    ['Completion %', checklist?.completionPct == null ? 'No data' : `${checklist.completionPct}%`],
+    ['Completion %', checklist?.completionPct ?? null],
     ['Completed on time', checklist?.onTime ?? 0],
-    ['On-time %', checklist?.onTimePct == null ? 'No data' : `${checklist.onTimePct}%`],
+    ['On time %', checklist?.onTimePct ?? null],
     ['Missed', checklist?.missed ?? 0],
     ['Sent back', checklist?.sentBack ?? 0],
     ['Answers checked', checklist?.answersChecked ?? 0],
-    ['Compliance %', checklist?.compliancePct == null ? 'No data' : `${checklist.compliancePct}%`],
+    ['Compliance %', checklist && checklist.answersChecked > 0 ? checklist.compliancePct : null],
     [],
     ['Delegations, issues and tickets', 'Value'],
-    ['Completion rate', workRate === null ? 'No data' : `${workRate}%`],
-    ['Photo proof', photo?.photoRate == null ? 'No data' : `${photo.photoRate}%`],
+    ['Completion rate %', workRate],
+    ['Photo proof %', photo?.photoRate ?? null],
     [],
     ['Category', 'Done', 'Total'],
     ['Direct Task', taskStats.done, taskStats.total],
@@ -138,13 +131,6 @@ export const PersonChecklistView = ({
     ['Ticket', ticketStats.done, ticketStats.total],
     ['Todo Task (checklist items)', todoStats.done, todoStats.total],
   ];
-
-  const handleExport = (format: 'csv' | 'xlsx') => {
-    const rows = buildExportRows();
-    const blob = format === 'csv' ? csvBlob(rows) : xlsxBlob(rows, 'Team Overview');
-    downloadBlob(blob, stampedFilename(`${personName.toLowerCase().replace(/\s+/g, '-')}-team-overview`, format));
-    toast.success(`Exported as ${format.toUpperCase()}`);
-  };
 
   // No per-category colour: the chart colours each bar by its own rate, so red means a low rate,
   // not "this is the Issue bar".
@@ -169,24 +155,15 @@ export const PersonChecklistView = ({
 
         {/* Downloads exactly what's on screen, generated in the browser (see lib/exportTable), so
             the file can never disagree with what this person is looking at. */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" aria-label="Export this person's numbers">
-              <Download size={13} strokeWidth={2.5} />
-              Export
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-48">
-            <DropdownMenuItem onClick={() => handleExport('csv')} className="gap-2">
-              <FileText size={14} />
-              CSV (.csv)
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleExport('xlsx')} className="gap-2">
-              <FileSpreadsheet size={14} />
-              Excel (.xlsx)
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <ExportMenu
+          aria-label="Export this person's numbers"
+          disabled={reportState === 'loading'}
+          filename={`${personName.toLowerCase().replace(/\s+/g, '-')}-team-overview`}
+          sheetName="Team Overview"
+          title={exportTitle({ what: `Team overview, ${personName}`, from: range.from, to: range.to, period: TEAM_PERIOD_LABELS[period], filters: { Department: departmentName } })}
+          // Three small tables: 9 checklist figures, 2 work figures, 5 categories.
+          getRows={() => ({ rows: buildExportRows(), count: 9 + 2 + 5 })}
+        />
       </div>
 
       <section aria-labelledby="team-store-checklists" className="flex flex-col gap-3">

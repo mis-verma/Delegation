@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Activity } from 'lucide-react';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { DotItemDotProps } from 'recharts';
-import { formatBucket, formatPercent } from './analyticsDisplay';
+import { formatPercent, trendBucketLabel, visibleTrendPoints } from './analyticsDisplay';
 
 export interface TrendSeries {
   key: string;
@@ -12,16 +12,7 @@ export interface TrendSeries {
 
 export type TrendGroupBy = 'day' | 'week' | 'month' | 'year' | 'none';
 
-/** Only the most recent buckets are drawn: a long series is unreadable on a phone. A daily series
- *  keeps a full month; week, month and year stay at 24. */
-const MAX_POINTS_DAY = 31;
-const MAX_POINTS_OTHER = 24;
-/** When the early buckets are empty, at least this many of the newest are still drawn. */
-const MIN_CONTEXT_POINTS = 6;
-
-// The report endpoints name the single whole-range bucket 'range' (groupBy=none), whatever grouping
-// the page asked for, so the label has to follow the bucket, not the control.
-const labelFor = (bucket: string, groupBy: TrendGroupBy) => formatBucket(bucket, bucket === 'range' ? 'none' : groupBy);
+const labelFor = trendBucketLabel;
 
 const formatValue = (value: number | null | undefined, valueSuffix: string) => {
   if (value == null) return 'No data';
@@ -100,14 +91,8 @@ const DASHES = [undefined, '7 4', '2 4', '10 4 2 4'] as const;
 const dashFor = (count: number, index: number) => (count > 1 ? DASHES[index % DASHES.length] : undefined);
 
 export const ReportTrendChart = ({ data, series, groupBy, valueSuffix = '', yDomain }: ReportTrendChartProps) => {
-  const points = useMemo(() => {
-    const recent = data.slice(-(groupBy === 'day' ? MAX_POINTS_DAY : MAX_POINTS_OTHER));
-    // Months before the first figure are empty space: start at the first bucket with data, but keep
-    // a few buckets of context so a brand-new report does not shrink to a single point.
-    const firstWithData = recent.findIndex((row) => series.some((s) => row[s.key] != null));
-    if (firstWithData <= 0) return recent;
-    return recent.slice(Math.min(firstWithData, Math.max(0, recent.length - MIN_CONTEXT_POINTS)));
-  }, [data, groupBy, series]);
+  // The same points the section's Export writes out.
+  const points = useMemo(() => visibleTrendPoints(data, series.map((s) => s.key), groupBy), [data, groupBy, series]);
   const hasValues = useMemo(() => points.some((row) => series.some((s) => row[s.key] != null)), [points, series]);
 
   // Per series, the points whose neighbours are both empty (or missing).

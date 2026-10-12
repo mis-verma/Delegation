@@ -1,25 +1,23 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router';
-import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { ArrowDown, ArrowUp, SlidersHorizontal, ChartColumn, ChartLine, ChevronDown, ChevronLeft, ChevronRight, CircleGauge, ClipboardCheck, Download, FileSpreadsheet, FileText, Ticket as TicketIcon, Users, type LucideIcon } from 'lucide-react';
-import { Button, Combobox, Switch, type ComboboxOption } from '../../components';
+import { ArrowDown, ArrowUp, SlidersHorizontal, ChartColumn, ChartLine, ChevronDown, ChevronLeft, ChevronRight, CircleGauge, ClipboardCheck, Ticket as TicketIcon, Users, type LucideIcon } from 'lucide-react';
+import { Combobox, ExportMenu, Switch, type ComboboxOption, type ExportSource, type ExportTable } from '../../components';
 import { SemiGauge } from '../../components/semiGauge/SemiGauge';
 import { InfoHint } from '../../components/infoHint/InfoHint';
 import { InlineError } from '../../components/inlineError';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel } from '../../components/ui/dropdown-menu';
 import { useAuth } from '../../context/AuthContext';
 import { OWN_SCOPE_ROLES } from '../../api/auth';
-import { scoreApi, type ScoreReport, type ScoreReportRow, type Scores, type ScoreScope } from '../../api/scores';
-import { csvBlob, xlsxBlob, downloadBlob, stampedFilename, type TableRows } from '../../lib/exportTable';
+import { scoreApi, type ScoreReport, type ScoreReportRow, type Scores, type ScoreScope, type ScoreTrend as ScoreTrendData } from '../../api/scores';
+import { exportTitle, formatExportDate, type TableRows } from '../../lib/exportTable';
 import { useAssignableUsersQuery, useDepartmentsQuery, useStoresQuery } from '../tickets/hook';
 import { PeriodTabControl } from './PeriodTabControl';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { ScoreBars } from './ScoreBars';
 import { ScoreDrillPopup } from './ScoreDrillPopup';
 import { ScoreRanking } from './ScoreRanking';
-import { METRIC_LABEL, METRIC_OPTIONS, isMetric, numbersFor, seriesFor, type ModuleKey, type ScoreMetric } from './scoreMetrics';
+import { METRIC_LABEL, METRIC_OPTIONS, MODULE_EXPORT_HEAD, MODULE_ROWS, isMetric, moduleExportCells, numbersFor, seriesFor, type ModuleKey, type ScoreMetric } from './scoreMetrics';
 import { ScoreTrend } from './ScoreTrend';
 import { DASHBOARD_CARD_CLASS, rateTone, type RateTone } from './dashboardDisplay';
 import { PERIODS, PERIOD_LABEL, windowFor, type ScorePeriod } from './scorePeriods';
@@ -71,11 +69,8 @@ const reportCells = (r: ScoreReportRow) => [
   r.delegation.due, r.delegation.done, r.delegation.onTime, r.delegation.overdue, r.delegation.completionPct, r.delegation.compliancePct, r.delegation.onTimePct,
 ];
 
-const reportRows = (report: ScoreReport, windowLabel: string): TableRows => [
-  ['Checklist, ticket and delegation scores'],
-  ['Window', `${windowLabel} (${report.from} to ${report.to})`],
-  ['Generated', new Date(report.generatedAt).toLocaleString()],
-  [],
+// Two tables under one title: departments, then people, then the notes on how each figure is counted.
+const reportRows = (report: ScoreReport): TableRows => [
   ['Departments'],
   ['Department', ...REPORT_COLUMNS],
   ...report.departments.map((d) => [d.name, ...reportCells(d)]),
@@ -167,7 +162,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
   window?: { from: string; to: string; label: string };
   /** A page with every department, store and person side by side; shown as a link in the header. */
   moreHref?: string;
-  /** Front-line staff: their own three dials and a Week / Month switch. No views, measures, filters or export. */
+  /** Front-line staff: their own three dials and a Week / Month switch. No views, measures or filters; Export gives their own scores. */
   simple?: boolean;
 } = {}) => {
   const { user } = useAuth();
@@ -189,7 +184,6 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
   const [period, setPeriodState] = useState<ScorePeriod>(() => (isPeriod(initialPrefs.period) ? initialPrefs.period : 'month'));
   const [offset, setOffset] = useState(0);
   const [picked, setPicked] = useState('');
-  const [exporting, setExporting] = useState(false);
   const [view, setViewState] = useState<ScoreView>(() => (isView(initialPrefs.view) ? initialPrefs.view : 'bars'));
   const [compare, setCompareState] = useState<boolean>(() => initialPrefs.compare === true);
   const [metricChoice, setMetricState] = useState<ScoreMetric>(() => (isMetric(initialPrefs.metric) ? initialPrefs.metric : 'overview'));
@@ -322,40 +316,51 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
     }
   }, [ready, period, offset, scope, targetId, queryClient]);
 
-  const save = (rows: TableRows, format: 'csv' | 'xlsx', base: string) => {
-    downloadBlob(format === 'csv' ? csvBlob(rows) : xlsxBlob(rows, 'Scores'), stampedFilename(base, format));
-  };
-
-  // What is on screen: this person, department or store, for this window.
-  const exportView = (format: 'csv' | 'xlsx') => {
-    if (!data) return;
-    const { checklist: c, ticket: t, delegation: d } = data;
-    save([
-      [`Scores for ${data.name}`],
-      ['View', SCOPE_LABEL[data.scope]],
-      ['Window', `${range.label} (${data.from} to ${data.to})`],
-      ['Generated', new Date().toLocaleString()],
-      [],
-      ['Module', 'Due', 'Done', 'Done on time', 'Completion %', 'Compliance %', 'Other'],
-      ['Checklist', c.due, c.completed, '', c.completionPct, c.compliancePct, `${c.approved} of ${c.submitted} approved, ${c.missed} missed`],
-      ['Tickets', t.due, t.closed, t.onTime, t.completionPct, t.compliancePct, `${t.late} late`],
-      ['Delegations', d.due, d.done, d.onTime, d.completionPct, d.compliancePct, `${d.overdue} overdue`],
-    ], format, 'scores');
-  };
-
-  // Every department and person the viewer may see, as two tables.
-  const exportReport = async (format: 'csv' | 'xlsx') => {
-    setExporting(true);
-    try {
-      const report = await scoreApi.report({ from: range.from, to: range.to });
-      save(reportRows(report, range.label), format, 'scores-report');
-      toast.success(`Exported ${report.departments.length} departments and ${report.people.length} people`);
-    } catch {
-      toast.error('Could not build the report. Try again.');
-    } finally {
-      setExporting(false);
+  // What is on screen: this person, department or store, for this window. Everyone can export their own.
+  // The Trend view exports its slices; Bars and Dials export the three modules.
+  const exportView = async (): Promise<ExportTable> => {
+    if (activeView === 'trend') {
+      const trend = await queryClient.fetchQuery<ScoreTrendData>({
+        queryKey: ['scores', 'trend', scope, targetId ?? 'me', trendPeriod, range.from, range.to],
+        queryFn: () => scoreApi.trend({ scope, id: targetId, period: trendPeriod, from: range.from, to: range.to }),
+        staleTime: 60_000,
+      });
+      return [
+        ['Period', 'From', 'To', 'Module', ...MODULE_EXPORT_HEAD],
+        ...trend.buckets.flatMap((b) => MODULE_ROWS.map((m) => [b.label, formatExportDate(b.from), formatExportDate(b.to), m.label, ...moduleExportCells(b, m.key)])),
+      ];
     }
+    if (!data) return [];
+    return [['Module', ...MODULE_EXPORT_HEAD], ...MODULE_ROWS.map((m) => [m.label, ...moduleExportCells(data, m.key)])];
   };
+  const exportSubject = data?.name ?? SCOPE_LABEL[scope];
+  const exportFilters = { View: scope === 'org' ? null : SCOPE_LABEL[scope], Showing: activeView === 'trend' ? 'Trend' : null };
+
+  // Every department and person the viewer may see (Admin and PC: the organisation; a head: their department).
+  const reportExport: ExportSource[] = canExportReport
+    ? [{
+        label: orgWide ? 'All departments and people' : 'My department, by person',
+        filename: 'scores-report',
+        sheetName: 'Scores',
+        title: exportTitle({ what: orgWide ? 'Scores, all departments and people' : 'Scores, my department by person', from: range.from, to: range.to, period: range.label }),
+        getRows: async () => {
+          const report = await scoreApi.report({ from: range.from, to: range.to });
+          return { rows: reportRows(report), count: report.departments.length + report.people.length };
+        },
+      }]
+    : [];
+  const exportMenu = (
+    <ExportMenu
+      disabled={!ready || (activeView !== 'trend' && !data)}
+      aria-label="Export scores"
+      label="This view"
+      filename={scope === 'person' && !targetId ? 'my-scores' : 'scores'}
+      sheetName="Scores"
+      title={exportTitle({ what: `Scores, ${exportSubject}`, from: range.from, to: range.to, period: range.label, filters: exportFilters })}
+      getRows={exportView}
+      more={reportExport}
+    />
+  );
 
   const heading = scope === 'person' && !targetId ? 'Your scores' : `${data?.name ?? SCOPE_LABEL[scope]} scores`;
   const showPicker = scope === 'org' ? false : scope === 'person' ? canPickPerson : !(scope === 'department' && isHod);
@@ -364,6 +369,8 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
     <section ref={cardRef} className={`${DASHBOARD_CARD_CLASS} @container flex flex-col gap-3 p-3 sm:p-4 min-w-0`} aria-label="Scores">
       <header className="flex flex-col gap-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+          {/* Front-line and phone glance cards have no control row, so their Export sits beside the title. */}
+          <div className="flex min-w-0 items-start justify-between gap-2 sm:flex-1">
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 min-w-0">
               <h2 className="t-section font-display font-bold text-text tracking-tight line-clamp-2">{heading}</h2>
@@ -376,6 +383,8 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
             </div>
             {glance && <p className="mt-0.5 t-meta font-medium text-text-muted">{range.label}</p>}
             <p className="mt-0.5 hidden t-meta font-medium text-text-muted sm:block">What came due, how much got done, and how much was done right or on time</p>
+          </div>
+          {(simple || glance) && exportMenu}
           </div>
           {!simple && !glance && <div className="flex items-center justify-between gap-2 sm:justify-end sm:shrink-0">
             {moreHref && (
@@ -402,26 +411,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
                 );
               })}
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" disabled={!data || exporting} aria-label="Export scores" className="shrink-0 pointer-coarse:min-h-11 pointer-coarse:min-w-11">
-                  <Download size={14} strokeWidth={2.5} aria-hidden="true" />
-                  <span className="hidden sm:inline">{exporting ? 'Exporting' : 'Export'}</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-56">
-                <DropdownMenuLabel className="text-xs">This view</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => exportView('csv')} className="gap-2"><FileText size={14} />CSV (.csv)</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => exportView('xlsx')} className="gap-2"><FileSpreadsheet size={14} />Excel (.xlsx)</DropdownMenuItem>
-                {canExportReport && (
-                  <>
-                    <DropdownMenuLabel className="text-xs">{orgWide ? 'All departments and people' : 'My department, by person'}</DropdownMenuLabel>
-                    <DropdownMenuItem onClick={() => void exportReport('csv')} className="gap-2"><FileText size={14} />Report CSV (.csv)</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => void exportReport('xlsx')} className="gap-2"><FileSpreadsheet size={14} />Report Excel (.xlsx)</DropdownMenuItem>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {exportMenu}
           </div>}
         </div>
 

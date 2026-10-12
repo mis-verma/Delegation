@@ -1,15 +1,14 @@
 import { memo, useMemo, useState } from 'react';
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router';
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Download, FileSpreadsheet, FileText, Search, SearchX } from 'lucide-react';
-import { toast } from 'sonner';
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Search, SearchX } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button, EmptyState, InlineError, PANEL_CLASS, Skeleton } from '../../../components';
+import { EmptyState, ExportMenu, InlineError, PANEL_CLASS, Skeleton, type ExportSource } from '../../../components';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../../../components/ui/dialog';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../../../components/ui/dropdown-menu';
 import { useAuth } from '../../../context/AuthContext';
 import { scoreApi, type ScoreReportRow, type Scores } from '../../../api/scores';
-import { csvBlob, xlsxBlob, downloadBlob, stampedFilename, type TableRows } from '../../../lib/exportTable';
+import { exportTitle, type TableRows } from '../../../lib/exportTable';
+import { MODULE_EXPORT_HEAD, moduleCounts, moduleExportCells } from '../../dashboard/scoreMetrics';
 import { rateToneClass } from '../../checklist/checklistDisplay';
 import { PeriodTabControl } from '../../dashboard/PeriodTabControl';
 import { PERIOD_LABEL, windowFor, type ScorePeriod } from '../../dashboard/scorePeriods';
@@ -52,18 +51,10 @@ const overallOf = (row: Pick<ScoreReportRow, Module>): number | null => {
   return values.length ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : null;
 };
 
-/** What was late or not done, in words, per module. */
-const delayOf = (key: Module, m: ModuleScore): { done: number; late: number; missed: number } => {
-  if (key === 'checklist') {
-    const c = m as ScoreReportRow['checklist'];
-    return { done: c.completed, late: Math.max(0, c.completed - c.onTime), missed: c.missed };
-  }
-  if (key === 'ticket') {
-    const t = m as ScoreReportRow['ticket'];
-    return { done: t.closed, late: t.late, missed: Math.max(0, t.due - t.closed) };
-  }
-  const d = m as ScoreReportRow['delegation'];
-  return { done: d.done, late: Math.max(0, d.done - d.onTime), missed: d.overdue };
+/** What was done, late or not done, per module: the shared rule (late = finished after the deadline). */
+const delayOf = (row: Pick<ScoreReportRow, Module>, key: Module) => {
+  const { done, late, notDone } = moduleCounts(row, key);
+  return { done, late, missed: notDone };
 };
 
 const Pct = ({ value, strong }: { value: number | null; strong?: boolean }) => (
@@ -76,8 +67,9 @@ const Pct = ({ value, strong }: { value: number | null; strong?: boolean }) => (
 // The organisation in three cards
 // ---------------------------------------------------------------------------------------------
 
-const ModuleSummary = ({ label, module, data }: { label: string; module: Module; data: ModuleScore }) => {
-  const { done, late, missed } = delayOf(module, data);
+const ModuleSummary = ({ label, module, scores }: { label: string; module: Module; scores: Scores }) => {
+  const data = scores[module];
+  const { done, late, missed } = delayOf(scores, module);
   return (
     <div className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-4')}>
       <div className="flex items-baseline justify-between gap-2">
@@ -99,20 +91,22 @@ const ModuleSummary = ({ label, module, data }: { label: string; module: Module;
   );
 };
 
+// One definition, so the export reads the very numbers the three cards show (from the cache).
+const orgQuery = (from: string, to: string) => ({
+  queryKey: ['scores', 'org', 'me', from, to],
+  queryFn: () => scoreApi.get({ scope: 'org', from, to }),
+  staleTime: 60_000,
+});
+
 const OrgSummary = ({ from, to }: { from: string; to: string }) => {
-  const query = useQuery<Scores>({
-    queryKey: ['scores', 'org', 'me', from, to],
-    queryFn: () => scoreApi.get({ scope: 'org', from, to }),
-    staleTime: 60_000,
-    placeholderData: keepPreviousData,
-  });
+  const query = useQuery<Scores>({ ...orgQuery(from, to), placeholderData: keepPreviousData });
   if (query.isError && !query.data) return <InlineError message="Could not load the organisation totals." onRetry={() => void query.refetch()} />;
   if (!query.data) {
     return <div className="grid grid-cols-1 gap-3 md:grid-cols-3">{MODULES.map((m) => <Skeleton key={m.key} className="h-40 rounded-2xl" />)}</div>;
   }
   return (
     <section aria-label="Whole organisation" className={cn('grid grid-cols-1 gap-3 md:grid-cols-3 transition-opacity', query.isFetching && 'opacity-60')}>
-      {MODULES.map((m) => <ModuleSummary key={m.key} label={m.label} module={m.key} data={query.data[m.key]} />)}
+      {MODULES.map((m) => <ModuleSummary key={m.key} label={m.label} module={m.key} scores={query.data} />)}
     </section>
   );
 };
@@ -143,7 +137,7 @@ const RowDetail = ({ row, viewBy, windowLabel, onClose }: { row: ScoreReportRow 
             <div className="flex flex-col gap-2">
               {MODULES.map(({ key, label }) => {
                 const m = row[key];
-                const { done, late, missed } = delayOf(key, m);
+                const { done, late, missed } = delayOf(row, key);
                 return (
                   <div key={key} className="flex flex-col gap-2 rounded-lg border border-border/60 p-3">
                     <div className="flex items-center justify-between gap-2">
@@ -284,22 +278,34 @@ export const ScorecardPage = () => {
     else { setSortKey(key); setAscending(key === 'name'); }
   };
 
-  const exportRows = (format: 'csv' | 'xlsx') => {
-    const head = ['Name', ...(viewBy === 'person' ? ['Department'] : []), 'Overall %'];
-    for (const m of MODULES) head.push(`${m.label} due`, `${m.label} completion %`, `${m.label} compliance %`, `${m.label} on time %`, `${m.label} late`, `${m.label} not done`);
+  // The table as sorted and searched on screen, every measure, with the counts behind them.
+  const exportRows = (): TableRows => {
+    const head: string[] = [NAME_HEAD[viewBy], ...(viewBy === 'person' ? ['Department'] : []), 'Overall score'];
+    for (const m of MODULES) head.push(`${m.label} due`, `${m.label} done`, `${m.label} completion %`, `${m.label} compliance %`, `${m.label} on time %`, `${m.label} late`, `${m.label} not done`);
     const body = rows.map((r) => {
       const cells: (string | number | null)[] = [r.name, ...(viewBy === 'person' ? [r.department] : []), r.overall];
       for (const m of MODULES) {
         const s = r[m.key];
-        const d = delayOf(m.key, s);
-        cells.push(s.due, s.completionPct, s.compliancePct, s.onTimePct, d.late, d.missed);
+        const d = delayOf(r, m.key);
+        cells.push(s.due, d.done, s.completionPct, s.compliancePct, s.onTimePct, d.late, d.missed);
       }
       return cells;
     });
-    const table: TableRows = [[`Scorecard by ${VIEW_LABEL[viewBy].toLowerCase()}`], ['Period', `${range.label} (${range.from} to ${range.to})`], [], head, ...body];
-    downloadBlob(format === 'csv' ? csvBlob(table) : xlsxBlob(table, 'Scorecard'), stampedFilename(`scorecard-${viewBy}`, format));
-    toast.success(`Exported ${rows.length} ${VIEW_LABEL[viewBy].toLowerCase()}`);
+    return [head, ...body];
   };
+  const queryClient = useQueryClient();
+  // Admin and PC also see the whole organisation in three cards above the table.
+  const orgExport: ExportSource[] = orgWide
+    ? [{
+        label: 'Whole organisation',
+        filename: 'scorecard-organisation',
+        title: exportTitle({ what: 'Scorecard, whole organisation', from: range.from, to: range.to, period: range.label }),
+        getRows: async () => {
+          const org = await queryClient.fetchQuery<Scores>(orgQuery(range.from, range.to));
+          return [['Module', ...MODULE_EXPORT_HEAD], ...MODULES.map((m) => [m.label, ...moduleExportCells(org, m.key)])];
+        },
+      }]
+    : [];
 
   const openRow = rows.find((r) => r.id === openId) ?? null;
   const periodWord = PERIOD_LABEL[period].toLowerCase();
@@ -342,18 +348,15 @@ export const ScorecardPage = () => {
                 className="h-9 w-full rounded-lg border border-border bg-surface pl-8 pr-3 text-base text-text outline-none transition-colors placeholder:text-text-light focus-visible:border-primary-500 focus-visible:ring-2 focus-visible:ring-primary-500/30 sm:text-sm"
               />
             </label>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" disabled={!rows.length} aria-label="Export" className="shrink-0 pointer-coarse:min-h-11">
-                  <Download size={14} aria-hidden="true" />
-                  <span className="hidden sm:inline">Export</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => exportRows('csv')} className="gap-2"><FileText size={14} />CSV (.csv)</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => exportRows('xlsx')} className="gap-2"><FileSpreadsheet size={14} />Excel (.xlsx)</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <ExportMenu
+              disabled={!rows.length}
+              aria-label={`Export the scorecard by ${VIEW_LABEL[viewBy].toLowerCase()}`}
+              label={`By ${VIEW_LABEL[viewBy].toLowerCase()}`}
+              filename={`scorecard-${viewBy}`}
+              title={exportTitle({ what: `Scorecard, ${VIEW_LABEL[viewBy]}`, from: range.from, to: range.to, period: range.label, filters: { Search: query.trim() } })}
+              getRows={exportRows}
+              more={orgExport}
+            />
           </div>
         </div>
 

@@ -55,6 +55,8 @@ export const TicketKpiSection = ({ groupBy, from, to, isOrgWideRole }: TicketKpi
           iconTint: 'text-primary-600 dark:text-primary-400',
           label: 'Closed vs raised',
           value: formatPercent(closeRate.value),
+          raw: closeRate.value,
+          unit: '%',
           hasData: closeRate.value != null,
           noDataText: NOTHING_COUNTED,
           trend: closeRate.trend,
@@ -66,6 +68,8 @@ export const TicketKpiSection = ({ groupBy, from, to, isOrgWideRole }: TicketKpi
           // Elapsed time from raised to closed, for tickets closed in the period. Lower is better.
           label: 'Avg time to close',
           value: formatDuration(avgTime.value),
+          raw: avgTime.value,
+          unit: 'hours',
           hasData: avgTime.value != null,
           noDataText: 'No tickets closed in this period',
           trend: avgTime.trend,

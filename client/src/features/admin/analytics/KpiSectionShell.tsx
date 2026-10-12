@@ -1,9 +1,10 @@
 import { lazy, Suspense, useId } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { StatCard, type Trend } from '../../dashboard';
-import { ActiveRangeBadge, EntityIconTile, InlineError, PANEL_CLASS, Skeleton } from '../../../components';
+import { ActiveRangeBadge, EntityIconTile, ExportMenu, InlineError, PANEL_CLASS, Skeleton } from '../../../components';
 import { ApiError } from '../../../api/http';
-import { defaultWindowLabel, describeLatestPeriod, NO_TREND, statCaption } from './analyticsDisplay';
+import { exportTitle, type TableRows } from '../../../lib/exportTable';
+import { defaultWindowLabel, describeLatestPeriod, NO_TREND, statCaption, trendBucketLabel, visibleTrendPoints } from './analyticsDisplay';
 import type { ReportTrendChartProps } from './ReportTrendChart';
 
 // The chart pulls in recharts, which is by far the heaviest thing on this page, so it loads on its
@@ -26,6 +27,10 @@ interface KpiCardConfig {
   label: string;
   /** `number` lets StatCard apply thousands separators; pre-formatted strings ("85%", "3.5 h") pass through. */
   value: string | number;
+  /** The figure as a plain number for the export (85 for "85%", 3.5 for "3.5 h"). Defaults to `value` when that is a number. */
+  raw?: number | null;
+  /** What `raw` counts, written into the export's column name. */
+  unit?: '%' | 'hours';
   /** False when the report came back but this figure has nothing behind it (shown as "No data"). */
   hasData: boolean;
   trend: Trend;
@@ -61,12 +66,45 @@ interface KpiSectionShellProps {
   to?: string;
 }
 
+const GROUP_WORD: Record<ReportTrendChartProps['groupBy'], string> = { day: 'Day', week: 'Week', month: 'Month', year: 'Year', none: 'Whole period' };
+
+const exportNumber = (value: number | null | undefined, unit: KpiCardConfig['unit']) => {
+  if (value == null || !Number.isFinite(value)) return null;
+  return unit === 'hours' ? Math.round(value * 10) / 10 : Math.round(value);
+};
+
 // Shared layout for every KPI group on the analytics page (header, stat cards, chart card, plus
 // loading/error states) — each report just supplies its own data + chart. Adding another chart to
 // the dashboard means writing one thin section component, not repeating this scaffolding.
 export const KpiSectionShell = ({ icon: Icon, title, description, isPending, isError, isFetching = false, errorMessage, error, onRetry, cards, chart, summaryRows, from, to }: KpiSectionShellProps) => {
   const headingId = useId();
   const { label: periodCaption, isWholeRange } = describeLatestPeriod(summaryRows ?? (chart.data as { bucket: string }[]), chart.groupBy);
+
+  // The cards as label and value, then the trend as drawn: one row per period per line.
+  const exportRows = () => {
+    const figures: TableRows = cards.map((c) => {
+      const raw = c.raw !== undefined ? c.raw : typeof c.value === 'number' ? c.value : null;
+      const showTrend = c.hasData && !isWholeRange && c.trend.label !== NO_TREND.label;
+      return [`${c.label}${c.unit === '%' ? ' %' : c.unit === 'hours' ? ' (hours)' : ''}`, c.hasData ? exportNumber(raw, c.unit) : null, c.caption ?? periodCaption, showTrend ? c.trend.label : ''];
+    });
+    const points = visibleTrendPoints(chart.data, chart.series.map((x) => x.key), chart.groupBy);
+    const percent = chart.valueSuffix === '%';
+    const trend: TableRows = points.flatMap((row) =>
+      chart.series.map((x) => {
+        const v = row[x.key];
+        return [trendBucketLabel(String(row.bucket), chart.groupBy), x.label, typeof v === 'number' ? exportNumber(v, percent ? '%' : 'hours') : null];
+      }),
+    );
+    const rows: TableRows = [
+      ['Figure', 'Value', 'Covers', 'Change vs previous'],
+      ...figures,
+      [],
+      [`Trend${percent ? ' (%)' : ''}`],
+      ['Period', 'Line', 'Value'],
+      ...trend,
+    ];
+    return { rows, count: figures.length + trend.length };
+  };
 
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-4 sm:gap-6">
@@ -80,7 +118,23 @@ export const KpiSectionShell = ({ icon: Icon, title, description, isPending, isE
           </div>
         </div>
 
-        <ActiveRangeBadge from={from} to={to} emptyLabel={defaultWindowLabel(chart.groupBy)} />
+        <div className="flex items-center gap-2">
+          <ActiveRangeBadge from={from} to={to} emptyLabel={defaultWindowLabel(chart.groupBy)} />
+          <ExportMenu
+            disabled={isPending || isError}
+            aria-label={`Export the ${title.toLowerCase()} figures`}
+            filename={`overview-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`}
+            sheetName={title}
+            title={exportTitle({
+              what: `Overview, ${title}`,
+              from,
+              to,
+              period: from && to ? undefined : defaultWindowLabel(chart.groupBy),
+              filters: { 'Grouped by': GROUP_WORD[chart.groupBy] },
+            })}
+            getRows={exportRows}
+          />
+        </div>
       </header>
 
       {isError ? (

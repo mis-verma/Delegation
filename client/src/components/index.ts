@@ -91,3 +91,5 @@ export { SavedViewsMenu, useSavedViews, type SavedView } from './savedViews';
 export { PeriodStepper } from './periodStepper';
 export { ToggleChip, AddChip } from './toggleChip';
 export { FormChunkFallback } from './formChunkFallback';
+export { ExportMenu } from './exportMenu';
+export type { ExportFormat, ExportMenuProps, ExportSource, ExportTable } from './exportMenu';

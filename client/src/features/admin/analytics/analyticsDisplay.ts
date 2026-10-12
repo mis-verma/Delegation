@@ -206,6 +206,30 @@ export const describeLatestPeriod = (allRows: ReportRow[] | undefined, groupBy: 
 };
 
 // ---------------------------------------------------------------------------------------------
+// Trend chart points (shared by the chart and its export, so the file has exactly the drawn points)
+// ---------------------------------------------------------------------------------------------
+
+/** Only the most recent buckets are drawn: a long series is unreadable on a phone. A daily series
+ *  keeps a full month; week, month and year stay at 24. */
+const MAX_POINTS_DAY = 31;
+const MAX_POINTS_OTHER = 24;
+/** When the early buckets are empty, at least this many of the newest are still drawn. */
+const MIN_CONTEXT_POINTS = 6;
+
+/** The report endpoints name the single whole-range bucket 'range' (groupBy=none), whatever grouping
+ *  the page asked for, so the label follows the bucket, not the control. */
+export const trendBucketLabel = (bucket: string, groupBy: DisplayGroupBy) => formatBucket(bucket, bucket === RANGE_BUCKET ? 'none' : groupBy);
+
+export const visibleTrendPoints = <T extends Record<string, unknown>>(data: T[], seriesKeys: readonly string[], groupBy: DisplayGroupBy): T[] => {
+  const recent = data.slice(-(groupBy === 'day' ? MAX_POINTS_DAY : MAX_POINTS_OTHER));
+  // Months before the first figure are empty space: start at the first bucket with data, but keep
+  // a few buckets of context so a brand-new report does not shrink to a single point.
+  const firstWithData = recent.findIndex((row) => seriesKeys.some((k) => row[k] != null));
+  if (firstWithData <= 0) return recent;
+  return recent.slice(Math.min(firstWithData, Math.max(0, recent.length - MIN_CONTEXT_POINTS)));
+};
+
+// ---------------------------------------------------------------------------------------------
 // Trends
 // ---------------------------------------------------------------------------------------------
 

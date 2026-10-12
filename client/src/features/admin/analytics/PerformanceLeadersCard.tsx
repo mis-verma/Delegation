@@ -1,7 +1,8 @@
 import { memo, useId, useMemo } from 'react';
 import { Link } from 'react-router';
 import { Trophy, AlertTriangle, Building2, Store, ArrowRight } from 'lucide-react';
-import { ActiveRangeBadge, Button, InlineError, PANEL_CLASS, Skeleton } from '../../../components';
+import { ActiveRangeBadge, Button, ExportMenu, InlineError, PANEL_CLASS, Skeleton } from '../../../components';
+import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable';
 import { MIN_RANK_VOLUME, NEEDS_ATTENTION_BELOW, rankRows, useOwnerRankings, type RankedRow } from './useOwnerRankings';
 import { formatPercent } from './analyticsDisplay';
 
@@ -141,19 +142,44 @@ export const PerformanceLeadersCard = ({ from, to, onViewFull }: PerformanceLead
     departmentsFetching, storesFetching, retryDepartments, retryStores,
   } = useOwnerRankings(from, to);
 
+  // The names on the card (top and needs attention, per group) with the figures behind each.
+  const exportRows = (): TableRows => {
+    const out: TableRows[number][] = [['Group', 'Position', 'Name', 'Overall score', 'Tickets closed %', 'Delegations done %', 'Checklists done %', 'Items']];
+    for (const [group, rows] of [['Departments', departmentRows], ['Stores', storeRows]] as const) {
+      const { sorted, topId, lowId } = rankRows(rows);
+      for (const [position, id] of [['Top', topId], ['Needs attention', lowId]] as const) {
+        const r = sorted.find((x) => x.id === id);
+        if (!r) continue;
+        const departments = group === 'Departments';
+        out.push([group, position, r.name, exportPct(r.overall), exportPct(r.ticketCompletion), departments ? exportPct(r.secondaryRate) : null, exportPct(departments ? r.checklistRate : r.secondaryRate), r.volume]);
+      }
+    }
+    return out;
+  };
+
   return (
     <section aria-labelledby={headingId} className={`${PANEL_CLASS} @container p-4 sm:p-5 flex flex-col gap-4`}>
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0 flex-1 basis-56">
           <h2 id={headingId} className="t-card font-display font-bold text-text">How stores and departments are doing</h2>
           <p className="hidden sm:block text-xs font-display font-medium text-text-muted">
             Tickets, delegations and checklists. Needs at least {MIN_RANK_VOLUME} items to be ranked.
           </p>
         </div>
-        <Button type="button" variant="ghost" size="sm" onClick={onViewFull} className="shrink-0 max-sm:min-h-11">
-          See full ranking
-          <ArrowRight size={13} aria-hidden="true" />
-        </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          <Button type="button" variant="ghost" size="sm" onClick={onViewFull} className="shrink-0 max-sm:min-h-11">
+            See full ranking
+            <ArrowRight size={13} aria-hidden="true" />
+          </Button>
+          <ExportMenu
+            disabled={departmentsPending || storesPending}
+            aria-label="Export the top and lowest stores and departments"
+            filename="overview-leaders"
+            sheetName="Leaders"
+            title={exportTitle({ what: 'Overview, how stores and departments are doing', from, to })}
+            getRows={exportRows}
+          />
+        </div>
       </div>
 
       <ActiveRangeBadge from={from} to={to} />

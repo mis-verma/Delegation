@@ -1,7 +1,8 @@
 import { memo, useId, useMemo } from 'react';
 import { Link } from 'react-router';
 import { Trophy, AlertTriangle, Building2 } from 'lucide-react';
-import { ActiveRangeBadge, EmptyState, InlineError, PANEL_CLASS, ENTITY_CARD_CLASS, Skeleton } from '../../../components';
+import { ActiveRangeBadge, EmptyState, ExportMenu, InlineError, PANEL_CLASS, ENTITY_CARD_CLASS, Skeleton } from '../../../components';
+import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable';
 import { MIN_RANK_VOLUME, NEEDS_ATTENTION_BELOW, rankRows, useOwnerRankings, type RankedRow } from './useOwnerRankings';
 import { useChecklistInstanceComplianceReportQuery } from './useAnalyticsQueries';
 import { formatDuration, formatPercent, statCaption } from './analyticsDisplay';
@@ -116,18 +117,45 @@ interface RankedTableProps {
   secondaryLabel: string;
   /** Where each row opens: the directory tab that lists this kind of entity. */
   to: string;
+  /** The page's window, for the export's title. */
+  windowFrom?: string;
+  windowTo?: string;
 }
 
-const RankedTable = ({ title, subtitle, rows, isPending, isError, isFetching, onRetry, emptyLabel, nameColumnLabel, secondaryLabel, to }: RankedTableProps) => {
+const RankedTable = ({ title, subtitle, rows, isPending, isError, isFetching, onRetry, emptyLabel, nameColumnLabel, secondaryLabel, to, windowFrom, windowTo }: RankedTableProps) => {
   const headingId = useId();
   // Best overall first, so who is top and who is low reads straight off the row order.
   const { sorted, topId, lowId } = useMemo(() => rankRows(rows), [rows]);
 
+  // The table as on screen, best first. Rows with too few items keep their place but get no rank.
+  const exportRows = (): TableRows => {
+    let rank = 0;
+    return [
+      ['Rank', nameColumnLabel, 'Badge', 'Overall score', 'Tickets closed %', `${secondaryLabel} %`, 'Open tickets', 'Avg time to close (hours)', 'Closed on time %'],
+      ...sorted.map((r) => {
+        const ranked = r.overall != null && r.volume >= MIN_RANK_VOLUME;
+        if (ranked) rank += 1;
+        const badge = r.id === topId ? 'Top' : r.id === lowId ? 'Needs attention' : r.overall != null && !ranked ? 'Too few items to rank' : '';
+        return [ranked ? rank : null, r.name, badge, exportPct(r.overall), exportPct(r.ticketCompletion), exportPct(r.secondaryRate), r.openIssues, r.avgTat == null ? null : Math.round(r.avgTat * 10) / 10, exportPct(r.slaMet)];
+      }),
+    ];
+  };
+
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-2">
-      <div className="px-1">
-        <h2 id={headingId} className="t-card font-display font-bold text-text">{title}</h2>
-        <p className="text-xs font-display font-medium text-text-muted">{subtitle}</p>
+      <div className="flex items-center justify-between gap-3 px-1">
+        <div className="min-w-0">
+          <h2 id={headingId} className="t-card font-display font-bold text-text">{title}</h2>
+          <p className="text-xs font-display font-medium text-text-muted">{subtitle}</p>
+        </div>
+        <ExportMenu
+          disabled={isPending || isError || sorted.length === 0}
+          aria-label={`Export the ${title.toLowerCase()} ranking`}
+          filename={`rankings-${title.toLowerCase()}`}
+          sheetName={title}
+          title={exportTitle({ what: `Rankings, ${title}`, from: windowFrom, to: windowTo })}
+          getRows={exportRows}
+        />
       </div>
 
       {isError ? (
@@ -219,6 +247,8 @@ export const StoresPerformanceSection = ({ from, to }: StoresPerformanceSectionP
         nameColumnLabel="Department"
         secondaryLabel="Delegations done"
         to="/admin/directory?tab=departments"
+        windowFrom={from}
+        windowTo={to}
       />
 
       <RankedTable
@@ -233,6 +263,8 @@ export const StoresPerformanceSection = ({ from, to }: StoresPerformanceSectionP
         nameColumnLabel="Store"
         secondaryLabel="Checklists done"
         to="/admin/directory?tab=stores"
+        windowFrom={from}
+        windowTo={to}
       />
     </div>
   );

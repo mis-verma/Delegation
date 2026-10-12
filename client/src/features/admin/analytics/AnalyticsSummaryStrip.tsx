@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, ClipboardCheck, ListChecks, ShieldCheck, type LucideIcon } from 'lucide-react';
 import { StatCard, type Trend } from '../../dashboard';
 import { DrilldownModal, type DrilldownRow } from '../../dashboard/DrilldownModal';
-import { InlineError, PANEL_CLASS, Skeleton } from '../../../components';
+import { ExportMenu, InlineError, PANEL_CLASS, Skeleton } from '../../../components';
+import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable';
 import { useAuth } from '../../../context/AuthContext';
 import { ticketApi } from '../../../api/ticket';
 import { handleQueryRetry } from '../../../lib/queryHelpers';
@@ -205,11 +206,34 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
 
   const dim = isStale ? 'opacity-60' : '';
 
+  // The four headline numbers as label and value. A figure that did not load is left empty.
+  const exportRows = (): TableRows => {
+    const change = (t: Trend) => (t.label === NO_TREND.label ? '' : t.label);
+    return [
+      ['Figure', 'Value', 'Covers', 'Change vs previous'],
+      ['Overdue now', overdue.isError ? null : overdueCount ?? 0, 'Open tickets past their deadline, right now', ''],
+      ['Closed on time %', exportPct(onTime.value), onTimePeriod.label, change(onTime.trend)],
+      ['Store checklists completion %', exportPct(storeChecklists.value), storePeriod.label, change(storeChecklists.trend)],
+      ['Delegation checklist items %', exportPct(delegationItems.value), delegationPeriod.label, change(delegationItems.trend)],
+    ];
+  };
+  const anyPending = [overdue, tickets, instances, tasks].some((q) => q.isPending);
+
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-2 sm:gap-3">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
         <h2 id={headingId} className="t-section font-display font-bold text-text">At a glance</h2>
-        <p className="text-sm font-display text-text-muted">{periodHeading(groupBy, from, to)}</p>
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-display text-text-muted">{periodHeading(groupBy, from, to)}</p>
+          <ExportMenu
+            disabled={anyPending}
+            aria-label="Export the headline numbers"
+            filename="overview-at-a-glance"
+            sheetName="At a glance"
+            title={exportTitle({ what: 'Overview, at a glance', from, to, period: from && to ? undefined : periodHeading(groupBy, from, to) })}
+            getRows={exportRows}
+          />
+        </div>
       </div>
 
       {failed.length > 0 && (

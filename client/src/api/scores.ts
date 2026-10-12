@@ -17,7 +17,10 @@ export interface ChecklistScore {
   submitted: number;
   approved: number;
 }
-/** Completion is the share of due items done; compliance is the share done on time. */
+/**
+ * Completion is the share of due items done; compliance is the share done on time. `late` is tickets
+ * closed after their due time; tickets still open are "not done" (due - closed), never also late.
+ */
 export interface TicketScore { score: number | null; completionPct: number | null; compliancePct: number | null; onTimePct: number | null; due: number; closed: number; onTime: number; late: number }
 export interface DelegationScore { score: number | null; completionPct: number | null; compliancePct: number | null; onTimePct: number | null; due: number; done: number; onTime: number; overdue: number }
 

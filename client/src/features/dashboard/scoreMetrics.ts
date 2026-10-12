@@ -40,6 +40,50 @@ interface ModuleNumbers {
   hasData: boolean;
 }
 
+export const MODULE_ROWS: readonly { key: ModuleKey; label: string }[] = [
+  { key: 'checklist', label: 'Checklist' },
+  { key: 'ticket', label: 'Tickets' },
+  { key: 'delegation', label: 'Delegations' },
+];
+
+type ModuleScores = Pick<Scores, ModuleKey>;
+
+/**
+ * One module's counts in the words every score view uses: Done, Late (finished, but after the
+ * deadline) and Not done. Late and Not done never count the same item twice, so for tickets an open
+ * ticket is "not done", never also "late".
+ */
+export const moduleCounts = (s: ModuleScores, key: ModuleKey): { due: number; done: number; onTime: number; late: number; notDone: number } => {
+  if (key === 'checklist') {
+    const c = s.checklist;
+    return { due: c.due, done: c.completed, onTime: c.onTime, late: Math.max(0, c.completed - c.onTime), notDone: c.missed };
+  }
+  if (key === 'ticket') {
+    const t = s.ticket;
+    return { due: t.due, done: t.closed, onTime: t.onTime, late: t.late, notDone: Math.max(0, t.due - t.closed) };
+  }
+  const d = s.delegation;
+  return { due: d.due, done: d.done, onTime: d.onTime, late: Math.max(0, d.done - d.onTime), notDone: d.overdue };
+};
+
+/** A module's Overall score: completion and compliance counted equally. Null when nothing was due. */
+export const moduleOverall = (s: ModuleScores, key: ModuleKey): number | null => {
+  const m = s[key];
+  if (m.due === 0) return null;
+  const parts = [m.completionPct, m.compliancePct].filter((v): v is number => v !== null);
+  return parts.length ? Math.round(parts.reduce((x, y) => x + y, 0) / parts.length) : null;
+};
+
+/** Column heads for a per-module score table, the same words the screens use. */
+export const MODULE_EXPORT_HEAD = ['Overall score', 'Completion %', 'Compliance %', 'On time %', 'Due', 'Done', 'Late', 'Not done'] as const;
+
+/** One module's cells under MODULE_EXPORT_HEAD: numbers only, empty where there is no figure. */
+export const moduleExportCells = (s: ModuleScores, key: ModuleKey): (number | null)[] => {
+  const m = s[key];
+  const n = moduleCounts(s, key);
+  return [moduleOverall(s, key), m.completionPct, m.compliancePct, m.onTimePct, n.due, n.done, n.late, n.notDone];
+};
+
 /** One module's three percentages with the counts behind them, in words. */
 export const numbersFor = (s: Scores, key: ModuleKey): ModuleNumbers => {
   if (key === 'checklist') {

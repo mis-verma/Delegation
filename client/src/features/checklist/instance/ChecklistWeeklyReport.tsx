@@ -3,12 +3,14 @@ import { Popover, PopoverContent, PopoverTrigger } from '../../../components/ui/
 import { Link } from 'react-router';
 import { Building2, CalendarCheck2, CalendarOff, Check, ChevronLeft, ChevronRight, Clock, ListChecks, Minus, SearchX, Store, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Combobox, EmptyState, InlineError, PageHeader, PANEL_CLASS, Skeleton } from '../../../components';
+import { Combobox, EmptyState, ExportMenu, InlineError, PageHeader, PANEL_CLASS, Skeleton } from '../../../components';
+import { exportTitle, type TableRows } from '../../../lib/exportTable';
 import { useStoresQuery, usePeriodReportQuery, useDepartmentScoresQuery } from '../hook';
 import { useDepartmentsQuery } from '../../tickets/hook';
 import { useAuth } from '../../../context/AuthContext';
 import { WeeklyExportMenu } from './WeeklyExportMenu';
 import { ReportScoreboard, type ScoreboardItem } from './ReportScoreboard';
+import { rankScoreboard } from './reportScoreboardRank';
 import { rateToneClass } from '../checklistDisplay';
 import { useOrgToday } from '../useOrgToday';
 import { PeriodTabControl } from '../../dashboard/PeriodTabControl';
@@ -248,6 +250,19 @@ export const ChecklistWeeklyReport = () => {
       : undefined;
   const isMonthView = data?.kind === 'month';
 
+  // The Departments and Stores scoreboards as on screen: best first, level groups sharing a rank.
+  const boardItems = view === 'departments' ? departmentItems : storeItems;
+  const exportBoard = (): TableRows => {
+    const { ranked, winner, rankOf } = rankScoreboard(boardItems);
+    const winners = new Set(winner.map((w) => w.id));
+    return [
+      ['Rank', view === 'departments' ? 'Department' : 'Store', 'Overall score', 'Completion %', 'Compliance %', 'Due', 'Filled', 'Not filled', 'Still open', 'Winner'],
+      ...ranked.map((i, idx) => [rankOf(i, idx), i.name, i.score, i.completion, i.compliance, i.due, Math.max(0, i.due - i.missed), i.missed, i.open, winners.has(i.id) ? 'Yes' : '']),
+    ];
+  };
+  const storeName = stores.find((s) => s.id === storeId)?.name;
+  const departmentName = canPickDepartment ? departments.find((d) => d.id === departmentId)?.name : undefined;
+
   return (
     <div className="flex flex-col gap-4 w-full">
       <PageHeader icon={CalendarCheck2} title="Report" subtitle="Checklist scores by checklist, department and store, with the winner for each week, month or year." />
@@ -326,6 +341,23 @@ export const ChecklistWeeklyReport = () => {
             storeName={stores.find(s => s.id === storeId)?.name}
             departmentName={canPickDepartment ? departments.find(d => d.id === departmentId)?.name : user?.role ? 'your department' : undefined}
           />}
+          {view !== 'checklists' && (
+            <ExportMenu
+              disabled={!boardItems?.length}
+              aria-label={`Export the ${view} scoreboard`}
+              filename={`report-${view}`}
+              sheetName="Report"
+              title={exportTitle({
+                what: `Report, ${view === 'departments' ? 'Departments' : 'Stores'}`,
+                from: range.from,
+                to: range.to,
+                period: range.label,
+                filters: view === 'departments' ? { Store: storeName } : { Department: departmentName },
+              })}
+              getRows={exportBoard}
+              className="h-11 pointer-coarse:h-11 rounded-xl"
+            />
+          )}
         </div>
       </div>
 

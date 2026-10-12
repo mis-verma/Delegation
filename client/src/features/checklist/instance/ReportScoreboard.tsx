@@ -3,16 +3,9 @@ import { ChevronRight, Crown, Trophy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { EmptyState, InlineError, PANEL_CLASS, Skeleton } from '../../../components';
 import { rateToneClass } from '../checklistDisplay';
+import { rankScoreboard, type RankedScoreboardItem, type ScoreboardItem } from './reportScoreboardRank';
 
-export interface ScoreboardItem {
-  id: string;
-  name: string;
-  due: number;
-  missed: number;
-  open: number;
-  completion: number | null;
-  compliance: number | null;
-}
+export type { ScoreboardItem } from './reportScoreboardRank';
 
 interface ScoreboardProps {
   /** "department" or "store", used in the words on the page. */
@@ -27,16 +20,7 @@ interface ScoreboardProps {
   onOpen: (id: string) => void;
 }
 
-type Ranked = ScoreboardItem & { score: number | null };
-
-/**
- * The score is the two measures that matter, completion and compliance, counted equally. With no checked
- * answers yet, completion stands alone, so a store is not punished for having nothing to check.
- */
-const scoreOf = (i: Pick<ScoreboardItem, 'completion' | 'compliance'>) => {
-  if (i.completion === null) return null;
-  return i.compliance === null ? i.completion : Math.round((i.completion + i.compliance) / 2);
-};
+type Ranked = RankedScoreboardItem;
 
 const Figure = ({ value, onClick, label }: { value: number | null; onClick: () => void; label: string }) => (
   <button
@@ -124,16 +108,7 @@ const HEAD = 'px-2 py-2.5 text-center text-xs font-display font-semibold text-te
  * score, shown in a banner, and every name and figure opens that group's checklists in the matrix.
  */
 export const ReportScoreboard = ({ noun, items, loading, error, onRetry, windowLabel, onOpen }: ScoreboardProps) => {
-  const { ranked, winner } = useMemo(() => {
-    const scored: Ranked[] = (items ?? []).map((i) => ({ ...i, score: scoreOf(i) }));
-    // Best first: score, then compliance, then completion. Groups with nothing due go to the bottom, unranked.
-    const live = scored.filter((i) => i.score !== null).sort((a, b) => (b.score ?? 0) - (a.score ?? 0) || (b.compliance ?? -1) - (a.compliance ?? -1) || (b.completion ?? -1) - (a.completion ?? -1) || a.name.localeCompare(b.name));
-    const idle = scored.filter((i) => i.score === null).sort((a, b) => a.name.localeCompare(b.name));
-    // Everyone level on the top score shares the win.
-    const top = live[0];
-    const tied = top ? live.filter((i) => i.score === top.score && i.compliance === top.compliance && i.completion === top.completion) : [];
-    return { ranked: [...live, ...idle], winner: tied };
-  }, [items]);
+  const { ranked, winner, rankOf } = useMemo(() => rankScoreboard(items), [items]);
 
   if (error) return <InlineError message={`We couldn't load the ${noun} scores. Check your connection and try again.`} onRetry={onRetry} />;
 
@@ -151,8 +126,6 @@ export const ReportScoreboard = ({ noun, items, loading, error, onRetry, windowL
   if (ranked.length === 0) {
     return <EmptyState icon={Trophy} title={`No ${noun} scores in this window`} description="Try another period, or clear the store filter." />;
   }
-
-  const rankOf = (i: Ranked, idx: number) => (i.score === null ? null : ranked.findIndex((r) => r.score === i.score && r.compliance === i.compliance && r.completion === i.completion) + 1 || idx + 1);
 
   return (
     <div className="flex flex-col gap-3">

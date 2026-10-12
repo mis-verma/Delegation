@@ -32,6 +32,7 @@ export type ChecklistScore = {
 }
 // Completion is the share of due items done. Compliance is the share done on time (for checklists, how well
 // the checked answers were answered). On time is, of the items that were FINISHED, the share finished on time.
+/** `late` = closed after the due time. Open tickets are not late here; they are due - closed ("not done"). */
 export type TicketScore = { score: number | null; completionPct: number | null; compliancePct: number | null; onTimePct: number | null; due: number; closed: number; onTime: number; late: number }
 export type DelegationScore = { score: number | null; completionPct: number | null; compliancePct: number | null; onTimePct: number | null; due: number; done: number; onTime: number; overdue: number }
 
@@ -123,7 +124,9 @@ const foldTickets = (rows: readonly TicketLike[], now: Date): TicketScore => {
         const finished = t.submittedAt ?? t.closedAt
         return finished && t.tatDueAt && finished <= t.tatDueAt
     }).length
-    return { score: pct(onTime, due.length), completionPct: pct(closed.length, due.length), compliancePct: pct(onTime, due.length), onTimePct: pct(onTime, closed.length), due: due.length, closed: closed.length, onTime, late: due.length - onTime }
+    // Late = closed, but after the due time. Tickets still open are "not done" (due - closed), never
+    // late as well, so the two never count the same ticket twice.
+    return { score: pct(onTime, due.length), completionPct: pct(closed.length, due.length), compliancePct: pct(onTime, due.length), onTimePct: pct(onTime, closed.length), due: due.length, closed: closed.length, onTime, late: Math.max(0, closed.length - onTime) }
 }
 
 // When a task was finished: handed in, else approved, else last touched.

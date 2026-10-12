@@ -257,3 +257,51 @@ export const stampedFilename = (base: string, extension: 'csv' | 'xlsx', now = n
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${base}-${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}.${extension}`;
 };
+
+/* -------------------------------------------------------------------------- */
+/* Words for the title rows of an export                                      */
+/* -------------------------------------------------------------------------- */
+
+const EXPORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/**
+ * "10 Oct 2026". A bare 'YYYY-MM-DD' day is read as that calendar day (not UTC midnight, which a
+ * browser west of UTC would show as the day before); anything else goes through `Date`.
+ */
+export const formatExportDate = (value: string | Date): string => {
+  const day = typeof value === 'string' ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(value) : null;
+  const d = day ? new Date(Number(day[1]), Number(day[2]) - 1, Number(day[3])) : new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+  return `${d.getDate()} ${EXPORT_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+};
+
+/** "1 Oct 2026 to 31 Oct 2026", or a single date when both ends are the same day. */
+export const formatExportRange = (from: string | Date, to: string | Date): string => {
+  const a = formatExportDate(from);
+  const b = formatExportDate(to);
+  return a === b ? a : `${a} to ${b}`;
+};
+
+/**
+ * The title rows of an export: what it is, then the period, then the filters that narrowed it, one
+ * line each. Empty filters are dropped, so "All stores" is never written as a filter.
+ */
+export const exportTitle = ({ what, from, to, period, filters }: {
+  what: string;
+  from?: string | Date;
+  to?: string | Date;
+  /** Words for the period when there is no from/to, or a name for it beside them ("Oct 2026"). */
+  period?: string;
+  filters?: Record<string, string | null | undefined | false>;
+}): string[] => {
+  const range = from && to ? formatExportRange(from, to) : '';
+  const periodLine = range && period && period !== range ? `Period: ${range} (${period})` : range || period ? `Period: ${range || period}` : '';
+  const filterParts = Object.entries(filters ?? {})
+    .filter((entry): entry is [string, string] => typeof entry[1] === 'string' && entry[1].trim() !== '')
+    .map(([key, value]) => `${key}: ${value}`);
+  return [what, periodLine, filterParts.join(', ')].filter(Boolean);
+};
+
+/** A percentage as a plain whole number for a spreadsheet cell (85, not "85%"), or empty. */
+export const exportPct = (value: number | null | undefined): number | null =>
+  value == null || !Number.isFinite(value) ? null : Math.round(value);

@@ -5,6 +5,8 @@ import { cn } from '@/lib/utils';
 import { scoreApi, type ScoreReport, type ScoreReportRow, type ScoreScope } from '../../api/scores';
 import { Skeleton } from '../../components/skeleton';
 import { InlineError } from '../../components/inlineError';
+import { ExportMenu } from '../../components/exportMenu';
+import { exportTitle, type TableRows } from '../../lib/exportTable';
 import { getInitials } from '../../lib/getInitials';
 import { avatarColorClass } from '../../lib/avatarColors';
 import { rateTone, type RateTone } from './dashboardDisplay';
@@ -16,6 +18,7 @@ type SortKey = 'name' | 'overall' | 'checklist' | 'ticket' | 'delegation';
 const METRIC_LABEL: Record<Metric, string> = { overview: 'Overall score', completion: 'Completion', compliance: 'Compliance', ontime: 'On time' };
 const SUBJECT: Record<ScoreScope, string> = { org: 'departments', person: 'people', department: 'departments', store: 'stores' };
 const SUBJECT_ONE: Record<ScoreScope, string> = { org: 'department', person: 'person', department: 'department', store: 'store' };
+const SUBJECT_HEAD: Record<ScoreScope, string> = { org: 'Department', person: 'Person', department: 'Department', store: 'Store' };
 const BAR: Record<RateTone, string> = { success: 'bg-success', warning: 'bg-warning', danger: 'bg-danger', neutral: 'bg-text-light' };
 const TEXT: Record<RateTone, string> = { success: 'text-success', warning: 'text-warning', danger: 'text-danger', neutral: 'text-text-muted' };
 
@@ -129,6 +132,13 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
     else { setSortKey(key); setAscending(key === 'name'); }
   };
 
+  // The list as it is on screen (search, sort, measure), one row per line.
+  const exportRows = (): TableRows => {
+    const measure = metric === 'overview' ? 'overall score' : `${METRIC_LABEL[metric].toLowerCase()} %`;
+    const head = ['Position', SUBJECT_HEAD[scope], ...(scope === 'person' ? ['Department'] : []), `All modules ${measure}`, `Checklist ${measure}`, `Tickets ${measure}`, `Delegations ${measure}`, 'Due'];
+    return [head, ...rows.map((c, i) => [i + 1, c.row.name, ...(scope === 'person' ? [c.row.department] : []), c[metric].overall, c[metric].checklist, c[metric].ticket, c[metric].delegation, c.due])];
+  };
+
   const heads: { key: SortKey; label: string }[] = [
     { key: 'overall', label: 'Overall' },
     { key: 'checklist', label: 'Checklist' },
@@ -170,7 +180,17 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
             </button>
           ))}
         </div>
-        <p className="t-meta font-medium text-text-muted">{rows.length} {rows.length === 1 ? SUBJECT_ONE[scope] : SUBJECT[scope]}, worst first</p>
+        <div className="ml-auto flex items-center gap-2">
+          <p className="t-meta font-medium text-text-muted">{rows.length} {rows.length === 1 ? SUBJECT_ONE[scope] : SUBJECT[scope]}, worst first</p>
+          <ExportMenu
+            disabled={rows.length === 0}
+            aria-label={`Export the ranking of ${SUBJECT[scope]}`}
+            filename={`ranking-${SUBJECT[scope]}`}
+            sheetName="Ranking"
+            title={exportTitle({ what: `Ranking, ${SUBJECT_HEAD[scope] === 'Person' ? 'People' : `${SUBJECT_HEAD[scope]}s`}, ${METRIC_LABEL[metric]}`, from, to, filters: { Search: query.trim() } })}
+            getRows={exportRows}
+          />
+        </div>
       </div>
 
       <label className="relative block">

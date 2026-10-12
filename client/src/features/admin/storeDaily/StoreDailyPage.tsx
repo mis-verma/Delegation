@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { CalendarRange, RefreshCw } from 'lucide-react';
-import { Button, DateRangePicker, EmptyState, InlineError, PageHeader, Skeleton, ToggleChip, type DateRangeValue } from '../../../components';
+import { Button, DateRangePicker, EmptyState, ExportMenu, InlineError, PageHeader, Skeleton, ToggleChip, type DateRangeValue } from '../../../components';
+import { exportPct, exportTitle, formatExportDate, type TableRows } from '../../../lib/exportTable';
 import { useAuth } from '../../../context/AuthContext';
 import { checklistInstanceApi, type ChecklistStoreDailyRow } from '../../../api/checklistInstances';
 import { handleQueryRetry } from '../../../lib/queryHelpers';
@@ -128,6 +129,22 @@ export const StoreDailyPage = () => {
     return { storeRows: rows, dayTotals: totals, grandFigures, grand: rateOf(grandFigures.done, grandFigures.total) };
   }, [query.data]);
 
+  // The matrix as on screen: one row per store, one column per day, then the All stores row.
+  const exportRows = (): TableRows => {
+    const dayCell = (cell: { done: number; total: number } | undefined) => (cell ? exportPct(ratio(cell.done, cell.total)) : null);
+    return [
+      ['Store', 'Overall %', 'Items done', 'Items due', ...days.map((d) => formatExportDate(d))],
+      ...storeRows.map((r) => [
+        r.name, exportPct(r.overall), r.figures.done, r.figures.total,
+        ...days.map((d) => {
+          const c = r.cells.get(d);
+          return dayCell(c ? { done: c.doneItems, total: c.totalItems } : undefined);
+        }),
+      ]),
+      ['All stores', exportPct(grand), grandFigures.done, grandFigures.total, ...days.map((d) => dayCell(dayTotals.get(d)))],
+    ];
+  };
+
   return (
     <div className="flex flex-col gap-4 w-full">
       <PageHeader
@@ -155,10 +172,21 @@ export const StoreDailyPage = () => {
             activePreset ? 'text-text-secondary hover:border-border-hover' : 'border-primary-500/50 bg-primary-500/10 text-primary-700 dark:text-primary-300',
           )}
         />
-        <Button variant="outline" size="sm" className="ml-auto" onClick={() => void query.refetch()} disabled={query.isFetching} aria-label="Refresh numbers">
-          <RefreshCw size={14} aria-hidden="true" className={query.isFetching ? 'animate-spin motion-reduce:animate-none' : undefined} />
-          Refresh
-        </Button>
+        <div className="ml-auto flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => void query.refetch()} disabled={query.isFetching} aria-label="Refresh numbers">
+            <RefreshCw size={14} aria-hidden="true" className={query.isFetching ? 'animate-spin motion-reduce:animate-none' : undefined} />
+            Refresh
+          </Button>
+          <ExportMenu
+            disabled={!query.data || storeRows.length === 0}
+            aria-label="Export store scores by day"
+            filename="store-scores-by-day"
+            sheetName="Stores by day"
+            title={exportTitle({ what: 'Store scores by day, checklist completion', from, to })}
+            // The All stores total is a row in the file but not an item.
+            getRows={() => ({ rows: exportRows(), count: storeRows.length })}
+          />
+        </div>
       </div>
 
       <p className="text-xs font-display text-text-muted px-1">
