@@ -6,18 +6,23 @@ import { eq, count, inArray } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
 import { AppError } from "../../utils/AppError.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
+import { assertCanWorkChecklistItem, taskChecklistWorkerIds } from "../../utils/checklistItemWorkers.js"
 
-const assertCanUpload = (user: AccessTokenPayload, item: { assigneeId: string | null }) => {
-    if (user.role === "ADMIN" || user.role === "PC") return;
-    if (item.assigneeId && item.assigneeId === user.sub) return;
-    throw AppError.forbidden("Only the assigned person can upload evidence for this item");
-};
+// Same rule as ticking the item (see checklistItemWorkers): its assignee, the delegation's assignees
+// when the item has nobody on it, or an admin.
+const assertCanUpload = (user: AccessTokenPayload, item: { assigneeId: string | null; taskChecklistId: string | null }) =>
+    assertCanWorkChecklistItem(
+        user,
+        item,
+        () => (item.taskChecklistId ? taskChecklistWorkerIds(item.taskChecklistId) : Promise.resolve([])),
+        "Only the assigned person can upload evidence for this item",
+    );
 
 export const taskImageService = {
     async upload(itemId: string, files: Express.Multer.File[], captureMethod: "LIVE" | "GALLERY", user: AccessTokenPayload) {
         const [item] = await db.select().from(taskChecklistItems).where(eq(taskChecklistItems.id, itemId)).limit(1);
         if (!item) throw AppError.notFound("Checklist item not found");
-        assertCanUpload(user, item);
+        await assertCanUpload(user, item);
 
         if (!files.length) {
             throw AppError.badRequest("No valid image files were received (check file type and size)");
@@ -63,7 +68,7 @@ export const taskImageService = {
         if (!image) throw AppError.notFound("Image not found");
 
         const [item] = await db.select().from(taskChecklistItems).where(eq(taskChecklistItems.id, image.taskChecklistItemId)).limit(1);
-        assertCanUpload(user, item ?? { assigneeId: image.uploadedBy });
+        await assertCanUpload(user, item ?? { assigneeId: image.uploadedBy, taskChecklistId: null });
 
         const absolutePath = path.resolve(process.cwd(), "uploads", "tasks", path.basename(image.url));
         fs.unlink(absolutePath, (err) => {

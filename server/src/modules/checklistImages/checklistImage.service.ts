@@ -6,21 +6,25 @@ import { checklistItems, checklistImages } from "../../db/schema/index.js";
 import { eq, inArray, sql } from "drizzle-orm";
 import { AppError } from "../../utils/AppError.js";
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js";
+import { assertCanWorkChecklistItem, ticketChecklistWorkerIds } from "../../utils/checklistItemWorkers.js";
 
 type ChecklistItemRow = typeof checklistItems.$inferSelect;
 
-// Same rule as the Task side — only the assignee (or an admin) can add evidence photos.
-const assertCanUpload = (user: AccessTokenPayload, item: Pick<ChecklistItemRow, "assigneeId">) => {
-    if (user.role === "ADMIN" || user.role === "PC") return;
-    if (item.assigneeId && item.assigneeId === user.sub) return;
-    throw AppError.forbidden("Only the assigned person can upload evidence for this item");
-};
+// Same rule as ticking the item (see checklistItemWorkers): its assignee, the ticket's assignee when
+// the item has nobody on it, or an admin.
+const assertCanUpload = (user: AccessTokenPayload, item: { assigneeId: string | null; checklistId: string | null }) =>
+    assertCanWorkChecklistItem(
+        user,
+        item,
+        () => (item.checklistId ? ticketChecklistWorkerIds(item.checklistId) : Promise.resolve([])),
+        "Only the assigned person can upload evidence for this item",
+    );
 
 export const checklistImageService = {
     async upload(itemId: string, files: Express.Multer.File[], captureMethod: "LIVE" | "GALLERY", user: AccessTokenPayload) {
         const [item] = await db.select().from(checklistItems).where(eq(checklistItems.id, itemId)).limit(1);
         if (!item) throw AppError.notFound("Checklist item not found");
-        assertCanUpload(user, item);
+        await assertCanUpload(user, item);
 
         if (!files.length) {
             throw AppError.badRequest("No valid image files were received (check file type and size)");
@@ -68,7 +72,7 @@ export const checklistImageService = {
         if (!image) throw AppError.notFound("Image not found");
 
         const [item] = await db.select().from(checklistItems).where(eq(checklistItems.id, image.checklistItemId)).limit(1);
-        assertCanUpload(user, item ?? { assigneeId: image.uploadedBy });
+        await assertCanUpload(user, item ?? { assigneeId: image.uploadedBy, checklistId: null });
 
         const absolutePath = path.resolve(process.cwd(), "uploads", "tickets", path.basename(image.url));
         fs.unlink(absolutePath, (err) => {

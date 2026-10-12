@@ -527,13 +527,14 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
                 </div>
 
                 <Fab
+                  sheetTitle="Create"
                   actions={[
-                    { key: 'new', label: 'New delegation', icon: Plus, onClick: () => setShowForm(true) },
+                    { key: 'new', label: 'New delegation', description: 'Give someone a piece of work', icon: Plus, onClick: () => setShowForm(true) },
                     // Verifier-only, like Bulk import: a disabled entry with a "Soon" badge was a
                     // dead button in every regular user's menu.
                     ...(isVerifier ? [
-                      { key: 'smart', label: 'Smart Add', icon: Wand2, onClick: () => setShowSmartModal(true) },
-                      { key: 'bulk-import', label: 'Bulk import', icon: Upload, onClick: () => setShowBulkImport(true) },
+                      { key: 'smart', label: 'Smart Add', description: 'Type or say it, the details fill in', icon: Wand2, onClick: () => setShowSmartModal(true) },
+                      { key: 'bulk-import', label: 'Bulk import', description: 'Add many from an Excel sheet', icon: Upload, onClick: () => setShowBulkImport(true) },
                     ] : []),
                   ]}
                 />

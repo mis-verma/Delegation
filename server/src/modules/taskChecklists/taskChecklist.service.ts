@@ -5,6 +5,7 @@ import { createId } from "@paralleldrive/cuid2"
 import { AppError } from "../../utils/AppError.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { CreateTaskChecklistInput, UpdateTaskChecklistItemInput } from "./taskChecklist.validation.js"
+import { assertCanWorkChecklistItem, taskChecklistWorkerIds } from "../../utils/checklistItemWorkers.js"
 
 // Replaces a Mongoose pre('save') hook that used to live on the TaskChecklistItem model: kept
 // `completedAt` in sync every time `isDone` changed. Now that there's no hook, every service
@@ -23,14 +24,11 @@ const assertCanManage = (user: AccessTokenPayload, task: { userId: string }) => 
     throw AppError.forbidden("Only the delegation owner can manage its checklists");
 };
 
-// Who's allowed to mark a specific item complete, or upload photos toward it — the item's
-// assignee, or an admin. Not the task owner automatically (unless they're also the assignee) —
-// completion is about who actually did the work.
-const assertCanComplete = (user: AccessTokenPayload, item: { assigneeId: string | null }) => {
-    if (user.role === "ADMIN" || user.role === "PC") return;
-    if (item.assigneeId && item.assigneeId === user.sub) return;
-    throw AppError.forbidden("Only the assigned person can complete this item");
-};
+// Who's allowed to mark a specific item complete or write its remark: the item's assignee, or the
+// delegation's own assignees when the item has nobody on it, or an admin (see checklistItemWorkers).
+// Not the task owner automatically (unless they're also doing it): completion is about who did the work.
+const assertCanComplete = (user: AccessTokenPayload, item: { assigneeId: string | null; taskChecklistId: string }) =>
+    assertCanWorkChecklistItem(user, item, () => taskChecklistWorkerIds(item.taskChecklistId), "Only the assigned person can complete this item");
 
 // Populate helper: expands a checklist's items, and each item's uploaded images, so one API
 // call gives the frontend everything it needs instead of several round trips.
@@ -159,7 +157,7 @@ export const taskChecklistService = {
     async completeItem(itemId: string, user: AccessTokenPayload) {
         const [item] = await db.select().from(taskChecklistItems).where(eq(taskChecklistItems.id, itemId)).limit(1);
         if (!item) throw AppError.notFound("Checklist item not found");
-        assertCanComplete(user, item);
+        await assertCanComplete(user, item);
 
         const images = await db.select().from(taskImages).where(eq(taskImages.taskChecklistItemId, item.id));
 
@@ -192,7 +190,7 @@ export const taskChecklistService = {
     async updateRemarks(itemId: string, remarks: string, user: AccessTokenPayload) {
         const [item] = await db.select().from(taskChecklistItems).where(eq(taskChecklistItems.id, itemId)).limit(1);
         if (!item) throw AppError.notFound("Checklist item not found");
-        assertCanComplete(user, item);
+        await assertCanComplete(user, item);
 
         await db.update(taskChecklistItems).set({ remarks, updatedAt: new Date() }).where(eq(taskChecklistItems.id, itemId));
 

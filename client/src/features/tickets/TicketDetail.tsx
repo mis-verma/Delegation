@@ -421,7 +421,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
               {/* The server won't take Mark completed while a checklist step is neither done nor
                   explained, so the checklist has to be workable right here. */}
               {(ticket.checklists?.length ?? 0) > 0 && (
-                <ChecklistPanel ticketId={ticket.id} checklists={ticket.checklists} />
+                <ChecklistPanel ticketId={ticket.id} checklists={ticket.checklists} workerIds={ticket.assignee ? [ticket.assignee.id] : []} />
               )}
               </div>
 

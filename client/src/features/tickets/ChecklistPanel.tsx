@@ -30,6 +30,8 @@ import { Badge } from '../../components/ui/badge';
 interface ChecklistPanelProps {
   ticketId: string;
   checklists: Checklist[];
+  /** The ticket's assignee, who works items that have nobody on them. */
+  workerIds?: string[];
 }
 
 // Same card language as the Delegation side's own (currently dormant) ChecklistItemRow — bigger
@@ -255,12 +257,14 @@ const ItemRow = ({
 // Same rounded-xl card, animated progress bar, and smooth collapse as the Delegation side's own
 // ChecklistBlock — a flat "3/5" counter next to a plain title used to be the only progress signal.
 const ChecklistBlock = ({
-  checklist, ticketId, isAdmin, currentUserId,
+  checklist, ticketId, isAdmin, currentUserId, workerIds,
 }: {
   checklist: Checklist;
   ticketId: string;
   isAdmin: boolean;
   currentUserId?: string;
+  /** The ticket's assignee: they work any item that has nobody on it (same rule as the server). */
+  workerIds: string[];
 }) => {
   const [open, setOpen] = useState(true);
   const deleteChecklist = useDeleteChecklistMutation(ticketId);
@@ -337,7 +341,7 @@ const ChecklistBlock = ({
               item={item}
               ticketId={ticketId}
               isAdmin={isAdmin}
-              canWork={isAdmin || (!!currentUserId && item.assigneeId === currentUserId)}
+              canWork={isAdmin || (!!currentUserId && (item.assigneeId ? item.assigneeId === currentUserId : workerIds.includes(currentUserId)))}
             />
           ))}
         </div>
@@ -346,7 +350,7 @@ const ChecklistBlock = ({
   );
 };
 
-export const ChecklistPanel = ({ ticketId, checklists }: ChecklistPanelProps) => {
+export const ChecklistPanel = ({ ticketId, checklists, workerIds = [] }: ChecklistPanelProps) => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'PC';
   const [adding, setAdding] = useState(false);
@@ -562,6 +566,7 @@ export const ChecklistPanel = ({ ticketId, checklists }: ChecklistPanelProps) =>
           ticketId={ticketId}
           isAdmin={isAdmin}
           currentUserId={user?.id}
+          workerIds={workerIds}
         />
       ))}
     </div>

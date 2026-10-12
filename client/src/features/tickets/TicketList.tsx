@@ -264,9 +264,10 @@ export const TicketList = () => {
             />
             </div>
             <Fab
+              sheetTitle="Create"
               actions={[
-                { key: 'create', label: 'New ticket', icon: Plus, onClick: () => setShowForm(true) },
-                ...(isVerifier ? [{ key: 'bulk-import', label: 'Bulk import', icon: Upload, onClick: () => setShowBulkImport(true) }] : []),
+                { key: 'create', label: 'New ticket', description: 'Report an issue or ask for help', icon: Plus, onClick: () => setShowForm(true) },
+                ...(isVerifier ? [{ key: 'bulk-import', label: 'Bulk import', description: 'Add many from an Excel sheet', icon: Upload, onClick: () => setShowBulkImport(true) }] : []),
               ]}
             />
           </div>

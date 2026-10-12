@@ -5,7 +5,7 @@ interface VerificationNoteBannerProps {
   note: string | null | undefined;
   /** Whether the item came back approved (task `done` / ticket `CLOSED`) or was sent back. */
   approved: boolean;
-  /** Only used to distinguish "Verified" from "Sent back" — an approved item with no verifier
+  /** Only used to distinguish "Approved" from "Sent back" — an approved item with no verifier
    *  recorded is still a change request, not a verification. */
   verifiedBy?: string | null;
 }
@@ -34,8 +34,8 @@ export const VerificationNoteBanner = ({ note, approved, verifiedBy }: Verificat
       </div>
 
       <div className="flex flex-col pt-0.5 min-w-0">
-        <p className={`text-sm font-bold tracking-wide ${tone.title}`}>
-          {isVerified ? 'Verified' : 'Sent back for changes'}
+        <p className={`t-card font-bold ${tone.title}`}>
+          {isVerified ? 'Approved' : 'Sent back for changes'}
         </p>
         <p className={`mt-1 text-sm leading-relaxed break-words ${tone.body}`}>{note}</p>
       </div>

@@ -656,6 +656,7 @@ const TaskEditLayout = ({
           checklists={task.checklists ?? []}
           isAdmin={isVerifier}
           currentUserId={currentUserId}
+          workerIds={taskAssigneeIds(task)}
         />
       )}
 

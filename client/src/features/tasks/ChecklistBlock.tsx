@@ -5,12 +5,14 @@ import type { TaskChecklist } from '../../api/taskChecklist';
 import { ChecklistItemRow } from './ChecklistItemRow';
 
 export const ChecklistBlock = ({
-  checklist, taskId, isAdmin, currentUserId,
+  checklist, taskId, isAdmin, currentUserId, workerIds = [],
 }: {
   checklist:      TaskChecklist;
   taskId:         string;
   isAdmin:        boolean;
   currentUserId?: string;
+  /** The delegation's assignees: they work any item that has nobody on it (same rule as the server). */
+  workerIds?: string[];
 }) => {
   const [open, setOpen] = useState(true);
   const deleteChecklist = useDeleteTaskChecklistMutation(taskId);
@@ -95,7 +97,7 @@ export const ChecklistBlock = ({
               item={item}
               taskId={taskId}
               isAdmin={isAdmin}
-              canWork={isAdmin || (!!currentUserId && item.assigneeId === currentUserId)}
+              canWork={isAdmin || (!!currentUserId && (item.assigneeId ? item.assigneeId === currentUserId : workerIds.includes(currentUserId)))}
             />
           ))}
         </div>

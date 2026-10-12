@@ -16,6 +16,7 @@ import { emitTicketEvent } from '../../sockets/ticketEvent.js';
 // Types describing the shape of validated input for creating a checklist / updating an item.
 import type { CreateChecklistInput, UpdateChecklistItemInput } from './checklist.validation.js';
 import type { AccessTokenPayload } from '../../middleware/auth/auth.js';
+import { assertCanWorkChecklistItem, ticketChecklistWorkerIds } from '../../utils/checklistItemWorkers.js';
 
 type ChecklistItemRow = typeof checklistItems.$inferSelect;
 
@@ -55,13 +56,10 @@ const assertCanManage = (user: AccessTokenPayload, ticket: { userId: string }) =
   throw AppError.forbidden('Only the ticket owner can manage its checklists');
 };
 
-// Who's allowed to mark a specific item complete, or upload photos toward it — the item's
-// assignee, or an admin.
-const assertCanComplete = (user: AccessTokenPayload, item: Pick<ChecklistItemRow, 'assigneeId'>) => {
-  if (user.role === 'ADMIN' || user.role === 'PC') return;
-  if (item.assigneeId && item.assigneeId === user.sub) return;
-  throw AppError.forbidden('Only the assigned person can complete this item');
-};
+// Who's allowed to mark a specific item complete or write its remark: the item's assignee, or the
+// ticket's assignee when the item has nobody on it, or an admin (see checklistItemWorkers).
+const assertCanComplete = (user: AccessTokenPayload, item: Pick<ChecklistItemRow, 'assigneeId' | 'checklistId'>) =>
+  assertCanWorkChecklistItem(user, item, () => ticketChecklistWorkerIds(item.checklistId), 'Only the assigned person can complete this item');
 
 // All the checklist-related database logic lives here, separate from the HTTP layer (controller).
 export const checklistService = {
@@ -188,7 +186,7 @@ export const checklistService = {
   async completeItem(itemId: string, user: AccessTokenPayload) {
     const [item] = await db.select().from(checklistItems).where(eq(checklistItems.id, itemId)).limit(1);
     if (!item) throw AppError.notFound('Checklist item not found');
-    assertCanComplete(user, item);
+    await assertCanComplete(user, item);
 
     const images = await db.select().from(checklistImages).where(eq(checklistImages.checklistItemId, item.id));
 
@@ -216,7 +214,7 @@ export const checklistService = {
   async updateRemarks(itemId: string, remarks: string, user: AccessTokenPayload) {
     const [item] = await db.select().from(checklistItems).where(eq(checklistItems.id, itemId)).limit(1);
     if (!item) throw AppError.notFound('Checklist item not found');
-    assertCanComplete(user, item);
+    await assertCanComplete(user, item);
 
     await db.update(checklistItems).set({ remarks, updatedAt: new Date() }).where(eq(checklistItems.id, itemId));
     const [updated] = await db.select().from(checklistItems).where(eq(checklistItems.id, itemId)).limit(1);
