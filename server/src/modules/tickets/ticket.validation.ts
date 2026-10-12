@@ -49,13 +49,13 @@ export const paginatioinSchema = z.object({
     overdue : z.preprocess((v) => (v === "true" ? true : v === "false" ? false : v), z.boolean()).optional(),
     from : z.string().datetime().optional(),
     to : z.string().datetime().optional(),
-    // The "On-time completion" drilldown scopes its from/to by closedAt instead of createdAt, to
-    // match tatReport's own closedAt-scoped bucketing (see ticket.service.ts#tatReport) — the stat
-    // card's percentage and its drilldown's row set now describe the exact same population.
-    dateField : z.enum(["createdAt", "closedAt"]).optional().default("createdAt"),
+    // Which date from/to apply to. The on-time and closed-late drill-downs use tatDueAt, the same
+    // "due in the window" set tatReport's on-time split and the scores use, so a tile's percentage and
+    // its list describe the exact same tickets.
+    dateField : z.enum(["createdAt", "closedAt", "tatDueAt"]).optional().default("createdAt"),
     // Drill-down for the SLA tiles, using the same definitions as the reports: overdue_open =
-    // overdue right now and not closed; closed_late / closed_on_time = hand-in time (submittedAt, else closedAt) vs tatDueAt among
-    // closed tickets that have a TAT.
+    // overdue right now and not closed or waiting for approval; closed_late / closed_on_time = hand-in
+    // time (submittedAt, else closedAt) vs tatDueAt among closed tickets that have a TAT.
     sla : z.enum(["overdue_open", "closed_late", "closed_on_time"]).optional(),
 })
 

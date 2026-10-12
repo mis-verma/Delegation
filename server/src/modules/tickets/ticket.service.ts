@@ -397,10 +397,11 @@ const roomTarget = (ticket: Pick<TicketRow, "userId" | "assigneeId" | "departmen
 })
 
 // total/closed/overdueCount describe the tickets CREATED in the window (closed = of those, now
-// closed; overdueCount = of those, overdue right now and still open). The closed* fields and
-// avgTatHours describe the tickets CLOSED in the window, the same cohort the bucketed report uses:
-// closedOnTime/closedLate only count closed tickets that have a TAT (closedWithTat is their
-// denominator), on time meaning handed in (submittedAt, else closedAt) by tatDueAt.
+// closed; overdueCount = of those, overdue right now, not closed and not waiting for approval).
+// closedInPeriod and avgTatHours describe the tickets CLOSED in the window. closedWithTat/
+// closedOnTime/closedLate describe the closed tickets DUE in the window (tatDueAt), the same set the
+// scores (Scorecard) and tatReport's on-time split use, on time meaning handed in (submittedAt, else
+// closedAt) by tatDueAt.
 export type OwnerStatsRow = {
   ownerId: string | null
   total: number
@@ -411,7 +412,7 @@ export type OwnerStatsRow = {
   closedWithTat: number
   closedOnTime: number
   closedLate: number
-  /** Distinct tickets behind this row (created OR closed in the window), for minimum-volume rules. */
+  /** Distinct tickets behind this row (created, closed or due in the window), for minimum-volume rules. */
   volume: number
   /** The server never invents a default window: no from/to means all time. Clients send explicit dates. */
   windowDefaulted: false
@@ -467,10 +468,12 @@ const ownerStatsByColumn = async (
   }
   const createdIn = inWindow("tickets.createdAt")
   const closedIn = sql`(tickets.closedAt IS NOT NULL AND ${inWindow("tickets.closedAt")})`
+  // Closed and due in the window: the on-time cohort (see OwnerStatsRow).
+  const closedDueIn = sql`(tickets.status = 'CLOSED' AND tickets.closedAt IS NOT NULL AND tickets.tatDueAt IS NOT NULL AND ${inWindow("tickets.tatDueAt")})`
   const hasWindow = Boolean(window.from || window.to)
 
   const conditions: SQL[] = [sql`tickets.deletedAt IS NULL`, ...scopeConditions]
-  if (hasWindow) conditions.push(sql`(${createdIn} OR ${closedIn})`)
+  if (hasWindow) conditions.push(sql`(${createdIn} OR ${closedIn} OR ${closedDueIn})`)
   const where = sql`WHERE ${sql.join(conditions, sql` AND `)}`
   const groupBy = grouped ? sql`GROUP BY ownerId` : sql``
 
@@ -479,14 +482,14 @@ const ownerStatsByColumn = async (
   const [rows] = await db.execute(sql`
     SELECT
       ${column} AS ownerId,
-      COALESCE(SUM(${createdIn} OR ${closedIn}), 0) AS volume,
+      COALESCE(SUM(${createdIn} OR ${closedIn} OR ${closedDueIn}), 0) AS volume,
       COALESCE(SUM(${createdIn}), 0) AS total,
       COALESCE(SUM(${createdIn} AND tickets.status = 'CLOSED'), 0) AS closed,
-      COALESCE(SUM(${createdIn} AND tickets.isOverdue = 1 AND tickets.status <> 'CLOSED'), 0) AS overdueCount,
+      COALESCE(SUM(${createdIn} AND tickets.isOverdue = 1 AND tickets.status NOT IN ('CLOSED', 'PENDING_APPROVAL')), 0) AS overdueCount,
       COALESCE(SUM(${closedIn}), 0) AS closedInPeriod,
-      COALESCE(SUM(${closedIn} AND tickets.tatDueAt IS NOT NULL), 0) AS closedWithTat,
-      COALESCE(SUM(${closedIn} AND tickets.tatDueAt IS NOT NULL AND COALESCE(tickets.submittedAt, tickets.closedAt) <= tickets.tatDueAt), 0) AS closedOnTime,
-      COALESCE(SUM(${closedIn} AND tickets.tatDueAt IS NOT NULL AND COALESCE(tickets.submittedAt, tickets.closedAt) > tickets.tatDueAt), 0) AS closedLate,
+      COALESCE(SUM(${closedDueIn}), 0) AS closedWithTat,
+      COALESCE(SUM(${closedDueIn} AND COALESCE(tickets.submittedAt, tickets.closedAt) <= tickets.tatDueAt), 0) AS closedOnTime,
+      COALESCE(SUM(${closedDueIn} AND COALESCE(tickets.submittedAt, tickets.closedAt) > tickets.tatDueAt), 0) AS closedLate,
       AVG(CASE WHEN ${closedIn} THEN TIMESTAMPDIFF(SECOND, tickets.createdAt, tickets.closedAt) / 3600 END) AS avgTatHours
     FROM Ticket tickets
     ${where}
@@ -509,7 +512,7 @@ const ownerStatsByColumn = async (
 }
 
 export const ticketService = {
-  async list(user: AccessTokenPayload, page: number, limit: number, status?: string, assigneeId?: string, overdue?: boolean, from?: string, to?: string, dateField: "createdAt" | "closedAt" = "createdAt", sla?: "overdue_open" | "closed_late" | "closed_on_time") {
+  async list(user: AccessTokenPayload, page: number, limit: number, status?: string, assigneeId?: string, overdue?: boolean, from?: string, to?: string, dateField: "createdAt" | "closedAt" | "tatDueAt" = "createdAt", sla?: "overdue_open" | "closed_late" | "closed_on_time") {
     const conditions = [NOT_DELETED]
     const vis = await visibilityFilter(user)
     if (vis) conditions.push(vis)
@@ -522,12 +525,13 @@ export const ticketService = {
       conditions.push(eq(tickets.assigneeId, assigneeId))
     }
     if (overdue !== undefined) conditions.push(eq(tickets.isOverdue, overdue))
-    const dateColumn = dateField === "closedAt" ? tickets.closedAt : tickets.createdAt
+    const dateColumn = dateField === "closedAt" ? tickets.closedAt : dateField === "tatDueAt" ? tickets.tatDueAt : tickets.createdAt
     // gte/lte encode through the column's own date mapping (UTC), unlike a raw Date in sql``.
     if (from) conditions.push(gte(dateColumn, new Date(from)))
     if (to) conditions.push(lte(dateColumn, new Date(to)))
     // Same definitions the reports use, so a tile's drill-down lists exactly the tickets it counted:
-    // overdue = flagged overdue and still open; closed on time/late = hand-in time (submittedAt, else closedAt) vs tatDueAt among
+    // overdue = flagged overdue, not closed and not waiting for approval (handed-in work has stopped the
+    // worker's clock); closed on time/late = hand-in time (submittedAt, else closedAt) vs tatDueAt among
     // closed tickets that have a TAT.
     // The reports narrow by resolveReportScope (MANAGER: own department, SENIOR: own store), so the
     // drill-down applies the same scope or a manager's list total would not match the tile.
@@ -536,7 +540,7 @@ export const ticketService = {
       if (scope.departmentId) conditions.push(eq(tickets.departmentId, scope.departmentId))
       if (scope.storeId) conditions.push(eq(tickets.storeId, scope.storeId))
     }
-    if (sla === "overdue_open") conditions.push(eq(tickets.isOverdue, true), ne(tickets.status, "CLOSED"))
+    if (sla === "overdue_open") conditions.push(eq(tickets.isOverdue, true), ne(tickets.status, "CLOSED"), ne(tickets.status, "PENDING_APPROVAL"))
     if (sla === "closed_late") conditions.push(isNotNull(tickets.closedAt), isNotNull(tickets.tatDueAt), sql`COALESCE(${tickets.submittedAt}, ${tickets.closedAt}) > ${tickets.tatDueAt}`)
     if (sla === "closed_on_time") conditions.push(isNotNull(tickets.closedAt), isNotNull(tickets.tatDueAt), sql`COALESCE(${tickets.submittedAt}, ${tickets.closedAt}) <= ${tickets.tatDueAt}`)
     const where = conditions.length ? and(...conditions) : undefined
@@ -977,13 +981,15 @@ export const ticketService = {
     return ticket;
   },
 
-  // Bucketed ticket report. Two cohorts, deliberately separate:
-  //  - CLOSED in the bucket (by closedAt): closedCount, avgTatHours ("avg time to close", elapsed
-  //    createdAt -> closedAt), and the on-time split. A closed ticket is on time when
-  //    handed in (submittedAt, else closedAt) by tatDueAt, late after it; tickets without a TAT are in neither
-  //    (closedWithTatCount is the on-time denominator).
+  // Bucketed ticket report. Three cohorts, deliberately separate:
+  //  - CLOSED in the bucket (by closedAt): closedCount and avgTatHours ("avg time to close", elapsed
+  //    createdAt -> closedAt).
+  //  - DUE in the bucket (by tatDueAt) and closed: the on-time split, the same set the scores
+  //    (Scorecard) judge on time, so the two percentages agree. A closed ticket is on time when handed
+  //    in (submittedAt, else closedAt) by tatDueAt, late after it (closedWithTatCount is the denominator).
   //  - CREATED in the bucket (by createdAt): createdCount and overdueCount, which is tickets that
-  //    are overdue RIGHT NOW and still open (a closed ticket is never "overdue").
+  //    are overdue RIGHT NOW, not closed and not waiting for approval (handed-in work has stopped the
+  //    worker's clock).
   // Every bucket in the requested window is returned (zero-filled: null rate, 0 counts) so the
   // client's "previous" bucket is really the previous period. groupBy 'none' = one bucket, 'range'.
   // Two plain queries merged in JS (MySQL has no $facet equivalent, and each is a single indexed
@@ -1006,6 +1012,14 @@ export const ticketService = {
       sql`tickets.createdAt >= ${utcSql(range.from)}`,
       sql`tickets.createdAt <= ${utcSql(range.to)}`,
     ], sql` AND `)}`
+    const dueWhere = sql`WHERE ${sql.join([
+      ...scope,
+      sql`tickets.status = 'CLOSED'`,
+      sql`tickets.closedAt IS NOT NULL`,
+      sql`tickets.tatDueAt IS NOT NULL`,
+      sql`tickets.tatDueAt >= ${utcSql(range.from)}`,
+      sql`tickets.tatDueAt <= ${utcSql(range.to)}`,
+    ], sql` AND `)}`
 
     // db.execute() on the mysql2 driver resolves to the raw mysql2 tuple [rows, fields],
     // NOT a plain row array — must destructure element 0 (see task.service.ts#complianceReport).
@@ -1013,12 +1027,20 @@ export const ticketService = {
       SELECT
         ${bucketSql(groupBy, sql`tickets.closedAt`)} AS bucket,
         COUNT(*) AS closedCount,
-        AVG(TIMESTAMPDIFF(SECOND, tickets.createdAt, tickets.closedAt) / 3600) AS avgTatHours,
-        COALESCE(SUM(tickets.tatDueAt IS NOT NULL), 0) AS closedWithTatCount,
-        COALESCE(SUM(tickets.tatDueAt IS NOT NULL AND COALESCE(tickets.submittedAt, tickets.closedAt) <= tickets.tatDueAt), 0) AS closedOnTimeCount,
-        COALESCE(SUM(tickets.tatDueAt IS NOT NULL AND COALESCE(tickets.submittedAt, tickets.closedAt) > tickets.tatDueAt), 0) AS closedLateCount
+        AVG(TIMESTAMPDIFF(SECOND, tickets.createdAt, tickets.closedAt) / 3600) AS avgTatHours
       FROM Ticket tickets
       ${closedWhere}
+      GROUP BY bucket
+    `)
+
+    const [dueRows] = await db.execute(sql`
+      SELECT
+        ${bucketSql(groupBy, sql`tickets.tatDueAt`)} AS bucket,
+        COUNT(*) AS closedWithTatCount,
+        COALESCE(SUM(COALESCE(tickets.submittedAt, tickets.closedAt) <= tickets.tatDueAt), 0) AS closedOnTimeCount,
+        COALESCE(SUM(COALESCE(tickets.submittedAt, tickets.closedAt) > tickets.tatDueAt), 0) AS closedLateCount
+      FROM Ticket tickets
+      ${dueWhere}
       GROUP BY bucket
     `)
 
@@ -1026,17 +1048,22 @@ export const ticketService = {
       SELECT
         ${bucketSql(groupBy, sql`tickets.createdAt`)} AS bucket,
         COUNT(*) AS createdCount,
-        COALESCE(SUM(tickets.isOverdue = 1 AND tickets.status <> 'CLOSED'), 0) AS overdueCount
+        COALESCE(SUM(tickets.isOverdue = 1 AND tickets.status NOT IN ('CLOSED', 'PENDING_APPROVAL')), 0) AS overdueCount
       FROM Ticket tickets
       ${createdWhere}
       GROUP BY bucket
     `)
 
-    type ClosedAgg = { closedCount: number; avgTatHours: number | null; closedWithTatCount: number; closedOnTimeCount: number; closedLateCount: number }
+    type ClosedAgg = { closedCount: number; avgTatHours: number | null }
     const closedByBucket = new Map<string, ClosedAgg>(
       (closedRows as unknown as Record<string, unknown>[]).map((r) => [String(r.bucket), {
         closedCount: Number(r.closedCount),
         avgTatHours: r.avgTatHours != null ? Number(r.avgTatHours) : null,
+      }]),
+    )
+    type DueAgg = { closedWithTatCount: number; closedOnTimeCount: number; closedLateCount: number }
+    const dueByBucket = new Map<string, DueAgg>(
+      (dueRows as unknown as Record<string, unknown>[]).map((r) => [String(r.bucket), {
         closedWithTatCount: Number(r.closedWithTatCount),
         closedOnTimeCount: Number(r.closedOnTimeCount),
         closedLateCount: Number(r.closedLateCount),
@@ -1051,6 +1078,7 @@ export const ticketService = {
 
     return range.buckets.map((bucket) => {
       const closed = closedByBucket.get(bucket)
+      const due = dueByBucket.get(bucket)
       const created = createdByBucket.get(bucket)
       const createdCount = created?.createdCount ?? 0
       const closedCount = closed?.closedCount ?? 0
@@ -1066,9 +1094,9 @@ export const ticketService = {
         closedCount,
         avgTatHours: closed?.avgTatHours != null ? round1(closed.avgTatHours) : null,
         overdueCount: created?.overdueCount ?? 0,
-        closedLateCount: closed?.closedLateCount ?? 0,
-        closedOnTimeCount: closed?.closedOnTimeCount ?? 0,
-        closedWithTatCount: closed?.closedWithTatCount ?? 0,
+        closedLateCount: due?.closedLateCount ?? 0,
+        closedOnTimeCount: due?.closedOnTimeCount ?? 0,
+        closedWithTatCount: due?.closedWithTatCount ?? 0,
         completionRate,
       }
     })
@@ -1078,9 +1106,9 @@ export const ticketService = {
    * The "who's doing well" numbers behind the department/store ranking tables, the team
    * leaderboard and the org-wide on-time/overdue stat cards on OrgOverview: real GROUP BY
    * aggregates (see ownerStatsByColumn for the exact cohorts), so they are right at any ticket
-   * count and use the same definitions as tatReport above (overdue = overdue now and still open;
-   * closed on time = handed in (submittedAt, else closedAt) by tatDueAt among closed tickets with a TAT; avg time to close =
-   * tickets closed in the period).
+   * count and use the same definitions as tatReport above (overdue = overdue now, not closed and not
+   * waiting for approval; closed on time = handed in (submittedAt, else closedAt) by tatDueAt among
+   * closed tickets due in the period; avg time to close = tickets closed in the period).
    *
    * scope 'user' credits the ASSIGNEE only (one grouped query, not the old assignee + raiser +
    * self-assigned merge): a person is judged on work handed to them, never on tickets they merely
@@ -1109,7 +1137,7 @@ export const ticketService = {
   // assigned to or raised by the caller; 'visible' is everything the caller's role can see
   // (visibilityFilter: ADMIN/PC the org, MANAGER their department and store, SENIOR their store,
   // USER/AGENT their own). `pending` is every ticket not closed (due + overdue); `overdue` is the
-  // SLA flag on a ticket that is still open.
+  // SLA flag on a ticket that is still open and not waiting for approval.
   async summary(user: AccessTokenPayload, scope: TicketSummaryScope = "mine"): Promise<TicketSummaryRow> {
     // Short TTL plus explicit invalidation from every mutation below (dropTicketSummaries). The TTL
     // covers what has no hook: bulk import and the SLA sweep flipping isOverdue.
@@ -1122,7 +1150,8 @@ export const ticketService = {
       const [row] = await db.select({
         total: sql<number>`COUNT(*)`,
         completed: sql<number>`SUM(CASE WHEN ${tickets.status} = 'CLOSED' THEN 1 ELSE 0 END)`,
-        overdue: sql<number>`SUM(CASE WHEN ${tickets.isOverdue} AND ${tickets.status} <> 'CLOSED' THEN 1 ELSE 0 END)`,
+        // Waiting for approval is never overdue: the worker's clock stopped when they handed it in.
+        overdue: sql<number>`SUM(CASE WHEN ${tickets.isOverdue} AND ${tickets.status} NOT IN ('CLOSED', 'PENDING_APPROVAL') THEN 1 ELSE 0 END)`,
         newToday: sql<number>`SUM(CASE WHEN ${tickets.createdAt} >= ${utcSql(orgDayStartUtc())} THEN 1 ELSE 0 END)`,
       }).from(tickets).where(where)
 

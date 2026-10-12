@@ -23,7 +23,7 @@ export const SERIES_COLOR: Record<SeriesKey, string> = {
 };
 export const SERIES_HELP: Record<SeriesKey, string> = {
   completion: 'Done, out of what was due',
-  compliance: 'Done on time out of what was due. For checklists, how well the checked answers were answered',
+  compliance: 'Handed in on time out of what was due (finished, or waiting for approval). For checklists, how well the checked answers were answered',
   ontime: 'Of the items that were finished, the share finished on time',
 };
 
@@ -74,6 +74,25 @@ export const moduleOverall = (s: ModuleScores, key: ModuleKey): number | null =>
   return parts.length ? Math.round(parts.reduce((x, y) => x + y, 0) / parts.length) : null;
 };
 
+/**
+ * The one Overall score every view uses (Scorecard, Overview leaders, leaderboard, rankings): the
+ * completion and compliance of every module that had something due, all counted equally. Null when
+ * nothing was due.
+ */
+export const overallOf = (s: ModuleScores): number | null => {
+  const values: number[] = [];
+  for (const { key } of MODULE_ROWS) {
+    const m = s[key];
+    if (m.due <= 0) continue;
+    if (m.completionPct !== null) values.push(m.completionPct);
+    if (m.compliancePct !== null) values.push(m.compliancePct);
+  }
+  return values.length ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : null;
+};
+
+/** Everything due across the three modules: what the minimum-volume rule for ranking checks. */
+export const totalDue = (s: ModuleScores): number => s.checklist.due + s.ticket.due + s.delegation.due;
+
 /** Column heads for a per-module score table, the same words the screens use. */
 export const MODULE_EXPORT_HEAD = ['Overall score', 'Completion %', 'Compliance %', 'On time %', 'Due', 'Done', 'Late', 'Not done'] as const;
 
@@ -98,19 +117,21 @@ export const numbersFor = (s: Scores, key: ModuleKey): ModuleNumbers => {
   }
   if (key === 'ticket') {
     const t = s.ticket;
+    const waiting = t.waitingOnTime ?? 0;
     return {
       completion: t.completionPct, compliance: t.compliancePct, ontime: t.onTimePct,
       completionNote: `${t.closed} of ${t.due} closed`,
-      complianceNote: `${t.onTime} of ${t.due} closed on time`,
+      complianceNote: waiting > 0 ? `${t.onTime + waiting} of ${t.due} handed in on time (${waiting} waiting for approval)` : `${t.onTime} of ${t.due} closed on time`,
       ontimeNote: `${t.onTime} of ${t.closed} closed tickets were on time`,
       hasData: t.due > 0,
     };
   }
   const d = s.delegation;
+  const waiting = d.waitingOnTime ?? 0;
   return {
     completion: d.completionPct, compliance: d.compliancePct, ontime: d.onTimePct,
     completionNote: `${d.done} of ${d.due} done`,
-    complianceNote: `${d.onTime} of ${d.due} done on time`,
+    complianceNote: waiting > 0 ? `${d.onTime + waiting} of ${d.due} handed in on time (${waiting} waiting for approval)` : `${d.onTime} of ${d.due} done on time`,
     ontimeNote: `${d.onTime} of ${d.done} finished delegations were on time`,
     hasData: d.due > 0,
   };

@@ -17,7 +17,8 @@ const querySchema = z
     .refine((q) => q.scope === "person" || q.scope === "org" || !!q.id, "Pick a department or store")
 
 const reportSchema = z
-    .object({ from: DATE, to: DATE, stores: z.enum(["1", "0"]).optional() })
+    // stores: "1" adds every store to the departments and people, "only" returns the stores alone.
+    .object({ from: DATE, to: DATE, stores: z.enum(["1", "0", "only"]).optional() })
     .refine((q) => q.from <= q.to, "From must be on or before To")
     .refine((q) => Date.parse(q.to) - Date.parse(q.from) <= 366 * 86_400_000, "Pick at most one year")
 
@@ -40,7 +41,8 @@ export const scoreController = {
     }),
     report: asyncHandler(async (req: Request, res: Response) => {
         const { from, to, stores } = reportSchema.parse(req.query)
-        res.json({ success: true, data: await scoreService.report(req.user!, from, to, stores === "1") })
+        const parts = { people: stores !== "only", stores: stores === "1" || stores === "only" }
+        res.json({ success: true, data: await scoreService.report(req.user!, from, to, parts) })
     }),
     scores: asyncHandler(async (req: Request, res: Response) => {
         const { scope, id, from, to } = querySchema.parse(req.query)

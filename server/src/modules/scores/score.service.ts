@@ -32,9 +32,13 @@ export type ChecklistScore = {
 }
 // Completion is the share of due items done. Compliance is the share done on time (for checklists, how well
 // the checked answers were answered). On time is, of the items that were FINISHED, the share finished on time.
-/** `late` = closed after the due time. Open tickets are not late here; they are due - closed ("not done"). */
-export type TicketScore = { score: number | null; completionPct: number | null; compliancePct: number | null; onTimePct: number | null; due: number; closed: number; onTime: number; late: number }
-export type DelegationScore = { score: number | null; completionPct: number | null; compliancePct: number | null; onTimePct: number | null; due: number; done: number; onTime: number; overdue: number }
+/**
+ * `late` = closed after the due time. Open tickets are not late here; they are due - closed ("not done").
+ * `waitingOnTime` = handed in on or before the due time and still waiting for approval: not done yet, but
+ * on time, so it counts toward compliance (the worker's clock stopped at hand-in).
+ */
+export type TicketScore = { score: number | null; completionPct: number | null; compliancePct: number | null; onTimePct: number | null; due: number; closed: number; onTime: number; late: number; waitingOnTime: number }
+export type DelegationScore = { score: number | null; completionPct: number | null; compliancePct: number | null; onTimePct: number | null; due: number; done: number; onTime: number; overdue: number; waitingOnTime: number }
 
 export type Scores = {
     scope: ScoreScope
@@ -56,10 +60,11 @@ export type ScoreReport = { from: string; to: string; generatedAt: string; depar
 
 export const SCORE_REPORT_NOTES = [
     "Checklist: only runs that have come due count (finished, or past their deadline), so a running period does not dip for runs still ahead. The score is compliance when answers have been checked, otherwise completion.",
-    "Tickets: a ticket counts when its due time falls in the window. Completion is the share closed, compliance the share closed on or before the due time.",
-    "Delegations: counted when due in the window or already done. Completion is the share done, compliance the share done on or before the due date (handed-in time, else approval time, else last update). Score is weighted by status (to do 0, in progress 25, waiting approval 75, done 100). Drafts never count.",
+    "Tickets: a ticket counts when its due time falls in the window. Completion is the share closed, compliance the share handed in on or before the due time (closed, or waiting for approval).",
+    "Delegations: real delegations only (no subtasks, no issues), counted when due in the window or already done. Completion is the share done, compliance the share handed in on or before the due date (done, or waiting for approval; handed-in time, else approval time, else last update). Score is weighted by status (to do 0, in progress 25, waiting approval 75, done 100). Drafts never count.",
     "On time: of the items that were finished (runs, tickets, delegations), the share finished before their deadline. Compliance counts unfinished late items as misses too, so it can be lower.",
-    "A person is scored on what is assigned to them. A department is scored on what belongs to the department, so its figures can differ from the sum of its people.",
+    "A person is scored on what is assigned to them, as the main or an additional assignee. A department is scored on what belongs to the department, so its figures can differ from the sum of its people.",
+    "Overall score: completion and compliance of every module with something due, counted equally.",
 ]
 
 const pct = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 100) : null)
@@ -99,14 +104,18 @@ const foldTasks = (rows: readonly TaskLike[], now: Date): DelegationScore => {
     const done = due.filter((t) => t.status === "done")
     // Done with no due date or no finish time on record cannot be late.
     const onTime = done.filter((t) => !t.dueDate || !t.finishedAt || t.finishedAt <= t.dueDate).length
+    // Handed in by the due date and waiting for a reviewer: the assignee was on time, so compliance
+    // counts it. Completion does not (it is not done yet), and it is never overdue.
+    const waitingOnTime = due.filter((t) => t.status === "pending_approval" && t.dueDate !== null && t.finishedAt !== null && t.finishedAt <= t.dueDate).length
     return {
         score: due.length ? Math.round((weighted / due.length) * 100) : null,
         completionPct: pct(done.length, due.length),
-        compliancePct: pct(onTime, due.length),
+        compliancePct: pct(onTime + waitingOnTime, due.length),
         onTimePct: pct(onTime, done.length),
         due: due.length,
         done: done.length,
         onTime,
+        waitingOnTime,
         // One overdue rule for delegations everywhere (list, dashboard summary, ownerStats): past due and
         // not done, draft or waiting for approval. Handed-in work has stopped the assignee's clock;
         // on hold still counts.
@@ -114,7 +123,8 @@ const foldTasks = (rows: readonly TaskLike[], now: Date): DelegationScore => {
     }
 }
 
-// Tickets: completion is the share of due tickets closed, compliance the share closed on or before their due time.
+// Tickets: completion is the share of due tickets closed, compliance the share handed in on or before
+// their due time (closed, or waiting for approval).
 const foldTickets = (rows: readonly TicketLike[], now: Date): TicketScore => {
     const due = rows.filter((t) => t.status === "CLOSED" || (t.tatDueAt !== null && t.tatDueAt < now))
     const closed = due.filter((t) => t.status === "CLOSED")
@@ -124,13 +134,42 @@ const foldTickets = (rows: readonly TicketLike[], now: Date): TicketScore => {
         const finished = t.submittedAt ?? t.closedAt
         return finished && t.tatDueAt && finished <= t.tatDueAt
     }).length
+    // Handed in on time and waiting for approval: on time for compliance, not closed for completion.
+    const waitingOnTime = due.filter((t) => t.status === "PENDING_APPROVAL" && t.submittedAt !== null && t.tatDueAt !== null && t.submittedAt <= t.tatDueAt).length
+    const compliancePct = pct(onTime + waitingOnTime, due.length)
     // Late = closed, but after the due time. Tickets still open are "not done" (due - closed), never
     // late as well, so the two never count the same ticket twice.
-    return { score: pct(onTime, due.length), completionPct: pct(closed.length, due.length), compliancePct: pct(onTime, due.length), onTimePct: pct(onTime, closed.length), due: due.length, closed: closed.length, onTime, late: Math.max(0, closed.length - onTime) }
+    return { score: compliancePct, completionPct: pct(closed.length, due.length), compliancePct, onTimePct: pct(onTime, closed.length), due: due.length, closed: closed.length, onTime, late: Math.max(0, closed.length - onTime), waitingOnTime }
 }
 
 // When a task was finished: handed in, else approved, else last touched.
 const finishedAt = (t: { submittedAt: Date | null; verifiedAt: Date | null; updatedAt: Date }) => t.submittedAt ?? t.verifiedAt ?? t.updatedAt
+
+// What counts as a delegation in every score query: not deleted, category 'delegation' (issues are
+// reported elsewhere) and not a subtask (its parent already counts). The same rule as the task module's
+// ownerStats, complianceReport and summary, so a score never counts work those lists leave out.
+const DELEGATION_ONLY = and(isNull(tasks.deletedAt), eq(tasks.category, "delegation"), isNull(tasks.parentTaskId))
+
+const taskCols = { status: tasks.status, dueDate: tasks.dueDate, submittedAt: tasks.submittedAt, verifiedAt: tasks.verifiedAt, updatedAt: tasks.updatedAt }
+const ticketCols = { status: tickets.status, tatDueAt: tickets.tatDueAt, closedAt: tickets.closedAt, submittedAt: tickets.submittedAt }
+
+// Push-based grouping: one array per key, filled in place (no copy per row).
+const groupRows = <T,>(rows: readonly T[], keyOf: (r: T) => string | null | undefined) => {
+    const map = new Map<string, T[]>()
+    for (const r of rows) {
+        const k = keyOf(r)
+        if (!k) continue
+        const list = map.get(k)
+        if (list) list.push(r)
+        else map.set(k, [r])
+    }
+    return map
+}
+
+const rowFor = (now: Date, id: string, name: string, department: string, role: string | undefined, c: ChecklistScore, tk: readonly TicketLike[], ts: readonly TaskLike[]): ScoreReportRow => ({
+    id, name, department, role, checklist: c, ticket: foldTickets(tk, now), delegation: foldTasks(ts, now),
+})
+const hasData = (r: ScoreReportRow) => r.checklist.due > 0 || r.ticket.due > 0 || r.delegation.due > 0
 
 const windowOf = (from: string, to: string) => {
     const offsetMs = env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000
@@ -254,11 +293,11 @@ export const scoreService = {
                 return null
             }),
             db
-                .select({ status: tasks.status, dueDate: tasks.dueDate, submittedAt: tasks.submittedAt, verifiedAt: tasks.verifiedAt, updatedAt: tasks.updatedAt })
+                .select(taskCols)
                 .from(tasks)
-                .where(and(isNull(tasks.deletedAt), gte(tasks.dueDate, start), lt(tasks.dueDate, end), target.taskWhere)),
+                .where(and(DELEGATION_ONLY, gte(tasks.dueDate, start), lt(tasks.dueDate, end), target.taskWhere)),
             db
-                .select({ status: tickets.status, tatDueAt: tickets.tatDueAt, closedAt: tickets.closedAt, submittedAt: tickets.submittedAt })
+                .select(ticketCols)
                 .from(tickets)
                 .where(and(isNull(tickets.deletedAt), gte(tickets.tatDueAt, start), lt(tickets.tatDueAt, end), target.ticketWhere)),
         ])
@@ -286,18 +325,31 @@ export const scoreService = {
 
     /**
      * Every department and every person the viewer may see, scored for one window: the table behind the
-     * export. ADMIN/PC see the whole organisation, MANAGER/SENIOR their own department, nobody else.
+     * export and the Scorecard. ADMIN/PC see the whole organisation, MANAGER/SENIOR their own department,
+     * nobody else. `parts.stores` adds every store (ADMIN/PC only); `parts.people: false` skips the
+     * departments and people, so the store view can be fetched on its own.
      */
-    async report(viewer: AccessTokenPayload, from: string, to: string, includeStores = false): Promise<ScoreReport> {
+    async report(viewer: AccessTokenPayload, from: string, to: string, parts: { people?: boolean; stores?: boolean } = {}): Promise<ScoreReport> {
         const orgWide = viewer.role === "ADMIN" || viewer.role === "PC"
         const hod = viewer.role === "MANAGER" || viewer.role === "SENIOR"
         if (!orgWide && !hod) throw AppError.forbidden()
+        const wantPeople = parts.people !== false
+        const wantStores = parts.stores === true && orgWide
+        const [peopleAndDepts, storeRows] = await Promise.all([
+            wantPeople ? this.peopleAndDepartments(viewer, from, to, orgWide) : Promise.resolve({ departments: [], people: [] }),
+            wantStores ? this.storeRows(viewer, from, to) : Promise.resolve([]),
+        ])
+        return { from, to, generatedAt: new Date().toISOString(), departments: peopleAndDepts.departments, people: peopleAndDepts.people, stores: storeRows, notes: SCORE_REPORT_NOTES }
+    },
+
+    async peopleAndDepartments(viewer: AccessTokenPayload, from: string, to: string, orgWide: boolean): Promise<{ departments: ScoreReportRow[]; people: ScoreReportRow[] }> {
         // A head with no department on the record sees nothing, never everyone.
         const onlyDepartment = orgWide ? undefined : viewer.departmentId ?? "no-department"
         const { start, end } = windowOf(from, to)
         const now = new Date()
+        const taskWhere = and(DELEGATION_ONLY, gte(tasks.dueDate, start), lt(tasks.dueDate, end), onlyDepartment ? eq(tasks.departmentId, onlyDepartment) : undefined)
 
-        const [checklist, peopleRows, deptRows, taskRows, ticketRows] = await Promise.all([
+        const [checklist, peopleRows, deptRows, taskRows, extraAssigneeRows, ticketRows] = await Promise.all([
             checklistReportService.build(viewer, { from, to, groupBy: "both" }).catch((err: unknown) => {
                 console.error("scores: checklist report failed", err)
                 return null
@@ -307,44 +359,49 @@ export const scoreService = {
                 .from(users)
                 .where(and(eq(users.isActive, true), onlyDepartment ? eq(users.departmentId, onlyDepartment) : undefined)),
             db.select({ id: departments.id, name: departments.name }).from(departments).where(onlyDepartment ? eq(departments.id, onlyDepartment) : undefined),
+            // Every delegation due in the window, assigned or not: a department is scored on all of its
+            // work (the same rule as the department card), a person only on what is theirs (below).
             db
-                .select({ status: tasks.status, dueDate: tasks.dueDate, assigneeId: tasks.assigneeId, departmentId: tasks.departmentId, submittedAt: tasks.submittedAt, verifiedAt: tasks.verifiedAt, updatedAt: tasks.updatedAt })
+                .select({ id: tasks.id, ...taskCols, assigneeId: tasks.assigneeId, departmentId: tasks.departmentId })
                 .from(tasks)
-                .where(and(isNull(tasks.deletedAt), gte(tasks.dueDate, start), lt(tasks.dueDate, end), isNotNull(tasks.assigneeId), onlyDepartment ? eq(tasks.departmentId, onlyDepartment) : undefined)),
+                .where(taskWhere),
+            // Additional assignees are judged on a shared delegation too, the same as the person card.
             db
-                .select({ status: tickets.status, tatDueAt: tickets.tatDueAt, closedAt: tickets.closedAt, submittedAt: tickets.submittedAt, assigneeId: tickets.assigneeId, departmentId: tickets.departmentId })
+                .select({ taskId: taskAdditionalAssignees.taskId, userId: taskAdditionalAssignees.userId })
+                .from(taskAdditionalAssignees)
+                .innerJoin(tasks, eq(tasks.id, taskAdditionalAssignees.taskId))
+                .where(taskWhere),
+            // Every ticket due in the window, assigned or not, for the same reason as delegations above.
+            db
+                .select({ ...ticketCols, assigneeId: tickets.assigneeId, departmentId: tickets.departmentId })
                 .from(tickets)
-                .where(and(isNull(tickets.deletedAt), gte(tickets.tatDueAt, start), lt(tickets.tatDueAt, end), isNotNull(tickets.assigneeId), onlyDepartment ? eq(tickets.departmentId, onlyDepartment) : undefined)),
+                .where(and(isNull(tickets.deletedAt), gte(tickets.tatDueAt, start), lt(tickets.tatDueAt, end), onlyDepartment ? eq(tickets.departmentId, onlyDepartment) : undefined)),
         ])
 
         const deptName = new Map(deptRows.map((d) => [d.id, d.name]))
         const nameOfDept = (id: string | null) => (id ? deptName.get(id) ?? "Unknown" : "No department")
         const checklistByPerson = new Map((checklist?.people ?? []).map((p) => [p.userId, p]))
         const checklistByDept = new Map((checklist?.departments ?? []).map((d) => [d.departmentId, d]))
-        const group = <T extends { assigneeId: string | null; departmentId: string | null }>(rows: T[], key: "assigneeId" | "departmentId") => {
-            const map = new Map<string, T[]>()
-            for (const r of rows) {
-                const k = r[key]
-                if (!k) continue
-                map.set(k, [...(map.get(k) ?? []), r])
-            }
-            return map
-        }
-        const reportTasks = taskRows.map((t) => ({ ...t, finishedAt: finishedAt(t) }))
-        const tasksByPerson = group(reportTasks, "assigneeId")
-        const ticketsByPerson = group(ticketRows, "assigneeId")
-        const tasksByDept = group(reportTasks, "departmentId")
-        const ticketsByDept = group(ticketRows, "departmentId")
 
-        const rowFor = (id: string, name: string, department: string, role: string | undefined, c: ChecklistScore, tk: TicketLike[], ts: TaskLike[]): ScoreReportRow => ({
-            id, name, department, role, checklist: c, ticket: foldTickets(tk, now), delegation: foldTasks(ts, now),
-        })
-        const hasData = (r: ScoreReportRow) => r.checklist.due > 0 || r.ticket.due > 0 || r.delegation.due > 0
+        const reportTasks = taskRows.map((t) => ({ ...t, finishedAt: finishedAt(t) }))
+        const taskById = new Map(reportTasks.map((t) => [t.id, t]))
+        const tasksByPerson = groupRows(reportTasks, (t) => t.assigneeId)
+        for (const extra of extraAssigneeRows) {
+            const task = taskById.get(extra.taskId)
+            // Someone listed as both the main and an additional assignee is counted once.
+            if (!task || task.assigneeId === extra.userId) continue
+            const list = tasksByPerson.get(extra.userId)
+            if (list) list.push(task)
+            else tasksByPerson.set(extra.userId, [task])
+        }
+        const ticketsByPerson = groupRows(ticketRows, (t) => t.assigneeId)
+        const tasksByDept = groupRows(reportTasks, (t) => t.departmentId)
+        const ticketsByDept = groupRows(ticketRows, (t) => t.departmentId)
 
         const people = peopleRows
             .map((p) => {
                 const c = checklistByPerson.get(p.id)
-                return rowFor(p.id, `${p.firstName} ${p.lastName ?? ""}`.trim(), nameOfDept(p.departmentId), p.role, foldChecklist(c ? [c] : []), ticketsByPerson.get(p.id) ?? [], tasksByPerson.get(p.id) ?? [])
+                return rowFor(now, p.id, `${p.firstName} ${p.lastName ?? ""}`.trim(), nameOfDept(p.departmentId), p.role, foldChecklist(c ? [c] : []), ticketsByPerson.get(p.id) ?? [], tasksByPerson.get(p.id) ?? [])
             })
             .filter(hasData)
             .sort((a, b) => a.department.localeCompare(b.department) || a.name.localeCompare(b.name))
@@ -352,24 +409,47 @@ export const scoreService = {
         const depts = deptRows
             .map((d) => {
                 const c = checklistByDept.get(d.id)
-                return rowFor(d.id, d.name, d.name, undefined, foldChecklist(c ? [c] : []), ticketsByDept.get(d.id) ?? [], tasksByDept.get(d.id) ?? [])
+                return rowFor(now, d.id, d.name, d.name, undefined, foldChecklist(c ? [c] : []), ticketsByDept.get(d.id) ?? [], tasksByDept.get(d.id) ?? [])
             })
             .filter(hasData)
             .sort((a, b) => a.name.localeCompare(b.name))
 
-        // Stores are scored one by one with the card's own rules (delegations follow the assignee's store).
-        // Admin and PC only, and only when asked for, because it is a query set per store.
-        let storeRows: ScoreReportRow[] = []
-        if (includeStores && orgWide) {
-            const all = await db.select({ id: stores.id, name: stores.name }).from(stores).where(eq(stores.isActive, true))
-            for (let i = 0; i < all.length; i += 4) {
-                const slice = all.slice(i, i + 4)
-                const scored = await Promise.all(slice.map((s) => this.forScope(viewer, "store", s.id, from, to)))
-                scored.forEach((sc, k) => storeRows.push({ id: slice[k].id, name: slice[k].name, department: "", checklist: sc.checklist, ticket: sc.ticket, delegation: sc.delegation }))
-            }
-            storeRows = storeRows.filter(hasData).sort((a, b) => a.name.localeCompare(b.name))
-        }
+        return { departments: depts, people }
+    },
 
-        return { from, to, generatedAt: new Date().toISOString(), departments: depts, people, stores: storeRows, notes: SCORE_REPORT_NOTES }
+    /**
+     * Every active store, scored with the store card's rules (checklist runs of the store, tickets of the
+     * store, delegations following the store of their main assignee), in one grouped pass: one checklist
+     * build split by store, one ticket and one delegation query, grouped in memory. Used to be the whole
+     * forScope query set once per store.
+     */
+    async storeRows(viewer: AccessTokenPayload, from: string, to: string): Promise<ScoreReportRow[]> {
+        const { start, end } = windowOf(from, to)
+        const now = new Date()
+        const [all, checklist, taskRows, ticketRows] = await Promise.all([
+            db.select({ id: stores.id, name: stores.name }).from(stores).where(eq(stores.isActive, true)),
+            checklistReportService.build(viewer, { from, to, groupBy: "person" }, undefined, { byStore: true }).catch((err: unknown) => {
+                console.error("scores: store checklist report failed", err)
+                return null
+            }),
+            db
+                .select({ ...taskCols, storeId: users.storeId })
+                .from(tasks)
+                .innerJoin(users, eq(users.id, tasks.assigneeId))
+                .where(and(DELEGATION_ONLY, gte(tasks.dueDate, start), lt(tasks.dueDate, end), isNotNull(users.storeId))),
+            db
+                .select({ ...ticketCols, storeId: tickets.storeId })
+                .from(tickets)
+                .where(and(isNull(tickets.deletedAt), gte(tickets.tatDueAt, start), lt(tickets.tatDueAt, end), isNotNull(tickets.storeId))),
+        ])
+
+        const checklistByStore = groupRows(checklist?.storePeople ?? [], (p) => p.storeId)
+        const tasksByStore = groupRows(taskRows.map((t) => ({ ...t, finishedAt: finishedAt(t) })), (t) => t.storeId)
+        const ticketsByStore = groupRows(ticketRows, (t) => t.storeId)
+
+        return all
+            .map((s) => rowFor(now, s.id, s.name, "", undefined, foldChecklist(checklistByStore.get(s.id) ?? []), ticketsByStore.get(s.id) ?? [], tasksByStore.get(s.id) ?? []))
+            .filter(hasData)
+            .sort((a, b) => a.name.localeCompare(b.name))
     },
 }

@@ -18,11 +18,13 @@ export interface ChecklistScore {
   approved: number;
 }
 /**
- * Completion is the share of due items done; compliance is the share done on time. `late` is tickets
- * closed after their due time; tickets still open are "not done" (due - closed), never also late.
+ * Completion is the share of due items done; compliance is the share handed in on time (finished, or
+ * waiting for approval). `late` is tickets closed after their due time; tickets still open are "not done"
+ * (due - closed), never also late. `waitingOnTime` is handed in on time and still waiting for approval:
+ * counted in compliance, not in completion.
  */
-export interface TicketScore { score: number | null; completionPct: number | null; compliancePct: number | null; onTimePct: number | null; due: number; closed: number; onTime: number; late: number }
-export interface DelegationScore { score: number | null; completionPct: number | null; compliancePct: number | null; onTimePct: number | null; due: number; done: number; onTime: number; overdue: number }
+export interface TicketScore { score: number | null; completionPct: number | null; compliancePct: number | null; onTimePct: number | null; due: number; closed: number; onTime: number; late: number; waitingOnTime: number }
+export interface DelegationScore { score: number | null; completionPct: number | null; compliancePct: number | null; onTimePct: number | null; due: number; done: number; onTime: number; overdue: number; waitingOnTime: number }
 
 export interface Scores {
   scope: ScoreScope;
@@ -86,10 +88,14 @@ export const scoreApi = {
     if (params.id) query.set('id', params.id);
     return apiFetch<{ success: boolean; data: ScoreTrend }>(`/scores/trend?${query.toString()}`).then((r) => r.data);
   },
-  /** Every department and person the caller may see (Admin, PC, department heads), optionally every store. */
-  report: (params: { from: string; to: string; stores?: boolean }) => {
+  /**
+   * Every department and person the caller may see (Admin, PC, department heads). `stores: true` adds every
+   * store, `stores: 'only'` returns the stores alone (Admin and PC), so the store view loads on its own.
+   */
+  report: (params: { from: string; to: string; stores?: boolean | 'only' }) => {
     const query = new URLSearchParams({ from: params.from, to: params.to });
-    if (params.stores) query.set('stores', '1');
+    if (params.stores === 'only') query.set('stores', 'only');
+    else if (params.stores) query.set('stores', '1');
     return apiFetch<{ success: boolean; data: ScoreReport }>(`/scores/report?${query.toString()}`).then((r) => r.data);
   },
 };

@@ -1,4 +1,23 @@
 import { tokenStore } from '../lib/tokenStore';
+import { apiFetch } from './http';
+
+export type ApprovalTatCounts = { met: number; breached: number; pending: number };
+/** Waiting for a decision right now (not tied to the period), and how many of those past 24 hours. */
+export type ApprovalWaiting = { now: number; over24h: number };
+export type ApprovalKind = 'checklist' | 'ticket' | 'delegation';
+
+/** GET /reports/approval-tat (Admin and PC): hand-ins in the period judged against the 24 hour promise. */
+export type ApprovalTat = ApprovalTatCounts & {
+  windowHours: number;
+  /** met / (met + breached), whole percent; null when nothing has come due. */
+  rate: number | null;
+  byKind: Record<ApprovalKind, ApprovalTatCounts>;
+  /** Hand-ins in the period that got a decision, and the average hours from hand-in to decision. */
+  decided: number;
+  avgDecisionHours: number | null;
+  avgDecisionHoursByKind: Record<ApprovalKind, number | null>;
+  waiting: Record<ApprovalKind | 'total', ApprovalWaiting>;
+};
 
 const BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:5050';
 
@@ -26,6 +45,10 @@ const parseFilename = (contentDisposition: string | null, fallback: string) => {
 };
 
 export const reportApi = {
+  /** `from` and `to` are ISO instants: the hand-in window. */
+  approvalTat: (from: string, to: string) =>
+    apiFetch<{ success: boolean; data: ApprovalTat }>(`/reports/approval-tat?${new URLSearchParams({ from, to }).toString()}`).then((r) => r.data),
+
   // File downloads can't go through apiFetch's JSON-only wrapper, and a plain <a href> can't
   // carry the Authorization header — so this fetches the file as a blob directly, then triggers
   // the browser's native download via a throwaway object URL + anchor click.

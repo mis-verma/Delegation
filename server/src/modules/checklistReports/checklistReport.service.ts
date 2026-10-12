@@ -46,6 +46,9 @@ export type DepartmentRow = ReportMetrics & {
     people: number
 }
 
+/** One person's runs and answers inside one store: the same figures as `build` with that store as the filter. */
+export type StorePersonRow = ReportMetrics & { userId: string; storeId: string }
+
 export type ChecklistReport = {
     from: string
     to: string
@@ -56,6 +59,8 @@ export type ChecklistReport = {
     departmentLocked: boolean
     people: PersonRow[]
     departments: DepartmentRow[]
+    /** Only when asked for (`byStore`): every person's figures split by the store of each run. */
+    storePeople?: StorePersonRow[]
     notes: string[]
 }
 
@@ -239,12 +244,16 @@ export const checklistReportService = {
     /**
      * `onlyUserId` narrows the report to one person's runs and answers. It skips the role check, so the
      * caller (the scores module) must already have decided the viewer may see that person.
+     * `options.byStore` also returns `storePeople`: each person's figures per store, in the same single
+     * pass, so a caller scoring every store does not have to build the report once per store.
      */
     async build(
         user: AccessTokenPayload,
         query: Pick<ChecklistReportQuery, "from" | "to" | "storeId" | "departmentId" | "groupBy">,
         onlyUserId?: string,
+        options: { byStore?: boolean } = {},
     ): Promise<ChecklistReport> {
+        const wantStores = options.byStore === true
         const { departmentId, locked } = onlyUserId ? { departmentId: undefined, locked: false } : resolveDepartmentScope(user, query.departmentId)
         const { from, to, storeId, groupBy } = query
         const offsetMs = env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000
@@ -274,7 +283,26 @@ export const checklistReportService = {
         }
         const runWhere = and(...runConditions)
 
-        const [runRows, assigneeRows, itemRows, departmentRows, storeRows] = await Promise.all([
+        // Item-level numbers by the person who completed each question, and the store of the run.
+        // Only run when the per-store split was asked for.
+        const storeItemQuery = wantStores
+            ? db.select({
+                userId: creditedUser,
+                storeId: checklistInstances.storeId,
+                done: sql<number>`SUM(CASE WHEN ${item.isDone} = 1 AND ${item.isNotApplicable} = 0 THEN 1 ELSE 0 END)`,
+                na: sql<number>`SUM(CASE WHEN ${item.isDone} = 1 AND ${item.isNotApplicable} = 1 THEN 1 ELSE 0 END)`,
+                scored: scoredExpr,
+                good: goodExpr,
+                wScored: weightedScoredExpr,
+                wGood: weightedGoodExpr,
+            })
+                .from(item)
+                .innerJoin(checklistInstances, eq(checklistInstances.id, item.instanceId))
+                .where(and(runWhere, sql`((${item.isDone} = 1 AND ${item.completedBy} IS NOT NULL) OR ${item.sendBackCount} > 0)`))
+                .groupBy(creditedUser, checklistInstances.storeId)
+            : Promise.resolve([])
+
+        const [runRows, assigneeRows, itemRows, departmentRows, storeRows, storeItemRows] = await Promise.all([
             // One row per run, items folded into counts.
             db.select({
                 id: checklistInstances.id,
@@ -308,6 +336,8 @@ export const checklistReportService = {
                 departmentId: users.departmentId,
                 storeId: users.storeId,
                 isActive: users.isActive,
+                // The store the run belongs to (not the person's own store), for the per-store split.
+                instanceStoreId: checklistInstances.storeId,
             })
                 .from(checklistInstanceAssignees)
                 .innerJoin(checklistInstances, eq(checklistInstances.id, checklistInstanceAssignees.instanceId))
@@ -329,6 +359,7 @@ export const checklistReportService = {
                 .groupBy(creditedUser),
             db.select({ id: departments.id, name: departments.name }).from(departments),
             db.select({ id: stores.id, name: stores.name }).from(stores),
+            storeItemQuery,
         ])
 
         // Holidays in the window, so a run left unfinished on one is not a miss.
@@ -415,6 +446,30 @@ export const checklistReportService = {
             addItems(deptByKey.get(person.row.departmentId ?? NO_DEPARTMENT_KEY)!.items, acc)
         }
 
+        // The same per-person figures, split by the store each run belongs to. Equal to building this
+        // report once per store with that store as the filter (runs of that store only, questions in
+        // them credited to people who had one of those runs), in one pass.
+        type StorePerson = { userId: string; storeId: string; runs: RunAcc; items: ItemAcc }
+        const storePeople = new Map<string, StorePerson>()
+        if (wantStores) {
+            for (const a of assigneeRows) {
+                const flags = flagsByRun.get(a.instanceId)
+                if (!flags || flags.skip || !a.instanceStoreId) continue
+                const key = `${a.instanceStoreId}|${a.userId}`
+                let entry = storePeople.get(key)
+                if (!entry) {
+                    entry = { userId: a.userId, storeId: a.instanceStoreId, runs: emptyRunAcc(), items: emptyItemAcc() }
+                    storePeople.set(key, entry)
+                }
+                addRun(entry.runs, flags)
+            }
+            for (const r of storeItemRows) {
+                const entry = r.userId && r.storeId ? storePeople.get(`${r.storeId}|${r.userId}`) : undefined
+                if (!entry) continue
+                addItems(entry.items, { done: Number(r.done), na: Number(r.na), scored: Number(r.scored), good: Number(r.good), wScored: Number(r.wScored), wGood: Number(r.wGood) })
+            }
+        }
+
         const wantPeople = groupBy === "person" || groupBy === "both"
         const wantDepartments = groupBy === "department" || groupBy === "both"
 
@@ -448,6 +503,9 @@ export const checklistReportService = {
             departmentLocked: locked,
             people,
             departments: departmentsOut,
+            storePeople: wantStores
+                ? [...storePeople.values()].map((p): StorePersonRow => ({ userId: p.userId, storeId: p.storeId, ...toMetrics(p.runs, p.items) }))
+                : undefined,
             notes: REPORT_NOTES,
         }
     },
