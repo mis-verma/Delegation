@@ -8,12 +8,17 @@ import { PANEL_CLASS } from '../../components/entityCard';
 import { CountUp } from '../../components/countUp';
 import { RadialGauge } from '../../components';
 import { useQuery } from '@tanstack/react-query';
-import { scoreApi, type Scores } from '../../api/scores';
+import type { Scores } from '../../api/scores';
 import { windowFor } from './scorePeriods';
+import { scoreQuery } from './scoreQueries';
+import { moduleOverall } from './scoreMetrics';
+import { capWindowAtToday } from '../scores/useScoreWindow';
+import { HowCalculated } from '../scores/HowCalculated';
+import type { ScoreModule } from '../../lib/scoreLabels';
 import { useNow } from '../../lib/useNow';
 import { useOrgToday } from '../checklist/useOrgToday';
-import { isInstanceOverdue } from '../checklist/checklistDisplay';
-import { isTaskOverdue, isTicketLate, taskDrilldownRow } from './dashboardDisplay';
+import { describeDueBy, instanceDeadline, isInstanceEnded, isInstanceOverdue } from '../checklist/checklistDisplay';
+import { doneLabel, dueLabel, isTaskOverdue, isTicketLate, taskDrilldownRow } from './dashboardDisplay';
 import { createdRangeHref } from '../../lib/createdRange';
 import type { DashboardSummaries } from './useDashboardSummaries';
 import type { Task } from '../../api/task';
@@ -45,8 +50,8 @@ interface ModuleView {
   title: string;
   noun: string;
   href: string;
-  /** What the headline Total box counts: "Total", or "Today" for the checklist tile. */
-  totalLabel: string;
+  /** Checklist: Completed and Total are today's figures. The other tiles count all time. Every label says which. */
+  todayCounts: boolean;
   /** Whose work the tile counts, for roles where tiles differ: Delegation and Tickets count what the
    *  role can see (the team, or everyone for Admin/PC), Checklist and To-do the viewer's own. */
   scope: 'team' | 'mine';
@@ -70,24 +75,51 @@ const VIEW_ALL_HREF: Record<ModuleKey, Record<DrillKind, string>> = {
 
 const DRILL_LABEL: Record<DrillKind, string> = { pending: 'Pending', completed: 'Completed', newToday: 'New today', overdue: 'Overdue' };
 
-const startOfToday = (now: number) => { const d = new Date(now); d.setHours(0, 0, 0, 0); return d.getTime(); };
+// The page each preview's button opens, in the words the sidebar uses.
+const PAGE_NAME: Record<ModuleKey, string> = { delegation: 'Delegation', tickets: 'Tickets', checklist: 'Checklists', todo: 'To-do' };
 
-const ticketRow = (t: Ticket): DrilldownRow => ({
-  id: t.id, title: t.title, link: `/tickets?open=${t.id}`, createdAt: t.createdAt,
-  completed: t.status === 'CLOSED', overdue: t.status !== 'CLOSED' && isTicketLate(t),
-});
+const DRILL_WINDOW = (view: ModuleView, kind: DrillKind): string =>
+  kind === 'pending' ? 'pending now' : kind === 'newToday' ? 'new today' : kind === 'overdue' ? 'overdue' : view.todayCounts ? 'completed today' : 'completed, all time';
+
+const startOfToday =(now: number) => { const d = new Date(now); d.setHours(0, 0, 0, 0); return d.getTime(); };
+
+// Rows show when the thing is DUE ("Due today, 6 PM", "Late since 10 Oct"), never how long ago it was created.
+const ticketRow = (t: Ticket, now: number): DrilldownRow => {
+  const completed = t.status === 'CLOSED';
+  const overdue = !completed && isTicketLate(t);
+  return {
+    id: t.id, title: t.title, link: `/tickets?open=${t.id}`, createdAt: t.createdAt, completed, overdue,
+    meta: completed ? doneLabel(t.closedAt ?? t.updatedAt, now) : t.tatDueAt ? dueLabel(t.tatDueAt, now, overdue) : 'No due time',
+    dueAt: t.tatDueAt ? new Date(t.tatDueAt).getTime() : null,
+  };
+};
 
 // Todos have no standalone detail view or `?open=` deep link, so a row points at the list page.
-const todoRow = (t: Todo, now: number): DrilldownRow => ({
-  id: t.id, title: t.text, link: '/todo', createdAt: t.createdAt,
-  completed: t.completed, overdue: !t.completed && !!t.dueDate && new Date(t.dueDate).getTime() < now,
-});
+const todoRow = (t: Todo, now: number): DrilldownRow => {
+  const overdue = !t.completed && !!t.dueDate && new Date(t.dueDate).getTime() < now;
+  return {
+    id: t.id, title: t.text, link: '/todo', createdAt: t.createdAt, completed: t.completed, overdue,
+    meta: t.completed ? 'Done' : t.dueDate ? dueLabel(t.dueDate, now, overdue) : 'No due date',
+    dueAt: t.dueDate ? new Date(t.dueDate).getTime() : null,
+  };
+};
 
 const isChecklistDone = (c: ChecklistInstance) => c.items.length > 0 && c.items.every((i) => i.isDone);
 
-const checklistRow = (c: ChecklistInstance): DrilldownRow => {
+// Same rule as My Checklists: a run whose deadline has passed is closed to its assignees and is not listed
+// (the server hides it, and this keeps a dashboard left open past the cutoff honest).
+const isChecklistLive = (c: ChecklistInstance, now: number) => c.isMissed !== true && !isInstanceEnded(c, now);
+
+const checklistRow = (c: ChecklistInstance, now: number): DrilldownRow => {
   const completed = isChecklistDone(c);
-  return { id: c.id, title: c.title, link: `/checklists/${c.id}`, createdAt: c.generatedAt, completed, overdue: isInstanceOverdue(c, completed) };
+  const deadline = instanceDeadline(c);
+  const overdue = isInstanceOverdue(c, completed);
+  const meta = completed
+    ? c.verificationStatus === 'NOT_SUBMITTED' ? 'Done, ready to submit' : 'Done'
+    : c.verificationStatus === 'REJECTED' ? 'Sent back, fix and submit again'
+    : overdue ? `Late since ${describeDueBy(deadline, now).replace(/^Due by /, '')}`
+    : describeDueBy(deadline, now);
+  return { id: c.id, title: c.title, link: `/checklists/${c.id}`, createdAt: c.generatedAt, completed, overdue, meta, dueAt: deadline };
 };
 
 // One card per module, the same on a phone and a desktop: a white card with the module's name, the
@@ -98,7 +130,8 @@ const MiniStat = ({ label, shortLabel, value, onClick }: { label: string; shortL
   const body = (
     <>
       <span className="block text-sm sm:text-lg font-display font-semibold sm:font-bold tabular-nums leading-tight text-text">{value ?? '-'}</span>
-      <span className="block truncate t-meta text-text-muted">
+      {/* Wraps instead of cutting off: every figure says its window ("Done today"), and that needs the words. */}
+      <span className="block break-words t-meta leading-tight text-text-muted">
         <span className="sm:hidden">{shortLabel}</span>
         <span className="hidden sm:inline">{label}</span>
       </span>
@@ -114,14 +147,14 @@ const MiniStat = ({ label, shortLabel, value, onClick }: { label: string; shortL
 };
 
 // The score beside the big number: this month's overall score (completion and compliance counted equally),
-// or for To-do, which has no score, the share of to-dos done.
+// or for To-do, which has no score, the share of to-dos done. Read from the same month answer, and through
+// the same moduleOverall, as the Your scores card, so a tile and that card agree for the month.
+const SCORE_MODULE: Record<Exclude<ModuleKey, 'todo'>, ScoreModule> = { delegation: 'delegation', tickets: 'ticket', checklist: 'checklist' };
+
 const scoreFor = (key: ModuleKey, s: Scores | undefined, view: ModuleView): { value: number | null; label: string } => {
   if (key === 'todo') return { value: view.total ? roundPct(((view.completed ?? 0) / view.total) * 100) : null, label: 'Done' };
   if (!s) return { value: null, label: 'Score' };
-  const m = key === 'delegation' ? s.delegation : key === 'tickets' ? s.ticket : s.checklist;
-  if (m.due === 0) return { value: null, label: 'Score' };
-  const parts = [m.completionPct, m.compliancePct].filter((v): v is number => v !== null);
-  return { value: parts.length ? roundPct(parts.reduce((a, c) => a + c, 0) / parts.length) : null, label: 'Score' };
+  return { value: moduleOverall(s, SCORE_MODULE[key]), label: 'Score' };
 };
 
 const gaugeColor = (v: number | null) => (v === null ? 'var(--color-border-hover)' : v >= 80 ? 'var(--color-success)' : v >= 50 ? 'var(--color-warning)' : 'var(--color-danger)');
@@ -148,6 +181,7 @@ const ModuleCard = ({ view, onOpen, score, scopeTag }: { view: ModuleView; onOpe
     );
   }
   const failed = view.isError || view.pending == null;
+  const scoreModule = view.key === 'todo' ? null : SCORE_MODULE[view.key];
   return (
     <section aria-label={scopeTag ? `${view.title}, ${scopeTag.toLowerCase()}` : view.title} className={cn(PANEL_CLASS, 'flex min-w-0 flex-col gap-2 sm:gap-3 p-3 sm:p-4 transition-colors hover:border-border-hover')}>
       <header className="flex items-center gap-2">
@@ -182,18 +216,21 @@ const ModuleCard = ({ view, onOpen, score, scopeTag }: { view: ModuleView; onOpe
               <span className="text-4xl xl:text-5xl font-display font-extrabold tabular-nums leading-none text-primary-700 dark:text-primary-300">
                 <CountUp value={view.pending ?? 0} />
               </span>
-              <span className="mt-1.5 t-meta font-semibold text-text-muted">Pending</span>
+              <span className="mt-1.5 t-meta font-semibold text-text-muted">Pending now</span>
               {view.overdue > 0 && (
                 <span className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-danger/10 px-2 py-0.5 t-meta font-display font-bold tabular-nums text-danger">
                   <AlertTriangle className="size-3" aria-hidden="true" />{view.overdue} overdue
                 </span>
               )}
             </button>
-            <div className="flex flex-col items-center justify-center border-l border-border/60" title={score.label === 'Done' ? 'Share of to-dos done' : "This month's overall score: completion and compliance counted equally"}>
+            <div className="flex flex-col items-center justify-center border-l border-border/60">
               <RadialGauge percent={score.value ?? 0} size={84} variant="circle" gradientFrom={gaugeColor(score.value)} gradientTo={gaugeColor(score.value)}>
                 <span className={cn('text-base font-display font-extrabold tabular-nums', score.value === null ? 'text-text-light' : 'text-text')}>{formatPct(score.value)}</span>
               </RadialGauge>
-              <span className="mt-1 t-meta font-semibold text-text-muted">{score.label === 'Done' ? 'Done' : 'Score this month'}</span>
+              <span className="mt-1 flex items-center gap-0.5 text-center t-meta font-semibold text-text-muted">
+                {score.label === 'Done' ? 'Done, of all to-dos' : 'Overall score this month'}
+                {scoreModule && <HowCalculated figure="overall" module={scoreModule} />}
+              </span>
             </div>
           </div>
 
@@ -204,7 +241,7 @@ const ModuleCard = ({ view, onOpen, score, scopeTag }: { view: ModuleView; onOpe
               <span className="block t-figure font-display font-bold tabular-nums leading-none text-primary-700 dark:text-primary-300">
                 <CountUp value={view.pending ?? 0} />
               </span>
-              <span className="mt-1 block t-meta font-medium text-text-muted">Pending</span>
+              <span className="mt-1 block t-meta font-medium text-text-muted">Pending now</span>
             </button>
             {view.overdue > 0 && (
               <button
@@ -220,9 +257,18 @@ const ModuleCard = ({ view, onOpen, score, scopeTag }: { view: ModuleView; onOpe
           {/* Three figures you can open, as a small three-column grid at every size (a single
               "12 done, 3 new, 45 total" line was cut off on a phone). */}
           <div className="grid grid-cols-3 gap-1 border-t border-border/60 pt-2 text-center">
-            <MiniStat label="Completed" shortLabel="Done" value={view.completed} onClick={() => onOpen('completed')} />
-            <MiniStat label="New today" shortLabel="New" value={view.newToday} onClick={() => onOpen('newToday')} />
-            <MiniStat label={view.totalLabel === 'Total' ? 'Total' : 'Total today'} shortLabel={view.totalLabel === 'Total' ? 'Total' : 'Today'} value={view.total} />
+            <MiniStat
+              label={view.todayCounts ? 'Completed today' : 'Completed, all time'}
+              shortLabel={view.todayCounts ? 'Done today' : 'Done, all time'}
+              value={view.completed}
+              onClick={() => onOpen('completed')}
+            />
+            <MiniStat label="New today" shortLabel="New today" value={view.newToday} onClick={() => onOpen('newToday')} />
+            <MiniStat
+              label={view.todayCounts ? 'Total today' : 'Total, all time'}
+              shortLabel={view.todayCounts ? 'Total today' : 'All time'}
+              value={view.total}
+            />
           </div>
         </>
       )}
@@ -245,42 +291,39 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
     const ct = checklistToday.data;
     return [
       {
-        key: 'delegation', icon: ClipboardList, title: 'Delegation', noun: 'delegations', href: '/tasks', totalLabel: 'Total', scope: 'team',
+        key: 'delegation', icon: ClipboardList, title: 'Delegation', noun: 'delegations', href: '/tasks', todayCounts: false, scope: 'team',
         isPending: tasks.isPending, isError: tasks.isError, onRetry: tasks.onRetry,
         total: t?.total ?? null, pending: t?.pending ?? null, completed: t?.completed ?? null, newToday: t?.newToday ?? null, overdue: t?.overdue ?? 0,
       },
       {
-        key: 'tickets', icon: TicketCheck, title: 'Tickets', noun: 'tickets', href: '/tickets', totalLabel: 'Total', scope: 'team',
+        key: 'tickets', icon: TicketCheck, title: 'Tickets', noun: 'tickets', href: '/tickets', todayCounts: false, scope: 'team',
         isPending: tickets.isPending, isError: tickets.isError, onRetry: tickets.onRetry,
         total: k?.total ?? null, pending: k?.pending ?? null, completed: k?.completed ?? null, newToday: k?.newToday ?? null, overdue: k?.overdue ?? 0,
       },
       {
-        // Pending/New today are all-time and Completed/Total are today's, exactly as the My
-        // checklists page counts them, so the tile and the page it opens always agree.
-        key: 'checklist', icon: ClipboardCheck, title: 'Checklist', noun: 'checklists', href: '/checklists', totalLabel: 'Today', scope: 'mine',
+        // Pending is what is open now (runs that have ended are not counted) and Completed/Total are today's,
+        // exactly as the My checklists page counts them, so the tile and the page it opens always agree.
+        key: 'checklist', icon: ClipboardCheck, title: 'Checklist', noun: 'checklists', href: '/checklists', todayCounts: true, scope: 'mine',
         isPending: checklist.isPending || checklistToday.isPending, isError: checklist.isError || checklistToday.isError,
         onRetry: () => { if (checklist.isError) checklist.onRetry(); if (checklistToday.isError) checklistToday.onRetry(); },
         total: ct?.total ?? null, pending: c?.pending ?? null, completed: ct?.completed ?? null, newToday: c?.newToday ?? null, overdue: c?.overdue ?? 0,
       },
       {
         // Always the viewer's own todos, even for an admin: todos have no org-wide view.
-        key: 'todo', icon: ListTodo, title: 'To-do', noun: 'to-dos', href: '/todo', totalLabel: 'Total', scope: 'mine',
+        key: 'todo', icon: ListTodo, title: 'To-do', noun: 'to-dos', href: '/todo', todayCounts: false, scope: 'mine',
         isPending: todos.isPending, isError: todos.isError, onRetry: todos.onRetry,
         total: d?.total ?? null, pending: d?.pending ?? null, completed: d?.completed ?? null, newToday: d?.newToday ?? null, overdue: d?.overdue ?? 0,
       },
     ];
   }, [tasks, tickets, todos, checklist, checklistToday]);
 
-  // This month's scores for the signed-in person, for the ring on each card. Same query key as the Scores
-  // card's month view, so the two share one fetch.
+  // This month's scores for the signed-in person, for the ring on each card. The rings always say "this
+  // month", whatever window the Your scores card is on. Same window (capped at today), same query as that
+  // card's month view, so the two read one answer and share one fetch.
   const orgToday = useOrgToday();
   const month = windowFor('month', 0, orgToday);
-  const monthScores = useQuery({
-    queryKey: ['scores', 'person', 'me', month.from, month.to],
-    queryFn: () => scoreApi.get({ scope: 'person', from: month.from, to: month.to }),
-    staleTime: 60_000,
-    refetchOnWindowFocus: false,
-  });
+  const asked = capWindowAtToday(month.from, month.to, orgToday);
+  const monthScores = useQuery(scoreQuery('person', undefined, asked.from, asked.to));
 
   const drilldown = useMemo(() => {
     if (!openDrill) return null;
@@ -305,17 +348,20 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
         newToday: (x: Ticket) => isNew(x.createdAt),
         overdue: (x: Ticket) => x.status !== 'CLOSED' && isTicketLate(x),
       }[kind];
-      rows = ticketList.filter(pick).map(ticketRow);
+      rows = ticketList.filter(pick).map((x) => ticketRow(x, now));
     } else if (key === 'checklist') {
+      // Only the viewer's live work, the same rule as My Checklists: runs that ended are not listed.
+      // Pending is what is open now: today's and new runs, plus anything sent back or done but not yet submitted.
+      const live = (x: ChecklistInstance) => isChecklistLive(x, now);
       const pick = {
-        pending: (x: ChecklistInstance) => !isChecklistDone(x),
+        pending: (x: ChecklistInstance) => live(x) && (!isChecklistDone(x) || x.verificationStatus === 'REJECTED' || x.verificationStatus === 'NOT_SUBMITTED'),
         // The tile's Completed figure is TODAY's, so the preview only lists runs from today. It used
         // to list every finished run in the recent list, which is a different number.
         completed: (x: ChecklistInstance) => isChecklistDone(x) && isNew(x.generatedAt),
-        newToday: (x: ChecklistInstance) => isNew(x.generatedAt),
-        overdue: (x: ChecklistInstance) => isInstanceOverdue(x, isChecklistDone(x)),
+        newToday: (x: ChecklistInstance) => live(x) && isNew(x.generatedAt),
+        overdue: (x: ChecklistInstance) => live(x) && isInstanceOverdue(x, isChecklistDone(x)),
       }[kind];
-      rows = checklistList.filter(pick).map(checklistRow);
+      rows = checklistList.filter(pick).map((x) => checklistRow(x, now));
     } else {
       const pick = {
         pending: (x: Todo) => !x.completed,
@@ -326,6 +372,10 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
       rows = todoList.filter(pick).map((x) => todoRow(x, now));
     }
 
+    // Most urgent first (soonest deadline, the ones with none last), so the eight rows a preview shows are the
+    // ones to do next. Finished rows keep their list order.
+    if (kind !== 'completed') rows = [...rows].sort((a, b) => (a.dueAt ?? Infinity) - (b.dueAt ?? Infinity));
+
     const counted = { pending: view.pending, completed: view.completed, newToday: view.newToday, overdue: view.overdue }[kind];
     // "New today" opens the list already narrowed to today (the same filter the chart bars use), not the
     // whole unfiltered list the figure is a small part of.
@@ -335,12 +385,13 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
 
     return {
       title: `${DRILL_LABEL[kind]} ${view.noun}`,
-      description: counted != null ? `${counted} ${counted === 1 ? view.noun.replace(/s$/, '') : view.noun} in total` : undefined,
+      // Says which window the number is: open now, done today, new today.
+      description: counted != null ? `${counted} ${counted === 1 ? view.noun.replace(/s$/, '') : view.noun} ${DRILL_WINDOW(view, kind)}` : undefined,
       icon: view.icon,
       rows,
       total: counted ?? undefined,
       viewAllHref,
-      viewAllLabel: `View all in ${view.title}`,
+      viewAllLabel: `Open ${PAGE_NAME[key]}`,
     };
   }, [openDrill, views, now, taskList, ticketList, todoList, checklistList]);
 

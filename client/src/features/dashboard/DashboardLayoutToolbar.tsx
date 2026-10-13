@@ -8,24 +8,28 @@ interface DashboardLayoutToolbarProps {
   /** Cards hidden right now, for the "bring back" row. */
   hiddenCards: { id: string; label: string }[];
   onShow: (id: string) => void;
+  /** Phone: the instructions say "move up or down" instead of "drag". */
+  touch?: boolean;
 }
 
 // One entry point for the whole feature: a quiet ghost button at rest, becoming the active-mode
 // toolbar (what's happening + the two ways out — start fresh, or keep it) once customizing starts.
 // Same bar, same position, so nothing jumps around the moment the mode flips.
-export const DashboardLayoutToolbar = ({ isCustomizing, onStart, onReset, onDone, hiddenCards, onShow }: DashboardLayoutToolbarProps) => {
+export const DashboardLayoutToolbar = ({ isCustomizing, onStart, onReset, onDone, hiddenCards, onShow, touch = false }: DashboardLayoutToolbarProps) => {
   if (!isCustomizing) {
-    // Just the icon: it needs no words, and a quiet square takes far less room above the stats than a labelled button.
+    // Desktop: just the icon, a quiet square that takes far less room above the stats than a labelled button.
+    // Phone: a 44px "Customize" button, because an icon alone is easy to miss and to miss-tap.
     return (
       <div className="flex items-center justify-end">
         <button
           type="button"
           onClick={onStart}
-          aria-label={hiddenCards.length > 0 ? `Customize layout, ${hiddenCards.length} hidden` : 'Customize layout'}
-          title="Customize layout"
-          className="relative inline-flex size-8 items-center justify-center rounded-lg border border-border bg-surface text-text-secondary transition-colors cursor-pointer hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+          aria-label={hiddenCards.length > 0 ? `Customize dashboard, ${hiddenCards.length} hidden` : 'Customize dashboard'}
+          title="Customize dashboard"
+          className="relative inline-flex h-11 items-center justify-center gap-1.5 rounded-lg border border-border bg-surface px-3 t-meta font-display font-semibold text-text-secondary transition-colors cursor-pointer hover:bg-surface-hover hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 sm:size-8 sm:px-0"
         >
           <LayoutGrid size={14} strokeWidth={2.25} aria-hidden="true" />
+          <span className="sm:hidden">Customize</span>
           {hiddenCards.length > 0 && (
             <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary-600 px-1 text-xs font-display font-bold leading-none text-white" aria-hidden="true">
               {hiddenCards.length}
@@ -41,13 +45,13 @@ export const DashboardLayoutToolbar = ({ isCustomizing, onStart, onReset, onDone
     <div role="status" className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
       <div className="flex items-center gap-2 text-xs font-display font-semibold text-primary-700 dark:text-primary-300">
         <LayoutGrid size={14} strokeWidth={2.25} className="text-primary-600 dark:text-primary-300 shrink-0" />
-        Drag a card by its grip to reorder, set its size, or hide it
+        {touch ? 'Move cards up or down, or switch them off' : 'Drag a card by its grip to reorder, set its size, or hide it'}
       </div>
       <div className="flex items-center gap-2">
         <button
           type="button"
           onClick={onReset}
-          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-border bg-surface text-xs font-display font-semibold text-text-secondary hover:bg-surface-hover hover:text-text transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+          className="inline-flex items-center gap-1.5 h-11 sm:h-8 px-3rounded-lg border border-border bg-surface text-xs font-display font-semibold text-text-secondary hover:bg-surface-hover hover:text-text transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
         >
           <RotateCcw size={13} strokeWidth={2.25} />
           Reset to default
@@ -55,7 +59,7 @@ export const DashboardLayoutToolbar = ({ isCustomizing, onStart, onReset, onDone
         <button
           type="button"
           onClick={onDone}
-          className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-lg bg-primary-600 text-xs font-display font-semibold text-white hover:bg-primary-700 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+          className="inline-flex items-center gap-1.5 h-11 sm:h-8 px-3.5 rounded-lg bg-primary-600 text-xs font-display font-semibold text-white hover:bg-primary-700 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
         >
           <Check size={13} strokeWidth={2.5} />
           Done

@@ -1,7 +1,6 @@
 import { Suspense, lazy, useCallback, useMemo, type ReactNode } from 'react';
 import { useIsFetching, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext';
-import { OWN_SCOPE_ROLES } from '../../api/auth';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { useNow } from '../../lib/useNow';
 import { DASHBOARD_QUERY_OPTIONS, DASHBOARD_QUERY_ROOTS, invalidateDashboardQueries } from '../../lib/dashboardQuery';
@@ -20,6 +19,8 @@ import { RecentActivity, RECENT_ACTIVITY_FEED_SIZE } from './RecentActivity';
 import { UpcomingEvents } from './UpcomingEvents';
 import { DashboardCardFrame } from './DashboardCardFrame';
 import { DashboardLayoutToolbar } from './DashboardLayoutToolbar';
+import { DashboardMobileCustomize } from './DashboardMobileCustomize';
+import { dashboardViewFor } from './dashboardView';
 import { useDashboardLayout } from './useDashboardLayout';
 import { useDashboardSummaries } from './useDashboardSummaries';
 import { CARD_LABEL, type DashboardCardId } from './dashboardLayout';
@@ -40,9 +41,9 @@ const NO_TICKETS: Ticket[] = [];
 export const HomePage = () => {
   const { user } = useAuth();
   const userId = user?.id;
-  const isOrgWideRole = user?.role === 'ADMIN' || user?.role === 'PC';
-  // User and Agent: their own work only, so the dashboard drops filters, views and settings for them.
-  const frontLine = !!user && OWN_SCOPE_ROLES.includes(user.role);
+  // The one role split: the user view (User, Agent: their own work only) or the admin view (everyone else).
+  const dashboardView = useMemo(() => dashboardViewFor(user?.role), [user?.role]);
+  const frontLine = dashboardView.frontLine;
   const orgToday = useOrgToday();
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
@@ -60,7 +61,7 @@ export const HomePage = () => {
     setCardSize,
     toggleHidden,
     reset: resetLayout,
-  } = useDashboardLayout(isOrgWideRole, frontLine);
+  } = useDashboardLayout(dashboardView);
 
   // Counts come from the server (useDashboardSummaries); these lists only feed the preview
   // modals, the feed and the "things need you" list, which really do need records.
@@ -93,7 +94,6 @@ export const HomePage = () => {
     for (const list of [sentBackRuns, overdueRuns, unsentRuns, dueRuns, checklistData]) for (const c of list ?? []) byId.set(c.id, c);
     return [...byId.values()];
   }, [sentBackRuns, overdueRuns, unsentRuns, dueRuns, checklistData]);
-  const checklistInstances = useMemo(() => checklistData ?? [], [checklistData]);
 
   const isPending = ticketsQuery.isPending || tasksQuery.isPending;
   const tasksFailed = tasksQuery.isError;
@@ -161,12 +161,12 @@ export const HomePage = () => {
             taskList={visibleTasks}
             ticketList={visibleTickets}
             todoList={todos}
-            checklistList={checklistInstances}
+            checklistList={focusChecklists}
             simple={frontLine}
           />
         );
       case 'myScores':
-        return <MyScoresCard simple={frontLine} />;
+        return <MyScoresCard />;
       case 'recentActivity':
         return <RecentActivity feed={feed} isPending={isPending} isError={tasksFailed || ticketsFailed} onRetry={retryWork} simple={frontLine} />;
       case 'upcomingEvents':
@@ -214,19 +214,17 @@ export const HomePage = () => {
     <div className="flex flex-col gap-3 w-full pt-2.5">
       <h1 className="sr-only">Today, {heading}</h1>
 
-      {/* Desktop only: dragging/resizing cards by a small grip handle isn't a touch-friendly
-          interaction. Customize is for people who manage the page; front-line staff get a fixed,
-          simple dashboard. */}
-      <div className={frontLine ? 'hidden' : 'hidden sm:block'}>
-        <DashboardLayoutToolbar
-          isCustomizing={isCustomizing}
-          onStart={() => setIsCustomizing(true)}
-          onReset={resetLayout}
-          onDone={() => setIsCustomizing(false)}
-          hiddenCards={hiddenCards}
-          onShow={(id) => toggleHidden(id as DashboardCardId)}
-        />
-      </div>
+      {/* Every role can customize. Larger screens drag cards by a grip; a phone gets a list with
+          up/down buttons and show/hide switches (see DashboardMobileCustomize). */}
+      <DashboardLayoutToolbar
+        isCustomizing={isCustomizing}
+        onStart={() => setIsCustomizing(true)}
+        onReset={resetLayout}
+        onDone={() => setIsCustomizing(false)}
+        hiddenCards={isCustomizing && isMobile ? [] : hiddenCards}
+        onShow={(id) => toggleHidden(id as DashboardCardId)}
+        touch={isMobile}
+      />
 
       {/* The exact things to do now, most urgent first, above every card. */}
       {!isCustomizing && <OvertimeNotice today={orgToday} />}
@@ -246,7 +244,9 @@ export const HomePage = () => {
         />
       )}
 
-      {isCustomizing ? (
+      {isCustomizing && isMobile ? (
+        <DashboardMobileCustomize order={eligibleCardOrder} hidden={hiddenIds} onMove={moveCard} onToggle={toggleHidden} />
+      ) : isCustomizing ? (
         <Suspense fallback={staticGrid}>
           <DashboardSortableGrid order={visibleCardOrder} sizes={cardSizes} renderCard={renderCard} onMove={moveCard} onSizeChange={setCardSize} onHide={toggleHidden} />
         </Suspense>

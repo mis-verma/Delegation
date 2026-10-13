@@ -299,6 +299,24 @@ export const describeInstanceEnd = (deadlineMs: number): string => {
   return `${hour12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'} on ${local.getUTCDate()} ${END_MONTHS[local.getUTCMonth()]}`;
 };
 
+// "Due by 6:30 PM" for a deadline today, "Due by 6:30 PM, 12 Oct" for another day, "Due by end of today" for
+// a run with no cutoff time. In the org's time, like describeInstanceEnd. For a list of open runs, where
+// "13h ago" (time since the run was created) says nothing about what to do.
+export const describeDueBy = (deadlineMs: number, now: number = Date.now()): string => {
+  const local = new Date(deadlineMs + ORG_TZ_OFFSET_MS);
+  const h = local.getUTCHours();
+  const m = local.getUTCMinutes();
+  const atMidnight = h === 0 && m === 0;
+  // A deadline at midnight closes the day before.
+  const dayMs = atMidnight ? deadlineMs - 60_000 : deadlineMs;
+  const day = new Date(dayMs + ORG_TZ_OFFSET_MS);
+  const isToday = orgDayKey(dayMs) === orgDayKey(now);
+  const dayLabel = `${day.getUTCDate()} ${END_MONTHS[day.getUTCMonth()]}`;
+  if (atMidnight) return isToday ? 'Due by end of today' : `Due by end of ${dayLabel}`;
+  const clock = `${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
+  return isToday ? `Due by ${clock}` : `Due by ${clock}, ${dayLabel}`;
+};
+
 export type InstanceView = {
   /** Applicable questions done / applicable questions (N/A excluded). */
   done: number;

@@ -7,7 +7,6 @@ import { Button, Combobox, ExportMenu, Switch, type ComboboxOption, type ExportS
 import { SemiGauge } from '../../components/semiGauge/SemiGauge';
 import { InlineError } from '../../components/inlineError';
 import { useAuth } from '../../context/AuthContext';
-import { OWN_SCOPE_ROLES } from '../../api/auth';
 import { scoreApi, type ScoreReport, type ScoreReportRow, type ScoreScope, type ScoreTrend as ScoreTrendData } from '../../api/scores';
 import { exportTitle, formatExportDate, type TableRows } from '../../lib/exportTable';
 import { useAssignableUsersQuery, useDepartmentsQuery, useStoresQuery } from '../tickets/hook';
@@ -28,7 +27,8 @@ import { DASHBOARD_CARD_CLASS, rateTone, type RateTone } from './dashboardDispla
 import { PERIODS, PERIOD_LABEL, windowFor, type ScorePeriod } from './scorePeriods';
 import { formatPct } from '../../lib/percent';
 import { MODULE_LABEL, SCORE_LABEL, complianceLabel } from '../../lib/scoreLabels';
-import { HintPopover } from '../scores/HowCalculated';
+import { HintPopover, HowCalculated } from '../scores/HowCalculated';
+import { dashboardViewFor } from './dashboardView';
 import { FIELD_LABEL_CLASS } from '../scores/controlStyles';
 
 // Short enough for four equal columns in the narrow side panel.
@@ -159,26 +159,28 @@ const PanelRow = ({ label, children }: { label: string; children: React.ReactNod
  * own. A department head can also open their own department. Admin and PC can open any person,
  * department or store, or the whole organisation. `initialScope`: where the card opens.
  */
-export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, moreHref, simple = false }: {
+export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, moreHref }: {
   initialScope?: ScoreScope;
   /** The page's own period ('YYYY-MM-DD' days). When given, the card follows it and hides its own period controls. */
   window?: { from: string; to: string; label: string };
   /** A page with every department, store and person side by side; shown as a link in the header. */
   moreHref?: string;
-  /** Front-line staff: their own three dials and a Week / Month switch. No views, measures or filters; Export gives their own scores. */
-  simple?: boolean;
 } = {}) => {
   const { user } = useAuth();
   const role = user?.role;
-  const orgWide = role === 'ADMIN' || role === 'PC';
-  const isHod = role === 'MANAGER' || role === 'SENIOR';
+  // The role decides the card (dashboardView.ts). Front-line staff get the simple card: their own bars for a
+  // Week or a Month, no views, measures, people or Export.
+  const { orgWide, isHod, scores: scoreRules } = dashboardViewFor(role);
+  const simple = scoreRules.simple;
   const scopes = useMemo<ScoreScope[]>(
     // Admin and PC also get the whole organisation in one view: every checklist, ticket and delegation.
     () => (orgWide ? ['org', 'person', 'department', 'store'] : isHod ? ['person', 'department'] : ['person']),
     [orgWide, isHod],
   );
-  const canPickPerson = !!role && !OWN_SCOPE_ROLES.includes(role);
+  const canPickPerson = scoreRules.canPickPeople;
   const canExportReport = orgWide || isHod;
+  // Not rendered at all for User and Agent, so there is nothing to find in the page.
+  const canExport = scoreRules.canExport;
 
   const [scope, setScope] = useState<ScoreScope>(() => (initialScope === 'org' && !orgWide ? 'person' : initialScope));
   // The Admin card keeps its own saved settings: picking Day on the dashboard must not change it.
@@ -192,7 +194,8 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
   const [metricChoice, setMetricState] = useState<ScoreMetric>(() => (isMetric(initialPrefs.metric) ? initialPrefs.metric : 'overview'));
   // On a phone the card is a glance: this month's bars, nothing to set. Not when a page sets the window.
   const isPhone = useIsMobile();
-  const glance = isPhone && !pageWindow;
+  // The simple (front-line) card keeps its Week | Month switch on a phone too, so it is never the glance.
+  const glance = isPhone && !pageWindow && !simple;
   const metric: ScoreMetric = simple || glance ? 'overview' : metricChoice;
   const navigate = useNavigate();
 
@@ -225,7 +228,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
   // A ranked row opens that department (or person, or store) on the card itself.
   const openRanked = (id: string) => { if (scope === 'org') setScope('department'); setPicked(id); setMoreOpen(false); };
   const views = VIEWS;
-  const activeView: ScoreView = glance ? 'bars' : simple ? 'dials' : view;
+  const activeView: ScoreView = glance || simple ? 'bars' : view;
   const setView = (next: ScoreView) => { setViewState(next); remember({ view: next }); };
 
   const people = useAssignableUsersQuery();
@@ -379,7 +382,9 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
     />
   );
 
-  const heading = scope === 'person' && !targetId ? 'Your scores' : `${data?.name ?? SCOPE_LABEL[scope]} scores`;
+  // The simple card names its window in the title, so no figure on it stands without one.
+  const simpleWindow = offset === 0 ? (shownPeriod === 'week' ? 'this week' : 'this month') : `for ${range.label}`;
+  const heading = simple ? `Your scores ${simpleWindow}` : scope === 'person' && !targetId ? 'Your scores' : `${data?.name ?? SCOPE_LABEL[scope]} scores`;
   const showPicker = scope === 'org' ? false : scope === 'person' ? canPickPerson : !(scope === 'department' && isHod);
 
   return (
@@ -391,17 +396,21 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
           <div className="flex min-w-0 flex-col gap-0.5">
             <div className="flex min-w-0 items-center gap-1.5">
               <h2 className="t-section font-display font-bold text-text tracking-tight line-clamp-2">{heading}</h2>
-              <HintPopover label="What do these scores mean?">
-                <p><strong className="text-text">{SCORE_LABEL.completion}</strong>: how much of the work that came due was done.</p>
-                <p><strong className="text-text">{complianceLabel('checklist')}</strong> (checklists): how many checked answers were right. <strong className="text-text">{complianceLabel('ticket')}</strong> (tickets and delegations): how much was finished or handed in by its deadline.</p>
-                <p><strong className="text-text">{SCORE_LABEL.overall}</strong>: completion and the second measure counted equally.</p>
-                <p>Work that is not due yet is left out, so a running week or month does not look low. Good is 80% or more, Fair 50 to 79, Low under 50.</p>
-              </HintPopover>
+              {simple ? (
+                <HowCalculated figure="overall" label="How are my scores calculated" />
+              ) : (
+                <HintPopover label="What do these scores mean?">
+                  <p><strong className="text-text">{SCORE_LABEL.completion}</strong>: how much of the work that came due was done.</p>
+                  <p><strong className="text-text">{complianceLabel('checklist')}</strong> (checklists): how many checked answers were right. <strong className="text-text">{complianceLabel('ticket')}</strong> (tickets and delegations): how much was finished or handed in by its deadline.</p>
+                  <p><strong className="text-text">{SCORE_LABEL.overall}</strong>: completion and the second measure counted equally.</p>
+                  <p>Work that is not due yet is left out, so a running week or month does not look low. Good is 80% or more, Fair 50 to 79, Low under 50.</p>
+                </HintPopover>
+              )}
             </div>
             {glance && <p className="t-meta font-medium text-text-muted">{range.label}</p>}
             <p className="hidden t-meta font-medium text-text-muted sm:block">What came due, how much got done, and how much was done right or on time</p>
           </div>
-          {(simple || glance) && exportMenu}
+          {glance && canExport && exportMenu}
           </div>
           {!simple && !glance && <div className="flex items-center justify-between gap-2 sm:justify-end sm:shrink-0">
             {moreHref && (
@@ -429,7 +438,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
                 );
               })}
             </div>
-            {exportMenu}
+            {canExport && exportMenu}
           </div>}
         </div>
 
@@ -577,7 +586,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
             metric={metric}
             previous={previous}
             onOpenModule={openDrill}
-            emptyText={glance ? 'Nothing due yet this month' : 'Nothing was due in this window'}
+            emptyText={glance ? 'Nothing due yet this month' : simple ? `Nothing was due ${simpleWindow}` : 'Nothing was due in this window'}
           />
         ) : (
         <div className="grid grid-cols-3 gap-3">

@@ -15,6 +15,11 @@ export interface DrilldownRow {
   createdAt: string;
   completed: boolean;
   overdue: boolean;
+  /** The line under the title. When absent it reads "3h ago" from `createdAt`, as the older callers expect.
+   *  The dashboard tiles pass the deadline here ("Due by 6:30 PM"), never time since created. */
+  meta?: string;
+  /** Deadline as a time, used only to put the most urgent rows first. */
+  dueAt?: number | null;
 }
 
 /**
@@ -53,7 +58,7 @@ const DrilldownRowButton = memo(({ row, onSelect }: { row: DrilldownRow; onSelec
     >
       <div className="flex flex-1 min-w-0 flex-col gap-0.5">
         <p className="text-sm font-display font-semibold text-text line-clamp-2 leading-snug">{row.title}</p>
-        <p className="t-meta font-medium text-text-muted">{formatRelativeTime(row.createdAt)}</p>
+        <p className={`t-meta font-medium ${row.overdue && !row.completed ? 'text-danger' : 'text-text-muted'}`}>{row.meta ?? formatRelativeTime(row.createdAt)}</p>
       </div>
       {/* Same icon-circle-in-a-pill StatusChip every Ticket/Delegation status display already
           renders through. `completed`/`overdue`/`pending` are real StatusChipStatus values, so no
@@ -94,11 +99,14 @@ export const DrilldownList = ({ rows, total, cappedNote, isLoading = false, view
   // more than the preview holds says "Showing 8 of 23"; the old wording stacked "Showing the 25 most
   // recent of 80" and "+17 more" together, which gave two different numbers for the same gap.
   const counted = total != null && total > visible.length ? total : null;
+  // The page's name from the button's own words ("Open Checklists", "View all tickets"), so the note never
+  // says "the in Checklist page".
+  const pageName = viewAllLabel.replace(/^(view all|open)\s+(in\s+)?/i, '').trim();
   const footnote = counted != null
     ? `Showing ${visible.length} of ${counted}.${viewAllHref ? ' The rest are on the full list.' : ''}`
     : [
         remaining > 0 ? `+${remaining} more` : null,
-        cappedNote ?? (viewAllHref ? `See the full list on the ${viewAllLabel.replace(/^View all /i, '').trim() || 'full'} page.` : null),
+        cappedNote ?? (viewAllHref && pageName && pageName.toLowerCase() !== viewAllLabel.toLowerCase() ? `The full list is in ${pageName}.` : null),
       ].filter(Boolean).join('. ');
 
   return (

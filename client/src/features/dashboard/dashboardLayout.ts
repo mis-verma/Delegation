@@ -20,7 +20,7 @@ export type DashboardCardSize = 'small' | 'big';
 /** Bump whenever DEFAULT_CARD_ORDER changes. A saved layout from an older version is migrated in
  *  useDashboardLayout: if it was just the old default, it moves to the new default; if the user had
  *  rearranged it, their order is kept. */
-export const LAYOUT_VERSION = 6;
+export const LAYOUT_VERSION = 7;
 
 /** Cards added in version 3. A saved older layout gets these put at the FRONT (where they used to be
  *  pinned), not appended at the end like other new cards, so nobody's approvals block vanishes to
@@ -44,19 +44,20 @@ export const DEFAULT_CARD_ORDER: readonly DashboardCardId[] = [
 // so the card renderer compiles, but a card id missing from DEFAULT_CARD_ORDER is never shown, and a
 // saved layout that still lists one has it dropped on load.
 
-/** Front-line staff (User, Agent) work their own items and rarely approve anything, so their default
- *  starts with how they are doing and their own numbers; the approvals block, which hides itself when
- *  nothing is waiting, drops to the end. Managers, Seniors, Admin and PC keep the approvals first. */
+/** Front-line staff (User, Agent) work their own items and rarely approve anything. Above the cards sit the
+ *  overtime notice and "Things need you" (fixed blocks, not cards). Then their module tiles with the score
+ *  (Key numbers), then how they are doing (Scores), then events and recent work; the approvals block, which
+ *  hides itself when nothing is waiting, drops to the end. Managers, Seniors, Admin and PC keep the approvals
+ *  first. Version 7 swapped Scores and Key numbers; front-line layouts are saved under their own key (see
+ *  dashboardView.ts), so an older saved order never overrides this one. 'todayStrip' renders nothing, so it
+ *  is not listed: a card that draws nothing would show as an empty, hideable row in Customize. */
 export const FRONT_LINE_CARD_ORDER: readonly DashboardCardId[] = [
-  'todayStrip',
-  'myScores',
   'kpiStrip',
+  'myScores',
   'upcomingEvents',
   'recentActivity',
   'needsApproval',
 ];
-
-export const defaultOrderFor = (frontLine: boolean): readonly DashboardCardId[] => (frontLine ? FRONT_LINE_CARD_ORDER : DEFAULT_CARD_ORDER);
 
 /** The v1 default order, kept only so a saved layout that is still exactly the old default can be
  *  recognised (and moved to the new default) rather than treated as a deliberate custom order.

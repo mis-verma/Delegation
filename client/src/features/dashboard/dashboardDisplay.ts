@@ -170,16 +170,60 @@ export const isTaskOverdue = (task: Pick<Task, 'status' | 'dueDate'>, now: numbe
   return new Date(task.dueDate).getTime() < now;
 };
 
+// "6 PM" on the hour, "6:30 PM" otherwise, in the viewer's own time.
+const clockLabel = (d: Date): string => {
+  const h = d.getHours();
+  const m = d.getMinutes();
+  return `${h % 12 === 0 ? 12 : h % 12}${m ? `:${pad2(m)}` : ''} ${h < 12 ? 'AM' : 'PM'}`;
+};
+const dayMonth = (d: Date): string => `${d.getDate()} ${MONTH_LABELS[d.getMonth()]}`;
+
+/**
+ * When something is due, in words a pending list can show instead of how long ago it was created:
+ * "Due today, 6 PM", "Due tomorrow, 9:30 AM", "Due 14 Oct, 6 PM", and once it has passed "Late since 10 Oct".
+ * `late` is the caller's own rule (a ticket's TAT, a delegation's due date), so this never second-guesses it.
+ */
+export const dueLabel = (isoDate: string, now: number, late: boolean): string => {
+  const due = new Date(isoDate);
+  const days = calendarDaysBetween(now, due.getTime());
+  if (late) {
+    if (days === 0) return `Late since ${clockLabel(due)}`;
+    return days === -1 ? 'Late since yesterday' : `Late since ${dayMonth(due)}`;
+  }
+  if (days === 0) return `Due today, ${clockLabel(due)}`;
+  if (days === 1) return `Due tomorrow, ${clockLabel(due)}`;
+  return `Due ${dayMonth(due)}, ${clockLabel(due)}`;
+};
+
+/** "Done 3 hours ago", "Done yesterday", "Done Mon 12 Oct": for a finished row in a preview list. */
+export const doneLabel = (isoDate: string, now: number): string => {
+  const when = pastDayLabel(isoDate, now);
+  return `Done ${when === 'Yesterday' || when === 'Just now' ? when.toLowerCase() : when}`;
+};
+
 // A delegation as a preview-modal row: one mapping for every dashboard card that opens a list of
 // tasks, so the status and overdue flag can never disagree between two cards.
-export const taskDrilldownRow = (task: Task, now: number): DrilldownRow => ({
-  id: task.id,
-  title: task.title,
-  link: `/tasks?open=${task.id}`,
-  createdAt: task.createdAt,
-  completed: task.status === 'done',
-  overdue: isTaskOverdue(task, now),
-});
+export const taskDrilldownRow = (task: Task, now: number): DrilldownRow => {
+  const completed = task.status === 'done';
+  const overdue = isTaskOverdue(task, now);
+  const meta = completed
+    ? doneLabel(task.verifiedAt ?? task.updatedAt, now)
+    : task.status === 'pending_approval'
+      ? 'Handed in, waiting for approval'
+      : task.dueDate
+        ? dueLabel(task.dueDate, now, overdue)
+        : 'No due date';
+  return {
+    id: task.id,
+    title: task.title,
+    link: `/tasks?open=${task.id}`,
+    createdAt: task.createdAt,
+    completed,
+    overdue,
+    meta,
+    dueAt: task.dueDate ? new Date(task.dueDate).getTime() : null,
+  };
+};
 
 // "Late" for a ticket: still open and past its TAT (the server's isOverdue), or closed after its
 // TAT due time. Same definition the ticket reports use, so a dashboard chip matches the report.

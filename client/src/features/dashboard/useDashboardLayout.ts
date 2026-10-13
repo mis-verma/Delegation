@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import type { DashboardViewConfig } from './dashboardView';
 import {
   DEFAULT_CARD_ORDER,
-  defaultOrderFor,
   DEFAULT_CARD_SIZES,
   ADMIN_ONLY_CARDS,
   LAYOUT_VERSION,
@@ -32,8 +32,6 @@ interface LoadedLayout {
   hidden: DashboardCardId[];
 }
 
-const STORAGE_PREFIX = 'tm-dashboard-layout';
-
 const isDashboardCardId = (value: unknown): value is DashboardCardId =>
   typeof value === 'string' && (DEFAULT_CARD_ORDER as readonly string[]).includes(value);
 
@@ -58,6 +56,15 @@ const loadStoredLayout = (key: string): LoadedLayout | null => {
   }
 };
 
+const sizesFrom = (stored: LoadedLayout | null): Record<DashboardCardId, DashboardCardSize> => {
+  const saved = { ...stored?.sizes };
+  // Version 4 made the Scores card half width by default: a width saved before that was only the old default.
+  if (stored && stored.version < 4) delete saved.myScores;
+  // Version 6 put Key numbers back to full width (version 5 had made it half width).
+  if (stored && stored.version < 6) delete saved.kpiStrip;
+  return { ...DEFAULT_CARD_SIZES, ...saved };
+};
+
 // Drag-reorder without pulling @dnd-kit into the home bundle just for this helper.
 const moveItem = <T,>(list: readonly T[], from: number, to: number): T[] => {
   const next = [...list];
@@ -77,13 +84,16 @@ const moveItem = <T,>(list: readonly T[], from: number, to: number): T[] => {
  * Versioned: when the default order changes (LAYOUT_VERSION), a saved layout that is still exactly
  * the previous default is moved to the new default, and one the user rearranged keeps their order.
  */
-export const useDashboardLayout = (isOrgWideRole: boolean, isFrontLine = false) => {
+export const useDashboardLayout = (view: DashboardViewConfig) => {
   const { user } = useAuth();
-  const storageKey = `${STORAGE_PREFIX}-${user?.id ?? 'anon'}`;
+  const isOrgWideRole = view.showOversightCards;
+  // The user view and the admin view each save under their own key, so the order a person chose in one
+  // is never read as the other's, and "Reset to default" always returns to the view's own default.
+  const storageKey = `${view.layoutKeyPrefix}-${user?.id ?? 'anon'}`;
 
   const visibleCards = useMemo(
-    () => defaultOrderFor(isFrontLine).filter((id) => isOrgWideRole || !ADMIN_ONLY_CARDS.has(id)),
-    [isOrgWideRole, isFrontLine],
+    () => view.order.filter((id) => isOrgWideRole || !ADMIN_ONLY_CARDS.has(id)),
+    [view.order, isOrgWideRole],
   );
 
   // Drops any id a stored order still has but this viewer can no longer see (e.g. their role
@@ -116,15 +126,7 @@ export const useDashboardLayout = (isOrgWideRole: boolean, isFrontLine = false) 
     }
     return reconcile(stored.order);
   });
-  const [sizes, setSizes] = useState<Record<DashboardCardId, DashboardCardSize>>(() => {
-    const stored = loadStoredLayout(storageKey);
-    const saved = { ...stored?.sizes };
-    // Version 4 made the Scores card half width by default: a width saved before that was only the old default.
-    if (stored && stored.version < 4) delete saved.myScores;
-    // Version 6 put Key numbers back to full width (version 5 had made it half width).
-    if (stored && stored.version < 6) delete saved.kpiStrip;
-    return { ...DEFAULT_CARD_SIZES, ...saved };
-  });
+  const [sizes, setSizes] = useState<Record<DashboardCardId, DashboardCardSize>>(() => sizesFrom(loadStoredLayout(storageKey)));
   const [hidden, setHidden] = useState<DashboardCardId[]>(() => loadStoredLayout(storageKey)?.hidden ?? []);
   const [isCustomizing, setIsCustomizing] = useState(false);
 
@@ -134,13 +136,17 @@ export const useDashboardLayout = (isOrgWideRole: boolean, isFrontLine = false) 
   // rest of the session once their real role loads in a tick later. Adjusted during render
   // (React's documented pattern for resetting state off a prop change) rather than in an effect,
   // so it commits in the same render `isOrgWideRole` actually changes.
-  const roleKey = `${isOrgWideRole}-${isFrontLine}`;
+  const roleKey = `${isOrgWideRole}-${view.view}-${storageKey}`;
   const [prevRoleKey, setPrevRoleKey] = useState(roleKey);
   if (roleKey !== prevRoleKey) {
     setPrevRoleKey(roleKey);
     // Someone who never saved a layout gets the default for the role that just loaded; someone who did
-    // keeps their own order, with any card they can no longer (or newly can) see reconciled.
-    setOrder((prev) => (loadStoredLayout(storageKey) ? reconcile(prev) : [...visibleCards]));
+    // keeps their own order, with any card they can no longer (or newly can) see reconciled. A different
+    // saved key (the account or the view changed) loads that layout's own sizes and hidden cards too.
+    const stored = loadStoredLayout(storageKey);
+    setOrder(stored ? reconcile(stored.order) : [...visibleCards]);
+    setSizes(sizesFrom(stored));
+    setHidden(stored?.hidden ?? []);
   }
 
   useEffect(() => {
