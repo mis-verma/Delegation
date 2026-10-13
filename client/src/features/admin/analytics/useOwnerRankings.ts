@@ -1,9 +1,9 @@
 import { useCallback, useMemo } from 'react';
-import { toDayParam } from '../../../api/checklistInstances';
 import { NO_DEPARTMENT_ROW_ID, type ScoreReportRow } from '../../../api/scores';
 import { MIN_RANK_VOLUME, overallOf, totalDue } from '../../dashboard/scoreMetrics';
-import { useScoreReport, useStoreScoreReport } from '../../dashboard/scoreQueries';
+import { explorerRowToReportRow } from '../../scores/explorerAdapters';
 import { useTicketOwnerStatsQuery } from './useAnalyticsQueries';
+import { useOverviewScores } from './useOverviewScores';
 
 /** A row needs at least this many items due (checklists, tickets and delegations together) before it can
  *  be called "Top" or "Needs attention". One bad ticket in a quiet store is not a trend. */
@@ -74,16 +74,14 @@ export const rankRows = (rows: RankedRow[]): RankedTable => {
   return { sorted, topId: top?.id ?? null, lowId: low?.id ?? null };
 };
 
-/** The owner-level "who's top, who's low" ranking, by department and by store. The Overall score and the
- *  counts come from the shared score report (the same request and the same rule as the Scorecard, the
- *  leaderboard and the card's ranking). Only the average time to close still comes from the ticket owner
- *  stats, because the score report does not carry it. Shared by the glance card on the Overview and the
- *  full Stores table, so both always show the same numbers. */
+/** The owner-level "who is top, who is low" ranking, by department and by store. The Overall score and the
+ *  counts come from the score explorer (the same answer, the same rule and the same cache entries as the Scores
+ *  page, the leaderboard and the card ranking). Only the average time to close still comes from the ticket owner
+ *  stats, because the explorer does not carry it. Shared by the glance card on the Overview and the full
+ *  Stores table, so both always show the same numbers. `from` and `to` are the Overview window (ISO instants). */
 export const useOwnerRankings = (from?: string, to?: string) => {
-  const dayFrom = from ? toDayParam(from) : undefined;
-  const dayTo = to ? toDayParam(to) : undefined;
-  const reportQuery = useScoreReport(dayFrom, dayTo);
-  const storeReportQuery = useStoreScoreReport(dayFrom, dayTo);
+  const departmentQuery = useOverviewScores(from, to, { view: 'department' });
+  const storeQuery = useOverviewScores(from, to, { view: 'store' });
   // Only the average time to close: if these fail the rankings still show, just without that column.
   const deptTatQuery = useTicketOwnerStatsQuery('department', from, to);
   const storeTatQuery = useTicketOwnerStatsQuery('store', from, to);
@@ -92,25 +90,29 @@ export const useOwnerRankings = (from?: string, to?: string) => {
   const storeTat = useMemo(() => new Map((storeTatQuery.data ?? []).map((r) => [r.ownerId, r.avgTatHours])), [storeTatQuery.data]);
 
   const departmentRows: RankedRow[] = useMemo(
-    // The "No department" row is not a team, so it is never named Top or Needs attention (it stays on the Scorecard).
-    () => (reportQuery.data?.departments ?? []).filter((r) => r.id !== NO_DEPARTMENT_ROW_ID).map((r) => toRankedRow(r, 'delegation', deptTat.get(r.id) ?? null)),
-    [reportQuery.data, deptTat],
+    // The "No department" row is not a team, so it is never named Top or Needs attention (it stays on the Scores page).
+    () => (departmentQuery.data?.rows ?? []).filter((r) => r.id !== NO_DEPARTMENT_ROW_ID).map((r) => toRankedRow(explorerRowToReportRow(r), 'delegation', deptTat.get(r.id) ?? null)),
+    [departmentQuery.data, deptTat],
   );
   const storeRows: RankedRow[] = useMemo(
-    () => (storeReportQuery.data ?? []).map((r) => toRankedRow(r, 'checklist', storeTat.get(r.id) ?? null)),
-    [storeReportQuery.data, storeTat],
+    () => (storeQuery.data?.rows ?? []).map((r) => toRankedRow(explorerRowToReportRow(r), 'checklist', storeTat.get(r.id) ?? null)),
+    [storeQuery.data, storeTat],
   );
 
-  const retryDepartments = useCallback(() => { if (reportQuery.isError) void reportQuery.refetch(); }, [reportQuery]);
-  const retryStores = useCallback(() => { if (storeReportQuery.isError) void storeReportQuery.refetch(); }, [storeReportQuery]);
+  const retryDepartments = useCallback(() => { if (departmentQuery.isError) void departmentQuery.refetch(); }, [departmentQuery]);
+  const retryStores = useCallback(() => { if (storeQuery.isError) void storeQuery.refetch(); }, [storeQuery]);
 
   return {
     departmentRows,
     storeRows,
-    departmentsPending: reportQuery.isPending,
-    storesPending: storeReportQuery.isPending,
-    departmentsError: reportQuery.isError && !reportQuery.data,
-    storesError: storeReportQuery.isError && !storeReportQuery.data,
+    /** The whole-window row (everything counted once): the page-level figures above the tables. */
+    total: departmentQuery.total,
+    window: departmentQuery.win,
+    updating: departmentQuery.updating || storeQuery.updating,
+    departmentsPending: departmentQuery.isPending,
+    storesPending: storeQuery.isPending,
+    departmentsError: departmentQuery.isError && !departmentQuery.data,
+    storesError: storeQuery.isError && !storeQuery.data,
     retryDepartments,
     retryStores,
   };

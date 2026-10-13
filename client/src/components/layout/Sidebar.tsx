@@ -7,7 +7,7 @@ import { usePrefetchRoute } from '../../lib/routePrefetch';
 import { useTaskSummaryQuery } from '../../features/tasks/hook';
 import { useTicketSummaryQuery } from '../../features/tickets/hook';
 import { useTodoSummaryQuery } from '../../features/todo/hook';
-import { useChecklistInstanceSummaryQuery } from '../../features/checklist/hook';
+import { useTodayChecklistSummary } from './useNavBadges';
 import { SidebarSummaryBadge, type SidebarSummaryData } from './SidebarSummaryBadge';
 import {
   LayoutDashboard,
@@ -25,7 +25,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Building2,
+  ListOrdered,
   BarChart3,
   ListTodo,
   Plus,
@@ -164,7 +164,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
   const { data: taskSummary } = useTaskSummaryQuery();
   const { data: ticketSummary } = useTicketSummaryQuery();
   const { data: todoSummary } = useTodoSummaryQuery();
-  const { data: checklistSummary } = useChecklistInstanceSummaryQuery({ mine: true });
+  const { data: checklistSummary } = useTodayChecklistSummary();
   const SUMMARY_BY_LABEL: Partial<Record<string, SidebarSummaryData>> = {
     Delegation: taskSummary,
     Tickets: ticketSummary,
@@ -244,11 +244,11 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
 
   const adminNavItems: NavItem[] = [
     ...(isManager || isSenior ? [{ to: '/analytics', icon: BarChart3, label: 'Analytics' }] : []),
+    // Every way of cutting the scores: the organisation for Admin and PC, their own department for a head.
+    ...(isAdmin || isPC || isManager || isSenior ? [{ to: '/admin/scores', icon: ListOrdered, label: 'Scores' }] : []),
     ...(user?.role === 'PC' || user?.role === 'ADMIN' || user?.role === 'APPROVAL_MANAGER'
       ? [{ to: '/verify', icon: ShieldQuestion, label: 'Verification Queue' }]
       : []),
-    // ADMIN only: the /team route is guarded to ADMIN, so a PC link would just bounce home.
-    ...(isAdmin ? [{ to: '/team', icon: Building2, label: 'Team Overview' }] : []),
     ...(isAdmin || isPC ? [{ to: '/admin/scorecard', icon: ShieldCheck, label: 'Admin' }] : []),
   ];
 

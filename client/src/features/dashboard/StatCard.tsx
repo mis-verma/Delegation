@@ -27,6 +27,8 @@ interface StatCardProps {
   compact?: boolean;
   highlight?: boolean;
   decorative?: boolean;
+  /** Sits beside the label (a "how is this calculated" popover). Clicks on it never reach the card's own click or link. */
+  labelAdornment?: ReactNode;
 }
 
 type TrendMood = 'good' | 'bad' | 'flat';
@@ -97,6 +99,7 @@ export const StatCard = ({
   highlight = false,
   decorative = false,
   lowerIsBetter = false,
+  labelAdornment,
 }: StatCardProps) => {
   const isLink = Boolean(href);
   // "No data" is the written placeholder; it is set smaller than a real figure so it does not shout.
@@ -121,7 +124,7 @@ export const StatCard = ({
   // No box-shadow and no lift/scale on hover: an interactive card just changes its border colour
   // (same recipe as ENTITY_CARD_CLASS), and the focus ring sits inside the box because the
   // clip-path below would trim an outer one.
-  const rootClass = `group relative isolate flex flex-col gap-3 rounded-2xl ${compact ? 'p-3.5 sm:p-6' : 'p-5 sm:p-6'} transition-[color,background-color,border-color,filter,transform] duration-200 ease-out motion-reduce:transition-none [clip-path:inset(0_round_1rem)] ${
+  const rootClass = `group relative isolate flex flex-col gap-3 rounded-2xl ${compact ? 'p-3.5 sm:p-6' : 'p-5 sm:p-6'} transition-[color,background-color,border-color,filter] duration-200 ease-out motion-reduce:transition-none [clip-path:inset(0_round_1rem)] ${
     highlight
       ? decorative
         ? 'bg-gradient-to-br from-primary-900 via-primary-800 to-primary-600 overflow-hidden'
@@ -130,8 +133,8 @@ export const StatCard = ({
   } ${
     isInteractive
       ? highlight
-        ? 'cursor-pointer outline-none hover:brightness-110 active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/60'
-        : 'cursor-pointer outline-none hover:border-primary-300 dark:hover:border-primary-500/50 active:scale-[0.985] focus-visible:border-primary-300 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/50'
+        ? 'cursor-pointer outline-none hover:brightness-110 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/60'
+        : 'cursor-pointer outline-none hover:border-primary-300 dark:hover:border-primary-500/50 focus-visible:border-primary-300 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/50'
       : ''
   }`;
 
@@ -157,8 +160,20 @@ export const StatCard = ({
       <div className={`flex items-start justify-between gap-3 sm:gap-4 relative z-10 ${compact ? 'max-sm:flex-col-reverse max-sm:items-center max-sm:text-center' : ''}`}>
         <div className={`flex flex-col gap-1.5 min-w-0 ${compact ? 'max-sm:items-center' : ''}`}>
 
-          <span className={`t-meta font-display font-semibold break-words ${highlight ? 'text-white/80' : 'text-text-muted'}`}>
-            {label}
+          <span className={`flex items-center gap-1.5 ${compact ? 'max-sm:justify-center' : ''}`}>
+            <span className={`t-meta font-display font-semibold break-words ${highlight ? 'text-white/80' : 'text-text-muted'}`}>
+              {label}
+            </span>
+            {labelAdornment && (
+              // A control inside a clickable card: stop its clicks and keys (and the popover's, which bubble through React) at this span.
+              <span
+                className="inline-flex shrink-0"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onKeyDown={(e) => e.stopPropagation()}
+              >
+                {labelAdornment}
+              </span>
+            )}
           </span>
 
           {isLoading ? (

@@ -1,15 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router';
+import { useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router';
 import { cn } from '@/lib/utils';
 import { ArrowDown, ArrowUp, SlidersHorizontal, ChartColumn, ChartLine, ChevronDown, ChevronLeft, ChevronRight, CircleGauge, ClipboardCheck, Ticket as TicketIcon, Users, type LucideIcon } from 'lucide-react';
-import { Combobox, ExportMenu, Switch, type ComboboxOption, type ExportSource, type ExportTable } from '../../components';
+import { Button, Combobox, ExportMenu, Switch, type ComboboxOption, type ExportSource, type ExportTable } from '../../components';
 import { SemiGauge } from '../../components/semiGauge/SemiGauge';
-import { InfoHint } from '../../components/infoHint/InfoHint';
 import { InlineError } from '../../components/inlineError';
 import { useAuth } from '../../context/AuthContext';
 import { OWN_SCOPE_ROLES } from '../../api/auth';
-import { scoreApi, type ScoreReport, type ScoreReportRow, type Scores, type ScoreScope, type ScoreTrend as ScoreTrendData } from '../../api/scores';
+import { scoreApi, type ScoreReport, type ScoreReportRow, type ScoreScope, type ScoreTrend as ScoreTrendData } from '../../api/scores';
 import { exportTitle, formatExportDate, type TableRows } from '../../lib/exportTable';
 import { useAssignableUsersQuery, useDepartmentsQuery, useStoresQuery } from '../tickets/hook';
 import { PeriodTabControl } from './PeriodTabControl';
@@ -19,12 +18,18 @@ import { ScoreBars } from './ScoreBars';
 import { ScoreDrillPopup } from './ScoreDrillPopup';
 import { ScoreRanking } from './ScoreRanking';
 import { scoreQuery } from './scoreQueries';
+import { explorerParamsFor, useScopeScores } from '../scores/useExplorerScores';
+import { scoreExplorerQuery } from '../scores/useScoreExplorer';
+import { capWindowAtToday } from '../scores/useScoreWindow';
 import { METRIC_LABEL, METRIC_OPTIONS, MODULE_EXPORT_HEAD, MODULE_ROWS, isMetric, moduleExportCells, moduleOverall, numbersFor, seriesFor, type ModuleKey, type ScoreMetric } from './scoreMetrics';
 import { orgDayWindow } from './scoreDrill';
 import { ScoreTrend } from './ScoreTrend';
 import { DASHBOARD_CARD_CLASS, rateTone, type RateTone } from './dashboardDisplay';
 import { PERIODS, PERIOD_LABEL, windowFor, type ScorePeriod } from './scorePeriods';
 import { formatPct } from '../../lib/percent';
+import { MODULE_LABEL, SCORE_LABEL, complianceLabel } from '../../lib/scoreLabels';
+import { HintPopover } from '../scores/HowCalculated';
+import { FIELD_LABEL_CLASS } from '../scores/controlStyles';
 
 // Short enough for four equal columns in the narrow side panel.
 const SCOPE_LABEL: Record<ScoreScope, string> = { org: 'Company', person: 'Person', department: 'Department', store: 'Store' };
@@ -99,7 +104,7 @@ const ScoreTile = ({ title, score, detail, loading, onOpen, change }: ScoreTileP
   // A small count still gets its colour: one finished item out of one is a full, green score.
   const tone = score === null ? 'neutral' : rateTone(score, Number.MAX_SAFE_INTEGER);
   const [from, to] = RING[tone];
-  const tileClass = `flex min-w-0 flex-col items-center gap-1.5 rounded-lg border border-border bg-surface-hover/30 p-2.5 text-center sm:p-3 ${onOpen ? 'cursor-pointer transition-colors duration-150 hover:border-border-hover active:scale-[0.98] outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40' : ''}`;
+  const tileClass = `flex min-w-0 flex-col items-center gap-1.5 rounded-lg border border-border bg-surface p-3 text-center ${onOpen ? 'cursor-pointer transition-colors duration-150 hover:border-border-hover outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40' : ''}`;
   const label = score === null ? `${title}: nothing due` : `${title}: ${formatPct(score)}${detail ? `, ${detail}` : ''}`;
   const body = (
     <>
@@ -111,7 +116,7 @@ const ScoreTile = ({ title, score, detail, loading, onOpen, change }: ScoreTileP
         endLabels={false}
         className="max-w-20 sm:max-w-28"
       />
-      <span className="t-figure font-display font-extrabold tabular-nums text-text">{loading ? ' ' : score === null ? '–' : formatPct(score)}</span>
+      <span className="t-figure font-display font-extrabold tabular-nums text-text">{loading ? ' ' : score === null ? '-' : formatPct(score)}</span>
       <span className="t-meta font-display font-semibold leading-snug text-text-secondary break-words">{title}</span>
       {!loading && score !== null && detail && <span className="t-meta font-display leading-snug text-text-muted break-words">{detail}</span>}
       {!loading && score === null && <span className="t-meta font-display text-text-light">Nothing due</span>}
@@ -144,7 +149,7 @@ const SIMPLE_PERIODS: readonly ScorePeriod[] = ['week', 'month'];
 // One labelled control in the side panel: a small caption over the control, so each row says what it picks.
 const PanelRow = ({ label, children }: { label: string; children: React.ReactNode }) => (
   <div className="flex flex-col gap-1.5">
-    <span className="px-0.5 t-meta font-display font-semibold text-text-muted">{label}</span>
+    <span className={FIELD_LABEL_CLASS}>{label}</span>
     {children}
   </div>
 );
@@ -255,13 +260,12 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
   // With the page's window, the trend is cut to suit its length.
   const trendPeriod: ScorePeriod = pageWindow ? periodForSpan(spanDays(pageWindow.from, pageWindow.to)) : period;
   const queryClient = useQueryClient();
-  const query = useQuery<Scores>({
-    ...scoreQuery(scope, targetId, range.from, range.to),
-    enabled: ready,
-    // Keep the last numbers on screen while the next window loads, but only for the same subject, so
-    // switching person, department or store never shows one under another's name.
-    placeholderData: (previous: Scores | undefined) => (previous && previous.scope === scope && (!targetId || previous.id === targetId) ? previous : undefined),
-  });
+  // The numbers are asked for with the window capped at today, the way the server scores it, so the Scorecard, the
+  // Scores page and this card share one request per person and period.
+  const asked = capWindowAtToday(range.from, range.to, orgToday);
+  // Admin, PC and heads read the Score Explorer (the same answer as the Scorecard); everyone else, and any subject the
+  // explorer does not hold, reads /scores. Either way the numbers for one person and window are the same.
+  const query = useScopeScores({ scope, id: targetId, from: asked.from, to: asked.to, enabled: ready });
   const data = ready ? query.data : undefined;
   const loading = ready && !data && query.isPending;
 
@@ -269,8 +273,12 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
   const previousRange = pageWindow
     ? { from: shiftDay(pageWindow.from, -spanDays(pageWindow.from, pageWindow.to)), to: shiftDay(pageWindow.from, -1) }
     : windowFor(period, offset - 1, orgToday);
-  const previousQuery = useQuery<Scores>({
-    ...scoreQuery(scope, targetId, previousRange.from, previousRange.to),
+  const previousAsked = capWindowAtToday(previousRange.from, previousRange.to, orgToday);
+  const previousQuery = useScopeScores({
+    scope,
+    id: targetId,
+    from: previousAsked.from,
+    to: previousAsked.to,
     enabled: ready && compare && !simple && !glance && (activeView === 'bars' || activeView === 'dials'),
   });
   const previous = compare && !simple && !glance ? previousQuery.data : undefined;
@@ -317,10 +325,13 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
   useEffect(() => {
     if (!ready || pageWindow || glance) return;
     for (const o of [offset - 1, ...(offset < 0 ? [offset + 1] : [])]) {
-      const w = windowFor(period, o, orgToday);
-      void queryClient.prefetchQuery(scoreQuery(scope, targetId, w.from, w.to));
+      const raw = windowFor(period, o, orgToday);
+      const w = capWindowAtToday(raw.from, raw.to, orgToday);
+      const explorerParams = explorerParamsFor(role, scope, w.from, w.to);
+      if (explorerParams) void queryClient.prefetchQuery(scoreExplorerQuery(explorerParams));
+      else void queryClient.prefetchQuery(scoreQuery(scope, targetId, w.from, w.to));
     }
-  }, [ready, pageWindow, glance, period, offset, scope, targetId, queryClient, orgToday]);
+  }, [ready, pageWindow, glance, period, offset, scope, targetId, queryClient, orgToday, role]);
 
   // What is on screen: this person, department or store, for this window. Everyone can export their own.
   // The Trend view exports its slices; Bars and Dials export the three modules.
@@ -372,31 +383,32 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
   const showPicker = scope === 'org' ? false : scope === 'person' ? canPickPerson : !(scope === 'department' && isHod);
 
   return (
-    <section ref={cardRef} className={`${DASHBOARD_CARD_CLASS} @container flex flex-col gap-3 p-3 sm:p-4 min-w-0`} aria-label="Scores">
+    <section ref={cardRef} className={`${DASHBOARD_CARD_CLASS} @container flex min-w-0 flex-col gap-4 p-4`} aria-label="Scores">
       <header className="flex flex-col gap-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
           {/* Front-line and phone glance cards have no control row, so their Export sits beside the title. */}
           <div className="flex min-w-0 items-start justify-between gap-2 sm:flex-1">
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5 min-w-0">
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <div className="flex min-w-0 items-center gap-1.5">
               <h2 className="t-section font-display font-bold text-text tracking-tight line-clamp-2">{heading}</h2>
-              <InfoHint label="What do these scores mean?">
-                <p><strong className="text-text">Completion</strong>: how much of the work that came due was done.</p>
-                <p className="mt-1.5"><strong className="text-text">Compliance</strong>: for checklists, how many checked answers were right. For tickets and delegations, how much was done on time.</p>
-                <p className="mt-1.5"><strong className="text-text">Overall score</strong>: completion and compliance counted equally.</p>
-                <p className="mt-1.5">Work that is not due yet is left out, so a running week or month does not look low. Good is 80% or more, Fair 50 to 79, Low under 50.</p>
-              </InfoHint>
+              <HintPopover label="What do these scores mean?">
+                <p><strong className="text-text">{SCORE_LABEL.completion}</strong>: how much of the work that came due was done.</p>
+                <p><strong className="text-text">{complianceLabel('checklist')}</strong> (checklists): how many checked answers were right. <strong className="text-text">{complianceLabel('ticket')}</strong> (tickets and delegations): how much was finished or handed in by its deadline.</p>
+                <p><strong className="text-text">{SCORE_LABEL.overall}</strong>: completion and the second measure counted equally.</p>
+                <p>Work that is not due yet is left out, so a running week or month does not look low. Good is 80% or more, Fair 50 to 79, Low under 50.</p>
+              </HintPopover>
             </div>
-            {glance && <p className="mt-0.5 t-meta font-medium text-text-muted">{range.label}</p>}
-            <p className="mt-0.5 hidden t-meta font-medium text-text-muted sm:block">What came due, how much got done, and how much was done right or on time</p>
+            {glance && <p className="t-meta font-medium text-text-muted">{range.label}</p>}
+            <p className="hidden t-meta font-medium text-text-muted sm:block">What came due, how much got done, and how much was done right or on time</p>
           </div>
           {(simple || glance) && exportMenu}
           </div>
           {!simple && !glance && <div className="flex items-center justify-between gap-2 sm:justify-end sm:shrink-0">
             {moreHref && (
-              <Link viewTransition to={moreHref} className="inline-flex min-h-9 pointer-coarse:min-h-11 items-center gap-0.5 rounded-lg px-2 text-sm font-display font-semibold text-primary-600 transition-colors hover:bg-surface-hover dark:text-primary-400">
-                Full scorecard <ChevronRight className="size-4" aria-hidden="true" />
-              </Link>
+              <Button type="button" variant="ghost" size="sm" onClick={() => void navigate(moreHref, { viewTransition: true })}>
+                All scores
+                <ChevronRight size={14} aria-hidden="true" />
+              </Button>
             )}
             <div role="group" aria-label="Show as" className="inline-flex items-center gap-1 rounded-lg border border-border bg-surface-hover/40 p-1">
               {views.map((option) => {
@@ -428,16 +440,16 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
       <div className={simple ? 'flex flex-col gap-3' : 'flex flex-col gap-3 @4xl:grid @4xl:grid-cols-[minmax(0,1fr)_20rem] @4xl:grid-rows-[auto_1fr_auto] @4xl:gap-x-5 @4xl:gap-y-3'}>
       {/* The date steps stay in view: the day or week is the thing people change most. */}
       {glance ? null : pageWindow ? (
-        <div className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-border bg-surface-hover/30 px-3 py-2 @4xl:col-start-1 @4xl:row-start-1">
-          <span className="truncate text-sm font-display font-semibold text-text">{range.label}</span>
+        <div className="flex min-h-11 w-full flex-wrap items-center justify-center gap-x-2 rounded-lg border border-border px-3 py-2 @4xl:col-start-1 @4xl:row-start-1">
+          <span className="t-card font-display font-semibold text-text">{range.label}</span>
           <span className="shrink-0 t-meta text-text-muted">from the period above</span>
         </div>
       ) : (
-      <div className="flex w-full items-center gap-1 rounded-xl border border-border bg-surface-hover/30 p-1 @4xl:col-start-1 @4xl:row-start-1">
+      <div className="flex w-full items-center gap-1 rounded-lg border border-border p-1 @4xl:col-start-1 @4xl:row-start-1">
         <button type="button" onClick={() => setOffset((o) => o - 1)} aria-label={`Previous ${period}`} className="inline-flex size-9 pointer-coarse:size-11 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-surface hover:text-text outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40">
           <ChevronLeft className="size-4" aria-hidden="true" />
         </button>
-        <span className="min-w-0 flex-1 truncate text-center text-sm font-display font-semibold text-text">
+        <span className="min-w-0 flex-1 text-center t-card font-display font-semibold text-text">
           {activeView === 'trend' && period === 'day' ? (offset === 0 ? 'Last 7 days' : `7 days to ${range.label}`) : range.label}
         </span>
         <button type="button" onClick={() => setOffset((o) => Math.min(0, o + 1))} disabled={offset >= 0} aria-label={`Next ${period}`} className="inline-flex size-9 pointer-coarse:size-11 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-surface hover:text-text outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-40 disabled:hover:bg-transparent">
@@ -464,14 +476,14 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
           className="flex min-h-11 w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left outline-none transition-colors hover:bg-surface-hover/40 focus-visible:ring-2 focus-visible:ring-primary-500/40 @4xl:pointer-events-none @4xl:hover:bg-transparent"
         >
           <span className="flex min-w-0 items-center gap-3">
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-primary-500/10 text-primary-700 ring-1 ring-primary-500/15 dark:text-primary-300 sm:size-8">
-              <SlidersHorizontal className="size-3.5 sm:size-4" aria-hidden="true" />
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-hover text-text-secondary">
+              <SlidersHorizontal className="size-4" aria-hidden="true" />
             </span>
-            <span className="min-w-0">
+            <span className="flex min-w-0 flex-col gap-1">
               <span className="block t-meta font-display font-semibold text-text">{canExportReport ? 'Period, measure and people' : 'Period and measure'}</span>
-              <span className="mt-1 flex flex-wrap items-center gap-1 @4xl:hidden">
+              <span className="flex flex-wrap items-center gap-1 @4xl:hidden">
                 {[range.label, metric === 'overview' ? 'Overall score' : METRIC_LABEL[metric], scope === 'person' && !targetId ? 'Me' : data?.name ?? SCOPE_LABEL[scope]].map((chip) => (
-                  <span key={chip} className="max-w-full truncate rounded-full bg-primary-500/10 px-2 py-0.5 t-meta font-display font-semibold text-primary-700 dark:text-primary-300">{chip}</span>
+                  <span key={chip} className="max-w-full break-words rounded-full border border-border bg-surface-hover px-2 py-0.5 t-meta font-display font-semibold text-text-secondary">{chip}</span>
                 ))}
               </span>
             </span>
@@ -505,7 +517,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
                       emptyOptionLabel={scope === 'person' ? 'Me' : undefined}
                       placeholder={PICK_PLACEHOLDER[scope]}
                       isLoading={scope === 'person' ? people.isPending : scope === 'department' ? departments.isPending : stores.isPending}
-                      className="h-9 w-full pointer-coarse:min-h-11 text-xs sm:text-sm"
+                      className="h-11 w-full text-base sm:h-9 sm:text-sm"
                     />
                   </PanelRow>
                 )}
@@ -521,7 +533,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
                 </PanelRow>
 
                 {(activeView === 'bars' || activeView === 'dials') && (
-                  <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-lg border border-border/60 px-3 py-2">
+                  <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-lg border border-border px-3 py-2">
                     <span className="min-w-0">
                       <span className="block t-meta font-display font-semibold text-text">Compare with last period</span>
                       <span className="block t-meta text-text-muted">Shows the change under the chart</span>
@@ -544,7 +556,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
 
       <div className="min-w-0 @4xl:col-start-1 @4xl:row-start-2">
       {!ready ? (
-        <div className="rounded-lg border border-border px-4 py-8 text-center text-sm font-medium text-text-muted">
+        <div className="rounded-lg border border-border px-4 py-8 text-center t-card font-medium text-text-muted">
           Pick a {SCOPE_LABEL[scope].toLowerCase()} above to see its scores.
         </div>
       ) : activeView === 'trend' ? (
@@ -554,9 +566,9 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
       ) : (
         // No dim while the next window loads: the old numbers stay as they are until the new ones land, and a plain
         // line says they are still the previous window's.
-        <div>
+        <div className="flex flex-col gap-2">
         {query.isPlaceholderData && (
-          <p role="status" className="pb-2 t-meta font-display font-semibold text-text-secondary">Updating. These figures are for the previous period until {range.label} loads.</p>
+          <p role="status" className="t-meta font-display font-semibold text-text-secondary">Updating. These figures are for the previous period until {range.label} loads.</p>
         )}
         {activeView === 'bars' ? (
           <ScoreBars
@@ -568,11 +580,11 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
             emptyText={glance ? 'Nothing due yet this month' : 'Nothing was due in this window'}
           />
         ) : (
-        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        <div className="grid grid-cols-3 gap-3">
           {([
-            { key: 'checklist', title: 'Checklist', icon: ClipboardCheck },
-            { key: 'ticket', title: 'Tickets', icon: TicketIcon },
-            { key: 'delegation', title: 'Delegations', icon: Users },
+            { key: 'checklist', title: MODULE_LABEL.checklist, icon: ClipboardCheck },
+            { key: 'ticket', title: MODULE_LABEL.ticket, icon: TicketIcon },
+            { key: 'delegation', title: MODULE_LABEL.delegation, icon: Users },
           ] as { key: ModuleKey; title: string; icon: typeof Users }[]).map(({ key, title }) => {
             // Overview keeps the headline score; the other tabs show that one measure for every module.
             const now = data ? numbersFor(data, key) : null;
@@ -586,7 +598,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
             const priorScore = pick(before, headline(previous));
             const note = now === null ? '' : metric === 'completion' ? now.completionNote : metric === 'compliance' ? now.complianceNote : metric === 'ontime' ? now.ontimeNote : '';
             // The overall score is the average of these two, so the dial says them.
-            const overviewDetail = !now ? '' : `Completion ${formatPct(now.completion)}, compliance ${formatPct(now.compliance)}`;
+            const overviewDetail = !now ? '' : `${SCORE_LABEL.completion} ${formatPct(now.completion)}, ${complianceLabel(key).toLowerCase()} ${formatPct(now.compliance)}`;
             return (
               <ScoreTile
                 key={key}
@@ -616,7 +628,8 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
         <ScoreDrillPopup
           open={drillState.open}
           onOpenChange={(next) => { if (!next) closeDrill(); }}
-          title={drillState.module === 'checklist' ? 'Checklist' : drillState.module === 'ticket' ? 'Tickets' : 'Delegations'}
+          title={MODULE_LABEL[drillState.module]}
+          module={drillState.module}
           windowLabel={range.label}
           subject={scope === 'person' && (!targetId || targetId === user?.id) ? undefined : data.name}
           figures={(() => {

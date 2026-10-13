@@ -342,8 +342,18 @@ export type ChecklistInstanceSummary = {
   /** On-track subset of `pending` — incomplete but not yet past its period end. */
   due: number;
   overdue: number;
-  /** Unfinished runs older than the 45-day window: in `total`, but not in `pending` or `overdue`. */
+  /** Always 0 now (the window is explicit); kept for older callers. */
   olderOpen?: number;
+  /** Counted runs not finished and past their cutoff (same number as `overdue`). */
+  missed: number;
+  /** completed + missed: the runs that have come due in the window. */
+  dueRuns: number;
+  /** completed / dueRuns, one decimal; null when nothing came due. */
+  completionPct: number | null;
+  /** Runs in the window that are not work: no questions, not opened yet, or an idle holiday run. */
+  notCounted: number;
+  /** The one window every figure covers: org days, `to` never past today. */
+  window: { from: string; to: string; asOf: string };
   /** Across every item of every matching instance — powers completion-ratio gauges. */
   totalItems: number;
   doneItems: number;

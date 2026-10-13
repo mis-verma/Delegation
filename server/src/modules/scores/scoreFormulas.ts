@@ -111,5 +111,12 @@ export const overallOf = (modules: readonly OverallInput[]): number | null => {
     return values.length ? round1(values.reduce((a, b) => a + b, 0) / values.length) : null
 }
 
+/**
+ * One module's own score (the Checklist score of the Report scoreboard): completion and compliance counted
+ * equally, averaged UNROUNDED, then one decimal. Completion stands alone when nothing was checked yet; null
+ * when nothing is due. Exactly `overallOf` over a single module.
+ */
+export const moduleScoreOf = (due: number, completion: number | null, compliance: number | null): number | null => overallOf([{ due, completion, compliance }])
+
 /** A group is rankable (shown on a leaderboard or as a winner) only with enough due work. */
 export const isRankable = (due: number): boolean => due >= MIN_RANK_VOLUME

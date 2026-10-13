@@ -1,7 +1,7 @@
 import { trendFrom, type Trend } from '../../dashboard';
 import { ORG_TZ_OFFSET_MS } from '../../checklist/checklistDisplay';
 import type { TatReportRow } from '../../../api/ticket';
-import { formatPct } from '../../../lib/percent';
+import { formatPct, roundPct } from '../../../lib/percent';
 
 // One place for every number and period label on the Overview page, so the same figure never reads
 // two ways (a rate was "76%" in one tile and "75.8%" in the next, a delta was "+4%" when it was
@@ -265,7 +265,8 @@ export const slaMetRate = (row?: TatReportRow): number | null => {
   const denominator = row.closedWithTatCount;
   if (!denominator || denominator <= 0) return null;
   const late = Math.min(row.closedLateCount ?? 0, denominator);
-  return Math.round((1 - late / denominator) * 100);
+  // One decimal like every other percentage, so the trend line and the card beside it read the same.
+  return roundPct((1 - late / denominator) * 100);
 };
 
 // The report rows carry only the bucket label, so the grouping is read back from its shape.

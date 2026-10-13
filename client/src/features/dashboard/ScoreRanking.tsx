@@ -4,7 +4,11 @@ import { cn } from '@/lib/utils';
 import { NO_DEPARTMENT_ROW_ID, UNASSIGNED_ROW_ID, type ScoreReportRow, type ScoreScope } from '../../api/scores';
 import { useScoreReport, useStoreScoreReport } from './scoreQueries';
 import { acrossModules, overallOf } from './scoreMetrics';
-import { formatPct, roundPct } from '../../lib/percent';
+import { roundPct } from '../../lib/percent';
+import { MODULE_LABEL, SCORE_LABEL, SCORE_LABEL_SHORT } from '../../lib/scoreLabels';
+import { SEARCH_INPUT_CLASS } from '../scores/controlStyles';
+import { ScorePct } from '../scores/ScorePct';
+import { NumCell, SortHead } from '../scores/scoreTableParts';
 import { Skeleton } from '../../components/skeleton';
 import { InlineError } from '../../components/inlineError';
 import { ExportMenu } from '../../components/exportMenu';
@@ -17,12 +21,11 @@ import type { ScoreMetric } from './scoreMetrics';
 type Metric = 'overview' | 'completion' | 'compliance' | 'ontime';
 type SortKey = 'name' | 'overall' | 'checklist' | 'ticket' | 'delegation';
 
-const METRIC_LABEL: Record<Metric, string> = { overview: 'Overall score', completion: 'Completion', compliance: 'Compliance', ontime: 'On time' };
+const METRIC_LABEL: Record<Metric, string> = { overview: SCORE_LABEL.overall, completion: SCORE_LABEL.completion, compliance: SCORE_LABEL.compliance, ontime: SCORE_LABEL_SHORT.onTime };
 const SUBJECT: Record<ScoreScope, string> = { org: 'departments', person: 'people', department: 'departments', store: 'stores' };
 const SUBJECT_ONE: Record<ScoreScope, string> = { org: 'department', person: 'person', department: 'department', store: 'store' };
 const SUBJECT_HEAD: Record<ScoreScope, string> = { org: 'Department', person: 'Person', department: 'Department', store: 'Store' };
 const BAR: Record<RateTone, string> = { success: 'bg-success', warning: 'bg-warning', danger: 'bg-danger', neutral: 'bg-text-light' };
-const TEXT: Record<RateTone, string> = { success: 'text-success', warning: 'text-warning', danger: 'text-danger', neutral: 'text-text-muted' };
 
 interface Computed {
   row: ScoreReportRow;
@@ -67,8 +70,7 @@ const compute = (row: ScoreReportRow): Computed => {
   };
 };
 
-const Pct = ({ value }: { value: number | null }) =>
-  value === null ? <span className="text-text-light">-</span> : <span className={cn('tabular-nums font-bold', TEXT[rateTone(value, Number.MAX_SAFE_INTEGER)])}>{formatPct(value)}</span>;
+const Pct = ({ value }: { value: number | null }) => <ScorePct value={value} strong />;
 
 const MiniBar = ({ value }: { value: number | null }) => (
   <span className="block h-1.5 w-full overflow-hidden rounded-full bg-surface-hover" aria-hidden="true">
@@ -144,9 +146,9 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
 
   const heads: { key: SortKey; label: string }[] = [
     { key: 'overall', label: 'Overall' },
-    { key: 'checklist', label: 'Checklist' },
-    { key: 'ticket', label: 'Tickets' },
-    { key: 'delegation', label: 'Delegations' },
+    { key: 'checklist', label: MODULE_LABEL.checklist },
+    { key: 'ticket', label: MODULE_LABEL.ticket },
+    { key: 'delegation', label: MODULE_LABEL.delegation },
   ];
 
   if (isPending) {
@@ -160,7 +162,7 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
     return <InlineError message="Couldn't load the ranking." onRetry={() => void refetch()} />;
   }
   if (rows.length === 0 && !query.trim()) {
-    return <div className="rounded-lg border border-border px-4 py-8 text-center text-sm font-medium text-text-muted">Nothing was due for any of the {SUBJECT[scope]} in this window.</div>;
+    return <div className="rounded-lg border border-border px-4 py-8 text-center t-card font-medium text-text-muted">Nothing was due for any of the {SUBJECT[scope]} in this window.</div>;
   }
 
   return (
@@ -175,8 +177,8 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
               aria-checked={metric === m}
               onClick={() => setMetric(m)}
               className={cn(
-                'min-h-8 rounded-full px-3 text-xs font-display font-medium sm:font-bold outline-none transition-colors pointer-coarse:min-h-11 focus-visible:ring-2 focus-visible:ring-primary-500/40',
-                metric === m ? 'bg-surface text-primary-700 ring-1 ring-border dark:text-primary-300' : 'text-text-muted hover:text-text',
+                'min-h-8 rounded-full px-3 t-meta font-display font-semibold outline-none transition-colors pointer-coarse:min-h-11 focus-visible:ring-2 focus-visible:ring-primary-500/40',
+                metric === m ? 'bg-surface text-text ring-1 ring-border' : 'text-text-muted hover:text-text',
               )}
             >
               {METRIC_LABEL[m]}
@@ -204,11 +206,11 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={`Search ${SUBJECT[scope]}`}
-          className="h-9 w-full rounded-lg border border-border bg-surface pl-8 pr-3 text-base text-text outline-none transition-colors placeholder:text-text-light focus-visible:border-primary-500 focus-visible:ring-2 focus-visible:ring-primary-500/30 sm:text-sm"
+          className={SEARCH_INPUT_CLASS}
         />
       </label>
 
-      {rows.length === 0 && <p className="rounded-lg border border-border px-4 py-6 text-center text-sm font-medium text-text-muted">No {SUBJECT[scope]} match &ldquo;{query.trim()}&rdquo;.</p>}
+      {rows.length === 0 && <p className="rounded-lg border border-border px-4 py-6 text-center t-card font-medium text-text-muted">No {SUBJECT[scope]} match &ldquo;{query.trim()}&rdquo;.</p>}
 
       {/* Phone: one card per row. */}
       <ul className={cn('flex flex-col gap-2', !compact && 'sm:hidden')}>
@@ -219,7 +221,7 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
               <button
                 type="button"
                 onClick={() => onOpen(c.row.id)}
-                className="flex min-h-14 w-full items-center gap-3 rounded-lg border border-border bg-surface-hover/30 p-3 text-left outline-none transition-colors hover:border-border-hover focus-visible:ring-2 focus-visible:ring-primary-500/40"
+                className="flex min-h-14 w-full items-center gap-3 rounded-lg border border-border bg-surface p-3 text-left outline-none transition-colors hover:border-border-hover focus-visible:ring-2 focus-visible:ring-primary-500/40"
               >
                 <span className="flex min-w-0 flex-1 flex-col gap-2">
                   <span className="flex items-center gap-3">
@@ -227,10 +229,10 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
                       <span aria-hidden="true" className={cn('flex size-8 shrink-0 items-center justify-center rounded-full t-meta font-display font-bold text-white', avatarColorClass(c.row.name))}>{getInitials(c.row.name)}</span>
                     )}
                     <span className="min-w-0 flex-1">
-                      <span className="block line-clamp-2 text-sm font-display font-semibold leading-snug text-text">{c.row.name}</span>
+                      <span className="block line-clamp-2 t-card font-display font-semibold leading-snug text-text">{c.row.name}</span>
                       {scope === 'person' && c.row.department && <span className="block line-clamp-2 t-meta text-text-muted">{c.row.department}</span>}
                     </span>
-                    <span className="t-figure font-display font-extrabold"><Pct value={value} /></span>
+                    <span className="t-figure font-display font-bold"><Pct value={value} /></span>
                     <ChevronRight className="size-4 shrink-0 text-text-light" aria-hidden="true" />
                   </span>
                   <MiniBar value={value} />
@@ -251,18 +253,14 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
         <table className="w-full border-collapse text-left">
           <caption className="sr-only">{METRIC_LABEL[metric]} by {scope}</caption>
           <thead>
-            <tr className="border-b border-border bg-surface-hover/40">
+            <tr className="border-b border-border bg-surface-hover">
               <th scope="col" aria-sort={sortKey === 'name' ? (ascending ? 'ascending' : 'descending') : 'none'} className="px-3 py-2">
-                <button type="button" onClick={() => sortBy('name')} className="inline-flex min-h-8 items-center gap-1 text-xs font-display font-bold text-text-secondary outline-none hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40">
+                <button type="button" onClick={() => sortBy('name')} className="inline-flex min-h-8 items-center gap-1 t-meta font-display font-semibold text-text-secondary outline-none hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40">
                   Name {sortKey === 'name' && (ascending ? <ArrowUp className="size-3" aria-hidden="true" /> : <ArrowDown className="size-3" aria-hidden="true" />)}
                 </button>
               </th>
               {heads.map((h) => (
-                <th key={h.key} scope="col" aria-sort={sortKey === h.key ? (ascending ? 'ascending' : 'descending') : 'none'} className="min-w-28 px-3 py-2">
-                  <button type="button" onClick={() => sortBy(h.key)} className="inline-flex min-h-8 items-center gap-1 text-xs font-display font-bold text-text-secondary outline-none hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40">
-                    {h.label} {sortKey === h.key && (ascending ? <ArrowUp className="size-3" aria-hidden="true" /> : <ArrowDown className="size-3" aria-hidden="true" />)}
-                  </button>
-                </th>
+                <SortHead key={h.key} label={h.label} sortKey={h.key} active={sortKey} ascending={ascending} onSort={sortBy} className="min-w-28" />
               ))}
               <th scope="col" className="w-8" />
             </tr>
@@ -272,19 +270,19 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
               <tr key={c.row.id} className="group cursor-pointer border-b border-border/60 last:border-0 hover:bg-surface-hover/40" onClick={() => onOpen(c.row.id)}>
                 <th scope="row" className="px-3 py-2 font-normal">
                   <button type="button" onClick={(e) => { e.stopPropagation(); onOpen(c.row.id); }} className="flex min-h-10 flex-col text-left outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40">
-                    <span className="text-sm font-display font-bold text-text">{c.row.name}</span>
-                    {c.row.department && scope === 'person' && <span className="text-xs font-medium text-text-muted">{c.row.department}</span>}
+                    <span className="t-card font-display font-bold text-text">{c.row.name}</span>
+                    {c.row.department && scope === 'person' && <span className="t-meta font-medium text-text-muted">{c.row.department}</span>}
                   </button>
                 </th>
                 {heads.map((h) => (
-                  <td key={h.key} className="px-3 py-2">
-                    <span className="flex flex-col gap-1">
-                      <span className={cn('text-sm', h.key === 'overall' && 'font-display text-base')}><Pct value={c[metric][h.key as Exclude<SortKey, 'name'>]} /></span>
+                  <NumCell key={h.key}>
+                    <span className="flex flex-col items-end gap-1">
+                      <span className="font-display"><Pct value={c[metric][h.key as Exclude<SortKey, 'name'>]} /></span>
                       <MiniBar value={c[metric][h.key as Exclude<SortKey, 'name'>]} />
                     </span>
-                  </td>
+                  </NumCell>
                 ))}
-                <td className="pr-3"><ChevronRight className="size-4 text-text-light transition-transform group-hover:translate-x-0.5" aria-hidden="true" /></td>
+                <td className="pr-3"><ChevronRight className="size-4 text-text-light" aria-hidden="true" /></td>
               </tr>
             ))}
           </tbody>

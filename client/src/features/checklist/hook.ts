@@ -330,12 +330,12 @@ export const useDepartmentScoresQuery = (from: string, to: string, storeId: stri
   });
 };
 
-export const usePeriodReportQuery = (from: string, to: string, storeId?: string, departmentId?: string) => {
+export const usePeriodReportQuery = (from: string, to: string, storeId?: string, departmentId?: string, enabled = true) => {
   const { token } = useAuth();
   return useQuery({
     queryKey: ['checklist-instances', 'period-report', from, to, storeId ?? '', departmentId ?? ''],
     queryFn: () => checklistInstanceApi.getPeriodReport(from, to, storeId, departmentId).then(r => r.data),
-    enabled: !!token,
+    enabled: !!token && enabled,
     retry: handleQueryRetry,
     placeholderData: keepPreviousData,
   });

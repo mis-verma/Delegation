@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { createBrowserRouter, RouterProvider, Navigate, Outlet } from 'react-router';
+import { createBrowserRouter, RouterProvider, Navigate, Outlet, useLocation } from 'react-router';
 import { FolderKanban } from 'lucide-react';
 import { ComingSoon } from './components/comingSoon';
 import { useAuth } from './context/AuthContext';
@@ -41,13 +41,12 @@ const ArchivedDelegationsPage = lazy(() => import('./features/tasks/DraftAndArch
 const TodoPage = lazy(() => import('./features/todo/TodoPage').then(m => ({ default: m.TodoPage })));
 const EventList = lazy(() => import('./features/events/EventList').then(m => ({ default: m.EventList })));
 const CalendarPage = lazy(() => import('./features/calendar/CalendarPage').then(m => ({ default: m.CalendarPage })));
-const StoreDailyPage = lazy(() => import('./features/admin/storeDaily/StoreDailyPage').then(m => ({ default: m.StoreDailyPage })));
-const RankingsPage = lazy(() => import('./features/admin/analytics/RankingsPage').then(m => ({ default: m.RankingsPage })));
+const ScoresPage = lazy(() => import('./features/scores').then(m => ({ default: m.ScoresPage })));
+const DataCheckPage = lazy(() => import('./features/admin/dataCheck').then(m => ({ default: m.DataCheckPage })));
 const ScorecardPage = lazy(() => import('./features/admin/analytics/ScorecardPage').then(m => ({ default: m.ScorecardPage })));
 const OrgOverview = lazy(() => import('./features/admin/analytics').then(m => ({ default: m.OrgOverview })));
 const VerificationQueue = lazy(() => import('./features/verification').then(m => ({ default: m.VerificationQueue })));
 const AdminTaskList = lazy(() => import('./features/admin/AdminTaskList').then(m => ({ default: m.AdminTaskList })));
-const TeamOverviewPage = lazy(() => import('./features/team/TeamOverviewPage').then(m => ({ default: m.TeamOverviewPage })));
 const SettingsLayout = lazy(() => import('./features/settings/SettingsLayout').then(m => ({ default: m.SettingsLayout })));
 const CategoryList = lazy(() => import('./features/settings/CategoryList').then(m => ({ default: m.CategoryList })));
 const AccountSettings = lazy(() => import('./features/settings/AccountSettings').then(m => ({ default: m.AccountSettings })));
@@ -150,6 +149,51 @@ const AdminOverviewRoute = () => {
 };
 
 const AnalyticsRoute = createRoleGuard('MANAGER', 'SENIOR');
+
+// Scores: ADMIN/PC see the organisation inside the admin shell, MANAGER/SENIOR their own department inside the
+// regular app shell. One route, so a shared link works for either; the layout is the only thing that differs.
+// Everyone else is sent home (the API answers 403 to them as well).
+const ScoresLayout = () => {
+  const { token, user } = useAuth();
+  if (!token) return <Navigate to="/login" replace />;
+  if (!user) return null;
+  if (ADMIN_AREA_ROLES.includes(user.role)) {
+    return (
+      <Suspense fallback={<RouteFallback />}>
+        <AdminLayout />
+      </Suspense>
+    );
+  }
+  if (user.role === 'MANAGER' || user.role === 'SENIOR') return <Dashboard />;
+  return <Navigate to="/" replace />;
+};
+
+// Old addresses of pages that were merged into Scores. The period (?from=&to=&range=) travels with the person;
+// `set` adds what the old page meant (which view to open).
+const RedirectToScores = ({ set }: { set: Record<string, string> }) => {
+  const { search } = useLocation();
+  const next = new URLSearchParams(search);
+  // Old pages grouped by week or month with ?by=; Scores has no grouping.
+  next.delete('by');
+  for (const [key, value] of Object.entries(set)) next.set(key, value);
+  return <Navigate to={`/admin/scores?${next.toString()}`} replace />;
+};
+
+// Team Overview kept its drill-down in the address (?departmentId=&personId=). Scores keeps it as a trail; the
+// names are filled in by the Scores page once it has them.
+const TeamRedirect = () => {
+  const { search } = useLocation();
+  const old = new URLSearchParams(search);
+  const departmentId = old.get('departmentId');
+  const personId = old.get('personId');
+  const next = new URLSearchParams();
+  const trail: { id: string; kind: 'department' | 'person'; name: string }[] = [];
+  if (departmentId) trail.push({ id: departmentId, kind: 'department', name: '' });
+  if (personId) trail.push({ id: personId, kind: 'person', name: '' });
+  if (trail.length) next.set('trail', JSON.stringify(trail));
+  next.set('view', personId ? 'checklist' : departmentId ? 'person' : 'department');
+  return <Navigate to={`/admin/scores?${next.toString()}`} replace />;
+};
 
 // Checklist History (past audits + checklists): ADMIN/PC see every store, MANAGER/SENIOR only their
 // own department. Same split the API enforces, this just keeps everyone else off the page.
@@ -258,10 +302,10 @@ const router = createBrowserRouter([
           },
           {
             // ADMIN-only — see AdminOnlyRoute's comment above for why this was narrowed from
-            // PC-or-ADMIN.
+            // PC-or-ADMIN. Team Overview now lives in Scores (Departments, then People).
             element: <AdminOnlyRoute />,
             children: [
-              { path: '/team', element: <TeamOverviewPage /> },
+              { path: '/team', element: <TeamRedirect /> },
             ],
           },
           {
@@ -271,6 +315,12 @@ const router = createBrowserRouter([
             ],
           },
         ],
+      },
+      {
+        // Scores: Admin and PC inside the admin shell, Manager and Senior inside the regular shell.
+        path: '/admin/scores',
+        element: <ScoresLayout />,
+        children: [{ index: true, element: <ScoresPage /> }],
       },
       {
         element: <AdminRoute />,
@@ -285,9 +335,11 @@ const router = createBrowserRouter([
             ),
             children: [
               { path: '/admin', element: <AdminOverviewRoute /> },
-              { path: '/admin/rankings', element: <RankingsPage /> },
+              // Rankings and Store and Dept Scores were merged into Scores.
+              { path: '/admin/rankings', element: <RedirectToScores set={{ view: 'department' }} /> },
               { path: '/admin/scorecard', element: <ScorecardPage /> },
-              { path: '/admin/checklist-store-daily', element: <StoreDailyPage /> },
+              { path: '/admin/checklist-store-daily', element: <RedirectToScores set={{ view: 'store' }} /> },
+              { path: '/admin/data-check', element: <DataCheckPage /> },
               { path: '/admin/analytics', element: <Navigate to="/admin" replace /> },    
               { path: '/admin/reports/tasks', element: <Navigate to="/tasks/team" replace /> },
               { path: '/admin/directory', element: <DirectoryPage /> },

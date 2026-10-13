@@ -5,15 +5,17 @@ import { useIsMobile } from '../../lib/useMediaQuery';
 import { ScoreColumn } from './scoreBarShape';
 import type { Scores } from '../../api/scores';
 import { formatPct } from '../../lib/percent';
+import { MODULE_LABEL } from '../../lib/scoreLabels';
+import { SeriesLegend } from './SeriesLegend';
 import { SERIES_COLOR, SERIES_LABEL, SERIES_PHONE_LABEL, numbersFor, seriesFor, type ModuleKey, type ScoreMetric, type SeriesKey } from './scoreMetrics';
 
 // A faint lane behind every bar shows how far from 100% it is.
 const TRACK_FILL = 'color-mix(in oklab, var(--color-primary-500) 6%, transparent)';
 
 const MODULES: { key: ModuleKey; name: string }[] = [
-  { key: 'checklist', name: 'Checklist' },
-  { key: 'ticket', name: 'Tickets' },
-  { key: 'delegation', name: 'Delegations' },
+  { key: 'checklist', name: MODULE_LABEL.checklist },
+  { key: 'ticket', name: MODULE_LABEL.ticket },
+  { key: 'delegation', name: MODULE_LABEL.delegation },
 ];
 
 interface Row {
@@ -40,33 +42,23 @@ const BarTooltip = ({ active, payload, series }: { active?: boolean; payload?: {
   if (!active || !row) return null;
   return (
     <div className="flex min-w-44 flex-col gap-2 rounded-lg border border-border bg-surface p-3">
-      <p className="text-sm font-display font-bold text-text">{row.name}</p>
+      <p className="t-card font-display font-bold text-text">{row.name}</p>
       {row.hasData ? (
         series.map((k) => (
           <div key={k} className="flex items-start gap-2">
             <span aria-hidden="true" className="mt-1 size-2 shrink-0 rounded-full" style={{ backgroundColor: SERIES_COLOR[k] }} />
             <div className="min-w-0">
-              <p className="text-xs font-display font-bold text-text">{SERIES_LABEL[k]} {row[k] === null ? 'no data' : formatPct(row[k])}</p>
-              <p className="text-xs font-display text-text-muted">{row.notes[k]}</p>
+              <p className="t-meta font-display font-bold text-text">{SERIES_LABEL[k]} {row[k] === null ? 'no data' : formatPct(row[k])}</p>
+              <p className="t-meta font-display text-text-muted">{row.notes[k]}</p>
             </div>
           </div>
         ))
       ) : (
-        <p className="text-xs font-display text-text-muted">Nothing due</p>
+        <p className="t-meta font-display text-text-muted">Nothing due</p>
       )}
     </div>
   );
 };
-
-const Legend = ({ series, labels }: { series: SeriesKey[]; labels: Record<SeriesKey, string> }) => (
-  <div className="flex flex-wrap items-center gap-1.5">
-    {series.map((k) => (
-      <span key={k} className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-surface-hover/40 px-2.5 py-1 t-meta font-display font-semibold text-text-secondary">
-        <span aria-hidden="true" className="size-2 rounded-full" style={{ backgroundColor: SERIES_COLOR[k] }} />{labels[k]}
-      </span>
-    ))}
-  </div>
-);
 
 // Just the module name. A module with nothing due is shown by its empty outlined bar, not by extra words.
 const ModuleTick = ({ x, y, payload }: { x?: number; y?: number; payload?: { value: string } }) => (
@@ -92,9 +84,9 @@ const delta = (now: number | null, before: number | null) => (now === null || be
 
 const Delta = ({ label, value }: { label: string; value: number | null }) =>
   value === null ? (
-    <span className="text-xs font-medium text-text-muted">{label} <span className="text-text-light">no data</span></span>
+    <span className="t-meta font-medium text-text-muted">{label} <span className="text-text-light">no data</span></span>
   ) : (
-    <span className={`inline-flex items-center gap-0.5 text-xs font-display font-bold tabular-nums ${value > 0 ? 'text-success' : value < 0 ? 'text-danger' : 'text-text-muted'}`}>
+    <span className={`inline-flex items-center gap-0.5 t-meta font-display font-bold tabular-nums ${value > 0 ? 'text-success' : value < 0 ? 'text-danger' : 'text-text-muted'}`}>
       <span className="font-medium text-text-muted">{label}</span>
       {value > 0 ? <ArrowUp className="size-3" aria-hidden="true" /> : value < 0 ? <ArrowDown className="size-3" aria-hidden="true" /> : null}
       {value === 0 ? 'no change' : `${Math.abs(value)} pts`}
@@ -140,7 +132,7 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
 
   return (
     <div className="flex flex-col gap-3">
-      <Legend series={series} labels={isMobile ? SERIES_PHONE_LABEL : SERIES_LABEL} />
+      <SeriesLegend series={series} labels={isMobile ? SERIES_PHONE_LABEL : SERIES_LABEL} />
 
       {/* The height is fixed so the card does not jump while the numbers load or the window changes. */}
       <div className={`relative h-56 sm:h-64 w-full ${onOpenModule ? '[&_.recharts-bar-rectangle]:cursor-pointer' : ''}`} role="img" aria-label={allEmpty ? emptyText : summary || 'Loading scores'}>
@@ -160,7 +152,7 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
             ))}
           </div>
         ) : allEmpty ? (
-          <div className="flex h-full items-center justify-center rounded-lg border border-border/60 px-4 text-center text-sm font-medium text-text-muted">
+          <div className="flex h-full items-center justify-center rounded-lg border border-border px-4 text-center t-card font-medium text-text-muted">
             {emptyText}
           </div>
         ) : (
@@ -201,15 +193,15 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
       </div>
 
       {previous && scores && (
-        <ul className="flex flex-col gap-1.5 rounded-lg border border-border/60 bg-surface-hover/30 px-3 py-2.5" aria-label="Change since the previous period">
-          <li className="text-xs font-display font-bold text-text-secondary">Since last period</li>
+        <ul className="flex flex-col gap-2 rounded-lg border border-border p-3" aria-label="Change since the previous period">
+          <li className="t-meta font-display font-bold text-text-secondary">Since last period</li>
           {rowsFor(scores).map((r, i) => {
             const before = rowsFor(previous)[i];
             // A module with nothing due in either period has nothing to compare; leave it out.
             if (!r.hasData && !before.hasData) return null;
             return (
               <li key={r.key} className="flex flex-wrap items-center gap-x-4 gap-y-0.5">
-                <span className="w-24 text-xs font-display font-bold text-text">{r.name}</span>
+                <span className="w-24 t-meta font-display font-bold text-text">{r.name}</span>
                 {series.map((k) => <Delta key={k} label={SERIES_LABEL[k]} value={delta(r[k], before[k])} />)}
               </li>
             );

@@ -1,7 +1,9 @@
 import { memo, useMemo, useState, type ReactNode } from 'react';
 import { CalendarDays, RefreshCw } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button, DateRangePicker, type DateRangeValue } from '../../../components';
+import { Button, DateRangePicker, PANEL_CLASS, type DateRangeValue } from '../../../components';
+import { cn } from '@/lib/utils';
+import { CARD_PAD, FIELD_LABEL_CLASS, SELECT_CLASS } from '../../scores/controlStyles';
 import { PeriodTabControl } from '../../dashboard/PeriodTabControl';
 import { useOrgToday } from '../../checklist/useOrgToday';
 import { ANALYTICS_LOCALE, defaultWindowLabel, parseDateParam, toDateParam } from './analyticsDisplay';
@@ -53,7 +55,7 @@ const GroupByTabs = memo(({ groupBy, onGroupByChange }: Pick<GroupByControlProps
         group from sm up. */}
     <TabsList aria-label="Group by" className="grid w-full grid-cols-4 sm:inline-flex sm:w-fit h-auto">
       {GROUP_BY_OPTIONS.map((o) => (
-        <TabsTrigger key={o.value} value={o.value} className="min-h-11 sm:min-h-8">
+        <TabsTrigger key={o.value} value={o.value} className="min-h-11 sm:min-h-9">
           {o.label}
         </TabsTrigger>
       ))}
@@ -66,7 +68,7 @@ export const GroupByControl = ({ groupBy, onGroupByChange, range, onRangeChange,
   const { shown, handleChange } = useCompleteRangeOnly(range, onRangeChange);
 
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
       <GroupByTabs groupBy={groupBy} onGroupByChange={onGroupByChange} />
       {!hideRange && <DateRangePicker value={shown} onChange={handleChange} placeholder="Custom range" className="w-full sm:w-64" />}
     </div>
@@ -124,8 +126,6 @@ interface AnalyticsControlBarProps extends Omit<GroupByControlProps, 'hideRange'
 
 const formatUpdated = (ms: number) => new Date(ms).toLocaleTimeString(ANALYTICS_LOCALE, { hour: 'numeric', minute: '2-digit' });
 
-const SELECT_CLASS = 'min-h-11 w-full min-w-0 cursor-pointer rounded-lg border border-border bg-surface px-3 text-base font-display text-text outline-none transition-colors hover:border-border-hover focus-visible:border-primary-500 focus-visible:ring-2 focus-visible:ring-primary-500/30';
-
 /**
  * One place that says which time window the page is showing and lets you change it: a preset or custom
  * range, the grouping, what that resolves to, and when the numbers were last fetched. Sticks to the top
@@ -169,10 +169,10 @@ export const AnalyticsControlBar = ({ groupBy, onGroupByChange, range, onRangeCh
   );
 
   return (
-    <div className="lg:sticky lg:top-0 z-20 flex flex-col gap-3 rounded-2xl border border-border/60 bg-surface p-3 sm:p-4">
+    <div className={cn(PANEL_CLASS, 'z-20 flex flex-col gap-3 lg:sticky lg:top-0', CARD_PAD)}>
       {/* Phone: the period is one select, Show by a second one beside it. */}
-      <div className="flex flex-col gap-2 sm:hidden">
-        <div className={hideGroupBy ? undefined : 'grid grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)] gap-2'}>
+      <div className="flex flex-col gap-3 sm:hidden">
+        <div className={hideGroupBy ? undefined : 'grid grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)] gap-3'}>
           <select aria-label="Period" value={showCustomPicker ? 'custom' : periodValue} onChange={(e) => choosePeriod(e.target.value as PeriodTab)} className={SELECT_CLASS}>
             {[...PERIOD_TABS, 'custom' as const].map((key) => <option key={key} value={key}>{labels[key]}</option>)}
           </select>
@@ -187,7 +187,7 @@ export const AnalyticsControlBar = ({ groupBy, onGroupByChange, range, onRangeCh
 
       <div className="hidden flex-col gap-3 sm:flex lg:flex-row lg:items-end lg:justify-between">
         <div className="flex min-w-0 flex-col gap-1.5">
-          <span className="px-0.5 t-meta font-display font-semibold text-text-muted">Period</span>
+          <span className={FIELD_LABEL_CLASS}>Period</span>
           <div className="flex flex-wrap items-center gap-2">
             <PeriodTabControl value={periodValue} options={PERIOD_TABS} labels={labels} onChange={choosePeriod} />
             {/* Any other dates: the picker, dressed as one more option; lit when the range is custom. */}
@@ -200,22 +200,22 @@ export const AnalyticsControlBar = ({ groupBy, onGroupByChange, range, onRangeCh
 
         {!hideGroupBy && (
           <div className="flex flex-col gap-1.5">
-            <span className="px-0.5 t-meta font-display font-semibold text-text-muted">Show by</span>
+            <span className={FIELD_LABEL_CLASS}>Show by</span>
             <GroupByTabs groupBy={groupBy} onGroupByChange={onGroupByChange} />
           </div>
         )}
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-border/60 pt-3">
-        <span className="inline-flex min-w-0 items-center gap-2 text-sm font-display font-semibold text-text">
+        <span className="inline-flex min-w-0 items-center gap-2 t-card font-display font-semibold text-text">
           <CalendarDays className="size-4 shrink-0 text-text-muted" aria-hidden="true" />
           <span className="line-clamp-2">{rangeText}</span>
         </span>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <span aria-live="polite" className="hidden sm:inline t-meta text-text-muted tabular-nums">
+          <span aria-live="polite" className="hidden min-w-24 text-right sm:inline t-meta text-text-muted tabular-nums">
             {isRefreshing ? 'Updating' : updatedAt ? `Updated ${formatUpdated(updatedAt)}` : ''}
           </span>
-          <Button variant="outline" size="sm" onClick={onRefresh} disabled={isRefreshing} aria-label="Refresh numbers" className="pointer-coarse:min-h-11">
+          <Button variant="outline" size="sm" onClick={onRefresh} disabled={isRefreshing} aria-label="Refresh numbers">
             <RefreshCw size={14} aria-hidden="true" className={isRefreshing ? 'animate-spin motion-reduce:animate-none' : undefined} />
             <span className="hidden sm:inline">Refresh</span>
           </Button>

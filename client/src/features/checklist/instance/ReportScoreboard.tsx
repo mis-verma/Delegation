@@ -4,6 +4,10 @@ import { cn } from '@/lib/utils';
 import { EmptyState, InlineError, PANEL_CLASS, Skeleton } from '../../../components';
 import { Popover, PopoverContent, PopoverTrigger } from '../../../components/ui/popover';
 import { formatPct } from '../../../lib/percent';
+import { HowCalculated } from '../../scores/HowCalculated';
+import { CARD_PAD } from '../../scores/controlStyles';
+import { NumCell, NumHead } from '../../scores/scoreTableParts';
+import { SCORE_LABEL, complianceLabel } from '../../../lib/scoreLabels';
 import { MIN_RANK_VOLUME } from '../../dashboard/scoreMetrics';
 import { rateToneClass } from '../checklistDisplay';
 import { rankScoreboard, type RankedScoreboardItem, type ScoreboardItem } from './reportScoreboardRank';
@@ -33,7 +37,7 @@ const Figure = ({ value, onClick, label }: { value: number | null; onClick: () =
     onClick={onClick}
     aria-label={label}
     className={cn(
-      'inline-flex items-center justify-center min-w-14 min-h-11 sm:min-h-9 rounded-lg px-2 text-sm font-display font-bold tabular-nums outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary-500/40',
+      'inline-flex min-h-11 min-w-14 items-center justify-end rounded-lg px-2 t-card font-display font-bold tabular-nums outline-none sm:min-h-9 transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary-500/40',
       value === null ? 'text-text-light' : rateToneClass(value),
     )}
   >
@@ -43,32 +47,32 @@ const Figure = ({ value, onClick, label }: { value: number | null; onClick: () =
 
 const RankMark = ({ rank }: { rank: number | null }) =>
   rank === 1 ? (
-    <span className="inline-flex size-7 items-center justify-center rounded-full bg-gradient-to-br from-warning to-warning/70 text-white" title="Winner">
+    <span className="inline-flex size-7 items-center justify-center rounded-full border border-border bg-surface-hover text-warning" title="Winner">
       <Crown className="size-3.5" aria-hidden="true" />
     </span>
   ) : (
-    <span className="inline-flex size-7 items-center justify-center rounded-full bg-surface-hover text-xs font-display font-bold tabular-nums text-text-secondary">{rank ?? '-'}</span>
+    <span className="inline-flex size-7 items-center justify-center rounded-full bg-surface-hover t-meta font-display font-bold tabular-nums text-text-secondary">{rank ?? '-'}</span>
   );
 
 const Row = memo(({ item, rank, noun, onOpen }: { item: Ranked; rank: number | null; noun: string; onOpen: (id: string) => void }) => {
   const open = () => onOpen(item.id);
   const what = `${item.name}, ${noun}`;
   return (
-    <tr className="border-t border-border/60 hover:bg-surface-hover/40 transition-colors">
+    <tr className="border-t border-border/60 transition-colors hover:bg-surface-hover">
       <td className="pl-4 pr-1 py-2 w-12"><RankMark rank={rank} /></td>
       <th scope="row" className="px-2 py-2 text-left font-normal">
-        <button type="button" onClick={open} className="group inline-flex items-center gap-1 rounded text-left text-sm font-display font-semibold text-text outline-none hover:text-primary-700 focus-visible:ring-2 focus-visible:ring-primary-500/40 dark:hover:text-primary-300">
+        <button type="button" onClick={open} className="group inline-flex min-h-9 items-center gap-1 rounded text-left t-card font-display font-semibold text-text outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40">
           {item.name}
-          <ChevronRight className="size-3.5 text-text-light transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+          <ChevronRight className="size-3.5 text-text-light" aria-hidden="true" />
         </button>
-        {item.due + item.open === 0 ? <span className="block text-xs text-text-muted">Nothing due</span> : !item.rankable && <span className="block text-xs text-text-muted">Too few runs (fewer than {MIN_RANK_VOLUME} due)</span>}
+        {item.due + item.open === 0 ? <span className="block t-meta text-text-muted">Nothing due</span> : !item.rankable && <span className="block t-meta text-text-muted">Too few runs (fewer than {MIN_RANK_VOLUME} due)</span>}
       </th>
-      <td className="px-1 py-1 text-center"><Figure value={item.score} onClick={open} label={`${what}: checklist score, open its checklists`} /></td>
-      <td className="px-1 py-1 text-center"><Figure value={item.completion} onClick={open} label={`${what}: completion, open its checklists`} /></td>
-      <td className="px-1 py-1 text-center"><Figure value={item.compliance} onClick={open} label={`${what}: answers right, open its checklists`} /></td>
-      <td className="px-2 py-1 text-center text-sm font-display tabular-nums text-text-secondary">{item.due}</td>
-      <td className="px-2 py-1 text-center text-sm font-display tabular-nums text-text-secondary">{item.completed}</td>
-      <td className={cn('pr-4 pl-2 py-1 text-center text-sm font-display font-bold tabular-nums', item.missed ? 'text-danger' : 'text-text-light')}>{item.missed}</td>
+      <NumCell className="px-1 py-1"><Figure value={item.score} onClick={open} label={`${what}: checklist score, open its checklists`} /></NumCell>
+      <NumCell className="px-1 py-1"><Figure value={item.completion} onClick={open} label={`${what}: ${SCORE_LABEL.completion.toLowerCase()}, open its checklists`} /></NumCell>
+      <NumCell className="px-1 py-1"><Figure value={item.compliance} onClick={open} label={`${what}: ${complianceLabel('checklist').toLowerCase()}, open its checklists`} /></NumCell>
+      <NumCell className="px-3 py-1 font-display text-text-secondary">{item.due}</NumCell>
+      <NumCell className="px-3 py-1 font-display text-text-secondary">{item.completed}</NumCell>
+      <NumCell className={cn('py-1 pl-3 pr-4 font-display font-bold', item.missed ? 'text-danger' : 'text-text-light')}>{item.missed}</NumCell>
     </tr>
   );
 });
@@ -78,38 +82,38 @@ const Card = memo(({ item, rank, onOpen }: { item: Ranked; rank: number | null; 
   <button
     type="button"
     onClick={() => onOpen(item.id)}
-    className="flex flex-col gap-2.5 rounded-lg border border-border bg-surface p-3.5 text-left outline-none transition-colors hover:border-border-hover focus-visible:ring-2 focus-visible:ring-primary-500/40"
+    className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-3 text-left outline-none transition-colors hover:border-border-hover focus-visible:ring-2 focus-visible:ring-primary-500/40"
   >
-    <span className="flex items-center gap-2.5">
+    <span className="flex items-center gap-3">
       <RankMark rank={rank} />
-      <span className="min-w-0 flex-1 flex flex-col">
-        <span className="text-sm font-display font-semibold text-text leading-snug line-clamp-2">{item.name}</span>
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="t-card font-display font-semibold leading-snug text-text line-clamp-2">{item.name}</span>
         {item.due + item.open === 0
           ? <span className="t-meta text-text-muted">Nothing due</span>
           : !item.rankable && <span className="t-meta text-text-muted">Too few runs (fewer than {MIN_RANK_VOLUME} due)</span>}
       </span>
       <span className="flex shrink-0 flex-col items-end leading-tight">
-        <span className={cn('text-lg font-display font-bold tabular-nums', item.score === null ? 'text-text-light' : rateToneClass(item.score))}>{formatPct(item.score)}</span>
+        <span className={cn('t-figure font-display tabular-nums', item.score === null ? 'text-text-light' : rateToneClass(item.score))}>{formatPct(item.score)}</span>
         <span className="t-meta text-text-muted">checklist score</span>
       </span>
     </span>
-    <span className="grid grid-cols-2 gap-2 border-t border-border/60 pt-2.5 text-center">
+    <span className="grid grid-cols-2 gap-3 border-t border-border/60 pt-3 text-center">
       {[
-        { label: 'Completion', value: item.completion },
-        { label: 'Answers right', value: item.compliance },
+        { label: SCORE_LABEL.completion, value: item.completion },
+        { label: complianceLabel('checklist'), value: item.compliance },
       ].map((m) => (
         <span key={m.label} className="flex flex-col">
           <span className="t-meta text-text-muted">{m.label}</span>
-          <span className={cn('text-sm font-display font-bold tabular-nums', m.value === null ? 'text-text-light' : rateToneClass(m.value))}>{formatPct(m.value)}</span>
+          <span className={cn('t-card font-display font-bold tabular-nums', m.value === null ? 'text-text-light' : rateToneClass(m.value))}>{formatPct(m.value)}</span>
         </span>
       ))}
       <span className="flex flex-col">
         <span className="t-meta text-text-muted">Filled</span>
-        <span className="text-sm font-display font-bold tabular-nums text-text">{item.completed}</span>
+        <span className="t-card font-display font-bold tabular-nums text-text">{item.completed}</span>
       </span>
       <span className="flex flex-col">
         <span className="t-meta text-text-muted">Not filled</span>
-        <span className={cn('text-sm font-display font-bold tabular-nums', item.missed ? 'text-danger' : 'text-text-light')}>{item.missed}</span>
+        <span className={cn('t-card font-display font-bold tabular-nums', item.missed ? 'text-danger' : 'text-text-light')}>{item.missed}</span>
       </span>
     </span>
   </button>
@@ -133,14 +137,13 @@ const RuleNote = ({ noun }: { noun: string }) => {
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-72 p-3">
-          <p className="text-sm font-display text-text-secondary">{rule} Tap a {noun} to see its checklists.</p>
+          <p className="t-card font-display text-text-secondary">{rule} Tap a {noun} to see its checklists.</p>
         </PopoverContent>
       </Popover>
     </>
   );
 };
 
-const HEAD = 'px-2 py-2.5 text-center text-xs font-display font-semibold text-text-secondary';
 
 /**
  * Departments or stores side by side, best first. The winner of the picked week, month or year is the top
@@ -155,8 +158,8 @@ export const ReportScoreboard = ({ noun, items, loading, error, onRetry, updatin
     return (
       <div className="flex flex-col gap-3" role="status" aria-label={`Loading ${noun} scores`}>
         <Skeleton className="h-20 rounded-lg" />
-        <div className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-4')}>
-          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-9 rounded-lg" />)}
+        <div className={cn(PANEL_CLASS, 'flex flex-col gap-3', CARD_PAD)}>
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-12 rounded-lg" />)}
         </div>
       </div>
     );
@@ -168,20 +171,19 @@ export const ReportScoreboard = ({ noun, items, loading, error, onRetry, updatin
 
   return (
     <div className="flex flex-col gap-3" aria-busy={updating}>
-      {updating && (
-        <p role="status" className="t-meta font-display font-semibold text-text-secondary">Updating. These figures are for the previous period until {windowLabel} loads.</p>
-      )}
       {winner.length > 0 && (
-        <div className="flex items-center gap-3 rounded-lg border border-warning/30 bg-warning/10 p-3.5">
-          <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-warning to-warning/70 text-white">
-            <Trophy className="size-5" aria-hidden="true" />
-          </span>
-          <div className="min-w-0">
-            <p className="t-meta font-display font-semibold text-text-secondary">Winner, {windowLabel}</p>
-            <p className="text-base font-display font-bold text-text leading-snug">{winner.map((w) => w.name).join(' and ')}</p>
+        <div className={cn(PANEL_CLASS, 'flex items-center justify-between gap-3', CARD_PAD)}>
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-hover text-warning">
+              <Trophy className="size-5" aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <p className="t-meta font-display font-semibold text-text-secondary">Winner, {windowLabel}</p>
+              <p className="t-card font-display font-bold leading-snug text-text">{winner.map((w) => w.name).join(' and ')}</p>
+            </div>
           </div>
-          <div className="ml-auto flex shrink-0 flex-col items-end">
-            <span className="text-xl font-display font-bold tabular-nums text-text">{formatPct(winner[0].score)}</span>
+          <div className="flex shrink-0 flex-col items-end">
+            <span className="t-figure font-display tabular-nums text-text">{formatPct(winner[0].score)}</span>
             <span className="t-meta text-text-muted">checklist score</span>
           </div>
         </div>
@@ -196,14 +198,14 @@ export const ReportScoreboard = ({ noun, items, loading, error, onRetry, updatin
           <caption className="sr-only">{noun} scores for {windowLabel}, best first</caption>
           <thead>
             <tr>
-              <th scope="col" className="pl-4 pr-1 py-2.5 w-12"><span className="sr-only">Rank</span></th>
-              <th scope="col" className="px-2 py-2.5 text-xs font-display font-semibold text-text-secondary capitalize">{noun}</th>
-              <th scope="col" className={HEAD} title="Checklist score: completion and answers right, counted equally. Checklists only; tickets and delegations are in the Scorecard">Checklist score</th>
-              <th scope="col" className={HEAD} title="Share of due checklists that got filled, on time or late. Open checklists are not counted yet">Completion</th>
-              <th scope="col" className={HEAD} title="How well the checked answers were answered (compliance)">Answers right</th>
-              <th scope="col" className={HEAD} title="Checklists that were due">Due</th>
-              <th scope="col" className={HEAD} title="Due checklists that got filled, on time or late">Filled</th>
-              <th scope="col" className={cn(HEAD, 'pr-4')} title="Due checklists nobody filled">Not filled</th>
+              <th scope="col" className="w-12 py-2 pl-4 pr-1"><span className="sr-only">Rank</span></th>
+              <th scope="col" className="px-2 py-2 t-meta font-display font-semibold text-text-secondary capitalize">{noun}</th>
+              <NumHead><span className="inline-flex items-center justify-end gap-0.5">Checklist score<HowCalculated figure="overall" /></span></NumHead>
+              <NumHead><span className="inline-flex items-center justify-end gap-0.5">{SCORE_LABEL.completion}<HowCalculated figure="completion" module="checklist" /></span></NumHead>
+              <NumHead><span className="inline-flex items-center justify-end gap-0.5">{complianceLabel('checklist')}<HowCalculated figure="compliance" module="checklist" /></span></NumHead>
+              <NumHead title="Checklists that were due">Due</NumHead>
+              <NumHead title="Due checklists that got filled, on time or late">Filled</NumHead>
+              <NumHead className="pr-4" title="Due checklists nobody filled">Not filled</NumHead>
             </tr>
           </thead>
           <tbody>
@@ -212,11 +214,15 @@ export const ReportScoreboard = ({ noun, items, loading, error, onRetry, updatin
         </table>
       </div>
 
-      <div className="md:hidden flex flex-col gap-2.5">
+      <div className="flex flex-col gap-3 md:hidden">
         {ranked.map((item, idx) => <Card key={item.id} item={item} rank={rankOf(item, idx)} onOpen={onOpen} />)}
       </div>
 
       <RuleNote noun={noun} />
+
+      {updating && (
+        <p role="status" className="t-meta font-display font-semibold text-text-secondary">Updating. These figures are for the previous period until {windowLabel} loads.</p>
+      )}
     </div>
   );
 };

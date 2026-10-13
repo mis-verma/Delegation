@@ -1,21 +1,24 @@
 import { InlineError } from '../../../components/inlineError';
 import { QuickFilterStats, statusTiles } from '../../../components/quickFilterStats';
 
-export type ComplianceQuickFilterKey = 'all' | 'completed' | 'pending' | 'overdue';
+export type ComplianceQuickFilterKey = 'all' | 'completed' | 'due' | 'overdue';
 
 export interface ComplianceQuickFilterCounts {
   all: number;
   completed: number;
-  pending: number;
+  due: number;
   overdue: number;
 }
 
-const TILES = statusTiles<ComplianceQuickFilterKey>(['all', 'completed', 'pending', 'overdue'], {
-  all: 'Total',
-  pending: 'Not completed',
+// Done = finished. Missed = past its cutoff and not finished. On track = not finished, cutoff not reached yet.
+const TILES = statusTiles<ComplianceQuickFilterKey>(['all', 'completed', 'due', 'overdue'], {
+  all: 'All runs',
+  completed: 'Done',
+  due: 'On track',
+  overdue: 'Missed',
 });
 
-const NO_COUNTS: ComplianceQuickFilterCounts = { all: 0, completed: 0, pending: 0, overdue: 0 };
+const NO_COUNTS: ComplianceQuickFilterCounts = { all: 0, completed: 0, due: 0, overdue: 0 };
 
 interface ChecklistComplianceQuickStatsProps {
   /** Undefined until the summary arrives (or when it failed): never rendered as zeros. */

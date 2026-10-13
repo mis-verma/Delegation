@@ -113,6 +113,99 @@ export interface OrgCounts {
   departmentsWithLead: number;
 }
 
+// ---------------------------------------------------------------------------------------------
+// Score Explorer: one call for every way of cutting the scores (GET /scores/explorer)
+// ---------------------------------------------------------------------------------------------
+
+export type ExplorerView = 'department' | 'store' | 'person' | 'checklist' | 'module';
+export type ExplorerModule = 'checklist' | 'ticket' | 'delegation';
+export type ExplorerRowKind = ExplorerView | 'total' | 'unassigned';
+/** ONCE is the one-time checklist; 'all' means every kind. */
+export type ExplorerRecurrence = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY' | 'ONCE' | 'all';
+
+/** The figures every module carries under the same names. */
+export interface ExplorerBlock {
+  due: number;
+  done: number;
+  onTime: number;
+  /** Done, but after the deadline. */
+  late: number;
+  /** due - done. */
+  notDone: number;
+  /** Still ahead of the deadline and not done: in no percentage. */
+  open: number;
+  completion: number | null;
+  compliance: number | null;
+  onTimeOfFinishedPct: number | null;
+  metDeadlinePct: number | null;
+  score: number | null;
+}
+export interface ExplorerChecklistBlock extends ExplorerBlock { wGood: number; wScored: number; submitted: number; approved: number }
+export interface ExplorerTicketBlock extends ExplorerBlock { waitingOnTime: number }
+export interface ExplorerDelegationBlock extends ExplorerBlock { waitingOnTime: number; overdue: number }
+
+export interface ExplorerRow {
+  id: string;
+  name: string;
+  kind: ExplorerRowKind;
+  parentId?: string;
+  /** Store switched off but still with work. */
+  inactive?: boolean;
+  /** A person who has left. */
+  left?: boolean;
+  /** Checklist rows only. */
+  recurrence?: string;
+  /** Person rows only: the person's current department. */
+  departmentId?: string | null;
+  departmentName?: string;
+  checklist: ExplorerChecklistBlock;
+  ticket: ExplorerTicketBlock;
+  delegation: ExplorerDelegationBlock;
+  overall: number | null;
+  totalDue: number;
+  rankable: boolean;
+  shared: { runsSharedWithOthers: number };
+}
+
+export interface ExplorerParent { id: string; kind: 'person' | 'department' | 'store'; name: string }
+
+export interface ExplorerResponse {
+  /** The window actually scored: `to` is capped at today. */
+  window: { from: string; to: string; asOf: string; requestedTo: string; capped: boolean };
+  scope: { role: string; orgWide: boolean; departmentLocked: boolean; departmentId?: string };
+  view: ExplorerView;
+  parent: ExplorerParent | null;
+  total: ExplorerRow;
+  rows: ExplorerRow[];
+  unassigned: ExplorerRow | null;
+  /** Checklist runs in the total that are shared or unassigned: why departments or people may not add up to it. */
+  sharing: { runsWithSeveralAssignees: number; runsAcrossDepartments: number; runsWithoutAssignee: number };
+  notes: string[];
+}
+
+export interface ExplorerParams {
+  from: string;
+  to: string;
+  view: ExplorerView;
+  storeId?: string;
+  departmentId?: string;
+  module?: ExplorerModule;
+  recurrence?: ExplorerRecurrence;
+  parentId?: string;
+}
+
+export type ConsistencyStatus = 'pass' | 'fail' | 'flag';
+export interface ConsistencyCheck {
+  id: string;
+  label: string;
+  expected: number;
+  actual: number;
+  diff: number;
+  status: ConsistencyStatus;
+  explanation: string;
+}
+export interface DataCheckResult { ok: boolean; from: string; to: string; failed: number; flagged: number; checks: ConsistencyCheck[] }
+
 /** `from` and `to` are calendar days, YYYY-MM-DD, both included. A person without `id` is the caller. */
 export const scoreApi = {
   /** The four counts behind the Overview's organisation tiles (Admin and PC). */
@@ -137,5 +230,20 @@ export const scoreApi = {
     if (params.stores === 'only') query.set('stores', 'only');
     else if (params.stores) query.set('stores', '1');
     return apiFetch<{ success: boolean; data: ScoreReport }>(`/scores/report?${query.toString()}`).then((r) => r.data);
+  },
+  /** One call for every cut of the scores (department, store, person, checklist, module). Admin and PC: the organisation; Manager and Senior: their department. */
+  explorer: (params: ExplorerParams) => {
+    const query = new URLSearchParams({ from: params.from, to: params.to, view: params.view });
+    if (params.storeId) query.set('storeId', params.storeId);
+    if (params.departmentId) query.set('departmentId', params.departmentId);
+    if (params.module) query.set('module', params.module);
+    if (params.recurrence && params.recurrence !== 'all') query.set('recurrence', params.recurrence);
+    if (params.parentId) query.set('parentId', params.parentId);
+    return apiFetch<{ success: boolean; data: ExplorerResponse }>(`/scores/explorer?${query.toString()}`).then((r) => r.data);
+  },
+  /** Proves the cuts of the same numbers add up (Admin and PC). */
+  dataCheck: (params: { from: string; to: string }) => {
+    const query = new URLSearchParams({ from: params.from, to: params.to });
+    return apiFetch<{ success: boolean; data: DataCheckResult }>(`/scores/data-check?${query.toString()}`).then((r) => r.data);
   },
 };

@@ -17,6 +17,7 @@ import { startTaskDeadlineReminder } from "./src/jobs/taskDeadlineReminder.job.j
 import { startAuditRetention } from "./src/jobs/auditRetention.job.js";
 import { startDataBackup } from "./src/jobs/dataBackup.job.js";
 import { startAuthTokenPurge } from "./src/jobs/authTokenPurge.job.js";
+import { startScoreDataCheck } from "./src/jobs/scoreDataCheck.job.js";
 import { presenceService } from "./src/modules/presence/presence.service.js";
 import { startNotificationRetention } from "./src/jobs/notificationRetention.job.js";
 import { startInboundMessageRetention } from "./src/jobs/inboundMessageRetention.job.js";
@@ -53,6 +54,7 @@ class ServerBootstrap {
       startAuditRetention();
       startDataBackup();
       startAuthTokenPurge();
+      startScoreDataCheck();
       // Presence keys left over from the previous process are stale; live sockets re-register on their next heartbeat.
       void presenceService.clearStale();
       startNotificationRetention();

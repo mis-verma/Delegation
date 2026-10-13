@@ -113,12 +113,12 @@ export const selectPersonWork = (
   range: Pick<TeamPeriodRange, 'startMs'>,
 ) => ({
   tasks: tasks.filter((t) =>
-    t.departmentId === departmentId
+    (!departmentId || t.departmentId === departmentId)
     && t.status !== 'draft'
     && (t.assigneeId === personId || t.userId === personId || t.additionalAssigneeIds.includes(personId))
     && isInTeamPeriod(t.createdAt, range)),
   tickets: tickets.filter((t) =>
-    t.departmentId === departmentId
+    (!departmentId || t.departmentId === departmentId)
     && (t.assigneeId === personId || t.userId === personId)
     && isInTeamPeriod(t.createdAt, range)),
 });

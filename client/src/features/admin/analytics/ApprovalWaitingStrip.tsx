@@ -7,6 +7,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { reportApi, type ApprovalKind } from '../../../api/reports';
 import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable';
 import { handleQueryRetry } from '../../../lib/queryHelpers';
+import { SectionHeader } from '../../scores/SectionHeader';
 import { StatTile } from './AnalyticsSummaryStrip';
 import { ANALYTICS_QUERY_KEY } from './useAnalyticsQueries';
 import { formatDuration } from './analyticsDisplay';
@@ -66,27 +67,30 @@ const ApprovalWaitingStripBase = ({ from, to }: ApprovalWaitingStripProps) => {
   };
 
   return (
-    <section aria-labelledby={headingId} className="flex flex-col gap-2 sm:gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-        <h2 id={headingId} className="t-section font-display font-bold text-text">Waiting for approval</h2>
-        <div className="flex items-center gap-2">
-          <ActiveRangeBadge from={from} to={to} />
-          <ExportMenu
-            disabled={!data}
-            aria-label="Export the approval figures"
-            filename="overview-waiting-for-approval"
-            sheetName="Approvals"
-            title={exportTitle({ what: 'Overview, waiting for approval', from, to })}
-            getRows={exportRows}
-          />
-        </div>
-      </div>
+    <section aria-labelledby={headingId} className="flex flex-col gap-3">
+      <SectionHeader
+        id={headingId}
+        title="Waiting for approval"
+        actions={
+          <>
+            <ActiveRangeBadge from={from} to={to} />
+            <ExportMenu
+              disabled={!data}
+              aria-label="Export the approval figures"
+              filename="overview-waiting-for-approval"
+              sheetName="Approvals"
+              title={exportTitle({ what: 'Overview, waiting for approval', from, to })}
+              getRows={exportRows}
+            />
+          </>
+        }
+      />
 
       {failed ? (
         <InlineError message="Could not load the approval figures." onRetry={() => void query.refetch()} />
       ) : (
         <div className="@container">
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 @3xl:grid-cols-3 [&>*:last-child:nth-child(odd)]:col-span-2 @3xl:[&>*:last-child:nth-child(odd)]:col-span-1">
+          <div className="grid grid-cols-2 gap-3 @3xl:grid-cols-3 [&>*:last-child:nth-child(odd)]:col-span-2 @3xl:[&>*:last-child:nth-child(odd)]:col-span-1">
             <StatTile
               icon={ShieldQuestion}
               iconTint="text-primary-600 dark:text-primary-400"

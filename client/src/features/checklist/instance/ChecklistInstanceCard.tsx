@@ -36,7 +36,7 @@ export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardPr
   return (
     <Link
       to={`/checklists/${instance.id}`}
-      className={cn(ENTITY_CARD_CLASS, 'justify-start gap-2.5 p-3.5 sm:p-3.5 active:bg-surface-hover/50 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 [-webkit-tap-highlight-color:transparent]')}
+      className={cn(ENTITY_CARD_CLASS, 'justify-start gap-3 p-4 sm:p-4 active:bg-surface-hover/50 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 [-webkit-tap-highlight-color:transparent]')}
     >
       <div className="flex flex-col gap-1 min-w-0">
         <p className="t-card font-display font-semibold text-text tracking-tight leading-snug line-clamp-2">{instance.title}</p>
@@ -54,7 +54,7 @@ export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardPr
         )}
       </div>
 
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-3">
         {total > 0 ? (
           <ChecklistProgressBar done={done} total={total} tone={overdue ? 'danger' : 'auto'} bare thin />
         ) : (

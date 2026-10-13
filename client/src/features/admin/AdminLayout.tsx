@@ -12,6 +12,7 @@ import {
   HeartPulse,
   Radio,
   Gauge,
+  ListOrdered,
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -58,7 +59,6 @@ const CHECKLIST_CHILDREN: AdminNavChild[] = [
   { to: '/admin/scheduled-checklists', label: 'Recurring Checklists' },
   { to: '/admin/checklist-compliance', label: 'Checklist Compliance' },
   { to: '/admin/checklist-weekly', label: 'Report' },
-  { to: '/admin/checklist-store-daily', label: 'Store and Dept Scores' },
   { to: '/admin/holidays', label: 'Holidays' },
   { to: '/admin/dress-types', label: 'Dress Types' },
   { to: '/admin/checklist-former', label: 'Former People' },
@@ -67,6 +67,8 @@ const CHECKLIST_CHILDREN: AdminNavChild[] = [
 
 const NAV: AdminNavItem[] = [
   { to: '/admin', icon: LayoutDashboard, label: 'Overview & Analytics', end: true },
+  // Every way of cutting the scores (department, store, person, checklist, module) on one page.
+  { to: '/admin/scores', icon: ListOrdered, label: 'Scores', end: false },
   // Checklists, tickets and delegations side by side by department, store or person.
   { to: '/admin/scorecard', icon: Gauge, label: 'Scorecard', end: false },
   { to: '/admin/directory', icon: Contact, label: 'People & Teams', end: false },
@@ -264,7 +266,8 @@ export const AdminLayout = () => {
     // ancestor once the link's own box collapsed to just its icon). Same isActive value either way
     // — this form just also survives Slot.
     // The Rankings page is part of Overview, so Overview stays lit there.
-    const isItemActive = end ? location.pathname === to || (to === '/admin' && location.pathname === '/admin/rankings') : location.pathname.startsWith(to);
+    // The data check opens from Scores, so Scores stays lit there.
+    const isItemActive = end ? location.pathname === to : location.pathname.startsWith(to) || (to === '/admin/scores' && location.pathname.startsWith('/admin/data-check'));
     const isActiveOrChild = isItemActive || hasActiveChild;
     // Collapsed desktop rail: labels are gone entirely (`hidden` removes them from the a11y tree
     // too), so a link's only remaining accessible name was its `title` attribute — which browsers

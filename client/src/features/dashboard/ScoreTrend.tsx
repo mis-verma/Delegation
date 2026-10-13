@@ -9,15 +9,12 @@ import { SCORE_QUERY_OPTIONS } from './scoreQueries';
 import { Skeleton } from '../../components/skeleton';
 import { InlineError } from '../../components/inlineError';
 import { formatPct } from '../../lib/percent';
+import { MODULE_LABEL as MODULE_NAME } from '../../lib/scoreLabels';
+import { SeriesLegend } from './SeriesLegend';
 import { SERIES_COLOR, SERIES_LABEL, seriesFor, type ModuleKey, type ScoreMetric, type SeriesKey } from './scoreMetrics';
 
 const MODULE_KEYS: readonly ModuleKey[] = ['checklist', 'ticket', 'delegation'];
-const MODULE_LABEL: Record<ModuleKey, string> = { checklist: 'Checklist', ticket: 'Tickets', delegation: 'Delegations' };
-const MODULES: { key: ModuleKey; label: string }[] = [
-  { key: 'checklist', label: 'Checklist' },
-  { key: 'ticket', label: 'Tickets' },
-  { key: 'delegation', label: 'Delegations' },
-];
+const MODULE_LABEL: Record<ModuleKey, string> = MODULE_NAME;
 const TRACK_FILL = 'color-mix(in oklab, var(--color-primary-500) 9%, transparent)';
 
 interface Point {
@@ -39,16 +36,16 @@ const TrendTooltip = ({ active, payload, series }: { active?: boolean; payload?:
   if (!active || !p) return null;
   return (
     <div className="flex min-w-40 flex-col gap-1.5 rounded-lg border border-border bg-surface p-3">
-      <p className="text-sm font-display font-bold text-text">{p.label}</p>
-      <p className="text-xs font-medium text-text-muted">{p.range}</p>
+      <p className="t-card font-display font-bold text-text">{p.label}</p>
+      <p className="t-meta font-medium text-text-muted">{p.range}</p>
       {p.due === 0 ? (
-        <p className="text-xs font-display text-text-muted">Nothing was due.</p>
+        <p className="t-meta font-display text-text-muted">Nothing was due.</p>
       ) : (
         <>
           {series.map((k) => (
-            <p key={k} className="text-xs font-display font-bold text-text"><span aria-hidden="true" className="mr-1.5 inline-block size-2 rounded-sm" style={{ backgroundColor: SERIES_COLOR[k] }} />{SERIES_LABEL[k]} {p[k] === null ? 'no data' : formatPct(p[k])}</p>
+            <p key={k} className="t-meta font-display font-bold text-text"><span aria-hidden="true" className="mr-1.5 inline-block size-2 rounded-sm" style={{ backgroundColor: SERIES_COLOR[k] }} />{SERIES_LABEL[k]} {p[k] === null ? 'no data' : formatPct(p[k])}</p>
           ))}
-          <p className="text-xs font-medium text-text-muted">{p.due} due</p>
+          <p className="t-meta font-medium text-text-muted">{p.due} due</p>
         </>
       )}
     </div>
@@ -95,18 +92,12 @@ export const ScoreTrend = ({ metric = 'overview', scope, id, period, from, to }:
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <PeriodTabControl value={module} options={MODULE_KEYS} labels={MODULE_LABEL} onChange={setModule} />
-        <div className="flex flex-wrap items-center gap-1.5">
-          {series.map((k) => (
-            <span key={k} className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-surface-hover/40 px-2.5 py-1 t-meta font-display font-semibold text-text-secondary">
-        <span aria-hidden="true" className="size-2 rounded-full" style={{ backgroundColor: SERIES_COLOR[k] }} />{SERIES_LABEL[k]}
-      </span>
-          ))}
-        </div>
+        <SeriesLegend series={series} labels={SERIES_LABEL} />
       </div>
 
-      <div className="relative h-48 w-full sm:h-56" role="img" aria-label={anyData ? `${series.map((k) => SERIES_LABEL[k]).join(' and ')} over time for ${MODULES.find((m) => m.key === module)?.label}` : 'Nothing was due in this window'}>
+      <div className="relative h-48 w-full sm:h-56" role="img" aria-label={anyData ? `${series.map((k) => SERIES_LABEL[k]).join(' and ')} over time for ${MODULE_LABEL[module]}` : 'Nothing was due in this window'}>
         {isPending ? (
           <div className="absolute inset-0 flex items-end justify-around gap-3 px-6 pb-8" role="status" aria-label="Loading the trend">
             {[45, 70, 55, 85, 60, 75, 50].map((h, i) => <Skeleton key={i} className="w-5 rounded-t-md sm:w-8" style={{ height: `${h}%` }} />)}
@@ -116,7 +107,7 @@ export const ScoreTrend = ({ metric = 'overview', scope, id, period, from, to }:
             <InlineError className="w-full" message="Couldn't load the trend." onRetry={() => void refetch()} />
           </div>
         ) : !anyData ? (
-          <div className="flex h-full items-center justify-center rounded-lg border border-border text-sm font-medium text-text-muted">Nothing was due in this window.</div>
+          <div className="flex h-full items-center justify-center rounded-lg border border-border t-card font-medium text-text-muted">Nothing was due in this window.</div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartPoints} accessibilityLayer={false} margin={{ top: 22, right: 4, left: isMobile ? 0 : 4, bottom: 0 }} barCategoryGap={isMobile ? '12%' : '24%'} barGap={3}>

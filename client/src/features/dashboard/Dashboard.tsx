@@ -103,7 +103,7 @@ export const Dashboard = () => {
               {maintenanceMatch && isAdmin && (
                 <div
                   role="status"
-                  className="flex items-center gap-2.5 mb-4 px-3.5 py-2.5 rounded-xl border border-warning/30 bg-warning/10 text-xs font-display font-medium text-text-secondary"
+                  className="flex items-center gap-2 mb-4 px-3 py-2.5 rounded-xl border border-warning/30 bg-warning/10 text-xs font-display font-medium text-text-secondary"
                 >
                   <Construction size={15} className="text-warning shrink-0" />
                   <span>

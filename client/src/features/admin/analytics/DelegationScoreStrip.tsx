@@ -1,98 +1,98 @@
-import { useId, useMemo } from 'react';
+import { useId } from 'react';
 import { useNavigate } from 'react-router';
-import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, CheckCircle2, Clock, ListChecks, Percent } from 'lucide-react';
 import { ActiveRangeBadge, ExportMenu, InlineError } from '../../../components';
-import { useAuth } from '../../../context/AuthContext';
-import { toDayParam } from '../../../api/checklistInstances';
-import type { DelegationScore } from '../../../api/scores';
 import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable';
+import { MODULE_LABEL, SCORE_LABEL } from '../../../lib/scoreLabels';
 import { delegationDrillHref } from '../../dashboard/scoreDrill';
-import { scoreQuery, useScoreReport } from '../../dashboard/scoreQueries';
+import { HowCalculated } from '../../scores/HowCalculated';
+import { SectionHeader } from '../../scores/SectionHeader';
 import { StatTile } from './AnalyticsSummaryStrip';
 import { formatPercent } from './analyticsDisplay';
-import { roundPct } from '../../../lib/percent';
+import { UpdatingNote } from './UpdatingNote';
+import { useOverviewScores } from './useOverviewScores';
 
 interface DelegationScoreStripProps {
-  /** The window every figure covers: the picked range, or the page's default window. */
+  /** The window every figure covers (ISO instants): the picked range, or the page's default window. */
   from?: string;
   to?: string;
-  /** Admin and PC read the whole organisation; a department head reads the sum of their own departments. */
+  /** Kept for the caller: Admin and PC read the whole organisation and a department head their department, both decided by the explorer itself. */
   isOrgWideRole: boolean;
 }
 
-type Totals = Pick<DelegationScore, 'due' | 'done' | 'onTime' | 'overdue' | 'completionPct' | 'onTimePct'>;
-
-const pct = (part: number, whole: number) => (whole > 0 ? roundPct((part / whole) * 100) : null);
-
-// The real delegation figures for the period, from the same score report as the Scorecard: how many
-// came due, how many were done, the completion and on-time rates, and how many are overdue. The
-// checklist-item and photo figures further down are a different thing (the steps inside delegations).
-export const DelegationScoreStrip = ({ from, to, isOrgWideRole }: DelegationScoreStripProps) => {
+// The delegation figures for the period, from the score explorer's whole-window row (the same answer the
+// Scores page shows): how many came due, how many were done, the completion and on-time rates, and how many
+// are overdue. The checklist-item and photo figures further down are a different thing (the steps inside delegations).
+export const DelegationScoreStrip = ({ from, to }: DelegationScoreStripProps) => {
   const headingId = useId();
   const navigate = useNavigate();
-  const { token } = useAuth();
-  const dayFrom = from ? toDayParam(from) : undefined;
-  const dayTo = to ? toDayParam(to) : undefined;
+  const scores = useOverviewScores(from, to);
+  const totals = scores.total?.delegation ?? null;
+  const dayFrom = scores.win?.from;
+  const dayTo = scores.win?.to;
 
-  const orgQuery = useQuery({
-    ...scoreQuery('org', undefined, dayFrom ?? '', dayTo ?? ''),
-    enabled: isOrgWideRole && !!token && !!dayFrom && !!dayTo,
-  });
-  const reportQuery = useScoreReport(dayFrom, dayTo, !isOrgWideRole);
-  const active = isOrgWideRole ? orgQuery : reportQuery;
-
-  const totals = useMemo<Totals | null>(() => {
-    if (isOrgWideRole) return orgQuery.data?.delegation ?? null;
-    const departments = reportQuery.data?.departments;
-    if (!departments) return null;
-    const sum = departments.reduce(
-      (acc, d) => ({ due: acc.due + d.delegation.due, done: acc.done + d.delegation.done, onTime: acc.onTime + d.delegation.onTime, overdue: acc.overdue + d.delegation.overdue }),
-      { due: 0, done: 0, onTime: 0, overdue: 0 },
-    );
-    return { ...sum, completionPct: pct(sum.done, sum.due), onTimePct: pct(sum.onTime, sum.done) };
-  }, [isOrgWideRole, orgQuery.data, reportQuery.data]);
-
-  const loading = active.isPending && !totals;
-  const failed = active.isError && !totals;
+  const loading = scores.isPending && !totals;
+  const failed = scores.isError && !totals;
   const empty = !!totals && totals.due === 0;
+  // On time (of finished) has nothing to divide when no delegation is done yet.
+  const noneFinished = !!totals && totals.done === 0;
   const text = (value: string | number) => (loading ? 'Loading' : value);
 
   const exportRows = (): TableRows => [
     ['Figure', 'Value'],
-    ['Due', totals?.due ?? null],
-    ['Done', totals?.done ?? null],
-    ['Completion % (done of due)', exportPct(totals?.completionPct)],
-    ['On time % (of finished)', exportPct(totals?.onTimePct)],
+    [SCORE_LABEL.due, totals?.due ?? null],
+    [SCORE_LABEL.done, totals?.done ?? null],
+    [`${SCORE_LABEL.completion} %`, exportPct(totals?.completion)],
+    [`${SCORE_LABEL.onTime} %`, exportPct(totals?.onTimeOfFinishedPct)],
     ['Past due and not done (not counting waiting for approval)', totals?.overdue ?? null],
   ];
 
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <h3 id={headingId} className="t-card font-display font-bold text-text">Delegations in this period</h3>
-        <div className="flex items-center gap-2">
-          <ActiveRangeBadge from={from} to={to} />
-          <ExportMenu
-            disabled={!totals}
-            aria-label="Export the delegation figures"
-            filename="overview-delegations-due"
-            sheetName="Delegations"
-            title={exportTitle({ what: 'Overview, delegations due in the period', from, to })}
-            getRows={exportRows}
-          />
-        </div>
-      </div>
+      <SectionHeader
+        id={headingId}
+        title={`${MODULE_LABEL.delegation} in this period`}
+        actions={
+          <>
+            <UpdatingNote show={scores.updating} />
+            <ActiveRangeBadge from={from} to={to} />
+            <ExportMenu
+              disabled={!totals}
+              aria-label="Export the delegation figures"
+              filename="overview-delegations-due"
+              sheetName="Delegations"
+              title={exportTitle({ what: 'Overview, delegations due in the period', from, to })}
+              getRows={exportRows}
+            />
+          </>
+        }
+      />
 
       {failed ? (
-        <InlineError message="Could not load the delegation figures." onRetry={() => void active.refetch()} />
+        <InlineError message="Could not load the delegation figures." onRetry={() => void scores.refetch()} />
       ) : (
         <div className="@container">
-          <div className="grid grid-cols-2 gap-3 sm:gap-4 @3xl:grid-cols-5">
-            <StatTile icon={ListChecks} iconTint="text-primary-600 dark:text-primary-400" label="Due" value={text(totals?.due ?? 0)} isLoading={loading} caption={empty ? 'Nothing was due' : 'Came due in the period'} />
-            <StatTile icon={CheckCircle2} iconTint="text-success" label="Done" value={text(totals?.done ?? 0)} isLoading={loading} caption="Approved or finished" />
-            <StatTile icon={Percent} iconTint="text-primary-600 dark:text-primary-400" label="Completion" value={text(empty ? 'No data' : formatPercent(totals?.completionPct))} isLoading={loading} caption="Done out of due" />
-            <StatTile icon={Clock} iconTint="text-success" label="On time (of finished)" value={text(empty ? 'No data' : formatPercent(totals?.onTimePct))} isLoading={loading} caption="Of those done, finished by the deadline" />
+          <div className="grid grid-cols-2 gap-3 @3xl:grid-cols-5">
+            <StatTile icon={ListChecks} iconTint="text-primary-600 dark:text-primary-400" label={SCORE_LABEL.due} value={text(totals?.due ?? 0)} isLoading={loading} caption={empty ? 'Nothing was due' : 'Came due in the period'} />
+            <StatTile icon={CheckCircle2} iconTint="text-success" label={SCORE_LABEL.done} value={text(totals?.done ?? 0)} isLoading={loading} caption="Approved or finished" />
+            <StatTile
+              icon={Percent}
+              iconTint="text-primary-600 dark:text-primary-400"
+              label={SCORE_LABEL.completion}
+              labelAdornment={<HowCalculated figure="completion" module="delegation" />}
+              value={text(empty ? 'No data' : formatPercent(totals?.completion))}
+              isLoading={loading}
+              caption="Done out of due"
+            />
+            <StatTile
+              icon={Clock}
+              iconTint="text-success"
+              label={SCORE_LABEL.onTime}
+              labelAdornment={<HowCalculated figure="onTime" module="delegation" />}
+              value={text(empty || noneFinished ? 'No data' : formatPercent(totals?.onTimeOfFinishedPct))}
+              isLoading={loading}
+              caption="Of those done, finished by the deadline"
+            />
             <StatTile
               icon={AlertTriangle}
               iconTint="text-warning"

@@ -2,13 +2,17 @@ import { CheckCheck, ChevronRight, Clock, X } from 'lucide-react';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '../../components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { rateToneClass } from '../checklist/checklistDisplay';
-import { SERIES_LABEL, type SeriesKey } from './scoreMetrics';
+import { SERIES_LABEL, type ModuleKey, type SeriesKey } from './scoreMetrics';
+import { complianceLabel } from '../../lib/scoreLabels';
+import { HowCalculated } from '../scores/HowCalculated';
 import { formatPct } from '../../lib/percent';
 
 interface ScoreDrillPopupProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
+  /** Which module the figures are for: names the second measure right (Answers right, or Met deadline) and says how each is calculated. */
+  module: ModuleKey;
   /** "Oct 1 to Oct 9", "This month": the window the figures are for. */
   windowLabel: string;
   /** Whose scores these are, when it is not the signed-in person. */
@@ -26,18 +30,18 @@ const GoButton = ({ icon: Icon, label, hint, primary, onClick }: { icon: typeof 
     type="button"
     onClick={onClick}
     className={cn(
-      'group flex min-h-14 w-full items-center gap-3 rounded-xl border px-3.5 py-2.5 text-left outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-500/40',
-      primary ? 'border-primary-500/40 bg-primary-500/10 hover:bg-primary-500/15' : 'border-border bg-surface hover:border-border-hover hover:bg-surface-hover/50',
+      'group flex min-h-14 w-full items-center gap-3 rounded-lg border px-3 py-2 text-left outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-primary-500/40',
+      'border-border bg-surface hover:border-border-hover',
     )}
   >
     <span className={cn('inline-flex size-9 shrink-0 items-center justify-center rounded-lg', primary ? 'bg-primary-600 text-white' : 'bg-surface-hover text-text-secondary')}>
       <Icon className="size-4" aria-hidden="true" />
     </span>
     <span className="min-w-0 flex-1">
-      <span className="block text-sm font-display font-semibold text-text">{label}</span>
+      <span className="block t-card font-display font-semibold text-text">{label}</span>
       <span className="block t-meta text-text-muted">{hint}</span>
     </span>
-    <ChevronRight className="size-4 shrink-0 text-text-light transition-transform duration-150 group-hover:translate-x-0.5" aria-hidden="true" />
+    <ChevronRight className="size-4 shrink-0 text-text-light" aria-hidden="true" />
   </button>
 );
 
@@ -46,7 +50,7 @@ const GoButton = ({ icon: Icon, label, hint, primary, onClick }: { icon: typeof 
  * tap to the finished items or the late ones. It replaces jumping straight to the late list, which hid the
  * score you had tapped and gave no way to see what was done.
  */
-export const ScoreDrillPopup = ({ open, onOpenChange, title, windowLabel, subject, figures, completedHref, lateHref, onGo }: ScoreDrillPopupProps) => (
+export const ScoreDrillPopup = ({ open, onOpenChange, title, module, windowLabel, subject, figures, completedHref, lateHref, onGo }: ScoreDrillPopupProps) => (
   <Dialog open={open} onOpenChange={onOpenChange}>
     {/* px/pt only on a phone: a plain p-5 overrode the sheet's safe-area bottom padding and sat the
         buttons on the iPhone home bar. Our own close button, 44px on touch (the built-in one is 40px). */}
@@ -62,11 +66,14 @@ export const ScoreDrillPopup = ({ open, onOpenChange, title, windowLabel, subjec
         <DialogDescription className="t-meta text-text-muted">{subject ? `${subject}, ${windowLabel}` : windowLabel}</DialogDescription>
       </div>
 
-      <ul className="flex flex-col divide-y divide-border/60 rounded-xl border border-border/60 bg-surface-hover/30">
+      <ul className="flex flex-col divide-y divide-border/60 rounded-lg border border-border">
         {figures.map((f) => (
-          <li key={f.key} className="flex items-center gap-3 px-3.5 py-2.5">
+          <li key={f.key} className="flex items-center gap-3 px-3 py-2">
             <span className="min-w-0 flex-1">
-              <span className="block text-sm font-display font-semibold text-text">{SERIES_LABEL[f.key]}</span>
+              <span className="flex items-center gap-0.5 t-card font-display font-semibold text-text">
+                {f.key === 'compliance' ? complianceLabel(module) : SERIES_LABEL[f.key]}
+                <HowCalculated figure={f.key === 'ontime' ? 'onTime' : f.key} module={module} />
+              </span>
               <span className="block t-meta text-text-muted">{f.note}</span>
             </span>
             <span className={cn('t-figure font-display font-bold tabular-nums', f.value === null ? 'text-text-light' : rateToneClass(f.value))}>

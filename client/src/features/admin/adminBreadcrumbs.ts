@@ -21,6 +21,12 @@ export function getAdminBreadcrumbs(pathname: string): BreadcrumbTrailItem[] | n
   if (pathname === '/admin') {
     return [DASHBOARD, { label: 'Overview' }];
   }
+  if (pathname.startsWith('/admin/scores')) {
+    return [DASHBOARD, { label: 'Overview', to: '/admin' }, { label: 'Scores' }];
+  }
+  if (pathname.startsWith('/admin/data-check')) {
+    return [DASHBOARD, { label: 'Overview', to: '/admin' }, { label: 'Scores', to: '/admin/scores' }, { label: 'Data check' }];
+  }
   if (pathname === '/admin/scorecard') {
     return [DASHBOARD, { label: 'Overview', to: '/admin' }, { label: 'Scorecard' }];
   }
@@ -31,9 +37,6 @@ export function getAdminBreadcrumbs(pathname: string): BreadcrumbTrailItem[] | n
     // The sidebar group is "Checklists", but this page is the recurring-checklist list, and its
     // crumb and h1 must read the same as the sidebar child.
     return [DASHBOARD, ADMIN_ROOT, { label: 'Recurring Checklists' }];
-  }
-  if (pathname.startsWith('/admin/checklist-store-daily')) {
-    return [DASHBOARD, ADMIN_ROOT, { label: 'Store and Dept Scores' }];
   }
   if (pathname.startsWith('/admin/checklist-compliance')) {
     return [DASHBOARD, ADMIN_ROOT, { label: 'Checklist Compliance' }];

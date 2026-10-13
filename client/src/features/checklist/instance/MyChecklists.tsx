@@ -25,6 +25,7 @@ import { ChecklistInstanceBoard } from './ChecklistInstanceBoard';
 import { MyChecklistsQuickStats, type MyChecklistsQuickFilterKey, type MyChecklistsQuickFilterCounts } from './MyChecklistsQuickStats';
 import { RECURRENCE_LABEL, VERIFICATION_STATUS_LABEL, VERIFICATION_CHIP, todayPeriodBoundIso, instanceDeadline } from '../checklistDisplay';
 import { useNow } from '../../../lib/useNow';
+import { windowLabel } from '../../scores/useScoreWindow';
 import type { ChecklistInstance, ChecklistInstanceStatus, ChecklistVerificationStatus } from '../../../api/checklistInstances';
 import type { ChecklistRecurrence } from '../../../api/checklistDefinitions';
 
@@ -53,14 +54,13 @@ const GROUP_BY_ICON: Record<GroupByKey, typeof Repeat> = { recurrence: Repeat, s
 const RECURRENCES = Object.keys(RECURRENCE_LABEL) as ChecklistRecurrence[];
 const VERIFICATIONS = Object.keys(VERIFICATION_STATUS_LABEL) as ChecklistVerificationStatus[];
 
-// Same Pending/Due/Completed/Overdue split Delegation and Tickets both use. "Pending" is every
-// not-every-item-done instance (overdue included) — mirrors the Dashboard's own KPI strip. "Due"
-// is the on-track subset of that (not yet past its period end); "Overdue" is the subset that's run
-// past it. These map onto the server's OPEN / DUE / COMPLETED / OVERDUE status filter (see
+// Same four-way split Delegation and Tickets both use, named plainly: "Not done" is every unfinished
+// run (missed included), "On track" is the subset still before its cutoff, "Missed" is the subset past
+// its cutoff, "Done" is finished. All four cover ONE window, this month up to today. These map onto the server's OPEN / DUE / COMPLETED / OVERDUE status filter (see
 // `serverStatus` below) rather than being applied here over a fully-downloaded list.
 
 const QUICK_FILTER_LABEL: Record<MyChecklistsQuickFilterKey, string> = {
-  pending: 'Pending', completed: 'Completed', due: 'Due', overdue: 'Overdue',
+  pending: 'Not done', completed: 'Done', due: 'On track', overdue: 'Missed',
 };
 
 const PAGE_SIZE = 50;
@@ -70,7 +70,7 @@ const NARROW_QUERY = '(max-width: 639px)';
 
 // Loading placeholders shaped like what replaces them, per view, so nothing jumps on arrival.
 const CardSkeleton = () => (
-  <div className={cn(PANEL_CLASS, 'flex flex-col gap-2.5 p-3.5')} aria-hidden>
+  <div className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-4')} aria-hidden>
     <div className="flex flex-col gap-1.5">
       <Skeleton className="h-4 w-3/4" />
       <Skeleton className="h-3 w-1/2" />
@@ -79,7 +79,7 @@ const CardSkeleton = () => (
       <Skeleton className="h-7 w-20 rounded-full" />
       <Skeleton className="h-7 w-28 rounded-full" />
     </div>
-    <div className="flex items-center gap-2.5">
+    <div className="flex items-center gap-3">
       <Skeleton className="h-1.5 flex-1 rounded-full" />
       <Skeleton className="h-4 w-14" />
     </div>
@@ -91,7 +91,7 @@ const InstancesSkeleton = ({ view }: { view: View }) => {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
         {[2, 1, 1].map((cards, col) => (
-          <div key={col} className="flex flex-col gap-2.5 lg:gap-3 lg:rounded-2xl lg:border lg:border-border/60 lg:p-2.5">
+          <div key={col} className="flex flex-col gap-3 lg:rounded-2xl lg:border lg:border-border/60 lg:p-2.5">
             <div className="flex items-center justify-between gap-2 px-0.5 lg:px-2 lg:py-1.5">
               <Skeleton className="h-4 w-24" />
               <Skeleton className="h-6 w-8 rounded-full" />
@@ -187,6 +187,9 @@ export const MyChecklists = () => {
   // Today's bound (org-local calendar day) — only applied when the Completed filter is actually
   // engaged, below, so the "Completed" tile and this list agree on what "completed" means.
   const todayBound = todayPeriodBoundIso();
+  // The one window every tile counts: this month up to today (the server's own default, sent explicitly).
+  const windowTo = todayBound.slice(0, 10);
+  const windowFrom = `${windowTo.slice(0, 8)}01`;
   // Opened from a chart bar: the server narrows to runs whose period falls in that bar's days.
   const createdRange = useCreatedRange();
   const rangeFrom = createdRange.range ? new Date(createdRange.range.from).toISOString() : undefined;
@@ -198,8 +201,10 @@ export const MyChecklists = () => {
     verificationStatus: verificationStatus || undefined,
     departmentId: departmentId || undefined,
     assigneeIds: assigneeIds.length ? assigneeIds : undefined,
-    from: rangeFrom ?? (serverStatus === 'COMPLETED' ? todayBound : undefined),
-    to: rangeTo ?? (serverStatus === 'COMPLETED' ? todayBound : undefined),
+    // A tile opens the same window the tile counted (this month up to today); with no tile the list keeps
+    // every open run, so a weekly checklist begun last month does not vanish mid-week.
+    from: rangeFrom ?? (quickFilter ? windowFrom : undefined),
+    to: rangeTo ?? (quickFilter ? windowTo : undefined),
   };
   // `isPending` is only true when there is no data at all (keepPreviousData holds the last page
   // while a new filter loads), so skeletons show on first load and the list just dims after that.
@@ -236,31 +241,29 @@ export const MyChecklists = () => {
     verificationStatus: verificationStatus || undefined,
     departmentId: departmentId || undefined,
     assigneeIds: assigneeIds.length ? assigneeIds : undefined,
+    from: windowFrom,
+    to: windowTo,
   });
-  // Pending/Due/Overdue only ever make sense all-time — a weekly or monthly checklist stays open
-  // for its whole period, not just the day it was generated, so a date bound here would make a
-  // still-open checklist vanish from your own list most days of the week. Completed is the one
-  // number that's safe (and better) to reset daily: an all-time "completed" count only ever
-  // climbs for a recurring checklist, so it stops meaning anything as a "your day" number.
-  const { data: todaySummary, isPending: todaySummaryIsPending } = useChecklistInstanceSummaryQuery({
+  // Today only, for the "assigned to you today" line. The tiles all read the one window above.
+  const { data: todaySummary } = useChecklistInstanceSummaryQuery({
     mine: true,
     storeId: storeId || undefined,
     recurrence: recurrence || undefined,
     verificationStatus: verificationStatus || undefined,
     departmentId: departmentId || undefined,
     assigneeIds: assigneeIds.length ? assigneeIds : undefined,
-    from: todayBound,
-    to: todayBound,
+    from: windowTo,
+    to: windowTo,
   });
   // The counts default to 0 until the summaries land; the tiles and the overdue banner wait for them
   // rather than showing (or hiding) numbers that aren't true yet.
-  const summaryPending = summaryIsPending || todaySummaryIsPending;
+  const summaryPending = summaryIsPending;
   const counts = useMemo<MyChecklistsQuickFilterCounts>(() => ({
     pending: summary?.pending ?? 0,
-    completed: todaySummary?.completed ?? 0,
+    completed: summary?.completed ?? 0,
     due: summary?.due ?? 0,
-    overdue: summary?.overdue ?? 0,
-  }), [summary, todaySummary]);
+    overdue: summary?.missed ?? 0,
+  }), [summary]);
 
   // assigneeIds narrowing now happens server-side (both here and in the summary query above), so
   // this only needs to re-sort the page the server already scoped.
@@ -269,20 +272,18 @@ export const MyChecklists = () => {
   // This page is today's work, and a checklist's last time (its cutoff, e.g. 6:30 PM) is where it ends:
   // a run shows while that time has not passed, then leaves the list. Only two kinds stay after it,
   // because the person still has to act: one sent back to fix, and one finished but not yet submitted.
-  // Waiting, verified and missed runs are history (History and Report keep them). Tapping the Overdue or
-  // Completed tile still lists those on purpose. The tile counts come from the server, untouched.
+  // Waiting, verified and missed runs are history (History and Report keep them). Tapping any tile lists
+  // exactly what that tile counted, so a number is never larger than the list it opens.
   const now = useNow();
   useRefreshOnNewDay();
   const instances = useMemo(() => {
-    if (quickFilter === 'overdue') return sortedInstances;
-    const todayStart = new Date(todayPeriodBoundIso()).getTime();
+    if (quickFilter) return sortedInstances;
     const needsAction = (i: ChecklistInstance) =>
       i.verificationStatus === 'REJECTED' ||
       (i.verificationStatus === 'NOT_SUBMITTED' && i.items.length > 0 && i.items.every((it) => it.isDone));
     return sortedInstances.filter((i) =>
       instanceDeadline(i) > now ||
-      needsAction(i) ||
-      (quickFilter === 'completed' && new Date(i.periodStart).getTime() >= todayStart));
+      needsAction(i));
   }, [sortedInstances, now, quickFilter]);
 
   // How many rows the active filter matches — taken from the summary counts already fetched
@@ -333,28 +334,28 @@ export const MyChecklists = () => {
             accessibility landmark; the count that used to sit in a lead "Total" tile is now this
             plain today-scoped line instead (see MyChecklistsQuickStats' `total` prop comment). */}
         <h1 className="sr-only">My Checklists</h1>
-        <div className="flex items-center gap-1.5 text-sm font-display text-text-muted">
+        <div className="flex items-center gap-1.5 t-card font-display text-text-muted">
           {todaySummary ? <span className="font-semibold text-text tabular-nums">{todaySummary.total}</span> : <Skeleton className="h-4 w-5" />}
           assigned to you today
         </div>
 
         {/* Stays up while anything of today's is overdue (past its cutoff, still not filled): one
-            step up from the red Overdue tile. Yesterday's misses are not in these counts, a new day
-            starts clean. One short line, tap to see them. Held back until the summary has loaded so
+            step up from the red Missed tile. It counts the whole window (this month so far), not just
+            today. One short line, tap to see them. Held back until the summary has loaded so
             it never flashes in or out on a count that is still the 0 default. */}
         {!summaryPending && counts.overdue > 0 && quickFilter !== 'overdue' && (
           <button
             type="button"
             onClick={() => toggleQuickFilter('overdue')}
-            className="w-full flex items-center gap-2.5 pl-2 pr-3 py-2 min-h-11 rounded-2xl border border-danger/25 bg-danger/10 text-left transition-colors duration-150 cursor-pointer hover:bg-danger/15 active:bg-danger/15 outline-none focus-visible:ring-2 focus-visible:ring-danger/40 [-webkit-tap-highlight-color:transparent]"
+            className="flex min-h-11 w-full items-center gap-3 rounded-lg border border-danger/25 bg-danger/10 py-2 pl-2 pr-3 text-left transition-colors duration-150 cursor-pointer hover:bg-danger/15 active:bg-danger/15 outline-none focus-visible:ring-2 focus-visible:ring-danger/40 [-webkit-tap-highlight-color:transparent]"
           >
             <span className="flex items-center justify-center size-8 rounded-full bg-danger text-white shrink-0">
               <AlertCircle size={16} strokeWidth={2.5} aria-hidden />
             </span>
-            <span className="flex-1 min-w-0 text-sm font-display font-semibold text-danger">
-              {counts.overdue} {counts.overdue === 1 ? 'checklist is' : 'checklists are'} overdue
+            <span className="min-w-0 flex-1 t-card font-display font-semibold text-danger">
+              {counts.overdue} {counts.overdue === 1 ? 'checklist' : 'checklists'} missed this month
             </span>
-            <span className="flex items-center gap-0.5 text-xs font-display font-semibold text-danger shrink-0">
+            <span className="flex shrink-0 items-center gap-0.5 t-meta font-display font-semibold text-danger">
               View
               <ChevronRight size={15} strokeWidth={2.5} aria-hidden />
             </span>
@@ -368,6 +369,12 @@ export const MyChecklists = () => {
           onClear={clearQuickFilter}
           isLoading={summaryPending}
         />
+        {summary && (
+          <p className="t-meta font-display text-text-muted">
+            {windowLabel(summary.window.from, summary.window.to)}
+            {summary.notCounted > 0 && ` (${summary.notCounted} not counted: no questions, not opened yet, or a holiday)`}
+          </p>
+        )}
       </div>
 
       {/* Same "Store scope box + Options button" pair Delegation and Tickets both put in their own
@@ -390,7 +397,7 @@ export const MyChecklists = () => {
             since there's no primary action to balance against on this page. Store used to be its
             own dropdown beside Options; it's a filter like the rest, so it lives in the sheet now
             and the toolbar is just Options, same as the other list pages. */}
-        <div className="flex items-center gap-2.5 shrink-0 ml-auto">
+        <div className="ml-auto flex shrink-0 items-center gap-3">
           <CreatedRangePicker createdRange={createdRange} className="shrink-0" />
           <OptionsSheet
             isOpen={showOptions}

@@ -2,6 +2,7 @@ import { memo, useId } from 'react';
 import { useNavigate } from 'react-router';
 import { Store, Building2, Users, ShieldCheck } from 'lucide-react';
 import { InlineError } from '../../../components';
+import { SectionHeader } from '../../scores/SectionHeader';
 import { StatTile } from './AnalyticsSummaryStrip';
 import type { OrgCounts } from '../../../api/scores';
 
@@ -41,21 +42,21 @@ const OrgSnapshotStripBase = ({ counts, isPending, isError, onRetry }: OrgSnapsh
   const inactiveNote = (count: number) => (count > 0 ? `${count} inactive` : 'All active');
 
   return (
-    <section aria-labelledby={headingId} className="flex flex-col gap-3 sm:gap-4">
-      <h2 id={headingId} className="t-section font-display font-bold text-text">Your organisation</h2>
+    <section aria-labelledby={headingId} className="flex flex-col gap-3">
+      <SectionHeader id={headingId} title="Your organisation" />
 
       {isError && <InlineError message="Could not load the organisation counts." onRetry={onRetry} />}
 
       <div className="@container">
         {/* Two-up tiles on a phone; four across only once the column itself is wide enough. */}
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 @4xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 @4xl:grid-cols-4">
           <StatTile
             icon={Store}
             label="Stores"
             value={unavailable ? PLACEHOLDER : stats.activeStores}
             isLoading={isPending}
             caption={caption(inactiveNote(stats.inactiveStores))}
-            iconBgTint="bg-coral-50 dark:bg-coral-500/10"
+            iconBgTint="bg-coral-500/10"
             iconTint="text-coral-600 dark:text-coral-400"
             onClick={() => navigate('/admin/directory?tab=stores')}
           />
@@ -65,7 +66,7 @@ const OrgSnapshotStripBase = ({ counts, isPending, isError, onRetry }: OrgSnapsh
             value={unavailable ? PLACEHOLDER : stats.activeDepartments}
             isLoading={isPending}
             caption={caption(inactiveNote(stats.inactiveDepartments))}
-            iconBgTint="bg-primary-50 dark:bg-primary-500/10"
+            iconBgTint="bg-primary-500/10"
             iconTint="text-primary-600 dark:text-primary-400"
             onClick={() => navigate('/admin/directory?tab=departments')}
           />
@@ -75,7 +76,7 @@ const OrgSnapshotStripBase = ({ counts, isPending, isError, onRetry }: OrgSnapsh
             value={unavailable ? PLACEHOLDER : stats.activeUsers}
             isLoading={isPending}
             caption={caption(stats.newHires > 0 ? `${stats.newHires} joined in the last 30 days` : 'No new joiners in 30 days')}
-            iconBgTint="bg-primary-50 dark:bg-primary-500/10"
+            iconBgTint="bg-primary-500/10"
             iconTint="text-primary-600 dark:text-primary-400"
             onClick={() => navigate('/admin/directory?tab=users')}
           />

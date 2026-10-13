@@ -1,5 +1,5 @@
-import { memo, useCallback, useId, useMemo } from 'react';
-import { useNavigate, useLocation, useSearchParams } from 'react-router';
+import { memo, useCallback, useId } from 'react';
+import { useNavigate, useSearchParams } from 'react-router';
 import { AlertTriangle, ClipboardCheck, FileDown, Info, Repeat, TicketCheck } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button, InlineError, NoticeBanner } from '../../../components';
@@ -16,9 +16,9 @@ import { ApprovalWaitingStrip } from './ApprovalWaitingStrip';
 import { PerformanceLeadersCard } from './PerformanceLeadersCard';
 import { TeamLeaderboardRail } from './TeamLeaderboardRail';
 import { useAnalyticsRefresh, useRecentActivityFeed } from './useAnalyticsQueries';
+import { useOverviewScoreWindow } from './useOverviewScores';
 import { RecentActivity } from '../../dashboard/RecentActivity';
 import { MyScoresCard } from '../../dashboard/MyScoresCard';
-import { toDayParam } from '../../../api/checklistInstances';
 import { useOrgCounts } from '../../dashboard/scoreQueries';
 import type { Department } from '../../../api/departments';
 import type { Store } from '../../../api/stores';
@@ -114,7 +114,7 @@ const OverviewTabs = memo(({ groupBy, from, to, windowFrom, windowTo, isOrgWideR
   const section: SectionValue = SECTION_TABS.find((t) => t.value === requested)?.value ?? DEFAULT_SECTION;
 
   return (
-    <section id={SECTIONS_ANCHOR_ID} tabIndex={-1} aria-labelledby={headingId} className="flex flex-col gap-4 scroll-mt-4 lg:scroll-mt-52 focus:outline-none">
+    <section id={SECTIONS_ANCHOR_ID} tabIndex={-1} aria-labelledby={headingId} className="flex flex-col gap-4 scroll-mt-4 focus:outline-none lg:scroll-mt-52">
       <h2 id={headingId} className="sr-only">Performance by area</h2>
       <Tabs value={section} onValueChange={(v) => patch({ tab: v === DEFAULT_SECTION ? null : v })}>
         {/* Equal columns on a phone: the icon drops out and a long label wraps to two lines
@@ -132,14 +132,14 @@ const OverviewTabs = memo(({ groupBy, from, to, windowFrom, windowTo, isOrgWideR
           ))}
         </TabsList>
 
-        <TabsContent value="delegations" className="pt-4 sm:pt-6">
+        <TabsContent value="delegations" className="pt-4">
           <TaskChecklistKpiSection groupBy={groupBy} from={from} to={to} windowFrom={windowFrom} windowTo={windowTo} isOrgWideRole={isOrgWideRole} />
         </TabsContent>
-        <TabsContent value="store-checklists" className="pt-4 sm:pt-6">
-          <ChecklistInstanceKpiSection groupBy={groupBy} from={from} to={to} isOrgWideRole={isOrgWideRole} />
+        <TabsContent value="store-checklists" className="pt-4">
+          <ChecklistInstanceKpiSection groupBy={groupBy} from={from} to={to} windowFrom={windowFrom} windowTo={windowTo} isOrgWideRole={isOrgWideRole} />
         </TabsContent>
-        <TabsContent value="tickets" className="pt-4 sm:pt-6">
-          <TicketKpiSection groupBy={groupBy} from={from} to={to} isOrgWideRole={isOrgWideRole} />
+        <TabsContent value="tickets" className="pt-4">
+          <TicketKpiSection groupBy={groupBy} from={from} to={to} windowFrom={windowFrom} windowTo={windowTo} isOrgWideRole={isOrgWideRole} />
         </TabsContent>
       </Tabs>
     </section>
@@ -191,30 +191,17 @@ export const OrgOverview = () => {
     },
     [patch],
   );
-  // The full ranking is its own page now, opened with the same time window.
-  const location = useLocation();
-  const openRankings = useCallback(() => {
-    const next = new URLSearchParams(location.search);
-    next.delete('tab');
-    const search = next.toString();
-    navigate(`/admin/rankings${search ? `?${search}` : ''}`);
-  }, [location.search, navigate]);
-
-  // The Scorecard opens on the period this page is showing, so the window carries over.
-  const openScorecard = useCallback(() => {
-    const next = new URLSearchParams({ from: toDayParam(windowFrom), to: toDayParam(windowTo) });
-    navigate(`/admin/scorecard?${next.toString()}`);
-  }, [navigate, windowFrom, windowTo]);
+  // The organisation scores follow this page period bar, so the page never shows two windows at once. The same org
+  // days (never later than today) go to the explorer, so the Scores page opens on exactly these numbers.
+  const scoreWindow = useOverviewScoreWindow(windowFrom, windowTo);
+  const scoresHref = useCallback(
+    (view: 'department' | 'person') => `/admin/scores?${new URLSearchParams({ view, ...(scoreWindow ? { from: scoreWindow.from, to: scoreWindow.to } : {}) }).toString()}`,
+    [scoreWindow],
+  );
+  // The full ranking is the Scores page now, opened on the same window.
+  const openRankings = useCallback(() => navigate(scoresHref('department')), [navigate, scoresHref]);
 
   const { updatedAt, isRefreshing, refresh } = useAnalyticsRefresh();
-
-  // The organisation scores follow this page's period bar, so the page never shows two windows at once.
-  const scoreWindow = useMemo(() => {
-    const from = toDayParam(windowFrom);
-    const to = toDayParam(windowTo);
-    const fmt = (day: string) => new Date(`${day}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-    return { from, to, label: from === to ? fmt(from) : `${fmt(from)} to ${fmt(to)}` };
-  }, [windowFrom, windowTo]);
 
   // Names for the department head's scope notice only. Admin and PC get the four organisation counts
   // from one small request instead of the whole roster, so they never download these lists here.
@@ -225,7 +212,7 @@ export const OrgOverview = () => {
   const retrySnapshot = useCallback(() => void refetchCounts(), [refetchCounts]);
 
   return (
-    <div className="flex flex-col gap-4 w-full">
+    <div className="flex w-full flex-col gap-6">
       <h1 className="sr-only">Overview and analytics</h1>
       <ScopeNotice
         role={user?.role}
@@ -247,13 +234,13 @@ export const OrgOverview = () => {
         actions={
           orgWide ? (
             <>
-            <Button variant="outline" size="sm" className="pointer-coarse:min-h-11" onClick={openScorecard}>
-              Scorecard
-            </Button>
-            <Button variant="outline" size="sm" className="pointer-coarse:min-h-11" onClick={() => navigate('/admin/reports')}>
-              <FileDown size={14} aria-hidden="true" />
-              Reports
-            </Button>
+              <Button variant="outline" size="sm" onClick={openRankings}>
+                Scores
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => navigate('/admin/reports')}>
+                <FileDown size={14} aria-hidden="true" />
+                Reports
+              </Button>
             </>
           ) : undefined
         }
@@ -266,13 +253,13 @@ export const OrgOverview = () => {
 
       {/* Admin and PC: checklists, tickets and delegations side by side for the whole organisation, as
           completion, compliance and on time, with every department ranked under it. */}
-      {orgWide && <MyScoresCard initialScope="org" window={scoreWindow} moreHref="/admin/scorecard" />}
+      {orgWide && scoreWindow && <MyScoresCard initialScope="org" window={scoreWindow} moreHref={scoresHref('department')} />}
 
       {/* Who is top and who is low, right on the page: the full ranked table lives in the Stores
           tab below, this is the glance view of it. Org-wide roles only. */}
       {orgWide && (
         <div className="@container">
-          <div className="grid grid-cols-1 gap-4 sm:gap-6 @3xl:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 @3xl:grid-cols-2">
             <PerformanceLeadersCard from={windowFrom} to={windowTo} onViewFull={openRankings} />
             <TeamLeaderboardRail from={windowFrom} to={windowTo} />
           </div>

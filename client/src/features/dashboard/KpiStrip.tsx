@@ -131,7 +131,7 @@ const ModuleCard = ({ view, onOpen, score, scopeTag }: { view: ModuleView; onOpe
   if (view.isPending) {
     // Same blocks, at the same heights, as the loaded tile below, so nothing jumps when it lands.
     return (
-      <div className={cn(PANEL_CLASS, 'flex flex-col gap-2.5 sm:gap-3 p-3 sm:p-4')} role="status" aria-label={`Loading ${view.noun}`}>
+      <div className={cn(PANEL_CLASS, 'flex flex-col gap-2 sm:gap-3 p-3 sm:p-4')} role="status" aria-label={`Loading ${view.noun}`}>
         <div className="flex h-10 sm:h-8 items-center gap-2">
           <Skeleton className="hidden sm:block size-8 shrink-0 rounded-lg" />
           <Skeleton className="h-5 w-24" />
@@ -149,7 +149,7 @@ const ModuleCard = ({ view, onOpen, score, scopeTag }: { view: ModuleView; onOpe
   }
   const failed = view.isError || view.pending == null;
   return (
-    <section aria-label={scopeTag ? `${view.title}, ${scopeTag.toLowerCase()}` : view.title} className={cn(PANEL_CLASS, 'flex min-w-0 flex-col gap-2.5 sm:gap-3 p-3 sm:p-4 transition-colors hover:border-border-hover')}>
+    <section aria-label={scopeTag ? `${view.title}, ${scopeTag.toLowerCase()}` : view.title} className={cn(PANEL_CLASS, 'flex min-w-0 flex-col gap-2 sm:gap-3 p-3 sm:p-4 transition-colors hover:border-border-hover')}>
       <header className="flex items-center gap-2">
         {/* Desktop only: on a phone the tile took the room the module's name needs. */}
         <span className="hidden sm:flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-500/10 text-primary-600 dark:text-primary-400">
@@ -346,7 +346,7 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
         {views.map((view) => (
           <ModuleCard
             key={view.key}

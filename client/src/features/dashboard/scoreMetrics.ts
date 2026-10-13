@@ -1,5 +1,6 @@
 import type { Scores } from '../../api/scores';
 import { roundPct } from '../../lib/percent';
+import { SCORE_LABEL, SCORE_LABEL_SHORT } from '../../lib/scoreLabels';
 
 // The three percentages every module is judged on, and the tab that picks which to look at.
 export type SeriesKey = 'completion' | 'compliance' | 'ontime';
@@ -10,10 +11,10 @@ export const METRIC_OPTIONS: readonly ScoreMetric[] = ['overview', 'completion',
 // 'overview' is the overall score (completion and compliance counted equally). Its tab says "Overall",
 // the short form of the "Overall score" name used everywhere else, because the measure tabs share one
 // narrow row of four.
-export const METRIC_LABEL: Record<ScoreMetric, string> = { overview: 'Overall', completion: 'Completion', compliance: 'Compliance', ontime: 'On time' };
+export const METRIC_LABEL: Record<ScoreMetric, string> = { overview: SCORE_LABEL_SHORT.overall, completion: SCORE_LABEL.completion, compliance: SCORE_LABEL.compliance, ontime: SCORE_LABEL_SHORT.onTime };
 export const isMetric = (v: unknown): v is ScoreMetric => typeof v === 'string' && (METRIC_OPTIONS as readonly string[]).includes(v);
 
-export const SERIES_LABEL: Record<SeriesKey, string> = { completion: 'Completion', compliance: 'Compliance', ontime: 'On time (of finished)' };
+export const SERIES_LABEL: Record<SeriesKey, string> = { completion: SCORE_LABEL.completion, compliance: SCORE_LABEL.compliance, ontime: SCORE_LABEL.onTime };
 /** Plain words for the phone legend, where there is no hint to explain "completion" and "compliance". */
 export const SERIES_PHONE_LABEL: Record<SeriesKey, string> = { completion: 'Done', compliance: 'On time or right', ontime: 'On time' };
 // Blue in three weights, so the three read as one family and a colour means the same in every view.
@@ -126,7 +127,7 @@ export const acrossModules = (s: ModuleScores): { due: number; done: number; onT
 export const totalDue = (s: ModuleScores): number => s.checklist.due + s.ticket.due + s.delegation.due;
 
 /** Column heads for a per-module score table, the same words the screens use. */
-export const MODULE_EXPORT_HEAD = ['Overall score', 'Completion %', 'Compliance %', 'On time (of finished) %', 'Due', 'Done', 'Late', 'Not done'] as const;
+export const MODULE_EXPORT_HEAD = [SCORE_LABEL.overall, `${SCORE_LABEL.completion} %`, `${SCORE_LABEL.compliance} %`, `${SCORE_LABEL.onTime} %`, 'Due', 'Done', 'Late', 'Not done'] as const;
 
 /** One module's cells under MODULE_EXPORT_HEAD: numbers only, empty where there is no figure. */
 export const moduleExportCells = (s: ModuleScores, key: ModuleKey): (number | null)[] => {

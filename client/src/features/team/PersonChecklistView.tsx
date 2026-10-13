@@ -13,7 +13,7 @@ import type { ChecklistReportMetrics } from '../../api/checklistReports';
 import type { Task } from '../../api/task';
 import type { Ticket } from '../../api/ticket';
 import { useTeamTaskChecklistTotals } from './useTeamChecklistReport';
-import { TEAM_PERIOD_LABELS, TEAM_PERIOD_PHRASE, selectPersonWork, type ReportState, type TeamPeriod, type TeamPeriodRange } from './teamDisplay';
+import { selectPersonWork, type ReportState, type TeamPeriodRange } from './teamDisplay';
 
 interface PersonChecklistViewProps {
   personName: string;
@@ -29,7 +29,10 @@ interface PersonChecklistViewProps {
   scores: ScoreReportRow | undefined;
   /** The page-level period: it drives the checklist report, the delegation/ticket counts and the
    *  wording below, so every number on this screen is for the same window. */
-  period: TeamPeriod;
+  /** The window in words: "This month", "1 Oct 2026 to 14 Oct 2026". */
+  periodLabel: string;
+  /** The window after a verb or noun: "this month", "from 1 Oct 2026 to 14 Oct 2026". */
+  periodPhrase: string;
   range: TeamPeriodRange;
   /** This person's row from the checklist report; undefined means no checklist ran for them. */
   checklist: ChecklistReportMetrics | undefined;
@@ -79,7 +82,8 @@ export const PersonChecklistView = ({
   tickets,
   workLoading,
   scores,
-  period,
+  periodLabel,
+  periodPhrase,
   range,
   checklist,
   reportState,
@@ -87,7 +91,7 @@ export const PersonChecklistView = ({
   onRetryReport,
 }: PersonChecklistViewProps) => {
   const navigate = useNavigate();
-  const phrase = TEAM_PERIOD_PHRASE[period];
+  const phrase = periodPhrase;
   const taskTotals = useTeamTaskChecklistTotals(range, departmentId, personId);
 
   // The same selector the person card uses, so the card and this screen always agree.
@@ -176,7 +180,7 @@ export const PersonChecklistView = ({
           disabled={reportState === 'loading'}
           filename={`${personName.toLowerCase().replace(/\s+/g, '-')}-team-overview`}
           sheetName="Team Overview"
-          title={exportTitle({ what: `Team overview, ${personName}`, from: range.from, to: range.to, period: TEAM_PERIOD_LABELS[period], filters: { Department: departmentName } })}
+          title={exportTitle({ what: `Team overview, ${personName}`, from: range.from, to: range.to, period: periodLabel, filters: { Department: departmentName } })}
           // Three small tables: 9 checklist figures, 2 work figures, 5 categories.
           getRows={() => ({ rows: buildExportRows(), count: 11 + 4 + 5 })}
         />

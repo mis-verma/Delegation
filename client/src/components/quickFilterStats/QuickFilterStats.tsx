@@ -127,7 +127,7 @@ export function QuickFilterStats<K extends string>({
             className={cn(
               'flex min-w-0 flex-col items-center justify-start gap-0.5 rounded-xl border bg-surface px-0.5 py-2 text-center font-display outline-none',
               'sm:flex-row sm:items-start sm:justify-between sm:gap-3 sm:p-4 sm:text-left',
-              'transition-[border-color,box-shadow,transform] duration-150 active:scale-[0.985] [-webkit-tap-highlight-color:transparent]',
+              'transition-colors duration-150 [-webkit-tap-highlight-color:transparent]',
               'focus-visible:ring-2 focus-visible:ring-primary-500/50',
               'border-border hover:border-border-hover',
             )}

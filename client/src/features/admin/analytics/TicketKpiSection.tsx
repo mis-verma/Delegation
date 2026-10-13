@@ -2,13 +2,19 @@ import { useMemo } from 'react';
 import { TicketCheck, Timer, AlertTriangle, Clock } from 'lucide-react';
 import { KpiSectionShell } from './KpiSectionShell';
 import { useTicketTatReportQuery } from './useAnalyticsQueries';
-import { bucketRange, latestWithTrend, formatPercent, formatDuration, slaMetRate, slaMetWithTrend, withoutEmptyTail } from './analyticsDisplay';
+import { bucketRange, latestWithTrend, formatPercent, formatDuration, slaMetRate, withoutEmptyTail, NO_TREND } from './analyticsDisplay';
+import { useOverviewScores } from './useOverviewScores';
+import { SCORE_LABEL } from '../../../lib/scoreLabels';
+import { orgDayWindow } from '../../dashboard/scoreDrill';
 import type { GroupBy } from './GroupByControl';
 
 interface TicketKpiSectionProps {
   groupBy: GroupBy;
   from?: string;
   to?: string;
+  /** The Overview's window (ISO instants): the score figures (on time, closed late) cover it, picked range or not. */
+  windowFrom?: string;
+  windowTo?: string;
   /** /admin/tickets (the org-wide destination) is PC/ADMIN-gated; everyone else uses /tickets,
    *  which the server already limits to what that person can see. */
   isOrgWideRole: boolean;
@@ -16,23 +22,28 @@ interface TicketKpiSectionProps {
 
 const NOTHING_COUNTED = 'Nothing counted in this period';
 
-export const TicketKpiSection = ({ groupBy, from, to, isOrgWideRole }: TicketKpiSectionProps) => {
+export const TicketKpiSection = ({ groupBy, from, to, windowFrom, windowTo, isOrgWideRole }: TicketKpiSectionProps) => {
   // A picked range is one whole-range figure (the same as the headline strip above), so the cards
   // read a 'none' report; the chart still reads the grouped series so it has points to draw.
   const hasRange = Boolean(from && to);
   const chartQuery = useTicketTatReportQuery(groupBy, from, to);
   const cardQuery = useTicketTatReportQuery(hasRange ? 'none' : groupBy, from, to);
   const { data: rows } = cardQuery;
-  const isPending = cardQuery.isPending || chartQuery.isPending;
-  const isError = cardQuery.isError || chartQuery.isError;
-  const refetch = () => Promise.all([cardQuery.refetch(), chartQuery.refetch()]);
-  // Of the tickets closed in the period that had a due time, the share closed by it. Never above 100%, unlike
+  // The score figures (on time, closed late) come from the score explorer for the whole window, the same answer the
+  // Scores page shows. The report above still feeds the trend line, the average time to close and the overdue count.
+  const scores = useOverviewScores(windowFrom, windowTo);
+  const ticket = scores.total?.ticket;
+  const scoresLoading = scores.isPending && !scores.data;
+  const isPending = cardQuery.isPending || chartQuery.isPending || scoresLoading;
+  const isError = cardQuery.isError || chartQuery.isError || (scores.isError && !scores.data);
+  const refetch = () => Promise.all([cardQuery.refetch(), chartQuery.refetch(), ...(scores.isError ? [scores.refetch()] : [])]);
+  // Of the tickets closed in the window that had a due time, the share closed by it. Never above 100%, unlike
   // closed against raised, which passes 100% whenever older tickets get closed.
-  const onTime = slaMetWithTrend(rows);
+  const onTimeValue = ticket && ticket.done > 0 ? ticket.onTimeOfFinishedPct : null;
+  const windowText = scores.win?.label;
   const chartData = useMemo(() => (chartQuery.data ?? []).map((r) => ({ ...r, onTimeRate: slaMetRate(r) })), [chartQuery.data]);
   const avgTime = latestWithTrend(rows, 'avgTatHours', 'count');
   const overdue = latestWithTrend(rows, 'overdueCount', 'count');
-  const closedLate = latestWithTrend(rows, 'closedLateCount', 'count');
 
   // The ticket list reads ?quickFilter= (pending / completed / due / delayed) and, for a score link,
   // ?sla=closed_late with the window the tickets were due in.
@@ -41,7 +52,11 @@ export const TicketKpiSection = ({ groupBy, from, to, isOrgWideRole }: TicketKpi
   // days. Both open the tickets that were DUE in that window, filtered the same way the figure counts them.
   const slaHref = (sla: 'closed_late' | 'closed_on_time') => {
     let window: { from: string; to: string } | null = null;
-    if (from && to) window = { from, to };
+    // The explorer's days when it has them, so the list is the tickets the figure counted.
+    if (scores.win) {
+      const { start, end } = orgDayWindow(scores.win.from, scores.win.to);
+      window = { from: start, to: end };
+    } else if (from && to) window = { from, to };
     else if (rows) {
       const trimmed = withoutEmptyTail(rows);
       const latest = trimmed[trimmed.length - 1];
@@ -65,7 +80,8 @@ export const TicketKpiSection = ({ groupBy, from, to, isOrgWideRole }: TicketKpi
       isPending={isPending}
       isError={isError}
       errorMessage="Could not load the ticket figures."
-      error={cardQuery.error ?? chartQuery.error}
+      error={cardQuery.error ?? chartQuery.error ?? scores.error}
+      updating={scores.updating}
       onRetry={() => void refetch()}
       from={from}
       to={to}
@@ -74,14 +90,16 @@ export const TicketKpiSection = ({ groupBy, from, to, isOrgWideRole }: TicketKpi
         {
           icon: TicketCheck,
           iconTint: 'text-primary-600 dark:text-primary-400',
-          label: 'Closed on time',
-          value: formatPercent(onTime.value),
-          raw: onTime.value,
+          label: SCORE_LABEL.onTime,
+          how: { figure: 'onTime', module: 'ticket' },
+          value: formatPercent(onTimeValue),
+          raw: onTimeValue,
           unit: '%',
-          hasData: onTime.value != null,
+          hasData: onTimeValue != null,
           noDataText: 'No closed tickets with a due time',
-          trend: onTime.trend,
-          caption: 'Of tickets closed, closed by the due time',
+          // One figure for the whole window: no previous-period change beside it.
+          trend: NO_TREND,
+          caption: windowText ? `Of tickets closed, closed by the due time, ${windowText}` : 'Of tickets closed, closed by the due time',
           href: onTimeHref,
         },
         {
@@ -116,11 +134,11 @@ export const TicketKpiSection = ({ groupBy, from, to, isOrgWideRole }: TicketKpi
         {
           icon: Clock,
           iconTint: 'text-danger',
-          label: 'Closed late',
-          value: closedLate.value ?? 0,
-          hasData: closedLate.value != null,
+          label: `Closed ${SCORE_LABEL.late.toLowerCase()}`,
+          value: ticket?.late ?? 0,
+          hasData: ticket != null,
           noDataText: NOTHING_COUNTED,
-          trend: closedLate.trend,
+          trend: NO_TREND,
           lowerIsBetter: true,
           caption: 'Closed after the due time',
           href: lateHref,
@@ -129,7 +147,7 @@ export const TicketKpiSection = ({ groupBy, from, to, isOrgWideRole }: TicketKpi
       chart={{
         data: chartData,
         groupBy,
-        series: [{ key: 'onTimeRate', label: 'Closed on time', color: 'var(--color-primary-500)' }],
+        series: [{ key: 'onTimeRate', label: SCORE_LABEL.onTime, color: 'var(--color-primary-500)' }],
         valueSuffix: '%',
         yDomain: [0, 100],
       }}

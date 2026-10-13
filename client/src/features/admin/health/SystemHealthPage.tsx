@@ -1,4 +1,5 @@
 import { memo, type ReactNode } from 'react';
+import { Link } from 'react-router';
 import { CheckCircle2, Database, HardDrive, HeartPulse, Layers, RefreshCw, Server, TriangleAlert, XCircle, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button, IconChip, InlineError, NoticeBanner, PageHeader, PANEL_CLASS, Skeleton } from '../../../components';
@@ -215,6 +216,10 @@ export const SystemHealthPage = () => {
           </section>
         </>
       )}
+      <p className="t-meta text-text-muted">
+        Scores that don&apos;t add up between pages?{' '}
+        <Link viewTransition to="/admin/data-check" className="font-display font-semibold text-text underline-offset-2 hover:underline">Open data check</Link>
+      </p>
     </div>
   );
 };

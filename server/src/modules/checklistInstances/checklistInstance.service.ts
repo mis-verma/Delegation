@@ -33,7 +33,7 @@ import type { Role } from "../../db/schema/core.js"
 import { emitChecklistEvent } from "../../sockets/checklistEvent.js"
 import { env } from "../../config/env.js"
 import { checklistReportService, type ChecklistReportQuery } from "./checklistReport.service.js"
-import { weightedGoodExpr, weightedScoredExpr, weightedGoodForDepartment, weightedScoredForDepartment } from "../checklistReports/checklistReport.service.js"
+import { weightedGoodExpr, weightedScoredExpr, weightedGoodForDepartment, weightedScoredForDepartment, runSelect, runGroupBy, runFlagsOf, loadExtraDayAssignees } from "../checklistReports/checklistReport.service.js"
 import type { ChecklistReportScope } from "./checklistReportScope.js"
 import { orgLocalDate, addDays, utcSql, asOrgDay } from "./checklistReportRange.js"
 import { hasExtraDay, isIdleHolidayRun, loadOffDayRules, type RunAssignee } from "../scores/offDayRules.js"
@@ -1029,16 +1029,24 @@ export const checklistInstanceService = {
      * CompareDashboard's completion ratio. Each of those was the reason the list endpoints had to
      * stay unbounded; with the numbers coming from the database, the lists can finally paginate.
      *
-     * Two round-trips, not six: one conditional aggregate over instances, one over their items.
-     *
-     * pending / due / overdue are windowed (see SUMMARY_WINDOW_DAYS), unless the caller asked for an
-     * explicit `from`: someone looking at last quarter on the compliance board wants that period's
-     * misses, not zeros. The list's OPEN/DUE/OVERDUE filter uses the same window, so a tile and the
-     * list it opens agree; `total` is the unfiltered list's count, and total = completed + pending +
-     * olderOpen (unfinished runs older than the window). Completion counts an N/A question as done, exactly like everywhere else
-     * (isDone is what N/A sets), so a run with N/A answers can still be complete.
+     * One explicit window (the caller's from/to, else month to date) and the run formulas of the Report: see the
+     * comment inside. Fields: total (every run in the window), completed, pending (= overdue + due), due (on track),
+     * overdue/missed (past cutoff, not done), dueRuns (completed + missed), completionPct, notCounted, olderOpen (always
+     * 0, kept for older callers), item counts, newToday and `window`. The list's OPEN/DUE/OVERDUE status filter is still the
+     * plain SQL one (no holiday or not-opened rule), so with a holiday in the window a tile can be a few runs lower
+     * than the list it opens.
      */
     async summary(filter: InstanceListFilter) {
+        // ONE explicit window for every figure (no more "all-time completed next to a 45-day overdue"): the
+        // caller's from/to, else month to date (first of this org-local month up to today). Runs are read with
+        // the same run formulas as the Report, the Scorecard and the explorer (checklistReports/runFlagsOf):
+        // a run is DUE when its cutoff has passed or it is completed; a run with no questions, one not opened
+        // yet and untouched, or an idle daily run on a holiday (no extra working day covering it) is not
+        // counted at all. Runs of a deleted checklist are left out unless `includeDeleted`.
+        const today = orgLocalDate(new Date())
+        const fromDay = filter.from ? asOrgDay(filter.from) : `${today.slice(0, 8)}01`
+        const toDay = filter.to ? asOrgDay(filter.to) : today
+        const windowed: InstanceListFilter = { ...filter, from: fromDay, to: toDay }
         // Explicit invalidation from setItemDone / submit / verify / sendBack / reopenApproval
         // (dropChecklistSummaries), and a short TTL for the rest. The key carries every filter that
         // changes the answer: includeDeleted and the from/to window were missing, so an admin
@@ -1047,28 +1055,33 @@ export const checklistInstanceService = {
             cacheKey(
                 CHECKLIST_SUMMARY_PREFIX, summaryOwnerKey(filter.userId), filter.includeDeleted ? "deleted" : "live",
                 filter.storeId, filter.assigneeId, filter.assigneeIds?.join(","), filter.definitionId, filter.status,
-                filter.departmentId, filter.recurrence, filter.verificationStatus, filter.from, filter.to,
+                filter.departmentId, filter.recurrence, filter.verificationStatus, fromDay, toDay,
             ),
             SUMMARY_TTL_SECONDS,
             async () => {
-                const built = instanceConditions(filter)
+                const built = instanceConditions(windowed)
                 const now = new Date()
-                // The same window the list's OPEN / DUE / OVERDUE filter applies (instanceConditions).
-                const inWindow = filter.from ? sql`(1 = 1)` : inWindowExpr(now)
+                const offDayRules = await loadOffDayRules(fromDay, toDay)
 
-                const isComplete = completionCondition("COMPLETED")
-                const [counts] = await db.select({
-                    total: sql<number>`COUNT(*)`,
-                    completed: sql<number>`SUM(CASE WHEN ${isComplete} THEN 1 ELSE 0 END)`,
-                    pending: sql<number>`SUM(CASE WHEN (${completionCondition("OPEN")}) AND ${inWindow} THEN 1 ELSE 0 END)`,
-                    overdue: sql<number>`SUM(CASE WHEN (${completionCondition("OVERDUE")}) AND ${inWindow} THEN 1 ELSE 0 END)`,
-                    // Unfinished runs older than the window: in `total` (and in the unfiltered list) but not
-                    // in pending/overdue, so total = completed + pending + olderOpen always adds up.
-                    olderOpen: sql<number>`SUM(CASE WHEN (${completionCondition("OPEN")}) AND NOT ${inWindow} THEN 1 ELSE 0 END)`,
-                    // Runs generated since org-local midnight (not CURDATE(), which is the DB
-                    // session's zone). For the dashboard and the sidebar badge breakdown.
-                    newToday: sql<number>`SUM(CASE WHEN ${checklistInstances.generatedAt} >= ${utcSql(orgDayStartUtc(now))} THEN 1 ELSE 0 END)`,
-                }).from(checklistInstances).where(built)
+                const runRows = await db.select(runSelect)
+                    .from(checklistInstances)
+                    .leftJoin(checklistInstanceItems, eq(checklistInstanceItems.instanceId, checklistInstances.id))
+                    .where(built)
+                    .groupBy(...runGroupBy)
+                const assigneesByRun = await loadExtraDayAssignees(runRows, offDayRules)
+                const flagCtx = { offDayRules, assigneesByRun, offsetMs: env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000, now: now.getTime() }
+                const flags = runRows.map((r) => runFlagsOf(r, flagCtx))
+                const counted = flags.filter((f) => !f.skip)
+                const completed = counted.filter((f) => f.complete).length
+                const missed = counted.filter((f) => !f.complete && f.missed).length
+                // Not finished and still before the cutoff: on track, in no percentage.
+                const onTrack = counted.length - completed - missed
+                const dueRuns = completed + missed
+
+                // Runs generated since org-local midnight (not CURDATE(), which is the DB session's zone).
+                // For the dashboard and the sidebar badge breakdown.
+                const [fresh] = await db.select({ newToday: sql<number>`SUM(CASE WHEN ${checklistInstances.generatedAt} >= ${utcSql(orgDayStartUtc(now))} THEN 1 ELSE 0 END)` })
+                    .from(checklistInstances).where(built)
 
                 const [items] = await db.select({
                     totalItems: sql<number>`COUNT(*)`,
@@ -1078,20 +1091,30 @@ export const checklistInstanceService = {
                     .innerJoin(checklistInstances, eq(checklistInstances.id, checklistInstanceItems.instanceId))
                     .where(built)
 
-                const pending = Number(counts?.pending ?? 0)
-                const overdue = Number(counts?.overdue ?? 0)
                 return {
-                    total: Number(counts?.total ?? 0),
-                    completed: Number(counts?.completed ?? 0),
-                    pending,
-                    // On-track subset of `pending` — incomplete but not yet past its deadline.
-                    // No extra query: every pending run is either overdue or due.
-                    due: pending - overdue,
-                    overdue,
-                    olderOpen: Number(counts?.olderOpen ?? 0),
+                    /** Every run in the window the list would show (counted or not). */
+                    total: runRows.length,
+                    /** Counted runs that are fully done. */
+                    completed,
+                    /** Counted runs not done: missed plus on track. */
+                    pending: missed + onTrack,
+                    // On-track subset of `pending`: not done but still before the cutoff.
+                    due: onTrack,
+                    /** Counted runs not done and past their cutoff (the same number as `missed`). */
+                    overdue: missed,
+                    missed,
+                    /** completed + missed: the runs that have come due. */
+                    dueRuns,
+                    /** completed / dueRuns, one decimal; null when nothing came due. */
+                    completionPct: runCompletionPct({ completed, due: dueRuns }),
+                    /** Runs in the window that are not work: no questions, not opened yet, or an idle holiday run. */
+                    notCounted: flags.length - counted.length,
+                    // Kept for older callers: the window is explicit now, so nothing is "older than the window".
+                    olderOpen: 0,
                     totalItems: Number(items?.totalItems ?? 0),
                     doneItems: Number(items?.doneItems ?? 0),
-                    newToday: Number(counts?.newToday ?? 0),
+                    newToday: Number(fresh?.newToday ?? 0),
+                    window: { from: fromDay, to: toDay, asOf: now.toISOString() },
                 }
             },
         )

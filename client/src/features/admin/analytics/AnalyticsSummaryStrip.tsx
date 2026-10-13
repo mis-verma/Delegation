@@ -1,4 +1,4 @@
-import { memo, useId, useMemo, useState } from 'react';
+import { memo, useId, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, ClipboardCheck, ClipboardX, Hourglass, ListChecks, ShieldCheck, type LucideIcon } from 'lucide-react';
@@ -8,28 +8,15 @@ import { ExportMenu, InlineError, PANEL_CLASS, Skeleton } from '../../../compone
 import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable';
 import { useAuth } from '../../../context/AuthContext';
 import { ticketApi } from '../../../api/ticket';
-import { toDayParam } from '../../../api/checklistInstances';
 import { checklistDrillHref, overdueDelegationsHref } from '../../dashboard/scoreDrill';
-import { scoreQuery } from '../../dashboard/scoreQueries';
+import { HowCalculated } from '../../scores/HowCalculated';
+import { SectionHeader } from '../../scores/SectionHeader';
+import { MODULE_LABEL, SCORE_LABEL } from '../../../lib/scoreLabels';
+import { useOverviewScores } from './useOverviewScores';
+import { UpdatingNote } from './UpdatingNote';
 import { handleQueryRetry } from '../../../lib/queryHelpers';
-import {
-  useTaskComplianceReportQuery,
-  useTicketTatReportQuery,
-  useChecklistInstanceComplianceReportQuery,
-  useTicketOwnerStatsQuery,
-  useTaskOwnerStatsQuery,
-} from './useAnalyticsQueries';
-import {
-  bucketRange,
-  describeLatestPeriod,
-  formatPercent,
-  latestWithTrend,
-  NO_TREND,
-  periodHeading,
-  slaMetWithTrend,
-  withoutEmptyTail,
-  statCaption,
-} from './analyticsDisplay';
+import { useTicketOwnerStatsQuery, useTaskOwnerStatsQuery } from './useAnalyticsQueries';
+import { formatPercent, NO_TREND, periodHeading, statCaption } from './analyticsDisplay';
 import type { GroupBy } from './GroupByControl';
 import type { Ticket } from '../../../api/ticket';
 
@@ -65,6 +52,8 @@ export interface StatTileProps {
   iconBgTint?: string;
   isLoading?: boolean;
   onClick?: () => void;
+  /** Sits beside the label: a "how is this calculated" popover. */
+  labelAdornment?: ReactNode;
 }
 
 // Written placeholders for a tile that has no figure: never a bare dash standing in for a value.
@@ -73,11 +62,11 @@ const LOADING_VALUE = 'Loading';
 // A request that failed is not the same as "nothing happened": say it did not load.
 const UNAVAILABLE_VALUE = 'Unavailable';
 
-const MOBILE_TILE_BASE = `${PANEL_CLASS} flex flex-col gap-1 p-3.5 text-left min-w-0`;
+const MOBILE_TILE_BASE = `${PANEL_CLASS} flex flex-col gap-1 p-3 text-left min-w-0`;
 const MOBILE_TILE_INTERACTIVE =
-  'cursor-pointer transition-colors duration-150 motion-reduce:transition-none hover:border-primary-300 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50';
+  'cursor-pointer transition-colors duration-150 motion-reduce:transition-none hover:border-border-hover outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50';
 
-const MobileStatTile = ({ label, value, caption, trend, lowerIsBetter = false, isLoading, onClick }: StatTileProps) => {
+const MobileStatTile = ({ label, value, caption, trend, lowerIsBetter = false, isLoading, onClick, labelAdornment }: StatTileProps) => {
   const hasTrend = trend != null && trend.label !== '—';
   // A change of zero is neither good nor bad, same as StatCard.
   const isFlat = hasTrend && Number.parseFloat(trend.label) === 0;
@@ -86,7 +75,15 @@ const MobileStatTile = ({ label, value, caption, trend, lowerIsBetter = false, i
   const isPlaceholder = value === NO_DATA_VALUE || value === LOADING_VALUE || value === UNAVAILABLE_VALUE;
   const body = (
     <>
-      <span className="t-meta font-display font-semibold text-text-muted leading-snug break-words">{label}</span>
+      <span className="flex items-start gap-1.5">
+        <span className="t-meta font-display font-semibold text-text-muted leading-snug break-words">{label}</span>
+        {labelAdornment && (
+          // A control inside a tappable tile: its taps and keys stop here instead of opening the tile.
+          <span className="inline-flex shrink-0" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+            {labelAdornment}
+          </span>
+        )}
+      </span>
       {isLoading ? (
         <Skeleton className="h-7 w-14 rounded-md" />
       ) : (
@@ -104,10 +101,22 @@ const MobileStatTile = ({ label, value, caption, trend, lowerIsBetter = false, i
   );
 
   if (onClick) {
+    // A div, not a button: the label can hold its own button (the popover), and a button cannot sit inside a button.
     return (
-      <button type="button" onClick={onClick} className={`${MOBILE_TILE_BASE} ${MOBILE_TILE_INTERACTIVE} sm:hidden`}>
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onClick}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onClick();
+          }
+        }}
+        className={`${MOBILE_TILE_BASE} ${MOBILE_TILE_INTERACTIVE} sm:hidden`}
+      >
         {body}
-      </button>
+      </div>
     );
   }
   return <div className={`${MOBILE_TILE_BASE} sm:hidden`}>{body}</div>;
@@ -153,22 +162,23 @@ const DRILLDOWN_META: Record<DrilldownKind, { title: string; icon: LucideIcon }>
   overdue: { title: 'Overdue tickets', icon: AlertTriangle },
 };
 
+
+// The tile names, built from the one label dictionary so they read the same as the Scores page.
+const TICKETS_ON_TIME = `${MODULE_LABEL.ticket} ${SCORE_LABEL.onTime.toLowerCase()}`;
+const CHECKLISTS_NOT_DONE = `${MODULE_LABEL.checklist} ${SCORE_LABEL.notDone.toLowerCase()}`;
+const CHECKLISTS_COMPLETION = `${MODULE_LABEL.checklist} ${SCORE_LABEL.completion.toLowerCase()}`;
+const DELEGATIONS_COMPLETION = `${MODULE_LABEL.delegation} ${SCORE_LABEL.completion.toLowerCase()}`;
+
 // The first section on the Overview page: the figures worth a look first. Overdue is a live count
-// (open tickets already past their deadline), so it ignores the date picker; the other three cover
-// the period named in the heading. With a range picked they total the whole range; with none they
-// show the newest period against the one before it.
+// (open tickets already past their deadline), so it ignores the date picker. Every percentage covers the
+// Overview's window and comes from the score explorer (the same answer the Scores page shows), so there
+// is no change-versus-last-period badge here: the explorer has one figure per window, not per bucket.
 const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWideRole, windowFrom, windowTo }: AnalyticsSummaryStripProps) => {
   const headingId = useId();
   const navigate = useNavigate();
   const { token, user } = useAuth();
   const [drilldownKind, setDrilldownKind] = useState<DrilldownKind | null>(null);
 
-  const hasRange = Boolean(from && to);
-  const reportGroupBy = hasRange ? 'none' : groupBy;
-
-  const tasks = useTaskComplianceReportQuery(reportGroupBy, from, to);
-  const tickets = useTicketTatReportQuery(reportGroupBy, from, to);
-  const instances = useChecklistInstanceComplianceReportQuery(reportGroupBy, from, to);
   // Open tickets past their deadline right now: no date range, because "overdue now" is not a
   // question about a period.
   const overdue = useTicketOwnerStatsQuery('org');
@@ -176,36 +186,34 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
   // Delegations past their due date and not done (waiting-for-approval work has stopped the clock), live.
   const overdueDelegations = useTaskOwnerStatsQuery('org');
   const overdueDelegationCount = overdueDelegations.data?.[0]?.overdueCount;
-  // Checklist runs that came due in the window and were not finished, from the same score the Scorecard
-  // reads: the whole organisation for Admin and PC, a head's own department otherwise.
-  const dayFrom = windowFrom ? toDayParam(windowFrom) : undefined;
-  const dayTo = windowTo ? toDayParam(windowTo) : undefined;
+
+  // Every score figure: the explorer's whole-window row. Admin and PC see the organisation, a head their department.
+  const scores = useOverviewScores(windowFrom, windowTo);
+  const dayFrom = scores.win?.from;
+  const dayTo = scores.win?.to;
+  const windowText = scores.win?.label ?? '';
+  const checklist = scores.total?.checklist;
+  const ticket = scores.total?.ticket;
+  const delegation = scores.total?.delegation;
   const checklistSubject = isOrgWideRole ? { kind: 'org' as const } : user?.departmentId ? { kind: 'department' as const, id: user.departmentId } : null;
-  const checklistScores = useQuery({
-    ...scoreQuery(isOrgWideRole ? 'org' : 'department', isOrgWideRole ? undefined : user?.departmentId ?? undefined, dayFrom ?? '', dayTo ?? ''),
-    enabled: !!token && !!dayFrom && !!dayTo && checklistSubject !== null,
-  });
-  const missedChecklists = checklistScores.data?.checklist;
-  const missedCount = missedChecklists?.missed ?? 0;
-  const lateChecklists = missedChecklists ? Math.max(0, missedChecklists.completed - missedChecklists.onTime) : 0;
+  const scoresFailed = scores.isError && !scores.data;
+  const scoresLoading = scores.isPending && !scores.data;
+  const missedCount = checklist?.notDone ?? 0;
+  const lateChecklists = checklist?.late ?? 0;
 
   const overdueCount = overdue.data?.[0]?.overdueCount;
-  const onTime = useMemo(() => slaMetWithTrend(tickets.data), [tickets.data]);
-  const storeChecklists = useMemo(() => latestWithTrend(instances.data, 'completionRate', 'rate'), [instances.data]);
-  const delegationItems = useMemo(() => latestWithTrend(tasks.data, 'completionRate', 'rate'), [tasks.data]);
 
-  const onTimePeriod = describeLatestPeriod(tickets.data, reportGroupBy);
-  const storePeriod = describeLatestPeriod(instances.data, reportGroupBy);
-  const delegationPeriod = describeLatestPeriod(tasks.data, reportGroupBy);
+  // A percentage tile: the figure, or a written reason there is none. `count` is what the percentage is of
+  // (finished for on time, due for completion): zero means there is nothing to show.
+  const percentValue = (value: number | null | undefined, count: number | undefined) =>
+    scoresFailed ? UNAVAILABLE_VALUE : scoresLoading || !scores.total ? LOADING_VALUE : !count || value == null ? NO_DATA_VALUE : formatPercent(value);
+  const percentCaption = (value: number | null | undefined, count: number | undefined, noDataText: string) =>
+    scoresLoading || scoresFailed || !count || value == null
+      ? statCaption({ isPending: scoresLoading, isError: scoresFailed, hasData: !!count && value != null, noDataText })
+      : windowText;
 
-  // The tickets the on-time tile counted: the picked range, or else the newest bucket's own days.
-  const onTimeWindow = useMemo(() => {
-    if (from && to) return { from, to };
-    // The same newest non-empty bucket the tile shows, so the list matches the number.
-    const trimmed = tickets.data ? withoutEmptyTail(tickets.data) : undefined;
-    const latest = trimmed?.[trimmed.length - 1];
-    return latest ? bucketRange(latest.bucket, reportGroupBy) : null;
-  }, [from, to, tickets.data, reportGroupBy]);
+  // The tickets the on-time tile counted: the Overview's window, so the list covers the same days as the figure.
+  const onTimeWindow = useMemo(() => (windowFrom && windowTo ? { from: windowFrom, to: windowTo } : from && to ? { from, to } : null), [windowFrom, windowTo, from, to]);
 
   // Fetched only once a tile is opened, with the same definitions the figures use (the server's
   // sla filter), so the list is exactly the tickets that were counted.
@@ -226,45 +234,46 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
   const drilldownTotal = drilldown.data?.meta?.total ?? drilldownRows.length;
   const drilldownMeta = drilldownKind ? DRILLDOWN_META[drilldownKind] : null;
 
-  const failed = [overdue, overdueDelegations, checklistScores, tickets, instances, tasks].filter((q) => q.isError);
-  // The four headline numbers as label and value. A figure that did not load is left empty.
-  const exportRows = (): TableRows => {
-    const change = (t: Trend) => (t.label === NO_TREND.label ? '' : t.label);
-    return [
-      ['Figure', 'Value', 'Covers', 'Change vs previous'],
-      ['Overdue tickets', overdue.isError ? null : overdueCount ?? 0, 'Open tickets past their deadline, right now', ''],
-      ['Overdue delegations', overdueDelegations.isError ? null : overdueDelegationCount ?? 0, 'Delegations past their due date and not done, right now', ''],
-      ['Missed checklists', checklistScores.isError || !missedChecklists ? null : missedCount, `Runs that came due and were not finished, ${dayFrom ?? ''} to ${dayTo ?? ''}`, ''],
-      ['Closed on time %', exportPct(onTime.value), onTimePeriod.label, change(onTime.trend)],
-      ['Store checklists completion %', exportPct(storeChecklists.value), storePeriod.label, change(storeChecklists.trend)],
-      ['Delegation steps done %', exportPct(delegationItems.value), delegationPeriod.label, change(delegationItems.trend)],
-    ];
-  };
-  const anyPending = [overdue, overdueDelegations, tickets, instances, tasks].some((q) => q.isPending) || (checklistSubject !== null && !!dayFrom && checklistScores.isPending);
+  const failed = [overdue, overdueDelegations, scores].filter((q) => q.isError);
+  // The headline numbers as label and value. A figure that did not load is left empty.
+  const exportRows = (): TableRows => [
+    ['Figure', 'Value', 'Covers'],
+    ['Overdue tickets', overdue.isError ? null : overdueCount ?? 0, 'Open tickets past their deadline, right now'],
+    ['Overdue delegations', overdueDelegations.isError ? null : overdueDelegationCount ?? 0, 'Delegations past their due date and not done, right now'],
+    [CHECKLISTS_NOT_DONE, !checklist ? null : missedCount, `Runs that came due and were not finished, ${windowText}`],
+    [`${TICKETS_ON_TIME} %`, exportPct(ticket?.onTimeOfFinishedPct), windowText],
+    [`${CHECKLISTS_COMPLETION} %`, exportPct(checklist?.completion), windowText],
+    [`${DELEGATIONS_COMPLETION} %`, exportPct(delegation?.completion), windowText],
+  ];
+  const anyPending = [overdue, overdueDelegations].some((q) => q.isPending) || scoresLoading;
 
   return (
-    <section aria-labelledby={headingId} className="flex flex-col gap-2 sm:gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-        <h2 id={headingId} className="t-section font-display font-bold text-text">At a glance</h2>
-        <div className="flex items-center gap-2">
-          <p className="text-sm font-display text-text-muted">{periodHeading(groupBy, from, to)}</p>
-          <ExportMenu
-            disabled={anyPending}
-            aria-label="Export the headline numbers"
-            filename="overview-at-a-glance"
-            sheetName="At a glance"
-            title={exportTitle({ what: 'Overview, at a glance', from, to, period: from && to ? undefined : periodHeading(groupBy, from, to) })}
-            getRows={exportRows}
-          />
-        </div>
-      </div>
+    <section aria-labelledby={headingId} className="flex flex-col gap-3">
+      <SectionHeader
+        id={headingId}
+        title="At a glance"
+        actions={
+          <>
+            <UpdatingNote show={scores.updating} />
+            <p className="t-meta font-display text-text-muted">{periodHeading(groupBy, from, to)}</p>
+            <ExportMenu
+              disabled={anyPending}
+              aria-label="Export the headline numbers"
+              filename="overview-at-a-glance"
+              sheetName="At a glance"
+              title={exportTitle({ what: 'Overview, at a glance', from, to, period: from && to ? undefined : periodHeading(groupBy, from, to) })}
+              getRows={exportRows}
+            />
+          </>
+        }
+      />
 
       {failed.length > 0 && (
         <InlineError message="Some of these numbers did not load." onRetry={() => failed.forEach((q) => void q.refetch())} />
       )}
 
       <div className="@container">
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 @4xl:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 @4xl:grid-cols-3">
           <StatTile
             icon={AlertTriangle}
             iconTint="text-warning"
@@ -291,10 +300,10 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
             <StatTile
               icon={ClipboardX}
               iconTint="text-warning"
-              label="Missed checklists"
-              value={checklistScores.isError ? UNAVAILABLE_VALUE : !missedChecklists ? LOADING_VALUE : missedCount}
-              isLoading={checklistScores.isPending}
-              caption={checklistScores.isPending || checklistScores.isError ? statCaption({ isPending: checklistScores.isPending, isError: checklistScores.isError, hasData: false, noDataText: '' }) : lateChecklists > 0 ? `Not finished, plus ${lateChecklists} finished late` : 'Came due and not finished'}
+              label={CHECKLISTS_NOT_DONE}
+              value={scoresFailed ? UNAVAILABLE_VALUE : !checklist ? LOADING_VALUE : missedCount}
+              isLoading={scoresLoading}
+              caption={scoresLoading || scoresFailed ? statCaption({ isPending: scoresLoading, isError: scoresFailed, hasData: false, noDataText: '' }) : lateChecklists > 0 ? `Not finished, plus ${lateChecklists} finished late` : 'Came due and not finished'}
               trend={NO_TREND}
               lowerIsBetter
               onClick={() => {
@@ -305,43 +314,34 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
           <StatTile
             icon={ShieldCheck}
             iconTint="text-success"
-            label="Closed on time"
-            value={onTime.value != null ? formatPercent(onTime.value) : tickets.isPending ? LOADING_VALUE : tickets.isError ? UNAVAILABLE_VALUE : NO_DATA_VALUE}
-            isLoading={tickets.isPending}
-            trend={onTime.trend}
-            caption={
-              tickets.isPending || tickets.isError || onTime.value == null
-                ? statCaption({ isPending: tickets.isPending, isError: tickets.isError, hasData: onTime.value != null, noDataText: 'No closed tickets with a deadline' })
-                : onTimePeriod.label
-            }
+            label={TICKETS_ON_TIME}
+            labelAdornment={<HowCalculated figure="onTime" module="ticket" />}
+            value={percentValue(ticket?.onTimeOfFinishedPct, ticket?.done)}
+            isLoading={scoresLoading}
+            trend={NO_TREND}
+            caption={percentCaption(ticket?.onTimeOfFinishedPct, ticket?.done, 'No closed tickets with a deadline')}
             onClick={() => setDrilldownKind('on-time')}
           />
           <StatTile
             icon={ClipboardCheck}
             iconTint="text-primary-600 dark:text-primary-400"
-            label="Store checklists completion"
-            value={storeChecklists.value != null ? formatPercent(storeChecklists.value) : instances.isPending ? LOADING_VALUE : instances.isError ? UNAVAILABLE_VALUE : NO_DATA_VALUE}
-            isLoading={instances.isPending}
-            trend={storeChecklists.trend}
-            caption={
-              instances.isPending || instances.isError || storeChecklists.value == null
-                ? statCaption({ isPending: instances.isPending, isError: instances.isError, hasData: storeChecklists.value != null, noDataText: 'No checklists were due' })
-                : storePeriod.label
-            }
+            label={CHECKLISTS_COMPLETION}
+            labelAdornment={<HowCalculated figure="completion" module="checklist" />}
+            value={percentValue(checklist?.completion, checklist?.due)}
+            isLoading={scoresLoading}
+            trend={NO_TREND}
+            caption={percentCaption(checklist?.completion, checklist?.due, 'No checklists were due')}
             onClick={() => onViewSection('store-checklists')}
           />
           <StatTile
             icon={ListChecks}
             iconTint="text-primary-600 dark:text-primary-400"
-            label="Delegation steps done"
-            value={delegationItems.value != null ? formatPercent(delegationItems.value) : tasks.isPending ? LOADING_VALUE : tasks.isError ? UNAVAILABLE_VALUE : NO_DATA_VALUE}
-            isLoading={tasks.isPending}
-            trend={delegationItems.trend}
-            caption={
-              tasks.isPending || tasks.isError || delegationItems.value == null
-                ? statCaption({ isPending: tasks.isPending, isError: tasks.isError, hasData: delegationItems.value != null, noDataText: 'No checklist items in this period' })
-                : delegationPeriod.label
-            }
+            label={DELEGATIONS_COMPLETION}
+            labelAdornment={<HowCalculated figure="completion" module="delegation" />}
+            value={percentValue(delegation?.completion, delegation?.due)}
+            isLoading={scoresLoading}
+            trend={NO_TREND}
+            caption={percentCaption(delegation?.completion, delegation?.due, 'No delegations were due')}
             onClick={() => onViewSection('delegations')}
           />
         </div>

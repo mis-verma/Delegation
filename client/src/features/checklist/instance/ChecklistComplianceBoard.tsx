@@ -19,6 +19,11 @@ import { ChecklistComplianceQuickStats, type ComplianceQuickFilterKey, type Comp
 import { GroupByControl, type GroupBy } from '../../admin/analytics/GroupByControl';
 import { ChecklistInstanceKpiSection } from '../../admin/analytics/ChecklistInstanceKpiSection';
 import { endOfDay } from '../../../lib/dateRange';
+import { useOrgToday } from '../useOrgToday';
+import { windowLabel } from '../../scores/useScoreWindow';
+import { CARD_PAD, FIELD_LABEL_CLASS } from '../../scores/controlStyles';
+import { SectionHeader } from '../../scores/SectionHeader';
+import { formatPct } from '../../../lib/percent';
 import { ChecklistReportButton } from '../report/ChecklistReportButton';
 import { ChecklistScoringGaps } from './ChecklistScoringGaps';
 import type { ChecklistInstance, ChecklistInstanceStatus } from '../../../api/checklistInstances';
@@ -30,9 +35,9 @@ const STATUS_OPTIONS: { value: '' | ChecklistInstanceStatus; label: string }[] =
   { value: 'OVERDUE', label: 'Overdue' },
 ];
 
-const FIELD_LABEL = 'text-xs font-display font-medium text-text-secondary';
-// One control height for every control in the filter panel (Button lg, Combobox, Tabs, switch row).
-const CONTROL_H = 'h-11';
+const FIELD_LABEL = FIELD_LABEL_CLASS;
+// One control height for every control in the filter panel (button, Combobox, Tabs, switch row): 44px on a phone, 36px from sm up.
+const CONTROL_H = 'h-11 sm:h-9';
 
 interface ComplianceRowProps {
   instance: ChecklistInstance;
@@ -99,8 +104,8 @@ const ComplianceRow = memo(({ instance, storeName, nameById, namesLoading }: Com
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-col gap-1 min-w-0 flex-1">
-          <p className="text-sm font-display font-bold text-text line-clamp-2 leading-snug">{instance.title}</p>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-muted font-display">
+          <p className="t-card font-display font-bold leading-snug text-text line-clamp-2">{instance.title}</p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 t-meta font-display text-text-muted">
             {storeName && <span className="flex items-center gap-1"><Store size={11} aria-hidden /> {storeName}</span>}
             <span>{formatPeriodSpan(instance)}</span>
             {!complete && deadlineTime && <span>Due {deadlineTime}</span>}
@@ -113,10 +118,10 @@ const ComplianceRow = memo(({ instance, storeName, nameById, namesLoading }: Com
         </div>
       </div>
 
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-3">
         <ChecklistProgressBar done={progress} total={100} bare thin tone={overdue && !complete ? 'danger' : 'auto'} className="flex-1" />
         <span className="flex items-baseline gap-1.5 shrink-0 tabular-nums font-display">
-          <span className={cn('text-sm font-bold', instanceProgressToneClass(overdue, complete))}>{progress}%</span>
+          <span className={cn('t-card font-bold', instanceProgressToneClass(overdue, complete))}>{progress}%</span>
           <span className="t-meta font-medium text-text-muted">{done}/{total}</span>
         </span>
       </div>
@@ -138,7 +143,7 @@ const ComplianceRow = memo(({ instance, storeName, nameById, namesLoading }: Com
                 key={id}
                 icon={look.icon}
                 tone={look.tone}
-                label={covered ? `${name} · not needed` : `${name} · ${completedByThem}/${total}${flaggedByThem > 0 ? ` · ${flaggedByThem} flagged` : ''}`}
+                label={covered ? `${name}, not needed` : `${name}, ${completedByThem}/${total}${flaggedByThem > 0 ? `, ${flaggedByThem} flagged` : ''}`}
                 title={covered ? `Already completed by ${fillers.join(' and ')}. One person filling it covers everyone.` : undefined}
               />
             );
@@ -152,7 +157,7 @@ ComplianceRow.displayName = 'ComplianceRow';
 
 // Same shape as a real row (title + chips, bar, assignee chips) so nothing jumps when data lands.
 const ComplianceRowSkeleton = () => (
-  <div className={cn(PANEL_CLASS, 'flex flex-col gap-3 p-4 sm:p-5 min-h-36')}>
+  <div className={cn(PANEL_CLASS, 'flex min-h-36 flex-col gap-3', CARD_PAD)}>
     <div className="flex items-start justify-between gap-3">
       <div className="flex flex-col gap-2 flex-1">
         <Skeleton className="h-4 w-2/3 max-w-72" />
@@ -171,13 +176,13 @@ const ComplianceRowSkeleton = () => (
 // One applied filter, with an X to drop just that one without opening the panel.
 // The chip stays 32px tall; on a touch screen the X gets a 44px hit area through its ::after.
 const ActiveFilterChip = ({ label, onRemove }: { label: string; onRemove: () => void }) => (
-  <span className="flex items-center gap-1 h-8 pl-3 pr-1 rounded-full border border-primary-500/30 bg-primary-500/10 text-xs font-display font-medium text-primary-700 dark:text-primary-300">
+  <span className="flex h-8 items-center gap-1 rounded-full border border-border bg-surface-hover pl-3 pr-1 t-meta font-display font-medium text-text-secondary">
     {label}
     <button
       type="button"
       onClick={onRemove}
       aria-label={`Remove filter: ${label}`}
-      className="relative pointer-coarse:after:absolute pointer-coarse:after:-inset-2.5 flex items-center justify-center size-6 rounded-full text-primary-700/70 dark:text-primary-300/70 hover:bg-primary-500/15 hover:text-primary-700 dark:hover:text-primary-200 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+      className="relative flex size-6 cursor-pointer items-center justify-center rounded-full text-text-muted outline-none transition-colors duration-150 hover:bg-surface-active hover:text-text focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-coarse:after:absolute pointer-coarse:after:-inset-2.5"
     >
       <X size={13} aria-hidden />
     </button>
@@ -197,9 +202,9 @@ const PAGE_SIZE = 50;
 // by store and by person. Spans every checklist definition's generated instances (unlike
 // ChecklistDefinitionDetail, which only shows instances for one definition at a time).
 const QUICK_TILE_LABEL: Record<Exclude<ComplianceQuickFilterKey, 'all'>, string> = {
-  completed: 'Completed',
-  pending: 'Not completed',
-  overdue: 'Overdue',
+  completed: 'Done',
+  due: 'On track',
+  overdue: 'Missed',
 };
 
 export const ChecklistComplianceBoard = () => {
@@ -263,6 +268,12 @@ export const ChecklistComplianceBoard = () => {
     setPage(1);
   };
 
+  // ONE window for the tiles and the list under them: the picked dates, else this month up to today (what the
+  // server uses when no window is sent), so a tile's number is always the size of the list it opens.
+  const orgToday = useOrgToday();
+  const listFrom = reportFrom ?? `${orgToday.slice(0, 8)}01`;
+  const listTo = reportTo ?? orgToday;
+
   const { data: stores = [], isPending: storesPending } = useStoresQuery();
   // Scoped to the selected store, for the Person filter's own option list.
   const { data: people = [], isSuccess: peopleLoaded } = useAssignableUsersQuery(undefined, storeId || undefined);
@@ -285,14 +296,7 @@ export const ChecklistComplianceBoard = () => {
   // Names the store/person picked, so the stats heading says whose numbers they are.
   const scopeLabel = [assigneeId ? nameById.get(assigneeId) : undefined, storeId ? storeNameById.get(storeId) : undefined]
     .filter(Boolean)
-    .join(' · ');
-
-  // Said out loud under the tiles: the list below spans exactly the picked dates (or everything),
-  // which is not the same span as the latest-period tiles above it.
-  const listSpan = range.from && range.to ? `Showing ${shortDay(range.from)} to ${shortDay(range.to)}`
-    : range.from ? `Showing from ${shortDay(range.from)}`
-    : range.to ? `Showing until ${shortDay(range.to)}`
-    : 'Showing all time';
+    .join(', ');
 
   const storeOptions = useMemo(() => stores.map(s => ({ value: s.id, label: s.name })), [stores]);
   // Current people of the picked store first, then everyone who has left (their runs still show here).
@@ -316,7 +320,7 @@ export const ChecklistComplianceBoard = () => {
   // `status`, the tile wins when set.
   const effectiveStatus: ChecklistInstanceStatus | undefined =
     quickFilter === 'completed' ? 'COMPLETED'
-    : quickFilter === 'pending' ? 'OPEN'
+    : quickFilter === 'due' ? 'DUE'
     : quickFilter === 'overdue' ? 'OVERDUE'
     : (status || undefined);
 
@@ -324,8 +328,8 @@ export const ChecklistComplianceBoard = () => {
     storeId: storeId || undefined,
     assigneeId: assigneeId || undefined,
     status: effectiveStatus,
-    from: reportFrom,
-    to: reportTo,
+    from: listFrom,
+    to: listTo,
     includeDeleted,
     page,
     limit: PAGE_SIZE,
@@ -340,17 +344,17 @@ export const ChecklistComplianceBoard = () => {
   const { data: counts, isPending: summaryPending, isError: summaryError, refetch: refetchSummary } = useChecklistInstanceSummaryQuery({
     storeId: storeId || undefined,
     assigneeId: assigneeId || undefined,
-    from: reportFrom,
-    to: reportTo,
+    from: listFrom,
+    to: listTo,
     includeDeleted,
   });
   const summary = useMemo<ComplianceQuickFilterCounts | undefined>(
-    () => counts && { all: counts.total, completed: counts.completed, pending: counts.pending, overdue: counts.overdue },
+    () => counts && { all: counts.total, completed: counts.completed, due: counts.due, overdue: counts.missed },
     [counts],
   );
 
   return (
-    <div className="flex flex-col gap-6 w-full">
+    <div className="flex w-full flex-col gap-6">
       <PageHeader
         icon={ClipboardCheck}
         title="Checklist Compliance"
@@ -363,8 +367,7 @@ export const ChecklistComplianceBoard = () => {
         <div className="flex flex-wrap items-center gap-x-2 gap-y-3">
           <Button
             variant="outline"
-            size="lg"
-            className="px-4 text-sm gap-2"
+            className={cn(CONTROL_H, 'gap-2 px-4')}
             onClick={() => setFiltersOpen((v) => !v)}
             aria-expanded={filtersOpen}
             aria-controls="compliance-filter-panel"
@@ -393,7 +396,7 @@ export const ChecklistComplianceBoard = () => {
             <button
               type="button"
               onClick={clearFilters}
-              className="relative pointer-coarse:after:absolute pointer-coarse:after:-inset-y-1.5 pointer-coarse:after:inset-x-0 h-8 px-2.5 rounded-lg text-xs font-display font-medium text-text-muted hover:text-danger hover:bg-danger/10 transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+              className="relative h-8 cursor-pointer rounded-lg px-3 t-meta font-display font-medium text-text-muted outline-none transition-colors duration-150 hover:bg-danger/10 hover:text-danger focus-visible:ring-2 focus-visible:ring-primary-500/40 pointer-coarse:after:absolute pointer-coarse:after:inset-x-0 pointer-coarse:after:-inset-y-1.5"
             >
               Clear all
             </button>
@@ -401,16 +404,16 @@ export const ChecklistComplianceBoard = () => {
         </div>
 
         {filtersOpen && (
-          <div id="compliance-filter-panel" className={cn(PANEL_CLASS, 'flex flex-col gap-4 p-4 sm:p-5')}>
+          <div id="compliance-filter-panel" className={cn(PANEL_CLASS, 'flex flex-col gap-4', CARD_PAD)}>
             <div className="flex flex-wrap items-center gap-3">
-              <Button variant="outline" size="lg" className="px-4 text-sm" onClick={setLastMonth}>
+              <Button variant="outline" className={cn(CONTROL_H, 'px-4')} onClick={setLastMonth}>
                 Last month
               </Button>
               <GroupByControl groupBy={groupBy} onGroupByChange={setGroupBy} range={range} onRangeChange={setRange} />
             </div>
 
-            <div className="flex flex-wrap items-end gap-3 pt-4 border-t border-border/60">
-              <div className="flex flex-col gap-1.5 w-full sm:w-52">
+            <div className="flex flex-wrap items-end gap-3 border-t border-border/60 pt-4">
+              <div className="flex w-full flex-col gap-1.5 sm:w-52">
                 <label htmlFor="compliance-store" className={FIELD_LABEL}>Store</label>
                 <Combobox
                   id="compliance-store"
@@ -419,10 +422,10 @@ export const ChecklistComplianceBoard = () => {
                   options={storeOptions}
                   emptyOptionLabel="All stores"
                   isLoading={storesPending}
-                  className={cn(CONTROL_H, 'rounded-xl')}
+                  className={cn(CONTROL_H, 'rounded-lg')}
                 />
               </div>
-              <div className="flex flex-col gap-1.5 w-full sm:w-52">
+              <div className="flex w-full flex-col gap-1.5 sm:w-52">
                 <label htmlFor="compliance-person" className={FIELD_LABEL}>Person</label>
                 <Combobox
                   id="compliance-person"
@@ -430,7 +433,7 @@ export const ChecklistComplianceBoard = () => {
                   onChange={setAssigneeId}
                   options={personOptions}
                   emptyOptionLabel="All people"
-                  className={cn(CONTROL_H, 'rounded-xl')}
+                  className={cn(CONTROL_H, 'rounded-lg')}
                 />
               </div>
               <div className="flex flex-col gap-1.5 w-full sm:w-fit">
@@ -438,7 +441,7 @@ export const ChecklistComplianceBoard = () => {
                 <Tabs value={status} onValueChange={(v) => setStatus(v as '' | ChecklistInstanceStatus)}>
                   <TabsList aria-labelledby="compliance-status-label" className={cn(CONTROL_H, 'w-full sm:w-fit max-sm:grid max-sm:grid-cols-4 max-sm:h-auto')}>
                     {STATUS_OPTIONS.map(opt => (
-                      <TabsTrigger key={opt.value || 'all'} value={opt.value} className="h-full min-h-11 sm:min-h-0 px-1.5 text-xs whitespace-normal leading-tight">
+                      <TabsTrigger key={opt.value || 'all'} value={opt.value} className="h-full min-h-11 px-1.5 text-xs leading-tight whitespace-normal sm:min-h-0">
                         {opt.label}
                       </TabsTrigger>
                     ))}
@@ -449,17 +452,14 @@ export const ChecklistComplianceBoard = () => {
                 htmlFor="compliance-include-deleted"
                 className={cn(
                   CONTROL_H,
-                  'flex items-center gap-2.5 px-3 rounded-xl border text-xs font-display font-medium cursor-pointer transition-colors duration-150',
-                  includeDeleted
-                    ? 'border-primary-500/50 bg-primary-500/10 text-primary-700 dark:text-primary-300'
-                    : 'border-border bg-surface text-text-secondary hover:border-border-hover',
+                  'flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-surface px-3 t-meta font-display font-medium text-text-secondary transition-colors duration-150 hover:border-border-hover',
                 )}
               >
                 <Switch id="compliance-include-deleted" checked={includeDeleted} onChange={setIncludeDeleted} />
                 Show deleted checklists
               </label>
             </div>
-            <p className="text-xs font-display text-text-muted">
+            <p className="t-meta font-display text-text-muted">
               Store, person and dates change the figures and the list. Status only changes the list.
             </p>
           </div>
@@ -482,24 +482,30 @@ export const ChecklistComplianceBoard = () => {
         scopeLabel={scopeLabel || undefined}
       />
 
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-4 border-t border-border/60">
-        <h2 className="t-card font-display font-bold text-text shrink-0">Who's done what</h2>
-        <p className="text-xs font-display text-text-muted">{listSpan}</p>
-      </div>
-
-      <ChecklistComplianceQuickStats
-        counts={summary}
-        active={quickFilter}
-        onToggle={toggleQuickFilter}
-        isLoading={summaryPending}
-        isError={summaryError}
-        onRetry={() => refetchSummary()}
-      />
-      {!!counts?.olderOpen && (
-        <p className="text-xs font-display text-text-muted -mt-3">
-          {counts.olderOpen} older unfinished {counts.olderOpen === 1 ? 'run is' : 'runs are'} in Total but not in Not completed or Overdue, which look back 45 days. Pick a date range to include them.
-        </p>
-      )}
+      <section aria-labelledby="compliance-runs-heading" className="flex flex-col gap-3 border-t border-border/60 pt-6">
+        <SectionHeader id="compliance-runs-heading" title="Who's done what" />
+        <ChecklistComplianceQuickStats
+          counts={summary}
+          active={quickFilter}
+          onToggle={toggleQuickFilter}
+          isLoading={summaryPending}
+          isError={summaryError}
+          onRetry={() => refetchSummary()}
+        />
+        {counts && (
+          <div className="flex flex-col gap-1 t-meta font-display text-text-muted">
+            <p>{windowLabel(counts.window.from, counts.window.to)}</p>
+            <p>
+              {counts.dueRuns > 0 && counts.completionPct !== null
+                ? <><span className="font-semibold tabular-nums text-text">{formatPct(counts.completionPct)}</span> of the {counts.dueRuns} runs that came due were completed. On track runs are not in that number.</>
+                : 'No run has come due in this period yet.'}
+            </p>
+            {counts.notCounted > 0 && (
+              <p>{counts.notCounted} {counts.notCounted === 1 ? 'run is' : 'runs are'} not counted in Done, On track or Missed: no questions, not opened yet, or an idle holiday run. They still show in All runs and in the list.</p>
+            )}
+          </div>
+        )}
+      </section>
 
       {isPending && (
         <div className="flex flex-col gap-3">
@@ -519,9 +525,9 @@ export const ChecklistComplianceBoard = () => {
       )}
 
       {!!visibleInstances?.length && (
-        // keepPreviousData keeps the old page on screen while the next one loads: dim it so the
-        // change reads as "updating" instead of the screen silently freezing.
-        <div className={cn('flex flex-col gap-3 transition-opacity duration-200', isFetching && 'opacity-60')} aria-busy={isFetching}>
+        // keepPreviousData keeps the old page on screen while the next one loads. No dimming: the rows
+        // swap in place, and aria-busy tells a screen reader a refresh is under way.
+        <div className="flex flex-col gap-3" aria-busy={isFetching}>
           {visibleInstances.map((instance) => (
             <ComplianceRow
               key={instance.id}

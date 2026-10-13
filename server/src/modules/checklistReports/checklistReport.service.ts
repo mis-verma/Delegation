@@ -1,6 +1,6 @@
 import ExcelJS from "exceljs"
 import type { Response } from "express"
-import { and, eq, gte, lte, notInArray, sql } from "drizzle-orm"
+import { and, eq, gte, inArray, lte, sql } from "drizzle-orm"
 import { alias } from "drizzle-orm/mysql-core"
 import { db } from "../../config/db.js"
 import { env } from "../../config/env.js"
@@ -10,7 +10,7 @@ import { checklistInstanceAssignees, checklistInstanceItems, checklistInstances 
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import { AppError } from "../../utils/AppError.js"
 import { streamCsv, type CsvColumn } from "../../utils/csv.js"
-import { hasExtraDay, isIdleHolidayRun, loadOffDayRules, type RunAssignee } from "../scores/offDayRules.js"
+import { hasExtraDay, isIdleHolidayRun, loadOffDayRules, type OffDayRules, type RunAssignee } from "../scores/offDayRules.js"
 import { metDeadlinePct, onTimeOfFinishedPct, pooledCompliancePct, runCompletionPct, tallyRuns, type RunOutcome, type RunTally } from "../scores/scoreFormulas.js"
 import type { ChecklistReportGrouping, ChecklistReportQuery } from "./checklistReport.validation.js"
 
@@ -55,13 +55,20 @@ export type PersonRow = ReportMetrics & {
     department: string
     store: string
     status: "Active" | "Left"
+    /** Counted runs of this person that are also assigned to someone else (so also on that person's row). */
+    sharedRuns: number
 }
 
 export type DepartmentRow = ReportMetrics & {
     departmentId: string | null
     department: string
     people: number
+    /** Counted runs of this department that also have an assignee in another department (or in none). */
+    sharedRuns: number
 }
+
+/** One checklist (definition) with its runs in scope, each run once. */
+export type DefinitionRow = ReportMetrics & { definitionId: string; title: string; recurrence: string }
 
 /** One person's runs and answers inside one store: the same figures as `build` with that store as the filter. */
 export type StorePersonRow = ReportMetrics & { userId: string; storeId: string }
@@ -82,8 +89,17 @@ export type ChecklistReport = {
     storePeople?: StorePersonRow[]
     /** Only when asked for (`byStore`): one row per store, each run counted once. */
     storeTotals?: StoreTotalRow[]
+    /** Only when asked for (`byDefinition`): one row per checklist definition, each run once. */
+    definitions?: DefinitionRow[]
     /** Every run in scope counted once (never once per assignee) with every checked answer on those runs. */
     totals: ReportMetrics
+    /**
+     * Runs counted in `totals` that have nobody assigned, so no person or department row carries them
+     * (always empty with a person or department filter: those need an assignee by definition).
+     */
+    unassigned: ReportMetrics
+    /** How many counted runs are shared, to explain why departments or people do not add up to `totals`. */
+    sharing: { runsWithSeveralAssignees: number; runsAcrossDepartments: number; runsWithoutAssignee: number }
     notes: string[]
 }
 
@@ -94,7 +110,7 @@ export const REPORT_NOTES = [
     "On time % = completed before the cutoff / completed. Met deadline % = completed before the cutoff / due, so a missed checklist counts against it. A checklist with no cutoff is due at the end of its day.",
     "Compliance % is pooled: the weighted good answers divided by the weighted checked answers (Answers checked counts each question once). A critical question counts double, for or against. It is never an average of people's percentages.",
     "Only completed questions with an accepted-answer rule are checked. A question a reviewer sent back counts as a failed check for the person who had done it, even if it was redone well, and even if it has no accepted-answer rule. Not applicable and waived questions are left out.",
-    "A person's Compliance % covers the answers credited to them, a department's the answers credited to its people, and a store's and the overall total every checked answer on those checklists, whoever gave it.",
+    "A person's Compliance % covers the answers credited to them on the checklists assigned to them (the same on their own card and in every list), a department's the answers credited to its people, and a store's and the overall total every checked answer on those checklists, whoever gave it.",
     "This report covers every kind of checklist (daily, weekly, monthly and one-time), so its totals can be higher than the daily-only Fill report. A checklist that has not opened yet, has no questions, or is a daily one left unfinished on a holiday (with no extra working day covering it) is not counted.",
 ]
 
@@ -177,8 +193,10 @@ const creditedUser = sql<string | null>`(CASE WHEN ${item.sendBackCount} > 0 AND
 // Helpers
 // ---------------------------------------------------------------------------
 
-type RunRow = {
+export type RunRow = {
     id: string
+    definitionId: string
+    title: string
     storeId: string
     recurrence: string
     periodStart: Date
@@ -192,10 +210,108 @@ type RunRow = {
     done: number
     lastDoneAt: Date | null
     completedFirstAt: Date | null
+    /** How many people the run is assigned to, and in how many distinct departments (no department counts as one). */
+    assigneeCount: number
+    departmentSpan: number
 }
 
 /** What one run came to. `skip`: not counted at all (not opened yet, no questions, or an idle daily run on a holiday). */
-type RunFlags = RunOutcome & { skip: boolean; storeId: string }
+export type RunFlags = RunOutcome & { skip: boolean; storeId: string; definitionId: string; title: string; recurrence: string; assigneeCount: number; departmentSpan: number }
+
+/** One row per run, items folded into counts. Shared with the checklist summary so both read a run the same way. */
+export const runSelect = {
+    id: checklistInstances.id,
+    definitionId: checklistInstances.definitionId,
+    title: checklistInstances.title,
+    storeId: checklistInstances.storeId,
+    recurrence: checklistInstances.recurrence,
+    periodStart: checklistInstances.periodStart,
+    periodEnd: checklistInstances.periodEnd,
+    cutoffTime: checklistInstances.cutoffTime,
+    opensTime: checklistInstances.opensTime,
+    verificationStatus: checklistInstances.verificationStatus,
+    rejectionCount: checklistInstances.rejectionCount,
+    submittedAt: checklistInstances.submittedAt,
+    total: sql<number>`COUNT(${item.id})`,
+    done: sql<number>`COALESCE(SUM(${item.isDone}), 0)`,
+    lastDoneAt: sql<Date | null>`MAX(${item.completedAt})`.mapWith(item.completedAt),
+    completedFirstAt: checklistInstances.completedFirstAt,
+    assigneeCount: sql<number>`(SELECT COUNT(*) FROM ${checklistInstanceAssignees} ac WHERE ac.instanceId = ${checklistInstances.id})`,
+    departmentSpan: sql<number>`(SELECT COUNT(DISTINCT COALESCE(du.departmentId, '__none__')) FROM ${checklistInstanceAssignees} da INNER JOIN ${users} du ON du.id = da.userId WHERE da.instanceId = ${checklistInstances.id})`,
+}
+export const runGroupBy = [
+    checklistInstances.id, checklistInstances.definitionId, checklistInstances.title, checklistInstances.storeId, checklistInstances.recurrence, checklistInstances.periodStart,
+    checklistInstances.periodEnd, checklistInstances.cutoffTime, checklistInstances.opensTime, checklistInstances.verificationStatus, checklistInstances.rejectionCount,
+    checklistInstances.submittedAt, checklistInstances.completedFirstAt,
+] as const
+
+export type RunFlagContext = { offDayRules: OffDayRules; assigneesByRun: Map<string, RunAssignee[]>; offsetMs: number; now: number }
+
+/**
+ * What one run came to. Deadline = periodStart (the org-local day as UTC midnight) + cutoff clock time - org offset.
+ * An overnight window (cutoff earlier than opens) rolls to the next day. No cutoff = end of day. `skip`: the run is
+ * not real work (no questions, not opened and untouched, or an idle daily run on a holiday no extra day covers).
+ */
+export const runFlagsOf = (r: RunRow, ctx: RunFlagContext): RunFlags => {
+    const { offDayRules, assigneesByRun, offsetMs, now } = ctx
+    const total = Number(r.total)
+    const done = Number(r.done)
+    const complete = total > 0 && done === total
+    let deadline: number
+    if (!r.cutoffTime) {
+        deadline = r.periodEnd.getTime() - offsetMs
+    } else {
+        const [h, m] = r.cutoffTime.split(":").map(Number)
+        let minutes = h * 60 + m
+        if (r.opensTime && r.cutoffTime < r.opensTime) minutes += 24 * 60
+        deadline = r.periodStart.getTime() + minutes * 60_000 - offsetMs
+    }
+    const status = r.verificationStatus
+    // When the run opens for filling: the opens time that day, or the start of the day.
+    let opensAt = r.periodStart.getTime() - offsetMs
+    if (r.opensTime) {
+        const [oh, om] = r.opensTime.split(":").map(Number)
+        opensAt += (oh * 60 + om) * 60_000
+    }
+    const date = r.periodStart.toISOString().slice(0, 10)
+    const idleHoliday = isIdleHolidayRun(offDayRules, { date, recurrence: r.recurrence, complete, storeId: r.storeId }, hasExtraDay(offDayRules, date) ? assigneesByRun.get(r.id) ?? [] : [])
+    const skip = total === 0 || idleHoliday || (done === 0 && opensAt > now)
+    return {
+        id: r.id,
+        storeId: r.storeId,
+        definitionId: r.definitionId,
+        title: r.title,
+        recurrence: r.recurrence,
+        assigneeCount: Number(r.assigneeCount),
+        departmentSpan: Number(r.departmentSpan),
+        skip,
+        complete,
+        onTime: complete && (() => { const doneAt = r.completedFirstAt ?? r.lastDoneAt; return !doneAt || doneAt.getTime() <= deadline })(),
+        missed: !complete && now > deadline,
+        submitted: r.submittedAt != null || status === "PENDING_APPROVAL" || status === "APPROVED",
+        approved: status === "APPROVED",
+        sentBack: r.rejectionCount > 0,
+    }
+}
+
+/** Assignees of the given runs, only for runs on a day that has an extra working day (the only case that needs them). */
+export const loadExtraDayAssignees = async (runs: readonly Pick<RunRow, "id" | "periodStart">[], rules: OffDayRules): Promise<Map<string, RunAssignee[]>> => {
+    const ids = runs.filter((r) => hasExtraDay(rules, r.periodStart.toISOString().slice(0, 10))).map((r) => r.id)
+    const map = new Map<string, RunAssignee[]>()
+    if (!ids.length) return map
+    const rows = await db
+        .select({ instanceId: checklistInstanceAssignees.instanceId, id: users.id, departmentId: users.departmentId, storeId: users.storeId })
+        .from(checklistInstanceAssignees)
+        .innerJoin(users, eq(users.id, checklistInstanceAssignees.userId))
+        .where(inArray(checklistInstanceAssignees.instanceId, ids))
+    for (const a of rows) {
+        const entry = { id: a.id, departmentId: a.departmentId, storeId: a.storeId }
+        const list = map.get(a.instanceId)
+        if (list) list.push(entry)
+        else map.set(a.instanceId, [entry])
+    }
+    return map
+}
 
 const emptyItemAcc = () => ({ done: 0, na: 0, scored: 0, good: 0, wScored: 0, wGood: 0 })
 type ItemAcc = ReturnType<typeof emptyItemAcc>
@@ -269,11 +385,12 @@ export const checklistReportService = {
      */
     async build(
         user: AccessTokenPayload,
-        query: Pick<ChecklistReportQuery, "from" | "to" | "storeId" | "departmentId" | "groupBy">,
+        query: Pick<ChecklistReportQuery, "from" | "to" | "storeId" | "departmentId" | "groupBy"> & { recurrence?: string },
         onlyUserId?: string,
-        options: { byStore?: boolean } = {},
+        options: { byStore?: boolean; byDefinition?: boolean } = {},
     ): Promise<ChecklistReport> {
         const wantStores = options.byStore === true
+        const wantDefinitions = options.byDefinition === true
         const { departmentId, locked } = onlyUserId ? { departmentId: undefined, locked: false } : resolveDepartmentScope(user, query.departmentId)
         const { from, to, storeId, groupBy } = query
         const offsetMs = env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000
@@ -288,6 +405,8 @@ export const checklistReportService = {
             parentNotDeletedExpr,
         ]
         if (storeId) runConditions.push(eq(checklistInstances.storeId, storeId))
+        // One recurrence only (DAILY, WEEKLY, ...). Left out, every kind of checklist counts.
+        if (query.recurrence) runConditions.push(sql`${checklistInstances.recurrence} = ${query.recurrence}`)
         if (onlyUserId) {
             runConditions.push(sql`EXISTS (
                 SELECT 1 FROM ${checklistInstanceAssignees} a3
@@ -305,30 +424,11 @@ export const checklistReportService = {
 
         const [runRows, assigneeRows, departmentRows, storeRows, offDayRules] = await Promise.all([
             // One row per run, items folded into counts.
-            db.select({
-                id: checklistInstances.id,
-                storeId: checklistInstances.storeId,
-                recurrence: checklistInstances.recurrence,
-                periodStart: checklistInstances.periodStart,
-                periodEnd: checklistInstances.periodEnd,
-                cutoffTime: checklistInstances.cutoffTime,
-                opensTime: checklistInstances.opensTime,
-                verificationStatus: checklistInstances.verificationStatus,
-                rejectionCount: checklistInstances.rejectionCount,
-                submittedAt: checklistInstances.submittedAt,
-                total: sql<number>`COUNT(${item.id})`,
-                done: sql<number>`COALESCE(SUM(${item.isDone}), 0)`,
-                lastDoneAt: sql<Date | null>`MAX(${item.completedAt})`.mapWith(item.completedAt),
-                completedFirstAt: checklistInstances.completedFirstAt,
-            })
+            db.select(runSelect)
                 .from(checklistInstances)
                 .leftJoin(item, eq(item.instanceId, checklistInstances.id))
                 .where(runWhere)
-                .groupBy(
-                    checklistInstances.id, checklistInstances.storeId, checklistInstances.recurrence, checklistInstances.periodStart, checklistInstances.periodEnd, checklistInstances.cutoffTime,
-                    checklistInstances.opensTime, checklistInstances.verificationStatus, checklistInstances.rejectionCount, checklistInstances.submittedAt,
-                    checklistInstances.completedFirstAt,
-                ),
+                .groupBy(...runGroupBy),
             // Who each run belongs to, with the person's details, so there is no per-person lookup.
             db.select({
                 instanceId: checklistInstanceAssignees.instanceId,
@@ -355,62 +455,23 @@ export const checklistReportService = {
         const departmentNames = new Map(departmentRows.map((d) => [d.id, d.name]))
         const storeNames = new Map(storeRows.map((s) => [s.id, s.name]))
 
-        const assigneesByRun = new Map<string, RunAssignee[]>()
-        for (const a of assigneeRows) {
-            const list = assigneesByRun.get(a.instanceId)
-            const entry = { id: a.userId, departmentId: a.departmentId, storeId: a.storeId }
-            if (list) list.push(entry)
-            else assigneesByRun.set(a.instanceId, [entry])
-        }
-
-        // Deadline = periodStart (the org-local day as UTC midnight) + cutoff clock time - org offset.
-        // An overnight window (cutoff earlier than opens) rolls to the next day. No cutoff = end of day.
-        const flagsOf = (r: RunRow): RunFlags => {
-            const total = Number(r.total)
-            const complete = total > 0 && Number(r.done) === total
-            let deadline: number
-            if (!r.cutoffTime) {
-                deadline = r.periodEnd.getTime() - offsetMs
-            } else {
-                const [h, m] = r.cutoffTime.split(":").map(Number)
-                let minutes = h * 60 + m
-                if (r.opensTime && r.cutoffTime < r.opensTime) minutes += 24 * 60
-                deadline = r.periodStart.getTime() + minutes * 60_000 - offsetMs
-            }
-            const status = r.verificationStatus
-            const done = Number(r.done)
-            // When the run opens for filling: the opens time that day, or the start of the day.
-            let opensAt = r.periodStart.getTime() - offsetMs
-            if (r.opensTime) {
-                const [oh, om] = r.opensTime.split(":").map(Number)
-                opensAt += (oh * 60 + om) * 60_000
-            }
-            const date = r.periodStart.toISOString().slice(0, 10)
-            const idleHoliday = isIdleHolidayRun(offDayRules, { date, recurrence: r.recurrence, complete, storeId: r.storeId }, hasExtraDay(offDayRules, date) ? assigneesByRun.get(r.id) ?? [] : [])
-            const skip = total === 0 || idleHoliday || (done === 0 && opensAt > now)
-            return {
-                id: r.id,
-                storeId: r.storeId,
-                skip,
-                complete,
-                onTime: complete && (() => { const doneAt = r.completedFirstAt ?? r.lastDoneAt; return !doneAt || doneAt.getTime() <= deadline })(),
-                missed: !complete && now > deadline,
-                submitted: r.submittedAt != null || status === "PENDING_APPROVAL" || status === "APPROVED",
-                approved: status === "APPROVED",
-                sentBack: r.rejectionCount > 0,
-            }
-        }
-        const flagsByRun = new Map<string, RunFlags>(runRows.map((r) => [r.id, flagsOf(r)]))
+        // Every assignee of a run on a day with an extra working day, NOT just the filtered ones, so whether
+        // a holiday run is covered never depends on which person or department the report is filtered to.
+        const assigneesByRun = await loadExtraDayAssignees(runRows, offDayRules)
+        const flagCtx: RunFlagContext = { offDayRules, assigneesByRun, offsetMs, now }
+        const flagsByRun = new Map<string, RunFlags>(runRows.map((r) => [r.id, runFlagsOf(r, flagCtx)]))
         const countedRuns = [...flagsByRun.values()].filter((f) => !f.skip)
         // Runs that are not counted but carry answers (an unfinished daily run on a holiday): their answers
         // must not count either, so a skipped run is skipped everywhere.
         const skippedRunIds = [...flagsByRun.values()].filter((f) => f.skip).map((f) => f.id)
 
-        // Item-level numbers by the person each answer is credited to (who completed it, or who had done it
-        // when it was sent back) and that person's department, over the counted runs. Answers with nobody
-        // credited are kept too: they only count in totals, where every answer on a run counts.
+        // Item-level numbers per run and per credited person (who completed the answer, or who had done it
+        // when it was sent back), with that person's department. Grouping by run keeps every split below
+        // (person, department, store, checklist) a plain in-memory sum of the same rows, over the counted
+        // runs only: a skipped run is skipped everywhere, so its answers never count either. Answers with
+        // nobody credited are kept too: they only count where every answer on a run counts (totals, stores).
         const cu = alias(users, "cu")
-        const itemWhere = and(runWhere, sql`(${item.isDone} = 1 OR ${item.sendBackCount} > 0)`, skippedRunIds.length ? notInArray(item.instanceId, skippedRunIds) : undefined)
+        const itemWhere = and(runWhere, sql`(${item.isDone} = 1 OR ${item.sendBackCount} > 0)`)
         const itemMetrics = {
             done: sql<number>`SUM(CASE WHEN ${item.isDone} = 1 AND ${item.isNotApplicable} = 0 THEN 1 ELSE 0 END)`,
             na: sql<number>`SUM(CASE WHEN ${item.isDone} = 1 AND ${item.isNotApplicable} = 1 THEN 1 ELSE 0 END)`,
@@ -419,29 +480,29 @@ export const checklistReportService = {
             wScored: weightedScoredExpr,
             wGood: weightedGoodExpr,
         }
-        const [itemRows, storeItemRows] = await Promise.all([
-            db.select({ userId: creditedUser, deptId: cu.departmentId, ...itemMetrics })
-                .from(item)
-                .innerJoin(checklistInstances, eq(checklistInstances.id, item.instanceId))
-                .leftJoin(cu, sql`${cu.id} = ${creditedUser}`)
-                .where(itemWhere)
-                .groupBy(creditedUser, cu.departmentId),
-            // Only run when the per-store split was asked for.
-            wantStores
-                ? db.select({ userId: creditedUser, storeId: checklistInstances.storeId, ...itemMetrics })
-                    .from(item)
-                    .innerJoin(checklistInstances, eq(checklistInstances.id, item.instanceId))
-                    .where(itemWhere)
-                    .groupBy(creditedUser, checklistInstances.storeId)
-                : Promise.resolve([]),
-        ])
+        const itemRows = await db.select({ instanceId: item.instanceId, userId: creditedUser, deptId: cu.departmentId, ...itemMetrics })
+            .from(item)
+            .innerJoin(checklistInstances, eq(checklistInstances.id, item.instanceId))
+            .leftJoin(cu, sql`${cu.id} = ${creditedUser}`)
+            .where(itemWhere)
+            .groupBy(item.instanceId, creditedUser, cu.departmentId)
         const itemAcc = (r: { done: unknown; na: unknown; scored: unknown; good: unknown; wScored: unknown; wGood: unknown }): ItemAcc => ({
             done: Number(r.done), na: Number(r.na), scored: Number(r.scored), good: Number(r.good), wScored: Number(r.wScored), wGood: Number(r.wGood),
         })
+        const addTo = (map: Map<string, ItemAcc>, key: string, acc: ItemAcc) => {
+            const into = map.get(key) ?? emptyItemAcc()
+            addItems(into, acc)
+            map.set(key, into)
+        }
 
-        type Person = { row: (typeof assigneeRows)[number]; runs: RunOutcome[]; items: ItemAcc }
+        // Which (run, person) pairs exist inside this report. An answer is credited to a person's own row only
+        // on a run that person is assigned to: the same rule for a person card and a list row (a person card
+        // is this report filtered to one person), so the two can never differ.
+        const assignedKeys = new Set(assigneeRows.map((a) => `${a.instanceId}|${a.userId}`))
+
+        type Person = { row: (typeof assigneeRows)[number]; runs: RunOutcome[]; items: ItemAcc; shared: Set<string> }
         const peopleById = new Map<string, Person>()
-        type Dept = { runs: RunOutcome[]; items: ItemAcc; people: Set<string> }
+        type Dept = { runs: RunOutcome[]; items: ItemAcc; people: Set<string>; shared: Set<string> }
         const deptByKey = new Map<string, Dept>()
 
         for (const a of assigneeRows) {
@@ -449,36 +510,22 @@ export const checklistReportService = {
             if (!flags || flags.skip) continue
             let person = peopleById.get(a.userId)
             if (!person) {
-                person = { row: a, runs: [], items: emptyItemAcc() }
+                person = { row: a, runs: [], items: emptyItemAcc(), shared: new Set() }
                 peopleById.set(a.userId, person)
             }
             person.runs.push(flags)
+            if (flags.assigneeCount > 1) person.shared.add(flags.id)
 
             const key = a.departmentId ?? NO_DEPARTMENT_KEY
             let dept = deptByKey.get(key)
             if (!dept) {
-                dept = { runs: [], items: emptyItemAcc(), people: new Set() }
+                dept = { runs: [], items: emptyItemAcc(), people: new Set(), shared: new Set() }
                 deptByKey.set(key, dept)
             }
             dept.people.add(a.userId)
             // A run shared by two people of one department counts once for that department (tallyRuns de-duplicates by run id).
             dept.runs.push(flags)
-        }
-
-        // Answers go to the person they are credited to (only people who appear in the report, i.e. who had
-        // a checklist assigned in the period, get a row to show them on) and to that person's department.
-        // Totals take every answer on the counted runs; with a person or department filter, only the answers
-        // that filter is about.
-        const totalItems = emptyItemAcc()
-        for (const r of itemRows) {
-            const acc = itemAcc(r)
-            const inTotals = departmentId ? r.deptId === departmentId : onlyUserId ? r.userId === onlyUserId : true
-            if (inTotals) addItems(totalItems, acc)
-            if (!r.userId) continue
-            const person = peopleById.get(r.userId)
-            if (person) addItems(person.items, acc)
-            const dept = deptByKey.get(r.deptId ?? NO_DEPARTMENT_KEY)
-            if (dept) addItems(dept.items, acc)
+            if (flags.departmentSpan > 1) dept.shared.add(flags.id)
         }
 
         // The same per-person figures, split by the store each run belongs to, and each store's own totals
@@ -505,15 +552,45 @@ export const checklistReportService = {
                 }
                 entry.runs.push(flags)
             }
-            for (const r of storeItemRows) {
-                if (!r.storeId) continue
-                const acc = itemAcc(r)
-                const totalForStore = storeTotalItems.get(r.storeId) ?? emptyItemAcc()
-                addItems(totalForStore, acc)
-                storeTotalItems.set(r.storeId, totalForStore)
-                const entry = r.userId ? storePeople.get(`${r.storeId}|${r.userId}`) : undefined
+        }
+
+        // One row per checklist (definition), every run once, answers as in totals.
+        type DefinitionAcc = { title: string; recurrence: string; runs: RunOutcome[] }
+        const definitionRuns = new Map<string, DefinitionAcc>()
+        const definitionItems = new Map<string, ItemAcc>()
+        if (wantDefinitions) {
+            for (const f of countedRuns) {
+                const d = definitionRuns.get(f.definitionId)
+                if (d) { d.runs.push(f); d.title = f.title }
+                else definitionRuns.set(f.definitionId, { title: f.title, recurrence: f.recurrence, runs: [f] })
+            }
+        }
+
+        // Totals take every answer on the counted runs; with a person or department filter, only the answers
+        // that filter is about.
+        const totalItems = emptyItemAcc()
+        const unassignedItems = emptyItemAcc()
+        for (const r of itemRows) {
+            const flags = flagsByRun.get(r.instanceId)
+            if (!flags || flags.skip) continue
+            const acc = itemAcc(r)
+            const assignedHere = !!r.userId && assignedKeys.has(`${r.instanceId}|${r.userId}`)
+            const inTotals = departmentId ? r.deptId === departmentId : onlyUserId ? r.userId === onlyUserId : true
+            if (inTotals) {
+                addItems(totalItems, acc)
+                if (wantDefinitions) addTo(definitionItems, flags.definitionId, acc)
+            }
+            if (flags.assigneeCount === 0) addItems(unassignedItems, acc)
+            if (wantStores) {
+                addTo(storeTotalItems, flags.storeId, acc)
+                const entry = assignedHere ? storePeople.get(`${flags.storeId}|${r.userId}`) : undefined
                 if (entry) addItems(entry.items, acc)
             }
+            if (!r.userId) continue
+            const person = assignedHere ? peopleById.get(r.userId) : undefined
+            if (person) addItems(person.items, acc)
+            const dept = deptByKey.get(r.deptId ?? NO_DEPARTMENT_KEY)
+            if (dept) addItems(dept.items, acc)
         }
 
         const wantPeople = groupBy === "person" || groupBy === "both"
@@ -527,6 +604,7 @@ export const checklistReportService = {
                 department: p.row.departmentId ? departmentNames.get(p.row.departmentId) ?? NO_DEPARTMENT_LABEL : NO_DEPARTMENT_LABEL,
                 store: p.row.storeId ? storeNames.get(p.row.storeId) ?? "" : "",
                 status: p.row.isActive ? "Active" : "Left",
+                sharedRuns: p.shared.size,
                 ...toMetrics(tallyRuns(p.runs), p.items),
             })).sort((a, b) => byCompletionThenName(a, b, a.name, b.name))
             : []
@@ -536,6 +614,7 @@ export const checklistReportService = {
                 departmentId: key === NO_DEPARTMENT_KEY ? null : key,
                 department: key === NO_DEPARTMENT_KEY ? NO_DEPARTMENT_LABEL : departmentNames.get(key) ?? NO_DEPARTMENT_LABEL,
                 people: d.people.size,
+                sharedRuns: d.shared.size,
                 ...toMetrics(tallyRuns(d.runs), d.items),
             })).sort((a, b) => byCompletionThenName(a, b, a.department, b.department))
             : []
@@ -555,7 +634,18 @@ export const checklistReportService = {
             storeTotals: wantStores
                 ? [...storeRuns.entries()].map(([id, runs]): StoreTotalRow => ({ storeId: id, ...toMetrics(tallyRuns(runs), storeTotalItems.get(id) ?? emptyItemAcc()) }))
                 : undefined,
+            definitions: wantDefinitions
+                ? [...definitionRuns.entries()]
+                    .map(([id, d]): DefinitionRow => ({ definitionId: id, title: d.title, recurrence: d.recurrence, ...toMetrics(tallyRuns(d.runs), definitionItems.get(id) ?? emptyItemAcc()) }))
+                    .sort((a, b) => a.title.localeCompare(b.title))
+                : undefined,
             totals: toMetrics(tallyRuns(countedRuns), totalItems),
+            unassigned: toMetrics(tallyRuns(countedRuns.filter((f) => f.assigneeCount === 0)), unassignedItems),
+            sharing: {
+                runsWithSeveralAssignees: countedRuns.filter((f) => f.assigneeCount > 1).length,
+                runsAcrossDepartments: countedRuns.filter((f) => f.departmentSpan > 1).length,
+                runsWithoutAssignee: countedRuns.filter((f) => f.assigneeCount === 0).length,
+            },
             notes: REPORT_NOTES,
         }
     },

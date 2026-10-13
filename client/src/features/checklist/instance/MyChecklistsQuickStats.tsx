@@ -14,17 +14,21 @@ export interface MyChecklistsQuickFilterCounts {
   overdue: number;
 }
 
-const TILES = statusTiles<MyChecklistsQuickFilterKey>(['pending', 'completed', 'due', 'overdue']);
+// Honest names: Not done = missed + on track, Done = finished, On track = not done and before the cutoff,
+// Missed = past the cutoff and not done. All four cover the same window (see MyChecklists).
+const TILES = statusTiles<MyChecklistsQuickFilterKey>(['pending', 'completed', 'due', 'overdue'], {
+  pending: 'Not done',
+  completed: 'Done',
+  due: 'On track',
+  overdue: 'Missed',
+});
 
 interface MyChecklistsQuickStatsProps {
   counts: MyChecklistsQuickFilterCounts;
   /**
-   * Today's assigned count, for the lead tile — not "everything in scope, unfiltered": `counts`
-   * mixes an all-time scope (Pending/Due/Overdue, which must stay all-time or a still-open weekly/
-   * monthly checklist would vanish most days) with a today-only one (Completed), so there's no
-   * single number left that's really "the total" of the row below it. Passing one anyway would
-   * make every tile's "X% of total" caption nonsense against a mismatched denominator — omit this
-   * (leave it `undefined`) rather than guess at one; the row still works fine with no lead tile.
+   * Optional lead tile with a headline count. The page leaves it out: it shows today's assigned
+   * count in its own line instead, because that is not the same window as the four tiles (they all
+   * cover this month up to today), so a total here would not match the numbers beside it.
    */
   total?: number;
   active: MyChecklistsQuickFilterKey | null;

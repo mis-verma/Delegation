@@ -33,15 +33,15 @@ interface ChartTooltipProps {
 const ChartTooltip = ({ active, payload, label, valueSuffix = '', formatLabel }: ChartTooltipProps) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="flex flex-col gap-2 min-w-[160px] p-4 bg-surface border border-border rounded-xl">
-      <p className="text-xs font-display font-bold tracking-wide text-text-secondary">{label ? formatLabel(label) : ''}</p>
+    <div className="flex min-w-40 flex-col gap-2 rounded-xl border border-border bg-surface p-3">
+      <p className="t-meta font-display font-bold text-text-secondary">{label ? formatLabel(label) : ''}</p>
       {payload.map((p) => (
         <div key={p.name} className="flex items-center justify-between gap-6">
           <div className="flex items-center gap-2">
             <span className="size-2 rounded-full shrink-0" style={{ background: p.color }} />
-            <span className="text-sm font-display text-text-secondary">{p.name}</span>
+            <span className="t-card font-display text-text-secondary">{p.name}</span>
           </div>
-          <span className="text-sm font-display font-bold text-text tabular-nums">{formatValue(p.value, valueSuffix)}</span>
+          <span className="t-card font-display font-bold text-text tabular-nums">{formatValue(p.value, valueSuffix)}</span>
         </div>
       ))}
     </div>
@@ -156,7 +156,7 @@ export const ReportTrendChart = ({ data, series, groupBy, valueSuffix = '', yDom
               <svg width="22" height="8" className="shrink-0" aria-hidden="true">
                 <line x1="1" y1="4" x2="21" y2="4" stroke={s.color} strokeWidth="2.5" strokeLinecap="round" strokeDasharray={dashFor(series.length, i)} />
               </svg>
-              <span className="text-xs font-display font-medium text-text-secondary">{s.label}</span>
+              <span className="t-meta font-display font-medium text-text-secondary">{s.label}</span>
             </div>
           ))}
         </div>
@@ -194,7 +194,7 @@ export const ReportTrendChart = ({ data, series, groupBy, valueSuffix = '', yDom
             />
             <Tooltip
               content={<ChartTooltip valueSuffix={valueSuffix} formatLabel={formatLabel} />}
-              cursor={{ stroke: 'var(--color-text-light)', strokeWidth: 1, strokeDasharray: '4 4' }}
+              cursor={{ stroke: 'var(--color-border-hover)', strokeWidth: 1 }}
             />
             {series.map((s, i) => (
               <Area
