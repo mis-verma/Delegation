@@ -16,12 +16,11 @@ import type {
     UpdateTaskChecklistItemPayload,
     CaptureMethod,
 } from "../../api/taskChecklist";
-import { handleQueryRetry, useEntityMutation, patchEntityInCache, errorMessage, invalidateScoreCaches } from "../../lib/queryHelpers";
+import { handleQueryRetry, useEntityMutation, patchEntityInCache, notifyError, invalidateScoreCaches } from "../../lib/queryHelpers";
 import type { ConfirmSmartTaskPayload } from "../../api/task";
 import { taskBulkImportApi } from "../../api/taskBulkImport";
 import { PUBLISH_REMARK } from "./taskStatusModel";
 import type { TaskBulkImportPublishPayload } from "../../api/taskBulkImport";
-import { toast } from "sonner";
 import type { SummaryScope } from "../../api/http";
 import type { DashboardQueryOptions } from "../../lib/dashboardQuery";
 
@@ -172,7 +171,8 @@ export const useRestoreTaskMutation = () =>
         // ordinary task list/board/table again.
         invalidateKeys: [['tasks']],
         successMessage: 'Delegation restored',
-        errorFallback: 'Failed to restore delegation',
+        retryable: true,
+        errorFallback: "Couldn't restore the delegation. Try again.",
     });
 
 // "Publish" is just an ordinary status-change PATCH (draft -> todo) through the same mechanism
@@ -185,7 +185,8 @@ export const usePublishDraftTaskMutation = () =>
         mutationFn: (id: string) => taskApi.update(id, { status: 'todo', statusRemark: PUBLISH_REMARK }),
         invalidateKeys: [['tasks']],
         successMessage: 'Delegation published',
-        errorFallback: 'Failed to publish delegation',
+        retryable: true,
+        errorFallback: "Couldn't publish the delegation. Try again.",
     });
 
 // Checklist completion rate over time — role-scoped server-side (ADMIN/PC get the org-wide
@@ -247,7 +248,7 @@ export const useCreateTaskMutation = () =>
         mutationFn: (payload: CreateTaskPayload) => taskApi.create(payload),
         invalidateKeys: [['tasks']],
         successMessage: 'Delegation created',
-        errorFallback: "Couldn't create the delegation",
+        errorFallback: "Couldn't create the delegation. Try again.",
     });
 
 // Create + upload any files staged in the form, as one mutation — there's no task id to upload
@@ -277,7 +278,7 @@ export const useCreateTaskWithAttachmentsMutation = () =>
         // The toast is the caller's (TaskForm), which knows whether the files made it. A failure is
         // shown inline next to the form's buttons, so no error toast either.
         successMessage: null,
-        errorFallback: "Couldn't create the delegation",
+        errorFallback: "Couldn't create the delegation. Try again.",
         errorToast: false,
     });
 
@@ -299,8 +300,10 @@ export const useUpdateTaskMutation = (options?: { silent?: boolean; quietErrors?
             apply: ({ id, payload }) => (old) => patchEntityInCache<Task>(old, id, payload),
         },
         successMessage: options?.silent ? null : 'Delegation updated',
-        errorFallback: "Couldn't save the change",
+        errorFallback: "Couldn't save the change to the delegation. Try again.",
         errorToast: !options?.quietErrors,
+        // Board and row quick moves (no options) get Retry; field autosaves show their own message.
+        retryable: !options?.silent && !options?.quietErrors,
     });
 
 // Powers the PC verification queue — tasks waiting on a given status (pending_approval),
@@ -325,7 +328,8 @@ export const useVerifyTaskMutation = () =>
         setDetailData: (updatedTask) => ({ key: TASK_KEYS.detail(updatedTask.id), data: updatedTask }),
         invalidateKeys: [['tasks']],
         successMessage: (updatedTask) => (updatedTask.status === 'done' ? 'Delegation approved' : 'Delegation sent back'),
-        errorFallback: "Couldn't save the decision",
+        retryable: true,
+        errorFallback: "Couldn't save the decision on the delegation. Try again.",
     });
 
 export const useDeleteTaskMutation = () =>
@@ -334,7 +338,8 @@ export const useDeleteTaskMutation = () =>
         removeKey: (_result, id) => TASK_KEYS.detail(id),
         invalidateKeys: [['tasks']],
         successMessage: 'Delegation deleted',
-        errorFallback: "Couldn't delete the delegation",
+        retryable: true,
+        errorFallback: "Couldn't delete the delegation. Try again.",
     });
 
 // The creator throwing away their own unpublished draft (the server allows it for drafts only).
@@ -344,7 +349,7 @@ export const useDiscardDraftMutation = () =>
         removeKey: (_result, id) => TASK_KEYS.detail(id),
         invalidateKeys: [['tasks']],
         successMessage: 'Draft discarded',
-        errorFallback: "Couldn't discard the draft",
+        errorFallback: "Couldn't discard the draft. Try again.",
     });
 
 // NEW — powers the "Assign to" dropdown in TaskForm.tsx. Calls the same `/users/assignable`
@@ -371,7 +376,7 @@ export const useAssignableUsersQuery = () => {
 export const useTaskBulkImportPreviewMutation = () =>
     useMutation({
         mutationFn: (file: File) => taskBulkImportApi.preview(file).then(r => r.data),
-        onError: (err) => toast.error(errorMessage(err, 'Failed to read that file')),
+        onError: (err) => notifyError(err, "Couldn't read that file. Try again."),
     });
 
 export const useTaskBulkImportPublishMutation = () => {
@@ -385,7 +390,7 @@ export const useTaskBulkImportPublishMutation = () => {
             queryClient.invalidateQueries({ queryKey: ['analytics'] });
             invalidateScoreCaches(queryClient);
         },
-        onError: (err) => toast.error(errorMessage(err, 'Failed to publish this batch')),
+        onError: (err) => notifyError(err, "Couldn't publish this batch. Try again."),
     });
 };
 
@@ -404,7 +409,7 @@ export const useCreateTaskCommentMutation = (taskId: string) =>
     useEntityMutation({
         mutationFn: (payload: CreateTaskCommentPayload) => taskCommentApi.create(taskId, payload),
         invalidateKeys: [[...TASK_KEYS.detail(taskId), 'comments']],
-        errorFallback: 'Failed to post comment',
+        errorFallback: "Couldn't post the comment. Try again.",
     });
 
 // ── Task checklists (items, images, remarks) ──────────────────────────────
@@ -416,7 +421,7 @@ export const useAddTaskChecklistMutation = (taskId: string) =>
         mutationFn: (payload: CreateTaskChecklistPayload) => taskChecklistApi.create(taskId, payload).then(r => r.data),
         invalidateKeys: [TASK_KEYS.detail(taskId)],
         successMessage: 'Checklist added',
-        errorFallback: 'Failed to add checklist',
+        errorFallback: "Couldn't add the checklist. Try again.",
     });
 
 export const useDeleteTaskChecklistMutation = (taskId: string) =>
@@ -424,7 +429,8 @@ export const useDeleteTaskChecklistMutation = (taskId: string) =>
         mutationFn: (id: string) => taskChecklistApi.deleteChecklist(id),
         invalidateKeys: [TASK_KEYS.detail(taskId)],
         successMessage: 'Checklist deleted',
-        errorFallback: 'Failed to delete checklist',
+        retryable: true,
+        errorFallback: "Couldn't delete the checklist. Try again.",
     });
 
 export const useUpdateTaskChecklistItemMutation = (taskId: string) =>
@@ -432,7 +438,8 @@ export const useUpdateTaskChecklistItemMutation = (taskId: string) =>
         mutationFn: ({ id, payload }: { id: string; payload: UpdateTaskChecklistItemPayload }) =>
             taskChecklistApi.updateItem(id, payload).then(r => r.data),
         invalidateKeys: [TASK_KEYS.detail(taskId)],
-        errorFallback: 'Failed to update item',
+        retryable: true,
+        errorFallback: "Couldn't update the item. Try again.",
     });
 
 export const useUpdateTaskItemRemarksMutation = (taskId: string) =>
@@ -441,7 +448,7 @@ export const useUpdateTaskItemRemarksMutation = (taskId: string) =>
             taskChecklistApi.updateRemarks(id, remarks).then(r => r.data),
         invalidateKeys: [TASK_KEYS.detail(taskId)],
         successMessage: 'Remarks saved',
-        errorFallback: 'Failed to save remarks',
+        errorFallback: "Couldn't save the remarks. Try again.",
     });
 
 export const useCompleteTaskChecklistItemMutation = (taskId: string) =>
@@ -449,7 +456,8 @@ export const useCompleteTaskChecklistItemMutation = (taskId: string) =>
         mutationFn: (id: string) => taskChecklistApi.completeItem(id).then(r => r.data),
         invalidateKeys: [TASK_KEYS.detail(taskId)],
         successMessage: 'Item marked complete',
-        errorFallback: 'Failed to complete item',
+        retryable: true,
+        errorFallback: "Couldn't complete the item. Try again.",
     });
 
 export const useDeleteTaskChecklistItemMutation = (taskId: string) =>
@@ -457,7 +465,8 @@ export const useDeleteTaskChecklistItemMutation = (taskId: string) =>
         mutationFn: (id: string) => taskChecklistApi.deleteItem(id),
         invalidateKeys: [TASK_KEYS.detail(taskId)],
         successMessage: 'Item deleted',
-        errorFallback: 'Failed to delete item',
+        retryable: true,
+        errorFallback: "Couldn't delete the item. Try again.",
     });
 
 export const useUploadTaskImagesMutation = (taskId: string) =>
@@ -466,7 +475,7 @@ export const useUploadTaskImagesMutation = (taskId: string) =>
             taskChecklistApi.uploadImages(itemId, files, captureMethod).then(r => r.data),
         invalidateKeys: [TASK_KEYS.detail(taskId)],
         successMessage: 'Photos uploaded',
-        errorFallback: 'Failed to upload photos',
+        errorFallback: "Couldn't upload the photos. Try again.",
     });
 
 export const useDeleteTaskImageMutation = (taskId: string) =>
@@ -474,7 +483,8 @@ export const useDeleteTaskImageMutation = (taskId: string) =>
         mutationFn: (id: string) => taskChecklistApi.deleteImage(id),
         invalidateKeys: [TASK_KEYS.detail(taskId)],
         successMessage: 'Photo deleted',
-        errorFallback: 'Failed to delete photo',
+        retryable: true,
+        errorFallback: "Couldn't delete the photo. Try again.",
     });
 
 // Reusable checklist templates (managed under Admin) that can be applied to a task in one
@@ -494,7 +504,7 @@ export const useApplyChecklistTemplateMutation = (taskId: string) =>
         mutationFn: (templateId: string) => checklistTemplateApi.applyToTask(taskId, templateId),
         invalidateKeys: [TASK_KEYS.detail(taskId)],
         successMessage: 'Template applied',
-        errorFallback: 'Failed to apply template',
+        errorFallback: "Couldn't apply the template. Try again.",
     });
 
 export const useCreateSmartTaskMutation = () => 
@@ -502,7 +512,7 @@ export const useCreateSmartTaskMutation = () =>
         mutationFn : (payload : ConfirmSmartTaskPayload) => taskApi.createFromSmart(payload),
         invalidateKeys : [["tasks"]], 
         successMessage : "Delegation created",
-        errorFallback : "Couldn't create the delegation"
+        errorFallback : "Couldn't create the delegation. Try again."
     })
 
 export const useParseSmartTaskMutation = () =>
@@ -575,7 +585,7 @@ export const useUploadTaskAttachmentsMutation = (taskId: string) =>
         mutationFn: (files: File[]) => taskApi.uploadAttachments(taskId, files),
         invalidateKeys: [['tasks']],
         successMessage: null,
-        errorFallback: 'Failed to add the file',
+        errorFallback: "Couldn't add the file. Try again.",
     });
 
 export const useDeleteTaskAttachmentMutation = () =>
@@ -583,5 +593,6 @@ export const useDeleteTaskAttachmentMutation = () =>
         mutationFn: (id: string) => taskApi.deleteAttachment(id),
         invalidateKeys: [['tasks']],
         successMessage: null,
-        errorFallback: 'Failed to remove the file',
+        retryable: true,
+        errorFallback: "Couldn't remove the file. Try again.",
     });

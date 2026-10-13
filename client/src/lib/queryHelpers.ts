@@ -1,11 +1,85 @@
+import { useEffect, useRef } from 'react';
 import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { ApiError } from '../api/http';
+import { haptic } from './haptics';
 
-// Shared by every feature's hook.ts — was previously copy-pasted identically in
-// features/tickets/hook.ts and features/tasks/hook.ts.
-export const errorMessage = (err: unknown, fallback: string) =>
-  err instanceof Error ? err.message : fallback;
+const OFFLINE_MESSAGE = "You're offline. Check your connection and try again.";
+
+// A server or thrown message is safe to show only when it reads like a short plain sentence:
+// no "Error:" prefixes, status-code talk, stack text, or code-ish words.
+const TECHNICAL_TEXT =
+  /error:|status code|request failed|failed to fetch|networkerror|\bat\s.+\(|\bundefined\b|\bnull\b|\[object|econn|enotfound|etimedout|typeerror|syntaxerror|prisma|\bsql\b|\bstack\b|exception|\bjson\b|<\/?\w+>|[{}]/i;
+
+export const isHumanMessage = (message: unknown): message is string => {
+  if (typeof message !== 'string') return false;
+  const text = message.trim();
+  return text.length > 0 && text.length < 160 && !/[\r\n]/.test(text) && !TECHNICAL_TEXT.test(text);
+};
+
+/** True when the failure is the phone having no connection (nothing reached the server). */
+export const isOfflineError = (err: unknown): boolean =>
+  (typeof navigator !== 'undefined' && navigator.onLine === false) ||
+  err instanceof TypeError ||
+  (err instanceof ApiError && err.status === 0);
+
+/**
+ * Turns any failure into one plain sentence for the person. Never returns raw technical text.
+ * `fallback` should read "Couldn't <do the thing>. Try again." and is used for server faults (5xx)
+ * and anything unrecognised. Pure, so it can be unit tested on its own.
+ */
+export function mapApiError(err: unknown, fallback: string): string {
+  if (isOfflineError(err)) return OFFLINE_MESSAGE;
+
+  const serverText = err instanceof Error && isHumanMessage(err.message) ? err.message.trim() : null;
+
+  if (err instanceof ApiError) {
+    switch (err.status) {
+      case 401: return "You've been signed out. Sign in again.";
+      case 403: return serverText ?? "You can't do this. Ask your manager or admin.";
+      case 404: return 'This was deleted or moved.';
+      case 409: return serverText ?? 'Someone just changed this. Reload to see the latest.';
+      case 413: return 'This file is too large. Try a smaller one.';
+      case 429: return 'Too many tries. Wait a moment and try again.';
+      default:
+        // Other 4xx (bad input) carry a useful human sentence; 5xx never do.
+        if (err.status >= 400 && err.status < 500 && serverText) return serverText;
+        return fallback;
+    }
+  }
+  // A plain Error thrown by our own client code (validation, "pick a file first" and so on).
+  return serverText ?? fallback;
+}
+
+// Kept under its old name: every caller already passes a "Couldn't ..." fallback.
+export const errorMessage = (err: unknown, fallback: string): string => mapApiError(err, fallback);
+
+// Retrying only helps when the cause was temporary: no connection, a busy or broken server.
+const retryCanHelp = (err: unknown): boolean =>
+  !(err instanceof ApiError) || err.status === 0 || err.status === 408 || err.status === 429 || err.status >= 500;
+
+type NotifyErrorOptions = {
+  /** Adds a Retry button to the toast that runs this. Hidden when retrying cannot help (403, 404...). */
+  retry?: () => void;
+  /** Rewrites the final message, e.g. to prefix "Not saved." */
+  format?: (message: string, ctx: { offline: boolean }) => string;
+  /** Keeps the toast up until dismissed. Pair with `id` so repeats replace each other. */
+  persistent?: boolean;
+  id?: string | number;
+};
+
+/** The one way to tell the person something failed: error buzz, plain message, optional Retry. */
+export function notifyError(err: unknown, fallback: string, options: NotifyErrorOptions = {}): void {
+  haptic('error');
+  const mapped = mapApiError(err, fallback);
+  const message = options.format ? options.format(mapped, { offline: isOfflineError(err) }) : mapped;
+  toast.error(message, {
+    id: options.id,
+    duration: options.persistent ? Infinity : undefined,
+    closeButton: options.persistent ? true : undefined,
+    action: options.retry && retryCanHelp(err) ? { label: 'Retry', onClick: options.retry } : undefined,
+  });
+}
 
 // Stops React Query from retrying a query on any 4xx (401 unauthenticated, 403 forbidden, 404 not
 // found, etc.) — retrying doesn't fix "you're not allowed" or "this doesn't exist any more," it
@@ -61,6 +135,10 @@ type EntityMutationConfig<TVars, TResult> = {
   // Default true. Set false when the caller shows the failure itself, next to the field or button
   // that failed, so the same message doesn't also pop up as a toast.
   errorToast?: boolean;
+  // Default false. True for fast single-tap actions (tick, move, approve) so the error toast offers
+  // Retry, which re-runs the same call with the same variables. Not for create/edit forms: they show
+  // their own error next to a Save button.
+  retryable?: boolean;
   // Patch the cache immediately, before the server responds, so the UI reflects the change with
   // no perceptible wait — checkbox toggles, drag-drop status moves, etc. Rolled back on error.
   optimisticUpdate?: OptimisticUpdate<TVars>;
@@ -96,8 +174,9 @@ const invalidatesAnalytics = (invalidateKeys: readonly (readonly unknown[])[]) =
 // onError wiring for every single mutation.
 export function useEntityMutation<TVars, TResult>(config: EntityMutationConfig<TVars, TResult>) {
   const queryClient = useQueryClient();
+  const mutateRef = useRef<((vars: TVars) => void) | null>(null);
 
-  return useMutation<TResult, unknown, TVars, OptimisticContext>({
+  const mutation = useMutation<TResult, unknown, TVars, OptimisticContext>({
     mutationFn: config.mutationFn,
     onMutate: async (vars) => {
       const opt = config.optimisticUpdate;
@@ -132,13 +211,23 @@ export function useEntityMutation<TVars, TResult>(config: EntityMutationConfig<T
           ? config.successMessage(result, vars)
           : config.successMessage;
         toast.success(msg);
+        haptic('success');
       }
     },
-    onError: (err, _vars, context) => {
+    onError: (err, vars, context) => {
       context?.snapshots.forEach(([, entries]) => {
         entries.forEach(([entryKey, data]) => queryClient.setQueryData(entryKey, data));
       });
-      if (config.errorToast !== false) toast.error(errorMessage(err, config.errorFallback));
+      if (config.errorToast !== false) {
+        notifyError(err, config.errorFallback, {
+          retry: config.retryable ? () => mutateRef.current?.(vars) : undefined,
+        });
+      } else {
+        haptic('error');
+      }
     },
   });
+  // `mutate` is stable, so the Retry button can call it later with the failed call's variables.
+  useEffect(() => { mutateRef.current = mutation.mutate; }, [mutation.mutate]);
+  return mutation;
 }

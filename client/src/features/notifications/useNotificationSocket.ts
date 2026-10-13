@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { haptic } from "../../lib/haptics";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useAuth } from "../../context/AuthContext";
@@ -33,6 +34,8 @@ export const useNotificationSocket = ({ onArrive, navigate }: Options = {}) => {
         const handleNew = (n?: Partial<Notification>) => {
             queryClient.invalidateQueries({ queryKey: ["notifications"] });
             onArriveRef.current?.();
+            // Both callers of this hook hear the event; the 300ms throttle keeps it to one buzz.
+            haptic("warning");
 
             const doNavigate = navigateRef.current;
             if (!doNavigate || !n?.id || !n.title) return;

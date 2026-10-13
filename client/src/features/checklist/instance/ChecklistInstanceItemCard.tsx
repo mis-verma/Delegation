@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import { haptic } from '../../../lib/haptics';
 import { Check, Camera, ImageUp, Video } from 'lucide-react';
 import {
   useSetChecklistInstanceItemDoneMutation,
@@ -55,7 +56,7 @@ export const ChecklistInstanceItemCard = memo(function ChecklistInstanceItemCard
       <button
         type="button"
         disabled={!canToggle}
-        onClick={() => setItemDone.mutate({ itemId: item.id, isDone: !item.isDone })}
+        onClick={() => { haptic('tap'); setItemDone.mutate({ itemId: item.id, isDone: !item.isDone }); }}
         aria-pressed={item.isDone}
         aria-busy={setItemDone.isPending}
         title={interactive && !canToggle ? 'Done. Only an admin can reopen this.' : undefined}
@@ -150,7 +151,7 @@ export const ChecklistInstanceItemCard = memo(function ChecklistInstanceItemCard
             </div>
 
             <ItemActionButton
-              onClick={() => setItemDone.mutate({ itemId: item.id, isDone: true })}
+              onClick={() => { haptic('tap'); setItemDone.mutate({ itemId: item.id, isDone: true }); }}
               isLoading={setItemDone.isPending}
             >
               Mark complete

@@ -3,8 +3,8 @@ import { useAuth } from "@/context/AuthContext";
 import { todoApi, type Todo, type CreateTodoPayload, type UpdateTodoPayload } from "@/api/todos";
 import { toast } from "sonner";
 import type { DashboardQueryOptions } from "@/lib/dashboardQuery";
-
-const errorMessage = (err: unknown, fallback: string) => (err instanceof Error ? err.message : fallback);
+import { notifyError } from "@/lib/queryHelpers";
+import { haptic } from "@/lib/haptics";
 
 const TODO_KEY = {
     all: ["todos"] as const,
@@ -58,9 +58,10 @@ export const useCreateTodoMutation = () => {
         mutationFn: (payload: CreateTodoPayload) => todoApi.create(payload).then(r => r.data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: TODO_KEY.all });
-            toast.success("Todo added");
+            toast.success("To-do added");
+            haptic("success");
         },
-        onError: (err) => toast.error(errorMessage(err, "Failed to add todo")),
+        onError: (err) => notifyError(err, "Couldn't add the to-do. Try again."),
     });
 };
 
@@ -73,16 +74,20 @@ export const useCreateTodoMutation = () => {
  */
 export const useUpdateTodoMutation = () => {
     const queryClient = useQueryClient();
-    return useMutation({
+    const mutation = useMutation({
         mutationFn: ({ id, payload }: { id: string; payload: UpdateTodoPayload }) =>
             todoApi.update(id, payload).then(r => r.data),
-        onMutate: ({ id, payload }) =>
-            beginOptimistic(queryClient, (todos) =>
+        onMutate: ({ id, payload }) => {
+            // Ticking a to-do off is the main tap on this page.
+            if ("completed" in payload) haptic("tap");
+            return beginOptimistic(queryClient, (todos) =>
                 todos.map((t) => (t.id === id ? { ...t, ...payload } : t)),
-            ),
-        onError: (err, _vars, context) => {
+            );
+        },
+        onError: (err, vars, context) => {
             if (context?.previous) queryClient.setQueryData(TODO_KEY.all, context.previous);
-            toast.error(errorMessage(err, "Failed to update todo"));
+            // Quick tap action, so the toast offers Retry with the same change.
+            notifyError(err, "Couldn't update the to-do. Try again.", { retry: () => mutation.mutate(vars) });
         },
         // Reconcile against the server either way — on success to pick up anything it computed,
         // on failure to be sure the rollback matches reality.
@@ -90,6 +95,7 @@ export const useUpdateTodoMutation = () => {
             queryClient.invalidateQueries({ queryKey: TODO_KEY.all });
         },
     });
+    return mutation;
 };
 
 /**
@@ -109,9 +115,9 @@ const restoreTodo = async (queryClient: QueryClient, todo: Todo) => {
         if (todo.completed) {
             await todoApi.update(created.id, { completed: true });
         }
-        toast.success("Todo restored");
+        toast.success("To-do restored");
     } catch (err) {
-        toast.error(errorMessage(err, "Could not restore that todo"));
+        notifyError(err, "Couldn't restore the to-do. Try again.");
     } finally {
         queryClient.invalidateQueries({ queryKey: TODO_KEY.all });
     }
@@ -124,7 +130,7 @@ const restoreTodo = async (queryClient: QueryClient, todo: Todo) => {
  */
 export const useDeleteTodoMutation = () => {
     const queryClient = useQueryClient();
-    return useMutation({
+    const mutation = useMutation({
         mutationFn: (id: string) => todoApi.delete(id),
         onMutate: async (id) => {
             const { previous } = await beginOptimistic(queryClient, (todos) => todos.filter((t) => t.id !== id));
@@ -134,18 +140,19 @@ export const useDeleteTodoMutation = () => {
         },
         onSuccess: (_data, _id, context) => {
             const removed = context?.removed;
-            toast.success("Todo removed", removed && {
+            toast.success("To-do removed", removed && {
                 // Longer than the 4s default: an undo nobody has time to reach isn't an undo.
                 duration: 8000,
                 action: { label: "Undo", onClick: () => void restoreTodo(queryClient, removed) },
             });
         },
-        onError: (err, _id, context) => {
+        onError: (err, id, context) => {
             if (context?.previous) queryClient.setQueryData(TODO_KEY.all, context.previous);
-            toast.error(errorMessage(err, "Failed to remove todo"));
+            notifyError(err, "Couldn't remove the to-do. Try again.", { retry: () => mutation.mutate(id) });
         },
         onSettled: () => {
             queryClient.invalidateQueries({ queryKey: TODO_KEY.all });
         },
     });
+    return mutation;
 };

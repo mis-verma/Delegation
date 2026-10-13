@@ -1,4 +1,5 @@
 import { memo, useId, useState } from 'react';
+import { haptic } from '../../../lib/haptics';
 import { Camera, ImageUp, Zap, AlertTriangle } from 'lucide-react';
 import {
   useSetChecklistInstanceItemDoneMutation,
@@ -69,6 +70,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
 
   const pickAnswer = (value: 'YES' | 'NO') => {
     if (!interactive || setItemDone.isPending) return;
+    haptic('tap');
     if (isTriggering(value)) {
       setPendingAnswer(value);
       return;
@@ -82,6 +84,7 @@ export const ChecklistInstanceItemBooleanCard = memo(function ChecklistInstanceI
 
   const confirmPendingAnswer = () => {
     if (!pendingAnswer || !canConfirm) return;
+    haptic('tap');
     setItemDone.mutate(
       {
         itemId: item.id,

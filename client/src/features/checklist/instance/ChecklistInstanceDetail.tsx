@@ -1,4 +1,5 @@
-import { memo, useCallback, useMemo, useState, type ReactElement } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState, type ReactElement } from 'react';
+import { haptic } from '../../../lib/haptics';
 import { useRefreshOnNewDay } from '../useRefreshOnNewDay';
 import { useParams, useNavigate } from 'react-router';
 import { ArrowDown, ArrowLeft, CheckCheck, ShieldAlert, ShieldCheck, ShieldQuestion, CornerUpLeft, AlertTriangle, Pencil, Clock, Layers, ClipboardX } from 'lucide-react';
@@ -241,6 +242,9 @@ export const ChecklistInstanceDetail = () => {
   const startSelecting = useCallback(() => setSelecting(true), []);
   const stopSelecting = useCallback(() => { setSelecting(false); setPicked(new Set()); }, []);
   const selectedIds = useMemo(() => [...picked], [picked]);
+  // A run that was sent back is the person's to fix: one warning buzz when it opens like that.
+  const sentBackId = instance?.verificationStatus === 'REJECTED' && user?.role !== 'ADMIN' && user?.role !== 'PC' ? instance.id : null;
+  useEffect(() => { if (sentBackId) haptic('warning'); }, [sentBackId]);
   // Runs made for an extra working day (overtime) get a tag, so the person knows why it exists.
   const { data: myExtraDays } = useMyExtraWorkingDaysQuery();
   // "Left to do" hides the questions already answered, so the person sees only what is still open.

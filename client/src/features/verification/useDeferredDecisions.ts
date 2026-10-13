@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { errorMessage } from '../../lib/queryHelpers';
+import { notifyError } from '../../lib/queryHelpers';
 
 // Approve and Send back take effect after a short Undo window: the row leaves the list right away,
 // a toast offers Undo for ten seconds, and only then does the request go out. Anything still waiting
@@ -61,7 +61,7 @@ export const useDeferredDecisions = ({ afterSaved, delayMs = UNDO_WINDOW_MS }: O
       // The decision is saved. A failed refresh must not read as a failed decision.
       try { await afterSavedRef.current?.(); } catch { /* the next refetch catches up */ }
     } catch (err) {
-      toast.error(errorMessage(err, `Couldn't save that decision for ${entry.request.label}. It is back in the list.`));
+      notifyError(err, `Couldn't save that decision for ${entry.request.label}. It is back in the list.`);
     } finally {
       release([id]);
     }

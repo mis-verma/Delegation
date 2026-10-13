@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { haptic } from '../../lib/haptics';
 import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { endOfDay } from './taskDisplay';
@@ -160,6 +161,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
     // without one: it goes nowhere until it is published.
     if (ownScopeOnly && !saveAsDraft && !data.departmentId) {
       setError('departmentId', { message: 'Pick the department that should do this' });
+      haptic('error');
       focusDepartmentField();
       return;
     }
@@ -211,7 +213,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
       className="flex items-start gap-1.5 t-meta font-display font-medium text-danger outline-none"
     >
       <AlertCircle size={14} className="shrink-0 mt-px" aria-hidden />
-      <span>{errorMessage(mutation.error, "Couldn't create the delegation. Check the fields and try again.")}</span>
+      <span>{errorMessage(mutation.error, "Couldn't create the delegation. Try again.")}</span>
     </p>
   ) : (
     /* Lists what is still needed, then what is not set yet. On a phone it waits for the first Create tap. */
@@ -287,7 +289,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
           the two steps sit side by side, same layout as the New ticket form. */}
       <form
         id="task-form"
-        onSubmit={handleSubmit(onSubmit)}
+        onSubmit={handleSubmit(onSubmit, () => haptic('error'))}
         className="grid gap-6 px-5 pb-4 pt-0 sm:p-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] lg:gap-8"
         noValidate
         aria-busy={isBusy}

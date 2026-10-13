@@ -340,7 +340,7 @@ export const ChecklistReportDialog = ({ onClose }: ChecklistReportDialogProps) =
           {!rangeValid ? (
             <EmptyState icon={ClipboardList} title="Pick a period" description="Choose a start and end date to see a preview." className="py-10" />
           ) : preview.isError && !report ? (
-            <InlineError message={errorMessage(preview.error, 'Could not load the preview.')} onRetry={() => void preview.refetch()} />
+            <InlineError message={errorMessage(preview.error, "Couldn't load the preview. Try again.")} onRetry={() => void preview.refetch()} />
           ) : preview.isPending || !report ? (
             <PreviewSkeleton />
           ) : noData ? (

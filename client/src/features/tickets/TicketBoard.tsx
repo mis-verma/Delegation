@@ -1,3 +1,4 @@
+import { haptic } from '../../lib/haptics';
 import {
   DndContext,
   DragOverlay,
@@ -107,10 +108,8 @@ export const TicketBoard = ({ tickets, departmentNames, onOpen }: TicketBoardPro
   };
 
   const handleDragStart = (event: DragStartEvent) => {
-    // Add a slight haptic feedback pattern for mobile users if supported
-    if (typeof window !== 'undefined' && window.navigator && window.navigator.vibrate) {
-      window.navigator.vibrate(50);
-    }
+    // A short tick when a card is picked up (Android phones only).
+    haptic('tap');
     setOverlayWidth(event.active.rect.current.initial?.width);
     setActiveTicket(tickets.find(t => t.id === event.active.id) ?? null);
   };

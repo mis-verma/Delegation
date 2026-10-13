@@ -1,6 +1,8 @@
-import { Sun, Moon, Monitor, Check, type LucideIcon } from 'lucide-react';
+import { Sun, Moon, Monitor, Check, Vibrate, type LucideIcon } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import { SettingsCard } from './SettingsCard';
+import { Switch } from '../../components/switch';
+import { haptic, hapticsSupported, useHapticsEnabled } from '../../lib/haptics';
 
 const OPTIONS: { value: 'light' | 'dark' | 'system'; label: string; description: string; icon: LucideIcon }[] = [
   { value: 'light', label: 'Light', description: 'Bright background, always on', icon: Sun },
@@ -12,6 +14,8 @@ const OPTIONS: { value: 'light' | 'dark' | 'system'; label: string; description:
 // is. Only choice here for now (no density/font-size controls) since nothing else was asked for.
 export const AppearanceSettings = () => {
   const { preference, setPreference } = useTheme();
+  const [vibration, setVibration] = useHapticsEnabled();
+  const supported = hapticsSupported();
 
   return (
     <div className="flex flex-col gap-5 w-full max-w-3xl">
@@ -66,6 +70,29 @@ export const AppearanceSettings = () => {
               </button>
             );
           })}
+        </div>
+      </SettingsCard>
+
+      <SettingsCard
+        icon={Vibrate}
+        title="Vibration"
+        hint={supported
+          ? 'Short buzz on your phone when you save, finish or something fails. Android phones only.'
+          : "This phone or browser can't vibrate, so this is switched off. iPhones don't support it in the browser."}
+      >
+        <div className="flex items-center justify-between gap-4">
+          <label htmlFor="vibration-switch" className="text-sm font-display font-semibold text-text">
+            Buzz on save, finish and errors
+          </label>
+          <Switch
+            id="vibration-switch"
+            checked={supported && vibration}
+            disabled={!supported}
+            onChange={(on) => {
+              setVibration(on);
+              if (on) haptic('success');
+            }}
+          />
         </div>
       </SettingsCard>
     </div>

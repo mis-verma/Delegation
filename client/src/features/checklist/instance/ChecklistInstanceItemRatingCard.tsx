@@ -1,4 +1,5 @@
 import { memo, useState } from 'react';
+import { haptic } from '../../../lib/haptics';
 import { Star } from 'lucide-react';
 import { useSetChecklistInstanceItemDoneMutation } from '../hook';
 import { ChecklistItemCardHeader } from './ChecklistItemCardHeader';
@@ -26,6 +27,7 @@ export const ChecklistInstanceItemRatingCard = memo(function ChecklistInstanceIt
 
   const submit = (value: number) => {
     if (!interactive || setItemDone.isPending) return;
+    haptic('tap');
     setItemDone.mutate({ itemId: item.id, isDone: true, numericValue: value });
   };
 

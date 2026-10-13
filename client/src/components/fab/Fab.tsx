@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { haptic } from '../../lib/haptics';
 import { createPortal } from 'react-dom';
 import { Plus, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -26,9 +27,7 @@ export interface FabProps {
 }
 
 // A short tick on Android when the button is pressed, like a native app. iOS browsers ignore it.
-const tap = () => {
-  try { navigator.vibrate?.(8); } catch { /* not supported: nothing to do */ }
-};
+const tap = () => haptic('tap');
 
 /**
  * Phone-only round + button, working like an app's:

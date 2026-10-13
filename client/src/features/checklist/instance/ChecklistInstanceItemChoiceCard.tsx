@@ -1,4 +1,5 @@
 import { memo, useMemo } from 'react';
+import { haptic } from '../../../lib/haptics';
 import { useSetChecklistInstanceItemDoneMutation } from '../hook';
 import { SelectDropdown, ToggleChip, type SelectDropdownOption } from '../../../components';
 import { ChecklistItemCardHeader } from './ChecklistItemCardHeader';
@@ -39,6 +40,7 @@ export const ChecklistInstanceItemChoiceCard = memo(function ChecklistInstanceIt
 
   const choose = (value: string) => {
     if (!editable || setItemDone.isPending || !value) return;
+    haptic('tap');
     setItemDone.mutate({ itemId: item.id, isDone: true, textValue: value });
   };
 

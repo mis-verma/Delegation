@@ -83,7 +83,8 @@ export const apiFetch = async <T>(path: string, options: RequestInit = {}): Prom
   try {
     res = await doFetch(token);
   } catch {
-    throw new Error("Couldn't reach the server. Check your connection and try again.");
+    // Status 0 = nothing reached the server; errorMessage() turns it into the offline sentence.
+    throw new ApiError("Couldn't reach the server. Check your connection and try again.", 0);
   }
 
   if (res.status === 401 && token && !isAuthEndpoint) {
@@ -92,7 +93,7 @@ export const apiFetch = async <T>(path: string, options: RequestInit = {}): Prom
       res = await doFetch(newToken);
     } else {
       forceLogout();
-      throw new Error('Your session has ended. Please sign in again.');
+      throw new ApiError('Your session has ended. Please sign in again.', 401);
     }
   }
 

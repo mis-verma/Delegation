@@ -14,7 +14,7 @@ import { checklistInstanceItemSubmissionApi } from '../../api/checklistInstanceI
 import type { ChecklistInstanceItemSubmissionAccessory } from '../../api/checklistInstances';
 import type { CaptureMethod } from '../../api/ticket';
 import { checklistBulkImportApi, type BulkImportPublishPayload } from '../../api/checklistBulkImport';
-import { useEntityMutation, errorMessage, handleQueryRetry, invalidateScoreCaches } from '../../lib/queryHelpers';
+import { useEntityMutation, notifyError, handleQueryRetry, invalidateScoreCaches } from '../../lib/queryHelpers';
 import type { DashboardQueryOptions } from '../../lib/dashboardQuery';
 
 const KEYS = {
@@ -78,7 +78,7 @@ export const useCreateChecklistDefinitionMutation = () => {
       queryClient.invalidateQueries({ queryKey: ['checklist-definitions'] });
       toast.success('Checklist created');
     },
-    onError: (err) => toast.error(errorMessage(err, "Couldn't create checklist")),
+    onError: (err) => notifyError(err, "Couldn't create the checklist. Try again."),
   });
 };
 
@@ -111,7 +111,7 @@ export const useUpdateChecklistDefinitionMutation = () => {
       const description = savedMessage(liveRuns);
       toast.success('Checklist updated', description ? { description, duration: liveRuns?.kept ? 8000 : undefined } : undefined);
     },
-    onError: (err) => toast.error(errorMessage(err, "Couldn't update checklist")),
+    onError: (err) => notifyError(err, "Couldn't update the checklist. Try again."),
   });
 };
 
@@ -125,7 +125,7 @@ export const useSetChecklistDefinitionActiveMutation = () => {
       queryClient.invalidateQueries({ queryKey: ['checklist-definitions'] });
       toast.success(updated.isActive ? "Checklist resumed. Today's run is back on people's lists." : "Checklist paused. It is off everyone's list and won't count until you resume it.");
     },
-    onError: (err) => toast.error(errorMessage(err, "Couldn't update checklist")),
+    onError: (err) => notifyError(err, "Couldn't update the checklist. Try again."),
   });
 };
 
@@ -149,12 +149,12 @@ export const useDeleteChecklistDefinitionMutation = () => {
           onClick: () => {
             checklistDefinitionApi.restore(id)
               .then(() => { refresh(); toast.success('Checklist restored'); })
-              .catch((err) => toast.error(errorMessage(err, "Couldn't restore the checklist")));
+              .catch((err) => notifyError(err, "Couldn't restore the checklist. Try again."));
           },
         },
       });
     },
-    onError: (err) => toast.error(errorMessage(err, "Couldn't delete checklist")),
+    onError: (err) => notifyError(err, "Couldn't delete the checklist. Try again."),
   });
 };
 
@@ -163,7 +163,7 @@ export const useDeleteChecklistDefinitionMutation = () => {
 export const useChecklistBulkImportPreviewMutation = () =>
   useMutation({
     mutationFn: (file: File) => checklistBulkImportApi.preview(file).then(r => r.data),
-    onError: (err) => toast.error(errorMessage(err, "Couldn't read that file")),
+    onError: (err) => notifyError(err, "Couldn't read that file. Try again."),
   });
 
 export const useChecklistBulkImportPublishMutation = () => {
@@ -176,7 +176,7 @@ export const useChecklistBulkImportPublishMutation = () => {
       queryClient.invalidateQueries({ queryKey: ['analytics'] });
       invalidateScoreCaches(queryClient);
     },
-    onError: (err) => toast.error(errorMessage(err, "Couldn't publish this batch")),
+    onError: (err) => notifyError(err, "Couldn't publish this batch. Try again."),
   });
 };
 
@@ -377,7 +377,7 @@ export const useSetChecklistInstanceItemDoneMutation = (instanceId: string) => {
   const queryClient = useQueryClient();
   const instanceKey = KEYS.instanceDetail(instanceId);
 
-  return useMutation<unknown, unknown, SetChecklistInstanceItemDoneVars, { previous?: ChecklistInstance; wasComplete: boolean }>({
+  const mutation = useMutation<unknown, unknown, SetChecklistInstanceItemDoneVars, { previous?: ChecklistInstance; wasComplete: boolean }>({
     mutationFn: ({ itemId, isDone, numericValue, booleanAnswer, textValue, dateValue, gpsLat, gpsLng, gpsAccuracy, signatureValue, secondSignatureValue, conditionalReasonValue, remarks, notApplicable }) =>
       checklistInstanceApi.setItemDone(itemId, isDone, {
         numericValue, booleanAnswer, textValue, dateValue, gpsLat, gpsLng, gpsAccuracy, signatureValue, secondSignatureValue, conditionalReasonValue, remarks, notApplicable,
@@ -431,11 +431,19 @@ export const useSetChecklistInstanceItemDoneMutation = (instanceId: string) => {
         invalidateScoreCaches(queryClient);
       }
     },
-    onError: (err, _vars, context) => {
+    onError: (err, vars, context) => {
       if (context?.previous) queryClient.setQueryData(instanceKey, context.previous);
-      toast.error(errorMessage(err, "Couldn't update item"));
+      // The tap was rolled back, so say so and keep the message up until the person retries or
+      // dismisses it: a quick toast is too easy to miss and they would think the answer was kept.
+      notifyError(err, "Couldn't save your answer. Try again.", {
+        id: `answer-not-saved-${vars.itemId}`,
+        persistent: true,
+        format: (message, { offline }) => (offline ? "Not saved, you're offline." : `Not saved. ${message}`),
+        retry: () => mutation.mutate(vars),
+      });
     },
   });
+  return mutation;
 };
 
 export const useUploadChecklistInstanceImagesMutation = (instanceId: string) =>
@@ -444,7 +452,7 @@ export const useUploadChecklistInstanceImagesMutation = (instanceId: string) =>
       checklistInstanceApi.uploadImages(itemId, files, captureMethod).then(r => r.data),
     invalidateKeys: [KEYS.instanceDetail(instanceId)],
     successMessage: 'Photos uploaded',
-    errorFallback: "Couldn't upload photos",
+    errorFallback: "Couldn't upload the photos. Try again.",
   });
 
 export const useDeleteChecklistInstanceImageMutation = (instanceId: string) =>
@@ -452,7 +460,8 @@ export const useDeleteChecklistInstanceImageMutation = (instanceId: string) =>
     mutationFn: (id: string) => checklistInstanceApi.deleteImage(id),
     invalidateKeys: [KEYS.instanceDetail(instanceId)],
     successMessage: 'Photo deleted',
-    errorFallback: "Couldn't delete photo",
+    errorFallback: "Couldn't delete the photo. Try again.",
+    retryable: true,
   });
 
 // Mutations below act on one AUDIT item's per-auditor ChecklistInstanceItemSubmission (see
@@ -470,7 +479,8 @@ export const useSetChecklistInstanceItemSubmissionDoneMutation = (_instanceId: s
     // useSetChecklistInstanceItemDoneMutation above: a submission can complete the whole
     // instance, which the summary/board/verification-queue queries need to reflect too.
     invalidateKeys: [['checklist-instances']],
-    errorFallback: "Couldn't update submission",
+    errorFallback: "Couldn't update the submission. Try again.",
+    retryable: true,
   });
 
 export const useUpdateChecklistInstanceItemSubmissionAccessoriesMutation = (instanceId: string) =>
@@ -478,7 +488,7 @@ export const useUpdateChecklistInstanceItemSubmissionAccessoriesMutation = (inst
     mutationFn: ({ id, accessories }: { id: string; accessories: ChecklistInstanceItemSubmissionAccessory[] }) =>
       checklistInstanceItemSubmissionApi.updateAccessories(id, accessories).then(r => r.data),
     invalidateKeys: [KEYS.instanceDetail(instanceId)],
-    errorFallback: "Couldn't update accessories",
+    errorFallback: "Couldn't update the accessories. Try again.",
   });
 
 // Switches what one person is wearing. The server swaps their accessory rows for the new type's
@@ -503,7 +513,7 @@ export const useSetChecklistInstanceItemSubmissionDressTypeMutation = (instanceI
       }));
       queryClient.invalidateQueries({ queryKey: instanceKey });
     },
-    onError: (err) => toast.error(errorMessage(err, "Couldn't change the dress type")),
+    onError: (err) => notifyError(err, "Couldn't change the dress type. Try again."),
   });
 };
 
@@ -513,7 +523,7 @@ export const useUpdateChecklistInstanceItemSubmissionRemarksMutation =(instanceI
       checklistInstanceItemSubmissionApi.updateRemarks(id, remarks).then(r => r.data),
     invalidateKeys: [KEYS.instanceDetail(instanceId)],
     successMessage: 'Remarks saved',
-    errorFallback: "Couldn't save remarks",
+    errorFallback: "Couldn't save the remarks. Try again.",
   });
 
 export const useUploadChecklistInstanceItemSubmissionImagesMutation = (instanceId: string) =>
@@ -522,7 +532,7 @@ export const useUploadChecklistInstanceItemSubmissionImagesMutation = (instanceI
       checklistInstanceItemSubmissionApi.uploadImages(submissionId, files, captureMethod).then(r => r.data),
     invalidateKeys: [KEYS.instanceDetail(instanceId)],
     successMessage: 'Photos uploaded',
-    errorFallback: "Couldn't upload photos",
+    errorFallback: "Couldn't upload the photos. Try again.",
   });
 
 export const useDeleteChecklistInstanceItemSubmissionImageMutation = (instanceId: string) =>
@@ -530,7 +540,8 @@ export const useDeleteChecklistInstanceItemSubmissionImageMutation = (instanceId
     mutationFn: (id: string) => checklistInstanceItemSubmissionApi.deleteImage(id),
     invalidateKeys: [KEYS.instanceDetail(instanceId)],
     successMessage: 'Photo deleted',
-    errorFallback: "Couldn't delete photo",
+    errorFallback: "Couldn't delete the photo. Try again.",
+    retryable: true,
   });
 
 // Powers the PC/Admin verification queue's Checklists section — instances with every item done,
@@ -561,7 +572,8 @@ export const useVerifyChecklistInstanceMutation = () =>
     setDetailData: (updated) => ({ key: KEYS.instanceDetail(updated.id), data: updated }),
     invalidateKeys: [['checklist-instances']],
     successMessage: (updated) => (updated.verificationStatus === 'APPROVED' ? 'Checklist verified' : 'Checklist sent back'),
-    errorFallback: "Couldn't verify checklist",
+    errorFallback: "Couldn't save the review. Try again.",
+    retryable: true,
   });
 
 export const useSubmitChecklistInstanceMutation = () =>
@@ -570,7 +582,7 @@ export const useSubmitChecklistInstanceMutation = () =>
     setDetailData: (updated) => ({ key: KEYS.instanceDetail(updated.id), data: updated }),
     invalidateKeys: [['checklist-instances']],
     successMessage: 'Submitted for approval',
-    errorFallback: "Couldn't submit this checklist",
+    errorFallback: "Couldn't submit the checklist. Try again.",
   });
 
 export const useSendBackChecklistInstanceMutation = () =>
@@ -580,7 +592,8 @@ export const useSendBackChecklistInstanceMutation = () =>
     setDetailData: (updated) => ({ key: KEYS.instanceDetail(updated.id), data: updated }),
     invalidateKeys: [['checklist-instances']],
     successMessage: 'Sent back to the team',
-    errorFallback: "Couldn't send those questions back",
+    errorFallback: "Couldn't send the questions back. Try again.",
+    retryable: true,
   });
 
 export const useWaiveChecklistItemMutation = () =>
@@ -590,7 +603,8 @@ export const useWaiveChecklistItemMutation = () =>
     setDetailData: (updated) => ({ key: KEYS.instanceDetail(updated.id), data: updated }),
     invalidateKeys: [['checklist-instances'], ['checklist-reports'], ['scores']],
     successMessage: 'Question waived',
-    errorFallback: "Couldn't waive this question",
+    errorFallback: "Couldn't waive the question. Try again.",
+    retryable: true,
   });
 
 export const useUnwaiveChecklistItemMutation = () =>
@@ -599,7 +613,8 @@ export const useUnwaiveChecklistItemMutation = () =>
     setDetailData: (updated) => ({ key: KEYS.instanceDetail(updated.id), data: updated }),
     invalidateKeys: [['checklist-instances'], ['checklist-reports'], ['scores']],
     successMessage: 'Waiver taken back',
-    errorFallback: "Couldn't take the waiver back",
+    errorFallback: "Couldn't take the waiver back. Try again.",
+    retryable: true,
   });
 
 // ADMIN only: an approved run goes back to the review queue.
@@ -609,7 +624,8 @@ export const useReopenApprovalMutation = () =>
     setDetailData: (updated) => ({ key: KEYS.instanceDetail(updated.id), data: updated }),
     invalidateKeys: [['checklist-instances']],
     successMessage: 'Approval reopened',
-    errorFallback: "Couldn't reopen this approval",
+    errorFallback: "Couldn't reopen the approval. Try again.",
+    retryable: true,
   });
 
 export { useDepartmentsQuery, useStoresQuery, useAssignableUsersQuery } from '../tickets/hook';

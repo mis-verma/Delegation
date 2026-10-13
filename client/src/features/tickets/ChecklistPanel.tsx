@@ -196,8 +196,8 @@ const ItemRow = ({
                 <AlertCircle size={14} className="mt-0.5 shrink-0 text-danger" />
                 <p className="text-xs text-danger font-medium break-words min-w-0">
                   {uploadImages.isError
-                    ? errorMessage(uploadImages.error, 'An error occurred while saving.')
-                    : errorMessage(completeItem.error, 'An error occurred while saving.')}
+                    ? errorMessage(uploadImages.error, "Couldn't save that. Try again.")
+                    : errorMessage(completeItem.error, "Couldn't save that. Try again.")}
                 </p>
               </div>
             )}
@@ -470,7 +470,7 @@ export const ChecklistPanel = ({ ticketId, checklists, workerIds = [] }: Checkli
             <div className="flex items-start gap-2.5 p-3 bg-danger/10 text-danger rounded-xl border border-danger/20">
               <AlertCircle size={16} className="mt-0.5 shrink-0" />
               <p className="text-sm font-medium">
-                {errorMessage(applyTemplate.error, 'Failed to apply template. Please try again.')}
+                {errorMessage(applyTemplate.error, "Couldn't apply the template. Try again.")}
               </p>
             </div>
           )}
@@ -528,7 +528,7 @@ export const ChecklistPanel = ({ ticketId, checklists, workerIds = [] }: Checkli
             <div className="flex items-start gap-2.5 p-3 bg-danger/10 text-danger rounded-xl border border-danger/20">
               <AlertCircle size={16} className="mt-0.5 shrink-0" />
               <p className="text-sm font-medium">
-                {errorMessage(addChecklist.error, 'Failed to create checklist. Please verify your inputs.')}
+                {errorMessage(addChecklist.error, "Couldn't add the checklist. Check the fields and try again.")}
               </p>
             </div>
           )}

@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { haptic } from '../../lib/haptics';
 import { ListTodo, Check, Type, SlidersHorizontal } from 'lucide-react';
 import { Button, Modal, Input, DatePicker } from '../../components';
 import { TaskPriorityChipPicker } from '../tasks/TaskPriorityChipPicker';
@@ -36,6 +37,7 @@ export const TodoFormModal = ({ todo, onClose }: TodoFormModalProps) => {
     const trimmed = text.trim();
     if (!trimmed) {
       setError('Write what needs doing first.');
+      haptic('error');
       return;
     }
     if (todo) {

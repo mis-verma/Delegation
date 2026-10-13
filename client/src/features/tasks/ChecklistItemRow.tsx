@@ -177,8 +177,8 @@ export const ChecklistItemRow = ({
                  <AlertCircle size={14} className="mt-0.5 shrink-0 text-danger" />
                  <p className="text-xs text-danger font-medium">
                   {uploadImages.isError
-                    ? errorMessage(uploadImages.error, 'An error occurred while saving.')
-                    : errorMessage(completeItem.error, 'An error occurred while saving.')}
+                    ? errorMessage(uploadImages.error, "Couldn't save that. Try again.")
+                    : errorMessage(completeItem.error, "Couldn't save that. Try again.")}
                 </p>
               </div>
             )}

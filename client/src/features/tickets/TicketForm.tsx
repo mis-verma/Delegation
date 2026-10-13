@@ -1,4 +1,5 @@
 import { useForm, useWatch, Controller, type FieldErrors } from 'react-hook-form';
+import { haptic } from '../../lib/haptics';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
@@ -242,6 +243,7 @@ export const TicketForm = ({ onClose, defaultDueDate }: TicketFormProps) => {
 
   // A failed Create brings the first problem into view and puts the cursor there.
   const onInvalid = (formErrors: FieldErrors<TicketFields>) => {
+    haptic('error');
     const first = FIELD_ORDER.find(k => formErrors[k]);
     if (!first) return;
     const anchor = formRef.current?.querySelector<HTMLElement>(`[data-field="${anchorFor(first)}"]`);
@@ -267,7 +269,7 @@ export const TicketForm = ({ onClose, defaultDueDate }: TicketFormProps) => {
       {mutation.isError ? (
         <p role="alert" className="flex items-start gap-1.5 t-meta font-medium font-display text-danger min-w-0">
           <AlertCircle size={14} className="shrink-0 mt-0.5" aria-hidden />
-          <span className="min-w-0 break-words">{errorMessage(mutation.error, "Couldn't create the ticket. Check your connection and try again.")}</span>
+          <span className="min-w-0 break-words">{errorMessage(mutation.error, "Couldn't create the ticket. Try again.")}</span>
         </p>
       ) : (
         <FormProgress control={control} requirePerson={!ownScopeOnly} showOnPhone={submitCount > 0} />
