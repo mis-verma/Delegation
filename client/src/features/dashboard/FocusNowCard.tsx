@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import { PANEL_CLASS } from '../../components/entityCard';
 import { Skeleton } from '../../components/skeleton';
 import { InlineError } from '../../components/inlineError';
-import { instanceDeadline, isInstanceOverdue } from '../checklist/checklistDisplay';
+import { instanceDeadline, isInstanceEnded, isInstanceOverdue } from '../checklist/checklistDisplay';
 import { isTaskOverdue, isTicketLate } from './dashboardDisplay';
 import type { Task } from '../../api/task';
 import type { Ticket } from '../../api/ticket';
@@ -107,6 +107,8 @@ export const FocusNowCard = ({ tasks, tickets, checklists, todos, now, isPending
     const out: FocusItem[] = [];
 
     for (const c of checklists) {
+      // A run that has ended is closed to its people: it never needs them (the server leaves it out too).
+      if (isInstanceEnded(c, now)) continue;
       const done = c.items.length > 0 && c.items.every((i) => i.isDone);
       const deadline = instanceDeadline(c);
       if (c.verificationStatus === 'REJECTED') {

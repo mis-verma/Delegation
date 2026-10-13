@@ -118,7 +118,7 @@ const NotificationList = ({ notifications, isError, filter, onOpen, roomy = fals
                         {n.checklistMissed && (
                           <>
                             <span aria-hidden>·</span>
-                            <span>That day has ended</span>
+                            <span>Closed</span>
                           </>
                         )}
                         {canOpen && <ChevronRight size={12} className="ml-auto shrink-0" aria-hidden />}

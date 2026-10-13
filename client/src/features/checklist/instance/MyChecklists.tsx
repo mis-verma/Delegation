@@ -23,7 +23,7 @@ import { ChecklistInstanceCard } from './ChecklistInstanceCard';
 import { ChecklistInstanceTable } from './ChecklistInstanceTable';
 import { ChecklistInstanceBoard } from './ChecklistInstanceBoard';
 import { MyChecklistsQuickStats, type MyChecklistsQuickFilterKey, type MyChecklistsQuickFilterCounts } from './MyChecklistsQuickStats';
-import { RECURRENCE_LABEL, VERIFICATION_STATUS_LABEL, VERIFICATION_CHIP, todayPeriodBoundIso, instanceDeadline } from '../checklistDisplay';
+import { RECURRENCE_LABEL, VERIFICATION_STATUS_LABEL, VERIFICATION_CHIP, todayPeriodBoundIso, instanceDeadline, isInstanceEnded } from '../checklistDisplay';
 import { useNow } from '../../../lib/useNow';
 import { windowLabel } from '../../scores/useScoreWindow';
 import type { ChecklistInstance, ChecklistInstanceStatus, ChecklistVerificationStatus } from '../../../api/checklistInstances';
@@ -180,6 +180,7 @@ export const MyChecklists = () => {
   // Department filter are left out for them — the list of colleagues isn't even requested.
   const { user } = useAuth();
   const ownScopeOnly = !!user && OWN_SCOPE_ROLES.includes(user.role);
+  const canFillEnded = user?.role === 'ADMIN' || user?.role === 'PC';
   const { data: assignableUsers, isLoading: peopleLoading } = useAssignableUsersQuery(undefined, undefined, undefined, !ownScopeOnly);
   const people = useMemo(() => toFilterPeople(assignableUsers), [assignableUsers]);
   const peopleNameById = useMemo(() => new Map(people.map((p) => [p.id, p.name])), [people]);
@@ -269,22 +270,27 @@ export const MyChecklists = () => {
   // this only needs to re-sort the page the server already scoped.
   const sortedInstances = useMemo(() => [...allInstances].sort(SORT_COMPARATORS[sort]), [allInstances, sort]);
 
-  // This page is today's work, and a checklist's last time (its cutoff, e.g. 6:30 PM) is where it ends:
-  // a run shows while that time has not passed, then leaves the list. Only two kinds stay after it,
-  // because the person still has to act: one sent back to fix, and one finished but not yet submitted.
-  // Waiting, verified and missed runs are history (History and Report keep them). Tapping any tile lists
-  // exactly what that tile counted, so a number is never larger than the list it opens.
+  // This page is today's work, and a checklist's last time (its cutoff, e.g. 6:30 PM) is where it ends.
+  // The server already leaves out every run that has ended (unfinished past its cutoff; see
+  // isInstanceEnded, the same rule), so the first filter below is only a safety net for a page left open
+  // past a cutoff. The second is tidying, not a rule: once the cutoff passes, a run that is finished and
+  // handed in (waiting or approved) moves to History, and only what still needs the person stays: one sent
+  // back to fix, one finished but not yet submitted, and a one-time checklist that is not done. Tapping a
+  // tile lists exactly what that tile counted, so a number is never larger than the list it opens.
   const now = useNow();
   useRefreshOnNewDay();
   const instances = useMemo(() => {
-    if (quickFilter) return sortedInstances;
+    // ADMIN/PC may still fill an ended run, so the server keeps it in their list and so does this.
+    const open = canFillEnded ? sortedInstances : sortedInstances.filter((i) => !isInstanceEnded(i, now));
+    if (quickFilter) return open;
     const needsAction = (i: ChecklistInstance) =>
       i.verificationStatus === 'REJECTED' ||
-      (i.verificationStatus === 'NOT_SUBMITTED' && i.items.length > 0 && i.items.every((it) => it.isDone));
-    return sortedInstances.filter((i) =>
+      (i.verificationStatus === 'NOT_SUBMITTED' && i.items.length > 0 && i.items.every((it) => it.isDone)) ||
+      (i.recurrence === 'ONE_TIME' && !(i.items.length > 0 && i.items.every((it) => it.isDone)));
+    return open.filter((i) =>
       instanceDeadline(i) > now ||
       needsAction(i));
-  }, [sortedInstances, now, quickFilter]);
+  }, [sortedInstances, now, quickFilter, canFillEnded]);
 
   // How many rows the active filter matches — taken from the summary counts already fetched
   // above rather than a second request, since they're the same four numbers the tiles show.

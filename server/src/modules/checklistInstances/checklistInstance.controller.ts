@@ -35,6 +35,8 @@ export const checklistInstanceController = {
             departmentId: req.query.departmentId as string | undefined,
             assigneeIds: parseIdsParam(req.query.assigneeIds),
             includeDeleted: false,
+            // A run that has ended is not in anyone's own list, except ADMIN/PC, who may still fill it.
+            hideEnded: !(req.user!.role === "ADMIN" || req.user!.role === "PC"),
             from,
             to,
             page,
@@ -166,6 +168,8 @@ export const checklistInstanceController = {
             from,
             to,
             userId: scopedToSelf || (!isOrgWide && !useDepartment) ? req.user!.sub : undefined,
+            // The person's own counts leave out runs that have ended (they can't act on them); ADMIN/PC can.
+            hideEnded: !isOrgWide,
             // Opt-in, not automatic (see `list` above's own comment) — a deleted checklist's
             // instances shouldn't inflate the Compliance Board's counts by default, only when the
             // viewer explicitly asks to include deleted-checklist history.

@@ -429,8 +429,10 @@ export const notificationService = {
   // deadline still incomplete — notifies every assignee (the people who should have filled it
   // in) AND the store's PCs (escalation, mirroring notifyChecklistPendingVerification's PC
   // lookup), so both the person who missed it and whoever oversees that store hear about it.
-  async notifyChecklistOverdue(instance: VerifiableChecklistInstance) {
-    const assigneeIds = (instance.assigneeIds ?? []).map((id) => id.toString());
+  // `closed`: the run has ended and its people can no longer fill it in (see checklistMissedRun.ts). They get
+  // no reminder to do something they cannot do; only the store's PCs hear that it was missed.
+  async notifyChecklistOverdue(instance: VerifiableChecklistInstance & { closed?: boolean }) {
+    const assigneeIds = instance.closed ? [] : (instance.assigneeIds ?? []).map((id) => id.toString());
     const pcs = instance.storeId
       ? await db
           .select({ id: users.id })
@@ -455,7 +457,9 @@ export const notificationService = {
         ...(await notificationService.notifyMany(pcIds, {
           type: 'CHECKLIST_OVERDUE_ESCALATION',
           title: 'Checklist overdue',
-          message: `"${instance.title}" is overdue and still hasn't been filled in.`,
+          message: instance.closed
+            ? `"${instance.title}" closed without being filled in.`
+            : `"${instance.title}" is overdue and still hasn't been filled in.`,
           checklistInstanceId: instance._id.toString(),
         })),
       );

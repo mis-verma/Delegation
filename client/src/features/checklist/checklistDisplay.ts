@@ -266,6 +266,39 @@ export const isInstanceNotYetOpen = (instance: Pick<InstanceWindow, 'periodStart
   return opensAt != null && Date.now() < opensAt;
 };
 
+type EndableInstance = InstanceWindow & {
+  recurrence: ChecklistRecurrence;
+  verificationStatus: ChecklistVerificationStatus;
+  items: Pick<ChecklistInstanceItem, 'isDone'>[];
+};
+
+// Has this run ENDED for the people it is assigned to? Mirrors the server's isRunEnded (checklistRunEnd.ts)
+// exactly: past its deadline (the cutoff time, or the end of its period), unless it is a one-time checklist,
+// was sent back (REJECTED), or is fully done (it only waits for Submit). The server is the authority and
+// sends `isMissed`; this keeps a page that stays open past the cutoff honest, and backs up the lists.
+export const isInstanceEnded = (instance: EndableInstance, now: number = Date.now()): boolean => {
+  if (instance.recurrence === 'ONE_TIME') return false;
+  if (instance.verificationStatus === 'REJECTED') return false;
+  if (instance.items.length > 0 && instance.items.every((i) => i.isDone)) return false;
+  return instanceDeadline(instance) <= now;
+};
+
+const END_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// "6:30 PM on 12 Oct", or "the end of 12 Oct" for a deadline at midnight (a run with no cutoff time).
+// Same words as the server's describeRunEnd, in the org's time (not the viewer's).
+export const describeInstanceEnd = (deadlineMs: number): string => {
+  const local = new Date(deadlineMs + ORG_TZ_OFFSET_MS);
+  const h = local.getUTCHours();
+  const m = local.getUTCMinutes();
+  if (h === 0 && m === 0) {
+    const lastDay = new Date(local.getTime() - 24 * 60 * 60_000);
+    return `the end of ${lastDay.getUTCDate()} ${END_MONTHS[lastDay.getUTCMonth()]}`;
+  }
+  const hour12 = h % 12 === 0 ? 12 : h % 12;
+  return `${hour12}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'} on ${local.getUTCDate()} ${END_MONTHS[local.getUTCMonth()]}`;
+};
+
 export type InstanceView = {
   /** Applicable questions done / applicable questions (N/A excluded). */
   done: number;

@@ -158,6 +158,10 @@ export type ChecklistInstance = {
   submittedByName:    string | null;
   /** Nobody finished it before its day ended: counted as missed and no longer fillable by its assignees. */
   isMissed?:          boolean;
+  /** The deadline has passed (whatever state the run is in). */
+  isEnded?:           boolean;
+  /** The deadline as an ISO instant: the cutoff time, or the end of the period. */
+  endedAt?:           string;
   verifiedBy:         string | null;
   verifiedAt:         string | null;
   verificationNote:   string | null;

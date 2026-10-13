@@ -166,7 +166,7 @@ const runAggregateSql = (conditions: SQL[], creditDepartmentId?: string, perDepa
         ci.periodStart AS periodStart,
         ci.verificationStatus AS verificationStatus,
         ci.rejectionCount AS rejectionCount,
-        CASE WHEN ${RUN_DEADLINE} < ${LOCAL_NOW} OR MIN(cii.isDone) = 1 THEN 1 ELSE 0 END AS isDue,
+        CASE WHEN ${RUN_DEADLINE} <= ${LOCAL_NOW} OR MIN(cii.isDone) = 1 THEN 1 ELSE 0 END AS isDue,
         SUM(cii.isNotApplicable = 0) AS applicableItems,
         SUM(${ANSWERED}) AS doneItems,
         SUM(CASE WHEN ${PHOTO_ITEM} THEN 1 ELSE 0 END) AS photoItems,

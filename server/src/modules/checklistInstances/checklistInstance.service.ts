@@ -23,7 +23,8 @@ import { eq, and, inArray, desc, asc, sql, gte, lte, lt, type SQL } from "drizzl
 import { AppError } from "../../utils/AppError.js"
 import { notificationService } from "../notifications/notification.service.js"
 import { ticketService } from "../tickets/ticket.service.js"
-import { missedFromPastDayExpr, missedInstanceIds, assertRunNotMissed } from "./checklistMissedRun.js"
+import { missedFromPastDayExpr, missedInstanceIds, assertRunOpenForUser, localNowSql, runDeadlineSql } from "./checklistMissedRun.js"
+import { canWorkEndedRun, hasRunDeadlinePassed, isRunEnded, runClosedMessage, runDeadlineMs } from "./checklistRunEnd.js"
 import { auditService } from "../audit/audit.service.js"
 import { cached, cacheKey, invalidateQuick } from "../../config/queryCache.js"
 import { orgDayStartUtc } from "../../utils/orgDay.js"
@@ -203,17 +204,26 @@ const hydrateInstances = async (instanceRows: (typeof checklistInstances.$inferS
         itemsByInstance.set(item.instanceId, list)
     }
 
-    const missedIds = await missedInstanceIds(instanceIds)
+    const nowMs = Date.now()
+    const offsetMinutes = env.CHECKLIST_TIMEZONE_OFFSET_MINUTES
 
-    return instanceRows.map((instance) => ({
-        ...instance,
-        // A run nobody finished before its day ended: counted as missed, no longer fillable.
-        isMissed: missedIds.has(instance.id),
-        assigneeIds: assigneeIdsByInstance.get(instance.id) ?? [],
-        reviewerIds: reviewerIdsByInstance.get(instance.id) ?? [],
-        submittedByName: instance.submittedBy ? (nameById.get(instance.submittedBy) ?? null) : null,
-        items: itemsByInstance.get(instance.id) ?? [],
-    }))
+    return instanceRows.map((instance) => {
+        const runItems = itemsByInstance.get(instance.id) ?? []
+        const endInput = { ...instance, totalItems: runItems.length, doneItems: runItems.filter((i) => i.isDone).length }
+        return {
+            ...instance,
+            // Ended and left unfinished: counted as missed, no longer fillable by the people it was assigned to
+            // (ADMIN/PC still can). Same rule as the SQL in checklistMissedRun.ts.
+            isMissed: isRunEnded(endInput, nowMs, offsetMinutes),
+            // The deadline has passed (whatever state the run is in), and when it was (ISO instant).
+            isEnded: hasRunDeadlinePassed(instance, nowMs, offsetMinutes),
+            endedAt: new Date(runDeadlineMs(instance, offsetMinutes)).toISOString(),
+            assigneeIds: assigneeIdsByInstance.get(instance.id) ?? [],
+            reviewerIds: reviewerIdsByInstance.get(instance.id) ?? [],
+            submittedByName: instance.submittedBy ? (nameById.get(instance.submittedBy) ?? null) : null,
+            items: runItems,
+        }
+    })
 }
 
 const getPopulatedInstanceById = async (id: string) => {
@@ -311,14 +321,10 @@ export const parentNotDeletedExpr = sql`NOT EXISTS (
 // it's compared against the org's local "now" — UTC_TIMESTAMP() shifted by the org offset — not
 // NOW(), which is the DB session's zone (UTC on the server). That mismatch flagged a 09:00 cutoff
 // overdue only at 14:30 India time. periodEnd goes through DATE() for the same reason.
-export const localNowExpr = sql`DATE_ADD(UTC_TIMESTAMP(), INTERVAL ${env.CHECKLIST_TIMEZONE_OFFSET_MINUTES} MINUTE)`
+// Both now live in checklistMissedRun.ts (one source with the missed-run rule); re-exported for the jobs.
+export const localNowExpr = localNowSql
 
-export const deadlineExpr = sql`CASE
-    WHEN ${checklistInstances.cutoffTime} IS NULL THEN TIMESTAMP(DATE(${checklistInstances.periodEnd}))
-    WHEN ${checklistInstances.opensTime} IS NOT NULL AND ${checklistInstances.cutoffTime} < ${checklistInstances.opensTime}
-        THEN TIMESTAMP(DATE_ADD(DATE(${checklistInstances.periodStart}), INTERVAL 1 DAY), CONCAT(${checklistInstances.cutoffTime}, ':00'))
-    ELSE TIMESTAMP(DATE(${checklistInstances.periodStart}), CONCAT(${checklistInstances.cutoffTime}, ':00'))
-END`
+export const deadlineExpr = runDeadlineSql
 
 /**
  * "Complete" means: has at least one item, and none of them is unfinished.
@@ -340,8 +346,8 @@ const completionCondition = (status: InstanceStatusFilter) => {
     if (status === "COMPLETED") return sql`(${complete})`
     // Deadline is cutoffTime (same-day, or next-day for an overnight window) when set, else
     // periodEnd — same rule the summary's `overdue` count uses, and the client's isInstanceOverdue.
-    if (status === "OVERDUE") return sql`((${incomplete}) AND ${deadlineExpr} < ${localNowExpr})`
-    if (status === "DUE") return sql`((${incomplete}) AND ${deadlineExpr} >= ${localNowExpr})`
+    if (status === "OVERDUE") return sql`((${incomplete}) AND ${deadlineExpr} <= ${localNowExpr})`
+    if (status === "DUE") return sql`((${incomplete}) AND ${deadlineExpr} > ${localNowExpr})`
     return sql`(${incomplete})` // "OPEN" — every incomplete instance, overdue or not ("Pending")
 }
 
@@ -819,6 +825,11 @@ export type InstanceListFilter = {
     assigneeIds?: string[]
     /** Restrict to instances assigned to this user — how the "mine" scope is expressed. */
     userId?: string
+    /**
+     * With `userId`: leave out runs that have ended (default true). Only the controller sets it to false,
+     * for ADMIN/PC, who may still fill an ended run and so still need it in their own list.
+     */
+    hideEnded?: boolean
     /** Instances with at least one assignee in this department — see instanceIdsForDepartment. */
     departmentId?: string
     /** Restricts to instances whose periodStart falls in [from, to] — an ISO instant or a plain
@@ -917,9 +928,11 @@ const instanceConditions = (filter: InstanceListFilter): SQL | undefined => {
 
     if (filter.departmentId) conditions.push(instanceInDepartmentCondition(filter.departmentId))
 
-    // "Mine" is today's work. An explicit from/to means the caller is looking at a chosen period, so
-    // that view keeps the misses.
-    if (filter.userId && !filter.from && !filter.to) conditions.push(sql`NOT ${missedFromPastDayExpr}`)
+    // A person's own list is what they can still work on. A run that has ended (see checklistMissedRun.ts)
+    // is gone from it whatever from/to they asked for; only ADMIN/PC, who may still fill it, opt out of this
+    // (hideEnded: false). A run sent back, a fully done one waiting for Submit, and a one-time checklist
+    // are not "ended" and stay. Boards and reports (no userId) keep every run: that is history.
+    if (filter.userId && filter.hideEnded !== false) conditions.push(sql`NOT ${missedFromPastDayExpr}`)
 
     return conditions.length ? and(...conditions) : undefined
 }
@@ -991,15 +1004,17 @@ export const checklistInstanceService = {
         /** See InstanceListFilter.from/to — My Checklists' own "today only" scoping passes both. */
         from?: string
         to?: string
+        /** See InstanceListFilter.hideEnded — the controller passes false for ADMIN/PC only. */
+        hideEnded?: boolean
     } = {}) {
-        const { status, page, limit, storeId, recurrence, verificationStatus, departmentId, assigneeIds, includeDeleted, from, to } = options
+        const { status, page, limit, storeId, recurrence, verificationStatus, departmentId, assigneeIds, includeDeleted, from, to, hideEnded } = options
         const p = paginate(page, limit)
         // Delegates to the same condition-builder as listAll/summary instead of reimplementing the
         // userId/status/store/recurrence/verificationStatus/department/assigneeIds filters here —
         // this used to drift from instanceConditions as a separate ~25-line copy. "Mine" is just
         // instanceConditions with `userId` filled in, which resolves to the same
         // "assignee junction lookup, AND'd with the rest" logic that path already has.
-        const where = instanceConditions({ userId, status, storeId, recurrence, verificationStatus, departmentId, assigneeIds, includeDeleted, from, to })
+        const where = instanceConditions({ userId, status, storeId, recurrence, verificationStatus, departmentId, assigneeIds, includeDeleted, from, to, hideEnded })
 
         const total = await countInstances(where)
         const instanceRows = await db.select().from(checklistInstances)
@@ -1053,7 +1068,7 @@ export const checklistInstanceService = {
         // toggling "show deleted" or changing the period was handed the other view's cached numbers.
         return cached(
             cacheKey(
-                CHECKLIST_SUMMARY_PREFIX, summaryOwnerKey(filter.userId), filter.includeDeleted ? "deleted" : "live",
+                CHECKLIST_SUMMARY_PREFIX, summaryOwnerKey(filter.userId), filter.includeDeleted ? "deleted" : "live", filter.hideEnded === false ? "all-ends" : "open-ends",
                 filter.storeId, filter.assigneeId, filter.assigneeIds?.join(","), filter.definitionId, filter.status,
                 filter.departmentId, filter.recurrence, filter.verificationStatus, fromDay, toDay,
             ),
@@ -1468,16 +1483,10 @@ export const checklistInstanceService = {
         const offsetMs = env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000
         const now = Date.now()
         const today = new Date(now + offsetMs).toISOString().slice(0, 10)
-        // periodStart is the org-local day written as UTC midnight, so "day + cutoff" minus the org's
-        // offset is the real instant it's due. No cutoff = the end of that day. An overnight window
-        // (cutoff clock time earlier than opens, e.g. opens 22:00, cutoff 06:00) is due the NEXT day:
-        // the same rule as deadlineExpr and the trend SQL, so the run isn't missed/late before it opens.
-        const deadlineOf = (r: { periodStart: Date; periodEnd: Date; cutoffTime: string | null; opensTime: string | null }) => {
-            if (!r.cutoffTime) return r.periodEnd.getTime() - offsetMs
-            const [h, m] = r.cutoffTime.split(":").map(Number)
-            const dayRoll = r.opensTime && r.cutoffTime < r.opensTime ? 24 * 60 : 0
-            return r.periodStart.getTime() + (h * 60 + m + dayRoll) * 60_000 - offsetMs
-        }
+        // The shared deadline rule (checklistRunEnd.ts): cutoff on the start day, the next day for an overnight
+        // window, else the end of the period.
+        const deadlineOf = (r: { periodStart: Date; periodEnd: Date; cutoffTime: string | null; opensTime: string | null }) =>
+            runDeadlineMs(r, env.CHECKLIST_TIMEZONE_OFFSET_MINUTES)
 
         type CellState = "done" | "late" | "missed" | "open" | "holiday" | "off" | "upcoming" | "summary"
         type Run = typeof runs[number]
@@ -1488,7 +1497,7 @@ export const checklistInstanceService = {
             // Late is judged from the first time it was all done, not from the latest answer.
             const doneAt = r.completedFirstAt ?? r.lastDoneAt
             if (complete) return doneAt && doneAt.getTime() > deadline ? "late" : "done"
-            return now > deadline ? "missed" : "open"
+            return now >= deadline ? "missed" : "open"
         }
         const pctOf = (good: number, scored: number) => pooledCompliancePct([{ weightedGood: good, weightedScored: scored }])
         const outcomeOf = (r: Run): RunOutcome => {
@@ -1654,7 +1663,13 @@ export const checklistInstanceService = {
         const assigneeIds = assigneeLinkRows.map((l) => l.userId)
         assertCanAccess({ assigneeIds }, user)
         assertInstanceEditable(instanceRow, user)
-        await assertRunNotMissed(instanceRow.id, user)
+        await assertRunOpenForUser(instanceRow.id, user)
+        // The Undo on a finished run: taking an answer back would leave the run unfinished after its end, and
+        // locked. So once the deadline has passed it is final for the assignee (ADMIN/PC can still reopen).
+        if (!isDone && item.isDone && !canWorkEndedRun(user)
+            && isRunEnded({ ...instanceRow, totalItems: 1, doneItems: 0 }, Date.now(), env.CHECKLIST_TIMEZONE_OFFSET_MINUTES)) {
+            throw AppError.badRequest(runClosedMessage(runDeadlineMs(instanceRow, env.CHECKLIST_TIMEZONE_OFFSET_MINUTES), env.CHECKLIST_TIMEZONE_OFFSET_MINUTES))
+        }
 
         // Once something is done it stays done: only an admin may reopen it. A reviewer sending a
         // run back (verify, REJECT) reopens every item itself, so nobody else needs to undo their
@@ -1894,7 +1909,7 @@ export const checklistInstanceService = {
         const assigneeIds = assigneeLinks.map((l) => l.userId)
         assertCanAccess({ assigneeIds }, user)
 
-        await assertRunNotMissed(id, user)
+        await assertRunOpenForUser(id, user)
         if (instance.verificationStatus !== "NOT_SUBMITTED" && instance.verificationStatus !== "REJECTED") {
             throw AppError.badRequest(instance.verificationStatus === "APPROVED" ? "This checklist is already approved." : "This checklist has already been submitted.")
         }

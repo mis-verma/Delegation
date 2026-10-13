@@ -10,6 +10,7 @@ import { checklistInstanceAssignees, checklistInstanceItems, checklistInstances 
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import { AppError } from "../../utils/AppError.js"
 import { streamCsv, type CsvColumn } from "../../utils/csv.js"
+import { runDeadlineMs } from "../checklistInstances/checklistRunEnd.js"
 import { hasExtraDay, isIdleHolidayRun, loadOffDayRules, type OffDayRules, type RunAssignee } from "../scores/offDayRules.js"
 import { metDeadlinePct, onTimeOfFinishedPct, pooledCompliancePct, runCompletionPct, tallyRuns, type RunOutcome, type RunTally } from "../scores/scoreFormulas.js"
 import type { ChecklistReportGrouping, ChecklistReportQuery } from "./checklistReport.validation.js"
@@ -257,15 +258,7 @@ export const runFlagsOf = (r: RunRow, ctx: RunFlagContext): RunFlags => {
     const total = Number(r.total)
     const done = Number(r.done)
     const complete = total > 0 && done === total
-    let deadline: number
-    if (!r.cutoffTime) {
-        deadline = r.periodEnd.getTime() - offsetMs
-    } else {
-        const [h, m] = r.cutoffTime.split(":").map(Number)
-        let minutes = h * 60 + m
-        if (r.opensTime && r.cutoffTime < r.opensTime) minutes += 24 * 60
-        deadline = r.periodStart.getTime() + minutes * 60_000 - offsetMs
-    }
+    const deadline = runDeadlineMs(r, offsetMs / 60_000)
     const status = r.verificationStatus
     // When the run opens for filling: the opens time that day, or the start of the day.
     let opensAt = r.periodStart.getTime() - offsetMs
@@ -287,7 +280,7 @@ export const runFlagsOf = (r: RunRow, ctx: RunFlagContext): RunFlags => {
         skip,
         complete,
         onTime: complete && (() => { const doneAt = r.completedFirstAt ?? r.lastDoneAt; return !doneAt || doneAt.getTime() <= deadline })(),
-        missed: !complete && now > deadline,
+        missed: !complete && now >= deadline,
         submitted: r.submittedAt != null || status === "PENDING_APPROVAL" || status === "APPROVED",
         approved: status === "APPROVED",
         sentBack: r.rejectionCount > 0,

@@ -31,8 +31,9 @@ import { ChecklistSubmitBar } from './ChecklistSubmitBar';
 import { complianceReason, countsAgainstCompliance, waiveNotice } from '../checklistCompliance';
 import { WaiveAction } from './WaiveAction';
 import {
-  complianceToneClass, formatDateTime, getInstanceView, instanceProgressToneClass, isInstanceNotYetOpen,
+  complianceToneClass, describeInstanceEnd, formatDateTime, getInstanceView, instanceDeadline, instanceProgressToneClass, isInstanceEnded, isInstanceNotYetOpen,
   RECURRENCE_LABEL, formatPeriodSpan } from '../checklistDisplay';
+import { useNow } from '../../../lib/useNow';
 import { useAuth } from '../../../context/AuthContext';
 import type { ChecklistInstanceItem } from '../../../api/checklistInstances';
 
@@ -229,6 +230,7 @@ export const ChecklistInstanceDetail = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   useRefreshOnNewDay();
+  const now = useNow();
   const { data: instance, isPending, isError, error, refetch } = useChecklistInstanceQuery(instanceId);
   // Reviewer's send-back picking: which questions are ticked while the review bar is in pick mode.
   const [selecting, setSelecting] = useState(false);
@@ -296,9 +298,12 @@ export const ChecklistInstanceDetail = () => {
   const { done, total, progress, isComplete, overdue, chipStatus, compliance, scored, good, verification, doneLate } = getInstanceView(instance);
   // PC has full parity with ADMIN throughout this app.
   const isAdminOrPC = user?.role === 'ADMIN' || user?.role === 'PC';
-  // A run whose day ended (counted as missed) is closed to the people it was assigned to; the server
-  // refuses their changes too. ADMIN/PC can still work it.
-  const isMissed = instance.isMissed === true;
+  // A run that has ended (its cutoff, or the end of its period, passed and it was left unfinished) counts as
+  // missed and is closed to the people it was assigned to; the server refuses their changes too. ADMIN/PC can
+  // still work it. A sent-back run, a fully done one waiting for Submit and a one-time checklist stay open.
+  // `now` keeps a page left open past the cutoff honest without waiting for a refetch.
+  const isMissed = instance.isMissed === true || isInstanceEnded(instance, now);
+  const closedWhen = describeInstanceEnd(instance.endedAt ? new Date(instance.endedAt).getTime() : instanceDeadline(instance));
   const canWork = isAdminOrPC || (!!user && instance.assigneeIds.includes(user.id) && !isMissed);
   const isLocked = instance.verificationStatus === 'APPROVED';
   // Mirrors the server: department heads, PC and Admin, never on a run they fill in themselves; a head only
@@ -424,11 +429,18 @@ export const ChecklistInstanceDetail = () => {
         <div className="flex flex-col gap-3">
           {isMissed && (
             <NoticeBanner tone="warning" icon={Clock}>
-              {isAdminOrPC
-                ? "This checklist's day has ended and it counts as missed. You can still edit it as an admin."
-                : user && instance.assigneeIds.includes(user.id)
-                  ? "This checklist's day has ended, so it counts as missed and can't be filled in any more. Today's checklist is in My Checklists."
-                  : "This checklist's day has ended and it counts as missed. The people it was assigned to can no longer fill it in."}
+              {isAdminOrPC ? (
+                `This checklist closed at ${closedWhen} and counts as missed. You can still edit it as an admin.`
+              ) : user && instance.assigneeIds.includes(user.id) ? (
+                <div className="flex flex-col items-start gap-2">
+                  <p>This checklist closed at {closedWhen}. It can't be filled in any more. Today's checklist is in My Checklists.</p>
+                  <Button variant="outline" size="sm" onClick={() => navigate('/checklists')}>
+                    Go to My Checklists
+                  </Button>
+                </div>
+              ) : (
+                `This checklist closed at ${closedWhen} and counts as missed. The people it was assigned to can no longer fill it in.`
+              )}
             </NoticeBanner>
           )}
 

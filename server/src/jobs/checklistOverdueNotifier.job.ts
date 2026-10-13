@@ -8,21 +8,20 @@ import { checklistInstances, checklistInstanceAssignees, checklistInstanceItems 
 import { notificationService } from "../modules/notifications/notification.service.js"
 import { settingsService } from "../modules/settings/settings.service.js"
 import { deadlineExpr, localNowExpr, parentNotDeletedExpr } from "../modules/checklistInstances/checklistInstance.service.js"
-import { missedFromPastDayExpr } from "../modules/checklistInstances/checklistMissedRun.js"
+import { missedInstanceIds } from "../modules/checklistInstances/checklistMissedRun.js"
 
 // Same rationale as GENERATOR_BATCH_SIZE in checklistInstanceGenerator.job.ts — keeps every
 // unattended sweep job bounded, even though in practice far fewer than this go overdue per hour.
 const NOTIFIER_BATCH_SIZE = 500;
 
-// The deadline, the org-local "now", the deleted-checklist rule and the missed-run rule all come from
-// the same expressions the rest of the module uses, so this job cannot drift from what the pages show:
-// a 09:00 cutoff is overdue at 09:00 org time (not 14:30), and a run that is already missed (its day has
-// ended and its people are locked out) is not nagged about.
+// The deadline, the org-local "now" and the deleted-checklist rule come from the same expressions the rest
+// of the module uses, so this job cannot drift from what the pages show: a 09:00 cutoff is overdue at 09:00
+// org time (not 14:30). A run ends at its deadline (checklistMissedRun.ts), so this fires once, as it
+// closes: its people are NOT told to fill it in (they no longer can), only the store's PCs hear it was missed.
 const isOverdueAndIncomplete = sql`(
     NOT EXISTS (SELECT 1 FROM ${checklistInstanceItems} i WHERE i.instanceId = ${checklistInstances.id})
     OR EXISTS (SELECT 1 FROM ${checklistInstanceItems} i WHERE i.instanceId = ${checklistInstances.id} AND i.isDone = 0)
-) AND ${deadlineExpr} < ${localNowExpr}
-  AND NOT ${missedFromPastDayExpr}
+) AND ${deadlineExpr} <= ${localNowExpr}
   AND ${parentNotDeletedExpr}
   AND ${checklistInstances.periodStart} >= DATE_SUB(DATE(${localNowExpr}), INTERVAL 3 DAY)`
 
@@ -44,6 +43,7 @@ const notifyOverdueInstances = async () => {
     if (!rows.length) return
 
     const instanceIds = rows.map((r) => r.id)
+    const closedIds = await missedInstanceIds(instanceIds)
     const assigneeLinks = await db.select().from(checklistInstanceAssignees).where(inArray(checklistInstanceAssignees.instanceId, instanceIds))
     const assigneeIdsByInstance = new Map<string, string[]>()
     for (const link of assigneeLinks) {
@@ -62,6 +62,7 @@ const notifyOverdueInstances = async () => {
                 title: row.title,
                 storeId: row.storeId,
                 assigneeIds: assigneeIdsByInstance.get(row.id) ?? [],
+                closed: closedIds.has(row.id),
             })
             notifiedIds.push(row.id)
         } catch (err) {
