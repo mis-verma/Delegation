@@ -37,8 +37,9 @@ export const TicketKpiSection = ({ groupBy, from, to, isOrgWideRole }: TicketKpi
   // The ticket list reads ?quickFilter= (pending / completed / due / delayed) and, for a score link,
   // ?sla=closed_late with the window the tickets were due in.
   const base = isOrgWideRole ? '/admin/tickets' : '/tickets';
-  // The days the "Closed late" figure covers: the picked range, or else the newest bucket's own days.
-  const lateHref = (() => {
+  // The days the "Closed on time" and "Closed late" figures cover: the picked range, or else the newest bucket's own
+  // days. Both open the tickets that were DUE in that window, filtered the same way the figure counts them.
+  const slaHref = (sla: 'closed_late' | 'closed_on_time') => {
     let window: { from: string; to: string } | null = null;
     if (from && to) window = { from, to };
     else if (rows) {
@@ -46,13 +47,15 @@ export const TicketKpiSection = ({ groupBy, from, to, isOrgWideRole }: TicketKpi
       const latest = trimmed[trimmed.length - 1];
       window = latest ? bucketRange(latest.bucket, groupBy) : null;
     }
-    const params = new URLSearchParams({ sla: 'closed_late' });
+    const params = new URLSearchParams({ sla });
     if (window) {
       params.set('dueFrom', window.from);
       params.set('dueTo', window.to);
     }
     return `${base}?${params.toString()}`;
-  })();
+  };
+  const lateHref = slaHref('closed_late');
+  const onTimeHref = slaHref('closed_on_time');
 
   return (
     <KpiSectionShell
@@ -79,7 +82,7 @@ export const TicketKpiSection = ({ groupBy, from, to, isOrgWideRole }: TicketKpi
           noDataText: 'No closed tickets with a due time',
           trend: onTime.trend,
           caption: 'Of tickets closed, closed by the due time',
-          href: `${base}?quickFilter=completed`,
+          href: onTimeHref,
         },
         {
           icon: Timer,

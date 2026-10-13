@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
+import { invalidateScoreCaches } from '../../../lib/queryHelpers';
 import { toast } from 'sonner';
 import { Plus, ClipboardList, FileDown, Upload, ListChecks as SelectIcon, X, Trash2, Repeat } from 'lucide-react';
 import { Button, Skeleton, EmptyState, InlineError, PageHeader, ToggleChip, ENTITY_CARD_CLASS } from '../../../components';
@@ -147,6 +148,7 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
       queryClient.invalidateQueries({ queryKey: ['checklist-definitions'] }),
       queryClient.invalidateQueries({ queryKey: ['checklist-instances'] }),
       queryClient.invalidateQueries({ queryKey: ['analytics'] }),
+      invalidateScoreCaches(queryClient),
     ]);
 
     const failedIds = ids.filter((_, i) => results[i].status === 'rejected');

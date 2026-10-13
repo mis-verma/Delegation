@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../context/AuthContext"
 import { connectSocket, releaseSocket } from "../../lib/socket";
-import { createCoalescedInvalidator } from "../../lib/coalescedInvalidate";
+import { createCoalescedInvalidator, createScoreCacheInvalidator } from "../../lib/coalescedInvalidate";
 
 /**
  * Keeps the ticket board/list live. Same posture as useTaskSocket: invalidate rather than write
@@ -23,7 +23,8 @@ export const useTicketSocket = () => {
         // aggregates — without this, closing/reassigning a ticket while that page is open left
         // every number on it stale until remount or refocus.
         const analytics = createCoalescedInvalidator(queryClient, ["analytics"]);
-        const invalidateTickets = () => { tickets.schedule(); analytics.schedule(); };
+        const scores = createScoreCacheInvalidator(queryClient);
+        const invalidateTickets = () => { tickets.schedule(); analytics.schedule(); scores.schedule(); };
         const events = [
             "ticket:created",
             "ticket:updated",
@@ -39,6 +40,7 @@ export const useTicketSocket = () => {
             events.forEach((event) => socket.off(event, invalidateTickets));
             tickets.cancel();
             analytics.cancel();
+            scores.cancel();
             // releaseSocket() only — the socket is shared and refcounted (see socket.ts). The
             // unconditional disconnectSocket() that used to sit here killed it for the task and
             // notification hooks as well.

@@ -30,7 +30,7 @@ import { TaskDescriptionField } from '../tasks/TaskDescriptionField';
 import { StagedFileChips } from '../tasks/StagedFileChips';
 import { useAuth } from '../../context/AuthContext';
 import { OWN_SCOPE_ROLES } from '../../api/auth';
-import { errorMessage } from '../../lib/queryHelpers';
+import { errorMessage, invalidateScoreCaches } from '../../lib/queryHelpers';
 
 // Quiet fill until focused; Input's own danger styling takes over once validation fails.
 const QUIET_FIELD_CLASS = 'font-display border-transparent bg-surface-hover/50 hover:bg-surface-hover focus:bg-surface';
@@ -227,6 +227,7 @@ export const TicketForm = ({ onClose, defaultDueDate }: TicketFormProps) => {
       try {
         await ticketApi.uploadAttachments(createdId, photos);
         queryClient.invalidateQueries({ queryKey: ['tickets'] });
+        void invalidateScoreCaches(queryClient);
       } catch {
         photosFailed = true;
       }

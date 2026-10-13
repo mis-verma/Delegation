@@ -1,4 +1,5 @@
 import type { Scores } from '../../api/scores';
+import { roundPct } from '../../lib/percent';
 
 // The three percentages every module is judged on, and the tab that picks which to look at.
 export type SeriesKey = 'completion' | 'compliance' | 'ontime';
@@ -12,7 +13,7 @@ export const METRIC_OPTIONS: readonly ScoreMetric[] = ['overview', 'completion',
 export const METRIC_LABEL: Record<ScoreMetric, string> = { overview: 'Overall', completion: 'Completion', compliance: 'Compliance', ontime: 'On time' };
 export const isMetric = (v: unknown): v is ScoreMetric => typeof v === 'string' && (METRIC_OPTIONS as readonly string[]).includes(v);
 
-export const SERIES_LABEL: Record<SeriesKey, string> = { completion: 'Completion', compliance: 'Compliance', ontime: 'On time' };
+export const SERIES_LABEL: Record<SeriesKey, string> = { completion: 'Completion', compliance: 'Compliance', ontime: 'On time (of finished)' };
 /** Plain words for the phone legend, where there is no hint to explain "completion" and "compliance". */
 export const SERIES_PHONE_LABEL: Record<SeriesKey, string> = { completion: 'Done', compliance: 'On time or right', ontime: 'On time' };
 // Blue in three weights, so the three read as one family and a colour means the same in every view.
@@ -71,7 +72,7 @@ export const moduleOverall = (s: ModuleScores, key: ModuleKey): number | null =>
   const m = s[key];
   if (m.due === 0) return null;
   const parts = [m.completionPct, m.compliancePct].filter((v): v is number => v !== null);
-  return parts.length ? Math.round(parts.reduce((x, y) => x + y, 0) / parts.length) : null;
+  return parts.length ? roundPct(parts.reduce((x, y) => x + y, 0) / parts.length) : null;
 };
 
 /**
@@ -79,7 +80,10 @@ export const moduleOverall = (s: ModuleScores, key: ModuleKey): number | null =>
  * completion and compliance of every module that had something due, all counted equally. Null when
  * nothing was due.
  */
-export const overallOf = (s: ModuleScores): number | null => {
+export const overallOf = (s: ModuleScores & { overall?: number | null }): number | null => {
+  // The server computes this from unrounded figures; when it sends one, that is the number, so no screen
+  // can differ from another by re-deriving it.
+  if (s.overall !== undefined) return s.overall;
   const values: number[] = [];
   for (const { key } of MODULE_ROWS) {
     const m = s[key];
@@ -87,14 +91,42 @@ export const overallOf = (s: ModuleScores): number | null => {
     if (m.completionPct !== null) values.push(m.completionPct);
     if (m.compliancePct !== null) values.push(m.compliancePct);
   }
-  return values.length ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : null;
+  return values.length ? roundPct(values.reduce((a, b) => a + b, 0) / values.length) : null;
+};
+
+/**
+ * One measure taken across all three modules, weighted by what each module had due, so a module with 2
+ * items does not count like one with 200. The Scorecard rows and the Team Overview cards both use this, so
+ * the same person never reads two different Completion or On time figures.
+ */
+export const acrossModules = (s: ModuleScores): { due: number; done: number; onTime: number; late: number; notDone: number; completion: number | null; compliance: number | null; ontime: number | null } => {
+  const parts = [
+    { due: s.checklist.due, done: s.checklist.completed, onTime: s.checklist.onTime, compliance: s.checklist.compliancePct },
+    { due: s.ticket.due, done: s.ticket.closed, onTime: s.ticket.onTime, compliance: s.ticket.compliancePct },
+    { due: s.delegation.due, done: s.delegation.done, onTime: s.delegation.onTime, compliance: s.delegation.compliancePct },
+  ];
+  const due = parts.reduce((t, p) => t + p.due, 0);
+  const done = parts.reduce((t, p) => t + p.done, 0);
+  const onTime = parts.reduce((t, p) => t + p.onTime, 0);
+  const withCompliance = parts.filter((p) => p.compliance !== null && p.due > 0);
+  const complianceDue = withCompliance.reduce((t, p) => t + p.due, 0);
+  return {
+    due,
+    done,
+    onTime,
+    late: Math.max(0, done - onTime),
+    notDone: Math.max(0, due - done),
+    completion: due ? roundPct((done / due) * 100) : null,
+    compliance: complianceDue ? roundPct(withCompliance.reduce((t, p) => t + (p.compliance as number) * p.due, 0) / complianceDue) : null,
+    ontime: done ? roundPct((onTime / done) * 100) : null,
+  };
 };
 
 /** Everything due across the three modules: what the minimum-volume rule for ranking checks. */
 export const totalDue = (s: ModuleScores): number => s.checklist.due + s.ticket.due + s.delegation.due;
 
 /** Column heads for a per-module score table, the same words the screens use. */
-export const MODULE_EXPORT_HEAD = ['Overall score', 'Completion %', 'Compliance %', 'On time %', 'Due', 'Done', 'Late', 'Not done'] as const;
+export const MODULE_EXPORT_HEAD = ['Overall score', 'Completion %', 'Compliance %', 'On time (of finished) %', 'Due', 'Done', 'Late', 'Not done'] as const;
 
 /** One module's cells under MODULE_EXPORT_HEAD: numbers only, empty where there is no figure. */
 export const moduleExportCells = (s: ModuleScores, key: ModuleKey): (number | null)[] => {
@@ -136,3 +168,6 @@ export const numbersFor = (s: Scores, key: ModuleKey): ModuleNumbers => {
     hasData: d.due > 0,
   };
 };
+
+/** Fewest items (or checklist runs) due before a person, department or store may be ranked or named a winner. The server's `rankable` flag uses the same number. */
+export const MIN_RANK_VOLUME = 5;

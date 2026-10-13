@@ -4,7 +4,8 @@ import { Link, useSearchParams } from 'react-router';
 import { Building2, CalendarCheck2, CalendarOff, Check, ChevronLeft, ChevronRight, Clock, ListChecks, Minus, SearchX, Store, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Combobox, EmptyState, ExportMenu, InlineError, PageHeader, PANEL_CLASS, Skeleton } from '../../../components';
-import { exportTitle, type TableRows } from '../../../lib/exportTable';
+import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable';
+import { formatPct } from '../../../lib/percent';
 import { useStoresQuery, usePeriodReportQuery, useDepartmentScoresQuery } from '../hook';
 import { useDepartmentsQuery } from '../../tickets/hook';
 import { useAuth } from '../../../context/AuthContext';
@@ -70,7 +71,7 @@ const Cell = memo(({ cell, name }: { cell: WeeklyCell; name: string }) => {
   const s = STATE[cell.state];
   const percent = cell.total ? Math.round((cell.done / cell.total) * 100) : 0;
   const stateLabel = cell.state === 'open' && cell.done === 0 ? 'Not started' : s.label;
-  const label = `${name}, ${shortDate(cell.date)}: ${stateLabel}${cell.total ? `, ${cell.done} of ${cell.total} done` : ''}${cell.compliance !== null ? `, compliance ${cell.compliance}%` : ''}`;
+  const label = `${name}, ${shortDate(cell.date)}: ${stateLabel}${cell.total ? `, ${cell.done} of ${cell.total} done` : ''}${cell.compliance !== null ? `, answers right ${formatPct(cell.compliance)}` : ''}`;
   const Icon = s.icon;
 
   // A month column adds its runs up: the share filled (on time or late), with the split in the tooltip.
@@ -78,7 +79,7 @@ const Cell = memo(({ cell, name }: { cell: WeeklyCell; name: string }) => {
     const due = cell.due ?? 0;
     const detail = due === 0 && !cell.open
       ? 'Nothing was due'
-      : `${due} due: ${cell.onTime ?? 0} on time, ${cell.late ?? 0} late, ${cell.missed ?? 0} not filled${cell.open ? `, ${cell.open} still open` : ''}${cell.compliance !== null ? `, compliance ${cell.compliance}%` : ''}`;
+      : `${due} due: ${cell.onTime ?? 0} on time, ${cell.late ?? 0} late, ${cell.missed ?? 0} not filled${cell.open ? `, ${cell.open} still open (not counted yet)` : ''}${cell.compliance !== null ? `, answers right ${formatPct(cell.compliance)}` : ''}`;
     const monthName = new Date(`${cell.date}-01T00:00:00Z`).toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' });
     // A tap opens the split (hover only on a mouse), so a phone can read it too.
     return (
@@ -92,7 +93,7 @@ const Cell = memo(({ cell, name }: { cell: WeeklyCell; name: string }) => {
           >
             {cell.completion == null
               ? <Minus size={14} className="text-text-light" aria-hidden />
-              : <span className={cn('text-sm font-display font-bold tabular-nums', rateToneClass(cell.completion))}>{cell.completion}%</span>}
+              : <span className={cn('text-sm font-display font-bold tabular-nums', rateToneClass(cell.completion))}>{formatPct(cell.completion)}</span>}
           </button>
         </PopoverTrigger>
         <PopoverContent className="w-64 p-3">
@@ -138,7 +139,7 @@ const MatrixRow = memo(({ row }: { row: WeeklyReportRow }) => (
       {row.completion === null ? (
         <span className="text-text-light">-</span>
       ) : (
-        <span className={cn('text-sm font-display font-bold tabular-nums', rateToneClass(row.completion))}>{row.completion}%</span>
+        <span className={cn('text-sm font-display font-bold tabular-nums', rateToneClass(row.completion))}>{formatPct(row.completion)}</span>
       )}
       {!!row.open && <span className="block text-xs font-display text-primary-600 dark:text-primary-300">{row.open} open</span>}
     </td>
@@ -148,7 +149,7 @@ const MatrixRow = memo(({ row }: { row: WeeklyReportRow }) => (
       ) : (
         <span className="inline-flex items-center gap-1.5">
           <Ring percent={row.rate} tone={rateToneClass(row.rate)} size={30} />
-          <span className={cn('text-sm font-display font-bold tabular-nums', rateToneClass(row.rate))}>{row.rate}%</span>
+          <span className={cn('text-sm font-display font-bold tabular-nums', rateToneClass(row.rate))}>{formatPct(row.rate)}</span>
         </span>
       )}
     </td>
@@ -156,20 +157,20 @@ const MatrixRow = memo(({ row }: { row: WeeklyReportRow }) => (
       {row.compliance === null ? (
         <span className="text-text-light" title="No answers were checked in this period">-</span>
       ) : (
-        <span className={cn('text-sm font-display font-bold tabular-nums', rateToneClass(row.compliance))}>{row.compliance}%</span>
+        <span className={cn('text-sm font-display font-bold tabular-nums', rateToneClass(row.compliance))}>{formatPct(row.compliance)}</span>
       )}
     </td>
   </tr>
 ));
 MatrixRow.displayName = 'MatrixRow';
 
-const STRIP = cn(PANEL_CLASS, 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-px bg-border overflow-hidden');
+const STRIP = cn(PANEL_CLASS, 'grid grid-cols-2 sm:grid-cols-4 gap-px bg-border overflow-hidden');
 
 // Same strip and matrix shapes as the real thing, so the page does not jump when the report lands.
 const ReportSkeleton = () => (
   <>
     <div className={STRIP}>
-      {Array.from({ length: 6 }).map((_, i) => (
+      {Array.from({ length: 8 }).map((_, i) => (
         <div key={i} className="flex flex-col gap-2 p-3.5 bg-surface">
           <Skeleton className="h-3 w-20" />
           <Skeleton className="h-6 w-12" />
@@ -219,15 +220,20 @@ export const ChecklistWeeklyReport = () => {
   const { data: stores = [], isPending: storesPending } = useStoresQuery();
   const { data: departments = [], isPending: departmentsPending } = useDepartmentsQuery(canPickDepartment);
   const range = windowFor(period, offset, today);
-  const { data, isPending, isError, isFetching, refetch } = usePeriodReportQuery(range.from, range.to, storeId || undefined, canPickDepartment ? departmentId || undefined : undefined);
+  // The Stores tab compares every store, and its Store control is hidden, so a store picked earlier must not
+  // narrow it. Every other filter that applies is shown on the page: the Checklists tab has both pickers, the
+  // Departments tab has Store (the department is the row), and a department head's own department is stated below.
+  const appliedStoreId = view === 'stores' ? undefined : storeId || undefined;
+  const appliedDepartmentId = canPickDepartment ? departmentId || undefined : undefined;
+  const { data, isPending, isError, isPlaceholderData, refetch } = usePeriodReportQuery(range.from, range.to, appliedStoreId, appliedDepartmentId);
 
   const departmentScores = useDepartmentScoresQuery(range.from, range.to, storeId || undefined, view === 'departments');
   const departmentItems = useMemo<ScoreboardItem[] | undefined>(
-    () => departmentScores.data?.map(d => ({ id: d.departmentId, name: d.departmentName, due: d.due, missed: d.missed, open: d.open ?? 0, completion: d.completion, compliance: d.compliance })),
+    () => departmentScores.data?.map(d => ({ id: d.departmentId, name: d.departmentName, due: d.due, completed: d.completed, missed: d.missed, open: d.open ?? 0, completion: d.completion, compliance: d.compliance, rankable: d.rankable })),
     [departmentScores.data],
   );
   const storeItems = useMemo<ScoreboardItem[] | undefined>(
-    () => data?.byStore.map(s => ({ id: s.storeId, name: s.storeName, due: s.due, missed: s.missed, open: s.open ?? 0, completion: s.completion, compliance: s.compliance })),
+    () => data?.byStore.map(s => ({ id: s.storeId, name: s.storeName, due: s.due, completed: s.completed, missed: s.missed, open: s.open ?? 0, completion: s.completion, compliance: s.compliance, rankable: s.rankable })),
     [data],
   );
   // A name or figure on a scoreboard opens that group's own checklists in the matrix.
@@ -241,13 +247,14 @@ export const ChecklistWeeklyReport = () => {
   const holidayDays = useMemo(() => (data ? Object.keys(data.holidays).sort() : []), [data]);
   const summary = data?.summary;
   const summaryTiles = useMemo(() => summary && [
-    { label: 'Runs filled', value: summary.completion === null ? '-' : `${summary.completion}%`, tone: summary.completion === null ? '' : rateToneClass(summary.completion) },
-    { label: 'On-time rate', value: summary.rate === null ? '-' : `${summary.rate}%`, tone: summary.rate === null ? '' : rateToneClass(summary.rate) },
-    { label: 'Compliance', value: summary.compliance === null ? '-' : `${summary.compliance}%`, tone: summary.compliance === null ? '' : rateToneClass(summary.compliance) },
+    { label: 'Filled', hint: 'Runs filled, on time or late, out of the runs that were due', value: formatPct(summary.completion), tone: summary.completion === null ? '' : rateToneClass(summary.completion) },
+    { label: 'Met deadline', hint: 'Runs filled on time, out of the runs that were due', value: formatPct(summary.metDeadlinePct), tone: summary.metDeadlinePct === null ? '' : rateToneClass(summary.metDeadlinePct) },
+    { label: 'On time (of finished)', hint: 'Runs filled on time, out of the runs that were filled', value: formatPct(summary.onTimeOfFinishedPct), tone: summary.onTimeOfFinishedPct === null ? '' : rateToneClass(summary.onTimeOfFinishedPct) },
+    { label: 'Answers right', hint: 'How well the checked answers were answered (compliance)', value: formatPct(summary.compliance), tone: summary.compliance === null ? '' : rateToneClass(summary.compliance) },
     { label: 'Filled on time', value: summary.onTime, tone: 'text-success' },
     { label: 'Filled late', value: summary.late, tone: summary.late ? 'text-warning' : '' },
     { label: 'Not filled', value: summary.missed, tone: summary.missed ? 'text-danger' : '' },
-    ...(summary.open ? [{ label: 'Still open', value: summary.open, tone: 'text-primary-600 dark:text-primary-300' }] : []),
+    ...(summary.open ? [{ label: 'Still open', hint: 'Not filled yet and not past the cutoff: in no percentage', value: summary.open, tone: 'text-primary-600 dark:text-primary-300' }] : []),
   ], [summary]);
 
   const periodWord = PERIOD_LABEL[period].toLowerCase();
@@ -265,8 +272,8 @@ export const ChecklistWeeklyReport = () => {
     const { ranked, winner, rankOf } = rankScoreboard(boardItems);
     const winners = new Set(winner.map((w) => w.id));
     return [
-      ['Rank', view === 'departments' ? 'Department' : 'Store', 'Overall score', 'Completion %', 'Compliance %', 'Due', 'Filled', 'Not filled', 'Still open', 'Winner'],
-      ...ranked.map((i, idx) => [rankOf(i, idx), i.name, i.score, i.completion, i.compliance, i.due, Math.max(0, i.due - i.missed), i.missed, i.open, winners.has(i.id) ? 'Yes' : '']),
+      ['Rank', view === 'departments' ? 'Department' : 'Store', 'Checklist score %', 'Completion %', 'Answers right %', 'Due', 'Filled', 'Not filled', 'Still open', 'Too few runs to rank', 'Winner'],
+      ...ranked.map((i, idx) => [rankOf(i, idx), i.name, exportPct(i.score), exportPct(i.completion), exportPct(i.compliance), i.due, i.completed, i.missed, i.open, i.rankable ? '' : 'Yes', winners.has(i.id) ? 'Yes' : '']),
     ];
   };
   const storeName = stores.find((s) => s.id === storeId)?.name;
@@ -274,7 +281,7 @@ export const ChecklistWeeklyReport = () => {
 
   return (
     <div className="flex flex-col gap-4 w-full">
-      <PageHeader icon={CalendarCheck2} title="Report" subtitle="Checklist scores by checklist, department and store, with the winner for each week, month or year." />
+      <PageHeader icon={CalendarCheck2} title="Report" subtitle="Checklist scores by checklist, department and store, with the winner for each week, month or year. Tickets and delegations are in the Scorecard." />
 
       <div role="tablist" aria-label="Report view" className="inline-flex w-full sm:w-fit gap-1 rounded-xl border border-border bg-surface-hover/40 p-1">
         {VIEWS.map(({ key, label, icon: Icon }) => (
@@ -370,12 +377,16 @@ export const ChecklistWeeklyReport = () => {
         </div>
       </div>
 
+      <p className="t-meta font-display text-text-muted">
+        {range.label}: {view === 'stores' ? 'every store' : storeName ?? 'all stores'}, {view === 'departments' ? (canPickDepartment ? 'every department' : 'your department') : canPickDepartment ? departmentName ?? 'all departments' : 'your department'}.
+      </p>
+
       {view === 'departments' && (
-        <ReportScoreboard noun="department" items={departmentItems} loading={departmentScores.isPending} error={departmentScores.isError} onRetry={() => void departmentScores.refetch()} windowLabel={range.label} onOpen={openDepartment} />
+        <ReportScoreboard noun="department" items={departmentItems} loading={departmentScores.isPending} error={departmentScores.isError} onRetry={() => void departmentScores.refetch()} updating={departmentScores.isPlaceholderData} windowLabel={range.label} onOpen={openDepartment} />
       )}
 
       {view === 'stores' && (
-        <ReportScoreboard noun="store" items={storeItems} loading={isPending} error={isError} onRetry={() => void refetch()} windowLabel={range.label} onOpen={openStore} />
+        <ReportScoreboard noun="store" items={storeItems} loading={isPending} error={isError} onRetry={() => void refetch()} updating={isPlaceholderData} windowLabel={range.label} onOpen={openStore} />
       )}
 
       {view === 'checklists' && isPending && <ReportSkeleton />}
@@ -386,14 +397,18 @@ export const ChecklistWeeklyReport = () => {
         <EmptyState icon={SearchX} title={`No daily checklists in this ${periodWord}`} description="Try another period, store or department." action={emptyAction} />
       )}
 
-      {/* keepPreviousData holds the old window on screen while the next loads: dim it meanwhile. */}
+      {/* keepPreviousData holds the old window on screen while the next loads. The numbers are never dimmed: a plain
+          "Updating" line says they are still the previous window's, until the real ones land. */}
       {view === 'checklists' && data && !!rows?.length && (
-        <div className={cn('flex flex-col gap-3 transition-opacity duration-200', isFetching && 'opacity-60')} aria-busy={isFetching}>
+        <div className="flex flex-col gap-3" aria-busy={isPlaceholderData}>
+          {isPlaceholderData && (
+            <p role="status" className="t-meta font-display font-semibold text-text-secondary">Updating. These figures are for the previous period until {range.label} loads.</p>
+          )}
           {summary && summary.due + (summary.open ?? 0) > 0 && (
             <dl className={STRIP}>
               {summaryTiles?.map(t => (
                 <div key={t.label} className="flex flex-col gap-0.5 px-3.5 py-3 bg-surface">
-                  <dt className="text-xs font-display text-text-muted">{t.label}</dt>
+                  <dt className="text-xs font-display text-text-muted" title={t.hint}>{t.label}</dt>
                   <dd className={cn('text-lg sm:text-xl font-display font-bold tabular-nums text-text leading-tight', t.tone)}>{t.value}</dd>
                 </div>
               ))}
@@ -406,7 +421,7 @@ export const ChecklistWeeklyReport = () => {
           )}
           {!!summary?.open && (
             <p role="status" className="text-xs font-display font-medium text-primary-700 dark:text-primary-300">
-              {summary.open} checklist{summary.open === 1 ? ' is' : 's are'} still open, so these percentages are not final. An open checklist counts for as much of it as is done so far, and counts fully once it is filled.
+              {summary.open} checklist{summary.open === 1 ? ' is' : 's are'} still open and not in these percentages yet. An open checklist counts once its cutoff passes or it is filled.
             </p>
           )}
           {summary && summary.due + (summary.open ?? 0) > 0 && (
@@ -416,7 +431,7 @@ export const ChecklistWeeklyReport = () => {
                 <ChevronRight className="size-3.5 transition-transform duration-200 group-open:rotate-90" aria-hidden />
               </summary>
               <p className="pb-1 leading-relaxed">
-                Filled is the share of whole checklists that got filled, on time or late, with open ones counted by how much is done. It is not the share of questions done, which the Compliance Board shows. On time is the share filled before their cutoff. Compliance is how well the checked answers were answered, with critical questions counted twice and sent-back ones counted as failed.
+                Filled is the share of due checklists that got filled, on time or late. It counts whole checklists, not questions (Store daily and Department monthly count questions). Met deadline is the share of due checklists filled before their cutoff, so late and not-filled ones both count against it. On time (of finished) is the share of filled checklists that were filled before their cutoff. Answers right is how well the checked answers were answered (compliance), with critical questions counted twice and sent-back ones counted as failed.
               </p>
             </details>
           )}
@@ -441,9 +456,9 @@ export const ChecklistWeeklyReport = () => {
                       )}
                     </th>
                   ))}
-                  <th scope="col" className="px-2 py-2.5 text-center text-xs font-display font-semibold text-text-secondary min-w-16" title="Share of runs that got filled, on time or late. Open runs count for the share already done.">Filled</th>
-                  <th scope="col" className="px-2 py-2.5 text-center text-xs font-display font-semibold text-text-secondary min-w-16" title="Share of due runs filled on time">On time</th>
-                  <th scope="col" className="px-2 py-2.5 text-center text-xs font-display font-semibold text-text-secondary min-w-16" title="How well the checked answers were answered">Compliance</th>
+                  <th scope="col" className="px-2 py-2.5 text-center text-xs font-display font-semibold text-text-secondary min-w-16" title="Share of due runs that got filled, on time or late. Open runs are not counted yet.">Filled</th>
+                  <th scope="col" className="px-2 py-2.5 text-center text-xs font-display font-semibold text-text-secondary min-w-16" title="Met deadline: share of due runs filled on time">Met deadline</th>
+                  <th scope="col" className="px-2 py-2.5 text-center text-xs font-display font-semibold text-text-secondary min-w-16" title="How well the checked answers were answered (compliance)">Answers right</th>
                 </tr>
               </thead>
               <tbody>
@@ -454,7 +469,7 @@ export const ChecklistWeeklyReport = () => {
 
           {holidayDays.length > 0 && (
             <p className="text-xs font-display text-text-muted">
-              Holiday: {holidayDays.map(d => `${shortDate(d)}, ${data.holidays[d]}`).join(' · ')}
+              Holiday: {holidayDays.map(d => `${shortDate(d)}, ${data.holidays[d]}`).join('; ')}
             </p>
           )}
 

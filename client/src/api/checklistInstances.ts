@@ -201,6 +201,14 @@ export type ComplianceReportRow = {
   dueRuns: number;
   /** Runs not yet due and still open. Optional until every server build returns it. */
   pendingRuns?: number;
+  weightedGood?: number;
+  weightedScored?: number;
+  /** Item based: questions done / questions that apply (Not applicable left out of both), not the share of whole checklists. Same number as completionRate. */
+  itemsDonePct?: number | null;
+  itemsDone?: number;
+  itemsApplicable?: number;
+  /** At least 5 due runs: safe to rank. */
+  rankable?: boolean;
 };
 
 /** One store on one day (GET /checklist-instances/reports/store-daily). Days with no due runs are absent. */
@@ -216,6 +224,12 @@ export type ChecklistStoreDailyRow = {
   /** Raw weights behind complianceRate, so cells can be totalled without averaging percentages. */
   weightedGood: number;
   weightedScored: number;
+  /** Item based: questions done / questions that apply (Not applicable left out of both), not the share of whole checklists. Same number as completionRate. */
+  itemsDonePct?: number | null;
+  itemsDone?: number;
+  itemsApplicable?: number;
+  /** At least 5 due runs: safe to rank. */
+  rankable?: boolean;
   dueRuns: number;
 };
 
@@ -232,6 +246,12 @@ export type ChecklistDepartmentMonthlyRow = {
   /** Raw weights behind complianceRate, so months can be totalled without averaging percentages. */
   weightedGood: number;
   weightedScored: number;
+  /** Item based: questions done / questions that apply (Not applicable left out of both), not the share of whole checklists. Same number as completionRate. */
+  itemsDonePct?: number | null;
+  itemsDone?: number;
+  itemsApplicable?: number;
+  /** At least 5 due runs: safe to rank. */
+  rankable?: boolean;
   dueRuns: number;
 };
 
@@ -259,6 +279,12 @@ export type ChecklistStoreComplianceRow = {
   complianceRate: number | null;
   dueRuns: number;
   items: number;
+  itemsDonePct?: number | null;
+  itemsDone?: number;
+  itemsApplicable?: number;
+  weightedGood?: number;
+  weightedScored?: number;
+  rankable?: boolean;
 };
 
 // Accepts numbers too, since page/limit are numeric — they were being stringified at the call
@@ -411,7 +437,30 @@ export type WeeklyCell = {
   completion?: number | null;
 };
 /** One store's or department's totals over a report window. */
-export type ReportScore = { due: number; onTime: number; late: number; missed: number; open?: number; rate: number | null; completion: number | null; compliance: number | null };
+/** One store's, department's or the whole report's totals. Counts are exact, percentages carry one decimal; open runs are in no percentage. */
+export type ReportScore = {
+  /** Runs that came due: filled (on time or late) or missed. */
+  due: number;
+  /** Filled, on time or late. */
+  completed: number;
+  onTime: number;
+  late: number;
+  missed: number;
+  /** Still before the cutoff and unfinished: in no percentage. */
+  open: number;
+  /** Same number as metDeadlinePct, the older name. */
+  rate: number | null;
+  /** completed / due. */
+  completion: number | null;
+  /** Pooled weighted answers right. */
+  compliance: number | null;
+  /** onTime / completed. */
+  onTimeOfFinishedPct: number | null;
+  /** onTime / due. */
+  metDeadlinePct: number | null;
+  /** At least 5 due: safe to rank or name a winner. */
+  rankable: boolean;
+};
 export type StoreScore = ReportScore & { storeId: string; storeName: string };
 export type DepartmentScore = ReportScore & { departmentId: string; departmentName: string };
 export type WeeklyReport = {
@@ -423,9 +472,9 @@ export type WeeklyReport = {
   columns: { key: string; label: string }[];
   days: string[];
   holidays: Record<string, string>;
-  rows: { definitionId: string; scopeKey: string; name: string; storeId: string; storeName: string; cells: WeeklyCell[]; /** Runs still open before their cutoff: left out of the rates. */ open?: number; rate: number | null; completion: number | null; compliance: number | null }[];
+  rows: (ReportScore & { definitionId: string; scopeKey: string; name: string; storeId: string; storeName: string; cells: WeeklyCell[] })[];
   byStore: StoreScore[];
-  summary: { due: number; onTime: number; late: number; missed: number; /** Runs still open before their cutoff: left out of the rates. */ open?: number; rate: number | null; completion: number | null; compliance: number | null };
+  summary: ReportScore;
 };
 
 export const checklistInstanceApi = {

@@ -7,15 +7,27 @@ export interface ChecklistScore {
   score: number | null;
   completionPct: number | null;
   compliancePct: number | null;
-  /** Of the runs that were finished, the share finished on time. */
+  /** Of the runs that were finished, the share finished on time (same as onTimeOfFinishedPct). */
   onTimePct: number | null;
+  onTimeOfFinishedPct?: number | null;
+  /** Finished on time out of everything due: late and missed both count against it. */
+  metDeadlinePct?: number | null;
   onTime: number;
   /** Runs that have come due: finished, or past their deadline. Runs still ahead are left out. */
   due: number;
   completed: number;
+  done?: number;
   missed: number;
+  notDone?: number;
+  /** Finished, but after the cutoff. */
+  late?: number;
+  /** Still open before the cutoff: in no percentage. */
+  open?: number;
   submitted: number;
   approved: number;
+  answersChecked?: number;
+  weightedGood?: number;
+  weightedScored?: number;
 }
 /**
  * Completion is the share of due items done; compliance is the share handed in on time (finished, or
@@ -23,8 +35,8 @@ export interface ChecklistScore {
  * (due - closed), never also late. `waitingOnTime` is handed in on time and still waiting for approval:
  * counted in compliance, not in completion.
  */
-export interface TicketScore { score: number | null; completionPct: number | null; compliancePct: number | null; onTimePct: number | null; due: number; closed: number; onTime: number; late: number; waitingOnTime: number }
-export interface DelegationScore { score: number | null; completionPct: number | null; compliancePct: number | null; onTimePct: number | null; due: number; done: number; onTime: number; overdue: number; waitingOnTime: number }
+export interface TicketScore { score: number | null; completionPct: number | null; compliancePct: number | null; onTimePct: number | null; onTimeOfFinishedPct?: number | null; metDeadlinePct?: number | null; due: number; closed: number; done?: number; notDone?: number; onTime: number; late: number; waitingOnTime: number }
+export interface DelegationScore { score: number | null; completionPct: number | null; compliancePct: number | null; onTimePct: number | null; onTimeOfFinishedPct?: number | null; metDeadlinePct?: number | null; due: number; done: number; notDone?: number; onTime: number; late?: number; overdue: number; waitingOnTime: number }
 
 export interface Scores {
   scope: ScoreScope;
@@ -35,6 +47,11 @@ export interface Scores {
   checklist: ChecklistScore;
   ticket: TicketScore;
   delegation: DelegationScore;
+  /** Completion and compliance of every module with something due, counted equally (server figure, one decimal). */
+  overall?: number | null;
+  totalDue?: number;
+  /** At least 5 items due across the modules: safe to rank. */
+  rankable?: boolean;
 }
 
 export interface TrendBucket {
@@ -44,6 +61,7 @@ export interface TrendBucket {
   checklist: ChecklistScore;
   ticket: TicketScore;
   delegation: DelegationScore;
+  overall?: number | null;
 }
 
 export interface ScoreTrend {
@@ -65,6 +83,10 @@ export interface ScoreReportRow {
   role?: string;
   /** A person who has since left: their name already ends in "(left)". */
   left?: boolean;
+  inactive?: boolean;
+  overall?: number | null;
+  totalDue?: number;
+  rankable?: boolean;
   checklist: ChecklistScore;
   ticket: TicketScore;
   delegation: DelegationScore;
@@ -78,6 +100,8 @@ export interface ScoreReport {
   people: ScoreReportRow[];
   /** Only filled when asked for (`stores: true`) and only for Admin and PC. */
   stores: ScoreReportRow[];
+  /** Everything in the window in one row, each run, ticket and delegation counted once. Absent when only the stores were asked for. */
+  total?: ScoreReportRow;
   notes: string[];
 }
 

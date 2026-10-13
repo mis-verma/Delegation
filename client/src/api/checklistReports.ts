@@ -21,9 +21,18 @@ export interface ChecklistReportParams {
 export interface ChecklistReportMetrics {
   assigned: number;
   completed: number;
+  /** Runs that came due: completed, or past their cutoff. Open runs are in neither side. */
+  due?: number;
+  /** Not completed and still before the cutoff: in no percentage. */
+  open?: number;
+  /** completed / due. No partial credit for a run that is only partly filled. */
   completionPct: number | null;
   onTime: number;
+  /** On time of finished: onTime / completed (same as onTimeOfFinishedPct). */
   onTimePct: number | null;
+  onTimeOfFinishedPct?: number | null;
+  /** Met deadline: onTime / due. Late and missed runs both count against it. */
+  metDeadlinePct?: number | null;
   missed: number;
   submitted: number;
   approved: number;
@@ -33,6 +42,9 @@ export interface ChecklistReportMetrics {
   answersChecked: number;
   /** null when no answer in the period had an accepted-answer rule to check. */
   compliancePct: number | null;
+  /** Raw weights behind compliancePct (critical x2), so rows can be pooled without averaging percentages. */
+  weightedGood?: number;
+  weightedScored?: number;
 }
 
 export interface ChecklistReportPerson extends ChecklistReportMetrics {

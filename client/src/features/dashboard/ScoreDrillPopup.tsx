@@ -3,6 +3,7 @@ import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } fr
 import { cn } from '@/lib/utils';
 import { rateToneClass } from '../checklist/checklistDisplay';
 import { SERIES_LABEL, type SeriesKey } from './scoreMetrics';
+import { formatPct } from '../../lib/percent';
 
 interface ScoreDrillPopupProps {
   open: boolean;
@@ -69,7 +70,7 @@ export const ScoreDrillPopup = ({ open, onOpenChange, title, windowLabel, subjec
               <span className="block t-meta text-text-muted">{f.note}</span>
             </span>
             <span className={cn('t-figure font-display font-bold tabular-nums', f.value === null ? 'text-text-light' : rateToneClass(f.value))}>
-              {f.value === null ? '-' : `${f.value}%`}
+              {formatPct(f.value)}
             </span>
           </li>
         ))}

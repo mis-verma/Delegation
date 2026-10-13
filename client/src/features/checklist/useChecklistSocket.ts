@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../context/AuthContext';
 import { connectSocket, releaseSocket } from '../../lib/socket';
-import { createCoalescedInvalidator } from '../../lib/coalescedInvalidate';
+import { createCoalescedInvalidator, createScoreCacheInvalidator } from '../../lib/coalescedInvalidate';
 
 /**
  * Keeps the Checklist Templates grid, My Checklists, and the compliance board live — same posture
@@ -25,8 +25,9 @@ export const useChecklistSocket = () => {
     // Admin analytics (OrgOverview) reads its audit/compliance numbers from real checklist-instance
     // aggregates — without this, an instance completing live left those stale until remount/refocus.
     const analytics = createCoalescedInvalidator(queryClient, ['analytics']);
+    const scores = createScoreCacheInvalidator(queryClient);
     const invalidateDefinitions = () => definitions.schedule();
-    const invalidateInstances = () => { instances.schedule(); analytics.schedule(); };
+    const invalidateInstances = () => { instances.schedule(); analytics.schedule(); scores.schedule(); };
 
     const definitionEvents = [
       'checklist-definition:created',
@@ -47,6 +48,7 @@ export const useChecklistSocket = () => {
       definitions.cancel();
       instances.cancel();
       analytics.cancel();
+      scores.cancel();
       // releaseSocket() only — shared, refcounted socket (see socket.ts). Disconnecting outright
       // here would tear it down for the task/ticket/notification hooks too.
       releaseSocket();

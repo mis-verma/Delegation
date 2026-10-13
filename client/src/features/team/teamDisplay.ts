@@ -1,9 +1,9 @@
-import type { ChecklistReportMetrics } from '../../api/checklistReports';
+import type { ScoreReportRow } from '../../api/scores';
+import { acrossModules, overallOf } from '../dashboard/scoreMetrics';
 import type { Task } from '../../api/task';
 import type { Ticket } from '../../api/ticket';
 import { ENTITY_CARD_CLASS } from '../../components/entityCard';
 import { cn } from '../../lib/utils';
-import { todayPeriodBoundIso } from '../checklist/checklistDisplay';
 
 // Plain functions and constants live in this .ts file, not alongside the card components: a plain
 // export next to components breaks Vite's Fast Refresh boundary for that file.
@@ -76,10 +76,10 @@ const ORG_TZ_OFFSET_MS = 330 * 60_000;
 
 const dayString = (utcMidnightMs: number) => new Date(utcMidnightMs).toISOString().slice(0, 10);
 
-/** Org-local from/to for the selected period. "Week" starts on Monday, "month" on the 1st, and
+/** Org-local from/to for the selected period. `today` is the org's calendar day (useOrgToday), so the window
+ *  rolls over at the org's midnight, never the device clock. "Week" starts on Monday, "month" on the 1st, and
  *  every period ends today (nothing in the future has run yet). */
-export const teamPeriodRange = (period: TeamPeriod): TeamPeriodRange => {
-  const today = todayPeriodBoundIso().slice(0, 10);
+export const teamPeriodRange = (period: TeamPeriod, today: string): TeamPeriodRange => {
   const todayMs = Date.parse(`${today}T00:00:00.000Z`);
   const todayDate = new Date(todayMs);
 
@@ -102,9 +102,9 @@ export const teamPeriodRange = (period: TeamPeriod): TeamPeriodRange => {
 export const isInTeamPeriod = (createdAt: string, range: Pick<TeamPeriodRange, 'startMs'>) =>
   Date.parse(createdAt) >= range.startMs;
 
-/** One person's tickets and tasks in one department and period: the single rule behind both the
- *  person card and the person screen, so the two can never disagree. A task counts for its main
- *  assignee, its extra assignees and its creator; a ticket for its assignee and its raiser. */
+/** One person's tickets and delegations CREATED in one department and period: the cohort behind the person
+ *  screen's category bars (not the scores, which count what came due). A task counts for its main assignee,
+ *  its extra assignees and its creator; a ticket for its assignee and its raiser. Drafts are left out. */
 export const selectPersonWork = (
   tasks: Task[],
   tickets: Ticket[],
@@ -114,6 +114,7 @@ export const selectPersonWork = (
 ) => ({
   tasks: tasks.filter((t) =>
     t.departmentId === departmentId
+    && t.status !== 'draft'
     && (t.assigneeId === personId || t.userId === personId || t.additionalAssigneeIds.includes(personId))
     && isInTeamPeriod(t.createdAt, range)),
   tickets: tickets.filter((t) =>
@@ -123,77 +124,55 @@ export const selectPersonWork = (
 });
 
 // ---------------------------------------------------------------------------
-// Card numbers: tickets + delegations + store checklist runs
+// Card numbers: the scores report (same as the Scorecard) plus open work now
 // ---------------------------------------------------------------------------
 
-/** 'loading' until the report first resolves, 'error' if it failed (ticket/delegation numbers
- *  still show), 'ready' once the numbers are real. */
+/** 'loading' until the scores report first resolves, 'error' if it failed, 'ready' once the numbers are real. */
 export type ReportState = 'loading' | 'error' | 'ready';
 
-export const EMPTY_CHECKLIST_METRICS: ChecklistReportMetrics = {
-  assigned: 0,
-  completed: 0,
-  completionPct: null,
-  onTime: 0,
-  onTimePct: null,
-  missed: 0,
-  submitted: 0,
-  approved: 0,
-  sentBack: 0,
-  questionsDone: 0,
-  notApplicable: 0,
-  answersChecked: 0,
-  compliancePct: null,
-};
-
-export interface WorkTotals {
-  /** Closed tickets + done delegations. */
-  done: number;
-  /** Every ticket + delegation raised for this department/person in the period. */
-  total: number;
-  overdue: number;
-}
-
-/** The app-wide "Overall score": completion and compliance counted equally, i.e. the average of
- *  whichever of the two exist (completion alone until anything was checked). null with neither. */
-export const overallScore = (completion: number | null, compliance: number | null) => {
-  const parts = [completion, compliance].filter((v): v is number => v != null);
-  return parts.length > 0 ? Math.round(parts.reduce((sum, v) => sum + v, 0) / parts.length) : null;
-};
-
+/**
+ * What a card shows. Overall, Completion, On time and the counts are the scores report's own figures for the
+ * period (what came DUE in it), the same rows the Scorecard shows, so Team Overview, Scorecard and Report
+ * agree. Open work (tickets, delegations, checklists) is a separate "Open now" figure: it is today's
+ * open work, not part of any percentage.
+ */
 export interface CardNumbers {
-  /** Completion: (closed tickets + done tasks + completed checklist runs) / (tickets + tasks +
-   *  assigned runs); null when there is nothing to measure, so a quiet card never reads as a 0%
-   *  failure. */
-  rate: number | null;
-  /** Overall score from `rate` and `compliance` (see overallScore). */
+  /** Overall score: completion and compliance of every module with something due, counted equally. */
   score: number | null;
+  /** Completion across the modules: done out of due. Null when nothing was due. */
+  completion: number | null;
+  /** Of what was finished, the share finished on time. */
+  onTime: number | null;
   done: number;
-  total: number;
-  /** Overdue tickets/tasks plus missed checklist runs. */
-  overdue: number;
-  missedChecklists: number;
-  /** Assigned checklist runs in the period not completed yet; null while the report has no answer. */
-  openChecklists: number | null;
-  /** Checklist compliance %, only when the report scored at least one answer. */
+  due: number;
+  /** Finished, but after the deadline. */
+  late: number;
+  /** Due and not done. */
+  notDone: number;
+  /** Checklist answers right (compliance), only when answers were checked. */
   compliance: number | null;
+  /** Checklist runs that came due and were not filled. */
+  missedChecklists: number;
+  /** Checklist runs still open before their cutoff; null while the report has no answer. */
+  openChecklists: number | null;
 }
 
-export const summarizeCard = (work: WorkTotals, checklist: ChecklistReportMetrics | undefined, state: ReportState): CardNumbers => {
-  // A person/department with no row in a ready report simply had no checklist runs.
-  const m = state === 'ready' ? checklist ?? EMPTY_CHECKLIST_METRICS : EMPTY_CHECKLIST_METRICS;
-  const total = work.total + m.assigned;
-  const done = work.done + m.completed;
-  const rate = total > 0 ? Math.round((done / total) * 100) : null;
-  const compliance = state === 'ready' && m.answersChecked > 0 ? m.compliancePct : null;
+export const summarizeCard = (row: ScoreReportRow | undefined, state: ReportState): CardNumbers => {
+  // A person or department with no row in a ready report simply had nothing due.
+  if (state !== 'ready' || !row) {
+    return { score: null, completion: null, onTime: null, done: 0, due: 0, late: 0, notDone: 0, compliance: null, missedChecklists: 0, openChecklists: state === 'ready' ? 0 : null };
+  }
+  const across = acrossModules(row);
   return {
-    rate,
-    score: overallScore(rate, compliance),
-    done,
-    total,
-    overdue: work.overdue + m.missed,
-    missedChecklists: m.missed,
-    openChecklists: state === 'ready' ? Math.max(m.assigned - m.completed, 0) : null,
-    compliance,
+    score: overallOf(row),
+    completion: across.completion,
+    onTime: across.ontime,
+    done: across.done,
+    due: across.due,
+    late: across.late,
+    notDone: across.notDone,
+    compliance: row.checklist.compliancePct,
+    missedChecklists: row.checklist.missed,
+    openChecklists: row.checklist.open ?? 0,
   };
 };

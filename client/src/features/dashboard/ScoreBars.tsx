@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUp } from 'lucide-react';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { ScoreColumn } from './scoreBarShape';
 import type { Scores } from '../../api/scores';
+import { formatPct } from '../../lib/percent';
 import { SERIES_COLOR, SERIES_LABEL, SERIES_PHONE_LABEL, numbersFor, seriesFor, type ModuleKey, type ScoreMetric, type SeriesKey } from './scoreMetrics';
 
 // A faint lane behind every bar shows how far from 100% it is.
@@ -45,7 +46,7 @@ const BarTooltip = ({ active, payload, series }: { active?: boolean; payload?: {
           <div key={k} className="flex items-start gap-2">
             <span aria-hidden="true" className="mt-1 size-2 shrink-0 rounded-full" style={{ backgroundColor: SERIES_COLOR[k] }} />
             <div className="min-w-0">
-              <p className="text-xs font-display font-bold text-text">{SERIES_LABEL[k]} {row[k] === null ? 'no data' : `${row[k]}%`}</p>
+              <p className="text-xs font-display font-bold text-text">{SERIES_LABEL[k]} {row[k] === null ? 'no data' : formatPct(row[k])}</p>
               <p className="text-xs font-display text-text-muted">{row.notes[k]}</p>
             </div>
           </div>
@@ -128,13 +129,13 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
     // On a phone the figure is the thing to read: bigger and bolder than the 12px module names.
     return (
       <text x={Number(props.x) + Number(props.width) / 2} y={Number(props.y) - 6} textAnchor="middle" fontSize={isMobile ? 15 : 12} fontWeight={isMobile ? 800 : 700} fill="var(--color-text)">
-        {props.value}%
+        {formatPct(props.value)}
       </text>
     );
   };
 
   const summary = rows
-    .map((r) => `${r.name}: ${r.hasData ? series.map((k) => `${SERIES_LABEL[k].toLowerCase()} ${r[k] ?? 'no data'}%`).join(', ') : 'nothing due'}`)
+    .map((r) => `${r.name}: ${r.hasData ? series.map((k) => `${SERIES_LABEL[k].toLowerCase()} ${r[k] === null ? 'no data' : formatPct(r[k])}`).join(', ') : 'nothing due'}`)
     .join('. ');
 
   return (

@@ -8,6 +8,7 @@ import { scoreApi, type ScoreScope, type ScoreTrend as ScoreTrendData, type Tren
 import { SCORE_QUERY_OPTIONS } from './scoreQueries';
 import { Skeleton } from '../../components/skeleton';
 import { InlineError } from '../../components/inlineError';
+import { formatPct } from '../../lib/percent';
 import { SERIES_COLOR, SERIES_LABEL, seriesFor, type ModuleKey, type ScoreMetric, type SeriesKey } from './scoreMetrics';
 
 const MODULE_KEYS: readonly ModuleKey[] = ['checklist', 'ticket', 'delegation'];
@@ -45,7 +46,7 @@ const TrendTooltip = ({ active, payload, series }: { active?: boolean; payload?:
       ) : (
         <>
           {series.map((k) => (
-            <p key={k} className="text-xs font-display font-bold text-text"><span aria-hidden="true" className="mr-1.5 inline-block size-2 rounded-sm" style={{ backgroundColor: SERIES_COLOR[k] }} />{SERIES_LABEL[k]} {p[k] === null ? 'no data' : `${p[k]}%`}</p>
+            <p key={k} className="text-xs font-display font-bold text-text"><span aria-hidden="true" className="mr-1.5 inline-block size-2 rounded-sm" style={{ backgroundColor: SERIES_COLOR[k] }} />{SERIES_LABEL[k]} {p[k] === null ? 'no data' : formatPct(p[k])}</p>
           ))}
           <p className="text-xs font-medium text-text-muted">{p.due} due</p>
         </>

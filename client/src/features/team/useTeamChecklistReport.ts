@@ -5,15 +5,15 @@ import { taskApi } from '../../api/task';
 import { handleQueryRetry } from '../../lib/queryHelpers';
 import type { TeamPeriodRange } from './teamDisplay';
 
-// One request for the whole Team Overview page: every person and every department that had a
-// store checklist run in the period. Kept on screen while a new period loads (the page header shows
-// "Updating…", no dim), so changing the period never flashes the grid back to skeletons.
-export const useTeamChecklistReport = (range: Pick<TeamPeriodRange, 'from' | 'to'>) => {
+// The per-person checklist report (answers checked, sent back, photo proof inputs) for the person screen.
+// The cards' scores do NOT come from here: they come from the scores report. Kept on screen while a new
+// period loads (an "Updating" line says so, no dim), so changing the period never flashes back to skeletons.
+export const useTeamChecklistReport = (range: Pick<TeamPeriodRange, 'from' | 'to'>, enabled = true) => {
   const { token } = useAuth();
   return useQuery({
     queryKey: ['checklist-report', 'team', range.from, range.to] as const,
     queryFn: () => checklistReportApi.preview({ from: range.from, to: range.to, groupBy: 'both' }),
-    enabled: !!token,
+    enabled: !!token && enabled,
     retry: handleQueryRetry,
     placeholderData: keepPreviousData,
     staleTime: 60_000,

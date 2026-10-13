@@ -12,6 +12,7 @@
  * That keeps a six-row export from costing a megabyte of JS. Everything below writes the minimum
  * set of parts Excel/Sheets/Numbers need to open a single-sheet workbook.
  */
+import { roundPct } from './percent';
 
 export type CellValue = string | number | null | undefined;
 export type TableRows = readonly (readonly CellValue[])[];
@@ -302,6 +303,6 @@ export const exportTitle = ({ what, from, to, period, filters }: {
   return [what, periodLine, filterParts.join(', ')].filter(Boolean);
 };
 
-/** A percentage as a plain whole number for a spreadsheet cell (85, not "85%"), or empty. */
+/** A percentage as a plain number for a spreadsheet cell (85 or 99.6, not "85%"), one decimal at most, or empty. Same rounding as the screen (lib/percent.ts). */
 export const exportPct = (value: number | null | undefined): number | null =>
-  value == null || !Number.isFinite(value) ? null : Math.round(value);
+  roundPct(value);

@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { invalidateScoreCaches } from '../../lib/queryHelpers';
 
 /**
  * Refreshes what a saved decision changes: the checklist, ticket and delegation lists and detail pages
@@ -15,6 +16,7 @@ export const useRefreshAfterDecision = () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] }),
       queryClient.invalidateQueries({ queryKey: ['analytics'] }),
       queryClient.invalidateQueries({ queryKey: ['audit-logs'] }),
+      invalidateScoreCaches(queryClient),
     ]);
   }, [queryClient]);
 };

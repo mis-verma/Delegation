@@ -55,17 +55,17 @@ export const ScoreDetailDialog = ({ detail, onClose }: { detail: ScoreDetail | n
       <div className="flex flex-col gap-3">
         <Measure
           icon={CheckCheck}
-          label="Completion"
+          label="Items done"
           rate={completion}
           detail={f.total > 0 ? `${f.done} of ${f.total} questions done` : 'No questions were due'}
-          help="Questions done out of questions due. Not applicable ones are left out, and checklists not yet due are not counted."
+          help="Counts questions, not whole checklists. Questions done out of questions due; not applicable ones are left out, and checklists not yet due are not counted."
         />
         <Measure
           icon={ShieldCheck}
-          label="Compliance"
+          label="Answers right"
           rate={compliance}
           detail={f.scored > 0 ? `${Math.round(f.good)} of ${Math.round(f.scored)} checked answers were right` : 'No answers were checked'}
-          help="How many checked answers were inside the accepted range. Critical questions count twice, and a question sent back counts as a miss."
+          help="Compliance: how many checked answers were inside the accepted range. Critical questions count twice, and a question sent back counts as a miss."
         />
         {detail.scope && <ScoreRunsList key={`${detail.scope.from}${detail.scope.to}${detail.scope.storeId ?? ''}${detail.scope.departmentId ?? ''}`} scope={detail.scope} />}
         <p className="text-xs font-display text-text-muted">

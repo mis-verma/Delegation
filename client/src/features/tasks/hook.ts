@@ -16,7 +16,7 @@ import type {
     UpdateTaskChecklistItemPayload,
     CaptureMethod,
 } from "../../api/taskChecklist";
-import { handleQueryRetry, useEntityMutation, patchEntityInCache, errorMessage } from "../../lib/queryHelpers";
+import { handleQueryRetry, useEntityMutation, patchEntityInCache, errorMessage, invalidateScoreCaches } from "../../lib/queryHelpers";
 import type { ConfirmSmartTaskPayload } from "../../api/task";
 import { taskBulkImportApi } from "../../api/taskBulkImport";
 import { PUBLISH_REMARK } from "./taskStatusModel";
@@ -383,6 +383,7 @@ export const useTaskBulkImportPublishMutation = () => {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['tasks'] });
             queryClient.invalidateQueries({ queryKey: ['analytics'] });
+            invalidateScoreCaches(queryClient);
         },
         onError: (err) => toast.error(errorMessage(err, 'Failed to publish this batch')),
     });

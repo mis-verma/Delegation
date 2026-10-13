@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { ApiError } from '../api/http';
 
@@ -73,6 +73,20 @@ type EntityMutationConfig<TVars, TResult> = {
 // page was open left every number on it stale until the page remounted or regained focus.
 const ANALYTICS_SOURCE_KEYS = ['tickets', 'tasks', 'checklist-instances'];
 
+// Every cache that holds a score, rate or report figure. Singular and plural report keys both exist
+// ('checklist-report' = Team Overview, 'checklist-reports', 'checklist-report-preview'), so all are
+// listed: a finished, approved or sent-back item moves numbers in each of them.
+export const SCORE_CACHE_KEYS: readonly (readonly string[])[] = [
+  ['scores'],
+  ['checklist-report'],
+  ['checklist-reports'],
+  ['checklist-report-preview'],
+  ['team'],
+];
+
+export const invalidateScoreCaches = (queryClient: QueryClient): Promise<void> =>
+  Promise.all(SCORE_CACHE_KEYS.map((queryKey) => queryClient.invalidateQueries({ queryKey }))).then(() => undefined);
+
 const invalidatesAnalytics = (invalidateKeys: readonly (readonly unknown[])[]) =>
   invalidateKeys.some((key) => ANALYTICS_SOURCE_KEYS.includes(key[0] as string));
 
@@ -107,6 +121,7 @@ export function useEntityMutation<TVars, TResult>(config: EntityMutationConfig<T
       config.invalidateKeys.forEach(key => queryClient.invalidateQueries({ queryKey: key }));
       if (invalidatesAnalytics(config.invalidateKeys)) {
         queryClient.invalidateQueries({ queryKey: ['analytics'] });
+        invalidateScoreCaches(queryClient);
         // Every one of these writes an audit row, so an open detail sheet's Activity section
         // should show the change right away rather than on the next remount.
         queryClient.invalidateQueries({ queryKey: ['audit-logs'] });

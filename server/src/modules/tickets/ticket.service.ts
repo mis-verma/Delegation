@@ -412,6 +412,12 @@ export type OwnerStatsRow = {
   closedWithTat: number
   closedOnTime: number
   closedLate: number
+  /** Same as `total`: tickets CREATED in the window. The scores report counts tickets DUE in the window instead. */
+  createdCount: number
+  /** Same as `closed`: of the tickets created in the window, how many are closed now. */
+  createdAndClosedCount: number
+  /** Same as `closedWithTat`: closed tickets whose due time falls in the window (open due tickets are not in it). */
+  closedDueInWindowCount: number
   /** Distinct tickets behind this row (created, closed or due in the window), for minimum-volume rules. */
   volume: number
   /** The server never invents a default window: no from/to means all time. Clients send explicit dates. */
@@ -506,6 +512,9 @@ const ownerStatsByColumn = async (
     closedWithTat: Number(r.closedWithTat),
     closedOnTime: Number(r.closedOnTime),
     closedLate: Number(r.closedLate),
+    createdCount: Number(r.total),
+    createdAndClosedCount: Number(r.closed),
+    closedDueInWindowCount: Number(r.closedWithTat),
     volume: Number(r.volume),
     windowDefaulted: false as const,
   }))
@@ -1098,6 +1107,9 @@ export const ticketService = {
         closedOnTimeCount: due?.closedOnTimeCount ?? 0,
         closedWithTatCount: due?.closedWithTatCount ?? 0,
         completionRate,
+        // Same number as completionRate under an honest name: closed in the bucket / created in the bucket.
+        // Two different cohorts, so it can pass 100, and it is NOT the scores report's completion (closed / due).
+        closedVsCreatedPct: completionRate,
       }
     })
   },

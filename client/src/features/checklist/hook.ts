@@ -14,7 +14,7 @@ import { checklistInstanceItemSubmissionApi } from '../../api/checklistInstanceI
 import type { ChecklistInstanceItemSubmissionAccessory } from '../../api/checklistInstances';
 import type { CaptureMethod } from '../../api/ticket';
 import { checklistBulkImportApi, type BulkImportPublishPayload } from '../../api/checklistBulkImport';
-import { useEntityMutation, errorMessage, handleQueryRetry } from '../../lib/queryHelpers';
+import { useEntityMutation, errorMessage, handleQueryRetry, invalidateScoreCaches } from '../../lib/queryHelpers';
 import type { DashboardQueryOptions } from '../../lib/dashboardQuery';
 
 const KEYS = {
@@ -138,6 +138,7 @@ export const useDeleteChecklistDefinitionMutation = () => {
         queryClient.invalidateQueries({ queryKey: ['checklist-definitions'] });
         queryClient.invalidateQueries({ queryKey: ['checklist-instances'] });
         queryClient.invalidateQueries({ queryKey: ['analytics'] });
+        invalidateScoreCaches(queryClient);
       };
       refresh();
       // The delete only hides the checklist, so a mistake can be taken back for a few seconds.
@@ -173,6 +174,7 @@ export const useChecklistBulkImportPublishMutation = () => {
       queryClient.invalidateQueries({ queryKey: ['checklist-definitions'] });
       queryClient.invalidateQueries({ queryKey: ['checklist-instances'] });
       queryClient.invalidateQueries({ queryKey: ['analytics'] });
+      invalidateScoreCaches(queryClient);
     },
     onError: (err) => toast.error(errorMessage(err, "Couldn't publish this batch")),
   });
@@ -426,6 +428,7 @@ export const useSetChecklistInstanceItemDoneMutation = (instanceId: string) => {
       if (!context || context.wasComplete !== isCompleteNow) {
         queryClient.invalidateQueries({ queryKey: ['checklist-instances'] });
         queryClient.invalidateQueries({ queryKey: ['analytics'] });
+        invalidateScoreCaches(queryClient);
       }
     },
     onError: (err, _vars, context) => {

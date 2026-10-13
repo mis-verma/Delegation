@@ -27,6 +27,8 @@ export type TatReportRow = {
    *  server build returns it; without it the UI falls back to closedCount. */
   closedWithTatCount? : number;
   completionRate : number | null;
+  /** Closed in the bucket / created in the bucket: two different cohorts, so it can pass 100. Same number as completionRate. NOT the Scorecard completion (closed / due). */
+  closedVsCreatedPct? : number | null;
 }
 
 export type OwnerStatsScope = 'department' | 'store' | 'user' | 'org';
@@ -37,6 +39,9 @@ export type OwnerStatsRow = {
   closed : number;
   overdueCount : number;
   avgTatHours : number | null;
+  /** Tickets CREATED in the window (same as total). The Scorecard counts tickets DUE in the window instead. */
+  createdCount? : number;
+  createdAndClosedCount? : number;
 }
 
 export type CaptureMethod = 'LIVE' | 'GALLERY';

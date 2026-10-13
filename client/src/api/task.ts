@@ -162,6 +162,10 @@ export type TaskOwnerStatsRow = {
     total: number;
     done: number;
     overdueCount: number;
+    /** Delegations CREATED in the window (same as total). The Scorecard counts those DUE in the window. */
+    createdCount?: number;
+    /** Done PLUS waiting for approval (same as done). The Scorecard counts waiting items as not done. */
+    doneOrWaitingCount?: number;
 };
 
 export type ApiResponse<T> = { success: boolean; data: T };

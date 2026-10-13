@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { useAuth } from '../../../context/AuthContext';
 import { holidayApi, type NewHoliday } from '../../../api/holidays';
 import { extraWorkingDayApi, type NewExtraWorkingDay } from '../../../api/extraWorkingDays';
-import { handleQueryRetry } from '../../../lib/queryHelpers';
+import { handleQueryRetry, invalidateScoreCaches } from '../../../lib/queryHelpers';
 
 const errorMessage = (err: unknown, fallback: string) => (err instanceof Error ? err.message : fallback);
 const KEY = ['holidays'] as const;
@@ -28,6 +28,7 @@ const useRefreshAfterChange = () => {
   return useCallback(() => {
     queryClient.invalidateQueries({ queryKey: KEY });
     queryClient.invalidateQueries({ queryKey: ['checklist-instances'] });
+    invalidateScoreCaches(queryClient);
     queryClient.invalidateQueries({ queryKey: ['checklist-definitions'] });
   }, [queryClient]);
 };
@@ -112,6 +113,7 @@ const useRefreshAfterExtraChange = () => {
   return useCallback(() => {
     queryClient.invalidateQueries({ queryKey: EXTRA_KEY });
     queryClient.invalidateQueries({ queryKey: ['checklist-instances'] });
+    invalidateScoreCaches(queryClient);
   }, [queryClient]);
 };
 

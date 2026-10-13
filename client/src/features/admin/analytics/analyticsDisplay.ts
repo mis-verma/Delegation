@@ -1,6 +1,7 @@
 import { trendFrom, type Trend } from '../../dashboard';
 import { ORG_TZ_OFFSET_MS } from '../../checklist/checklistDisplay';
 import type { TatReportRow } from '../../../api/ticket';
+import { formatPct } from '../../../lib/percent';
 
 // One place for every number and period label on the Overview page, so the same figure never reads
 // two ways (a rate was "76%" in one tile and "75.8%" in the next, a delta was "+4%" when it was
@@ -23,9 +24,9 @@ export const RANGE_BUCKET = 'range';
 // Number formatters
 // ---------------------------------------------------------------------------------------------
 
-/** Whole-number percent: 76 -> "76%". Null or NaN -> "No data". */
+/** Percent with up to one decimal: 76 -> "76%", 99.6 -> "99.6%" (never rounds up to 100). Null or NaN -> "No data". */
 export const formatPercent = (value: number | null | undefined): string =>
-  value == null || !Number.isFinite(value) ? NO_DATA : `${Math.round(value)}%`;
+  formatPct(value, NO_DATA);
 
 /** A change in a rate, in percentage points: "+4 pts", "-3 pts", "0 pts". Null -> "No data". */
 export const formatPoints = (delta: number | null | undefined): string => {

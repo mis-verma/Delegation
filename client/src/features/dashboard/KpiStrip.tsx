@@ -20,6 +20,7 @@ import type { Task } from '../../api/task';
 import type { Ticket } from '../../api/ticket';
 import type { Todo } from '../../api/todos';
 import type { ChecklistInstance } from '../../api/checklistInstances';
+import { formatPct, roundPct } from '../../lib/percent';
 
 type ModuleKey = 'delegation' | 'tickets' | 'checklist' | 'todo';
 type DrillKind = 'pending' | 'completed' | 'newToday' | 'overdue';
@@ -115,12 +116,12 @@ const MiniStat = ({ label, shortLabel, value, onClick }: { label: string; shortL
 // The score beside the big number: this month's overall score (completion and compliance counted equally),
 // or for To-do, which has no score, the share of to-dos done.
 const scoreFor = (key: ModuleKey, s: Scores | undefined, view: ModuleView): { value: number | null; label: string } => {
-  if (key === 'todo') return { value: view.total ? Math.round(((view.completed ?? 0) / view.total) * 100) : null, label: 'Done' };
+  if (key === 'todo') return { value: view.total ? roundPct(((view.completed ?? 0) / view.total) * 100) : null, label: 'Done' };
   if (!s) return { value: null, label: 'Score' };
   const m = key === 'delegation' ? s.delegation : key === 'tickets' ? s.ticket : s.checklist;
   if (m.due === 0) return { value: null, label: 'Score' };
   const parts = [m.completionPct, m.compliancePct].filter((v): v is number => v !== null);
-  return { value: parts.length ? Math.round(parts.reduce((a, c) => a + c, 0) / parts.length) : null, label: 'Score' };
+  return { value: parts.length ? roundPct(parts.reduce((a, c) => a + c, 0) / parts.length) : null, label: 'Score' };
 };
 
 const gaugeColor = (v: number | null) => (v === null ? 'var(--color-border-hover)' : v >= 80 ? 'var(--color-success)' : v >= 50 ? 'var(--color-warning)' : 'var(--color-danger)');
@@ -190,7 +191,7 @@ const ModuleCard = ({ view, onOpen, score, scopeTag }: { view: ModuleView; onOpe
             </button>
             <div className="flex flex-col items-center justify-center border-l border-border/60" title={score.label === 'Done' ? 'Share of to-dos done' : "This month's overall score: completion and compliance counted equally"}>
               <RadialGauge percent={score.value ?? 0} size={84} variant="circle" gradientFrom={gaugeColor(score.value)} gradientTo={gaugeColor(score.value)}>
-                <span className={cn('text-base font-display font-extrabold tabular-nums', score.value === null ? 'text-text-light' : 'text-text')}>{score.value === null ? '-' : `${score.value}%`}</span>
+                <span className={cn('text-base font-display font-extrabold tabular-nums', score.value === null ? 'text-text-light' : 'text-text')}>{formatPct(score.value)}</span>
               </RadialGauge>
               <span className="mt-1 t-meta font-semibold text-text-muted">{score.label === 'Done' ? 'Done' : 'Score this month'}</span>
             </div>

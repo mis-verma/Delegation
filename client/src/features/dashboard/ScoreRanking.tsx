@@ -3,7 +3,8 @@ import { ArrowDown, ArrowUp, ChevronRight, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { NO_DEPARTMENT_ROW_ID, UNASSIGNED_ROW_ID, type ScoreReportRow, type ScoreScope } from '../../api/scores';
 import { useScoreReport, useStoreScoreReport } from './scoreQueries';
-import { overallOf } from './scoreMetrics';
+import { acrossModules, overallOf } from './scoreMetrics';
+import { formatPct, roundPct } from '../../lib/percent';
 import { Skeleton } from '../../components/skeleton';
 import { InlineError } from '../../components/inlineError';
 import { ExportMenu } from '../../components/exportMenu';
@@ -43,14 +44,11 @@ const compute = (row: ScoreReportRow): Computed => {
     { due: row.ticket.due, done: row.ticket.closed, completion: row.ticket.completionPct, compliance: row.ticket.compliancePct, ontime: row.ticket.onTimePct, onTime: row.ticket.onTime },
     { due: row.delegation.due, done: row.delegation.done, completion: row.delegation.completionPct, compliance: row.delegation.compliancePct, ontime: row.delegation.onTimePct, onTime: row.delegation.onTime },
   ];
-  const due = parts.reduce((s, p) => s + p.due, 0);
-  const done = parts.reduce((s, p) => s + p.done, 0);
-  const withCompliance = parts.filter((p) => p.compliance !== null && p.due > 0);
-  const complianceDue = withCompliance.reduce((s, p) => s + p.due, 0);
-  const overallCompliance = complianceDue ? Math.round(withCompliance.reduce((s, p) => s + (p.compliance as number) * p.due, 0) / complianceDue) : null;
+  const across = acrossModules(row);
+  const due = across.due;
   const avg = (values: (number | null)[]) => {
     const real = values.filter((v): v is number => v !== null);
-    return real.length ? Math.round(real.reduce((a, b) => a + b, 0) / real.length) : null;
+    return real.length ? roundPct(real.reduce((a, b) => a + b, 0) / real.length) : null;
   };
   const moduleScore = (p: (typeof parts)[number]) => (p.due > 0 ? avg([p.completion, p.compliance]) : null);
   return {
@@ -62,15 +60,15 @@ const compute = (row: ScoreReportRow): Computed => {
       ticket: moduleScore(parts[1]),
       delegation: moduleScore(parts[2]),
     },
-    completion: { overall: due ? Math.round((done / due) * 100) : null, checklist: parts[0].completion, ticket: parts[1].completion, delegation: parts[2].completion },
-    compliance: { overall: overallCompliance, checklist: parts[0].compliance, ticket: parts[1].compliance, delegation: parts[2].compliance },
+    completion: { overall: across.completion, checklist: parts[0].completion, ticket: parts[1].completion, delegation: parts[2].completion },
+    compliance: { overall: across.compliance, checklist: parts[0].compliance, ticket: parts[1].compliance, delegation: parts[2].compliance },
     // Overall on time: of everything finished, how much was finished on time.
-    ontime: { overall: done ? Math.round((parts.reduce((s, p) => s + p.onTime, 0) / done) * 100) : null, checklist: parts[0].ontime, ticket: parts[1].ontime, delegation: parts[2].ontime },
+    ontime: { overall: across.ontime, checklist: parts[0].ontime, ticket: parts[1].ontime, delegation: parts[2].ontime },
   };
 };
 
 const Pct = ({ value }: { value: number | null }) =>
-  value === null ? <span className="text-text-light">-</span> : <span className={cn('tabular-nums font-bold', TEXT[rateTone(value, Number.MAX_SAFE_INTEGER)])}>{value}%</span>;
+  value === null ? <span className="text-text-light">-</span> : <span className={cn('tabular-nums font-bold', TEXT[rateTone(value, Number.MAX_SAFE_INTEGER)])}>{formatPct(value)}</span>;
 
 const MiniBar = ({ value }: { value: number | null }) => (
   <span className="block h-1.5 w-full overflow-hidden rounded-full bg-surface-hover" aria-hidden="true">

@@ -1,13 +1,13 @@
 import { useCallback, useMemo } from 'react';
 import { toDayParam } from '../../../api/checklistInstances';
 import { NO_DEPARTMENT_ROW_ID, type ScoreReportRow } from '../../../api/scores';
-import { overallOf, totalDue } from '../../dashboard/scoreMetrics';
+import { MIN_RANK_VOLUME, overallOf, totalDue } from '../../dashboard/scoreMetrics';
 import { useScoreReport, useStoreScoreReport } from '../../dashboard/scoreQueries';
 import { useTicketOwnerStatsQuery } from './useAnalyticsQueries';
 
 /** A row needs at least this many items due (checklists, tickets and delegations together) before it can
  *  be called "Top" or "Needs attention". One bad ticket in a quiet store is not a trend. */
-export const MIN_RANK_VOLUME = 5;
+export { MIN_RANK_VOLUME };
 /** "Needs attention" only appears for a row whose overall figure is below this. A low-ranked row
  *  that is still doing fine is just lower down the list. */
 export const NEEDS_ATTENTION_BELOW = 70;

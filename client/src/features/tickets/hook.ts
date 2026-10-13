@@ -22,7 +22,7 @@ import { userApi } from "../../api/users";
 import { departmentApi } from "../../api/departments";
 import { storeApi } from "../../api/stores";
 import { checklistTemplateApi } from "../../api/checklistTemplates";
-import { handleQueryRetry, useEntityMutation, patchEntityInCache, errorMessage } from '../../lib/queryHelpers';
+import { handleQueryRetry, useEntityMutation, patchEntityInCache, errorMessage, invalidateScoreCaches } from '../../lib/queryHelpers';
 import type { SummaryScope } from '../../api/http';
 import type { DashboardQueryOptions } from '../../lib/dashboardQuery';
 
@@ -425,6 +425,7 @@ export const useTicketBulkImportPublishMutation = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tickets'] });
       queryClient.invalidateQueries({ queryKey: ['analytics'] });
+      invalidateScoreCaches(queryClient);
     },
     onError: (err) => toast.error(errorMessage(err, "Couldn't publish this batch")),
   });

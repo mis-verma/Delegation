@@ -3,7 +3,8 @@ import { useSearchParams } from 'react-router';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { CalendarRange, RefreshCw } from 'lucide-react';
 import { Button, DateRangePicker, EmptyState, ExportMenu, InlineError, PageHeader, Skeleton, ToggleChip, type DateRangeValue } from '../../../components';
-import { exportPct, exportTitle, formatExportDate, type TableRows } from '../../../lib/exportTable';
+import { exportPct, exportTitle, formatExportDate, formatExportRange, type TableRows } from '../../../lib/exportTable';
+import { useOrgToday } from '../../checklist/useOrgToday';
 import { useAuth } from '../../../context/AuthContext';
 import { checklistInstanceApi, type ChecklistStoreDailyRow } from '../../../api/checklistInstances';
 import { handleQueryRetry } from '../../../lib/queryHelpers';
@@ -68,6 +69,10 @@ export const StoreDailyPage = () => {
   const { token } = useAuth();
   const [params] = useSearchParams();
   const patch = useSearchPatch();
+  // The org's calendar day, not the device clock: 'This month' and 'Last 7 days' mean the same on every phone, and they
+  // roll over at the org's midnight (and on the 1st) instead of staying on the month the page was opened in.
+  const orgToday = useOrgToday();
+  const today = useMemo(() => parseDateParam(orgToday) ?? new Date(), [orgToday]);
 
   const fromParam = params.get('from');
   const toParam = params.get('to');
@@ -76,8 +81,8 @@ export const StoreDailyPage = () => {
     const from = parseDateParam(fromParam);
     const to = parseDateParam(toParam);
     if (from && to && from.getTime() <= to.getTime()) return { from, to };
-    return presetRange('month', new Date());
-  }, [fromParam, toParam]);
+    return presetRange('month', today);
+  }, [fromParam, toParam, today]);
   const from = range.from ? toDateParam(range.from) : '';
   const to = range.to ? toDateParam(range.to) : '';
 
@@ -86,7 +91,7 @@ export const StoreDailyPage = () => {
     if (next.from && next.to) patch({ from: toDateParam(next.from), to: toDateParam(next.to) });
   };
   const activePreset = PRESETS.find((p) => {
-    const r = presetRange(p.key, new Date());
+    const r = presetRange(p.key, today);
     return r.from && r.to && toDateParam(r.from) === from && toDateParam(r.to) === to;
   })?.key;
 
@@ -99,6 +104,8 @@ export const StoreDailyPage = () => {
     refetchOnWindowFocus: false,
     placeholderData: keepPreviousData,
   });
+  // True while the last window's numbers are still on screen, waiting for this one: said in words, never dimmed.
+  const updating = query.isPlaceholderData;
 
   const days = useMemo(() => (range.from && range.to ? eachDay(range.from, range.to) : []), [range]);
   const [detail, setDetail] = useState<ScoreDetail | null>(null);
@@ -133,7 +140,7 @@ export const StoreDailyPage = () => {
   const exportRows = (): TableRows => {
     const dayCell = (cell: { done: number; total: number } | undefined) => (cell ? exportPct(ratio(cell.done, cell.total)) : null);
     return [
-      ['Store', 'Overall %', 'Items done', 'Items due', ...days.map((d) => formatExportDate(d))],
+      ['Store', 'Items done %', 'Items done', 'Items due', ...days.map((d) => formatExportDate(d))],
       ...storeRows.map((r) => [
         r.name, exportPct(r.overall), r.figures.done, r.figures.total,
         ...days.map((d) => {
@@ -150,12 +157,12 @@ export const StoreDailyPage = () => {
       <PageHeader
         icon={CalendarRange}
         title="Store and department scores"
-        subtitle="Checklist completion store by store and day by day, then department by department each month."
+        subtitle="Checklist items done and answers right, store by store and day by day, then department by department each month."
       />
 
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border/60 bg-surface p-3">
         {PRESETS.map((p) => (
-          <ToggleChip key={p.key} on={activePreset === p.key} onClick={() => setRange(presetRange(p.key, new Date()))}>
+          <ToggleChip key={p.key} on={activePreset === p.key} onClick={() => setRange(presetRange(p.key, today))}>
             {p.label}
           </ToggleChip>
         ))}
@@ -182,16 +189,22 @@ export const StoreDailyPage = () => {
             aria-label="Export store scores by day"
             filename="store-scores-by-day"
             sheetName="Stores by day"
-            title={exportTitle({ what: 'Store scores by day, checklist completion', from, to })}
+            title={exportTitle({ what: 'Store scores by day, checklist items done', from, to })}
             // The All stores total is a row in the file but not an item.
             getRows={() => ({ rows: exportRows(), count: storeRows.length })}
           />
         </div>
       </div>
 
-      <p className="text-xs font-display text-text-muted px-1">
-        Each cell is items done out of items due that day. Tap any score to see its completion and compliance. A dash means no checklist was due. Green is {GOOD_FROM}% or more, red is below {NEEDS_ATTENTION_BELOW}%.
-      </p>
+      <div className="flex flex-col gap-1 px-1">
+        <p className="text-xs font-display font-semibold text-text-secondary">
+          Showing {formatExportRange(from, to)}{activePreset ? ` (${PRESETS.find((p) => p.key === activePreset)?.label.toLowerCase()})` : ''}. Today is {formatExportDate(orgToday)}.
+        </p>
+        <p className="text-xs font-display text-text-muted">
+          Items done counts questions, not whole checklists: items done out of items due that day. Tap any score to see its items done and answers right. A dash means no checklist was due. Green is {GOOD_FROM}% or more, red is below {NEEDS_ATTENTION_BELOW}%.
+        </p>
+        {updating && <p role="status" className="text-xs font-display font-semibold text-text-secondary">Updating. These figures are for the previous period until this one loads.</p>}
+      </div>
 
       {query.isError && !query.data ? (
         <InlineError message="Could not load the store figures." onRetry={() => void query.refetch()} />
@@ -200,12 +213,12 @@ export const StoreDailyPage = () => {
       ) : storeRows.length === 0 ? (
         <EmptyState icon={CalendarRange} title="No checklist work in this period" description="Pick a different period to see store figures." />
       ) : (
-        <div className={cn('overflow-x-auto rounded-2xl border border-border bg-surface', query.isFetching && 'opacity-70 transition-opacity')}>
+        <div className="overflow-x-auto rounded-2xl border border-border bg-surface" aria-busy={updating}>
           <table className="w-full border-collapse">
             <thead>
               <tr className="border-b border-border">
                 <th scope="col" className={cn(STICKY, 'px-4 py-3 text-left font-display font-semibold text-xs text-text-muted min-w-36')}>Store</th>
-                <th scope="col" className="px-3 py-3 text-center font-display font-semibold text-xs text-text-muted whitespace-nowrap">Overall</th>
+                <th scope="col" className="px-3 py-3 text-center font-display font-semibold text-xs text-text-muted whitespace-nowrap" title="Items done out of items due over the whole period. Counts questions, not whole checklists.">Items done</th>
                 {days.map((day) => {
                   const h = dayHead(day);
                   return (
@@ -225,7 +238,7 @@ export const StoreDailyPage = () => {
                     <button
                       type="button"
                       className={CELL_BUTTON}
-                      aria-label={`${row.name}, whole period: completion and compliance`}
+                      aria-label={`${row.name}, whole period: items done and answers right`}
                       onClick={() => setDetail({ title: row.name, subtitle: 'The whole period', figures: row.figures, scope: { from, to, storeId: row.id } })}
                     >
                       {formatPercent(row.overall)}
@@ -241,7 +254,7 @@ export const StoreDailyPage = () => {
                             type="button"
                             className={CELL_BUTTON}
                             title={`${cell.doneItems} of ${cell.totalItems} items done`}
-                            aria-label={`${row.name}, ${longDay(day)}: completion and compliance`}
+                            aria-label={`${row.name}, ${longDay(day)}: items done and answers right`}
                             onClick={() => setDetail({ title: row.name, subtitle: longDay(day), figures: figuresOf(cell), scope: { from: day, to: day, storeId: row.id } })}
                           >
                             {formatPercent(rate)}
@@ -262,7 +275,7 @@ export const StoreDailyPage = () => {
                   <button
                     type="button"
                     className={CELL_BUTTON}
-                    aria-label="All stores, whole period: completion and compliance"
+                    aria-label="All stores, whole period: items done and answers right"
                     onClick={() => setDetail({ title: 'All stores', subtitle: 'The whole period', figures: grandFigures, scope: { from, to } })}
                   >
                     {formatPercent(grand)}
@@ -277,7 +290,7 @@ export const StoreDailyPage = () => {
                         <button
                           type="button"
                           className={CELL_BUTTON}
-                          aria-label={`All stores, ${longDay(day)}: completion and compliance`}
+                          aria-label={`All stores, ${longDay(day)}: items done and answers right`}
                           onClick={() => setDetail({ title: 'All stores', subtitle: longDay(day), figures: t, scope: { from: day, to: day } })}
                         >
                           {formatPercent(rate)}

@@ -11,6 +11,7 @@ import { delegationDrillHref } from '../../dashboard/scoreDrill';
 import { scoreQuery, useScoreReport } from '../../dashboard/scoreQueries';
 import { StatTile } from './AnalyticsSummaryStrip';
 import { formatPercent } from './analyticsDisplay';
+import { roundPct } from '../../../lib/percent';
 
 interface DelegationScoreStripProps {
   /** The window every figure covers: the picked range, or the page's default window. */
@@ -22,7 +23,7 @@ interface DelegationScoreStripProps {
 
 type Totals = Pick<DelegationScore, 'due' | 'done' | 'onTime' | 'overdue' | 'completionPct' | 'onTimePct'>;
 
-const pct = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 100) : null);
+const pct = (part: number, whole: number) => (whole > 0 ? roundPct((part / whole) * 100) : null);
 
 // The real delegation figures for the period, from the same score report as the Scorecard: how many
 // came due, how many were done, the completion and on-time rates, and how many are overdue. The
@@ -61,9 +62,9 @@ export const DelegationScoreStrip = ({ from, to, isOrgWideRole }: DelegationScor
     ['Figure', 'Value'],
     ['Due', totals?.due ?? null],
     ['Done', totals?.done ?? null],
-    ['Completion %', exportPct(totals?.completionPct)],
-    ['On time %', exportPct(totals?.onTimePct)],
-    ['Overdue', totals?.overdue ?? null],
+    ['Completion % (done of due)', exportPct(totals?.completionPct)],
+    ['On time % (of finished)', exportPct(totals?.onTimePct)],
+    ['Past due and not done (not counting waiting for approval)', totals?.overdue ?? null],
   ];
 
   return (
@@ -91,14 +92,14 @@ export const DelegationScoreStrip = ({ from, to, isOrgWideRole }: DelegationScor
             <StatTile icon={ListChecks} iconTint="text-primary-600 dark:text-primary-400" label="Due" value={text(totals?.due ?? 0)} isLoading={loading} caption={empty ? 'Nothing was due' : 'Came due in the period'} />
             <StatTile icon={CheckCircle2} iconTint="text-success" label="Done" value={text(totals?.done ?? 0)} isLoading={loading} caption="Approved or finished" />
             <StatTile icon={Percent} iconTint="text-primary-600 dark:text-primary-400" label="Completion" value={text(empty ? 'No data' : formatPercent(totals?.completionPct))} isLoading={loading} caption="Done out of due" />
-            <StatTile icon={Clock} iconTint="text-success" label="On time" value={text(empty ? 'No data' : formatPercent(totals?.onTimePct))} isLoading={loading} caption="Of those done, finished by the deadline" />
+            <StatTile icon={Clock} iconTint="text-success" label="On time (of finished)" value={text(empty ? 'No data' : formatPercent(totals?.onTimePct))} isLoading={loading} caption="Of those done, finished by the deadline" />
             <StatTile
               icon={AlertTriangle}
               iconTint="text-warning"
-              label="Overdue now"
+              label="Past due, not done"
               value={text(totals?.overdue ?? 0)}
               isLoading={loading}
-              caption="Due in the period, not done"
+              caption="Due in the period, not done. Waiting for approval is left out"
               lowerIsBetter
               onClick={dayFrom && dayTo ? () => navigate(delegationDrillHref({ kind: 'org' }, dayFrom, dayTo, 'notDone')) : undefined}
             />

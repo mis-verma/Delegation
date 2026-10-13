@@ -36,6 +36,8 @@ import { checklistReportService, type ChecklistReportQuery } from "./checklistRe
 import { weightedGoodExpr, weightedScoredExpr, weightedGoodForDepartment, weightedScoredForDepartment } from "../checklistReports/checklistReport.service.js"
 import type { ChecklistReportScope } from "./checklistReportScope.js"
 import { orgLocalDate, addDays, utcSql, asOrgDay } from "./checklistReportRange.js"
+import { hasExtraDay, isIdleHolidayRun, loadOffDayRules, type RunAssignee } from "../scores/offDayRules.js"
+import { isRankable, metDeadlinePct, onTimeOfFinishedPct, pooledCompliancePct, runCompletionPct, tallyRuns, type RunOutcome } from "../scores/scoreFormulas.js"
 
 // OVERDUE is a subset of OPEN (unfinished *and* past its period end), not a third
 // independent state — the compliance board and MyChecklists both offer it as a filter, and
@@ -1291,9 +1293,14 @@ export const checklistInstanceService = {
      * done late, missed (past its cutoff and not filled), still open, a holiday, or no run. A month's cell
      * adds those up. Counts only, no hydration.
      *
-     * Completion rate = runs filled (on time or late) / runs that were due. On-time rate = runs filled on
-     * time / runs that were due. Compliance = how well the checked answers were answered (the weighted
-     * rule of the compliance report). Open, off and holiday days never pull any of them down.
+     * Shared run formulas (scores/scoreFormulas.ts), the same as the compliance board and the scores report:
+     * a run is due when its cutoff has passed or it is done. `completion` = runs filled (on time or late) / due.
+     * `onTimeOfFinishedPct` = filled on time / filled. `metDeadlinePct` = filled on time / due; `rate` is the
+     * same number as `metDeadlinePct` (kept for older callers). A run still open before its cutoff is in no
+     * percentage (no partial credit); it is only counted in `open`. `compliance` is pooled:
+     * weighted good answers / weighted checked answers (the rule of the compliance report), never an average.
+     * Holidays (no extra working day covering the assignees), off days and unopened runs never pull anything down.
+     * Percentages carry one decimal; `rankable` is true when `due` reaches MIN_RANK_VOLUME.
      * ADMIN/PC see every store; MANAGER/SENIOR only runs whose assignees sit in their department.
      * `from` and `to` are org-local YYYY-MM-DD days, both included, at most a year apart.
      */
@@ -1317,11 +1324,51 @@ export const checklistInstanceService = {
                 columns.push({ key, label: `${MONTHS[Number(key.slice(5, 7)) - 1]}${key.slice(0, 4) !== from.slice(0, 4) || spanDays > 366 ? ` ${key.slice(2, 4)}` : ""}` })
             }
         }
-        const emptySummary = { due: 0, onTime: 0, late: 0, missed: 0, open: 0, rate: null as number | null, completion: null as number | null, compliance: null as number | null }
+        // The figures every row, store and the summary carry. Counts are exact, percentages have one decimal.
+        type Figures = {
+            /** Runs that came due: filled (on time or late) or missed. Open runs are not in it. */
+            due: number
+            /** Filled on time + filled late. */
+            completed: number
+            /** Filled on time. */
+            onTime: number
+            /** Filled, but after the cutoff. */
+            late: number
+            /** Due and not filled. */
+            missed: number
+            /** Not filled and still before the cutoff: in no percentage. */
+            open: number
+            /** Same number as metDeadlinePct, the older name. */
+            rate: number | null
+            /** completed / due (no partial credit for open runs). */
+            completion: number | null
+            /** Pooled weighted compliance. */
+            compliance: number | null
+            /** onTime / completed. */
+            onTimeOfFinishedPct: number | null
+            /** onTime / due. */
+            metDeadlinePct: number | null
+            /** due is at least MIN_RANK_VOLUME: safe to rank or name a winner. */
+            rankable: boolean
+        }
+        const figuresOf = (outcomes: Iterable<RunOutcome>, good: number, scored: number): Figures => {
+            const t = tallyRuns(outcomes)
+            const metDeadline = metDeadlinePct(t.onTime, t.due)
+            return {
+                due: t.due, completed: t.completed, onTime: t.onTime, late: t.completed - t.onTime, missed: t.missed, open: t.open,
+                rate: metDeadline,
+                completion: runCompletionPct(t),
+                compliance: pooledCompliancePct([{ weightedGood: good, weightedScored: scored }]),
+                onTimeOfFinishedPct: onTimeOfFinishedPct(t.onTime, t.completed),
+                metDeadlinePct: metDeadline,
+                rankable: isRankable(t.due),
+            }
+        }
+        const emptySummary: Figures = figuresOf([], 0, 0)
         const empty = {
             from, to, weekStart: from, kind, columns, days: kind === "day" ? dayKeys : ([] as string[]),
             holidays: {} as Record<string, string>, rows: [], summary: emptySummary,
-            byStore: [] as { storeId: string; storeName: string; due: number; onTime: number; late: number; missed: number; open: number; rate: number | null; completion: number | null; compliance: number | null }[],
+            byStore: [] as (Figures & { storeId: string; storeName: string })[],
         }
 
         const conditions = [
@@ -1374,6 +1421,24 @@ export const checklistInstanceService = {
 
         const holidayRows = await db.select({ date: holidays.date, name: holidays.name }).from(holidays).where(inArray(holidays.date, dayKeys))
         const holidayByDate = Object.fromEntries(holidayRows.map((h) => [h.date, h.name]))
+        // The generator's rule: an unfinished daily run on a holiday is not work, unless an extra working day
+        // covers one of its assignees. Assignees are only looked up for runs on a day that has an extra day.
+        const offDayRules = await loadOffDayRules(from, to)
+        const extraDayRunIds = runs.filter((r) => hasExtraDay(offDayRules, r.periodStart.toISOString().slice(0, 10))).map((r) => r.id)
+        const assigneesByRun = new Map<string, RunAssignee[]>()
+        if (extraDayRunIds.length) {
+            const assigneeRows = await db
+                .select({ instanceId: checklistInstanceAssignees.instanceId, id: users.id, departmentId: users.departmentId, storeId: users.storeId })
+                .from(checklistInstanceAssignees)
+                .innerJoin(users, eq(users.id, checklistInstanceAssignees.userId))
+                .where(inArray(checklistInstanceAssignees.instanceId, extraDayRunIds))
+            for (const a of assigneeRows) {
+                const list = assigneesByRun.get(a.instanceId)
+                const entry = { id: a.id, departmentId: a.departmentId, storeId: a.storeId }
+                if (list) list.push(entry)
+                else assigneesByRun.set(a.instanceId, [entry])
+            }
+        }
         const storeIds = [...new Set(runs.map((r) => r.storeId))]
         const storeNames = new Map((await db.select({ id: stores.id, name: stores.name }).from(stores).where(inArray(stores.id, storeIds))).map((s) => [s.id, s.name]))
 
@@ -1402,12 +1467,15 @@ export const checklistInstanceService = {
             if (complete) return doneAt && doneAt.getTime() > deadline ? "late" : "done"
             return now > deadline ? "missed" : "open"
         }
-        const pctOf = (good: number, scored: number) => (scored > 0 ? Math.round((good / scored) * 100) : null)
-        const rateOf = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 100) : null)
+        const pctOf = (good: number, scored: number) => pooledCompliancePct([{ weightedGood: good, weightedScored: scored }])
+        const outcomeOf = (r: Run): RunOutcome => {
+            const st = stateOf(r)
+            return { id: r.id, complete: st === "done" || st === "late", onTime: st === "done", missed: st === "missed" }
+        }
 
         // Runs that are not real work yet are left out entirely: not opened (nothing done, and the opens
-        // time has not come), no questions at all, or left unfinished on a holiday. They are not a miss
-        // and not "in progress", so they must not pull any rate down.
+        // time has not come), no questions at all, or left unfinished on a holiday that no extra working day
+        // covers. They are not a miss and not "in progress", so they must not pull any rate down.
         const opensAtOf = (r: Run) => {
             let at = r.periodStart.getTime() - offsetMs
             if (r.opensTime) {
@@ -1419,7 +1487,8 @@ export const checklistInstanceService = {
         const countable = runs.filter((r) => {
             const total = Number(r.total), done = Number(r.done)
             if (total === 0) return false
-            if (done < total && holidayByDate[r.periodStart.toISOString().slice(0, 10)]) return false
+            const date = r.periodStart.toISOString().slice(0, 10)
+            if (isIdleHolidayRun(offDayRules, { date, recurrence: "DAILY", complete: done === total, storeId: r.storeId }, hasExtraDay(offDayRules, date) ? assigneesByRun.get(r.id) ?? [] : [])) return false
             if (done === 0 && opensAtOf(r) > now) return false
             return true
         })
@@ -1436,61 +1505,36 @@ export const checklistInstanceService = {
             grouped.set(key, g)
         }
 
-        const totals = { due: 0, onTime: 0, late: 0, missed: 0, open: 0, openProgress: 0, scored: 0, good: 0 }
-        // The same counts again, added up per store, for the store scoreboard.
-        const storeTotals = new Map<string, typeof totals>()
+        // Runs and the weighted answers behind them, added up per row, per month cell, per store and overall.
+        // Every run lands in exactly one row, so a run is counted once at every level (tallyRuns also
+        // de-duplicates by run id). Percentages come out of figuresOf from these raw sums.
+        type Tally = { outcomes: RunOutcome[]; scored: number; good: number }
+        const newTally = (): Tally => ({ outcomes: [], scored: 0, good: 0 })
+        const addRun = (t: Tally, r: Run) => {
+            t.outcomes.push(outcomeOf(r))
+            t.scored += Number(r.wScored)
+            t.good += Number(r.wGood)
+        }
+        const figuresOfTally = (t: Tally | undefined): Figures => figuresOf(t?.outcomes ?? [], t?.good ?? 0, t?.scored ?? 0)
+        const totals = newTally()
+        const storeTotals = new Map<string, Tally>()
         const rows = [...grouped.values()].map((g) => {
-            // `open` runs are still before their cutoff and not finished. They are not a miss, but they are
-            // not finished work either, so the rates count them in the whole and credit them only for the
-            // share of their questions done so far (`openProgress`, in runs: 0.5 = half a run).
-            const acc = { onTime: 0, late: 0, missed: 0, open: 0, openProgress: 0, scored: 0, good: 0 }
+            const acc = newTally()
             const byDay = new Map<string, Run>()
-            const byMonth = new Map<string, { onTime: number; late: number; missed: number; open: number; openProgress: number; scored: number; good: number }>()
+            const byMonth = new Map<string, Tally>()
+            const store = storeTotals.get(g.storeId) ?? newTally()
+            storeTotals.set(g.storeId, store)
             for (const r of g.runs) {
-                const st = stateOf(r)
-                const scored = Number(r.wScored), good = Number(r.wGood)
-                if (st === "done") acc.onTime++
-                else if (st === "late") acc.late++
-                else if (st === "missed") acc.missed++
-                else {
-                    acc.open++
-                    acc.openProgress += Number(r.total) > 0 ? Number(r.done) / Number(r.total) : 0
-                }
-                acc.scored += scored
-                acc.good += good
                 const date = r.periodStart.toISOString().slice(0, 10)
                 byDay.set(date, r)
-                const m = byMonth.get(date.slice(0, 7)) ?? { onTime: 0, late: 0, missed: 0, open: 0, openProgress: 0, scored: 0, good: 0 }
-                if (st === "done") m.onTime++
-                else if (st === "late") m.late++
-                else if (st === "missed") m.missed++
-                else {
-                    m.open++
-                    m.openProgress += Number(r.total) > 0 ? Number(r.done) / Number(r.total) : 0
-                }
-                m.scored += scored
-                m.good += good
-                byMonth.set(date.slice(0, 7), m)
+                const month = byMonth.get(date.slice(0, 7)) ?? newTally()
+                byMonth.set(date.slice(0, 7), month)
+                for (const t of [acc, month, store, totals]) addRun(t, r)
             }
-            const due = acc.onTime + acc.late + acc.missed
-            totals.due += due; totals.onTime += acc.onTime; totals.late += acc.late; totals.missed += acc.missed; totals.open += acc.open; totals.openProgress += acc.openProgress
-            totals.scored += acc.scored; totals.good += acc.good
-            const st = storeTotals.get(g.storeId) ?? { due: 0, onTime: 0, late: 0, missed: 0, open: 0, openProgress: 0, scored: 0, good: 0 }
-            st.due += due; st.onTime += acc.onTime; st.late += acc.late; st.missed += acc.missed; st.open += acc.open; st.openProgress += acc.openProgress
-            st.scored += acc.scored; st.good += acc.good
-            storeTotals.set(g.storeId, st)
 
             const cells = columns.map((col) => {
                 if (kind === "month") {
-                    const m = byMonth.get(col.key)
-                    const cellDue = m ? m.onTime + m.late + m.missed : 0
-                    return {
-                        date: col.key, state: "summary" as CellState, runId: null as string | null, done: 0, total: 0,
-                        compliance: m ? pctOf(m.good, m.scored) : null,
-                        due: cellDue, onTime: m?.onTime ?? 0, late: m?.late ?? 0, missed: m?.missed ?? 0, open: m?.open ?? 0,
-                        rate: rateOf(m?.onTime ?? 0, cellDue + (m?.open ?? 0)),
-                        completion: rateOf((m?.onTime ?? 0) + (m?.late ?? 0) + (m?.openProgress ?? 0), cellDue + (m?.open ?? 0)),
-                    }
+                    return { date: col.key, state: "summary" as CellState, runId: null as string | null, done: 0, total: 0, ...figuresOfTally(byMonth.get(col.key)) }
                 }
                 const date = col.key
                 const r = byDay.get(date)
@@ -1507,10 +1551,7 @@ export const checklistInstanceService = {
                 storeId: g.storeId,
                 storeName: storeNames.get(g.storeId) ?? "Store",
                 cells,
-                open: acc.open,
-                rate: rateOf(acc.onTime, due + acc.open),
-                completion: rateOf(acc.onTime + acc.late + acc.openProgress, due + acc.open),
-                compliance: pctOf(acc.good, acc.scored),
+                ...figuresOfTally(acc),
             }
         }).sort((a, b) => a.name.localeCompare(b.name) || a.storeName.localeCompare(b.storeName))
 
@@ -1523,19 +1564,8 @@ export const checklistInstanceService = {
             days: kind === "day" ? dayKeys : ([] as string[]),
             holidays: holidayByDate,
             rows,
-            byStore: [...storeTotals.entries()].map(([id, t]) => ({
-                storeId: id, storeName: storeNames.get(id) ?? "Store",
-                due: t.due, onTime: t.onTime, late: t.late, missed: t.missed, open: t.open,
-                rate: rateOf(t.onTime, t.due + t.open),
-                completion: rateOf(t.onTime + t.late + t.openProgress, t.due + t.open),
-                compliance: pctOf(t.good, t.scored),
-            })),
-            summary: {
-                due: totals.due, onTime: totals.onTime, late: totals.late, missed: totals.missed, open: totals.open,
-                rate: rateOf(totals.onTime, totals.due + totals.open),
-                completion: rateOf(totals.onTime + totals.late + totals.openProgress, totals.due + totals.open),
-                compliance: pctOf(totals.good, totals.scored),
-            },
+            byStore: [...storeTotals.entries()].map(([id, t]) => ({ storeId: id, storeName: storeNames.get(id) ?? "Store", ...figuresOfTally(t) })),
+            summary: figuresOfTally(totals),
         }
     },
 

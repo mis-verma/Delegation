@@ -8,11 +8,12 @@ import type { Task } from '../api/task';
 // came DUE in a window, optionally only the ones finished late or not finished, for one department or
 // store. Read from the address, applied on top of the list the page already loaded, and cleared in one tap.
 
-export type ScoreDrillSla = 'closed_late' | 'done_late' | 'not_done';
-const SLA_VALUES: readonly ScoreDrillSla[] = ['closed_late', 'done_late', 'not_done'];
+export type ScoreDrillSla = 'closed_late' | 'closed_on_time' | 'done_late' | 'not_done';
+const SLA_VALUES: readonly ScoreDrillSla[] = ['closed_late', 'closed_on_time', 'done_late', 'not_done'];
 
 const SLA_WORDS: Record<ScoreDrillSla, string> = {
   closed_late: 'closed late',
+  closed_on_time: 'closed on time',
   done_late: 'finished late',
   not_done: 'not done yet',
 };
@@ -79,6 +80,7 @@ export const ticketMatchesDrill = (drill: ScoreDrill, t: Ticket): boolean => {
   if (drill.storeId && t.storeId !== drill.storeId) return false;
   if (drill.sla === 'not_done') return t.status !== 'CLOSED';
   if (drill.sla === 'closed_late') return t.status === 'CLOSED' && !!t.closedAt && !!t.tatDueAt && new Date(t.closedAt).getTime() > new Date(t.tatDueAt).getTime();
+  if (drill.sla === 'closed_on_time') return t.status === 'CLOSED' && !!t.closedAt && !!t.tatDueAt && new Date(t.closedAt).getTime() <= new Date(t.tatDueAt).getTime();
   return true;
 };
 

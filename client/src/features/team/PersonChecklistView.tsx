@@ -5,7 +5,9 @@ import { EmptyState, ExportMenu, InlineError, Skeleton, PANEL_CLASS } from '../.
 import { CATEGORY_PREDICATES } from '../tasks/taskFilters';
 import { rateToneClass } from '../checklist/checklistDisplay';
 import { CategoryBarChart, type CategoryBar } from './CategoryBarChart';
-import { exportTitle, type TableRows } from '../../lib/exportTable';
+import { exportPct, exportTitle, type TableRows } from '../../lib/exportTable';
+import { formatPct, roundPct } from '../../lib/percent';
+import type { ScoreReportRow } from '../../api/scores';
 import { cn } from '../../lib/utils';
 import type { ChecklistReportMetrics } from '../../api/checklistReports';
 import type { Task } from '../../api/task';
@@ -19,8 +21,12 @@ interface PersonChecklistViewProps {
   departmentName: string;
   departmentId: string;
   personId: string;
+  /** Created in the period (the category bars' cohort). */
   tasks: Task[];
   tickets: Ticket[];
+  workLoading: boolean;
+  /** This person's scores row (the Scorecard's numbers); undefined means nothing was due. */
+  scores: ScoreReportRow | undefined;
   /** The page-level period: it drives the checklist report, the delegation/ticket counts and the
    *  wording below, so every number on this screen is for the same window. */
   period: TeamPeriod;
@@ -57,7 +63,7 @@ const BigStat = ({ label, value, valueClassName, detail, hint }: BigStatProps) =
   </div>
 );
 
-const pctText = (pct: number | null) => (pct === null ? null : `${pct}%`);
+const pctText = (pct: number | null) => (pct === null ? null : formatPct(pct));
 
 // One person, one period, two kinds of work. Store checklists (the recurring runs people fill in
 // from My Checklists) come first: they come from the checklist report and are what most of the
@@ -71,6 +77,8 @@ export const PersonChecklistView = ({
   personId,
   tasks,
   tickets,
+  workLoading,
+  scores,
   period,
   range,
   checklist,
@@ -92,17 +100,19 @@ export const PersonChecklistView = ({
     navigate(`/tasks?assigneeIds=${personId}&category=${category}`);
   const goToTickets = () => navigate(`/tickets?assigneeIds=${personId}`);
 
+  // Drafts are not real work yet, so they are in no count (selectPersonWork already leaves them out).
   const countDoneTotal = (list: Task[]) => ({ done: list.filter((t) => t.status === 'done').length, total: list.length });
   const taskStats = countDoneTotal(periodTasks.filter(CATEGORY_PREDICATES.task));
   const issueStats = countDoneTotal(periodTasks.filter(CATEGORY_PREDICATES.issue));
   const delegationStats = countDoneTotal(periodTasks.filter(CATEGORY_PREDICATES.delegation));
   const ticketStats = { done: periodTickets.filter((t) => t.status === 'CLOSED').length, total: periodTickets.length };
 
-  // Every task (any category) + every ticket, done vs. total. Store checklist runs are NOT in
-  // here: they have their own section above, so the two never get blended into one number.
-  const workDone = taskStats.done + issueStats.done + delegationStats.done + ticketStats.done;
-  const workTotal = taskStats.total + issueStats.total + delegationStats.total + ticketStats.total;
-  const workRate = workTotal > 0 ? Math.round((workDone / workTotal) * 100) : null;
+  // Tickets and delegations that came DUE in the period, done out of due: the scores report's own numbers, the
+  // same as the Scorecard. Store checklist runs are NOT in here (they have their own section above), and the
+  // bars below count what was CREATED in the period, so the two are labelled apart.
+  const workDue = (scores?.ticket.due ?? 0) + (scores?.delegation.due ?? 0);
+  const workDone = (scores?.ticket.closed ?? 0) + (scores?.delegation.done ?? 0);
+  const workRate = workDue > 0 ? roundPct((workDone / workDue) * 100) : null;
 
   const photo = taskTotals.data;
   const todoStats = { done: photo?.doneItems ?? 0, total: photo?.totalItems ?? 0 };
@@ -110,21 +120,25 @@ export const PersonChecklistView = ({
   // Numbers as numbers (85, not "85%"), so the sheet can sum and sort; empty where there is no figure.
   const buildExportRows = (): TableRows => [
     ['Store checklists', 'Value'],
-    ['Checklists assigned', checklist?.assigned ?? 0],
+    ['Checklists due', checklistDue],
     ['Completed', checklist?.completed ?? 0],
-    ['Completion %', checklist?.completionPct ?? null],
+    ['Completion % (completed of due)', exportPct(checklist?.completionPct)],
     ['Completed on time', checklist?.onTime ?? 0],
-    ['On time %', checklist?.onTimePct ?? null],
+    ['Met deadline % (on time of due)', exportPct(checklist?.metDeadlinePct)],
+    ['On time % (of finished)', exportPct(onTimeOfFinished)],
     ['Missed', checklist?.missed ?? 0],
+    ['Still open (not counted yet)', checklist?.open ?? 0],
     ['Sent back', checklist?.sentBack ?? 0],
     ['Answers checked', checklist?.answersChecked ?? 0],
-    ['Compliance %', checklist && checklist.answersChecked > 0 ? checklist.compliancePct : null],
+    ['Answers right % (compliance)', checklist && checklist.answersChecked > 0 ? exportPct(checklist.compliancePct) : null],
     [],
-    ['Delegations, issues and tickets', 'Value'],
-    ['Completion rate %', workRate],
-    ['Photo proof %', photo?.photoRate ?? null],
+    ['Tickets and delegations due in this period', 'Value'],
+    ['Due', workDue],
+    ['Done', workDone],
+    ['Completion % (done of due)', exportPct(workRate)],
+    ['Photo proof % (required photos uploaded)', exportPct(photo?.photoRate)],
     [],
-    ['Category', 'Done', 'Total'],
+    ['Created in this period', 'Done', 'Created'],
     ['Direct Task', taskStats.done, taskStats.total],
     ['Issue', issueStats.done, issueStats.total],
     ['Delegation', delegationStats.done, delegationStats.total],
@@ -143,6 +157,8 @@ export const PersonChecklistView = ({
   ];
 
   const m = checklist;
+  const checklistDue = m ? m.due ?? m.assigned : 0;
+  const onTimeOfFinished = m ? m.onTimeOfFinishedPct ?? m.onTimePct : null;
 
   return (
     // No dim while the next period loads (the old numbers stay put); the page header says "Updating…".
@@ -162,7 +178,7 @@ export const PersonChecklistView = ({
           sheetName="Team Overview"
           title={exportTitle({ what: `Team overview, ${personName}`, from: range.from, to: range.to, period: TEAM_PERIOD_LABELS[period], filters: { Department: departmentName } })}
           // Three small tables: 9 checklist figures, 2 work figures, 5 categories.
-          getRows={() => ({ rows: buildExportRows(), count: 9 + 2 + 5 })}
+          getRows={() => ({ rows: buildExportRows(), count: 11 + 4 + 5 })}
         />
       </div>
 
@@ -179,25 +195,32 @@ export const PersonChecklistView = ({
           <EmptyState icon={ClipboardCheck} size="compact" title="No store checklists were assigned in this period" />
         ) : (
           <>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
               <BigStat
                 label="Completion"
                 value={pctText(m.completionPct)}
                 valueClassName={m.completionPct === null ? undefined : rateToneClass(m.completionPct)}
-                detail={`${m.completed} of ${m.assigned} completed`}
+                detail={checklistDue > 0 ? `${m.completed} of ${checklistDue} due were filled` : 'Nothing was due yet'}
               />
               <BigStat
-                label="On time"
-                value={pctText(m.onTimePct)}
-                valueClassName={m.onTimePct === null ? undefined : rateToneClass(m.onTimePct)}
-                detail={m.completed > 0 ? `${m.onTime} of ${m.completed} finished on time` : 'Nothing finished yet'}
+                label="Met deadline"
+                value={pctText(m.metDeadlinePct ?? null)}
+                valueClassName={m.metDeadlinePct == null ? undefined : rateToneClass(m.metDeadlinePct)}
+                detail={checklistDue > 0 ? `${m.onTime} of ${checklistDue} due were filled on time` : 'Nothing was due yet'}
+                hint="Late and missed both count against it"
               />
               <BigStat
-                label="Compliance"
+                label="On time (of finished)"
+                value={pctText(onTimeOfFinished)}
+                valueClassName={onTimeOfFinished === null ? undefined : rateToneClass(onTimeOfFinished)}
+                detail={m.completed > 0 ? `${m.onTime} of ${m.completed} filled were on time` : 'Nothing filled yet'}
+              />
+              <BigStat
+                label="Answers right"
                 value={m.answersChecked > 0 ? pctText(m.compliancePct) : null}
                 valueClassName={m.compliancePct === null ? undefined : rateToneClass(m.compliancePct)}
                 detail={m.answersChecked > 0 ? `${m.answersChecked} answers checked` : 'No scored answers in this period'}
-                hint="Checked answers that were right"
+                hint="Compliance: checked answers that were right"
               />
               <BigStat
                 label="Sent back"
@@ -206,6 +229,11 @@ export const PersonChecklistView = ({
                 detail={`of ${m.assigned} ${m.assigned === 1 ? 'checklist' : 'checklists'}`}
               />
             </div>
+            {!!m.open && (
+              <p className="t-meta font-display font-medium text-text-secondary">
+                {m.open} {m.open === 1 ? 'checklist is' : 'checklists are'} still open and not in these percentages yet.
+              </p>
+            )}
             {m.missed > 0 && (
               <p className="t-meta font-display font-medium text-danger">
                 {m.missed} {m.missed === 1 ? 'checklist was' : 'checklists were'} missed: past the cutoff and not finished.
@@ -216,14 +244,15 @@ export const PersonChecklistView = ({
       </section>
 
       <section aria-labelledby="team-delegations" className="flex flex-col gap-3">
-        <h3 id="team-delegations" className="t-section font-display font-bold text-text">Delegations, issues and tickets</h3>
+        <h3 id="team-delegations" className="t-section font-display font-bold text-text">Tickets and delegations</h3>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <BigStat
-            label="Completion rate"
+            label="Completion"
             value={pctText(workRate)}
             valueClassName={workRate === null ? undefined : rateToneClass(workRate)}
-            detail={workRate === null ? `None were created ${phrase}` : `${workDone} of ${workTotal} marked done`}
+            detail={workRate === null ? `None were due ${phrase}` : `${workDone} of ${workDue} due were done`}
+            hint="Same as the Scorecard. Waiting for approval is not done yet"
           />
           <div className={STAT_TILE_CLASS}>
             <span className="t-meta font-display font-semibold text-text-muted">Photo proof</span>
@@ -231,7 +260,7 @@ export const PersonChecklistView = ({
               <Skeleton className="h-7 w-16" />
             ) : (
               <span className={cn('t-figure font-display font-bold tabular-nums', photo?.photoRate == null ? 'text-text-light' : rateToneClass(photo.photoRate))}>
-                {photo?.photoRate == null ? '-' : `${photo.photoRate}%`}
+                {formatPct(photo?.photoRate)}
               </span>
             )}
             <span className="t-meta font-display font-medium text-text-secondary">
@@ -244,7 +273,8 @@ export const PersonChecklistView = ({
           </div>
         </div>
 
-        <CategoryBarChart bars={bars} />
+        <p className="t-meta font-display text-text-muted">Bars count items created {phrase}: done out of created. They can differ from Completion above, which counts what came due.</p>
+        {workLoading ? <Skeleton className="h-40 rounded-xl" /> : <CategoryBarChart bars={bars} />}
       </section>
     </div>
   );

@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, isNotNull, isNull, lt, or, sql, type SQL } from "drizzle-orm"
+import { and, eq, gte, inArray, isNull, lt, or, sql, type SQL } from "drizzle-orm"
 import { db } from "../../config/db.js"
 import { env } from "../../config/env.js"
 import { departments, stores, users } from "../../db/schema/core.js"
@@ -6,7 +6,8 @@ import { taskAdditionalAssignees, tasks } from "../../db/schema/task.js"
 import { tickets } from "../../db/schema/ticket.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import { AppError } from "../../utils/AppError.js"
-import { checklistReportService, type PersonRow, type ReportMetrics } from "../checklistReports/checklistReport.service.js"
+import { checklistReportService, type ReportMetrics } from "../checklistReports/checklistReport.service.js"
+import { isRankable, lateOf, metDeadlinePct, notDone, onTimeOfFinishedPct, overallOf, pct, rawPct, round1 } from "./scoreFormulas.js"
 
 // Same weights as TASK_SCORE on the client: started is a quarter, handed in for approval three
 // quarters, only done is the full mark.
@@ -16,19 +17,40 @@ const DAY_MS = 86_400_000
 
 export type ScoreScope = "person" | "department" | "store" | "org"
 
+// All percentages in this file are 0-100 with one decimal at most (null = nothing to measure). Counts are
+// exact. Every module block carries the same count words: due, done, onTime, late, notDone.
 export type ChecklistScore = {
+    /** Compliance when answers have been checked, otherwise completion. */
     score: number | null
+    /** Run based: completed / due. Runs still open before their deadline are in neither side. */
     completionPct: number | null
+    /** Pooled weighted compliance: weightedGood / weightedScored. */
     compliancePct: number | null
-    /** Of the runs that were finished, the share finished on time. */
+    /** Same figure as onTimeOfFinishedPct, kept for older callers. */
     onTimePct: number | null
+    /** Of the runs that were finished, the share finished on time: onTime / completed. */
+    onTimeOfFinishedPct: number | null
+    /** onTime / due: late and missed runs both count against it. */
+    metDeadlinePct: number | null
     onTime: number
-    /** Runs that have come due: finished, or past their deadline. Runs still ahead are left out. */
+    /** Runs that have come due: completed, or past their deadline. Runs still ahead are left out. */
     due: number
     completed: number
+    /** Same as completed, named like the other modules. */
+    done: number
     missed: number
+    /** Same as missed (due - done), named like the other modules. */
+    notDone: number
+    /** Finished, but after the cutoff: completed - onTime. */
+    late: number
+    /** Not completed and still before the deadline: in no percentage. */
+    open: number
     submitted: number
     approved: number
+    /** Raw weights behind compliancePct, to pool rows without averaging percentages. */
+    answersChecked: number
+    weightedGood: number
+    weightedScored: number
 }
 // Completion is the share of due items done. Compliance is the share done on time (for checklists, how well
 // the checked answers were answered). On time is, of the items that were FINISHED, the share finished on time.
@@ -36,68 +58,141 @@ export type ChecklistScore = {
  * `late` = closed after the due time. Open tickets are not late here; they are due - closed ("not done").
  * `waitingOnTime` = handed in on or before the due time and still waiting for approval: not done yet, but
  * on time, so it counts toward compliance (the worker's clock stopped at hand-in).
+ * `done` = `closed`; `notDone` = due - done, so a ticket waiting for approval is still not done until approved.
  */
-export type TicketScore = { score: number | null; completionPct: number | null; compliancePct: number | null; onTimePct: number | null; due: number; closed: number; onTime: number; late: number; waitingOnTime: number }
-export type DelegationScore = { score: number | null; completionPct: number | null; compliancePct: number | null; onTimePct: number | null; due: number; done: number; onTime: number; overdue: number; waitingOnTime: number }
+export type TicketScore = {
+    score: number | null
+    completionPct: number | null
+    compliancePct: number | null
+    /** onTime / closed. */
+    onTimePct: number | null
+    onTimeOfFinishedPct: number | null
+    /** (onTime + waitingOnTime) / due; the same figure as compliancePct. */
+    metDeadlinePct: number | null
+    due: number
+    closed: number
+    done: number
+    notDone: number
+    onTime: number
+    late: number
+    waitingOnTime: number
+}
+export type DelegationScore = {
+    score: number | null
+    completionPct: number | null
+    compliancePct: number | null
+    /** onTime / done. */
+    onTimePct: number | null
+    onTimeOfFinishedPct: number | null
+    /** (onTime + waitingOnTime) / due; the same figure as compliancePct. */
+    metDeadlinePct: number | null
+    due: number
+    done: number
+    /** due - done: waiting-for-approval items stay here until approved. */
+    notDone: number
+    onTime: number
+    /** Done, but after the due date: done - onTime. */
+    late: number
+    /** Past due and not done, not counting drafts or items waiting for approval. */
+    overdue: number
+    waitingOnTime: number
+}
 
-export type Scores = {
+type ModuleBlocks = { checklist: ChecklistScore; ticket: TicketScore; delegation: DelegationScore }
+
+export type Scores = ModuleBlocks & {
     scope: ScoreScope
     id: string
     name: string
     from: string
     to: string
-    checklist: ChecklistScore
-    ticket: TicketScore
-    delegation: DelegationScore
+    /** Completion and compliance of every module with something due, averaged unrounded (overallOf). */
+    overall: number | null
+    /** checklist.due + ticket.due + delegation.due. */
+    totalDue: number
+    /** totalDue is at least MIN_RANK_VOLUME, so the row may be ranked. */
+    rankable: boolean
 }
 
 export type TrendPeriod = "day" | "week" | "month" | "quarter" | "year"
-export type TrendBucket = { label: string; from: string; to: string; checklist: ChecklistScore; ticket: TicketScore; delegation: DelegationScore }
+export type TrendBucket = ModuleBlocks & { label: string; from: string; to: string; overall: number | null }
 export type ScoreTrend = { scope: ScoreScope; id: string; name: string; period: TrendPeriod; buckets: TrendBucket[] }
 
-/** `left`: a person who has since left (deactivated); their name already carries the "(left)" tag. */
-export type ScoreReportRow = { id: string; name: string; department: string; role?: string; left?: boolean; checklist: ChecklistScore; ticket: TicketScore; delegation: DelegationScore }
+/**
+ * `left`: a person who has since left (deactivated); their name already carries the "(left)" tag.
+ * `inactive`: a store that has been switched off but still has work in the window; its name carries "(inactive)".
+ */
+export type ScoreReportRow = ModuleBlocks & {
+    id: string
+    name: string
+    department: string
+    role?: string
+    left?: boolean
+    inactive?: boolean
+    overall: number | null
+    totalDue: number
+    rankable: boolean
+}
 
-/** Ids of the two catch-all rows: work with no department (Departments) and with no assignee (People). */
+/** Ids of the catch-all rows: work with no department (Departments), with no assignee (People), with no store (Stores). */
 export const NO_DEPARTMENT_ROW_ID = "no-department"
 export const UNASSIGNED_ROW_ID = "unassigned"
-export type ScoreReport = { from: string; to: string; generatedAt: string; departments: ScoreReportRow[]; people: ScoreReportRow[]; stores: ScoreReportRow[]; notes: string[] }
+export const NO_STORE_ROW_ID = "no-store"
+export type ScoreReport = {
+    from: string
+    to: string
+    generatedAt: string
+    departments: ScoreReportRow[]
+    people: ScoreReportRow[]
+    stores: ScoreReportRow[]
+    /** Left out when only the stores were asked for (stores=only). Everything in the window in one row (the whole organisation, or a head's own department): each run, ticket and delegation counted once. */
+    total?: ScoreReportRow
+    notes: string[]
+}
 
 export const SCORE_REPORT_NOTES = [
-    "Checklist: only runs that have come due count (finished, or past their deadline), so a running period does not dip for runs still ahead. The score is compliance when answers have been checked, otherwise completion.",
-    "Tickets: a ticket counts when its due time falls in the window. Completion is the share closed, compliance the share handed in on or before the due time (closed, or waiting for approval).",
-    "Delegations: real delegations only (no subtasks, no issues), counted when due in the window or already done. Completion is the share done, compliance the share handed in on or before the due date (done, or waiting for approval; handed-in time, else approval time, else last update). Score is weighted by status (to do 0, in progress 25, waiting approval 75, done 100). Drafts never count.",
-    "On time: of the items that were finished (runs, tickets, delegations), the share finished before their deadline. Compliance counts unfinished late items as misses too, so it can be lower.",
-    "A person is scored on what is assigned to them, as the main or an additional assignee. A department is scored on what belongs to the department, so its figures can differ from the sum of its people.",
-    "Overall score: completion and compliance of every module with something due, counted equally.",
-    "Nothing is dropped: tickets and delegations with no department sit on the No department row, work with no assignee sits on the Unassigned row of People, and people who have left keep their own row (marked left) for the period. A checklist shared by people of two departments counts once in each.",
-    "A store is scored on its own records: checklist runs of that store, tickets of that store, and delegations of the departments that belong to that store (the same store the delegation list filters on).",
+    "Checklist: runs are counted the same way on every page. A run is due when its cutoff has passed or it is completed; a run still open before its cutoff is in neither side and never earns partial credit. Completion = completed / due. On time = completed before the cutoff / completed. Met deadline = completed before the cutoff / due.",
+    "Checklist compliance is pooled: weighted good answers / weighted checked answers (critical questions count double, a sent-back question is a fail, not applicable is neutral). It is never an average of people's percentages. A person's compliance covers the answers credited to them, a department's the answers credited to its people, a store's and the organisation's every checked answer on their runs.",
+    "A person is scored on every checklist run assigned to them. A department, a store and the whole organisation count each run once, however many people share it, so a department can differ from the sum of its people. A daily run left unfinished on a holiday that no extra working day covers is not counted. Runs of a deleted checklist are not counted; a paused checklist keeps its past runs.",
+    "Tickets: a ticket counts when its due time falls in the window; a ticket with no due time is never counted, even if closed. Completion = closed / due. Not done = due - closed, so a ticket waiting for approval is not done until approved. On time is judged from when it was handed in (else closed), so a slow approval does not make the worker late. Compliance = (closed on time + handed in on time and waiting) / due.",
+    "Delegations: real delegations only (no subtasks, no issues), counted when due in the window. Completion = done / due. Not done = due - done, waiting for approval included until approved. Compliance = (done on time + handed in on time and waiting) / due (handed-in time, else approval time, else last update). Score is weighted by status (to do 0, in progress 25, waiting approval 75, done 100). Drafts never count.",
+    "On time (of finished): of the items that were finished (runs, tickets, delegations), the share finished before their deadline. Met deadline counts unfinished late items as misses too, so it can be lower.",
+    "Overall score: completion and compliance of every module with something due, counted equally and averaged before any rounding. A row is rankable only with at least 5 items due.",
+    "Nothing is dropped: tickets and delegations with no department sit on the No department row, work with no assignee sits on the Unassigned row of People, and people who have left keep their own row (marked left) for the period.",
+    "Stores: checklist runs are scored on the store they belong to, tickets on their store, and delegations on the store of their department. Work with no store (a ticket with no store, a delegation whose department has no store) sits on the Other / no store row, and a switched-off store that still has work keeps its row (marked inactive), so All stores adds up to the whole organisation.",
 ]
 
-const pct = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 100) : null)
 const sum = <T,>(rows: readonly T[], pick: (r: T) => number) => rows.reduce((total, r) => total + pick(r), 0)
 
-// Checklist block for one person or a group: a group is the sum of its people. Compliance is averaged
-// by how many answers were checked, so two checked answers do not weigh as much as two hundred.
-const foldChecklist = (rows: readonly (ReportMetrics & { answersChecked: number })[]): ChecklistScore => {
-    const completed = sum(rows, (r) => r.completed)
-    const missed = sum(rows, (r) => r.missed)
-    const due = completed + missed
-    const checked = sum(rows, (r) => (r.compliancePct === null ? 0 : r.answersChecked))
-    const compliancePct = checked > 0 ? Math.round(sum(rows, (r) => (r.compliancePct === null ? 0 : r.compliancePct * r.answersChecked)) / checked) : null
-    const completionPct = pct(completed, due)
-    const onTime = sum(rows, (r) => r.onTime)
+const EMPTY_METRICS: ReportMetrics = {
+    assigned: 0, completed: 0, completionPct: null, onTime: 0, onTimePct: null, onTimeOfFinishedPct: null, metDeadlinePct: null, due: 0, open: 0, missed: 0,
+    submitted: 0, approved: 0, sentBack: 0, questionsDone: 0, notApplicable: 0, answersChecked: 0, compliancePct: null, weightedGood: 0, weightedScored: 0,
+}
+
+// Checklist block for one person, department, store or the whole organisation. `m` is already pooled and
+// de-duplicated by the checklist report (a shared run counts once for a group), so this only renames.
+const foldChecklist = (m: ReportMetrics | null | undefined): ChecklistScore => {
+    const r = m ?? EMPTY_METRICS
     return {
-        score: compliancePct ?? completionPct,
-        completionPct,
-        compliancePct,
-        onTimePct: pct(onTime, completed),
-        onTime,
-        due,
-        completed,
-        missed,
-        submitted: sum(rows, (r) => r.submitted),
-        approved: sum(rows, (r) => r.approved),
+        score: r.compliancePct ?? r.completionPct,
+        completionPct: r.completionPct,
+        compliancePct: r.compliancePct,
+        onTimePct: r.onTimeOfFinishedPct,
+        onTimeOfFinishedPct: r.onTimeOfFinishedPct,
+        metDeadlinePct: r.metDeadlinePct,
+        onTime: r.onTime,
+        due: r.due,
+        completed: r.completed,
+        done: r.completed,
+        missed: r.missed,
+        notDone: notDone(r.due, r.completed),
+        late: lateOf(r.completed, r.onTime),
+        open: r.open,
+        submitted: r.submitted,
+        approved: r.approved,
+        answersChecked: r.answersChecked,
+        weightedGood: r.weightedGood,
+        weightedScored: r.weightedScored,
     }
 }
 
@@ -115,13 +210,17 @@ const foldTasks = (rows: readonly TaskLike[], now: Date): DelegationScore => {
     // counts it. Completion does not (it is not done yet), and it is never overdue.
     const waitingOnTime = due.filter((t) => t.status === "pending_approval" && t.dueDate !== null && t.finishedAt !== null && t.finishedAt <= t.dueDate).length
     return {
-        score: due.length ? Math.round((weighted / due.length) * 100) : null,
+        score: due.length ? round1((weighted / due.length) * 100) : null,
         completionPct: pct(done.length, due.length),
         compliancePct: pct(onTime + waitingOnTime, due.length),
-        onTimePct: pct(onTime, done.length),
+        onTimePct: onTimeOfFinishedPct(onTime, done.length),
+        onTimeOfFinishedPct: onTimeOfFinishedPct(onTime, done.length),
+        metDeadlinePct: metDeadlinePct(onTime + waitingOnTime, due.length),
         due: due.length,
         done: done.length,
+        notDone: notDone(due.length, done.length),
         onTime,
+        late: lateOf(done.length, onTime),
         waitingOnTime,
         // One overdue rule for delegations everywhere (list, dashboard summary, ownerStats): past due and
         // not done, draft or waiting for approval. Handed-in work has stopped the assignee's clock;
@@ -146,8 +245,36 @@ const foldTickets = (rows: readonly TicketLike[], now: Date): TicketScore => {
     const compliancePct = pct(onTime + waitingOnTime, due.length)
     // Late = closed, but after the due time. Tickets still open are "not done" (due - closed), never
     // late as well, so the two never count the same ticket twice.
-    return { score: compliancePct, completionPct: pct(closed.length, due.length), compliancePct, onTimePct: pct(onTime, closed.length), due: due.length, closed: closed.length, onTime, late: Math.max(0, closed.length - onTime), waitingOnTime }
+    return {
+        score: compliancePct,
+        completionPct: pct(closed.length, due.length),
+        compliancePct,
+        onTimePct: onTimeOfFinishedPct(onTime, closed.length),
+        onTimeOfFinishedPct: onTimeOfFinishedPct(onTime, closed.length),
+        metDeadlinePct: metDeadlinePct(onTime + waitingOnTime, due.length),
+        due: due.length,
+        closed: closed.length,
+        done: closed.length,
+        notDone: notDone(due.length, closed.length),
+        onTime,
+        late: lateOf(closed.length, onTime),
+        waitingOnTime,
+    }
 }
+
+/**
+ * Overall score for one set of module blocks, from the RAW ratios behind the percentages (so nothing is
+ * rounded before it is averaged): completion and compliance of every module with something due.
+ */
+const overallOfBlocks = (b: ModuleBlocks): number | null =>
+    overallOf([
+        { due: b.checklist.due, completion: rawPct(b.checklist.completed, b.checklist.due), compliance: rawPct(b.checklist.weightedGood, b.checklist.weightedScored) },
+        { due: b.ticket.due, completion: rawPct(b.ticket.done, b.ticket.due), compliance: rawPct(b.ticket.onTime + b.ticket.waitingOnTime, b.ticket.due) },
+        { due: b.delegation.due, completion: rawPct(b.delegation.done, b.delegation.due), compliance: rawPct(b.delegation.onTime + b.delegation.waitingOnTime, b.delegation.due) },
+    ])
+const totalDueOf = (b: ModuleBlocks) => b.checklist.due + b.ticket.due + b.delegation.due
+const rankFields = (b: ModuleBlocks) => ({ overall: overallOfBlocks(b), totalDue: totalDueOf(b), rankable: isRankable(totalDueOf(b)) })
+
 
 // When a task was finished: handed in, else approved, else last touched.
 const finishedAt = (t: { submittedAt: Date | null; verifiedAt: Date | null; updatedAt: Date }) => t.submittedAt ?? t.verifiedAt ?? t.updatedAt
@@ -173,9 +300,14 @@ const groupRows = <T,>(rows: readonly T[], keyOf: (r: T) => string | null | unde
     return map
 }
 
-const rowFor = (now: Date, id: string, name: string, department: string, role: string | undefined, c: ChecklistScore, tk: readonly TicketLike[], ts: readonly TaskLike[]): ScoreReportRow => ({
-    id, name, department, role, checklist: c, ticket: foldTickets(tk, now), delegation: foldTasks(ts, now),
+const blocksFor = (now: Date, c: ReportMetrics | null | undefined, tk: readonly TicketLike[], ts: readonly TaskLike[]): ModuleBlocks => ({
+    checklist: foldChecklist(c), ticket: foldTickets(tk, now), delegation: foldTasks(ts, now),
 })
+
+const rowFor = (now: Date, id: string, name: string, department: string, role: string | undefined, c: ReportMetrics | null | undefined, tk: readonly TicketLike[], ts: readonly TaskLike[]): ScoreReportRow => {
+    const blocks = blocksFor(now, c, tk, ts)
+    return { id, name, department, role, ...blocks, ...rankFields(blocks) }
+}
 const hasData = (r: ScoreReportRow) => r.checklist.due > 0 || r.ticket.due > 0 || r.delegation.due > 0
 
 const windowOf = (from: string, to: string) => {
@@ -220,10 +352,18 @@ const bucketsFor = (period: TrendPeriod, from: string, to: string): { label: str
     return out
 }
 
-type Target = { name: string; taskWhere: SQL | undefined; ticketWhere: SQL | undefined; checklistFor: (viewer: AccessTokenPayload, from: string, to: string) => Promise<PersonRow[]> }
+// `checklistFor` returns the one pooled checklist figure for the scope (null: nothing counted).
+type Target = { name: string; taskWhere: SQL | undefined; ticketWhere: SQL | undefined; checklistFor: (viewer: AccessTokenPayload, from: string, to: string) => Promise<ReportMetrics | null> }
 
-const peopleOf = (viewer: AccessTokenPayload, from: string, to: string, filters: { departmentId?: string; storeId?: string }, onlyUserId?: string) =>
-    checklistReportService.build(viewer, { from, to, groupBy: "person", ...filters }, onlyUserId).then((r) => r.people)
+// A person's own row: the runs assigned to them and the answers credited to them.
+const personMetrics = (viewer: AccessTokenPayload, from: string, to: string, userId: string) =>
+    checklistReportService.build(viewer, { from, to, groupBy: "person" }, userId).then((r) => r.people.find((p) => p.userId === userId) ?? null)
+// Every run in scope once, every checked answer on them (org, and a store when `storeId` is given).
+const totalsMetrics = (viewer: AccessTokenPayload, from: string, to: string, storeId?: string) =>
+    checklistReportService.build(viewer, { from, to, groupBy: "department", storeId }).then((r) => r.totals)
+// A department's row: each run once, the answers credited to its people.
+const departmentMetrics = (viewer: AccessTokenPayload, from: string, to: string, departmentId: string) =>
+    checklistReportService.build(viewer, { from, to, groupBy: "department", departmentId }).then((r) => r.departments.find((d) => d.departmentId === departmentId) ?? null)
 
 export type OrgCounts = {
     stores: { active: number; inactive: number }
@@ -283,7 +423,7 @@ export const scoreService = {
                 name: `${target.firstName} ${target.lastName ?? ""}`.trim(),
                 taskWhere: or(eq(tasks.assigneeId, id), inArray(tasks.id, db.select({ taskId: taskAdditionalAssignees.taskId }).from(taskAdditionalAssignees).where(eq(taskAdditionalAssignees.userId, id)))),
                 ticketWhere: eq(tickets.assigneeId, id),
-                checklistFor: (v, from, to) => peopleOf(v, from, to, {}, id),
+                checklistFor: (v, from, to) => personMetrics(v, from, to, id),
             }
         }
 
@@ -294,7 +434,7 @@ export const scoreService = {
                 name: "Whole organisation",
                 taskWhere: undefined,
                 ticketWhere: undefined,
-                checklistFor: (v, from, to) => peopleOf(v, from, to, {}),
+                checklistFor: (v, from, to) => totalsMetrics(v, from, to),
             }
         }
 
@@ -306,7 +446,7 @@ export const scoreService = {
                 name: dept.name,
                 taskWhere: eq(tasks.departmentId, id),
                 ticketWhere: eq(tickets.departmentId, id),
-                checklistFor: (v, from, to) => peopleOf(v, from, to, { departmentId: id }),
+                checklistFor: (v, from, to) => departmentMetrics(v, from, to, id),
             }
         }
 
@@ -319,7 +459,7 @@ export const scoreService = {
             // rule as the delegation list's store filter, so the drill link opens exactly these).
             taskWhere: inArray(tasks.departmentId, db.select({ id: departments.id }).from(departments).where(eq(departments.storeId, id))),
             ticketWhere: eq(tickets.storeId, id),
-            checklistFor: (v, from, to) => peopleOf(v, from, to, { storeId: id }),
+            checklistFor: (v, from, to) => totalsMetrics(v, from, to, id),
         }
     },
 
@@ -331,7 +471,7 @@ export const scoreService = {
 
         // The checklist report is the heaviest query. If it fails the delegation and ticket scores still
         // show, and the checklist tile simply reads as no data, instead of the whole card erroring.
-        const [people, taskRows, ticketRows] = await Promise.all([
+        const [checklistMetrics, taskRows, ticketRows] = await Promise.all([
             target.checklistFor(viewer, from, to).catch((err: unknown) => {
                 console.error("scores: checklist part failed", err)
                 return null
@@ -346,7 +486,8 @@ export const scoreService = {
                 .where(and(isNull(tickets.deletedAt), gte(tickets.tatDueAt, start), lt(tickets.tatDueAt, end), target.ticketWhere)),
         ])
 
-        return { scope, id, name: target.name, from, to, checklist: foldChecklist(people ?? []), ticket: foldTickets(ticketRows, now), delegation: foldTasks(taskRows.map((t) => ({ ...t, finishedAt: finishedAt(t) })), now) }
+        const blocks = blocksFor(now, checklistMetrics, ticketRows, taskRows.map((t) => ({ ...t, finishedAt: finishedAt(t) })))
+        return { scope, id, name: target.name, from, to, ...blocks, ...rankFields(blocks) }
     },
 
     /**
@@ -362,7 +503,7 @@ export const scoreService = {
         for (let i = 0; i < buckets.length; i += 4) {
             const slice = buckets.slice(i, i + 4)
             const scored = await Promise.all(slice.map((b) => this.forScope(viewer, scope, id, b.from, b.to, target)))
-            scored.forEach((s, k) => out.push({ label: slice[k].label, from: slice[k].from, to: slice[k].to, checklist: s.checklist, ticket: s.ticket, delegation: s.delegation }))
+            scored.forEach((s, k) => out.push({ label: slice[k].label, from: slice[k].from, to: slice[k].to, checklist: s.checklist, ticket: s.ticket, delegation: s.delegation, overall: s.overall }))
         }
         return { scope, id, name: target.name, period, buckets: out }
     },
@@ -380,13 +521,13 @@ export const scoreService = {
         const wantPeople = parts.people !== false
         const wantStores = parts.stores === true && orgWide
         const [peopleAndDepts, storeRows] = await Promise.all([
-            wantPeople ? this.peopleAndDepartments(viewer, from, to, orgWide) : Promise.resolve({ departments: [], people: [] }),
+            wantPeople ? this.peopleAndDepartments(viewer, from, to, orgWide) : Promise.resolve({ departments: [], people: [], total: undefined }),
             wantStores ? this.storeRows(viewer, from, to) : Promise.resolve([]),
         ])
-        return { from, to, generatedAt: new Date().toISOString(), departments: peopleAndDepts.departments, people: peopleAndDepts.people, stores: storeRows, notes: SCORE_REPORT_NOTES }
+        return { from, to, generatedAt: new Date().toISOString(), departments: peopleAndDepts.departments, people: peopleAndDepts.people, stores: storeRows, total: peopleAndDepts.total, notes: SCORE_REPORT_NOTES }
     },
 
-    async peopleAndDepartments(viewer: AccessTokenPayload, from: string, to: string, orgWide: boolean): Promise<{ departments: ScoreReportRow[]; people: ScoreReportRow[] }> {
+    async peopleAndDepartments(viewer: AccessTokenPayload, from: string, to: string, orgWide: boolean): Promise<{ departments: ScoreReportRow[]; people: ScoreReportRow[]; total: ScoreReportRow }> {
         // A head with no department on the record sees nothing, never everyone.
         const onlyDepartment = orgWide ? undefined : viewer.departmentId ?? "no-department"
         const { start, end } = windowOf(from, to)
@@ -461,7 +602,7 @@ export const scoreService = {
         const fullName = (p: { firstName: string; lastName: string | null }) => `${p.firstName} ${p.lastName ?? ""}`.trim()
         const personRow = (p: (typeof peopleRows)[number], left: boolean): ScoreReportRow => {
             const c = checklistByPerson.get(p.id)
-            const row = rowFor(now, p.id, left ? `${fullName(p)} (left)` : fullName(p), nameOfDept(p.departmentId), p.role, foldChecklist(c ? [c] : []), ticketsByPerson.get(p.id) ?? [], tasksByPerson.get(p.id) ?? [])
+            const row = rowFor(now, p.id, left ? `${fullName(p)} (left)` : fullName(p), nameOfDept(p.departmentId), p.role, c, ticketsByPerson.get(p.id) ?? [], tasksByPerson.get(p.id) ?? [])
             return left ? { ...row, left: true } : row
         }
 
@@ -470,7 +611,7 @@ export const scoreService = {
         const extraIds = new Set(extraAssigneeRows.map((e) => e.taskId))
         const unassignedTasks = reportTasks.filter((t) => !t.assigneeId && !extraIds.has(t.id))
         const unassignedTickets = ticketRows.filter((t) => !t.assigneeId)
-        const unassigned = rowFor(now, UNASSIGNED_ROW_ID, "Unassigned", "", undefined, foldChecklist([]), unassignedTickets, unassignedTasks)
+        const unassigned = rowFor(now, UNASSIGNED_ROW_ID, "Unassigned", "", undefined, null, unassignedTickets, unassignedTasks)
 
         const people = [...peopleRows.map((p) => personRow(p, false)), ...formerRows.map((p) => personRow(p, true)), unassigned]
             .filter(hasData)
@@ -478,29 +619,36 @@ export const scoreService = {
 
         const depts = deptRows.map((d) => {
             const c = checklistByDept.get(d.id)
-            return rowFor(now, d.id, d.name, d.name, undefined, foldChecklist(c ? [c] : []), ticketsByDept.get(d.id) ?? [], tasksByDept.get(d.id) ?? [])
+            return rowFor(now, d.id, d.name, d.name, undefined, c, ticketsByDept.get(d.id) ?? [], tasksByDept.get(d.id) ?? [])
         })
         // Work with no department (and the checklist runs of people with none) sits on one more row, so the
         // departments add up to the organisation. A head only sees their own department, so no such row.
         if (!onlyDepartment) {
             const c = checklistByDept.get(null)
-            depts.push(rowFor(now, NO_DEPARTMENT_ROW_ID, "No department", "No department", undefined, foldChecklist(c ? [c] : []), ticketRows.filter((t) => !t.departmentId), reportTasks.filter((t) => !t.departmentId)))
+            depts.push(rowFor(now, NO_DEPARTMENT_ROW_ID, "No department", "No department", undefined, c, ticketRows.filter((t) => !t.departmentId), reportTasks.filter((t) => !t.departmentId)))
         }
 
-        return { departments: depts.filter(hasData).sort((a, b) => (a.id === NO_DEPARTMENT_ROW_ID ? 1 : 0) - (b.id === NO_DEPARTMENT_ROW_ID ? 1 : 0) || a.name.localeCompare(b.name)), people }
+        // Everything once: each run (checklist totals), ticket and delegation counted a single time.
+        const total = rowFor(now, "total", onlyDepartment ? deptName.get(onlyDepartment) ?? "Your department" : "Whole organisation", "", undefined, checklist?.totals, ticketRows, reportTasks)
+
+        return { departments: depts.filter(hasData).sort((a, b) => (a.id === NO_DEPARTMENT_ROW_ID ? 1 : 0) - (b.id === NO_DEPARTMENT_ROW_ID ? 1 : 0) || a.name.localeCompare(b.name)), people, total }
     },
 
     /**
-     * Every active store, scored with the store card's rules (checklist runs of the store, tickets of the
-     * store, delegations following the store of their department), in one grouped pass: one checklist
-     * build split by store, one ticket and one delegation query, grouped in memory. Used to be the whole
-     * forScope query set once per store.
+     * Every store with work in the window, scored with the store card's rules (checklist runs of the store,
+     * tickets of the store, delegations following the store of their department), in one grouped pass: one
+     * checklist build split by store, one ticket and one delegation query, grouped in memory.
+     *
+     * Nothing is dropped, so the stores add up to the whole organisation: a switched-off store that still has
+     * work keeps its row (`inactive: true`, "(inactive)" in the name), and tickets with no store and
+     * delegations whose department has no store (or that have no department) sit on the `no-store` row.
+     * Checklist runs always belong to a store.
      */
     async storeRows(viewer: AccessTokenPayload, from: string, to: string): Promise<ScoreReportRow[]> {
         const { start, end } = windowOf(from, to)
         const now = new Date()
         const [all, checklist, taskRows, ticketRows] = await Promise.all([
-            db.select({ id: stores.id, name: stores.name }).from(stores).where(eq(stores.isActive, true)),
+            db.select({ id: stores.id, name: stores.name, isActive: stores.isActive }).from(stores),
             checklistReportService.build(viewer, { from, to, groupBy: "person" }, undefined, { byStore: true }).catch((err: unknown) => {
                 console.error("scores: store checklist report failed", err)
                 return null
@@ -508,21 +656,27 @@ export const scoreService = {
             db
                 .select({ ...taskCols, storeId: departments.storeId })
                 .from(tasks)
-                .innerJoin(departments, eq(departments.id, tasks.departmentId))
-                .where(and(DELEGATION_ONLY, gte(tasks.dueDate, start), lt(tasks.dueDate, end), isNotNull(departments.storeId))),
+                .leftJoin(departments, eq(departments.id, tasks.departmentId))
+                .where(and(DELEGATION_ONLY, gte(tasks.dueDate, start), lt(tasks.dueDate, end))),
             db
                 .select({ ...ticketCols, storeId: tickets.storeId })
                 .from(tickets)
-                .where(and(isNull(tickets.deletedAt), gte(tickets.tatDueAt, start), lt(tickets.tatDueAt, end), isNotNull(tickets.storeId))),
+                .where(and(isNull(tickets.deletedAt), gte(tickets.tatDueAt, start), lt(tickets.tatDueAt, end))),
         ])
 
-        const checklistByStore = groupRows(checklist?.storePeople ?? [], (p) => p.storeId)
-        const tasksByStore = groupRows(taskRows.map((t) => ({ ...t, finishedAt: finishedAt(t) })), (t) => t.storeId)
+        const checklistByStore = new Map((checklist?.storeTotals ?? []).map((s) => [s.storeId, s]))
+        const reportTasks = taskRows.map((t) => ({ ...t, finishedAt: finishedAt(t) }))
+        const tasksByStore = groupRows(reportTasks, (t) => t.storeId)
         const ticketsByStore = groupRows(ticketRows, (t) => t.storeId)
 
-        return all
-            .map((s) => rowFor(now, s.id, s.name, "", undefined, foldChecklist(checklistByStore.get(s.id) ?? []), ticketsByStore.get(s.id) ?? [], tasksByStore.get(s.id) ?? []))
+        const rows = all
+            .map((s) => ({
+                ...rowFor(now, s.id, s.isActive ? s.name : `${s.name} (inactive)`, "", undefined, checklistByStore.get(s.id), ticketsByStore.get(s.id) ?? [], tasksByStore.get(s.id) ?? []),
+                ...(s.isActive ? {} : { inactive: true }),
+            }))
             .filter(hasData)
             .sort((a, b) => a.name.localeCompare(b.name))
+        const noStore = rowFor(now, NO_STORE_ROW_ID, "Other / no store", "", undefined, null, ticketRows.filter((t) => !t.storeId), reportTasks.filter((t) => !t.storeId))
+        return hasData(noStore) ? [...rows, noStore] : rows
     },
 }

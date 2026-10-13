@@ -29,8 +29,7 @@ import { canEditTaskContent, canMoveTask, viewOnlyReason } from './taskPermissio
 
 type SaveState = 'idle' | 'saving' | 'error';
 
-/** Grows a textarea to fit its text on every change. `field-sizing: content` would do this in CSS,
- *  but iOS Safari doesn't support it, so the height is set by hand. */
+
 const useAutoGrow = (value: string) => {
   const ref = useRef<HTMLTextAreaElement>(null);
   useLayoutEffect(() => {
@@ -70,7 +69,6 @@ const useAutoSavedText = (value: string, save: (next: string) => Promise<unknown
     setState('saving');
     save(next).then(
       () => {
-        // What was saved may be the trimmed text; adopt it unless the person has typed on since.
         setText((cur) => (cur.trim() === next.trim() ? next : cur));
         setState('idle');
       },
@@ -171,7 +169,6 @@ interface TaskFooterProps {
   onAdvance: () => void;
   onBack: (() => void) | null;
   onHold: (() => void) | null;
-  /** Admin only, on an approved delegation. */
   onReopen: (() => void) | null;
   isAdvancing: boolean;
   onClose: () => void;
@@ -315,7 +312,6 @@ const StepRow = ({
           {label}
         </p>
         {stamp && (
-          // Who and when on separate lines on a phone, one line with a comma from sm up.
           <p className="flex flex-col sm:flex-row sm:gap-1 t-meta font-medium text-text-muted tabular-nums leading-tight">
             {author && <span>{author}<span className="hidden sm:inline">,</span></span>}
             <span>{formatStepDate(stamp)}, {formatStepTime(stamp)}</span>

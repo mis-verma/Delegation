@@ -2,11 +2,14 @@ import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { Building2, Users } from 'lucide-react';
 import { useDepartmentsQuery } from '../tickets/hook';
-import { useTeamWork } from './useTeamWork';
+import { useTeamOpenWork, useTeamPeriodWork } from './useTeamWork';
 import { useUsersQuery } from '../admin/hook';
 import { PeriodTabControl } from '../dashboard/PeriodTabControl';
+import { useScoreReport } from '../dashboard/scoreQueries';
+import { useOrgToday } from '../checklist/useOrgToday';
+import { isOverdueTask } from '../tasks/taskFilters';
 import { EmptyState, ExportMenu, InlineError, PageHeader } from '../../components';
-import { exportTitle, type TableRows } from '../../lib/exportTable';
+import { exportPct, exportTitle, formatExportRange, type TableRows } from '../../lib/exportTable';
 import { Breadcrumbs, type BreadcrumbTrailItem } from '../../components/breadcrumbs';
 import type { Task } from '../../api/task';
 import type { Ticket } from '../../api/ticket';
@@ -18,8 +21,6 @@ import { useTeamChecklistReport } from './useTeamChecklistReport';
 import {
   TEAM_PERIOD_KEYS,
   TEAM_PERIOD_LABELS,
-  isInTeamPeriod,
-  selectPersonWork,
   summarizeCard,
   teamPeriodRange,
   type OverdueItem,
@@ -27,17 +28,15 @@ import {
   type TeamPeriod,
 } from './teamDisplay';
 
-// Tickets and delegations rolled up for one department or one person, all created in the selected
-// period (the checklist report is period-scoped too, so every number on a card is the same window).
+// Today's open tickets and delegations rolled up for one department or one person. These are the "Open now"
+// figures: they are not part of any percentage. The scores on the cards come from the scores report.
 interface WorkAcc {
-  done: number;
-  total: number;
   openTickets: number;
   openTasks: number;
   overdueItems: OverdueItem[];
 }
 
-const newAcc = (): WorkAcc => ({ done: 0, total: 0, openTickets: 0, openTasks: 0, overdueItems: [] });
+const newAcc = (): WorkAcc => ({ openTickets: 0, openTasks: 0, overdueItems: [] });
 
 const accFor = (map: Map<string, WorkAcc>, key: string) => {
   let acc = map.get(key);
@@ -49,77 +48,78 @@ const accFor = (map: Map<string, WorkAcc>, key: string) => {
 };
 
 const addTicket = (acc: WorkAcc, t: Ticket, now: number) => {
-  const closed = t.status === 'CLOSED';
-  acc.total += 1;
-  if (closed) acc.done += 1;
-  else acc.openTickets += 1;
-  if (!closed && !!t.tatDueAt && new Date(t.tatDueAt).getTime() < now) {
+  acc.openTickets += 1;
+  if (!!t.tatDueAt && new Date(t.tatDueAt).getTime() < now) {
     acc.overdueItems.push({ id: t.id, title: t.title, link: `/tickets?open=${t.id}`, kind: 'ticket' });
   }
 };
 
-const addTask = (acc: WorkAcc, t: Task, now: number) => {
-  const done = t.status === 'done';
-  acc.total += 1;
-  if (done) acc.done += 1;
-  else acc.openTasks += 1;
-  if (!done && !!t.dueDate && new Date(t.dueDate).getTime() < now) {
+const addTask = (acc: WorkAcc, t: Task) => {
+  acc.openTasks += 1;
+  // The same overdue rule as the Scorecard: past due, not done, not a draft, not waiting for approval.
+  if (isOverdueTask(t)) {
     acc.overdueItems.push({ id: t.id, title: t.title, link: `/tasks?open=${t.id}`, kind: 'task' });
   }
 };
 
 const NO_TICKETS: Ticket[] = [];
+const NO_TASKS: Task[] = [];
 
 const GRID_CLASS = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3';
 
 // Department -> Person -> detail drill-down for ADMIN/PC (both have full org-wide access, see
 // App.tsx's AdminRoute). State lives in the URL (departmentId/personId) rather than plain useState
 // so back/forward and refresh land on the same drill-down level. The period is page state: it
-// drives the checklist report for every level and the wording on the person screen.
+// drives the scores for every level and the wording on the person screen.
 export const TeamOverviewPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const departmentId = searchParams.get('departmentId');
   const personId = searchParams.get('personId');
   const [period, setPeriod] = useState<TeamPeriod>('month');
 
-  const range = useMemo(() => teamPeriodRange(period), [period]);
+  // The org's calendar day, not the device clock: the window rolls over at the org's midnight and on the 1st.
+  const today = useOrgToday();
+  const range = useMemo(() => teamPeriodRange(period, today), [period, today]);
 
   const { data: departments, isPending: departmentsPending, isError: departmentsError, refetch: refetchDepartments } = useDepartmentsQuery();
   const { data: users, isPending: usersPending, isError: usersError, refetch: refetchUsers } = useUsersQuery(true);
-  // Every ticket and delegation of the period, all pages (not just the first 100 / 200).
-  const work = useTeamWork(range);
-  const { data: tickets = NO_TICKETS, isPending: ticketsPending } = work.tickets;
-  const { data: tasks, isPending: tasksPending } = work.tasks;
-  const report = useTeamChecklistReport(range);
+  // Today's open tickets and delegations, all pages (the "Open now" figures).
+  const openWork = useTeamOpenWork();
+  const { data: tickets = NO_TICKETS, isPending: ticketsPending } = openWork.tickets;
+  const { data: tasks = NO_TASKS, isPending: tasksPending } = openWork.tasks;
+  // The scores, the same request and the same rows as the Scorecard, so the two always agree.
+  const scores = useScoreReport(range.from, range.to);
+  // Only the person screen needs the per-person checklist report and the created-in-period lists.
+  const report = useTeamChecklistReport(range, !!personId);
+  const periodWork = useTeamPeriodWork(range, !!personId);
 
   const isPending = departmentsPending || usersPending || ticketsPending || tasksPending;
 
   // 'error' wins over any leftover data: a failed refetch must not leave the previous period's
   // numbers on screen looking current.
-  const reportState: ReportState = report.isError ? 'error' : report.data ? 'ready' : 'loading';
-  const isRefreshing = reportState === 'ready' && report.isPlaceholderData;
+  const reportState: ReportState = scores.isError ? 'error' : scores.data ? 'ready' : 'loading';
+  const isRefreshing = reportState === 'ready' && scores.isPlaceholderData;
 
   // "now" only needs to be approximately current for the overdue checks below; memoized so it's
   // read once per mount, not on every render (see HomePage.tsx for the same pattern).
   // eslint-disable-next-line react-hooks/purity
   const now = useMemo(() => Date.now(), []);
 
-  // Departments in a single pass over the lists (the old code re-filtered every ticket/task for
-  // every department).
+  // Departments in a single pass over the lists.
   const workByDepartment = useMemo(() => {
     const byDepartment = new Map<string, WorkAcc>();
-    for (const t of tickets) {
-      if (t.departmentId && isInTeamPeriod(t.createdAt, range)) addTicket(accFor(byDepartment, t.departmentId), t, now);
-    }
-    for (const t of tasks ?? []) {
-      if (t.departmentId && isInTeamPeriod(t.createdAt, range)) addTask(accFor(byDepartment, t.departmentId), t, now);
-    }
+    for (const t of tickets) if (t.departmentId) addTicket(accFor(byDepartment, t.departmentId), t, now);
+    for (const t of tasks) if (t.departmentId) addTask(accFor(byDepartment, t.departmentId), t);
     return byDepartment;
-  }, [tickets, tasks, range, now]);
+  }, [tickets, tasks, now]);
 
-  const checklistByDepartment = useMemo(
-    () => new Map((report.data?.departments ?? []).flatMap((d) => (d.departmentId ? [[d.departmentId, d] as const] : []))),
-    [report.data],
+  const scoresByDepartment = useMemo(
+    () => new Map((scores.data?.departments ?? []).map((d) => [d.id, d] as const)),
+    [scores.data],
+  );
+  const scoresByPerson = useMemo(
+    () => new Map((scores.data?.people ?? []).map((p) => [p.id, p] as const)),
+    [scores.data],
   );
   const checklistByPerson = useMemo(
     () => new Map((report.data?.people ?? []).map((p) => [p.userId, p] as const)),
@@ -139,24 +139,21 @@ export const TeamOverviewPage = () => {
         openTickets: acc.openTickets,
         openTasks: acc.openTasks,
         overdueItems: acc.overdueItems,
-        workDone: acc.done,
-        workTotal: acc.total,
       };
     });
   }, [departments, users, workByDepartment]);
 
-  // People go through selectPersonWork, the same selector the person screen uses, so a card and
-  // the screen it opens always count the same tickets and delegations. Only one department's
-  // roster at a time, so filtering per person is cheap.
+  // A person's open work is what is assigned to them today (a ticket's assignee, a delegation's main or extra
+  // assignee), the same people the scores count. Only one department's roster at a time, so filtering per
+  // person is cheap.
   const personRows: PersonCardRow[] = useMemo(() => {
     if (!departmentId) return [];
     return (users ?? [])
       .filter((u) => u.departmentId === departmentId)
       .map((u): PersonCardRow => {
         const acc = newAcc();
-        const mine = selectPersonWork(tasks ?? [], tickets, u.id, departmentId, range);
-        for (const t of mine.tickets) addTicket(acc, t, now);
-        for (const t of mine.tasks) addTask(acc, t, now);
+        for (const t of tickets) if (t.assigneeId === u.id) addTicket(acc, t, now);
+        for (const t of tasks) if (t.assigneeId === u.id || t.additionalAssigneeIds.includes(u.id)) addTask(acc, t);
         return {
           id: u.id,
           name: `${u.firstName} ${u.lastName ?? ''}`.trim(),
@@ -164,11 +161,9 @@ export const TeamOverviewPage = () => {
           openTickets: acc.openTickets,
           openTasks: acc.openTasks,
           overdueItems: acc.overdueItems,
-          workDone: acc.done,
-          workTotal: acc.total,
         };
       });
-  }, [users, departmentId, tasks, tickets, range, now]);
+  }, [users, departmentId, tasks, tickets, now]);
 
   const selectedDepartment = departmentRows.find((d) => d.id === departmentId);
   const selectedPerson = personRows.find((p) => p.id === personId);
@@ -185,19 +180,24 @@ export const TeamOverviewPage = () => {
 
   // The cards on screen as rows: the same numbers each card shows (summarizeCard), in the same order.
   const exportRows = (): TableRows => {
-    const head = (name: string, second: string) => [name, second, 'Overall score', 'Completion %', 'Done', 'Due', 'Checklist compliance %', 'Open tickets', 'Open delegations', 'Open checklists', 'Overdue', 'Missed checklists'];
-    const cells = (r: { workDone: number; workTotal: number; overdueItems: OverdueItem[]; openTickets: number; openTasks: number }, checklist: Parameters<typeof summarizeCard>[1]) => {
-      const n = summarizeCard({ done: r.workDone, total: r.workTotal, overdue: r.overdueItems.length }, checklist, reportState);
-      // Without the checklist report the card shows no overall score, so neither does the file.
-      return [reportState === 'error' ? null : n.score, n.rate, n.done, n.total, n.compliance, r.openTickets, r.openTasks, n.openChecklists, n.overdue, n.missedChecklists];
+    const head = (name: string, second: string) => [
+      name, second, 'Overall score %', 'Completion %', 'On time (of finished) %', 'Done', 'Due', 'Late', 'Not done', 'Checklist answers right %',
+      'Open now: tickets', 'Open now: delegations', 'Open now: checklists', 'Overdue now', 'Missed checklists',
+    ];
+    const cells = (r: { overdueItems: OverdueItem[]; openTickets: number; openTasks: number }, row: Parameters<typeof summarizeCard>[0]) => {
+      const n = summarizeCard(row, reportState);
+      return [
+        exportPct(n.score), exportPct(n.completion), exportPct(n.onTime), n.done, n.due, n.late, n.notDone, exportPct(n.compliance),
+        r.openTickets, r.openTasks, n.openChecklists, r.overdueItems.length, n.missedChecklists,
+      ];
     };
     return departmentId
-      ? [head('Person', 'Role'), ...personRows.map((p) => [p.name, p.role, ...cells(p, checklistByPerson.get(p.id))])]
-      : [head('Department', 'People'), ...departmentRows.map((d) => [d.name, d.headcount, ...cells(d, checklistByDepartment.get(d.id))])];
+      ? [head('Person', 'Role'), ...personRows.map((p) => [p.name, p.role, ...cells(p, scoresByPerson.get(p.id))])]
+      : [head('Department', 'People'), ...departmentRows.map((d) => [d.name, d.headcount, ...cells(d, scoresByDepartment.get(d.id))])];
   };
   const exportMenu = !personId && (
     <ExportMenu
-      disabled={isPending || reportState === 'loading' || (departmentId ? personRows.length === 0 : departmentRows.length === 0)}
+      disabled={isPending || reportState !== 'ready' || (departmentId ? personRows.length === 0 : departmentRows.length === 0)}
       aria-label={departmentId ? 'Export the people in this department' : 'Export the departments'}
       filename={departmentId ? 'team-overview-people' : 'team-overview-departments'}
       sheetName="Team Overview"
@@ -225,17 +225,26 @@ export const TeamOverviewPage = () => {
         <PageHeader
           icon={Building2}
           title="Team Overview"
-          subtitle="Store checklists, delegations and tickets for every department and person."
+          subtitle="Scores, open work and store checklists for every department and person."
           actions={
             <div className="hidden sm:flex items-center gap-3">
-              {/* Old numbers stay on screen (no dim) while the next period loads; this says so. */}
-              {isRefreshing && <span className="t-meta font-display text-text-muted" aria-live="polite">Updating…</span>}
               <PeriodTabControl value={period} options={TEAM_PERIOD_KEYS} labels={TEAM_PERIOD_LABELS} onChange={setPeriod} />
               {exportMenu}
             </div>
           }
         />
         <PeriodTabControl value={period} options={TEAM_PERIOD_KEYS} labels={TEAM_PERIOD_LABELS} onChange={setPeriod} fill className="sm:hidden" />
+        {/* The window in plain words, so nobody has to guess what a period means. Old numbers stay on screen
+            (no dim) while the next period loads; the same line says so. */}
+        <div className="flex flex-col gap-0.5">
+          <p className="t-meta font-display font-semibold text-text-secondary">
+            Showing {TEAM_PERIOD_LABELS[period].toLowerCase()}: {formatExportRange(range.from, range.to)}. Every period ends today.
+          </p>
+          <p className="t-meta font-display text-text-muted">
+            Scores count what came due in this period, the same numbers as the Scorecard. Open now is today's open work, not part of any score.
+          </p>
+          {isRefreshing && <p role="status" className="t-meta font-display font-semibold text-text-secondary">Updating. These scores are for the previous period until this one loads.</p>}
+        </div>
       </div>
 
       {/* Only shown once there's an actual trail: at the top level it would be a single,
@@ -252,12 +261,12 @@ export const TeamOverviewPage = () => {
         </div>
       )}
 
-      {/* The report is a separate request from tickets/delegations, so a failure here is its own
-          strip with Retry and the rest of the page keeps working. The person screen shows its own. */}
+      {/* The scores are a separate request from the open work, so a failure here is its own
+          strip with Retry and the rest of the page keeps working. */}
       {reportState === 'error' && !personId && (
         <InlineError
-          message="Could not load store checklist numbers. Ticket and delegation counts below are still correct."
-          onRetry={() => { report.refetch(); }}
+          message="Could not load the scores. Open work below is still correct."
+          onRetry={() => { void scores.refetch(); }}
         />
       )}
 
@@ -276,7 +285,7 @@ export const TeamOverviewPage = () => {
               <DepartmentCard
                 key={row.id}
                 row={row}
-                checklist={checklistByDepartment.get(row.id)}
+                scores={scoresByDepartment.get(row.id)}
                 reportState={reportState}
                 onClick={() => openDepartment(row.id)}
               />
@@ -292,7 +301,7 @@ export const TeamOverviewPage = () => {
               <PersonCard
                 key={row.id}
                 row={row}
-                checklist={checklistByPerson.get(row.id)}
+                scores={scoresByPerson.get(row.id)}
                 reportState={reportState}
                 onClick={() => openPerson(row.id)}
               />
@@ -305,14 +314,16 @@ export const TeamOverviewPage = () => {
           departmentName={selectedDepartment?.name ?? 'department'}
           departmentId={departmentId}
           personId={personId}
-          tasks={tasks ?? []}
-          tickets={tickets}
+          tasks={periodWork.tasks.data ?? NO_TASKS}
+          tickets={periodWork.tickets.data ?? NO_TICKETS}
+          workLoading={periodWork.tasks.isPending || periodWork.tickets.isPending}
           period={period}
           range={range}
+          scores={scoresByPerson.get(personId)}
           checklist={checklistByPerson.get(personId)}
-          reportState={reportState}
-          isRefreshing={isRefreshing}
-          onRetryReport={() => { report.refetch(); }}
+          reportState={report.isError ? 'error' : report.data ? 'ready' : 'loading'}
+          isRefreshing={isRefreshing || (!!report.data && report.isPlaceholderData)}
+          onRetryReport={() => { void report.refetch(); }}
         />
       )}
     </div>

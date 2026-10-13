@@ -1,4 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
+import { SCORE_CACHE_KEYS } from './queryHelpers';
 
 /**
  * Collapses a burst of socket events into a bounded number of refetches.
@@ -46,5 +47,14 @@ export const createCoalescedInvalidator = (
       timer = null;
       pending = false;
     },
+  };
+};
+
+/** The same coalescing for every score and report cache at once (see SCORE_CACHE_KEYS), for the socket hooks. */
+export const createScoreCacheInvalidator = (queryClient: QueryClient, waitMs = 300) => {
+  const parts = SCORE_CACHE_KEYS.map((key) => createCoalescedInvalidator(queryClient, key, waitMs));
+  return {
+    schedule: () => parts.forEach((p) => p.schedule()),
+    cancel: () => parts.forEach((p) => p.cancel()),
   };
 };

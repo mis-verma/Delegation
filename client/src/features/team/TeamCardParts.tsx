@@ -6,6 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '../../components/ui/pop
 import { ENTITY_CARD_CLASS } from '../../components/entityCard';
 import { cn } from '../../lib/utils';
 import { rateToneClass } from '../checklist/checklistDisplay';
+import { formatPct } from '../../lib/percent';
 import type { CardNumbers, OverdueItem, ReportState } from './teamDisplay';
 
 
@@ -46,7 +47,7 @@ export const OverdueBadge = ({ count, items, missedChecklists }: { count: number
             <div className="flex items-center gap-2 min-h-11 px-3.5 py-2 border-b border-border/30">
               <ClipboardCheck size={13} className="shrink-0 text-text-light" />
               <span className="t-meta font-display font-medium text-text flex-1">
-                {missedChecklists} store {missedChecklists === 1 ? 'checklist' : 'checklists'} missed
+                {missedChecklists} store {missedChecklists === 1 ? 'checklist' : 'checklists'} missed in this period
               </span>
             </div>
           )}
@@ -68,9 +69,8 @@ export const OverdueBadge = ({ count, items, missedChecklists }: { count: number
   );
 };
 
-/** The card's headline: the overall score (completion and compliance counted equally, see
- *  overallScore) as a plain number, with the completion figure and raw counts under it. Skeleton
- *  lines, not a wrong figure, until the report resolves. */
+/** The card's headline: the Overall score from the scores report (the Scorecard's number), with Completion,
+ *  On time and the raw counts under it. Skeleton lines, not a wrong figure, until the report resolves. */
 export const ScoreFigure = ({ numbers, state }: { numbers: CardNumbers; state: ReportState }) => {
   if (state === 'loading') {
     return (
@@ -82,25 +82,25 @@ export const ScoreFigure = ({ numbers, state }: { numbers: CardNumbers; state: R
     );
   }
 
-  // Without the checklist report the score would silently be tickets and delegations only, so the
-  // card says so instead of showing a number that looks complete.
+  // A failed report shows no number at all, instead of one that looks complete.
   const failed = state === 'error';
   const score = failed ? null : numbers.score;
 
   return (
     <div className="flex flex-col items-end gap-0.5 shrink-0 text-right">
       <span className={cn('t-figure font-display font-bold tabular-nums', score == null ? 'text-text-light' : rateToneClass(score))}>
-        {score == null ? '-' : `${score}%`}
+        {formatPct(score)}
       </span>
       <span className="t-meta font-display font-medium text-text-muted">Overall score</span>
       {failed ? (
-        <span className="t-meta font-display text-text-muted whitespace-nowrap">Checklists didn't load</span>
-      ) : numbers.rate == null ? (
-        <span className="t-meta font-display text-text-muted whitespace-nowrap">No work yet</span>
+        <span className="t-meta font-display text-text-muted whitespace-nowrap">Scores didn't load</span>
+      ) : numbers.completion == null ? (
+        <span className="t-meta font-display text-text-muted whitespace-nowrap">Nothing due</span>
       ) : (
         <>
-          <span className="t-meta font-display text-text-muted tabular-nums whitespace-nowrap">Completion {numbers.rate}%</span>
-          <span className="t-meta font-display text-text-muted tabular-nums whitespace-nowrap">{numbers.done} of {numbers.total} done</span>
+          <span className="t-meta font-display text-text-muted tabular-nums whitespace-nowrap">Completion {formatPct(numbers.completion)}</span>
+          <span className="t-meta font-display text-text-muted tabular-nums whitespace-nowrap">On time {formatPct(numbers.onTime)}</span>
+          <span className="t-meta font-display text-text-muted tabular-nums whitespace-nowrap">{numbers.done} of {numbers.due} done</span>
         </>
       )}
     </div>
@@ -111,8 +111,8 @@ const countPart = (count: number, one: string, many: string) => (
   <span><strong className="font-bold text-text tabular-nums">{count}</strong> {count === 1 ? one : many}</span>
 );
 
-/** Footer: "Open: <n> tickets · <n> delegations · <n> checklists", then the checklist compliance
- *  line and the overdue badge. */
+/** Footer: "Open now: <n> tickets, <n> delegations, <n> checklists" (today's open work, not part of any
+ *  percentage), then the checklist answers-right line and the overdue badge. */
 export const CardFooter = ({
   openTickets,
   openTasks,
@@ -126,7 +126,7 @@ export const CardFooter = ({
   numbers: CardNumbers;
   state: ReportState;
 }) => {
-  // Only what exists: "0 tickets · 0 delegations" on every card said nothing and crowded the real figure.
+  // Only what exists: "0 tickets, 0 delegations" on every card said nothing and crowded the real figure.
   const parts: { key: string; node: ReactNode }[] = [];
   if (openTickets > 0) parts.push({ key: 'tickets', node: countPart(openTickets, 'ticket', 'tickets') });
   if (openTasks > 0) parts.push({ key: 'delegations', node: countPart(openTasks, 'delegation', 'delegations') });
@@ -136,11 +136,11 @@ export const CardFooter = ({
   return (
     <div className="mt-auto flex flex-col gap-2 pt-3 border-t border-border/60">
       <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 t-meta font-display font-medium text-text-muted">
-        {parts.length === 0 ? 'Nothing open' : (
+        {parts.length === 0 ? 'Nothing open now' : (
           <>
-            <span>Open:</span>
+            <span>Open now:</span>
             {parts.map((p, i) => (
-              <span key={p.key} className="inline-flex items-center gap-1.5">{i > 0 && <span aria-hidden>·</span>}{p.node}</span>
+              <span key={p.key} className="inline-flex items-center">{p.node}{i < parts.length - 1 && ','}</span>
             ))}
           </>
         )}
@@ -150,11 +150,11 @@ export const CardFooter = ({
         {/* Always present, so every card has the same rows and the grid stays level. Checklist
             only: tickets and delegations have no answers to check. */}
         <span className="inline-flex items-center gap-1 t-meta font-display font-medium text-text-muted">
-          Checklist compliance:
+          Checklist answers right:
           {state === 'loading' ? (
             <Skeleton className="h-3.5 w-8" />
           ) : numbers.compliance != null ? (
-            <strong className={cn('font-bold tabular-nums', rateToneClass(numbers.compliance))}>{numbers.compliance}%</strong>
+            <strong className={cn('font-bold tabular-nums', rateToneClass(numbers.compliance))}>{formatPct(numbers.compliance)}</strong>
           ) : (
             <span>{state === 'error' ? 'Not loaded' : 'No checks yet'}</span>
           )}
@@ -162,7 +162,7 @@ export const CardFooter = ({
         {state === 'loading' ? (
           <Skeleton className="h-11 sm:h-8 w-24 rounded-full" />
         ) : (
-          <OverdueBadge count={numbers.overdue} items={overdueItems} missedChecklists={numbers.missedChecklists} />
+          <OverdueBadge count={overdueItems.length + numbers.missedChecklists} items={overdueItems} missedChecklists={numbers.missedChecklists} />
         )}
       </div>
     </div>

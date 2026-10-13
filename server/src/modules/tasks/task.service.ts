@@ -313,6 +313,10 @@ export type TaskOwnerStatsRow = {
     total: number;
     done: number;
     overdueCount: number;
+    /** Same as `total`: delegations CREATED in the window. NOT the due-in-window set the scores report uses. */
+    createdCount: number;
+    /** Same as `done`: done PLUS waiting for approval (the scores report counts waiting items as not done). */
+    doneOrWaitingCount: number;
     /** The server never invents a default window: no from/to means all time. Clients send explicit dates. */
     windowDefaulted: false;
 };
@@ -405,6 +409,8 @@ const taskOwnerStatsByColumn = async (
         total: Number(r.total),
         done: Number(r.done),
         overdueCount: Number(r.overdueCount),
+        createdCount: Number(r.total),
+        doneOrWaitingCount: Number(r.done),
         windowDefaulted: false as const,
     }));
 };

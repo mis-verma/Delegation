@@ -9,6 +9,7 @@ import { InfoHint } from '../../../components/infoHint/InfoHint';
 import { useAuth } from '../../../context/AuthContext';
 import { NO_DEPARTMENT_ROW_ID, UNASSIGNED_ROW_ID, type ScoreReportRow, type Scores } from '../../../api/scores';
 import { exportTitle, type TableRows } from '../../../lib/exportTable';
+import { formatPct } from '../../../lib/percent';
 import { MODULE_EXPORT_HEAD, moduleCounts, moduleExportCells, moduleOverall, overallOf } from '../../dashboard/scoreMetrics';
 import { scoreQuery, useScoreReport, useStoreScoreReport } from '../../dashboard/scoreQueries';
 import { checklistDrillHref, delegationDrillHref, ticketDrillHref, type DrillKind, type DrillSubject } from '../../dashboard/scoreDrill';
@@ -66,7 +67,7 @@ const dayLabel = (day: string) => {
 
 const Pct = ({ value, strong }: { value: number | null; strong?: boolean }) => (
   <span className={cn('tabular-nums', strong ? 'font-bold' : 'font-semibold', value === null ? 'text-text-light' : rateToneClass(value))}>
-    {value === null ? '-' : `${value}%`}
+    {formatPct(value)}
   </span>
 );
 
@@ -150,8 +151,9 @@ const drillLinksFor = (
   // A department's checklists open its fill report, which has no late or missed split of its own.
   if (key === 'checklist' && subject.kind === 'department') return [{ label: 'Open fill report', href: href('notDone') }];
   const links: DrillLink[] = [];
-  // The run history has no "finished late" filter, so a checklist's late link opens its finished runs and says so.
-  if (late > 0) links.push({ label: key === 'checklist' ? `Finished runs (${late} late)` : `Late (${late})`, href: href('late') });
+  // The run history has no "finished late" filter, so a checklist's late link opens ALL its finished runs, and the label
+  // says so instead of promising only the late ones.
+  if (late > 0) links.push({ label: key === 'checklist' ? `All finished runs (${late} of them late)` : `Late (${late})`, href: href('late') });
   if (missed > 0) links.push({ label: `Not done (${missed})`, href: href('notDone') });
   return links;
 };
@@ -427,7 +429,7 @@ export const ScorecardPage = () => {
         title: exportTitle({ what: 'Scorecard, whole organisation', from: range.from, to: range.to, period: range.label }),
         getRows: async () => {
           const org = await queryClient.fetchQuery<Scores>(scoreQuery('org', undefined, range.from, range.to));
-          const head = MODULE_EXPORT_HEAD.map((h) => (h === 'Compliance %' ? 'Compliance % (checklist: answers right; tickets and delegations: met deadline)' : h === 'On time %' ? 'On time % (of finished)' : h));
+          const head = MODULE_EXPORT_HEAD.map((h) => (h === 'Compliance %' ? 'Compliance % (checklist: answers right; tickets and delegations: met deadline)' : h));
           return [['Module', ...head], ...MODULES.map((m) => [m.label, ...moduleExportCells(org, m.key)])];
         },
       }]
@@ -451,6 +453,10 @@ export const ScorecardPage = () => {
         isRefreshing={isRefreshing}
         onRefresh={() => void refresh()}
       />
+
+      {active.isPlaceholderData && (
+        <p role="status" className="t-meta font-display font-semibold text-text-secondary">Updating. These figures are for the previous period until {range.label} loads.</p>
+      )}
 
       {orgWide && <OrgSummary from={range.from} to={range.to} />}
 

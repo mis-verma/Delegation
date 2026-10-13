@@ -51,8 +51,8 @@ export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole, 
       icon={Repeat}
       title={scopeLabel || 'Store checklists'}
       description={scopeLabel
-        ? "Only checklists assigned to this selection. A shared checklist counts for everyone it is assigned to. Completion leaves out runs that are not due yet."
-        : "How much of each period's checklist work was finished on time, answered inside the accepted range, backed by photos and approved the first time. Completion leaves out runs that are not due yet."}
+        ? "Only checklists assigned to this selection. A shared checklist counts for everyone it is assigned to. Items done counts questions on runs that are due, not whole checklists."
+        : "How much of each period's checklist work was finished on time, answered inside the accepted range, backed by photos and approved the first time. Items done counts questions on runs that are due, not whole checklists."}
       isPending={isPending}
       isError={isError}
       errorMessage="Could not load the store checklist figures."
@@ -65,7 +65,9 @@ export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole, 
         {
           icon: Repeat,
           iconTint: 'text-primary-600 dark:text-primary-400',
-          label: 'Completion',
+          // Item based: questions done out of questions that apply, not the share of whole checklists.
+          label: 'Items done',
+          caption: 'Counts questions, not whole checklists',
           value: formatPercent(completion.value),
           raw: completion.value,
           unit: '%',
@@ -78,7 +80,7 @@ export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole, 
           icon: CheckCheck,
           iconTint: 'text-primary-600 dark:text-primary-400',
           // Answers that landed inside their accepted-answer rule, out of the answers that have one.
-          label: 'Answer compliance',
+          label: 'Answers right',
           value: formatPercent(compliance.value),
           raw: compliance.value,
           unit: '%',
@@ -142,8 +144,8 @@ export const ChecklistInstanceKpiSection = ({ groupBy, from, to, isOrgWideRole, 
         data: chartQuery.data ?? [],
         groupBy,
         series: [
-          { key: 'completionRate', label: 'Completion', color: 'var(--color-primary-500)' },
-          { key: 'complianceRate', label: 'Answer compliance', color: 'var(--color-warning)' },
+          { key: 'completionRate', label: 'Items done', color: 'var(--color-primary-500)' },
+          { key: 'complianceRate', label: 'Answers right', color: 'var(--color-warning)' },
           { key: 'qualityRate', label: 'Photo quality', color: 'var(--color-success)' },
           { key: 'approvalRate', label: 'Approved first time', color: 'var(--color-coral-500)' },
         ],

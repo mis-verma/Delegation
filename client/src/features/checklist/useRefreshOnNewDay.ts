@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useOrgToday } from './useOrgToday';
+import { invalidateScoreCaches } from '../../lib/queryHelpers';
 
 /**
  * Refetches every checklist query the moment the org's calendar day changes while the page is open.
@@ -15,5 +16,6 @@ export const useRefreshOnNewDay = () => {
     if (seen.current === today) return;
     seen.current = today;
     void queryClient.invalidateQueries({ queryKey: ['checklist-instances'] });
+    invalidateScoreCaches(queryClient);
   }, [today, queryClient]);
 };

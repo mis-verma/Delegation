@@ -2,11 +2,12 @@ import { useMemo, useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { Building2 } from 'lucide-react';
 import { EmptyState, ExportMenu, InlineError, Skeleton, ToggleChip } from '../../../components';
-import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable';
+import { exportPct, exportTitle, formatExportRange, type TableRows } from '../../../lib/exportTable';
+import { useOrgToday } from '../../checklist/useOrgToday';
 import { useAuth } from '../../../context/AuthContext';
 import { checklistInstanceApi, type ChecklistDepartmentMonthlyRow } from '../../../api/checklistInstances';
 import { handleQueryRetry } from '../../../lib/queryHelpers';
-import { toDateParam, formatPercent } from '../analytics/analyticsDisplay';
+import { parseDateParam, formatPercent } from '../analytics/analyticsDisplay';
 import { NEEDS_ATTENTION_BELOW } from '../analytics/useOwnerRankings';
 import { cn } from '@/lib/utils';
 import { addFigures, emptyFigures, type ScoreDetail, type ScoreFigures } from './scoreFigures';
@@ -69,9 +70,12 @@ export const DepartmentMonthlySection = ({ onOpenDetail }: { onOpenDetail: (deta
   const { token } = useAuth();
   const [months, setMonths] = useState<number>(6);
 
-  const keys = useMemo(() => monthKeys(months, new Date()), [months]);
+  // Org day, not the device clock; the keys and the window are rebuilt whenever the org day changes, so the span
+  // moves on at midnight on the 1st instead of staying on the month the page was opened in.
+  const orgToday = useOrgToday();
+  const keys = useMemo(() => monthKeys(months, parseDateParam(orgToday) ?? new Date()), [months, orgToday]);
   const from = `${keys[0]}-01`;
-  const to = toDateParam(new Date());
+  const to = orgToday;
 
   const query = useQuery({
     queryKey: ['analytics', 'department-monthly', from, to],
@@ -82,6 +86,8 @@ export const DepartmentMonthlySection = ({ onOpenDetail }: { onOpenDetail: (deta
     refetchOnWindowFocus: false,
     placeholderData: keepPreviousData,
   });
+  // The last window's numbers are still on screen while this one loads: said in words, never dimmed.
+  const updating = query.isPlaceholderData;
 
   const rows = useMemo(() => {
     const byDept = new Map<string, { name: string; cells: Map<string, ChecklistDepartmentMonthlyRow> }>();
@@ -104,7 +110,7 @@ export const DepartmentMonthlySection = ({ onOpenDetail }: { onOpenDetail: (deta
 
   // The table as on screen: completion and compliance for the whole span, then for each month.
   const exportRows = (): TableRows => [
-    ['Department', 'Overall completion %', 'Overall compliance %', ...keys.flatMap((k) => [`${longMonth(k)} completion %`, `${longMonth(k)} compliance %`])],
+    ['Department', 'Items done % (whole period)', 'Answers right % (whole period)', ...keys.flatMap((k) => [`${longMonth(k)} items done %`, `${longMonth(k)} answers right %`])],
     ...rows.map((r) => [
       r.name, exportPct(r.completion), exportPct(r.compliance),
       ...keys.flatMap((k) => {
@@ -119,9 +125,11 @@ export const DepartmentMonthlySection = ({ onOpenDetail }: { onOpenDetail: (deta
       <div className="flex flex-wrap items-end justify-between gap-2 px-1">
         <div className="flex flex-col gap-0.5">
           <h2 id="dept-monthly-heading" className="t-section font-display font-bold text-text">Departments by month</h2>
+          <p className="text-xs font-display font-semibold text-text-secondary">Showing {formatExportRange(from, to)}: the span ends today, {formatExportRange(orgToday, orgToday)}.</p>
           <p className="text-xs font-display text-text-muted">
-            Top number is completion, small number below is compliance. Tap a score for the detail. A run shared by people in two departments counts in both.
+            Top number is items done (counts questions, not whole checklists), small number below is answers right. Tap a score for the detail. A run shared by people in two departments counts in both, and answers are credited to the department of the person who gave them.
           </p>
+          {updating && <p role="status" className="text-xs font-display font-semibold text-text-secondary">Updating. These figures are for the previous span until this one loads.</p>}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div role="group" aria-label="Period" className="flex flex-wrap items-center gap-2">
@@ -134,7 +142,7 @@ export const DepartmentMonthlySection = ({ onOpenDetail }: { onOpenDetail: (deta
             aria-label="Export department scores by month"
             filename="department-scores-by-month"
             sheetName="Departments by month"
-            title={exportTitle({ what: 'Department scores by month, checklist completion and compliance', from, to, period: SPANS.find((x) => x.months === months)?.label })}
+            title={exportTitle({ what: 'Department scores by month, checklist items done and answers right', from, to, period: SPANS.find((x) => x.months === months)?.label })}
             getRows={exportRows}
           />
         </div>
@@ -147,12 +155,12 @@ export const DepartmentMonthlySection = ({ onOpenDetail }: { onOpenDetail: (deta
       ) : rows.length === 0 ? (
         <EmptyState icon={Building2} title="No department figures yet" description="Checklist runs need people assigned, and those people need a department." />
       ) : (
-        <div className={cn('overflow-x-auto rounded-2xl border border-border bg-surface', query.isFetching && 'opacity-70 transition-opacity')}>
+        <div className="overflow-x-auto rounded-2xl border border-border bg-surface" aria-busy={updating}>
           <table className="w-full border-collapse">
             <thead>
               <tr className="border-b border-border">
                 <th scope="col" className={cn(STICKY, 'px-4 py-3 text-left font-display font-semibold text-xs text-text-muted min-w-36')}>Department</th>
-                <th scope="col" className="px-3 py-3 text-center font-display font-semibold text-xs text-text-muted whitespace-nowrap">Overall</th>
+                <th scope="col" className="px-3 py-3 text-center font-display font-semibold text-xs text-text-muted whitespace-nowrap" title="Items done over the whole span. Counts questions, not whole checklists.">Overall</th>
                 {keys.map((k) => {
                   const h = monthHead(k);
                   return (
@@ -171,7 +179,7 @@ export const DepartmentMonthlySection = ({ onOpenDetail }: { onOpenDetail: (deta
                   <ScoreCell
                     completion={row.completion}
                     compliance={row.compliance}
-                    label={`${row.name}, whole period: completion and compliance`}
+                    label={`${row.name}, whole period: items done and answers right`}
                     onOpen={() => onOpenDetail({ title: row.name, subtitle: `The last ${months} months`, figures: row.figures, scope: { from, to, departmentId: row.id } })}
                   />
                   {keys.map((k) => {
@@ -182,7 +190,7 @@ export const DepartmentMonthlySection = ({ onOpenDetail }: { onOpenDetail: (deta
                         completion={c ? ratio(c.doneItems, c.totalItems) : null}
                         compliance={c ? ratio(c.weightedGood, c.weightedScored) : null}
                         title={c ? `${c.doneItems} of ${c.totalItems} items done` : 'Nothing due'}
-                        label={`${row.name}, ${longMonth(k)}: completion and compliance`}
+                        label={`${row.name}, ${longMonth(k)}: items done and answers right`}
                         onOpen={c ? () => onOpenDetail({ title: row.name, subtitle: longMonth(k), figures: figuresOf(c), scope: { from: `${k}-01`, to: monthEnd(k), departmentId: row.id } }) : undefined}
                       />
                     );

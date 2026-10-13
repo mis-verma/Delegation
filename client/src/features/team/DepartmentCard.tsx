@@ -1,6 +1,6 @@
 import { Building2, ChevronRight, Users } from 'lucide-react';
 import { EntityIconTile } from '../../components';
-import type { ChecklistReportMetrics } from '../../api/checklistReports';
+import type { ScoreReportRow } from '../../api/scores';
 import { CardFooter, ScoreFigure } from './TeamCardParts';
 import { TEAM_CARD_CLASS, TEAM_CARD_LINK_CLASS, summarizeCard, type OverdueItem, type ReportState } from './teamDisplay';
 
@@ -8,26 +8,23 @@ export interface DepartmentCardRow {
   id: string;
   name: string;
   headcount: number;
-  /** Tickets and delegations created in the selected period that are still open. */
+  /** Tickets and delegations open today, whenever they were raised ("Open now"). */
   openTickets: number;
   openTasks: number;
+  /** Open and past due today. */
   overdueItems: OverdueItem[];
-  /** Closed tickets + done delegations, over every ticket/delegation raised for this department
-   *  in the selected period. */
-  workDone: number;
-  workTotal: number;
 }
 
 interface DepartmentCardProps {
   row: DepartmentCardRow;
-  /** This department's row from the checklist report; undefined means no checklist ran for it. */
-  checklist: ChecklistReportMetrics | undefined;
+  /** This department's row from the scores report (the Scorecard's numbers); undefined means nothing was due. */
+  scores: ScoreReportRow | undefined;
   reportState: ReportState;
   onClick: () => void;
 }
 
-export const DepartmentCard = ({ row, checklist, reportState, onClick }: DepartmentCardProps) => {
-  const numbers = summarizeCard({ done: row.workDone, total: row.workTotal, overdue: row.overdueItems.length }, checklist, reportState);
+export const DepartmentCard = ({ row, scores, reportState, onClick }: DepartmentCardProps) => {
+  const numbers = summarizeCard(scores, reportState);
 
   return (
     <div className={TEAM_CARD_CLASS}>

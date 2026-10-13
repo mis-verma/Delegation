@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../context/AuthContext"
 import { connectSocket, releaseSocket } from "../../lib/socket";
-import { createCoalescedInvalidator } from "../../lib/coalescedInvalidate";
+import { createCoalescedInvalidator, createScoreCacheInvalidator } from "../../lib/coalescedInvalidate";
 
 /**
  * Keeps the delegation board/list live.
@@ -31,7 +31,8 @@ export const useTaskSocket = () => {
         // aggregates — without this, completing a delegation while that page is open left those
         // numbers stale until remount or refocus.
         const analytics = createCoalescedInvalidator(queryClient, ["analytics"]);
-        const invalidateTasks = () => { tasks.schedule(); analytics.schedule(); };
+        const scores = createScoreCacheInvalidator(queryClient);
+        const invalidateTasks = () => { tasks.schedule(); analytics.schedule(); scores.schedule(); };
         const events = ["task:created", "task:updated", "task:deleted"] as const;
 
         events.forEach((event) => socket.on(event, invalidateTasks));
@@ -40,6 +41,7 @@ export const useTaskSocket = () => {
             events.forEach((event) => socket.off(event, invalidateTasks));
             tasks.cancel();
             analytics.cancel();
+            scores.cancel();
             // releaseSocket() only, no disconnectSocket(). The socket is shared with the ticket and
             // notification hooks and is refcounted for exactly that reason (see socket.ts); calling
             // disconnect unconditionally here tore it down for those consumers too and made the

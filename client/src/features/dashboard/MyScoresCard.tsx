@@ -20,9 +20,11 @@ import { ScoreDrillPopup } from './ScoreDrillPopup';
 import { ScoreRanking } from './ScoreRanking';
 import { scoreQuery } from './scoreQueries';
 import { METRIC_LABEL, METRIC_OPTIONS, MODULE_EXPORT_HEAD, MODULE_ROWS, isMetric, moduleExportCells, moduleOverall, numbersFor, seriesFor, type ModuleKey, type ScoreMetric } from './scoreMetrics';
+import { orgDayWindow } from './scoreDrill';
 import { ScoreTrend } from './ScoreTrend';
 import { DASHBOARD_CARD_CLASS, rateTone, type RateTone } from './dashboardDisplay';
 import { PERIODS, PERIOD_LABEL, windowFor, type ScorePeriod } from './scorePeriods';
+import { formatPct } from '../../lib/percent';
 
 // Short enough for four equal columns in the narrow side panel.
 const SCOPE_LABEL: Record<ScoreScope, string> = { org: 'Company', person: 'Person', department: 'Department', store: 'Store' };
@@ -98,7 +100,7 @@ const ScoreTile = ({ title, score, detail, loading, onOpen, change }: ScoreTileP
   const tone = score === null ? 'neutral' : rateTone(score, Number.MAX_SAFE_INTEGER);
   const [from, to] = RING[tone];
   const tileClass = `flex min-w-0 flex-col items-center gap-1.5 rounded-lg border border-border bg-surface-hover/30 p-2.5 text-center sm:p-3 ${onOpen ? 'cursor-pointer transition-colors duration-150 hover:border-border-hover active:scale-[0.98] outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40' : ''}`;
-  const label = score === null ? `${title}: nothing due` : `${title}: ${score} percent${detail ? `, ${detail}` : ''}`;
+  const label = score === null ? `${title}: nothing due` : `${title}: ${formatPct(score)}${detail ? `, ${detail}` : ''}`;
   const body = (
     <>
       <SemiGauge
@@ -109,7 +111,7 @@ const ScoreTile = ({ title, score, detail, loading, onOpen, change }: ScoreTileP
         endLabels={false}
         className="max-w-20 sm:max-w-28"
       />
-      <span className="t-figure font-display font-extrabold tabular-nums text-text">{loading ? ' ' : score === null ? '–' : `${score}%`}</span>
+      <span className="t-figure font-display font-extrabold tabular-nums text-text">{loading ? ' ' : score === null ? '–' : formatPct(score)}</span>
       <span className="t-meta font-display font-semibold leading-snug text-text-secondary break-words">{title}</span>
       {!loading && score !== null && detail && <span className="t-meta font-display leading-snug text-text-muted break-words">{detail}</span>}
       {!loading && score === null && <span className="t-meta font-display text-text-light">Nothing due</span>}
@@ -280,15 +282,20 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
     const id = targetId ?? user?.id ?? '';
     const late = kind === 'late';
     const quick = late ? 'delayed' : 'completed';
+    // The score counts what came DUE in the window, so every list link carries that window (the lists read dueFrom and
+    // dueTo), not all time: the list then opens the same items the figure counted.
+    const due = orgDayWindow(range.from, range.to);
+    const win = `&dueFrom=${encodeURIComponent(due.start)}&dueTo=${encodeURIComponent(due.end)}`;
     if (scope === 'org') {
-      if (module === 'checklist') return kind === 'late' ? '/admin/checklist-compliance' : '/admin/checklist-weekly';
-      return module === 'ticket' ? `/tickets?quickFilter=${quick}` : `/tasks?quickFilter=${quick}`;
+      // The fill report opens on the same period; the compliance board has no window of its own.
+      if (module === 'checklist') return kind === 'late' ? '/admin/checklist-compliance' : pageWindow ? '/admin/checklist-weekly' : `/admin/checklist-weekly?period=${shownPeriod}&offset=${glance ? 0 : offset}`;
+      return module === 'ticket' ? `/tickets?quickFilter=${quick}${win}` : `/tasks?quickFilter=${quick}&category=delegation${win}`;
     }
     if (module === 'delegation') {
-      if (scope === 'person') return mine ? `/tasks?quickFilter=${quick}&mine=1` : `/tasks?quickFilter=${quick}&assigneeIds=${id}`;
-      return scope === 'department' ? `/tasks?quickFilter=${quick}&departmentId=${id}` : `/tasks?quickFilter=${quick}&storeId=${id}`;
+      if (scope === 'person') return mine ? `/tasks?quickFilter=${quick}&mine=1${win}` : `/tasks?quickFilter=${quick}&assigneeIds=${id}${win}`;
+      return scope === 'department' ? `/tasks?quickFilter=${quick}&departmentId=${id}${win}` : `/tasks?quickFilter=${quick}&storeId=${id}${win}`;
     }
-    if (module === 'ticket') return scope === 'person' ? `/tickets?quickFilter=${quick}&assigneeIds=${id}` : `/tickets?quickFilter=${quick}`;
+    if (module === 'ticket') return scope === 'person' ? `/tickets?quickFilter=${quick}&assigneeIds=${id}${win}` : scope === 'department' ? `/tickets?quickFilter=${quick}&departmentId=${id}${win}` : `/tickets?quickFilter=${quick}&storeId=${id}${win}`;
     const status = late ? 'overdue' : 'completed';
     if (mine) return `/checklists?status=${status}`;
     return scope === 'store' ? `/checklists?status=${status}&store=${id}` : null;
@@ -545,8 +552,12 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
       ) : query.isError && !data ? (
         <InlineError message="Couldn't load the scores." onRetry={() => void query.refetch()} />
       ) : (
-        // No dim while the next window loads: the old numbers stay as they are until the new ones land.
+        // No dim while the next window loads: the old numbers stay as they are until the new ones land, and a plain
+        // line says they are still the previous window's.
         <div>
+        {query.isPlaceholderData && (
+          <p role="status" className="pb-2 t-meta font-display font-semibold text-text-secondary">Updating. These figures are for the previous period until {range.label} loads.</p>
+        )}
         {activeView === 'bars' ? (
           <ScoreBars
             scores={data}
@@ -575,7 +586,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
             const priorScore = pick(before, headline(previous));
             const note = now === null ? '' : metric === 'completion' ? now.completionNote : metric === 'compliance' ? now.complianceNote : metric === 'ontime' ? now.ontimeNote : '';
             // The overall score is the average of these two, so the dial says them.
-            const overviewDetail = !now ? '' : `Completion ${now.completion ?? '-'}%, compliance ${now.compliance ?? '-'}%`.replace(/-%/g, '-');
+            const overviewDetail = !now ? '' : `Completion ${formatPct(now.completion)}, compliance ${formatPct(now.compliance)}`;
             return (
               <ScoreTile
                 key={key}

@@ -18,7 +18,14 @@ import { REPORT_DATE_FORMATS, RANGE_BUCKET, resolveReportWindow, zeroFill, type 
 import type { ChecklistReportScope } from "./checklistReportScope.js"
 import { AppError } from "../../utils/AppError.js"
 import { MAX_RANGE_DAYS } from "../checklistReports/checklistReport.validation.js"
+import { isRankable, pooledCompliancePct, round1 } from "../scores/scoreFormulas.js"
 
+// ITEM-BASED reports. Everything here counts QUESTIONS (items), not runs, so its completion is NOT the run-based
+// completion of the compliance board and the scores report (completed runs / due runs). The response says so by
+// name: itemsDonePct / itemsDone / itemsApplicable are the item figures (Not applicable left out of both), and
+// completionRate / doneItems / totalItems are the same numbers under their older names. Compliance is pooled
+// exactly (weighted good / weighted checked) and shown with one decimal; the raw weights are returned too.
+//
 // Analytics over checklist runs: the trend report (one row per time bucket) and the by-store report
 // (one row per active store). Both read the SAME per-run aggregate (runAggregateSql), then group it
 // once more, so the two can never disagree on a rule.
@@ -39,7 +46,8 @@ import { MAX_RANGE_DAYS } from "../checklistReports/checklistReport.validation.j
 //  - Approval rate = approved on first attempt / DECIDED runs (approved, or rejected at least once).
 //    Runs still waiting for a decision are reported separately as pendingRuns.
 
-const ROUND = (n: number, d: number) => (d ? Math.round((n / d) * 1000) / 10 : null)
+// One decimal, from the raw counts (never from an already rounded figure).
+const ROUND = (n: number, d: number) => (d ? round1((n / d) * 100) : null)
 
 // Org-local "now" and a run's org-local deadline, as wall-clock datetimes (same rule as
 // checklistInstance.service.ts's deadlineExpr / localNowExpr, but on the `ci` alias used here).
@@ -135,18 +143,24 @@ const filterConditions = (
 // With a department, compliance counts only the answers credited to that department's people (who the
 // answer belongs to: the person who completed it, or who had done it when it was sent back). A head sees
 // their own people's answers on a checklist shared across departments, never the other departments'.
-const creditFilter = (departmentId?: string) => departmentId
+// `departmentId` is a fixed department; `perDepartment` credits each row to the department of its own `ra` join
+// (see runAggregateSql), so a run shared across departments gives each department only its own people's answers.
+const creditFilter = (departmentId?: string, perDepartment = false) => departmentId || perDepartment
     ? sql` AND EXISTS (
         SELECT 1 FROM ${users} cu
         WHERE cu.id = (CASE WHEN cii.sendBackCount > 0 AND cii.sentBackFrom IS NOT NULL THEN cii.sentBackFrom ELSE cii.completedBy END)
-          AND cu.departmentId = ${departmentId}
+          AND cu.departmentId = ${perDepartment ? sql`ra.departmentId` : departmentId}
     )`
     : sql``
 
 // One row per run with that run's counts. Item facts are summed per run; grouping by bucket or by
 // store happens one level up.
-const runAggregateSql = (conditions: SQL[], creditDepartmentId?: string) => sql`
+//
+// `perDepartment` returns one row per (run, department of an assignee): the answers on each row are only the ones
+// credited to that department's people, so the department report matches the Report page and the Scorecard.
+const runAggregateSql = (conditions: SQL[], creditDepartmentId?: string, perDepartment = false) => sql`
     SELECT
+        ${perDepartment ? sql`ra.departmentId AS departmentId,` : sql``}
         ci.id AS id,
         ci.storeId AS storeId,
         ci.periodStart AS periodStart,
@@ -161,14 +175,20 @@ const runAggregateSql = (conditions: SQL[], creditDepartmentId?: string) => sql`
         SUM(CASE WHEN ${ANSWERED} AND ${FLAGGED_BOOLEAN_ANSWER_EXPR} THEN 1 ELSE 0 END) AS flaggedItems,
         SUM(CASE WHEN ${SCORED} THEN 1 ELSE 0 END) AS scoredItems,
         SUM(CASE WHEN ${GOOD} THEN 1 ELSE 0 END) AS goodItems,
-        SUM(CASE WHEN ${SCORED}${creditFilter(creditDepartmentId)} THEN ${WEIGHT} ELSE 0 END) AS weightedScoredItems,
-        SUM(CASE WHEN ${GOOD}${creditFilter(creditDepartmentId)} THEN ${WEIGHT} ELSE 0 END) AS weightedGoodItems
+        SUM(CASE WHEN ${SCORED}${creditFilter(creditDepartmentId, perDepartment)} THEN ${WEIGHT} ELSE 0 END) AS weightedScoredItems,
+        SUM(CASE WHEN ${GOOD}${creditFilter(creditDepartmentId, perDepartment)} THEN ${WEIGHT} ELSE 0 END) AS weightedGoodItems
     FROM ${checklistInstances} ci
     JOIN ${checklistInstanceItems} cii ON cii.instanceId = ci.id
+    ${perDepartment ? sql`JOIN (
+        SELECT DISTINCT a.instanceId AS instanceId, u.departmentId AS departmentId
+        FROM ${checklistInstanceAssignees} a
+        JOIN ${users} u ON u.id = a.userId
+        WHERE u.departmentId IS NOT NULL
+    ) ra ON ra.instanceId = ci.id` : sql``}
     JOIN ${checklistDefinitions} d ON d.id = ci.definitionId
     JOIN ${stores} st ON st.id = ci.storeId
     WHERE ${sql.join(conditions, sql` AND `)}
-    GROUP BY ci.id, ci.storeId, ci.periodStart, ci.verificationStatus, ci.rejectionCount, ci.periodEnd, ci.cutoffTime, ci.opensTime
+    GROUP BY ${perDepartment ? sql`ra.departmentId, ` : sql``}ci.id, ci.storeId, ci.periodStart, ci.verificationStatus, ci.rejectionCount, ci.periodEnd, ci.cutoffTime, ci.opensTime
 `
 
 // The numbers both reports derive their rates from, as aggregate expressions over the run rows `r`.
@@ -209,7 +229,12 @@ const metricsOf = (r: MetricRow) => ({
     totalItems: n(r.totalItems),
     doneItems: n(r.doneItems),
     completionRate: ROUND(n(r.doneItems), n(r.totalItems)),
+    // The same item figures under names that say what they are (questions, not runs).
+    itemsDone: n(r.doneItems),
+    itemsApplicable: n(r.totalItems),
+    itemsDonePct: ROUND(n(r.doneItems), n(r.totalItems)),
     dueRuns: n(r.dueRuns),
+    rankable: isRankable(n(r.dueRuns)),
     itemsRequiringPhotos: n(r.photoItems),
     qualityRate: ROUND(n(r.photoOkItems), n(r.photoItems)),
     // Share of answered gated Yes/No-style items whose answer landed on the flagged branch: higher
@@ -217,7 +242,9 @@ const metricsOf = (r: MetricRow) => ({
     gatedBooleanItems: n(r.gatedItems),
     issueRate: ROUND(n(r.flaggedItems), n(r.gatedItems)),
     scoredAnswers: n(r.scoredItems),
-    complianceRate: ROUND(n(r.weightedGoodItems), n(r.weightedScoredItems)),
+    complianceRate: pooledCompliancePct([{ weightedGood: n(r.weightedGoodItems), weightedScored: n(r.weightedScoredItems) }]),
+    weightedGood: n(r.weightedGoodItems),
+    weightedScored: n(r.weightedScoredItems),
     submittedInstances: n(r.submittedRuns),
     decidedRuns: n(r.decidedRuns),
     firstAttemptApproved: n(r.firstAttemptApproved),
@@ -289,7 +316,13 @@ export const checklistReportService = {
                 qualityRate: m.qualityRate,
                 approvalRate: m.approvalRate,
                 complianceRate: m.complianceRate,
+                weightedGood: m.weightedGood,
+                weightedScored: m.weightedScored,
+                itemsDonePct: m.itemsDonePct,
+                itemsDone: m.itemsDone,
+                itemsApplicable: m.itemsApplicable,
                 dueRuns: m.dueRuns,
+                rankable: m.rankable,
                 items: m.totalItems,
             }
         })
@@ -324,10 +357,14 @@ export const checklistReportService = {
                 complianceRate: m.complianceRate,
                 doneItems: m.doneItems,
                 totalItems: m.totalItems,
+                itemsDonePct: m.itemsDonePct,
+                itemsDone: m.itemsDone,
+                itemsApplicable: m.itemsApplicable,
                 // Raw weights behind complianceRate, so cells can be totalled without averaging percentages.
-                weightedGood: n(r.weightedGoodItems),
-                weightedScored: n(r.weightedScoredItems),
+                weightedGood: m.weightedGood,
+                weightedScored: m.weightedScored,
                 dueRuns: m.dueRuns,
+                rankable: m.rankable,
             }
         })
     },
@@ -344,21 +381,16 @@ export const checklistReportService = {
         assertRangeAllowed(window, !!query.from)
         // The department join below does the department scoping, so the per-run filter must not also
         // demand a department (it would be the same rule twice).
+        // A head only gets their own department: the rows are cut to it here (ra is the per-run department join).
         const conditions = filterConditions({ ...scope, departmentId: undefined }, window, false, true)
-        const ownDepartment = scope.departmentId ? sql` AND ra.departmentId = ${scope.departmentId}` : sql``
+        if (scope.departmentId) conditions.push(sql`ra.departmentId = ${scope.departmentId}`)
 
         const [rows] = await db.execute(sql`
-            SELECT ra.departmentId AS departmentId, dep.name AS departmentName,
+            SELECT r.departmentId AS departmentId, dep.name AS departmentName,
                 DATE_FORMAT(r.periodStart, '%Y-%m') AS month, ${GROUP_METRICS}
-            FROM (${runAggregateSql(conditions)}) r
-            JOIN (
-                SELECT DISTINCT a.instanceId AS instanceId, u.departmentId AS departmentId
-                FROM ${checklistInstanceAssignees} a
-                JOIN ${users} u ON u.id = a.userId
-                WHERE u.departmentId IS NOT NULL
-            ) ra ON ra.instanceId = r.id${ownDepartment}
-            JOIN ${departments} dep ON dep.id = ra.departmentId
-            GROUP BY ra.departmentId, dep.name, month
+            FROM (${runAggregateSql(conditions, undefined, true)}) r
+            JOIN ${departments} dep ON dep.id = r.departmentId
+            GROUP BY r.departmentId, dep.name, month
             ORDER BY dep.name ASC, month ASC
         `)
 
@@ -372,10 +404,14 @@ export const checklistReportService = {
                 complianceRate: m.complianceRate,
                 doneItems: m.doneItems,
                 totalItems: m.totalItems,
+                itemsDonePct: m.itemsDonePct,
+                itemsDone: m.itemsDone,
+                itemsApplicable: m.itemsApplicable,
                 // Raw weights, so a caller can total months without averaging percentages.
-                weightedGood: n(r.weightedGoodItems),
-                weightedScored: n(r.weightedScoredItems),
+                weightedGood: m.weightedGood,
+                weightedScored: m.weightedScored,
                 dueRuns: m.dueRuns,
+                rankable: m.rankable,
             }
         })
     },

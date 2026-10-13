@@ -1,6 +1,7 @@
 import { BarChart3 } from 'lucide-react';
 import { EmptyState } from '../../components';
 import { cn } from '../../lib/utils';
+import { formatPct } from '../../lib/percent';
 import { rateBarClass } from '../checklist/checklistDisplay';
 
 export interface CategoryBar {
@@ -11,7 +12,7 @@ export interface CategoryBar {
   onClick: () => void;
 }
 
-const rateOf = (done: number, total: number) => (total ? Math.round((done / total) * 100) : 0);
+const rateOf = (done: number, total: number) => (total ? (done / total) * 100 : 0);
 
 // A plain CSS bar chart (no charting library) — same hand-rolled approach as MonthlyTargetCard's
 // SVG gauge elsewhere in this app. Each bar is independently clickable so a reviewer can jump
@@ -70,7 +71,7 @@ export const CategoryBarChart = ({ bars }: { bars: CategoryBar[] }) => {
             >
               {/* An empty category gets no figure, but keeps the line so every bar starts level. */}
               <span className="t-meta font-display font-medium tabular-nums text-text">
-                {hasData ? `${rate}%` : ' '}
+                {hasData ? formatPct(rate) : ' '}
               </span>
 
               {/* A category with nothing recorded gets a short flat track, not a tall empty box that
