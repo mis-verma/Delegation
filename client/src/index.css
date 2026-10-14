@@ -340,14 +340,11 @@ body {
    around it shrink together instead of wrapping and overflowing on a 320-360px screen. */
 :root {
   --type-scale: 1;
-  /* The Tailwind steps that carry body and heading text, scaled. Deliberately NOT scaled:
-     --text-xs (12px is the smallest size that stays readable) and --text-base (16px: form inputs use
-     it, and any input under 16px makes iOS zoom the whole page when it is tapped). Values are
-     Tailwind's own defaults. */
-  --text-sm: calc(0.875rem * var(--type-scale));
-  --text-lg: calc(1.125rem * var(--type-scale));
-  --text-xl: calc(1.25rem * var(--type-scale));
-  --text-2xl: calc(1.5rem * var(--type-scale));
+
+  --text-sm: calc(0.800rem * var(--type-scale));
+  --text-lg: calc(1.110rem * var(--type-scale));
+  --text-xl: calc(1.15rem * var(--type-scale));
+  --text-2xl: calc(1rem * var(--type-scale));
   --text-3xl: calc(1.875rem * var(--type-scale));
   --text-4xl: calc(2.25rem * var(--type-scale));
 }
