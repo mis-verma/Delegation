@@ -226,6 +226,15 @@ const hydrateInstances = async (instanceRows: (typeof checklistInstances.$inferS
     })
 }
 
+// "Is this value the one already stored?" for setItemDone's repeat-request check. Dates compare by
+// instant; null and undefined are the same "nothing"; everything else is a plain equality.
+const sameStoredValue = (stored: unknown, incoming: unknown): boolean => {
+    if (stored instanceof Date || incoming instanceof Date) {
+        return stored instanceof Date && incoming instanceof Date && stored.getTime() === incoming.getTime()
+    }
+    return (stored ?? null) === (incoming ?? null)
+}
+
 const getPopulatedInstanceById = async (id: string) => {
     const [instance] = await db.select().from(checklistInstances).where(eq(checklistInstances.id, id)).limit(1)
     if (!instance) return null
@@ -1657,9 +1666,12 @@ export const checklistInstanceService = {
 
         // Fetch just enough of the parent instance to authorize + drive the side effects below —
         // no need for the full items/submissions populate setItemDone doesn't use.
-        const [instanceRow] = await db.select().from(checklistInstances).where(eq(checklistInstances.id, item.instanceId)).limit(1)
+        // Independent of each other (both keyed off the item's instanceId), so one round trip, not two.
+        const [[instanceRow], assigneeLinkRows] = await Promise.all([
+            db.select().from(checklistInstances).where(eq(checklistInstances.id, item.instanceId)).limit(1),
+            db.select({ userId: checklistInstanceAssignees.userId }).from(checklistInstanceAssignees).where(eq(checklistInstanceAssignees.instanceId, item.instanceId)),
+        ])
         if (!instanceRow) throw AppError.notFound("Checklist instance not found.")
-        const assigneeLinkRows = await db.select({ userId: checklistInstanceAssignees.userId }).from(checklistInstanceAssignees).where(eq(checklistInstanceAssignees.instanceId, instanceRow.id))
         const assigneeIds = assigneeLinkRows.map((l) => l.userId)
         assertCanAccess({ assigneeIds }, user)
         assertInstanceEditable(instanceRow, user)
@@ -1784,14 +1796,36 @@ export const checklistInstanceService = {
             await assertConditionalActionsSatisfied(mergedItem, values)
         }
 
+        // The decisive checks and the write happen under a row lock on this one question. Everything
+        // above read a snapshot that may be a moment old: a double tap, a retry after a dropped
+        // connection, or two devices sending the same answer would otherwise each pass those checks,
+        // each write, and each add an audit row. The second request now waits for the first, sees the
+        // state is already what it asked for, and changes nothing.
         const completion = deriveInstanceItemCompletion(isDone, isDone ? user.sub : null)
-        await db.update(checklistInstanceItems).set({
-            ...patch,
-            isDone,
-            completedAt: completion.completedAt,
-            completedBy: completion.completedBy,
-            updatedAt: new Date(),
-        }).where(eq(checklistInstanceItems.id, itemId))
+        const written = await db.transaction(async (tx) => {
+            const [fresh] = await tx.select().from(checklistInstanceItems).where(eq(checklistInstanceItems.id, itemId)).limit(1).for("update")
+            if (!fresh) throw AppError.notFound("Checklist item not found.")
+
+            const alreadyThere = fresh.isDone === isDone
+                && (!isDone || fresh.isNotApplicable === markingNotApplicable)
+                && Object.entries(patch).every(([key, value]) => key === "sendBackNote" || sameStoredValue((fresh as Record<string, unknown>)[key], value))
+            if (alreadyThere) return { fresh, changed: false }
+
+            const freshJustAnswered = fresh.completedBy === user.sub && !!fresh.completedAt && Date.now() - fresh.completedAt.getTime() <= UNDO_WINDOW_MS
+            if (!isDone && fresh.isDone && user.role !== "ADMIN" && !freshJustAnswered) {
+                throw AppError.forbidden("This step is already done. Only an admin can reopen it.")
+            }
+
+            await tx.update(checklistInstanceItems).set({
+                ...patch,
+                isDone,
+                completedAt: completion.completedAt,
+                completedBy: completion.completedBy,
+                updatedAt: new Date(),
+            }).where(eq(checklistInstanceItems.id, itemId))
+            return { fresh, changed: true }
+        })
+        if (!written.changed) return stripSecretItemFields(written.fresh)
 
         let updatedItem = { ...mergedItem, isDone, completedAt: completion.completedAt, completedBy: completion.completedBy }
 
