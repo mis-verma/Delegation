@@ -26,6 +26,7 @@ import { passwordChangeStamp } from './auth.js';
 import { auditService } from '../../modules/audit/audit.service.js';
 import { mapDuplicateUserError } from '../../modules/users/dbErrors.js';
 import { disconnectUserSockets } from '../../sockets/socket.js';
+import { invalidateAuthUsers } from './authCache.js';
 
 // Ends every live session of one user (reuse detection below, and any other "log them out
 // everywhere" case): all their still-valid refresh tokens are revoked in one statement.
@@ -335,6 +336,7 @@ export const authService = {
 
       await auditService.recordInTx(tx, { entityType: 'User', entityId: user.id, action: 'PASSWORD_RESET', actorId: user.id, before: { email: user.email, via: 'emailed link' } });
     });
+    await invalidateAuthUsers(user.id);
     disconnectUserSockets(user.id);
   },
 };

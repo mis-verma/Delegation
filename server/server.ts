@@ -41,6 +41,9 @@ class ServerBootstrap {
     this.appInstance = new App(rateLimitStoreFactory);
 
     this.httpServer = http.createServer(this.appInstance.app);
+    // A stalled client or a hung handler must not hold a socket (and a DB connection) forever.
+    this.httpServer.requestTimeout = 30_000;
+    this.httpServer.headersTimeout = 35_000;
     const io = await initSocket(this.httpServer, workerCount > 1);
 
     const isCronOwner = !cluster.isWorker || cluster.worker?.id === 1;
@@ -80,6 +83,10 @@ class ServerBootstrap {
   private shutdown(): void {
     console.log("Shutting down server...");
 
+    // close() waits for open connections (sockets, keep-alive) and can wait forever: force the exit
+    // so a restart never hangs. unref() so this timer alone never keeps the process alive.
+    setTimeout(() => process.exit(1), 15_000).unref();
+
     this.httpServer?.close(async () => {
       try {
         await disconnectDB();
@@ -93,6 +100,17 @@ class ServerBootstrap {
     });
   }
 }
+
+// A stray rejected promise in one request must not take the whole server down, so it is logged.
+// An uncaught exception leaves the process in an unknown state: log it and exit, and the process
+// manager (or the cluster primary, which forks a replacement) brings a clean one back.
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled promise rejection:", reason);
+});
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught exception:", err);
+  process.exit(1);
+});
 
 const bootstrap = () => {
   new ServerBootstrap()

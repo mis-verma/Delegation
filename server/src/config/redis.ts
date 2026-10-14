@@ -2,10 +2,12 @@ import { createClient, type RedisClientType } from "redis";
 import { RedisStore } from "rate-limit-redis"
 import { env } from "./env.js"
 
-const reconnectStrategy = ( retries : number) => {
-    if(retries > 5 ) return new Error("Redis unreachable after 5 attemps - giving up.")
-    return Math.min(retries * 200, 2000)
-}
+// const reconnectStrategy = ( retries : number) => {
+//     if(retries > 5 ) return new Error("Redis unreachable after 5 attemps - giving up.")
+//     return Math.min(retries * 200, 2000)
+// }
+
+const reconnectStrategy = (retries : number) => Math.min(retries * 200, 5000)
 
 // Every client this module hands out gets tracked here so shutdown() (server.ts) can close them
 // on SIGINT/SIGTERM — previously only the MySQL pool was disconnected on shutdown, leaving these

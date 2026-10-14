@@ -15,6 +15,8 @@ import type { Role } from "../../db/schema/core.js";
 import { db } from "../../config/db.js";
 import { users } from "../../db/schema/core.js";
 import { eq } from "drizzle-orm";
+import { cached } from "../../config/queryCache.js";
+import { AUTH_USER_TTL_SECONDS, authUserKey } from "./authCache.js";
 
 // 2. JWT PAYLOAD TYPE DEFINITION
 // Define the shape of the decoded data hidden inside the JWT access token
@@ -79,14 +81,24 @@ export const authenticate = asyncHandler(async (req: Request, _res: Response, ne
     // naturally expires — this closes that gap at the cost of one indexed primary-key lookup
     // per request (acceptable at this app's scale; there's no distributed session store like
     // Redis this app can depend on being available, so the DB is the source of truth here).
-    const [currentUser] = await db.select({
-        role: users.role,
-        isActive: users.isActive,
-        departmentId: users.departmentId,
-        storeId: users.storeId,
-        passwordChangedAt: users.passwordChangedAt,
-        mustChangePassword: users.mustChangePassword,
-    }).from(users).where(eq(users.id, payload.sub)).limit(1);
+    // The row is cached for AUTH_USER_TTL_SECONDS (see authCache.ts; every write that changes these
+    // fields invalidates it), so most requests skip this query. A Redis outage just falls through to it.
+    const cachedUser = await cached(authUserKey(payload.sub), AUTH_USER_TTL_SECONDS, async () => {
+        const [row] = await db.select({
+            role: users.role,
+            isActive: users.isActive,
+            departmentId: users.departmentId,
+            storeId: users.storeId,
+            passwordChangedAt: users.passwordChangedAt,
+            mustChangePassword: users.mustChangePassword,
+        }).from(users).where(eq(users.id, payload.sub)).limit(1);
+        return row ?? null;
+    });
+    // JSON turns the Date into a string on its way through the cache, so it is rebuilt here.
+    const currentUser = cachedUser && {
+        ...cachedUser,
+        passwordChangedAt: cachedUser.passwordChangedAt ? new Date(cachedUser.passwordChangedAt) : null,
+    };
 
     if (!currentUser || !currentUser.isActive) {
         return next(AppError.unauthorized('Account is no longer active'));

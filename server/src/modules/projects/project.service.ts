@@ -66,11 +66,14 @@ const visibilityCondition = async (user: AccessTokenPayload) => {
         : eq(projects.ownerId, user.sub);
 };
 
+const MAX_PROJECTS_PER_LIST = 500;
+
 export const projectService = {
     // list all projects visible to this user, newest first
     async list(user: AccessTokenPayload) {
         const condition = await visibilityCondition(user);
-        const query = db.select().from(projects).orderBy(desc(projects.createdAt));
+        // Newest first with a ceiling, so an org with a very long project history can't return all of it.
+        const query = db.select().from(projects).orderBy(desc(projects.createdAt)).limit(MAX_PROJECTS_PER_LIST);
         const rows = condition ? await query.where(condition) : await query;
         return attachMemberIds(rows);
     },

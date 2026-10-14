@@ -73,7 +73,7 @@ class App {
     }
 
     private initMiddlewares(rateLimitStoreFactory?: (prefix: string) => Store): void {
-        this.app.set("trust proxy", 1);
+        this.app.set("trust proxy", env.TRUST_PROXY_HOPS);
         this.app.use(helmet({
             crossOriginResourcePolicy : { policy : "cross-origin"} 
         }))

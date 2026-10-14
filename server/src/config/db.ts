@@ -14,6 +14,11 @@ import * as relations from '../db/schema/relations.js'
 const pool = mysql.createPool({
     uri: env.DATABASE_URL,
     connectionLimit: env.DB_CONNECTION_LIMIT,
+    // Fail a stuck connect in 10s instead of hanging, and cap the wait line: past 200 queued
+    // queries a request fails fast (the error handler returns 5xx) instead of piling up forever.
+    connectTimeout: 10_000,
+    queueLimit: 200,
+    enableKeepAlive: true,
     // Return JS Date objects (not strings) for DATETIME/TIMESTAMP columns, matching
     // what every service already expects (Mongoose always gave back real Dates).
     dateStrings: false,

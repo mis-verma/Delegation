@@ -51,7 +51,9 @@ const connect = async () => {
         connecting = (async () => {
             const c = createClient({
                 url: env.REDIS_URL,
-                socket: { reconnectStrategy: (retries) => (retries > 5 ? new Error("giving up") : Math.min(retries * 200, 2000)) },
+                // Never gives up: a client that stops retrying never becomes ready again, which would
+                // leave every cached read falling through to the database until a restart.
+                socket: { reconnectStrategy: (retries) => Math.min(retries * 200, 5000) },
             }) as RedisClientType
             c.on("error", (err) => console.error("Redis query-cache client error:", err.message))
             await c.connect()
@@ -126,6 +128,20 @@ export const invalidateQuick = async (...prefixes: string[]): Promise<void> => {
         await Promise.race([Promise.all(prefixes.map((p) => invalidate(p))), timeout])
     } finally {
         clearTimeout(timer)
+    }
+}
+
+/**
+ * Deletes exact keys, awaited for at most INVALIDATE_WAIT_MS. Never throws. For when a mutation
+ * knows precisely which entries it made wrong (unlike `invalidate`, no keyspace scan).
+ */
+export const invalidateKeys = async (...keys: string[]): Promise<void> => {
+    if (!keys.length) return
+    try {
+        await withTimeout(connect(), INVALIDATE_WAIT_MS)
+        await withTimeout(client!.del(keys), INVALIDATE_WAIT_MS)
+    } catch {
+        // The entry's short TTL is the backstop.
     }
 }
 

@@ -10,6 +10,7 @@ import { hashPassword, comparePassword, deriveDefaultRank } from "../../utils/pa
 import { AccessTokenPayload, passwordChangeStamp } from "../../middleware/auth/auth.js";
 import { presenceService } from "../presence/presence.service.js";
 import { disconnectUserSockets } from "../../sockets/socket.js";
+import { invalidateAuthUsers } from "../../middleware/auth/authCache.js";
 import type { CreateUserInput, UpdateUserInput, UpdateOwnProfileInput, BulkUpdateUsersInput } from "./user.validation.js";
 import { assertPhoneAvailable } from "./phone.js";
 import { mapDuplicateUserError } from "./dbErrors.js";
@@ -158,6 +159,7 @@ const applyPasswordChange = async (
             before: { email: audit.email },
         });
     });
+    await invalidateAuthUsers(id);
     disconnectUserSockets(id);
 };
 
@@ -325,6 +327,9 @@ export const userService = {
             throw mapDuplicateUserError(err);
         }
         assertFound(user);
+        // authenticate() caches role/active/department/store for a short while; drop it now so a
+        // demotion or deactivation applies on the very next request.
+        await invalidateAuthUsers(id);
 
         if (!sensitive) {
             await auditService.record({
@@ -392,6 +397,7 @@ export const userService = {
             return { changed, orgChanged };
         });
 
+        await invalidateAuthUsers(...changed);
         for (const id of changed) disconnectUserSockets(id);
         await refreshLiveChecklistsForUsers(orgChanged, "a bulk move");
 

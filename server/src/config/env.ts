@@ -17,6 +17,7 @@ const envSchema = z.object({
     DB_PASSWORD: z.string().default(''),
     DB_NAME: z.string().default('taskmatrix'),
     DB_CONNECTION_LIMIT: z.coerce.number().default(10),
+    TRUST_PROXY_HOPS: z.coerce.number().default(1),
     // How the database driver reads and writes DATETIME values: 'Z' (UTC) or an offset like '+05:30'.
     // Left unset it follows the host machine's own time zone, which is the historic behaviour. Set it to
     // 'Z' once the host is known to be UTC (or you want it pinned), so a move to a differently configured

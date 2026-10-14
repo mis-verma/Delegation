@@ -69,16 +69,19 @@ const deriveSubmissionCompletion = (isDone: boolean): { completedAt: Date | null
 
 
 
-const recomputeItemAndVerification = async (item: { id: string; isDone: boolean; instanceId: string }) => {
-    const siblings = await db.select({ isDone: checklistInstanceItemSubmissions.isDone })
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+// Runs inside the same transaction as the submission write, with the item row already locked, so
+// two people ticking the last two people of one question at the same moment cannot each see the
+// other as not done and leave the question unfinished.
+const recomputeItemDone = async (tx: Tx, item: { id: string; isDone: boolean }) => {
+    const siblings = await tx.select({ isDone: checklistInstanceItemSubmissions.isDone })
         .from(checklistInstanceItemSubmissions)
         .where(eq(checklistInstanceItemSubmissions.itemId, item.id))
     const allDone = siblings.length > 0 && siblings.every((s) => s.isDone)
     if (item.isDone !== allDone) {
-        await db.update(checklistInstanceItems).set({ isDone: allDone, updatedAt: new Date() }).where(eq(checklistInstanceItems.id, item.id))
+        await tx.update(checklistInstanceItems).set({ isDone: allDone, updatedAt: new Date() }).where(eq(checklistInstanceItems.id, item.id))
     }
-
-    await syncVerificationStatus(item.instanceId)
 }
 
 export const checklistInstanceItemSubmissionService = {
@@ -200,19 +203,46 @@ export const checklistInstanceItemSubmissionService = {
             if (!markingNotApplicable) await assertPhotosSatisfied(submission, { ...item, requiredImageCount: Math.max(1, item.requiredImageCount) })
         }
 
+        // The write and the question's done-flag recompute happen in one transaction, with the item
+        // row locked first and the submission row second (always that order, so two requests cannot
+        // deadlock). Everything above read a snapshot that may be a moment old; the checks that
+        // decide the outcome are repeated here against the locked row.
         const completion = deriveSubmissionCompletion(isDone)
-        await db.update(checklistInstanceItemSubmissions).set({
-            isDone,
-            isNotApplicable: markingNotApplicable,
-            ...(markingNotApplicable ? { remarks: reason } : {}),
-            completedAt: completion.completedAt,
-            updatedAt: new Date(),
-        }).where(eq(checklistInstanceItemSubmissions.id, id))
+        const { row, changed } = await db.transaction(async (tx) => {
+            const [lockedItem] = await tx.select({ id: checklistInstanceItems.id, isDone: checklistInstanceItems.isDone })
+                .from(checklistInstanceItems).where(eq(checklistInstanceItems.id, item.id)).limit(1).for("update")
+            const [fresh] = await tx.select().from(checklistInstanceItemSubmissions)
+                .where(eq(checklistInstanceItemSubmissions.id, id)).limit(1).for("update")
+            if (!lockedItem || !fresh) throw AppError.notFound("Submission not found")
 
-        await recomputeItemAndVerification(item)
+            // A double tap, a retry after a dropped connection, or two devices sending the same
+            // thing: the state already matches, so do nothing (completedAt keeps its first value).
+            const alreadyThere = fresh.isDone === isDone && (!isDone || fresh.isNotApplicable === markingNotApplicable)
+            if (alreadyThere) return { row: fresh, changed: false }
 
-        const [updated] = await db.select().from(checklistInstanceItemSubmissions).where(eq(checklistInstanceItemSubmissions.id, id)).limit(1)
+            if (!isDone && fresh.isDone && user.role !== "ADMIN") {
+                throw AppError.forbidden("This check is already submitted. Only an admin can reopen it.")
+            }
+            if (markingNotApplicable && fresh.isDone) throw AppError.badRequest("This person is already submitted.")
+
+            await tx.update(checklistInstanceItemSubmissions).set({
+                isDone,
+                isNotApplicable: markingNotApplicable,
+                ...(markingNotApplicable ? { remarks: reason } : {}),
+                completedAt: completion.completedAt,
+                updatedAt: new Date(),
+            }).where(eq(checklistInstanceItemSubmissions.id, id))
+
+            await recomputeItemDone(tx, lockedItem)
+
+            const [updated] = await tx.select().from(checklistInstanceItemSubmissions).where(eq(checklistInstanceItemSubmissions.id, id)).limit(1)
+            return { row: updated, changed: true }
+        })
+
+        if (!changed) return row
+
+        await syncVerificationStatus(item.instanceId)
         if (instance) emitChecklistEvent("checklist-instance:updated", { storeId: instance.storeId }, { instanceId: item.instanceId })
-        return updated
+        return row
     },
 }

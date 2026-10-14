@@ -28,12 +28,16 @@ const SUMMARY_TTL_SECONDS = 10
 // prefix can't match anyone else's.
 const dropTodoSummary = (userId: string) => invalidateQuick(cacheKey(TODO_SUMMARY_PREFIX, userId))
 
+const MAX_TODOS_PER_LIST = 1000
+
 export const todoService = {
     // `limit` is optional so the old callers (the to-do page) keep getting everything; the dashboard
     // passes a small one and takes its counts from summary() instead of counting the list.
     async listForUser(userId: string, limit?: number) {
         const query = db.select().from(todos).where(eq(todos.userId, userId)).orderBy(desc(todos.createdAt))
-        return limit ? query.limit(limit) : query
+        // No limit still means "everything the page needs", but not unbounded: a hard ceiling so a
+        // person with years of to-dos can't turn one page load into a huge query.
+        return query.limit(limit ?? MAX_TODOS_PER_LIST)
     },
 
     // Backs the sidebar's "To-Do" count badge and its hover breakdown, and the dashboard's To-do

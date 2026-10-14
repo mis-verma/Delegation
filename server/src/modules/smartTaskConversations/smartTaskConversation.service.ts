@@ -131,7 +131,10 @@ export const smartTaskConversationService = {
     async listForUser(userId: string) {
         const conversations = await db.select().from(smartTaskConversations)
             .where(eq(smartTaskConversations.userId, userId))
-            .orderBy(desc(smartTaskConversations.createdAt));
+            .orderBy(desc(smartTaskConversations.createdAt))
+            // The history list shows recent chats only. Without a cap this loaded every
+            // conversation a person ever had, plus every message in all of them, on each open.
+            .limit(50);
         if (!conversations.length) return [];
 
         // One extra query for every message across every listed conversation (rather than N+1

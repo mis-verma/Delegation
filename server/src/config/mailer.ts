@@ -1,11 +1,12 @@
 import nodemailer from "nodemailer"
+import type { Transporter } from "nodemailer"
 import { env } from "./env.js"
 import { settingsService } from "../modules/settings/settings.service.js"
 
 // Lazily-created transporter, cached after the first send so we don't reconnect/re-create a test
 // account on every email. Real SMTP (when SMTP_HOST is configured) is created synchronously; the
 // Ethereal fallback is created asynchronously on first use since it has to hit Ethereal's API.
-let transporterPromise: Promise<nodemailer.Transporter> | null = null;
+let transporterPromise: Promise<Transporter> | null = null;
 
 const buildTransporter = async () => {
     if (env.SMTP_HOST) {

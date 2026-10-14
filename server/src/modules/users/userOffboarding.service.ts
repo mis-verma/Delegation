@@ -22,6 +22,7 @@ import { AppError } from "../../utils/AppError.js"
 import { auditService } from "../audit/audit.service.js"
 import { notificationService, notifySafely } from "../notifications/notification.service.js"
 import { disconnectUserSockets } from "../../sockets/socket.js"
+import { invalidateAuthUsers } from "../../middleware/auth/authCache.js"
 import { assertCanDeactivate, revokeSessions } from "./userGuards.js"
 import { refreshLiveChecklistsForDefinitions } from "./userChecklistSync.js"
 
@@ -332,6 +333,7 @@ export const userOffboardingService = {
         })
 
         // Open sockets of the person who left drop now (they can't reconnect: they're inactive).
+        await invalidateAuthUsers(userId)
         disconnectUserSockets(userId)
 
         // Today's checklists follow straight away: the person who left drops off, the new one takes over.
