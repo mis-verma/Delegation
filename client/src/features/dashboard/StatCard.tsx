@@ -16,11 +16,17 @@ interface StatCardProps {
   iconBgTint?: string;
   caption?: string;
   onClick?: () => void;
+  /** Renders the whole card as a real link (middle-click, open in new tab, right-click all work)
+   *  with an arrow that appears on hover/focus. Wins over `onClick` when both are given. */
   href?: string;
+  /** Replaces the big number with a placeholder while the first request is still in flight. */
   isLoading?: boolean;
+  /** Tighter padding and a smaller number below `sm`, so a grid of these reads as a 2-up set of
+   *  tiles on a phone instead of a wall of big cards. Unchanged from `sm` up. */
   compact?: boolean;
   highlight?: boolean;
   decorative?: boolean;
+  /** Sits beside the label (a "how is this calculated" popover). Clicks on it never reach the card's own click or link. */
   labelAdornment?: ReactNode;
 }
 
@@ -140,7 +146,7 @@ export const StatCard = ({
       }
       className={rootClass}
     >
-      {/* Overlay Link for valid HTML semantics when href is present */}
+      {/* Stretched-link overlay: gives full card link mechanics without nesting interactive children in <a> */}
       {href && (
         <Link
           viewTransition
@@ -150,7 +156,7 @@ export const StatCard = ({
         />
       )}
 
-      {/* Decorative background shapes */}
+      {/* Decorative ambient ring shapes */}
       {highlight && decorative && (
         <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-2xl z-0" aria-hidden="true">
           <span className="absolute -top-9 -right-7 size-28 rounded-full border border-white/10 opacity-70" />
@@ -167,7 +173,7 @@ export const StatCard = ({
         />
       )}
 
-      {/* Top Section: Title & Icon */}
+      {/* Top Header: Title, Value, Adornment, Icon */}
       <div className="flex items-start justify-between gap-2 relative z-10">
         <div className="flex flex-col gap-1 min-w-0 flex-1">
           <div className="flex items-center gap-1.5 min-w-0">
@@ -233,7 +239,7 @@ export const StatCard = ({
         )}
       </div>
 
-      {/* Bottom Section: Trend Badge, Caption, and Action Arrow */}
+      {/* Bottom Row: Trend Badge, Caption, and Link Arrow Indicator */}
       {(hasTrend || caption || isLink) && (
         <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mt-1 relative z-10 pointer-events-none">
           {hasTrend && (
