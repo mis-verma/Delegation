@@ -92,7 +92,9 @@ export const SendBackForm = ({
   return (
     <>
       {quickReasons && (
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Quick reasons">
+        // One scrolling row on a phone (four chips wrapped to two rows and pushed the note box down the
+        // screen); they wrap as before from sm up. `shrink-0` keeps each chip its natural width.
+        <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 [&>*]:shrink-0" role="group" aria-label="Quick reasons">
           {QUICK_REASONS.map((reason) => (
             <ToggleChip key={reason} on={hasReason(note, reason)} disabled={busy} onClick={() => onNoteChange(toggleReason(note, reason))}>
               {reason}

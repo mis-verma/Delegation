@@ -247,9 +247,12 @@ const ReviewRow = memo(function ReviewRow({ item, canWaive, flags, selected, dis
           Send back on the left, Waive (only where it counts against compliance) on the right. The whole
           label is the tap target, 44px tall on a touch screen. */}
       <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t border-border/50 pt-1.5">
+        {/* `relative` is load-bearing: the checkbox inside is visually hidden (absolutely positioned). Without
+            this label as its anchor it sat outside the sheet's scrolling body, and ticking it made the browser
+            scroll the whole sheet up to reach it: the header vanished and a blank gap opened under the buttons. */}
         <label
           className={cn(
-            'inline-flex min-h-11 sm:min-h-9 select-none items-center gap-2 rounded-lg pr-3 transition-colors duration-150',
+            'relative inline-flex min-h-11 sm:min-h-9 select-none items-center gap-2 rounded-lg pr-3 transition-colors duration-150',
             disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
             selected ? 'text-danger' : 'text-text-secondary hover:text-text',
           )}

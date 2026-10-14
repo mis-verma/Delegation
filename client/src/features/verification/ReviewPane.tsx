@@ -44,28 +44,41 @@ export const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, picked
   const canWaive = !!user && ['ADMIN', 'PC', 'MANAGER', 'SENIOR'].includes(user.role) && !instance.assigneeIds.includes(user.id);
   const photos = risk.photosNeeded > 0 ? `${risk.photosHave}/${risk.photosNeeded}` : 'None';
 
+  const fullPageLink = (
+    <Link
+      to={`/checklists/${instance.id}`}
+      className="inline-flex items-center justify-center gap-1 shrink-0 min-h-11 min-w-11 sm:min-h-8 sm:min-w-0 px-2 -mr-2 rounded-md t-meta font-display font-medium text-text-muted hover:text-text hover:bg-surface-hover transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+    >
+      {/* Just the icon on a phone, so the details line keeps the width; the words stay for screen readers. */}
+      <span className="sr-only sm:not-sr-only">Open full page</span> <ExternalLink size={14} aria-hidden />
+    </Link>
+  );
+
   return (
     <div className="flex flex-col gap-5">
       <header className="flex flex-col gap-2">
+        {/* With its own title row (desktop pane) the link sits beside the title. In the phone sheet the title is
+            already in the sheet's header, so the link joins the details line instead of a row of its own,
+            which used to leave a blank band at the top of the sheet. */}
+        {!hideTitle && (
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="t-section font-display font-bold text-text leading-snug">{instance.title}</h2>
+            {fullPageLink}
+          </div>
+        )}
         <div className="flex items-start justify-between gap-3">
-          {!hideTitle && <h2 className="t-section font-display font-bold text-text leading-snug">{instance.title}</h2>}
-          <Link
-            to={`/checklists/${instance.id}`}
-            className="inline-flex items-center gap-1 shrink-0 min-h-11 sm:min-h-8 px-2 -mr-2 rounded-md t-meta font-display font-medium text-text-muted hover:text-text hover:bg-surface-hover transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
-          >
-            Open full page <ExternalLink size={12} aria-hidden />
-          </Link>
+          <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 t-meta font-display text-text-muted">
+            {row.storeName && <span>{row.storeName}</span>}
+            <span>{formatPeriodSpan(instance)}</span>
+            {instance.submittedAt && (
+              <span>
+                {instance.submittedByName ? `Submitted by ${instance.submittedByName}, ` : 'Submitted '}
+                {formatDateTime(instance.submittedAt)}
+              </span>
+            )}
+          </p>
+          {hideTitle && fullPageLink}
         </div>
-        <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 t-meta font-display text-text-muted">
-          {row.storeName && <span>{row.storeName}</span>}
-          <span>{formatPeriodSpan(instance)}</span>
-          {instance.submittedAt && (
-            <span>
-              {instance.submittedByName ? `Submitted by ${instance.submittedByName}, ` : 'Submitted '}
-              {formatDateTime(instance.submittedAt)}
-            </span>
-          )}
-        </p>
         <div className="flex flex-wrap items-center gap-1.5">
           {risk.criticalFailed > 0 && (
             <IconChip icon={Flag} tone="bg-danger" label="Critical question failed" className="border-danger/40 bg-danger/10" />
@@ -166,11 +179,17 @@ export const ReviewPaneFooter = memo(function ReviewPaneFooter({ row, draft, onA
   }
 
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full">
-      <p className="t-meta font-display text-text-secondary">
-        {count > 0
-          ? `${count} ${count === 1 ? 'question' : 'questions'} picked. Send them back, or untick them to approve.`
-          : 'Approve it, or tick the questions that were not done properly.'}
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 w-full">
+      {/* On a phone the sheet's own text above the questions already says how to pick, so with nothing picked
+          the buttons stand alone, and once something is picked this is just the count. A repeat of the same
+          sentence here took a quarter of the screen. */}
+      <p className={cn('t-meta font-display text-text-secondary', count === 0 && 'hidden sm:block')}>
+        {count > 0 ? (
+          <>
+            <span className="sm:hidden">{count} picked</span>
+            <span className="hidden sm:inline">{`${count} ${count === 1 ? 'question' : 'questions'} picked. Send them back, or untick them to approve.`}</span>
+          </>
+        ) : 'Approve it, or tick the questions that were not done properly.'}
       </p>
       <ReviewActions
         stretch
