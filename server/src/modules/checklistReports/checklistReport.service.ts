@@ -15,25 +15,16 @@ import { hasExtraDay, isIdleHolidayRun, loadOffDayRules, type OffDayRules, type 
 import { metDeadlinePct, onTimeOfFinishedPct, pooledCompliancePct, runCompletionPct, tallyRuns, type RunOutcome, type RunTally } from "../scores/scoreFormulas.js"
 import type { ChecklistReportGrouping, ChecklistReportQuery } from "./checklistReport.validation.js"
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
 
 export type ReportMetrics = {
     assigned: number
     completed: number
-    /** Run based: completed / due. Runs still open before their deadline are in neither side. */
     completionPct: number | null
     onTime: number
-    /** Same figure as onTimeOfFinishedPct, kept for older callers: on time / completed. */
     onTimePct: number | null
-    /** On time / completed ("of finished"). */
     onTimeOfFinishedPct: number | null
-    /** On time / due: a late or missed run both count against it. */
     metDeadlinePct: number | null
-    /** completed + missed: runs whose deadline has passed, or that are done. */
     due: number
-    /** Not completed and still before the deadline. In no percentage and not missed. */
     open: number
     missed: number
     submitted: number
@@ -42,9 +33,7 @@ export type ReportMetrics = {
     questionsDone: number
     notApplicable: number
     answersChecked: number
-    /** Pooled weighted compliance: weightedGood / weightedScored over every checked answer. */
     compliancePct: number | null
-    /** The raw weights behind compliancePct (critical x2), so rows can be pooled without averaging percentages. */
     weightedGood: number
     weightedScored: number
 }
@@ -56,7 +45,6 @@ export type PersonRow = ReportMetrics & {
     department: string
     store: string
     status: "Active" | "Left"
-    /** Counted runs of this person that are also assigned to someone else (so also on that person's row). */
     sharedRuns: number
 }
 
@@ -64,16 +52,11 @@ export type DepartmentRow = ReportMetrics & {
     departmentId: string | null
     department: string
     people: number
-    /** Counted runs of this department that also have an assignee in another department (or in none). */
     sharedRuns: number
 }
 
-/** One checklist (definition) with its runs in scope, each run once. */
 export type DefinitionRow = ReportMetrics & { definitionId: string; title: string; recurrence: string }
-
-/** One person's runs and answers inside one store: the same figures as `build` with that store as the filter. */
 export type StorePersonRow = ReportMetrics & { userId: string; storeId: string }
-/** One store's runs (each counted once) with every checked answer on them, whoever gave it. */
 export type StoreTotalRow = ReportMetrics & { storeId: string }
 
 export type ChecklistReport = {
@@ -82,24 +65,15 @@ export type ChecklistReport = {
     generatedAt: string
     storeName: string | null
     departmentName: string | null
-    // True when the department filter was forced by the caller's role (MANAGER / SENIOR).
     departmentLocked: boolean
     people: PersonRow[]
     departments: DepartmentRow[]
-    /** Only when asked for (`byStore`): every person's figures split by the store of each run. */
     storePeople?: StorePersonRow[]
-    /** Only when asked for (`byStore`): one row per store, each run counted once. */
     storeTotals?: StoreTotalRow[]
-    /** Only when asked for (`byDefinition`): one row per checklist definition, each run once. */
     definitions?: DefinitionRow[]
-    /** Every run in scope counted once (never once per assignee) with every checked answer on those runs. */
     totals: ReportMetrics
-    /**
-     * Runs counted in `totals` that have nobody assigned, so no person or department row carries them
-     * (always empty with a person or department filter: those need an assignee by definition).
-     */
+    
     unassigned: ReportMetrics
-    /** How many counted runs are shared, to explain why departments or people do not add up to `totals`. */
     sharing: { runsWithSeveralAssignees: number; runsAcrossDepartments: number; runsWithoutAssignee: number }
     notes: string[]
 }
@@ -118,12 +92,7 @@ export const REPORT_NOTES = [
 const NO_DEPARTMENT_KEY = "__none__"
 const NO_DEPARTMENT_LABEL = "No department"
 
-// ---------------------------------------------------------------------------
-// SQL fragments
-// ---------------------------------------------------------------------------
 
-// Same idea as parentNotDeletedExpr in checklistInstance.service.ts (not exported there): a
-// checklist whose template was soft-deleted drops out of every view, reports included.
 const parentNotDeletedExpr = sql`NOT EXISTS (
     SELECT 1 FROM ${checklistDefinitions} d
     WHERE d.id = ${checklistInstances.definitionId} AND d.deletedAt IS NOT NULL
@@ -131,20 +100,12 @@ const parentNotDeletedExpr = sql`NOT EXISTS (
 
 const item = checklistInstanceItems
 
-// Mirrors answerVerdict() in client/src/features/checklist/checklistCompliance.ts. An item is
-// scored only when it is done, not "not applicable", has an accepted-answer rule that fits its
-// type, and carries an answer to compare. The three shapes of "has an answer inside a rule":
-//  - YES_NO / PASS_FAIL: booleanAnswer set and acceptableAnswers non-empty
-//  - MULTIPLE_CHOICE / DROPDOWN: textValue set (non-empty) and acceptableAnswers non-empty
-//  - NUMBER_ENTRY / RATING: numericValue set and at least one of acceptableMin / acceptableMax
+
 const boolScored = sql`(${item.itemType} IN ('YES_NO','PASS_FAIL') AND JSON_LENGTH(${item.acceptableAnswers}) > 0 AND ${item.booleanAnswer} IS NOT NULL)`
 const textScored = sql`(${item.itemType} IN ('MULTIPLE_CHOICE','DROPDOWN') AND JSON_LENGTH(${item.acceptableAnswers}) > 0 AND ${item.textValue} IS NOT NULL AND ${item.textValue} <> '')`
 const numScored = sql`(${item.itemType} IN ('NUMBER_ENTRY','RATING') AND (${item.acceptableMin} IS NOT NULL OR ${item.acceptableMax} IS NOT NULL) AND ${item.numericValue} IS NOT NULL)`
 
-// A question a reviewer sent back (sendBackCount > 0) is a FAILED check whatever its answer is now,
-// even if redone well later and even if it has no accepted-answer rule: it was not right first time.
-// It stays scored, and counts as not good, on the person who had done it (sentBackFrom).
-// A WAIVED question (a reviewer excused it, with a reason) is left out of compliance entirely.
+
 const sentBack = sql`(${item.sendBackCount} > 0 AND ${item.isNotApplicable} = 0 AND ${item.waivedAt} IS NULL)`
 const ruleScored = sql`(${item.isDone} = 1 AND ${item.isNotApplicable} = 0 AND ${item.waivedAt} IS NULL AND (${boolScored} OR ${textScored} OR ${numScored}))`
 
@@ -159,8 +120,7 @@ const goodExpr = sql<number>`SUM(CASE
         AND (${item.acceptableMax} IS NULL OR ${item.numericValue} <= ${item.acceptableMax}) THEN 1
     ELSE 0 END)`
 
-// A critical question counts double in Compliance %: weighted twins of scoredExpr/goodExpr above
-// (Answers checked stays the raw count).
+
 const weightExpr = sql`(CASE WHEN ${item.isCritical} = 1 THEN 2 ELSE 1 END)`
 const weightedScoredBody = sql`(CASE WHEN ${sentBack} THEN ${weightExpr} WHEN ${ruleScored} THEN ${weightExpr} ELSE 0 END)`
 const weightedGoodBody = sql`(CASE
@@ -175,9 +135,7 @@ const weightedGoodBody = sql`(CASE
 export const weightedScoredExpr = sql<number>`SUM(${weightedScoredBody})`
 export const weightedGoodExpr = sql<number>`SUM(${weightedGoodBody})`
 
-// The same two figures, counting only the questions credited to people of one department. A department
-// head looking at a checklist shared across departments sees their own people's answers, not the other
-// departments' (who a question is credited to is explained under creditedUser below).
+
 const creditedToDepartment = (departmentId: string) => sql`EXISTS (
     SELECT 1 FROM ${users} cu
     WHERE cu.id = (CASE WHEN ${item.sendBackCount} > 0 AND ${item.sentBackFrom} IS NOT NULL THEN ${item.sentBackFrom} ELSE ${item.completedBy} END)
@@ -186,13 +144,9 @@ const creditedToDepartment = (departmentId: string) => sql`EXISTS (
 export const weightedScoredForDepartment = (departmentId: string) => sql<number>`SUM(CASE WHEN ${creditedToDepartment(departmentId)} THEN ${weightedScoredBody} ELSE 0 END)`
 export const weightedGoodForDepartment = (departmentId: string) => sql<number>`SUM(CASE WHEN ${creditedToDepartment(departmentId)} THEN ${weightedGoodBody} ELSE 0 END)`
 
-// Who a question is credited to: whoever completed it, except a sent-back question, which is credited
-// (as a failure) to the person who had done it when it was sent back.
+
 const creditedUser = sql<string | null>`(CASE WHEN ${item.sendBackCount} > 0 AND ${item.sentBackFrom} IS NOT NULL THEN ${item.sentBackFrom} ELSE ${item.completedBy} END)`
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 export type RunRow = {
     id: string
@@ -211,15 +165,12 @@ export type RunRow = {
     done: number
     lastDoneAt: Date | null
     completedFirstAt: Date | null
-    /** How many people the run is assigned to, and in how many distinct departments (no department counts as one). */
     assigneeCount: number
     departmentSpan: number
 }
 
-/** What one run came to. `skip`: not counted at all (not opened yet, no questions, or an idle daily run on a holiday). */
 export type RunFlags = RunOutcome & { skip: boolean; storeId: string; definitionId: string; title: string; recurrence: string; assigneeCount: number; departmentSpan: number }
 
-/** One row per run, items folded into counts. Shared with the checklist summary so both read a run the same way. */
 export const runSelect = {
     id: checklistInstances.id,
     definitionId: checklistInstances.definitionId,
@@ -248,11 +199,7 @@ export const runGroupBy = [
 
 export type RunFlagContext = { offDayRules: OffDayRules; assigneesByRun: Map<string, RunAssignee[]>; offsetMs: number; now: number }
 
-/**
- * What one run came to. Deadline = periodStart (the org-local day as UTC midnight) + cutoff clock time - org offset.
- * An overnight window (cutoff earlier than opens) rolls to the next day. No cutoff = end of day. `skip`: the run is
- * not real work (no questions, not opened and untouched, or an idle daily run on a holiday no extra day covers).
- */
+
 export const runFlagsOf = (r: RunRow, ctx: RunFlagContext): RunFlags => {
     const { offDayRules, assigneesByRun, offsetMs, now } = ctx
     const total = Number(r.total)
@@ -260,7 +207,6 @@ export const runFlagsOf = (r: RunRow, ctx: RunFlagContext): RunFlags => {
     const complete = total > 0 && done === total
     const deadline = runDeadlineMs(r, offsetMs / 60_000)
     const status = r.verificationStatus
-    // When the run opens for filling: the opens time that day, or the start of the day.
     let opensAt = r.periodStart.getTime() - offsetMs
     if (r.opensTime) {
         const [oh, om] = r.opensTime.split(":").map(Number)
@@ -287,7 +233,6 @@ export const runFlagsOf = (r: RunRow, ctx: RunFlagContext): RunFlags => {
     }
 }
 
-/** Assignees of the given runs, only for runs on a day that has an extra working day (the only case that needs them). */
 export const loadExtraDayAssignees = async (runs: readonly Pick<RunRow, "id" | "periodStart">[], rules: OffDayRules): Promise<Map<string, RunAssignee[]>> => {
     const ids = runs.filter((r) => hasExtraDay(rules, r.periodStart.toISOString().slice(0, 10))).map((r) => r.id)
     const map = new Map<string, RunAssignee[]>()
@@ -318,8 +263,7 @@ const addItems = (into: ItemAcc, from: ItemAcc) => {
     into.wGood += from.wGood
 }
 
-// Run counts come from the shared run formulas (scoreFormulas.ts), answers are pooled from their raw
-// weights: compliance is weightedGood / weightedScored, never an average of percentages.
+
 const toMetrics = (r: RunTally, i: ItemAcc): ReportMetrics => ({
     assigned: r.assigned,
     completed: r.completed,
@@ -362,20 +306,7 @@ const resolveDepartmentScope = (user: AccessTokenPayload, requested?: string): {
 // ---------------------------------------------------------------------------
 
 export const checklistReportService = {
-    /**
-     * `onlyUserId` narrows the report to one person's runs and answers. It skips the role check, so the
-     * caller (the scores module) must already have decided the viewer may see that person.
-     * `options.byStore` also returns `storePeople` and `storeTotals`: each person's figures per store and
-     * each store's own totals, in the same single pass, so a caller scoring every store does not have to
-     * build the report once per store.
-     *
-     * Counting rules (the same everywhere, see scores/scoreFormulas.ts): a run is counted when it is real
-     * work (opened, has questions, not an idle daily run on a holiday). A person row counts the runs they
-     * are assigned; a department, a store and `totals` count every run ONCE, however many people it is
-     * assigned to. Compliance pools every checked answer on the counted runs: a person row the answers
-     * credited to them, a department row the answers credited to its people, a store row and `totals` every
-     * answer on those runs whoever gave it.
-     */
+
     async build(
         user: AccessTokenPayload,
         query: Pick<ChecklistReportQuery, "from" | "to" | "storeId" | "departmentId" | "groupBy"> & { recurrence?: string },
@@ -389,9 +320,7 @@ export const checklistReportService = {
         const offsetMs = env.CHECKLIST_TIMEZONE_OFFSET_MINUTES * 60_000
         const now = Date.now()
 
-        // Runs in range, minus soft-deleted checklists, minus other stores. With a department filter
-        // only runs that have someone from that department assigned matter, which keeps the item
-        // pass below small for a department head.
+    
         const runConditions = [
             gte(checklistInstances.periodStart, new Date(`${from}T00:00:00.000Z`)),
             lte(checklistInstances.periodStart, new Date(`${to}T00:00:00.000Z`)),
@@ -416,13 +345,11 @@ export const checklistReportService = {
         const runWhere = and(...runConditions)
 
         const [runRows, assigneeRows, departmentRows, storeRows, offDayRules] = await Promise.all([
-            // One row per run, items folded into counts.
             db.select(runSelect)
                 .from(checklistInstances)
                 .leftJoin(item, eq(item.instanceId, checklistInstances.id))
                 .where(runWhere)
                 .groupBy(...runGroupBy),
-            // Who each run belongs to, with the person's details, so there is no per-person lookup.
             db.select({
                 instanceId: checklistInstanceAssignees.instanceId,
                 userId: users.id,
@@ -432,7 +359,6 @@ export const checklistReportService = {
                 departmentId: users.departmentId,
                 storeId: users.storeId,
                 isActive: users.isActive,
-                // The store the run belongs to (not the person's own store), for the per-store split.
                 instanceStoreId: checklistInstances.storeId,
             })
                 .from(checklistInstanceAssignees)
@@ -448,8 +374,7 @@ export const checklistReportService = {
         const departmentNames = new Map(departmentRows.map((d) => [d.id, d.name]))
         const storeNames = new Map(storeRows.map((s) => [s.id, s.name]))
 
-        // Every assignee of a run on a day with an extra working day, NOT just the filtered ones, so whether
-        // a holiday run is covered never depends on which person or department the report is filtered to.
+    
         const assigneesByRun = await loadExtraDayAssignees(runRows, offDayRules)
         const flagCtx: RunFlagContext = { offDayRules, assigneesByRun, offsetMs, now }
         const flagsByRun = new Map<string, RunFlags>(runRows.map((r) => [r.id, runFlagsOf(r, flagCtx)]))
@@ -644,9 +569,6 @@ export const checklistReportService = {
     },
 }
 
-// ---------------------------------------------------------------------------
-// Export columns and writers
-// ---------------------------------------------------------------------------
 
 type ColumnDef = CsvColumn & { width: number; tone?: boolean }
 

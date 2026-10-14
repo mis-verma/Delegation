@@ -40,15 +40,9 @@ export type BulkImportApplySummary = {
     updatedDefinitions: number
     storesAdded: number
     assigneesAdded: number
-    // One entry per definition group that failed — mirrors ticketBulkImport/taskBulkImport's own
-    // {created, failed} shape, adapted to this endpoint's per-definition (not per-row) unit of work.
     failed: { definitionId: string; message: string }[]
 }
 
-// Accepted column headers, case-insensitive — tolerant of the handful of variants a real-world
-// export is likely to use. "department" rides along for the admin's own reference in the review
-// table only; this app has no department-scoped checklist assignment yet (storeIds/assigneeIds
-// are the only real scope a definition has), so it never participates in matching.
 const HEADER_ALIASES: Record<string, "checklistName" | "storeName" | "personName" | "department"> = {
     "checklist name": "checklistName",
     "checklist": "checklistName",
@@ -73,7 +67,6 @@ const buildRowFromRecord = (record: Record<string, string>, rowIndex: number): B
         const v = String(value ?? "").trim()
         if (v) mapped[canonical] = v
     }
-    // A fully blank row (e.g. a trailing empty line) carries nothing worth previewing.
     if (!mapped.checklistName && !mapped.storeName && !mapped.personName) return null
     return {
         rowIndex,
@@ -115,11 +108,7 @@ const parseXlsxRows = async (buffer: Buffer): Promise<BulkImportRawRow[]> => {
     return rows
 }
 
-// A PDF has no real columns — this best-effort path tries pdf-parse's own table detector first
-// (reliable for a PDF that's actually a simple exported table), then falls back to splitting raw
-// extracted text by whichever delimiter each line seems to use. Anything more elaborate belongs
-// in an actual CSV/Excel export instead — the caller surfaces a "double-check these rows" warning
-// either way.
+
 const splitPdfLine = (line: string): string[] => {
     if (line.includes(",")) return line.split(",").map((s) => s.trim())
     if (line.includes("\t")) return line.split("\t").map((s) => s.trim())
@@ -163,9 +152,7 @@ const parsePdfRows = async (buffer: Buffer): Promise<{ rows: BulkImportRawRow[];
 
 export const checklistBulkImportService = {
     async parseFile(buffer: Buffer, mimetype: string): Promise<{ rows: BulkImportRawRow[]; warnings: string[] }> {
-        // "application/vnd.ms-excel" is also what some browsers/OSes report a .csv as (same
-        // ambiguity handled the same way for task attachments, see upload.ts) — not real legacy
-        // .xls binary support, which this feature doesn't need.
+       
         if (mimetype === "text/csv" || mimetype === "application/vnd.ms-excel") {
             return { rows: parseCsvRows(buffer), warnings: [] }
         }
@@ -229,24 +216,16 @@ export const checklistBulkImportService = {
         let assigneesAdded = 0
         const failed: { definitionId: string; message: string }[] = []
 
-        // One bad group (e.g. a store/user referenced in the sheet got deleted between preview
-        // and publish) must not abort groups already processed, and must not vanish silently
-        // either — each group gets its own try/catch, same posture as ticketBulkImport/
-        // taskBulkImport's per-row try/catch, adapted to this endpoint's per-definition unit of
-        // work. Each individual update() is already its own transaction (checklistDefinition
-        // service.ts), so a failed group never leaves that one definition half-written.
+    
         for (const [definitionId, group] of groups) {
             try {
                 const existing = await checklistDefinitionService.getById(definitionId)
                 const unionedStoreIds = Array.from(new Set([...existing.storeIds, ...group.storeIds]))
                 const unionedAssigneeIds = Array.from(new Set([...existing.assigneeIds, ...group.userIds]))
 
-                // Reuses the existing, already-transactional, generation-triggering update() rather
-                // than hand-rolling junction-table writes — see checklistDefinition.service.ts:211.
+             
                 const input: UpdateChecklistDefinitionInput = {
-                    // existing was fetched fresh just above (not stale form state like the
-                    // builder's), so its version is a safe echo — this call genuinely is "no one
-                    // else's change in between," not a conflict.
+                   
                     version: existing.version,
                     name: existing.name,
                     description: existing.description ?? undefined,
