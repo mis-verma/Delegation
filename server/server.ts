@@ -133,7 +133,11 @@ const forkWorkerPool = (workerCount: number) => {
   // IPC to the worker that already owns that session (falling back to least-connection for a
   // brand-new session) — nginx and CloudPanel are untouched, they still just proxy to PORT.
   const httpServer = http.createServer();
-  setupMaster(httpServer, { loadBalancingMethod: "least-connection" });
+  // round-robin, not least-connection: that mode only counts Socket.IO sessions, never plain HTTP
+  // connections, so every count stays equal and every tie goes to the first worker. Measured with
+  // 1000 simulated people: one worker at ~250% CPU, the other three at 0%, i.e. the whole REST API ran
+  // on a single core. A request carrying a socket's sid still goes to the worker that owns it.
+  setupMaster(httpServer, { loadBalancingMethod: "round-robin" });
   cluster.setupPrimary({ serialization: "advanced" });
   httpServer.listen(env.PORT, () => {
     console.log(`Sticky primary listening on http://localhost:${env.PORT}`);

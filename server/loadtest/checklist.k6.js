@@ -14,6 +14,16 @@ import http from 'k6/http'
 import { check, sleep } from 'k6'
 import { Counter, Trend } from 'k6/metrics'
 
+const ENDPOINTS = [
+  'POST /auth/login',
+  'POST /auth/refresh',
+  'GET /checklist-instances/mine',
+  'PATCH /checklist-instance-items/:id',
+  'GET /checklist-instances/:id',
+  'PATCH /checklist-instances/:id/submit',
+  'GET /checklist-instances/summary',
+]
+
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:5050'
 const PASSWORD = __ENV.PASSWORD || 'LoadTest#2026'
 const PEAK_USERS = Number(__ENV.PEAK_USERS || 1000)
@@ -40,6 +50,8 @@ export const options = {
     // Rate limiting is a failure here: a real person on a real phone must not be blocked.
     rate_limited: ['count==0'],
     tick_duration: ['p(95)<800'],
+    // Never fail: these exist only so k6 keeps a timing per endpoint for the summary table below.
+    ...Object.fromEntries(ENDPOINTS.map((name) => [`http_req_duration{name:${name}}`, ['max>=0']])),
   },
 }
 
@@ -156,6 +168,12 @@ export function handleSummary(data) {
     line('Server errors (5xx):', m.server_errors ? m.server_errors.values.count : 0),
     line('All requests p95:', ms(m.http_req_duration, 'p(95)')),
     line('Tick p50 / p95 / p99:', `${ms(m.tick_duration, 'med')} / ${ms(m.tick_duration, 'p(95)')} / ${ms(m.tick_duration, 'p(99)')}`),
+    '',
+    'Per endpoint (p50 / p95 / max):',
+    ...ENDPOINTS.map((name) => {
+      const metric = m[`http_req_duration{name:${name}}`]
+      return metric ? `  ${name.padEnd(40)}${ms(metric, 'med')} / ${ms(metric, 'p(95)')} / ${ms(metric, 'max')}` : `  ${name.padEnd(40)}no requests`
+    }),
     '',
   ].join('\n')
   return { stdout: out }
