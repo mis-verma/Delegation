@@ -171,11 +171,11 @@ interface ReviewRowProps {
 const ReviewRow = memo(function ReviewRow({ item, canWaive, flags, selected, disabled, onToggle, note, onNoteChange, previousNote, deadlineMs }: ReviewRowProps) {
   const answer = item.isNotApplicable ? null : answerText(item);
   const answeredLate = deadlineMs != null && item.isDone && !!item.completedAt && new Date(item.completedAt).getTime() > deadlineMs;
-  // A light wash over the whole row so the reviewer can read the run at a glance: red where the answer
-  // was wrong (a "No" when Yes was wanted, an out-of-range number, or a question already sent back),
-  // green where it was right. A question with no accepted-answer rule, a waived one and a not-applicable
-  // one stay plain. Ticking a row to send it back deepens the red, so "wrong answer" and "I am sending
-  // this back" can still be told apart.
+  // Each question is its own small card, with space between cards, so a reviewer can read the run at a glance:
+  // a light red wash and border where the answer was wrong (a "No" when Yes was wanted, an out-of-range number,
+  // or a question already sent back), green where it was right. A question with no accepted-answer rule, a
+  // waived one and a not-applicable one stay plain. Ticking a card to send it back deepens the red, so "wrong
+  // answer" and "I am sending this back" can still be told apart.
   const verdict = answerVerdict(item);
   const wrong = flags.bad || flags.sentBack;
   const right = verdict === 'good' && !flags.sentBack && !flags.missingPhotos;
@@ -183,32 +183,17 @@ const ReviewRow = memo(function ReviewRow({ item, canWaive, flags, selected, dis
   return (
     <li
       className={cn(
-        'flex items-start gap-1 px-2 py-2.5 rounded-lg transition-colors duration-150',
-        selected ? 'bg-danger/10 dark:bg-danger/20' : wrong ? 'bg-danger/5 dark:bg-danger/10' : right ? 'bg-success/5 dark:bg-success/10' : '',
+        'flex flex-col gap-2 rounded-xl border p-3 transition-colors duration-150',
+        selected
+          ? 'border-danger/50 bg-danger/10 dark:bg-danger/20'
+          : wrong
+            ? 'border-danger/25 bg-danger/5 dark:bg-danger/10'
+            : right
+              ? 'border-success/30 bg-success/5 dark:bg-success/10'
+              : 'border-border bg-surface',
       )}
     >
-      {/* The whole 44px square is the tap target, so a finger can pick the question that was done badly. */}
-      <label className="flex items-center justify-center size-11 sm:size-8 shrink-0 cursor-pointer -ml-1.5">
-        <input
-          type="checkbox"
-          className="peer sr-only"
-          checked={selected}
-          disabled={disabled}
-          onChange={() => onToggle(item.id)}
-          aria-label={`Send back: ${item.label}`}
-        />
-        <span
-          className={cn(
-            'flex items-center justify-center size-5 rounded-md border transition-colors duration-150 peer-focus-visible:ring-2 peer-focus-visible:ring-danger/40',
-            selected ? 'bg-danger border-danger text-white' : 'bg-surface border-border hover:border-danger/60',
-          )}
-          aria-hidden
-        >
-          <Check size={13} strokeWidth={3} className={cn('transition-opacity duration-150', selected ? 'opacity-100' : 'opacity-0')} />
-        </span>
-      </label>
-
-      <div className="flex flex-col gap-1.5 min-w-0 flex-1 pt-1 sm:pt-0.5">
+      <div className="flex flex-col gap-1.5 min-w-0">
         <div className="flex items-start justify-between gap-2 flex-wrap">
           <p className="text-sm font-display font-medium text-text leading-snug min-w-0">{item.label}</p>
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -244,11 +229,6 @@ const ReviewRow = memo(function ReviewRow({ item, canWaive, flags, selected, dis
             Waived: {item.waiveReason}
           </p>
         )}
-        {canWaive && (flags.bad || flags.sentBack || flags.waived) && (
-          <div className="flex justify-end">
-            <WaiveAction instanceId={item.instanceId} item={item} />
-          </div>
-        )}
         {flags.fixed && previousNote && (
           <p className="text-xs font-display text-text-muted whitespace-pre-wrap break-words border-l-2 border-border pl-2.5">
             You sent it back with: {previousNote}
@@ -261,19 +241,53 @@ const ReviewRow = memo(function ReviewRow({ item, canWaive, flags, selected, dis
         )}
         {item.itemType === 'AUDIT' && <AuditPeople item={item} />}
         {item.itemType !== 'AUDIT' && <ItemHistory item={item} />}
-        {selected && onNoteChange && (
-          <input
-            type="text"
-            value={note}
-            maxLength={QUESTION_NOTE_MAX}
-            disabled={disabled}
-            onChange={(e) => onNoteChange(item.id, e.target.value)}
-            placeholder="Note for this question (optional)"
-            aria-label={`Note for: ${item.label}`}
-            className="w-full h-11 sm:h-9 px-3 rounded-lg border border-border bg-surface text-sm font-display text-text placeholder:text-text-light transition-colors duration-150 outline-none hover:border-border-hover focus:border-primary-400 focus-visible:ring-2 focus-visible:ring-primary-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
-          />
-        )}
       </div>
+
+      {/* What the reviewer can do with this question, in one labelled row at the bottom of its card:
+          Send back on the left, Waive (only where it counts against compliance) on the right. The whole
+          label is the tap target, 44px tall on a touch screen. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t border-border/50 pt-1.5">
+        <label
+          className={cn(
+            'inline-flex min-h-11 sm:min-h-9 select-none items-center gap-2 rounded-lg pr-3 transition-colors duration-150',
+            disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
+            selected ? 'text-danger' : 'text-text-secondary hover:text-text',
+          )}
+        >
+          <input
+            type="checkbox"
+            className="peer sr-only"
+            checked={selected}
+            disabled={disabled}
+            onChange={() => onToggle(item.id)}
+            aria-label={`Send back: ${item.label}`}
+          />
+          <span
+            className={cn(
+              'flex size-5 shrink-0 items-center justify-center rounded-md border transition-colors duration-150 peer-focus-visible:ring-2 peer-focus-visible:ring-danger/40',
+              selected ? 'border-danger bg-danger text-white' : 'border-border bg-surface',
+            )}
+            aria-hidden
+          >
+            <Check size={13} strokeWidth={3} className={cn('transition-opacity duration-150', selected ? 'opacity-100' : 'opacity-0')} />
+          </span>
+          <span className="t-meta font-display font-semibold">{selected ? 'Sending back' : 'Send back'}</span>
+        </label>
+        {canWaive && (flags.bad || flags.sentBack || flags.waived) && <WaiveAction instanceId={item.instanceId} item={item} />}
+      </div>
+
+      {selected && onNoteChange && (
+        <input
+          type="text"
+          value={note}
+          maxLength={QUESTION_NOTE_MAX}
+          disabled={disabled}
+          onChange={(e) => onNoteChange(item.id, e.target.value)}
+          placeholder="Note for this question (optional)"
+          aria-label={`Note for: ${item.label}`}
+          className="w-full h-11 sm:h-9 px-3 rounded-lg border border-border bg-surface text-sm font-display text-text placeholder:text-text-light transition-colors duration-150 outline-none hover:border-border-hover focus:border-primary-400 focus-visible:ring-2 focus-visible:ring-primary-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+        />
+      )}
     </li>
   );
 });
@@ -356,7 +370,7 @@ export const InstanceReviewPanel = memo(function InstanceReviewPanel({
       <section className="flex flex-col gap-3" aria-label="Needs a look">
         <SectionTitle>{`Needs a look (${look.length})`}</SectionTitle>
         {look.length > 0 ? (
-          <ul className="flex flex-col divide-y divide-border/40">{look.map(renderRow)}</ul>
+          <ul className="flex flex-col gap-2">{look.map(renderRow)}</ul>
         ) : (
           <p className="text-xs font-display text-text-muted">Nothing stands out. Every answer was within its rule and photos are in.</p>
         )}
@@ -373,7 +387,7 @@ export const InstanceReviewPanel = memo(function InstanceReviewPanel({
             <ChevronDown size={15} aria-hidden className={cn('transition-transform duration-200', showRest ? 'rotate-0' : '-rotate-90')} />
             {`Everything else (${rest.length} ${rest.length === 1 ? 'question' : 'questions'})`}
           </button>
-          {showRest && <ul className="flex flex-col divide-y divide-border/40">{rest.map(renderRow)}</ul>}
+          {showRest && <ul className="flex flex-col gap-2">{rest.map(renderRow)}</ul>}
         </section>
       )}
     </div>

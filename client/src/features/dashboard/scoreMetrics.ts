@@ -15,8 +15,6 @@ export const METRIC_LABEL: Record<ScoreMetric, string> = { overview: SCORE_LABEL
 export const isMetric = (v: unknown): v is ScoreMetric => typeof v === 'string' && (METRIC_OPTIONS as readonly string[]).includes(v);
 
 export const SERIES_LABEL: Record<SeriesKey, string> = { completion: SCORE_LABEL.completion, compliance: SCORE_LABEL.compliance, ontime: SCORE_LABEL.onTime };
-/** Plain words for the phone legend, where there is no hint to explain "completion" and "compliance". */
-export const SERIES_PHONE_LABEL: Record<SeriesKey, string> = { completion: 'Done', compliance: 'On time or right', ontime: 'On time' };
 // Blue in three weights, so the three read as one family and a colour means the same in every view.
 export const SERIES_COLOR: Record<SeriesKey, string> = {
   completion: 'var(--color-primary-500)',

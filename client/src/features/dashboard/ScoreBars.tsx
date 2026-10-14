@@ -7,7 +7,7 @@ import type { Scores } from '../../api/scores';
 import { formatPct } from '../../lib/percent';
 import { MODULE_LABEL } from '../../lib/scoreLabels';
 import { SeriesLegend } from './SeriesLegend';
-import { SERIES_COLOR, SERIES_LABEL, SERIES_PHONE_LABEL, numbersFor, seriesFor, type ModuleKey, type ScoreMetric, type SeriesKey } from './scoreMetrics';
+import { SERIES_COLOR, SERIES_LABEL, numbersFor, seriesFor, type ModuleKey, type ScoreMetric, type SeriesKey } from './scoreMetrics';
 
 // A faint lane behind every bar shows how far from 100% it is.
 const TRACK_FILL = 'color-mix(in oklab, var(--color-primary-500) 6%, transparent)';
@@ -132,7 +132,9 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
 
   return (
     <div className="flex flex-col gap-3">
-      <SeriesLegend series={series} labels={isMobile ? SERIES_PHONE_LABEL : SERIES_LABEL} />
+      {/* Phone: just the bars. The legend chips ("Done", "On time or right") are gone there; the card's ? says
+          what the bars mean, and each bar still carries its number. Wider screens keep the legend. */}
+      {!isMobile && <SeriesLegend series={series} labels={SERIES_LABEL} />}
 
       {/* The height is fixed so the card does not jump while the numbers load or the window changes. */}
       <div className={`relative h-56 sm:h-64 w-full ${onOpenModule ? '[&_.recharts-bar-rectangle]:cursor-pointer' : ''}`} role="img" aria-label={allEmpty ? emptyText : summary || 'Loading scores'}>

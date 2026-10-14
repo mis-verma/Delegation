@@ -1,5 +1,6 @@
 import { memo, useMemo } from 'react';
 import { Link } from 'react-router';
+import { cn } from '@/lib/utils';
 import { ShieldAlert, TicketCheck, CheckSquare, ClipboardCheck, ChevronRight, CheckCheck, type LucideIcon } from 'lucide-react';
 import { IconChip } from '../../components/iconChip';
 import { Skeleton } from '../../components/skeleton';
@@ -36,9 +37,19 @@ const MOBILE_PREVIEW_LIMIT = 3;
 
 // A plain divided row (no box of its own inside the card's box), the same row style as the other
 // dashboard lists. Hover is a neutral wash, never a blue tint or an underline.
+// Phone: how long it has waited as a compact badge ("5h", "2d") rather than a sentence, so the title keeps
+// the row. Its colour says how urgent: orange from 12 hours, red once past the 24-hour decision time.
+const waitBadge = (isoDate: string, now: number) => {
+  const hours = Math.max(0, Math.floor((now - new Date(isoDate).getTime()) / 3_600_000));
+  const text = hours < 1 ? '<1h' : hours < 24 ? `${hours}h` : `${Math.floor(hours / 24)}d`;
+  const tone = hours >= 24 ? 'bg-danger/10 text-danger' : hours >= 12 ? 'bg-warning/10 text-warning' : 'bg-surface-hover text-text-secondary';
+  return { text, tone };
+};
+
 const ApprovalLink = memo(({ row, now }: { row: ApprovalRow; now: number }) => {
   const Icon = CATEGORY_ICON[row.category];
   const waiting = waitingFor(row.waitingSince, now);
+  const badge = waitBadge(row.waitingSince, now);
   return (
     <Link
       to={row.link}
@@ -53,9 +64,17 @@ const ApprovalLink = memo(({ row, now }: { row: ApprovalRow; now: number }) => {
             phone, and truncate cut titles down to a fragment. */}
         <p className="line-clamp-2 text-sm font-display font-medium sm:font-semibold text-text leading-snug">{row.title.replace(/\.(\s+·|\s*$)/, '$1')}</p>
         <p className="t-meta font-medium text-text-muted">
-          {row.meta ? `${row.meta}, waiting ${waiting}` : `Waiting ${waiting}`}
+          {/* Phone: what kind of item and whose; the wait is the badge on the right. */}
+          <span className="line-clamp-1 sm:hidden">{ACTIVITY_CATEGORY_LABEL[row.category]}{row.meta ? ` · ${row.meta}` : ''}</span>
+          <span className="hidden sm:inline">{row.meta ? `${row.meta}, waiting ${waiting}` : `Waiting ${waiting}`}</span>
         </p>
       </div>
+      <span
+        className={cn('sm:hidden shrink-0 rounded-full px-2 py-0.5 t-meta font-display font-bold tabular-nums', badge.tone)}
+        aria-label={`Waiting ${waiting}`}
+      >
+        {badge.text}
+      </span>
       <ChevronRight size={16} strokeWidth={2} className="shrink-0 text-text-muted" aria-hidden="true" />
     </Link>
   );

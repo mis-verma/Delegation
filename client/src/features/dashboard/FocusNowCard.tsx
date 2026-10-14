@@ -194,10 +194,14 @@ export const FocusNowCard = ({ tasks, tickets, checklists, todos, now, isPending
         <span className={cn(TILE_CLASS, 'bg-success/15 text-success')}>
           <CheckCheck className="size-4" aria-hidden="true" />
         </span>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h2 id="focus-now-heading" className="t-section font-display font-bold text-text">You're on track</h2>
-          <p className="t-meta text-text-muted">Nothing is overdue or due today. Nice work.</p>
-          {updated}
+          {/* The sentence and "Updated 16:49" share a wrapping row: on a phone that is two short lines
+              instead of three, and "Nice work." only appears where there is room for it. */}
+          <div className="flex flex-wrap items-baseline gap-x-2">
+            <p className="t-meta text-text-muted">Nothing is overdue or due today.<span className="hidden sm:inline"> Nice work.</span></p>
+            {updated}
+          </div>
         </div>
         {refresh}
       </section>
@@ -210,14 +214,17 @@ export const FocusNowCard = ({ tasks, tickets, checklists, todos, now, isPending
         <span className={cn(TILE_CLASS, urgent > 0 ? 'bg-danger/10 text-danger' : 'bg-primary-500/10 text-primary-600 dark:text-primary-300')}>
           <BellRing className="size-4 motion-safe:animate-[bell-ring_1.2s_ease-in-out_1]" aria-hidden="true" />
         </span>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h2 id="focus-now-heading" className="t-section font-display font-bold text-text">
             {items.length} {items.length === 1 ? 'thing needs' : 'things need'} you
           </h2>
-          <p className={cn('t-meta font-medium', urgent > 0 ? 'text-danger' : 'text-text-muted')}>
-            {urgent > 0 ? `${urgent} ${urgent === 1 ? 'is' : 'are'} late or sent back. Start there.` : 'All due today. Do these first.'}
-          </p>
-          {updated}
+          <div className="flex flex-wrap items-baseline gap-x-2">
+            <p className={cn('t-meta font-medium', urgent > 0 ? 'text-danger' : 'text-text-muted')}>
+              {urgent > 0 ? `${urgent} ${urgent === 1 ? 'is' : 'are'} late or sent back.` : 'All due today.'}
+              <span className="hidden sm:inline">{urgent > 0 ? ' Start there.' : ' Do these first.'}</span>
+            </p>
+            {updated}
+          </div>
         </div>
         {refresh}
       </div>
