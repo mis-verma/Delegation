@@ -3,7 +3,7 @@ import { todos } from "../../db/schema/task.js"
 import { eq, and, desc, sql } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
 import { AppError } from "../../utils/AppError.js"
-import { cached, cacheKey, invalidateQuick } from "../../config/queryCache.js"
+import { cached, cacheKey, invalidateKeys } from "../../config/queryCache.js"
 import { orgDayStartUtc } from "../../utils/orgDay.js"
 import { utcSql } from "../checklistInstances/checklistReportRange.js"
 import type { CreateTodoInput, UpdateTodoInput } from "./todo.validation.js"
@@ -24,9 +24,9 @@ export type TodoSummaryRow = {
 const TODO_SUMMARY_PREFIX = "todo-summary"
 // Short because a todo's overdue state moves with the clock, which nothing can invalidate.
 const SUMMARY_TTL_SECONDS = 10
-// One person's cached summary. The keys are `todo-summary:<userId>`, and ids are fixed-length, so the
-// prefix can't match anyone else's.
-const dropTodoSummary = (userId: string) => invalidateQuick(cacheKey(TODO_SUMMARY_PREFIX, userId))
+// One person's cached summary: the key is exact (`todo-summary:<userId>`), so a plain DELETE does it,
+// with no keyspace scan.
+const dropTodoSummary = (userId: string) => invalidateKeys(cacheKey(TODO_SUMMARY_PREFIX, userId))
 
 const MAX_TODOS_PER_LIST = 1000
 

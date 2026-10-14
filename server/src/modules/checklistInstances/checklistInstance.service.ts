@@ -26,7 +26,7 @@ import { ticketService } from "../tickets/ticket.service.js"
 import { missedFromPastDayExpr, missedInstanceIds, assertRunOpenForUser, localNowSql, runDeadlineSql } from "./checklistMissedRun.js"
 import { canWorkEndedRun, hasRunDeadlinePassed, isRunEnded, runClosedMessage, runDeadlineMs } from "./checklistRunEnd.js"
 import { auditService } from "../audit/audit.service.js"
-import { cached, cacheKey, invalidateQuick } from "../../config/queryCache.js"
+import { cached, cacheKey, bumpVersions, versionTag } from "../../config/queryCache.js"
 import { orgDayStartUtc } from "../../utils/orgDay.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 import type { VerifyChecklistInstanceInput } from "./checklistInstance.validation.js"
@@ -978,11 +978,17 @@ const summaryOwnerKey = (userId: string | undefined) => `u:${userId ?? "org"}`
  * ones (admin org view, department heads' view). Many assignees (a shared store run) just wipe the
  * lot, which is cheaper than a SCAN per person.
  */
+const SUMMARY_VERSION_ALL = `${CHECKLIST_SUMMARY_PREFIX}:all`
+const summaryVersionOf = (owner: string) => `${CHECKLIST_SUMMARY_PREFIX}:${owner}`
+
+// Runs on every tap of every checklist, so it bumps version counters (O(1)) instead of scanning
+// Redis for matching keys; see versionTag in queryCache.ts. Every summary key carries the "all"
+// version and its owner's, so bumping "all" is the wipe-the-lot and bumping an owner drops just theirs.
 export const dropChecklistSummaries = (assigneeIds: string[]) => {
-    const prefixes = assigneeIds.length > 4
-        ? [`${CHECKLIST_SUMMARY_PREFIX}:`]
-        : [summaryOwnerKey(undefined), ...assigneeIds.map((id) => summaryOwnerKey(id))].map((owner) => `${CHECKLIST_SUMMARY_PREFIX}:${owner}:`)
-    return invalidateQuick(...prefixes)
+    const namespaces = assigneeIds.length > 4
+        ? [SUMMARY_VERSION_ALL]
+        : [summaryOwnerKey(undefined), ...assigneeIds.map((id) => summaryOwnerKey(id))].map(summaryVersionOf)
+    return bumpVersions(...namespaces)
 }
 
 export const checklistInstanceService = {
@@ -1075,9 +1081,11 @@ export const checklistInstanceService = {
         // (dropChecklistSummaries), and a short TTL for the rest. The key carries every filter that
         // changes the answer: includeDeleted and the from/to window were missing, so an admin
         // toggling "show deleted" or changing the period was handed the other view's cached numbers.
+        const owner = summaryOwnerKey(filter.userId)
+        const version = await versionTag(SUMMARY_VERSION_ALL, summaryVersionOf(owner))
         return cached(
             cacheKey(
-                CHECKLIST_SUMMARY_PREFIX, summaryOwnerKey(filter.userId), filter.includeDeleted ? "deleted" : "live", filter.hideEnded === false ? "all-ends" : "open-ends",
+                CHECKLIST_SUMMARY_PREFIX, owner, `v${version}`, filter.includeDeleted ? "deleted" : "live", filter.hideEnded === false ? "all-ends" : "open-ends",
                 filter.storeId, filter.assigneeId, filter.assigneeIds?.join(","), filter.definitionId, filter.status,
                 filter.departmentId, filter.recurrence, filter.verificationStatus, fromDay, toDay,
             ),

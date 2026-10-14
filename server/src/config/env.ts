@@ -97,8 +97,20 @@ if (data.NODE_ENV === 'production' && !data.COOKIE_SECURE) {
 // Build a single connection URL if one wasn't provided directly. mysql2 (and Drizzle's
 // mysql2 driver) accept a plain `mysql://user:pass@host:port/db` URL, so this keeps
 // db.ts simple regardless of which style of env vars the host provides.
-const resolvedDatabaseUrl =
+const baseDatabaseUrl =
     data.DATABASE_URL ??
     `mysql://${encodeURIComponent(data.DB_USER)}:${encodeURIComponent(data.DB_PASSWORD)}@${data.DB_HOST}:${data.DB_PORT}/${data.DB_NAME}`;
+
+// DB_NAME_OVERRIDE swaps only the database NAME in whatever connection the app already uses, keeping
+// the same user, password and host. It exists for the load test (see server/loadtest/README.md): point
+// the server, migrations and seed script at a throwaway database with one variable, without ever
+// retyping or exposing the real credentials. Never set it in a real deployment.
+const resolvedDatabaseUrl = (() => {
+    const override = process.env.DB_NAME_OVERRIDE?.trim();
+    if (!override) return baseDatabaseUrl;
+    const url = new URL(baseDatabaseUrl);
+    url.pathname = `/${encodeURIComponent(override)}`;
+    return url.toString();
+})();
 
 export const env = { ...data, DATABASE_URL: resolvedDatabaseUrl };

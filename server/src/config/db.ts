@@ -39,7 +39,9 @@ export const connectDB = async () => {
     const connection = await pool.getConnection();
     connection.release();
 
-    console.log(`MySQL connected : ${env.DB_NAME}`)
+    // From the URL actually in use, so DB_NAME_OVERRIDE (load test) shows the database really connected to.
+    const connectedName = (() => { try { return decodeURIComponent(new URL(env.DATABASE_URL).pathname.replace(/^\//, '')) } catch { return env.DB_NAME } })()
+    console.log(`MySQL connected : ${connectedName}`)
 }
 
 export const disconnectDB = async () => {

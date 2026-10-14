@@ -16,7 +16,7 @@ import {
 } from "../../db/schema/index.js"
 import { eq, and, or, inArray, desc, asc, sql, isNull, gte, lte, ne, isNotNull, type SQL } from "drizzle-orm"
 import { env } from "../../config/env.js"
-import { cached, cacheKey, invalidateQuick } from "../../config/queryCache.js"
+import { cached, cacheKey, bumpVersions, versionTag } from "../../config/queryCache.js"
 import { orgDayStartUtc } from "../../utils/orgDay.js"
 import { AppError } from "../../utils/AppError.js"
 import { assertChecklistsResolved } from "../../utils/checklistGate.js"
@@ -454,7 +454,10 @@ const SUMMARY_TTL_SECONDS = 10
 
 // Called by every mutation that can change a count. Wipes every user's cached summary, since one
 // ticket moves numbers for its raiser, assignee and every manager/admin who can see it.
-const dropTicketSummaries = () => invalidateQuick(`${TICKET_SUMMARY_PREFIX}:`)
+// Every summary key carries this version (see summary()), so bumping it retires them all in one
+// O(1) step instead of a keyspace scan; see versionTag in queryCache.ts.
+const TICKET_SUMMARY_VERSION = `${TICKET_SUMMARY_PREFIX}:all`
+const dropTicketSummaries = () => bumpVersions(TICKET_SUMMARY_VERSION)
 
 // One grouped SQL aggregate behind ownerStats below — `column` is what to GROUP BY (a department/
 // store/assignee id column, or NULL for one ungrouped org-wide row when `grouped` is false). The
@@ -1153,7 +1156,8 @@ export const ticketService = {
   async summary(user: AccessTokenPayload, scope: TicketSummaryScope = "mine"): Promise<TicketSummaryRow> {
     // Short TTL plus explicit invalidation from every mutation below (dropTicketSummaries). The TTL
     // covers what has no hook: bulk import and the SLA sweep flipping isOverdue.
-    return cached(cacheKey(TICKET_SUMMARY_PREFIX, scope, user.sub), SUMMARY_TTL_SECONDS, async () => {
+    const version = await versionTag(TICKET_SUMMARY_VERSION)
+    return cached(cacheKey(TICKET_SUMMARY_PREFIX, `v${version}`, scope, user.sub), SUMMARY_TTL_SECONDS, async () => {
       const scopeCondition = scope === "visible"
         ? await visibilityFilter(user)
         : or(eq(tickets.assigneeId, user.sub), eq(tickets.userId, user.sub))

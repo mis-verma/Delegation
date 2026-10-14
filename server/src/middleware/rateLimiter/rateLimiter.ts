@@ -54,9 +54,13 @@ export const createAuthLimiter = (store?: Store) => rateLimit({
 })
 
 
+// Per IP, counting failed sign-ins only. A request still counts while it is in flight (it is only
+// refunded once it succeeds), and sign-in is slow, so a store of people opening the app at the same
+// moment already had 20+ in flight and the rest got 429. Real protection against guessing is the
+// per-email limiter below (10 failures / 15 min per account); this one is just a ceiling per address.
 export const createLoginLimiter = (store?: Store) => rateLimit({
     windowMs: 15 * 60 * 1000,
-    limit: 20,
+    limit: 100,
     skipSuccessfulRequests: true,
     standardHeaders: false,
     legacyHeaders: false,

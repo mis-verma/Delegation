@@ -44,27 +44,35 @@ const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> =>
         )
     })
 
+// One client for the life of the process. It reconnects forever on its own (a client that stops
+// retrying never comes back, which would leave every cached read on the database until a restart),
+// but callers must never wait on that: while it is not ready, connect() fails at once, so the caller
+// computes directly. Only the very first connect is waited on, briefly, and if it does not come up
+// in time the cache is skipped outright for DISABLE_MS instead of making every request pay that wait.
 const connect = async () => {
-    if (client?.isReady) return
-    if (Date.now() < disabledUntil) throw new Error("query cache temporarily disabled")
-    if (!connecting) {
-        connecting = (async () => {
-            const c = createClient({
-                url: env.REDIS_URL,
-                // Never gives up: a client that stops retrying never becomes ready again, which would
-                // leave every cached read falling through to the database until a restart.
-                socket: { reconnectStrategy: (retries) => Math.min(retries * 200, 5000) },
-            }) as RedisClientType
-            c.on("error", (err) => console.error("Redis query-cache client error:", err.message))
-            await c.connect()
-            client = c
-        })().catch((err) => {
-            disabledUntil = Date.now() + DISABLE_MS
-            connecting = null
-            throw err
-        })
+    if (!client) {
+        const c = createClient({
+            url: env.REDIS_URL,
+            socket: { reconnectStrategy: (retries) => Math.min(retries * 200, 5000) },
+            // While disconnected, commands fail immediately instead of queueing until Redis returns.
+            disableOfflineQueue: true,
+        }) as RedisClientType
+        c.on("error", (err) => console.error("Redis query-cache client error:", err.message))
+        client = c
+        // With a forever-retrying client this settles only once connected (it never rejects while
+        // Redis is down), so it is the "first connect" signal below.
+        connecting = c.connect().then(() => undefined, () => undefined)
     }
-    await connecting
+    if (client.isReady) return
+    if (Date.now() < disabledUntil) throw new Error("query cache temporarily disabled")
+    try {
+        await withTimeout(connecting!, CONNECT_WAIT_MS)
+    } catch {
+        disabledUntil = Date.now() + DISABLE_MS
+        throw new Error("query cache not connected yet")
+    }
+    // Connected once but dropped since: reconnecting in the background, so skip the cache for now.
+    if (!client.isReady) throw new Error("query cache reconnecting")
 }
 
 /**
@@ -128,6 +136,54 @@ export const invalidateQuick = async (...prefixes: string[]): Promise<void> => {
         await Promise.race([Promise.all(prefixes.map((p) => invalidate(p))), timeout])
     } finally {
         clearTimeout(timer)
+    }
+}
+
+/**
+ * Version stamps: invalidation without scanning.
+ *
+ * `invalidate` above walks the whole Redis keyspace (SCAN) and deletes matches one by one. That is
+ * fine for a rare admin edit but ruinous on a hot path: a mutation that runs for every tap of every
+ * person (a checklist tick) would sweep the entire keyspace each time, and the keyspace grows with
+ * every user. Instead, a cached entry carries the current version of the namespaces it depends on
+ * inside its key, and a mutation just bumps those counters (one O(1) INCR each). Entries written
+ * under an older version are never read again and fall out by their own TTL.
+ *
+ *   const tag = await versionTag("thing:all", `thing:u:${id}`)   // read when building the key
+ *   cached(cacheKey("thing", id, `v${tag}`, ...), ttl, compute)
+ *   await bumpVersions(`thing:u:${id}`)                           // after the mutation
+ *
+ * Both fall back quietly when Redis is slow or down (rule 1 above): a read gives "0" (and `cached`
+ * itself then computes directly), a bump is skipped (the entry's TTL is the backstop).
+ */
+const VERSION_PREFIX = "ver"
+const VERSION_TTL_SECONDS = 24 * 60 * 60
+
+export const versionTag = async (...namespaces: string[]): Promise<string> => {
+    if (!namespaces.length) return ""
+    try {
+        await withTimeout(connect(), CONNECT_WAIT_MS)
+        const values = await withTimeout(client!.mGet(namespaces.map((n) => cacheKey(VERSION_PREFIX, n))), CONNECT_WAIT_MS)
+        return values.map((v) => v ?? "0").join(".")
+    } catch {
+        return "0"
+    }
+}
+
+export const bumpVersions = async (...namespaces: string[]): Promise<void> => {
+    if (!namespaces.length) return
+    try {
+        await withTimeout(connect(), INVALIDATE_WAIT_MS)
+        const batch = client!.multi()
+        for (const n of namespaces) {
+            const key = cacheKey(VERSION_PREFIX, n)
+            // The counter outlives every entry that could carry it (TTLs are seconds), so it can
+            // expire after a day without an old key ever matching a restarted count.
+            batch.incr(key).expire(key, VERSION_TTL_SECONDS)
+        }
+        await withTimeout(batch.exec(), INVALIDATE_WAIT_MS)
+    } catch {
+        // The entry's short TTL is the backstop.
     }
 }
 

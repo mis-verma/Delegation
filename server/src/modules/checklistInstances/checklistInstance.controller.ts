@@ -4,6 +4,7 @@ import { setChecklistInstanceItemDoneSchema, verifyChecklistInstanceSchema, send
 import { asyncHandler } from "../../utils/asyncHandler.js"
 import { resolveChecklistReportScope } from "./checklistReportScope.js"
 import { checklistReportService } from "./checklistReport.service.js"
+import { cachedReport } from "../../utils/reportCache.js"
 
 // "Assigned with" (MyChecklists' Options) sends a comma-separated list of user ids — a single
 // scalar query param, same convention as every other filter on this controller, rather than
@@ -181,12 +182,12 @@ export const checklistInstanceController = {
     // GET /checklist-instances/reports/weekly?weekStart=YYYY-MM-DD&storeId= (ADMIN/PC all, MANAGER/SENIOR own department)
     periodReport: asyncHandler(async (req: Request, res: Response) => {
         const { from, to, storeId, departmentId } = periodReportQuerySchema.parse(req.query)
-        res.json({ success: true, data: await checklistInstanceService.periodReport(req.user!, from, to, storeId, departmentId) })
+        res.json({ success: true, data: await cachedReport("period", req, () => checklistInstanceService.periodReport(req.user!, from, to, storeId, departmentId)) })
     }),
     // GET /checklist-instances/reports/departments?from=&to=&storeId=
     departmentScores: asyncHandler(async (req: Request, res: Response) => {
         const { from, to, storeId } = periodReportQuerySchema.parse(req.query)
-        res.json({ success: true, data: await checklistInstanceService.periodDepartmentScores(req.user!, from, to, storeId) })
+        res.json({ success: true, data: await cachedReport("departments", req, () => checklistInstanceService.periodDepartmentScores(req.user!, from, to, storeId)) })
     }),
     getOne: asyncHandler(async (req: Request, res: Response) => {
         const instance = await checklistInstanceService.getById(req.params.id, req.user!)
@@ -248,7 +249,7 @@ export const checklistInstanceController = {
         // list/summary above, off by default so this org-wide trend doesn't include it silently.
         const isOrgWide = req.user!.role === "ADMIN" || req.user!.role === "PC"
         const includeDeleted = isOrgWide && (req.query.includeDeleted === "1" || req.query.includeDeleted === "true")
-        const data = await checklistInstanceService.complianceReport(scope, { groupBy: query.groupBy, from: query.from, to: query.to, includeDeleted, assigneeId: query.assigneeId })
+        const data = await cachedReport("compliance", req, () => checklistInstanceService.complianceReport(scope, { groupBy: query.groupBy, from: query.from, to: query.to, includeDeleted, assigneeId: query.assigneeId }))
         res.json({ success: true, data })
     }),
 
@@ -258,7 +259,7 @@ export const checklistInstanceController = {
     byStoreReport: asyncHandler(async (req: Request, res: Response) => {
         const query = checklistInstanceByStoreReportQuerySchema.parse(req.query)
         const scope = resolveChecklistReportScope(req.user!)
-        const data = await checklistReportService.byStoreReport(scope, query)
+        const data = await cachedReport("by-store", req, () => checklistReportService.byStoreReport(scope, query))
         res.json({ success: true, data })
     }),
 
@@ -269,7 +270,7 @@ export const checklistInstanceController = {
     departmentMonthlyReport: asyncHandler(async (req: Request, res: Response) => {
         const query = checklistInstanceByStoreReportQuerySchema.parse(req.query)
         const scope = resolveChecklistReportScope(req.user!)
-        const data = await checklistReportService.departmentMonthlyReport(scope, query)
+        const data = await cachedReport("department-monthly", req, () => checklistReportService.departmentMonthlyReport(scope, query))
         res.json({ success: true, data })
     }),
 
@@ -280,14 +281,14 @@ export const checklistInstanceController = {
         const query = checklistInstanceScoreRunsQuerySchema.parse(req.query)
         const scope = resolveChecklistReportScope(req.user!, query.storeId)
         if (scope && !scope.departmentId && query.departmentId) scope.departmentId = query.departmentId
-        const data = await checklistReportService.scoreRunsReport(scope, query)
+        const data = await cachedReport("score-runs", req, () => checklistReportService.scoreRunsReport(scope, query))
         res.json({ success: true, data })
     }),
 
     storeDailyReport: asyncHandler(async (req: Request, res: Response) => {
         const query = checklistInstanceByStoreReportQuerySchema.parse(req.query)
         const scope = resolveChecklistReportScope(req.user!)
-        const data = await checklistReportService.storeDailyReport(scope, query)
+        const data = await cachedReport("store-daily", req, () => checklistReportService.storeDailyReport(scope, query))
         res.json({ success: true, data })
     }),
 }

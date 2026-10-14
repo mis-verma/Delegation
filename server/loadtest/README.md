@@ -6,20 +6,24 @@ database and a server you can break. Never production.**
 ## One-time setup
 
 1. Install k6: `winget install k6` (or `choco install k6`), then check with `k6 version`.
-2. Create a throwaway database. In MySQL: `CREATE DATABASE taskmatrix_loadtest;`
-3. Point your terminal at it (PowerShell), from `server/`:
+2. Point your terminal at a throwaway database (PowerShell, from `server/`). One variable swaps only
+   the database name and keeps the app's own user, password and host, so you never type or see a
+   password:
    ```
-   $env:DB_NAME = "taskmatrix_loadtest"
+   $env:DB_NAME_OVERRIDE = "taskmatrix_loadtest"
    ```
-   If your `.env` has a full `DATABASE_URL`, set that to the loadtest database instead:
-   `$env:DATABASE_URL = "mysql://USER:PASS@127.0.0.1:3306/taskmatrix_loadtest"`
+   Everything below (create, migrate, seed, the server itself) uses it, as long as you stay in this
+   terminal. Close it and the variable is gone, so a later `npm run dev` hits your normal database.
+3. Create it: `npm run loadtest:createdb`. It refuses unless the name contains `loadtest` and the
+   database host is this machine. If it says access denied for CREATE, the app's MySQL user is not
+   allowed to create databases: create `taskmatrix_loadtest` once as root (Workbench) and carry on.
 4. Build its tables: `npm run db:migrate`
 5. Optional but recommended: start Redis (`docker run -d -p 6379:6379 redis`). Without it the test
    does not exercise the auth cache, the shared rate limits or multiple workers.
 
 ## Every test run
 
-In the **same terminal** (so `DB_NAME` is still set):
+In the **same terminal** (so `DB_NAME_OVERRIDE` is still set):
 
 1. Fill the database with fake people and unanswered checklists (rebuilds today's runs each time):
    ```

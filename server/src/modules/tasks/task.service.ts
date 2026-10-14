@@ -2,7 +2,7 @@ import { db } from "../../config/db.js"
 import { tasks, taskAdditionalAssignees, taskAttachments, taskChecklists, taskChecklistItems, taskImages, taskStatusUpdates, tags, taskTags, taskReviewers, TASK_STATUSES } from "../../db/schema/index.js"
 import { users } from "../../db/schema/core.js"
 import { eq, and, or, inArray, asc, desc, sql, isNull, isNotNull, ne, type SQL } from "drizzle-orm"
-import { cached, cacheKey, invalidateQuick } from "../../config/queryCache.js"
+import { cached, cacheKey, bumpVersions, versionTag } from "../../config/queryCache.js"
 import { orgDayStartUtc } from "../../utils/orgDay.js"
 import { createId } from "@paralleldrive/cuid2"
 import { AppError } from "../../utils/AppError.js"
@@ -352,7 +352,10 @@ const SUMMARY_TTL_SECONDS = 10;
 
 // Called by every mutation that can change a count. Wipes every user's cached summary, since one
 // task moves numbers for its creator, assignees and every manager/admin who can see it.
-const dropTaskSummaries = () => invalidateQuick(`${TASK_SUMMARY_PREFIX}:`);
+// Every summary key carries this version (see summary()), so bumping it retires them all in one
+// O(1) step instead of a keyspace scan; see versionTag in queryCache.ts.
+const TASK_SUMMARY_VERSION = `${TASK_SUMMARY_PREFIX}:all`;
+const dropTaskSummaries = () => bumpVersions(TASK_SUMMARY_VERSION);
 
 // One grouped SQL aggregate behind ownerStats below — `column` is what to GROUP BY (a department/
 // assignee id column, or NULL for one ungrouped org-wide row when `grouped` is false).
@@ -1234,7 +1237,8 @@ export const taskService = {
     async summary(user: AccessTokenPayload, scope?: TaskSummaryScope): Promise<TaskSummaryRow> {
         // Short TTL plus explicit invalidation from every mutation below (dropTaskSummaries). The TTL
         // covers what has no hook: bulk import, the clock passing a due date.
-        return cached(cacheKey(TASK_SUMMARY_PREFIX, scope ?? "default", user.sub), SUMMARY_TTL_SECONDS, async () => {
+        const version = await versionTag(TASK_SUMMARY_VERSION);
+        return cached(cacheKey(TASK_SUMMARY_PREFIX, `v${version}`, scope ?? "default", user.sub), SUMMARY_TTL_SECONDS, async () => {
             let where: SQL | undefined;
             if (!scope) {
                 const additionalIds = await additionalAssigneeTaskIds(user.sub);
