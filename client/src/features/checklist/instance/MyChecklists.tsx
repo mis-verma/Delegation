@@ -56,11 +56,13 @@ const VERIFICATIONS = Object.keys(VERIFICATION_STATUS_LABEL) as ChecklistVerific
 
 // Same four-way split Delegation and Tickets both use, named plainly: "Not done" is every unfinished
 // run (missed included), "On track" is the subset still before its cutoff, "Missed" is the subset past
-// its cutoff, "Done" is finished. All four cover ONE window, this month up to today. These map onto the server's OPEN / DUE / COMPLETED / OVERDUE status filter (see
+// its cutoff, "Done today" is finished today. Not done, On track and Missed cover this month up to today, so a miss
+// stays on the books; Done is TODAY ONLY, so the finished runs of earlier days do not pile up here (they live on
+// the History page). These map onto the server's OPEN / DUE / COMPLETED / OVERDUE status filter (see
 // `serverStatus` below) rather than being applied here over a fully-downloaded list.
 
 const QUICK_FILTER_LABEL: Record<MyChecklistsQuickFilterKey, string> = {
-  pending: 'Not done', completed: 'Done', due: 'On track', overdue: 'Missed',
+  pending: 'Not done', completed: 'Done today', due: 'On track', overdue: 'Missed',
 };
 
 const PAGE_SIZE = 50;
@@ -202,9 +204,10 @@ export const MyChecklists = () => {
     verificationStatus: verificationStatus || undefined,
     departmentId: departmentId || undefined,
     assigneeIds: assigneeIds.length ? assigneeIds : undefined,
-    // A tile opens the same window the tile counted (this month up to today); with no tile the list keeps
-    // every open run, so a weekly checklist begun last month does not vanish mid-week.
-    from: rangeFrom ?? (quickFilter ? windowFrom : undefined),
+    // A tile opens the same window the tile counted: this month up to today, except Done, which is today
+    // only (earlier days' finished runs belong to History). With no tile the list keeps every open run, so
+    // a weekly checklist begun last month does not vanish mid-week.
+    from: rangeFrom ?? (quickFilter === 'completed' ? windowTo : quickFilter ? windowFrom : undefined),
     to: rangeTo ?? (quickFilter ? windowTo : undefined),
   };
   // `isPending` is only true when there is no data at all (keepPreviousData holds the last page
@@ -245,8 +248,9 @@ export const MyChecklists = () => {
     from: windowFrom,
     to: windowTo,
   });
-  // Today only, for the "assigned to you today" line. The tiles all read the one window above.
-  const { data: todaySummary } = useChecklistInstanceSummaryQuery({
+  // Today only: the "assigned to you today" line, and the Done tile (its count and the list it opens agree).
+  // The other tiles read the month window above.
+  const { data: todaySummary, isPending: todaySummaryIsPending } = useChecklistInstanceSummaryQuery({
     mine: true,
     storeId: storeId || undefined,
     recurrence: recurrence || undefined,
@@ -258,13 +262,14 @@ export const MyChecklists = () => {
   });
   // The counts default to 0 until the summaries land; the tiles and the overdue banner wait for them
   // rather than showing (or hiding) numbers that aren't true yet.
-  const summaryPending = summaryIsPending;
+  const summaryPending = summaryIsPending || todaySummaryIsPending;
   const counts = useMemo<MyChecklistsQuickFilterCounts>(() => ({
     pending: summary?.pending ?? 0,
-    completed: summary?.completed ?? 0,
+    // Done is today's figure (see the note at the top of this file); the rest are the month's.
+    completed: todaySummary?.completed ?? 0,
     due: summary?.due ?? 0,
     overdue: summary?.missed ?? 0,
-  }), [summary]);
+  }), [summary, todaySummary]);
 
   // assigneeIds narrowing now happens server-side (both here and in the summary query above), so
   // this only needs to re-sort the page the server already scoped.

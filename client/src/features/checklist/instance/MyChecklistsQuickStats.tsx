@@ -14,11 +14,12 @@ export interface MyChecklistsQuickFilterCounts {
   overdue: number;
 }
 
-// Honest names: Not done = missed + on track, Done = finished, On track = not done and before the cutoff,
-// Missed = past the cutoff and not done. All four cover the same window (see MyChecklists).
+// Honest names: Not done = missed + on track, Done today = finished today (only today: earlier days are on
+// the History page), On track = not done and before the cutoff, Missed = past the cutoff and not done.
+// The other three cover this month up to today (see MyChecklists).
 const TILES = statusTiles<MyChecklistsQuickFilterKey>(['pending', 'completed', 'due', 'overdue'], {
   pending: 'Not done',
-  completed: 'Done',
+  completed: 'Done today',
   due: 'On track',
   overdue: 'Missed',
 });
@@ -27,8 +28,8 @@ interface MyChecklistsQuickStatsProps {
   counts: MyChecklistsQuickFilterCounts;
   /**
    * Optional lead tile with a headline count. The page leaves it out: it shows today's assigned
-   * count in its own line instead, because that is not the same window as the four tiles (they all
-   * cover this month up to today), so a total here would not match the numbers beside it.
+   * count in its own line instead, because that is not the same window as the tiles (three cover
+   * this month up to today), so a total here would not match the numbers beside it.
    */
   total?: number;
   active: MyChecklistsQuickFilterKey | null;

@@ -2,7 +2,7 @@ import { memo, useMemo, useState } from 'react';
 import { AlertTriangle, Ban, Check, CheckCheck, ChevronDown, CornerUpLeft, Flag, History, ShieldCheck, Timer } from 'lucide-react';
 import { IconChip } from '../../../components';
 import { cn } from '@/lib/utils';
-import { runScores } from '../checklistCompliance';
+import { answerVerdict, runScores } from '../checklistCompliance';
 import { complianceToneClass, formatDateTime } from '../checklistDisplay';
 import { EvidenceThumb } from './EvidenceThumb';
 import { WaiveAction } from './WaiveAction';
@@ -171,9 +171,22 @@ interface ReviewRowProps {
 const ReviewRow = memo(function ReviewRow({ item, canWaive, flags, selected, disabled, onToggle, note, onNoteChange, previousNote, deadlineMs }: ReviewRowProps) {
   const answer = item.isNotApplicable ? null : answerText(item);
   const answeredLate = deadlineMs != null && item.isDone && !!item.completedAt && new Date(item.completedAt).getTime() > deadlineMs;
+  // A light wash over the whole row so the reviewer can read the run at a glance: red where the answer
+  // was wrong (a "No" when Yes was wanted, an out-of-range number, or a question already sent back),
+  // green where it was right. A question with no accepted-answer rule, a waived one and a not-applicable
+  // one stay plain. Ticking a row to send it back deepens the red, so "wrong answer" and "I am sending
+  // this back" can still be told apart.
+  const verdict = answerVerdict(item);
+  const wrong = flags.bad || flags.sentBack;
+  const right = verdict === 'good' && !flags.sentBack && !flags.missingPhotos;
 
   return (
-    <li className={cn('flex items-start gap-1 py-2.5 first:pt-0 last:pb-0 rounded-lg transition-colors duration-150', selected && 'bg-danger/5')}>
+    <li
+      className={cn(
+        'flex items-start gap-1 px-2 py-2.5 rounded-lg transition-colors duration-150',
+        selected ? 'bg-danger/10 dark:bg-danger/20' : wrong ? 'bg-danger/5 dark:bg-danger/10' : right ? 'bg-success/5 dark:bg-success/10' : '',
+      )}
+    >
       {/* The whole 44px square is the tap target, so a finger can pick the question that was done badly. */}
       <label className="flex items-center justify-center size-11 sm:size-8 shrink-0 cursor-pointer -ml-1.5">
         <input

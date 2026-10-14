@@ -124,14 +124,17 @@ const checklistRow = (c: ChecklistInstance, now: number): DrilldownRow => {
 
 // One card per module, the same on a phone and a desktop: a white card with the module's name, the
 // open count as the headline (blue, bold) with a red overdue chip beside it, and Done, New today and
-// Total underneath. Every figure opens the matching preview. One wording at every width (no separate
-// "short" labels), so a phone and a desktop say the same thing.
-const MiniStat = ({ label, value, onClick }: { label: string; value: number | null; onClick?: () => void }) => {
+// Total underneath. Every figure opens the matching preview. A phone gets the bare word ("Done", "New",
+// "Total", always one short line) so the three columns stay tidy; tablet and up spell out the window
+// ("New today", and "Done today" on the Checklist tile that counts today).
+const MiniStat = ({ label, shortLabel, value, onClick }: { label: string; shortLabel: string; value: number | null; onClick?: () => void }) => {
   const body = (
     <>
       <span className="block text-sm sm:text-lg font-display font-semibold sm:font-bold tabular-nums leading-tight text-text">{value ?? '-'}</span>
-      {/* Wraps instead of cutting off ("New today" becomes two lines in a narrow column). */}
-      <span className="block break-words t-meta leading-tight text-text-muted">{label}</span>
+      <span className="block break-words t-meta leading-tight text-text-muted">
+        <span className="sm:hidden">{shortLabel}</span>
+        <span className="hidden sm:inline">{label}</span>
+      </span>
     </>
   );
   // flex + justify-start: a <button> centres its content vertically by default, so in a row where one
@@ -190,7 +193,8 @@ const ModuleCard = ({ view, onOpen, score, scopeTag }: { view: ModuleView; onOpe
           <Icon className="size-4" aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="line-clamp-2 leading-snug t-card font-display font-bold text-text">{view.title}</h3>
+          {/* A phone gets the smaller, still bold name (12px at its floor); tablet and up the usual card size. */}
+          <h3 className="line-clamp-2 leading-snug t-meta sm:t-card font-display font-bold text-text">{view.title}</h3>
           {scopeTag && <p className="t-meta text-text-muted">{scopeTag}</p>}
         </div>
         <Link
@@ -236,14 +240,14 @@ const ModuleCard = ({ view, onOpen, score, scopeTag }: { view: ModuleView; onOpe
             </div>
           </div>
 
-          {/* Phone: number on the left, overdue chip on the right. With a three-digit count the chip
-              drops under the number instead of running into it. */}
-          <div className="flex sm:hidden flex-wrap items-end justify-between gap-x-2 gap-y-1.5">
-            <button type="button" onClick={() => onOpen('pending')} className="min-w-0 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40">
+          {/* Phone: the open count centred in the card with "Pending" under it, and the overdue chip
+              centred under that. */}
+          <div className="flex sm:hidden flex-col items-center gap-1.5">
+            <button type="button" onClick={() => onOpen('pending')} className="min-w-0 rounded-lg text-center outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40">
               <span className="block t-figure font-display font-bold tabular-nums leading-none text-primary-700 dark:text-primary-300">
                 <CountUp value={view.pending ?? 0} />
               </span>
-              <span className="mt-1 block t-meta font-medium text-text-muted">Pending now</span>
+              <span className="mt-1 block t-meta font-medium text-text-muted">Pending</span>
             </button>
             {view.overdue > 0 && (
               <button
@@ -261,9 +265,9 @@ const ModuleCard = ({ view, onOpen, score, scopeTag }: { view: ModuleView; onOpe
           <div className="grid grid-cols-3 gap-1 border-t border-border/60 pt-2 text-center">
             {/* All-time is the default meaning of Done and Total, so it is not repeated on every tile; only
                 the tile that counts TODAY (Checklist) says so. */}
-            <MiniStat label={view.todayCounts ? 'Done today' : 'Done'} value={view.completed} onClick={() => onOpen('completed')} />
-            <MiniStat label="New today" value={view.newToday} onClick={() => onOpen('newToday')} />
-            <MiniStat label={view.todayCounts ? 'Total today' : 'Total'} value={view.total} />
+            <MiniStat label={view.todayCounts ? 'Done today' : 'Done'} shortLabel="Done" value={view.completed} onClick={() => onOpen('completed')} />
+            <MiniStat label="New today" shortLabel="New" value={view.newToday} onClick={() => onOpen('newToday')} />
+            <MiniStat label={view.todayCounts ? 'Total today' : 'Total'} shortLabel="Total" value={view.total} />
           </div>
         </>
       )}
