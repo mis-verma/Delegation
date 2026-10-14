@@ -335,11 +335,30 @@ body {
   --color-ring: var(--color-primary-500);
 }
 
-@utility t-title { font-size: clamp(1.125rem, 1rem + 0.6vw, 1.5rem); line-height: 1.3; text-wrap: balance; }
-@utility t-section { font-size: clamp(1.0625rem, 1rem + 0.3vw, 1.25rem); line-height: 1.35; text-wrap: balance; }
-@utility t-card { font-size: clamp(0.875rem, 0.84rem + 0.22vw, 1.0625rem); line-height: 1.35; text-wrap: balance; }
-@utility t-meta { font-size: clamp(0.75rem, 0.72rem + 0.12vw, 0.8125rem); line-height: 1.4; }
-@utility t-figure { font-size: clamp(1.25rem, 1.05rem + 1vw, 2rem); line-height: 1.1; }
+/* Small-screen type scale. Every size below is multiplied by --type-scale: 1 on a normal phone and up,
+   a little less on small ones (see the two media queries after this block), so text and the layout
+   around it shrink together instead of wrapping and overflowing on a 320-360px screen. */
+:root {
+  --type-scale: 1;
+  /* The Tailwind steps that carry body and heading text, scaled. Deliberately NOT scaled:
+     --text-xs (12px is the smallest size that stays readable) and --text-base (16px: form inputs use
+     it, and any input under 16px makes iOS zoom the whole page when it is tapped). Values are
+     Tailwind's own defaults. */
+  --text-sm: calc(0.875rem * var(--type-scale));
+  --text-lg: calc(1.125rem * var(--type-scale));
+  --text-xl: calc(1.25rem * var(--type-scale));
+  --text-2xl: calc(1.5rem * var(--type-scale));
+  --text-3xl: calc(1.875rem * var(--type-scale));
+  --text-4xl: calc(2.25rem * var(--type-scale));
+}
+@media (max-width: 380px) { :root { --type-scale: 0.95; } }
+@media (max-width: 339px) { :root { --type-scale: 0.9; } }
+
+@utility t-title { font-size: calc(clamp(1.125rem, 1rem + 0.6vw, 1.5rem) * var(--type-scale, 1)); line-height: 1.3; text-wrap: balance; }
+@utility t-section { font-size: calc(clamp(1.0625rem, 1rem + 0.3vw, 1.25rem) * var(--type-scale, 1)); line-height: 1.35; text-wrap: balance; }
+@utility t-card { font-size: calc(clamp(0.875rem, 0.84rem + 0.22vw, 1.0625rem) * var(--type-scale, 1)); line-height: 1.35; text-wrap: balance; }
+@utility t-meta { font-size: max(0.75rem, calc(clamp(0.75rem, 0.72rem + 0.12vw, 0.8125rem) * var(--type-scale, 1))); line-height: 1.4; }
+@utility t-figure { font-size: calc(clamp(1.25rem, 1.05rem + 1vw, 2rem) * var(--type-scale, 1)); line-height: 1.1; }
 
 @utility gap-inherit {
   gap: inherit;
