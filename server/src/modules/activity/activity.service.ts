@@ -45,6 +45,13 @@ export type ActivityFeed = {
     truncated: boolean
 }
 
+type RemarkRow = {
+    by: string
+    to: string
+    remark: string | null
+    at: Date
+}
+
 const isHod = (role: string) => role === "MANAGER" || role === "SENIOR"
 const MAX_ROWS = 300
 
@@ -139,14 +146,22 @@ export const activityService = {
         const truncated = auditRows.length > MAX_ROWS
         const rows = truncated ? auditRows.slice(0, MAX_ROWS) : auditRows
 
-        const remarkMap = new Map<string, typeof remarkRows>()
+        // 4. Build Fast O(1) Remark Lookup Map (Explicitly typed to avoid TS2364 and TS2345)
+        const remarkMap = new Map<string, RemarkRow[]>()
         for (const r of remarkRows) {
-            (remarkMap.get(`${r.by}:${r.to}`) ??= []).push(r)
+            const key = `${r.by}:${r.to}`
+            const list = remarkMap.get(key)
+            if (list) {
+                list.push(r)
+            } else {
+                remarkMap.set(key, [r])
+            }
         }
 
         const remarkFor = (actorId: string, to: unknown, at: Date) =>
             remarkMap.get(`${actorId}:${to}`)?.find((m) => Math.abs(m.at.getTime() - at.getTime()) < 15_000)?.remark ?? null
 
+        // 5. Collect User IDs for Batch Name Lookup
         const ids = new Set<string>()
         const addStringId = (id: unknown) => { if (typeof id === "string" && id) ids.add(id) }
 
@@ -168,6 +183,7 @@ export const activityService = {
         const byId = new Map(people.map((p) => [p.id, { name: `${p.firstName} ${p.lastName ?? ""}`.trim(), role: p.role as string }]))
         const nameOf = (id: unknown) => (typeof id === "string" ? byId.get(id)?.name ?? "Someone who has left" : null)
 
+        // 6. Build Activity Events
         const events: ActivityEvent[] = []
         let sawCreate = false
 
@@ -202,11 +218,13 @@ export const activityService = {
             if (touched.length) push({ kind: "edited", fields: touched.map((k) => FIELD_LABEL[k]) }, "e")
         }
 
+        // 7. Fallback for older records missing CREATE rows
         if (!sawCreate && !truncated) {
             const maker = byId.get(entity.userId)
             events.push({ id: "created", kind: "created", at: entity.createdAt.toISOString(), actor: maker ? { name: maker.name, role: maker.role } : null })
         }
 
+        // 8. Sort Chronologically (Newest First) & Deduplicate Linearly O(N)
         events.sort((x, y) => y.at.localeCompare(x.at))
 
         const deduped: ActivityEvent[] = []
@@ -220,6 +238,7 @@ export const activityService = {
             if (!isDuplicate) deduped.push(e)
         }
 
+        // 9. Build Final Feed
         const lastStatus = deduped.find((e) => e.kind === "status" || e.kind === "approved" || e.kind === "sent_back" || e.kind === "created")
 
         return {
