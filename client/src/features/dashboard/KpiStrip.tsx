@@ -50,7 +50,7 @@ interface ModuleView {
   title: string;
   noun: string;
   href: string;
-  /** Checklist: Completed and Total are today's figures. The other tiles count all time. Every label says which. */
+  /** Checklist: Done and Total are today's figures, and its labels say "today". The other tiles count all time (the unlabelled default). */
   todayCounts: boolean;
   /** Whose work the tile counts, for roles where tiles differ: Delegation and Tickets count what the
    *  role can see (the team, or everyone for Admin/PC), Checklist and To-do the viewer's own. */
@@ -123,26 +123,26 @@ const checklistRow = (c: ChecklistInstance, now: number): DrilldownRow => {
 };
 
 // One card per module, the same on a phone and a desktop: a white card with the module's name, the
-// open count as the headline (blue, bold) with a red overdue chip beside it, and Completed, New today
-// and Total underneath. Every figure opens the matching preview. A phone shows the same card, a little
-// tighter, two across, with short labels ("Done", "New") so the three figures fit side by side.
-const MiniStat = ({ label, shortLabel, value, onClick }: { label: string; shortLabel: string; value: number | null; onClick?: () => void }) => {
+// open count as the headline (blue, bold) with a red overdue chip beside it, and Done, New today and
+// Total underneath. Every figure opens the matching preview. One wording at every width (no separate
+// "short" labels), so a phone and a desktop say the same thing.
+const MiniStat = ({ label, value, onClick }: { label: string; value: number | null; onClick?: () => void }) => {
   const body = (
     <>
       <span className="block text-sm sm:text-lg font-display font-semibold sm:font-bold tabular-nums leading-tight text-text">{value ?? '-'}</span>
-      {/* Wraps instead of cutting off: every figure says its window ("Done today"), and that needs the words. */}
-      <span className="block break-words t-meta leading-tight text-text-muted">
-        <span className="sm:hidden">{shortLabel}</span>
-        <span className="hidden sm:inline">{label}</span>
-      </span>
+      {/* Wraps instead of cutting off ("New today" becomes two lines in a narrow column). */}
+      <span className="block break-words t-meta leading-tight text-text-muted">{label}</span>
     </>
   );
+  // flex + justify-start: a <button> centres its content vertically by default, so in a row where one
+  // label wraps to two lines and another stays on one, the short one's number dropped lower than its
+  // neighbours'. Top-aligned, the three numbers always sit on one line.
   return onClick ? (
-    <button type="button" onClick={onClick} className="min-w-0 min-h-11 sm:min-h-0 rounded-lg px-1 py-1 text-center outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary-500/40">
+    <button type="button" onClick={onClick} className="flex min-w-0 min-h-11 sm:min-h-0 flex-col items-center justify-start rounded-lg px-1 py-1 text-center outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary-500/40">
       {body}
     </button>
   ) : (
-    <div className="min-w-0 min-h-11 sm:min-h-0 px-1 py-1">{body}</div>
+    <div className="flex min-w-0 min-h-11 sm:min-h-0 flex-col items-center justify-start px-1 py-1 text-center">{body}</div>
   );
 };
 
@@ -227,8 +227,10 @@ const ModuleCard = ({ view, onOpen, score, scopeTag }: { view: ModuleView; onOpe
               <RadialGauge percent={score.value ?? 0} size={84} variant="circle" gradientFrom={gaugeColor(score.value)} gradientTo={gaugeColor(score.value)}>
                 <span className={cn('text-base font-display font-extrabold tabular-nums', score.value === null ? 'text-text-light' : 'text-text')}>{formatPct(score.value)}</span>
               </RadialGauge>
-              <span className="mt-1 flex items-center gap-0.5 text-center t-meta font-semibold text-text-muted">
-                {score.label === 'Done' ? 'Done, of all to-dos' : 'Overall score this month'}
+              <span className="mt-1 flex min-h-[2.8em] items-center justify-center gap-0.5 text-center t-meta font-semibold text-text-muted">
+                {/* Short captions, and room for two lines on every card: a one-line and a two-line caption
+                    made the To-do card's content (centred in this row) sit higher than its neighbours'. */}
+                {score.label === 'Done' ? 'To-dos done' : 'Score this month'}
                 {scoreModule && <HowCalculated figure="overall" module={scoreModule} />}
               </span>
             </div>
@@ -257,18 +259,11 @@ const ModuleCard = ({ view, onOpen, score, scopeTag }: { view: ModuleView; onOpe
           {/* Three figures you can open, as a small three-column grid at every size (a single
               "12 done, 3 new, 45 total" line was cut off on a phone). */}
           <div className="grid grid-cols-3 gap-1 border-t border-border/60 pt-2 text-center">
-            <MiniStat
-              label={view.todayCounts ? 'Completed today' : 'Completed, all time'}
-              shortLabel={view.todayCounts ? 'Done today' : 'Done, all time'}
-              value={view.completed}
-              onClick={() => onOpen('completed')}
-            />
-            <MiniStat label="New today" shortLabel="New today" value={view.newToday} onClick={() => onOpen('newToday')} />
-            <MiniStat
-              label={view.todayCounts ? 'Total today' : 'Total, all time'}
-              shortLabel={view.todayCounts ? 'Total today' : 'All time'}
-              value={view.total}
-            />
+            {/* All-time is the default meaning of Done and Total, so it is not repeated on every tile; only
+                the tile that counts TODAY (Checklist) says so. */}
+            <MiniStat label={view.todayCounts ? 'Done today' : 'Done'} value={view.completed} onClick={() => onOpen('completed')} />
+            <MiniStat label="New today" value={view.newToday} onClick={() => onOpen('newToday')} />
+            <MiniStat label={view.todayCounts ? 'Total today' : 'Total'} value={view.total} />
           </div>
         </>
       )}

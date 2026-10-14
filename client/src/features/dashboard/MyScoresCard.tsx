@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import { cn } from '@/lib/utils';
-import { ArrowDown, ArrowUp, SlidersHorizontal, ChartColumn, ChartLine, ChevronDown, ChevronLeft, ChevronRight, CircleGauge, ClipboardCheck, Ticket as TicketIcon, Users, type LucideIcon } from 'lucide-react';
+import { ArrowDown, ArrowUp, SlidersHorizontal, ChartColumn, ChartLine, ChevronDown, ChevronLeft, ChevronRight, CircleGauge, type LucideIcon } from 'lucide-react';
 import { Button, Combobox, ExportMenu, Switch, type ComboboxOption, type ExportSource, type ExportTable } from '../../components';
 import { SemiGauge } from '../../components/semiGauge/SemiGauge';
 import { InlineError } from '../../components/inlineError';
@@ -92,7 +92,7 @@ interface ScoreTileProps {
   detail: string;
   loading: boolean;
   /** Tapping the tile opens the popup with the figures and the way to the finished and late items. */
-  onOpen?: () => void;
+  onOpen: () => void;
   /** The score now minus the previous period's, shown when Compare is on. */
   change?: number | null;
 }
@@ -104,7 +104,7 @@ const ScoreTile = ({ title, score, detail, loading, onOpen, change }: ScoreTileP
   // A small count still gets its colour: one finished item out of one is a full, green score.
   const tone = score === null ? 'neutral' : rateTone(score, Number.MAX_SAFE_INTEGER);
   const [from, to] = RING[tone];
-  const tileClass = `flex min-w-0 flex-col items-center gap-1.5 rounded-lg border border-border bg-surface p-3 text-center ${onOpen ? 'cursor-pointer transition-colors duration-150 hover:border-border-hover outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40' : ''}`;
+  const tileClass = 'flex min-w-0 cursor-pointer flex-col items-center gap-1.5 rounded-lg border border-border bg-surface p-3 text-center transition-colors duration-150 hover:border-border-hover outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40';
   const label = score === null ? `${title}: nothing due` : `${title}: ${formatPct(score)}${detail ? `, ${detail}` : ''}`;
   const body = (
     <>
@@ -128,9 +128,7 @@ const ScoreTile = ({ title, score, detail, loading, onOpen, change }: ScoreTileP
       )}
     </>
   );
-  return onOpen
-    ? <button type="button" onClick={onOpen} aria-label={`${label}. Open the details`} className={tileClass}>{body}</button>
-    : <div role="group" aria-label={label} className={tileClass}>{body}</div>;
+  return <button type="button" onClick={onOpen} aria-label={`${label}. Open the details`} className={tileClass}>{body}</button>;
 };
 
 // Days in a window, both ends included, and a day moved by n days ('YYYY-MM-DD' in, out).
@@ -227,7 +225,6 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
   const toggleMore = () => { setMoreOpen((v) => !v); setEverOpened(true); };
   // A ranked row opens that department (or person, or store) on the card itself.
   const openRanked = (id: string) => { if (scope === 'org') setScope('department'); setPicked(id); setMoreOpen(false); };
-  const views = VIEWS;
   const activeView: ScoreView = glance || simple ? 'bars' : view;
   const setView = (next: ScoreView) => { setViewState(next); remember({ view: next }); };
 
@@ -257,22 +254,15 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
 
   // In simple mode only Week and Month exist; anything else saved earlier reads as Month.
   const shownPeriod: ScorePeriod = glance ? 'month' : simple && period !== 'week' ? 'month' : period;
-  // The org's calendar day, not the device clock, names the week and month.
   const orgToday = useOrgToday();
   const range = pageWindow ?? windowFor(shownPeriod, glance ? 0 : offset, orgToday);
-  // With the page's window, the trend is cut to suit its length.
   const trendPeriod: ScorePeriod = pageWindow ? periodForSpan(spanDays(pageWindow.from, pageWindow.to)) : period;
   const queryClient = useQueryClient();
-  // The numbers are asked for with the window capped at today, the way the server scores it, so the Scorecard, the
-  // Scores page and this card share one request per person and period.
   const asked = capWindowAtToday(range.from, range.to, orgToday);
-  // Admin, PC and heads read the Score Explorer (the same answer as the Scorecard); everyone else, and any subject the
-  // explorer does not hold, reads /scores. Either way the numbers for one person and window are the same.
   const query = useScopeScores({ scope, id: targetId, from: asked.from, to: asked.to, enabled: ready });
   const data = ready ? query.data : undefined;
   const loading = ready && !data && query.isPending;
 
-  // The window before this one, only fetched while Compare is on and the view can show a change.
   const previousRange = pageWindow
     ? { from: shiftDay(pageWindow.from, -spanDays(pageWindow.from, pageWindow.to)), to: shiftDay(pageWindow.from, -1) }
     : windowFor(period, offset - 1, orgToday);
@@ -286,20 +276,15 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
   });
   const previous = compare && !simple && !glance ? previousQuery.data : undefined;
 
-  // Where the late items for a module live, for the subject on the card. A list that cannot be narrowed to
-  // the subject (checklists of someone else) has no link rather than a misleading one.
   const drillHref = (module: ModuleKey, kind: 'late' | 'completed'): string | null => {
     const mine = scope === 'person' && (!targetId || targetId === user?.id);
     const id = targetId ?? user?.id ?? '';
     const late = kind === 'late';
     const quick = late ? 'delayed' : 'completed';
-    // The score counts what came DUE in the window, so every list link carries that window (the lists read dueFrom and
-    // dueTo), not all time: the list then opens the same items the figure counted.
     const due = orgDayWindow(range.from, range.to);
     const win = `&dueFrom=${encodeURIComponent(due.start)}&dueTo=${encodeURIComponent(due.end)}`;
     if (scope === 'org') {
-      // The fill report opens on the same period; the compliance board has no window of its own.
-      if (module === 'checklist') return kind === 'late' ? '/admin/checklist-compliance' : pageWindow ? '/admin/checklist-weekly' : `/admin/checklist-weekly?period=${shownPeriod}&offset=${glance ? 0 : offset}`;
+      if (module === 'checklist') return late ? '/admin/checklist-compliance' : pageWindow ? '/admin/checklist-weekly' : `/admin/checklist-weekly?period=${shownPeriod}&offset=${glance ? 0 : offset}`;
       return module === 'ticket' ? `/tickets?quickFilter=${quick}${win}` : `/tasks?quickFilter=${quick}&category=delegation${win}`;
     }
     if (module === 'delegation') {
@@ -311,20 +296,14 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
     if (mine) return `/checklists?status=${status}`;
     return scope === 'store' ? `/checklists?status=${status}&store=${id}` : null;
   };
-  // A tapped score opens a small popup first; its buttons are what leave the dashboard.
-  // Kept after it closes so the popup can fade out instead of vanishing.
   const [drillState, setDrillState] = useState<{ module: ModuleKey; open: boolean } | null>(null);
   const openDrill = (module: ModuleKey) => setDrillState({ module, open: true });
   const closeDrill = () => setDrillState((d) => (d ? { ...d, open: false } : d));
   const goTo = (href: string) => {
-    // Straight away, in the tap itself: a delayed navigate could be lost if the card re-rendered meanwhile. The
-    // popup closes with it, and the page cross-fades where the browser supports it.
     closeDrill();
     void navigate(href, { viewTransition: true });
   };
 
-  // Warm the neighbouring windows so the arrows feel instant. Only where there are arrows: a page that sets
-  // the window has none, and the phone glance shows this month only, so neither fetches periods nobody opens.
   useEffect(() => {
     if (!ready || pageWindow || glance) return;
     for (const o of [offset - 1, ...(offset < 0 ? [offset + 1] : [])]) {
@@ -336,8 +315,6 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
     }
   }, [ready, pageWindow, glance, period, offset, scope, targetId, queryClient, orgToday, role]);
 
-  // What is on screen: this person, department or store, for this window. Everyone can export their own.
-  // The Trend view exports its slices; Bars and Dials export the three modules.
   const exportView = async (): Promise<ExportTable> => {
     if (activeView === 'trend') {
       const trend = await queryClient.fetchQuery<ScoreTrendData>({
@@ -356,7 +333,6 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
   const exportSubject = data?.name ?? SCOPE_LABEL[scope];
   const exportFilters = { View: scope === 'org' ? null : SCOPE_LABEL[scope], Showing: activeView === 'trend' ? 'Trend' : null };
 
-  // Every department and person the viewer may see (Admin and PC: the organisation; a head: their department).
   const reportExport: ExportSource[] = canExportReport
     ? [{
         label: orgWide ? 'All departments and people' : 'My department, by person',
@@ -382,7 +358,6 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
     />
   );
 
-  // The simple card names its window in the title, so no figure on it stands without one.
   const simpleWindow = offset === 0 ? (shownPeriod === 'week' ? 'this week' : 'this month') : `for ${range.label}`;
   const heading = simple ? `Your scores ${simpleWindow}` : scope === 'person' && !targetId ? 'Your scores' : `${data?.name ?? SCOPE_LABEL[scope]} scores`;
   const showPicker = scope === 'org' ? false : scope === 'person' ? canPickPerson : !(scope === 'department' && isHod);
@@ -391,25 +366,24 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
     <section ref={cardRef} className={`${DASHBOARD_CARD_CLASS} @container flex min-w-0 flex-col gap-4 p-4`} aria-label="Scores">
       <header className="flex flex-col gap-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
-          {/* Front-line and phone glance cards have no control row, so their Export sits beside the title. */}
           <div className="flex min-w-0 items-start justify-between gap-2 sm:flex-1">
-          <div className="flex min-w-0 flex-col gap-0.5">
-            <div className="flex min-w-0 items-center gap-1.5">
-              <h2 className="t-section font-display font-bold text-text tracking-tight line-clamp-2">{heading}</h2>
-              {simple ? (
-                <HowCalculated figure="overall" label="How are my scores calculated" />
-              ) : (
-                <HintPopover label="What do these scores mean?">
-                  <p><strong className="text-text">{SCORE_LABEL.completion}</strong>: how much of the work that came due was done.</p>
-                  <p><strong className="text-text">{complianceLabel('checklist')}</strong> (checklists): how many checked answers were right. <strong className="text-text">{complianceLabel('ticket')}</strong> (tickets and delegations): how much was finished or handed in by its deadline.</p>
-                  <p><strong className="text-text">{SCORE_LABEL.overall}</strong>: completion and the second measure counted equally.</p>
-                  <p>Work that is not due yet is left out, so a running week or month does not look low. Good is 80% or more, Fair 50 to 79, Low under 50.</p>
-                </HintPopover>
-              )}
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <div className="flex min-w-0 items-center gap-1.5">
+                <h2 className="t-section font-display font-bold text-text tracking-tight line-clamp-2">{heading}</h2>
+                {simple ? (
+                  <HowCalculated figure="overall" label="How are my scores calculated" />
+                ) : (
+                  <HintPopover label="What do these scores mean?">
+                    <p><strong className="text-text">{SCORE_LABEL.completion}</strong>: how much of the work that came due was done.</p>
+                    <p><strong className="text-text">{complianceLabel('checklist')}</strong> (checklists): how many checked answers were right. <strong className="text-text">{complianceLabel('ticket')}</strong> (tickets and delegations): how much was finished or handed in by its deadline.</p>
+                    <p><strong className="text-text">{SCORE_LABEL.overall}</strong>: completion and the second measure counted equally.</p>
+                    <p>Work that is not due yet is left out, so a running week or month does not look low. Good is 80% or more, Fair 50 to 79, Low under 50.</p>
+                  </HintPopover>
+                )}
+              </div>
+              {glance && <p className="t-meta font-medium text-text-muted">{range.label}</p>}
+              <p className="hidden t-meta font-medium text-text-muted sm:block">What came due, how much got done, and how much was done right or on time</p>
             </div>
-            {glance && <p className="t-meta font-medium text-text-muted">{range.label}</p>}
-            <p className="hidden t-meta font-medium text-text-muted sm:block">What came due, how much got done, and how much was done right or on time</p>
-          </div>
           {glance && canExport && exportMenu}
           </div>
           {!simple && !glance && <div className="flex items-center justify-between gap-2 sm:justify-end sm:shrink-0">
@@ -420,7 +394,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
               </Button>
             )}
             <div role="group" aria-label="Show as" className="inline-flex items-center gap-1 rounded-lg border border-border bg-surface-hover/40 p-1">
-              {views.map((option) => {
+              {VIEWS.map((option) => {
                 const Icon = VIEW_ICON[option];
                 const active = activeView === option;
                 return (
@@ -443,11 +417,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
         </div>
 
       </header>
-
-      {/* Phone and tablet: steps, then the fold, then the chart, in one column. Wide screen: the chart and the steps on
-          the left, the controls as a panel on the right. */}
       <div className={simple ? 'flex flex-col gap-3' : 'flex flex-col gap-3 @4xl:grid @4xl:grid-cols-[minmax(0,1fr)_20rem] @4xl:grid-rows-[auto_1fr_auto] @4xl:gap-x-5 @4xl:gap-y-3'}>
-      {/* The date steps stay in view: the day or week is the thing people change most. */}
       {glance ? null : pageWindow ? (
         <div className="flex min-h-11 w-full flex-wrap items-center justify-center gap-x-2 rounded-lg border border-border px-3 py-2 @4xl:col-start-1 @4xl:row-start-1">
           <span className="t-card font-display font-semibold text-text">{range.label}</span>
@@ -472,10 +442,6 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
       )}
 
       {!simple && !glance && (<>
-      {/* Everything that picks WHAT is shown (person, department or store, the day, week or month, the measure,
-          and the list of everyone with its search) is folded under one row, so the card stays short and opens on
-          the signed-in person's own scores. A phone starts folded; a desktop starts open. The fold is a CSS grid
-          row that eases between 0fr and 1fr, so it follows the content's real height whatever loads inside it. */}
       <div className="rounded-lg border border-border/60 @4xl:col-start-2 @4xl:row-span-2 @4xl:row-start-1 @4xl:self-start">
         <button
           type="button"
@@ -551,7 +517,6 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
                   </label>
                 )}
 
-
                 {canExportReport && !isWide && (
                   <ScoreRanking metric={metric} scope={scope} from={range.from} to={range.to} onOpen={openRanked} />
                 )}
@@ -591,10 +556,10 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
         ) : (
         <div className="grid grid-cols-3 gap-3">
           {([
-            { key: 'checklist', title: MODULE_LABEL.checklist, icon: ClipboardCheck },
-            { key: 'ticket', title: MODULE_LABEL.ticket, icon: TicketIcon },
-            { key: 'delegation', title: MODULE_LABEL.delegation, icon: Users },
-          ] as { key: ModuleKey; title: string; icon: typeof Users }[]).map(({ key, title }) => {
+            { key: 'checklist', title: MODULE_LABEL.checklist },
+            { key: 'ticket', title: MODULE_LABEL.ticket },
+            { key: 'delegation', title: MODULE_LABEL.delegation },
+          ] as { key: ModuleKey; title: string }[]).map(({ key, title }) => {
             // Overview keeps the headline score; the other tabs show that one measure for every module.
             const now = data ? numbersFor(data, key) : null;
             const before = previous ? numbersFor(previous, key) : null;
