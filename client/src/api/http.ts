@@ -45,12 +45,22 @@ const refreshAccessToken = (staleToken: string | null): Promise<string | null> =
 // on the actual HTTP status — a plain Error has nowhere to carry that.
 export class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  /** How long the server asked us to wait before trying again (Retry-After), when it said. */
+  retryAfterMs?: number;
+  constructor(message: string, status: number, retryAfterMs?: number) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.retryAfterMs = retryAfterMs;
   }
 }
+
+// Retry-After comes as whole seconds (the form the server's rate limiter and proxies send); an HTTP
+// date, or anything else, is ignored rather than guessed at.
+const retryAfterMsOf = (res: Response): number | undefined => {
+  const seconds = Number(res.headers.get('Retry-After'));
+  return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : undefined;
+};
 
 const forceLogout = () => {
   // Best-effort, not awaited: the refresh token is almost certainly already dead (that's why
@@ -109,7 +119,7 @@ export const apiFetch = async <T>(path: string, options: RequestInit = {}): Prom
   }
 
   const data = await res.json().catch(() => null);
-  if (!res.ok) throw new ApiError(data?.message ?? 'Something went wrong. Please try again.', res.status);
+  if (!res.ok) throw new ApiError(data?.message ?? 'Something went wrong. Please try again.', res.status, retryAfterMsOf(res));
   return data as T;
 };
 

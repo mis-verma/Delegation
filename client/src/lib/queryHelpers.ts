@@ -85,10 +85,25 @@ export function notifyError(err: unknown, fallback: string, options: NotifyError
 // found, etc.) — retrying doesn't fix "you're not allowed" or "this doesn't exist any more," it
 // just fires the same doomed request 3x in a row (e.g. a deleted checklist's detail page hammering
 // GET /checklist-definitions/:id 3 times before giving up, instead of failing on the first try).
-// Only network errors and 5xx (genuinely transient) are worth retrying. Pass as a query's `retry`.
+// Only network errors, 5xx, 408 (request timeout) and 429 (rate limited) are worth retrying: those
+// are all "try again in a moment" (same set as retryCanHelp above). Pass as a query's `retry`; it is
+// also the app-wide default (main.tsx).
 export const handleQueryRetry = (failureCount: number, error: unknown) => {
-  if (error instanceof ApiError && error.status >= 400 && error.status < 500) return false;
+  if (error instanceof ApiError && error.status >= 400 && error.status < 500 && error.status !== 408 && error.status !== 429) return false;
   return failureCount < 3;
+};
+
+const RETRY_BASE_MS = 1000;
+const RETRY_MAX_MS = 15_000;
+
+// How long to wait before the next try: the server's Retry-After when it sent one, otherwise
+// exponential (1s, 2s, 4s ...) up to 15s. Either way spread by +/-50% so a thousand clients that all
+// failed together do not all come back in the same instant and fail together again.
+// Pass as a query's `retryDelay`; it is the app-wide default (main.tsx).
+export const queryRetryDelay = (failureCount: number, error: unknown): number => {
+  const asked = error instanceof ApiError ? error.retryAfterMs : undefined;
+  const base = asked ?? Math.min(RETRY_BASE_MS * 2 ** failureCount, RETRY_MAX_MS);
+  return Math.round(base * (0.5 + Math.random()));
 };
 
 // Patches the entity with matching `id` inside any cached shape this app uses: a lone entity, a

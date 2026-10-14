@@ -349,6 +349,17 @@ body {
   :root {
     --font-display: var(--font-sans);
   }
+
+  /* Phone weights, Amazon-app style: titles and big numbers bold, item titles and labels semibold,
+     small text and body medium. Each role is a FLOOR, never a ceiling: `--tw-font-weight` is the
+     weight Tailwind's own `font-*` class put on the element, so `t-card font-bold` stays bold and a
+     bare `t-card` or `t-card font-normal` is lifted to 600. Plain (unlayered) rules on purpose: they
+     beat Tailwind's layered utilities whatever order the CSS is emitted in, so no `font-*` class
+     needs touching. Desktop is unchanged. */
+  body { font-weight: 500; }
+  .t-title, .t-section, .t-figure { font-weight: clamp(700, var(--tw-font-weight, 400), 900); }
+  .t-card { font-weight: clamp(600, var(--tw-font-weight, 400), 900); }
+  .t-meta { font-weight: clamp(500, var(--tw-font-weight, 400), 900); }
 }
 
 @media (prefers-reduced-motion: no-preference) {

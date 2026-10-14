@@ -8,12 +8,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { TooltipProvider } from './components/ui/tooltip.tsx';
 import { Toaster } from './components/ui/sonner.tsx';
 import { ConfirmDialogProvider } from "./components/confirmDialog"
+import { handleQueryRetry, queryRetryDelay } from './lib/queryHelpers.ts';
 
 
 const queryClient = new QueryClient({
   defaultOptions: {
 
-    queries: { staleTime: 30_000 },
+    // retry/retryDelay: see queryHelpers.ts. Retries a busy or rate-limited server with a spread-out
+    // backoff instead of failing at once (or retrying a doomed 403/404 three times).
+    queries: { staleTime: 30_000, retry: handleQueryRetry, retryDelay: queryRetryDelay },
   },
 });
 
