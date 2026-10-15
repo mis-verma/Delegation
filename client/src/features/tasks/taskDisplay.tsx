@@ -1,35 +1,30 @@
 import React from 'react';
-import { CheckCircle2, Clock, CircleDashed, ShieldCheck, FileEdit, PauseCircle, ArrowDown, Minus, ArrowUp } from 'lucide-react';
+import { CheckCircle2, Clock, CircleDashed, ShieldCheck, FileEdit, PauseCircle } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Task } from '../../api/task';
+import { PRIORITY_CHIP_META } from '../../components/priorityChip';
 
 export const PRIORITY_MAP = {
   low: {
-    label: 'Low',
+    ...PRIORITY_CHIP_META.low,
     className: 'bg-surface-hover text-text-muted transition-colors duration-200',
     accent: 'bg-text-light',
     stripe: 'bg-text-light/40',
     bar: 'bg-info',
-    solid: 'bg-text-light',
-    icon: ArrowDown,
   },
   medium: {
-    label: 'Medium',
+    ...PRIORITY_CHIP_META.medium,
     className: 'bg-warning/10 text-warning transition-colors duration-200',
     accent: 'bg-warning/35',
     stripe: 'bg-warning/35',
     bar: 'bg-warning',
-    solid: 'bg-warning',
-    icon: Minus,
   },
   high: {
-    label: 'High',
+    ...PRIORITY_CHIP_META.high,
     className: 'bg-danger/10 text-danger transition-colors duration-200',
     accent: 'bg-danger/35',
     stripe: 'bg-danger/35',
     bar: 'bg-danger',
-    solid: 'bg-danger',
-    icon: ArrowUp,
   },
 } satisfies Record<Task['priority'], { label: string; className: string; accent: string; stripe: string; bar: string; solid: string; icon: LucideIcon }>;
 

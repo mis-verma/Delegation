@@ -1,5 +1,5 @@
-import { ArrowDown, Minus, ArrowUp, AlertTriangle } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { PRIORITY_CHIP_META } from '../../components/priorityChip';
 import type { Ticket, TicketStatus } from '../../api/ticket';
 import { TICKET_STATUS_LABEL } from '../../lib/ticketStatusLabel';
 
@@ -63,40 +63,32 @@ export const STATUS_CONFIG: Record<TicketStatus, { label: string; className: str
 // background), which would be an invisible white-on-white icon circle.
 export const PRIORITY_CONFIG: Record<Ticket['priority'], { label: string; className: string; accent: string; stripe: string; bar: string; solid: string; icon: LucideIcon }> = {
   LOW: {
-    label: 'Low',
+    ...PRIORITY_CHIP_META.low,
     className: 'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-border/50 bg-surface-hover/30 px-2.5 py-0.5 text-xs font-medium text-text-muted transition-all',
     accent: 'bg-text-muted',
     stripe: 'bg-border',
     bar: 'bg-info',
-    solid: 'bg-text-light',
-    icon: ArrowDown,
   },
   MEDIUM: {
-    label: 'Medium',
+    ...PRIORITY_CHIP_META.medium,
     className: 'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-warning/30 bg-warning/10 px-2.5 py-0.5 text-xs font-semibold text-warning-700 dark:text-warning shadow-sm transition-all',
     accent: 'bg-warning',
     stripe: 'bg-warning/50',
     bar: 'bg-warning',
-    solid: 'bg-warning',
-    icon: Minus,
   },
   HIGH: {
-    label: 'High',
+    ...PRIORITY_CHIP_META.high,
     className: 'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-danger/30 bg-danger/10 px-2.5 py-0.5 text-xs font-semibold text-danger-700 dark:text-danger shadow-sm transition-all',
     accent: 'bg-danger',
     stripe: 'bg-danger/50',
     bar: 'bg-danger',
-    solid: 'bg-danger',
-    icon: ArrowUp,
   },
   CRITICAL: {
-    label: 'Critical',
+    ...PRIORITY_CHIP_META.critical,
     className: 'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-transparent bg-danger px-2.5 py-0.5 text-xs font-bold text-white shadow-md shadow-danger/20 transition-all',
     accent: 'bg-white',
     stripe: 'bg-danger/80',
     bar: 'bg-danger',
-    solid: 'bg-danger',
-    icon: AlertTriangle,
   },
 };
 

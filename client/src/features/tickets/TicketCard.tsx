@@ -119,9 +119,8 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
           </Tooltip>
         ) : statusChip}
 
-        {/* Medium is the default, so a chip on every card is noise: only the exceptions are marked.
-            The detail sheet still shows it for every ticket. */}
-        {ticket.priority !== 'MEDIUM' && <PriorityChip meta={priorityInfo} />}
+        {/* Every priority shows, as in To-Do and Delegation, so the chip reads the same across the three. */}
+        <PriorityChip meta={priorityInfo} />
 
         {departmentName && <DepartmentChip name={departmentName} className={deptChipClass} />}
 
