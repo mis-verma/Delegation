@@ -24,6 +24,9 @@ interface PickerShellProps {
   sheetFooter?: ReactNode;
   /** Classes for the desktop popover. */
   popoverClassName?: string;
+  /** Render the desktop popover inside this element (the form dialog) instead of the page body. A popover in the
+   *  body sits outside a dialog's focus trap, which pulls focus back out of any field typed into inside it. */
+  popoverContainer?: HTMLElement | null;
   children: ReactNode;
 }
 
@@ -34,7 +37,7 @@ interface PickerShellProps {
  * layer loses every pick to the dialog's own focus trap.
  */
 export const PickerShell = ({
-  open, onOpenChange, trigger, triggerAside, wrapperClassName, bare = false, title, sheetFooter, popoverClassName, children,
+  open, onOpenChange, trigger, triggerAside, wrapperClassName, bare = false, title, sheetFooter, popoverClassName, popoverContainer, children,
 }: PickerShellProps) => {
   const isPhone = useMediaQuery('(max-width: 639px)');
   // The phone back gesture closes the sheet instead of leaving the page.
@@ -90,6 +93,7 @@ export const PickerShell = ({
         align="start"
         sideOffset={6}
         collisionPadding={12}
+        container={popoverContainer}
         className={cn(
           'w-auto max-w-[calc(100vw-1.5rem)] max-h-[min(36rem,var(--radix-popover-content-available-height))] overflow-y-auto overscroll-contain custom-scrollbar p-3',
           popoverClassName,
