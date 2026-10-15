@@ -23,6 +23,9 @@ function cn(...inputs: ClassValue[]) {
 export interface QuickFilterTile<K extends string> {
   key: K;
   label: string;
+  /** A shorter word for a phone, where five tiles share one row and a long word used to break mid-word
+   *  ("Complete / d"). Tablet and up, and the screen-reader name, keep `label`. */
+  shortLabel?: string;
   icon: LucideIcon;
   bgTint: string;
   accentBar: string;
@@ -108,7 +111,7 @@ export function QuickFilterStats<K extends string>({
       {/* Simple cards: the number big on the left, its name under it, a soft coloured icon on the right. Only
           late work gets a red number; a zero is quiet grey. The picked card's icon fills with its colour and its name turns bold; no border or line. */}
       {shownTiles.map((tile) => {
-        const { key, label, icon: Icon, bgTint, iconTint, accentBar } = tile;
+        const { key, label, shortLabel, icon: Icon, bgTint, iconTint, accentBar } = tile;
         const isTotalTile = hasTotal && key === 'all';
         const isActive = isTotalTile ? active === null : active === key;
         const count = (isTotalTile ? total : counts[key as K]) ?? 0;
@@ -142,7 +145,9 @@ export function QuickFilterStats<K extends string>({
               </span>
               {/* Phone: up to two lines, never an ellipsis. Five tiles at 320px leave about 50px each, so a
                   long word may hyphenate rather than get cut. The grid row keeps every tile the same height. */}
-              <span className={cn('mt-1 sm:mt-1.5 block max-sm:t-meta max-sm:leading-tight max-sm:line-clamp-2 max-sm:hyphens-auto max-sm:[overflow-wrap:anywhere] sm:truncate sm:text-xs', isActive ? 'font-bold text-text' : 'font-medium text-text-muted')}>{label}</span>
+              <span className={cn('mt-1 sm:mt-1.5 block max-sm:t-meta max-sm:leading-tight max-sm:line-clamp-2 max-sm:hyphens-auto max-sm:[overflow-wrap:anywhere] sm:truncate sm:text-xs', isActive ? 'font-bold text-text' : 'font-medium text-text-muted')}>
+                {shortLabel ? (<><span className="sm:hidden">{shortLabel}</span><span className="hidden sm:inline">{label}</span></>) : label}
+              </span>
             </span>
             <span aria-hidden="true" className={cn('hidden sm:flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors duration-150', isActive ? cn(accentBar, 'text-white') : cn(bgTint, iconTint))}>
               <Icon className="size-4" />

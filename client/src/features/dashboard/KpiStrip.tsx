@@ -78,8 +78,13 @@ const DRILL_LABEL: Record<DrillKind, string> = { pending: 'Pending', completed: 
 // The page each preview's button opens, in the words the sidebar uses.
 const PAGE_NAME: Record<ModuleKey, string> = { delegation: 'Delegation', tickets: 'Tickets', checklist: 'Checklists', todo: 'To-do' };
 
-const DRILL_WINDOW = (view: ModuleView, kind: DrillKind): string =>
-  kind === 'pending' ? 'pending now' : kind === 'newToday' ? 'new today' : kind === 'overdue' ? 'overdue' : view.todayCounts ? 'completed today' : 'completed, all time';
+// The popup's line under its title: the count and its window, without repeating the title's own word.
+const DRILL_SUBTITLE = (view: ModuleView, kind: DrillKind): string =>
+  kind === 'pending' ? 'open right now' : kind === 'newToday' ? 'added today' : kind === 'overdue' ? 'past their deadline' : view.todayCounts ? 'finished today' : 'finished, all time';
+
+// An empty popup says what is clear, instead of a bare "Nothing here yet".
+const EMPTY_TITLE: Record<DrillKind, string> = { pending: 'Nothing pending', completed: 'Nothing finished yet', newToday: 'Nothing new today', overdue: 'Nothing overdue' };
+const EMPTY_REASON: Record<DrillKind, string> = { pending: 'are open right now', completed: 'have been finished yet', newToday: 'were added today', overdue: 'are past their deadline' };
 
 const startOfToday =(now: number) => { const d = new Date(now); d.setHours(0, 0, 0, 0); return d.getTime(); };
 
@@ -339,7 +344,9 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
         newToday: (x: Task) => isNew(x.createdAt),
         overdue: (x: Task) => isTaskOverdue(x, now),
       }[kind];
-      rows = taskList.filter(pick).map((x) => taskDrilldownRow(x, now));
+      // Delegations only: the tile's count (the server's task summary) leaves out issues, and the list behind
+      // it is every task the role can see, so without this the popup showed issues the number never counted.
+      rows = taskList.filter((x) => x.category === 'delegation').filter(pick).map((x) => taskDrilldownRow(x, now));
     } else if (key === 'tickets') {
       const pick = {
         pending: (x: Ticket) => x.status !== 'CLOSED',
@@ -383,9 +390,12 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
     const viewAllHref = kind === 'newToday' ? createdRangeHref(view.href, new Date(today), tomorrow) : VIEW_ALL_HREF[key][kind];
 
     return {
-      title: `${DRILL_LABEL[kind]} ${view.noun}`,
-      // Says which window the number is: open now, done today, new today.
-      description: counted != null ? `${counted} ${counted === 1 ? view.noun.replace(/s$/, '') : view.noun} ${DRILL_WINDOW(view, kind)}` : undefined,
+      title: kind === 'newToday' ? `New ${view.noun}` : `${DRILL_LABEL[kind]} ${view.noun}`,
+      // The count and its window, in words that do not repeat the title ("Pending delegations" / "15 open right now").
+      description: counted != null ? `${counted} ${DRILL_SUBTITLE(view, kind)}` : undefined,
+      // What the empty list says, so a 0 tile does not open a bare "Nothing here yet".
+      emptyTitle: EMPTY_TITLE[kind],
+      emptyDescription: `No ${view.noun} ${EMPTY_REASON[kind]}.`,
       icon: view.icon,
       rows,
       total: counted ?? undefined,
@@ -415,6 +425,8 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
           onClose={() => setOpenDrill(null)}
           title={drilldown.title}
           description={drilldown.description}
+          emptyTitle={drilldown.emptyTitle}
+          emptyDescription={drilldown.emptyDescription}
           icon={drilldown.icon}
           rows={drilldown.rows}
           total={drilldown.total}

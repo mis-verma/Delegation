@@ -33,7 +33,7 @@ export const PageHeader = ({ icon, title, subtitle, actions }: PageHeaderProps) 
     <div className="flex items-center gap-3 min-w-0 flex-1 basis-80">
       <GradientIconTile icon={icon} />
       <div className="flex flex-col gap-0.5 min-w-0">
-        <h1 className="text-xl sm:text-2xl font-display font-bold tracking-tight text-text">{title}</h1>
+        <h1 className="t-title font-display font-bold tracking-tight text-text">{title}</h1>
         {subtitle && <p className="hidden sm:block text-sm font-display text-text-muted max-w-2xl">{subtitle}</p>}
       </div>
     </div>

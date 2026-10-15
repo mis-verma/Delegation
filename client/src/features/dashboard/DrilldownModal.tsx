@@ -41,7 +41,9 @@ interface DrilldownListProps {
   cappedNote?: string;
   isLoading?: boolean;
   viewAllHref?: string;
-  viewAllLabel?: string;
+  /** What an empty list says. Left out, it is the generic "Nothing here yet". */
+  emptyTitle?: string;
+  emptyDescription?: string;
   /** Fires with the row's link when a row is tapped — the caller decides what "select" means
    *  (navigate-and-close for a standalone modal, or just navigate when this list already lives
    *  inside a modal the caller manages itself). */
@@ -63,7 +65,11 @@ const DrilldownRowButton = memo(({ row, onSelect }: { row: DrilldownRow; onSelec
       {/* Same icon-circle-in-a-pill StatusChip every Ticket/Delegation status display already
           renders through. `completed`/`overdue`/`pending` are real StatusChipStatus values, so no
           mapping is needed. */}
-      <StatusChip status={state} className="shrink-0" />
+      {/* Tablet and up only. On a phone the line under the title already says it ("Late since 8 Oct", "Done 1 min
+          ago"), and a chip on every row repeated it and took a quarter of the row's width from the title. */}
+      <span className="hidden sm:inline-flex shrink-0">
+        <StatusChip status={state} />
+      </span>
       <ChevronRight size={16} strokeWidth={2.5} className="shrink-0 text-text-muted" aria-hidden="true" />
     </button>
   );
@@ -77,7 +83,7 @@ DrilldownRowButton.displayName = 'DrilldownRowButton';
  * nesting a second `Dialog`. Two stacked Radix dialogs animating open/closed back-to-back is what
  * made that transition feel like a double delay instead of an instant swap.
  */
-export const DrilldownList = ({ rows, total, cappedNote, isLoading = false, viewAllHref, viewAllLabel = 'View all', onSelect }: DrilldownListProps) => {
+export const DrilldownList = ({ rows, total, cappedNote, isLoading = false, viewAllHref, emptyTitle = 'Nothing here yet', emptyDescription = 'No items match this selection.', onSelect }: DrilldownListProps) => {
   const visible = rows.slice(0, PREVIEW_LIMIT);
   const remaining = rows.length - visible.length;
 
@@ -92,22 +98,17 @@ export const DrilldownList = ({ rows, total, cappedNote, isLoading = false, view
   }
 
   if (rows.length === 0) {
-    return <EmptyState size="compact" icon={Inbox} title="Nothing here yet" description="No items match this selection." />;
+    return <EmptyState size="compact" icon={Inbox} title={emptyTitle} description={emptyDescription} />;
   }
 
   // One sentence about what is on screen versus what the figure counts. A tapped figure that counts
   // more than the preview holds says "Showing 8 of 23"; the old wording stacked "Showing the 25 most
   // recent of 80" and "+17 more" together, which gave two different numbers for the same gap.
   const counted = total != null && total > visible.length ? total : null;
-  // The page's name from the button's own words ("Open Checklists", "View all tickets"), so the note never
-  // says "the in Checklist page".
-  const pageName = viewAllLabel.replace(/^(view all|open)\s+(in\s+)?/i, '').trim();
+  // No "the full list is in X" line: the button right below already says "Open X".
   const footnote = counted != null
     ? `Showing ${visible.length} of ${counted}.${viewAllHref ? ' The rest are on the full list.' : ''}`
-    : [
-        remaining > 0 ? `+${remaining} more` : null,
-        cappedNote ?? (viewAllHref && pageName && pageName.toLowerCase() !== viewAllLabel.toLowerCase() ? `The full list is in ${pageName}.` : null),
-      ].filter(Boolean).join('. ');
+    : [remaining > 0 ? `+${remaining} more` : null, cappedNote ?? null].filter(Boolean).join('. ');
 
   return (
     <>
@@ -154,6 +155,9 @@ interface DrilldownModalProps {
    *  go somewhere every viewer can reach) as the only way out of the modal. */
   viewAllHref?: string;
   viewAllLabel?: string;
+  /** What an empty list says (see DrilldownList). */
+  emptyTitle?: string;
+  emptyDescription?: string;
 }
 
 export const DrilldownModal = ({
@@ -168,6 +172,8 @@ export const DrilldownModal = ({
   isLoading = false,
   viewAllHref,
   viewAllLabel = 'View all',
+  emptyTitle,
+  emptyDescription,
 }: DrilldownModalProps) => {
   const navigate = useNavigate();
 
@@ -197,6 +203,9 @@ export const DrilldownModal = ({
       // Top padding only on the body and footer: a py-3 here overrode Modal's safe-area bottom
       // padding and put the last row or the View all button on the iPhone home bar. Modal's own
       // close button is already 44px on touch.
+      // gap-0: the sheet puts a 20px gap between its header, body and footer by default, which stacked on the body's
+      // own padding and left a roomy empty band above the first row and again above the button.
+      contentClassName="gap-0"
       headerClassName="px-4 py-3"
       bodyClassName="gap-3 px-4 pt-3"
       footerClassName="px-4 pt-3"
@@ -207,7 +216,7 @@ export const DrilldownModal = ({
       // one-shot form dialog with nothing behind it worth uncovering.
       draggable
     >
-      <DrilldownList rows={rows} total={total} cappedNote={cappedNote} isLoading={isLoading} viewAllHref={viewAllHref} viewAllLabel={viewAllLabel} onSelect={go} />
+      <DrilldownList rows={rows} total={total} cappedNote={cappedNote} isLoading={isLoading} viewAllHref={viewAllHref} emptyTitle={emptyTitle} emptyDescription={emptyDescription} onSelect={go} />
     </Modal>
   );
 };

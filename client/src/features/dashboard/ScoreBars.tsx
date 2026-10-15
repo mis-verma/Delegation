@@ -184,7 +184,9 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
                   maxBarSize={barSize}
                   background={{ fill: TRACK_FILL, radius: 8 }}
                   animationDuration={500}
-                  onClick={(d: { payload?: Row }) => { if (d.payload) onOpenModule?.(d.payload.key); }}
+                  // A module with nothing due shows its empty "Nothing due" column; tapping it opened a popup of
+                  // zeros ("0 of 0 runs finished") with two buttons to empty lists, so it just does nothing.
+                  onClick={(d: { payload?: Row }) => { if (d.payload?.hasData) onOpenModule?.(d.payload.key); }}
                 >
                   <LabelList dataKey={k} position="top" offset={6} content={renderLabel} />
                 </Bar>

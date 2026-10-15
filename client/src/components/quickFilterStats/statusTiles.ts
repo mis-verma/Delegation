@@ -35,12 +35,13 @@ export type StatusTileKey = 'all' | 'pending' | 'due' | 'completed' | 'delayed' 
 // QuickFilterStats' icon box) — the same "icon in a tinted rounded box" language every StatCard
 // on the Dashboard, Calendar and admin analytics pages already uses. These tiles used to have no
 // icon at all, which was the one visible gap between this component and StatCard.
-const STATUS_TILE: Record<StatusTileKey, { label: string; tone: keyof typeof TONE; icon: LucideIcon }> = {
+const STATUS_TILE: Record<StatusTileKey, { label: string; shortLabel?: string; tone: keyof typeof TONE; icon: LucideIcon }> = {
   // Used as the "clear the filter" tile where a module has one.
   all: { label: 'All', tone: 'neutral', icon: Layers },
   pending: { label: 'Pending', tone: 'todo', icon: Clock },
   due: { label: 'Due', tone: 'warning', icon: CalendarClock },
-  completed: { label: 'Completed', tone: 'success', icon: CheckCircle2 },
+  // "Done" on a phone: "Completed" is too wide for one of five tiles and broke mid-word.
+  completed: { label: 'Completed', shortLabel: 'Done', tone: 'success', icon: CheckCircle2 },
   // `delayed` and `overdue` mean the same thing — past its due date — and are both kept because
   // the two names are already baked into different modules' filter keys and URLs. They resolve to
   // the same tone (and icon) so they can never look like different states.
@@ -60,6 +61,7 @@ export const statusTiles = <K extends StatusTileKey>(
   labels?: Partial<Record<K, string>>,
 ): QuickFilterTile<K>[] =>
   keys.map((key) => {
-    const { label, tone, icon } = STATUS_TILE[key];
-    return { key, label: labels?.[key] ?? label, icon, ...TONE[tone] };
+    const { label, shortLabel, tone, icon } = STATUS_TILE[key];
+    // A module that renames the bucket ("Done today") has chosen its own words, so no short form is imposed.
+    return { key, label: labels?.[key] ?? label, shortLabel: labels?.[key] ? undefined : shortLabel, icon, ...TONE[tone] };
   });

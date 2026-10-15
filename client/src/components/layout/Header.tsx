@@ -152,7 +152,7 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
           {/* Phones: the page (or a greeting on Home) with today's date under it. */}
           {phoneTitle && (
             <div className="sm:hidden flex flex-col min-w-0 leading-tight">
-              <span className="text-[0.9375rem] font-display font-bold text-text tracking-tight truncate">{phoneTitle}</span>
+              <span className="t-card font-display font-bold text-text tracking-tight truncate">{phoneTitle}</span>
               <span className="text-xs font-medium text-text-muted truncate">{phoneDate}</span>
             </div>
           )}

@@ -344,12 +344,23 @@ body {
   --text-sm: calc(0.800rem * var(--type-scale));
   --text-lg: calc(1.110rem * var(--type-scale));
   --text-xl: calc(1.15rem * var(--type-scale));
-  --text-2xl: calc(1rem * var(--type-scale));
+  /* Must stay larger than --text-xl: it was 1rem (16px), smaller than text-xl (18.4px) and text-lg, so every
+     text-2xl heading rendered smaller than the ones meant to sit below it. */
+  --text-2xl: calc(1.5rem * var(--type-scale));
   --text-3xl: calc(1.875rem * var(--type-scale));
   --text-4xl: calc(2.25rem * var(--type-scale));
+  /* --text-xs (12px) and --text-base (16px) are deliberately not scaled: 12px is the smallest size that stays
+     readable, and form inputs use 16px (smaller makes iOS zoom the page when one is tapped). */
 }
 @media (max-width: 380px) { :root { --type-scale: 0.95; } }
 @media (max-width: 339px) { :root { --type-scale: 0.9; } }
+
+/* One face per job. The display face (Plus Jakarta Sans) is for headings and big figures; small text is always
+   the body face (Inter). Before this, a 13px label that happened to carry `font-display` was set in the display
+   face right beside a 13px value in Inter, so a card read as two typefaces at one size. Phones already use Inter
+   for both (see below); this makes desktop match. Mono text is left alone. Plain (unlayered) so it beats the
+   layered `font-display` utility without touching the ~1,000 elements that carry it. */
+:where(.t-meta, .text-xs):not(.font-mono) { font-family: var(--font-sans); }
 
 @utility t-title { font-size: calc(clamp(1.125rem, 1rem + 0.6vw, 1.5rem) * var(--type-scale, 1)); line-height: 1.3; text-wrap: balance; }
 @utility t-section { font-size: calc(clamp(1.0625rem, 1rem + 0.3vw, 1.25rem) * var(--type-scale, 1)); line-height: 1.35; text-wrap: balance; }
