@@ -48,7 +48,10 @@ const ago = (ms: number, now: number) => {
 
 // Same soft tile every dashboard card header uses (see CARD_ICON_TILE_CLASS), but always shown: here
 // its colour is the signal (red when something is late, green when nothing is waiting).
-const TILE_CLASS = 'flex size-9 shrink-0 items-center justify-center rounded-lg';
+const TILE_CLASS = 'flex size-11 shrink-0 items-center justify-center rounded-xl text-white';
+const TILE_DANGER = 'bg-linear-to-br from-danger to-danger/70';
+const TILE_SUCCESS = 'bg-linear-to-br from-success to-success/70';
+const TILE_PRIMARY = 'bg-linear-to-br from-primary-500 to-primary-600';
 
 interface FocusNowCardProps {
   /** Delegations assigned to this person. */
@@ -72,7 +75,7 @@ interface FocusNowCardProps {
 const FocusSkeleton = () => (
   <section aria-label="Loading what needs you" role="status" className={cn(PANEL_CLASS, 'flex flex-col overflow-hidden')}>
     <div className="flex items-center gap-3 px-4 py-3">
-      <Skeleton className="size-9 shrink-0 rounded-lg" />
+      <Skeleton className="size-11 shrink-0 rounded-xl" />
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
         <Skeleton className="h-5 w-40" />
         <Skeleton className="h-3.5 w-28" />
@@ -174,8 +177,8 @@ export const FocusNowCard = ({ tasks, tickets, checklists, todos, now, isPending
       return (
         <section aria-labelledby="focus-now-heading" className={cn(PANEL_CLASS, 'flex flex-col')}>
           <div className="flex items-center gap-3 px-4 py-3">
-            <span className={cn(TILE_CLASS, 'bg-danger/10 text-danger')}>
-              <BellRing className="size-4" aria-hidden="true" />
+            <span className={cn(TILE_CLASS, TILE_DANGER)}>
+              <BellRing className="size-5" aria-hidden="true" />
             </span>
             <div className="min-w-0">
               <h2 id="focus-now-heading" className="t-section font-display font-bold text-text">Do now</h2>
@@ -190,12 +193,12 @@ export const FocusNowCard = ({ tasks, tickets, checklists, todos, now, isPending
       );
     }
     return (
-      <section aria-labelledby="focus-now-heading" className={cn(PANEL_CLASS, 'flex items-center gap-3 px-4 py-3 border-success/30 bg-success/5')}>
-        <span className={cn(TILE_CLASS, 'bg-success/15 text-success')}>
-          <CheckCheck className="size-4" aria-hidden="true" />
+      <section aria-labelledby="focus-now-heading" className={cn(PANEL_CLASS, 'flex items-center gap-3.5 px-4 py-3.5 border-success/30 bg-linear-to-r from-success/12 via-success/5 to-transparent')}>
+        <span className={cn(TILE_CLASS, TILE_SUCCESS)}>
+          <CheckCheck className="size-5" strokeWidth={2.5} aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
-          <h2 id="focus-now-heading" className="t-section font-display font-bold text-text">You're on track</h2>
+          <h2 id="focus-now-heading" className="t-section font-display font-bold tracking-tight text-text">You're on track</h2>
           {/* The sentence and "Updated 16:49" share a wrapping row: on a phone that is two short lines
               instead of three, and "Nice work." only appears where there is room for it. */}
           <div className="flex flex-wrap items-baseline gap-x-2">
@@ -211,8 +214,8 @@ export const FocusNowCard = ({ tasks, tickets, checklists, todos, now, isPending
   return (
     <section aria-labelledby="focus-now-heading" className={cn(PANEL_CLASS, 'flex flex-col overflow-hidden', urgent > 0 ? 'border-danger/30' : 'border-primary-500/30')}>
       <div className="flex items-center gap-3 px-4 py-3">
-        <span className={cn(TILE_CLASS, urgent > 0 ? 'bg-danger/10 text-danger' : 'bg-primary-500/10 text-primary-600 dark:text-primary-300')}>
-          <BellRing className="size-4 motion-safe:animate-[bell-ring_1.2s_ease-in-out_1]" aria-hidden="true" />
+        <span className={cn(TILE_CLASS, urgent > 0 ? TILE_DANGER : TILE_PRIMARY)}>
+          <BellRing className="size-5 motion-safe:animate-[bell-ring_1.2s_ease-in-out_1]" aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
           <h2 id="focus-now-heading" className="t-section font-display font-bold text-text">
@@ -240,7 +243,9 @@ export const FocusNowCard = ({ tasks, tickets, checklists, todos, now, isPending
                 to={item.href}
                 className="group flex min-h-16 items-center gap-3 px-4 py-2.5 outline-none transition-colors hover:bg-surface-hover/50 active:bg-surface-hover focus-visible:bg-surface-hover"
               >
-                <Icon className="size-4 shrink-0 text-text-muted" aria-hidden="true" />
+                <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-lg', REASON_TONE[item.reason])}>
+                  <Icon className="size-4" aria-hidden="true" />
+                </span>
                 <span className="flex min-w-0 flex-1 flex-col gap-1">
                   {/* The title has the row to itself and wraps to two lines; the reason chip sits on the
                       line under it, beside the detail, so it no longer cuts the title short. */}
@@ -250,7 +255,7 @@ export const FocusNowCard = ({ tasks, tickets, checklists, todos, now, isPending
                     <span className="min-w-0 t-meta text-text-muted">{item.detail}</span>
                   </span>
                 </span>
-                <ChevronRight className="size-4 shrink-0 text-text-muted" aria-hidden="true" />
+                <ChevronRight className="size-4 shrink-0 text-text-light transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
               </Link>
             </li>
           );

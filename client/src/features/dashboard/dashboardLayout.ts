@@ -21,7 +21,7 @@ export type DashboardCardSize = 'small' | 'big';
 /** Bump whenever DEFAULT_CARD_ORDER changes. A saved layout from an older version is migrated in
  *  useDashboardLayout: if it was just the old default, it moves to the new default; if the user had
  *  rearranged it, their order is kept. */
-export const LAYOUT_VERSION = 8;
+export const LAYOUT_VERSION = 9;
 
 /** Cards added in version 3. A saved older layout gets these put at the FRONT (where they used to be
  *  pinned), not appended at the end like other new cards, so nobody's approvals block vanishes to
@@ -37,8 +37,6 @@ export const DEFAULT_CARD_ORDER: readonly DashboardCardId[] = [
   'exceptions',
   'kpiStrip',
   'myScores',
-  'recentActivity',
-  'upcomingEvents',
 ];
 // 'compliance' (Completion and on-time), 'delegationScore', 'quickActions', 'compareDashboard',
 // 'teamProgress' and 'activityOverview' (its bars are now the Scores card's Bars view) are retired from the dashboard: Scores covers the first, second, fourth and fifth, and the
@@ -56,8 +54,6 @@ export const DEFAULT_CARD_ORDER: readonly DashboardCardId[] = [
 export const FRONT_LINE_CARD_ORDER: readonly DashboardCardId[] = [
   'kpiStrip',
   'myScores',
-  'upcomingEvents',
-  'recentActivity',
   'needsApproval',
 ];
 
@@ -90,7 +86,7 @@ export const DEFAULT_CARD_SIZES: Record<DashboardCardId, DashboardCardSize> = {
   needsApproval: 'big',
   exceptions: 'big',
   kpiStrip: 'big',
-  myScores: 'small',
+  myScores: 'big',
   quickActions: 'small',
   activityOverview: 'small',
   compliance: 'small',

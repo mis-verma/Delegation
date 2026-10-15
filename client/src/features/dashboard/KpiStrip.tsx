@@ -146,17 +146,25 @@ const MiniStat = ({ label, shortLabel, value, onClick }: { label: string; shortL
   // label wraps to two lines and another stays on one, the short one's number dropped lower than its
   // neighbours'. Top-aligned, the three numbers always sit on one line.
   return onClick ? (
-    <button type="button" onClick={onClick} className="flex min-w-0 min-h-11 sm:min-h-0 flex-col items-center justify-start rounded-lg px-1 py-1 text-center outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary-500/40">
+    <button type="button" onClick={onClick} className="flex min-w-0 min-h-11 sm:min-h-0 flex-col items-center justify-start rounded-xl bg-surface-hover/50 px-1 py-2 text-center outline-none transition-colors hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary-500/40">
       {body}
     </button>
   ) : (
-    <div className="flex min-w-0 min-h-11 sm:min-h-0 flex-col items-center justify-start px-1 py-1 text-center">{body}</div>
+    <div className="flex min-w-0 min-h-11 sm:min-h-0 flex-col items-center justify-start rounded-xl bg-surface-hover/50 px-1 py-2 text-center">{body}</div>
   );
 };
 
 // The score beside the big number: this month's overall score (completion and compliance counted equally),
 // or for To-do, which has no score, the share of to-dos done. Read from the same month answer, and through
 // the same moduleOverall, as the Your scores card, so a tile and that card agree for the month.
+// Each module keeps its own colour on its tile and its big number, the same hues the approvals chips use.
+const MODULE_TONE: Record<ModuleKey, { tile: string; text: string }> = {
+  delegation: { tile: 'bg-linear-to-br from-coral-500 to-coral-600', text: 'text-coral-600 dark:text-coral-300' },
+  tickets: { tile: 'bg-linear-to-br from-success to-success/70', text: 'text-success' },
+  checklist: { tile: 'bg-linear-to-br from-primary-500 to-primary-600', text: 'text-primary-700 dark:text-primary-300' },
+  todo: { tile: 'bg-linear-to-br from-warning to-warning/70', text: 'text-warning' },
+};
+
 const SCORE_MODULE: Record<Exclude<ModuleKey, 'todo'>, ScoreModule> = { delegation: 'delegation', tickets: 'ticket', checklist: 'checklist' };
 
 const scoreFor = (key: ModuleKey, s: Scores | undefined, view: ModuleView): { value: number | null; label: string } => {
@@ -190,12 +198,13 @@ const ModuleCard = ({ view, onOpen, score, scopeTag }: { view: ModuleView; onOpe
   }
   const failed = view.isError || view.pending == null;
   const scoreModule = view.key === 'todo' ? null : SCORE_MODULE[view.key];
+  const tone = MODULE_TONE[view.key];
   return (
     <section aria-label={scopeTag ? `${view.title}, ${scopeTag.toLowerCase()}` : view.title} className={cn(PANEL_CLASS, 'flex min-w-0 flex-col gap-2 sm:gap-3 p-3 sm:p-4 transition-colors hover:border-border-hover')}>
       <header className="flex items-center gap-2">
         {/* Desktop only: on a phone the tile took the room the module's name needs. */}
-        <span className="hidden sm:flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-500/10 text-primary-600 dark:text-primary-400">
-          <Icon className="size-4" aria-hidden="true" />
+        <span className={cn('hidden sm:flex size-9 shrink-0 items-center justify-center rounded-xl text-white', tone.tile)}>
+          <Icon className="size-[1.125rem]" strokeWidth={2.25} aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
           {/* A phone gets the smaller, still bold name (12px at its floor); tablet and up the usual card size. */}
@@ -222,7 +231,7 @@ const ModuleCard = ({ view, onOpen, score, scopeTag }: { view: ModuleView; onOpe
           {/* Tablet and desktop: the open count big, bold and centred on the left, the score ring on the right. */}
           <div className="hidden sm:grid grid-cols-2 items-center gap-2">
             <button type="button" onClick={() => onOpen('pending')} className="flex flex-col items-center justify-center rounded-xl py-1 outline-none transition-colors hover:bg-surface-hover/60 focus-visible:ring-2 focus-visible:ring-primary-500/40">
-              <span className="text-4xl xl:text-5xl font-display font-extrabold tabular-nums leading-none text-primary-700 dark:text-primary-300">
+              <span className={cn('text-4xl xl:text-5xl font-display font-extrabold tabular-nums leading-none tracking-tight', tone.text)}>
                 <CountUp value={view.pending ?? 0} />
               </span>
               <span className="mt-1.5 t-meta font-semibold text-text-muted">Pending now</span>
@@ -249,7 +258,7 @@ const ModuleCard = ({ view, onOpen, score, scopeTag }: { view: ModuleView; onOpe
               centred under that. */}
           <div className="flex sm:hidden flex-col items-center gap-1.5">
             <button type="button" onClick={() => onOpen('pending')} className="min-w-0 rounded-lg text-center outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40">
-              <span className="block t-figure font-display font-bold tabular-nums leading-none text-primary-700 dark:text-primary-300">
+              <span className={cn('block t-figure font-display font-bold tabular-nums leading-none', tone.text)}>
                 <CountUp value={view.pending ?? 0} />
               </span>
               <span className="mt-1 block t-meta font-medium text-text-muted">Pending</span>
@@ -267,7 +276,7 @@ const ModuleCard = ({ view, onOpen, score, scopeTag }: { view: ModuleView; onOpe
           </div>
           {/* Three figures you can open, as a small three-column grid at every size (a single
               "12 done, 3 new, 45 total" line was cut off on a phone). */}
-          <div className="grid grid-cols-3 gap-1 border-t border-border/60 pt-2 text-center">
+          <div className="grid grid-cols-3 gap-1.5 text-center">
             {/* All-time is the default meaning of Done and Total, so it is not repeated on every tile; only
                 the tile that counts TODAY (Checklist) says so. */}
             <MiniStat label={view.todayCounts ? 'Done today' : 'Done'} shortLabel="Done" value={view.completed} onClick={() => onOpen('completed')} />

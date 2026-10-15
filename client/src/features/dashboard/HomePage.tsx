@@ -6,7 +6,6 @@ import { useNow } from '../../lib/useNow';
 import { DASHBOARD_QUERY_OPTIONS, DASHBOARD_QUERY_ROOTS, invalidateDashboardQueries } from '../../lib/dashboardQuery';
 import { useTicketsQuery } from '../tickets/hook';
 import { useTasksQuery } from '../tasks/hook';
-import { useUpcomingEventsQuery } from '../events/hook';
 import { useTodosQuery } from '../todo/hook';
 import { useMyChecklistInstancesQuery } from '../checklist/hook';
 import { DashboardOverview } from './DashboardOverview';
@@ -16,8 +15,6 @@ import { FocusNowCard } from './FocusNowCard';
 import { OvertimeNotice } from './OvertimeNotice';
 import { useOrgToday } from '../checklist/useOrgToday';
 import { MyScoresCard } from './MyScoresCard';
-import { RecentActivity, RECENT_ACTIVITY_FEED_SIZE } from './RecentActivity';
-import { UpcomingEvents } from './UpcomingEvents';
 import { DashboardCardFrame } from './DashboardCardFrame';
 import { DashboardLayoutToolbar } from './DashboardLayoutToolbar';
 import { DashboardMobileCustomize } from './DashboardMobileCustomize';
@@ -25,7 +22,6 @@ import { dashboardViewFor } from './dashboardView';
 import { useDashboardLayout } from './useDashboardLayout';
 import { useDashboardSummaries } from './useDashboardSummaries';
 import { CARD_LABEL, type DashboardCardId } from './dashboardLayout';
-import type { FeedItem } from './dashboardDisplay';
 import type { Task } from '../../api/task';
 import type { ChecklistInstance } from '../../api/checklistInstances';
 import type { Ticket } from '../../api/ticket';
@@ -69,7 +65,6 @@ export const HomePage = () => {
   const summaries = useDashboardSummaries();
   const ticketsQuery = useTicketsQuery(1, 100, undefined, true, DASHBOARD_QUERY_OPTIONS);
   const tasksQuery = useTasksQuery(undefined, true, undefined, DASHBOARD_QUERY_OPTIONS);
-  const { data: upcomingEvents, isPending: eventsPending, isError: eventsFailed, refetch: refetchEvents } = useUpcomingEventsQuery(5, DASHBOARD_QUERY_OPTIONS);
   const todosQuery = useTodosQuery(true, DASHBOARD_QUERY_OPTIONS);
   // Feed and previews only: a page of recent runs, not every instance the user was ever assigned.
   const recentRunsQuery = useMyChecklistInstancesQuery({}, { limit: 25 }, DASHBOARD_QUERY_OPTIONS);
@@ -96,17 +91,6 @@ export const HomePage = () => {
     return [...byId.values()];
   }, [sentBackRuns, overdueRuns, unsentRuns, dueRuns, checklistData]);
 
-  const isPending = ticketsQuery.isPending || tasksQuery.isPending;
-  const tasksFailed = tasksQuery.isError;
-  const ticketsFailed = ticketsQuery.isError;
-  const { refetch: refetchTasks } = tasksQuery;
-  const { refetch: refetchTickets } = ticketsQuery;
-  const retryWork = useCallback(() => {
-    if (tasksFailed) void refetchTasks();
-    if (ticketsFailed) void refetchTickets();
-  }, [tasksFailed, ticketsFailed, refetchTasks, refetchTickets]);
-  const retryEvents = useCallback(() => void refetchEvents(), [refetchEvents]);
-
   // Every list the "things need you" card reads. It only says "on track" once all of them have
   // loaded; a failed one shows an error with Retry instead.
   const focusQueries = [ticketsQuery, tasksQuery, todosQuery, recentRunsQuery, sentBackQuery, overdueQuery, unsentQuery, dueQuery];
@@ -120,15 +104,6 @@ export const HomePage = () => {
   const visibleTasks = useMemo(() => allTasks ?? NO_TASKS, [allTasks]);
   const visibleTickets = useMemo(() => ticketPage?.data ?? NO_TICKETS, [ticketPage]);
 
-  // "Mine" for the feed: raised by me or assigned to me.
-  const tickets = useMemo(
-    () => visibleTickets.filter((t) => t.userId === userId || t.assigneeId === userId),
-    [visibleTickets, userId],
-  );
-  const tasks = useMemo(
-    () => visibleTasks.filter((t) => t.userId === userId || t.assigneeId === userId || t.additionalAssigneeIds?.includes(userId ?? '')),
-    [visibleTasks, userId],
-  );
   // Work a person was given to do (primary or additional assignee), not ones they only created for
   // someone else, for the "things need you" list.
   const assignedTasks = useMemo(
@@ -137,16 +112,6 @@ export const HomePage = () => {
   );
   // Tickets this person has to work on (not ones they only raised), for the "things need you" list.
   const myAssignedTickets = useMemo(() => visibleTickets.filter((t) => t.assigneeId === userId), [visibleTickets, userId]);
-
-  const feed = useMemo<FeedItem[]>(
-    () => [
-      ...tickets.map((t): FeedItem => ({ kind: 'ticket', id: t.id, title: t.title, status: t.status, createdAt: t.createdAt })),
-      ...tasks.map((t): FeedItem => ({ kind: 'task', id: t.id, title: t.title, status: t.status, createdAt: t.createdAt })),
-    ]
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, RECENT_ACTIVITY_FEED_SIZE),
-    [tickets, tasks],
-  );
 
   // Only the cards in the default orders render. The retired ids (activityOverview, compliance,
   // compareDashboard, quickActions, delegationScore, teamProgress) stay in DashboardCardId so an old
@@ -170,10 +135,6 @@ export const HomePage = () => {
         );
       case 'myScores':
         return <MyScoresCard />;
-      case 'recentActivity':
-        return <RecentActivity feed={feed} isPending={isPending} isError={tasksFailed || ticketsFailed} onRetry={retryWork} simple={frontLine} />;
-      case 'upcomingEvents':
-        return <UpcomingEvents events={upcomingEvents ?? []} isPending={eventsPending} isError={eventsFailed} onRetry={retryEvents} />;
       default:
         // 'todayStrip' (replaced by the "things need you" list above the cards) and the retired cards.
         return null;

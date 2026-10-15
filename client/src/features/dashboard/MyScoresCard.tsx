@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import { cn } from '@/lib/utils';
-import { ArrowDown, ArrowUp, SlidersHorizontal, ChartColumn, ChartLine, ChevronDown, ChevronLeft, ChevronRight, CircleGauge, type LucideIcon } from 'lucide-react';
+import { ArrowDown, ArrowUp, CalendarDays, Trophy, SlidersHorizontal, ChartColumn, ChartLine, ChevronDown, ChevronLeft, ChevronRight, CircleGauge, type LucideIcon } from 'lucide-react';
 import { Button, Combobox, ExportMenu, Switch, type ComboboxOption, type ExportSource, type ExportTable } from '../../components';
 import { SemiGauge } from '../../components/semiGauge/SemiGauge';
 import { InlineError } from '../../components/inlineError';
@@ -367,6 +367,8 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
       <header className="flex flex-col gap-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
           <div className="flex min-w-0 items-start justify-between gap-2 sm:flex-1">
+            <div className="flex min-w-0 items-start gap-3">
+            <span className="hidden sm:flex size-10 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-primary-500 to-primary-600 text-white"><Trophy className="size-5" strokeWidth={2.25} aria-hidden="true" /></span>
             <div className="flex min-w-0 flex-col gap-0.5">
               <div className="flex min-w-0 items-center gap-1.5">
                 <h2 className="t-section font-display font-bold text-text tracking-tight line-clamp-2">{heading}</h2>
@@ -383,6 +385,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
               </div>
               {glance && <p className="t-meta font-medium text-text-muted">{range.label}</p>}
               <p className="hidden t-meta font-medium text-text-muted sm:block">What came due, how much got done, and how much was done right or on time</p>
+            </div>
             </div>
           {glance && canExport && exportMenu}
           </div>
@@ -424,11 +427,12 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
           <span className="shrink-0 t-meta text-text-muted">from the period above</span>
         </div>
       ) : (
-      <div className="flex w-full items-center gap-1 rounded-lg border border-border p-1 @4xl:col-start-1 @4xl:row-start-1">
+      <div className="flex w-full items-center gap-1 rounded-xl border border-border bg-surface-hover/40 p-1 @4xl:col-start-1 @4xl:row-start-1">
         <button type="button" onClick={() => setOffset((o) => o - 1)} aria-label={`Previous ${period}`} className="inline-flex size-9 pointer-coarse:size-11 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-surface hover:text-text outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40">
           <ChevronLeft className="size-4" aria-hidden="true" />
         </button>
-        <span className="min-w-0 flex-1 text-center t-card font-display font-semibold text-text">
+        <span className="inline-flex min-w-0 flex-1 items-center justify-center gap-2 text-center t-card font-display font-bold text-text">
+          <CalendarDays className="size-4 shrink-0 text-primary-600 dark:text-primary-300" aria-hidden="true" />
           {activeView === 'trend' && period === 'day' ? (offset === 0 ? 'Last 7 days' : `7 days to ${range.label}`) : range.label}
         </span>
         <button type="button" onClick={() => setOffset((o) => Math.min(0, o + 1))} disabled={offset >= 0} aria-label={`Next ${period}`} className="inline-flex size-9 pointer-coarse:size-11 shrink-0 items-center justify-center rounded-lg text-text-muted transition-colors hover:bg-surface hover:text-text outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-40 disabled:hover:bg-transparent">
