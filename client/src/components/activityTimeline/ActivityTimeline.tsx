@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { History, ChevronDown, Loader2, ArrowRight, ArrowRightLeft, PencilLine, Layers } from 'lucide-react';
+import { History, ChevronDown, Loader2, ArrowRight, ArrowRightLeft, PencilLine, Layers, CalendarClock } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAuditLogsQuery } from '../../features/admin/auditLog/hook';
 import { actionConfig, entityTypeConfig, diffAuditLog, type AuditIdResolvers, type DiffRow } from '../../features/admin/auditLog/auditLogDisplay';
 import { useAuditIdResolvers } from '../../features/admin/auditLog/useAuditIdResolvers';
 import { Skeleton } from '../skeleton';
+import { ChangeCompare } from './ChangeCompare';
 import { ENTRY_CLASS, HEADING_TILE_CLASS, NODE_CLASS, TONE, type ActivityTone } from './activityTones';
 import { ActivityValue } from './ActivityValue';
 import type { AuditEntityType, AuditLog } from '../../api/auditLogs';
@@ -259,6 +260,17 @@ const ChangeList = ({ log, rows }: { log: AuditLog; rows: DiffRow[] }) => (
                 {row.after === '—' ? <span className="italic text-text-light">Cleared</span> : row.after}
               </p>
             </div>
+          </li>
+        );
+      }
+      // A date field is one calendar card, "was, an arrow, now", the same as the Activity feed's date change.
+      if (/due|date/i.test(row.key) && !/^(status|priority)$/.test(row.key)) {
+        return (
+          <li key={row.key} className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 min-w-0">
+            <span className="text-xs font-display font-semibold text-text-muted sm:w-24 shrink-0 truncate" title={row.label}>
+              {row.label}
+            </span>
+            <ChangeCompare icon={CalendarClock} tone="warning" from={wasEmpty ? undefined : row.before} to={row.after === '—' ? 'Cleared' : row.after} />
           </li>
         );
       }

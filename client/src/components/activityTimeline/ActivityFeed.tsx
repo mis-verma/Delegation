@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Activity, ArrowRight, ArrowRightLeft, CalendarClock, Check, ChevronDown, Flag, History, Pencil, Plus, Undo2, UserRound, UsersRound, type LucideIcon } from 'lucide-react';
+import { Activity, ArrowRightLeft, CalendarClock, Check, ChevronDown, Flag, History, Pencil, Plus, Undo2, UserRound, UsersRound, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ApiError } from '../../api/http';
 import { type ActivityEntity, type ActivityEvent, type ActivityFeedData, type ActivityKind } from '../../api/activity';
 import { Skeleton } from '../skeleton';
 import { activityQueryOptions } from './activityQuery';
 import { useNow } from '../../lib/useNow';
+import { ChangeCompare } from './ChangeCompare';
 import { ENTRY_CLASS, HEADING_TILE_CLASS, NODE_CLASS, TONE, type ActivityTone } from './activityTones';
 
 const PAGE = 8;
@@ -76,48 +77,23 @@ const groupByDay = (events: ActivityEvent[]) => {
   return groups;
 };
 
-const Pill = ({ children, muted }: { children: string; muted?: boolean }) => (
-  <span
-    className={cn(
-      'inline-flex min-w-0 max-w-[16rem] items-center truncate rounded-full border px-2.5 py-1 text-xs font-display font-semibold',
-      muted ? 'border-border/60 bg-surface-hover/60 text-text-muted' : 'border-primary-500/25 bg-primary-500/10 text-primary-700 dark:bg-primary-500/15 dark:text-primary-300',
-    )}
-  >
-    <span className="truncate">{children}</span>
-  </span>
-);
-
 const Detail = ({ e }: { e: ActivityEvent }) => {
-  if (e.kind === 'due_changed' && e.from && e.to) {
-    const delta = Math.round((new Date(e.to).getTime() - new Date(e.from).getTime()) / DAY);
+  if (e.kind === 'due_changed' && e.to) {
+    const delta = e.from ? Math.round((new Date(e.to).getTime() - new Date(e.from).getTime()) / DAY) : 0;
+    const tone = delta > 0 ? 'warning' : delta < 0 ? 'success' : 'primary';
     return (
-      <div className="flex flex-wrap items-center gap-1.5">
-        <Pill muted>{shortDate(e.from)}</Pill>
-        <ArrowRight size={12} strokeWidth={2.75} className="shrink-0 text-text-light" aria-label="changed to" />
-        <Pill>{shortDate(e.to)}</Pill>
-        {delta !== 0 && <span className={cn('text-xs font-display font-semibold', delta > 0 ? 'text-warning' : 'text-success')}>{Math.abs(delta)} {Math.abs(delta) === 1 ? 'day' : 'days'} {delta > 0 ? 'later' : 'earlier'}</span>}
-      </div>
+      <ChangeCompare
+        icon={CalendarClock}
+        tone={tone}
+        from={e.from ? shortDate(e.from) : undefined}
+        to={shortDate(e.to)}
+        note={delta !== 0 ? `${Math.abs(delta)} ${Math.abs(delta) === 1 ? 'day' : 'days'} ${delta > 0 ? 'later' : 'earlier'}` : undefined}
+        noteTone={tone}
+      />
     );
   }
-  if (e.kind === 'due_changed' && e.to) return <Pill>{shortDate(e.to)}</Pill>;
-  if (e.kind === 'priority_changed' && e.from) {
-    return (
-      <div className="flex flex-wrap items-center gap-1.5">
-        <Pill muted>{e.from}</Pill>
-        <ArrowRight size={12} strokeWidth={2.75} className="shrink-0 text-text-light" aria-label="changed to" />
-        <Pill>{e.to ?? ''}</Pill>
-      </div>
-    );
-  }
-  if (e.kind === 'reassigned' && e.from) {
-    return (
-      <div className="flex flex-wrap items-center gap-1.5">
-        <Pill muted>{e.from}</Pill>
-        <ArrowRight size={12} strokeWidth={2.75} className="shrink-0 text-text-light" aria-label="changed to" />
-        <Pill>{e.to ?? 'Nobody'}</Pill>
-      </div>
-    );
-  }
+  if (e.kind === 'priority_changed' && e.to) return <ChangeCompare icon={Flag} tone="coral" from={e.from ?? undefined} to={e.to} />;
+  if (e.kind === 'reassigned' && e.to) return <ChangeCompare icon={UserRound} tone="primary" from={e.from ?? undefined} to={e.to} />;
   if (e.remark && (e.kind === 'status' || e.kind === 'sent_back')) {
     return <p className="rounded-lg border border-border/60 bg-surface-hover/50 px-2.5 py-1.5 text-xs font-medium leading-relaxed text-text-secondary break-words">{e.remark}</p>;
   }
