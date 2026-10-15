@@ -4,7 +4,7 @@ import { Input } from '../../../components';
 import { TaskDescriptionField } from '../../tasks/TaskDescriptionField';
 import { FormField } from '../form/FormField';
 import { DueDateField } from '../form/DueDateField';
-import { PrioritySegmented } from '../form/PrioritySegmented';
+import { TicketPriorityChipPicker } from '../form/TicketPriorityChipPicker';
 import type { TicketPriority } from '../form/formConstants';
 import { hoursUntil } from '../ticketDisplay';
 import type { Ticket, UpdateTicketPayload } from '../../../api/ticket';
@@ -143,7 +143,7 @@ export const TicketEditForm = ({ ticket, formId, canChangeDue, canChangePriority
           icon={<Flag size={14} className="text-text-light" />}
           hint="Critical is for work that has stopped. Most tickets are Medium."
         >
-          <PrioritySegmented value={priority} onChange={setPriority} />
+          <TicketPriorityChipPicker value={priority} onChange={setPriority} />
         </FormField>
       )}
 

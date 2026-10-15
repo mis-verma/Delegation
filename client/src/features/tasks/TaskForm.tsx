@@ -22,7 +22,7 @@ import { OWN_SCOPE_ROLES } from '../../api/auth';
 import type { Task } from '../../api/task';
 import { TaskFormDepartmentField } from './TaskFormDepartmentField';
 import { AssigneeField } from '../assignees/AssigneeField';
-import { TaskPrioritySegmented } from './form/TaskPrioritySegmented';
+import { TaskPriorityChipPicker } from './TaskPriorityChipPicker';
 import { TaskQuickDue } from './form/TaskQuickDue';
 import { TaskFormProgress } from './form/TaskFormProgress';
 import { FormField, StepHeading } from '../tickets/form/FormField';
@@ -443,7 +443,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
               control={control}
               name="priority"
               render={({ field }) => (
-                <TaskPrioritySegmented value={field.value} onChange={field.onChange} disabled={isBusy} />
+                <TaskPriorityChipPicker value={field.value} onChange={field.onChange} disabled={isBusy} />
               )}
             />
           </FormField>

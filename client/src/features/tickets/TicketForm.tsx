@@ -24,7 +24,7 @@ import { AssignmentModeToggle } from './form/AssignmentModeToggle';
 import { DueDateField } from './form/DueDateField';
 import { FormField, StepHeading } from './form/FormField';
 import { FormProgress } from './form/FormProgress';
-import { PrioritySegmented } from './form/PrioritySegmented';
+import { TicketPriorityChipPicker } from './form/TicketPriorityChipPicker';
 import { FIELD_TRIGGER_CLASS } from './form/formConstants';
 import { hoursUntil } from './ticketDisplay';
 import { TaskDescriptionField } from '../tasks/TaskDescriptionField';
@@ -574,7 +574,7 @@ export const TicketForm = ({ onClose, defaultDueDate }: TicketFormProps) => {
             icon={<Flag size={14} className="text-text-light" />}
             hint="Critical is for work that has stopped. Most tickets are Medium."
           >
-            <PrioritySegmented value={priority} onChange={v => setValue('priority', v, { shouldDirty: true })} />
+            <TicketPriorityChipPicker value={priority} onChange={v => setValue('priority', v, { shouldDirty: true })} />
           </FormField>
 
           {/* Labels are for the people who sort and report on tickets, not the person raising one.
