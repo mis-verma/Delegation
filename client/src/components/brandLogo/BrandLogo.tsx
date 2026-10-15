@@ -1,4 +1,3 @@
-import { useId } from 'react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -7,57 +6,52 @@ function cn(...inputs: ClassValue[]) {
 }
 
 interface BrandLogoProps {
-  /** Sizes the icon tile — a Tailwind size utility (e.g. `size-6`, `size-10`). */
+  /** Sizes the mark — a Tailwind size utility (e.g. `size-6`, `size-10`). */
   className?: string;
-  /** Off for a small square slot (the Settings logo-upload preview, the header) where a horizontal
-   *  icon+wordmark lockup wouldn't fit; on everywhere else. */
+  /** Off for a small square slot (the Settings logo-upload preview) where a horizontal
+   *  mark + wordmark lockup wouldn't fit; on everywhere else. */
   showWordmark?: boolean;
   textClassName?: string;
+  /** The mark on a solid rounded tile, like an app icon. Off by default: the header and footer show the bare mark. */
+  tile?: boolean;
 }
 
 /**
- * The Karya mark: a flat sapphire tile with a bold K in two tones. The stem and the leg are white; the
- * upper arm is a soft violet and cut square, rising past the stem's top so the letter leans forward,
- * like work moving on. First letter of Karya (work), and a small forward motion.
+ * The KaryaOS mark: a clean geometric K with round ends. The stem and the leg are one colour, and the
+ * upper arm is the violet accent, crossing the stem so the letter leans forward, like work moving on.
+ * K for Karya (work).
  *
- * Flat, solid shapes with square cuts (no gloss, no hairlines, no shadow), so it reads as a mark
- * rather than an app-store icon and holds from a 16px favicon up. Colours are the Soft Sapphire
- * theme's own (primary blue, violet accent), so it sits in the same family as the app around it.
+ * Every stroke is the same weight and there is no gradient, gloss or shadow, so it reads as a mark rather
+ * than an app-store icon and stays a K down to 16px. Bare by default (primary blue, white in dark mode); the
+ * `tile` version puts it on a flat primary tile for places that want an app-icon square. Colours are the
+ * Soft Sapphire theme's own (primary, coral).
  *
- * The wordmark is just "Karya" in the display face.
+ * The wordmark is "Karya" in the display face with "OS" lighter and in the accent blue.
  */
-export const BrandLogo = ({ className = 'size-6', showWordmark = true, textClassName }: BrandLogoProps) => {
-  // Unique per instance (and colon-free, which url(#id) needs) so Header + Footer + a preview
-  // mounted at once don't collide on gradient ids.
-  const uid = useId().replace(/:/g, '');
-  const tileId = `karya-tile-${uid}`;
-  const armClip = `karya-arm-${uid}`;
-  const baseClip = `karya-base-${uid}`;
+export const BrandLogo = ({ className = 'size-6', showWordmark = true, textClassName, tile = false }: BrandLogoProps) => (
+  <span className="inline-flex items-center gap-2 min-w-0">
+    <svg
+      viewBox="0 0 40 40"
+      className={cn('shrink-0', className)}
+      fill="none"
+      strokeLinecap="round"
+      role="img"
+      aria-label={showWordmark ? undefined : 'KaryaOS'}
+      aria-hidden={showWordmark ? true : undefined}
+    >
+      {tile && <rect width="40" height="40" rx="9" className="fill-primary-600" />}
+      <g transform={tile ? 'translate(5.6 5.6) scale(0.72)' : undefined} strokeWidth="5.4">
+        <path d="M11.5 8V32" stroke="currentColor" className={tile ? 'text-white' : 'text-primary-700 dark:text-white'} />
+        <path d="M17.8 18.4L29.6 32" stroke="currentColor" className={tile ? 'text-white' : 'text-primary-700 dark:text-white'} />
+        <path d="M12.5 22L29 8" stroke="currentColor" className={tile ? 'text-coral-200' : 'text-coral-500 dark:text-coral-300'} />
+      </g>
+    </svg>
 
-  return (
-    <span className="inline-flex items-center gap-2 min-w-0">
-      <svg viewBox="0 0 40 40" className={cn('shrink-0', className)} role="img" aria-label={showWordmark ? undefined : 'Karya'}>
-        <defs>
-          <linearGradient id={tileId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#3a66e2" />
-            <stop offset="100%" stopColor="#2748a3" />
-          </linearGradient>
-          {/* The arm only shows to the right of the stem; the leg is cut level with the stem's foot. */}
-          <clipPath id={armClip}><rect x="16" y="0" width="24" height="40" /></clipPath>
-          <clipPath id={baseClip}><rect x="0" y="0" width="40" height="31" /></clipPath>
-        </defs>
-
-        <rect width="40" height="40" rx="9" fill={`url(#${tileId})`} />
-        <rect x="11" y="9" width="5" height="22" fill="#ffffff" />
-        <polygon clipPath={`url(#${armClip})`} points="14.3,18.7 26.8,7.2 30.2,10.8 17.7,22.3" fill="#cdbfff" />
-        <polygon clipPath={`url(#${baseClip})`} points="17.2,21.2 20.8,17.8 31.8,29.3 28.2,32.7" fill="#ffffff" />
-      </svg>
-
-      {showWordmark && (
-        <span className={cn('inline-flex items-baseline gap-1.5 leading-none truncate', textClassName)}>
-          <span className="font-display font-extrabold tracking-tight text-primary-800 dark:text-white">Karya</span>
-        </span>
-      )}
-    </span>
-  );
-};
+    {showWordmark && (
+      <span className={cn('inline-flex items-baseline leading-none truncate', textClassName)}>
+        <span className="font-display font-extrabold tracking-tight text-primary-800 dark:text-white">Karya</span>
+        <span className="font-display font-medium tracking-tight text-primary-600 dark:text-primary-300">OS</span>
+      </span>
+    )}
+  </span>
+);

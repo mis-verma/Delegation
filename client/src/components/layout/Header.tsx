@@ -84,7 +84,6 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
     return () => clearInterval(id);
   }, []);
   const currentDate = now.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-  const currentTime = now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
   // Phones: the header carries the page's name (or a greeting on Home) with today's date under it,
   // since the desktop page-label pill and clock don't fit there.
   const firstName = (user?.name ?? '').split(' ')[0];
@@ -115,9 +114,9 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
     // not the old full-bleed glass bar with a shadow and a gradient underline. The one difference is
     // that this one keeps the logo (the Admin header leaves the brand to its sidebar; here the logo
     // is the way home and the only brand mark on screen).
-    <header className="relative z-30 shrink-0 mx-3 mt-3 rounded-2xl bg-surface border border-border max-sm:border-border/60 max-sm:bg-gradient-to-br max-sm:from-primary-500/[0.07] max-sm:to-transparent">
+    <header className="relative z-30 shrink-0 mx-3 mt-3 rounded-xl bg-surface border border-border max-sm:border-border/60 max-sm:bg-gradient-to-br max-sm:from-primary-500/[0.07] max-sm:to-transparent">
       <div className="flex items-center gap-2 sm:gap-4 h-14 sm:h-16 px-3 sm:px-5">
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        <div className="flex items-center gap-2 sm:gap-4 min-w-0">
           {onToggleSidebar && (
             <button
               type="button"
@@ -143,14 +142,12 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
               </span>
             ) : (
               <span className="inline-flex rounded-xl">
-                {/* The mark alone on a phone (36px, so the greeting and name fit a 360px bar); from sm up
-                    the name sits beside it, so the logo reads as a logo on tablets and desktops. */}
-                <BrandLogo className="size-9 sm:size-11" textClassName="hidden sm:inline-flex text-lg" />
+                {/* The bare K mark (32px) alone on a phone, so the greeting and name fit a 360px bar; from sm up
+                    the KaryaOS name sits beside it, so the logo reads as a logo on tablets and desktops. */}
+                <BrandLogo className="size-8 sm:size-9" textClassName="hidden sm:inline-flex text-xl" />
               </span>
             )}
           </NavLink>
-
-          <span className="hidden sm:block h-8 w-px bg-border shrink-0" aria-hidden="true" />
 
           {/* Phones: the page (or a greeting on Home) with today's date under it. */}
           {phoneTitle && (
@@ -160,25 +157,23 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
             </div>
           )}
 
-          {/* From sm up, same two lines as the Admin header: the greeting, with the section under it. */}
+          {/* From sm up: where you are is the headline, and the greeting and today's date sit quietly under
+              it (the date used to be its own bordered clock pill on the right). With no page name (the public
+              pages) the greeting takes the headline and the date the line under it. */}
           <div className="hidden sm:flex flex-col min-w-0 leading-tight">
             <span className="text-base font-display font-bold text-text truncate">
-              {timeGreeting(now)}{firstName ? `, ${firstName}` : null}
+              {pageLabel ?? `${timeGreeting(now)}${firstName ? `, ${firstName}` : ''}`}
             </span>
-            {pageLabel && <span className="text-xs font-medium text-text-muted truncate">{pageLabel}</span>}
+            <span className="text-xs font-medium text-text-muted truncate">
+              {pageLabel ? `${timeGreeting(now)}${firstName ? `, ${firstName}` : ''} · ${currentDate}` : currentDate}
+            </span>
           </div>
         </div>
 
         <div className="flex items-center gap-1 sm:gap-3 ml-auto shrink-0">
-          {/* Live date and time, same pill as the Admin header. */}
-          <div className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-hover border border-border text-xs font-medium text-text-secondary shrink-0">
-            <span className="whitespace-nowrap">{currentDate}</span>
-            <span className="size-1 rounded-full bg-border shrink-0" aria-hidden="true" />
-            <span className="whitespace-nowrap tabular-nums">{currentTime}</span>
-          </div>
-
-          {/* Boxed pill from sm up; on phones the icons sit bare so the page title keeps its room. */}
-          <div className="flex items-center gap-0.5 sm:gap-2 sm:p-1 rounded-full sm:bg-surface-hover sm:border sm:border-border">
+          {/* Bare icon buttons: no boxed pill around them, so the bar has one clear brand mark, one headline
+              and a few quiet controls instead of three bordered capsules. */}
+          <div className="flex items-center gap-0.5 sm:gap-1">
             {user && <NotificationBell badgeRing={false} />}
             <button
               onClick={toggleTheme}
@@ -199,7 +194,7 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
                 <button
                   title={user.name}
                   aria-label={`Account menu, ${user.name}${user.role ? `, ${titleCase(user.role)}` : ''}`}
-                  className="flex items-center gap-2.5 h-11 px-1.5 sm:pl-1 sm:pr-3 rounded-full sm:bg-surface-hover sm:border sm:border-border text-text-secondary cursor-pointer transition-all duration-200 hover:bg-surface-active hover:text-text active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 group"
+                  className="flex items-center gap-2.5 h-11 px-1.5 sm:pl-1 sm:pr-3 rounded-full text-text-secondary cursor-pointer transition-all duration-200 hover:bg-surface-hover hover:text-text active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 group"
                 >
                   <span className="relative flex items-center justify-center size-8 rounded-full bg-primary-100 dark:bg-primary-500/20 text-primary-700 dark:text-primary-300 font-bold text-xs shrink-0">
                     {initials || <User size={14} strokeWidth={2.5} />}

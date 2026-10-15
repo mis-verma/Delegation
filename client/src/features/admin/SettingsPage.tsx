@@ -84,7 +84,7 @@ const LogoUpload = ({ src, onUpload, onRemove, isUploading, isRemoving }: LogoUp
         {src ? (
           <img src={src} alt="Organization logo" className="max-w-full max-h-full object-contain p-2" />
         ) : (
-          <BrandLogo className="size-10" showWordmark={false} />
+          <BrandLogo className="size-10" showWordmark={false} tile />
         )}
         <button
           type="button"
