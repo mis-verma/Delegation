@@ -10,7 +10,7 @@ import { useIsMobile } from '../../lib/useMediaQuery';
 import { useNow } from '../../lib/useNow';
 import { useApprovalSources } from './useApprovalSources';
 import { PANEL_CLASS } from '../../components/entityCard';
-import { waitingFor, ACTIVITY_CATEGORY_LABEL, ACTIVITY_CATEGORY_DOT_CLASS, CARD_ICON_TILE_CLASS } from './dashboardDisplay';
+import { waitingFor, ACTIVITY_CATEGORY_LABEL, ACTIVITY_CATEGORY_DOT_CLASS, cardIconTile } from './dashboardDisplay';
 
 type ApprovalCategory = 'ticket' | 'delegation' | 'checklist';
 
@@ -142,7 +142,7 @@ export const NeedsApprovalCard = () => {
         <div className="flex items-center gap-3 min-w-0">
           {/* The shared dashboard header tile, desktop only: on a phone it pushed "Review all" to a
               second line. */}
-          <div className={CARD_ICON_TILE_CLASS}>
+          <div className={cardIconTile('primary')}>
             <ShieldAlert className="size-4" strokeWidth={2.25} aria-hidden="true" />
           </div>
           <div className="min-w-0">

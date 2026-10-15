@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, CheckCheck, ChevronRight, ClipboardX, Hourglass, TicketX, UserRound, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '../../context/AuthContext';
+import { ApiError } from '../../api/http';
 import { exceptionApi, peopleApi, type ExceptionItem, type ExceptionKind, type PersonStatus } from '../../api/exceptions';
 import { handleQueryRetry } from '../../lib/queryHelpers';
 import { DASHBOARD_QUERY_OPTIONS } from '../../lib/dashboardQuery';
@@ -11,7 +12,7 @@ import { Skeleton } from '../../components/skeleton';
 import { EmptyState } from '../../components/emptyState';
 import { InlineError } from '../../components/inlineError';
 import { PANEL_CLASS } from '../../components/entityCard';
-import { CARD_ICON_TILE_CLASS } from './dashboardDisplay';
+import { cardIconTile } from './dashboardDisplay';
 
 const KIND_ICON: Record<ExceptionKind, LucideIcon> = {
   TICKET_OVERDUE: TicketX,
@@ -93,7 +94,9 @@ export const ExceptionsCard = () => {
     ...DASHBOARD_QUERY_OPTIONS,
   });
 
-  if (!allowed) return null;
+  // An older server without this endpoint (404) or a role it refuses (403) is not an error to show on a glance screen.
+  const unavailable = query.error instanceof ApiError && (query.error.status === 404 || query.error.status === 403);
+  if (!allowed || unavailable) return null;
   const peopleRows = people.data ?? [];
   const items = query.data ?? [];
   const visible = items.slice(0, PREVIEW_LIMIT);
@@ -103,7 +106,7 @@ export const ExceptionsCard = () => {
     <section aria-labelledby="exceptions-heading" className={`${PANEL_CLASS} flex flex-col overflow-hidden`}>
       <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5 sm:py-4 border-b border-border/40">
         <div className="flex items-center gap-3 min-w-0">
-          <div className={CARD_ICON_TILE_CLASS}>
+          <div className={cardIconTile('danger')}>
             <AlertTriangle className="size-4" strokeWidth={2.25} aria-hidden="true" />
           </div>
           <div className="min-w-0">

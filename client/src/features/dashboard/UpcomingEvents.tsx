@@ -4,7 +4,7 @@ import { CalendarClock, ChevronRight } from 'lucide-react';
 import { Skeleton, EmptyState, InlineError } from '../../components';
 import { useNow } from '../../lib/useNow';
 import { EVENT_TYPE_COLORS, EVENT_TYPE_LABELS, EVENT_TYPE_ICONS } from '../events/eventDisplay';
-import { DASHBOARD_CARD_CLASS, CARD_ICON_TILE_CLASS, relativeDayLabel } from './dashboardDisplay';
+import { DASHBOARD_CARD_CLASS, cardIconTile, relativeDayLabel } from './dashboardDisplay';
 import type { Event } from '../../api/events';
 
 interface UpcomingEventsProps {
@@ -47,7 +47,7 @@ export const UpcomingEvents = ({ events, isPending, isError = false, onRetry }: 
     <section id="upcoming-events" aria-labelledby="upcoming-events-heading" className={`relative ${DASHBOARD_CARD_CLASS} flex flex-col overflow-hidden`}>
       <div className="flex items-center justify-between gap-3 sm:gap-4 px-4 sm:px-5 py-3 sm:py-4 border-b border-border/40">
         <div className="flex items-center gap-3 min-w-0">
-          <div className={CARD_ICON_TILE_CLASS}>
+          <div className={cardIconTile('coral')}>
             <CalendarClock className="size-4" aria-hidden="true" />
           </div>
           <div className="min-w-0">

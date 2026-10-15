@@ -96,8 +96,17 @@ export const waitingFor = (isoDate: string, now: number): string => {
 
 // The one header tile every dashboard card uses: same size, radius and soft tint, so no card's
 // header reads heavier than its neighbour's. Hidden on a phone, where the title needs the width.
-export const CARD_ICON_TILE_CLASS =
-  'hidden sm:flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary-500/10 text-primary-600 dark:text-primary-300';
+const CARD_TILE_BASE = 'hidden sm:flex size-9 shrink-0 items-center justify-center rounded-lg text-white';
+/** Each dashboard section has its own colour, so the page reads as sections and not as one blue wall. */
+export const CARD_TILE_TONE = {
+  primary: 'bg-linear-to-br from-primary-500 to-primary-600',
+  danger: 'bg-linear-to-br from-danger to-danger/70',
+  info: 'bg-linear-to-br from-info to-info/70',
+  coral: 'bg-linear-to-br from-coral-500 to-coral-600',
+  success: 'bg-linear-to-br from-success to-success/70',
+} as const;
+export const cardIconTile = (tone: keyof typeof CARD_TILE_TONE = 'primary') => `${CARD_TILE_BASE} ${CARD_TILE_TONE[tone]}`;
+export const CARD_ICON_TILE_CLASS = cardIconTile();
 
 // Takes the time as an argument on purpose. Called with no argument it read the clock inside, so the
 // compiler saw a call with no inputs and computed it once per mount: the header kept saying "Good

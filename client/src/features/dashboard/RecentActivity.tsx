@@ -4,7 +4,7 @@ import { Ticket as TicketIcon, CheckSquare, Activity, Search, ArrowUpDown, Chevr
 import { cn } from '@/lib/utils';
 import { Skeleton, PageNav, Button, StatusChip, IconChip, Input, EmptyState, InlineError, type StatusChipStatus } from '../../components';
 import { useNow } from '../../lib/useNow';
-import { pastDayLabel, DASHBOARD_CARD_CLASS, ACTIVITY_CATEGORY_DOT_CLASS, CARD_ICON_TILE_CLASS, type FeedItem } from './dashboardDisplay';
+import { pastDayLabel, DASHBOARD_CARD_CLASS, ACTIVITY_CATEGORY_DOT_CLASS, cardIconTile, type FeedItem } from './dashboardDisplay';
 import { STATUS_CONFIG as TASK_STATUS_CONFIG } from '../tasks/taskDisplay';
 import { STATUS_CONFIG as TICKET_STATUS_CONFIG } from '../tickets/ticketDisplay';
 import type { TicketStatus } from '../../api/ticket';
@@ -152,7 +152,7 @@ export const RecentActivity = ({ feed, isPending, isError = false, onRetry, simp
           desktop slot the search drops under the title instead of squeezing the heading. */}
       <div className="flex flex-col @2xl:flex-row @2xl:items-center justify-between gap-3 @2xl:gap-4 px-4 sm:px-5 py-3 sm:py-4 border-b border-border/40">
         <div className="flex items-center gap-3 min-w-0">
-          <div className={CARD_ICON_TILE_CLASS}>
+          <div className={cardIconTile('info')}>
             <Activity className="size-4" aria-hidden="true" />
           </div>
           <div className="min-w-0">
