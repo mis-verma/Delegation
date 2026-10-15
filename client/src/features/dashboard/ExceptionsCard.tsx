@@ -28,8 +28,8 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 const PersonRow = memo(({ person }: { person: PersonStatus }) => (
   <div className="flex items-center gap-3 min-h-14 px-4 sm:px-5 py-3">
-    <span className="flex items-center justify-center size-7 rounded-lg shrink-0 bg-primary-500/10 text-primary-600 dark:text-primary-300">
-      <UserRound className="size-3.5" strokeWidth={2} aria-hidden="true" />
+    <span className="flex items-center justify-center size-9 rounded-xl shrink-0 text-white bg-linear-to-br from-primary-500 to-primary-600">
+      <UserRound className="size-4" strokeWidth={2.25} aria-hidden="true" />
     </span>
     <div className="flex flex-1 min-w-0 flex-col gap-0.5">
       <p className="line-clamp-1 text-sm font-display font-medium sm:font-semibold text-text leading-snug">{person.name}</p>
@@ -53,8 +53,8 @@ const ExceptionRow = memo(({ item }: { item: ExceptionItem }) => {
       viewTransition
       className="flex items-center gap-3 min-h-14 px-4 sm:px-5 py-3 outline-none transition-colors duration-150 hover:bg-surface-hover/50 active:bg-surface-hover focus-visible:bg-surface-hover"
     >
-      <span className={cn('flex items-center justify-center size-7 rounded-lg shrink-0', high ? 'bg-danger/10 text-danger' : 'bg-warning/10 text-warning')}>
-        <Icon className="size-3.5" strokeWidth={2} aria-hidden="true" />
+      <span className={cn('flex items-center justify-center size-9 rounded-xl shrink-0 text-white', high ? 'bg-linear-to-br from-danger to-danger/70' : 'bg-linear-to-br from-warning to-warning/70')}>
+        <Icon className="size-4" strokeWidth={2.25} aria-hidden="true" />
       </span>
       <div className="flex flex-1 min-w-0 flex-col gap-0.5">
         <p className="line-clamp-2 text-sm font-display font-medium sm:font-semibold text-text leading-snug">{item.title}</p>
@@ -125,7 +125,7 @@ export const ExceptionsCard = () => {
         <div className="flex flex-col divide-y divide-border/60" role="status" aria-label="Loading alerts">
           {Array.from({ length: 3 }, (_, i) => (
             <div key={i} className="flex min-h-14 items-center gap-3 px-4 py-3 sm:px-5">
-              <Skeleton className="size-7 shrink-0 rounded-lg" />
+              <Skeleton className="size-9 shrink-0 rounded-xl" />
               <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                 <Skeleton className="h-4 w-3/4" />
                 <Skeleton className="h-3.5 w-1/3" />

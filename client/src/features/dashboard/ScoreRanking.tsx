@@ -144,6 +144,15 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
     return [head, ...rows.map((c, i) => [i + 1, c.row.name, ...(scope === 'person' ? [c.row.department] : []), c[metric].overall, c[metric].checklist, c[metric].ticket, c[metric].delegation, c.due])];
   };
 
+  // Says the order the list is really in (it changes when a column header is tapped), and says nothing
+  // about order when there is only one row to put in it.
+  const orderNote = (() => {
+    if (rows.length < 2) return '';
+    if (sortKey === 'name') return ascending ? ', A to Z' : ', Z to A';
+    const column = sortKey === 'overall' ? 'overall score' : `${MODULE_LABEL[sortKey].toLowerCase()} score`;
+    return `, ${ascending ? 'lowest' : 'highest'} ${column} first`;
+  })();
+
   const heads: { key: SortKey; label: string }[] = [
     { key: 'overall', label: 'Overall' },
     { key: 'checklist', label: MODULE_LABEL.checklist },
@@ -186,7 +195,7 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
           ))}
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <p className="t-meta font-medium text-text-muted">{rows.length} {rows.length === 1 ? SUBJECT_ONE[scope] : SUBJECT[scope]}, worst first</p>
+          <p className="t-meta font-medium text-text-muted">{rows.length} {rows.length === 1 ? SUBJECT_ONE[scope] : SUBJECT[scope]}{orderNote}</p>
           <ExportMenu
             disabled={rows.length === 0}
             aria-label={`Export the ranking of ${SUBJECT[scope]}`}

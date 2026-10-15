@@ -75,7 +75,6 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
     return () => clearInterval(id);
   }, []);
   const currentDate = now.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-  const currentTime = now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 
   // Phones: the theme toggle moves in here so the section title in the bar has room to show whole.
   const isMobile = useIsMobile();
@@ -87,7 +86,7 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
   ];
 
   return (
-    <header className="relative shrink-0 mx-3 mt-3 rounded-2xl bg-surface border border-border">
+    <header className="relative shrink-0 mx-3 mt-3 rounded-xl bg-surface border border-border">
       <div className="flex items-center gap-3 sm:gap-4 h-16 px-3 sm:px-5">
         {/* Left: sidebar toggle + dynamic "you are here" title (the brand mark already lives in
             the sidebar, so this slot carries context instead of repeating it) */}
@@ -137,20 +136,10 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
 
         {/* Right: quick actions + account */}
         <div className="flex items-center gap-1 sm:gap-3 ml-auto shrink-0">
-          {/* Live date/time — same pill treatment and tabular-nums convention as the main
-              dashboard's DashboardHeader, just condensed to fit a 64px-tall bar. Hidden below `lg`:
-              at that width the greeting is already fighting the icon cluster for room, and a
-              stale-looking clock is worse than no clock. */}
-          <div className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-hover border border-border text-xs font-medium text-text-secondary shrink-0">
-            <span className="whitespace-nowrap">{currentDate}</span>
-            <span className="size-1 rounded-full bg-border shrink-0" aria-hidden="true" />
-            <span className="whitespace-nowrap tabular-nums">{currentTime}</span>
-          </div>
-
           {/* gap-2 (8px), not gap-1 — the minimum spacing between two adjacent touch targets so a
               slightly-off tap on one doesn't land on the other. */}
-          {/* Boxed pill from sm up; on phones the icons sit bare so the section title keeps its room. */}
-          <div className="flex items-center gap-0.5 sm:gap-2 sm:p-1 rounded-full sm:bg-surface-hover sm:border sm:border-border">
+          {/* Bare icon buttons, as in the main header: no boxed pill around them. */}
+          <div className="flex items-center gap-0.5 sm:gap-1">
             <NotificationBell badgeRing={false} />
             <button
               onClick={toggleTheme}
@@ -171,9 +160,9 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
                 <button
                   title={user.name}
                   aria-label={`Account menu, ${user.name}${user.role ? `, ${roleLabel(user.role)}` : ''}`}
-                  className="flex items-center gap-2.5 h-11 px-1.5 sm:pl-1 sm:pr-3 rounded-full sm:bg-surface-hover sm:border sm:border-border text-text-secondary cursor-pointer transition-all duration-200 hover:bg-surface-active hover:text-text active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 group"
+                  className="flex items-center gap-2.5 h-11 px-1.5 sm:pl-1 sm:pr-3 rounded-full text-text-secondary cursor-pointer transition-all duration-200 hover:bg-surface-hover hover:text-text active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 group"
                 >
-                  <span className="relative flex items-center justify-center size-8 rounded-full bg-primary-100 dark:bg-primary-500/20 text-primary-700 dark:text-primary-300 font-bold text-xs shrink-0 group-hover:scale-105 transition-transform">
+                  <span className="relative flex items-center justify-center size-8 rounded-full bg-linear-to-br from-primary-500 to-primary-600 text-white font-display font-bold text-xs shrink-0 group-hover:scale-105 transition-transform">
                     {initials || <User size={14} strokeWidth={2.5} />}
                     <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-success border-2 border-surface" aria-hidden="true" />
                   </span>

@@ -30,6 +30,13 @@ const CATEGORY_ICON: Record<ApprovalCategory, LucideIcon> = {
   checklist: ClipboardCheck,
 };
 
+// The same hues as the category chips above the list: tickets green, delegations violet, checklists blue.
+const CATEGORY_TILE: Record<ApprovalCategory, string> = {
+  ticket: 'bg-linear-to-br from-success to-success/70',
+  delegation: 'bg-linear-to-br from-coral-500 to-coral-600',
+  checklist: 'bg-linear-to-br from-primary-500 to-primary-600',
+};
+
 // "Preview, not the whole queue": this card is a way in, and the full queue lives behind Review all.
 const PREVIEW_LIMIT = 6;
 // Phones get the three oldest; six full rows was a screen and a half of scrolling on its own.
@@ -56,8 +63,8 @@ const ApprovalLink = memo(({ row, now }: { row: ApprovalRow; now: number }) => {
       viewTransition
       className="flex items-center gap-3 min-h-14 px-4 sm:px-5 py-3 outline-none transition-colors duration-150 hover:bg-surface-hover/50 active:bg-surface-hover focus-visible:bg-surface-hover"
     >
-      <span className="flex items-center justify-center size-7 rounded-lg shrink-0 bg-primary-500/10 text-primary-600 dark:text-primary-300">
-        <Icon className="size-3.5" strokeWidth={2} aria-hidden="true" />
+      <span className={cn('flex items-center justify-center size-9 rounded-xl shrink-0 text-white', CATEGORY_TILE[row.category])}>
+        <Icon className="size-4" strokeWidth={2.25} aria-hidden="true" />
       </span>
       <div className="flex flex-1 min-w-0 flex-col gap-0.5">
         {/* line-clamp-2, not truncate: the icon and chevron leave little width for the title on a
@@ -186,7 +193,7 @@ export const NeedsApprovalCard = () => {
         <div className="flex flex-col divide-y divide-border/60" role="status" aria-label="Loading approvals">
           {Array.from({ length: 3 }, (_, i) => (
             <div key={i} className="flex min-h-14 items-center gap-3 px-4 py-3 sm:px-5">
-              <Skeleton className="size-7 shrink-0 rounded-lg" />
+              <Skeleton className="size-9 shrink-0 rounded-xl" />
               <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                 <Skeleton className="h-4 w-3/4" />
                 <Skeleton className="h-3.5 w-1/3" />
