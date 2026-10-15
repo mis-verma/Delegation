@@ -1,24 +1,25 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowRight, ArrowRightLeft, CalendarClock, Check, ChevronDown, Flag, History, Pencil, Plus, Undo2, UserRound, type LucideIcon } from 'lucide-react';
+import { Activity, ArrowRight, ArrowRightLeft, CalendarClock, Check, ChevronDown, Flag, History, Pencil, Plus, Undo2, UserRound, UsersRound, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ApiError } from '../../api/http';
 import { type ActivityEntity, type ActivityEvent, type ActivityFeedData, type ActivityKind } from '../../api/activity';
 import { Skeleton } from '../skeleton';
 import { activityQueryOptions } from './activityQuery';
 import { useNow } from '../../lib/useNow';
+import { ENTRY_CLASS, HEADING_TILE_CLASS, NODE_CLASS, TONE, type ActivityTone } from './activityTones';
 
 const PAGE = 8;
 
-const KIND: Record<ActivityKind, { icon: LucideIcon }> = {
-  created: { icon: Plus },
-  status: { icon: ArrowRightLeft },
-  approved: { icon: Check },
-  sent_back: { icon: Undo2 },
-  due_changed: { icon: CalendarClock },
-  priority_changed: { icon: Flag },
-  reassigned: { icon: UserRound },
-  edited: { icon: Pencil },
+const KIND: Record<ActivityKind, { icon: LucideIcon; tone: ActivityTone }> = {
+  created: { icon: Plus, tone: 'primary' },
+  status: { icon: ArrowRightLeft, tone: 'info' },
+  approved: { icon: Check, tone: 'success' },
+  sent_back: { icon: Undo2, tone: 'danger' },
+  due_changed: { icon: CalendarClock, tone: 'warning' },
+  priority_changed: { icon: Flag, tone: 'coral' },
+  reassigned: { icon: UserRound, tone: 'primary' },
+  edited: { icon: Pencil, tone: 'muted' },
 };
 
 const DAY = 86_400_000;
@@ -124,22 +125,16 @@ const Detail = ({ e }: { e: ActivityEvent }) => {
 };
 
 const Row = ({ e, thing }: { e: ActivityEvent; thing: string }) => {
-  const { icon: Icon } = KIND[e.kind];
+  const { icon: Icon, tone } = KIND[e.kind];
   const date = new Date(e.at);
   return (
     <li className="relative">
-      {/* One plain node per entry on the rail: a solid blue disc with the action's icon. Its background is opaque, so
-          the line behind it never shows through, and there is no second badge to crowd it. The person's name is in
-          the sentence, in bold. */}
-      <span
-        className="absolute -left-11 top-2 z-10 flex size-8 items-center justify-center rounded-full bg-primary-100 text-primary-700 ring-4 ring-surface dark:bg-primary-900 dark:text-primary-200"
-        title={e.kind.replace('_', ' ')}
-        aria-hidden
-      >
+      {/* One node per entry on the rail: a gradient disc in the colour of the action, with its icon in white. */}
+      <span className={cn(NODE_CLASS, TONE[tone])} title={e.kind.replace('_', ' ')} aria-hidden>
         <Icon size={14} strokeWidth={2.5} />
       </span>
 
-      <article className="flex flex-col gap-2 rounded-lg border border-transparent px-3 py-2 transition-colors duration-200 hover:border-border/70 hover:bg-surface-hover/40">
+      <article className={ENTRY_CLASS}>
         <header className="flex items-start justify-between gap-3">
           <p className="min-w-0 text-sm font-display leading-snug text-text-secondary">
             <span className="font-bold text-text">{e.actor?.name ?? 'System'}</span>
@@ -155,11 +150,16 @@ const Row = ({ e, thing }: { e: ActivityEvent; thing: string }) => {
   );
 };
 
-const Fact = ({ label, value, hint }: { label: string; value: string; hint?: string }) => (
-  <div className="flex min-w-0 flex-col gap-0.5 bg-surface px-3 py-2.5">
-    <dt className="text-xs font-display font-medium text-text-muted">{label}</dt>
-    <dd className="truncate text-sm font-display font-bold text-text">{value}</dd>
-    {hint && <dd className="truncate text-xs font-medium text-text-muted">{hint}</dd>}
+const Fact = ({ label, value, hint, icon: Icon, tone, alert }: { label: string; value: string; hint?: string; icon: LucideIcon; tone: ActivityTone; alert?: boolean }) => (
+  <div className="flex min-w-0 items-start gap-2.5 rounded-xl border border-border/60 bg-surface-hover/30 px-3 py-2.5">
+    <span className={cn('flex size-8 shrink-0 items-center justify-center rounded-lg text-white', TONE[tone])} aria-hidden="true">
+      <Icon size={15} strokeWidth={2.25} />
+    </span>
+    <div className="flex min-w-0 flex-col gap-0.5">
+      <dt className="text-xs font-display font-medium text-text-muted">{label}</dt>
+      <dd className="truncate text-sm font-display font-bold text-text">{value}</dd>
+      {hint && <dd className={cn('truncate text-xs font-medium', alert ? 'text-danger' : 'text-text-muted')}>{hint}</dd>}
+    </div>
   </div>
 );
 
@@ -170,11 +170,11 @@ const Summary = ({ data }: { data: ActivityFeedData }) => {
   const status = summary.status.toLowerCase().split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   const overdue = !done && !!summary.dueAt && new Date(summary.dueAt).getTime() < now;
   return (
-    <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-4">
-      <Fact label="Created by" value={summary.createdBy ?? 'Unknown'} hint={shortDate(summary.createdAt)} />
-      <Fact label="Status" value={status} hint={`${done ? 'Since' : 'For'} ${duration(now - new Date(summary.statusSince).getTime())}${done ? ' ago' : ''}`} />
-      <Fact label={done ? 'Done by' : 'With'} value={summary.assignee ?? 'Nobody yet'} />
-      <Fact label="Due" value={shortDate(summary.dueAt)} hint={overdue ? `Late by ${duration(now - new Date(summary.dueAt as string).getTime())}` : undefined} />
+    <dl className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
+      <Fact icon={UserRound} tone="primary" label="Created by" value={summary.createdBy ?? 'Unknown'} hint={shortDate(summary.createdAt)} />
+      <Fact icon={Activity} tone={done ? 'success' : 'info'} label="Status" value={status} hint={`${done ? 'Since' : 'For'} ${duration(now - new Date(summary.statusSince).getTime())}${done ? ' ago' : ''}`} />
+      <Fact icon={UsersRound} tone="coral" label={done ? 'Done by' : 'With'} value={summary.assignee ?? 'Nobody yet'} />
+      <Fact icon={CalendarClock} tone={overdue ? 'danger' : 'warning'} label="Due" value={shortDate(summary.dueAt)} alert={overdue} hint={overdue ? `Late by ${duration(now - new Date(summary.dueAt as string).getTime())}` : undefined} />
     </dl>
   );
 };
@@ -199,9 +199,9 @@ export const ActivityFeed = ({ entityType, entityId }: { entityType: ActivityEnt
 
   return (
     <section className="flex flex-col gap-4" aria-label="Activity">
-      <h3 className="flex items-center gap-2 text-sm font-display font-bold text-text">
-        <span className="flex size-7 items-center justify-center rounded-lg bg-primary-500/10 text-primary-600 ring-1 ring-primary-500/20 dark:bg-primary-500/15 dark:text-primary-400">
-          <History size={14} strokeWidth={2.5} />
+      <h3 className="flex items-center gap-2.5 t-card font-display font-bold text-text">
+        <span className={HEADING_TILE_CLASS}>
+          <History size={16} strokeWidth={2.5} />
         </span>
         Activity
         {data && <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-surface-hover px-1.5 text-xs font-display font-bold tabular-nums text-text-secondary">{data.events.length}</span>}

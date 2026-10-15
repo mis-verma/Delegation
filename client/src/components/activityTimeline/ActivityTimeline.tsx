@@ -7,6 +7,7 @@ import { useAuditLogsQuery } from '../../features/admin/auditLog/hook';
 import { actionConfig, entityTypeConfig, diffAuditLog, type AuditIdResolvers, type DiffRow } from '../../features/admin/auditLog/auditLogDisplay';
 import { useAuditIdResolvers } from '../../features/admin/auditLog/useAuditIdResolvers';
 import { Skeleton } from '../skeleton';
+import { ENTRY_CLASS, HEADING_TILE_CLASS, NODE_CLASS, TONE, type ActivityTone } from './activityTones';
 import { ActivityValue } from './ActivityValue';
 import type { AuditEntityType, AuditLog } from '../../api/auditLogs';
 
@@ -127,11 +128,11 @@ export const ActivityTimeline = ({ entityType, entityId, limit: initialLimit = P
   return (
     <section className="flex flex-col gap-4" aria-label="Activity">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="flex items-center gap-2 text-sm font-display font-bold text-text">
-          <span className="flex items-center justify-center size-7 rounded-lg bg-primary-500/10 dark:bg-primary-500/15 text-primary-600 dark:text-primary-400 ring-1 ring-primary-500/20">
-            <History size={14} strokeWidth={2.5} />
+        <h3 className="flex items-center gap-2.5 t-card font-display font-bold text-text">
+          <span className={HEADING_TILE_CLASS}>
+            <History size={16} strokeWidth={2.5} />
           </span>
-          <span>Activity</span>
+          <span>Change log</span>
           {ready && total > 0 && (
             <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-surface-hover text-xs font-display font-bold text-text-secondary tabular-nums">
               {total}
@@ -286,6 +287,7 @@ const ActivityTimelineRow = ({ log, resolvers }: { log: AuditLog; resolvers: Aud
   const action = actionConfig(log.action);
   // A status move gets its own glyph, so a long history scans as "moves vs. edits" before reading a word.
   const Icon = log.action === 'UPDATE' && isStatusMove(log) ? ArrowRightLeft : action.icon;
+  const tone: ActivityTone = log.action === 'CREATE' ? 'primary' : log.action === 'DELETE' ? 'danger' : isStatusMove(log) ? 'info' : 'coral';
   const diffRows = diffAuditLog(log.before, log.after, resolvers);
   const fullName = actorFullName(log);
   const phrase = phraseFor(log, diffRows);
@@ -302,18 +304,12 @@ const ActivityTimelineRow = ({ log, resolvers }: { log: AuditLog; resolvers: Aud
 
   return (
     <li className="relative">
-      {/* One plain node per entry on the rail: a solid blue disc with the action's icon. Its background is opaque, so
-          the line behind it never shows through, and there is no second badge to crowd it. The person's name is in
-          the sentence, in bold. */}
-      <span
-        className="absolute -left-11 top-2 z-10 flex size-8 items-center justify-center rounded-full bg-primary-100 text-primary-700 ring-4 ring-surface dark:bg-primary-900 dark:text-primary-200"
-        title={action.label}
-        aria-hidden
-      >
+      {/* One node per entry on the rail: a gradient disc in the colour of the action, with its icon in white. */}
+      <span className={`${NODE_CLASS} ${TONE[tone]}`} title={action.label} aria-hidden>
         <Icon size={14} strokeWidth={2.5} />
       </span>
 
-      <article className="flex flex-col gap-2 rounded-lg border border-transparent px-3 py-2 transition-colors duration-200 hover:border-border/70 hover:bg-surface-hover/40">
+      <article className={ENTRY_CLASS}>
         <header className="flex items-start justify-between gap-3">
           <p className="min-w-0 text-sm font-display leading-snug text-text-secondary">
             <span className="font-bold text-text">{fullName}</span>
