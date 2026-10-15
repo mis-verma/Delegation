@@ -203,7 +203,7 @@ const Column = memo(({ columnKey, label, tasks, isDropTarget, fillsRow, assignee
       // height of the tallest, so the whole vertical band under a column accepts a drop.
       // Below xl the board is a horizontal scroller, so each column also needs a floor width and a
       // snap point; from xl it's a real grid again and those are handed back to the grid.
-      className={`flex flex-col gap-2 h-full rounded-lg border p-2 transition-colors duration-200 ease-in-out flex-1 min-w-[280px] sm:min-w-[320px] snap-start ${
+      className={`@container flex flex-col gap-2 h-full rounded-lg border p-2 transition-colors duration-200 ease-in-out flex-1 min-w-[280px] sm:min-w-[320px] snap-start ${
         fillsRow ? 'xl:min-w-0' : ''
       } ${isOver ? 'border-primary-400 bg-primary-500/8' : 'border-border/70 bg-surface-hover/40'}`}
     >
@@ -213,8 +213,11 @@ const Column = memo(({ columnKey, label, tasks, isDropTarget, fillsRow, assignee
           {/* A status column carries its status's own icon in a small tile, so the columns are told apart
               by picture and colour as well as by name. Grouped by person or department there is no
               status to show, so no tile. */}
+          {/* Dropped when the column itself is narrow (a five-column board at 1440px gives each column about
+              230px): the icon, the name, the count and the overdue badge cannot all fit, and the name was
+              wrapping onto two lines ("In / progress", "On / hold"). The name is the part that has to stay. */}
           {statusIcon && (
-            <span aria-hidden="true" className="flex items-center justify-center size-7 rounded-lg bg-surface border border-border/70 text-text-secondary shrink-0">
+            <span aria-hidden="true" className="@max-[17rem]:hidden flex items-center justify-center size-7 rounded-lg bg-surface border border-border/70 text-text-secondary shrink-0">
               {statusIcon}
             </span>
           )}

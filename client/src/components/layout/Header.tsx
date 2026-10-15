@@ -18,6 +18,7 @@ import { BrandLogo } from '../brandLogo';
 import { usePublicSettingsQuery } from '../../lib/maintenance';
 import { resolveLogoUrl } from '../../lib/uploadsBase';
 import { useIsMobile } from '../../lib/useMediaQuery';
+import { getPageLabel } from '../../lib/pageLabels';
 import { cn } from '@/lib/utils';
 // Same greeting the Admin header and the Dashboard use, so the three never disagree on where morning ends.
 import { greeting as timeGreeting } from '../../features/dashboard/dashboardDisplay';
@@ -34,28 +35,6 @@ export const ICON_BUTTON_CLASS =
 
 const titleCase = (value: string) =>
   value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
-
-const PAGE_LABELS: { pattern: RegExp; label: string }[] = [
-  { pattern: /^\/$/, label: 'Dashboard' },
-  // Checked before the generic /tasks pattern below — .find() takes the first match, and this
-  // route needs its own breadcrumb rather than inheriting the plain "Delegation" one.
-  { pattern: /^\/tasks\/smart/, label: 'Smart Delegations' },
-  { pattern: /^\/tasks/, label: 'Delegation' },
-  { pattern: /^\/tickets/, label: 'Tickets' },
-  { pattern: /^\/todo/, label: 'To-Do' },
-  { pattern: /^\/events/, label: 'Events' },
-  { pattern: /^\/checklists/, label: 'Checklists' },
-  { pattern: /^\/projects/, label: 'Projects' },
-  { pattern: /^\/calendar/, label: 'Calendar' },
-  { pattern: /^\/settings/, label: 'Settings' },
-  { pattern: /^\/analytics/, label: 'Analytics' },
-  { pattern: /^\/verify/, label: 'Verification Queue' },
-  { pattern: /^\/team/, label: 'Team Overview' },
-  { pattern: /^\/admin\/(scores|data-check)/, label: 'Scores' },
-  { pattern: /^\/admin/, label: 'Admin' },
-];
-
-const getPageLabel = (pathname: string) => PAGE_LABELS.find((p) => p.pattern.test(pathname))?.label;
 
 // 30s is plenty of precision for a minute-resolution display, and cheap enough to tick without
 // re-rendering the whole header every second. Matches AdminHeader's own clock.
