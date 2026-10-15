@@ -1,5 +1,5 @@
 import { History, Camera, Eye } from 'lucide-react';
-import { UPLOADS_BASE, DETAIL_SECTION_HEADING } from './detailConstants';
+import { UPLOADS_BASE, DETAIL_SECTION_HEADING, DETAIL_SECTION_TILE } from './detailConstants';
 import { getStatusChipMeta, type StatusChipStatus } from '../../../components/statusChip';
 import { TICKET_STATUS_LABEL } from '../../../lib/ticketStatusLabel';
 import type { TicketStatusUpdate } from '../../../api/ticket';
@@ -54,69 +54,64 @@ export const TicketStatusHistory = ({ statusUpdates, onPreview, closure }: Ticke
   if (rows.length === 0) return null;
 
   return (
-    <section className="flex flex-col gap-3 min-w-0">
+    <section className="flex flex-col gap-3.5 min-w-0">
       <h3 className={DETAIL_SECTION_HEADING}>
-        <History size={16} className="text-text-light" aria-hidden />
+        <span className={DETAIL_SECTION_TILE} aria-hidden="true"><History size={16} strokeWidth={2.25} /></span>
         Status history
       </h3>
 
-      <ol className="flex flex-col">
-        {rows.map((su, index) => {
+      {/* The same rail as Activity: a gradient disc per move, in that status's colour, and every entry in its own soft card. */}
+      <ol className="relative flex flex-col gap-2 pl-11 before:absolute before:bottom-6 before:left-[15px] before:top-6 before:w-0.5 before:rounded-full before:bg-primary-500/30">
+        {rows.map((su) => {
           const key = su.toStatus.toLowerCase() as StatusChipStatus;
           const meta = getStatusChipMeta(key);
           const Icon = meta.icon;
-          const isLatest = index === 0;
-          const isLast = index === rows.length - 1;
           const stamp = su.author ? `${su.author}, ${formatStamp(su.createdAt)}` : formatStamp(su.createdAt);
 
           return (
-            <li key={su.id} className="flex gap-3">
-              <div className="flex flex-col items-center">
-                <span className={`flex items-center justify-center size-7 rounded-full text-white shrink-0 ${meta.tone}`}>
-                  <Icon size={14} strokeWidth={2.5} aria-hidden />
-                </span>
-                {!isLast && <span className="w-px flex-1 min-h-5 my-1 bg-border" aria-hidden />}
-              </div>
-
-              <div className={`flex-1 min-w-0 ${isLast ? '' : 'pb-4'}`}>
-                <div className={`flex flex-col gap-1.5 ${isLatest ? 'rounded-lg border border-border/70 px-3 py-2.5 -mt-1' : 'pt-1'}`}>
-                  <p className="t-card font-display font-semibold leading-tight text-text">{rowLabel(su)}</p>
-                  <p className="t-meta font-medium text-text-muted tabular-nums break-words">{stamp}</p>
-
-                  {su.remark && (
-                    <p className="t-card text-text-secondary leading-relaxed whitespace-pre-wrap break-words pl-2.5 border-l-2 border-border">
-                      {su.remark}
-                    </p>
-                  )}
-
-                  {su.photos && su.photos.length > 0 && (
-                    <div className="grid grid-cols-3 gap-2 max-w-sm pt-1">
-                      {su.photos.map((photo) => {
-                        const imageUrl = `${UPLOADS_BASE}${photo.url}`;
-                        return (
-                          <button
-                            key={photo.id}
-                            type="button"
-                            onClick={() => onPreview(imageUrl)}
-                            className="group/photo relative aspect-square w-full rounded-lg border border-border/60 overflow-hidden bg-surface-hover cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
-                            aria-label={photo.captureMethod === 'LIVE' ? 'Open photo taken with the camera' : 'Open photo'}
-                          >
-                            <img src={imageUrl} alt="Proof photo" loading="lazy" className="size-full object-cover" />
-                            {photo.captureMethod === 'LIVE' && (
-                              <span className="absolute bottom-1 left-1 inline-flex items-center gap-1 rounded-md bg-surface/90 px-1.5 py-0.5 t-meta font-semibold text-text">
-                                <Camera size={12} aria-hidden />
-                                Camera
-                              </span>
-                            )}
-                            <span className="absolute inset-0 bg-black/40 opacity-0 group-hover/photo:opacity-100 transition-opacity duration-200 flex items-center justify-center text-white" aria-hidden>
-                              <Eye size={16} strokeWidth={2.5} />
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
+            <li key={su.id} className="relative">
+              <span className={`absolute -left-11 top-2.5 z-10 flex size-8 items-center justify-center rounded-full text-white ring-4 ring-surface ${meta.tone}`} aria-hidden>
+                <Icon size={14} strokeWidth={2.5} />
+              </span>
+              <div className="flex flex-col gap-1.5 rounded-xl border border-border/60 bg-surface-hover/30 px-3.5 py-2.5">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="min-w-0 t-card font-display font-bold leading-snug text-text">{rowLabel(su)}</p>
                 </div>
+                <p className="t-meta font-medium text-text-muted tabular-nums break-words">{stamp}</p>
+
+                {su.remark && (
+                  <p className="rounded-lg border border-border/60 bg-surface px-2.5 py-1.5 t-card text-text-secondary leading-relaxed whitespace-pre-wrap break-words">
+                    {su.remark}
+                  </p>
+                )}
+
+                {su.photos && su.photos.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2 max-w-sm pt-1">
+                    {su.photos.map((photo) => {
+                      const imageUrl = `${UPLOADS_BASE}${photo.url}`;
+                      return (
+                        <button
+                          key={photo.id}
+                          type="button"
+                          onClick={() => onPreview(imageUrl)}
+                          className="group/photo relative aspect-square w-full rounded-lg border border-border/60 overflow-hidden bg-surface-hover cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+                          aria-label={photo.captureMethod === 'LIVE' ? 'Open photo taken with the camera' : 'Open photo'}
+                        >
+                          <img src={imageUrl} alt="Proof photo" loading="lazy" className="size-full object-cover" />
+                          {photo.captureMethod === 'LIVE' && (
+                            <span className="absolute bottom-1 left-1 inline-flex items-center gap-1 rounded-md bg-surface/90 px-1.5 py-0.5 t-meta font-semibold text-text">
+                              <Camera size={12} aria-hidden />
+                              Camera
+                            </span>
+                          )}
+                          <span className="absolute inset-0 bg-black/40 opacity-0 group-hover/photo:opacity-100 transition-opacity duration-200 flex items-center justify-center text-white" aria-hidden>
+                            <Eye size={16} strokeWidth={2.5} />
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </li>
           );

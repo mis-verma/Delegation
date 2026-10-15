@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ShieldCheck, Pencil, Flag, Building2, CalendarDays, User, Store as StoreIcon, Layers, ChevronDown, AlertCircle } from 'lucide-react';
+import { ShieldCheck, Pencil, Flag, Building2, History, ListChecks, CalendarDays, User, Store as StoreIcon, Layers, ChevronDown, AlertCircle } from 'lucide-react';
 import {
   useStoresQuery,
   useTicketQuery,
@@ -258,13 +258,13 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
               {/* Phone and tablet: every property is a chip in one wrapping row. lg: the same
                   elements become labelled rows (see TicketPropertyRow). */}
               <section className="flex flex-col gap-2 lg:gap-3">
-                <dl className="flex flex-wrap items-center gap-2 lg:flex-col lg:items-stretch lg:gap-0 lg:divide-y lg:divide-border/60">
-                  <TicketPropertyRow label="Priority" chipOrderClass="max-lg:order-2" icon={Flag} tone={PRIORITY_CONFIG[ticket.priority].solid}>
+                <dl className="grid grid-cols-2 gap-2 lg:flex lg:flex-col lg:gap-0 lg:divide-y lg:divide-border/60">
+                  <TicketPropertyRow label="Priority" icon={Flag} tone={PRIORITY_CONFIG[ticket.priority].solid}>
                     <PriorityChip meta={PRIORITY_CONFIG[ticket.priority]} />
                   </TicketPropertyRow>
 
                   {departmentName && (
-                    <TicketPropertyRow label="Department" icon={Building2} tone="bg-linear-to-br from-coral-500 to-coral-600" chipOrderClass={moreOpen ? 'max-lg:order-5' : 'max-lg:order-5 max-lg:hidden'}>
+                    <TicketPropertyRow label="Department" wide icon={Building2} tone="bg-linear-to-br from-coral-500 to-coral-600" phoneHidden={!moreOpen}>
                       <span title="Department" className="inline-flex min-w-0">
                         <DepartmentChip name={departmentName} />
                       </span>
@@ -272,18 +272,18 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                   )}
 
                   {storeName && (
-                    <TicketPropertyRow label="Store" icon={StoreIcon} tone="bg-linear-to-br from-info to-info/70" chipOrderClass={moreOpen ? 'max-lg:order-6' : 'max-lg:order-6 max-lg:hidden'}>
+                    <TicketPropertyRow label="Store" wide icon={StoreIcon} tone="bg-linear-to-br from-info to-info/70" phoneHidden={!moreOpen}>
                       <IconChip icon={StoreIcon} tone="bg-text-muted" label={storeName} title="Store" className="max-w-full" />
                     </TicketPropertyRow>
                   )}
 
                   {categoryName && (
-                    <TicketPropertyRow label="Category" icon={Layers} tone="bg-linear-to-br from-success to-success/70" chipOrderClass={moreOpen ? 'max-lg:order-7' : 'max-lg:order-7 max-lg:hidden'}>
+                    <TicketPropertyRow label="Category" wide icon={Layers} tone="bg-linear-to-br from-success to-success/70" phoneHidden={!moreOpen}>
                       <IconChip icon={Layers} tone="bg-text-muted" label={categoryName} title="Category" className="max-w-full" />
                     </TicketPropertyRow>
                   )}
 
-                  <TicketPropertyRow label="Assignee" icon={User} tone="bg-linear-to-br from-primary-500 to-primary-600" chipOrderClass="max-lg:order-1 max-lg:w-full">
+                  <TicketPropertyRow label="Assignee" icon={User} tone="bg-linear-to-br from-primary-500 to-primary-600" wide first>
                     {canRoute ? (
                       // The shared picker keeps its 32px avatar and carries its own invisible 44px
                       // touch hit area, so nothing is stretched from out here.
@@ -313,14 +313,10 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                   </TicketPropertyRow>
 
                   {due ? (
-                    <TicketPropertyRow label="Due" icon={CalendarDays} tone={due.overdue ? 'bg-linear-to-br from-danger to-danger/70' : 'bg-linear-to-br from-warning to-warning/70'} chipOrderClass="max-lg:order-4">
-                      <IconChip
-                        icon={CalendarDays}
-                        tone={due.overdue ? 'bg-danger' : 'bg-text-muted'}
-                        label={due.text}
-                        className={due.overdue ? 'border-danger/30' : undefined}
-                        labelClassName={due.overdue ? 'text-danger' : undefined}
-                      />
+                    <TicketPropertyRow label="Due" icon={CalendarDays} tone={due.overdue ? 'bg-linear-to-br from-danger to-danger/70' : 'bg-linear-to-br from-warning to-warning/70'}>
+                      <span className={`text-sm font-display font-semibold leading-snug ${due.overdue ? 'text-danger' : 'text-text'}`}>
+                        {due.text.replace(/^Due\s+/i, '').replace(/^./, (c) => c.toUpperCase())}
+                      </span>
                     </TicketPropertyRow>
                   ) : null}
 
@@ -329,7 +325,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                       type="button"
                       onClick={() => setMoreOpen(o => !o)}
                       aria-expanded={moreOpen}
-                      className="lg:hidden order-8 relative inline-flex items-center gap-1 h-7 px-2.5 rounded-full t-meta font-display font-semibold text-text-secondary hover:text-text hover:bg-surface-hover cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 after:absolute after:-inset-y-2 after:inset-x-0"
+                      className="lg:hidden order-last col-span-2 inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-surface-hover/40 t-meta font-display font-semibold text-text-secondary hover:text-text hover:bg-surface-hover cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
                     >
                       {moreOpen ? 'Fewer details' : 'More details'}
                       <ChevronDown size={14} strokeWidth={2.5} className={`transition-transform duration-200 ${moreOpen ? 'rotate-180' : ''}`} />
@@ -418,10 +414,11 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                       role="tab"
                       aria-selected={shownTab === k}
                       onClick={() => setLowerTab(k)}
-                      className={`h-11 rounded-lg border text-sm font-display font-semibold cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 transition-colors duration-150 ${
-                        shownTab === k ? 'bg-surface border-border/60 text-text' : 'border-transparent text-text-muted hover:text-text'
+                      className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg border text-sm font-display font-semibold cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 transition-colors duration-150 ${
+                        shownTab === k ? 'bg-surface border-border text-text' : 'border-transparent text-text-muted hover:text-text'
                       }`}
                     >
+                      {k === 'history' ? <ListChecks size={15} strokeWidth={2.5} aria-hidden="true" /> : <History size={15} strokeWidth={2.5} aria-hidden="true" />}
                       {k === 'history' ? 'History' : 'Activity'}
                     </button>
                   ))}
