@@ -143,7 +143,7 @@ export const TicketEditForm = ({ ticket, formId, canChangeDue, canChangePriority
           icon={<Flag size={14} className="text-text-light" />}
           hint="Critical is for work that has stopped. Most tickets are Medium."
         >
-          <TicketPriorityChipPicker value={priority} onChange={setPriority} />
+          <TicketPriorityChipPicker fullWidth value={priority} onChange={setPriority} />
         </FormField>
       )}
 

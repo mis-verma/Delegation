@@ -443,7 +443,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
               control={control}
               name="priority"
               render={({ field }) => (
-                <TaskPriorityChipPicker value={field.value} onChange={field.onChange} disabled={isBusy} />
+                <TaskPriorityChipPicker value={field.value} onChange={field.onChange} disabled={isBusy} fullWidth />
               )}
             />
           </FormField>

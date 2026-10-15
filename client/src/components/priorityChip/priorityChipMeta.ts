@@ -5,8 +5,8 @@ import type { PriorityChipMeta } from './PriorityChip';
  *  take label, solid and icon from here and add only what is theirs (bars, stripes), so a priority cannot read
  *  differently from one module to the next. To-Do and Delegation have no Critical. */
 export const PRIORITY_CHIP_META = {
-  low: { label: 'Low', solid: 'bg-text-light', icon: ArrowDown },
-  medium: { label: 'Medium', solid: 'bg-warning', icon: Minus },
-  high: { label: 'High', solid: 'bg-danger', icon: ArrowUp },
-  critical: { label: 'Critical', solid: 'bg-danger', icon: AlertTriangle },
+  low: { label: 'Low', solid: 'bg-linear-to-br from-success to-success/70', icon: ArrowDown },
+  medium: { label: 'Medium', solid: 'bg-linear-to-br from-warning to-warning/70', icon: Minus },
+  high: { label: 'High', solid: 'bg-linear-to-br from-danger to-danger/70', icon: ArrowUp },
+  critical: { label: 'Critical', solid: 'bg-linear-to-br from-danger to-coral-600', icon: AlertTriangle },
 } satisfies Record<string, PriorityChipMeta>;

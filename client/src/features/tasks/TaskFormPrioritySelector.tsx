@@ -14,8 +14,8 @@ interface TaskFormPrioritySelectorProps {
 export const TaskFormPrioritySelector = ({ value, onChange, disabled = false, hideLabel = false }: TaskFormPrioritySelectorProps) => (
   <div className={`group/field flex flex-col gap-1.5 ${FIELD_CARD_CLASS}`}>
     {!hideLabel && <span className={FIELD_LABEL_CLASS}>Priority</span>}
-    <div className="flex">
-      <TaskPriorityChipPicker value={value} onChange={onChange} disabled={disabled} />
+    <div className="flex w-full">
+      <TaskPriorityChipPicker value={value} onChange={onChange} disabled={disabled} fullWidth />
     </div>
   </div>
 );

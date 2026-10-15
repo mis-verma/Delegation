@@ -9,19 +9,19 @@ import type { Notification } from '@/api/notifications';
 // (so "sent back" reads red wherever it came from); the prefix decides the icon when the outcome
 // has none of its own.
 const OUTCOME: Array<{ match: string; icon: LucideIcon; tile: string }> = [
-  { match: 'APPROVED', icon: ShieldCheck, tile: 'bg-success/15 text-success' },
-  { match: 'REJECTED', icon: XCircle, tile: 'bg-danger/15 text-danger' },
-  { match: 'OVERDUE', icon: AlarmClock, tile: 'bg-danger/15 text-danger' },
-  { match: 'FLAG', icon: Flag, tile: 'bg-danger/15 text-danger' },
-  { match: 'ON_HOLD', icon: PauseCircle, tile: 'bg-warning/15 text-warning' },
-  { match: 'PENDING_VERIFICATION', icon: Hourglass, tile: 'bg-warning/15 text-warning' },
-  { match: 'REMINDER', icon: AlarmClock, tile: 'bg-warning/15 text-warning' },
+  { match: 'APPROVED', icon: ShieldCheck, tile: 'bg-linear-to-br from-success to-success/70 text-white' },
+  { match: 'REJECTED', icon: XCircle, tile: 'bg-linear-to-br from-danger to-danger/70 text-white' },
+  { match: 'OVERDUE', icon: AlarmClock, tile: 'bg-linear-to-br from-danger to-danger/70 text-white' },
+  { match: 'FLAG', icon: Flag, tile: 'bg-linear-to-br from-danger to-danger/70 text-white' },
+  { match: 'ON_HOLD', icon: PauseCircle, tile: 'bg-linear-to-br from-warning to-warning/70 text-white' },
+  { match: 'PENDING_VERIFICATION', icon: Hourglass, tile: 'bg-linear-to-br from-warning to-warning/70 text-white' },
+  { match: 'REMINDER', icon: AlarmClock, tile: 'bg-linear-to-br from-warning to-warning/70 text-white' },
 ];
 
 const KIND: Array<{ match: string; icon: LucideIcon; tile: string; label: string }> = [
-  { match: 'TICKET', icon: TicketCheck, tile: 'bg-primary-500/15 text-primary-700 dark:text-primary-300', label: 'Ticket' },
-  { match: 'TASK', icon: CheckSquare, tile: 'bg-info/15 text-info', label: 'Delegation' },
-  { match: 'CHECKLIST', icon: ClipboardCheck, tile: 'bg-coral-500/15 text-coral-700 dark:text-coral-300', label: 'Checklist' },
+  { match: 'TICKET', icon: TicketCheck, tile: 'bg-linear-to-br from-primary-500 to-primary-600 text-white', label: 'Ticket' },
+  { match: 'TASK', icon: CheckSquare, tile: 'bg-linear-to-br from-info to-info/70 text-white', label: 'Delegation' },
+  { match: 'CHECKLIST', icon: ClipboardCheck, tile: 'bg-linear-to-br from-coral-500 to-coral-600 text-white', label: 'Checklist' },
 ];
 
 export const notificationLook = (type: string) => {

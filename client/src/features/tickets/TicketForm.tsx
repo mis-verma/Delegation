@@ -574,7 +574,7 @@ export const TicketForm = ({ onClose, defaultDueDate }: TicketFormProps) => {
             icon={<Flag size={14} className="text-text-light" />}
             hint="Critical is for work that has stopped. Most tickets are Medium."
           >
-            <TicketPriorityChipPicker value={priority} onChange={v => setValue('priority', v, { shouldDirty: true })} />
+            <TicketPriorityChipPicker fullWidth value={priority} onChange={v => setValue('priority', v, { shouldDirty: true })} />
           </FormField>
 
           {/* Labels are for the people who sort and report on tickets, not the person raising one.

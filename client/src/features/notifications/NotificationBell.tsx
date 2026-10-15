@@ -219,10 +219,9 @@ export const NotificationBell = ({ tone = 'light', badgeRing = true, accent = fa
 
       {unreadCount > 0 && (
         <span className={cn(
-          "absolute top-1 right-1 flex items-center justify-center min-w-5 h-5 px-1",
-          "rounded-full bg-danger text-white text-xs font-bold leading-none",
-          badgeRing && "ring-2 ring-surface",
-          "transform translate-x-1/2 -translate-y-1/2",
+          "absolute top-0.5 right-0.5 flex items-center justify-center min-w-5 h-5 px-1",
+          "rounded-full bg-linear-to-br from-danger to-danger/80 text-white text-xs font-display font-bold leading-none tabular-nums",
+          badgeRing ? "ring-2 ring-surface" : "ring-2 ring-surface/80",
           "animate-in zoom-in duration-300",
           justArrived && "animate-pulse"
         )}>
@@ -295,12 +294,13 @@ export const NotificationBell = ({ tone = 'light', badgeRing = true, accent = fa
       <PopoverContent
         align="end"
         sideOffset={10}
-        className="w-96 p-0 rounded-2xl border border-border bg-surface overflow-hidden flex flex-col max-h-[32rem]"
+        className="w-[min(26rem,calc(100vw-1.5rem))] p-0 rounded-2xl border border-border bg-surface overflow-hidden flex flex-col max-h-[min(36rem,calc(100dvh-6rem))]"
       >
         <header className="flex flex-col gap-3 px-5 pt-4 pb-3 border-b border-border/60 shrink-0">
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <h3 className="text-base font-display font-bold text-text tracking-tight">Notifications</h3>
+            <div className="flex items-center gap-2.5">
+              <span className="flex items-center justify-center size-8 rounded-lg bg-linear-to-br from-primary-500 to-primary-600 text-white shrink-0"><Bell className="size-4" strokeWidth={2.25} /></span>
+              <h3 className="t-section font-display font-bold text-text tracking-tight">Notifications</h3>
               {unreadCount > 0 && (
                 <span className="px-2 py-0.5 rounded-full bg-primary-500/15 text-primary-700 dark:text-primary-300 text-xs font-display font-bold">
                   {unreadCount} new
