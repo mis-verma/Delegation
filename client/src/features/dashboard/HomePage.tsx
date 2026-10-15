@@ -11,6 +11,7 @@ import { useTodosQuery } from '../todo/hook';
 import { useMyChecklistInstancesQuery } from '../checklist/hook';
 import { DashboardOverview } from './DashboardOverview';
 import { NeedsApprovalCard } from './NeedsApprovalCard';
+import { ExceptionsCard } from './ExceptionsCard';
 import { FocusNowCard } from './FocusNowCard';
 import { OvertimeNotice } from './OvertimeNotice';
 import { useOrgToday } from '../checklist/useOrgToday';
@@ -152,6 +153,8 @@ export const HomePage = () => {
   // saved layout still type-checks, but useDashboardLayout drops them on load, so they draw nothing.
   const renderCard = (id: DashboardCardId): ReactNode => {
     switch (id) {
+      case 'exceptions':
+        return <ExceptionsCard />;
       case 'needsApproval':
         return <NeedsApprovalCard />;
       case 'kpiStrip':

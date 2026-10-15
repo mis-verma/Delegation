@@ -275,7 +275,7 @@ const getTicketChecklistsWithItems = async (ticketId: string) => {
   return checklistRows.map((c) => ({ ...c, items: itemsByChecklist.get(c.id) ?? [] }))
 }
 
-const visibilityFilter = async (user: AccessTokenPayload) => {
+export const visibilityFilter = async (user: AccessTokenPayload) => {
   // PC has the same org-wide access as ADMIN — same as tasks (see task.service.ts's own
   // visiblityFilter), so a PC user isn't blocked from other departments' tickets.
   // APPROVAL_MANAGER has the same org-wide reach as ADMIN/PC — the final-approval stage needs to

@@ -857,7 +857,7 @@ export type InstanceListFilter = {
 // the pending-approval scope. An EXISTS subquery, not an id list: the list used to be every run the
 // department had ever had, pulled into Node and sent back as one giant IN (...).
 // (Replaces instanceIdsForDepartment, which older comments in this module still mention.)
-const instanceInDepartmentCondition = (departmentId: string): SQL => sql`EXISTS (
+export const instanceInDepartmentCondition = (departmentId: string): SQL => sql`EXISTS (
     SELECT 1 FROM ${checklistInstanceAssignees} a
     JOIN ${users} u ON u.id = a.userId
     WHERE a.instanceId = ${checklistInstances.id} AND u.departmentId = ${departmentId}
@@ -953,7 +953,7 @@ const instanceConditions = (filter: InstanceListFilter): SQL | undefined => {
 // the same additive rule as assertCanVerify, and it fails closed: a head with no department, and
 // no reviewer rows, sees nothing. It also covers a role with no department access at all (e.g. an
 // AGENT named as a reviewer), which is why neither route role-gates.
-const pendingApprovalScope = (user: AccessTokenPayload): SQL | undefined => {
+export const pendingApprovalScope = (user: AccessTokenPayload): SQL | undefined => {
     if (user.role === "ADMIN" || user.role === "PC") return undefined
     const parts: SQL[] = [sql`EXISTS (
         SELECT 1 FROM ${checklistInstanceReviewers} r
