@@ -244,8 +244,8 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
 
   const adminNavItems: NavItem[] = [
     ...(isManager || isSenior ? [{ to: '/analytics', icon: BarChart3, label: 'Analytics' }] : []),
-    // Every way of cutting the scores: the organisation for Admin and PC, their own department for a head.
-    ...(isAdmin || isPC || isManager || isSenior ? [{ to: '/admin/scores', icon: ListOrdered, label: 'Scores' }] : []),
+    // Scores for a department head. Admin and PC reach Scores through the Scorecard instead.
+    ...(isManager || isSenior ? [{ to: '/admin/scores', icon: ListOrdered, label: 'Scores' }] : []),
     ...(user?.role === 'PC' || user?.role === 'ADMIN' || user?.role === 'APPROVAL_MANAGER'
       ? [{ to: '/verify', icon: ShieldQuestion, label: 'Verification Queue' }]
       : []),

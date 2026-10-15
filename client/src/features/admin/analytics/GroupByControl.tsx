@@ -3,7 +3,8 @@ import { CalendarDays, RefreshCw } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button, DateRangePicker, PANEL_CLASS, type DateRangeValue } from '../../../components';
 import { cn } from '@/lib/utils';
-import { CARD_PAD, FIELD_LABEL_CLASS, SELECT_CLASS } from '../../scores/controlStyles';
+import { SelectDropdown } from '../../../components/dropdown';
+import { CARD_PAD, FIELD_LABEL_CLASS } from '../../scores/controlStyles';
 import { PeriodTabControl } from '../../dashboard/PeriodTabControl';
 import { useOrgToday } from '../../checklist/useOrgToday';
 import { ANALYTICS_LOCALE, defaultWindowLabel, parseDateParam, toDateParam } from './analyticsDisplay';
@@ -173,13 +174,9 @@ export const AnalyticsControlBar = ({ groupBy, onGroupByChange, range, onRangeCh
       {/* Phone: the period is one select, Show by a second one beside it. */}
       <div className="flex flex-col gap-3 sm:hidden">
         <div className={hideGroupBy ? undefined : 'grid grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)] gap-3'}>
-          <select aria-label="Period" value={showCustomPicker ? 'custom' : periodValue} onChange={(e) => choosePeriod(e.target.value as PeriodTab)} className={SELECT_CLASS}>
-            {[...PERIOD_TABS, 'custom' as const].map((key) => <option key={key} value={key}>{labels[key]}</option>)}
-          </select>
+          <SelectDropdown label="Period" aria-label="Period" triggerClassName="rounded-lg font-display" value={showCustomPicker ? 'custom' : periodValue} onChange={choosePeriod} options={[...PERIOD_TABS, 'custom' as const].map((key) => ({ value: key, label: labels[key] }))} />
           {!hideGroupBy && (
-            <select aria-label="Show by" value={groupBy} onChange={(e) => onGroupByChange(e.target.value as GroupBy)} className={SELECT_CLASS}>
-              {GROUP_BY_OPTIONS.map((o) => <option key={o.value} value={o.value}>By {o.label.toLowerCase()}</option>)}
-            </select>
+            <SelectDropdown label="Show by" aria-label="Show by" triggerClassName="rounded-lg font-display" value={groupBy} onChange={onGroupByChange} options={GROUP_BY_OPTIONS.map((o) => ({ value: o.value, label: `By ${o.label.toLowerCase()}` }))} />
           )}
         </div>
         {showCustomPicker && customPicker('w-full', 'min-h-11 w-full')}
@@ -193,7 +190,7 @@ export const AnalyticsControlBar = ({ groupBy, onGroupByChange, range, onRangeCh
             {/* Any other dates: the picker, dressed as one more option; lit when the range is custom. */}
             {customPicker(
               'w-auto shrink-0',
-              `h-11 sm:h-9 w-auto gap-1.5 pl-2.5 ${isCustom ? 'pr-10' : 'pr-3'} rounded-lg text-sm font-display [&>span:first-child]:size-4 [&>span:first-child]:bg-transparent [&>span:last-child]:overflow-visible [&>span:last-child]:whitespace-nowrap ${isCustom ? 'border-primary-500 bg-primary-600 text-white [&_*]:text-white' : 'text-text-secondary hover:border-border-hover'}`,
+              `h-11 sm:h-9 w-auto gap-1.5 pl-2.5 ${hasRange ? 'pr-10' : 'pr-3'} rounded-lg text-sm font-display [&>span:first-child]:size-4 [&>span:first-child]:bg-transparent [&>span:last-child]:overflow-visible [&>span:last-child]:whitespace-nowrap ${isCustom ? 'border-primary-500 bg-primary-600 text-white [&_*]:text-white' : 'text-text-secondary hover:border-border-hover'}`,
             )}
           </div>
         </div>

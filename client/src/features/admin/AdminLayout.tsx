@@ -12,7 +12,6 @@ import {
   HeartPulse,
   Radio,
   Gauge,
-  ListOrdered,
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -67,8 +66,6 @@ const CHECKLIST_CHILDREN: AdminNavChild[] = [
 
 const NAV: AdminNavItem[] = [
   { to: '/admin', icon: LayoutDashboard, label: 'Overview & Analytics', end: true },
-  // Every way of cutting the scores (department, store, person, checklist, module) on one page.
-  { to: '/admin/scores', icon: ListOrdered, label: 'Scores', end: false },
   // Checklists, tickets and delegations side by side by department, store or person.
   { to: '/admin/scorecard', icon: Gauge, label: 'Scorecard', end: false },
   { to: '/admin/directory', icon: Contact, label: 'People & Teams', end: false },
