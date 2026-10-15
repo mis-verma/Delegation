@@ -22,7 +22,7 @@ interface PrioritySelectProps<V extends string> {
 
 const Tile = ({ icon: Icon, solid }: { icon: LucideIcon; solid: string }) => (
   <span className={cn('flex size-6 shrink-0 items-center justify-center rounded-full text-white', solid)} aria-hidden="true">
-    <Icon className="size-3.5" strokeWidth={2.75} />
+    <Icon className="size-3.5 text-white!" strokeWidth={2.75} />
   </span>
 );
 
@@ -42,7 +42,7 @@ export function PrioritySelect<V extends string>({ value, onChange, options, dis
       onChange={onChange}
       options={options.map((o) => ({ value: o.value, label: o.label, lead: <Tile icon={o.icon} solid={o.solid} /> }))}
       triggerClassName={cn('rounded-xl font-display font-semibold', !fullWidth && 'w-auto min-w-40')}
-      contentClassName="min-w-48"
+      contentClassName="w-(--radix-dropdown-menu-trigger-width) min-w-48"
     />
   );
 }
