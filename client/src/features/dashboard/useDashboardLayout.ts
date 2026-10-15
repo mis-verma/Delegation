@@ -60,6 +60,8 @@ const sizesFrom = (stored: LoadedLayout | null): Record<DashboardCardId, Dashboa
   const saved = { ...stored?.sizes };
   // Version 4 made the Scores card half width by default: a width saved before that was only the old default.
   if (stored && stored.version < 4) delete saved.myScores;
+  // Version 10 put the two worklists side by side: a width saved before that was only the old default.
+  if (stored && stored.version < 10) { delete saved.needsApproval; delete saved.exceptions; }
   // Version 9 made Scores full width (the other cards beside it were removed): a width saved before that was only the old default.
   if (stored && stored.version < 9) delete saved.myScores;
   // Version 6 put Key numbers back to full width (version 5 had made it half width).

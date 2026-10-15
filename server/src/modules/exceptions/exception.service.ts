@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, isNull, lt, sql, type SQL } from "drizzle-orm"
+import { and, eq, inArray, isNull, sql, type SQL } from "drizzle-orm"
 import { db } from "../../config/db.js"
 import { checklistInstanceAssignees, checklistInstanceItems, checklistInstances, stores, taskAdditionalAssignees, tasks, tickets, users } from "../../db/schema/index.js"
 import { visibilityFilter } from "../tickets/ticket.service.js"
@@ -8,18 +8,15 @@ import {
     isHod,
     localNowExpr,
     parentNotDeletedExpr,
-    pendingApprovalScope,
 } from "../checklistInstances/checklistInstance.service.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
 
 // An urgent ticket nobody has moved for this long is an exception (one setting for all priorities).
 const STALE_TICKET_HOURS = 4
-// The approval target is 24h; past it a finished run counts as waiting, past double it is high severity.
-const APPROVAL_WAIT_HOURS = 24
 const PER_KIND_LIMIT = 20
 const HOUR_MS = 3_600_000
 
-export type ExceptionKind = "TICKET_OVERDUE" | "TICKET_STALE" | "CHECKLIST_MISSED" | "APPROVAL_WAITING"
+export type ExceptionKind = "TICKET_OVERDUE" | "TICKET_STALE" | "CHECKLIST_MISSED"
 export type ExceptionSeverity = "high" | "medium"
 
 export interface ExceptionItem {
@@ -119,38 +116,7 @@ export const exceptionService = {
             }
         }
 
-        // Approvals waiting: same scope as the verification queue, so nobody sees a run they cannot decide on.
-        if (orgWide || isHod(user)) {
-            const waiting = await db
-                .select({
-                    id: checklistInstances.id,
-                    title: checklistInstances.title,
-                    submittedAt: checklistInstances.submittedAt,
-                    storeName: stores.name,
-                })
-                .from(checklistInstances)
-                .innerJoin(stores, eq(stores.id, checklistInstances.storeId))
-                .where(and(
-                    eq(checklistInstances.verificationStatus, "PENDING_APPROVAL"),
-                    lt(checklistInstances.submittedAt, new Date(now - APPROVAL_WAIT_HOURS * HOUR_MS)),
-                    pendingApprovalScope(user),
-                ))
-                .orderBy(checklistInstances.submittedAt)
-                .limit(PER_KIND_LIMIT)
-            for (const w of waiting) {
-                const since = w.submittedAt ?? new Date(now)
-                items.push({
-                    id: `approval:${w.id}`,
-                    kind: "APPROVAL_WAITING",
-                    severity: now - since.getTime() > 2 * APPROVAL_WAIT_HOURS * HOUR_MS ? "high" : "medium",
-                    title: w.title,
-                    detail: `Waiting for a decision for ${ago(now - since.getTime())}`,
-                    storeName: w.storeName,
-                    since: since.toISOString(),
-                    link: `/verification`,
-                })
-            }
-        }
+        // Approvals waiting are not repeated here: the "Needs your approval" card already lists them, oldest first.
 
         return items.sort((a, b) => (a.severity === b.severity ? a.since.localeCompare(b.since) : a.severity === "high" ? -1 : 1))
     },

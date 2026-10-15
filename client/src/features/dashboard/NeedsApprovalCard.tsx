@@ -143,7 +143,7 @@ export const NeedsApprovalCard = () => {
   const allCaughtUp = nothingToShow && !hasError && !isPending;
 
   return (
-    <section aria-labelledby="needs-approval-heading" className={`${PANEL_CLASS} flex flex-col overflow-hidden`}>
+    <section aria-labelledby="needs-approval-heading" className={`${PANEL_CLASS} flex h-full flex-col overflow-hidden`}>
       {/* Header and rows share the same side padding (px-4, sm:px-5), so their left edges line up. */}
       <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5 sm:py-4 border-b border-border/40">
         <div className="flex items-center gap-3 min-w-0">

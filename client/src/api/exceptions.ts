@@ -1,6 +1,6 @@
 import { apiFetch } from './http';
 
-export type ExceptionKind = 'TICKET_OVERDUE' | 'TICKET_STALE' | 'CHECKLIST_MISSED' | 'APPROVAL_WAITING';
+export type ExceptionKind = 'TICKET_OVERDUE' | 'TICKET_STALE' | 'CHECKLIST_MISSED';
 
 export interface ExceptionItem {
   id: string;

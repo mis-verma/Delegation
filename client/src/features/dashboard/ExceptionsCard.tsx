@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, CheckCheck, ChevronRight, ClipboardX, Hourglass, TicketX, UserRound, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, CheckCheck, ChevronRight, ClipboardX, TicketX, UserRound, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '../../context/AuthContext';
 import { ApiError } from '../../api/http';
@@ -18,11 +18,10 @@ const KIND_ICON: Record<ExceptionKind, LucideIcon> = {
   TICKET_OVERDUE: TicketX,
   TICKET_STALE: AlertTriangle,
   CHECKLIST_MISSED: ClipboardX,
-  APPROVAL_WAITING: Hourglass,
 };
 
-const PREVIEW_LIMIT = 6;
-const PEOPLE_PREVIEW_LIMIT = 5;
+const PREVIEW_LIMIT = 4;
+const PEOPLE_PREVIEW_LIMIT = 2;
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
@@ -103,7 +102,7 @@ export const ExceptionsCard = () => {
   const remaining = items.length - visible.length;
 
   return (
-    <section aria-labelledby="exceptions-heading" className={`${PANEL_CLASS} flex flex-col overflow-hidden`}>
+    <section aria-labelledby="exceptions-heading" className={`${PANEL_CLASS} flex h-full flex-col overflow-hidden`}>
       <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5 sm:py-4 border-b border-border/40">
         <div className="flex items-center gap-3 min-w-0">
           <div className={cardIconTile('danger')}>
