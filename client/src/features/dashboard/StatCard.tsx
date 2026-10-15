@@ -16,17 +16,11 @@ interface StatCardProps {
   iconBgTint?: string;
   caption?: string;
   onClick?: () => void;
-  /** Renders the whole card as a real link (middle-click, open in new tab, right-click all work)
-   *  with an arrow that appears on hover/focus. Wins over `onClick` when both are given. */
   href?: string;
-  /** Replaces the big number with a placeholder while the first request is still in flight. */
   isLoading?: boolean;
-  /** Tighter padding and a smaller number below `sm`, so a grid of these reads as a 2-up set of
-   *  tiles on a phone instead of a wall of big cards. Unchanged from `sm` up. */
   compact?: boolean;
   highlight?: boolean;
   decorative?: boolean;
-  /** Sits beside the label (a "how is this calculated" popover). Clicks on it never reach the card's own click or link. */
   labelAdornment?: ReactNode;
 }
 
@@ -173,7 +167,6 @@ export const StatCard = ({
         />
       )}
 
-      {/* Top Header: Title, Value, Adornment, Icon */}
       <div className="flex items-start justify-between gap-2 relative z-10">
         <div className="flex flex-col gap-1 min-w-0 flex-1">
           <div className="flex items-center gap-1.5 min-w-0">

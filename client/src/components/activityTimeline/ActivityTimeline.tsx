@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { History, ChevronDown, Loader2, ArrowRight, ArrowRightLeft, PencilLine, Layers, CalendarClock } from 'lucide-react';
+import { History, ChevronDown, Loader2, ArrowRight, ArrowRightLeft, PencilLine, Layers, CalendarClock, CircleCheck, ShieldCheck, Send } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useAuditLogsQuery } from '../../features/admin/auditLog/hook';
@@ -235,8 +235,16 @@ export const ActivityTimeline = ({ entityType, entityId, limit: initialLimit = P
   );
 };
 
+// Each kind of date field gets its own colour and icon: finished is green, handed in blue, a deadline orange.
+const dateLook = (key: string): { icon: LucideIcon; tone: ActivityTone } => {
+  if (/verified/i.test(key)) return { icon: ShieldCheck, tone: 'success' };
+  if (/closed|completed|finished/i.test(key)) return { icon: CircleCheck, tone: 'success' };
+  if (/submitted/i.test(key)) return { icon: Send, tone: 'info' };
+  return { icon: CalendarClock, tone: 'warning' };
+};
+
 const ChangeList = ({ log, rows }: { log: AuditLog; rows: DiffRow[] }) => (
-  <ul className="flex flex-col gap-2">
+  <ul className="flex flex-col divide-y divide-border/60 overflow-hidden rounded-xl border border-border/60 bg-surface">
     {rows.map((row) => {
       const beforeRaw = log.before?.[row.key];
       const afterRaw = log.after?.[row.key];
@@ -245,8 +253,8 @@ const ChangeList = ({ log, rows }: { log: AuditLog; rows: DiffRow[] }) => (
       // stray arrow. Show old one quiet and struck-free above, new one in a soft block.
       if (row.before.length > LONG_TEXT || row.after.length > LONG_TEXT) {
         return (
-          <li key={row.key} className="flex flex-col sm:flex-row gap-1.5 sm:gap-3 min-w-0">
-            <span className="text-xs font-display font-semibold text-text-muted sm:w-24 shrink-0 truncate" title={row.label}>
+          <li key={row.key} className="flex min-w-0 flex-col gap-1.5 px-3 py-2.5 sm:flex-row sm:gap-3">
+            <span className="text-xs font-display font-semibold text-text-muted sm:w-28 shrink-0 truncate" title={row.label}>
               {row.label}
             </span>
             <div className="flex flex-col gap-1 min-w-0 flex-1">
@@ -264,19 +272,20 @@ const ChangeList = ({ log, rows }: { log: AuditLog; rows: DiffRow[] }) => (
         );
       }
       // A date field is one calendar card, "was, an arrow, now", the same as the Activity feed's date change.
-      if (/due|date/i.test(row.key) && !/^(status|priority)$/.test(row.key)) {
+      if (/(At|Date)$|due/i.test(row.key) && !/^(status|priority)$/.test(row.key)) {
+        const when = dateLook(row.key);
         return (
-          <li key={row.key} className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 min-w-0">
-            <span className="text-xs font-display font-semibold text-text-muted sm:w-24 shrink-0 truncate" title={row.label}>
+          <li key={row.key} className="flex min-w-0 flex-col gap-1.5 px-3 py-2.5 sm:flex-row sm:items-center sm:gap-3">
+            <span className="text-xs font-display font-semibold text-text-muted sm:w-28 shrink-0 truncate" title={row.label}>
               {row.label}
             </span>
-            <ChangeCompare icon={CalendarClock} tone="warning" from={wasEmpty ? undefined : row.before} to={row.after === '—' ? 'Cleared' : row.after} />
+            <ChangeCompare plain icon={when.icon} tone={when.tone} from={wasEmpty ? undefined : row.before} to={row.after === '—' ? 'Cleared' : row.after} />
           </li>
         );
       }
       return (
-        <li key={row.key} className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 min-w-0">
-          <span className="text-xs font-display font-semibold text-text-muted sm:w-24 shrink-0 truncate" title={row.label}>
+        <li key={row.key} className="flex min-w-0 flex-col gap-1.5 px-3 py-2.5 sm:flex-row sm:items-center sm:gap-3">
+          <span className="text-xs font-display font-semibold text-text-muted sm:w-28 shrink-0 truncate" title={row.label}>
             {row.label}
           </span>
           <div className="flex flex-wrap items-center gap-1.5 min-w-0">
@@ -358,7 +367,7 @@ const ActivityTimelineRow = ({ log, resolvers }: { log: AuditLog; resolvers: Aud
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
-            className="inline-flex min-h-6 w-fit items-center gap-1 text-xs font-display font-bold text-primary-700 transition-colors duration-200 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 pointer-coarse:min-h-11"
+            className="inline-flex min-h-8 w-fit items-center gap-1.5 rounded-lg px-2.5 text-xs font-display font-bold text-primary-700 transition-colors duration-200 bg-primary-500/10 hover:bg-primary-500/15 dark:text-primary-300 pointer-coarse:min-h-11"
             aria-expanded={expanded}
           >
             {expanded

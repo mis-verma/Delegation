@@ -688,6 +688,10 @@ export const ticketService = {
     if (input.categoryId !== undefined) patch.categoryId = input.categoryId
     if (input.departmentId !== undefined) patch.departmentId = input.departmentId
     if (input.status !== undefined) patch.status = input.status
+    // Back to work after it was handed in or closed: counts against compliance (reopenCount).
+    if (input.status !== undefined && (before.status === "CLOSED" || before.status === "PENDING_APPROVAL") && input.status !== "CLOSED" && input.status !== "PENDING_APPROVAL") {
+      patch.reopenCount = before.reopenCount + 1
+    }
 
     if (input.status === "CLOSED" && before.status !== "CLOSED") {
       // This used to just role-gate (ADMIN/PC) and set closedAt — which let a verifier close a
@@ -808,6 +812,10 @@ export const ticketService = {
     }
 
     const patch: Partial<typeof tickets.$inferInsert> = { status: input.status, updatedAt: new Date() }
+    // Back to work after it was handed in or closed: counts against compliance (reopenCount).
+    if ((before.status === "CLOSED" || before.status === "PENDING_APPROVAL") && input.status !== "PENDING_APPROVAL") {
+      patch.reopenCount = before.reopenCount + 1
+    }
     if (before.status === "CLOSED") {
       patch.closedAt = null;
       // The old approval no longer describes the ticket once it is reopened.
@@ -905,6 +913,8 @@ export const ticketService = {
       patch.verifiedAt = new Date();
     } else {
       patch.status = "IN_PROGRESS";
+      // A send-back counts against compliance, the same as a checklist question sent back.
+      patch.reopenCount = ticket.reopenCount + 1;
     }
     // Optimistic-concurrency guard: the WHERE clause re-checks the status this row was read at
     // atomically inside the UPDATE itself, so two concurrent verify calls can't both "win" — only

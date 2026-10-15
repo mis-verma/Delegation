@@ -52,6 +52,9 @@ export const tickets = mysqlTable(
     // When the work was last handed in for approval (moved to PENDING_APPROVAL). On time is judged from
     // this, not from closedAt, so a slow approval never makes the person who did the work late.
     submittedAt: datetime('submittedAt', { mode: 'date' }),
+    // How many times a reviewer sent this ticket back to work or reopened it after it was handed in or closed.
+    // A ticket with a count above zero failed the compliance check, however it ends (see foldTickets).
+    reopenCount: int('reopenCount').notNull().default(0),
     userId: varchar('userId', { length: 191 }).notNull().references(() => users.id),
     assigneeId: varchar('assigneeId', { length: 191 }).references(() => users.id),
     storeId: varchar('storeId', { length: 191 }).references(() => stores.id),

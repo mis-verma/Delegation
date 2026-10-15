@@ -72,6 +72,8 @@ export type TicketScore = {
     onTime: number
     late: number
     waitingOnTime: number
+    /** Sent back or reopened by a reviewer after it was handed in or closed: counted, and never on time. */
+    reopened: number
     open: number
 }
 export type DelegationScore = {
@@ -134,7 +136,7 @@ export const foldChecklist = (m: ReportMetrics | null | undefined): ChecklistSco
 }
 
 export type TaskLike = { status: string; dueDate: Date | null; finishedAt: Date | null }
-export type TicketLike = { status: string; tatDueAt: Date | null; closedAt: Date | null; submittedAt: Date | null }
+export type TicketLike = { status: string; tatDueAt: Date | null; closedAt: Date | null; submittedAt: Date | null; reopenCount?: number }
 /** The score window as instants: `start` included, `end` excluded (the first instant after the last day). */
 export type ScoreWindow = { start: Date; end: Date }
 
@@ -183,17 +185,21 @@ export const foldTickets = (rows: readonly TicketLike[], now: Date, win: ScoreWi
     const inside = rows.filter((t) => inWindow(t.tatDueAt, win))
     // Handed in counts as done (see foldTasks): completion reflects the assignee's hand-in at once, and the
     // approver's decision does not change whether it counts.
-    const due = inside.filter((t) => t.status === "CLOSED" || t.status === "PENDING_APPROVAL" || (t.tatDueAt !== null && t.tatDueAt < now))
+    // A ticket sent back or reopened counts at once, whatever state it is in now: it was handed in or closed and a
+    // reviewer had to send it back, which fails the compliance check, like a checklist question sent back.
+    const reopened = (t: TicketLike) => (t.reopenCount ?? 0) > 0
+    const due = inside.filter((t) => t.status === "CLOSED" || t.status === "PENDING_APPROVAL" || reopened(t) || (t.tatDueAt !== null && t.tatDueAt < now))
     const closed = due.filter((t) => t.status === "CLOSED")
     const done = due.filter((t) => t.status === "CLOSED" || t.status === "PENDING_APPROVAL")
     // Judged from when the work was handed in, so a slow approval doesn't make the worker late. Tickets
     // closed before the hand-in time was recorded fall back to their closing time.
     const onTime = closed.filter((t) => {
+        if (reopened(t)) return false
         const finished = t.submittedAt ?? t.closedAt
         return finished && t.tatDueAt && finished <= t.tatDueAt
     }).length
     // Handed in on time and waiting for approval: on time for compliance, not closed for completion.
-    const waitingOnTime = due.filter((t) => t.status === "PENDING_APPROVAL" && t.submittedAt !== null && t.tatDueAt !== null && t.submittedAt <= t.tatDueAt).length
+    const waitingOnTime = due.filter((t) => t.status === "PENDING_APPROVAL" && !reopened(t) && t.submittedAt !== null && t.tatDueAt !== null && t.submittedAt <= t.tatDueAt).length
     const compliancePct = pct(onTime + waitingOnTime, due.length)
     // Late = closed, but after the due time. Tickets still open are "not done" (due - closed), never
     // late as well, so the two never count the same ticket twice.
@@ -211,6 +217,7 @@ export const foldTickets = (rows: readonly TicketLike[], now: Date, win: ScoreWi
         onTime,
         late: lateOf(done.length, onTime + waitingOnTime),
         waitingOnTime,
+        reopened: due.filter(reopened).length,
         open: inside.length - due.length,
     }
 }

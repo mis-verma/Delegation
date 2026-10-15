@@ -94,7 +94,7 @@ const finishedAt = (t: Finished) => t.submittedAt ?? t.verifiedAt ?? t.updatedAt
 const DELEGATION_ONLY = and(isNull(tasks.deletedAt), eq(tasks.category, "delegation"), isNull(tasks.parentTaskId))
 
 const taskCols = { status: tasks.status, dueDate: tasks.dueDate, submittedAt: tasks.submittedAt, verifiedAt: tasks.verifiedAt, updatedAt: tasks.updatedAt }
-const ticketCols = { status: tickets.status, tatDueAt: tickets.tatDueAt, closedAt: tickets.closedAt, submittedAt: tickets.submittedAt }
+const ticketCols = { status: tickets.status, tatDueAt: tickets.tatDueAt, closedAt: tickets.closedAt, submittedAt: tickets.submittedAt, reopenCount: tickets.reopenCount }
 
 // Push-based grouping: one array per key, filled in place (no copy per row).
 const groupRows = <T,>(rows: readonly T[], keyOf: (r: T) => string | null | undefined) => {

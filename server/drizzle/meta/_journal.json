@@ -351,6 +351,13 @@
       "when": 1791628152709,
       "tag": "0049_ticket_submitted_at",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "5",
+      "when": 1792062497834,
+      "tag": "0050_ticket_reopen_count",
+      "breakpoints": true
     }
   ]
 }

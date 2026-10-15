@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ChevronDown, Check } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -19,6 +19,8 @@ function cn(...inputs: ClassValue[]) {
 export interface SelectDropdownOption<Value extends string> {
   value: Value;
   label: string;
+  /** A leading visual (a coloured icon tile, an avatar), shown beside the label in the list and in the trigger. */
+  lead?: ReactNode;
 }
 
 interface SelectDropdownProps<Value extends string> {
@@ -65,7 +67,10 @@ export function SelectDropdown<Value extends string>({
       aria-label={rest['aria-label']}
       className={cn(TRIGGER_CLASS, triggerClassName)}
     >
-      <span className="truncate">{selected?.label ?? '—'}</span>
+      <span className="flex min-w-0 items-center gap-2.5">
+        {selected?.lead}
+        <span className="truncate">{selected?.label ?? '—'}</span>
+      </span>
       <span className="flex items-center justify-center size-6 rounded-full bg-surface-hover text-text-light shrink-0 transition-colors duration-200 group-hover:bg-primary-500/10 group-hover:text-primary-700 dark:group-hover:text-primary-300">
         <ChevronDown size={14} strokeWidth={2.4} />
       </span>
@@ -117,7 +122,10 @@ export function SelectDropdown<Value extends string>({
                   : "text-text-secondary focus:bg-surface-hover focus:text-text"
               )}
             >
-              <span className="truncate">{opt.label}</span>
+              <span className="flex min-w-0 items-center gap-2.5">
+                {opt.lead}
+                <span className="truncate">{opt.label}</span>
+              </span>
               {isSelected && (
                 <span className="flex items-center justify-center size-4 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 text-white shrink-0"><Check size={10} strokeWidth={3.5} /></span>
               )}

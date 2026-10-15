@@ -1,0 +1,1 @@
+ALTER TABLE `Ticket` ADD `reopenCount` int DEFAULT 0 NOT NULL;

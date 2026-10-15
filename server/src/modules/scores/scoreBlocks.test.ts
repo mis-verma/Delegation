@@ -57,6 +57,24 @@ describe("foldTickets window", () => {
         expect(t.completionPct).toBe(100)
     })
 
+    it("counts a ticket a reviewer sent back at once, even before its due time, and never as on time", () => {
+        const t = foldTickets([ticket({ status: "IN_PROGRESS", tatDueAt: d("2026-10-10T20:00:00"), reopenCount: 1 })], now, win)
+        expect(t.due).toBe(1)
+        expect(t.reopened).toBe(1)
+        expect(t.done).toBe(0)
+        expect(t.completionPct).toBe(0)
+        expect(t.compliancePct).toBe(0)
+    })
+
+    it("keeps a reopened ticket out of on time even after it is handed in again and closed", () => {
+        const t = foldTickets([ticket({ status: "CLOSED", tatDueAt: d("2026-10-06T10:00:00"), submittedAt: d("2026-10-05T09:00:00"), closedAt: d("2026-10-05T12:00:00"), reopenCount: 1 })], now, win)
+        expect(t.done).toBe(1)
+        expect(t.completionPct).toBe(100)
+        expect(t.onTime).toBe(0)
+        expect(t.compliancePct).toBe(0)
+        expect(t.reopened).toBe(1)
+    })
+
     it("counts a late hand-in as done but not on time", () => {
         const t = foldTickets([ticket({ status: "PENDING_APPROVAL", tatDueAt: d("2026-10-04T10:00:00"), submittedAt: d("2026-10-05T09:00:00") })], now, win)
         expect(t.done).toBe(1)

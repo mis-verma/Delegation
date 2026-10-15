@@ -35,7 +35,7 @@ export interface ChecklistScore {
  * (due - closed), never also late. `waitingOnTime` is handed in on time and still waiting for approval:
  * counted in compliance, not in completion.
  */
-export interface TicketScore { score: number | null; completionPct: number | null; compliancePct: number | null; onTimePct: number | null; onTimeOfFinishedPct?: number | null; metDeadlinePct?: number | null; due: number; closed: number; done?: number; notDone?: number; onTime: number; late: number; waitingOnTime: number }
+export interface TicketScore { score: number | null; completionPct: number | null; compliancePct: number | null; onTimePct: number | null; onTimeOfFinishedPct?: number | null; metDeadlinePct?: number | null; due: number; closed: number; done?: number; notDone?: number; onTime: number; late: number; waitingOnTime: number; reopened?: number }
 export interface DelegationScore { score: number | null; completionPct: number | null; compliancePct: number | null; onTimePct: number | null; onTimeOfFinishedPct?: number | null; metDeadlinePct?: number | null; due: number; done: number; notDone?: number; onTime: number; late?: number; overdue: number; waitingOnTime: number }
 
 export interface Scores {

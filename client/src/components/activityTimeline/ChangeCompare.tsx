@@ -24,6 +24,8 @@ interface ChangeCompareProps {
   /** A short note after the pair, such as "3 days later". */
   note?: ReactNode;
   noteTone?: ActivityTone;
+  /** No border or background of its own: for a row that already sits inside a panel. */
+  plain?: boolean;
 }
 
 /**
@@ -31,8 +33,8 @@ interface ChangeCompareProps {
  * in the colour of the change. Used for dates, priority and assignee in the Activity feed, and for date fields in
  * the full change log, so every before-and-after reads the same way.
  */
-export const ChangeCompare = ({ from, to, icon: Icon, tone = 'primary', note, noteTone }: ChangeCompareProps) => (
-  <div className="inline-flex min-w-0 max-w-full flex-wrap items-center gap-x-2 gap-y-1.5 rounded-xl border border-border/60 bg-surface p-1.5">
+export const ChangeCompare = ({ from, to, icon: Icon, tone = 'primary', note, noteTone, plain = false }: ChangeCompareProps) => (
+  <div className={cn('inline-flex min-w-0 max-w-full flex-wrap items-center gap-x-2 gap-y-1.5', plain ? '' : 'rounded-xl border border-border/60 bg-surface p-1.5')}>
     {Icon && (
       <span className={cn('flex size-7 shrink-0 items-center justify-center rounded-lg text-white', TONE[tone])} aria-hidden="true">
         <Icon size={14} strokeWidth={2.25} />

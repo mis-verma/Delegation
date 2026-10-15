@@ -149,10 +149,12 @@ export const numbersFor = (s: Scores, key: ModuleKey): ModuleNumbers => {
   if (key === 'ticket') {
     const t = s.ticket;
     const waiting = t.waitingOnTime ?? 0;
+    const reopened = t.reopened ?? 0;
+    const reopenedNote = reopened > 0 ? ` (${reopened} sent back or reopened)` : '';
     return {
       completion: t.completionPct, compliance: t.compliancePct, ontime: t.onTimePct,
       completionNote: waiting > 0 ? `${t.done ?? t.closed} of ${t.due} done (${waiting} waiting for approval)` : `${t.done ?? t.closed} of ${t.due} done`,
-      complianceNote: waiting > 0 ? `${t.onTime + waiting} of ${t.due} handed in on time (${waiting} waiting for approval)` : `${t.onTime} of ${t.due} closed on time`,
+      complianceNote: (waiting > 0 ? `${t.onTime + waiting} of ${t.due} handed in on time (${waiting} waiting for approval)` : `${t.onTime} of ${t.due} closed on time`) + reopenedNote,
       ontimeNote: `${t.onTime + waiting} of ${t.done ?? t.closed} finished tickets were on time`,
       hasData: t.due > 0,
     };
