@@ -145,26 +145,28 @@ const inWindow = (d: Date | null, win: ScoreWindow): d is Date => d !== null && 
 // item with no due date is never counted. Drafts are private and never count.
 export const foldTasks = (rows: readonly TaskLike[], now: Date, win: ScoreWindow): DelegationScore => {
     const inside = rows.filter((t) => t.status !== "draft" && inWindow(t.dueDate, win))
-    const due = inside.filter((t) => t.status === "done" || (t.dueDate !== null && t.dueDate < now))
+    // Handed in counts as done: the assignee has finished their part, so completion reflects it at once. The
+    // reviewer's decision is what moves it from waiting to approved, not whether it counts.
+    const due = inside.filter((t) => t.status === "done" || t.status === "pending_approval" || (t.dueDate !== null && t.dueDate < now))
     const weighted = sum(due, (t) => TASK_WEIGHT[t.status] ?? 0)
-    const done = due.filter((t) => t.status === "done")
+    const approved = due.filter((t) => t.status === "done")
+    const done = due.filter((t) => t.status === "done" || t.status === "pending_approval")
     // Done with no finish time on record cannot be late.
-    const onTime = done.filter((t) => !t.dueDate || !t.finishedAt || t.finishedAt <= t.dueDate).length
-    // Handed in by the due date and waiting for a reviewer: the assignee was on time, so compliance
-    // counts it. Completion does not (it is not done yet), and it is never overdue.
+    const onTime = approved.filter((t) => !t.dueDate || !t.finishedAt || t.finishedAt <= t.dueDate).length
+    // Handed in by the due date and waiting for a reviewer: on time for compliance, and never overdue.
     const waitingOnTime = due.filter((t) => t.status === "pending_approval" && t.dueDate !== null && t.finishedAt !== null && t.finishedAt <= t.dueDate).length
     return {
         score: due.length ? round1((weighted / due.length) * 100) : null,
         completionPct: pct(done.length, due.length),
         compliancePct: pct(onTime + waitingOnTime, due.length),
-        onTimePct: onTimeOfFinishedPct(onTime, done.length),
-        onTimeOfFinishedPct: onTimeOfFinishedPct(onTime, done.length),
+        onTimePct: onTimeOfFinishedPct(onTime + waitingOnTime, done.length),
+        onTimeOfFinishedPct: onTimeOfFinishedPct(onTime + waitingOnTime, done.length),
         metDeadlinePct: metDeadlinePct(onTime + waitingOnTime, due.length),
         due: due.length,
         done: done.length,
         notDone: notDone(due.length, done.length),
         onTime,
-        late: lateOf(done.length, onTime),
+        late: lateOf(done.length, onTime + waitingOnTime),
         waitingOnTime,
         // One overdue rule for delegations everywhere (list, dashboard summary, ownerStats): past due and
         // not done, draft or waiting for approval. Handed-in work has stopped the assignee's clock;
@@ -179,8 +181,11 @@ export const foldTasks = (rows: readonly TaskLike[], now: Date, win: ScoreWindow
 // when its due time is inside the window, so a ticket closed early with a later due date is not in this one.
 export const foldTickets = (rows: readonly TicketLike[], now: Date, win: ScoreWindow): TicketScore => {
     const inside = rows.filter((t) => inWindow(t.tatDueAt, win))
-    const due = inside.filter((t) => t.status === "CLOSED" || (t.tatDueAt !== null && t.tatDueAt < now))
+    // Handed in counts as done (see foldTasks): completion reflects the assignee's hand-in at once, and the
+    // approver's decision does not change whether it counts.
+    const due = inside.filter((t) => t.status === "CLOSED" || t.status === "PENDING_APPROVAL" || (t.tatDueAt !== null && t.tatDueAt < now))
     const closed = due.filter((t) => t.status === "CLOSED")
+    const done = due.filter((t) => t.status === "CLOSED" || t.status === "PENDING_APPROVAL")
     // Judged from when the work was handed in, so a slow approval doesn't make the worker late. Tickets
     // closed before the hand-in time was recorded fall back to their closing time.
     const onTime = closed.filter((t) => {
@@ -194,17 +199,17 @@ export const foldTickets = (rows: readonly TicketLike[], now: Date, win: ScoreWi
     // late as well, so the two never count the same ticket twice.
     return {
         score: compliancePct,
-        completionPct: pct(closed.length, due.length),
+        completionPct: pct(done.length, due.length),
         compliancePct,
-        onTimePct: onTimeOfFinishedPct(onTime, closed.length),
-        onTimeOfFinishedPct: onTimeOfFinishedPct(onTime, closed.length),
+        onTimePct: onTimeOfFinishedPct(onTime + waitingOnTime, done.length),
+        onTimeOfFinishedPct: onTimeOfFinishedPct(onTime + waitingOnTime, done.length),
         metDeadlinePct: metDeadlinePct(onTime + waitingOnTime, due.length),
         due: due.length,
         closed: closed.length,
-        done: closed.length,
-        notDone: notDone(due.length, closed.length),
+        done: done.length,
+        notDone: notDone(due.length, done.length),
         onTime,
-        late: lateOf(closed.length, onTime),
+        late: lateOf(done.length, onTime + waitingOnTime),
         waitingOnTime,
         open: inside.length - due.length,
     }

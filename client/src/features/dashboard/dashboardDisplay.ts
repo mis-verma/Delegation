@@ -6,6 +6,7 @@ import { instanceDeadline } from '../checklist/checklistDisplay';
 import { formatPoints } from '../admin/analytics/analyticsDisplay';
 import { PANEL_CLASS } from '../../components/entityCard';
 import type { DrilldownRow } from './DrilldownModal';
+import { isTicketHandedIn, isTaskHandedIn } from '../../lib/handedIn';
 
 // The shared surface every Dashboard card sits on — one definition instead of the same substring
 // retyped in eight different files, so a future change to the card's own look (like the richer
@@ -213,12 +214,12 @@ export const doneLabel = (isoDate: string, now: number): string => {
 // A delegation as a preview-modal row: one mapping for every dashboard card that opens a list of
 // tasks, so the status and overdue flag can never disagree between two cards.
 export const taskDrilldownRow = (task: Task, now: number): DrilldownRow => {
-  const completed = task.status === 'done';
+  const completed = isTaskHandedIn(task);
   const overdue = isTaskOverdue(task, now);
-  const meta = completed
-    ? doneLabel(task.verifiedAt ?? task.updatedAt, now)
-    : task.status === 'pending_approval'
-      ? 'Handed in, waiting for approval'
+  const meta = task.status === 'pending_approval'
+    ? 'Handed in, waiting for approval'
+    : completed
+      ? doneLabel(task.verifiedAt ?? task.updatedAt, now)
       : task.dueDate
         ? dueLabel(task.dueDate, now, overdue)
         : 'No due date';
@@ -480,7 +481,7 @@ export const buildActivityItems = (
     link: `/tasks?open=${t.id}`,
     category: 'delegation',
     createdAt: t.createdAt,
-    completed: t.status === 'done',
+    completed: isTaskHandedIn(t),
     overdue: isTaskOverdue(t, now),
     late:
       isTaskOverdue(t, now) ||
@@ -498,7 +499,7 @@ export const buildActivityItems = (
     link: `/tickets?open=${t.id}`,
     category: 'ticket',
     createdAt: t.createdAt,
-    completed: t.status === 'CLOSED',
+    completed: isTicketHandedIn(t),
     overdue: t.isOverdue,
     late: isTicketLate(t),
     userIds: [t.userId, t.assigneeId].filter((id): id is string => !!id),

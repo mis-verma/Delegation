@@ -1266,7 +1266,8 @@ export const taskService = {
             const [row] = await db.select({
                 total: sql<number>`COUNT(*)`,
                 draft: sql<number>`SUM(CASE WHEN ${tasks.status} = 'draft' THEN 1 ELSE 0 END)`,
-                completed: sql<number>`SUM(CASE WHEN ${tasks.status} = 'done' THEN 1 ELSE 0 END)`,
+                // Handed in (waiting for approval) counts as completed, the same as in the scores.
+                completed: sql<number>`SUM(CASE WHEN ${tasks.status} IN ('done', 'pending_approval') THEN 1 ELSE 0 END)`,
                 overdue: sql<number>`SUM(CASE WHEN ${tasks.status} NOT IN ('done', 'draft', 'pending_approval') AND ${tasks.dueDate} IS NOT NULL AND ${tasks.dueDate} < ${utcSql(new Date())} THEN 1 ELSE 0 END)`,
                 newToday: sql<number>`SUM(CASE WHEN ${tasks.createdAt} >= ${utcSql(orgDayStartUtc())} THEN 1 ELSE 0 END)`,
             }).from(tasks).where(where);

@@ -553,8 +553,9 @@ export const ticketService = {
       if (scope.storeId) conditions.push(eq(tickets.storeId, scope.storeId))
     }
     if (sla === "overdue_open") conditions.push(eq(tickets.isOverdue, true), ne(tickets.status, "CLOSED"), ne(tickets.status, "PENDING_APPROVAL"))
-    if (sla === "closed_late") conditions.push(isNotNull(tickets.closedAt), isNotNull(tickets.tatDueAt), sql`COALESCE(${tickets.submittedAt}, ${tickets.closedAt}) > ${tickets.tatDueAt}`)
-    if (sla === "closed_on_time") conditions.push(isNotNull(tickets.closedAt), isNotNull(tickets.tatDueAt), sql`COALESCE(${tickets.submittedAt}, ${tickets.closedAt}) <= ${tickets.tatDueAt}`)
+    // Handed in counts as done (waiting for approval or closed), judged from the hand-in time.
+    if (sla === "closed_late") conditions.push(inArray(tickets.status, ["CLOSED", "PENDING_APPROVAL"]), isNotNull(tickets.tatDueAt), sql`COALESCE(${tickets.submittedAt}, ${tickets.closedAt}) > ${tickets.tatDueAt}`)
+    if (sla === "closed_on_time") conditions.push(inArray(tickets.status, ["CLOSED", "PENDING_APPROVAL"]), isNotNull(tickets.tatDueAt), sql`COALESCE(${tickets.submittedAt}, ${tickets.closedAt}) <= ${tickets.tatDueAt}`)
     const where = conditions.length ? and(...conditions) : undefined
 
     const [rows, totalRows] = await Promise.all([
@@ -1165,7 +1166,8 @@ export const ticketService = {
 
       const [row] = await db.select({
         total: sql<number>`COUNT(*)`,
-        completed: sql<number>`SUM(CASE WHEN ${tickets.status} = 'CLOSED' THEN 1 ELSE 0 END)`,
+        // Handed in (waiting for approval) counts as completed, the same as in the scores.
+        completed: sql<number>`SUM(CASE WHEN ${tickets.status} IN ('CLOSED', 'PENDING_APPROVAL') THEN 1 ELSE 0 END)`,
         // Waiting for approval is never overdue: the worker's clock stopped when they handed it in.
         overdue: sql<number>`SUM(CASE WHEN ${tickets.isOverdue} AND ${tickets.status} NOT IN ('CLOSED', 'PENDING_APPROVAL') THEN 1 ELSE 0 END)`,
         newToday: sql<number>`SUM(CASE WHEN ${tickets.createdAt} >= ${utcSql(orgDayStartUtc())} THEN 1 ELSE 0 END)`,

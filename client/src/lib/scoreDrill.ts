@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router';
 import { useDueRange, type CreatedRange } from './createdRange';
 import type { Ticket } from '../api/ticket';
 import type { Task } from '../api/task';
+import { isTicketHandedIn, isTaskHandedIn } from './handedIn';
 
 // The filters a score link puts on a list page (see features/dashboard/scoreDrill.ts): the items that
 // came DUE in a window, optionally only the ones finished late or not finished, for one department or
@@ -78,19 +79,21 @@ export const ticketMatchesDrill = (drill: ScoreDrill, t: Ticket): boolean => {
   if (!inDue(drill, t.tatDueAt)) return false;
   if (drill.departmentId && t.departmentId !== drill.departmentId) return false;
   if (drill.storeId && t.storeId !== drill.storeId) return false;
-  if (drill.sla === 'not_done') return t.status !== 'CLOSED';
-  if (drill.sla === 'closed_late') return t.status === 'CLOSED' && !!t.closedAt && !!t.tatDueAt && new Date(t.closedAt).getTime() > new Date(t.tatDueAt).getTime();
-  if (drill.sla === 'closed_on_time') return t.status === 'CLOSED' && !!t.closedAt && !!t.tatDueAt && new Date(t.closedAt).getTime() <= new Date(t.tatDueAt).getTime();
+  if (drill.sla === 'not_done') return !isTicketHandedIn(t);
+  // Judged from the hand-in time (else the closing time), as the score does.
+  const finishedAt = t.submittedAt ?? t.closedAt;
+  if (drill.sla === 'closed_late') return isTicketHandedIn(t) && !!finishedAt && !!t.tatDueAt && new Date(finishedAt).getTime() > new Date(t.tatDueAt).getTime();
+  if (drill.sla === 'closed_on_time') return isTicketHandedIn(t) && !!finishedAt && !!t.tatDueAt && new Date(finishedAt).getTime() <= new Date(t.tatDueAt).getTime();
   return true;
 };
 
 /** A delegation counts when it was due in the window. Late means handed in (or approved) after the due time. */
 export const taskMatchesDrill = (drill: ScoreDrill, t: Task): boolean => {
   if (!inDue(drill, t.dueDate)) return false;
-  if (drill.sla === 'not_done') return t.status !== 'done';
+  if (drill.sla === 'not_done') return !isTaskHandedIn(t);
   if (drill.sla === 'done_late') {
     const doneAt = t.submittedAt ?? t.verifiedAt;
-    return t.status === 'done' && !!doneAt && !!t.dueDate && new Date(doneAt).getTime() > new Date(t.dueDate).getTime();
+    return isTaskHandedIn(t) && !!doneAt && !!t.dueDate && new Date(doneAt).getTime() > new Date(t.dueDate).getTime();
   }
   return true;
 };

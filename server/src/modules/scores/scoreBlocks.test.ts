@@ -39,12 +39,29 @@ describe("foldTickets window", () => {
         expect(t.notDone).toBe(1)
     })
 
-    it("counts a ticket waiting for approval on time as compliant but not done", () => {
+    it("counts a ticket handed in on time and waiting for approval as done and compliant", () => {
         const t = foldTickets([ticket({ status: "PENDING_APPROVAL", tatDueAt: d("2026-10-04T10:00:00"), submittedAt: d("2026-10-04T09:00:00") })], now, win)
         expect(t.due).toBe(1)
-        expect(t.done).toBe(0)
+        expect(t.done).toBe(1)
+        expect(t.closed).toBe(0)
         expect(t.waitingOnTime).toBe(1)
+        expect(t.completionPct).toBe(100)
         expect(t.compliancePct).toBe(100)
+        expect(t.late).toBe(0)
+    })
+
+    it("counts a hand-in before its due time at once, without waiting for the due time to pass", () => {
+        const t = foldTickets([ticket({ status: "PENDING_APPROVAL", tatDueAt: d("2026-10-10T20:00:00"), submittedAt: d("2026-10-08T09:00:00") })], now, win)
+        expect(t.due).toBe(1)
+        expect(t.done).toBe(1)
+        expect(t.completionPct).toBe(100)
+    })
+
+    it("counts a late hand-in as done but not on time", () => {
+        const t = foldTickets([ticket({ status: "PENDING_APPROVAL", tatDueAt: d("2026-10-04T10:00:00"), submittedAt: d("2026-10-05T09:00:00") })], now, win)
+        expect(t.done).toBe(1)
+        expect(t.late).toBe(1)
+        expect(t.compliancePct).toBe(0)
     })
 })
 

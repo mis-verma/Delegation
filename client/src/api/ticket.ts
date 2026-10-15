@@ -141,6 +141,8 @@ export type Ticket = {
   updatedAt:      string;
   /** When the ticket was closed; null while open. */
   closedAt:       string | null;
+  /** When the assignee handed it in for approval, if they did. */
+  submittedAt?: string | null;
   assignee:       { id: string; email: string; firstName: string; role: string } | null;
   checklists:     Checklist[];
   attachments:    TicketAttachment[];

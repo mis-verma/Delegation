@@ -10,7 +10,8 @@
 //    cutoff / due.
 //  - Compliance is POOLED: sum of weighted good answers / sum of weighted checked answers (critical x2,
 //    sent back = fail, N/A neutral). It is never an average of percentages.
-//  - Tickets and delegations: completion = done / due, notDone = due - done.
+//  - Tickets and delegations: completion = done / due, notDone = due - done. Done = handed in or approved
+//    (an item waiting for approval counts at once).
 //  - Overall = completion and compliance of every module with something due, averaged equally.
 //  - Nothing is rounded before it is averaged. Percentages leave the server with one decimal at most.
 
@@ -74,7 +75,7 @@ export const onTimeOfFinishedPct = (onTime: number, finished: number): number | 
 /** Met deadline: finished on time / due. Late and not-done items both count against it. */
 export const metDeadlinePct = (onTime: number, due: number): number | null => pct(onTime, due)
 
-/** Due but not done. For tickets and delegations a handed-in item waiting for approval is still "not done". */
+/** Due but not done. For tickets and delegations, done means handed in or approved: an item waiting for approval counts as done. */
 export const notDone = (due: number, done: number): number => Math.max(0, due - done)
 /** Finished, but after the deadline. */
 export const lateOf = (done: number, onTime: number): number => Math.max(0, done - onTime)

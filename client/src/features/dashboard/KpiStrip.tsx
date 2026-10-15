@@ -26,6 +26,7 @@ import type { Ticket } from '../../api/ticket';
 import type { Todo } from '../../api/todos';
 import type { ChecklistInstance } from '../../api/checklistInstances';
 import { formatPct, roundPct } from '../../lib/percent';
+import { isTicketHandedIn, isTaskHandedIn } from '../../lib/handedIn';
 
 type ModuleKey = 'delegation' | 'tickets' | 'checklist' | 'todo';
 type DrillKind = 'pending' | 'completed' | 'newToday' | 'overdue';
@@ -90,11 +91,11 @@ const startOfToday =(now: number) => { const d = new Date(now); d.setHours(0, 0,
 
 // Rows show when the thing is DUE ("Due today, 6 PM", "Late since 10 Oct"), never how long ago it was created.
 const ticketRow = (t: Ticket, now: number): DrilldownRow => {
-  const completed = t.status === 'CLOSED';
+  const completed = isTicketHandedIn(t);
   const overdue = !completed && isTicketLate(t);
   return {
     id: t.id, title: t.title, link: `/tickets?open=${t.id}`, createdAt: t.createdAt, completed, overdue,
-    meta: completed ? doneLabel(t.closedAt ?? t.updatedAt, now) : t.tatDueAt ? dueLabel(t.tatDueAt, now, overdue) : 'No due time',
+    meta: completed ? doneLabel(t.submittedAt ?? t.closedAt ?? t.updatedAt, now) : t.tatDueAt ? dueLabel(t.tatDueAt, now, overdue) : 'No due time',
     dueAt: t.tatDueAt ? new Date(t.tatDueAt).getTime() : null,
   };
 };
@@ -348,8 +349,8 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
     let rows: DrilldownRow[];
     if (key === 'delegation') {
       const pick = {
-        pending: (x: Task) => x.status !== 'done' && x.status !== 'draft',
-        completed: (x: Task) => x.status === 'done',
+        pending: (x: Task) => !isTaskHandedIn(x) && x.status !== 'draft',
+        completed: (x: Task) => isTaskHandedIn(x),
         newToday: (x: Task) => isNew(x.createdAt),
         overdue: (x: Task) => isTaskOverdue(x, now),
       }[kind];
@@ -358,10 +359,10 @@ export const KpiStrip = ({ summaries, taskList, ticketList, todoList, checklistL
       rows = taskList.filter((x) => x.category === 'delegation').filter(pick).map((x) => taskDrilldownRow(x, now));
     } else if (key === 'tickets') {
       const pick = {
-        pending: (x: Ticket) => x.status !== 'CLOSED',
-        completed: (x: Ticket) => x.status === 'CLOSED',
+        pending: (x: Ticket) => !isTicketHandedIn(x),
+        completed: (x: Ticket) => isTicketHandedIn(x),
         newToday: (x: Ticket) => isNew(x.createdAt),
-        overdue: (x: Ticket) => x.status !== 'CLOSED' && isTicketLate(x),
+        overdue: (x: Ticket) => !isTicketHandedIn(x) && isTicketLate(x),
       }[kind];
       rows = ticketList.filter(pick).map((x) => ticketRow(x, now));
     } else if (key === 'checklist') {

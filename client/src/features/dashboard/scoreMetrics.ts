@@ -151,9 +151,9 @@ export const numbersFor = (s: Scores, key: ModuleKey): ModuleNumbers => {
     const waiting = t.waitingOnTime ?? 0;
     return {
       completion: t.completionPct, compliance: t.compliancePct, ontime: t.onTimePct,
-      completionNote: `${t.closed} of ${t.due} closed`,
+      completionNote: waiting > 0 ? `${t.done ?? t.closed} of ${t.due} done (${waiting} waiting for approval)` : `${t.done ?? t.closed} of ${t.due} done`,
       complianceNote: waiting > 0 ? `${t.onTime + waiting} of ${t.due} handed in on time (${waiting} waiting for approval)` : `${t.onTime} of ${t.due} closed on time`,
-      ontimeNote: `${t.onTime} of ${t.closed} closed tickets were on time`,
+      ontimeNote: `${t.onTime + waiting} of ${t.done ?? t.closed} finished tickets were on time`,
       hasData: t.due > 0,
     };
   }
@@ -163,7 +163,7 @@ export const numbersFor = (s: Scores, key: ModuleKey): ModuleNumbers => {
     completion: d.completionPct, compliance: d.compliancePct, ontime: d.onTimePct,
     completionNote: `${d.done} of ${d.due} done`,
     complianceNote: waiting > 0 ? `${d.onTime + waiting} of ${d.due} handed in on time (${waiting} waiting for approval)` : `${d.onTime} of ${d.due} done on time`,
-    ontimeNote: `${d.onTime} of ${d.done} finished delegations were on time`,
+    ontimeNote: `${d.onTime + waiting} of ${d.done} finished delegations were on time`,
     hasData: d.due > 0,
   };
 };

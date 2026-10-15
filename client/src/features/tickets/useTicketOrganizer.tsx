@@ -8,6 +8,7 @@ import { readQuickFilterParam } from '../../lib/readQuickFilterParam';
 import type { Ticket } from '../../api/ticket';
 import type { TicketQuickFilterKey, TicketQuickFilterCounts } from './list/TicketQuickStats';
 import type { TicketFilters } from './list/TicketFilterFields';
+import { isTicketHandedIn } from '../../lib/handedIn';
 
 export type TicketView = 'list' | 'board' | 'table' | 'timeline';
 const QUICK_FILTER_VALUES = ['pending', 'completed', 'due', 'delayed'] as const;
@@ -25,10 +26,11 @@ export const DEFAULT_TICKET_FILTERS: TicketFilters = { status: 'all', priority: 
 // Module scope, not recreated per render/hook call — referencing it from inside a useMemo would
 // otherwise need it in the dependency array, and a fresh object every render would defeat the memo.
 const QUICK_FILTER_PREDICATES: Record<TicketQuickFilterKey, (t: Ticket) => boolean> = {
-  pending: (t) => t.status !== 'CLOSED',
-  completed: (t) => t.status === 'CLOSED',
-  due: (t) => !!t.tatDueAt && t.status !== 'CLOSED' && !t.isOverdue,
-  delayed: (t) => t.isOverdue && t.status !== 'CLOSED',
+  // Handed in (waiting for approval) counts as completed, the same as in the scores.
+  pending: (t) => !isTicketHandedIn(t),
+  completed: (t) => isTicketHandedIn(t),
+  due: (t) => !!t.tatDueAt && !isTicketHandedIn(t) && !t.isOverdue,
+  delayed: (t) => t.isOverdue && !isTicketHandedIn(t),
 };
 
 const PAGE_SIZE = 20;

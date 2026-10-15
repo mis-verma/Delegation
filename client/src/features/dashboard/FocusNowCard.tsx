@@ -11,6 +11,7 @@ import type { Task } from '../../api/task';
 import type { Ticket } from '../../api/ticket';
 import type { Todo } from '../../api/todos';
 import type { ChecklistInstance } from '../../api/checklistInstances';
+import { isTicketHandedIn } from '../../lib/handedIn';
 
 type Reason = 'sentBack' | 'overdue' | 'submit' | 'dueToday';
 
@@ -133,7 +134,8 @@ export const FocusNowCard = ({ tasks, tickets, checklists, todos, now, isPending
     }
 
     for (const k of tickets) {
-      if (k.status === 'CLOSED') continue;
+      // Handed in (waiting for approval) no longer needs this person.
+      if (isTicketHandedIn(k)) continue;
       const due = k.tatDueAt ? new Date(k.tatDueAt).getTime() : null;
       if (isTicketLate(k)) out.push({ key: `k-${k.id}`, icon: TicketCheck, title: k.title, reason: 'overdue', at: due ?? 0, detail: `Ticket, ${due ? ago(due, now) : 'past its time'}`, href: `/tickets?open=${k.id}` });
       else if (due !== null && due <= end) out.push({ key: `k-${k.id}`, icon: TicketCheck, title: k.title, reason: 'dueToday', at: due, detail: `Ticket, by ${time(due)}`, href: `/tickets?open=${k.id}` });
