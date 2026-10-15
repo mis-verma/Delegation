@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ShieldCheck, Pencil, CalendarDays, User, Store as StoreIcon, Layers, ChevronDown, AlertCircle } from 'lucide-react';
+import { ShieldCheck, Pencil, Flag, Building2, CalendarDays, User, Store as StoreIcon, Layers, ChevronDown, AlertCircle } from 'lucide-react';
 import {
   useStoresQuery,
   useTicketQuery,
@@ -10,7 +10,7 @@ import {
   useAddTicketStatusUpdateMutation,
   useDepartmentsQuery,
 } from './hook';
-import { Button, ImageLightbox, ActivityFeed, FullChangeLog, IconChip, StatusChip, PriorityChip, DepartmentChip, type StatusChipStatus } from '../../components';
+import { Button, ImageLightbox, ActivityFeed, FullChangeLog, IconChip, PriorityChip, DepartmentChip } from '../../components';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { useCategoriesQuery } from '../settings/hook';
 import { DetailLabelsField } from '../tags/DetailLabelsField';
@@ -21,7 +21,7 @@ import { getInitials } from '../../lib/getInitials';
 import { avatarColorClass } from '../../lib/avatarColors';
 import { errorMessage } from '../../lib/queryHelpers';
 import { STATUS_OPTIONS, STATUS_UPDATE_OPTIONS, HAND_IN_LABEL } from './detail/detailConstants';
-import { PRIORITY_CONFIG, formatShortDateTime, formatDueLabel } from './ticketDisplay';
+import { PRIORITY_CONFIG, formatDueLabel } from './ticketDisplay';
 import { TicketDetailHeader } from './detail/TicketDetailHeader';
 import { TicketPropertyRow } from './detail/TicketPropertyRow';
 import { VerificationNoteBanner } from '../../components/verificationBanner';
@@ -210,7 +210,6 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
     else updateMut.mutate({ id: ticket.id, payload: { status: next } });
   };
 
-  const statusChipStatus = ticket.status.toLowerCase() as StatusChipStatus;
   const statusLabel = getTicketStatusLabel(ticket.status);
   const assigneeName = ticket.assignee?.firstName ?? null;
   const showFooter = editing || showVerify || statusOptions.length > 0 || canWithdraw;
@@ -251,27 +250,21 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
               From lg a reading column on the left and a sticky properties rail on the right. The
               reading column is `contents` below lg so its two halves and the rail can be ordered
               as siblings. */}
-          <div className="flex flex-col gap-5 sm:gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_16rem] xl:grid-cols-[minmax(0,1fr)_18rem] lg:items-start lg:gap-x-8">
+          <div className="flex flex-col gap-5 sm:gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_17rem] xl:grid-cols-[minmax(0,1fr)_19rem] lg:items-start lg:gap-x-8">
             <aside
               aria-label="Ticket properties"
-              className="flex flex-col gap-4 min-w-0 max-lg:order-2 max-lg:rounded-xl max-lg:border max-lg:border-border/60 max-lg:bg-surface-hover/30 max-lg:p-3 sm:max-lg:p-4 lg:order-2 lg:sticky lg:top-0 lg:rounded-xl lg:border lg:border-border/60 lg:bg-surface-hover/30 lg:p-4"
+              className="flex flex-col gap-4 min-w-0 max-lg:order-2 max-lg:rounded-xl max-lg:border max-lg:border-border/60 max-lg:bg-surface-hover/30 max-lg:p-3 sm:max-lg:p-4 lg:order-2 lg:sticky lg:top-0 lg:rounded-xl lg:border lg:border-border lg:bg-surface lg:p-5"
             >
               {/* Phone and tablet: every property is a chip in one wrapping row. lg: the same
                   elements become labelled rows (see TicketPropertyRow). */}
               <section className="flex flex-col gap-2 lg:gap-3">
-                <dl className="flex flex-wrap items-center gap-2 lg:flex-col lg:items-stretch lg:gap-0 lg:divide-y lg:divide-border/50">
-                  {/* The sticky header already carries the status chip on every size, so the chip
-                      row skips it; the rail repeats it with the other properties. */}
-                  <TicketPropertyRow label="Status" railOnly>
-                    <StatusChip status={statusChipStatus} label={statusLabel} />
-                  </TicketPropertyRow>
-
-                  <TicketPropertyRow label="Priority" chipOrderClass="max-lg:order-2">
+                <dl className="flex flex-wrap items-center gap-2 lg:flex-col lg:items-stretch lg:gap-0 lg:divide-y lg:divide-border/60">
+                  <TicketPropertyRow label="Priority" chipOrderClass="max-lg:order-2" icon={Flag} tone={PRIORITY_CONFIG[ticket.priority].solid}>
                     <PriorityChip meta={PRIORITY_CONFIG[ticket.priority]} />
                   </TicketPropertyRow>
 
                   {departmentName && (
-                    <TicketPropertyRow label="Department" chipOrderClass={moreOpen ? 'max-lg:order-5' : 'max-lg:order-5 max-lg:hidden'}>
+                    <TicketPropertyRow label="Department" icon={Building2} tone="bg-linear-to-br from-coral-500 to-coral-600" chipOrderClass={moreOpen ? 'max-lg:order-5' : 'max-lg:order-5 max-lg:hidden'}>
                       <span title="Department" className="inline-flex min-w-0">
                         <DepartmentChip name={departmentName} />
                       </span>
@@ -279,18 +272,18 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                   )}
 
                   {storeName && (
-                    <TicketPropertyRow label="Store" chipOrderClass={moreOpen ? 'max-lg:order-6' : 'max-lg:order-6 max-lg:hidden'}>
+                    <TicketPropertyRow label="Store" icon={StoreIcon} tone="bg-linear-to-br from-info to-info/70" chipOrderClass={moreOpen ? 'max-lg:order-6' : 'max-lg:order-6 max-lg:hidden'}>
                       <IconChip icon={StoreIcon} tone="bg-text-muted" label={storeName} title="Store" className="max-w-full" />
                     </TicketPropertyRow>
                   )}
 
                   {categoryName && (
-                    <TicketPropertyRow label="Category" chipOrderClass={moreOpen ? 'max-lg:order-7' : 'max-lg:order-7 max-lg:hidden'}>
+                    <TicketPropertyRow label="Category" icon={Layers} tone="bg-linear-to-br from-success to-success/70" chipOrderClass={moreOpen ? 'max-lg:order-7' : 'max-lg:order-7 max-lg:hidden'}>
                       <IconChip icon={Layers} tone="bg-text-muted" label={categoryName} title="Category" className="max-w-full" />
                     </TicketPropertyRow>
                   )}
 
-                  <TicketPropertyRow label="Assignee" chipOrderClass="max-lg:order-1 max-lg:w-full">
+                  <TicketPropertyRow label="Assignee" icon={User} tone="bg-linear-to-br from-primary-500 to-primary-600" chipOrderClass="max-lg:order-1 max-lg:w-full">
                     {canRoute ? (
                       // The shared picker keeps its 32px avatar and carries its own invisible 44px
                       // touch hit area, so nothing is stretched from out here.
@@ -319,14 +312,8 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                     )}
                   </TicketPropertyRow>
 
-                  {raisedByName && (
-                    <TicketPropertyRow label="Raised by" railOnly>
-                      <span className="text-sm font-medium text-text break-words">{raisedByName}</span>
-                    </TicketPropertyRow>
-                  )}
-
                   {due ? (
-                    <TicketPropertyRow label="Due" chipOrderClass="max-lg:order-4">
+                    <TicketPropertyRow label="Due" icon={CalendarDays} tone={due.overdue ? 'bg-linear-to-br from-danger to-danger/70' : 'bg-linear-to-br from-warning to-warning/70'} chipOrderClass="max-lg:order-4">
                       <IconChip
                         icon={CalendarDays}
                         tone={due.overdue ? 'bg-danger' : 'bg-text-muted'}
@@ -336,10 +323,6 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                       />
                     </TicketPropertyRow>
                   ) : null}
-
-                  <TicketPropertyRow label="Created" railOnly>
-                    <span className="text-sm font-medium text-text tabular-nums">{formatShortDateTime(ticket.createdAt)}</span>
-                  </TicketPropertyRow>
 
                   {(departmentName || storeName || categoryName) && (
                     <button
