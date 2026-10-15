@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Tag as TagIcon, X, Plus, Loader2, CornerDownLeft, Trash2, Settings2, Check, Palette } from 'lucide-react';
 import { useCreateTagMutation, useDeleteTagMutation, useUpdateTagMutation } from './hook';
 import { LABEL_COLORS, labelChipClass, labelColorKey, labelDotClass, suggestedLabelColor } from '../../lib/labelColors';
-import { FIELD_LABEL_CLASS, FIELD_LABEL_ICON_CLASS } from '../tasks/taskFormFieldStyles';
+import { FIELD_LABEL_CLASS } from '../tasks/taskFormFieldStyles';
 import { cn } from '@/lib/utils';
 import type { Tag } from '../../api/tags';
 
@@ -176,9 +176,9 @@ export const LabelsField = ({
     <div className="flex flex-col gap-2" aria-describedby={atCap ? 'labels-field-help' : undefined}>
       {!hideHeading && (
         <label htmlFor="labels-field-input" className={FIELD_LABEL_CLASS}>
-          <TagIcon className={FIELD_LABEL_ICON_CLASS} />
+          <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-linear-to-br from-primary-500 to-primary-600 text-white" aria-hidden="true"><TagIcon className="size-3.5" strokeWidth={2.25} /></span>
           Labels
-          <span className="ml-auto t-meta font-medium text-text-light tabular-nums">
+          <span className="ml-auto inline-flex h-5 min-w-9 items-center justify-center rounded-full bg-surface-hover px-2 t-meta font-display font-semibold text-text-muted tabular-nums">
             {used}/{MAX_LABELS}
           </span>
         </label>
@@ -188,7 +188,7 @@ export const LabelsField = ({
       <div
         onClick={() => inputRef.current?.focus()}
         className={cn(
-          'flex flex-wrap items-center gap-1.5 min-h-11 px-2 py-1.5 rounded-xl border bg-surface transition-[border-color,box-shadow] duration-200 ease-out',
+          'flex flex-wrap items-center gap-1.5 min-h-12 px-2.5 py-2 rounded-xl border bg-surface transition-[border-color,box-shadow] duration-200 ease-out',
           disabled
             ? 'border-border/60 opacity-60 cursor-not-allowed'
             : focused
@@ -300,7 +300,7 @@ export const LabelsField = ({
               onClick={() => { attach(tag.id); setQuery(''); setNewColor(null); }}
               className={cn(chipBase, 'px-2.5 hover:brightness-95 dark:hover:brightness-110 active:scale-[0.97] transition-[filter,transform] duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40', labelChipClass(tag))}
             >
-              <span aria-hidden className={cn('size-2 rounded-full shrink-0', labelDotClass(tag))} />
+              <Plus size={11} strokeWidth={3} aria-hidden className="shrink-0 opacity-70" />
               {tag.name}
             </button>
           ))}
@@ -406,7 +406,7 @@ export const LabelsField = ({
 
       {tags.length === 0 && canCreate && !disabled && pending.length === 0 && (
         <div className="flex flex-col gap-1.5">
-          <span className="t-meta font-medium text-text-light">No labels yet. Tap one to start:</span>
+          <span className="t-meta font-medium text-text-muted">No labels yet. Tap one to add it:</span>
           <div className="flex items-center gap-1.5 flex-wrap">
             {STARTER_LABELS.map((name) => {
               const color = suggestedLabelColor(name);
@@ -418,7 +418,7 @@ export const LabelsField = ({
                   title={`Create the label “${name}”`}
                   className={cn(chipBase, 'px-2.5 transition-[filter,transform] duration-200 ease-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 hover:brightness-95 active:scale-[0.97]', color.chip)}
                 >
-                  <span aria-hidden className={cn('size-2 rounded-full shrink-0', color.dot)} />
+                  <Plus size={11} strokeWidth={3} aria-hidden className="shrink-0 opacity-70" />
                   {name}
                 </button>
               );

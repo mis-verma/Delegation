@@ -37,7 +37,7 @@ export const DetailLabelsField = ({ current, onSave, canCreate, readOnly, headin
       <div className="flex flex-col gap-2">
         {!hideHeading && (
           <h3 className={headingClassName}>
-            <TagIcon size={14} className="text-text-light" />
+            <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-linear-to-br from-primary-500 to-primary-600 text-white" aria-hidden="true"><TagIcon className="size-3.5" strokeWidth={2.25} /></span>
             Labels
           </h3>
         )}
@@ -60,9 +60,9 @@ export const DetailLabelsField = ({ current, onSave, canCreate, readOnly, headin
   return (
     <div className="flex flex-col gap-2">
       <h3 className={headingClassName}>
-        <TagIcon size={14} className="text-text-light" />
+        <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-linear-to-br from-primary-500 to-primary-600 text-white" aria-hidden="true"><TagIcon className="size-3.5" strokeWidth={2.25} /></span>
         Labels
-        <span className="ml-auto t-meta font-medium text-text-light tabular-nums">{ids.length}/12</span>
+        <span className="ml-auto inline-flex h-5 min-w-9 items-center justify-center rounded-full bg-surface-hover px-2 t-meta font-display font-semibold text-text-muted tabular-nums">{ids.length}/12</span>
       </h3>
       <LabelsField
         hideHeading
