@@ -2,7 +2,7 @@ import { memo, useCallback, useId } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { AlertTriangle, ClipboardCheck, FileDown, Info, Repeat, TicketCheck } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Button, InlineError, NoticeBanner } from '../../../components';
+import { Button, NoticeBanner } from '../../../components';
 import { useAuth } from '../../../context/AuthContext';
 import { useDepartmentsQuery, useStoresQuery } from '../../tickets/hook';
 import { AnalyticsControlBar, type GroupBy } from './GroupByControl';
@@ -15,9 +15,8 @@ import { OrgSnapshotStrip } from './OrgSnapshotStrip';
 import { ApprovalWaitingStrip } from './ApprovalWaitingStrip';
 import { PerformanceLeadersCard } from './PerformanceLeadersCard';
 import { TeamLeaderboardRail } from './TeamLeaderboardRail';
-import { useAnalyticsRefresh, useRecentActivityFeed } from './useAnalyticsQueries';
+import { useAnalyticsRefresh } from './useAnalyticsQueries';
 import { useOverviewScoreWindow } from './useOverviewScores';
-import { RecentActivity } from '../../dashboard/RecentActivity';
 import { MyScoresCard } from '../../dashboard/MyScoresCard';
 import { useOrgCounts } from '../../dashboard/scoreQueries';
 import type { Department } from '../../../api/departments';
@@ -148,27 +147,6 @@ const OverviewTabs = memo(({ groupBy, from, to, windowFrom, windowTo, isOrgWideR
 OverviewTabs.displayName = 'OverviewTabs';
 
 // ---------------------------------------------------------------------------------------------
-// Recent activity
-// ---------------------------------------------------------------------------------------------
-
-// A failed request used to fall through to the "Quiet around here" empty state, which says nothing
-// has happened when the truth is the list never loaded. When only one of the two sources (tickets,
-// delegations) failed, the other half still shows, with a notice that the list is incomplete.
-const RecentActivitySection = memo(() => {
-  const { feed, isPending, isError, refetch } = useRecentActivityFeed();
-  if (isError && feed.length === 0) {
-    return <InlineError message="Could not load recent activity." onRetry={() => void refetch()} />;
-  }
-  return (
-    <div className="flex flex-col gap-3">
-      {isError && <InlineError message="Some activity is missing" onRetry={() => void refetch()} />}
-      <RecentActivity feed={feed} isPending={isPending} />
-    </div>
-  );
-});
-RecentActivitySection.displayName = 'RecentActivitySection';
-
-// ---------------------------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------------------------
 
@@ -271,7 +249,6 @@ export const OrgOverview = () => {
       {/* The size of the organisation is background, so it sits below the performance cards. */}
       {orgWide && <OrgSnapshotStrip counts={countsQuery.data} isPending={countsQuery.isPending} isError={countsQuery.isError} onRetry={retrySnapshot} />}
 
-      <RecentActivitySection />
     </div>
   );
 };

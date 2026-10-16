@@ -16,7 +16,7 @@ export const SCORE_LABEL = {
   completion: 'Completion',
   /** Checklists have "Answers right"; tickets and delegations have "Met deadline". Use complianceLabel(). */
   compliance: 'Compliance',
-  onTime: 'On time (of finished)',
+  onTime: 'On time',
   metDeadline: 'Met deadline',
   overall: 'Overall score',
   itemsDone: 'Items done %',

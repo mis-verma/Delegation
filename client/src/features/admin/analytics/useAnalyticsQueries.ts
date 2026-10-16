@@ -1,12 +1,10 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { keepPreviousData, useIsFetching, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../../context/AuthContext';
 import { taskApi } from '../../../api/task';
 import { ticketApi } from '../../../api/ticket';
 import { checklistInstanceApi } from '../../../api/checklistInstances';
 import { handleQueryRetry } from '../../../lib/queryHelpers';
-import { RECENT_ACTIVITY_FEED_SIZE } from '../../dashboard/RecentActivity';
-import type { FeedItem } from '../../dashboard/dashboardDisplay';
 import type { Role } from '../../../api/auth';
 import type { OwnerStatsScope } from '../../../api/ticket';
 import type { TaskOwnerStatsScope } from '../../../api/task';
@@ -97,51 +95,6 @@ export const useTaskOwnerStatsQuery = (scope: TaskOwnerStatsScope, from?: string
     enabled: !!token && canViewOrgReports(user?.role),
     ...REPORT_OPTIONS,
   });
-};
-
-// ---------------------------------------------------------------------------------------------
-// Recent activity feed
-// ---------------------------------------------------------------------------------------------
-
-/**
- * The newest tickets and delegations, merged. Each side asks the server for just the rows the feed
- * shows (the feed used to pull 100 tickets and every task the viewer could see, then throw most
- * away), and the merge is memoised so it only reruns when one of the two lists changes.
- */
-export const useRecentActivityFeed = () => {
-  const { token } = useAuth();
-  const tickets = useQuery({
-    queryKey: ['analytics', 'recent-tickets', RECENT_ACTIVITY_FEED_SIZE],
-    queryFn: () => ticketApi.getAll(1, RECENT_ACTIVITY_FEED_SIZE),
-    enabled: !!token,
-    ...REPORT_OPTIONS,
-  });
-  const tasks = useQuery({
-    queryKey: ['analytics', 'recent-tasks', RECENT_ACTIVITY_FEED_SIZE],
-    queryFn: () => taskApi.getAll(undefined, undefined, 1, RECENT_ACTIVITY_FEED_SIZE),
-    enabled: !!token,
-    ...REPORT_OPTIONS,
-  });
-
-  const ticketRows = tickets.data?.data;
-  const taskRows = tasks.data?.data;
-  const feed = useMemo<FeedItem[]>(
-    () =>
-      [
-        ...(ticketRows ?? []).map((t): FeedItem => ({ kind: 'ticket', id: t.id, title: t.title, status: t.status, createdAt: t.createdAt })),
-        ...(taskRows ?? []).map((t): FeedItem => ({ kind: 'task', id: t.id, title: t.title, status: t.status, createdAt: t.createdAt })),
-      ]
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        .slice(0, RECENT_ACTIVITY_FEED_SIZE),
-    [ticketRows, taskRows],
-  );
-
-  return {
-    feed,
-    isPending: tickets.isPending || tasks.isPending,
-    isError: tickets.isError || tasks.isError,
-    refetch: () => Promise.all([tickets.refetch(), tasks.refetch()]),
-  };
 };
 
 // ---------------------------------------------------------------------------------------------

@@ -54,7 +54,7 @@ const GroupByTabs = memo(({ groupBy, onGroupByChange }: Pick<GroupByControlProps
   <Tabs value={groupBy} onValueChange={(v) => onGroupByChange(v as GroupBy)}>
     {/* Full-width four-up grid on a phone so every option is a 44px-tall target; a compact pill
         group from sm up. */}
-    <TabsList aria-label="Group by" className="grid w-full grid-cols-4 sm:inline-flex sm:w-fit h-auto">
+    <TabsList aria-label="Group by" className="grid w-full grid-cols-4 sm:inline-flex sm:flex-nowrap sm:w-fit h-auto">
       {GROUP_BY_OPTIONS.map((o) => (
         <TabsTrigger key={o.value} value={o.value} className="min-h-11 sm:min-h-9">
           {o.label}
@@ -195,12 +195,6 @@ export const AnalyticsControlBar = ({ groupBy, onGroupByChange, range, onRangeCh
           </div>
         </div>
 
-        {!hideGroupBy && (
-          <div className="flex flex-col gap-1.5">
-            <span className={FIELD_LABEL_CLASS}>Show by</span>
-            <GroupByTabs groupBy={groupBy} onGroupByChange={onGroupByChange} />
-          </div>
-        )}
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-border/60 pt-3">
@@ -209,6 +203,13 @@ export const AnalyticsControlBar = ({ groupBy, onGroupByChange, range, onRangeCh
           <span className="line-clamp-2">{rangeText}</span>
         </span>
         <div className="flex flex-wrap items-center justify-end gap-2">
+          {/* Show by sits on this row (bigger screens): beside the period tabs it no longer fit and broke onto two lines. */}
+          {!hideGroupBy && (
+            <div className="hidden sm:flex items-center gap-2 sm:mr-2">
+              <span className="t-meta font-display font-semibold text-text-secondary">Show by</span>
+              <GroupByTabs groupBy={groupBy} onGroupByChange={onGroupByChange} />
+            </div>
+          )}
           <span aria-live="polite" className="hidden min-w-24 text-right sm:inline t-meta text-text-muted tabular-nums">
             {isRefreshing ? 'Updating' : updatedAt ? `Updated ${formatUpdated(updatedAt)}` : ''}
           </span>

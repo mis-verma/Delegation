@@ -12,6 +12,7 @@ import {
   HeartPulse,
   Radio,
   Gauge,
+  Trophy,
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -66,6 +67,8 @@ const CHECKLIST_CHILDREN: AdminNavChild[] = [
 
 const NAV: AdminNavItem[] = [
   { to: '/admin', icon: LayoutDashboard, label: 'Overview & Analytics', end: true },
+  // The scoreboard: whole organisation, then departments, stores, people. Was only reachable from a button.
+  { to: '/admin/scores', icon: Trophy, label: 'Scores', end: false },
   // Checklists, tickets and delegations side by side by department, store or person.
   { to: '/admin/scorecard', icon: Gauge, label: 'Scorecard', end: false },
   { to: '/admin/directory', icon: Contact, label: 'People & Teams', end: false },

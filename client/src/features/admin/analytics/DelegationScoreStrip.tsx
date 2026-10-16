@@ -1,6 +1,6 @@
 import { useId } from 'react';
 import { useNavigate } from 'react-router';
-import { AlertTriangle, CheckCircle2, Clock, ListChecks, Percent } from 'lucide-react';
+import { AlertTriangle, Clock, ListChecks, Percent } from 'lucide-react';
 import { ActiveRangeBadge, ExportMenu, InlineError } from '../../../components';
 import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable';
 import { MODULE_LABEL, SCORE_LABEL } from '../../../lib/scoreLabels';
@@ -72,9 +72,9 @@ export const DelegationScoreStrip = ({ from, to }: DelegationScoreStripProps) =>
         <InlineError message="Could not load the delegation figures." onRetry={() => void scores.refetch()} />
       ) : (
         <div className="@container">
-          <div className="grid grid-cols-2 gap-3 @3xl:grid-cols-5">
+          {/* Four tiles, not five: the done count lives in Completion's caption, so no figure is cut short at desktop widths. */}
+          <div className="grid grid-cols-2 gap-3 @3xl:grid-cols-4">
             <StatTile icon={ListChecks} iconTint="text-primary-600 dark:text-primary-400" label={SCORE_LABEL.due} value={text(totals?.due ?? 0)} isLoading={loading} caption={empty ? 'Nothing was due' : 'Came due in the period'} />
-            <StatTile icon={CheckCircle2} iconTint="text-success" label={SCORE_LABEL.done} value={text(totals?.done ?? 0)} isLoading={loading} caption="Approved or finished" />
             <StatTile
               icon={Percent}
               iconTint="text-primary-600 dark:text-primary-400"
@@ -82,7 +82,7 @@ export const DelegationScoreStrip = ({ from, to }: DelegationScoreStripProps) =>
               labelAdornment={<HowCalculated figure="completion" module="delegation" />}
               value={text(empty ? 'No data' : formatPercent(totals?.completion))}
               isLoading={loading}
-              caption="Done out of due"
+              caption={empty ? 'Done out of due' : `${totals?.done ?? 0} of ${totals?.due ?? 0} done`}
             />
             <StatTile
               icon={Clock}
