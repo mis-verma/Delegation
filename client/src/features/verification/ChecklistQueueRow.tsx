@@ -1,9 +1,10 @@
 import { memo, useRef, type TouchEvent } from 'react';
-import { Check, CornerUpLeft, Repeat, Store } from 'lucide-react';
+import { Check, Clock3, CornerUpLeft, Repeat, Send, Store } from 'lucide-react';
 import { Button } from '../../components';
 import { cn } from '@/lib/utils';
 import { formatDateTime } from '../checklist/checklistDisplay';
 import { RiskChips } from './RiskChips';
+import { QuestionPreview } from './QuestionPreview';
 import { formatWaiting, type ChecklistRow } from './verificationModel';
 
 const SWIPE_TRIGGER_PX = 96;
@@ -75,9 +76,10 @@ export const ChecklistQueueRow = memo(function ChecklistQueueRow({
   const lgHidden = inlineActions === 'below-lg' ? 'lg:hidden' : '';
   const waiting = formatWaiting(row.waitingSince, now);
   const waitingDays = (now - row.waitingSince) / 86_400_000;
+  // Who raised it for review and when, on every row: the submit time when there is one, otherwise who it was for.
   const submitted = instance.submittedAt
-    ? `${instance.submittedByName ? `Submitted by ${instance.submittedByName}, ` : 'Submitted '}${formatDateTime(instance.submittedAt)}`
-    : null;
+    ? `${instance.submittedByName ? `Submitted by ${instance.submittedByName}` : 'Submitted'} · ${formatDateTime(instance.submittedAt)}`
+    : `Not submitted yet${row.assigneeNames.length ? ` · ${row.assigneeNames.slice(0, 2).join(', ')}${row.assigneeNames.length > 2 ? ` +${row.assigneeNames.length - 2}` : ''}` : ''}`;
 
   return (
     <li className="relative rounded-xl">
@@ -96,7 +98,7 @@ export const ChecklistQueueRow = memo(function ChecklistQueueRow({
         onTouchEnd={onTouchEnd}
         onTouchCancel={onTouchEnd}
         className={cn(
-          'relative flex flex-col gap-3 p-3 sm:p-4 rounded-xl border bg-surface touch-pan-y transition-[border-color,background-color] duration-150',
+          'relative flex flex-col gap-2 p-2.5 sm:p-3.5 rounded-xl border bg-surface touch-pan-y transition-[border-color,background-color] duration-150',
           active ? 'border-border-hover' : 'border-border/60 hover:border-border-hover',
           risk.criticalFailed > 0 && !active && 'border-danger/40',
         )}
@@ -109,45 +111,51 @@ export const ChecklistQueueRow = memo(function ChecklistQueueRow({
           onClick={() => onOpen(id)}
           className="flex items-start gap-3 min-w-0 text-left cursor-pointer outline-none rounded-md focus-visible:ring-2 focus-visible:ring-primary-500/40"
         >
-          <Repeat size={16} aria-hidden className="mt-0.5 shrink-0 text-text-light" />
+          <Repeat size={14} aria-hidden className="mt-0.5 shrink-0 text-text-light" />
           <span className="flex flex-col gap-1 min-w-0 flex-1">
             <span className="flex items-start justify-between gap-3">
-              <span className={cn('t-card font-display text-text leading-snug line-clamp-2', active ? 'font-bold' : 'font-semibold')}>
+              <span className={cn('t-meta sm:t-card font-display text-text leading-snug line-clamp-2', active ? 'font-bold' : 'font-semibold')}>
                 {instance.title}
               </span>
               <span
-                className={cn('shrink-0 t-meta font-display font-medium tabular-nums', waitingDays >= 3 ? 'text-warning' : 'text-text-muted')}
+                className={cn('inline-flex shrink-0 items-center gap-1 text-[0.6875rem] sm:t-meta font-display font-semibold tabular-nums', waitingDays >= 3 ? 'text-warning' : 'text-text-muted')}
                 title={`Waiting: ${waiting}`}
               >
+                <Clock3 className="size-3" aria-hidden="true" />
                 {waiting}
               </span>
             </span>
-            <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 t-meta font-display text-text-muted">
+            <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[0.6875rem] sm:t-meta font-display text-text-muted">
               {row.storeName && (
                 <span className="inline-flex items-center gap-1">
-                  <Store size={12} aria-hidden /> {row.storeName}
+                  <Store size={11} aria-hidden /> {row.storeName}
                 </span>
               )}
               {showDepartment && <span>{row.deptName}</span>}
-              {submitted && <span>{submitted}</span>}
+            </span>
+            <span className={cn('inline-flex items-center gap-1 text-[0.6875rem] sm:t-meta font-display font-medium', instance.submittedAt ? 'text-text-secondary' : 'text-text-light')}>
+              <Send size={11} aria-hidden />
+              <span className="truncate">{submitted}</span>
             </span>
           </span>
         </button>
 
         <RiskChips risk={risk} />
 
+        <QuestionPreview items={instance.items} onOpen={() => onOpen(id)} />
+
         {inlineActions && (
           <div className={cn('flex items-center justify-end gap-2', lgHidden)}>
             <Button
               size="sm"
               variant="outline"
-              className="border-danger/30 text-danger hover:bg-danger/10 hover:border-danger/50 hover:text-danger"
+              className="h-8 px-3 text-[0.6875rem] border-danger/30 text-danger hover:bg-danger/10 hover:border-danger/50 hover:text-danger"
               onClick={() => onSendBack(id)}
             >
               <CornerUpLeft size={14} aria-hidden />
               Send back
             </Button>
-            <Button size="sm" className="bg-success-strong text-white hover:bg-success-strong/90 hover:text-white" onClick={() => onApprove(id)}>
+            <Button size="sm" className="h-8 px-3 text-[0.6875rem] bg-success-strong text-white hover:bg-success-strong/90 hover:text-white" onClick={() => onApprove(id)}>
               <Check size={14} aria-hidden />
               Approve
             </Button>

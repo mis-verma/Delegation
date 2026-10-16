@@ -143,6 +143,15 @@ export const VerificationQueue = () => {
   const draft = useReviewDraft(openRow?.id ?? null);
   const [helpOpen, setHelpOpen] = useState(false);
 
+  // On a wide screen the review pane beside the list starts on the first checklist, not on an empty "Pick a checklist"
+  // box. Once per visit: closing it afterwards stays closed.
+  const autoOpened = useRef(false);
+  useEffect(() => {
+    if (autoOpened.current || !isDesktop || params.view !== 'waiting' || params.open || visibleRows.length === 0) return;
+    autoOpened.current = true;
+    patch({ open: visibleRows[0].id });
+  }, [isDesktop, params.view, params.open, visibleRows, patch]);
+
   // Callbacks read the latest state from here, so the memoised rows get functions that never change.
   const latest = useRef<Latest>({ rows: visibleRows, activeId, openId: openRow?.id ?? null, isDesktop, draft, patch });
   useEffect(() => {

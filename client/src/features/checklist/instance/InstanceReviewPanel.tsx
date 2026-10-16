@@ -8,42 +8,8 @@ import { EvidenceThumb } from './EvidenceThumb';
 import { WaiveAction } from './WaiveAction';
 import { useChecklistItemHistoryQuery } from '../hook';
 import { itemFlags, needsLookRank, type ItemFlags } from './reviewFlags';
+import { answerText } from './answerText';
 import type { ChecklistInstanceItem, ChecklistInstanceItemSubmission } from '../../../api/checklistInstances';
-
-// What the person answered, in words, so a reviewer can judge a question without opening the full
-// checklist. Types that carry no readable answer (a plain tick) return null.
-const answerText = (item: ChecklistInstanceItem): string | null => {
-  switch (item.itemType) {
-    case 'YES_NO':
-      return item.booleanAnswer === 'YES' ? 'Answered Yes' : item.booleanAnswer === 'NO' ? 'Answered No' : null;
-    case 'PASS_FAIL':
-      return item.booleanAnswer === 'YES' ? 'Pass' : item.booleanAnswer === 'NO' ? 'Fail' : null;
-    case 'MULTIPLE_CHOICE':
-    case 'DROPDOWN':
-    case 'TEXT_BOX':
-      return item.textValue ? `Answered: ${item.textValue}` : null;
-    case 'NUMBER_ENTRY':
-    case 'CASH_TALLY':
-      return item.numericValue != null ? `Entered ${item.numericValue}${item.numberEntryUnit ? ` ${item.numberEntryUnit}` : ''}` : null;
-    case 'RATING':
-      return item.numericValue != null ? `Rated ${item.numericValue} of ${item.ratingScale ?? 5}` : null;
-    case 'DATE_TIME':
-      return item.dateValue ? `Picked ${formatDateTime(item.dateValue)}` : null;
-    case 'GPS':
-      return item.gpsLat != null ? 'Location recorded' : null;
-    case 'SIGNATURE':
-    case 'DUAL_SIGNATURE':
-      return item.signatureValue ? 'Signed' : null;
-    case 'QR_SCAN':
-      return item.textValue ? 'Code scanned' : null;
-    case 'AUDIT': {
-      const checked = item.submissions.filter(s => s.isDone).length;
-      return `${checked} of ${item.submissions.length} people checked`;
-    }
-    default:
-      return null;
-  }
-};
 
 const QUESTION_NOTE_MAX = 200;
 
