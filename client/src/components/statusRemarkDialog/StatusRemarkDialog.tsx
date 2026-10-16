@@ -131,7 +131,7 @@ export const StatusRemarkDialog = ({
         </div>
       }
     >
-      <form id="status-remark-form" onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
+      <form id="status-remark-form" onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
         {/* The move itself, as one card: what's moving (title) and from → to, in the same status
             chips the list cards use. States the exact change so the remark is written about the
             right thing — especially from a board drag, where the columns may have scrolled away.
@@ -139,12 +139,12 @@ export const StatusRemarkDialog = ({
             here silently fell back to a near-white wash in dark mode). */}
         <section
           aria-label="Status change"
-          className="flex flex-col gap-3 p-3.5 rounded-2xl border border-primary-500/20 dark:border-primary-400/20 bg-primary-500/5 dark:bg-primary-500/10"
+          className="flex flex-col gap-2 p-3 rounded-xl border border-primary-500/20 dark:border-primary-400/20 bg-primary-500/5 dark:bg-primary-500/10"
         >
-          <p className="text-sm font-display font-semibold text-text leading-snug line-clamp-2">{itemTitle}</p>
+          <p className="t-meta font-display font-semibold text-text-secondary leading-snug line-clamp-1">{itemTitle}</p>
           <div className="flex items-center gap-2 flex-wrap">
             {from}
-            <span aria-hidden="true" className="flex items-center justify-center size-6 rounded-full bg-surface border border-border/60 text-primary-600 dark:text-primary-300 shrink-0">
+            <span aria-hidden="true" className="flex items-center justify-center size-6 rounded-full bg-linear-to-br from-primary-500 to-primary-600 text-white shrink-0">
               <ArrowRight size={12} strokeWidth={3} />
             </span>
             {to}
@@ -152,7 +152,7 @@ export const StatusRemarkDialog = ({
         </section>
 
         <div className="flex flex-col gap-2">
-          <label htmlFor="status-remark" className="flex items-center gap-1.5 text-xs font-semibold text-text-secondary">
+          <label htmlFor="status-remark" className="flex items-center gap-1.5 t-meta font-display font-semibold text-text-secondary">
             <PenLine size={13} className="text-text-light" /> {optional ? 'Note (optional)' : 'What changed?'}
           </label>
 
@@ -166,9 +166,9 @@ export const StatusRemarkDialog = ({
                   type="button"
                   onClick={() => { setRemark(s); textareaRef.current?.focus(); }}
                   aria-pressed={remark === s}
-                  className={`inline-flex items-center gap-1.5 h-11 sm:h-8 px-3.5 sm:px-3 rounded-full border t-meta transition-colors duration-150 ease-out cursor-pointer [-webkit-tap-highlight-color:transparent] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
+                  className={`inline-flex items-center gap-1.5 h-9 sm:h-8 px-3 rounded-full border t-meta transition-colors duration-150 ease-out cursor-pointer [-webkit-tap-highlight-color:transparent] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
                     remark === s
-                      ? 'border-border-hover bg-surface-hover text-text font-semibold'
+                      ? 'border-primary-500/40 bg-primary-500/10 text-primary-700 dark:text-primary-300 font-semibold'
                       : 'border-border/60 bg-surface text-text-secondary font-medium hover:border-border-hover active:bg-surface-hover'
                   }`}
                 >
@@ -186,13 +186,13 @@ export const StatusRemarkDialog = ({
             value={remark}
             onChange={(e) => setRemark(e.target.value)}
             onBlur={() => setTouched(true)}
-            rows={4}
+            rows={3}
             maxLength={MAX_REMARK}
             aria-invalid={showError}
             aria-describedby={showError ? 'status-remark-error' : 'status-remark-hint'}
             placeholder={placeholder ?? 'e.g. Vendor confirmed the parts ship on Friday. Starting the fit-out now.'}
-            className={`w-full resize-none rounded-lg border bg-surface px-3 py-2.5 text-sm text-text placeholder:text-text-light transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500/30 ${
-              showError ? 'border-danger focus:border-danger' : 'border-border focus:border-primary-400'
+            className={`w-full resize-none rounded-xl border bg-surface-hover/40 px-3 py-2.5 text-sm text-text leading-relaxed placeholder:text-text-light transition-colors duration-150 ease-out focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary-500/30 ${
+              showError ? 'border-danger focus:border-danger' : 'border-border/60 focus:border-primary-400'
             }`}
           />
           <div className="flex items-start justify-between gap-3">
@@ -217,7 +217,7 @@ export const StatusRemarkDialog = ({
       </form>
 
       {history && (
-        <div className="flex flex-col gap-2 border-t border-border/60 pt-4">
+        <div className="flex flex-col gap-2 border-t border-border/50 pt-3">
           {history}
         </div>
       )}

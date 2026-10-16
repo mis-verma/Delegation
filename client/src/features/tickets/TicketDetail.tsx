@@ -49,6 +49,15 @@ interface TicketDetailProps {
 }
 
 const EDIT_FORM_ID = 'ticket-edit-form';
+
+/** "15 Oct, 10:45 AM", with the year only when it isn't this year. */
+const formatRaised = (iso: string) => {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  const day = d.toLocaleDateString(undefined, sameYear ? { day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short', year: 'numeric' });
+  return `${day}, ${d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
+};
 // Roles that may send a ticket to another person (the server refuses USER/AGENT; assertCanMutate
 // keeps a Manager to their department or store and a Senior to their store).
 const ROUTING_ROLES: readonly Role[] = ['ADMIN', 'PC', 'MANAGER', 'SENIOR'];
@@ -241,7 +250,8 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
           isDeleting={deleteMut.isPending}
         />
 
-        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6 custom-scrollbar">
+        {/* Little top padding: the description continues straight on from the title above. */}
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 pt-1 pb-4 sm:px-6 sm:pt-1.5 sm:pb-5 lg:px-8 lg:pt-2 lg:pb-6 custom-scrollbar">
       
           <div className="flex flex-col gap-4 sm:gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_17rem] xl:grid-cols-[minmax(0,1fr)_19rem] lg:items-start lg:gap-x-8">
             <aside
@@ -392,6 +402,12 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
               </div>
             </div>
           </div>
+
+          {/* Who raised it and when: reference, not something to act on, so it closes the page. */}
+          <p className="mt-5 flex items-center gap-1.5 border-t border-border/50 pt-3 t-meta font-medium text-text-muted">
+            <CalendarDays size={12} className="shrink-0 text-text-light" strokeWidth={2.25} aria-hidden="true" />
+            {raisedByName ? `Raised by ${raisedByName}` : 'Raised'}, {formatRaised(ticket.createdAt)}
+          </p>
         </div>
 
         {/* Sticky action bar. A flex sibling of the scrolling body (not an overlay), so nothing is

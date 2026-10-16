@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ShieldCheck, Undo2 } from 'lucide-react';
+import { CheckCircle2, ShieldCheck, Undo2 } from 'lucide-react';
 import { Button, StatusChip } from '../../../components';
 import { StatusRemarkDialog } from '../../../components/statusRemarkDialog';
 import { TICKET_STATUS_LABEL } from '../../../lib/ticketStatusLabel';
@@ -14,36 +14,49 @@ interface TicketVerificationActionsProps {
 const SEND_BACK_SUGGESTIONS = ['Photo missing', 'Not fixed yet', 'Wrong item'];
 
 /**
- * The reviewer's two buttons. Approve is one tap. Send back opens its own sheet with a required
- * note (what needs fixing), instead of a text box squeezed into the sticky footer.
+ * The reviewer's decision, as one small card: a line saying it is waiting on them, then Approve (one tap, closes
+ * the ticket) beside Send back (opens its own dialog with a required note saying what needs fixing). Send back is
+ * orange, not red: it is a redo, not a failure.
  */
 export const TicketVerificationActions = ({ ticketTitle, isPending, onApprove, onSendBack }: TicketVerificationActionsProps) => {
   const [sendingBack, setSendingBack] = useState(false);
 
   return (
     <>
-      {/* 44px buttons on a phone, 40px from sm. Approve first. */}
-      <div className="grid grid-cols-2 gap-2 sm:gap-3">
-        <Button
-          variant="primary"
-          className="h-11 sm:h-10 gap-2 bg-success hover:bg-success/90 text-white font-semibold rounded-lg focus-visible:ring-success"
-          isLoading={isPending && !sendingBack}
-          disabled={isPending}
-          onClick={onApprove}
-        >
-          <ShieldCheck size={16} strokeWidth={2.5} aria-hidden />
-          Approve
-        </Button>
+      <div className="flex flex-col gap-2.5 rounded-xl border border-status-verify/25 bg-status-verify/5 p-2.5 sm:p-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-status-verify to-primary-700 text-white" aria-hidden="true">
+            <ShieldCheck size={16} strokeWidth={2.25} />
+          </span>
+          <div className="flex min-w-0 flex-col">
+            <p className="t-meta font-display font-semibold text-text">Waiting for your approval</p>
+            <p className="t-meta text-text-muted">Check the work and photos, then decide.</p>
+          </div>
+        </div>
 
-        <Button
-          variant="outline"
-          className="h-11 sm:h-10 gap-2 border-danger/30 text-danger bg-surface hover:bg-danger/10 hover:text-danger font-semibold rounded-lg focus-visible:ring-danger"
-          disabled={isPending}
-          onClick={() => setSendingBack(true)}
-        >
-          <Undo2 size={16} strokeWidth={2.5} aria-hidden />
-          Send back
-        </Button>
+        {/* 44px buttons on a phone, 40px from sm. Approve first. */}
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            variant="primary"
+            className="h-11 sm:h-10 gap-1.5 rounded-lg border-0 bg-linear-to-br from-success to-success-strong text-white t-meta font-display font-semibold hover:opacity-95 focus-visible:ring-success"
+            isLoading={isPending && !sendingBack}
+            disabled={isPending}
+            onClick={onApprove}
+          >
+            <CheckCircle2 size={16} strokeWidth={2.5} aria-hidden />
+            Approve
+          </Button>
+
+          <Button
+            variant="outline"
+            className="h-11 sm:h-10 gap-1.5 rounded-lg border-warning/35 bg-warning/10 text-warning t-meta font-display font-semibold hover:bg-warning/15 hover:text-warning focus-visible:ring-warning"
+            disabled={isPending}
+            onClick={() => setSendingBack(true)}
+          >
+            <Undo2 size={16} strokeWidth={2.5} aria-hidden />
+            Send back
+          </Button>
+        </div>
       </div>
 
       {sendingBack && (

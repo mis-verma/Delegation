@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -12,46 +13,57 @@ interface BrandLogoProps {
    *  mark + wordmark lockup wouldn't fit; on everywhere else. */
   showWordmark?: boolean;
   textClassName?: string;
-  /** The mark on a solid rounded tile, like an app icon. Off by default: the header and footer show the bare mark. */
+  /** The mark on its blue app tile (the default, everywhere). Off draws the bare K for a slot that already has
+   *  its own coloured background. */
   tile?: boolean;
 }
 
 /**
- * The KaryaOS mark: a clean geometric K with round ends. The stem and the leg are one colour, and the
- * upper arm is the violet accent, crossing the stem so the letter leans forward, like work moving on.
- * K for Karya (work).
+ * The KaryaOS mark: a white geometric K on a blue gradient tile, the same square as the phone app icon. The upper
+ * arm is the violet accent and points up and forward at a small violet dot, like a task moving to done. K for
+ * Karya (work). Fixed colours (not theme tokens) so it is the same mark in light and dark mode and on the
+ * favicon and install icons (public/favicon.svg and the PNGs are drawn from the same shapes).
  *
- * Every stroke is the same weight and there is no gradient, gloss or shadow, so it reads as a mark rather
- * than an app-store icon and stays a K down to 16px. Bare by default (primary blue, white in dark mode); the
- * `tile` version puts it on a flat primary tile for places that want an app-icon square. Colours are the
- * Soft Sapphire theme's own (primary, coral).
- *
- * The wordmark is "Karya" in the display face with "OS" lighter and in the accent blue.
+ * The wordmark is "Karya" in the display face with "OS" as a small solid badge.
  */
-export const BrandLogo = ({ className = 'size-6', showWordmark = true, textClassName, tile = false }: BrandLogoProps) => (
-  <span className="inline-flex items-center gap-2 min-w-0">
-    <svg
-      viewBox="0 0 40 40"
-      className={cn('shrink-0', className)}
-      fill="none"
-      strokeLinecap="round"
-      role="img"
-      aria-label={showWordmark ? undefined : 'KaryaOS'}
-      aria-hidden={showWordmark ? true : undefined}
-    >
-      {tile && <rect width="40" height="40" rx="9" className="fill-primary-600" />}
-      <g transform={tile ? 'translate(5.6 5.6) scale(0.72)' : undefined} strokeWidth="5.4">
-        <path d="M11.5 8V32" stroke="currentColor" className={tile ? 'text-white' : 'text-primary-700 dark:text-white'} />
-        <path d="M17.8 18.4L29.6 32" stroke="currentColor" className={tile ? 'text-white' : 'text-primary-700 dark:text-white'} />
-        <path d="M12.5 22L29 8" stroke="currentColor" className={tile ? 'text-coral-200' : 'text-coral-500 dark:text-coral-300'} />
-      </g>
-    </svg>
+export const BrandLogo = ({ className = 'size-6', showWordmark = true, textClassName, tile = true }: BrandLogoProps) => {
+  const gradientId = `karya-tile-${useId().replace(/:/g, '')}`;
+  return (
+    <span className="inline-flex items-center gap-2 min-w-0">
+      <svg
+        viewBox="0 0 40 40"
+        className={cn('shrink-0', className)}
+        fill="none"
+        strokeLinecap="round"
+        role="img"
+        aria-label={showWordmark ? undefined : 'KaryaOS'}
+        aria-hidden={showWordmark ? true : undefined}
+      >
+        {tile && (
+          <>
+            <defs>
+              <linearGradient id={gradientId} x1="4" y1="2" x2="36" y2="38" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#4f7cf0" />
+                <stop offset="1" stopColor="#2342a6" />
+              </linearGradient>
+            </defs>
+            <rect width="40" height="40" rx="11" fill={`url(#${gradientId})`} />
+          </>
+        )}
+        <g strokeWidth="5" stroke={tile ? '#ffffff' : 'currentColor'} className={tile ? undefined : 'text-primary-700 dark:text-white'}>
+          <path d="M14.5 11V29.5" />
+          <path d="M21.1 20.4L28.9 29.5" />
+        </g>
+        <path d="M15.9 22.6L27.1 12.4" strokeWidth="5" stroke={tile ? '#cdbdff' : '#7c5cdb'} />
+        <circle cx="31.6" cy="9.4" r="2.3" fill={tile ? '#cdbdff' : '#7c5cdb'} />
+      </svg>
 
-    {showWordmark && (
-      <span className={cn('inline-flex items-baseline leading-none truncate', textClassName)}>
-        <span className="font-display font-extrabold tracking-tight text-primary-800 dark:text-white">Karya</span>
-        <span className="font-display font-medium tracking-tight text-primary-600 dark:text-primary-300">OS</span>
-      </span>
-    )}
-  </span>
-);
+      {showWordmark && (
+        <span className={cn('inline-flex items-center gap-1 leading-none truncate', textClassName)}>
+          <span className="font-display font-extrabold tracking-tight text-text">Karya</span>
+          <span className="rounded-md bg-linear-to-br from-primary-500 to-primary-700 px-1 py-0.5 text-[0.6em] font-display font-bold leading-none tracking-wide text-white">OS</span>
+        </span>
+      )}
+    </span>
+  );
+};

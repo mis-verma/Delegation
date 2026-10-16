@@ -55,7 +55,7 @@ const HistoryPreview = ({ statusUpdates }: { statusUpdates: Ticket['statusUpdate
 
   return (
     <div className="flex flex-col gap-2">
-      <span className="flex items-center gap-1.5 t-meta font-semibold text-text-secondary">
+      <span className="flex items-center gap-1.5 t-meta font-display font-semibold text-text-secondary">
         <History size={14} className="text-text-light" aria-hidden />
         Recent history
       </span>
@@ -63,15 +63,15 @@ const HistoryPreview = ({ statusUpdates }: { statusUpdates: Ticket['statusUpdate
         {recent.map((su) => (
           <div
             key={su.id}
-            className="flex items-center gap-2 flex-wrap px-2.5 py-2 rounded-lg border border-border/60 bg-surface-hover/30 text-xs"
+            className="flex items-center gap-1.5 flex-wrap px-2.5 py-1.5 rounded-lg border border-border/50 bg-surface-hover/30 t-meta"
           >
             {chip(su.fromStatus)}
-            <ArrowRight size={14} strokeWidth={2.5} className="text-text-light shrink-0" aria-hidden />
+            <ArrowRight size={12} strokeWidth={2.75} className="text-text-light shrink-0" aria-hidden />
             {chip(su.toStatus)}
             <span className="text-text-muted font-medium ml-auto shrink-0 tabular-nums">{relativeTime(su.createdAt)}</span>
             {su.remark && (
-              <p className="basis-full min-w-0 text-text-secondary font-medium leading-snug break-words line-clamp-2" title={su.remark}>
-                "{su.remark}"
+              <p className="basis-full min-w-0 border-l-2 border-border-hover pl-2 text-text-secondary leading-snug break-words line-clamp-2" title={su.remark}>
+                {su.remark}
               </p>
             )}
           </div>
@@ -83,7 +83,7 @@ const HistoryPreview = ({ statusUpdates }: { statusUpdates: Ticket['statusUpdate
 
 // Camera and Gallery look the same: two plain choices, neither one pushed.
 const PHOTO_BUTTON_CLASS =
-  'inline-flex items-center justify-center gap-2 t-meta font-semibold px-3 min-h-11 sm:min-h-9 rounded-lg border border-border text-text-secondary bg-surface hover:bg-surface-hover hover:border-border-hover cursor-pointer transition-colors duration-150 focus-within:ring-2 focus-within:ring-primary-500/40';
+  'inline-flex items-center justify-center gap-2 t-meta font-display font-semibold px-3 h-10 sm:h-9 rounded-lg border border-dashed border-border-hover text-text-secondary bg-surface-hover/30 hover:border-primary-400 hover:text-primary-600 hover:bg-primary-500/5 cursor-pointer transition-colors duration-150 focus-within:ring-2 focus-within:ring-primary-500/40 [&_svg]:text-primary-600 dark:[&_svg]:text-primary-300';
 
 // Same Camera/Gallery capture the non-verifier "Update Status" panel offers — this popup was the
 // one place a status change could be recorded with no way to attach the proof photo that goes
@@ -97,7 +97,7 @@ const PhotoAttachments = ({
   onRemovePhoto: (index: number) => void;
 }) => (
   <div className="flex flex-col gap-1.5">
-    <span className="flex items-center gap-1.5 t-meta font-semibold text-text-secondary">
+    <span className="flex items-center gap-1.5 t-meta font-display font-semibold text-text-secondary">
       <ImagePlus size={14} className="text-text-light" aria-hidden /> Photo (optional)
     </span>
     {/* Two equal 44px buttons on a phone; compact and content-sized from sm. */}
@@ -127,7 +127,7 @@ const PhotoAttachments = ({
       </label>
     </div>
     {photos.length > 0 && (
-      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 pt-1">
+      <div className="grid grid-cols-4 sm:grid-cols-5 gap-1.5 pt-1">
         {photos.map((file, index) => (
           <StatusPhotoThumbnail
             key={`${file.name}-${file.lastModified}-${index}`}

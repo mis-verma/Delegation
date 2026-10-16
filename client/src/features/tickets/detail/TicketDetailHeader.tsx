@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CalendarDays, Copy, Check, Trash2, Loader2, X, MoreHorizontal, Pencil, History } from 'lucide-react';
+import { Copy, Check, Trash2, Loader2, X, MoreHorizontal, Pencil, History } from 'lucide-react';
 import { SheetHeader, SheetDescription, SheetTitle, SheetClose } from '@/components/ui/sheet';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { StatusChip, type StatusChipStatus } from '../../../components';
@@ -37,7 +37,8 @@ const MENU_ITEM = 'gap-2.5 min-h-11 sm:min-h-9 t-meta font-display font-semibold
 /**
  * The sheet's sticky top bar. Row one: ticket code (tap to copy) and the live status chip on the left; the pencil
  * (edit), a More menu (Activity and change log, Delete for admins) and close on the right. Row two: the title,
- * clamped to two lines (tap it to read all of it). Row three: who raised it and when.
+ * clamped to two lines (tap it to read all of it). No divider below, so the description in the body reads as
+ * part of the same block. Who raised it is at the foot of the body (TicketDetail).
  */
 export const TicketDetailHeader = ({ ticket, statusLabel, raisedByName, onEdit, onShowActivity, onDelete, isDeleting = false }: TicketDetailHeaderProps) => {
   const [copied, setCopied] = useState(false);
@@ -55,7 +56,8 @@ export const TicketDetailHeader = ({ ticket, statusLabel, raisedByName, onEdit, 
   };
 
   return (
-    <SheetHeader className="gap-1.5 border-b border-border/60 pl-4 pr-2 pt-2.5 pb-3 sm:pl-6 sm:pr-4 sm:pt-3 sm:pb-4 lg:pl-8 lg:pr-6 text-left">
+    // No divider under it: the description starts right below the title, so the two read as one block.
+    <SheetHeader className="gap-1.5 border-b-0 pl-4 pr-2 pt-2.5 pb-1 sm:pl-6 sm:pr-4 sm:pt-3 sm:pb-1.5 lg:pl-8 lg:pr-6 text-left">
       <div className="flex items-center gap-2">
         <div className="flex flex-1 min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
           {/* after: widens the tap area to 44px high without making the pill itself chunky. */}
@@ -130,8 +132,8 @@ export const TicketDetailHeader = ({ ticket, statusLabel, raisedByName, onEdit, 
         </button>
       </SheetTitle>
 
-      <SheetDescription className="flex items-center gap-1.5 t-meta font-medium text-text-muted">
-        <CalendarDays size={12} className="shrink-0 text-text-light" strokeWidth={2.25} aria-hidden="true" />
+      {/* Read out by screen readers when the sheet opens; on screen the line sits at the foot of the sheet's body. */}
+      <SheetDescription className="sr-only">
         {raisedByName ? `Raised by ${raisedByName}, ${formatDate(ticket.createdAt)}` : `Raised ${formatDate(ticket.createdAt)}`}
       </SheetDescription>
     </SheetHeader>
