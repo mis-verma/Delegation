@@ -1,6 +1,8 @@
 import { z } from "zod"
+import { count, eq } from "drizzle-orm"
 import { createLookupRouter } from "../../utils/lookupModule.js";
-import { tags } from "../../db/schema/index.js"
+import { db } from "../../config/db.js"
+import { tags, ticketTags } from "../../db/schema/index.js"
 
 // `color` is one of the palette keys the label picker offers (client/src/lib/labelColors.ts). It is
 // optional: a label without one is drawn in a colour derived from its name, which is also how every
@@ -34,4 +36,13 @@ const tagBodySchema = z.object({
 //
 // Deleting a label cascades to its TaskTag rows (onDelete: 'cascade' on the junction), so a
 // removed label detaches itself from every delegation rather than leaving orphans behind.
-export const tagRouter = createLookupRouter(tags, tagBodySchema)
+//
+// Except a label that is on a ticket: labels on tickets are permanent (ticket.service.ts update refuses to take
+// one off), so deleting the label itself, which would take it off every ticket, is refused too.
+export const tagRouter = createLookupRouter(tags, tagBodySchema, {
+  deleteBlockers: async (row) => {
+    const [used] = await db.select({ n: count() }).from(ticketTags).where(eq(ticketTags.tagId, row.id))
+    const n = Number(used?.n ?? 0)
+    return n > 0 ? `${row.name} is on ${n} ${n === 1 ? "ticket" : "tickets"}, and labels on tickets are permanent, so it can't be deleted.` : null
+  },
+})

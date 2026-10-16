@@ -19,6 +19,8 @@ import { DETAIL_HEADING_CLASS, CHIP_TRIGGER_CLASS } from './taskFormFieldStyles'
 import { TaskStatusRemarkDialog } from './TaskStatusRemarkDialog';
 import { TaskAttachments } from './TaskAttachments';
 import { DetailLabelsField } from '../tags/DetailLabelsField';
+import { taskScore } from '../../lib/itemScore';
+import { ItemScoreCard } from '../../components/itemScoreCard/ItemScoreCard';
 import { taskAssigneeIds } from './cardFields';
 import { useAuth } from '../../context/AuthContext';
 import type { Task, UpdateTaskPayload } from '../../api/task';
@@ -596,6 +598,9 @@ const TaskEditLayout = ({
           </div>
         )}
       </div>
+
+      {/* How this delegation counts in the scores right now; ticks while open, and status changes arrive by socket. */}
+      <ItemScoreCard scoreAt={(now) => taskScore(task, now)} noun="delegation" />
 
       <DetailLabelsField
         current={task.tags ?? []}

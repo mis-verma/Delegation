@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Tag as TagIcon, Plus, Loader2, Trash2, Settings2, Check, ChevronDown, ChevronLeft, X } from 'lucide-react';
 import { useCreateTagMutation, useDeleteTagMutation, useUpdateTagMutation } from './hook';
-import { LABEL_COLORS, labelChipClass, labelColorKey, labelDotClass, suggestedLabelColor } from '../../lib/labelColors';
+import { BARE_LABEL_CLASS, LABEL_COLORS, labelChipClass, labelColorKey, labelDotClass, suggestedLabelColor } from '../../lib/labelColors';
 import { FIELD_LABEL_CLASS } from '../tasks/taskFormFieldStyles';
 import { PickerShell } from '../../components/dateTime/PickerShell';
 import { OptionList, type ListOption } from '../../components/dropdown/OptionList';
@@ -30,6 +30,9 @@ interface LabelsFieldProps {
   disabled?: boolean;
   /** Drop the "Labels n/12" heading, for a caller that already labels the row itself. */
   hideHeading?: boolean;
+  /** Labels already saved on the record that can't be taken off (a ticket's labels are permanent). They stay
+   *  ticked in the picker and a tap does nothing. */
+  lockedIds?: string[];
 }
 
 type View = 'pick' | 'create' | 'manage';
@@ -65,9 +68,9 @@ const ColorSwatches = ({ value, onPick, label }: { value: string; onPick: (key: 
   </div>
 );
 
-/** A label as a chip: its colour dot and name. */
+/** A label: its coloured icon and name, bare like TagChip (no border, no fill). */
 const LabelChip = ({ tag, className }: { tag: Pick<Tag, 'name' | 'color'>; className?: string }) => (
-  <IconChip icon={TagIcon} tone={labelDotClass(tag)} label={tag.name} className={className} title={`Label: ${tag.name}`} />
+  <IconChip icon={TagIcon} tone={labelDotClass(tag)} label={tag.name} className={cn(BARE_LABEL_CLASS, className)} title={`Label: ${tag.name}`} />
 );
 
 const BackBar = ({ title, onBack }: { title: string; onBack: () => void }) => (
@@ -93,7 +96,7 @@ const BackBar = ({ title, onBack }: { title: string; onBack: () => void }) => (
  * inside the same picker. Everyone else picks from the shared list. Labels are one list for Delegation and
  * Tickets, and the name is unique, case-insensitively.
  */
-export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled = false, hideHeading = false }: LabelsFieldProps) => {
+export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled = false, hideHeading = false, lockedIds }: LabelsFieldProps) => {
   const queryClient = useQueryClient();
   const createTag = useCreateTagMutation();
   const deleteTag = useDeleteTagMutation();
@@ -128,7 +131,10 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
     return [...tags.filter((t) => pinned.has(t.id)), ...tags.filter((t) => !pinned.has(t.id))];
   }, [tags, pinnedIds]);
 
+  const locked = useMemo(() => new Set(lockedIds ?? []), [lockedIds]);
+
   const toggle = (id: string) => {
+    if (locked.has(id)) return;
     if (selectedRef.current.includes(id)) onChange(selectedRef.current.filter((x) => x !== id));
     else if (selectedRef.current.length < MAX_LABELS) onChange([...selectedRef.current, id]);
   };
@@ -177,6 +183,7 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
   const options: ListOption[] = orderedTags.map((t) => ({
     value: t.id,
     label: t.name,
+    hint: locked.has(t.id) ? 'Added, stays on this ticket' : undefined,
     lead: (
       <span className={cn('flex size-7 shrink-0 items-center justify-center rounded-lg border', labelChipClass(t))} aria-hidden="true">
         <span className={cn('size-2.5 rounded-full', labelDotClass(t))} />
@@ -318,7 +325,7 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
   const manageView = (
     <div className="flex flex-col gap-3">
       <BackBar title="Manage labels" onBack={() => { setView('pick'); setConfirmingId(null); setRecolorId(null); }} />
-      <p className="px-1 t-meta font-medium text-text-muted">Tap a dot to change its colour. Deleting a label removes it from every delegation and ticket.</p>
+      <p className="px-1 t-meta font-medium text-text-muted">Tap a dot to change its colour. Deleting a label removes it from every delegation. A label used on a ticket can't be deleted.</p>
       <ul className="flex flex-col gap-1">
         {tags.map((tag) => {
           const confirming = confirmingId === tag.id;

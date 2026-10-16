@@ -144,7 +144,9 @@ export type Ticket = {
   closedAt:       string | null;
   /** When the assignee handed it in for approval, if they did. */
   submittedAt?: string | null;
-  assignee:       { id: string; email: string; firstName: string; role: string } | null;
+  /** Times it went back to work after being handed in or closed; any at all fails compliance. */
+  reopenCount?: number;
+  assignee:      { id: string; email: string; firstName: string; role: string } | null;
   checklists:     Checklist[];
   attachments:    TicketAttachment[];
   comments:       TicketComment[];

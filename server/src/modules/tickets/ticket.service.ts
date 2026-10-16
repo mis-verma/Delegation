@@ -678,6 +678,15 @@ export const ticketService = {
     const beforeTagIds = await ticketTagIds(id);
     const beforeReviewerIds = await ticketReviewerIds(id);
 
+    // A label on a ticket is permanent: one can be added, never taken off, by anyone (Admin included). Checked
+    // before anything is written, so a refused request changes nothing.
+    if (input.tagIds !== undefined) {
+      const keep = new Set(input.tagIds)
+      if (beforeTagIds.some((tagId) => !keep.has(tagId))) {
+        throw AppError.forbidden("A label can't be removed from a ticket once it is added.")
+      }
+    }
+
     const patch: Partial<typeof tickets.$inferInsert> = { updatedAt: new Date() }
     if (input.title !== undefined) patch.title = input.title
     if (input.description !== undefined) patch.description = input.description

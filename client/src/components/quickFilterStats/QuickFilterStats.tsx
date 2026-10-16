@@ -149,6 +149,15 @@ export function QuickFilterStats<K extends string>({
               <span className={cn('mt-1 sm:mt-1.5 block max-sm:t-meta max-sm:leading-tight max-sm:line-clamp-2 max-sm:hyphens-auto max-sm:[overflow-wrap:anywhere] sm:truncate sm:text-xs', isActive ? 'font-bold text-text' : 'font-medium text-text-muted')}>
                 {shortLabel ? (<><span className="sm:hidden">{shortLabel}</span><span className="hidden sm:inline">{label}</span></>) : label}
               </span>
+              {/* Bigger screens: how much of the whole this bucket is, as a word and a thin bar in its colour. */}
+              {hasTotal && !isTotalTile && (
+                <span className="hidden sm:flex mt-2 items-center gap-2" aria-hidden="true">
+                  <span className="h-1 w-14 overflow-hidden rounded-full bg-surface-hover">
+                    <span className={cn('block h-full rounded-full transition-[width] duration-500 ease-out', accentBar)} style={{ width: `${total ? Math.round((count / total) * 100) : 0}%` }} />
+                  </span>
+                  <span className="t-meta font-medium text-text-light tabular-nums">{total ? Math.round((count / total) * 100) : 0}%</span>
+                </span>
+              )}
             </span>
             <span aria-hidden="true" className={cn('hidden sm:flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors duration-150', cn(accentBar, 'text-white'))}>
               <Icon className="size-[1.125rem]" strokeWidth={2.25} />

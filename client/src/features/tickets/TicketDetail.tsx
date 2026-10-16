@@ -42,6 +42,8 @@ import { AssigneeField } from '../assignees/AssigneeField';
 import { DETAIL_HEADING_CLASS } from '../tasks/taskFormFieldStyles';
 import { RESTRICTED_STATUSES, type Ticket, type TicketAttachment, type TicketStatus, type RestrictedStatus, type CaptureMethod } from '../../api/ticket';
 import { canApproveWork } from '../../lib/canApproveWork';
+import { ticketScore } from '../../lib/itemScore';
+import { ItemScoreCard } from '../../components/itemScoreCard/ItemScoreCard';
 
 interface TicketDetailProps {
   ticket: Ticket;
@@ -333,6 +335,9 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                 </dl>
               </section>
 
+              {/* How this ticket counts in the scores right now; ticks while open, and status changes arrive by socket. */}
+              <ItemScoreCard scoreAt={(now) => ticketScore(ticket, now)} noun="ticket" />
+
               {/* Same inline label field as the create form; each change saves at once. Editable by
                   whoever may change the ticket, read-only chips for everyone else. */}
               <div className="min-w-0 rounded-xl bg-surface-hover/40 px-2.5 py-2 lg:rounded-none lg:bg-transparent lg:px-0 lg:py-0 lg:border-t lg:border-border/50 lg:pt-4 empty:hidden">
@@ -342,6 +347,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                   canCreate={isVerifier}
                   readOnly={!canEdit}
                   iconOnly
+                  lockApplied
                   headingClassName={DETAIL_HEADING_CLASS}
                 />
               </div>

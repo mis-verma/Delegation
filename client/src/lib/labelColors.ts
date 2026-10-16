@@ -83,3 +83,7 @@ export const labelChipClass = (input: LabelColorInput) => labelColorOf(input).ch
 
 /** Solid fill for a colour dot next to plain text. */
 export const labelDotClass = (input: LabelColorInput) => labelColorOf(input).dot;
+
+/** No pill around a label: just its coloured icon and name, on whatever the card or sheet behind it is. Merged
+ *  onto IconChip by TagChip and the label field. */
+export const BARE_LABEL_CLASS = 'border-0 bg-transparent pl-0 pr-0 sm:pr-0';

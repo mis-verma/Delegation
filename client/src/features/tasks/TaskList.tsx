@@ -396,13 +396,17 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
 
   // The store box sits above the stat tiles and scopes the page, so it's applied before the counts
   // are taken — otherwise picking a store would narrow the board while the tiles above it kept
-  // reporting company-wide numbers.
-  const scopeFiltered = useMemo(
-    () => (!filters.storeId
+  // reporting company-wide numbers. "Assigned to me" / "Created by me" scope the page the same way:
+  // the tiles count only that side, as on Tickets.
+  const scopeFiltered = useMemo(() => {
+    const inStore = !filters.storeId
       ? mineFiltered
-      : mineFiltered.filter(t => !!t.departmentId && departmentStoreId.get(t.departmentId) === filters.storeId)),
-    [mineFiltered, filters.storeId, departmentStoreId],
-  );
+      : mineFiltered.filter(t => !!t.departmentId && departmentStoreId.get(t.departmentId) === filters.storeId);
+    if (!user) return inStore;
+    if (isAssignedToMe) return inStore.filter(t => taskAssigneeIds(t).includes(user.id));
+    if (isAssignedByMe) return inStore.filter(t => t.userId === user.id);
+    return inStore;
+  }, [mineFiltered, filters.storeId, departmentStoreId, user, isAssignedToMe, isAssignedByMe]);
 
   // The whole narrowing chain in one memo. Previously these were eight separate array passes run on
   // every render, and — more importantly — each produced a fresh array, so `sorted` below could
@@ -435,7 +439,8 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
   // result and the sort key, so it only changes when one of those actually does.
   const sorted = useMemo(() => [...filtered].sort(SORT_COMPARATORS[sort]), [filtered, sort]);
 
-  const activeChips: { key: string; label: string; onClear: () => void }[] = [
+  // `scope`: the chip only repeats the phone's Assigned to me / Created by me switch, so it is hidden there.
+  const activeChips: { key: string; label: string; onClear: () => void; scope?: boolean }[] = [
     ...(filters.status !== 'all' ? [{ key: 'status', label: `Status: ${STATUS_LABEL[filters.status]}`, onClear: () => updateFilters({ status: 'all' }) }] : []),
     // Never shown on a locked page — the category there isn't something the viewer chose and
     // can clear, it's what the page is.
@@ -465,6 +470,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
         ? `Assignee: ${assigneeNames.get(filters.assigneeIds[0]) ?? 'Unknown'}`
         : `Assignees: ${filters.assigneeIds.length}`,
       onClear: () => updateFilters({ assigneeIds: [] }),
+      scope: isAssignedToMe,
     }] : []),
     ...(filters.raisedByIds.length > 0 ? [{
       key: 'raisedByIds',
@@ -472,6 +478,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
         ? `Raised by: ${assigneeNames.get(filters.raisedByIds[0]) ?? 'Unknown'}`
         : `Raised by: ${filters.raisedByIds.length}`,
       onClear: () => updateFilters({ raisedByIds: [] }),
+      scope: isAssignedByMe,
     }] : []),
     ...(filters.tagIds.length > 0 ? [{
       key: 'tagIds',
@@ -612,12 +619,13 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
             <ViewToggle tabs={VIEW_TABS} value={view} onChange={changeView} storageKey={`view:tasks:${user?.id ?? "anon"}`} />
           </div>
 
+          {/* On a phone the chips get their own row under the switch and filter button, instead of squeezing the switch. */}
           {activeChips.length > 0 && (
-            <div className="flex items-center gap-2 flex-wrap min-w-0">
+            <div className={`flex items-center gap-2 flex-wrap min-w-0 max-sm:order-last max-sm:basis-full ${activeChips.every(c => c.scope) ? 'max-sm:hidden' : ''}`}>
               {activeChips.map(chip => (
                 <span
                   key={chip.key}
-                  className="flex items-center gap-1 pl-3 pr-1 py-0.5 t-meta font-semibold rounded-lg bg-surface text-text border border-border-hover"
+                  className={`${chip.scope ? 'max-sm:hidden ' : ''}flex items-center gap-1 pl-3 pr-1 py-0.5 t-meta font-semibold rounded-lg bg-surface text-text border border-border-hover`}
                 >
                   {chip.label}
                   <button
@@ -725,7 +733,10 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
         <EmptyState
           icon={Inbox}
           size={isMobile ? 'compact' : undefined}
-          title={isFiltered ? 'No delegations match these filters' : (emptyTitle ?? (isMobile ? 'Nothing here yet' : 'No delegations yet'))}
+          // Only the scope switch on: say which side is empty rather than blaming "filters".
+          title={isFiltered && activeChips.every(c => c.scope) && quickFilter === null
+            ? (isAssignedToMe ? 'Nothing assigned to you' : 'You have not created any delegations')
+            : isFiltered ? 'No delegations match these filters' : (emptyTitle ?? (isMobile ? 'Nothing here yet' : 'No delegations yet'))}
           description={isMobile ? undefined : isFiltered
             ? 'Clear the filters to see everything again.'
             : (emptyDescription ?? 'Delegations given to you or by you show up here.')}

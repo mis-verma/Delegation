@@ -16,6 +16,8 @@ interface DetailLabelsFieldProps {
   hideHeading?: boolean;
   /** No "Labels" heading at all: a tag icon tile leads the chips (or the field) on the same line. */
   iconOnly?: boolean;
+  /** Labels already saved can't be taken off, only added to (tickets: the server refuses a removal too). */
+  lockApplied?: boolean;
 }
 
 /**
@@ -29,7 +31,7 @@ const ICON_TILE = (
   </span>
 );
 
-export const DetailLabelsField = ({ current, onSave, canCreate, readOnly, headingClassName, hideHeading = false, iconOnly = false }: DetailLabelsFieldProps) => {
+export const DetailLabelsField = ({ current, onSave, canCreate, readOnly, headingClassName, hideHeading = false, iconOnly = false, lockApplied = false }: DetailLabelsFieldProps) => {
   const { data: tags } = useTagsQuery();
   const serverIds = current.map((t) => t.id).join(',');
   const [ids, setIds] = useState<string[]>(() => current.map((t) => t.id));
@@ -78,7 +80,7 @@ export const DetailLabelsField = ({ current, onSave, canCreate, readOnly, headin
       <div className="flex items-center gap-2.5 min-w-0" aria-label="Labels">
         {ICON_TILE}
         <div className="min-w-0 flex-1">
-          <LabelsField hideHeading tags={known} selectedIds={ids} onChange={(next) => { setIds(next); onSave(next); }} canCreate={canCreate} />
+          <LabelsField hideHeading tags={known} selectedIds={ids} onChange={(next) => { setIds(next); onSave(next); }} canCreate={canCreate} lockedIds={lockApplied ? current.map((t) => t.id) : undefined} />
         </div>
       </div>
     );
@@ -97,6 +99,7 @@ export const DetailLabelsField = ({ current, onSave, canCreate, readOnly, headin
         selectedIds={ids}
         onChange={(next) => { setIds(next); onSave(next); }}
         canCreate={canCreate}
+        lockedIds={lockApplied ? current.map((t) => t.id) : undefined}
       />
     </div>
   );
