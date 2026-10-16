@@ -574,11 +574,11 @@ const TaskEditLayout = ({
             />
           </TicketPropertyRow>
 
-          <TicketPropertyRow tileOnly stackOnPhone label="Priority" icon={Flag} tone={PRIORITY_MAP[task.priority].solid}>
+          <TicketPropertyRow tileOnly wide label="Priority" icon={Flag} tone={PRIORITY_MAP[task.priority].solid}>
             <TaskPriorityChipPicker value={task.priority} onChange={(v) => onUpdate({ priority: v })} disabled={isViewOnly} fullWidth triggerClassName={PROPERTY_TRIGGER_CLASS} />
           </TicketPropertyRow>
 
-          <TicketPropertyRow tileOnly stackOnPhone label="Department" icon={Building2} tone="bg-linear-to-br from-coral-500 to-coral-600">
+          <TicketPropertyRow tileOnly wide label="Department" icon={Building2} tone="bg-linear-to-br from-coral-500 to-coral-600">
             {isViewOnly || !canReassign ? (
               departmentName ? <span className={PROPERTY_VALUE_CLASS}>{departmentName}</span> : <span className="t-meta text-text-light">None</span>
             ) : (

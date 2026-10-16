@@ -269,7 +269,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
               
               <section className="flex flex-col gap-2 lg:gap-3">
                 <dl className="grid grid-cols-2 gap-2 lg:flex lg:flex-col lg:gap-0 lg:divide-y lg:divide-border/60">
-                  <TicketPropertyRow label="Priority" stackOnPhone icon={Flag} tone={PRIORITY_CONFIG[ticket.priority].solid}>
+                  <TicketPropertyRow label="Priority" wide icon={Flag} tone={PRIORITY_CONFIG[ticket.priority].solid}>
                     {/* Same rule as the edit form (canChangePriority): front-line staff see the chip, everyone else can change it here. */}
                     {canEdit && !ownScope ? (
                       <TicketPriorityChipPicker
@@ -330,7 +330,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                   </TicketPropertyRow>
 
                   {due ? (
-                    <TicketPropertyRow label="Due" stackOnPhone icon={CalendarDays} tone={dueTone(due.overdue)}>
+                    <TicketPropertyRow label="Due" wide icon={CalendarDays} tone={dueTone(due.overdue)}>
                       <span className={`t-meta font-display font-semibold leading-snug ${due.overdue ? 'text-danger' : 'text-text'}`}>
                         {due.text.replace(/^Due\s+/i, '').replace(/^./, (c) => c.toUpperCase())}
                       </span>

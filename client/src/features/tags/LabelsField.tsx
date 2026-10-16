@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Tag as TagIcon, Plus, Loader2, Trash2, Settings2, Check, ChevronDown, ChevronLeft, X } from 'lucide-react';
+import { Tag as TagIcon, Plus, Loader2, Trash2, Settings2, Check, ChevronLeft, X, Lock, Search } from 'lucide-react';
 import { useCreateTagMutation, useDeleteTagMutation, useUpdateTagMutation } from './hook';
 import { BARE_LABEL_CLASS, LABEL_COLORS, labelChipClass, labelColorKey, labelDotClass, suggestedLabelColor } from '../../lib/labelColors';
 import { FIELD_LABEL_CLASS } from '../tasks/taskFormFieldStyles';
@@ -73,6 +73,36 @@ const LabelChip = ({ tag, className }: { tag: Pick<Tag, 'name' | 'color'>; class
   <IconChip icon={TagIcon} tone={labelDotClass(tag)} label={tag.name} className={cn(BARE_LABEL_CLASS, className)} title={`Label: ${tag.name}`} />
 );
 
+/** Labels shown as pills before the rest fold behind "+N more". */
+const PILL_LIMIT = 10;
+
+/**
+ * One label as a pickable pill, the same shape as the event types and priorities: the label's colour circle with a
+ * tag, its name, and a tick once it is on. A label that can't come off (a ticket's) shows a lock instead.
+ */
+const LabelPill = ({ tag, on, lockedOn, disabled, onToggle }: { tag: Tag; on: boolean; lockedOn: boolean; disabled: boolean; onToggle: () => void }) => (
+  <button
+    type="button"
+    role="checkbox"
+    aria-checked={on}
+    aria-disabled={lockedOn || (disabled && !on) || undefined}
+    title={lockedOn ? `${tag.name}: added, stays on this ticket` : on ? `Remove ${tag.name}` : `Add ${tag.name}`}
+    onClick={onToggle}
+    className={cn(
+      'inline-flex max-w-full items-center gap-1.5 h-8 pointer-coarse:h-9 pl-1 pr-2.5 rounded-lg border t-meta font-display font-semibold transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.97] [-webkit-tap-highlight-color:transparent]',
+      on ? 'border-primary-500/50 bg-primary-500/10 text-primary-700 dark:text-primary-300' : 'border-border/60 bg-surface text-text-secondary hover:border-border-hover',
+      lockedOn && 'cursor-default active:scale-100',
+      disabled && !on && 'opacity-50 cursor-not-allowed',
+    )}
+  >
+    <span className={cn('flex size-6 shrink-0 items-center justify-center rounded-md text-white', labelDotClass(tag))} aria-hidden="true">
+      <TagIcon className="size-3" strokeWidth={2.5} />
+    </span>
+    <span className="min-w-0 truncate">{tag.name}</span>
+    {lockedOn ? <Lock size={11} strokeWidth={2.5} aria-hidden="true" className="shrink-0 opacity-70" /> : on ? <Check size={12} strokeWidth={3} aria-hidden="true" className="shrink-0" /> : null}
+  </button>
+);
+
 const BackBar = ({ title, onBack }: { title: string; onBack: () => void }) => (
   <div className="flex items-center gap-2">
     <button
@@ -113,6 +143,7 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
   const [newColor, setNewColor] = useState<string | null>(null);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [recolorId, setRecolorId] = useState<string | null>(null);
+  const [showAll, setShowAll] = useState(false);
 
   // A create that finishes later must append to the selection as it is then, not as it was when it started.
   const selectedRef = useRef(selectedIds);
@@ -142,7 +173,7 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
   const onOpenChange = (next: boolean) => {
     if (next) {
       setPinnedIds(selectedIds);
-      setView('pick');
+      setView(canCreate ? 'create' : 'pick');
       setName('');
       setNewColor(null);
       setConfirmingId(null);
@@ -215,29 +246,6 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
     );
   }
 
-  const trigger = (
-    <button
-      ref={setTriggerEl}
-      type="button"
-      aria-label={selected.length ? `Labels: ${selected.map((t) => t.name).join(', ')}. Add or remove` : 'Add labels'}
-      className="group/labels flex w-full min-h-12 items-center gap-2 rounded-xl border border-border/70 bg-surface px-2.5 py-2 text-left cursor-pointer outline-none transition-[border-color,box-shadow] duration-200 hover:border-primary-400/70 focus-visible:border-primary-400 focus-visible:ring-4 focus-visible:ring-primary-500/15 [-webkit-tap-highlight-color:transparent]"
-    >
-      <span className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
-        {selected.length ? (
-          selected.map((t) => <LabelChip key={t.id} tag={t} />)
-        ) : (
-          <span className="inline-flex items-center gap-1.5 px-1 text-sm font-display font-medium text-text-muted">
-            <Plus size={15} strokeWidth={2.5} aria-hidden="true" />
-            Add labels
-          </span>
-        )}
-      </span>
-      <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-surface-hover text-text-light transition-colors duration-200 group-hover/labels:bg-primary-500/10 group-hover/labels:text-primary-700 dark:group-hover/labels:text-primary-300" aria-hidden="true">
-        <ChevronDown size={14} strokeWidth={2.4} />
-      </span>
-    </button>
-  );
-
   const pickView = (
     <div className="flex flex-col gap-2">
       <OptionList
@@ -282,7 +290,15 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
 
   const createView = (
     <div className="flex flex-col gap-3">
-      <BackBar title="New label" onBack={() => setView('pick')} />
+      <div className="flex items-center justify-between gap-2">
+        <BackBar title="New label" onBack={() => setView('pick')} />
+        {tags.length > 0 && (
+          <button type="button" onClick={() => setView('manage')} className="inline-flex items-center gap-1 h-8 px-2 rounded-lg t-meta font-display font-semibold text-text-secondary hover:bg-surface-hover cursor-pointer">
+            <Settings2 size={13} aria-hidden="true" />
+            Manage
+          </button>
+        )}
+      </div>
       <input
         autoFocus
         value={name}
@@ -378,14 +394,52 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
     </div>
   );
 
+  // Picked labels first, then the rest alphabetically; long lists fold after PILL_LIMIT.
+  const cloud = [...selected, ...tags.filter((t) => !selectedIds.includes(t.id)).sort((a, b) => a.name.localeCompare(b.name))];
+  const shownPills = showAll ? cloud : cloud.slice(0, Math.max(PILL_LIMIT, selected.length));
+  const foldedCount = cloud.length - shownPills.length;
+  const pillTrigger = (
+    <button
+      ref={setTriggerEl}
+      type="button"
+      className="inline-flex items-center gap-1 h-8 pointer-coarse:h-9 px-2.5 rounded-lg border border-dashed border-border-hover bg-surface-hover/30 t-meta font-display font-semibold text-text-secondary hover:border-primary-400 hover:text-primary-600 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+    >
+      {canCreate ? <Plus size={13} strokeWidth={2.75} aria-hidden="true" /> : <Search size={13} strokeWidth={2.5} aria-hidden="true" />}
+      {canCreate ? 'New label' : 'Search'}
+    </button>
+  );
+
   return (
     <div className="flex flex-col gap-2">
       {heading}
+      <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Labels">
+        {tags.length === 0 && !canCreate && <span className="t-meta text-text-light">No labels have been made yet</span>}
+        {shownPills.map((t) => (
+          <LabelPill
+            key={t.id}
+            tag={t}
+            on={selectedIds.includes(t.id)}
+            lockedOn={locked.has(t.id)}
+            disabled={atCap}
+            onToggle={() => toggle(t.id)}
+          />
+        ))}
+        {foldedCount > 0 && (
+          <button type="button" onClick={() => setShowAll(true)} className="inline-flex items-center h-8 pointer-coarse:h-9 px-2.5 rounded-lg t-meta font-display font-semibold text-primary-600 hover:bg-primary-500/10 dark:text-primary-300 cursor-pointer">
+            +{foldedCount} more
+          </button>
+        )}
+        {showAll && cloud.length > PILL_LIMIT && (
+          <button type="button" onClick={() => setShowAll(false)} className="inline-flex items-center h-8 pointer-coarse:h-9 px-2.5 rounded-lg t-meta font-display font-semibold text-text-muted hover:bg-surface-hover cursor-pointer">
+            Show less
+          </button>
+        )}
+        {(canCreate || cloud.length > PILL_LIMIT) && (
       <PickerShell
         bare
         open={open}
         onOpenChange={onOpenChange}
-        trigger={trigger}
+        trigger={pillTrigger}
         title={view === 'pick' ? 'Labels' : view === 'create' ? 'New label' : 'Manage labels'}
         popoverClassName="w-[min(22rem,calc(100vw-1.5rem))]"
         popoverContainer={triggerEl?.closest<HTMLElement>('[role="dialog"], [data-slot="dialog-content"]') ?? undefined}
@@ -399,6 +453,9 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
       >
         {view === 'pick' ? pickView : view === 'create' ? createView : manageView}
       </PickerShell>
+        )}
+      </div>
+      {atCap && <p className="t-meta font-medium text-text-muted">That is the limit of {MAX_LABELS}. Take one off to add another.</p>}
     </div>
   );
 };
