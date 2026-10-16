@@ -255,20 +255,28 @@ const ModuleCard = ({ view, onOpen, score, scopeTag }: { view: ModuleView; onOpe
             </div>
           </div>
 
-          {/* Phone: the open count centred in the card with "Pending" under it, and the overdue chip
-              centred under that. */}
-          <div className="flex sm:hidden flex-col items-center gap-1.5">
-            <button type="button" onClick={() => onOpen('pending')} className="min-w-0 rounded-lg text-center outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40">
-              <span className={cn('block t-figure font-display font-bold tabular-nums leading-none', tone.text)}>
-                <CountUp value={view.pending ?? 0} />
-              </span>
-              <span className="mt-1 block t-meta font-medium text-text-muted">Pending</span>
-            </button>
+          {/* Phone: the open count on the left, the same score ring as the desktop on the right (smaller), so the
+              month's score is on the card at every size and matches Your scores below. The overdue chip under both. */}
+          <div className="flex sm:hidden flex-col gap-1.5">
+            <div className="grid grid-cols-2 items-center gap-1">
+              <button type="button" onClick={() => onOpen('pending')} className="min-w-0 rounded-lg text-center outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40">
+                <span className={cn('block t-figure font-display font-bold tabular-nums leading-none', tone.text)}>
+                  <CountUp value={view.pending ?? 0} />
+                </span>
+                <span className="mt-1 block t-meta font-medium text-text-muted">Pending</span>
+              </button>
+              <div className="flex flex-col items-center border-l border-border/60" aria-label={`${score.label === 'Done' ? 'To-dos done' : 'Score this month'}: ${formatPct(score.value)}`}>
+                <RadialGauge percent={score.value ?? 0} size={50} variant="circle" gradientFrom={gaugeColor(score.value)} gradientTo={gaugeColor(score.value)}>
+                  <span className={cn('text-[0.6875rem] font-display font-extrabold tabular-nums', score.value === null ? 'text-text-light' : 'text-text')}>{formatPct(score.value)}</span>
+                </RadialGauge>
+                <span className="mt-0.5 t-meta font-medium text-text-muted">{score.label === 'Done' ? 'Done' : 'Score'}</span>
+              </div>
+            </div>
             {view.overdue > 0 && (
               <button
                 type="button"
                 onClick={() => onOpen('overdue')}
-                className="inline-flex shrink-0 items-center gap-1 rounded-full bg-danger/10 px-2 py-1 t-meta font-display font-bold tabular-nums text-danger outline-none hover:bg-danger/15 focus-visible:ring-2 focus-visible:ring-danger/40"
+                className="inline-flex shrink-0 items-center justify-center gap-1 self-center rounded-full bg-danger/10 px-2 py-1 t-meta font-display font-bold tabular-nums text-danger outline-none hover:bg-danger/15 focus-visible:ring-2 focus-visible:ring-danger/40"
               >
                 <AlertTriangle className="size-3" aria-hidden="true" />
                 {view.overdue} overdue
