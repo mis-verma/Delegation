@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { CalendarDays, User } from 'lucide-react';
+import { AlarmClock, CalendarDays, Clock3, User } from 'lucide-react';
 import type { Ticket } from '../../api/ticket';
 import { getChecklistProgress } from '../../lib/checklistProgress';
 import { getTicketStatusLabel } from '../../lib/ticketStatusLabel';
@@ -63,12 +63,12 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
       <div className="flex flex-col gap-1 min-w-0 w-full">
         <div className="flex items-start gap-2 min-w-0">
           {/* leading-5 matches the old phone avatar height so the first line and the avatar centre-align. */}
-          <h3 className="flex-1 min-w-0 t-card font-display font-semibold text-text tracking-tight leading-5 sm:leading-6 line-clamp-2 break-words">
+          <h3 className="flex-1 min-w-0 t-card font-display font-semibold text-text leading-5 sm:leading-6 line-clamp-2 break-words">
             {ticket.title}
           </h3>
           {!hideAssignee && (assigneeName ? (
             <span
-              className={`flex items-center justify-center size-6 sm:size-7 rounded-full text-white text-xs font-bold shrink-0 ${avatarColorClass(assigneeName)}`}
+              className={`flex items-center justify-center size-6 sm:size-7 rounded-full text-white text-xs font-bold shrink-0 ring-1 ring-black/5 dark:ring-white/10${avatarColorClass(assigneeName)}`}
               title={`Assigned to ${assigneeName}`}
             >
               {getInitials(assigneeName)}
@@ -106,7 +106,8 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
         )}
       </div>
 
-      <div className="flex items-center gap-x-1.5 gap-y-1.5 flex-wrap mt-auto w-full">
+      {/* Chip footer sits under a hairline, so title and facts read as two parts of the card. */}
+      <div className="flex items-center gap-x-1.5 gap-y-1.5 flex-wrap mt-auto w-full pt-2 sm:pt-2.5 border-t border-border/50 dark:border-white/[0.06]">
         {onHoldRemark ? (
           // StatusChip doesn't forward props, so it can't be the asChild target itself.
           <Tooltip>
@@ -124,13 +125,14 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
 
         {departmentName && <DepartmentChip name={departmentName} className={deptChipClass} />}
 
+        {/* Red and tinted when late, orange when due later today, quiet otherwise. */}
         {due && (
           <IconChip
-            icon={CalendarDays}
-            tone={isOverdue ? 'bg-danger' : 'bg-text-muted'}
+            icon={isOverdue ? AlarmClock : CalendarDays}
+            tone={isOverdue ? 'bg-danger' : due.today ? 'bg-warning' : 'bg-text-muted'}
             label={due.text}
-            className={isOverdue ? 'border-danger/30' : undefined}
-            labelClassName={isOverdue ? 'text-danger' : undefined}
+            className={isOverdue ? 'border-danger/30 bg-danger/10' : due.today ? 'border-warning/30 bg-warning/10' : undefined}
+            labelClassName={isOverdue ? 'text-danger' : due.today ? 'text-warning' : undefined}
           />
         )}
 
@@ -150,18 +152,20 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
           <span className="hidden sm:flex items-center gap-1.5 ml-auto shrink-0">
             <span className="w-12 h-1.5 rounded-full bg-surface-hover overflow-hidden">
               <span
-                className="block h-full rounded-full bg-text-muted transition-all duration-300 ease-in-out"
+                className={`block h-full rounded-full transition-all duration-300 ease-in-out ${progress === 100 ? 'bg-success' : 'bg-linear-to-r from-primary-400 to-primary-600'}`}
                 style={{ width: `${progress}%` }}
               />
             </span>
-            <span className="t-meta font-semibold text-text-muted tabular-nums">{progress}%</span>
+            <span className={`t-meta font-semibold tabular-nums ${progress === 100 ? 'text-success' : 'text-text-secondary'}`}>{progress}%</span>
           </span>
         )}
 
         <span
-          className={`${progress !== null ? 'hidden sm:inline' : ''} ${progress === null ? 'ml-auto' : ''} shrink-0 t-meta font-medium text-text-light tabular-nums`}
+          // Not on a phone: there it wrapped onto a line of its own and made cards uneven heights.
+          className={`hidden sm:inline-flex ${progress === null ? 'ml-auto' : ''} items-center gap-1 shrink-0 t-meta font-medium text-text-light tabular-nums`}
           title={`Raised ${new Date(ticket.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}`}
         >
+          <Clock3 className="size-3" strokeWidth={2.25} aria-hidden="true" />
           {formatAge(ticket.createdAt)}
         </span>
       </div>

@@ -96,7 +96,7 @@ export const TicketAttachments = ({ ticketId, attachments, canEdit, canRemove, o
               onClick={() => inputRef.current?.click()}
               disabled={upload.isPending}
               className={attachments.length === 0
-                ? 'col-span-full flex h-14 items-center gap-3 rounded-xl border border-border bg-surface-hover/30 px-3 text-text-secondary hover:border-border-hover hover:text-text t-card font-display font-semibold transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-60 disabled:cursor-wait'
+                ? 'col-span-full flex h-12 items-center gap-2.5 rounded-xl border border-border bg-surface-hover/30 px-3 text-text-secondary hover:border-border-hover hover:text-text text-sm font-display font-semibold transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-60 disabled:cursor-wait'
                 : 'flex aspect-square flex-col items-center justify-center gap-1 rounded-xl border border-border text-text-muted hover:border-border-hover hover:text-text t-meta font-display font-semibold transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-60 disabled:cursor-wait'}
             >
               {upload.isPending ? <Loader2 size={18} className="animate-spin" /> : <Camera size={18} />}

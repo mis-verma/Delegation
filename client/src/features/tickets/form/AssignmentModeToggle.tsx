@@ -19,7 +19,7 @@ const OPTIONS = [
 /** Managers and up: let the category route the ticket, or choose where it goes by hand. */
 export const AssignmentModeToggle = ({ mode, onChange }: AssignmentModeToggleProps) => (
   <div className="flex flex-col gap-1.5">
-    <span className="flex items-center gap-1.5 t-card font-medium text-text">
+    <span className="flex items-center gap-1.5 t-meta font-display font-semibold text-text-secondary">
       <Workflow size={14} className="text-text-light" />
       How to send it
     </span>

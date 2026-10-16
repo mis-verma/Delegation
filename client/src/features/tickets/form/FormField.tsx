@@ -21,7 +21,7 @@ interface FormFieldProps {
  */
 export const FormField = ({ label, icon, required, optional, hint, error, htmlFor, children }: FormFieldProps) => (
   <div className="flex flex-col gap-1.5">
-    <label htmlFor={htmlFor} className="flex items-center gap-1.5 t-card font-medium text-text">
+    <label htmlFor={htmlFor} className="flex items-center gap-1.5 t-meta font-display font-semibold text-text-secondary [&_svg]:size-3.5">
       {icon}
       {label}
       {required && <span className="text-danger" aria-hidden>*</span>}

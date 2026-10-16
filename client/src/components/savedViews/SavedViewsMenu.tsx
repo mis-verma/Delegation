@@ -87,7 +87,7 @@ export function SavedViewsMenu<T>({ views, onSave, onApply, onRemove, activeId, 
             placeholder="Name this view"
             aria-label="Name for the new saved view"
             // 16px on a phone: smaller makes iOS zoom the page when the field is focused.
-            className="h-11 sm:h-9 flex-1 min-w-0 rounded-lg border border-border bg-background px-3 text-base sm:text-sm text-text placeholder:text-text-light outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-500/12"
+            className="h-11 sm:h-9 flex-1 min-w-0 rounded-lg border border-border bg-background px-3 text-sm text-text placeholder:text-text-light outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-500/12"
           />
           <Button type="submit" variant="primary" size="sm" disabled={!name.trim()}>Save</Button>
         </form>

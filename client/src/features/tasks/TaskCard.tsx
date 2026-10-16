@@ -143,7 +143,7 @@ export const TaskCard = ({ task, assigneeNames = [], raisedByName, departmentNam
           ~250px column's title down to "Security camera offlin…"; they're a small floating
           toolbar now, shown on hover or keyboard focus (always on touch, where there's no hover). */}
       <div className="flex items-start gap-2">
-        <h4 className={`flex-1 min-w-0 t-card sm:text-sm font-display font-semibold text-text tracking-tight leading-snug line-clamp-2 break-words ${onMove || isVerifier ? 'pr-9' : ''}`}>
+        <h4 className={`flex-1 min-w-0 t-card sm:text-sm font-display font-semibold text-text leading-snug line-clamp-2 break-words ${onMove || isVerifier ? 'pr-9' : ''}`}>
           {task.title}
         </h4>
         <TaskSourceBadge aiMeta={task.aiMeta} />

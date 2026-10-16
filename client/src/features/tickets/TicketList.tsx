@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { Plus, ChevronDown, Upload, AlertCircle, Inbox, LayoutList, Kanban, Table2, GanttChartSquare } from 'lucide-react';
+import { Plus, ChevronDown, Upload, AlertCircle, Inbox, LayoutList, Kanban, Table2, GanttChartSquare, UserCheck, PenLine } from 'lucide-react';
 import { PageNav, Fab, ViewToggle, SavedViewsMenu, useSavedViews, EmptyState, InlineError, Button, type ViewTab } from '../../components';
 import { CreatedRangeBanner, CreatedRangePicker, ScoreDrillBanner } from '../../components/createdRangeBanner';
 import { useCreatedRange } from '../../lib/createdRange';
@@ -199,8 +199,8 @@ export const TicketList = () => {
               sheet stays for team leads and above (see Options below). */}
           <PhoneScopeSwitch
             options={[
-              { value: 'ASSIGNED_TO_ME', label: 'Assigned to me', shortLabel: 'Mine' },
-              { value: 'CREATED_BY_ME', label: 'Created by me', shortLabel: 'By me' },
+              { value: 'ASSIGNED_TO_ME', label: 'Assigned to me', shortLabel: 'Mine', icon: UserCheck },
+              { value: 'CREATED_BY_ME', label: 'Created by me', shortLabel: 'By me', icon: PenLine },
             ]}
             value={organizer.scopeFilter}
             allValue="ALL"

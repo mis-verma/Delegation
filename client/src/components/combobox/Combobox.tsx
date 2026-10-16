@@ -226,7 +226,7 @@ export const Combobox = ({
               setHighlightedIndex(0);
             }}
             onKeyDown={handleKeyDown}
-            className="w-full h-11 sm:h-9 rounded-lg border border-border bg-background pl-8 pr-2 text-base sm:text-sm text-text placeholder:text-text-light focus:outline-none focus:ring-2 focus:border-primary-400 focus:ring-primary-400/30"
+            className="w-full h-11 sm:h-9 rounded-lg border border-border bg-background pl-8 pr-2 text-sm text-text placeholder:text-text-light focus:outline-none focus:ring-2 focus:border-primary-400 focus:ring-primary-400/30"
           />
         </div>
 

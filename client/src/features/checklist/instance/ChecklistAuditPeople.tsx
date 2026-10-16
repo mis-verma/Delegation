@@ -108,7 +108,7 @@ export const AuditPeopleList = ({ people, selectedId, onSelect, className }: Aud
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Search by name"
-            className="w-full h-11 sm:h-10 pl-9 pr-3 rounded-lg border border-border bg-surface text-base sm:text-sm text-text placeholder:text-text-light outline-none transition-colors duration-150 hover:border-border-hover focus:border-primary-500"
+            className="w-full h-11 sm:h-10 pl-9 pr-3 rounded-lg border border-border bg-surface text-sm text-text placeholder:text-text-light outline-none transition-colors duration-150 hover:border-border-hover focus:border-primary-500"
           />
         </label>
       )}

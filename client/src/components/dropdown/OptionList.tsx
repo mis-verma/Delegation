@@ -110,7 +110,7 @@ export const OptionList = ({
             aria-label={searchPlaceholder}
             autoComplete="off"
             enterKeyHint="search"
-            className="w-full h-11 rounded-xl border border-border bg-background pl-9 pr-3 text-base sm:text-sm text-text placeholder:text-text-light outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-500/12"
+            className="w-full h-11 rounded-xl border border-border bg-background pl-9 pr-3 text-sm text-text placeholder:text-text-light outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-500/12"
           />
           </div>
         </div>

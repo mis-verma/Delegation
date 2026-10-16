@@ -21,6 +21,17 @@
        silently does nothing. -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
   <title>Karya</title>
+  <!-- Form text is 14px. iPhone Safari zooms the page into any field under 16px when it is tapped; maximum-scale
+       stops that zoom on iOS (where pinch-zoom still works regardless). Set on iOS only, so Android keeps
+       pinch-zoom. -->
+  <script>
+    (function () {
+      var ios = /iP(hone|od|ad)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      if (!ios) return;
+      var meta = document.querySelector('meta[name="viewport"]');
+      if (meta && meta.content.indexOf('maximum-scale') === -1) meta.content += ', maximum-scale=1';
+    })();
+  </script>
 
   <!-- Applies the saved theme before the first paint. ThemeContext only stamps data-theme from an
        effect, which runs after the browser has already drawn a frame, so a dark-mode user saw a

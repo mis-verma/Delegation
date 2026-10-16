@@ -67,9 +67,9 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           aria-invalid={isError}
           aria-describedby={messageId}
           className={cn(
-            // text-base (16px) below sm: iOS Safari auto-zooms the viewport on focusing any
-            // input smaller than 16px, which text-sm's 14px would otherwise trigger.
-            "w-full px-4 py-3.5 min-h-[112px] text-base sm:text-sm font-medium transition-colors duration-150 ease-out resize-y",
+            // 14px everywhere, the same as the rest of the form text. iPhone Safari would zoom into a field under 16px;
+            // index.html stops that (maximum-scale on iOS only), so the smaller size is safe there too.
+            "w-full px-4 py-3.5 min-h-[112px] text-sm font-medium transition-colors duration-150 ease-out resize-y",
             "bg-surface text-text placeholder:text-text-light",
             "border rounded-xl outline-none appearance-none",
             "disabled:bg-muted disabled:text-text-light disabled:cursor-not-allowed disabled:border-border disabled:resize-none",

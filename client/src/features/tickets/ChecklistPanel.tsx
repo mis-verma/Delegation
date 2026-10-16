@@ -188,7 +188,7 @@ const ItemRow = ({
               onChange={e => setRemarks(e.target.value)}
               placeholder="Add a note, or say why this step can't be done"
               rows={2}
-              className="w-full px-3 py-2.5 text-base sm:text-sm text-text bg-surface rounded-lg border border-border focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 placeholder:text-text-light resize-none transition-all outline-none"
+              className="w-full px-3 py-2.5 text-sm text-text bg-surface rounded-lg border border-border focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 placeholder:text-text-light resize-none transition-all outline-none"
             />
 
             {(uploadImages.isError || completeItem.isError) && (
@@ -445,7 +445,7 @@ export const ChecklistPanel = ({ ticketId, checklists, workerIds = [] }: Checkli
                   aria-label="Apply a checklist template"
                   value={templateId}
                   onChange={e => setTemplateId(e.target.value)}
-                  className="flex-1 min-w-0 sm:w-56 sm:flex-none px-3 min-h-11 sm:min-h-9 text-base sm:text-sm text-text-secondary bg-surface rounded-lg border border-border focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all cursor-pointer"
+                  className="flex-1 min-w-0 sm:w-56 sm:flex-none px-3 min-h-11 sm:min-h-9 text-sm text-text-secondary bg-surface rounded-lg border border-border focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 outline-none transition-all cursor-pointer"
                 >
                   <option value="">Select a template…</option>
                   {templates.map(t => (
@@ -485,7 +485,7 @@ export const ChecklistPanel = ({ ticketId, checklists, workerIds = [] }: Checkli
               value={title}
               onChange={e => setTitle(e.target.value)}
               placeholder="e.g. Pre-dispatch quality check"
-              className="w-full px-3.5 py-2.5 min-h-11 text-base font-medium text-text bg-surface rounded-lg border border-border focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 placeholder:text-text-light outline-none transition-all"
+              className="w-full px-3.5 py-2.5 min-h-11 text-sm font-medium text-text bg-surface rounded-lg border border-border focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 placeholder:text-text-light outline-none transition-all"
             />
           </div>
 

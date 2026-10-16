@@ -173,7 +173,7 @@ export const ChecklistItemRow = ({
               onChange={e => setRemarks(e.target.value)}
               placeholder="Add a remark, e.g. why this can't be done yet"
               rows={2}
-              className="w-full px-3 py-2 text-base sm:text-sm text-text bg-surface rounded-lg border border-border focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 placeholder:text-text-light resize-none transition-all outline-none"
+              className="w-full px-3 py-2 text-sm text-text bg-surface rounded-lg border border-border focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 placeholder:text-text-light resize-none transition-all outline-none"
             />
 
             {(uploadImages.isError || completeItem.isError) && (

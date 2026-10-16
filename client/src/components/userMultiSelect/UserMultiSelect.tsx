@@ -121,7 +121,7 @@ export const UserMultiSelect = ({ departmentId, storeId, storeIds, selected, onC
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search people…"
               aria-label="Search people"
-              className="w-full h-10 pointer-coarse:h-11 rounded-lg border border-border bg-background pl-8 pr-2 text-base sm:text-sm text-text placeholder:text-text-light outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-400/30"
+              className="w-full h-10 pointer-coarse:h-11 rounded-lg border border-border bg-background pl-8 pr-2 text-sm text-text placeholder:text-text-light outline-none focus:border-primary-400 focus:ring-2 focus:ring-primary-400/30"
             />
           </div>
         </div>

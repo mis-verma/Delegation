@@ -81,7 +81,7 @@ export const QueueToolbar = ({ params, patch, lookups, attentionAvailable, filte
             onChange={(e) => patch({ q: e.target.value })}
             placeholder="Search name or store"
             className={cn(
-              'w-full h-11 sm:h-9 pl-9 pr-9 rounded-lg border border-border bg-surface-hover text-base sm:text-sm font-display text-text placeholder:text-text-light',
+              'w-full h-11 sm:h-9 pl-9 pr-9 rounded-lg border border-border bg-surface-hover text-sm font-display text-text placeholder:text-text-light',
               'transition-colors duration-200 outline-none hover:border-border-hover focus:bg-surface focus:border-primary-400 focus-visible:ring-2 focus-visible:ring-primary-500/30',
               '[&::-webkit-search-cancel-button]:appearance-none',
             )}

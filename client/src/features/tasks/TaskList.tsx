@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { toast } from "sonner";
-import { Wand2, Save, Inbox, X, Plus, ChevronDown, Upload } from "lucide-react";
+import { Wand2, Save, Inbox, X, Plus, ChevronDown, Upload, UserCheck, PenLine } from "lucide-react";
 import { Skeleton, Fab, ViewToggle, EmptyState, InlineError, Button, type ViewTab } from "../../components";
 import { CreatedRangeBanner, CreatedRangePicker, ScoreDrillBanner } from "../../components/createdRangeBanner";
 import { useCreatedRange } from "../../lib/createdRange";
@@ -661,7 +661,7 @@ export const TaskList = ({ userId, hideHeader = false, lockCategory, title, empt
               dead gap in front of it. */}
           {scope && (
             <PhoneScopeSwitch
-              options={[{ value: 'mine', label: 'Assigned to me', shortLabel: 'Mine' }, { value: 'byMe', label: 'Created by me', shortLabel: 'By me' }]}
+              options={[{ value: 'mine', label: 'Assigned to me', shortLabel: 'Mine', icon: UserCheck }, { value: 'byMe', label: 'Created by me', shortLabel: 'By me', icon: PenLine }]}
               value={scope.value}
               allValue="all"
               onChange={scope.onChange}

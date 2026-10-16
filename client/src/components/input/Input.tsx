@@ -63,9 +63,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             aria-invalid={!!error}
             aria-describedby={errorId}
             className={cn(
-              // text-base (16px) below sm: iOS Safari auto-zooms the viewport on focusing any
-              // input smaller than 16px, which text-sm's 14px would otherwise trigger.
-              "w-full h-12 rounded-xl border px-4 text-base sm:text-sm font-medium transition-colors duration-150",
+              // 14px everywhere, the same as the rest of the form text. iPhone Safari would zoom into a field under 16px;
+              // index.html stops that (maximum-scale on iOS only), so the smaller size is safe there too.
+              "w-full h-12 rounded-xl border px-4 text-sm font-medium transition-colors duration-150",
               "bg-surface text-text placeholder:text-text-light",
               "focus:outline-none",
               "disabled:bg-muted disabled:text-text-light disabled:cursor-not-allowed disabled:border-border",

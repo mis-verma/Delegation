@@ -111,7 +111,7 @@ export function QuickFilterStats<K extends string>({
       {/* Simple cards: the number big on the left, its name under it, a soft coloured icon on the right. Only
           late work gets a red number; a zero is quiet grey. The picked card's icon fills with its colour and its name turns bold; no border or line. */}
       {shownTiles.map((tile) => {
-        const { key, label, shortLabel, icon: Icon, bgTint, iconTint, accentBar } = tile;
+        const { key, label, shortLabel, icon: Icon, bgTint, iconTint, accentBar, accentBorder } = tile;
         const isTotalTile = hasTotal && key === 'all';
         const isActive = isTotalTile ? active === null : active === key;
         const count = (isTotalTile ? total : counts[key as K]) ?? 0;
@@ -128,11 +128,12 @@ export function QuickFilterStats<K extends string>({
             aria-label={purpose}
             title={purpose}
             className={cn(
-              'flex min-w-0 flex-col items-center justify-start gap-0.5 rounded-xl border bg-surface px-0.5 py-2 text-center font-display outline-none',
+              'flex min-w-0 flex-col items-center justify-start gap-0.5 rounded-xl border px-0.5 py-2 text-center font-display outline-none',
               'sm:flex-row sm:items-start sm:justify-between sm:gap-3 sm:p-4 sm:text-left',
               'transition-colors duration-150 [-webkit-tap-highlight-color:transparent]',
               'focus-visible:ring-2 focus-visible:ring-primary-500/50',
-              'border-border hover:border-border-hover',
+              // Picked: the tile takes its colour (border and a soft tint); the rest stay plain.
+              isActive ? cn(accentBorder, bgTint) : 'border-border bg-surface hover:border-border-hover',
             )}
           >
             <span className="min-w-0 max-w-full">
@@ -149,8 +150,8 @@ export function QuickFilterStats<K extends string>({
                 {shortLabel ? (<><span className="sm:hidden">{shortLabel}</span><span className="hidden sm:inline">{label}</span></>) : label}
               </span>
             </span>
-            <span aria-hidden="true" className={cn('hidden sm:flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors duration-150', isActive ? cn(accentBar, 'text-white') : cn(bgTint, iconTint))}>
-              <Icon className="size-4" />
+            <span aria-hidden="true" className={cn('hidden sm:flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors duration-150', cn(accentBar, 'text-white'))}>
+              <Icon className="size-[1.125rem]" strokeWidth={2.25} />
             </span>
           </button>
         );

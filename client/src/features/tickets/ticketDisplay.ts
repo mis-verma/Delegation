@@ -116,7 +116,7 @@ export const formatClockShort = (d: Date) => {
  */
 export const formatDueLabel = (
   ticket: Pick<Ticket, 'tatDueAt' | 'status' | 'isOverdue'>,
-): { text: string; label: string; overdue: boolean } | null => {
+): { text: string; label: string; overdue: boolean; today: boolean } | null => {
   if (!ticket.tatDueAt) return null;
   const startOfDay = (d: Date) => new Date(d).setHours(0, 0, 0, 0);
   const due = new Date(ticket.tatDueAt);
@@ -127,5 +127,7 @@ export const formatDueLabel = (
   const text = overdue
     ? `Late since ${days === 0 ? formatClockShort(due) : day}`
     : `Due ${days === 0 ? 'today' : days === 1 ? 'tomorrow' : day}, ${formatClockShort(due)}`;
-  return { text, label: text, overdue };
+  // Due later today and still being worked: the card warns in orange before it turns red.
+  const today = !overdue && days === 0 && ticket.status !== 'CLOSED' && ticket.status !== 'PENDING_APPROVAL';
+  return { text, label: text, overdue, today };
 };

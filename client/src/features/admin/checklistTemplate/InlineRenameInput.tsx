@@ -50,7 +50,7 @@ export const InlineRenameInput = ({ value, label, onSave, onCancel, className }:
         else if (e.key === 'Escape') { e.preventDefault(); cancel(); }
       }}
       className={cn(
-        'w-full min-w-0 min-h-11 sm:min-h-9 px-3 text-base sm:text-sm font-display font-medium bg-background text-text rounded-lg border border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 transition-all',
+        'w-full min-w-0 min-h-11 sm:min-h-9 px-3 text-sm font-display font-medium bg-background text-text rounded-lg border border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 transition-all',
         className,
       )}
     />

@@ -289,7 +289,7 @@ export const LabelsField = ({ tags, selectedIds, onChange, canCreate, disabled =
         }}
         placeholder="Label name"
         aria-label="Label name"
-        className="h-11 w-full rounded-xl border border-border bg-background px-3 text-base sm:text-sm text-text placeholder:text-text-light outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-500/12"
+        className="h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-text placeholder:text-text-light outline-none focus:border-primary-400 focus:ring-4 focus:ring-primary-500/12"
       />
       {trimmed && <LabelChip tag={{ name: trimmed, color: chosenColor }} className="self-start" />}
       <ColorSwatches value={chosenColor} onPick={setNewColor} label="Label colour" />

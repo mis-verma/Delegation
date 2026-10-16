@@ -345,7 +345,7 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
       <div className="flex items-center gap-3 min-h-11">
         <AuditAvatar name={name} size="panel" status={status} />
         <div className="flex-1 min-w-0 flex flex-col gap-1">
-          <p className="text-base sm:text-sm font-semibold leading-snug text-text break-words">
+          <p className="text-sm font-semibold leading-snug text-text break-words">
             {name}{isMe && <span className="font-medium text-text-muted"> (You)</span>}
           </p>
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -508,7 +508,7 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
               onClick={handleSubmit}
               isLoading={submitting}
               disabled={photosNeeded > 0}
-              className="w-full sm:w-auto sm:min-w-44 h-12 sm:h-10 text-base sm:text-sm"
+              className="w-full sm:w-auto sm:min-w-44 h-12 sm:h-10 text-sm"
             >
               Submit {firstName(submission)}
             </Button>
@@ -531,7 +531,7 @@ const SubmissionPanel = ({ item, submission, instanceId, storeName, isMe, intera
               </Button>
             )}
             {onNext && (
-              <Button variant="primary" onClick={onNext} className="w-full sm:w-auto sm:min-w-44 h-12 sm:h-10 text-base sm:text-sm">
+              <Button variant="primary" onClick={onNext} className="w-full sm:w-auto sm:min-w-44 h-12 sm:h-10 text-sm">
                 Next person
               </Button>
             )}

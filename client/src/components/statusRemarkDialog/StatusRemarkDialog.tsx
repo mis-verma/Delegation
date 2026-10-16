@@ -191,7 +191,7 @@ export const StatusRemarkDialog = ({
             aria-invalid={showError}
             aria-describedby={showError ? 'status-remark-error' : 'status-remark-hint'}
             placeholder={placeholder ?? 'e.g. Vendor confirmed the parts ship on Friday. Starting the fit-out now.'}
-            className={`w-full resize-none rounded-lg border bg-surface px-3 py-2.5 text-base sm:text-sm text-text placeholder:text-text-light transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500/30 ${
+            className={`w-full resize-none rounded-lg border bg-surface px-3 py-2.5 text-sm text-text placeholder:text-text-light transition-all duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500/30 ${
               showError ? 'border-danger focus:border-danger' : 'border-border focus:border-primary-400'
             }`}
           />
