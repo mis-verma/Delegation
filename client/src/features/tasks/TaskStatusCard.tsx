@@ -3,7 +3,6 @@ import { StatusChip, type StatusChipStatus } from '../../components';
 import { useNow } from '../../lib/useNow';
 import { STATUS_LABEL } from './taskDisplay';
 import { waitingLine } from './taskStatusModel';
-import { TaskScoreBadge } from './TaskScoreBadge';
 import type { Task } from '../../api/task';
 
 const CHIP_KEY: Record<Task['status'], StatusChipStatus> = {
@@ -23,28 +22,27 @@ interface TaskStatusCardProps {
 }
 
 /**
- * Where a delegation stands: the status chip with its score beside it, who it is waiting on, and
- * when it is due. The stepper below shows the path; this card is the one place the score lives.
+ * Where a delegation stands: the status chip, who it is waiting on, and when it is due. The stepper
+ * below shows the path; the Score card (ItemScoreCard) shows how it counts.
  */
 export const TaskStatusCard = ({ task, nameOf, departmentName }: TaskStatusCardProps) => {
   const now = useNow();
   const { who, due } = waitingLine(task, now, nameOf, departmentName);
 
   return (
-    <section aria-label="Status" className="flex flex-col gap-2 rounded-xl border border-border/60 bg-surface-hover/30 p-3 sm:p-4">
+    <section aria-label="Status" className="flex flex-col gap-1.5 rounded-xl border border-border/60 bg-surface-hover/30 p-2.5 sm:p-3">
       <div className="flex flex-wrap items-center gap-2">
         <StatusChip status={CHIP_KEY[task.status]} label={STATUS_LABEL[task.status]} />
-        {task.status !== 'draft' && <TaskScoreBadge status={task.status} />}
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm font-display">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 t-meta font-display">
         <span className="inline-flex items-center gap-1.5 text-text-secondary min-w-0">
-          <Clock size={14} className="shrink-0 text-text-light" aria-hidden />
+          <Clock size={13} className="shrink-0 text-text-light" aria-hidden />
           <span className="break-words">{who}</span>
         </span>
         {due && (
           <span className={`inline-flex items-center gap-1.5 font-semibold ${due.overdue ? 'text-danger' : 'text-text-muted'}`}>
-            {due.overdue && <AlertTriangle size={14} className="shrink-0" aria-hidden />}
+            {due.overdue && <AlertTriangle size={13} className="shrink-0" aria-hidden />}
             {due.text}
           </span>
         )}

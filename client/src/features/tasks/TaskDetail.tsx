@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
-import { CheckSquare, Loader2, ChevronRight, MoreHorizontal, Undo2, PauseCircle, CircleDot, Clock, Eye, CheckCircle2, ShieldCheck, ShieldX, Trash2, CalendarDays, Check, Milestone, RotateCcw, Info, UserRound, Flag, Building2 } from 'lucide-react';
+import { CheckSquare, Loader2, ChevronRight, MoreHorizontal, Undo2, PauseCircle, CircleDot, Clock, Eye, CheckCircle2, ShieldCheck, ShieldX, Trash2, CalendarDays, Check, Milestone, RotateCcw, Info, UserRound, Flag, Building2, History, ChevronDown } from 'lucide-react';
 import { Modal, Button, DateRangePicker, ActivityFeed, FullChangeLog, DepartmentChip, ImageLightbox, NoticeBanner, useConfirm } from '../../components';
 import type { DateRangeValue } from '../../components';
 import { useTaskQuery, useUpdateTaskMutation, useDeleteTaskMutation, useAssignableUsersQuery } from './hook';
@@ -28,6 +28,7 @@ import type { AssignableUser } from '../../api/users';
 import { canApproveWork } from '../../lib/canApproveWork';
 import { canEditTaskContent, canMoveTask, viewOnlyReason } from './taskPermissions';
 import { TicketPropertyRow } from '../tickets/detail/TicketPropertyRow';
+import { DETAIL_SECTION_HEADING, DETAIL_SECTION_TILE } from '../tickets/detail/detailConstants';
 
 type SaveState = 'idle' | 'saving' | 'error';
 
@@ -94,7 +95,7 @@ const TitleEditor = ({ value, onSave, onDirtyChange, isViewMode }: EditorProps &
   useEffect(() => onDirtyChange(dirty), [dirty, onDirtyChange]);
 
   if (isViewMode) {
-    return <h2 className="t-title font-display font-semibold text-text leading-snug break-words select-text">{value}</h2>;
+    return <h2 className="t-card font-display font-semibold text-text leading-snug break-words select-text">{value}</h2>;
   }
 
   const handleBlur = () => {
@@ -121,7 +122,7 @@ const TitleEditor = ({ value, onSave, onDirtyChange, isViewMode }: EditorProps &
         placeholder="Delegation title"
         aria-label="Delegation title"
         aria-invalid={emptyError || state === 'error'}
-        className="block t-title font-display font-semibold leading-snug w-full px-3 py-1 -ml-3 rounded-md border-0 bg-transparent text-text resize-none overflow-hidden outline-none transition-colors duration-150 ease-out focus:bg-surface-hover/50 focus:ring-2 focus:ring-primary-500/30"
+        className="block t-card font-display font-semibold leading-snug w-full px-3 py-1 -ml-3 rounded-md border-0 bg-transparent text-text resize-none overflow-hidden outline-none transition-colors duration-150 ease-out focus:bg-surface-hover/50 focus:ring-2 focus:ring-primary-500/30"
       />
       {emptyError && <p role="alert" className="t-meta font-display font-medium text-danger">Title can't be empty</p>}
       {state === 'error' && <NotSaved onRetry={() => commit(text.trim())} />}
@@ -137,9 +138,9 @@ const PlainDescriptionEditor = ({ value, disabled, onSave, onDirtyChange, childr
     return (
       <div className="flex flex-col gap-3">
         {value.trim() ? (
-          <p className="text-base text-text leading-relaxed whitespace-pre-wrap break-words select-text">{value}</p>
+          <p className="text-sm text-text leading-relaxed whitespace-pre-wrap break-words select-text">{value}</p>
         ) : (
-          <p className="text-base text-text-light italic">No description added.</p>
+          <p className="text-sm text-text-light italic">No description added.</p>
         )}
         {children}
       </div>
@@ -152,7 +153,7 @@ const PlainDescriptionEditor = ({ value, disabled, onSave, onDirtyChange, childr
         value={text}
         onChange={setText}
         onBlur={() => { if (text !== value || state === 'error') commit(text); }}
-        rows={4}
+        rows={3}
         placeholder="Add more detail…"
       >
         {children}
@@ -295,7 +296,7 @@ const StepRow = ({
   <li className="flex gap-3" aria-current={current ? 'step' : undefined}>
     <div className="flex flex-col items-center">
       <span
-        className={`flex items-center justify-center size-7 rounded-full shrink-0 transition-colors duration-200 ${
+        className={`flex items-center justify-center size-6 rounded-full shrink-0 transition-colors duration-200 ${
           done
             ? 'bg-success text-white'
             : current
@@ -303,14 +304,14 @@ const StepRow = ({
               : 'border-2 border-border bg-surface text-text-light'
         }`}
       >
-        {done ? <Check size={13} strokeWidth={3} /> : <StepIcon size={13} strokeWidth={2.5} />}
+        {done ? <Check size={12} strokeWidth={3} /> : <StepIcon size={12} strokeWidth={2.5} />}
       </span>
       {!isLast && <span className={`w-0.5 flex-1 min-h-5 my-1 rounded-full ${done ? 'bg-success/50' : 'bg-border'}`} />}
     </div>
 
-    <div className={`flex-1 min-w-0 ${isLast ? '' : 'pb-4'}`}>
-      <div className={`flex flex-col gap-1.5 ${current ? 'rounded-xl border border-border-hover px-3 py-2.5 -mt-1' : 'pt-1'}`}>
-        <p className={`t-card font-display tracking-tight leading-tight ${current ? 'font-bold text-text' : reached ? 'font-semibold text-text' : 'font-semibold text-text-light'}`}>
+    <div className={`flex-1 min-w-0 ${isLast ? '' : 'pb-3'}`}>
+      <div className={`flex flex-col gap-1 ${current ? 'rounded-lg border border-primary-500/25 bg-surface px-3 py-2 -mt-1' : 'pt-0.5'}`}>
+        <p className={`t-meta font-display leading-tight ${current ? 'font-bold text-text' : reached ? 'font-semibold text-text' : 'font-semibold text-text-light'}`}>
           {label}
         </p>
         {stamp && (
@@ -334,9 +335,9 @@ const TaskStatusStepper = ({ task, nameOf }: { task: Task; nameOf: (id: string |
   const currentIndex = task.status === 'on_hold' ? STATUS_ORDER.indexOf(heldFrom) : STATUS_ORDER.indexOf(task.status);
 
   return (
-    <section className="flex flex-col gap-3">
-      <h3 className="flex items-center gap-1.5 t-section font-display font-bold text-text">
-        <Milestone size={16} className="text-text-light" aria-hidden />
+    <section className="flex flex-col gap-2.5">
+      <h3 className={DETAIL_SECTION_HEADING}>
+        <span className={DETAIL_SECTION_TILE} aria-hidden="true"><Milestone size={14} strokeWidth={2.25} /></span>
         Progress
       </h3>
       {isDraft && (
@@ -489,7 +490,7 @@ const TaskEditLayout = ({
   const raisedBy = task.userId === currentUserId ? 'You' : nameOf(task.userId);
   const created = new Date(task.createdAt);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
-  const [lowerTab, setLowerTab] = useState<'progress' | 'activity'>('progress');
+  const [activityOpen, setActivityOpen] = useState(false);
   const onTitleDirty = useCallback((d: boolean) => onDirtyChange('title', d), [onDirtyChange]);
   const onDescriptionDirty = useCallback((d: boolean) => onDirtyChange('description', d), [onDirtyChange]);
   const approvedOrSentBack = task.verificationNote
@@ -521,11 +522,15 @@ const TaskEditLayout = ({
             </button>
           )}
         </div>
-        <p className="flex flex-col sm:flex-row sm:gap-1 t-meta font-display font-medium text-text-muted">
-          {raisedBy && <span>Raised by {raisedBy}<span className="hidden sm:inline">,</span></span>}
-          <span>created {formatStepDate(created)}, {formatStepTime(created)}</span>
-        </p>
         {saveLabel && <p className="t-meta font-display text-text-muted" role="status">{saveLabel}</p>}
+
+        {/* Straight under the title, as on the ticket sheet: what it is about, then where it stands. */}
+        <PlainDescriptionEditor
+          value={task.description ?? ''}
+          disabled={!canEditText}
+          onSave={onSaveDescription}
+          onDirtyChange={onDescriptionDirty}
+        />
       </div>
 
       {readOnlyReason && (
@@ -555,11 +560,11 @@ const TaskEditLayout = ({
             />
           </TicketPropertyRow>
 
-          <TicketPropertyRow tileOnly wideOnPhone label="Priority" icon={Flag} tone={PRIORITY_MAP[task.priority].solid}>
+          <TicketPropertyRow tileOnly stackOnPhone label="Priority" icon={Flag} tone={PRIORITY_MAP[task.priority].solid}>
             <TaskPriorityChipPicker value={task.priority} onChange={(v) => onUpdate({ priority: v })} disabled={isViewOnly} fullWidth />
           </TicketPropertyRow>
 
-          <TicketPropertyRow tileOnly wideOnPhone label="Department" icon={Building2} tone="bg-linear-to-br from-coral-500 to-coral-600">
+          <TicketPropertyRow tileOnly stackOnPhone label="Department" icon={Building2} tone="bg-linear-to-br from-coral-500 to-coral-600">
             {isViewOnly || !canReassign ? (
               departmentName ? <DepartmentChip name={departmentName} /> : <span className="t-meta text-text-light">None</span>
             ) : (
@@ -569,7 +574,7 @@ const TaskEditLayout = ({
                 onChange={(v) => onChangeDepartment(v || null)}
                 departments={departments}
                 isLoading={isLoadingDepts}
-                triggerClassName={`${CHIP_TRIGGER_CLASS} max-w-full`}
+                triggerClassName={`${CHIP_TRIGGER_CLASS} w-full max-w-full min-w-0`}
               />
             )}
           </TicketPropertyRow>
@@ -611,13 +616,6 @@ const TaskEditLayout = ({
         headingClassName={DETAIL_HEADING_CLASS}
       />
 
-      <PlainDescriptionEditor
-        value={task.description ?? ''}
-        disabled={!canEditText}
-        onSave={onSaveDescription}
-        onDirtyChange={onDescriptionDirty}
-      />
-
       <TaskAttachments
         taskId={task.id}
         attachments={task.attachments ?? []}
@@ -637,30 +635,32 @@ const TaskEditLayout = ({
         />
       )}
 
-      <div role="tablist" aria-label="Delegation history" className="sm:hidden grid grid-cols-2 gap-2">
-        {(['progress', 'activity'] as const).map((k) => (
+      <TaskStatusStepper task={task} nameOf={nameOf} />
+
+      {/* Reference, not work: who raised it, then Activity folded away until asked for (loads only then). */}
+      <div className="flex flex-col gap-3 border-t border-border/50 pt-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="flex items-center gap-1.5 t-meta font-medium text-text-muted">
+            <CalendarDays size={12} className="shrink-0 text-text-light" strokeWidth={2.25} aria-hidden="true" />
+            {raisedBy ? `Raised by ${raisedBy}` : 'Raised'}, {formatStepDate(created)}, {formatStepTime(created)}
+          </p>
           <button
-            key={k}
             type="button"
-            role="tab"
-            aria-selected={lowerTab === k}
-            onClick={() => setLowerTab(k)}
-            className={`h-11 rounded-full border t-card font-display cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 transition-colors duration-150 ease-out [-webkit-tap-highlight-color:transparent] ${
-              lowerTab === k ? 'border-border-hover bg-surface-hover text-text font-bold' : 'border-border bg-surface text-text-secondary font-semibold'
-            }`}
+            onClick={() => setActivityOpen((o) => !o)}
+            aria-expanded={activityOpen}
+            className="inline-flex items-center gap-1.5 h-8 pointer-coarse:h-10 px-2.5 rounded-lg border border-border/60 bg-surface t-meta font-display font-semibold text-text-secondary hover:text-text hover:border-border-hover cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
           >
-            {k === 'progress' ? 'Progress' : 'Activity'}
+            <History size={13} strokeWidth={2.25} aria-hidden="true" />
+            Activity and change log
+            <ChevronDown size={13} strokeWidth={2.5} className={`transition-transform duration-200 ${activityOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
           </button>
-        ))}
-      </div>
-
-      <div className={lowerTab === 'progress' ? '' : 'max-sm:hidden'}>
-        <TaskStatusStepper task={task} nameOf={nameOf} />
-      </div>
-
-      <div className={`flex flex-col gap-4 sm:gap-5 ${lowerTab === 'activity' ? '' : 'max-sm:hidden'}`}>
-        <ActivityFeed entityType="Task" entityId={task.id} />
-        <FullChangeLog entityType="Task" entityId={task.id} />
+        </div>
+        {activityOpen && (
+          <div className="flex flex-col gap-4">
+            <ActivityFeed entityType="Task" entityId={task.id} />
+            <FullChangeLog entityType="Task" entityId={task.id} />
+          </div>
+        )}
       </div>
     </div>
 
@@ -760,16 +760,12 @@ export const TaskDetail = ({ task: initialTask, onClose }: TaskDetailProps) => {
   return (
     <Modal
       open
-      description={
-        <span className="hidden sm:inline">
-          {canEditText ? 'Changes save on their own as you edit each field.' : 'Review this delegation’s details.'}
-        </span>
-      }
+      // No second line: "Saving… / Saved" under the title already says changes save on their own.
       onClose={onClose}
       dirty={dirtyFields.title || dirtyFields.description}
       size="xl"
       icon={<CheckSquare className="w-5 h-5 text-primary-600" />}
-      title="Delegation details"
+      title="Delegation"
       bodyClassName="p-0 overflow-hidden rounded-b-xl"
       footer={
         <TaskFooter

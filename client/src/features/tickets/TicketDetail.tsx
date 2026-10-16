@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ShieldCheck, Flag, Building2, CalendarDays, User, Store as StoreIcon, Layers, ChevronDown, AlertCircle } from 'lucide-react';
 import {
   useStoresQuery,
@@ -114,6 +114,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
     : raisedByUser ? `${raisedByUser.firstName} ${raisedByUser.lastName ?? ''}`.trim() : null;
 
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState(false);
   const [editDirty, setEditDirty] = useState(false);
   // Phone only: Department, Store and Category fold away behind "More details"; the rail shows them all.
@@ -234,6 +235,9 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
       <SheetContent
         showCloseButton={false}
         onInteractOutside={(e) => { if (editing && editDirty) e.preventDefault(); }}
+        // Not the ticket-code button: Radix focusing it on open drew a focus ring before anyone touched anything.
+        ref={sheetRef}
+        onOpenAutoFocus={(e) => { e.preventDefault(); sheetRef.current?.focus({ preventScroll: true }); }}
         className="w-full sm:max-w-[600px] md:max-w-[680px] lg:max-w-[880px] xl:max-w-[1040px] p-0 flex flex-col h-full overflow-hidden font-sans shadow-none"
       >
         {showLoadingBar && (

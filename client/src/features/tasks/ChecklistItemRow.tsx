@@ -49,39 +49,40 @@ export const ChecklistItemRow = ({
 
   return (
     <div
-      className={`group/card flex flex-col gap-3 p-3.5 sm:p-4 rounded-xl border transition-all duration-200 ${
+      className={`group/card flex flex-col gap-2 px-3 py-2.5 rounded-lg border transition-colors duration-200 ${
         item.isDone
           ? 'bg-surface-hover/40 border-border/60 opacity-80'
           : 'bg-surface border-border hover:border-border-hover'
       }`}
     >
       {/* Header Row */}
-      <div className="flex items-start gap-3 sm:gap-3.5">
+      <div className="flex items-start gap-2.5">
         <span
-          className={`mt-0.5 flex items-center justify-center w-6 h-6 rounded-md shrink-0 transition-all ${
+          className={`mt-px flex items-center justify-center size-5 rounded-md shrink-0 transition-colors ${
             item.isDone
               ? 'bg-success text-white'
               : 'bg-surface text-text-light border-[1.5px] border-border-hover'
           }`}
         >
-          {item.isDone && <CheckSquare size={14} strokeWidth={3} />}
+          {item.isDone && <CheckSquare size={12} strokeWidth={3} />}
         </span>
 
         <div className="flex-1 min-w-0">
-          <p className={`t-card font-medium leading-snug ${
+          <p className={`text-sm font-display font-medium leading-snug ${
             item.isDone ? 'line-through text-text-light' : 'text-text'
           }`}>
             {item.label}
           </p>
 
-          <div className="flex items-center gap-2 mt-2 flex-wrap">
-            <Badge variant="neutral" className="text-xs bg-surface-hover">
-              {item.isDone && item.completedAt
-                ? `Completed ${new Date(item.completedAt).toLocaleDateString()}`
-                : item.dueAt
-                  ? `Due ${new Date(item.dueAt).toLocaleDateString()}`
-                  : 'No due date'}
-            </Badge>
+          {((item.isDone && item.completedAt) || item.dueAt || item.requiredImageCount > 0) && (
+          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+            {((item.isDone && item.completedAt) || item.dueAt) && (
+              <Badge variant="neutral" className="text-xs bg-surface-hover">
+                {item.isDone && item.completedAt
+                  ? `Done ${new Date(item.completedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`
+                  : `Due ${new Date(item.dueAt!).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`}
+              </Badge>
+            )}
 
             {item.requiredImageCount > 0 && (
               <Badge
@@ -93,6 +94,7 @@ export const ChecklistItemRow = ({
               </Badge>
             )}
           </div>
+          )}
         </div>
 
         {/* Admin actions — always visible on touch (no hover), reveal-on-hover on pointer devices */}
@@ -126,13 +128,13 @@ export const ChecklistItemRow = ({
 
       {/* Hero image strip */}
       {images.length > 0 && (
-        <div className="flex flex-wrap gap-3 pl-0 sm:pl-9">
+        <div className="flex flex-wrap gap-2 pl-7.5">
           {images.map(img => (
             <div key={img.id} className="relative group/img overflow-hidden rounded-lg border border-border bg-surface-hover">
               <img
                 src={`${UPLOADS_BASE}${img.url}`}
                 alt={img.originalFilename ?? 'evidence'}
-                className="w-20 h-20 object-cover"
+                className="size-16 object-cover"
               />
 
               <span className={`absolute top-1 left-1 text-xs font-bold px-1.5 py-0.5 rounded text-white ${
@@ -158,15 +160,15 @@ export const ChecklistItemRow = ({
       )}
 
       {/* Body & Actions */}
-      <div className="pl-0 sm:pl-9 flex flex-col gap-3">
+      <div className="pl-7.5 flex flex-col gap-2">
         {(!canWork || item.isDone) && item.remarks && (
-          <div className="px-4 py-3 bg-surface-hover/50 rounded-lg border border-border/60 text-sm text-text-secondary italic">
-            "{item.remarks}"
+          <div className="border-l-2 border-border-hover pl-2 t-meta text-text-secondary">
+            {item.remarks}
           </div>
         )}
 
         {canWork && !item.isDone && (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
             {expanded && (<>
             <textarea
               value={remarks}
@@ -189,8 +191,8 @@ export const ChecklistItemRow = ({
 
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-2 flex-wrap">
               <div className="flex items-center gap-2 flex-wrap">
-                <label className="flex items-center gap-2 text-sm font-medium px-4 py-2 pointer-coarse:min-h-11 rounded-lg border border-border text-text-secondary bg-surface hover:bg-surface-hover cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-border-hover">
-                  <Camera size={16} />
+                <label className="flex items-center gap-1.5 t-meta font-display font-semibold px-3 h-9 rounded-lg border border-dashed border-border-hover text-text-secondary bg-surface-hover/30 hover:border-primary-400 hover:text-primary-600 cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-primary-500/40">
+                  <Camera size={14} />
                   Take photo
                   <input
                     type="file" accept="image/*" capture="environment" multiple
@@ -198,8 +200,8 @@ export const ChecklistItemRow = ({
                   />
                 </label>
 
-                <label className="flex items-center gap-2 text-sm font-medium px-4 py-2 pointer-coarse:min-h-11 rounded-lg border border-border text-text-secondary bg-surface hover:bg-surface-hover cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-border-hover">
-                  <ImageIcon size={16} />
+                <label className="flex items-center gap-1.5 t-meta font-display font-semibold px-3 h-9 rounded-lg border border-dashed border-border-hover text-text-secondary bg-surface-hover/30 hover:border-primary-400 hover:text-primary-600 cursor-pointer transition-colors focus-within:ring-2 focus-within:ring-primary-500/40">
+                  <ImageIcon size={14} />
                   Gallery
                   <input
                     type="file" accept="image/*" multiple
@@ -215,7 +217,7 @@ export const ChecklistItemRow = ({
                   type="button"
                   onClick={() => updateRemarks.mutate({ id: item.id, remarks })}
                   disabled={updateRemarks.isPending || !remarks.trim()}
-                  className="flex items-center gap-1.5 text-sm font-medium px-4 py-2 pointer-coarse:min-h-11 rounded-lg text-text-secondary hover:text-text hover:bg-surface-hover cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-border-hover"
+                  className="flex items-center gap-1.5 t-meta font-display font-semibold px-3 h-9 rounded-lg text-text-secondary hover:text-text hover:bg-surface-hover cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-border-hover"
                 >
                   {updateRemarks.isPending && <Loader2 size={16} className="animate-spin" />}
                   Save remark
@@ -229,9 +231,9 @@ export const ChecklistItemRow = ({
                 <button
                   type="button"
                   onClick={() => setExpanded(true)}
-                  className="inline-flex items-center gap-1.5 min-h-10 pointer-coarse:min-h-11 px-3 rounded-lg text-sm font-display font-semibold text-text-secondary hover:text-text hover:bg-surface-hover cursor-pointer transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+                  className="-ml-2 inline-flex items-center gap-1.5 h-8 pointer-coarse:h-10 px-2 rounded-lg t-meta font-display font-semibold text-text-secondary hover:text-text hover:bg-surface-hover cursor-pointer transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
                 >
-                  <MessageSquarePlus size={16} aria-hidden="true" />
+                  <MessageSquarePlus size={14} aria-hidden="true" />
                   Remark or photo
                 </button>
               )}
@@ -239,9 +241,9 @@ export const ChecklistItemRow = ({
                 type="button"
                 onClick={() => completeItem.mutate(item.id)}
                 disabled={completeItem.isPending}
-                className="ml-auto inline-flex items-center justify-center gap-2 min-h-10 pointer-coarse:min-h-11 px-4 rounded-lg bg-primary-600 text-white text-sm font-display font-semibold hover:bg-primary-700 active:scale-[0.985] cursor-pointer transition-[background-color,transform] duration-150 ease-out disabled:opacity-50 disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                className="ml-auto inline-flex items-center justify-center gap-1.5 h-8 pointer-coarse:h-10 px-3 rounded-lg bg-primary-600 text-white t-meta font-display font-semibold hover:bg-primary-700 active:scale-[0.985] cursor-pointer transition-[background-color,transform] duration-150 ease-out disabled:opacity-50 disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
               >
-                {completeItem.isPending ? <Loader2 size={16} className="animate-spin" /> : <CheckSquare size={16} />}
+                {completeItem.isPending ? <Loader2 size={14} className="animate-spin" /> : <CheckSquare size={14} />}
                 Mark done
               </button>
             </div>

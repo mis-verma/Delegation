@@ -21,6 +21,9 @@ interface TicketPropertyRowProps {
   tileOnly?: boolean;
   /** Whole row on a phone, half from sm up: for a value too wide for a half-width phone tile (a select). */
   wideOnPhone?: boolean;
+  /** Half-width phone tile with a select inside: the icon moves next to the label and the control gets the
+   *  whole tile width below it, instead of a side icon squeezing the select. */
+  stackOnPhone?: boolean;
 }
 
 /**
@@ -28,7 +31,7 @@ interface TicketPropertyRowProps {
  * value), so the sheet has the same steady structure whatever a ticket carries; from lg the same markup is a
  * row in the right-hand rail. One DOM for both layouts (no hidden duplicate controls).
  */
-export const TicketPropertyRow = ({ label, children, railOnly = false, icon: Icon, tone = 'bg-linear-to-br from-primary-500 to-primary-600', wide = false, phoneHidden = false, first = false, tileOnly = false, wideOnPhone = false }: TicketPropertyRowProps) => (
+export const TicketPropertyRow = ({ label, children, railOnly = false, icon: Icon, tone = 'bg-linear-to-br from-primary-500 to-primary-600', wide = false, phoneHidden = false, first = false, tileOnly = false, wideOnPhone = false, stackOnPhone = false }: TicketPropertyRowProps) => (
   <div
     className={cn(
       railOnly ? 'hidden lg:flex' : 'flex',
@@ -37,17 +40,25 @@ export const TicketPropertyRow = ({ label, children, railOnly = false, icon: Ico
       first && 'max-lg:order-first',
       wideOnPhone && 'col-span-2 sm:col-span-1',
       'min-w-0 items-center gap-2.5 rounded-xl bg-surface-hover/40 px-2.5 py-2',
+      stackOnPhone && 'max-sm:items-stretch',
       !tileOnly && 'lg:items-start lg:gap-2.5 lg:rounded-none lg:bg-transparent lg:px-0 lg:py-2.5 lg:first:pt-0 lg:last:pb-0',
     )}
   >
     {Icon && (
-      <span className={cn('flex size-7 shrink-0 items-center justify-center rounded-lg text-white', tone)} aria-hidden="true">
+      <span className={cn('flex size-7 shrink-0 items-center justify-center rounded-lg text-white', stackOnPhone && 'max-sm:hidden', tone)} aria-hidden="true">
         <Icon className="size-3.5" strokeWidth={2.25} />
       </span>
     )}
-    <div className={cn('flex min-w-0 flex-1 flex-col gap-0.5', !tileOnly && 'lg:gap-1')}>
-      <dt className="t-meta font-medium text-text-muted leading-none">{label}</dt>
-      <dd className="flex min-w-0 flex-wrap items-center">{children}</dd>
+    <div className={cn('flex min-w-0 flex-1 flex-col gap-0.5', stackOnPhone && 'max-sm:gap-1.5', !tileOnly && 'lg:gap-1')}>
+      <dt className="flex items-center gap-1.5 t-meta font-medium text-text-muted leading-none">
+        {Icon && stackOnPhone && (
+          <span className={cn('sm:hidden flex size-5 shrink-0 items-center justify-center rounded-md text-white', tone)} aria-hidden="true">
+            <Icon className="size-3" strokeWidth={2.5} />
+          </span>
+        )}
+        {label}
+      </dt>
+      <dd className={cn('flex min-w-0 flex-wrap items-center', stackOnPhone && 'max-sm:[&>*]:w-full max-sm:[&>*]:min-w-0')}>{children}</dd>
     </div>
   </div>
 );

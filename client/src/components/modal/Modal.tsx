@@ -207,10 +207,20 @@ export const Modal = ({
         style={dragStyle}
         // With unsaved input an overlay tap is far more often a slip than a decision, so it does nothing.
         onInteractOutside={blockOutside ? (e) => e.preventDefault() : undefined}
+        // Radix focuses the first button on open, which is the header's X: it showed a focus ring before the
+        // person had done anything. Focus the dialog itself instead (Tab still starts inside it), unless a field
+        // inside already took focus with autoFocus.
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          const content = contentRef.current;
+          const active = document.activeElement;
+          if (content && active && active !== content && content.contains(active)) return;
+          content?.focus({ preventScroll: true });
+        }}
         // max-h in dvh: on mobile, `vh` is measured against the viewport with browser chrome
         // retracted, so a 90vh dialog could stand taller than the screen actually shows and hide
         // its own footer. dvh tracks the visible viewport.
-        className={cn('w-full sm:w-[95vw]', SIZE_CLASS[size], 'p-0 flex flex-col overflow-hidden rounded-t-2xl rounded-b-none sm:rounded max-h-[90dvh]', isDragging && 'select-none', contentClassName)}
+        className={cn('w-full sm:w-[95vw]', SIZE_CLASS[size], 'p-0 flex flex-col overflow-hidden outline-none rounded-t-2xl rounded-b-none sm:rounded max-h-[90dvh]', isDragging && 'select-none', contentClassName)}
       >
         {/* Grip bar — the same "this sheet moves" cue as a native bottom sheet or a macOS panel,
             sitting above the header rather than replacing its hit area: the whole header below
