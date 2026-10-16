@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Tag as TagIcon } from 'lucide-react';
 import { LabelsField } from './LabelsField';
 import { useTagsQuery } from './hook';
-import { labelChipClass } from '../../lib/labelColors';
+import { TagChip } from '../../components/tagChip';
 import type { Tag } from '../../api/tags';
 
 interface DetailLabelsFieldProps {
@@ -43,9 +43,7 @@ export const DetailLabelsField = ({ current, onSave, canCreate, readOnly, headin
         )}
         <div className="flex flex-wrap gap-1.5">
           {current.map((t) => (
-            <span key={t.id} className={`inline-flex items-center h-7 px-2.5 rounded-full border text-xs font-display font-semibold ${labelChipClass(t)}`}>
-              {t.name}
-            </span>
+            <TagChip key={t.id} tag={t} showLabelOnMobile />
           ))}
         </div>
       </div>

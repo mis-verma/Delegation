@@ -1,12 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Activity, ArrowRightLeft, CalendarClock, Check, ChevronDown, Flag, History, Pencil, Plus, Undo2, UserRound, UsersRound, type LucideIcon } from 'lucide-react';
+import { ArrowRightLeft, CalendarClock, Check, ChevronDown, Flag, History, Pencil, Plus, Undo2, UserRound, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ApiError } from '../../api/http';
-import { type ActivityEntity, type ActivityEvent, type ActivityFeedData, type ActivityKind } from '../../api/activity';
+import { type ActivityEntity, type ActivityEvent, type ActivityKind } from '../../api/activity';
 import { Skeleton } from '../skeleton';
 import { activityQueryOptions } from './activityQuery';
-import { useNow } from '../../lib/useNow';
 import { ChangeCompare } from './ChangeCompare';
 import { ENTRY_CLASS, HEADING_TILE_CLASS, NODE_CLASS, TONE, type ActivityTone } from './activityTones';
 
@@ -40,17 +39,6 @@ const dayLabel = (date: Date) => {
 const timeLabel = (date: Date) => date.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true }).toUpperCase();
 const shortDate = (iso: string | null | undefined) =>
   iso ? new Date(iso).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' }).replace(/,/g, '') : 'No date';
-
-// "3d 4h", "5h 20m", "12m": the two biggest units, so a duration reads at a glance.
-const duration = (ms: number) => {
-  const minutes = Math.max(0, Math.round(ms / 60_000));
-  const d = Math.floor(minutes / 1440);
-  const h = Math.floor((minutes % 1440) / 60);
-  const m = minutes % 60;
-  if (d > 0) return `${d}d${h ? ` ${h}h` : ''}`;
-  if (h > 0) return `${h}h${m ? ` ${m}m` : ''}`;
-  return `${Math.max(m, 1)}m`;
-};
 
 const sentence = (e: ActivityEvent, thing: string) => {
   switch (e.kind) {
@@ -126,35 +114,6 @@ const Row = ({ e, thing }: { e: ActivityEvent; thing: string }) => {
   );
 };
 
-const Fact = ({ label, value, hint, icon: Icon, tone, alert }: { label: string; value: string; hint?: string; icon: LucideIcon; tone: ActivityTone; alert?: boolean }) => (
-  <div className="flex min-w-0 items-start gap-2.5 rounded-xl border border-border/60 bg-surface-hover/30 px-3 py-2.5">
-    <span className={cn('flex size-8 shrink-0 items-center justify-center rounded-lg text-white', TONE[tone])} aria-hidden="true">
-      <Icon size={15} strokeWidth={2.25} />
-    </span>
-    <div className="flex min-w-0 flex-col gap-0.5">
-      <dt className="text-xs font-display font-medium text-text-muted">{label}</dt>
-      <dd className="truncate text-sm font-display font-bold text-text">{value}</dd>
-      {hint && <dd className={cn('truncate text-xs font-medium', alert ? 'text-danger' : 'text-text-muted')}>{hint}</dd>}
-    </div>
-  </div>
-);
-
-const Summary = ({ data }: { data: ActivityFeedData }) => {
-  const { summary } = data;
-  const done = summary.status === 'done' || summary.status === 'CLOSED';
-  const now = useNow();
-  const status = summary.status.toLowerCase().split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-  const overdue = !done && !!summary.dueAt && new Date(summary.dueAt).getTime() < now;
-  return (
-    <dl className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
-      <Fact icon={UserRound} tone="primary" label="Created by" value={summary.createdBy ?? 'Unknown'} hint={shortDate(summary.createdAt)} />
-      <Fact icon={Activity} tone={done ? 'success' : 'info'} label="Status" value={status} hint={`${done ? 'Since' : 'For'} ${duration(now - new Date(summary.statusSince).getTime())}${done ? ' ago' : ''}`} />
-      <Fact icon={UsersRound} tone="coral" label={done ? 'Done by' : 'With'} value={summary.assignee ?? 'Nobody yet'} />
-      <Fact icon={CalendarClock} tone={overdue ? 'danger' : 'warning'} label="Due" value={shortDate(summary.dueAt)} alert={overdue} hint={overdue ? `Late by ${duration(now - new Date(summary.dueAt as string).getTime())}` : undefined} />
-    </dl>
-  );
-};
-
 /**
  * A plain history for the people who work on a delegation or ticket: who made it, who moved it, who
  * approved or sent it back, and when its due date, priority or assignee changed, with a one-glance
@@ -199,8 +158,6 @@ export const ActivityFeed = ({ entityType, entityId }: { entityType: ActivityEnt
 
       {data && (
         <>
-          <Summary data={data} />
-
           {groups.map((group) => {
             const label = dayLabel(group.date);
             return (

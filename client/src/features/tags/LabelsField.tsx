@@ -8,6 +8,7 @@ import { PickerShell } from '../../components/dateTime/PickerShell';
 import { OptionList, type ListOption } from '../../components/dropdown/OptionList';
 import { Button } from '../../components/button';
 import { cn } from '@/lib/utils';
+import { IconChip } from '../../components/iconChip';
 import type { Tag } from '../../api/tags';
 
 /** Server caps `tagIds` at 12; enforced here too so a full set fails at the field, not on submit. */
@@ -66,10 +67,7 @@ const ColorSwatches = ({ value, onPick, label }: { value: string; onPick: (key: 
 
 /** A label as a chip: its colour dot and name. */
 const LabelChip = ({ tag, className }: { tag: Pick<Tag, 'name' | 'color'>; className?: string }) => (
-  <span className={cn('inline-flex min-w-0 max-w-full items-center gap-1.5 h-7 px-2.5 rounded-full border t-meta font-display font-semibold', labelChipClass(tag), className)}>
-    <span aria-hidden className={cn('size-2 rounded-full shrink-0', labelDotClass(tag))} />
-    <span className="truncate">{tag.name}</span>
-  </span>
+  <IconChip icon={TagIcon} tone={labelDotClass(tag)} label={tag.name} className={className} title={`Label: ${tag.name}`} />
 );
 
 const BackBar = ({ title, onBack }: { title: string; onBack: () => void }) => (

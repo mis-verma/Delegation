@@ -10,7 +10,7 @@ import {
   useAddTicketStatusUpdateMutation,
   useDepartmentsQuery,
 } from './hook';
-import { Button, ImageLightbox, ActivityFeed, FullChangeLog, IconChip, PriorityChip, DepartmentChip } from '../../components';
+import { Button, ImageLightbox, ActivityFeed, FullChangeLog, PriorityChip } from '../../components';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { useCategoriesQuery } from '../settings/hook';
 import { DetailLabelsField } from '../tags/DetailLabelsField';
@@ -265,21 +265,19 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
 
                   {departmentName && (
                     <TicketPropertyRow label="Department" wide icon={Building2} tone="bg-linear-to-br from-coral-500 to-coral-600" phoneHidden={!moreOpen}>
-                      <span title="Department" className="inline-flex min-w-0">
-                        <DepartmentChip name={departmentName} />
-                      </span>
+                      <span className="text-sm font-display font-semibold text-text break-words">{departmentName}</span>
                     </TicketPropertyRow>
                   )}
 
                   {storeName && (
                     <TicketPropertyRow label="Store" wide icon={StoreIcon} tone="bg-linear-to-br from-info to-info/70" phoneHidden={!moreOpen}>
-                      <IconChip icon={StoreIcon} tone="bg-text-muted" label={storeName} title="Store" className="max-w-full" />
+                      <span className="text-sm font-display font-semibold text-text break-words">{storeName}</span>
                     </TicketPropertyRow>
                   )}
 
                   {categoryName && (
                     <TicketPropertyRow label="Category" wide icon={Layers} tone="bg-linear-to-br from-success to-success/70" phoneHidden={!moreOpen}>
-                      <IconChip icon={Layers} tone="bg-text-muted" label={categoryName} title="Category" className="max-w-full" />
+                      <span className="text-sm font-display font-semibold text-text break-words">{categoryName}</span>
                     </TicketPropertyRow>
                   )}
 
@@ -406,7 +404,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
 
               <div className="flex flex-col gap-5 sm:gap-6 min-w-0 max-lg:order-3">
               {hasHistory && (
-                <div role="tablist" aria-label="Ticket history" className="lg:hidden grid grid-cols-2 gap-1 rounded-xl bg-surface-hover/70 p-1">
+                <div role="tablist" aria-label="Ticket history" className="grid grid-cols-2 lg:max-w-md gap-1 rounded-xl bg-surface-hover/70 p-1">
                   {(['history', 'activity'] as const).map(k => (
                     <button
                       key={k}
@@ -426,7 +424,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
               )}
 
               {hasHistory && (
-                <div className={shownTab === 'history' ? '' : 'max-lg:hidden'}>
+                <div className={shownTab === 'history' ? '' : 'hidden'}>
                 <TicketStatusHistory
                   statusUpdates={ticket.statusUpdates}
                   onPreview={setPreviewImage}
@@ -437,7 +435,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                 </div>
               )}
 
-              <div className={`flex flex-col gap-5 sm:gap-6 ${shownTab === 'activity' ? '' : 'max-lg:hidden'}`}>
+              <div className={`flex flex-col gap-5 sm:gap-6 ${shownTab === 'activity' ? '' : 'hidden'}`}>
                 <ActivityFeed entityType="Ticket" entityId={ticket.id} />
                 <FullChangeLog entityType="Ticket" entityId={ticket.id} />
               </div>

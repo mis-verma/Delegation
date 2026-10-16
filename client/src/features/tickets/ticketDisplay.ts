@@ -102,8 +102,11 @@ export const hoursUntil = (due: Date, now = Date.now()): number =>
   Math.max(1 / 60, Math.round(((due.getTime() - now) / 3_600_000) * 10_000) / 10_000);
 
 /** "6 PM" on the hour, "6:30 PM" otherwise. */
-export const formatClockShort = (d: Date) =>
-  d.toLocaleTimeString(undefined, d.getMinutes() === 0 ? { hour: 'numeric' } : { hour: 'numeric', minute: '2-digit' });
+export const formatClockShort = (d: Date) => {
+  const text = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  // "6:00 PM" -> "6 PM" on a 12-hour clock; a 24-hour clock keeps "18:00" (hour alone read as "18").
+  return d.getMinutes() === 0 ? text.replace(/:00(?=\s?[APap]\.?[Mm])/, '') : text;
+};
 
 /**
  * The one wording for a ticket's due time, shared by the card, table, timeline and detail sheet so
