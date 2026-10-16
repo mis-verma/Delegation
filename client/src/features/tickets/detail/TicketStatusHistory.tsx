@@ -41,8 +41,8 @@ const rowLabel = (row: HistoryRow) =>
 
 /**
  * Every status move, newest first, on one quiet rail. Each move gets its status's own icon circle;
- * the newest sits in a plain bordered card. Under each: "Ravi, 10 Oct 4:32 PM", the remark, and
- * any proof photos as small thumbnails (a "Camera" tag on the ones taken live).
+ * the newest is a white card tagged "Now". Each row: the move and "Ravi · 10 Oct 4:32 PM" on one
+ * line, then the remark and any proof photos as small thumbnails (a camera mark on live ones).
  */
 export const TicketStatusHistory = ({ statusUpdates, onPreview, closure }: TicketStatusHistoryProps) => {
   const rows: HistoryRow[] = [
@@ -54,39 +54,47 @@ export const TicketStatusHistory = ({ statusUpdates, onPreview, closure }: Ticke
   if (rows.length === 0) return null;
 
   return (
-    <section className="flex flex-col gap-3.5 min-w-0">
+    <section className="flex flex-col gap-2.5 min-w-0">
       <h3 className={DETAIL_SECTION_HEADING}>
-        <span className={DETAIL_SECTION_TILE} aria-hidden="true"><History size={16} strokeWidth={2.25} /></span>
+        <span className={DETAIL_SECTION_TILE} aria-hidden="true"><History size={14} strokeWidth={2.25} /></span>
         Status history
+        <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-surface-hover px-1.5 t-meta font-semibold text-text-muted tabular-nums">{rows.length}</span>
       </h3>
 
-      {/* The same rail as Activity: a gradient disc per move, in that status's colour, and every entry in its own soft card. */}
-      <ol className="relative flex flex-col gap-2 pl-11 before:absolute before:bottom-6 before:left-[15px] before:top-6 before:w-0.5 before:rounded-full before:bg-primary-500/30">
-        {rows.map((su) => {
+      {/* A thin rail with a small disc per move in that status's colour. The newest move is the white, ringed card;
+          older ones are quiet tinted rows. */}
+      <ol className="relative flex flex-col gap-1.5 pl-8 before:absolute before:bottom-5 before:left-[11px] before:top-5 before:w-px before:bg-border">
+        {rows.map((su, i) => {
           const key = su.toStatus.toLowerCase() as StatusChipStatus;
           const meta = getStatusChipMeta(key);
           const Icon = meta.icon;
-          const stamp = su.author ? `${su.author}, ${formatStamp(su.createdAt)}` : formatStamp(su.createdAt);
+          const latest = i === 0;
 
           return (
             <li key={su.id} className="relative">
-              <span className={`absolute -left-11 top-2.5 z-10 flex size-8 items-center justify-center rounded-full text-white ring-4 ring-surface ${meta.tone}`} aria-hidden>
-                <Icon size={14} strokeWidth={2.5} />
+              <span className={`absolute -left-8 top-2 z-10 flex size-6 items-center justify-center rounded-full text-white ring-[3px] ring-surface ${meta.tone}`} aria-hidden>
+                <Icon size={12} strokeWidth={2.75} />
               </span>
-              <div className="flex flex-col gap-1.5 rounded-xl border border-border/60 bg-surface-hover/30 px-3.5 py-2.5">
-                <div className="flex items-start justify-between gap-3">
-                  <p className="min-w-0 t-card font-display font-bold leading-snug text-text">{rowLabel(su)}</p>
+              <div className={`flex flex-col gap-1 rounded-lg border px-3 py-2 ${latest ? 'border-primary-500/25 bg-surface' : 'border-border/50 bg-surface-hover/30'}`}>
+                {/* One line: what happened on the left, who and when on the right (the name truncates first). */}
+                <div className="flex items-baseline justify-between gap-3 min-w-0">
+                  <p className="shrink-0 t-meta font-display font-semibold leading-snug text-text">
+                    {rowLabel(su)}
+                    {latest && <span className="ml-1.5 rounded-full bg-primary-500/10 px-1.5 py-px t-meta font-semibold text-primary-700 dark:text-primary-300">Now</span>}
+                  </p>
+                  <p className="min-w-0 truncate t-meta font-medium text-text-muted tabular-nums" title={su.author ? `${su.author}, ${formatStamp(su.createdAt)}` : undefined}>
+                    {su.author ? `${su.author} · ` : ''}{formatStamp(su.createdAt)}
+                  </p>
                 </div>
-                <p className="t-meta font-medium text-text-muted tabular-nums break-words">{stamp}</p>
 
                 {su.remark && (
-                  <p className="rounded-lg border border-border/60 bg-surface px-2.5 py-1.5 t-card text-text-secondary leading-relaxed whitespace-pre-wrap break-words">
+                  <p className="mt-0.5 border-l-2 border-border-hover pl-2 t-meta text-text-secondary leading-relaxed whitespace-pre-wrap break-words">
                     {su.remark}
                   </p>
                 )}
 
                 {su.photos && su.photos.length > 0 && (
-                  <div className="grid grid-cols-3 gap-2 max-w-sm pt-1">
+                  <div className="grid grid-cols-4 gap-1.5 max-w-xs pt-1">
                     {su.photos.map((photo) => {
                       const imageUrl = `${UPLOADS_BASE}${photo.url}`;
                       return (
@@ -94,14 +102,13 @@ export const TicketStatusHistory = ({ statusUpdates, onPreview, closure }: Ticke
                           key={photo.id}
                           type="button"
                           onClick={() => onPreview(imageUrl)}
-                          className="group/photo relative aspect-square w-full rounded-lg border border-border/60 overflow-hidden bg-surface-hover cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+                          className="group/photo relative aspect-square w-full rounded-md border border-border/60 overflow-hidden bg-surface-hover cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
                           aria-label={photo.captureMethod === 'LIVE' ? 'Open photo taken with the camera' : 'Open photo'}
                         >
                           <img src={imageUrl} alt="Proof photo" loading="lazy" className="size-full object-cover" />
                           {photo.captureMethod === 'LIVE' && (
-                            <span className="absolute bottom-1 left-1 inline-flex items-center gap-1 rounded-md bg-surface/90 px-1.5 py-0.5 t-meta font-semibold text-text">
-                              <Camera size={12} aria-hidden />
-                              Camera
+                            <span className="absolute bottom-0.5 left-0.5 flex size-4 items-center justify-center rounded bg-black/55 text-white" title="Taken with the camera">
+                              <Camera size={10} aria-hidden />
                             </span>
                           )}
                           <span className="absolute inset-0 bg-black/40 opacity-0 group-hover/photo:opacity-100 transition-opacity duration-200 flex items-center justify-center text-white" aria-hidden>

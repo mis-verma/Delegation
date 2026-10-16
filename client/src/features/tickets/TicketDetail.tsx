@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ShieldCheck, Pencil, Flag, Building2, History, ListChecks, CalendarDays, User, Store as StoreIcon, Layers, ChevronDown, AlertCircle } from 'lucide-react';
+import { ShieldCheck, Flag, Building2, CalendarDays, User, Store as StoreIcon, Layers, ChevronDown, AlertCircle } from 'lucide-react';
 import {
   useStoresQuery,
   useTicketQuery,
@@ -10,7 +10,7 @@ import {
   useAddTicketStatusUpdateMutation,
   useDepartmentsQuery,
 } from './hook';
-import { Button, ImageLightbox, ActivityFeed, FullChangeLog, PriorityChip } from '../../components';
+import { Button, ImageLightbox, PriorityChip } from '../../components';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { useCategoriesQuery } from '../settings/hook';
 import { DetailLabelsField } from '../tags/DetailLabelsField';
@@ -30,6 +30,7 @@ import { TicketAttachments } from './detail/TicketAttachments';
 import { TicketEditForm } from './detail/TicketEditForm';
 import { canChangeTicket, canWithdrawTicket } from './ticketPermissions';
 import { TicketStatusHistory } from './detail/TicketStatusHistory';
+import { TicketActivitySheet } from './detail/TicketActivitySheet';
 import { TicketVerificationActions } from './detail/TicketVerificationActions';
 import { TicketStatusMenu } from './detail/TicketStatusMenu';
 import { TicketStatusRemarkDialog } from './TicketStatusRemarkDialog';
@@ -106,8 +107,8 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
   const [editDirty, setEditDirty] = useState(false);
   // Phone only: Department, Store and Category fold away behind "More details"; the rail shows them all.
   const [moreOpen, setMoreOpen] = useState(false);
-  // Phone only: History and Activity share one tab strip; from lg both are on the page.
-  const [lowerTab, setLowerTab] = useState<'history' | 'activity'>('history');
+  // Activity and the change log live in their own sheet, opened from the header's More menu.
+  const [activityOpen, setActivityOpen] = useState(false);
   const statusUpdateMut = useAddTicketStatusUpdateMutation(ticket.id);
 
   const confirm = useConfirm();
@@ -213,21 +214,14 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
   const statusLabel = getTicketStatusLabel(ticket.status);
   const assigneeName = ticket.assignee?.firstName ?? null;
   const showFooter = editing || showVerify || statusOptions.length > 0 || canWithdraw;
-  const hasHistory = (ticket.statusUpdates?.length ?? 0) > 0;
-  // With no status history there is nothing to switch between, so Activity is the only view.
-  const shownTab = hasHistory ? lowerTab : 'activity';
   // The list row already carries the full ticket, so a loading bar only helps when it doesn't.
   const showLoadingBar = isPending && initialTicket.statusUpdates === undefined;
 
   return (
     <Sheet open onOpenChange={v => { if (!v) return requestClose(); }}>
-      {/* Phone: full-screen sheet. sm/md: a 600 / 680px panel. lg/xl: wide enough for the body to
-          split into a reading column plus a properties rail. shadow-none: the shared sheet's own
-          drop shadow is not part of this app's border-only elevation. The shared close button is
-          off, the header draws its own 44px one. */}
+     
       <SheetContent
         showCloseButton={false}
-        // With unsaved edits a stray tap outside does nothing; X, Escape and back ask first.
         onInteractOutside={(e) => { if (editing && editDirty) e.preventDefault(); }}
         className="w-full sm:max-w-[600px] md:max-w-[680px] lg:max-w-[880px] xl:max-w-[1040px] p-0 flex flex-col h-full overflow-hidden font-sans shadow-none"
       >
@@ -241,22 +235,20 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
           ticket={ticket}
           statusLabel={statusLabel}
           raisedByName={raisedByName}
+          onEdit={canEdit && !editing ? startEditing : undefined}
+          onShowActivity={() => setActivityOpen(true)}
           onDelete={isAdmin ? handleDelete : undefined}
           isDeleting={deleteMut.isPending}
         />
 
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6 custom-scrollbar">
-          {/* One column up to md: the description first, then the properties card, then the history.
-              From lg a reading column on the left and a sticky properties rail on the right. The
-              reading column is `contents` below lg so its two halves and the rail can be ordered
-              as siblings. */}
-          <div className="flex flex-col gap-5 sm:gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_17rem] xl:grid-cols-[minmax(0,1fr)_19rem] lg:items-start lg:gap-x-8">
+      
+          <div className="flex flex-col gap-4 sm:gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_17rem] xl:grid-cols-[minmax(0,1fr)_19rem] lg:items-start lg:gap-x-8">
             <aside
               aria-label="Ticket properties"
               className="flex flex-col gap-4 min-w-0 max-lg:order-2 max-lg:rounded-xl max-lg:border max-lg:border-border/60 max-lg:bg-surface-hover/30 max-lg:p-3 sm:max-lg:p-4 lg:order-2 lg:sticky lg:top-0 lg:rounded-xl lg:border lg:border-border lg:bg-surface lg:p-5"
             >
-              {/* Phone and tablet: every property is a chip in one wrapping row. lg: the same
-                  elements become labelled rows (see TicketPropertyRow). */}
+              
               <section className="flex flex-col gap-2 lg:gap-3">
                 <dl className="grid grid-cols-2 gap-2 lg:flex lg:flex-col lg:gap-0 lg:divide-y lg:divide-border/60">
                   <TicketPropertyRow label="Priority" icon={Flag} tone={PRIORITY_CONFIG[ticket.priority].solid}>
@@ -265,27 +257,25 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
 
                   {departmentName && (
                     <TicketPropertyRow label="Department" wide icon={Building2} tone="bg-linear-to-br from-coral-500 to-coral-600" phoneHidden={!moreOpen}>
-                      <span className="text-sm font-display font-semibold text-text break-words">{departmentName}</span>
+                      <span className="t-meta font-display font-semibold text-text break-words">{departmentName}</span>
                     </TicketPropertyRow>
                   )}
 
                   {storeName && (
                     <TicketPropertyRow label="Store" wide icon={StoreIcon} tone="bg-linear-to-br from-info to-info/70" phoneHidden={!moreOpen}>
-                      <span className="text-sm font-display font-semibold text-text break-words">{storeName}</span>
+                      <span className="t-meta font-display font-semibold text-text break-words">{storeName}</span>
                     </TicketPropertyRow>
                   )}
 
                   {categoryName && (
                     <TicketPropertyRow label="Category" wide icon={Layers} tone="bg-linear-to-br from-success to-success/70" phoneHidden={!moreOpen}>
-                      <span className="text-sm font-display font-semibold text-text break-words">{categoryName}</span>
+                      <span className="t-meta font-display font-semibold text-text break-words">{categoryName}</span>
                     </TicketPropertyRow>
                   )}
 
                   <TicketPropertyRow label="Assignee" icon={User} tone="bg-linear-to-br from-primary-500 to-primary-600" wide first>
                     {canRoute ? (
-                      // The shared picker keeps its 32px avatar and carries its own invisible 44px
-                      // touch hit area, so nothing is stretched from out here.
-                      <div title="Assignee" className="flex items-center max-lg:w-full">
+                      <div title="Assignee" className="w-full min-w-0">
                         <AssigneeField
                           single
                           hideLabel
@@ -295,24 +285,25 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                         />
                       </div>
                     ) : (
-                      <span title="Assignee" className="inline-flex items-center gap-1.5 min-w-0 pl-1 pr-2.5 py-1 rounded-full border border-border/60 bg-surface t-meta font-semibold text-text max-lg:w-full max-lg:rounded-lg max-lg:py-2 max-lg:text-sm">
+                      // Same row as the picker, without its "Change": read-only for this viewer.
+                      <span title="Assignee" className="flex w-full min-w-0 items-center gap-2 h-10 pl-1.5 pr-2.5 rounded-lg border border-border/60 bg-surface t-meta font-display font-semibold text-text">
                         {assigneeName ? (
-                          <span className={`flex items-center justify-center size-6 rounded-full text-white text-xs font-bold shrink-0 ${avatarColorClass(assigneeName)}`}>
+                          <span className={`flex items-center justify-center size-7 rounded-full text-white t-meta font-bold shrink-0 ${avatarColorClass(assigneeName)}`}>
                             {getInitials(assigneeName)}
                           </span>
                         ) : (
-                          <span className="flex items-center justify-center size-6 rounded-full bg-surface-hover text-text-light shrink-0">
-                            <User size={14} />
+                          <span className="flex items-center justify-center size-7 rounded-full bg-surface-hover text-text-light shrink-0">
+                            <User size={13} />
                           </span>
                         )}
-                        <span className="truncate">{assigneeName ?? 'Nobody yet'}</span>
+                        <span className={`truncate ${assigneeName ? '' : 'text-text-muted'}`}>{assigneeName ?? 'Nobody yet'}</span>
                       </span>
                     )}
                   </TicketPropertyRow>
 
                   {due ? (
                     <TicketPropertyRow label="Due" icon={CalendarDays} tone={due.overdue ? 'bg-linear-to-br from-danger to-danger/70' : 'bg-linear-to-br from-warning to-warning/70'}>
-                      <span className={`text-sm font-display font-semibold leading-snug ${due.overdue ? 'text-danger' : 'text-text'}`}>
+                      <span className={`t-meta font-display font-semibold leading-snug ${due.overdue ? 'text-danger' : 'text-text'}`}>
                         {due.text.replace(/^Due\s+/i, '').replace(/^./, (c) => c.toUpperCase())}
                       </span>
                     </TicketPropertyRow>
@@ -323,7 +314,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                       type="button"
                       onClick={() => setMoreOpen(o => !o)}
                       aria-expanded={moreOpen}
-                      className="lg:hidden order-last col-span-2 inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-surface-hover/40 t-meta font-display font-semibold text-text-secondary hover:text-text hover:bg-surface-hover cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+                      className="lg:hidden order-last col-span-2 inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-surface-hover/40 t-meta font-display font-semibold text-text-secondary hover:text-text hover:bg-surface-hover cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
                     >
                       {moreOpen ? 'Fewer details' : 'More details'}
                       <ChevronDown size={14} strokeWidth={2.5} className={`transition-transform duration-200 ${moreOpen ? 'rotate-180' : ''}`} />
@@ -334,20 +325,20 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
 
               {/* Same inline label field as the create form; each change saves at once. Editable by
                   whoever may change the ticket, read-only chips for everyone else. */}
-              <div className="min-w-0 lg:border-t lg:border-border/50 lg:pt-4 empty:hidden">
+              <div className="min-w-0 rounded-xl bg-surface-hover/40 px-2.5 py-2 lg:rounded-none lg:bg-transparent lg:px-0 lg:py-0 lg:border-t lg:border-border/50 lg:pt-4 empty:hidden">
                 <DetailLabelsField
                   current={ticket.tags ?? []}
                   onSave={(tagIds) => labelsMut.mutate({ id: ticket.id, payload: { tagIds } })}
                   canCreate={isVerifier}
                   readOnly={!canEdit}
-                  hideHeading
+                  iconOnly
                   headingClassName={DETAIL_HEADING_CLASS}
                 />
               </div>
             </aside>
 
             <div className="max-lg:contents lg:flex lg:flex-col lg:gap-6 min-w-0 lg:order-1">
-              <div className="flex flex-col gap-5 sm:gap-6 min-w-0 max-lg:order-1">
+              <div className="flex flex-col gap-4 sm:gap-5 min-w-0 max-lg:order-1">
               {/* No reviewer picker: PC and Admin verify every ticket by default. Older tickets that
                   named reviewers still show them, read-only. */}
               {ticket.reviewers.length > 0 && (
@@ -372,19 +363,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                   onCancel={() => { setEditing(false); setEditDirty(false); }}
                 />
               ) : (
-                <div className="flex flex-col gap-2">
-                  {canEdit && (
-                    <button
-                      type="button"
-                      onClick={startEditing}
-                      className="self-start relative inline-flex items-center gap-1.5 h-8 px-2.5 -ml-2.5 rounded-full t-meta font-display font-semibold text-text-secondary hover:text-text hover:bg-surface-hover cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 after:absolute after:-inset-y-1.5 after:inset-x-0"
-                    >
-                      <Pencil size={14} strokeWidth={2.5} />
-                      Edit title and details
-                    </button>
-                  )}
-                  <TicketDescription description={ticket.description} />
-                </div>
+                <TicketDescription description={ticket.description} />
               )}
 
               <TicketAttachments
@@ -402,43 +381,14 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
               )}
               </div>
 
-              <div className="flex flex-col gap-5 sm:gap-6 min-w-0 max-lg:order-3">
-              {hasHistory && (
-                <div role="tablist" aria-label="Ticket history" className="grid grid-cols-2 lg:max-w-md gap-1 rounded-xl bg-surface-hover/70 p-1">
-                  {(['history', 'activity'] as const).map(k => (
-                    <button
-                      key={k}
-                      type="button"
-                      role="tab"
-                      aria-selected={shownTab === k}
-                      onClick={() => setLowerTab(k)}
-                      className={`inline-flex h-11 items-center justify-center gap-2 rounded-lg border text-sm font-display font-semibold cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 transition-colors duration-150 ${
-                        shownTab === k ? 'bg-surface border-border text-text' : 'border-transparent text-text-muted hover:text-text'
-                      }`}
-                    >
-                      {k === 'history' ? <ListChecks size={15} strokeWidth={2.5} aria-hidden="true" /> : <History size={15} strokeWidth={2.5} aria-hidden="true" />}
-                      {k === 'history' ? 'History' : 'Activity'}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {hasHistory && (
-                <div className={shownTab === 'history' ? '' : 'hidden'}>
-                <TicketStatusHistory
-                  statusUpdates={ticket.statusUpdates}
-                  onPreview={setPreviewImage}
-                  closure={ticket.status === 'CLOSED' && (ticket.verifiedAt ?? ticket.closedAt)
-                    ? { at: (ticket.verifiedAt ?? ticket.closedAt) as string, by: ticket.verifier?.firstName ?? null, note: ticket.verificationNote }
-                    : null}
-                />
-                </div>
-              )}
-
-              <div className={`flex flex-col gap-5 sm:gap-6 ${shownTab === 'activity' ? '' : 'hidden'}`}>
-                <ActivityFeed entityType="Ticket" entityId={ticket.id} />
-                <FullChangeLog entityType="Ticket" entityId={ticket.id} />
-              </div>
+              <div className="flex flex-col gap-4 sm:gap-5 min-w-0 max-lg:order-3">
+              <TicketStatusHistory
+                statusUpdates={ticket.statusUpdates}
+                onPreview={setPreviewImage}
+                closure={ticket.status === 'CLOSED' && (ticket.verifiedAt ?? ticket.closedAt)
+                  ? { at: (ticket.verifiedAt ?? ticket.closedAt) as string, by: ticket.verifier?.firstName ?? null, note: ticket.verificationNote }
+                  : null}
+              />
               </div>
             </div>
           </div>
@@ -506,12 +456,10 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
 
         <ImageLightbox src={previewImage} onClose={() => setPreviewImage(null)} />
 
+        <TicketActivitySheet ticketId={ticket.id} open={activityOpen} onOpenChange={setActivityOpen} />
+
       </SheetContent>
 
-      {/* Remark popup for On hold and Mark completed. Deliberately not `nested`: this sheet is a
-          shadcn Sheet whose Radix Dialog portals outside its own DOM subtree, and with `nested`
-          (modal={false}) the Sheet would read a tap inside the popup as an outside tap and close
-          before the submit lands. A plain, independently modal dialog stacks on top cleanly. */}
       {quickStatusPick && (
         <TicketStatusRemarkDialog
           ticket={ticket}

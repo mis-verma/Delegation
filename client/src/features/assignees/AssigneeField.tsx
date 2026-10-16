@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Plus, UserPlus } from 'lucide-react';
+import { ChevronDown, Plus, UserPlus } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -112,7 +112,38 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
     ? selectedUsers.length ? `Assignee: ${nameOf(selectedUsers[0])}. Change` : 'Choose an assignee'
     : selectedUsers.length ? `Assignees: ${selectedUsers.map(nameOf).join(', ')}. Add or remove people` : 'Add people';
 
-  const triggerButton = (
+  // One person (Ticket): a full-width row, avatar and name on the left, "Change" on the right, so the
+  // whole row reads as one control instead of a name chip beside a loose pill.
+  const picked = selectedUsers[0];
+  const singleTrigger = (
+    <button
+      ref={setTriggerEl}
+      type="button"
+      aria-label={pickerLabel}
+      title="Change assignee"
+      className="group/assign flex w-full min-w-0 items-center gap-2 h-10 pl-1.5 pr-2.5 rounded-lg border border-border/60 bg-surface text-left cursor-pointer outline-none transition-colors duration-150 ease-out hover:border-primary-400 focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]"
+    >
+      {picked ? (
+        <span className={`flex items-center justify-center size-7 rounded-full t-meta font-bold text-white shrink-0 ${avatarColorClass(nameOf(picked))}`} aria-hidden="true">
+          {getInitials(nameOf(picked))}
+        </span>
+      ) : (
+        <span className="flex items-center justify-center size-7 rounded-full border border-dashed border-border-hover text-text-muted shrink-0" aria-hidden="true">
+          <UserPlus size={13} strokeWidth={2.25} />
+        </span>
+      )}
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className={`truncate t-meta font-display font-semibold ${picked ? 'text-text' : 'text-text-muted'}`}>{picked ? nameOf(picked) : 'Nobody yet'}</span>
+        {picked && hintOf(picked) && <span className="truncate t-meta text-text-muted leading-tight">{hintOf(picked)}</span>}
+      </span>
+      <span className="inline-flex shrink-0 items-center gap-0.5 t-meta font-display font-semibold text-primary-600 dark:text-primary-300">
+        {picked ? 'Change' : 'Pick'}
+        <ChevronDown size={13} strokeWidth={2.5} className="transition-transform duration-150 group-aria-expanded/assign:rotate-180" aria-hidden="true" />
+      </span>
+    </button>
+  );
+
+  const triggerButton = single ? singleTrigger : (
     <button
       ref={setTriggerEl}
       type="button"

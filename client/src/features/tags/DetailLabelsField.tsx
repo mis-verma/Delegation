@@ -14,6 +14,8 @@ interface DetailLabelsFieldProps {
   headingClassName: string;
   /** Show only the label chips, with no "Labels" heading above them (read-only view). */
   hideHeading?: boolean;
+  /** No "Labels" heading at all: a tag icon tile leads the chips (or the field) on the same line. */
+  iconOnly?: boolean;
 }
 
 /**
@@ -21,7 +23,13 @@ interface DetailLabelsFieldProps {
  * change saves straight away. The picked set is held locally so a chip lands the instant you
  * press Enter, not after the round-trip; it re-syncs whenever the server's copy changes.
  */
-export const DetailLabelsField = ({ current, onSave, canCreate, readOnly, headingClassName, hideHeading = false }: DetailLabelsFieldProps) => {
+const ICON_TILE = (
+  <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-linear-to-br from-primary-500 to-primary-600 text-white" title="Labels" aria-hidden="true">
+    <TagIcon className="size-3.5" strokeWidth={2.25} />
+  </span>
+);
+
+export const DetailLabelsField = ({ current, onSave, canCreate, readOnly, headingClassName, hideHeading = false, iconOnly = false }: DetailLabelsFieldProps) => {
   const { data: tags } = useTagsQuery();
   const serverIds = current.map((t) => t.id).join(',');
   const [ids, setIds] = useState<string[]>(() => current.map((t) => t.id));
@@ -33,6 +41,16 @@ export const DetailLabelsField = ({ current, onSave, canCreate, readOnly, headin
 
   if (readOnly) {
     if (!current.length) return null;
+    if (iconOnly) {
+      return (
+        <div className="flex items-center gap-2.5 min-w-0" aria-label="Labels">
+          {ICON_TILE}
+          <div className="flex min-w-0 flex-wrap gap-1.5">
+            {current.map((t) => <TagChip key={t.id} tag={t} showLabelOnMobile />)}
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="flex flex-col gap-2">
         {!hideHeading && (
@@ -54,6 +72,17 @@ export const DetailLabelsField = ({ current, onSave, canCreate, readOnly, headin
   // copies in the list so their chips still resolve.
   const known = [...(tags ?? [])];
   for (const t of current) if (!known.some((k) => k.id === t.id)) known.push(t);
+
+  if (iconOnly) {
+    return (
+      <div className="flex items-center gap-2.5 min-w-0" aria-label="Labels">
+        {ICON_TILE}
+        <div className="min-w-0 flex-1">
+          <LabelsField hideHeading tags={known} selectedIds={ids} onChange={(next) => { setIds(next); onSave(next); }} canCreate={canCreate} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-2">

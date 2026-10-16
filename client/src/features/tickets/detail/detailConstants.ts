@@ -28,8 +28,8 @@ export const STATUS_CONFIG: Record<TicketStatus, { bg: string; text: string; bor
 
 export const UPLOADS_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:5050';
 
-/** Section heading inside the ticket sheet (Status history, Photos, Checklists): the app's t-section role. */
-export const DETAIL_SECTION_HEADING = 'flex items-center gap-2.5 t-card font-display font-bold text-text';
+/** Section heading inside the ticket sheet (Status history, Photos, Checklists): small, the same style as the form's field labels. */
+export const DETAIL_SECTION_HEADING = 'flex items-center gap-2 t-meta font-display font-semibold text-text-secondary';
 
 /** The gradient icon tile in front of a section heading, the same as Activity's. */
-export const DETAIL_SECTION_TILE = 'flex size-8 shrink-0 items-center justify-center rounded-lg text-white bg-linear-to-br from-primary-500 to-primary-600';
+export const DETAIL_SECTION_TILE = 'flex size-6 shrink-0 items-center justify-center rounded-md text-white bg-linear-to-br from-primary-500 to-primary-600';

@@ -37,16 +37,16 @@ export const TicketPropertyRow = ({ label, children, railOnly = false, icon: Ico
       first && 'max-lg:order-first',
       wideOnPhone && 'col-span-2 sm:col-span-1',
       'min-w-0 items-center gap-2.5 rounded-xl bg-surface-hover/40 px-2.5 py-2',
-      !tileOnly && 'lg:items-start lg:gap-3 lg:rounded-none lg:bg-transparent lg:px-0 lg:py-3 lg:first:pt-0 lg:last:pb-0',
+      !tileOnly && 'lg:items-start lg:gap-2.5 lg:rounded-none lg:bg-transparent lg:px-0 lg:py-2.5 lg:first:pt-0 lg:last:pb-0',
     )}
   >
     {Icon && (
-      <span className={cn('flex size-8 shrink-0 items-center justify-center rounded-lg text-white', tone)} aria-hidden="true">
-        <Icon className="size-4" strokeWidth={2.25} />
+      <span className={cn('flex size-7 shrink-0 items-center justify-center rounded-lg text-white', tone)} aria-hidden="true">
+        <Icon className="size-3.5" strokeWidth={2.25} />
       </span>
     )}
     <div className={cn('flex min-w-0 flex-1 flex-col gap-0.5', !tileOnly && 'lg:gap-1')}>
-      <dt className="t-meta font-medium text-text-muted">{label}</dt>
+      <dt className="t-meta font-medium text-text-muted leading-none">{label}</dt>
       <dd className="flex min-w-0 flex-wrap items-center">{children}</dd>
     </div>
   </div>

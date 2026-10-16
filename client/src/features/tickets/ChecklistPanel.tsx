@@ -405,7 +405,7 @@ export const ChecklistPanel = ({ ticketId, checklists, workerIds = [] }: Checkli
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <h3 className={DETAIL_SECTION_HEADING}>
-          <ListChecks size={16} className="text-text-light" aria-hidden />
+          <ListChecks size={14} className="text-text-light" aria-hidden />
           Checklist
         </h3>
         {isAdmin && !adding && (

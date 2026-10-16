@@ -602,7 +602,7 @@ const TaskEditLayout = ({
         onSave={(tagIds) => onUpdate({ tagIds })}
         canCreate={isVerifier}
         readOnly={isViewOnly}
-        hideHeading
+        iconOnly
         headingClassName={DETAIL_HEADING_CLASS}
       />
 

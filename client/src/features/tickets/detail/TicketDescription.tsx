@@ -28,7 +28,7 @@ const renderFormattedText = (text: string) => {
   });
 };
 
-/** Description as a small faded label over larger body text, the way a phone settings row reads:
+/** Description as plain small body text, the same size as the form fields:
  *  no icon, no box. Long text is clamped to six lines with a Show more link. */
 export const TicketDescription = ({ description }: TicketDescriptionProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -42,7 +42,7 @@ export const TicketDescription = ({ description }: TicketDescriptionProps) => {
         <div className="flex flex-col gap-1">
           {/* 72ch keeps a line readable once the left column is wider than a phone. */}
           <p
-            className={`max-w-[72ch] text-base text-text leading-relaxed whitespace-pre-wrap break-words select-text ${
+            className={`max-w-[72ch] text-sm text-text leading-relaxed whitespace-pre-wrap break-words select-text ${
               isLongText && !isExpanded ? 'line-clamp-6' : ''
             }`}
           >
@@ -60,7 +60,7 @@ export const TicketDescription = ({ description }: TicketDescriptionProps) => {
           )}
         </div>
       ) : (
-        <p className="text-base text-text-light italic">No description added.</p>
+        <p className="text-sm text-text-light italic">No description added.</p>
       )}
     </section>
   );
