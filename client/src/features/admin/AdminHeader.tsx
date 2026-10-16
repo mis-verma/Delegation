@@ -38,7 +38,7 @@ const CLOCK_REFRESH_MS = 30_000;
 // the layout into horizontal overflow. Each call site now supplies its own `inline-flex` (or
 // `hidden`/`sm:inline-flex` pair) so there's only ever one unconditional display utility in play.
 const ICON_BUTTON =
-  'items-center justify-center size-11 rounded-full text-text-muted ' +
+  'items-center justify-center size-10 pointer-coarse:size-11 rounded-xl text-text-muted ' +
   'transition-all duration-200 ease-out cursor-pointer ' +
   'hover:text-text hover:bg-surface-hover active:scale-95 ' +
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500';
@@ -86,7 +86,7 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
   ];
 
   return (
-    <header className="relative shrink-0 mx-3 mt-3 rounded-xl bg-surface border border-border">
+    <header className="relative shrink-0 mx-3 mt-3 rounded-xl border border-border/70 bg-surface bg-linear-to-r from-primary-500/[0.06] via-surface to-surface dark:from-primary-400/[0.09]">
       <div className="flex items-center gap-3 sm:gap-4 h-16 px-3 sm:px-5">
         {/* Left: sidebar toggle + dynamic "you are here" title (the brand mark already lives in
             the sidebar, so this slot carries context instead of repeating it) */}
@@ -117,7 +117,7 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
             <span className="text-sm font-display font-semibold">Dashboard</span>
           </Link>
 
-          <span className="hidden sm:block h-8 w-px bg-border shrink-0" aria-hidden="true" />
+          <span className="hidden sm:block h-7 w-px shrink-0 bg-border/70" aria-hidden="true" />
 
           {/* Phones: the section you're in, with today's date under it (same pattern as the main
               app header) — a greeting squeezed between the toggle and the icons only ever showed
@@ -127,10 +127,10 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
             <span className="text-xs font-medium text-text-muted">{currentDate}</span>
           </div>
           <div className="hidden sm:flex flex-col min-w-0 leading-tight">
-            <span className="text-base font-display font-bold text-text truncate">
+            <span className="t-card font-display font-bold text-text truncate">
               {greeting(now)}{firstName ? `, ${firstName}` : null}
             </span>
-            <span className="text-xs font-medium text-text-muted truncate">{pageLabel}</span>
+            <span className="t-meta font-medium text-text-muted truncate">{pageLabel}</span>
           </div>
         </div>
 
@@ -153,6 +153,8 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
             </button>
           </div>
 
+          {user && <span className="hidden sm:block h-7 w-px shrink-0 bg-border/70" aria-hidden="true" />}
+
           {user && (
             <Dropdown
               items={accountActions}
@@ -160,16 +162,16 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
                 <button
                   title={user.name}
                   aria-label={`Account menu, ${user.name}${user.role ? `, ${roleLabel(user.role)}` : ''}`}
-                  className="flex items-center gap-2.5 h-11 px-1.5 sm:pl-1 sm:pr-3 rounded-full text-text-secondary cursor-pointer transition-all duration-200 hover:bg-surface-hover hover:text-text active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 group"
+                  className="flex items-center gap-2.5 h-11 px-1.5 sm:pl-1 sm:pr-2.5 rounded-full sm:border sm:border-border/60 sm:bg-surface-hover/40 text-text-secondary cursor-pointer transition-colors duration-200 hover:bg-surface-hover sm:hover:border-border-hover hover:text-text active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 group"
                 >
-                  <span className="relative flex items-center justify-center size-8 rounded-full bg-linear-to-br from-primary-500 to-primary-600 text-white font-display font-bold text-xs shrink-0 group-hover:scale-105 transition-transform">
+                  <span className="relative flex items-center justify-center size-8 rounded-full bg-linear-to-br from-primary-500 to-primary-700 text-white font-display font-bold text-xs shrink-0 ring-2 ring-surface">
                     {initials || <User size={14} strokeWidth={2.5} />}
                     <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-success border-2 border-surface" aria-hidden="true" />
                   </span>
                   <span className="hidden lg:flex flex-col items-start min-w-0 leading-tight py-0.5">
-                    <span className="max-w-[120px] truncate text-sm font-bold text-text">{user.name}</span>
+                    <span className="max-w-[120px] truncate t-meta font-display font-bold text-text">{user.name}</span>
                     {user.role && (
-                      <span className="max-w-[120px] truncate text-xs font-medium text-text-muted mt-0.5">{roleLabel(user.role)}</span>
+                      <span className="max-w-[120px] truncate text-[0.6875rem] font-medium text-text-muted">{roleLabel(user.role)}</span>
                     )}
                   </span>
                   <ChevronDown size={14} className="hidden sm:inline text-text-light shrink-0 ml-1 group-hover:text-text-muted transition-colors" strokeWidth={2.5} />

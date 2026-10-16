@@ -27,7 +27,7 @@ import { greeting as timeGreeting } from '../../features/dashboard/dashboardDisp
 // Matches the same fix already applied to AdminHeader's icon buttons, for the same reason: on a
 // header full of icon-only buttons, undersized targets are the easiest spot to mis-tap on a phone.
 export const ICON_BUTTON_CLASS =
-  'inline-flex items-center justify-center size-11 rounded-full text-text-muted ' +
+  'inline-flex items-center justify-center size-10 pointer-coarse:size-11 rounded-xl text-text-muted ' +
   'transition-all duration-200 ease-out cursor-pointer ' +
   'hover:text-text hover:bg-surface-hover hover:border-border-hover border border-transparent ' +
   'active:scale-95 ' +
@@ -93,7 +93,8 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
     // not the old full-bleed glass bar with a shadow and a gradient underline. The one difference is
     // that this one keeps the logo (the Admin header leaves the brand to its sidebar; here the logo
     // is the way home and the only brand mark on screen).
-    <header className="relative z-30 shrink-0 mx-3 mt-3 rounded-xl bg-surface border border-border max-sm:border-border/60 max-sm:bg-gradient-to-br max-sm:from-primary-500/[0.07] max-sm:to-transparent">
+    // A faint brand tint from the logo side, fading to the surface, so the bar reads as the app's own top layer.
+    <header className={`relative shrink-0 mx-3 mt-3 rounded-xl border border-border/70 bg-surface bg-linear-to-r from-primary-500/[0.06] via-surface to-surface dark:from-primary-400/[0.09] z-30`}>
       <div className="flex items-center gap-2 sm:gap-4 h-14 sm:h-16 px-3 sm:px-5">
         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
           {onToggleSidebar && (
@@ -128,6 +129,8 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
             )}
           </NavLink>
 
+          <span className="hidden sm:block h-7 w-px shrink-0 bg-border/70" aria-hidden="true" />
+
           {/* Phones: the page (or a greeting on Home) with today's date under it. */}
           {phoneTitle && (
             <div className="sm:hidden flex flex-col min-w-0 leading-tight">
@@ -140,10 +143,10 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
               it (the date used to be its own bordered clock pill on the right). With no page name (the public
               pages) the greeting takes the headline and the date the line under it. */}
           <div className="hidden sm:flex flex-col min-w-0 leading-tight">
-            <span className="text-base font-display font-bold text-text truncate">
+            <span className="t-card font-display font-bold text-text truncate">
               {pageLabel ?? `${timeGreeting(now)}${firstName ? `, ${firstName}` : ''}`}
             </span>
-            <span className="text-xs font-medium text-text-muted truncate">
+            <span className="t-meta font-medium text-text-muted truncate">
               {pageLabel ? `${timeGreeting(now)}${firstName ? `, ${firstName}` : ''} · ${currentDate}` : currentDate}
             </span>
           </div>
@@ -166,6 +169,8 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
             </button>
           </div>
 
+          {user && <span className="hidden sm:block h-7 w-px shrink-0 bg-border/70" aria-hidden="true" />}
+
           {user && (
             <Dropdown
               items={accountActions}
@@ -173,16 +178,16 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
                 <button
                   title={user.name}
                   aria-label={`Account menu, ${user.name}${user.role ? `, ${titleCase(user.role)}` : ''}`}
-                  className="flex items-center gap-2.5 h-11 px-1.5 sm:pl-1 sm:pr-3 rounded-full text-text-secondary cursor-pointer transition-all duration-200 hover:bg-surface-hover hover:text-text active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 group"
+                  className="flex items-center gap-2.5 h-11 px-1.5 sm:pl-1 sm:pr-2.5 rounded-full sm:border sm:border-border/60 sm:bg-surface-hover/40 text-text-secondary cursor-pointer transition-colors duration-200 hover:bg-surface-hover sm:hover:border-border-hover hover:text-text active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 group"
                 >
-                  <span className="relative flex items-center justify-center size-8 rounded-full bg-linear-to-br from-primary-500 to-primary-600 text-white font-display font-bold text-xs shrink-0">
+                  <span className="relative flex items-center justify-center size-8 rounded-full bg-linear-to-br from-primary-500 to-primary-700 text-white font-display font-bold text-xs shrink-0 ring-2 ring-surface">
                     {initials || <User size={14} strokeWidth={2.5} />}
                     <span className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-success border-2 border-surface" aria-hidden="true" />
                   </span>
                   <span className="hidden lg:flex flex-col items-start min-w-0 leading-tight py-0.5">
-                    <span className="max-w-[120px] truncate text-sm font-bold text-text">{user.name}</span>
+                    <span className="max-w-[120px] truncate t-meta font-display font-bold text-text">{user.name}</span>
                     {user.role && (
-                      <span className="max-w-[120px] truncate text-xs font-medium text-text-muted mt-0.5">{titleCase(user.role)}</span>
+                      <span className="max-w-[120px] truncate text-[0.6875rem] font-medium text-text-muted">{titleCase(user.role)}</span>
                     )}
                   </span>
                   <ChevronDown size={14} className="hidden sm:inline text-text-light shrink-0 ml-1 group-hover:text-text-muted transition-colors" strokeWidth={2.5} />
