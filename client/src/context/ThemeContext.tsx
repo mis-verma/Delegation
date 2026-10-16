@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { flushSync } from 'react-dom';
 
 type Theme = 'light' | 'dark';
 // What the user actually chose, as opposed to `Theme` (what's currently applied on screen) —
@@ -16,6 +17,22 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | null>(null);
 const THEME_STORAGE_KEY = 'tm-theme';
+
+// Page colours from index.css, the same two index.html paints before the first frame. The <html> element keeps
+// them inline, so they must follow every switch or the old theme shows through behind the app.
+const PAGE_BG: Record<'light' | 'dark', string> = { light: '#f5f7fb', dark: '#0b1020' };
+
+/** Puts a theme on the page: the class Tailwind's dark: variants read, the data attribute the tokens read, and the
+ *  page background and native colour scheme (scrollbars, form controls). Safe to call twice. */
+const applyTheme = (theme: 'light' | 'dark') => {
+  const root = document.documentElement;
+  root.classList.toggle('dark', theme === 'dark');
+  root.setAttribute('data-theme', theme);
+  root.style.backgroundColor = PAGE_BG[theme];
+  root.style.colorScheme = theme;
+};
+
+const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const systemPrefersDark = () =>
   typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -44,38 +61,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [systemIsDark, setSystemIsDark] = useState(systemPrefersDark);
   const theme: Theme = preference === 'system' ? (systemIsDark ? 'dark' : 'light') : preference;
 
-  // Skips the very first run — the initial theme is applied before paint (see index.html's inline
-  // script, or this being the mount value), so there's no color change to smooth there, only on a
-  // real switch afterward.
-  const isFirstRun = useRef(true);
-
-  useEffect(() => {
-    const root = document.documentElement;
-
-    // Support for Tailwind's standard `darkMode: 'class'` configuration
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
-
-    // Support for custom CSS variables or DaisyUI
-    root.setAttribute('data-theme', theme);
-
-    if (isFirstRun.current) {
-      isFirstRun.current = false;
-      return;
-    }
-
-    // Every --color-* token flips the instant the attribute above changes. `.theme-switching`
-    // (index.css) is what makes that a 200ms fade instead of a hard snap — scoped to just this
-    // window around a real switch, not left on permanently, so it can't leave frequently
-    // re-rendering elements (a live count, a hover state) stuck perpetually mid-fade instead of
-    // settling into their resting color.
-    root.classList.add('theme-switching');
-    const timeout = window.setTimeout(() => root.classList.remove('theme-switching'), 260);
-    return () => window.clearTimeout(timeout);
-  }, [theme]);
+  // Keeps the page in step with `theme` for every way it changes (a switch below, or the OS flipping while on "system").
+  useEffect(() => { applyTheme(theme); }, [theme]);
 
   // Persists the PREFERENCE ('light' / 'dark' / 'system'), not the resolved theme — "system" has
   // to stay "system" across reloads, not collapse into whatever it happened to resolve to once.
@@ -92,21 +79,40 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return () => mql.removeEventListener('change', onChange);
   }, []);
 
-  const setPreference = useCallback((next: ThemePreference) => setPreferenceState(next), []);
+  // A switch the person made: one smooth cross-fade of the whole screen (the browser's View Transition: it
+  // photographs the old look and fades it into the new one in a single GPU layer). Element-by-element colour fades are
+  // switched off for that moment (.theme-switching in index.css): thousands of elements fading on their own made it
+  // lag, and gradients and tints, which can't fade, snapped early and showed as lines while borders were still fading.
+  // Without View Transition support, or with reduced motion, it is simply instant (still no lines).
+  const switchTo = useCallback((next: ThemePreference) => {
+    const root = document.documentElement;
+    const resolved: Theme = next === 'system' ? (systemPrefersDark() ? 'dark' : 'light') : next;
+    const run = () => {
+      flushSync(() => setPreferenceState(next));
+      applyTheme(resolved);
+    };
+    root.classList.add('theme-switching');
+    const done = () => root.classList.remove('theme-switching');
+    if (typeof document.startViewTransition === 'function' && !prefersReducedMotion()) {
+      document.startViewTransition(run).finished.finally(done);
+    } else {
+      run();
+      requestAnimationFrame(() => requestAnimationFrame(done));
+    }
+  }, []);
+
+  const setPreference = useCallback((next: ThemePreference) => switchTo(next), [switchTo]);
   // Kept for existing callers that only ever dealt in concrete themes — setting one this way is
   // itself an explicit choice, same as `toggleTheme` below, so it also leaves "system" behind.
-  const setTheme = useCallback((next: Theme) => setPreferenceState(next), []);
+  const setTheme = useCallback((next: Theme) => switchTo(next), [switchTo]);
 
   // Memoized toggle function to prevent unnecessary re-renders in consumer components. Flips the
   // currently APPLIED theme, not the stored preference — toggling while on "system" should feel
   // like "no, dark, actually," landing on a concrete explicit choice rather than jumping around
   // based on where "system" happened to resolve.
   const toggleTheme = useCallback(() => {
-    setPreferenceState((prev) => {
-      const current: Theme = prev === 'system' ? (systemPrefersDark() ? 'dark' : 'light') : prev;
-      return current === 'light' ? 'dark' : 'light';
-    });
-  }, []);
+    switchTo(theme === 'light' ? 'dark' : 'light');
+  }, [switchTo, theme]);
 
   return (
     <ThemeContext.Provider value={{ theme, preference, toggleTheme, setTheme, setPreference }}>
