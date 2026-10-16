@@ -101,7 +101,7 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
             <button
               type="button"
               onClick={onToggleSidebar}
-              className={`${ICON_BUTTON_CLASS} md:hidden -ml-1.5`}
+              className={cn(ICON_BUTTON_CLASS, 'md:hidden -ml-1 border-border/60 bg-surface-hover/50')}
               aria-label="Open menu"
             >
               <Menu size={18} strokeWidth={2} />
@@ -155,11 +155,11 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
         <div className="flex items-center gap-1 sm:gap-3 ml-auto shrink-0">
           {/* Bare icon buttons: no boxed pill around them, so the bar has one clear brand mark, one headline
               and a few quiet controls instead of three bordered capsules. */}
-          <div className="flex items-center gap-0.5 sm:gap-1">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             {user && <NotificationBell badgeRing={false} />}
             <button
               onClick={toggleTheme}
-              className={cn(ICON_BUTTON_CLASS, 'hidden sm:inline-flex overflow-hidden')}
+              className={cn(ICON_BUTTON_CLASS, 'hidden sm:inline-flex overflow-hidden', 'hover:bg-coral-500/15 border-coral-500/15 bg-coral-500/[0.08] text-coral-600 dark:text-coral-300')}
               title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
               aria-label="Toggle visual theme"
             >

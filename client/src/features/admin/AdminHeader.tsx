@@ -19,6 +19,7 @@ import { Dropdown, type DropdownAction } from '../../components/dropdown';
 import { greeting } from '../dashboard/dashboardDisplay';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { ROLE_META } from './roleBadge';
+import { cn } from '@/lib/utils';
 import type { Role } from '../../api/auth';
 
 // Matches DashboardHeader's own clock: cheap enough to tick on an interval without re-rendering
@@ -94,7 +95,7 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
           <button
             id="admin-sidebar-toggle"
             onClick={onToggleSidebar}
-            className={`inline-flex ${ICON_BUTTON}`}
+            className={cn('inline-flex', ICON_BUTTON, 'border border-border/60 bg-surface-hover/50')}
             title="Toggle navigation sidebar"
             aria-label="Toggle navigation sidebar"
           >
@@ -139,11 +140,11 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
           {/* gap-2 (8px), not gap-1 — the minimum spacing between two adjacent touch targets so a
               slightly-off tap on one doesn't land on the other. */}
           {/* Bare icon buttons, as in the main header: no boxed pill around them. */}
-          <div className="flex items-center gap-0.5 sm:gap-1">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <NotificationBell badgeRing={false} />
             <button
               onClick={toggleTheme}
-              className={`hidden sm:inline-flex ${ICON_BUTTON} overflow-hidden`}
+              className={cn('hidden sm:inline-flex', ICON_BUTTON, 'overflow-hidden border', 'hover:bg-coral-500/15 border-coral-500/15 bg-coral-500/[0.08] text-coral-600 dark:text-coral-300')}
               title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
               aria-label="Toggle visual theme"
             >

@@ -232,7 +232,7 @@ const ModuleCard = ({ view, onOpen, score, scopeTag }: { view: ModuleView; onOpe
           {/* Tablet and desktop: the open count big, bold and centred on the left, the score ring on the right. */}
           <div className="hidden sm:grid grid-cols-2 items-center gap-2">
             <button type="button" onClick={() => onOpen('pending')} className="flex flex-col items-center justify-center rounded-xl py-1 outline-none transition-colors hover:bg-surface-hover/60 focus-visible:ring-2 focus-visible:ring-primary-500/40">
-              <span className={cn('text-4xl xl:text-5xl font-display font-extrabold tabular-nums leading-none tracking-tight', tone.text)}>
+              <span className={cn('text-3xl xl:text-4xl font-display font-extrabold tabular-nums leading-none tracking-tight', tone.text)}>
                 <CountUp value={view.pending ?? 0} />
               </span>
               <span className="mt-1.5 t-meta font-semibold text-text-muted">Pending now</span>

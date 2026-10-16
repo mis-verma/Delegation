@@ -175,7 +175,9 @@ export const HomePage = () => {
 
   return (
     // pt-2.5: the same top gap under the header as every other page (Tickets, Delegation, To-Do, Checklists).
-    <div className="flex flex-col gap-3 w-full pt-2.5">
+    // [--type-scale:0.9]: the dashboard reads a step smaller (headings, card titles and figures; 12px small text stays
+    // the floor), so a phone shows more of it at once.
+    <div className="flex flex-col gap-3 w-full pt-2.5 [--type-scale:0.9]">
       <h1 className="sr-only">Today, {heading}</h1>
 
       {/* Every role can customize. Larger screens drag cards by a grip; a phone gets a list with

@@ -1,5 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { installTapHaptics } from './lib/haptics';
 import './index.css';
 import App from './App.tsx';
 import { ThemeProvider } from './context/ThemeContext.tsx';
@@ -27,6 +28,9 @@ registerServiceWorker();
 if (import.meta.env.DEV) {
   document.body.classList.add('debug-screens');
 }
+
+// A light buzz on every tap on a phone (Android browsers; iPhone Safari has no vibration). Settings can turn it off.
+installTapHaptics();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

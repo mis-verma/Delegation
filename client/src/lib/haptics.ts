@@ -74,3 +74,25 @@ export const haptic = (kind: HapticKind): void => {
     /* vibration is a nicety: never let it break an action */
   }
 };
+
+// Taps you can feel, everywhere: one listener for the whole app instead of a haptic() call in every button. A finger
+// pressing a button, link, tab, menu item, switch or tappable card gives a tiny tick (the 'tap' pattern), the way a
+// native app does. Touch only (a mouse click never buzzes), disabled controls stay silent, and everything haptic()
+// already checks still applies (support, the Settings switch, reduced motion).
+const TAPPABLE = 'button, a[href], [role="button"], [role="tab"], [role="menuitem"], [role="option"], [role="switch"], [role="checkbox"], [role="radio"], label, summary';
+
+export const installTapHaptics = (): (() => void) => {
+  // click, not pointerdown: a finger that lands on a card to scroll the page must not buzz; only a real tap clicks.
+  const onClick = (e: MouseEvent) => {
+    // Chrome reports which pointer made the click; a mouse or pen never buzzes. Older browsers leave it out, and
+    // haptic() itself still requires a touch screen.
+    const pointerType = (e as PointerEvent).pointerType;
+    if (pointerType && pointerType !== 'touch') return;
+    const target = e.target instanceof Element ? e.target.closest(TAPPABLE) : null;
+    if (!target) return;
+    if (target.matches(':disabled, [aria-disabled="true"]')) return;
+    haptic('tap');
+  };
+  document.addEventListener('click', onClick, { capture: true, passive: true });
+  return () => document.removeEventListener('click', onClick, { capture: true });
+};
