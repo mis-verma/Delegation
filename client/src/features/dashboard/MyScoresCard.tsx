@@ -14,6 +14,7 @@ import { PeriodTabControl } from './PeriodTabControl';
 import { useOrgToday } from '../checklist/useOrgToday';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { ScoreBars } from './ScoreBars';
+import { SimpleScoresView } from './SimpleScoresView';
 import { ScoreDrillPopup } from './ScoreDrillPopup';
 import { ScoreRanking } from './ScoreRanking';
 import { scoreQuery } from './scoreQueries';
@@ -362,6 +363,50 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
   const heading = simple ? `Your scores ${simpleWindow}` : scope === 'person' && !targetId ? 'Your scores' : `${data?.name ?? SCOPE_LABEL[scope]} scores`;
   const showPicker = scope === 'org' ? false : scope === 'person' ? canPickPerson : !(scope === 'department' && isHod);
 
+  const drillPopup = drillState && data ? (
+      <ScoreDrillPopup
+        open={drillState.open}
+        onOpenChange={(next) => { if (!next) closeDrill(); }}
+        title={MODULE_LABEL[drillState.module]}
+        module={drillState.module}
+        windowLabel={range.label}
+        subject={scope === 'person' && (!targetId || targetId === user?.id) ? undefined : data.name}
+        figures={(() => {
+          const n = numbersFor(data, drillState.module);
+          return (['completion', 'compliance', 'ontime'] as const)
+            .filter((k) => metric === 'overview' || seriesFor(metric).includes(k))
+            .map((k) => ({ key: k, value: n[k], note: n[`${k}Note` as const] }));
+        })()}
+        completedHref={drillHref(drillState.module, 'completed')}
+        lateHref={drillHref(drillState.module, 'late')}
+        onGo={goTo}
+      />
+  ) : null;
+
+  // Front-line staff: their own scores as a glance (one Overall dial and a card per module), not the chart.
+  if (simple && !pageWindow) {
+    return (
+      <>
+        <SimpleScoresView
+          heading={heading}
+          rangeLabel={range.label}
+          period={shownPeriod}
+          onPeriodChange={(next) => { setPeriod(next); setOffset(0); }}
+          offset={offset}
+          onStep={(d) => setOffset((o) => (d < 0 ? o - 1 : Math.min(0, o + 1)))}
+          data={data}
+          loading={loading}
+          isError={query.isError}
+          onRetry={() => void query.refetch()}
+          isUpdating={query.isPlaceholderData}
+          emptyText={`Nothing was due ${simpleWindow}`}
+          onOpenModule={openDrill}
+        />
+        {drillPopup}
+      </>
+    );
+  }
+
   return (
     <section ref={cardRef} className={`${DASHBOARD_CARD_CLASS} @container flex min-w-0 flex-col gap-4 p-4`} aria-label="Scores">
       <header className="flex flex-col gap-3">
@@ -602,25 +647,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
         </section>
       )}
       </div>
-      {drillState && data && (
-        <ScoreDrillPopup
-          open={drillState.open}
-          onOpenChange={(next) => { if (!next) closeDrill(); }}
-          title={MODULE_LABEL[drillState.module]}
-          module={drillState.module}
-          windowLabel={range.label}
-          subject={scope === 'person' && (!targetId || targetId === user?.id) ? undefined : data.name}
-          figures={(() => {
-            const n = numbersFor(data, drillState.module);
-            return (['completion', 'compliance', 'ontime'] as const)
-              .filter((k) => metric === 'overview' || seriesFor(metric).includes(k))
-              .map((k) => ({ key: k, value: n[k], note: n[`${k}Note` as const] }));
-          })()}
-          completedHref={drillHref(drillState.module, 'completed')}
-          lateHref={drillHref(drillState.module, 'late')}
-          onGo={goTo}
-        />
-      )}
+      {drillPopup}
     </section>
   );
 };
