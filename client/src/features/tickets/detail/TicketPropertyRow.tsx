@@ -17,6 +17,10 @@ interface TicketPropertyRowProps {
   phoneHidden?: boolean;
   /** First tile on a phone (the assignee leads), without changing the rail's order. */
   first?: boolean;
+  /** Always a tile, at every width: for a sheet with no right-hand rail (the delegation sheet). */
+  tileOnly?: boolean;
+  /** Whole row on a phone, half from sm up: for a value too wide for a half-width phone tile (a select). */
+  wideOnPhone?: boolean;
 }
 
 /**
@@ -24,15 +28,16 @@ interface TicketPropertyRowProps {
  * value), so the sheet has the same steady structure whatever a ticket carries; from lg the same markup is a
  * row in the right-hand rail. One DOM for both layouts (no hidden duplicate controls).
  */
-export const TicketPropertyRow = ({ label, children, railOnly = false, icon: Icon, tone = 'bg-linear-to-br from-primary-500 to-primary-600', wide = false, phoneHidden = false, first = false }: TicketPropertyRowProps) => (
+export const TicketPropertyRow = ({ label, children, railOnly = false, icon: Icon, tone = 'bg-linear-to-br from-primary-500 to-primary-600', wide = false, phoneHidden = false, first = false, tileOnly = false, wideOnPhone = false }: TicketPropertyRowProps) => (
   <div
     className={cn(
       railOnly ? 'hidden lg:flex' : 'flex',
       phoneHidden && 'max-lg:hidden',
-      wide && 'max-lg:col-span-2',
+      wide && (tileOnly ? 'col-span-2' : 'max-lg:col-span-2'),
       first && 'max-lg:order-first',
+      wideOnPhone && 'col-span-2 sm:col-span-1',
       'min-w-0 items-center gap-2.5 rounded-xl bg-surface-hover/40 px-2.5 py-2',
-      'lg:items-start lg:gap-3 lg:rounded-none lg:bg-transparent lg:px-0 lg:py-3 lg:first:pt-0 lg:last:pb-0',
+      !tileOnly && 'lg:items-start lg:gap-3 lg:rounded-none lg:bg-transparent lg:px-0 lg:py-3 lg:first:pt-0 lg:last:pb-0',
     )}
   >
     {Icon && (
@@ -40,7 +45,7 @@ export const TicketPropertyRow = ({ label, children, railOnly = false, icon: Ico
         <Icon className="size-4" strokeWidth={2.25} />
       </span>
     )}
-    <div className="flex min-w-0 flex-1 flex-col gap-0.5 lg:gap-1">
+    <div className={cn('flex min-w-0 flex-1 flex-col gap-0.5', !tileOnly && 'lg:gap-1')}>
       <dt className="t-meta font-medium text-text-muted">{label}</dt>
       <dd className="flex min-w-0 flex-wrap items-center">{children}</dd>
     </div>

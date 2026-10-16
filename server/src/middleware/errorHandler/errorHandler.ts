@@ -1,5 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
+import multer from 'multer';
+import { settingsService } from '../../modules/settings/settings.service.js';
 import { AppError } from '../../utils/AppError.js';
 import { env } from '../../config/env.js';
 import { recordServerError } from '../../modules/health/errorBuffer.js';
@@ -73,6 +75,19 @@ export const errorHandler = (
       message: describeZodError(err),
       errors: err.flatten().fieldErrors,
     });
+    return;
+  }
+
+  // Upload limits (multer): a plain message and the right status, not a 500 "File too large".
+  if (err instanceof multer.MulterError) {
+    // Each upload route records its own limit (config/upload.ts); fall back to the general photo limit.
+    const routeLimit = Number(res.locals.uploadLimitMb);
+    const limitMb = Number.isFinite(routeLimit) && routeLimit > 0 ? routeLimit : settingsService.getCached().maxUploadSizeMb;
+    const message =
+      err.code === 'LIMIT_FILE_SIZE' ? `This file is bigger than the ${limitMb} MB upload limit. Try a smaller photo or file.`
+        : err.code === 'LIMIT_FILE_COUNT' || err.code === 'LIMIT_UNEXPECTED_FILE' ? 'Too many files at once. Send fewer and try again.'
+          : "Couldn't read that upload. Try again.";
+    res.status(err.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({ success: false, message });
     return;
   }
 

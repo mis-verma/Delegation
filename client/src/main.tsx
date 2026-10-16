@@ -9,6 +9,8 @@ import { TooltipProvider } from './components/ui/tooltip.tsx';
 import { Toaster } from './components/ui/sonner.tsx';
 import { ConfirmDialogProvider } from "./components/confirmDialog"
 import { handleQueryRetry, queryRetryDelay } from './lib/queryHelpers.ts';
+import { registerServiceWorker } from './lib/pwa.ts';
+import { OfflineBanner } from './components/offlineBanner/OfflineBanner.tsx';
 
 
 const queryClient = new QueryClient({
@@ -19,6 +21,8 @@ const queryClient = new QueryClient({
     queries: { staleTime: 30_000, retry: handleQueryRetry, retryDelay: queryRetryDelay },
   },
 });
+
+registerServiceWorker();
 
 if (import.meta.env.DEV) {
   document.body.classList.add('debug-screens');
@@ -34,6 +38,7 @@ createRoot(document.getElementById('root')!).render(
               <App />
             </ConfirmDialogProvider>
 
+            <OfflineBanner />
             <Toaster position="top-right" richColors closeButton />
           </TooltipProvider>
         </AuthProvider>

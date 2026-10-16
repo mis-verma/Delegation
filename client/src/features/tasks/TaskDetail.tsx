@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
-import { CheckSquare, Loader2, ChevronRight, MoreHorizontal, Undo2, PauseCircle, CircleDot, Clock, Eye, CheckCircle2, ShieldCheck, ShieldX, Trash2, CalendarDays, Check, Milestone, RotateCcw, Info } from 'lucide-react';
+import { CheckSquare, Loader2, ChevronRight, MoreHorizontal, Undo2, PauseCircle, CircleDot, Clock, Eye, CheckCircle2, ShieldCheck, ShieldX, Trash2, CalendarDays, Check, Milestone, RotateCcw, Info, UserRound, Flag, Building2 } from 'lucide-react';
 import { Modal, Button, DateRangePicker, ActivityFeed, FullChangeLog, DepartmentChip, ImageLightbox, NoticeBanner, useConfirm } from '../../components';
-import { IconChip } from '../../components/iconChip';
 import type { DateRangeValue } from '../../components';
 import { useTaskQuery, useUpdateTaskMutation, useDeleteTaskMutation, useAssignableUsersQuery } from './hook';
 import { useDepartmentsQuery } from '../tickets/hook';
@@ -11,7 +10,7 @@ import { TaskFormDepartmentField } from './TaskFormDepartmentField';
 import { AssigneeField } from '../assignees/AssigneeField';
 import { TaskDescriptionField } from './TaskDescriptionField';
 import { TaskChecklistPanel } from './TaskChecklistPanel';
-import { STATUS_LABEL, NEXT_STATUS, endOfDay } from './taskDisplay';
+import { STATUS_LABEL, NEXT_STATUS, endOfDay, PRIORITY_MAP } from './taskDisplay';
 import { TaskStatusCard } from './TaskStatusCard';
 import { FORWARD_LABEL, BACK_STATUS, BACK_LABEL, CAN_HOLD, PUBLISH_REMARK, draftPublishProblem } from './taskStatusModel';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
@@ -26,6 +25,7 @@ import type { Task, UpdateTaskPayload } from '../../api/task';
 import type { AssignableUser } from '../../api/users';
 import { canApproveWork } from '../../lib/canApproveWork';
 import { canEditTaskContent, canMoveTask, viewOnlyReason } from './taskPermissions';
+import { TicketPropertyRow } from '../tickets/detail/TicketPropertyRow';
 
 type SaveState = 'idle' | 'saving' | 'error';
 
@@ -425,7 +425,8 @@ const TaskTimelineField = ({ task, onUpdate, canSetStart }: { task: Task; onUpda
           }
         }}
         placeholder="Add due date"
-        triggerClassName={CHIP_TRIGGER_CLASS}
+        // Room on the right for the clear button, which sits over the chip: without it the date was cut to "Oc".
+        triggerClassName={`${CHIP_TRIGGER_CLASS} ${draft.to ? 'pr-9' : ''}`}
       />
       {canSetStart && !showStart && (
         <button
@@ -539,8 +540,9 @@ const TaskEditLayout = ({
       )}
 
       <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <div title="Assigned to" aria-label="Assigned to" className="flex items-center min-w-0">
+        {/* The same property tiles as the ticket sheet: the people lead, then priority and department, then the dates. */}
+        <dl className="grid grid-cols-2 gap-2">
+          <TicketPropertyRow tileOnly wide label="Assigned to" icon={UserRound} tone="bg-linear-to-br from-primary-500 to-primary-600">
             <AssigneeField
               hideLabel
               selectedIds={selectedIds}
@@ -549,46 +551,39 @@ const TaskEditLayout = ({
               isLoading={isLoadingUsers}
               disabled={isViewOnly || !canReassign}
             />
-          </div>
+          </TicketPropertyRow>
 
-          <span title="Priority" className="flex">
-            <TaskPriorityChipPicker value={task.priority} onChange={(v) => onUpdate({ priority: v })} disabled={isViewOnly} />
-          </span>
+          <TicketPropertyRow tileOnly wideOnPhone label="Priority" icon={Flag} tone={PRIORITY_MAP[task.priority].solid}>
+            <TaskPriorityChipPicker value={task.priority} onChange={(v) => onUpdate({ priority: v })} disabled={isViewOnly} fullWidth />
+          </TicketPropertyRow>
 
-          {isViewOnly ? (
-            task.dueDate && (
-              <IconChip
-                icon={CalendarDays}
-                tone="bg-text-secondary"
-                title="Due"
-                label={task.startDate ? `${formatRangeDate(task.startDate)} to ${formatRangeDate(task.dueDate)}` : `Due ${formatRangeDate(task.dueDate)}`}
-              />
-            )
-          ) : (
-            <div title="Due">
-              <TaskTimelineField task={task} onUpdate={onUpdate} canSetStart={canReassign} />
-            </div>
-          )}
-
-          {isViewOnly || !canReassign ? (
-            departmentName && (
-              <span title="Department" className="flex">
-                <DepartmentChip name={departmentName} />
-              </span>
-            )
-          ) : (
-            <div title="Department">
+          <TicketPropertyRow tileOnly wideOnPhone label="Department" icon={Building2} tone="bg-linear-to-br from-coral-500 to-coral-600">
+            {isViewOnly || !canReassign ? (
+              departmentName ? <DepartmentChip name={departmentName} /> : <span className="t-meta text-text-light">None</span>
+            ) : (
               <TaskFormDepartmentField
                 hideLabel
                 value={task.departmentId ?? ''}
                 onChange={(v) => onChangeDepartment(v || null)}
                 departments={departments}
                 isLoading={isLoadingDepts}
-                triggerClassName={`${CHIP_TRIGGER_CLASS} max-w-[13rem]`}
+                triggerClassName={`${CHIP_TRIGGER_CLASS} max-w-full`}
               />
-            </div>
-          )}
-        </div>
+            )}
+          </TicketPropertyRow>
+
+          <TicketPropertyRow tileOnly wide label="Due" icon={CalendarDays} tone="bg-linear-to-br from-warning to-warning/70">
+            {isViewOnly ? (
+              task.dueDate ? (
+                <span className="text-sm font-display font-semibold text-text">
+                  {task.startDate ? `${formatRangeDate(task.startDate)} to ${formatRangeDate(task.dueDate)}` : formatRangeDate(task.dueDate)}
+                </span>
+              ) : <span className="t-meta text-text-light">No due date</span>
+            ) : (
+              <TaskTimelineField task={task} onUpdate={onUpdate} canSetStart={canReassign} />
+            )}
+          </TicketPropertyRow>
+        </dl>
 
         {!isViewOnly && !canReassign && (
           <p className="t-meta font-medium text-text-light">Only a manager or above can change the people or the department.</p>

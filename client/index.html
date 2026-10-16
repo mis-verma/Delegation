@@ -3,8 +3,19 @@
 
 <head>
   <meta charset="UTF-8" />
-  <!-- <link rel="icon" type="image/svg+xml" href="/favicon.svg" /> -->
-  <!-- <link rel="icon" type="image/png" href="/favicon.png" /> -->
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <!-- Installable app: the manifest names it and gives its icons and shortcuts; sw.js lets it open offline. -->
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="KaryaOS" />
+  <meta name="application-name" content="KaryaOS" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <!-- The status bar matches the page colour in each theme. -->
+  <meta name="theme-color" content="#f5f7fb" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0b1020" media="(prefers-color-scheme: dark)" />
   <!-- viewport-fit=cover is required for env(safe-area-inset-*) to resolve to anything but 0 on
        notched devices — without it, the safe-area padding already used in BottomNav/TodoDrawer
        silently does nothing. -->

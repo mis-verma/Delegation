@@ -1,3 +1,4 @@
+import { shrinkImages } from '../lib/compressImage';
 import { z } from 'zod';
 import { apiFetch, type SummaryScope, type PendingApprovalPreview } from './http';
 import { arrayField, withArrayDefaults, normalizeWith } from './normalize';
@@ -287,13 +288,13 @@ export const ticketApi = {
   verify: (id: string, payload: VerifyTicketPayload) =>
     apiFetch<ApiResponse<Ticket>>(`/tickets/${id}/verify`, { method: 'PATCH', body: JSON.stringify(payload) }).then(r => ({ ...r, data: normalizeTicket(r.data) })),
 
-  addStatusUpdate: (id: string, payload: { status: RestrictedStatus; remark?: string; captureMethod?: CaptureMethod; files?: File[] }) => {
+  addStatusUpdate: async (id: string, payload: { status: RestrictedStatus; remark?: string; captureMethod?: CaptureMethod; files?: File[] }) => {
     const formData = new FormData();
     formData.append('status', payload.status);
     // Only On Hold needs one; the server stores a blank remark for the other moves.
     if (payload.remark) formData.append('remark', payload.remark);
     if (payload.captureMethod) formData.append('captureMethod', payload.captureMethod);
-    (payload.files ?? []).forEach(f => formData.append('images', f));
+    (await shrinkImages(payload.files ?? [])).forEach(f => formData.append('images', f));
     return apiFetch<ApiResponse<Ticket>>(`/tickets/${id}/status-updates`, { method: 'POST', body: formData })
       .then(r => ({ ...r, data: normalizeTicket(r.data) }));
   },
@@ -322,9 +323,9 @@ export const ticketApi = {
   deleteChecklistItem: (id: string) =>
     apiFetch<ApiResponse<{ deleted: boolean }>>(`/checklist-items/${id}`, { method: 'DELETE' }),
 
-  uploadChecklistImages: (itemId: string, files: File[], captureMethod: CaptureMethod) => {
+  uploadChecklistImages: async (itemId: string, files: File[], captureMethod: CaptureMethod) => {
     const formData = new FormData();
-    files.forEach(f => formData.append('images', f));
+    (await shrinkImages(files)).forEach(f => formData.append('images', f));
     formData.append('captureMethod', captureMethod);
     return apiFetch<ApiResponse<ChecklistImage[]>>(`/checklist-items/${itemId}/images`, {
       method: 'POST',
@@ -335,9 +336,9 @@ export const ticketApi = {
   deleteChecklistImage: (id: string) =>
     apiFetch<ApiResponse<{ deleted: boolean }>>(`/checklist-images/${id}`, { method: 'DELETE' }),
 
-  uploadAttachments: (ticketId: string, files: File[]) => {
+  uploadAttachments: async (ticketId: string, files: File[]) => {
     const formData = new FormData();
-    files.forEach(f => formData.append('images', f));
+    (await shrinkImages(files)).forEach(f => formData.append('images', f));
     return apiFetch<ApiResponse<TicketAttachment[]>>(`/tickets/${ticketId}/attachments`, {
       method: 'POST',
       body:   formData,

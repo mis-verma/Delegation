@@ -1,3 +1,4 @@
+import { shrinkImages } from '../lib/compressImage';
 import { z } from 'zod';
 import { apiFetch, type PendingApprovalPreview } from './http';
 import { arrayField, withArrayDefaults, normalizeWith } from './normalize';
@@ -653,9 +654,9 @@ export const checklistInstanceApi = {
     apiFetch<ApiResponse<ChecklistInstance>>(`/checklist-instances/${id}/reopen-approval`, { method: 'PATCH' })
       .then(r => ({ ...r, data: normalizeInstance(r.data) })),
 
-  uploadImages: (itemId: string, files: File[], captureMethod: CaptureMethod) => {
+  uploadImages: async (itemId: string, files: File[], captureMethod: CaptureMethod) => {
     const formData = new FormData();
-    files.forEach(f => formData.append('images', f));
+    (await shrinkImages(files)).forEach(f => formData.append('images', f));
     formData.append('captureMethod', captureMethod);
     return apiFetch<ApiResponse<ChecklistInstanceImage[]>>(`/checklist-instance-items/${itemId}/images`, {
       method: 'POST',

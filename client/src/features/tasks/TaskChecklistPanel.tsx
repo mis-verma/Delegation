@@ -29,8 +29,8 @@ export const TaskChecklistPanel = ({ taskId, checklists, isAdmin, currentUserId,
     <section aria-label="Checklists" className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex flex-col gap-0.5 min-w-0">
-          <h3 className="flex items-center gap-1.5 t-section font-display font-bold text-text">
-            <ListChecks size={16} className="text-text-light shrink-0" aria-hidden />
+          <h3 className="flex items-center gap-2.5 t-card font-display font-bold text-text">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg text-white bg-linear-to-br from-primary-500 to-primary-600" aria-hidden="true"><ListChecks size={16} strokeWidth={2.25} /></span>
             Checklists
           </h3>
           <p className="t-meta font-display text-text-muted">

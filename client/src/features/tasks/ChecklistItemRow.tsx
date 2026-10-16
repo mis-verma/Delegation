@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  Trash2, Loader2, CheckSquare, Camera, X, RotateCcw, Image as ImageIcon, AlertCircle
+  Trash2, Loader2, CheckSquare, Camera, X, RotateCcw, Image as ImageIcon, AlertCircle, MessageSquarePlus
 } from 'lucide-react';
 import {
   useUpdateTaskChecklistItemMutation,
@@ -24,6 +24,9 @@ export const ChecklistItemRow = ({
   canWork:  boolean;
 }) => {
   const [remarks, setRemarks] = useState(item.remarks ?? '');
+  // The remark box and photo buttons stay folded until asked for (or already in use), so a list of items is a
+  // list, not a wall of forms.
+  const [expanded, setExpanded] = useState(() => !!item.remarks || (item.images?.length ?? 0) > 0 || item.requiredImageCount > 0);
 
   const updateItem    = useUpdateTaskChecklistItemMutation(taskId);
   const updateRemarks = useUpdateTaskItemRemarksMutation(taskId);
@@ -46,7 +49,7 @@ export const ChecklistItemRow = ({
 
   return (
     <div
-      className={`group/card flex flex-col gap-4 p-4 sm:p-5 rounded-xl border transition-all duration-200 ${
+      className={`group/card flex flex-col gap-3 p-3.5 sm:p-4 rounded-xl border transition-all duration-200 ${
         item.isDone
           ? 'bg-surface-hover/40 border-border/60 opacity-80'
           : 'bg-surface border-border hover:border-border-hover'
@@ -155,7 +158,7 @@ export const ChecklistItemRow = ({
       )}
 
       {/* Body & Actions */}
-      <div className="pl-0 sm:pl-9 flex flex-col gap-4">
+      <div className="pl-0 sm:pl-9 flex flex-col gap-3">
         {(!canWork || item.isDone) && item.remarks && (
           <div className="px-4 py-3 bg-surface-hover/50 rounded-lg border border-border/60 text-sm text-text-secondary italic">
             "{item.remarks}"
@@ -164,6 +167,7 @@ export const ChecklistItemRow = ({
 
         {canWork && !item.isDone && (
           <div className="flex flex-col gap-3">
+            {expanded && (<>
             <textarea
               value={remarks}
               onChange={e => setRemarks(e.target.value)}
@@ -216,17 +220,30 @@ export const ChecklistItemRow = ({
                   {updateRemarks.isPending && <Loader2 size={16} className="animate-spin" />}
                   Save remark
                 </button>
+              </div>
+            </div>
+            </>)}
 
+            <div className="flex items-center gap-2">
+              {!expanded && (
                 <button
                   type="button"
-                  onClick={() => completeItem.mutate(item.id)}
-                  disabled={completeItem.isPending}
-                  className="flex items-center justify-center gap-2 text-sm font-medium px-5 py-2 pointer-coarse:min-h-11 rounded-lg border border-border-hover bg-surface text-text hover:bg-surface-hover cursor-pointer transition-colors duration-150 ease-out disabled:opacity-50 disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50"
+                  onClick={() => setExpanded(true)}
+                  className="inline-flex items-center gap-1.5 min-h-10 pointer-coarse:min-h-11 px-3 rounded-lg text-sm font-display font-semibold text-text-secondary hover:text-text hover:bg-surface-hover cursor-pointer transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
                 >
-                  {completeItem.isPending ? <Loader2 size={16} className="animate-spin" /> : <CheckSquare size={16} />}
-                  Mark done
+                  <MessageSquarePlus size={16} aria-hidden="true" />
+                  Remark or photo
                 </button>
-              </div>
+              )}
+              <button
+                type="button"
+                onClick={() => completeItem.mutate(item.id)}
+                disabled={completeItem.isPending}
+                className="ml-auto inline-flex items-center justify-center gap-2 min-h-10 pointer-coarse:min-h-11 px-4 rounded-lg bg-primary-600 text-white text-sm font-display font-semibold hover:bg-primary-700 active:scale-[0.985] cursor-pointer transition-[background-color,transform] duration-150 ease-out disabled:opacity-50 disabled:cursor-not-allowed outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+              >
+                {completeItem.isPending ? <Loader2 size={16} className="animate-spin" /> : <CheckSquare size={16} />}
+                Mark done
+              </button>
             </div>
           </div>
         )}

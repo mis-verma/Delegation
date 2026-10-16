@@ -217,29 +217,50 @@ const buildImageUpload = ( storageEngine : multer.StorageEngine, extraMimeTypes:
 }
 
 
-export const taskImageUpload = (req : Request , res : Response , next : NextFunction) =>
-    buildImageUpload(storage).array("images" , settingsService.getCached().maxUploadFiles)(req,res,next)
+export const taskImageUpload = (req : Request , res : Response , next : NextFunction) => {
+    // Read by errorHandler so a too-big file is told the limit of THIS upload, not a general one.
+    res.locals.uploadLimitMb = settingsService.getCached().maxUploadSizeMb
+    return buildImageUpload(storage).array("images" , settingsService.getCached().maxUploadFiles)(req, res, next)
+}
 
-export const checklistImageUpload = (req : Request , res : Response , next : NextFunction) =>
-    buildImageUpload(ticketStorage).array("images", settingsService.getCached().maxUploadFiles)(req,res,next)
+export const checklistImageUpload = (req : Request , res : Response , next : NextFunction) => {
+    // Read by errorHandler so a too-big file is told the limit of THIS upload, not a general one.
+    res.locals.uploadLimitMb = settingsService.getCached().maxUploadSizeMb
+    return buildImageUpload(ticketStorage).array("images", settingsService.getCached().maxUploadFiles)(req, res, next)
+}
 
-export const ticketAttachmentUpload = (req : Request , res : Response , next : NextFunction) =>
-    buildImageUpload(ticketAttachmentStorage).array("images", settingsService.getCached().maxUploadFiles)(req,res,next)
+export const ticketAttachmentUpload = (req : Request , res : Response , next : NextFunction) => {
+    // Read by errorHandler so a too-big file is told the limit of THIS upload, not a general one.
+    res.locals.uploadLimitMb = settingsService.getCached().maxUploadSizeMb
+    return buildImageUpload(ticketAttachmentStorage).array("images", settingsService.getCached().maxUploadFiles)(req, res, next)
+}
 
-export const checklistInstanceImageUpload = (req : Request , res : Response , next : NextFunction) =>
-    buildImageUpload(checklistInstanceStorage, CHECKLIST_VIDEO_MIME_TYPES).array("images", settingsService.getCached().maxUploadFiles)(req,res,next)
+export const checklistInstanceImageUpload = (req : Request , res : Response , next : NextFunction) => {
+    // Read by errorHandler so a too-big file is told the limit of THIS upload, not a general one.
+    res.locals.uploadLimitMb = Math.max(settingsService.getCached().maxUploadSizeMb, CHECKLIST_VIDEO_MIN_SIZE_MB)
+    return buildImageUpload(checklistInstanceStorage, CHECKLIST_VIDEO_MIME_TYPES).array("images", settingsService.getCached().maxUploadFiles)(req, res, next)
+}
 
-export const checklistInstanceItemSubmissionImageUpload = (req : Request , res : Response , next : NextFunction) =>
-    buildImageUpload(checklistInstanceSubmissionStorage, CHECKLIST_VIDEO_MIME_TYPES).array("images", settingsService.getCached().maxUploadFiles)(req,res,next)
+export const checklistInstanceItemSubmissionImageUpload = (req : Request , res : Response , next : NextFunction) => {
+    // Read by errorHandler so a too-big file is told the limit of THIS upload, not a general one.
+    res.locals.uploadLimitMb = Math.max(settingsService.getCached().maxUploadSizeMb, CHECKLIST_VIDEO_MIN_SIZE_MB)
+    return buildImageUpload(checklistInstanceSubmissionStorage, CHECKLIST_VIDEO_MIME_TYPES).array("images", settingsService.getCached().maxUploadFiles)(req, res, next)
+}
 
 // One file, not an array — a profile picture replaces the previous one rather than adding to a
 // pool. Still image-only/size-limited via the same admin-editable settings as the rest.
-export const avatarUpload = (req : Request , res : Response , next : NextFunction) =>
-    buildImageUpload(avatarStorage).single("avatar")(req,res,next)
+export const avatarUpload = (req : Request , res : Response , next : NextFunction) => {
+    // Read by errorHandler so a too-big file is told the limit of THIS upload, not a general one.
+    res.locals.uploadLimitMb = settingsService.getCached().maxUploadSizeMb
+    return buildImageUpload(avatarStorage).single("avatar")(req, res, next)
+}
 
 // One file, org-wide — a re-upload replaces the previous logo rather than adding to a pool.
-export const logoUpload = (req : Request , res : Response , next : NextFunction) =>
-    buildImageUpload(logoStorage).single("logo")(req,res,next)
+export const logoUpload = (req : Request , res : Response , next : NextFunction) => {
+    // Read by errorHandler so a too-big file is told the limit of THIS upload, not a general one.
+    res.locals.uploadLimitMb = settingsService.getCached().maxUploadSizeMb
+    return buildImageUpload(logoStorage).single("logo")(req, res, next)
+}
 
 // Task-level attachments accept documents/spreadsheets/video too, not just images — the
 // admin-editable `allowedImageTypes` setting (and buildImageUpload above) is scoped to the
@@ -274,8 +295,11 @@ const taskAttachmentMulter = multer({
     },
 })
 
-export const taskAttachmentUpload = (req : Request , res : Response , next : NextFunction) =>
-    taskAttachmentMulter.array("files", TASK_ATTACHMENT_MAX_FILES)(req, res, next)
+export const taskAttachmentUpload = (req : Request , res : Response , next : NextFunction) => {
+    // Read by errorHandler so a too-big file is told the limit of THIS upload, not a general one.
+    res.locals.uploadLimitMb = TASK_ATTACHMENT_MAX_SIZE_MB
+    return taskAttachmentMulter.array("files", TASK_ATTACHMENT_MAX_FILES)(req, res, next)
+}
 
 // Bulk checklist-assignment import (see checklistBulkImport module) — the uploaded file (CSV,
 // Excel, or a best-effort PDF) only exists to be parsed into rows; unlike every other upload
@@ -301,8 +325,11 @@ const checklistBulkImportMulter = multer({
     },
 })
 
-export const checklistBulkImportUpload = (req : Request , res : Response , next : NextFunction) =>
-    checklistBulkImportMulter.single("file")(req, res, next)
+export const checklistBulkImportUpload = (req : Request , res : Response , next : NextFunction) => {
+    // Read by errorHandler so a too-big file is told the limit of THIS upload, not a general one.
+    res.locals.uploadLimitMb = CHECKLIST_BULK_IMPORT_MAX_SIZE_MB
+    return checklistBulkImportMulter.single("file")(req, res, next)
+}
 
 // Comment attachments reuse the same allowed types/limits as task-level attachments — same kind
 // of files (docs/images/video), just scoped to one comment instead of the whole task.
@@ -320,8 +347,11 @@ const taskCommentAttachmentMulter = multer({
     },
 })
 
-export const taskCommentAttachmentUpload = (req : Request , res : Response , next : NextFunction) =>
-    taskCommentAttachmentMulter.array("files", TASK_ATTACHMENT_MAX_FILES)(req, res, next)
+export const taskCommentAttachmentUpload = (req : Request , res : Response , next : NextFunction) => {
+    // Read by errorHandler so a too-big file is told the limit of THIS upload, not a general one.
+    res.locals.uploadLimitMb = TASK_ATTACHMENT_MAX_SIZE_MB
+    return taskCommentAttachmentMulter.array("files", TASK_ATTACHMENT_MAX_FILES)(req, res, next)
+}
 
 // Web Smart Add's voice-note recorder (client/src/features/tasks/VoiceNoteRecorder.tsx) — the
 // clip only needs to reach the transcription service once and can then be discarded, so this uses
@@ -350,5 +380,8 @@ const voiceNoteMulter = multer({
     },
 })
 
-export const voiceNoteUpload = (req : Request , res : Response , next : NextFunction) =>
-    voiceNoteMulter.single("audio")(req, res, next)
+export const voiceNoteUpload = (req : Request , res : Response , next : NextFunction) => {
+    // Read by errorHandler so a too-big file is told the limit of THIS upload, not a general one.
+    res.locals.uploadLimitMb = VOICE_NOTE_MAX_SIZE_MB
+    return voiceNoteMulter.single("audio")(req, res, next)
+}

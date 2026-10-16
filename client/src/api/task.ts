@@ -1,3 +1,4 @@
+import { shrinkImages } from '../lib/compressImage';
 import { z } from 'zod';
 import { apiFetch, type SummaryScope, type PendingApprovalPreview } from './http';
 import { arrayField, withArrayDefaults, normalizeWith } from './normalize';
@@ -287,9 +288,9 @@ export const taskApi = {
         return apiFetch<ApiResponse<TaskOwnerStatsRow[]>>(`/tasks/reports/by-owner?${params.toString()}`);
     },
 
-    uploadAttachments: (taskId: string, files: File[]) => {
+    uploadAttachments: async (taskId: string, files: File[]) => {
         const formData = new FormData();
-        files.forEach(f => formData.append('files', f));
+        (await shrinkImages(files)).forEach(f => formData.append('files', f));
         return apiFetch<ApiResponse<TaskAttachment[]>>(`/tasks/${taskId}/attachments`, {
             method: 'POST',
             body:   formData,

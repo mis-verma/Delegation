@@ -48,8 +48,8 @@ export const TaskAttachments = ({ taskId, attachments, canEdit, canRemove = canE
 
   return (
     <section className="flex flex-col gap-2" aria-label="Files">
-      <h3 className="flex items-center gap-1.5 t-section font-display font-bold text-text">
-        <Paperclip size={16} className="text-text-light" aria-hidden />
+      <h3 className="flex items-center gap-2.5 t-card font-display font-bold text-text">
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg text-white bg-linear-to-br from-primary-500 to-primary-600" aria-hidden="true"><Paperclip size={16} strokeWidth={2.25} /></span>
         Files
         {attachments.length > 0 && <span className="tabular-nums font-semibold text-text-light">({attachments.length})</span>}
       </h3>
