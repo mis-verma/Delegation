@@ -22,7 +22,7 @@ export const MobileScoreRow = memo(({ rank, title, overall, cells, onOpen }: Mob
         <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-surface-hover t-meta font-display font-bold tabular-nums text-text-secondary">{rank ?? '-'}</span>
         <span className="min-w-0 flex-1">{title}</span>
         <span className="flex shrink-0 flex-col items-end leading-tight">
-          <span className="t-figure font-display"><ScorePct value={overall} strong /></span>
+          <span className="t-stat font-display"><ScorePct value={overall} strong /></span>
           <span className="t-meta text-text-muted">{SCORE_LABEL_SHORT.overall}</span>
         </span>
       </span>

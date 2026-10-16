@@ -1,8 +1,8 @@
 import { Clock } from 'lucide-react';
-import { memo, useMemo } from 'react';
+import { memo } from 'react';
 import { Link } from 'react-router';
 import { cn } from '@/lib/utils';
-import { ChecklistProgressBar, ENTITY_CARD_CLASS, IconChip, StatusChip } from '../../../components';
+import { ENTITY_CARD_CLASS, IconChip, StatusChip } from '../../../components';
 import {
   complianceToneClass,
   getInstanceView,
@@ -10,6 +10,24 @@ import {
   RECURRENCE_LABEL, formatPeriodSpan } from '../checklistDisplay';
 import { useAuth } from '../../../context/AuthContext';
 import type { ChecklistInstance } from '../../../api/checklistInstances';
+
+// One of the card's two score figures: a small name, the number in its colour, a thin bar under it.
+const Metric = ({ label, value, sub, pct, bar, text }: { label: string; value: string; sub?: string; pct: number; bar: string; text: string }) => (
+  <div className="flex min-w-0 flex-col gap-1">
+    <div className="flex items-baseline justify-between gap-2">
+      <span className="text-[0.6875rem] font-medium text-text-muted">{label}</span>
+      <span className="flex items-baseline gap-1 tabular-nums">
+        <span className={cn('t-meta font-display font-bold', text)}>{value}</span>
+        {sub && <span className="text-[0.6875rem] text-text-muted">{sub}</span>}
+      </span>
+    </div>
+    <span className="h-1 w-full overflow-hidden rounded-full bg-surface-hover" aria-hidden="true">
+      <span className={cn('block h-full rounded-full transition-[width] duration-500 ease-out', bar)} style={{ width: `${Math.max(0, Math.min(100, pct))}%` }} />
+    </span>
+  </div>
+);
+
+const complianceBar = (v: number) => (v >= 90 ? 'bg-success' : v >= 70 ? 'bg-warning' : 'bg-danger');
 
 interface ChecklistInstanceCardProps {
   instance: ChecklistInstance;
@@ -23,7 +41,8 @@ export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardPr
   const { user } = useAuth();
   // A shared checklist is done once ONE assignee finishes it. If that was someone else, say so, so
   // this person does not think they still have to fill it.
-  const doneByOthers = useMemo(() => {
+  // A short loop over the run's questions; cheap enough to run each render.
+  const doneByOthers = (() => {
     if (!isComplete || !user) return null;
     const names = new Set<string>();
     for (const item of instance.items) {
@@ -31,16 +50,16 @@ export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardPr
       if (item.completedByName) names.add(item.completedByName);
     }
     return names.size ? [...names].slice(0, 2).join(' and ') : null;
-  }, [isComplete, user, instance.items]);
+  })();
 
   return (
     <Link
       to={`/checklists/${instance.id}`}
-      className={cn(ENTITY_CARD_CLASS, 'justify-start gap-3 p-4 sm:p-4 active:bg-surface-hover/50 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 [-webkit-tap-highlight-color:transparent]')}
+      className={cn(ENTITY_CARD_CLASS, 'justify-start gap-2.5 p-3 sm:p-4 active:bg-surface-hover/50 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/30 [-webkit-tap-highlight-color:transparent]')}
     >
       <div className="flex flex-col gap-1 min-w-0">
-        <p className="t-card font-display font-semibold text-text tracking-tight leading-snug line-clamp-2">{instance.title}</p>
-        <p className="t-meta font-medium text-text-muted">
+        <p className="t-meta sm:t-card font-display font-semibold text-text leading-snug line-clamp-2">{instance.title}</p>
+        <p className="text-[0.6875rem] sm:t-meta font-medium text-text-muted">
           {RECURRENCE_LABEL[instance.recurrence]} · {formatPeriodSpan(instance, true)}
           {!isComplete && deadlineTime && <> · Due {deadlineTime}</>}
         </p>
@@ -54,27 +73,29 @@ export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardPr
         )}
       </div>
 
-      <div className="flex items-center gap-3">
-        {total > 0 ? (
-          <ChecklistProgressBar done={done} total={total} tone={overdue ? 'danger' : 'auto'} bare thin />
-        ) : (
-          <span className="flex-1" />
-        )}
-        {/* Percent first and coloured by state (done green, overdue red, else neutral), the item
-            count beside it for the detail. */}
-        <span className="flex items-baseline gap-1.5 shrink-0 tabular-nums">
-          <span className={`text-sm font-display font-bold ${instanceProgressToneClass(overdue, isComplete)}`}>{progress}%</span>
-          <span className="t-meta text-text-muted font-medium">{done}/{total}</span>
-        </span>
-      </div>
       {doneByOthers && (
-        <p className="t-meta font-medium text-text-muted">Done by {doneByOthers}. You do not need to fill it.</p>
+        <p className="text-[0.6875rem] font-medium text-text-muted">Done by {doneByOthers}. You do not need to fill it.</p>
       )}
-      {compliance !== null && (
-        <p className="t-meta font-medium text-text-muted">
-          Compliance <span className={`font-display font-bold tabular-nums ${complianceToneClass(compliance)}`}>{compliance}%</span>
-        </p>
-      )}
+
+      {/* The score footer: how much is done, and how much of it was right. */}
+      <div className="mt-auto grid grid-cols-2 gap-3 border-t border-border/50 pt-2.5">
+        <Metric
+          label="Done"
+          value={`${progress}%`}
+          sub={total > 0 ? `${done}/${total}` : undefined}
+          pct={progress}
+          bar={overdue ? 'bg-danger' : isComplete ? 'bg-success' : 'bg-linear-to-r from-primary-400 to-primary-600'}
+          text={instanceProgressToneClass(overdue, isComplete)}
+        />
+        <Metric
+          label="Compliance"
+          value={compliance === null ? '-' : `${compliance}%`}
+          sub={compliance === null ? 'Not scored' : undefined}
+          pct={compliance ?? 0}
+          bar={compliance === null ? 'bg-border-hover' : complianceBar(compliance)}
+          text={compliance === null ? 'text-text-light' : complianceToneClass(compliance)}
+        />
+      </div>
     </Link>
   );
 });

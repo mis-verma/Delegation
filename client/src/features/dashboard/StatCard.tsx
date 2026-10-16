@@ -193,8 +193,8 @@ export const StatCard = ({
             <p
               className={`font-display font-bold tracking-tight leading-none tabular-nums truncate ${
                 isNoData
-                  ? compact ? 'text-lg sm:text-2xl' : 'text-xl sm:text-2xl'
-                  : compact ? 'text-xl sm:text-3xl' : 'text-2xl sm:text-4xl'
+                  ? 't-card'
+                  : 't-stat'
               } ${
                 isPlaceholder
                   ? highlight ? 'text-white/50' : isNoData ? 'text-text-muted' : 'text-text-light/60'

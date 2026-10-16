@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { haptic } from '../../lib/haptics';
 import { createPortal } from 'react-dom';
-import { Plus, type LucideIcon } from 'lucide-react';
+import { MoreHorizontal, Plus, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCloseOnBack } from '../../lib/useCloseOnBack';
 
@@ -31,9 +31,9 @@ const tap = () => haptic('tap');
 
 /**
  * Phone-only round + button, working like an app's:
- * - One action: a tap does it straight away (opens the form).
- * - More than one: a tap opens a bottom action sheet with one big row per action, the first being the
- *   everyday one. A tap outside, Cancel, Escape or the phone's Back button closes it.
+ * - A tap does the first (everyday) action straight away, so New delegation / New ticket opens at once.
+ * - With more actions, a small "more" button sits above it (or press and hold the +): it opens a bottom action
+ *   sheet with one row per action. A tap outside, Cancel, Escape or the phone's Back button closes it.
  * - It slides out of the way while the list scrolls down and comes back on the first scroll up, so it
  *   never sits on top of what the person is reading.
  */
@@ -42,7 +42,17 @@ export const Fab = ({ actions, icon: Icon = Plus, sheetTitle = 'Create', 'aria-l
   const [hidden, setHidden] = useState(false);
   const lastY = useRef(0);
 
-  const singleAction = actions.length === 1 ? actions[0] : null;
+  const primary = actions[0] ?? null;
+  const hasMore = actions.length > 1;
+  // Press and hold the + for the full list (the small "more" button does the same with a tap).
+  const holdTimer = useRef<number | null>(null);
+  const held = useRef(false);
+  const startHold = () => {
+    if (!hasMore) return;
+    held.current = false;
+    holdTimer.current = window.setTimeout(() => { held.current = true; haptic('success'); setSheetOpen(true); }, 450);
+  };
+  const endHold = () => { if (holdTimer.current !== null) window.clearTimeout(holdTimer.current); holdTimer.current = null; };
 
   useCloseOnBack(sheetOpen, () => setSheetOpen(false));
 
@@ -75,12 +85,9 @@ export const Fab = ({ actions, icon: Icon = Plus, sheetTitle = 'Create', 'aria-l
   }, []);
 
   const handleMainClick = () => {
+    if (held.current) { held.current = false; return; }
     tap();
-    if (singleAction) {
-      if (!singleAction.disabled) singleAction.onClick();
-    } else {
-      setSheetOpen(true);
-    }
+    if (primary && !primary.disabled) primary.onClick();
   };
 
   const runAction = (action: FabAction) => {
@@ -99,13 +106,28 @@ export const Fab = ({ actions, icon: Icon = Plus, sheetTitle = 'Create', 'aria-l
         )}
         style={{ bottom: 'calc(6.25rem + env(safe-area-inset-bottom))' }}
       >
+        {hasMore && (
+          <button
+            type="button"
+            onClick={() => { tap(); setSheetOpen(true); }}
+            aria-label={`More: ${actions.slice(1).map((a) => a.label).join(', ')}`}
+            aria-haspopup="dialog"
+            aria-expanded={sheetOpen}
+            className="absolute -top-11 left-1/2 -translate-x-1/2 flex items-center justify-center size-9 rounded-full border border-border/70 bg-surface text-text-secondary ring-4 ring-background cursor-pointer active:scale-95 focus-visible:outline-none focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]"
+          >
+            <MoreHorizontal className="size-4" strokeWidth={2.5} />
+          </button>
+        )}
         <button
           type="button"
           onClick={handleMainClick}
-          disabled={singleAction?.disabled}
-          aria-label={ariaLabel ?? singleAction?.label ?? sheetTitle}
-          aria-haspopup={singleAction ? undefined : 'dialog'}
-          aria-expanded={singleAction ? undefined : sheetOpen}
+          onPointerDown={startHold}
+          onPointerUp={endHold}
+          onPointerLeave={endHold}
+          onPointerCancel={endHold}
+          onContextMenu={(e) => { if (hasMore) e.preventDefault(); }}
+          disabled={primary?.disabled}
+          aria-label={ariaLabel ?? primary?.label ?? sheetTitle}
           className={cn(
             'flex items-center justify-center size-14 rounded-full bg-gradient-to-br from-primary-500 to-primary-700 text-white cursor-pointer transition-transform duration-150 ease-out',
             // No shadow: a ring in the page colour lifts the button off whatever scrolls beneath it.
@@ -113,11 +135,11 @@ export const Fab = ({ actions, icon: Icon = Plus, sheetTitle = 'Create', 'aria-l
             'disabled:opacity-50 disabled:cursor-not-allowed [-webkit-tap-highlight-color:transparent]',
           )}
         >
-          {singleAction ? <singleAction.icon className="size-6" strokeWidth={2.5} /> : <Icon className="size-6" strokeWidth={2.5} />}
+          {primary ? <primary.icon className="size-6" strokeWidth={2.5} /> : <Icon className="size-6" strokeWidth={2.5} />}
         </button>
       </div>
 
-      {!singleAction && sheetOpen && (
+      {hasMore && sheetOpen && (
         <div className="md:hidden fixed inset-0 z-50 flex flex-col justify-end">
           <button
             type="button"

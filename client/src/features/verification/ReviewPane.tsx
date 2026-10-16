@@ -20,7 +20,7 @@ export interface SendBackPayload {
 const Tile = ({ label, value, tone }: { label: string; value: string; tone?: string }) => (
   <div className="flex flex-col gap-0.5 p-2.5 sm:p-3 rounded-lg border border-border/60 bg-surface-hover/40">
     <span className="t-meta font-display text-text-muted">{label}</span>
-    <span className={cn('t-figure font-display font-bold tabular-nums text-text', tone)}>{value}</span>
+    <span className={cn('t-stat font-display font-bold tabular-nums text-text', tone)}>{value}</span>
   </div>
 );
 

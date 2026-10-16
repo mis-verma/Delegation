@@ -345,7 +345,7 @@ export const MyChecklists = () => {
             accessibility landmark; the count that used to sit in a lead "Total" tile is now this
             plain today-scoped line instead (see MyChecklistsQuickStats' `total` prop comment). */}
         <h1 className="sr-only">My Checklists</h1>
-        <div className="flex items-center gap-1.5 t-card font-display text-text-muted">
+        <div className="flex items-center gap-1.5 t-meta sm:t-card font-display text-text-muted">
           {todaySummary ? <span className="font-semibold text-text tabular-nums">{todaySummary.total}</span> : <Skeleton className="h-4 w-5" />}
           assigned to you today
         </div>

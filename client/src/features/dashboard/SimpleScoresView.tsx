@@ -139,7 +139,7 @@ export const SimpleScoresView = ({
               {loading ? (
                 <Skeleton className="h-7 w-16 rounded-md" />
               ) : (
-                <span className={cn('t-figure font-display font-extrabold tabular-nums leading-none', overall === null ? 'text-text-light' : 'text-text')}>{overall === null ? '-' : formatPct(overall)}</span>
+                <span className={cn('t-stat font-display font-extrabold tabular-nums leading-none', overall === null ? 'text-text-light' : 'text-text')}>{overall === null ? '-' : formatPct(overall)}</span>
               )}
               {overall !== null && TONE_WORD[overallTone] && (
                 <span className={cn('self-start rounded-full px-2 py-px t-meta font-semibold sm:self-center', TONE_CHIP[overallTone])}>{TONE_WORD[overallTone]}</span>

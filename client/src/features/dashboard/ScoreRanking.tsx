@@ -241,7 +241,7 @@ export const ScoreRanking = ({ compact = false, metric: controlled, scope, from,
                       <span className="block line-clamp-2 t-card font-display font-semibold leading-snug text-text">{c.row.name}</span>
                       {scope === 'person' && c.row.department && <span className="block line-clamp-2 t-meta text-text-muted">{c.row.department}</span>}
                     </span>
-                    <span className="t-figure font-display font-bold"><Pct value={value} /></span>
+                    <span className="t-stat font-display font-bold"><Pct value={value} /></span>
                     <ChevronRight className="size-4 shrink-0 text-text-light" aria-hidden="true" />
                   </span>
                   <MiniBar value={value} />

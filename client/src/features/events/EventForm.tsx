@@ -2,9 +2,9 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { CalendarClock, AlertCircle, Tag, Clock3 } from 'lucide-react';
-import { Input, Textarea, Button, Modal, Combobox, DatePicker } from '../../components';
+import { Input, Textarea, Button, Modal, DatePicker } from '../../components';
 import { useCreateEventMutation, useUpdateEventMutation } from './hook';
-import { EVENT_TYPE_LABELS } from './eventDisplay';
+import { EVENT_TYPE_LABELS, EVENT_TYPE_ICONS, EVENT_TYPE_SOLID } from './eventDisplay';
 import type { Event, EventType } from '@/api/events';
 
 const EVENT_TYPES: EventType[] = ['DEADLINE', 'ANNOUNCEMENT', 'BROADCAST'];
@@ -114,18 +114,34 @@ export const EventForm = ({ onClose, event }: EventFormProps) => {
             <Tag className="w-3.5 h-3.5 text-text-light group-focus-within/field:text-primary-500 transition-colors" strokeWidth={2.5} />
             Type
           </label>
+          {/* Three kinds only, so all three as pills (each in its own colour), not a dropdown to open. */}
           <Controller
             control={control}
             name="type"
             render={({ field }) => (
-              <Combobox
-                id="type"
-                value={field.value}
-                onChange={field.onChange}
-                placeholder="Search type..."
-                options={EVENT_TYPES.map(t => ({ value: t, label: EVENT_TYPE_LABELS[t] }))}
-                className={QUIET_FIELD_CLASS}
-              />
+              <div id="type" role="radiogroup" aria-label="Type" className="grid grid-cols-3 gap-1.5">
+                {EVENT_TYPES.map((t) => {
+                  const Icon = EVENT_TYPE_ICONS[t];
+                  const on = field.value === t;
+                  return (
+                    <button
+                      key={t}
+                      type="button"
+                      role="radio"
+                      aria-checked={on}
+                      onClick={() => field.onChange(t)}
+                      className={`flex min-w-0 items-center justify-center gap-1.5 h-10 px-1.5 rounded-lg border t-meta font-display font-semibold transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
+                        on ? 'border-primary-500/50 bg-primary-500/10 text-primary-700 dark:text-primary-300' : 'border-border/60 bg-surface text-text-secondary hover:border-border-hover'
+                      }`}
+                    >
+                      <span className={`flex size-5 shrink-0 items-center justify-center rounded-full text-white ${EVENT_TYPE_SOLID[t]}`} aria-hidden="true">
+                        <Icon className="size-3" strokeWidth={2.5} />
+                      </span>
+                      <span className="truncate">{t === 'ANNOUNCEMENT' ? 'Notice' : EVENT_TYPE_LABELS[t]}</span>
+                    </button>
+                  );
+                })}
+              </div>
             )}
           />
         </div>

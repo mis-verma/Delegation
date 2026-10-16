@@ -31,7 +31,7 @@ export const ModuleFigures = ({ module, completion, compliance, onTime }: Module
             <span className="hidden @[22rem]:inline min-w-0 truncate">{f.label}</span>
             <HowCalculated figure={f.key} module={module} />
           </dt>
-          <dd className="text-xl @[22rem]:t-figure font-display leading-tight"><ScorePct value={f.value} strong /></dd>
+          <dd className="t-stat font-display leading-tight"><ScorePct value={f.value} strong /></dd>
         </div>
       ))}
     </dl>

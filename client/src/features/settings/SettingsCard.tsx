@@ -18,15 +18,15 @@ interface SettingsCardProps {
  * text under them.
  */
 export const SettingsCard = ({ icon: Icon, title, aside, hint, tone = 'primary', children }: SettingsCardProps) => (
-  <section aria-label={title} className="flex flex-col gap-4 p-4 sm:p-5 rounded-2xl border border-border bg-surface">
-    <div className="flex items-center gap-3">
-      <span className={`flex items-center justify-center size-9 rounded-xl shrink-0 ${tone === 'warning' ? 'bg-warning/10 text-warning' : 'bg-primary-500/10 text-primary-600 dark:text-primary-300'}`}>
-        <Icon size={17} aria-hidden />
+  <section aria-label={title} className="flex flex-col gap-3.5 p-3.5 sm:p-5 rounded-2xl border border-border/60 bg-surface">
+    <div className="flex items-center gap-2.5">
+      <span className={`flex items-center justify-center size-8 rounded-lg shrink-0 text-white bg-linear-to-br ${tone === 'warning' ? 'from-warning to-warning/70' : 'from-primary-500 to-primary-700'}`}>
+        <Icon size={15} strokeWidth={2.25} aria-hidden />
       </span>
-      <h2 className="flex-1 min-w-0 t-section font-display font-bold text-text tracking-tight">{title}</h2>
+      <h2 className="flex-1 min-w-0 t-card font-display font-bold text-text">{title}</h2>
       {aside}
     </div>
     {children}
-    {hint && <p className="text-xs font-display text-text-muted leading-relaxed">{hint}</p>}
+    {hint && <p className="text-[0.6875rem] sm:text-xs font-display text-text-muted leading-relaxed">{hint}</p>}
   </section>
 );

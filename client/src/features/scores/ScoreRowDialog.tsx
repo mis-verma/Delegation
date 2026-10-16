@@ -48,7 +48,7 @@ export const ScoreRowDialog = ({ row, modules, windowLabel, window, orgWide, par
             </div>
             {row.totalDue > 0 && (
               <div className="flex shrink-0 flex-col items-end">
-                <span className="t-figure font-display"><ScorePct value={row.overall} strong /></span>
+                <span className="t-stat font-display"><ScorePct value={row.overall} strong /></span>
                 <span className="flex items-center gap-0.5 t-meta text-text-muted">{SCORE_LABEL.overall}<HowCalculated figure="overall" /></span>
               </div>
             )}

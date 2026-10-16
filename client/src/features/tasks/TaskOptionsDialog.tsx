@@ -132,7 +132,9 @@ export const TaskOptionsDialog = ({
         onExport={canExport ? onExport : undefined}
         showLabel={`Show ${resultCount} ${resultCount === 1 ? 'delegation' : 'delegations'}`}
       >
+        {/* Not on a phone: the page's own Assigned to me / Created by me switch already does this. */}
         {scope && (
+          <div className="max-sm:hidden">
           <OptionSection icon={Eye} label="Show">
             <OptionSegmented
               options={[
@@ -144,6 +146,7 @@ export const TaskOptionsDialog = ({
               onChange={(next) => scope.onChange(next)}
             />
           </OptionSection>
+          </div>
         )}
 
         {/* Group is board-only (columns are the board's structure); Timeline lays bars on a date

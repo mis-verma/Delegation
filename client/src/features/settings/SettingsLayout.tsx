@@ -10,28 +10,28 @@ const NAV = [
 
 export const SettingsLayout = () => {
   return (
-    <div className="flex flex-col gap-5 sm:gap-6 w-full max-w-(--container-width) mx-auto">
+    <div className="flex flex-col gap-3 sm:gap-6 w-full max-w-(--container-width) mx-auto">
       <PageHeader icon={SettingsIcon} title="Settings" subtitle="Your account and how the app looks for you." />
 
-      {/* Scrolls sideways instead of wrapping, so every tab stays reachable on a narrow phone. Pills,
-          like the People & Teams tabs, rather than a thin underline. */}
-      <nav aria-label="Settings sections" className="overflow-x-auto no-scrollbar max-w-full">
-        <div className="inline-flex items-center gap-1 p-1 rounded-full border border-border bg-surface-hover/50">
+      {/* The same segmented switch as the rest of the app: equal parts filling a phone's width, the picked one white
+          with a blue ring and a blue icon. */}
+      <nav aria-label="Settings sections" className="max-w-full">
+        <div className="grid grid-cols-3 gap-1 p-1 rounded-xl border border-border/60 bg-surface-hover/60 sm:inline-grid">
           {NAV.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
               to={to}
               className={({ isActive }) =>
                 [
-                  'flex items-center gap-2 min-h-11 sm:min-h-9 px-4 rounded-full text-sm font-display font-medium transition-colors shrink-0 whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40',
+                  'group flex min-w-0 items-center justify-center gap-1.5 h-9 pointer-coarse:h-10 px-2 sm:px-3.5 rounded-lg t-meta font-display transition-colors whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40',
                   isActive
-                    ? 'bg-surface text-primary-700 dark:text-primary-300 border border-border font-semibold'
-                    : 'border border-transparent text-text-secondary hover:text-text',
+                    ? 'bg-surface text-primary-700 dark:text-primary-300 font-bold ring-1 ring-primary-500/30 [&_svg]:text-primary-600 dark:[&_svg]:text-primary-300'
+                    : 'text-text-secondary font-semibold hover:text-text hover:bg-surface/70 [&_svg]:text-text-muted',
                 ].join(' ')
               }
             >
-              <Icon size={15} className="shrink-0" />
-              {label}
+              <Icon size={14} className="shrink-0" />
+              <span className="truncate">{label}</span>
             </NavLink>
           ))}
         </div>

@@ -117,7 +117,7 @@ const ScoreTile = ({ title, score, detail, loading, onOpen, change }: ScoreTileP
         endLabels={false}
         className="max-w-20 sm:max-w-28"
       />
-      <span className="t-figure font-display font-extrabold tabular-nums text-text">{loading ? ' ' : score === null ? '-' : formatPct(score)}</span>
+      <span className="t-stat font-display font-extrabold tabular-nums text-text">{loading ? ' ' : score === null ? '-' : formatPct(score)}</span>
       <span className="t-meta font-display font-semibold leading-snug text-text-secondary break-words">{title}</span>
       {!loading && score !== null && detail && <span className="t-meta font-display leading-snug text-text-muted break-words">{detail}</span>}
       {!loading && score === null && <span className="t-meta font-display text-text-light">Nothing due</span>}

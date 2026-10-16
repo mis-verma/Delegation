@@ -88,7 +88,7 @@ const MobileStatTile = ({ label, value, caption, trend, lowerIsBetter = false, i
         <Skeleton className="h-7 w-14 rounded-md" />
       ) : (
         <span
-          className={`${isPlaceholder ? 't-card' : 't-figure'} font-display font-bold leading-none tabular-nums ${isPlaceholder ? 'text-text-muted' : 'text-text'}`}
+          className={`${isPlaceholder ? 't-card' : 't-stat'} font-display font-bold leading-none tabular-nums ${isPlaceholder ? 'text-text-muted' : 'text-text'}`}
         >
           {typeof value === 'number' ? value.toLocaleString('en-IN') : value}
         </span>

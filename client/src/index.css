@@ -370,6 +370,9 @@ body {
 /* t-card tops out at 16px (the body step): it used to reach 16.6px on a wide screen, a size sitting 0.6px from body text. */
 @utility t-card { font-size: calc(clamp(0.875rem, 0.84rem + 0.22vw, 1rem) * var(--type-scale, 1)); line-height: 1.35; text-wrap: balance; }
 @utility t-meta { font-size: max(0.75rem, calc(clamp(0.75rem, 0.72rem + 0.12vw, 0.8125rem) * var(--type-scale, 1))); line-height: 1.4; }
+/* The one size for every stat number (stat tiles, stat cards, dashboard cards): a step above a modal's heading, well
+   below the old 30-36px figures, so a row of stats reads like the rest of the app instead of shouting. */
+@utility t-stat { font-size: calc(clamp(1.125rem, 1rem + 0.45vw, 1.5rem) * var(--type-scale, 1)); line-height: 1.1; font-variant-numeric: tabular-nums; }
 @utility t-figure { font-size: calc(clamp(1.25rem, 1.05rem + 1vw, 2rem) * var(--type-scale, 1)); line-height: 1.1; }
 
 @utility gap-inherit {
@@ -388,7 +391,7 @@ body {
      beat Tailwind's layered utilities whatever order the CSS is emitted in, so no `font-*` class
      needs touching. Desktop is unchanged. */
   body { font-weight: 500; }
-  .t-title, .t-section, .t-figure { font-weight: clamp(700, var(--tw-font-weight, 400), 900); }
+  .t-title, .t-section, .t-figure, .t-stat { font-weight: clamp(700, var(--tw-font-weight, 400), 900); }
   .t-card { font-weight: clamp(600, var(--tw-font-weight, 400), 900); }
   .t-meta { font-weight: clamp(500, var(--tw-font-weight, 400), 900); }
 }

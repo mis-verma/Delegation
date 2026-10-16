@@ -54,7 +54,7 @@ const WeekOffCard = ({ initial, isSaving, onSave }: { initial: number[]; isSavin
     <SettingsCard
       icon={CalendarOff}
       title="Week off"
-      aside={<span className="text-xs font-display font-medium text-text-muted">{days.length ? days.map(weekdayShortName).join(', ') : 'None'}</span>}
+      aside={<span className="rounded-full border border-border/60 bg-surface-hover/50 px-2 py-0.5 text-[0.6875rem] font-display font-semibold text-text-secondary">{days.length ? days.map(weekdayShortName).join(', ') : 'None'}</span>}
       hint="You won't get daily checklists on these days."
     >
       <WeekdayPicker value={days} onChange={setDays} tone="off" maxSelected={6} aria-label="Your weekly days off" />
@@ -154,7 +154,7 @@ export const AccountSettings = () => {
 
         <div className="flex flex-col gap-1">
           <Input id="email" label="Email address" icon={Mail} value={profile.email} readOnly disabled />
-          <p className="text-xs text-text-muted px-1">Contact an admin to change your email address.</p>
+          <p className="text-[0.6875rem] text-text-muted px-1">Contact an admin to change your email address.</p>
         </div>
 
         <Input id="phone" label="Phone (optional)" icon={Phone} error={profileErrors.phone?.message} {...registerProfile('phone')} />

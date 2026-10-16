@@ -93,7 +93,7 @@ const Card = memo(({ item, rank, onOpen }: { item: Ranked; rank: number | null; 
           : !item.rankable && <span className="t-meta text-text-muted">Too few runs (fewer than {MIN_RANK_VOLUME} due)</span>}
       </span>
       <span className="flex shrink-0 flex-col items-end leading-tight">
-        <span className={cn('t-figure font-display tabular-nums', item.score === null ? 'text-text-light' : rateToneClass(item.score))}>{formatPct(item.score)}</span>
+        <span className={cn('t-stat font-display tabular-nums', item.score === null ? 'text-text-light' : rateToneClass(item.score))}>{formatPct(item.score)}</span>
         <span className="t-meta text-text-muted">checklist score</span>
       </span>
     </span>
@@ -183,7 +183,7 @@ export const ReportScoreboard = ({ noun, items, loading, error, onRetry, updatin
             </div>
           </div>
           <div className="flex shrink-0 flex-col items-end">
-            <span className="t-figure font-display tabular-nums text-text">{formatPct(winner[0].score)}</span>
+            <span className="t-stat font-display tabular-nums text-text">{formatPct(winner[0].score)}</span>
             <span className="t-meta text-text-muted">checklist score</span>
           </div>
         </div>

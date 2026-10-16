@@ -50,7 +50,7 @@ export const ScoresTotalCard = ({ total, modules, title, windowLabel, capped }: 
         </p>
       </div>
       <div className="flex shrink-0 flex-col items-end">
-        <span className="t-figure font-display"><ScorePct value={total.overall} strong /></span>
+        <span className="t-stat font-display"><ScorePct value={total.overall} strong /></span>
         <span className="flex items-center gap-0.5 t-meta text-text-muted">
           {SCORE_LABEL.overall}
           <HowCalculated figure="overall" />

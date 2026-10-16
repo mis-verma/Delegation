@@ -75,16 +75,16 @@ export const OptionSegmented = <T extends string>({ options, value, onChange }: 
           type="button"
           aria-pressed={active}
           onClick={() => onChange(v)}
-          className={`relative flex flex-col items-center justify-center gap-1.5 min-h-[4.25rem] pointer-coarse:min-h-[4.5rem] px-1.5 py-2.5 rounded-xl border text-center text-xs font-display font-semibold transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.98] [-webkit-tap-highlight-color:transparent] ${
+          className={`relative flex items-center gap-2 h-10 pointer-coarse:h-11 min-w-0 pl-1.5 pr-2 rounded-lg border text-left text-[0.6875rem] sm:text-xs font-display font-semibold transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.98] [-webkit-tap-highlight-color:transparent] ${
             active
               ? 'border-primary-600 dark:border-primary-400 bg-primary-500/10 dark:bg-primary-500/15 text-primary-800 dark:text-primary-100'
               : 'border-border/60 dark:border-white/[0.08] bg-surface text-text-secondary hover:border-primary-400/60'
           }`}
         >
-          <OptionGlyph icon={icon} tone={toneAt(index)} />
-          <span className="max-w-full truncate leading-tight">{label}</span>
+          <OptionGlyph icon={icon} tone={toneAt(index)} className="size-7 rounded-md" />
+          <span className="min-w-0 flex-1 truncate leading-tight">{label}</span>
           {active && (
-            <span className="absolute top-1.5 right-1.5 flex items-center justify-center size-4 rounded-full bg-primary-600 dark:bg-primary-400 text-white">
+            <span className="flex shrink-0 items-center justify-center size-4 rounded-full bg-primary-600 dark:bg-primary-400 text-white">
               <Check size={10} strokeWidth={3.5} />
             </span>
           )}

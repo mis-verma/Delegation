@@ -138,7 +138,7 @@ export function QuickFilterStats<K extends string>({
           >
             <span className="min-w-0 max-w-full">
               <span className={cn(
-                'block text-lg sm:text-3xl font-extrabold sm:font-bold tabular-nums leading-none',
+                'block t-stat font-extrabold sm:font-bold leading-none',
                 // On a phone there is no icon tile, so the picked card's number takes its colour instead.
                 isActive ? cn(iconTint, 'sm:text-text') : count === 0 ? 'text-text-light' : LATE.has(key) ? 'text-danger' : 'text-text',
               )}>

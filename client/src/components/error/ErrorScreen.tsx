@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router';
-import { Home, RefreshCcw, AlertTriangle, SearchX, type LucideIcon } from 'lucide-react';
+import { Home, RefreshCcw, AlertTriangle, SearchX, WifiOff, type LucideIcon } from 'lucide-react';
 import { Button } from '../button';
-import { OrbitDecoration } from '../orbitDecoration';
+import { BrandLogo } from '../brandLogo';
 
 interface ErrorScreenProps {
   code?: string | number;
@@ -10,70 +10,53 @@ interface ErrorScreenProps {
   onRetry?: () => void;
 }
 
-// 404s get a distinct search-themed icon/tone from every other error, which reads as a generic
-// "something broke" state — same danger tint used for error banners elsewhere in the app.
-const iconFor = (code?: string | number): { Icon: LucideIcon; tone: 'primary' | 'danger' } =>
-  code === 404 ? { Icon: SearchX, tone: 'primary' } : { Icon: AlertTriangle, tone: 'danger' };
+// A missing page is a search, a lost connection is the network, anything else is a plain warning.
+const lookFor = (code?: string | number): { Icon: LucideIcon; tile: string; tag: string } => {
+  if (code === 404) return { Icon: SearchX, tile: 'bg-primary-500/10 text-primary-600 dark:text-primary-300', tag: 'Page not found' };
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return { Icon: WifiOff, tile: 'bg-warning/10 text-warning', tag: 'You are offline' };
+  return { Icon: AlertTriangle, tile: 'bg-danger/10 text-danger', tag: code ? `Error ${code}` : 'Something went wrong' };
+};
 
+/**
+ * The full-page "this didn't work" screen (route errors, a page that failed to load, 404). One calm card: the logo,
+ * a small icon, a short title and line, then Try again and Back to dashboard, side by side from sm and stacked
+ * full-width on a phone so either is easy to hit with a thumb.
+ */
 export const ErrorScreen = ({ code, title, message, onRetry }: ErrorScreenProps) => {
   const navigate = useNavigate();
-  const { Icon, tone } = iconFor(code);
+  const { Icon, tile, tag } = lookFor(code);
 
   return (
-    <div
-      className="flex min-h-svh items-center justify-center p-4 relative overflow-hidden isolate"
-      style={{ background: 'var(--color-background)' }}
-    >
-      <OrbitDecoration corner="top-left" tone={tone === 'danger' ? 'coral' : 'primary'} className="opacity-70" />
-      <OrbitDecoration corner="bottom-right" tone="primary" className="opacity-70" />
-      <span className="absolute top-1/3 right-16 size-40 rounded-full bg-primary-300/10 blur-2xl pointer-events-none" aria-hidden="true" />
+    <div className="flex min-h-svh items-center justify-center bg-background p-4">
+      <div className="flex w-full max-w-sm flex-col items-center gap-5 rounded-2xl border border-border/60 bg-surface px-5 py-7 text-center animate-in fade-in zoom-in-95 duration-200 sm:px-7">
+        <BrandLogo className="size-8" textClassName="text-base" />
 
-      <div
-        className="group relative z-10 w-full max-w-md text-center flex flex-col items-center gap-5 p-8 sm:p-10 rounded-2xl border shadow-xl hover:shadow-2xl transition-shadow duration-300 animate-in fade-in zoom-in-95 duration-300"
-        style={{
-          background: 'var(--glass-bg)',
-          borderColor: 'var(--glass-border)',
-          backdropFilter: 'var(--glass-blur)',
-          WebkitBackdropFilter: 'var(--glass-blur)',
-        }}
-      >
-        <div
-          className={`relative flex items-center justify-center size-16 rounded-2xl shrink-0 transition-transform duration-300 group-hover:scale-105 ${
-            tone === 'danger'
-              ? 'bg-danger/10 ring-1 ring-danger/20 dark:bg-danger/15'
-              : 'bg-primary-50 ring-1 ring-primary-200/60 dark:bg-primary-500/10 dark:ring-primary-800/50'
-          }`}
-        >
-          {/* A slow pulse behind the icon so the card reads as "alive" rather than a static error dump. */}
-          <span className={`absolute inset-0 rounded-2xl animate-pulse ${tone === 'danger' ? 'bg-danger/10' : 'bg-primary-400/10'}`} aria-hidden="true" />
-          <Icon size={28} strokeWidth={2} className={tone === 'danger' ? 'text-danger' : 'text-primary-600 dark:text-primary-400'} />
-        </div>
-
-        {code && (
-          <span className="text-5xl sm:text-6xl font-display font-bold text-text tracking-tight -mt-1">
-            {code}
+        <div className="flex flex-col items-center gap-3">
+          <span className={`flex size-12 items-center justify-center rounded-2xl ${tile}`} aria-hidden="true">
+            <Icon size={22} strokeWidth={2.25} />
           </span>
-        )}
-
-        <div className="flex flex-col gap-1.5">
-          <h1 className="text-lg font-display font-bold text-text">{title}</h1>
-          {message && (
-            <p className="text-sm text-text-muted font-display max-w-sm">{message}</p>
+          {tag.toLowerCase() !== title.toLowerCase() && (
+            <span className="rounded-full bg-surface-hover px-2 py-0.5 text-[0.6875rem] font-display font-semibold text-text-muted">{tag}</span>
           )}
+          <div className="flex flex-col gap-1">
+            <h1 className="t-card font-display font-bold text-text">{title}</h1>
+            {message && <p className="t-meta text-text-muted leading-relaxed">{message}</p>}
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-center gap-3 mt-2">
+        <div className="flex w-full flex-col-reverse gap-2 sm:flex-row">
+          <Button variant="outline" className="h-10 w-full sm:w-auto sm:flex-1 gap-1.5 font-display" onClick={() => navigate('/')}>
+            <Home size={15} aria-hidden="true" />
+            Back to dashboard
+          </Button>
           {onRetry && (
-            <Button variant="outline" size="sm" className="group/retry gap-1.5" onClick={onRetry}>
-              <RefreshCcw size={14} className="transition-transform duration-500 group-hover/retry:rotate-180" />
+            <Button variant="primary" className="group/retry h-10 w-full sm:w-auto sm:flex-1 gap-1.5 font-display" onClick={onRetry}>
+              <RefreshCcw size={15} className="transition-transform duration-500 group-hover/retry:rotate-180" aria-hidden="true" />
               Try again
             </Button>
           )}
-          <Button variant="primary" size="sm" className="group/home gap-1.5" onClick={() => navigate('/')}>
-            <Home size={14} className="transition-transform duration-200 group-hover/home:-translate-y-0.5" />
-            Back to dashboard
-          </Button>
         </div>
+        <p className="text-[0.6875rem] text-text-light">If this keeps happening, tell your admin what you were doing.</p>
       </div>
     </div>
   );

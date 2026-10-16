@@ -1,6 +1,6 @@
 import { useMemo, useState, lazy, Suspense } from 'react';
-import { Trash2, Pencil, CalendarClock, Clock3, Loader2, AlertCircle } from 'lucide-react';
-import { Button, Skeleton, GradientIconTile, IconChip, QuickFilterStats, EmptyState } from '../../components';
+import { Trash2, Pencil, CalendarClock, Clock3, Loader2, AlertCircle, Plus } from 'lucide-react';
+import { Button, Skeleton, GradientIconTile, IconChip, QuickFilterStats, EmptyState, Fab } from '../../components';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/context/AuthContext';
 import { useEventsQuery, useDeleteEventMutation } from './hook';
@@ -154,8 +154,9 @@ export const EventList = () => {
   const activeModal = showForm || editingEvent;
 
   return (
-    <div className="flex flex-col gap-6 mx-auto w-full max-w-(--container-width) transition-all duration-300 pb-10">
-      <div className="flex items-center gap-3">
+    <div className="flex flex-col gap-3 sm:gap-6 mx-auto w-full max-w-(--container-width) transition-all duration-300 pb-10">
+      {/* The page name is already in the header on a phone. */}
+      <div className="hidden sm:flex items-center gap-3">
         <GradientIconTile icon={CalendarClock} />
         <div>
           <h1 className="text-xl font-display font-bold text-text">Events</h1>
@@ -193,6 +194,9 @@ export const EventList = () => {
       )}
 
       {renderContent()}
+
+      {/* Phone: the round + (the desktop button above hides below md). It was missing, so no one could add an event on a phone. */}
+      {canManage && <Fab actions={[{ key: 'new', label: 'New event', icon: Plus, onClick: () => setShowForm(true) }]} />}
 
       {activeModal && (
         <Suspense fallback={null}>

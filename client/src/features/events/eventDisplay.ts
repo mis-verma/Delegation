@@ -48,7 +48,7 @@ export const EVENT_TYPE_ICONS: Record<EventType, typeof CalendarClock> = {
 // each type exactly, just expressed in the tinted-tile shape QuickFilterStats reads.
 export const EVENT_TYPE_TILES: QuickFilterTile<EventType>[] = [
   { key: 'DEADLINE', label: EVENT_TYPE_LABELS.DEADLINE, icon: EVENT_TYPE_ICONS.DEADLINE, ...QUICK_FILTER_TONE.danger },
-  { key: 'ANNOUNCEMENT', label: EVENT_TYPE_LABELS.ANNOUNCEMENT, icon: EVENT_TYPE_ICONS.ANNOUNCEMENT, ...QUICK_FILTER_TONE.neutral },
+  { key: 'ANNOUNCEMENT', label: EVENT_TYPE_LABELS.ANNOUNCEMENT, shortLabel: 'Notice', icon: EVENT_TYPE_ICONS.ANNOUNCEMENT, ...QUICK_FILTER_TONE.neutral },
   { key: 'BROADCAST', label: EVENT_TYPE_LABELS.BROADCAST, icon: EVENT_TYPE_ICONS.BROADCAST, ...QUICK_FILTER_TONE.warning },
 ];
 

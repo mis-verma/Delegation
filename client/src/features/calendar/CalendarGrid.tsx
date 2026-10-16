@@ -1,13 +1,11 @@
 import { useRef, type KeyboardEvent } from 'react';
 import { Plus } from 'lucide-react';
-import { IconChip } from '../../components';
 import { CalendarAddMenu } from './CalendarAddMenu';
 import {
   dayKey,
   isSameCalendarDay,
   WEEKDAY_LABELS,
   CALENDAR_ITEM_LABEL,
-  CALENDAR_ITEM_ICON,
   CALENDAR_ITEM_DOT_CLASS,
   type CalendarCreateKind,
   type CalendarItem,
@@ -59,11 +57,11 @@ export const CalendarGrid = ({ days, month, today, selectedDay, itemsByDay, onSe
 
   return (
     <div className="@container rounded-2xl border border-border bg-surface overflow-hidden">
-      <div className="grid grid-cols-7 border-b border-border">
+      <div className="grid grid-cols-7 border-b border-border/60">
         {WEEKDAY_LABELS.map((label, i) => (
           <div
             key={label}
-            className={`py-2 text-center t-meta font-display font-semibold tracking-wide ${i === 0 || i === 6 ? 'text-text-light' : 'text-text-muted'}`}
+            className={`py-1.5 @min-[38rem]:py-2 text-center text-[0.6875rem] @min-[38rem]:t-meta font-display font-semibold tracking-wide ${i === 0 || i === 6 ? 'text-text-light' : 'text-text-muted'}`}
           >
             {label}
           </div>
@@ -88,7 +86,8 @@ export const CalendarGrid = ({ days, month, today, selectedDay, itemsByDay, onSe
           return (
             <div
               key={key}
-              className={`group relative border-b border-r border-border/50 [&:nth-child(7n)]:border-r-0 [&:nth-last-child(-n+7)]:border-b-0 ${
+              // Narrow (phone): no cell lines, like a calendar app. Wide: the ruled month grid.
+              className={`group relative @min-[38rem]:border-b @min-[38rem]:border-r border-border/50 [&:nth-child(7n)]:border-r-0 [&:nth-last-child(-n+7)]:border-b-0 ${
                 isSelected ? 'z-10' : ''
               }`}
             >
@@ -100,21 +99,22 @@ export const CalendarGrid = ({ days, month, today, selectedDay, itemsByDay, onSe
                 aria-pressed={isSelected}
                 aria-current={isToday ? 'date' : undefined}
                 aria-label={`${longDate}, ${dayItems.length === 0 ? 'nothing due' : `${dayItems.length} ${dayItems.length === 1 ? 'item' : 'items'}`}${isToday ? ', today' : ''}`}
-                className={`flex h-14 @min-[38rem]:h-auto @min-[38rem]:min-h-24 w-full flex-col items-center @min-[38rem]:items-stretch gap-1 p-1 @min-[38rem]:p-1.5 text-left cursor-pointer transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500 ${
+                className={`flex h-12 @min-[38rem]:h-auto @min-[38rem]:min-h-24 w-full flex-col items-center @min-[38rem]:items-stretch gap-0.5 @min-[38rem]:gap-1 p-1 @min-[38rem]:p-1.5 text-left cursor-pointer transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500 ${
                   isSelected
-                    ? 'bg-primary-500/10 ring-2 ring-inset ring-primary-500'
+                    ? '@min-[38rem]:bg-primary-500/10 @min-[38rem]:ring-2 @min-[38rem]:ring-inset @min-[38rem]:ring-primary-500'
                     : quiet
-                      ? 'bg-surface-hover/40 hover:bg-surface-hover'
+                      ? '@min-[38rem]:bg-surface-hover/40 hover:bg-surface-hover'
                       : 'bg-surface hover:bg-surface-hover'
                 }`}
               >
                 <span className={`flex @min-[38rem]:justify-start justify-center`}>
                   <span
-                    className={`inline-flex items-center justify-center size-7 rounded-full text-sm font-display font-semibold tabular-nums ${
-                      isToday
+                    // The picked day is a filled circle; today, when it isn't picked, is a blue number with a soft ring (app style).
+                    className={`inline-flex items-center justify-center size-7 rounded-full text-[0.8125rem] @min-[38rem]:text-sm font-display font-semibold tabular-nums transition-colors duration-150 ${
+                      isSelected
                         ? 'bg-primary-600 text-white'
-                        : isSelected
-                          ? 'text-primary-700 dark:text-primary-300'
+                        : isToday
+                          ? 'text-primary-700 dark:text-primary-300 font-bold ring-1 ring-inset ring-primary-500/50'
                           : inMonth
                             ? isWeekend
                               ? 'text-text-muted'
@@ -184,9 +184,13 @@ export const CalendarGrid = ({ days, month, today, selectedDay, itemsByDay, onSe
         })}
       </div>
 
-      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 border-t border-border bg-surface-hover/30 px-3 py-2.5">
+      {/* The key: one small line of coloured dots and names. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border/60 px-3 py-2">
         {(Object.keys(CALENDAR_ITEM_LABEL) as CalendarItemType[]).map((type) => (
-          <IconChip key={type} icon={CALENDAR_ITEM_ICON[type]} tone={CALENDAR_ITEM_DOT_CLASS[type]} label={CALENDAR_ITEM_LABEL[type]} />
+          <span key={type} className="inline-flex items-center gap-1 text-[0.6875rem] font-medium text-text-muted">
+            <span className={`size-1.5 rounded-full ${CALENDAR_ITEM_DOT_CLASS[type]}`} aria-hidden="true" />
+            {CALENDAR_ITEM_LABEL[type]}
+          </span>
         ))}
       </div>
     </div>

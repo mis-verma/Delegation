@@ -58,7 +58,7 @@ interface BigStatProps {
 const BigStat = ({ label, value, valueClassName, detail, hint }: BigStatProps) => (
   <div className={STAT_TILE_CLASS}>
     <span className="t-meta font-display font-semibold text-text-muted">{label}</span>
-    <span className={cn('t-figure font-display font-bold tabular-nums', value === null ? 'text-text-light' : valueClassName ?? 'text-text')}>
+    <span className={cn('t-stat font-display font-bold tabular-nums', value === null ? 'text-text-light' : valueClassName ?? 'text-text')}>
       {value ?? '-'}
     </span>
     <span className="t-meta font-display font-medium text-text-secondary">{detail}</span>
@@ -263,7 +263,7 @@ export const PersonChecklistView = ({
             {taskTotals.isPending ? (
               <Skeleton className="h-7 w-16" />
             ) : (
-              <span className={cn('t-figure font-display font-bold tabular-nums', photo?.photoRate == null ? 'text-text-light' : rateToneClass(photo.photoRate))}>
+              <span className={cn('t-stat font-display font-bold tabular-nums', photo?.photoRate == null ? 'text-text-light' : rateToneClass(photo.photoRate))}>
                 {formatPct(photo?.photoRate)}
               </span>
             )}

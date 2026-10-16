@@ -72,7 +72,7 @@ const ModuleSummary = ({ label, module, scores }: { label: string; module: Modul
           <span className="t-meta text-text-muted tabular-nums">{data.due} due</span>
         </div>
         <div className="flex shrink-0 flex-col items-end">
-          <span className="t-figure font-display"><Pct value={moduleOverall(scores, module)} strong /></span>
+          <span className="t-stat font-display"><Pct value={moduleOverall(scores, module)} strong /></span>
           <span className="inline-flex items-center gap-1 t-meta text-text-muted">{SCORE_LABEL.overall}<HowCalculated figure="overall" module={module} /></span>
         </div>
       </div>

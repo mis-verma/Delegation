@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState } from 'react';
+import { lazy, Suspense, useMemo, useRef, useState, type TouchEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
 import { EntityIconTile, FormChunkFallback } from '../../components';
@@ -20,7 +20,7 @@ const TaskForm = lazy(() => import('../tasks/TaskForm').then((m) => ({ default: 
 const TicketForm = lazy(() => import('../tickets/TicketForm').then((m) => ({ default: m.TicketForm })));
 
 const NAV_BUTTON =
-  'flex items-center justify-center size-11 sm:size-9 shrink-0 rounded-lg text-text-muted hover:text-text hover:bg-surface-hover transition-all duration-200 ease-in-out cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-50';
+  'flex items-center justify-center size-9 pointer-coarse:size-10 shrink-0 rounded-lg text-text-muted hover:text-text hover:bg-surface-hover transition-all duration-200 ease-in-out cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-50';
 
 // Checklist instances have no org-wide query yet (see HomePage.tsx's own comment on the same gap)
 // — they stay "mine" for every role, same as the Dashboard. Tasks and Tickets go org-wide for
@@ -168,6 +168,19 @@ export const CalendarPage = () => {
   const goToMonth = (delta: number) => showMonth(new Date(year, month + delta, 1));
   const goToToday = () => showMonth(new Date());
 
+  // Swipe the month sideways on a phone, as in a calendar app: left for the next month, right for the previous.
+  const swipe = useRef<{ x: number; y: number } | null>(null);
+  const onSwipeStart = (e: TouchEvent) => { const t = e.touches[0]; swipe.current = t ? { x: t.clientX, y: t.clientY } : null; };
+  const onSwipeEnd = (e: TouchEvent) => {
+    const start = swipe.current;
+    swipe.current = null;
+    const t = e.changedTouches[0];
+    if (!start || !t) return;
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) goToMonth(dx < 0 ? 1 : -1);
+  };
+
   // Which form is open, and the due date it starts with. The forms invalidate the ['tasks'] and
   // ['tickets'] query prefixes themselves, so the new item lands on its day without any wiring here.
   const [creating, setCreating] = useState<{ kind: CalendarCreateKind; due: Date | undefined } | null>(null);
@@ -178,9 +191,10 @@ export const CalendarPage = () => {
   const closeForm = () => setCreating(null);
 
   return (
-    <div className="flex min-w-0 flex-col gap-4 sm:gap-6 w-full animate-in fade-in duration-500 ease-out">
+    <div className="flex min-w-0 flex-col gap-3 sm:gap-6 w-full animate-in fade-in duration-500 ease-out">
       <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
-        <div className="flex items-center gap-3 min-w-0">
+        {/* The page name is already in the header on a phone; the month bar leads instead. */}
+        <div className="hidden sm:flex items-center gap-3 min-w-0">
           <EntityIconTile icon={CalendarIcon} />
           <div className="flex min-w-0 flex-col gap-0.5">
             <h1 className="text-lg sm:text-xl font-display font-bold text-text tracking-tight">Calendar</h1>
@@ -188,7 +202,7 @@ export const CalendarPage = () => {
         </div>
 
         <nav aria-label="Month" className="flex items-center gap-2">
-          <div className="flex flex-1 sm:flex-none items-center gap-1 rounded-xl border border-border bg-surface p-1">
+          <div className="flex flex-1 sm:flex-none items-center gap-0.5 rounded-xl border border-border/60 bg-surface p-0.5">
             <button type="button" onClick={() => goToMonth(-1)} aria-label="Previous month" className={NAV_BUTTON}>
               <ChevronLeft size={18} strokeWidth={2.5} />
             </button>
@@ -200,7 +214,7 @@ export const CalendarPage = () => {
           <button
             type="button"
             onClick={goToToday}
-            className="h-11 sm:h-9 shrink-0 px-4 rounded-xl border border-border bg-surface text-sm font-display font-semibold text-text-secondary hover:bg-surface-hover hover:border-border-hover transition-all duration-200 ease-in-out cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-50"
+            className="h-10 sm:h-9 shrink-0 px-3 rounded-xl border border-primary-500/25 bg-primary-500/[0.08] t-meta font-display font-semibold text-primary-700 dark:text-primary-300 hover:bg-surface-hover hover:border-border-hover transition-all duration-200 ease-in-out cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 disabled:opacity-50"
           >
             Today
           </button>
@@ -221,7 +235,7 @@ export const CalendarPage = () => {
       />
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_19rem] xl:grid-cols-[minmax(0,1fr)_21rem] lg:gap-6">
-        <div className="min-w-0">
+        <div className="min-w-0 touch-pan-y" onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd}>
           <CalendarGrid
             days={grid}
             month={month}

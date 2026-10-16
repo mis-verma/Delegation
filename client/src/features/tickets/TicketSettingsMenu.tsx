@@ -86,6 +86,8 @@ export const TicketSettingsMenu = ({
       onExport={canExport ? onExport : undefined}
       showLabel={`Show ${resultCount} ${resultCount === 1 ? 'ticket' : 'tickets'}`}
     >
+      {/* Not on a phone: the page's own Assigned to me / Created by me switch already does this. */}
+      <div className="max-sm:hidden">
       <OptionSection icon={Eye} label="Show">
         <OptionSegmented
           options={SCOPE_FILTERS.map((f) => ({ value: f.key, label: f.label, icon: SCOPE_ICON[f.key] }))}
@@ -93,6 +95,7 @@ export const TicketSettingsMenu = ({
           onChange={(v) => { organizer.setScopeFilter(v); organizer.setPage(1); }}
         />
       </OptionSection>
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         {organizer.view === 'list' && (

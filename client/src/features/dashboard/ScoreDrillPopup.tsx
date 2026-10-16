@@ -76,7 +76,7 @@ export const ScoreDrillPopup = ({ open, onOpenChange, title, module, windowLabel
               </span>
               <span className="block t-meta text-text-muted">{f.note}</span>
             </span>
-            <span className={cn('t-figure font-display font-bold tabular-nums', f.value === null ? 'text-text-light' : rateToneClass(f.value))}>
+            <span className={cn('t-stat font-display font-bold tabular-nums', f.value === null ? 'text-text-light' : rateToneClass(f.value))}>
               {formatPct(f.value)}
             </span>
           </li>

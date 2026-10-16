@@ -254,7 +254,7 @@ export const ChecklistWeeklyReport = () => {
               {summaryTiles?.map(t => (
                 <div key={t.label} className="flex flex-col gap-0.5 bg-surface p-3">
                   <dt className="flex items-center gap-0.5 t-meta font-display text-text-muted">{t.label}{t.how && <HowCalculated figure={t.how} module="checklist" />}</dt>
-                  <dd className={cn('t-figure font-display tabular-nums text-text', t.tone)}>{t.value}</dd>
+                  <dd className={cn('t-stat font-display tabular-nums text-text', t.tone)}>{t.value}</dd>
                 </div>
               ))}
             </dl>
