@@ -32,7 +32,6 @@ const applyTheme = (theme: 'light' | 'dark') => {
   root.style.colorScheme = theme;
 };
 
-const prefersReducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const systemPrefersDark = () =>
   typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -79,26 +78,18 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return () => mql.removeEventListener('change', onChange);
   }, []);
 
-  // A switch the person made: one smooth cross-fade of the whole screen (the browser's View Transition: it
-  // photographs the old look and fades it into the new one in a single GPU layer). Element-by-element colour fades are
-  // switched off for that moment (.theme-switching in index.css): thousands of elements fading on their own made it
-  // lag, and gradients and tints, which can't fade, snapped early and showed as lines while borders were still fading.
-  // Without View Transition support, or with reduced motion, it is simply instant (still no lines).
+  // A switch the person made: instant, the way GitHub, Linear and Notion do it. Every element's own colour transition is
+  // switched off for that one frame (.theme-switching in index.css), the new theme goes on, the browser is made to
+  // apply it at once (the getComputedStyle read), and transitions come back on the next frame. Left on, each element
+  // faded on its own schedule, so borders, gradients and text changed at different moments: slow, with lines.
   const switchTo = useCallback((next: ThemePreference) => {
     const root = document.documentElement;
     const resolved: Theme = next === 'system' ? (systemPrefersDark() ? 'dark' : 'light') : next;
-    const run = () => {
-      flushSync(() => setPreferenceState(next));
-      applyTheme(resolved);
-    };
     root.classList.add('theme-switching');
-    const done = () => root.classList.remove('theme-switching');
-    if (typeof document.startViewTransition === 'function' && !prefersReducedMotion()) {
-      document.startViewTransition(run).finished.finally(done);
-    } else {
-      run();
-      requestAnimationFrame(() => requestAnimationFrame(done));
-    }
+    flushSync(() => setPreferenceState(next));
+    applyTheme(resolved);
+    void window.getComputedStyle(root).backgroundColor;
+    requestAnimationFrame(() => root.classList.remove('theme-switching'));
   }, []);
 
   const setPreference = useCallback((next: ThemePreference) => switchTo(next), [switchTo]);

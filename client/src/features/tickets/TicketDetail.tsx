@@ -24,6 +24,8 @@ import { STATUS_OPTIONS, STATUS_UPDATE_OPTIONS, HAND_IN_LABEL } from './detail/d
 import { PRIORITY_CONFIG, formatDueLabel } from './ticketDisplay';
 import { TicketDetailHeader } from './detail/TicketDetailHeader';
 import { TicketPropertyRow } from './detail/TicketPropertyRow';
+import { PROPERTY_TRIGGER_CLASS, PROPERTY_VALUE_CLASS, dueTone } from './detail/propertyStyles';
+import { TicketPriorityChipPicker } from './form/TicketPriorityChipPicker';
 import { VerificationNoteBanner } from '../../components/verificationBanner';
 import { TicketDescription } from './detail/TicketDescription';
 import { TicketAttachments } from './detail/TicketAttachments';
@@ -267,25 +269,35 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
               
               <section className="flex flex-col gap-2 lg:gap-3">
                 <dl className="grid grid-cols-2 gap-2 lg:flex lg:flex-col lg:gap-0 lg:divide-y lg:divide-border/60">
-                  <TicketPropertyRow label="Priority" icon={Flag} tone={PRIORITY_CONFIG[ticket.priority].solid}>
-                    <PriorityChip meta={PRIORITY_CONFIG[ticket.priority]} />
+                  <TicketPropertyRow label="Priority" stackOnPhone icon={Flag} tone={PRIORITY_CONFIG[ticket.priority].solid}>
+                    {/* Same rule as the edit form (canChangePriority): front-line staff see the chip, everyone else can change it here. */}
+                    {canEdit && !ownScope ? (
+                      <TicketPriorityChipPicker
+                        value={ticket.priority}
+                        onChange={(priority) => updateMut.mutate({ id: ticket.id, payload: { priority } })}
+                        fullWidth
+                        triggerClassName={PROPERTY_TRIGGER_CLASS}
+                      />
+                    ) : (
+                      <PriorityChip meta={PRIORITY_CONFIG[ticket.priority]} />
+                    )}
                   </TicketPropertyRow>
 
                   {departmentName && (
                     <TicketPropertyRow label="Department" wide icon={Building2} tone="bg-linear-to-br from-coral-500 to-coral-600" phoneHidden={!moreOpen}>
-                      <span className="t-meta font-display font-semibold text-text break-words">{departmentName}</span>
+                      <span className={PROPERTY_VALUE_CLASS}>{departmentName}</span>
                     </TicketPropertyRow>
                   )}
 
                   {storeName && (
                     <TicketPropertyRow label="Store" wide icon={StoreIcon} tone="bg-linear-to-br from-info to-info/70" phoneHidden={!moreOpen}>
-                      <span className="t-meta font-display font-semibold text-text break-words">{storeName}</span>
+                      <span className={PROPERTY_VALUE_CLASS}>{storeName}</span>
                     </TicketPropertyRow>
                   )}
 
                   {categoryName && (
                     <TicketPropertyRow label="Category" wide icon={Layers} tone="bg-linear-to-br from-success to-success/70" phoneHidden={!moreOpen}>
-                      <span className="t-meta font-display font-semibold text-text break-words">{categoryName}</span>
+                      <span className={PROPERTY_VALUE_CLASS}>{categoryName}</span>
                     </TicketPropertyRow>
                   )}
 
@@ -318,7 +330,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                   </TicketPropertyRow>
 
                   {due ? (
-                    <TicketPropertyRow label="Due" icon={CalendarDays} tone={due.overdue ? 'bg-linear-to-br from-danger to-danger/70' : 'bg-linear-to-br from-warning to-warning/70'}>
+                    <TicketPropertyRow label="Due" stackOnPhone icon={CalendarDays} tone={dueTone(due.overdue)}>
                       <span className={`t-meta font-display font-semibold leading-snug ${due.overdue ? 'text-danger' : 'text-text'}`}>
                         {due.text.replace(/^Due\s+/i, '').replace(/^./, (c) => c.toUpperCase())}
                       </span>

@@ -21,7 +21,7 @@ const TONE: Record<Tone, { text: string; icon: string }> = {
 const COMPLETION: Record<Completion, { word: string; tone: Tone; icon: LucideIcon }> = {
   done: { word: 'Done', tone: 'good', icon: CheckCircle2 },
   not_done: { word: 'Not done', tone: 'bad', icon: CircleX },
-  not_counted: { word: 'Not counted yet', tone: 'quiet', icon: CircleDashed },
+  not_counted: { word: 'Not yet', tone: 'quiet', icon: CircleDashed },
 };
 
 const COMPLIANCE: Record<Compliance, { word: string; tone: Tone; icon: LucideIcon }> = {
@@ -29,7 +29,7 @@ const COMPLIANCE: Record<Compliance, { word: string; tone: Tone; icon: LucideIco
   late: { word: 'Late', tone: 'bad', icon: Timer },
   missed: { word: 'Missed', tone: 'bad', icon: CircleX },
   reopened: { word: 'Reopened', tone: 'bad', icon: RotateCcw },
-  not_counted: { word: 'Not counted yet', tone: 'quiet', icon: CircleDashed },
+  not_counted: { word: 'Not yet', tone: 'quiet', icon: CircleDashed },
 };
 
 const Cell = ({ label, word, tone, icon: Icon }: { label: string; word: string; tone: Tone; icon: LucideIcon }) => (

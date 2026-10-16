@@ -18,6 +18,8 @@ interface PrioritySelectProps<V extends string> {
   disabled?: boolean;
   /** Fill the row, like every other form field. Off for the inline chip beside other chips. */
   fullWidth?: boolean;
+  /** Extra classes for the trigger, e.g. the detail sheets' shared property box (propertyStyles). */
+  triggerClassName?: string;
 }
 
 const Tile = ({ icon: Icon, solid }: { icon: LucideIcon; solid: string }) => (
@@ -31,7 +33,7 @@ const Tile = ({ icon: Icon, solid }: { icon: LucideIcon; solid: string }) => (
  * phone and menu on a PC as every other dropdown, with each level led by its gradient icon tile. Replaces the
  * small chip that opened a menu on a light touch. A person who may only view it sees the plain chip.
  */
-export function PrioritySelect<V extends string>({ value, onChange, options, disabled = false, fullWidth = true }: PrioritySelectProps<V>) {
+export function PrioritySelect<V extends string>({ value, onChange, options, disabled = false, fullWidth = true, triggerClassName }: PrioritySelectProps<V>) {
   const current = options.find((o) => o.value === value) ?? options[0];
   if (disabled) return <IconChip icon={current.icon} tone={current.solid} label={current.label} />;
   return (
@@ -41,7 +43,7 @@ export function PrioritySelect<V extends string>({ value, onChange, options, dis
       value={value}
       onChange={onChange}
       options={options.map((o) => ({ value: o.value, label: o.label, lead: <Tile icon={o.icon} solid={o.solid} /> }))}
-      triggerClassName={cn('rounded-xl font-display font-semibold', !fullWidth && 'w-auto min-w-40')}
+      triggerClassName={cn('rounded-xl font-display font-semibold', !fullWidth && 'w-auto min-w-40', triggerClassName)}
       contentClassName="w-(--radix-dropdown-menu-trigger-width) min-w-48"
     />
   );

@@ -46,8 +46,8 @@ const nameOf = (u: AssignableUser) => `${u.firstName} ${u.lastName ?? ''}`.trim(
 const PersonChip = ({ user, main }: { user: AssignableUser; main: boolean }) => {
   const name = nameOf(user);
   return (
-    <span className="inline-flex items-center gap-1.5 h-8 pl-1 pr-2.5 rounded-full border border-border/60 bg-surface min-w-0 max-w-full">
-      <span className={`flex items-center justify-center size-6 rounded-full t-meta font-bold text-white shrink-0 ${avatarColorClass(name)}`} aria-hidden="true">
+    <span className="inline-flex items-center gap-1.5 h-7 pl-0.5 pr-2.5 rounded-full border border-border/60 bg-surface-hover/50 min-w-0 max-w-full">
+      <span className={`flex items-center justify-center size-6 rounded-full text-[0.625rem] font-bold text-white shrink-0 ${avatarColorClass(name)}`} aria-hidden="true">
         {getInitials(name)}
       </span>
       <span className="min-w-0 truncate t-meta font-semibold text-text">
@@ -149,21 +149,24 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
       type="button"
       aria-label={pickerLabel}
       title={single ? 'Change assignee' : 'Add or remove people'}
-      className="group/assign flex flex-wrap items-center gap-1.5 min-h-11 max-w-full min-w-0 rounded-xl text-left cursor-pointer outline-none transition-colors duration-150 ease-out focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]"
+      // The same bordered row as the one-person picker (Ticket): the people as chips, "Add" on the right.
+      className="group/assign flex w-full flex-wrap items-center gap-1.5 min-h-10 max-w-full min-w-0 rounded-lg border border-border/60 bg-surface p-1 pr-2.5 text-left cursor-pointer outline-none transition-colors duration-150 ease-out hover:border-primary-400 focus-visible:ring-2 focus-visible:ring-primary-500/40 [-webkit-tap-highlight-color:transparent]"
     >
       {chips}
       {selectedUsers.length === 0 ? (
-        <span className="inline-flex items-center gap-1.5 h-8 pl-2 pr-3 rounded-full border border-border-hover t-meta font-medium text-text-muted transition-colors duration-150 group-hover/assign:border-primary-400 group-hover/assign:text-primary-600">
-          <Plus size={15} strokeWidth={2.5} aria-hidden="true" />
-          Unassigned
+        <span className="inline-flex items-center gap-1.5 h-7 pl-1.5 t-meta font-display font-semibold text-text-muted">
+          <UserPlus size={14} strokeWidth={2.25} aria-hidden="true" />
+          Nobody yet
         </span>
       ) : single ? (
         <span className="inline-flex items-center h-8 px-3 rounded-full border border-border-hover t-meta font-medium text-text-muted transition-colors duration-150 group-hover/assign:border-primary-400 group-hover/assign:text-primary-600">
           Change
         </span>
-      ) : (
-        <span className="flex items-center justify-center size-8 rounded-full border border-border-hover text-text-muted transition-colors duration-150 group-hover/assign:border-primary-400 group-hover/assign:text-primary-600" aria-hidden="true">
-          <Plus size={15} strokeWidth={2.5} />
+      ) : null}
+      {!single && (
+        <span className="ml-auto inline-flex shrink-0 items-center gap-0.5 t-meta font-display font-semibold text-primary-600 dark:text-primary-300" aria-hidden="true">
+          <Plus size={13} strokeWidth={2.5} />
+          Add
         </span>
       )}
     </button>
@@ -184,7 +187,7 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
   });
 
   return (
-    <div className={`group/field flex flex-col gap-1.5 ${FIELD_CARD_CLASS}`}>
+    <div className={`group/field flex w-full min-w-0 flex-col gap-1.5 ${FIELD_CARD_CLASS}`}>
       {!hideLabel && (
         <label className={FIELD_LABEL_CLASS}>
           {single ? 'Assignee' : 'Assignees'}
@@ -192,7 +195,9 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
       )}
       <div className="flex flex-wrap items-center gap-1.5 min-h-10">
         {/* Read-only: the names, with no picker affordance. */}
-        {disabled && chips}
+        {disabled && (
+          <div className="flex w-full flex-wrap items-center gap-1.5 min-h-10 rounded-lg border border-border/60 bg-surface p-1">{chips.length ? chips : <span className="pl-1.5 t-meta text-text-light">Nobody yet</span>}</div>
+        )}
 
         {!disabled && (
           // modal={false} is load-bearing, not a preference. Radix's DropdownMenu defaults to
@@ -323,9 +328,7 @@ export const AssigneeField = ({ selectedIds, onChange, users, isLoading = false,
         )}
 
         {/* Disabled (read-only) view has no clickable trigger to fold this label into. */}
-        {disabled && selectedUsers.length === 0 && (
-          <span className="t-meta text-text-light">Unassigned</span>
-        )}
+
       </div>
 
       {isCreatingUser && (

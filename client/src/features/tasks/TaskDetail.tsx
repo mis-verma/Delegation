@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { CheckSquare, Loader2, ChevronRight, MoreHorizontal, Undo2, PauseCircle, CircleDot, Clock, Eye, CheckCircle2, ShieldCheck, ShieldX, Trash2, CalendarDays, Check, Milestone, RotateCcw, Info, UserRound, Flag, Building2, History, ChevronDown } from 'lucide-react';
-import { Modal, Button, DateRangePicker, ActivityFeed, FullChangeLog, DepartmentChip, ImageLightbox, NoticeBanner, useConfirm } from '../../components';
+import { Modal, Button, DateRangePicker, ActivityFeed, FullChangeLog, ImageLightbox, NoticeBanner, useConfirm } from '../../components';
 import type { DateRangeValue } from '../../components';
 import { useTaskQuery, useUpdateTaskMutation, useDeleteTaskMutation, useAssignableUsersQuery } from './hook';
 import { useDepartmentsQuery } from '../tickets/hook';
@@ -15,7 +15,7 @@ import { TaskStatusCard } from './TaskStatusCard';
 import { FORWARD_LABEL, BACK_STATUS, BACK_LABEL, CAN_HOLD, PUBLISH_REMARK, draftPublishProblem } from './taskStatusModel';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { TaskPriorityChipPicker } from './TaskPriorityChipPicker';
-import { DETAIL_HEADING_CLASS, CHIP_TRIGGER_CLASS } from './taskFormFieldStyles';
+import { DETAIL_HEADING_CLASS } from './taskFormFieldStyles';
 import { TaskStatusRemarkDialog } from './TaskStatusRemarkDialog';
 import { TaskAttachments } from './TaskAttachments';
 import { DetailLabelsField } from '../tags/DetailLabelsField';
@@ -28,6 +28,8 @@ import type { AssignableUser } from '../../api/users';
 import { canApproveWork } from '../../lib/canApproveWork';
 import { canEditTaskContent, canMoveTask, viewOnlyReason } from './taskPermissions';
 import { TicketPropertyRow } from '../tickets/detail/TicketPropertyRow';
+import { PROPERTY_TRIGGER_CLASS, PROPERTY_VALUE_CLASS, dueTone } from '../tickets/detail/propertyStyles';
+import { cn } from '@/lib/utils';
 import { DETAIL_SECTION_HEADING, DETAIL_SECTION_TILE } from '../tickets/detail/detailConstants';
 
 type SaveState = 'idle' | 'saving' | 'error';
@@ -429,7 +431,7 @@ const TaskTimelineField = ({ task, onUpdate, canSetStart }: { task: Task; onUpda
         }}
         placeholder="Add due date"
         // Room on the right for the clear button, which sits over the chip: without it the date was cut to "Oc".
-        triggerClassName={`${CHIP_TRIGGER_CLASS} ${draft.to ? 'pr-9' : ''}`}
+        triggerClassName={cn(PROPERTY_TRIGGER_CLASS, 'w-auto', draft.to && 'pr-9', taskIsLate(task) && 'text-danger')}
       />
       {canSetStart && !showStart && (
         <button
@@ -445,6 +447,18 @@ const TaskTimelineField = ({ task, onUpdate, canSetStart }: { task: Task; onUpda
 };
 
 const formatRangeDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+
+// Past its due date and still being worked (handed in, done and drafts are not late), the same rule as the lists.
+const taskIsLate = (task: Task) =>
+  !!task.dueDate && !(['done', 'pending_approval', 'draft'] as Task['status'][]).includes(task.status) && new Date(task.dueDate).getTime() < Date.now();
+
+/** "Today", "Tomorrow" or the day, the words the ticket sheet uses for its due time. */
+const taskDueWords = (iso: string) => {
+  const day = new Date(iso);
+  const startOf = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const diff = Math.round((startOf(day) - startOf(new Date())) / 86_400_000);
+  return diff === 0 ? 'Today' : diff === 1 ? 'Tomorrow' : formatRangeDate(iso);
+};
 
 const personName = (u: AssignableUser) => `${u.firstName}${u.lastName ? ` ${u.lastName}` : ''}`;
 
@@ -561,29 +575,32 @@ const TaskEditLayout = ({
           </TicketPropertyRow>
 
           <TicketPropertyRow tileOnly stackOnPhone label="Priority" icon={Flag} tone={PRIORITY_MAP[task.priority].solid}>
-            <TaskPriorityChipPicker value={task.priority} onChange={(v) => onUpdate({ priority: v })} disabled={isViewOnly} fullWidth />
+            <TaskPriorityChipPicker value={task.priority} onChange={(v) => onUpdate({ priority: v })} disabled={isViewOnly} fullWidth triggerClassName={PROPERTY_TRIGGER_CLASS} />
           </TicketPropertyRow>
 
           <TicketPropertyRow tileOnly stackOnPhone label="Department" icon={Building2} tone="bg-linear-to-br from-coral-500 to-coral-600">
             {isViewOnly || !canReassign ? (
-              departmentName ? <DepartmentChip name={departmentName} /> : <span className="t-meta text-text-light">None</span>
+              departmentName ? <span className={PROPERTY_VALUE_CLASS}>{departmentName}</span> : <span className="t-meta text-text-light">None</span>
             ) : (
-              <TaskFormDepartmentField
-                hideLabel
-                value={task.departmentId ?? ''}
-                onChange={(v) => onChangeDepartment(v || null)}
-                departments={departments}
-                isLoading={isLoadingDepts}
-                triggerClassName={`${CHIP_TRIGGER_CLASS} w-full max-w-full min-w-0`}
-              />
+              <div className="w-full min-w-0">
+                <TaskFormDepartmentField
+                  hideLabel
+                  value={task.departmentId ?? ''}
+                  onChange={(v) => onChangeDepartment(v || null)}
+                  departments={departments}
+                  isLoading={isLoadingDepts}
+                  triggerClassName={PROPERTY_TRIGGER_CLASS}
+                />
+              </div>
             )}
           </TicketPropertyRow>
 
-          <TicketPropertyRow tileOnly wide label="Due" icon={CalendarDays} tone="bg-linear-to-br from-warning to-warning/70">
+          <TicketPropertyRow tileOnly wide label="Due" icon={CalendarDays} tone={dueTone(taskIsLate(task))}>
             {isViewOnly ? (
               task.dueDate ? (
-                <span className="text-sm font-display font-semibold text-text">
-                  {task.startDate ? `${formatRangeDate(task.startDate)} to ${formatRangeDate(task.dueDate)}` : formatRangeDate(task.dueDate)}
+                // Same words as the ticket sheet: "Late since 9 Oct", "Today", "Tomorrow", or the day.
+                <span className={cn(PROPERTY_VALUE_CLASS, taskIsLate(task) && 'text-danger')}>
+                  {task.startDate && !taskIsLate(task) ? `${formatRangeDate(task.startDate)} to ${taskDueWords(task.dueDate)}` : taskIsLate(task) ? `Late since ${formatRangeDate(task.dueDate)}` : taskDueWords(task.dueDate)}
                 </span>
               ) : <span className="t-meta text-text-light">No due date</span>
             ) : (

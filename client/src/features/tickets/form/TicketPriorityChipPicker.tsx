@@ -9,8 +9,10 @@ export const TicketPriorityChipPicker = ({
   value,
   onChange,
   fullWidth = false,
+  triggerClassName,
 }: {
   value: TicketPriority;
   onChange: (v: TicketPriority) => void;
   fullWidth?: boolean;
-}) => <PrioritySelect value={value} onChange={onChange} options={OPTIONS} fullWidth={fullWidth} />;
+  triggerClassName?: string;
+}) => <PrioritySelect value={value} onChange={onChange} options={OPTIONS} fullWidth={fullWidth} triggerClassName={triggerClassName} />;

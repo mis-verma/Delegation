@@ -265,18 +265,10 @@ body {
 }
 
    
-/* A theme switch (ThemeContext): the whole screen cross-fades once as a View Transition, so every element's own
-   transition is off for that moment. Left on, each element faded on its own (slow) and gradients snapped early
-   (lines). The cross-fade itself is a little longer than a page change, so the colour change reads as calm. */
+/* A theme switch (ThemeContext) is instant: for that one frame no element runs its own transition, so every colour
+   (borders, gradients, text) changes in the same frame instead of fading on separate schedules. */
 .theme-switching, .theme-switching *, .theme-switching *::before, .theme-switching *::after {
   transition: none !important;
-}
-@media (prefers-reduced-motion: no-preference) {
-  html.theme-switching::view-transition-old(root),
-  html.theme-switching::view-transition-new(root) {
-    animation-duration: 280ms;
-    animation-timing-function: ease;
-  }
 }
 
 

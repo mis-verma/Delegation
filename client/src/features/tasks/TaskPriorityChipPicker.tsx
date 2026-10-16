@@ -13,9 +13,11 @@ export const TaskPriorityChipPicker = ({
   onChange,
   disabled = false,
   fullWidth = false,
+  triggerClassName,
 }: {
   value: Task['priority'];
   onChange: (v: Task['priority']) => void;
   disabled?: boolean;
   fullWidth?: boolean;
-}) => <PrioritySelect value={value} onChange={onChange} options={OPTIONS} disabled={disabled} fullWidth={fullWidth} />;
+  triggerClassName?: string;
+}) => <PrioritySelect value={value} onChange={onChange} options={OPTIONS} disabled={disabled} fullWidth={fullWidth} triggerClassName={triggerClassName} />;
