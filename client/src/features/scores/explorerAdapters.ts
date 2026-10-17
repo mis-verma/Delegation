@@ -3,7 +3,7 @@ import type { ChecklistScore, DelegationScore, ExplorerRow, ScoreReportRow, Scor
 // The cards and tables that were built on the older score shapes (Scores, ScoreReportRow) read the explorer
 // through these, so their layout stays and their numbers come from the one explorer answer.
 
-export const checklistFromRow = (row: ExplorerRow): ChecklistScore => {
+const checklistFromRow = (row: ExplorerRow): ChecklistScore => {
   const c = row.checklist;
   return {
     score: c.score,
@@ -27,7 +27,7 @@ export const checklistFromRow = (row: ExplorerRow): ChecklistScore => {
   };
 };
 
-export const ticketFromRow = (row: ExplorerRow): TicketScore => {
+const ticketFromRow = (row: ExplorerRow): TicketScore => {
   const t = row.ticket;
   return {
     score: t.score,
@@ -46,7 +46,7 @@ export const ticketFromRow = (row: ExplorerRow): TicketScore => {
   };
 };
 
-export const delegationFromRow = (row: ExplorerRow): DelegationScore => {
+const delegationFromRow = (row: ExplorerRow): DelegationScore => {
   const d = row.delegation;
   return {
     score: d.score,

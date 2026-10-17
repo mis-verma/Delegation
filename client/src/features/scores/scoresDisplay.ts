@@ -5,13 +5,13 @@ import { MODULE_LABEL, complianceLabel, SCORE_LABEL, type ScoreModule } from '..
 import { windowFor, type ScorePeriod } from '../dashboard/scorePeriods';
 import { checklistDrillHref, delegationDrillHref, ticketDrillHref, type DrillKind, type DrillSubject } from '../dashboard/scoreDrill';
 
-export const MODULES: readonly ScoreModule[] = ['checklist', 'ticket', 'delegation'];
+const MODULES: readonly ScoreModule[] = ['checklist', 'ticket', 'delegation'];
 export type Measure = 'completion' | 'compliance';
 export type SortKey = 'name' | 'overall' | 'due' | `${ScoreModule}.${Measure}`;
 
 export const VIEW_LABEL: Record<ExplorerView, string> = { department: 'Departments', store: 'Stores', person: 'People', checklist: 'Checklists', module: 'Modules' };
 export const NAME_HEAD: Record<ExplorerView, string> = { department: 'Department', store: 'Store', person: 'Person', checklist: 'Checklist', module: 'Module' };
-export const ALL_VIEWS: readonly ExplorerView[] = ['department', 'store', 'person', 'checklist', 'module'];
+const ALL_VIEWS: readonly ExplorerView[] = ['department', 'store', 'person', 'checklist', 'module'];
 
 export const RECURRENCE_OPTIONS: { value: ExplorerRecurrence; label: string }[] = [
   { value: 'all', label: 'Every kind' },

@@ -41,6 +41,8 @@ interface BuilderReviewStepProps {
   assigneeIds: string[];
   reviewerIds: string[];
   sectionValidity: readonly [boolean, boolean, boolean, boolean];
+  hasPeople: boolean;
+  hideSubmit?: boolean;
   onEditSection: (stepIndex: number) => void;
   canSubmit: boolean;
   isSubmitting: boolean;
@@ -184,6 +186,8 @@ export const BuilderReviewStep = ({
   assigneeIds,
   reviewerIds,
   sectionValidity,
+  hasPeople,
+  hideSubmit = false,
   onEditSection,
   canSubmit,
   isSubmitting,
@@ -374,51 +378,11 @@ export const BuilderReviewStep = ({
           )}
         </SectionCard>
 
-        {/* 4. Assign */}
-        <SectionCard
-          title="Assign"
-          icon={<Users size={14} />}
-          valid={sectionValidity[3]}
-          onEdit={() => onEditSection(3)}
-        >
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1">
-              <Caption><UserCheck size={11} /> Assigned to</Caption>
-              {assignableQuery.isPending ? (
-                <NamesSkeleton />
-              ) : assignableQuery.isError ? (
-                <InlineError message="We couldn't load the people." onRetry={() => assignableQuery.refetch()} />
-              ) : (
-                <>
-                  <p className="text-xs font-display text-text-secondary">
-                    {assignees.names.length ? (
-                      assignees.names.join(', ')
-                    ) : (
-                      <span className="italic text-text-muted">Nobody assigned yet</span>
-                    )}
-                  </p>
-                  {assignees.leftOut > 0 && (
-                    <p className="t-meta font-display text-warning">
-                      {assignees.leftOut} {assignees.leftOut === 1 ? 'person is' : 'people are'} not in the selected stores and will be left out.
-                    </p>
-                  )}
-                </>
-              )}
-            </div>
-            <div className="flex flex-col gap-1">
-              <Caption><Layers size={11} /> Who fills it</Caption>
-              <p className="text-xs font-display font-medium text-text">{RESPONSE_MODE_TITLE[responseMode]}</p>
-            </div>
-          </div>
-        </SectionCard>
-
-        {/* 5. Reviewers: its own card now that it's its own step; always "valid" (no minimum
-            required, see BuilderReviewersPanel) so this never shows the warning treatment. */}
         <SectionCard
           title="Reviewers"
           icon={<ShieldCheck size={14} />}
           valid
-          onEdit={() => onEditSection(4)}
+          onEdit={() => onEditSection(3)}
         >
           <div className="flex flex-col gap-1">
             <Caption><ShieldCheck size={11} /> Approves or sends back a filled-in run</Caption>
@@ -444,6 +408,43 @@ export const BuilderReviewStep = ({
             )}
           </div>
         </SectionCard>
+        <SectionCard
+          title="Assign"
+          icon={<Users size={14} />}
+          valid
+          onEdit={() => onEditSection(4)}
+        >
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1">
+              <Caption><UserCheck size={11} /> Assigned to</Caption>
+              {assignableQuery.isPending ? (
+                <NamesSkeleton />
+              ) : assignableQuery.isError ? (
+                <InlineError message="We couldn't load the people." onRetry={() => assignableQuery.refetch()} />
+              ) : (
+                <>
+                  <p className="text-xs font-display text-text-secondary">
+                    {assignees.names.length ? (
+                      assignees.names.join(', ')
+                    ) : (
+                      <span className="font-medium text-warning">Nobody yet. It is saved paused and switches on when you add people.</span>
+                    )}
+                  </p>
+                  {assignees.leftOut > 0 && (
+                    <p className="t-meta font-display text-warning">
+                      {assignees.leftOut} {assignees.leftOut === 1 ? 'person is' : 'people are'} not in the selected stores and will be left out.
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+            <div className="flex flex-col gap-1">
+              <Caption><Layers size={11} /> Who fills it</Caption>
+              <p className="text-xs font-display font-medium text-text">{RESPONSE_MODE_TITLE[responseMode]}</p>
+            </div>
+          </div>
+        </SectionCard>
+
       </div>
 
       {/* Submission Error Banner */}
@@ -474,20 +475,28 @@ export const BuilderReviewStep = ({
             </div>
           </NoticeBanner>
         ) : (
-          <p className="flex items-center gap-1.5 text-xs font-display text-success">
-            <CheckCircle2 size={14} className="shrink-0" /> Everything looks good to go.
-          </p>
+          hasPeople ? (
+            <p className="flex items-center gap-1.5 text-xs font-display text-success">
+              <CheckCircle2 size={14} className="shrink-0" /> Everything looks good to go.
+            </p>
+          ) : (
+            <NoticeBanner tone="warning" icon={PauseCircle} className="sm:flex-1">
+              Nobody is assigned yet, so it is saved paused. Edit it later, add the people, and it switches on by itself.
+            </NoticeBanner>
+          )
         )}
 
-        <Button
-          variant="primary"
-          onClick={onSubmit}
-          isLoading={isSubmitting}
-          disabled={!canSubmit}
-          className="w-full sm:w-auto sm:shrink-0 pointer-coarse:h-11"
-        >
-          {isSubmitting ? 'Saving…' : isEditing ? 'Save Changes' : 'Create Checklist'}
-        </Button>
+        {!hideSubmit && (
+          <Button
+            variant="primary"
+            onClick={onSubmit}
+            isLoading={isSubmitting}
+            disabled={!canSubmit}
+            className="w-full sm:w-auto sm:shrink-0 pointer-coarse:h-11"
+          >
+            {isSubmitting ? 'Saving…' : isEditing ? 'Save Changes' : hasPeople ? 'Create Checklist' : 'Create paused'}
+          </Button>
+        )}
       </div>
     </div>
   );

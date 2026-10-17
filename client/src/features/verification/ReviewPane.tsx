@@ -37,7 +37,7 @@ interface BodyProps {
 
 // Everything a reviewer reads about one run: who did it and when, three score tiles, then the
 // questions with the failing ones first.
-export const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, onTogglePicked, onItemNote, hideTitle = false }: BodyProps) {
+const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, pickedSet, onTogglePicked, onItemNote, hideTitle = false }: BodyProps) {
   const { instance, risk } = row;
   const { user } = useAuth();
   // Mirrors the server: department heads, PC and Admin, never on a run they fill in themselves.
@@ -138,7 +138,7 @@ interface FooterProps {
 }
 
 // The action bar: Send back / Approve, or the send-back form once the reviewer starts one.
-export const ReviewPaneFooter = memo(function ReviewPaneFooter({ row, draft, onApprove, onSendBack }: FooterProps) {
+const ReviewPaneFooter = memo(function ReviewPaneFooter({ row, draft, onApprove, onSendBack }: FooterProps) {
   const { pickedIds, picked, note, sending, setNote, setSending } = draft;
   const items = row.instance.items;
 

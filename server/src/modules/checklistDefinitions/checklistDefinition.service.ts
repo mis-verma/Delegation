@@ -10,7 +10,7 @@ import {
     departments,
     type CHECKLIST_RECURRENCES,
 } from "../../db/schema/index.js"
-import { eq, and, asc, inArray, notInArray, isNull, isNotNull, sql } from "drizzle-orm"
+import { eq, and, asc, count, inArray, notInArray, isNull, isNotNull, sql } from "drizzle-orm"
 import { createId } from "@paralleldrive/cuid2"
 import { cached, cacheKey } from "../../config/queryCache.js"
 import { env } from "../../config/env.js"
@@ -403,15 +403,18 @@ export const checklistDefinitionService = {
                 responseMode: input.responseMode ?? "SHARED",
                 // Daily checklists skip Sunday unless the admin picks their own working days.
                 activeWeekdays: input.recurrence === "DAILY" ? (input.activeWeekdays === undefined ? DEFAULT_WORKING_WEEKDAYS : input.activeWeekdays) : null,
+                isActive: input.assigneeIds.length > 0,
                 createdBy: user.sub,
             })
 
             await tx.insert(checklistDefinitionStores).values(
                 input.storeIds.map(storeId => ({ definitionId, storeId })),
             )
-            await tx.insert(checklistDefinitionAssignees).values(
-                input.assigneeIds.map(userId => ({ definitionId, userId })),
-            )
+            if (input.assigneeIds.length) {
+                await tx.insert(checklistDefinitionAssignees).values(
+                    input.assigneeIds.map(userId => ({ definitionId, userId })),
+                )
+            }
             if (input.reviewerIds?.length) {
                 await tx.insert(checklistDefinitionReviewers).values(
                     input.reviewerIds.map(userId => ({ definitionId, userId })),
@@ -464,11 +467,13 @@ export const checklistDefinitionService = {
         // The checklist is already saved at this point. If stamping out today's runs fails, report
         // success anyway: the admin retrying would create a duplicate checklist, and the scheduled
         // generator job picks the missing runs up on its next sweep.
-        try {
-            const definitionForGeneration = await loadDefinitionForGeneration(definitionId)
-            if (definitionForGeneration) await generateInstanceForDefinition(definitionForGeneration, new Date())
-        } catch (err) {
-            console.error(`[checklistDefinition.create] saved ${definitionId} but could not generate today's runs`, err)
+        if (input.assigneeIds.length) {
+            try {
+                const definitionForGeneration = await loadDefinitionForGeneration(definitionId)
+                if (definitionForGeneration) await generateInstanceForDefinition(definitionForGeneration, new Date())
+            } catch (err) {
+                console.error(`[checklistDefinition.create] saved ${definitionId} but could not generate today's runs`, err)
+            }
         }
 
         const created = await this.getById(definitionId)
@@ -486,6 +491,7 @@ export const checklistDefinitionService = {
         }
 
         let wasActive = false
+        let pausedForNoPeople = false
 
         // Captured before the update so a store REMOVED from storeIds still hears that this
         // definition no longer applies to it, not just the (possibly different) stores it ends up
@@ -515,7 +521,11 @@ export const checklistDefinitionService = {
             if (existing.version !== input.version) {
                 throw AppError.conflict("Someone else saved this checklist while you were editing. Reload it to see their changes, then apply yours again.")
             }
-            wasActive = existing.isActive
+            const [{ total: oldAssigneeCount }] = await tx.select({ total: count() }).from(checklistDefinitionAssignees).where(eq(checklistDefinitionAssignees.definitionId, id))
+            const nowHasPeople = input.assigneeIds.length > 0
+            const nextActive = !nowHasPeople ? false : (!existing.isActive && Number(oldAssigneeCount) === 0) ? true : existing.isActive
+            wasActive = nextActive
+            pausedForNoPeople = existing.isActive && !nowHasPeople
 
             await tx.update(checklistDefinitions).set({
                 name: input.name,
@@ -530,6 +540,7 @@ export const checklistDefinitionService = {
                 ...(input.responseMode ? { responseMode: input.responseMode } : {}),
                 // Omitted (an older client) keeps whatever days were already set.
                 ...(input.recurrence !== "DAILY" ? { activeWeekdays: null } : input.activeWeekdays !== undefined ? { activeWeekdays: input.activeWeekdays } : {}),
+                isActive: nextActive,
                 version: existing.version + 1,
                 updatedAt: new Date(),
             }).where(eq(checklistDefinitions.id, id))
@@ -538,9 +549,11 @@ export const checklistDefinitionService = {
                 input.storeIds.map(storeId => ({ definitionId: id, storeId })),
             )
             await tx.delete(checklistDefinitionAssignees).where(eq(checklistDefinitionAssignees.definitionId, id))
-            await tx.insert(checklistDefinitionAssignees).values(
-                input.assigneeIds.map(userId => ({ definitionId: id, userId })),
-            )
+            if (input.assigneeIds.length) {
+                await tx.insert(checklistDefinitionAssignees).values(
+                    input.assigneeIds.map(userId => ({ definitionId: id, userId })),
+                )
+            }
             await tx.delete(checklistDefinitionReviewers).where(eq(checklistDefinitionReviewers.definitionId, id))
             if (input.reviewerIds?.length) {
                 await tx.insert(checklistDefinitionReviewers).values(
@@ -621,6 +634,13 @@ export const checklistDefinitionService = {
         // Only touch runs if this definition is still active - an admin editing a deactivated
         // checklist (e.g. fixing a label typo) shouldn't silently bring it back to life.
         let liveRuns: LiveRunsSummary = { refreshed: 0, updated: 0, kept: 0 }
+        if (pausedForNoPeople) {
+            try {
+                await dropUntouchedCurrentRunsFor(id)
+            } catch (err) {
+                console.error(`[checklistDefinition.update] paused ${id} but could not clear today's runs`, err)
+            }
+        }
         if (wasActive) {
             // The edit is already committed. A failure here must not read as a failed save (a retry
             // would hit the version check and 409), so log it and report zero runs touched; the
@@ -650,6 +670,10 @@ export const checklistDefinitionService = {
     async setActive(id: string, input: SetChecklistDefinitionActiveInput, actorId: string) {
         const [existing] = await db.select({ id: checklistDefinitions.id }).from(checklistDefinitions).where(and(eq(checklistDefinitions.id, id), NOT_DELETED)).limit(1)
         if (!existing) throw AppError.notFound("Checklist not found")
+        if (input.isActive) {
+            const [{ total }] = await db.select({ total: count() }).from(checklistDefinitionAssignees).where(eq(checklistDefinitionAssignees.definitionId, id))
+            if (Number(total) === 0) throw AppError.badRequest("Nobody is assigned to fill this checklist in yet. Edit it, add the people, and it switches on by itself.")
+        }
         await db.update(checklistDefinitions).set({ isActive: input.isActive, updatedAt: new Date() }).where(eq(checklistDefinitions.id, id))
         // Pause takes effect now, not at midnight: today's run nobody started leaves everyone's list and is
         // never counted as missed. Resume brings the current run straight back instead of waiting for the

@@ -6,7 +6,7 @@ import { notifyError } from '../../lib/queryHelpers';
 // a toast offers Undo for ten seconds, and only then does the request go out. Anything still waiting
 // is sent immediately when the page is left or hidden, so a decision is never lost.
 
-export const UNDO_WINDOW_MS = 10_000;
+const UNDO_WINDOW_MS = 10_000;
 
 export interface DecisionRequest {
   /** The run being decided. */

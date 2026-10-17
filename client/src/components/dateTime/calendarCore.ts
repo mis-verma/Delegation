@@ -42,9 +42,6 @@ export const formatClock = (d: Date) => {
   return `${hour12}:${String(d.getMinutes()).padStart(2, '0')} ${h24 >= 12 ? 'PM' : 'AM'}`;
 };
 
-/** "HH:mm", the value an `<input type="time">` reads and writes. */
-export const toTimeValue = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-
 /** "Thursday, 12 June 2026": what a screen reader says for a day cell. */
 export const fullDayLabel = (d: Date) =>
   d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });

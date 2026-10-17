@@ -31,7 +31,7 @@ const readEnabled = (): boolean => {
   }
 };
 
-export const setHapticsEnabled = (enabled: boolean): void => {
+const setHapticsEnabled = (enabled: boolean): void => {
   try {
     localStorage.setItem(STORAGE_KEY, enabled ? 'on' : 'off');
   } catch {

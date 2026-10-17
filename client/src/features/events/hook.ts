@@ -2,7 +2,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/context/AuthContext';
 import { eventApi, type CreateEventPayload, type UpdateEventPayload } from '@/api/events';
 import { useEntityMutation, handleQueryRetry } from '../../lib/queryHelpers';
-import type { DashboardQueryOptions } from '../../lib/dashboardQuery';
 
 const EVENT_KEY = {
   all: ['events'] as const,
@@ -21,17 +20,6 @@ export const useEventsQuery = () => {
     ...eventsQueryOptions(),
     enabled: !!token,
     retry: handleQueryRetry,
-  });
-};
-
-export const useUpcomingEventsQuery = (limit = 5, options?: DashboardQueryOptions) => {
-  const { token } = useAuth();
-  return useQuery({
-    queryKey: EVENT_KEY.upcoming(limit),
-    queryFn: () => eventApi.getUpcoming(limit).then(r => r.data),
-    enabled: !!token,
-    retry: handleQueryRetry,
-    ...options,
   });
 };
 

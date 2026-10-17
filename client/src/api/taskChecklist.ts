@@ -71,7 +71,7 @@ export type UpdateTaskChecklistItemPayload = {
 // which have already crashed renders this exact way. Guarded at the boundary, nested one level
 // (an item's own `images` defaults independently of whether the checklist's `items` array itself
 // needed defaulting), so ChecklistBlock's `checklist.items.filter(...)` can never crash.
-export const taskChecklistItemDefaults = withArrayDefaults({ images: arrayField(z.unknown()) });
+const taskChecklistItemDefaults = withArrayDefaults({ images: arrayField(z.unknown()) });
 export const taskChecklistDefaults = withArrayDefaults({ items: arrayField(taskChecklistItemDefaults) });
 const normalizeChecklist = (raw: unknown) => normalizeWith<TaskChecklist>(taskChecklistDefaults, raw);
 const normalizeChecklistItem = (raw: unknown) => normalizeWith<TaskChecklistItem>(taskChecklistItemDefaults, raw);

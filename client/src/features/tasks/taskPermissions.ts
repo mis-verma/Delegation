@@ -13,7 +13,7 @@ type Viewer = { id: string; role: Role } | null | undefined;
  *   assignee). A Manager can see their whole department, but seeing a colleague's delegation is not
  *   the same as being allowed to change it.
  */
-export const canMutateTask = (task: Task, user: Viewer): boolean => {
+const canMutateTask = (task: Task, user: Viewer): boolean => {
   if (!user) return false;
   if (user.role === 'ADMIN') return true;
   if (user.role === 'PC' || user.role === 'APPROVAL_MANAGER') return false;

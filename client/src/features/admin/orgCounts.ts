@@ -5,8 +5,6 @@ export interface PeopleCount {
   inactive: number;
 }
 
-export const NO_PEOPLE: PeopleCount = { active: 0, inactive: 0 };
-
 /** One pass over the roster: how many active and deactivated people sit under each department or store. */
 export const countPeopleBy = (users: AdminUser[], key: 'departmentId' | 'storeId'): Map<string, PeopleCount> => {
   const counts = new Map<string, PeopleCount>();

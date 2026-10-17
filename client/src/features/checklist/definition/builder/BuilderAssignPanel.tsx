@@ -1,4 +1,4 @@
-import { Building2, User, Users } from 'lucide-react';
+import { Building2, PauseCircle, User, Users } from 'lucide-react';
 import { useMemo, type ReactNode } from 'react';
 import { NoticeBanner } from '../../../../components';
 import { useAssignableUsersQuery } from '../../hook';
@@ -52,38 +52,12 @@ export const BuilderAssignPanel = ({ storeIds, assigneeIds, onAssigneeIdsChange,
     return new Set((users ?? []).filter(u => picked.has(u.id)).map(u => u.departmentId ?? 'none')).size;
   }, [users, assigneeIds, storePersonIds]);
   return (
-  <div className="flex flex-col gap-6">
-    <fieldset className="flex flex-col gap-2.5">
-      <legend className="text-sm font-display font-semibold text-text pb-1">How many copies?</legend>
-      <div role="radiogroup" aria-label="How many copies" className="grid gap-2.5 sm:grid-cols-3">
-        {MODES.map((m, index) => {
-          const on = responseMode === m.value;
-          return (
-            <button
-              key={m.value}
-              type="button"
-              role="radio"
-              aria-checked={on}
-              tabIndex={on ? 0 : -1}
-              onClick={() => onResponseModeChange(m.value)}
-              onKeyDown={(e) => onRadioKeyDown(e, index, MODES.length, (next) => onResponseModeChange(MODES[next].value))}
-              className={`flex flex-col items-start gap-1.5 p-3.5 text-left rounded-2xl border cursor-pointer transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
-                on
-                  ? 'border-primary-500/60 bg-primary-500/10'
-                  : 'border-border/60 bg-surface hover:border-border-hover'
-              }`}
-            >
-              <span className={`flex items-center gap-2 text-sm font-display font-semibold ${on ? 'text-primary-700 dark:text-primary-300' : 'text-text'}`}>
-                {m.icon}
-                {m.title}
-              </span>
-              <span className="text-xs font-display text-text-muted leading-relaxed">{m.hint}</span>
-            </button>
-          );
-        })}
-      </div>
-      <NoticeBanner tone="info" icon={Users}>{copiesSummary(responseMode, shown.length, departmentCount)}</NoticeBanner>
-    </fieldset>
+  <div className="flex flex-col gap-5 sm:gap-6">
+    {shown.length === 0 && (
+      <NoticeBanner tone="warning" icon={PauseCircle}>
+        Nobody picked yet. That is fine if the person is not set up: the checklist is saved paused and switches on when you add them.
+      </NoticeBanner>
+    )}
     {hidden.length > 0 && (
       <HiddenPeopleNotice
         message={`${peopleCount(hidden.length)} ${hidden.length === 1 ? 'is' : 'are'} not in the selected stores.`}
@@ -95,6 +69,37 @@ export const BuilderAssignPanel = ({ storeIds, assigneeIds, onAssigneeIdsChange,
       selected={shown}
       onChange={(ids) => onAssigneeIdsChange([...hidden, ...ids])}
     />
+    <fieldset className="flex flex-col gap-2.5">
+      <legend className="t-card font-display font-semibold text-text pb-1">How many copies?</legend>
+      <div role="radiogroup" aria-label="How many copies" className="grid gap-2 sm:grid-cols-3 sm:gap-2.5">
+        {MODES.map((m, index) => {
+          const on = responseMode === m.value;
+          return (
+            <button
+              key={m.value}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              tabIndex={on ? 0 : -1}
+              onClick={() => onResponseModeChange(m.value)}
+              onKeyDown={(e) => onRadioKeyDown(e, index, MODES.length, (next) => onResponseModeChange(MODES[next].value))}
+              className={`flex flex-col items-start gap-1 sm:gap-1.5 px-3 py-2.5 sm:p-3.5 text-left rounded-xl sm:rounded-2xl border cursor-pointer transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 ${
+                on
+                  ? 'border-primary-500/60 bg-primary-500/10'
+                  : 'border-border/60 bg-surface hover:border-border-hover'
+              }`}
+            >
+              <span className={`flex items-center gap-2 text-sm font-display font-semibold ${on ? 'text-primary-700 dark:text-primary-300' : 'text-text'}`}>
+                {m.icon}
+                {m.title}
+              </span>
+              <span className={`t-meta font-display text-text-muted leading-relaxed ${on ? '' : 'max-sm:hidden'}`}>{m.hint}</span>
+            </button>
+          );
+        })}
+      </div>
+      <NoticeBanner tone="info" icon={Users}>{copiesSummary(responseMode, shown.length, departmentCount)}</NoticeBanner>
+    </fieldset>
   </div>
   );
 };

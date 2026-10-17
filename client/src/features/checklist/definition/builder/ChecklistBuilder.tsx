@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, useBlocker, useSearchParams } from 'react-router';
 import { motion, useReducedMotion } from 'framer-motion';
 import { toast } from 'sonner';
-import { ArrowLeft, AlertCircle, ListChecks, ChevronLeft, ChevronRight, ClipboardX, FileClock } from 'lucide-react';
+import { ArrowLeft, AlertCircle, ListChecks, ChevronLeft, ChevronRight, ClipboardX } from 'lucide-react';
 import {
   Skeleton, Breadcrumbs, Button, ChecklistProgressBar, EmptyState, InlineError, PageHeader, PANEL_CLASS,
 } from '../../../../components';
@@ -31,7 +31,6 @@ import { BuilderReviewStep } from './wizard/BuilderReviewStep';
 import { emptyItemDraft, type ItemDraft } from '../ChecklistDefinitionItemDraftRow';
 import { normalizeItemOrder, cloneItemDraft, MAX_CHECKLIST_ITEMS } from '../itemSections';
 import { BuilderItemsList } from './BuilderItemsList';
-import { useDeleteDraftMutation, useDraftsQuery, useSaveDraftMutation } from '../../../drafts/hook';
 import type {
   ChecklistDefinition, ChecklistRecurrence, ChecklistIcon, ChecklistResponseMode,
   ChecklistDefinitionItem, CreateChecklistDefinitionItemPayload,
@@ -173,8 +172,8 @@ const STEPS = [
   { key: 'basics', label: 'Basics' },
   { key: 'schedule', label: 'Schedule' },
   { key: 'items', label: 'Questions' },
-  { key: 'assign', label: 'Assign' },
   { key: 'reviewers', label: 'Reviewers' },
+  { key: 'assign', label: 'Assign' },
   { key: 'review', label: 'Review' },
 ] as const;
 
@@ -183,7 +182,6 @@ const STEPS = [
 const STEP_BLOCK_REASON: Record<number, string> = {
   0: 'Give this checklist a name to continue.',
   1: "Pick a store and a start date. Opening and closing can't be the same time.",
-  3: 'Add at least one person to continue.',
 };
 
 // A snapshot of every field this form can edit, as a plain JSON string rather than a
@@ -240,12 +238,6 @@ export const ChecklistBuilder = () => {
   const [searchParams] = useSearchParams();
   const copyFromId = isEditing ? '' : searchParams.get('copyFrom') ?? '';
   const isCopying = !!copyFromId;
-  const draftParam = isEditing || isCopying ? '' : searchParams.get('draft') ?? '';
-  const [draftId, setDraftId] = useState(draftParam);
-  const draftsQuery = useDraftsQuery('CHECKLIST', !!draftParam);
-  const draftSource = draftParam ? draftsQuery.data?.find(d => d.id === draftParam) : undefined;
-  const saveDraft = useSaveDraftMutation('CHECKLIST');
-  const deleteDraft = useDeleteDraftMutation('CHECKLIST');
 
   const { data: existing, isPending: isLoadingExisting, isError: loadError, error: loadErrorObj, refetch: refetchExisting } = useChecklistDefinitionQuery(definitionId ?? '');
   const isDeleted = loadErrorObj instanceof ApiError && loadErrorObj.status === 404;
@@ -370,30 +362,6 @@ export const ChecklistBuilder = () => {
     applyDefinition(copySource, true);
   }
 
-  const [hydratedDraftId, setHydratedDraftId] = useState<string | undefined>(undefined);
-  const applyDraft = (payload: Record<string, unknown>) => {
-    const snap = { ...BLANK_SNAPSHOT, ...(payload as Partial<BuilderSnapshot>) };
-    setName(snap.name);
-    setDescription(snap.description);
-    setIcon(snap.icon);
-    setStoreIds(snap.storeIds);
-    setRecurrence(snap.recurrence);
-    setStartDate(snap.startDate);
-    setOpensTime(snap.opensTime);
-    setCutoffTime(snap.cutoffTime);
-    setActiveWeekdays(snap.activeWeekdays);
-    setResponseMode(snap.responseMode);
-    setAssigneeIds(snap.assigneeIds);
-    setReviewerIds(snap.reviewerIds);
-    setItemDrafts(normalizeItemOrder(snap.itemDrafts, snap.sections));
-    setSections(snap.sections);
-    setBaseline(snapshotKey(snap));
-  };
-  if (draftSource && hydratedDraftId !== draftSource.id) {
-    setHydratedDraftId(draftSource.id);
-    applyDraft(draftSource.payload);
-  }
-
   // Brand-new checklist only (a copy brings its own reviewers): PC is the org's default reviewer, so a fresh checklist starts with every
   // PC-role user pre-picked instead of an empty reviewer list nobody remembers to fill in. Still
   // just a starting point: the maker can remove any of them or add a department's HOD from the
@@ -401,8 +369,8 @@ export const ChecklistBuilder = () => {
   // during render, not inside an effect) and folded into `baseline` too, so this doesn't itself
   // count as an unsaved change the moment the form opens.
   const [reviewerDefaultApplied, setReviewerDefaultApplied] = useState(false);
-  const orgWideUsers = useAssignableUsersQuery(undefined, undefined, undefined, !isEditing && !isCopying && !draftParam);
-  if (!isEditing && !isCopying && !draftParam && !reviewerDefaultApplied && orgWideUsers.data) {
+  const orgWideUsers = useAssignableUsersQuery(undefined, undefined, undefined, !isEditing && !isCopying);
+  if (!isEditing && !isCopying && !reviewerDefaultApplied && orgWideUsers.data) {
     setReviewerDefaultApplied(true);
     const pcIds = orgWideUsers.data.filter(u => u.role === 'PC').map(u => u.id);
     if (pcIds.length && !reviewerIds.length) {
@@ -603,7 +571,8 @@ export const ChecklistBuilder = () => {
   const itemsValid = itemProblem === null;
   // Only people the pickers still show count: a hidden one is rejected by the server on save.
   const visibleAssigneeCount = splitByVisible(assigneeIds, storePersonIds).shown.length;
-  const assignValid = visibleAssigneeCount > 0;
+  const assignValid = true;
+  const hasPeople = visibleAssigneeCount > 0;
   const sectionValidity = useMemo(
     () => [basicsValid, scheduleValid, itemsValid, assignValid] as const,
     [basicsValid, scheduleValid, itemsValid, assignValid],
@@ -612,7 +581,6 @@ export const ChecklistBuilder = () => {
   const isStepValid = (index: number) => (index < sectionValidity.length ? sectionValidity[index] : true);
   const blockReasonFor = (index: number) => {
     if (index === 2) return itemProblem?.message ?? '';
-    if (index === 3 && assigneeIds.length > 0) return 'Pick at least one person from the selected stores to continue.';
     return STEP_BLOCK_REASON[index] ?? '';
   };
 
@@ -660,7 +628,6 @@ export const ChecklistBuilder = () => {
     } else {
       createDefinition.mutate(payload, {
         onSuccess: (created) => {
-          if (draftId) deleteDraft.mutate(draftId);
           markClean();
           navigate(`/admin/scheduled-checklists/${created.id}`);
         },
@@ -668,41 +635,7 @@ export const ChecklistBuilder = () => {
     }
   };
 
-  const handleSaveDraft = () => {
-    if (!name.trim()) {
-      toast.error('Give the checklist a name first, so you can find the draft later.');
-      goToStep(0);
-      revealAfterRender(() => document.getElementById('checklist-name'), true);
-      return;
-    }
-    const snapshot: BuilderSnapshot = {
-      name, description, icon, storeIds, recurrence, startDate, opensTime, cutoffTime, activeWeekdays,
-      responseMode, assigneeIds, reviewerIds, itemDrafts, sections,
-    };
-    saveDraft.mutate({ id: draftId || undefined, title: name.trim(), payload: snapshot as unknown as Record<string, unknown> }, {
-      onSuccess: (saved) => {
-        setDraftId(saved.id);
-        setBaseline(snapshotKey(snapshot));
-        toast.success('Draft saved', { description: 'Find it under Drafts on Recurring Checklists. Add the people when they are set up, then create it.' });
-      },
-    });
-  };
-
-  const draftButton = !isEditing && (
-    <Button
-      type="button"
-      variant="outline"
-      size="sm"
-      onClick={handleSaveDraft}
-      isLoading={saveDraft.isPending}
-      className="font-display pointer-coarse:h-11"
-    >
-      {!saveDraft.isPending && <FileClock size={14} aria-hidden />}
-      {draftId ? 'Update draft' : 'Save draft'}
-    </Button>
-  );
-
-  if ((isEditing && isLoadingExisting) || (isCopying && isLoadingCopy) || (!!draftParam && draftsQuery.isPending)) return <BuilderSkeleton />;
+  if ((isEditing && isLoadingExisting) || (isCopying && isLoadingCopy)) return <BuilderSkeleton />;
 
   // 404 means the checklist was actually deleted: retrying just repeats the same doomed request
   // (see lib/queryHelpers.ts's handleQueryRetry), so this gets its own message and a way back
@@ -814,19 +747,6 @@ export const ChecklistBuilder = () => {
         );
       case 3:
         return (
-          <BuilderStepFrame stepIndex={step} title="Assign" description="Decide who's responsible for this checklist.">
-            <BuilderAssignPanel
-              storeIds={storeIds}
-              assigneeIds={assigneeIds}
-              onAssigneeIdsChange={setAssigneeIds}
-              responseMode={responseMode}
-              onResponseModeChange={setResponseMode}
-              people={people}
-            />
-          </BuilderStepFrame>
-        );
-      case 4:
-        return (
           <BuilderStepFrame stepIndex={step} title="Reviewers" description="Pick who reviews a filled-in run and approves or sends it back, usually the department head or a PC.">
             <BuilderReviewersPanel
               storeIds={storeIds}
@@ -834,6 +754,19 @@ export const ChecklistBuilder = () => {
               onReviewerIdsChange={setReviewerIds}
               people={people}
               isNew={!isEditing && !isCopying}
+            />
+          </BuilderStepFrame>
+        );
+      case 4:
+        return (
+          <BuilderStepFrame stepIndex={step} title="Assign" description="Pick who fills it in. Not set up yet? Leave it empty: the checklist is saved paused and switches on when you add them.">
+            <BuilderAssignPanel
+              storeIds={storeIds}
+              assigneeIds={assigneeIds}
+              onAssigneeIdsChange={setAssigneeIds}
+              responseMode={responseMode}
+              onResponseModeChange={setResponseMode}
+              people={people}
             />
           </BuilderStepFrame>
         );
@@ -857,6 +790,8 @@ export const ChecklistBuilder = () => {
               sectionValidity={sectionValidity}
               onEditSection={goToStep}
               canSubmit={canSubmit}
+              hasPeople={hasPeople}
+              hideSubmit
               isSubmitting={mutation.isPending}
               isEditing={isEditing}
               isActive={isEditing ? existing?.isActive : undefined}
@@ -878,7 +813,8 @@ export const ChecklistBuilder = () => {
   };
 
   return (
-    <div className="flex flex-col gap-6 w-full py-2 sm:py-4">
+    <div className="flex flex-col gap-3 sm:gap-6 w-full py-1 sm:py-4">
+      <div className="hidden sm:block">
       <Breadcrumbs
         items={[
           { label: 'Dashboard', to: '/' },
@@ -888,10 +824,12 @@ export const ChecklistBuilder = () => {
           { label: STEPS[step].label },
         ]}
       />
+      </div>
 
+      <div className="hidden sm:block">
       <PageHeader
         icon={ListChecks}
-        title={isEditing ? `Editing: ${existing?.name}` : isCopying ? 'Duplicate Checklist' : draftSource ? 'Finish draft checklist' : 'New Checklist'}
+        title={isEditing ? `Editing: ${existing?.name}` : isCopying ? 'Duplicate Checklist' : 'New Checklist'}
         subtitle={
           isEditing && existing
             ? `Version ${existing.version} · ${existing.isActive ? `Live in ${existing.storeIds.length} store${existing.storeIds.length !== 1 ? 's' : ''}` : 'Paused'}`
@@ -900,8 +838,6 @@ export const ChecklistBuilder = () => {
               : 'Build a recurring checklist your team runs on a schedule.'
         }
         actions={
-          <div className="flex items-center gap-2">
-          {draftButton}
           <Button
             type="button"
             variant="secondary"
@@ -913,14 +849,14 @@ export const ChecklistBuilder = () => {
             <ArrowLeft size={13} />
             <span className="hidden sm:inline">Back to Recurring Checklists</span>
           </Button>
-          </div>
         }
       />
+      </div>
 
       {/* Main Wizard Card */}
       <div className={PANEL_CLASS}>
         {/* Stepper Header with Progress Bar */}
-        <div className="flex flex-col gap-3 px-4 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4 border-b border-border/60 bg-muted/20 rounded-t-2xl">
+        <div className="flex flex-col gap-3 px-4 sm:px-6 pt-2 sm:pt-5 pb-2 sm:pb-4 border-b border-border/60 bg-muted/20 rounded-t-2xl">
           <BuilderStepper
             steps={STEPS}
             current={step}
@@ -928,12 +864,13 @@ export const ChecklistBuilder = () => {
             allUnlocked={isEditing || isCopying}
             isStepValid={isStepValid}
             onSelect={goToStep}
+            onExit={() => navigate('/admin/scheduled-checklists')}
           />
           <ChecklistProgressBar done={step + 1} total={STEPS.length} bare thin className="hidden xl:flex" />
         </div>
 
         {/* Wizard Content Step */}
-        <div className="flex flex-col gap-6 sm:gap-8 p-4 sm:p-8">
+        <div className="flex flex-col gap-6 sm:gap-8 px-4 pt-4 pb-0 sm:px-8 sm:pt-8">
           {/* Enter-only: waiting for an exit animation (mode="wait") made every step change take
               twice as long, over a heavy mount. */}
           <motion.div
@@ -946,14 +883,14 @@ export const ChecklistBuilder = () => {
           </motion.div>
 
           {/* Footer Navigation Bar */}
-          <div className="flex items-center justify-between pt-4 sm:pt-6 border-t border-border/60">
+          <div className="sticky bottom-[calc(5.25rem+env(safe-area-inset-bottom))] md:bottom-0 z-20 -mx-4 sm:-mx-8 flex items-center justify-between gap-3 px-4 sm:px-8 py-3 border-t border-border/60 bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/85 rounded-b-2xl">
             {step > 0 ? (
               <Button
                 type="button"
                 variant="secondary"
                 size="sm"
                 onClick={() => goToStep(step - 1)}
-                className="font-display"
+                className="font-display pointer-coarse:h-11"
               >
                 <ChevronLeft size={15} />
                 <span>Back</span>
@@ -983,6 +920,19 @@ export const ChecklistBuilder = () => {
                   <ChevronRight size={15} />
                 </Button>
               </div>
+            )}
+            {step === STEPS.length - 1 && (
+              <Button
+                type="button"
+                variant="primary"
+                size="md"
+                onClick={handleSubmit}
+                isLoading={mutation.isPending}
+                disabled={!canSubmit}
+                className="font-display pointer-coarse:h-11"
+              >
+                {mutation.isPending ? 'Saving…' : isEditing ? 'Save changes' : hasPeople ? 'Create checklist' : 'Create paused'}
+              </Button>
             )}
           </div>
         </div>

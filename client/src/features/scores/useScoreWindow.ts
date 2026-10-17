@@ -6,7 +6,7 @@ import { useOrgToday } from '../checklist/useOrgToday';
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 /** '2026-10-01' -> '1 Oct 2026'. */
-export const dayLabel = (day: string): string => {
+const dayLabel = (day: string): string => {
   const [y, m, d] = day.split('-').map(Number);
   return `${d} ${MONTHS[m - 1] ?? ''} ${y}`;
 };

@@ -7,7 +7,7 @@ import { endOfDay } from '../../../lib/dateRange';
 import { useOrgToday } from '../../checklist/useOrgToday';
 
 // Week, because the page opens on this month (below): a month cut by month would be a single bar.
-export const DEFAULT_GROUP_BY: GroupBy = 'week';
+const DEFAULT_GROUP_BY: GroupBy = 'week';
 
 const parseGroupBy = (value: string | null): GroupBy =>
   value === 'day' || value === 'week' || value === 'month' || value === 'year' ? value : DEFAULT_GROUP_BY;

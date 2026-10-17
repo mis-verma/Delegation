@@ -130,7 +130,7 @@ const KEY_LABEL_OVERRIDES: Record<string, string> = {
 
 // camelCase -> "Title Case", e.g. "tatDueAt" -> "Tat Due At". Good enough for every field name
 // this table actually has — a real i18n label map isn't worth it for an admin-only diff view.
-export const humanizeKey = (key: string) =>
+const humanizeKey = (key: string) =>
   KEY_LABEL_OVERRIDES[key] ??
   key
     .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
@@ -199,7 +199,7 @@ const humanizeEnum = (value: string) =>
 // component outside this folder) still tests for this exact character, so it stays as the stored
 // value; the Audit Log page swaps it for the word via `displayValue` before anything is drawn.
 export const EMPTY_MARK = '—';
-export const EMPTY_LABEL = 'Empty';
+const EMPTY_LABEL = 'Empty';
 export const displayValue = (text: string) => (text === EMPTY_MARK ? EMPTY_LABEL : text);
 
 const formatScalar = (value: unknown): string => {
@@ -220,7 +220,7 @@ const formatScalar = (value: unknown): string => {
 // spelled out and summarize the rest, same "+N more" pattern chip collections use elsewhere.
 const MAX_LIST_ITEMS = 4;
 
-export const formatDiffValue = (key: string, value: unknown, resolvers?: AuditIdResolvers): string => {
+const formatDiffValue = (key: string, value: unknown, resolvers?: AuditIdResolvers): string => {
   if (Array.isArray(value)) {
     if (value.length === 0) return EMPTY_MARK;
     const names = value.map((v) => resolveId(key, v, resolvers) ?? formatScalar(v));
@@ -285,7 +285,7 @@ const asText = (value: unknown): string | null =>
   typeof value === 'string' && value.trim() ? value.trim() : null;
 
 /** A short, git-style id for when an entry has no readable name. Never the full cuid. */
-export const shortEntityId = (id: string) => `#${id.slice(0, 8)}`;
+const shortEntityId = (id: string) => `#${id.slice(0, 8)}`;
 
 // Where the name's own link goes, if the thing still has a screen. Deleted things have nowhere to land.
 export const entityLink = (log: Pick<AuditLog, 'entityType' | 'entityId' | 'action'>): string | null => {

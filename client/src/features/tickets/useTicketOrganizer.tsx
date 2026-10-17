@@ -21,7 +21,7 @@ export interface TicketViewSnapshot {
   groupBy: 'department' | 'assignee';
   quickFilter: TicketQuickFilterKey | null;
 }
-export const DEFAULT_TICKET_FILTERS: TicketFilters = { status: 'all', priority: [], departmentId: '', assigneeIds: [], raisedByIds: [], labelIds: [] };
+const DEFAULT_TICKET_FILTERS: TicketFilters = { status: 'all', priority: [], departmentId: '', assigneeIds: [], raisedByIds: [], labelIds: [] };
 
 // Module scope, not recreated per render/hook call — referencing it from inside a useMemo would
 // otherwise need it in the dependency array, and a fresh object every render would defeat the memo.

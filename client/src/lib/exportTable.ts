@@ -29,7 +29,7 @@ const csvCell = (value: CellValue): string => {
   return /[",\r\n]|^\s|\s$/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 };
 
-export const toCsv = (rows: TableRows): string => rows.map((row) => row.map(csvCell).join(',')).join('\r\n');
+const toCsv = (rows: TableRows): string => rows.map((row) => row.map(csvCell).join(',')).join('\r\n');
 
 export const csvBlob = (rows: TableRows): Blob =>
   // The BOM is what makes Excel read the file as UTF-8 instead of the local ANSI codepage —
@@ -277,7 +277,7 @@ export const formatExportDate = (value: string | Date): string => {
 };
 
 /** "1 Oct 2026 to 31 Oct 2026", or a single date when both ends are the same day. */
-export const formatExportRange = (from: string | Date, to: string | Date): string => {
+const formatExportRange = (from: string | Date, to: string | Date): string => {
   const a = formatExportDate(from);
   const b = formatExportDate(to);
   return a === b ? a : `${a} to ${b}`;

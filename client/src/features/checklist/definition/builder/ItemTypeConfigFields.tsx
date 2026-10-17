@@ -533,9 +533,6 @@ export const itemDraftProblem = (draft: ItemDraft, validPersonIds?: ReadonlySet<
   return null;
 };
 
-// eslint-disable-next-line react-refresh/only-export-components
-export const isItemDraftComplete = (draft: ItemDraft, validPersonIds?: ReadonlySet<string> | null): boolean => itemDraftProblem(draft, validPersonIds) === null;
-
 // Switching an item's type used to change only `itemType`, carrying every other setting along,
 // e.g. a Photo item switched to Text box still required 1 photo, with no upload button shown to
 // staff, so it could never be completed. This resets whatever the new type can't use.

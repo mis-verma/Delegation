@@ -12,9 +12,6 @@ export const formatAge = (iso: string): string => {
   return `${Math.floor(days / 30)}mo`;
 };
 
-export const formatShortDate = (iso: string) =>
-  new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-
 /** Short human reference for a ticket ("TICK-YBHT1A"), shown on cards and the detail header. */
 export const ticketCode = (id: string) => `TICK-${id ? id.slice(0, 6).toUpperCase() : '------'}`;
 
@@ -102,7 +99,7 @@ export const hoursUntil = (due: Date, now = Date.now()): number =>
   Math.max(1 / 60, Math.round(((due.getTime() - now) / 3_600_000) * 10_000) / 10_000);
 
 /** "6 PM" on the hour, "6:30 PM" otherwise. */
-export const formatClockShort = (d: Date) => {
+const formatClockShort = (d: Date) => {
   const text = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
   // "6:00 PM" -> "6 PM" on a 12-hour clock; a 24-hour clock keeps "18:00" (hour alone read as "18").
   return d.getMinutes() === 0 ? text.replace(/:00(?=\s?[APap]\.?[Mm])/, '') : text;

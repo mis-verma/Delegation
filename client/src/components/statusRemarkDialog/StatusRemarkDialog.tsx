@@ -4,7 +4,7 @@ import { useMediaQuery } from '../../lib/useMediaQuery';
 import { Modal } from '../modal';
 import { Button } from '../button';
 
-export const MAX_REMARK = 1000;
+const MAX_REMARK = 1000;
 /** The counter only appears once the note gets near the limit. */
 const COUNTER_FROM = 800;
 

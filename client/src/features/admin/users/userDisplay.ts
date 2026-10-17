@@ -4,7 +4,7 @@ import { MONTH_LABELS } from '../../dashboard/dashboardDisplay';
 export const fullName = (u: Pick<AdminUser, 'firstName' | 'lastName'>) => `${u.firstName} ${u.lastName ?? ''}`.trim();
 
 /** "3 Mar", or "3 Mar 2025" when it was not this year. */
-export const formatShortDate = (iso: string) => {
+const formatShortDate = (iso: string) => {
   const d = new Date(iso);
   const sameYear = d.getFullYear() === new Date().getFullYear();
   return `${d.getDate()} ${MONTH_LABELS[d.getMonth()]}${sameYear ? '' : ` ${d.getFullYear()}`}`;

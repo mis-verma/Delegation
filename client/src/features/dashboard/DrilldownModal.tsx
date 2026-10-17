@@ -83,7 +83,7 @@ DrilldownRowButton.displayName = 'DrilldownRowButton';
  * nesting a second `Dialog`. Two stacked Radix dialogs animating open/closed back-to-back is what
  * made that transition feel like a double delay instead of an instant swap.
  */
-export const DrilldownList = ({ rows, total, cappedNote, isLoading = false, viewAllHref, emptyTitle = 'Nothing here yet', emptyDescription = 'No items match this selection.', onSelect }: DrilldownListProps) => {
+const DrilldownList = ({ rows, total, cappedNote, isLoading = false, viewAllHref, emptyTitle = 'Nothing here yet', emptyDescription = 'No items match this selection.', onSelect }: DrilldownListProps) => {
   const visible = rows.slice(0, PREVIEW_LIMIT);
   const remaining = rows.length - visible.length;
 
@@ -126,7 +126,7 @@ export const DrilldownList = ({ rows, total, cappedNote, isLoading = false, view
 /** The "View all X" footer button `DrilldownModal` renders in `Modal`'s `footer` slot — split out
  *  so a caller building its own single-Modal multi-view flow (see `DrilldownList`'s own doc
  *  comment) can put the same button in its own footer. */
-export const DrilldownViewAllButton = ({ href, label = 'View all', onSelect }: { href: string; label?: string; onSelect: (link: string) => void }) => (
+const DrilldownViewAllButton = ({ href, label = 'View all', onSelect }: { href: string; label?: string; onSelect: (link: string) => void }) => (
   <Button size="lg" className="w-full sm:w-auto text-sm" onClick={() => onSelect(href)}>
     {label}
     <ArrowUpRight size={15} strokeWidth={2.5} />

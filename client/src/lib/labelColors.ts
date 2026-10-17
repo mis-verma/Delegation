@@ -70,7 +70,7 @@ const hashIndex = (name: string, length: number) => {
 /** The colour a name gets when nobody chose one. Also the default offered when creating a label. */
 export const suggestedLabelColor = (name: string): LabelColor => LABEL_COLORS[hashIndex(name, LABEL_COLORS.length)];
 
-export const labelColorOf = (input: LabelColorInput): LabelColor => {
+const labelColorOf = (input: LabelColorInput): LabelColor => {
   if (typeof input === 'string') return suggestedLabelColor(input);
   return LABEL_COLORS.find((c) => c.key === input.color) ?? suggestedLabelColor(input.name);
 };

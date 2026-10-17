@@ -28,7 +28,6 @@ export const PRIORITY_MAP = {
   },
 } satisfies Record<Task['priority'], { label: string; className: string; accent: string; stripe: string; bar: string; solid: string; icon: LucideIcon }>;
 
-
 export const STATUS_ICON = {
   draft: <FileEdit size={16} className="text-text-muted shrink-0 transition-colors duration-200" strokeWidth={2.5} />,
   todo: <CircleDashed size={16} className="text-status-todo shrink-0 transition-colors duration-200" strokeWidth={2.5} />,
@@ -38,9 +37,7 @@ export const STATUS_ICON = {
   on_hold: <PauseCircle size={16} className="text-warning shrink-0 transition-colors duration-200" strokeWidth={2.5} />,
 } satisfies Record<Task['status'], React.ReactNode>;
 
-
 export const MOVABLE_STATUSES: Task['status'][] = ['todo', 'in_progress', 'on_hold', 'pending_approval', 'done'];
-
 
 // The one set of status names Delegation uses everywhere, for every role: chips, filters, the
 // detail footer and stepper, toasts and history. Change a word here, not at a call site.
@@ -52,44 +49,6 @@ export const STATUS_LABEL = {
   done: 'Done',
   on_hold: 'On hold',
 } satisfies Record<Task['status'], string>;
-
-
-export const STATUS_CONFIG = {
-  draft: {
-    label: 'Draft',
-    badge: 'bg-surface-hover text-text-muted border-border/60 transition-all duration-200 ease-in-out',
-    indicator: 'bg-text-light/35 transition-colors duration-200',
-  },
-  todo: {
-    label: STATUS_LABEL.todo,
-    badge: 'bg-status-todo/10 text-status-todo border-status-todo/20 transition-all duration-200 ease-in-out',
-    indicator: 'bg-status-todo/35 transition-colors duration-200',
-  },
-  in_progress: {
-    label: STATUS_LABEL.in_progress,
-    badge: 'bg-status-progress/10 text-status-progress border-status-progress/20 transition-all duration-200 ease-in-out',
-    indicator: 'bg-status-progress/35 transition-colors duration-200',
-  },
-  pending_approval: {
-    label: STATUS_LABEL.pending_approval,
-    badge: 'bg-status-approve/10 text-status-approve border-status-approve/20 transition-all duration-200 ease-in-out',
-    indicator: 'bg-status-approve/35 transition-colors duration-200',
-  },
-  done: {
-    label: 'Done',
-    badge: 'bg-status-done/10 text-status-done border-status-done/20 transition-all duration-200 ease-in-out',
-    indicator: 'bg-status-done/35 transition-colors duration-200',
-  },
-  on_hold: {
-    label: STATUS_LABEL.on_hold,
-    badge: 'bg-warning/10 text-warning border-warning/20 transition-all duration-200 ease-in-out',
-    indicator: 'bg-warning/35 transition-colors duration-200',
-  },
-} satisfies Record<
-  Task['status'],
-  { label: string; badge: string; indicator: string }
->;
-
 
 export const TASK_SCORE: Record<Task['status'], number> = {
   draft: 0,
@@ -113,14 +72,4 @@ export const NEXT_STATUS: Record<Task['status'], Task['status'] | null> = {
   pending_approval: null,
   done: null,
   on_hold: 'in_progress',
-};
-
-
-export const PREV_STATUS: Record<Task['status'], Task['status'] | null> = {
-  draft: null,
-  todo: null,
-  in_progress: 'todo',
-  pending_approval: null,
-  done: null,
-  on_hold: null,
 };

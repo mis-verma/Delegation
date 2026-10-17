@@ -142,15 +142,6 @@ export const usePresenceQuery = (enabled: boolean = true) => {
     });
 };
 
-export const useUserQuery = (id: string) => {
-    const { token } = useAuth();
-    return useQuery({
-        queryKey: USER_KEYS.detail(id),
-        queryFn: () => adminApi.getOne(id).then(r => r.data),
-        enabled: !!token && !!id,
-    });
-};
-
 export const useCreateUserMutation = () => {
     const queryClient = useQueryClient();
     return useMutation({
@@ -317,7 +308,6 @@ export const useRemoveUserAvatarMutation = () => {
     });
 };
 
-
 const DEPARTMENT_KEY = {
     all: ["departments"] as const,
 };
@@ -368,7 +358,6 @@ export const useDeleteDepartmentMutation = () => {
     })
 }
 
-
 const STORE_KEY = {
     all: ["stores"] as const, // matches useStoresQuery's queryKey in features/tickets/hook.ts
 };
@@ -412,7 +401,6 @@ export const useDeleteStoreMutation = () => {
         onError: (err) => toast.error(errorMessage(err, 'Failed to delete store')),
     })
 }
-
 
 const CHECKLIST_TEMPLATE_KEY = {
     all: (appliesTo?: ChecklistTemplateTarget) => ["checklist-templates", appliesTo ?? "all"] as const,

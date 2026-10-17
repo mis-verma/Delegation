@@ -1,1 +1,1 @@
-export { StatusRemarkDialog, MAX_REMARK } from './StatusRemarkDialog';
+export { StatusRemarkDialog } from './StatusRemarkDialog';

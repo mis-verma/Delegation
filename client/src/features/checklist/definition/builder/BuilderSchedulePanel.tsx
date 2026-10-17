@@ -24,8 +24,7 @@ export const hasScheduleTimeMismatch = (opensTime: string, cutoffTime: string): 
 export const isOvernightWindow = (opensTime: string, cutoffTime: string): boolean =>
   Boolean(opensTime && cutoffTime) && cutoffTime < opensTime;
 
-// eslint-disable-next-line react-refresh/only-export-components
-export const RECURRENCE_OPTIONS: {
+const RECURRENCE_OPTIONS: {
   value: ChecklistRecurrence;
   label: string;
   description: string;

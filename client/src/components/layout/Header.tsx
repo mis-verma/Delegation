@@ -26,7 +26,7 @@ import { greeting as timeGreeting } from '../../features/dashboard/dashboardDisp
 // size-11 (44px) — the minimum recommended touch target, not the size-9/size-8 this used to be.
 // Matches the same fix already applied to AdminHeader's icon buttons, for the same reason: on a
 // header full of icon-only buttons, undersized targets are the easiest spot to mis-tap on a phone.
-export const ICON_BUTTON_CLASS =
+const ICON_BUTTON_CLASS =
   'inline-flex items-center justify-center size-10 pointer-coarse:size-11 rounded-xl text-text-muted ' +
   'transition-all duration-200 ease-out cursor-pointer ' +
   'hover:text-text hover:bg-surface-hover hover:border-border-hover border border-transparent ' +

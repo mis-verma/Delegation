@@ -3,7 +3,7 @@ import { scoreApi, type DataCheckResult } from '../../../api/scores';
 import { ApiError } from '../../../api/http';
 
 /** Plain words for the failures an admin can actually meet here. */
-export const dataCheckErrorMessage = (error: unknown): string => {
+const dataCheckErrorMessage = (error: unknown): string => {
   if (error instanceof ApiError && error.status === 403) return 'Only an Admin or the PC can run the data check.';
   if (error instanceof ApiError && error.status === 400 && error.message) return error.message;
   if (error instanceof Error && error.message) return error.message;

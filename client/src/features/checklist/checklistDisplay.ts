@@ -45,7 +45,7 @@ export const formatPeriodSpan = (instance: { periodStart: string; periodEnd: str
 };
 
 // e.g. "Jan 5" — used in tighter card layouts (MyChecklists) where the year is implied.
-export const formatDateShort = (iso: string) => DATE_SHORT_FMT.format(new Date(iso));
+const formatDateShort = (iso: string) => DATE_SHORT_FMT.format(new Date(iso));
 
 // completedAt/generatedAt/image createdAt are real timestamps (not calendar-day labels like
 // periodStart/periodEnd above), so these render in the viewer's own local time zone rather than
@@ -94,20 +94,10 @@ export const VERIFICATION_CHIP: Record<ChecklistVerificationStatus, { icon: Luci
 
 // What the approval chip says. Once every question is done but the run has not been sent yet, it
 // prompts the next step ("Ready to submit") instead of the flat "Not submitted".
-export const verificationChipFor = (status: ChecklistVerificationStatus, isComplete: boolean): { icon: LucideIcon; tone: string; label: string } => {
+const verificationChipFor = (status: ChecklistVerificationStatus, isComplete: boolean): { icon: LucideIcon; tone: string; label: string } => {
   if (isComplete && status === 'NOT_SUBMITTED') return { icon: Send, tone: 'bg-warning', label: 'Ready to submit' };
   if (isComplete && status === 'REJECTED') return { icon: Send, tone: 'bg-warning', label: 'Fixed, submit again' };
   return { ...VERIFICATION_CHIP[status], label: VERIFICATION_STATUS_LABEL[status] };
-};
-
-// Shared mapping from the verification workflow status to a `Badge` tone — every place that
-// shows verification status (ChecklistInstanceCard, ChecklistInstanceRow, ChecklistInstanceTable)
-// should render the same variant for the same status, not each hand-roll its own colors.
-export const VERIFICATION_BADGE_VARIANT: Record<ChecklistVerificationStatus, 'neutral' | 'warning' | 'success' | 'destructive'> = {
-  NOT_SUBMITTED: 'neutral',
-  PENDING_APPROVAL: 'warning',
-  APPROVED: 'success',
-  REJECTED: 'destructive',
 };
 
 // Shared tri-color convention for a HISTORICAL/AGGREGATE 0-100 rate — a definition's
@@ -171,12 +161,6 @@ export const instanceProgressToneClass = (overdue: boolean, isComplete: boolean)
   return 'text-primary-600 dark:text-primary-400';
 };
 
-export const instanceProgressBarClass = (overdue: boolean, isComplete: boolean) => {
-  if (isComplete) return 'bg-success';
-  if (overdue) return 'bg-danger';
-  return 'bg-primary-500';
-};
-
 type InstanceWindow = {
   periodStart: string;
   periodEnd: string;
@@ -213,7 +197,7 @@ export const todayPeriodBoundIso = (): string => {
   return new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate())).toISOString();
 };
 
-export const instanceOpensAt = (instance: Pick<InstanceWindow, 'periodStart' | 'opensTime'>): number | null => {
+const instanceOpensAt = (instance: Pick<InstanceWindow, 'periodStart' | 'opensTime'>): number | null => {
   if (!instance.opensTime) return null;
   const [hours, minutes] = instance.opensTime.split(':').map(Number);
   const start = new Date(instance.periodStart);
@@ -374,7 +358,7 @@ type FlaggableItem = Pick<ChecklistInstanceItem, 'itemType' | 'booleanAnswer' | 
 // needing scrutiny), and a "flagged" answer is one that actually landed on that branch. Stays
 // flagged even once a required photo/reason was supplied to get past it — those only unblock
 // completion, they never turn a flagged answer back into a clean one.
-export const isGatedBooleanItem = (item: FlaggableItem) => {
+const isGatedBooleanItem = (item: FlaggableItem) => {
   if (item.itemType !== 'YES_NO' && item.itemType !== 'PASS_FAIL') return false;
   const noGated = item.noActions.length > 0 && item.yesActions.length === 0;
   const yesGated = item.yesActions.length > 0 && item.noActions.length === 0;

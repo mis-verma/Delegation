@@ -67,14 +67,6 @@ export interface StatusChipProps {
   children?: ReactNode;
 }
 
-/** The chip's default label for a status — for a caller that needs the plain word itself
- *  (e.g. to feed into role-based label overrides) rather than the rendered chip. Exported
- *  alongside the component like badge.tsx's own badgeVariants — only affects Fast Refresh
- *  granularity, not runtime correctness.
- */
-// eslint-disable-next-line react-refresh/only-export-components
-export const getStatusChipLabel = (status: StatusChipStatus) => STATUS_CHIP_CONFIG[status].label;
-
 /** Icon + solid tone for a status, for menus that draw the chip's icon circle next to a plain
  *  label instead of a whole chip (e.g. the ticket sheet's status menu). */
 // eslint-disable-next-line react-refresh/only-export-components

@@ -64,17 +64,6 @@ export const CALENDAR_ITEM_DOT_CLASS: Record<CalendarItemType, string> = {
   BROADCAST: 'bg-warning',
 };
 
-// Icon-tile tint for the legend chips and the day panel's per-row icon — a soft background plus a
-// matching icon color, same "bg-X/10 text-X" shape every tinted icon tile in the app already uses.
-export const CALENDAR_ITEM_TINT_CLASS: Record<CalendarItemType, string> = {
-  delegation: 'bg-primary-50 dark:bg-primary-500/10 text-primary-600 dark:text-primary-400',
-  ticket: 'bg-primary-100 dark:bg-primary-500/15 text-primary-700 dark:text-primary-300',
-  checklist: 'bg-primary-200/70 dark:bg-primary-500/20 text-primary-900 dark:text-primary-200',
-  DEADLINE: 'bg-danger/10 text-danger',
-  ANNOUNCEMENT: 'bg-coral-50 dark:bg-coral-500/10 text-coral-600 dark:text-coral-400',
-  BROADCAST: 'bg-warning/10 text-warning',
-};
-
 /** Calendar-day identity in the viewer's own local time — every item type resolves to a real
  *  timestamp instant one way or another (task/ticket/event dates are already instants; a checklist
  *  instance's deadline is computed to one by `instanceDeadline`), so bucketing by local

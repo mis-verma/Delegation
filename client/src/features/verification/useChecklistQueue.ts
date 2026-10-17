@@ -10,7 +10,7 @@ import {
   type ChecklistRow, type SortKey, type AgeFilter,
 } from './verificationModel';
 
-export const CHECKLIST_PAGE_SIZE = 50;
+const CHECKLIST_PAGE_SIZE = 50;
 const STALE_MS = 30_000;
 
 /** The clock, ticking once a minute, so "2 days" and the age filter stay honest on a page left open. */

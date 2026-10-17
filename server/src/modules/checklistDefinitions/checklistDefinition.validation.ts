@@ -165,7 +165,7 @@ const checklistDefinitionFields = {
     startDate: z.string().refine((v) => !Number.isNaN(new Date(v).getTime()), "Start date isn't a valid date"),
     opensTime: timeOfDay.optional(),
     cutoffTime: timeOfDay.optional(),
-    assigneeIds: uniqueIdArray("At least one assignee is required"),
+    assigneeIds: dedupedIdArray,
     // Additive on top of the role-based verify rule (ADMIN/PC always, MANAGER/HOD scoped to their
     // own department) — naming someone here lets them approve/reject regardless of role/department.
     reviewerIds: dedupedIdArray.optional(),

@@ -3,8 +3,8 @@ import { useSearchParams } from 'react-router';
 
 // "Only items created between these two moments" as two URL params, so a chart bar can link straight
 // to a list page narrowed to that bar's period, and the link works when shared or reloaded.
-export const CREATED_FROM_PARAM = 'createdFrom';
-export const CREATED_TO_PARAM = 'createdTo';
+const CREATED_FROM_PARAM = 'createdFrom';
+const CREATED_TO_PARAM = 'createdTo';
 
 /** `/tasks` plus the params for [start, end). */
 export const createdRangeHref = (path: string, start: Date, end: Date) =>

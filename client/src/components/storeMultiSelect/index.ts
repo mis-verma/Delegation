@@ -1,1 +1,0 @@
-export { StoreMultiSelect } from './StoreMultiSelect';

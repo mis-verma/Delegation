@@ -11,14 +11,14 @@ const OFFLINE_MESSAGE = "You're offline. Check your connection and try again.";
 const TECHNICAL_TEXT =
   /error:|status code|request failed|failed to fetch|networkerror|\bat\s.+\(|\bundefined\b|\bnull\b|\[object|econn|enotfound|etimedout|typeerror|syntaxerror|prisma|\bsql\b|\bstack\b|exception|\bjson\b|<\/?\w+>|[{}]/i;
 
-export const isHumanMessage = (message: unknown): message is string => {
+const isHumanMessage = (message: unknown): message is string => {
   if (typeof message !== 'string') return false;
   const text = message.trim();
   return text.length > 0 && text.length < 160 && !/[\r\n]/.test(text) && !TECHNICAL_TEXT.test(text);
 };
 
 /** True when the failure is the phone having no connection (nothing reached the server). */
-export const isOfflineError = (err: unknown): boolean =>
+const isOfflineError = (err: unknown): boolean =>
   (typeof navigator !== 'undefined' && navigator.onLine === false) ||
   err instanceof TypeError ||
   (err instanceof ApiError && err.status === 0);
@@ -28,7 +28,7 @@ export const isOfflineError = (err: unknown): boolean =>
  * `fallback` should read "Couldn't <do the thing>. Try again." and is used for server faults (5xx)
  * and anything unrecognised. Pure, so it can be unit tested on its own.
  */
-export function mapApiError(err: unknown, fallback: string): string {
+function mapApiError(err: unknown, fallback: string): string {
   if (isOfflineError(err)) return OFFLINE_MESSAGE;
 
   const serverText = err instanceof Error && isHumanMessage(err.message) ? err.message.trim() : null;

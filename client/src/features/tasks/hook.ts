@@ -6,8 +6,6 @@ import { taskApi } from "../../api/task";
 import { userApi } from "../../api/users"; // NEW — needed for the assignee picker
 import { taskChecklistApi } from "../../api/taskChecklist";
 import { checklistTemplateApi } from "../../api/checklistTemplates";
-import { taskCommentApi } from "../../api/taskComment";
-import type { CreateTaskCommentPayload } from "../../api/taskComment";
 import { smartTaskConversationApi } from "../../api/smartTaskConversation";
 import type { SmartTaskConversationMessage, PatchSmartTaskConversationPayload } from "../../api/smartTaskConversation";
 import type { CreateTaskPayload, UpdateTaskPayload, VerifyTaskPayload, Task, TaskListPage, ListMeta } from "../../api/task";
@@ -189,19 +187,6 @@ export const usePublishDraftTaskMutation = () =>
         errorFallback: "Couldn't publish the delegation. Try again.",
     });
 
-// Checklist completion rate over time — role-scoped server-side (ADMIN/PC get the org-wide
-// or department view, everyone else only ever sees their own tasks). Powers the dashboard's
-// Monthly Target gauge, and (via departmentId/userId) the Team Overview drill-down.
-export const useComplianceReportQuery = (groupBy: 'day' | 'week' | 'month' | 'year' = 'month', from?: string, to?: string, departmentId?: string, userId?: string) => {
-    const { token } = useAuth();
-    return useQuery({
-        queryKey: ['tasks', 'compliance', groupBy, from, to, departmentId, userId],
-        queryFn: () => taskApi.getComplianceReport(groupBy, from, to, departmentId, userId).then(r => r.data),
-        enabled: !!token,
-        retry: handleQueryRetry,
-    });
-};
-
 // Single task by id. `enabled` (default true) lets a caller defer the fetch until it's actually
 // needed — e.g. the Verification Queue's inline checklist preview, which only wants a task's full
 // checklist tree (absent from the list response) once its row is actually expanded, not for every
@@ -242,14 +227,6 @@ export const useTaskQuery = (id: string, enabled = true) => {
         retry: handleQueryRetry,
     });
 };
-
-export const useCreateTaskMutation = () =>
-    useEntityMutation({
-        mutationFn: (payload: CreateTaskPayload) => taskApi.create(payload),
-        invalidateKeys: [['tasks']],
-        successMessage: 'Delegation created',
-        errorFallback: "Couldn't create the delegation. Try again.",
-    });
 
 // Create + upload any files staged in the form, as one mutation — there's no task id to upload
 // attachments against until create() has actually returned one, so this awaits that first, then
@@ -305,21 +282,6 @@ export const useUpdateTaskMutation = (options?: { silent?: boolean; quietErrors?
         // Board and row quick moves (no options) get Retry; field autosaves show their own message.
         retryable: !options?.silent && !options?.quietErrors,
     });
-
-// Powers the PC verification queue — tasks waiting on a given status (pending_approval),
-// scoped server-side to whatever the requester is allowed to see (PC/ADMIN get their department).
-export const useTasksByStatusQuery = (status: Task['status'], enabled = true) => {
-    const { token } = useAuth();
-    return useQuery({
-        queryKey: ['tasks', 'by-status', status],
-        // checklistSummary=true — the only caller of this hook is the Verification Queue, which
-        // shows each row's done/total/missing-photo rollup before it's even expanded.
-        queryFn: () => taskApi.getAll(undefined, status, 1, 200, undefined, undefined, true),
-        select: (page) => page.data,
-        enabled: !!token && enabled,
-        retry: handleQueryRetry,
-    });
-};
 
 export const useVerifyTaskMutation = () =>
     useEntityMutation({
@@ -393,24 +355,6 @@ export const useTaskBulkImportPublishMutation = () => {
         onError: (err) => notifyError(err, "Couldn't publish this batch. Try again."),
     });
 };
-
-// ── Task activity/comments ──────────────────────────────────────────────
-export const useTaskCommentsQuery = (taskId: string) => {
-    const { token } = useAuth();
-    return useQuery({
-        queryKey: [...TASK_KEYS.detail(taskId), 'comments'],
-        queryFn: () => taskCommentApi.list(taskId),
-        enabled: !!token && !!taskId,
-        retry: handleQueryRetry,
-    });
-};
-
-export const useCreateTaskCommentMutation = (taskId: string) =>
-    useEntityMutation({
-        mutationFn: (payload: CreateTaskCommentPayload) => taskCommentApi.create(taskId, payload),
-        invalidateKeys: [[...TASK_KEYS.detail(taskId), 'comments']],
-        errorFallback: "Couldn't post the comment. Try again.",
-    });
 
 // ── Task checklists (items, images, remarks) ──────────────────────────────
 // All of these only ever affect one task's detail view, so they invalidate just that task's

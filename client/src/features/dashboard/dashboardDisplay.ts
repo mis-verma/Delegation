@@ -1,12 +1,8 @@
 import type { Ticket, TicketStatus } from '../../api/ticket';
 import type { Task } from '../../api/task';
-import type { Todo } from '../../api/todos';
-import type { ChecklistInstance } from '../../api/checklistInstances';
-import { instanceDeadline } from '../checklist/checklistDisplay';
-import { formatPoints } from '../admin/analytics/analyticsDisplay';
 import { PANEL_CLASS } from '../../components/entityCard';
 import type { DrilldownRow } from './DrilldownModal';
-import { isTicketHandedIn, isTaskHandedIn } from '../../lib/handedIn';
+import { isTaskHandedIn } from '../../lib/handedIn';
 
 // The shared surface every Dashboard card sits on — one definition instead of the same substring
 // retyped in eight different files, so a future change to the card's own look (like the richer
@@ -21,18 +17,6 @@ import { isTicketHandedIn, isTaskHandedIn } from '../../lib/handedIn';
 // Built on PANEL_CLASS so every dashboard card shares one radius, border and surface with the rest
 // of the app (no dashboard-only dark-mode border override).
 export const DASHBOARD_CARD_CLASS = `${PANEL_CLASS} h-full`;
-
-// Mirrors taskDisplay.tsx's STATUS_CONFIG badge classes exactly — the feed sits on the same
-// dashboard as the KPI modal that already uses those tokens, so the same task's status color
-// shouldn't disagree depending on which widget is showing it.
-export const TASK_STATUS_COLORS: Record<Task['status'], string> = {
-  draft: 'bg-surface-hover text-text-muted',
-  todo: 'bg-status-todo/10 text-status-todo',
-  in_progress: 'bg-status-progress/10 text-status-progress',
-  pending_approval: 'bg-status-approve/10 text-status-approve',
-  done: 'bg-status-done/10 text-status-done',
-  on_hold: 'bg-warning/10 text-warning',
-};
 
 // Humanized recency for feed timestamps — "2h ago" reads as more alive/scannable than a bare
 // date, and falls back to a short absolute date once the item is old enough that "14d ago" stops
@@ -58,20 +42,9 @@ const shortDate = (isoDate: string) => SHORT_DATE.format(new Date(isoDate)).repl
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 const calendarDaysBetween = (from: number, to: number) => Math.round((startOfDay(new Date(to)) - startOfDay(new Date(from))) / 86_400_000);
 
-// "Today" / "Tomorrow" / "Mon 12 Oct" for an upcoming date, so a list of deadlines reads as
-// days away rather than a column of bare calendar dates. Compares local calendar days, not 24h
-// spans, so 11pm tonight and 1am tomorrow land on different labels.
-export const relativeDayLabel = (isoDate: string, now: number): string => {
-  const days = calendarDaysBetween(now, new Date(isoDate).getTime());
-  if (days === 0) return 'Today';
-  if (days === 1) return 'Tomorrow';
-  if (days === -1) return 'Yesterday';
-  return shortDate(isoDate);
-};
-
 // The past-tense twin of relativeDayLabel for the dashboard feed: "Just now", "12 min ago",
 // "3 hours ago", then "Yesterday" and the same "Mon 12 Oct" date the events list uses.
-export const pastDayLabel = (isoDate: string, now: number): string => {
+const pastDayLabel = (isoDate: string, now: number): string => {
   const at = new Date(isoDate).getTime();
   const minutes = Math.floor((now - at) / 60_000);
   if (minutes < 1) return 'Just now';
@@ -99,7 +72,7 @@ export const waitingFor = (isoDate: string, now: number): string => {
 // header reads heavier than its neighbour's. Hidden on a phone, where the title needs the width.
 const CARD_TILE_BASE = 'hidden sm:flex size-9 shrink-0 items-center justify-center rounded-lg text-white';
 /** Each dashboard section has its own colour, so the page reads as sections and not as one blue wall. */
-export const CARD_TILE_TONE = {
+const CARD_TILE_TONE = {
   primary: 'bg-linear-to-br from-primary-500 to-primary-600',
   danger: 'bg-linear-to-br from-danger to-danger/70',
   info: 'bg-linear-to-br from-info to-info/70',
@@ -107,7 +80,6 @@ export const CARD_TILE_TONE = {
   success: 'bg-linear-to-br from-success to-success/70',
 } as const;
 export const cardIconTile = (tone: keyof typeof CARD_TILE_TONE = 'primary') => `${CARD_TILE_BASE} ${CARD_TILE_TONE[tone]}`;
-export const CARD_ICON_TILE_CLASS = cardIconTile();
 
 // Takes the time as an argument on purpose. Called with no argument it read the clock inside, so the
 // compiler saw a call with no inputs and computed it once per mount: the header kept saying "Good
@@ -125,15 +97,6 @@ export type FeedItem =
   | { kind: 'task'; id: string; title: string; status: Task['status']; createdAt: string };
 
 export const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-// Last `count` calendar months ending with the current one, oldest first.
-export const lastMonths = (count: number) => {
-  const now = new Date();
-  return Array.from({ length: count }, (_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth() - (count - 1 - i), 1);
-    return { year: d.getFullYear(), month: d.getMonth(), label: MONTH_LABELS[d.getMonth()] };
-  });
-};
 
 // `isSameMonth`/`countInMonth`/`seriesInMonths` used to sit here — a per-month bucketing chain
 // whose only stated purpose was feeding StatCard's `sparkline` prop, which was declared but never
@@ -157,20 +120,6 @@ export const trendFrom = (current: number, previous: number): Trend => {
     label: `${pct >= 0 ? '+' : ''}${Math.round(pct)}%`
   };
 };
-
-// Difference between two already-percentage values (e.g. two months' completion rates) as a plain
-// point delta, not a percent-of-a-percent: "76% vs 72%" is +4 points, not +5.6%. Callers pass null
-// for "no data" (a period with zero items has no rate, which is not the same as 0%); either side
-// null gives null so no fake delta is shown. Returned unrounded; formatDelta rounds for display.
-export const pointDelta = (current: number | null, previous: number | null): number | null => {
-  if (current == null || previous == null) return null;
-  if (!Number.isFinite(current) || !Number.isFinite(previous)) return null;
-  return current - previous;
-};
-
-// '+4 pts' / '-3 pts' / '' (nothing to show). A delta that rounds to zero reads '0 pts' so a
-// genuinely flat score is not mistaken for missing data.
-export const formatDelta = (delta: number | null): string => (delta == null ? '' : formatPoints(delta));
 
 // Open delegation that has passed its due date. Draft, pending-approval and done work never counts
 // as overdue (the assignee has handed it off or it is not live yet), and no due date means no deadline.
@@ -250,31 +199,6 @@ export const isTicketLate = (ticket: Pick<Ticket, 'status' | 'isOverdue' | 'clos
 // can't express a quarter directly, so it isn't offered here either.
 export type CompliancePeriod = 'day' | 'week' | 'month' | 'year';
 
-export const PERIOD_LABEL: Record<CompliancePeriod, string> = {
-  day: 'today',
-  week: 'this week',
-  month: 'this month',
-  year: 'this year',
-};
-
-export const PERIOD_END_LABEL: Record<CompliancePeriod, string> = {
-  day: 'end of day',
-  week: 'end of week',
-  month: 'end of month',
-  year: 'end of year',
-};
-
-// Single source for every CompliancePeriod tab row (CompareDashboard, MonthlyTargetCard) so both
-// widgets' Day/Week/Month/Year controls stay in the same order with the same labels.
-export const COMPLIANCE_PERIOD_OPTIONS: CompliancePeriod[] = ['day', 'week', 'month', 'year'];
-
-export const PERIOD_TAB_LABEL: Record<CompliancePeriod, string> = {
-  day: 'Day',
-  week: 'Week',
-  month: 'Month',
-  year: 'Year',
-};
-
 const pad2 = (n: number) => String(n).padStart(2, '0');
 
 // ISO 8601 week-year + week-number (Thursday of the week decides the week-year) — matches the
@@ -307,33 +231,6 @@ export const bucketKeyFor = (period: CompliancePeriod, date: Date): string => {
   }
 };
 
-// Start of the current period (local time) — e.g. midnight today, the Monday of this week, the
-// 1st of this month/year. Used to filter a plain list of records (not server-bucketed) down to
-// "just this period" client-side.
-export const periodStartDate = (period: CompliancePeriod, date: Date): Date => {
-  const d = new Date(date);
-  if (period === 'day') { d.setHours(0, 0, 0, 0); return d; }
-  if (period === 'week') {
-    const dayIndex = (d.getDay() + 6) % 7; // Mon=0 .. Sun=6
-    d.setDate(d.getDate() - dayIndex);
-    d.setHours(0, 0, 0, 0);
-    return d;
-  }
-  if (period === 'month') return new Date(d.getFullYear(), d.getMonth(), 1);
-  return new Date(d.getFullYear(), 0, 1);
-};
-
-// One period-length step back (or forward, with a negative amount) — used to find "the
-// previous period" for a trend comparison, at whatever granularity is currently selected.
-export const shiftPeriod = (period: CompliancePeriod, date: Date, amount: number): Date => {
-  const d = new Date(date);
-  if (period === 'day') d.setDate(d.getDate() + amount);
-  else if (period === 'week') d.setDate(d.getDate() + amount * 7);
-  else if (period === 'month') d.setMonth(d.getMonth() + amount);
-  else d.setFullYear(d.getFullYear() + amount);
-  return d;
-};
-
 // The Activity Overview chart buckets a plain client-side array (already-fetched tasks/tickets/
 // todos), never a server aggregation — unlike CompliancePeriod above, there's no `$dateToString`
 // constraint to respect here, so "quarter" is fine to offer as its own separate type rather than
@@ -341,86 +238,20 @@ export const shiftPeriod = (period: CompliancePeriod, date: Date, amount: number
 // and the server genuinely can't produce a quarter bucket).
 export type ActivityGroupBy = 'day' | 'month' | 'quarter' | 'year';
 
-export const ACTIVITY_GROUP_LABEL: Record<ActivityGroupBy, string> = {
-  day: 'Day', month: 'Month', quarter: 'Quarter', year: 'Year',
-};
-
-export const ACTIVITY_GROUP_PERIOD_LABEL: Record<ActivityGroupBy, string> = {
-  day: 'today', month: 'this month', quarter: 'this quarter', year: 'this year',
-};
-
-// How many trailing buckets the trend chart shows per granularity — e.g. the last 7 days, or the
-// last 4 quarters (a full year), rather than one fixed count regardless of grain.
-export const ACTIVITY_BUCKET_COUNT: Record<ActivityGroupBy, number> = {
-  day: 7, month: 6, quarter: 4, year: 4,
-};
-
-// Describes the same trailing window ACTIVITY_BUCKET_COUNT covers — used by the Compliance gauges,
-// which scope to that whole window (see ActivityComplianceGauges) rather than only the single
-// current bucket, so the label under "Compliance" needs to say "last 6 months", not "this month".
-export const ACTIVITY_GROUP_RANGE_LABEL: Record<ActivityGroupBy, string> = {
-  day: 'last 7 days', month: 'last 6 months', quarter: 'last 4 quarters', year: 'last 4 years',
-};
-
 export interface ActivityBucket {
   label: string;
   start: Date;
   end: Date;
 }
 
-const quarterStart = (year: number, quarter: number) => new Date(year, quarter * 3, 1);
-
-// `count` trailing buckets of the given granularity, ending with the one containing `now` —
-// oldest first, matching lastMonths()'s existing convention.
-export const lastActivityBuckets = (groupBy: ActivityGroupBy, count: number, now = new Date()): ActivityBucket[] => {
-  return Array.from({ length: count }, (_, i) => {
-    const offset = count - 1 - i;
-    if (groupBy === 'day') {
-      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset);
-      const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 1);
-      return { label: start.toLocaleDateString(undefined, { weekday: 'short' }), start, end };
-    }
-    if (groupBy === 'month') {
-      const start = new Date(now.getFullYear(), now.getMonth() - offset, 1);
-      const end = new Date(start.getFullYear(), start.getMonth() + 1, 1);
-      return { label: MONTH_LABELS[start.getMonth()], start, end };
-    }
-    if (groupBy === 'quarter') {
-      const currentQuarterIndex = now.getFullYear() * 4 + Math.floor(now.getMonth() / 3) - offset;
-      const year = Math.floor(currentQuarterIndex / 4);
-      const quarter = ((currentQuarterIndex % 4) + 4) % 4;
-      return { label: `Q${quarter + 1} '${String(year).slice(-2)}`, start: quarterStart(year, quarter), end: quarterStart(year, quarter + 1) };
-    }
-    const start = new Date(now.getFullYear() - offset, 0, 1);
-    const end = new Date(start.getFullYear() + 1, 0, 1);
-    return { label: String(start.getFullYear()), start, end };
-  });
-};
-
-export const countInRange = (dates: string[], start: Date, end: Date) =>
-  dates.filter(d => { const t = new Date(d).getTime(); return t >= start.getTime() && t < end.getTime(); }).length;
-
 // The four kinds of activity the bar chart/gauges can show, each toggleable independently — order
 // matches how the filter chips read left to right.
 export type ActivityCategory = 'checklist' | 'todo' | 'ticket' | 'delegation';
-export const ACTIVITY_CATEGORY_ORDER: ActivityCategory[] = ['checklist', 'todo', 'ticket', 'delegation'];
 export const ACTIVITY_CATEGORY_LABEL: Record<ActivityCategory, string> = {
   checklist: 'Checklist',
   todo: 'To-do',
   ticket: 'Ticket',
   delegation: 'Delegation',
-};
-// One navy family, not four unrelated hues — darkest for Checklist, stepping lighter through
-// Ticket and Delegation down to Todo, so the stacked bar reads as one coherent brand palette
-// instead of a mixed success/warning/info set. Checklist goes through its own
-// `--color-activity-checklist` token (index.css) rather than a bare primary-900 — that's the
-// family's near-black end, which disappears against the dark theme's own near-black surface; the
-// token swaps to a light shade in dark mode so Checklist stays visible in both themes.
-export const ACTIVITY_CATEGORY_COLOR: Record<ActivityCategory, string> = {
-  checklist: 'var(--color-activity-checklist)',
-  ticket: 'var(--color-activity-ticket)',
-  delegation: 'var(--color-activity-delegation)',
-  todo: 'var(--color-activity-todo)',
 };
 export const ACTIVITY_CATEGORY_DOT_CLASS: Record<ActivityCategory, string> = {
   checklist: 'bg-activity-checklist',
@@ -459,103 +290,6 @@ export interface ActivityWorkItem {
   departmentId: string | null;
   storeId: string | null;
 }
-
-const inTimeRange = (createdAt: string, start: Date, end: Date) => {
-  const t = new Date(createdAt).getTime();
-  return t >= start.getTime() && t < end.getTime();
-};
-
-// Normalizes four differently-shaped record types into one common shape so the bar chart and
-// compliance gauges can filter/aggregate them identically instead of each re-deriving its own
-// per-kind "is this done / is this overdue" mapping.
-export const buildActivityItems = (
-  tasks: Task[],
-  tickets: Ticket[],
-  checklists: ChecklistInstance[],
-  todos: Todo[],
-  now: number,
-): ActivityWorkItem[] => [
-  ...tasks.map((t): ActivityWorkItem => ({
-    id: t.id,
-    title: t.title,
-    link: `/tasks?open=${t.id}`,
-    category: 'delegation',
-    createdAt: t.createdAt,
-    completed: isTaskHandedIn(t),
-    overdue: isTaskOverdue(t, now),
-    late:
-      isTaskOverdue(t, now) ||
-      (t.status === 'done' && !!t.dueDate && new Date(t.verifiedAt ?? t.updatedAt).getTime() > new Date(t.dueDate).getTime()),
-    // additionalAssigneeIds is typed as always an array, but real records have been seen missing
-    // it entirely — spreading a null/undefined value throws "is not iterable" at runtime, so it's
-    // defaulted defensively here rather than trusting the type.
-    userIds: [t.userId, t.assigneeId, ...(t.additionalAssigneeIds ?? [])].filter((id): id is string => !!id),
-    departmentId: t.departmentId,
-    storeId: null,
-  })),
-  ...tickets.map((t): ActivityWorkItem => ({
-    id: t.id,
-    title: t.title,
-    link: `/tickets?open=${t.id}`,
-    category: 'ticket',
-    createdAt: t.createdAt,
-    completed: isTicketHandedIn(t),
-    overdue: t.isOverdue,
-    late: isTicketLate(t),
-    userIds: [t.userId, t.assigneeId].filter((id): id is string => !!id),
-    departmentId: t.departmentId,
-    storeId: t.storeId,
-  })),
-  ...checklists.map((c): ActivityWorkItem => {
-    const total = c.items.length;
-    const done = c.items.filter((i) => i.isDone).length;
-    const completed = total > 0 && done === total;
-    return {
-      id: c.id,
-      title: c.title,
-      link: `/checklists/${c.id}`,
-      category: 'checklist',
-      // Checklist instances have no createdAt of their own — generatedAt (when this recurring
-      // instance was spun up) is the closest equivalent for bucketing "when this happened".
-      createdAt: c.generatedAt,
-      completed,
-      // Was `new Date(c.cutoffTime).getTime() < now` — cutoffTime is a bare "HH:mm" string, not a
-      // full timestamp, so that parsed to Invalid Date/NaN and this could never actually fire.
-      // instanceDeadline anchors cutoffTime (or falls back to periodEnd) to the instance's own
-      // periodStart date, same real deadline the server now enforces.
-      overdue: !completed && instanceDeadline(c) < now,
-      userIds: c.assigneeIds ?? [],
-      departmentId: null,
-      storeId: c.storeId,
-    };
-  }),
-  ...todos.map((t): ActivityWorkItem => ({
-    id: t.id,
-    title: t.text,
-    // Todos have no standalone detail view or `?open=` deep link — the list page is the closest
-    // thing to "the item" a drill-down link can point at.
-    link: '/todo',
-    category: 'todo',
-    createdAt: t.createdAt,
-    completed: t.completed,
-    overdue: !t.completed && !!t.dueDate && new Date(t.dueDate).getTime() < now,
-    // Todos carry no owner/department/store client-side — they're implicitly "mine" — so they
-    // simply drop out once any Person/Department/Store filter is applied, rather than matching
-    // as though they belonged to whoever's selected.
-    userIds: [],
-    departmentId: null,
-    storeId: null,
-  })),
-];
-
-/** Items of one category whose `createdAt` falls in `[start, end)` — the drill-down counterpart
- *  to `countItemsInRange`, used when a chart/gauge breakdown row is clicked and the actual records
- *  (not just their count) need to be shown. */
-export const itemsInRange = (items: ActivityWorkItem[], category: ActivityCategory, start: Date, end: Date) =>
-  items.filter((i) => i.category === category && inTimeRange(i.createdAt, start, end));
-
-export const countItemsInRange = (items: ActivityWorkItem[], category: ActivityCategory, start: Date, end: Date) =>
-  items.filter((i) => i.category === category && inTimeRange(i.createdAt, start, end)).length;
 
 export type RateTone = 'success' | 'warning' | 'danger' | 'neutral';
 

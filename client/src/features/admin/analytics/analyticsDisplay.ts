@@ -18,7 +18,7 @@ const MONTHS_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'Ju
 const NO_DATA = 'No data';
 
 /** The name of the single bucket the server returns for groupBy=none. */
-export const RANGE_BUCKET = 'range';
+const RANGE_BUCKET = 'range';
 
 // ---------------------------------------------------------------------------------------------
 // Number formatters
@@ -29,7 +29,7 @@ export const formatPercent = (value: number | null | undefined): string =>
   formatPct(value, NO_DATA);
 
 /** A change in a rate, in percentage points: "+4 pts", "-3 pts", "0 pts". Null -> "No data". */
-export const formatPoints = (delta: number | null | undefined): string => {
+const formatPoints = (delta: number | null | undefined): string => {
   if (delta == null || !Number.isFinite(delta)) return NO_DATA;
   const rounded = Math.round(delta);
   if (rounded === 0) return '0 pts';
@@ -49,7 +49,7 @@ export const formatDuration = (hours: number | null | undefined): string => {
 // ---------------------------------------------------------------------------------------------
 
 /** "3 Oct", "Wk 40", "Oct 2026", "2026", or "Selected period" for the single whole-range bucket. */
-export const formatBucket = (bucket: string, groupBy: DisplayGroupBy): string => {
+const formatBucket = (bucket: string, groupBy: DisplayGroupBy): string => {
   if (groupBy === 'none' || bucket === RANGE_BUCKET) return 'Selected period';
   if (groupBy === 'day') {
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(bucket);
@@ -82,7 +82,7 @@ const formatDayMonth = (d: Date, withYear: boolean) =>
   `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}${withYear ? ` ${d.getFullYear()}` : ''}`;
 
 /** "1 Oct to 14 Oct" (the year is added when the range crosses years or is not this year). */
-export const formatRangeSpan = (from: string | Date, to: string | Date): string => {
+const formatRangeSpan = (from: string | Date, to: string | Date): string => {
   const a = new Date(from);
   const b = new Date(to);
   const withYear = a.getFullYear() !== b.getFullYear() || b.getFullYear() !== new Date().getFullYear();
@@ -251,7 +251,7 @@ export const trendTrimNote = (total: number, shown: number, groupBy: DisplayGrou
 export const NO_TREND: Trend = { direction: 'up', label: '—' };
 
 /** The change in a rate between two periods, labelled in percentage points. */
-export const rateTrend = (current: number, previous: number): Trend => {
+const rateTrend = (current: number, previous: number): Trend => {
   const delta = Math.round(current) - Math.round(previous);
   return { direction: delta >= 0 ? 'up' : 'down', label: formatPoints(delta) };
 };
@@ -313,16 +313,4 @@ export const latestWithTrend = (
   if (previousValue == null) return { value, trend: NO_TREND };
 
   return { value, trend: kind === 'rate' ? rateTrend(value, previousValue) : trendFrom(value, previousValue) };
-};
-
-/** The same, for the closed-on-time rate, which is computed per row rather than read from a field. */
-export const slaMetWithTrend = (allRows: TatReportRow[] | undefined): { value: number | null; trend: Trend } => {
-  // Same empty-tail rule as every other tile, so on day one of a period this shows last period's
-  // figure instead of "No data" while the tiles beside it show numbers.
-  const rows = allRows && withoutEmptyTail(allRows);
-  const latest = rows?.[rows.length - 1];
-  const value = slaMetRate(latest);
-  if (value == null || !rows || !latest || latest.bucket === RANGE_BUCKET) return { value, trend: NO_TREND };
-  const previous = slaMetRate(rows[rows.length - 2]);
-  return { value, trend: previous == null ? NO_TREND : rateTrend(value, previous) };
 };

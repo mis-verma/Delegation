@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 
 // End of the working day, the same hour the date picker gives a day picked with no time.
-export const DUE_HOUR = 18;
+const DUE_HOUR = 18;
 
 const sameMoment = (a: Date | null, b: Date) => !!a && a.getTime() === b.getTime();
 

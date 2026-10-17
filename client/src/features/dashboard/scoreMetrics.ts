@@ -21,11 +21,6 @@ export const SERIES_COLOR: Record<SeriesKey, string> = {
   compliance: 'var(--color-series-compliance)',
   ontime: 'var(--color-primary-400)',
 };
-export const SERIES_HELP: Record<SeriesKey, string> = {
-  completion: 'Done, out of what was due',
-  compliance: 'Handed in on time out of what was due (finished, or waiting for approval). For checklists, how well the checked answers were answered',
-  ontime: 'Of the items that were finished, the share finished on time',
-};
 
 /** Overview shows completion beside compliance; every other tab shows one measure on its own. */
 export const seriesFor = (metric: ScoreMetric): SeriesKey[] => (metric === 'overview' ? ['completion', 'compliance'] : [metric]);

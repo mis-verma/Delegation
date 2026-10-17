@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Check, AlertTriangle, Lock } from 'lucide-react';
+import { ArrowLeft, Check, AlertTriangle, Lock } from 'lucide-react';
 
 export interface StepItem {
   label: string;
@@ -14,6 +14,7 @@ interface BuilderStepperProps {
   allUnlocked: boolean;
   isStepValid: (index: number) => boolean;
   onSelect: (index: number) => void;
+  onExit?: () => void;
   className?: string;
 }
 
@@ -24,6 +25,7 @@ export const BuilderStepper = ({
   allUnlocked,
   isStepValid,
   onSelect,
+  onExit,
   className = '',
 }: BuilderStepperProps) => {
   return (
@@ -33,8 +35,20 @@ export const BuilderStepper = ({
         "Step n of 6" plus one tappable segment per step, tinted the same way the circles are
         (done / needs attention / current / locked). */}
     <nav aria-label="Checklist builder progress" className={`xl:hidden flex flex-col gap-2 ${className}`}>
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="text-sm font-display font-bold text-text">{steps[current]?.label}</span>
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex min-w-0 items-center gap-1.5">
+          {onExit && (
+            <button
+              type="button"
+              onClick={onExit}
+              aria-label="Back to Recurring Checklists"
+              className="sm:hidden -ml-2 flex size-11 shrink-0 items-center justify-center rounded-full text-text-secondary hover:bg-surface-hover outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+            >
+              <ArrowLeft size={18} aria-hidden="true" />
+            </button>
+          )}
+          <span className="t-card font-display font-bold text-text truncate">{steps[current]?.label}</span>
+        </span>
         <span className="t-meta font-display font-medium text-text-muted tabular-nums">Step {current + 1} of {steps.length}</span>
       </div>
       <ol className="flex items-center gap-2">

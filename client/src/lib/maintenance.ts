@@ -29,7 +29,7 @@ const parsePages = (raw: string): string[] =>
 
 export const MAINTENANCE_ALL = import.meta.env.VITE_MAINTENANCE_MODE === 'true';
 
-export const MAINTENANCE_PAGES = parsePages(import.meta.env.VITE_MAINTENANCE_PAGES ?? '');
+const MAINTENANCE_PAGES = parsePages(import.meta.env.VITE_MAINTENANCE_PAGES ?? '');
 
 /**
  * Matches the page and everything under it — `/tasks` also covers `/tasks/team`, since a module

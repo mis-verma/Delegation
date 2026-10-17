@@ -1,8 +1,4 @@
-// Shared looks for the score screens, so a filter, a card and a header are the same shape on every page.
 
-/** A native select: 44px on a phone, 36px from sm up, 16px type on a phone (iOS zooms the page below that). */
-export const SELECT_CLASS =
-  'min-h-11 w-full min-w-0 cursor-pointer rounded-lg border border-border bg-surface px-3 text-base font-display text-text outline-none transition-colors hover:border-border-hover focus-visible:border-primary-500 focus-visible:ring-2 focus-visible:ring-primary-500/30 sm:min-h-9 sm:text-sm';
 
 /** The small label above a control or a group of controls. */
 export const FIELD_LABEL_CLASS = 'px-0.5 t-meta font-display font-semibold text-text-muted';

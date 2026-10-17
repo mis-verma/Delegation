@@ -7,7 +7,6 @@ export type ScoreModule = 'checklist' | 'ticket' | 'delegation';
 export type ScoreFigure = 'completion' | 'compliance' | 'onTime' | 'metDeadline' | 'overall' | 'itemsDone';
 
 export const MODULE_LABEL: Record<ScoreModule, string> = { checklist: 'Checklists', ticket: 'Tickets', delegation: 'Delegations' };
-export const MODULE_LABEL_SINGULAR: Record<ScoreModule, string> = { checklist: 'Checklist', ticket: 'Ticket', delegation: 'Delegation' };
 /** What one counted thing is called, per module. */
 const UNIT: Record<ScoreModule, string> = { checklist: 'checklist runs', ticket: 'tickets', delegation: 'delegations' };
 
@@ -148,10 +147,4 @@ export const howCalculated = (figure: ScoreFigure, module?: ScoreModule): HowLin
         leftOut: 'Modules with nothing due. A row is ranked only with at least 5 items due.',
       };
   }
-};
-
-/** The same four lines as one block of plain text, for exports and tests. */
-export const howCalculatedText = (figure: ScoreFigure, module?: ScoreModule): string => {
-  const lines = howCalculated(figure, module);
-  return HOW_LINE_ORDER.map((k) => `${HOW_LINE_LABEL[k]}: ${lines[k]}`).join(' ');
 };

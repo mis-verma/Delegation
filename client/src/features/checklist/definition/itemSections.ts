@@ -5,7 +5,7 @@ import type { ItemDraft } from './ChecklistDefinitionItemDraftRow';
 export const UNGROUPED = '__ungrouped__';
 export type SectionId = string;
 
-export const sectionIdOf = (section: string | null): SectionId => section ?? UNGROUPED;
+const sectionIdOf = (section: string | null): SectionId => section ?? UNGROUPED;
 
 export const groupBySection = (itemDrafts: ItemDraft[], sections: string[]): Record<SectionId, ItemDraft[]> => {
   const groups: Record<SectionId, ItemDraft[]> = { [UNGROUPED]: [] };
@@ -52,7 +52,7 @@ export const copiedSectionName = (name: string, taken: readonly string[]): strin
   return candidate;
 };
 
-export const flattenGroups = (order: SectionId[], groups: Record<SectionId, ItemDraft[]>): ItemDraft[] =>
+const flattenGroups = (order: SectionId[], groups: Record<SectionId, ItemDraft[]>): ItemDraft[] =>
   order.flatMap((id) => groups[id] ?? []);
 
 // Re-groups then flattens straight back — guarantees items sharing a section are contiguous in

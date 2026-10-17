@@ -12,7 +12,6 @@ import type {
   VerifyTicketPayload,
   CreateChecklistPayload,
   UpdateChecklistItemPayload,
-  TatReportGroupBy,
   TicketStatus,
   RestrictedStatus,
   CaptureMethod,
@@ -176,7 +175,7 @@ export const useTicketStatusMoveMutation = () =>
   });
 
 // The server's largest page. Lists that filter client-side read every page of this size.
-export const BOARD_LIMIT = 500;
+const BOARD_LIMIT = 500;
 // A safety stop so a runaway total can't loop for ever: 10 pages is 5,000 tickets.
 const MAX_PAGES = 10;
 /** The most tickets a "load everything" list will ever hold. Reaching it means some were left out. */
@@ -337,7 +336,6 @@ export const useDeleteChecklistImageMutation = (ticketId: string) =>
     errorFallback: "Couldn't delete the photo. Try again.",
   });
 
-
 // Reusable checklist templates (managed under Admin) that can be applied to a ticket in one
 // click instead of typing the same checklist out by hand — see features/admin/ChecklistTemplateList.tsx.
 export const useChecklistTemplatesQuery = () => {
@@ -378,16 +376,6 @@ export const useAssignableUsersQuery = (departmentId?: string, storeId?: string,
   return useQuery({
     ...assignableUsersQueryOptions(departmentId, storeId, storeIds),
     enabled: !!token && enabled,
-    retry: handleQueryRetry,
-  });
-};
-
-export const useTatReportQuery = (groupBy: TatReportGroupBy, from?: string, to?: string) => {
-  const { token, user } = useAuth();
-  return useQuery({
-    queryKey: ["tickets", "tat-report", groupBy, from, to],
-    queryFn: () => ticketApi.getTatReport(groupBy, from, to).then(r => r.data),
-    enabled: !!token && (user?.role === "ADMIN" || user?.role === "PC"),
     retry: handleQueryRetry,
   });
 };

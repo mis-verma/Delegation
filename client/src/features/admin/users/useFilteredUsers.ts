@@ -37,17 +37,6 @@ export interface UserFilters {
   heads: boolean;
 }
 
-export const EMPTY_FILTERS: UserFilters = {
-  q: '',
-  role: '',
-  department: '',
-  store: '',
-  status: 'all',
-  noDepartment: false,
-  noStore: false,
-  heads: false,
-};
-
 interface Options {
   users: AdminUser[];
   departmentNames: Map<string, string>;
