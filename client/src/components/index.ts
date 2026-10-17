@@ -61,7 +61,7 @@ export { PriorityChip } from './priorityChip';
 export type { PriorityChipMeta } from './priorityChip';
 export { DepartmentChip } from './departmentChip';
 export { StoreChip } from './storeChip';
-export { RoleChip } from './roleChip';
+export { RoleChip, ROLE_LOOK } from './roleChip';
 export { ColorIconTile } from './colorIconTile';
 export { CountUp } from './countUp';
 export { PresenceChip } from './presenceChip';

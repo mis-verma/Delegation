@@ -2,7 +2,7 @@ import { useContext } from 'react';
 import { Link } from 'react-router';
 import { ChevronRight, Trophy, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Skeleton } from '../../../components';
+import { IconChip, Skeleton } from '../../../components';
 import type { ExplorerRow } from '../../../api/scores';
 import { OrgScoresContext, scoresHref, type ScoreKind } from './orgScoreData';
 import { rateTone } from '../../dashboard/dashboardDisplay';
@@ -39,18 +39,16 @@ export const ScorePill = ({ kind, id, name }: { kind: ScoreKind; id: string; nam
 };
 
 const CHIP_TONE = {
-  neutral: 'border-border bg-surface-hover text-text-secondary',
-  primary: 'border-primary-500/25 bg-primary-500/10 text-primary-700 dark:text-primary-300',
-  coral: 'border-coral-500/25 bg-coral-500/10 text-coral-700 dark:text-coral-300',
-  warning: 'border-warning/30 bg-warning/10 text-warning',
+  neutral: { dot: 'bg-text-muted', text: undefined },
+  primary: { dot: 'bg-primary-600 dark:bg-primary-400', text: undefined },
+  coral: { dot: 'bg-coral-500', text: undefined },
+  success: { dot: 'bg-success', text: 'text-success' },
+  warning: { dot: 'bg-warning', text: 'text-warning' },
+  danger: { dot: 'bg-danger', text: 'text-danger' },
 } as const;
 
-/** The one small chip on the People & Teams cards: icon plus a few words, solid border, tinted by meaning. */
-export const CardChip = ({ icon: Icon, label, tone = 'neutral', title }: { icon: LucideIcon; label: string; tone?: keyof typeof CHIP_TONE; title?: string }) => (
-  <span title={title ?? label} className={cn('inline-flex max-w-full min-w-0 items-center gap-1 rounded-md border px-1.5 py-0.5 t-meta font-display font-semibold', CHIP_TONE[tone])}>
-    <Icon className="size-3 shrink-0" strokeWidth={2.5} aria-hidden="true" />
-    <span className="truncate">{label}</span>
-  </span>
+export const CardChip = ({ icon, label, tone = 'neutral', title }: { icon: LucideIcon; label: string; tone?: keyof typeof CHIP_TONE; title?: string }) => (
+  <IconChip icon={icon} label={label} tone={CHIP_TONE[tone].dot} labelClassName={CHIP_TONE[tone].text} title={title ?? label} />
 );
 
 const TONE_TEXT ={ success: 'text-success', warning: 'text-warning', danger: 'text-danger', neutral: 'text-text' } as const;

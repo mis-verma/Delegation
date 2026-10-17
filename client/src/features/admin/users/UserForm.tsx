@@ -2,8 +2,9 @@ import { useMemo, useRef, useState } from 'react';
 import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { UserPlus, ClipboardCheck, ShieldCheck, Building2, Store, KeyRound, User, Mail, Phone, CalendarOff, Copy, Wand2, Pencil, Shirt, Network } from 'lucide-react';
-import { Input, Button, Modal, Combobox, AvatarUpload, WeekdayPicker, InlineError, Switch, useConfirm } from '../../../components';
+import { UserPlus, ClipboardCheck, ShieldCheck, Building2, Store, KeyRound, User, Mail, Phone, CalendarOff, Copy, Wand2, Pencil, Shirt, Network, Check, AlertCircle } from 'lucide-react';
+import { Input, Button, Modal, Combobox, Avatar, AvatarUpload, WeekdayPicker, InlineError, Switch, useConfirm, RoleChip, ROLE_LOOK, DepartmentChip, StoreChip, IconChip, formatWeekdays } from '../../../components';
+import { cn } from '@/lib/utils';
 import {
   useCreateUserMutation,
   useUpdateUserMutation,
@@ -22,12 +23,11 @@ import { useDressTypesQuery } from '../dressTypes/hook';
 import type { AdminUser, Role, UpdateUserPayload } from '../../../api/admin';
 import { ROLE_META, ROLE_ORDER, isDepartmentHead } from '../roleBadge';
 import { useAuth } from '../../../context/AuthContext';
-import { FormField, FormSection } from './FormField';
+import { FormField, FormPreview, FormSection } from './FormField';
 import { PasswordSharedPanel, PasswordVisibilityToggle, ResetPasswordSection } from './PasswordPanels';
 import { MIN_PASSWORD_LENGTH, copyText, generatePassword } from './passwordTools';
 import { fullName } from './userDisplay';
 
-const ROLE_OPTIONS = ROLE_ORDER.map((value) => ({ value, label: ROLE_META[value].label }));
 
 const buildUserSchema = (isEditing: boolean) =>
   z
@@ -96,12 +96,53 @@ const EditPickedButton = ({ label, onClick }: { label: string; onClick: () => vo
   </button>
 );
 
+const PILL_CLASS = 'flex items-center gap-2 min-h-11 sm:min-h-10 px-2.5 rounded-xl border text-left transition-colors duration-150 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40';
+const pillState = (on: boolean) => (on ? 'border-primary-500 bg-primary-500/8 dark:bg-primary-500/15' : 'border-border bg-surface hover:border-primary-300');
+
+const RolePicker = ({ value, onChange, roles }: { value: Role; onChange: (role: Role) => void; roles: Role[] }) => (
+  <div role="radiogroup" aria-label="Role" className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+    {roles.map((r) => {
+      const { icon: Icon, tone } = ROLE_LOOK[r];
+      const on = r === value;
+      return (
+        <button key={r} type="button" role="radio" aria-checked={on} onClick={() => onChange(r)} className={cn(PILL_CLASS, pillState(on))}>
+          <span className={cn('flex size-6 shrink-0 items-center justify-center rounded-full text-white', tone)}>
+            <Icon className="size-3.5" strokeWidth={2.5} aria-hidden />
+          </span>
+          <span className={cn('min-w-0 flex-1 truncate t-meta font-display font-semibold', on ? 'text-text' : 'text-text-secondary')}>{ROLE_META[r].label}</span>
+          {on && <Check className="size-3.5 shrink-0 text-primary-600 dark:text-primary-400" strokeWidth={3} aria-hidden />}
+        </button>
+      );
+    })}
+  </div>
+);
+
+const GENDER_CHOICES = [
+  { value: '', label: 'Not set' },
+  { value: 'FEMALE', label: 'Female' },
+  { value: 'MALE', label: 'Male' },
+] as const;
+
+const GenderPicker = ({ value, onChange }: { value: string; onChange: (value: '' | 'FEMALE' | 'MALE') => void }) => (
+  <div role="radiogroup" aria-label="Gender" className="grid grid-cols-3 gap-2">
+    {GENDER_CHOICES.map((g) => {
+      const on = g.value === value;
+      return (
+        <button key={g.value || 'none'} type="button" role="radio" aria-checked={on} onClick={() => onChange(g.value)} className={cn(PILL_CLASS, 'justify-center', pillState(on))}>
+          {on && <Check className="size-3.5 shrink-0 text-primary-600 dark:text-primary-400" strokeWidth={3} aria-hidden />}
+          <span className={cn('t-meta font-display font-semibold', on ? 'text-text' : 'text-text-secondary')}>{g.label}</span>
+        </button>
+      );
+    })}
+  </div>
+);
+
 export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) => {
   const isEditing = Boolean(user);
   const confirm = useConfirm();
   // A PC cannot create or promote an admin (the server refuses it too), so Admin is not offered.
   const { user: me } = useAuth();
-  const roleOptions = ROLE_OPTIONS.filter((o) => !(me?.role === 'PC' && o.value === 'ADMIN'));
+  const roleChoices = ROLE_ORDER.filter((r) => !(me?.role === 'PC' && r === 'ADMIN'));
   // Tracked locally (seeded from `user`, then updated straight from each mutation's response)
   // rather than re-read from `user` on every render: `user` is a snapshot captured when this
   // modal was opened, so it won't reflect a photo change made a moment ago in this same session.
@@ -160,7 +201,10 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
     },
   });
 
-  const [role, departmentId, storeId, passwordValue, genderValue, dressTypeValue] = useWatch({ control, name: ['role', 'departmentId', 'storeId', 'password', 'gender', 'dressTypeId'] });
+  const [role, departmentId, storeId, passwordValue, genderValue, dressTypeValue, firstNameValue, lastNameValue, emailValue, weekOffValue] = useWatch({
+    control,
+    name: ['role', 'departmentId', 'storeId', 'password', 'gender', 'dressTypeId', 'firstName', 'lastName', 'email', 'weekOffDays'],
+  });
   const isPending = mutation.isPending || isSubmitting;
 
   // Dress types that fit the chosen gender (a type for anyone always fits). The one already picked
@@ -326,6 +370,9 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
   const departmentStoreId = departments?.find((d) => d.id === departmentId)?.storeId ?? null;
   const departmentStoreName = departmentStoreId ? stores?.find((s) => s.id === departmentStoreId)?.name : undefined;
 
+  const storeName = stores?.find((s) => s.id === storeId)?.name;
+  const previewName = [firstNameValue, lastNameValue].map((v) => v?.trim()).filter(Boolean).join(' ');
+
   const departmentWarning =
     isDepartmentHead(role) && !departmentId
       ? `${ROLE_META[role].label}s need a department so they can see their team’s work.`
@@ -370,7 +417,25 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
       ) : (
         <>
           <form id="user-form" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
-            <fieldset disabled={isPending} className="flex flex-col gap-5 disabled:opacity-70">
+            <fieldset disabled={isPending} className="flex flex-col gap-4 sm:gap-5 disabled:opacity-70">
+              <FormPreview
+                lead={<Avatar name={previewName || 'New person'} src={isEditing ? resolveAvatarUrl(avatarUrl) : null} size="lg" />}
+                title={previewName || 'New person'}
+                subtitle={emailValue?.trim() || 'Email not added yet'}
+                chips={
+                  <>
+                    <RoleChip role={role} />
+                    {departmentName ? (
+                      <DepartmentChip name={departmentName} />
+                    ) : (
+                      isDepartmentHead(role) && <IconChip icon={AlertCircle} tone="bg-warning" label="No department" labelClassName="text-warning" />
+                    )}
+                    {storeName && <StoreChip name={storeName} />}
+                    {weekOffValue.length > 0 && <IconChip icon={CalendarOff} tone="bg-text-muted" label={`Off ${formatWeekdays(weekOffValue)}`} />}
+                  </>
+                }
+              />
+
               <FormSection title="Basics" icon={User} description="Who they are and how to reach them.">
                 {isEditing && user && (
                   <AvatarUpload
@@ -392,7 +457,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
                   />
                 )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
                   <Input id="firstName" label="First name" icon={User} autoComplete="off" error={errors.firstName?.message} {...register('firstName')} />
                   <Input id="lastName" label="Last name (optional)" icon={User} autoComplete="off" error={errors.lastName?.message} {...register('lastName')} />
                 </div>
@@ -459,19 +524,11 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
                   </div>
                 )}
 
-                <FormField htmlFor="role" label="Role" icon={ShieldCheck} hint={ROLE_META[role].description}>
+                <FormField label="Role" icon={ShieldCheck} hint={ROLE_META[role].description}>
                   <Controller
                     control={control}
                     name="role"
-                    render={({ field }) => (
-                      <Combobox
-                        id="role"
-                        value={field.value}
-                        onChange={(value) => field.onChange(value as Role)}
-                        placeholder="Search roles..."
-                        options={roleOptions}
-                      />
-                    )}
+                    render={({ field }) => <RolePicker value={field.value} onChange={field.onChange} roles={roleChoices} />}
                   />
                 </FormField>
               </FormSection>
@@ -533,13 +590,12 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
               </FormSection>
 
               <FormSection title="Checklist settings" icon={ClipboardCheck} description="Used by audits and daily checklists.">
-                <FormField htmlFor="gender" label="Gender (optional)" icon={User} hint="Used to pick the right uniform checklist in audits.">
+                <FormField label="Gender (optional)" icon={User} hint="Used to pick the right uniform checklist in audits.">
                   <Controller
                     control={control}
                     name="gender"
                     render={({ field }) => (
-                      <Combobox
-                        id="gender"
+                      <GenderPicker
                         value={field.value}
                         onChange={(value) => {
                           field.onChange(value);
@@ -549,9 +605,6 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
                             setValue('dressTypeId', '', { shouldDirty: true });
                           }
                         }}
-                        placeholder="Not set"
-                        emptyOptionLabel="Not set"
-                        options={[{ value: 'FEMALE', label: 'Female' }, { value: 'MALE', label: 'Male' }]}
                       />
                     )}
                   />

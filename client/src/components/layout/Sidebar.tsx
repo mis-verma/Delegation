@@ -26,6 +26,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ListOrdered,
+  Grid3x3,
   BarChart3,
   ListTodo,
   Plus,
@@ -246,6 +247,7 @@ export const Sidebar = ({ isOpen, user, logout, onNavigate, onToggleCollapse }: 
     ...(isManager || isSenior ? [{ to: '/analytics', icon: BarChart3, label: 'Analytics' }] : []),
     // Scores for a department head. Admin and PC reach Scores through the Scorecard instead.
     ...(isManager || isSenior ? [{ to: '/admin/scores', icon: ListOrdered, label: 'Scores' }] : []),
+    ...(isManager || isSenior ? [{ to: '/team/fill', icon: Grid3x3, label: 'Fill chart' }] : []),
     ...(user?.role === 'PC' || user?.role === 'ADMIN' || user?.role === 'APPROVAL_MANAGER'
       ? [{ to: '/verify', icon: ShieldQuestion, label: 'Verification Queue' }]
       : []),

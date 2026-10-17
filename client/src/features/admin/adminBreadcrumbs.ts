@@ -27,6 +27,9 @@ export function getAdminBreadcrumbs(pathname: string): BreadcrumbTrailItem[] | n
   if (pathname.startsWith('/admin/data-check')) {
     return [DASHBOARD, { label: 'Overview', to: '/admin' }, { label: 'Scores', to: '/admin/scores' }, { label: 'Data check' }];
   }
+  if (pathname.startsWith('/team/fill')) {
+    return [DASHBOARD, { label: 'Overview', to: '/admin' }, { label: 'Fill Chart' }];
+  }
   if (pathname === '/admin/scorecard') {
     return [DASHBOARD, { label: 'Overview', to: '/admin' }, { label: 'Scorecard' }];
   }

@@ -43,6 +43,7 @@ const TodoPage = lazy(() => import('./features/todo/TodoPage').then(m => ({ defa
 const EventList = lazy(() => import('./features/events/EventList').then(m => ({ default: m.EventList })));
 const CalendarPage = lazy(() => import('./features/calendar/CalendarPage').then(m => ({ default: m.CalendarPage })));
 const ScoresPage = lazy(() => import('./features/scores').then(m => ({ default: m.ScoresPage })));
+const FillHeatmapPage = lazy(() => import('./features/attention/FillHeatmapPage').then(m => ({ default: m.FillHeatmapPage })));
 const DataCheckPage = lazy(() => import('./features/admin/dataCheck').then(m => ({ default: m.DataCheckPage })));
 const ScorecardPage = lazy(() => import('./features/admin/analytics/ScorecardPage').then(m => ({ default: m.ScorecardPage })));
 const OrgOverview = lazy(() => import('./features/admin/analytics').then(m => ({ default: m.OrgOverview })));
@@ -323,6 +324,11 @@ const router = createBrowserRouter([
         path: '/admin/scores',
         element: <ScoresLayout />,
         children: [{ index: true, element: <ScoresPage /> }],
+      },
+      {
+        path: '/team/fill',
+        element: <ScoresLayout />,
+        children: [{ index: true, element: <FillHeatmapPage /> }],
       },
       {
         element: <AdminRoute />,

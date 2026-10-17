@@ -34,12 +34,13 @@ export const notificationLook = (type: string) => {
   };
 };
 
-export const notificationPath = (n: Pick<Notification, 'ticketId' | 'taskId' | 'checklistInstanceId'>) => {
+export const notificationPath = (n: Pick<Notification, 'ticketId' | 'taskId' | 'checklistInstanceId'> & { type?: string }) => {
   if (n.ticketId) return `/tickets?open=${n.ticketId}`;
   if (n.taskId) return `/tasks?open=${n.taskId}`;
   // A checklist that has ended still opens from here, read-only: the page says it closed and points to
   // today's checklist.
   if (n.checklistInstanceId) return `/checklists/${n.checklistInstanceId}`;
+  if (n.type === 'CHECKLIST_REMINDER_NUDGE') return '/checklists';
   return null;
 };
 

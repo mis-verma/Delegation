@@ -12,6 +12,7 @@ import {
   HeartPulse,
   Radio,
   Gauge,
+  Grid3x3,
   Trophy,
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
@@ -71,6 +72,7 @@ const NAV: AdminNavItem[] = [
   { to: '/admin/scores', icon: Trophy, label: 'Scores', end: false },
   // Checklists, tickets and delegations side by side by department, store or person.
   { to: '/admin/scorecard', icon: Gauge, label: 'Scorecard', end: false },
+  { to: '/team/fill', icon: Grid3x3, label: 'Fill Chart', end: false },
   { to: '/admin/directory', icon: Contact, label: 'People & Teams', end: false },
   { to: '/admin/presence', icon: Radio, label: "Who's Online", end: false },
   { to: '/admin/scheduled-checklists', icon: Repeat, label: 'Checklists', end: false, children: CHECKLIST_CHILDREN },

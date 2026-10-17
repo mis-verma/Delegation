@@ -3,7 +3,9 @@ import { tasks } from "../../db/schema/task.js"
 import { tickets, ticketStatusUpdates } from "../../db/schema/ticket.js"
 import { checklistInstances } from "../../db/schema/checklistInstance.js"
 import { checklistDefinitions } from "../../db/schema/checklistDefinition.js"
-import { and, eq, gte, isNotNull, isNull, lt, sql } from "drizzle-orm"
+import { checklistInstanceAssignees } from "../../db/schema/checklistInstance.js"
+import { users } from "../../db/schema/core.js"
+import { and, eq, gte, isNotNull, isNull, lt, sql, type SQL } from "drizzle-orm"
 
 // The reviewer's promise: anything handed in for approval is decided within this long.
 export const APPROVAL_TAT_HOURS = 24
@@ -88,12 +90,17 @@ export const approvalTatService = {
      * Hand-ins whose submit time falls in [from, to): delegations, tickets and checklist runs together,
      * with the average time to a decision. Plus what is waiting for a decision right now.
      */
-    async summary(from: Date, to: Date, now = Date.now()): Promise<ApprovalTatResult> {
+    async summary(from: Date, to: Date, now = Date.now(), departmentId?: string): Promise<ApprovalTatResult> {
+        const taskDept: SQL | undefined = departmentId ? eq(tasks.departmentId, departmentId) : undefined
+        const ticketDept: SQL | undefined = departmentId ? eq(tickets.departmentId, departmentId) : undefined
+        const runDept: SQL | undefined = departmentId
+            ? sql`EXISTS (SELECT 1 FROM ${checklistInstanceAssignees} a JOIN ${users} u ON u.id = a.userId WHERE a.instanceId = ${checklistInstances.id} AND u.departmentId = ${departmentId})`
+            : undefined
         const [taskRows, ticketRows, checklistRows, waitingTasks, waitingTickets, waitingChecklists] = await Promise.all([
             db
                 .select({ submittedAt: tasks.submittedAt, verifiedAt: tasks.verifiedAt })
                 .from(tasks)
-                .where(and(isNull(tasks.deletedAt), isNotNull(tasks.submittedAt), gte(tasks.submittedAt, from), lt(tasks.submittedAt, to))),
+                .where(and(isNull(tasks.deletedAt), isNotNull(tasks.submittedAt), gte(tasks.submittedAt, from), lt(tasks.submittedAt, to), taskDept)),
             // Tickets are judged from the "pending approval" step in their status history. A ticket
             // handed in more than once keeps only its latest hand-in (below).
             db
@@ -105,20 +112,21 @@ export const approvalTatService = {
                     eq(ticketStatusUpdates.toStatus, "PENDING_APPROVAL"),
                     gte(ticketStatusUpdates.createdAt, from),
                     lt(ticketStatusUpdates.createdAt, to),
+                    ticketDept,
                 )),
             db
                 .select({ submittedAt: checklistInstances.submittedAt, verifiedAt: checklistInstances.verifiedAt })
                 .from(checklistInstances)
-                .where(and(isNotNull(checklistInstances.submittedAt), gte(checklistInstances.submittedAt, from), lt(checklistInstances.submittedAt, to))),
+                .where(and(isNotNull(checklistInstances.submittedAt), gte(checklistInstances.submittedAt, from), lt(checklistInstances.submittedAt, to), runDept)),
             // Waiting now: the same sets the approval queues list.
             db
                 .select({ submittedAt: tasks.submittedAt, updatedAt: tasks.updatedAt })
                 .from(tasks)
-                .where(and(isNull(tasks.deletedAt), eq(tasks.status, "pending_approval"))),
+                .where(and(isNull(tasks.deletedAt), eq(tasks.status, "pending_approval"), taskDept)),
             db
                 .select({ submittedAt: tickets.submittedAt, updatedAt: tickets.updatedAt })
                 .from(tickets)
-                .where(and(isNull(tickets.deletedAt), eq(tickets.status, "PENDING_APPROVAL"))),
+                .where(and(isNull(tickets.deletedAt), eq(tickets.status, "PENDING_APPROVAL"), ticketDept)),
             db
                 .select({ submittedAt: checklistInstances.submittedAt, updatedAt: checklistInstances.updatedAt })
                 .from(checklistInstances)
@@ -126,6 +134,7 @@ export const approvalTatService = {
                     eq(checklistInstances.verificationStatus, "PENDING_APPROVAL"),
                     // A run whose checklist was deleted drops out of every queue.
                     sql`NOT EXISTS (SELECT 1 FROM ${checklistDefinitions} d WHERE d.id = ${checklistInstances.definitionId} AND d.deletedAt IS NOT NULL)`,
+                    runDept,
                 )),
         ])
 

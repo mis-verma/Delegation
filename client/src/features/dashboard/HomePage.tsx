@@ -19,6 +19,7 @@ import { DashboardCardFrame } from './DashboardCardFrame';
 import { DashboardLayoutToolbar } from './DashboardLayoutToolbar';
 import { DashboardMobileCustomize } from './DashboardMobileCustomize';
 import { dashboardViewFor } from './dashboardView';
+import { MyTeamCard } from '../attention/MyTeamCard';
 import { useDashboardLayout } from './useDashboardLayout';
 import { useDashboardSummaries } from './useDashboardSummaries';
 import { CARD_LABEL, type DashboardCardId } from './dashboardLayout';
@@ -122,6 +123,8 @@ export const HomePage = () => {
         return <ExceptionsCard />;
       case 'needsApproval':
         return <NeedsApprovalCard />;
+      case 'myTeam':
+        return dashboardView.isHod ? <MyTeamCard /> : null;
       case 'kpiStrip':
         return (
           <DashboardOverview

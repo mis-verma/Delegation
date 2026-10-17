@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Ticket as TicketIcon, AlertCircle, Check, FileClock, Type, AlignLeft, Building2, Flag, Camera, Image as ImageIcon, Route, Clock, UserCheck, ArrowRight } from 'lucide-react';
+import { Ticket as TicketIcon, AlertCircle, Check, FileClock, Type, AlignLeft, Building2, Flag, Camera, Image as ImageIcon, Route, Clock, UserCheck } from 'lucide-react';
 
 import { Button, Modal, Input, Combobox, DepartmentChip, IconChip } from '../../components';
 import { useConfirm } from '@/components/confirmDialog';
@@ -37,10 +37,6 @@ import { useDeleteDraftMutation, useSaveDraftMutation } from '../drafts/hook';
 
 // Quiet fill until focused; Input's own danger styling takes over once validation fails.
 const QUIET_FIELD_CLASS = 'font-display border-transparent bg-surface-hover/50 hover:bg-surface-hover focus:bg-surface';
-
-// Plain text link under a field, for switching how the ticket is routed.
-const SWITCH_LINK_CLASS =
-  'self-start relative inline-flex items-center gap-1.5 h-8 px-2 -ml-2 rounded-md t-meta font-display font-semibold text-text-secondary hover:text-text hover:bg-surface-hover cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 after:absolute after:-inset-y-1.5 after:inset-x-0';
 
 // Neutral summary box (what a chosen category decided, the category due time).
 const INFO_BOX_CLASS = 'flex flex-col gap-2 p-3 rounded-xl border border-border/60 bg-surface-hover/40';
@@ -521,29 +517,21 @@ export const TicketForm = ({ onClose, defaultDueDate, draft }: TicketFormProps) 
           />
 
           {ownScopeOnly ? (
-            assignmentMode === 'AUTO' ? (
-              <>
-                <div className="flex flex-col gap-1">
-                  {categoryField('What is it about?', 'Pick the closest match. It decides which team gets it and when it is due.', true)}
-                  <button type="button" onClick={() => sendToDepartment(true)} className={SWITCH_LINK_CLASS}>
-                    Not listed? Send to a department
-                    <ArrowRight size={14} strokeWidth={2.5} aria-hidden />
-                  </button>
-                </div>
-                {categorySummary}
-                {autoDueNote}
-              </>
-            ) : (
-              <>
-                <div className="flex flex-col gap-1">
-                  {departmentField('The department head picks who works on it.')}
-                  <button type="button" onClick={() => sendToDepartment(false)} className={SWITCH_LINK_CLASS}>
-                    Pick from the list instead
-                  </button>
-                </div>
-                {dueField}
-              </>
-            )
+            <>
+              <AssignmentModeToggle frontLine mode={assignmentMode} onChange={(m) => { if (m !== assignmentMode) sendToDepartment(m === 'MANUAL'); }} />
+              {assignmentMode === 'AUTO' ? (
+                <>
+                  {categoryField('What is it about?', 'Pick the closest match. Not listed? Switch to By department.', true)}
+                  {categorySummary}
+                  {autoDueNote}
+                </>
+              ) : (
+                <>
+                  {departmentField('Which team should handle this?')}
+                  {dueField}
+                </>
+              )}
+            </>
           ) : (
             <>
               <AssignmentModeToggle

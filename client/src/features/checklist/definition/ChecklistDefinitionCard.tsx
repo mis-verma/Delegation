@@ -1,9 +1,8 @@
 import { memo, useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router';
-import { Camera, MapPin, PenLine, Wallet, ScanLine, ListChecks, Check, Copy, MoreVertical, Pencil, Trash2, type LucideIcon } from 'lucide-react';
-import { Dropdown, Loader, Switch, ChecklistProgressBar, DepartmentChip, ENTITY_CARD_CLASS, formatWeekdays } from '../../../components';
+import { Camera, MapPin, PenLine, Wallet, ScanLine, ListChecks, Check, Copy, MoreVertical, Pencil, Trash2, UserX, type LucideIcon } from 'lucide-react';
+import { Dropdown, Loader, Switch, ChecklistProgressBar, DepartmentChip, ENTITY_CARD_CLASS, StateChip, formatWeekdays } from '../../../components';
 import { IconChip } from '../../../components/iconChip';
-import { Badge } from '@/components/ui/badge';
 import { useConfirm } from '@/components/confirmDialog';
 import { cn } from '@/lib/utils';
 import { RECURRENCE_LABEL, smallRateToneClass, smallInverseRateToneClass, rateBarClass, formatDate, orgDayKey, plural } from '../checklistDisplay';
@@ -145,9 +144,7 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
           <div className="relative z-10 flex items-center justify-end gap-1 min-w-0">
             {/* A real switch instead of the old dot pill: on = running, off = paused. */}
             <label className="flex items-center gap-2 min-h-11 sm:min-h-9 pl-1 pr-1 cursor-pointer">
-              <span className={cn('text-xs font-display font-semibold', definition.isActive ? 'text-text-secondary' : 'text-text-muted')}>
-                {definition.isActive ? 'Active' : 'Paused'}
-              </span>
+              <StateChip active={definition.isActive} label={definition.isActive ? 'Active' : 'Paused'} className="max-sm:hidden" />
               {setActiveMutation.isPending ? (
                 <span className="flex h-6 w-11 items-center justify-center"><Loader size="sm" variant="slate" className="size-4" /></span>
               ) : (
@@ -178,9 +175,7 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
             />
           </div>
         ) : (
-          <Badge variant={definition.isActive ? 'success' : 'neutral'}>
-            {definition.isActive ? 'Active' : 'Paused'}
-          </Badge>
+          <StateChip active={definition.isActive} label={definition.isActive ? 'Active' : 'Paused'} />
         )}
       </div>
 
@@ -201,8 +196,11 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
 
       {/* Who it is for: the departments of the people assigned, then (only when it is not one shared
           checklist) who answers. */}
-      {(shownDepartments.length > 0 || definition.responseMode !== 'SHARED') && (
+      {(shownDepartments.length > 0 || definition.responseMode !== 'SHARED' || definition.assigneeIds.length === 0) && (
         <div className="flex flex-wrap gap-1.5">
+          {definition.assigneeIds.length === 0 && (
+            <IconChip icon={UserX} tone="bg-warning" label="Nobody assigned" labelClassName="text-warning" title="Saved paused. Add the people and it switches on." />
+          )}
           {shownDepartments.map((departmentName) => <DepartmentChip key={departmentName} name={departmentName} />)}
           {moreDepartments > 0 && <IconChip icon={false} label={`+${moreDepartments} more`} />}
           {definition.responseMode !== 'SHARED' && (
@@ -212,16 +210,12 @@ export const ChecklistDefinitionCard = memo(function ChecklistDefinitionCard({
       )}
 
       {tags.length > 0 && (
-        <ul className="flex flex-wrap gap-x-3 gap-y-1 t-meta font-display font-medium text-text-muted">
-          {tags.map((tag) => {
-            const TagIcon = TAG_ICON_BY_LABEL[tag] ?? ListChecks;
-            return (
-              <li key={tag} className="inline-flex items-center gap-1">
-                <TagIcon size={12} aria-hidden />
-                {tag}
-              </li>
-            );
-          })}
+        <ul className="flex flex-wrap gap-1.5">
+          {tags.map((tag) => (
+            <li key={tag} className="contents">
+              <IconChip icon={TAG_ICON_BY_LABEL[tag] ?? ListChecks} tone="bg-text-muted" label={tag} />
+            </li>
+          ))}
         </ul>
       )}
 

@@ -1,14 +1,15 @@
-import { useMemo } from 'react';
-import { useForm } from 'react-hook-form';
+import { useMemo, useState } from 'react';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Hash, MapPin, Store as StoreIcon } from 'lucide-react';
-import { Input, Button, Modal, InlineError } from '../../../components';
-import { useCreateStoreMutation, useUpdateStoreMutation } from '../hook';
-import { useStoresQuery } from '../../tickets/hook';
+import { Building2, ExternalLink, Hash, MapPin, Store as StoreIcon, Users } from 'lucide-react';
+import { Input, Button, Modal, InlineError, EntityIconTile } from '../../../components';
+import { useCreateStoreMutation, useUpdateStoreMutation, useUsersQuery } from '../hook';
+import { useDepartmentsQuery, useStoresQuery } from '../../tickets/hook';
 import { isDuplicateName } from '../orgCounts';
 import { useDiscardGuard } from '../useDiscardGuard';
-import { FormSection } from '../users/FormField';
+import { FormPreview, FormSection } from '../users/FormField';
+import { CardChip } from '../directory/orgScores';
 import type { Store } from '../../../api/stores';
 
 // Built per render of the form so the duplicate-name check can read the cached store list.
@@ -29,6 +30,19 @@ const buildStoreSchema = (existing: Store[] | undefined, ignoreId: string | unde
   });
 
 type StoreFields = z.infer<ReturnType<typeof buildStoreSchema>>;
+
+const suggestCode = (name: string, taken: Set<string>) => {
+  const words = name.toUpperCase().replace(/[^A-Z0-9 ]/g, ' ').split(' ').filter(Boolean);
+  if (words.length === 0) return '';
+  const stem = words.length > 1 ? words.slice(0, 3).map((w) => w[0]).join('') : words[0].slice(0, 2);
+  for (let n = 1; n < 100; n++) {
+    const code = `${stem}${String(n).padStart(2, '0')}`;
+    if (!taken.has(code)) return code;
+  }
+  return stem;
+};
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 interface StoreFormProps {
   onClose: () => void;
@@ -53,19 +67,49 @@ export const StoreForm = ({ onClose, store, onCreated, prefillName, nested = fal
   const mutation = isEditing ? updateMutation : createMutation;
 
   const { data: stores } = useStoresQuery();
+  const { data: departments } = useDepartmentsQuery();
+  const { data: users } = useUsersQuery();
   const schema = useMemo(() => buildStoreSchema(stores, store?.id), [stores, store?.id]);
+  const takenCodes = useMemo(
+    () => new Set((stores ?? []).filter((s) => s.id !== store?.id && s.code).map((s) => (s.code ?? '').toUpperCase())),
+    [stores, store?.id],
+  );
+
+  const initialCode = store?.code || (prefillName ? suggestCode(prefillName, new Set()) : '');
+  const [suggestedCode, setSuggestedCode] = useState<string | null>(isEditing ? null : initialCode);
 
   const {
     register,
     handleSubmit,
+    control,
+    setValue,
+    getValues,
     formState: { errors, isDirty },
   } = useForm<StoreFields>({
     resolver: zodResolver(schema),
-    defaultValues: { name: store?.name || prefillName || '', code: store?.code || '', address: store?.address || '' },
+    defaultValues: { name: store?.name || prefillName || '', code: initialCode, address: store?.address || '' },
   });
+
+  const [nameValue, codeValue, addressValue] = useWatch({ control, name: ['name', 'code', 'address'] });
+  const codeIsSuggested = !isEditing && !!codeValue && codeValue === suggestedCode;
 
   const isPending = mutation.isPending;
   const requestClose = useDiscardGuard(isDirty, isPending, onClose);
+
+  const departmentCount = store ? (departments ?? []).filter((d) => d.storeId === store.id).length : 0;
+  const peopleCount = store ? (users ?? []).filter((u) => u.isActive && u.storeId === store.id).length : 0;
+  const address = addressValue?.trim();
+
+  const nameField = register('name', {
+    onChange: (e: { target: { value: string } }) => {
+      if (isEditing) return;
+      const current = getValues('code');
+      if (current && current !== suggestedCode) return;
+      const next = suggestCode(e.target.value, takenCodes);
+      setSuggestedCode(next);
+      setValue('code', next, { shouldDirty: true });
+    },
+  });
 
   const onSubmit = (data: StoreFields) => {
     if (isEditing && store) {
@@ -109,13 +153,45 @@ export const StoreForm = ({ onClose, store, onCreated, prefillName, nested = fal
       draggable
     >
       <form id="store-form" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
-        <fieldset disabled={isPending} className="flex flex-col gap-5 disabled:opacity-60">
-          <FormSection title="Basics" icon={StoreIcon} description="The name and code used across checklists.">
-            <Input id="name" label="Store name" icon={StoreIcon} placeholder="e.g. Karol Bagh" autoFocus error={errors.name?.message} {...register('name')} />
-            <Input id="code" label="Code (optional)" icon={Hash} placeholder="e.g. KB01" autoCapitalize="characters" error={errors.code?.message} {...register('code')} />
+        <fieldset disabled={isPending} className="flex flex-col gap-4 sm:gap-5 disabled:opacity-60">
+          <FormPreview
+            lead={<EntityIconTile icon={StoreIcon} tone="coral" className="group-hover:scale-100" />}
+            title={nameValue?.trim() || 'New store'}
+            subtitle={address || 'No address yet'}
+            chips={
+              (codeValue?.trim() || isEditing) && (
+                <>
+                  {codeValue?.trim() && <CardChip icon={Hash} tone="coral" label={codeValue.trim().toUpperCase()} />}
+                  {isEditing && <CardChip icon={Building2} label={plural(departmentCount, 'department', 'departments')} />}
+                  {isEditing && <CardChip icon={Users} label={plural(peopleCount, 'person', 'people')} />}
+                </>
+              )
+            }
+          />
+
+          <FormSection title="Basics" icon={StoreIcon} tone="coral" description="The name and code used across checklists.">
+            <Input id="name" label="Store name" icon={StoreIcon} placeholder="e.g. Karol Bagh" autoFocus error={errors.name?.message} {...nameField} />
+            <div className="flex flex-col gap-1">
+              <Input id="code" label="Code (optional)" icon={Hash} placeholder="e.g. KB01" autoCapitalize="characters" className="uppercase" error={errors.code?.message} {...register('code')} />
+              {codeIsSuggested && <p className="px-1 t-meta font-display text-text-muted">Filled in from the name. Type over it to use your own.</p>}
+            </div>
           </FormSection>
-          <FormSection title="Location" icon={MapPin} description="Where the store is.">
-            <Input id="address" label="Address (optional)" icon={MapPin} placeholder="e.g. 12 Main Market, Karol Bagh" error={errors.address?.message} {...register('address')} />
+
+          <FormSection title="Location" icon={MapPin} tone="coral" description="Where the store is.">
+            <div className="flex flex-col gap-1.5">
+              <Input id="address" label="Address (optional)" icon={MapPin} placeholder="e.g. 12 Main Market, Karol Bagh" error={errors.address?.message} {...register('address')} />
+              {address && (
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex w-fit items-center gap-1.5 min-h-9 px-1 t-meta font-display font-semibold text-primary-600 dark:text-primary-400 hover:underline outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40 rounded-md"
+                >
+                  <ExternalLink className="size-3.5" aria-hidden />
+                  Check it on Google Maps
+                </a>
+              )}
+            </div>
           </FormSection>
         </fieldset>
 

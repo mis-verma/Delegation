@@ -1,6 +1,6 @@
-import { and, eq, inArray, isNull, sql, type SQL } from "drizzle-orm"
+import { and, eq, inArray, isNull, sql } from "drizzle-orm"
 import { db } from "../../config/db.js"
-import { checklistInstanceAssignees, checklistInstanceItems, checklistInstances, stores, taskAdditionalAssignees, tasks, tickets, users } from "../../db/schema/index.js"
+import { checklistInstances, stores, tickets } from "../../db/schema/index.js"
 import { visibilityFilter } from "../tickets/ticket.service.js"
 import {
     deadlineExpr,
@@ -120,98 +120,4 @@ export const exceptionService = {
 
         return items.sort((a, b) => (a.severity === b.severity ? a.since.localeCompare(b.since) : a.severity === "high" ? -1 : 1))
     },
-
-    // People who have not touched a run that is still open today, and people with overdue delegations.
-    // Admin/PC: everyone active. Manager/Senior: their own department only (no department = nobody).
-    async people(user: AccessTokenPayload): Promise<PersonStatus[]> {
-        const orgWide = user.role === "ADMIN" || user.role === "PC"
-        if (!orgWide && !(isHod(user) && user.departmentId)) return []
-        const scope: SQL | undefined = orgWide ? undefined : eq(users.departmentId, user.departmentId!)
-        const now = new Date()
-
-        const notStarted = await db
-            .select({ userId: checklistInstanceAssignees.userId, n: sql<number>`COUNT(DISTINCT ${checklistInstances.id})` })
-            .from(checklistInstanceAssignees)
-            .innerJoin(checklistInstances, eq(checklistInstances.id, checklistInstanceAssignees.instanceId))
-            .innerJoin(users, eq(users.id, checklistInstanceAssignees.userId))
-            .where(and(
-                eq(users.isActive, true),
-                scope,
-                sql`${checklistInstances.periodStart} >= DATE(${localNowExpr})`,
-                sql`${deadlineExpr} > ${localNowExpr}`,
-                sql`(${checklistInstances.opensTime} IS NULL OR ${checklistInstances.opensTime} <= TIME_FORMAT(${localNowExpr}, '%H:%i'))`,
-                parentNotDeletedExpr,
-                isNull(checklistInstances.submittedAt),
-                eq(checklistInstances.verificationStatus, "NOT_SUBMITTED"),
-                sql`NOT EXISTS (SELECT 1 FROM ${checklistInstanceItems} i WHERE i.instanceId = ${checklistInstances.id} AND i.isDone = 1)`,
-            ))
-            .groupBy(checklistInstanceAssignees.userId)
-
-        // Open delegations: primary assignee, or one of the additional assignees. Drafts and work already
-        // sent for approval are not open (same rule as the scores).
-        const openWork = and(
-            isNull(tasks.deletedAt),
-            eq(tasks.category, "delegation"),
-            sql`${tasks.status} NOT IN ('done', 'draft', 'pending_approval')`,
-        )
-        const overdueSql = sql<number>`COALESCE(SUM(${tasks.dueDate} IS NOT NULL AND ${tasks.dueDate} < ${now}), 0)`
-        const primary = await db
-            .select({ userId: tasks.assigneeId, open: sql<number>`COUNT(*)`, overdue: overdueSql })
-            .from(tasks)
-            .innerJoin(users, eq(users.id, tasks.assigneeId))
-            .where(and(openWork, eq(users.isActive, true), scope))
-            .groupBy(tasks.assigneeId)
-        const additional = await db
-            .select({ userId: taskAdditionalAssignees.userId, open: sql<number>`COUNT(*)`, overdue: overdueSql })
-            .from(taskAdditionalAssignees)
-            .innerJoin(tasks, eq(tasks.id, taskAdditionalAssignees.taskId))
-            .innerJoin(users, eq(users.id, taskAdditionalAssignees.userId))
-            .where(and(openWork, eq(users.isActive, true), scope))
-            .groupBy(taskAdditionalAssignees.userId)
-
-        const byUser = new Map<string, { notStarted: number; open: number; overdue: number }>()
-        const slot = (id: string) => {
-            let s = byUser.get(id)
-            if (!s) byUser.set(id, (s = { notStarted: 0, open: 0, overdue: 0 }))
-            return s
-        }
-        for (const r of notStarted) slot(r.userId).notStarted += Number(r.n)
-        for (const r of [...primary, ...additional]) {
-            if (!r.userId) continue
-            const s = slot(r.userId)
-            s.open += Number(r.open)
-            s.overdue += Number(r.overdue)
-        }
-
-        // Only people with something to chase: a run not started, or an overdue delegation.
-        const flagged = [...byUser.entries()].filter(([, s]) => s.notStarted > 0 || s.overdue > 0)
-        if (!flagged.length) return []
-        const names = await db
-            .select({ id: users.id, firstName: users.firstName, lastName: users.lastName })
-            .from(users)
-            .where(inArray(users.id, flagged.map(([id]) => id)))
-        const nameOf = new Map(names.map((n) => [n.id, [n.firstName, n.lastName].filter(Boolean).join(" ")]))
-
-        return flagged
-            .map(([id, s]) => ({
-                userId: id,
-                name: nameOf.get(id) ?? "Unknown",
-                notStartedRuns: s.notStarted,
-                openDelegations: s.open,
-                overdueDelegations: s.overdue,
-            }))
-            .sort((a, b) => b.overdueDelegations + b.notStartedRuns - (a.overdueDelegations + a.notStartedRuns) || a.name.localeCompare(b.name))
-            .slice(0, PEOPLE_LIMIT)
-    },
-}
-
-const PEOPLE_LIMIT = 15
-
-export interface PersonStatus {
-    userId: string
-    name: string
-    /** Runs open today that this person has not ticked a single question on. */
-    notStartedRuns: number
-    openDelegations: number
-    overdueDelegations: number
 }

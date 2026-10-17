@@ -15,6 +15,7 @@ const PAGE_LABELS: { pattern: RegExp; label: string }[] = [
   { pattern: /^\/settings/, label: 'Settings' },
   { pattern: /^\/analytics/, label: 'Analytics' },
   { pattern: /^\/verify/, label: 'Verification Queue' },
+  { pattern: /^\/team\/fill/, label: 'Fill chart' },
   { pattern: /^\/team/, label: 'Team Overview' },
   { pattern: /^\/admin\/(scores|data-check)/, label: 'Scores' },
   { pattern: /^\/admin/, label: 'Admin' },

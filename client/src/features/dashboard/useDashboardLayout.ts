@@ -5,6 +5,7 @@ import {
   DEFAULT_CARD_ORDER,
   DEFAULT_CARD_SIZES,
   ADMIN_ONLY_CARDS,
+  HOD_ONLY_CARDS,
   LAYOUT_VERSION,
   NEW_IN_V3,
   LEGACY_V1_DEFAULT_ORDER,
@@ -96,8 +97,8 @@ export const useDashboardLayout = (view: DashboardViewConfig) => {
   const storageKey = `${view.layoutKeyPrefix}-${user?.id ?? 'anon'}`;
 
   const visibleCards = useMemo(
-    () => view.order.filter((id) => isOrgWideRole || !ADMIN_ONLY_CARDS.has(id)),
-    [view.order, isOrgWideRole],
+    () => view.order.filter((id) => (isOrgWideRole || !ADMIN_ONLY_CARDS.has(id)) && (view.isHod || !HOD_ONLY_CARDS.has(id))),
+    [view.order, isOrgWideRole, view.isHod],
   );
 
   // Drops any id a stored order still has but this viewer can no longer see (e.g. their role

@@ -2,15 +2,17 @@ import { useMemo } from 'react';
 import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Building2, MapPin, Store, UserCog } from 'lucide-react';
-import { Input, Button, Modal, Combobox, InlineError, Skeleton, Switch } from '../../../components';
+import { Building2, MapPin, ShieldCheck, Store, UserCog, UserX, Users } from 'lucide-react';
+import { Input, Button, Modal, Combobox, InlineError, Skeleton, Switch, EntityIconTile } from '../../../components';
 import { useCreateDepartmentMutation, useUpdateDepartmentMutation, useUsersQuery } from '../hook';
 import { useDepartmentsQuery, useStoresQuery } from '../../tickets/hook';
 import { isDuplicateName } from '../orgCounts';
 import { ROLE_LABEL } from '../roleBadge';
 import { useDiscardGuard } from '../useDiscardGuard';
-import { FormField, FormSection } from '../users/FormField';
+import { FormField, FormPreview, FormSection } from '../users/FormField';
+import { CardChip } from '../directory/orgScores';
 import type { Department } from '../../../api/departments';
+import type { AdminUser } from '../../../api/admin';
 
 // Built per render of the form so the duplicate-name check can read the cached department list.
 const buildDepartmentSchema = (existing: Department[] | undefined, ignoreId: string | undefined) =>
@@ -49,44 +51,28 @@ interface DepartmentFormProps {
 
 // Read-only: who currently leads this department. Changing a head means changing that person's
 // role or department on the People page, so this only shows the answer and flags a gap.
-const DepartmentHeads = ({ departmentId, headOptional }: { departmentId: string; headOptional: boolean }) => {
-  const { data: users, isPending } = useUsersQuery();
-
-  const heads = useMemo(
-    () => (users ?? []).filter(u => u.isActive && u.departmentId === departmentId && (u.role === 'MANAGER' || u.role === 'SENIOR')),
-    [users, departmentId]
-  );
-
-  return (
-    <div className="flex flex-col gap-1.5">
-      <p className="flex items-center gap-1.5 text-xs font-medium text-text-secondary">
-        <UserCog className="w-3.5 h-3.5 text-text-light" strokeWidth={2.5} />
-        Department head
-      </p>
-      {isPending ? (
-        <Skeleton className="h-7 w-40 rounded-full" />
-      ) : heads.length === 0 && headOptional ? (
-        <span className="text-xs font-display text-text-muted">No head, and that is fine for this department.</span>
-      ) : heads.length === 0 ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full border border-warning/30 bg-warning/10 text-warning text-xs font-display font-semibold">
-            No head yet
-          </span>
-          <span className="text-xs font-display text-text-muted">Give a Manager or Senior this department on the People page.</span>
-        </div>
-      ) : (
-        <ul className="flex flex-wrap gap-2">
-          {heads.map(h => (
-            <li key={h.id} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border bg-surface-hover text-xs font-display text-text">
-              <span className="font-semibold">{h.firstName} {h.lastName ?? ''}</span>
-              <span className="text-text-muted">{ROLE_LABEL[h.role]}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-};
+const DepartmentHeads = ({ heads, isPending, headOptional }: { heads: AdminUser[]; isPending: boolean; headOptional: boolean }) => (
+  <FormField label="Department head" icon={UserCog}>
+    {isPending ? (
+      <Skeleton className="h-7 w-40 rounded-full" />
+    ) : heads.length === 0 && headOptional ? (
+      <span className="px-1 t-meta font-display text-text-muted">No head, and that is fine for this department.</span>
+    ) : heads.length === 0 ? (
+      <div className="flex flex-wrap items-center gap-2">
+        <CardChip icon={UserX} tone="warning" label="No head yet" />
+        <span className="t-meta font-display text-text-muted">Give a Manager or Senior this department on the People page.</span>
+      </div>
+    ) : (
+      <ul className="flex flex-wrap gap-1.5">
+        {heads.map(h => (
+          <li key={h.id} className="contents">
+            <CardChip icon={UserCog} tone="primary" label={`${h.firstName} ${h.lastName ?? ''}`.trim() + ` · ${ROLE_LABEL[h.role]}`} />
+          </li>
+        ))}
+      </ul>
+    )}
+  </FormField>
+);
 
 export const DepartmentForm = ({ onClose, department, onCreated, prefillName, nested = false }: DepartmentFormProps) => {
   const isEditing = !!department;
@@ -108,7 +94,11 @@ export const DepartmentForm = ({ onClose, department, onCreated, prefillName, ne
     defaultValues: { name: department?.name || prefillName || '', storeId: department?.storeId ?? '', headOptional: department?.headOptional ?? false }
   });
 
-  const headOptional = useWatch({ control, name: 'headOptional' });
+  const [headOptional, nameValue, storeIdValue] = useWatch({ control, name: ['headOptional', 'name', 'storeId'] });
+  const { data: users, isPending: isUsersLoading } = useUsersQuery();
+  const members = useMemo(() => (department ? (users ?? []).filter((u) => u.isActive && u.departmentId === department.id) : []), [users, department]);
+  const heads = useMemo(() => members.filter((u) => u.role === 'MANAGER' || u.role === 'SENIOR'), [members]);
+  const storeName = stores?.find((st) => st.id === storeIdValue)?.name;
   const isPending = mutation.isPending;
   const requestClose = useDiscardGuard(isDirty, isPending, onClose);
 
@@ -158,7 +148,25 @@ export const DepartmentForm = ({ onClose, department, onCreated, prefillName, ne
       draggable
     >
       <form id="department-form" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
-        <fieldset disabled={isPending} className="flex flex-col gap-5 disabled:opacity-60">
+        <fieldset disabled={isPending} className="flex flex-col gap-4 sm:gap-5 disabled:opacity-60">
+          <FormPreview
+            lead={<EntityIconTile icon={Building2} className="group-hover:scale-100" />}
+            title={nameValue?.trim() || 'New department'}
+            subtitle={storeName ? `Works from ${storeName}` : 'No store picked yet'}
+            chips={
+              (isEditing || headOptional) && (
+                <>
+                  {isEditing && <CardChip icon={Users} label={`${members.length} ${members.length === 1 ? 'person' : 'people'}`} />}
+                  {headOptional ? (
+                    <CardChip icon={ShieldCheck} tone="success" label="No head needed" />
+                  ) : (
+                    isEditing && !isUsersLoading && heads.length === 0 && <CardChip icon={UserX} tone="warning" label="No head yet" />
+                  )}
+                </>
+              )
+            }
+          />
+
           <FormSection title="Basics" icon={Building2} description="What this team is called.">
             <Input
               id="name"
@@ -190,7 +198,7 @@ export const DepartmentForm = ({ onClose, department, onCreated, prefillName, ne
               />
             </FormField>
 
-            {isEditing && department && <DepartmentHeads departmentId={department.id} headOptional={headOptional} />}
+            {isEditing && <DepartmentHeads heads={heads} isPending={isUsersLoading} headOptional={headOptional} />}
 
             <Controller
               control={control}
@@ -202,8 +210,8 @@ export const DepartmentForm = ({ onClose, department, onCreated, prefillName, ne
                 >
                   <Switch id="headOptional" checked={field.value} onChange={field.onChange} className="mt-0.5" />
                   <span className="flex flex-col gap-0.5 min-w-0">
-                    <span className="text-sm font-display font-semibold text-text">This department does not need a head</span>
-                    <span className="text-xs font-display text-text-muted">
+                    <span className="t-card font-display font-semibold text-text">This department does not need a head</span>
+                    <span className="t-meta font-display text-text-muted">
                       Turn this on when Admin or PC approve its work, so it stays out of the "no head" warning.
                     </span>
                   </span>

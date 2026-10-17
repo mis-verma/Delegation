@@ -175,6 +175,7 @@ export const SCORE_CACHE_KEYS: readonly (readonly string[])[] = [
   ['checklist-reports'],
   ['checklist-report-preview'],
   ['team'],
+  ['exceptions'],
 ];
 
 export const invalidateScoreCaches = (queryClient: QueryClient): Promise<void> =>
