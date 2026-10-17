@@ -112,7 +112,7 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
             viewTransition
             to="/"
             title="Home"
-            className="group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 rounded-xl shrink-0"
+            className={`group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50 rounded-xl shrink-0 ${phoneTitle ? 'max-sm:hidden' : ''}`}
           >
             {customLogoSrc ? (
               // An org's own uploaded logo has no guaranteed visual weight of its own (unlike
