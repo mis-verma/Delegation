@@ -41,8 +41,8 @@ const TicketCardComponent = ({ ticket, onClick, departmentName, variant = 'list'
   const deptChipClass = isBoard ? 'hidden' : 'hidden sm:inline-flex';
   const tagChipClass = isBoard ? 'hidden xl:inline-flex' : 'hidden sm:inline-flex';
   const priorityInfo = PRIORITY_CONFIG[ticket.priority];
-  const statusChipStatus = ticket.status.toLowerCase() as StatusChipStatus;
-  const statusLabel = getTicketStatusLabel(ticket.status);
+  const statusChipStatus = (ticket.declinedAt ? 'declined' : ticket.status.toLowerCase()) as StatusChipStatus;
+  const statusLabel = ticket.declinedAt ? 'Declined' : getTicketStatusLabel(ticket.status);
   const assigneeName = ticket.assignee ? ticket.assignee.firstName : null;
   // statusUpdates is newest-first, so the first ON_HOLD entry is the reason it is on hold now.
   const onHoldRemark = ticket.status === 'ON_HOLD'

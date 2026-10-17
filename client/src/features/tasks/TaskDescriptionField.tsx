@@ -67,15 +67,15 @@ export const TaskDescriptionField = ({
         className="w-full px-3 py-2.5 text-sm font-display text-text bg-transparent outline-none resize-y placeholder:text-text-light disabled:text-text-light disabled:cursor-not-allowed"
       />
 
-      {toolbar && (
-        <div className="flex items-center justify-end gap-0.5 px-2 py-1 border-t border-border/60 bg-surface-hover/40 shrink-0">
-          {toolbar}
+      {children && (
+        <div className="flex flex-col gap-2 px-3 pb-2.5 shrink-0">
+          {children}
         </div>
       )}
 
-      {children && (
-        <div className="flex flex-col gap-2 px-3 py-2.5 border-t border-border/60 shrink-0">
-          {children}
+      {toolbar && (
+        <div className="flex items-center justify-end gap-0.5 px-2 py-1 border-t border-border/60 bg-surface-hover/40 shrink-0">
+          {toolbar}
         </div>
       )}
     </div>

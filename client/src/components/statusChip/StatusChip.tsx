@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Clock, PauseCircle, CheckCircle2, CircleDot, Eye } from 'lucide-react';
+import { Ban, Clock, PauseCircle, CheckCircle2, CircleDot, Eye } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { IconChip } from '../iconChip';
 import { cn } from '../../lib/utils';
@@ -14,7 +14,8 @@ export type StatusChipStatus =
   | 'pending'
   | 'pending_approval'
   | 'completed'
-  | 'closed';
+  | 'closed'
+  | 'declined';
 
 interface StatusChipConfig {
   label: string;
@@ -47,6 +48,7 @@ const STATUS_CHIP_CONFIG: Record<StatusChipStatus, StatusChipConfig> = {
   pending_approval: { label: 'Pending Approval', tone: 'bg-primary-600 dark:bg-primary-400', icon: Eye },
   completed: { label: 'Completed', tone: 'bg-success', icon: CheckCircle2 },
   closed: { label: 'Closed', tone: 'bg-success', icon: CheckCircle2 },
+  declined: { label: 'Declined', tone: 'bg-danger', icon: Ban },
 };
 
 export interface StatusChipProps {

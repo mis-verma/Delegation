@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { attachmentIconFor, formatFileSize, isImageAttachment } from './taskAttachmentDisplay';
 
@@ -7,36 +7,38 @@ interface StagedFileChipsProps {
   onRemove: (index: number) => void;
 }
 
-// Preview chips for files picked but not yet uploaded — shared by the comment composer and the
-// Create-delegation form's own attach toolbar, both of which stage files locally until the actual
-// submit (there's no task/comment id to upload against until then).
-export const StagedFileChips = ({ files, onRemove }: StagedFileChipsProps) => {
-  const previewUrls = useMemo(
-    () => files.map((f) => (isImageAttachment(f.type) ? URL.createObjectURL(f) : '')),
-    [files]
-  );
-  useEffect(() => () => previewUrls.forEach((u) => u && URL.revokeObjectURL(u)), [previewUrls]);
+const StagedImage = ({ file }: { file: File }) => {
+  const [preview, setPreview] = useState<{ file: File; src: string } | null>(null);
+  useEffect(() => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') setPreview({ file, src: reader.result });
+    };
+    reader.readAsDataURL(file);
+    return () => reader.abort();
+  }, [file]);
+  if (!preview || preview.file !== file) return <div className="size-full animate-pulse bg-surface-hover" aria-hidden="true" />;
+  return <img src={preview.src} alt={file.name} className="size-full object-cover" />;
+};
 
+export const StagedFileChips = ({ files, onRemove }: StagedFileChipsProps) => {
   if (!files.length) return null;
 
   return (
-    // Three square tiles a row on a phone, so nothing ever runs off a 320px screen. Photos show as
-    // a thumbnail; anything else as a file tile with its (cut) name and size.
-    <ul className="grid grid-cols-3 sm:grid-cols-5 gap-2" aria-label="Files to upload">
+    <ul className="flex flex-wrap gap-2" aria-label="Files to upload">
       {files.map((f, i) => {
         const Icon = attachmentIconFor(f.type);
         return (
-          <li key={i} className="relative aspect-square min-w-0 rounded-lg border border-border bg-surface-hover overflow-hidden">
-            {previewUrls[i] ? (
-              <img src={previewUrls[i]} alt={f.name} className="size-full object-cover" />
+          <li key={`${f.name}-${f.size}-${f.lastModified}-${i}`} className="relative size-18 sm:size-20 shrink-0 rounded-lg border border-border bg-surface-hover overflow-hidden">
+            {isImageAttachment(f.type) ? (
+              <StagedImage file={f} />
             ) : (
-              <div className="flex size-full flex-col items-center justify-center gap-1 p-2 text-center">
+              <div className="flex size-full flex-col items-center justify-center gap-0.5 p-1.5 text-center">
                 <Icon size={20} className="text-text-light shrink-0" aria-hidden="true" />
                 <span className="w-full min-w-0 truncate t-meta font-medium text-text" title={f.name}>{f.name}</span>
-                <span className="t-meta text-text-light">{formatFileSize(f.size)}</span>
+                <span className="hidden sm:block t-meta text-text-light">{formatFileSize(f.size)}</span>
               </div>
             )}
-            {/* 24px circle on screen, 44px to a finger (the ::after pad). */}
             <button
               type="button"
               onClick={() => onRemove(i)}

@@ -173,7 +173,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
           status:                saveAsDraft ? 'draft' : undefined,
           priority:              data.priority,
           startDate:             dateRange.from ? dateRange.from.toISOString() : undefined,
-          dueDate:               dateRange.to ? endOfDay(dateRange.to).toISOString() : undefined,
+          dueDate:               dateRange.to ? (dateRange.to.getHours() || dateRange.to.getMinutes() ? dateRange.to : endOfDay(dateRange.to)).toISOString() : undefined,
           assigneeId:            assigneeIds[0],
           additionalAssigneeIds: assigneeIds.slice(1),
           departmentId:          data.departmentId !== '' ? data.departmentId : undefined,
@@ -410,6 +410,8 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
           >
             <TaskQuickDue value={dateRange} onChange={setDateRange} />
             <DateRangePicker
+              tiles
+              showTime
               value={dateRange}
               onChange={setDateRange}
               dueOnly={!showStart}
@@ -418,7 +420,6 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
               placeholder={showStart ? 'Choose start and due day' : 'Choose a due day'}
               // A new delegation cannot be due before today.
               minDate={new Date()}
-              triggerClassName={`w-full ${FIELD_TRIGGER_CLASS}`}
             />
             {!ownScopeOnly && (
               <button
@@ -429,7 +430,7 @@ export const TaskForm = ({ onClose, onCreated, defaultDueDate }: TaskFormProps) 
                 }}
                 className="self-start inline-flex items-center h-8 pointer-coarse:h-11 -ml-1 px-1 rounded-md t-meta font-display font-semibold text-text-secondary hover:text-text transition-colors duration-150 ease-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
               >
-                {showStart ? 'Remove start day' : 'Add start day'}
+                {showStart ? 'Remove start day' : 'Add start day and time'}
               </button>
             )}
           </FormField>

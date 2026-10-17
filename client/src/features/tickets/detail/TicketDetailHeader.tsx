@@ -76,7 +76,7 @@ export const TicketDetailHeader = ({ ticket, statusLabel, raisedByName, onEdit, 
             )}
           </button>
 
-          <StatusChip status={ticket.status.toLowerCase() as StatusChipStatus} label={statusLabel} />
+          <StatusChip status={(ticket.declinedAt ? 'declined' : ticket.status.toLowerCase()) as StatusChipStatus} label={statusLabel} />
         </div>
 
         <div className="flex shrink-0 items-center gap-1.5">

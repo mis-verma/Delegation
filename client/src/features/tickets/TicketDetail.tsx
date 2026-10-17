@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { ShieldCheck, Flag, Building2, CalendarDays, User, Store as StoreIcon, Layers, ChevronDown, AlertCircle } from 'lucide-react';
+import { ShieldCheck, Flag, Building2, CalendarDays, User, Store as StoreIcon, Layers, ChevronDown, AlertCircle, Ban } from 'lucide-react';
 import {
   useStoresQuery,
   useTicketQuery,
@@ -9,8 +9,10 @@ import {
   useVerifyTicketMutation,
   useAddTicketStatusUpdateMutation,
   useDepartmentsQuery,
+  useDeclineTicketMutation,
 } from './hook';
-import { Button, ImageLightbox, PriorityChip } from '../../components';
+import { Button, ImageLightbox, NoticeBanner, PriorityChip } from '../../components';
+import { DeclineTicketDialog } from './detail/DeclineTicketDialog';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { useCategoriesQuery } from '../settings/hook';
 import { DetailLabelsField } from '../tags/DetailLabelsField';
@@ -95,6 +97,8 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
   const labelsMut = useUpdateTicketMutation({ silent: true });
   const deleteMut = useDeleteTicketMutation({ withdraw: !isAdmin });
   const verifyMut = useVerifyTicketMutation();
+  const declineMut = useDeclineTicketMutation();
+  const [declining, setDeclining] = useState(false);
 
   const { data: assignableUsers } = useAssignableUsersQuery(ticket.departmentId ?? undefined);
   const { data: departments } = useDepartmentsQuery();
@@ -225,9 +229,13 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
     else updateMut.mutate({ id: ticket.id, payload: { status: next } });
   };
 
-  const statusLabel = getTicketStatusLabel(ticket.status);
+  const statusLabel = ticket.declinedAt ? 'Declined' : getTicketStatusLabel(ticket.status);
   const assigneeName = ticket.assignee?.firstName ?? null;
-  const showFooter = editing || showVerify || statusOptions.length > 0 || canWithdraw;
+  const isDepartmentHead = (role === 'MANAGER' || role === 'SENIOR') && !!currentUser?.departmentId && currentUser.departmentId === ticket.departmentId;
+  const canDecline = !ticket.declinedAt
+    && (ticket.status === 'OPEN' || ticket.status === 'IN_PROGRESS' || ticket.status === 'ON_HOLD')
+    && (isAdmin || (isDepartmentHead && ticket.userId !== currentUser?.id));
+  const showFooter = editing || showVerify || statusOptions.length > 0 || canWithdraw || canDecline;
   // The list row already carries the full ticket, so a loading bar only helps when it doesn't.
   const showLoadingBar = isPending && initialTicket.statusUpdates === undefined;
 
@@ -352,7 +360,7 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
               </section>
 
               {/* How this ticket counts in the scores right now; ticks while open, and status changes arrive by socket. */}
-              <ItemScoreCard scoreAt={(now) => ticketScore(ticket, now)} noun="ticket" />
+              {!ticket.declinedAt && <ItemScoreCard scoreAt={(now) => ticketScore(ticket, now)} noun="ticket" />}
 
               {/* Same inline label field as the create form; each change saves at once. Editable by
                   whoever may change the ticket, read-only chips for everyone else. */}
@@ -382,7 +390,12 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
                 </div>
               )}
 
-              <VerificationNoteBanner note={ticket.verificationNote} approved={ticket.status === 'CLOSED'} verifiedBy={ticket.verifiedBy} />
+              {ticket.declinedAt && (
+                <NoticeBanner tone="danger" icon={Ban}>
+                  <span className="font-semibold">Declined by the department.</span> {ticket.declineReason}
+                </NoticeBanner>
+              )}
+              {!ticket.declinedAt && <VerificationNoteBanner note={ticket.verificationNote} approved={ticket.status === 'CLOSED'} verifiedBy={ticket.verifiedBy} />}
 
               {editing && canEdit ? (
                 <TicketEditForm
@@ -476,6 +489,18 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
               )}
               {/* A quiet text button: on a phone it sits small and centred under the main button,
                   never as a red bar competing with it. */}
+              {canDecline && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setDeclining(true)}
+                  disabled={declineMut.isPending}
+                  className="max-sm:order-last max-sm:self-center sm:order-first font-display text-danger hover:text-danger hover:bg-danger/10"
+                >
+                  <Ban size={14} aria-hidden />
+                  Decline ticket
+                </Button>
+              )}
               {canWithdraw && (
                 <Button
                   variant="ghost"
@@ -495,6 +520,14 @@ export const TicketDetail = ({ ticket: initialTicket, onClose }: TicketDetailPro
         <ImageLightbox src={previewImage} onClose={() => setPreviewImage(null)} />
 
         <TicketActivitySheet ticketId={ticket.id} open={activityOpen} onOpenChange={setActivityOpen} />
+
+        <DeclineTicketDialog
+          open={declining}
+          ticketTitle={ticket.title}
+          isPending={declineMut.isPending}
+          onCancel={() => setDeclining(false)}
+          onConfirm={(reason) => declineMut.mutate({ id: ticket.id, reason }, { onSuccess: () => setDeclining(false) })}
+        />
 
       </SheetContent>
 

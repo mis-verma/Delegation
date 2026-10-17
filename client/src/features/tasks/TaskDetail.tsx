@@ -415,8 +415,12 @@ const TaskTimelineField = ({ task, onUpdate, canSetStart }: { task: Task; onUpda
   }
 
   return (
-    <div className="flex items-center gap-1 flex-wrap">
+    <div className="flex w-full min-w-0 flex-col gap-1">
       <DateRangePicker
+        tiles
+        showTime
+        hidePresets
+        invalid={taskIsLate(task)}
         value={draft}
         dueOnly={!showStart}
         onChange={(range: DateRangeValue) => {
@@ -426,20 +430,19 @@ const TaskTimelineField = ({ task, onUpdate, canSetStart }: { task: Task; onUpda
             return;
           }
           if (range.to) {
-            onUpdate({ startDate: range.from ? range.from.toISOString() : null, dueDate: endOfDay(range.to).toISOString() });
+            const due = range.to.getHours() || range.to.getMinutes() ? range.to : endOfDay(range.to);
+            onUpdate({ startDate: range.from ? range.from.toISOString() : null, dueDate: due.toISOString() });
           }
         }}
         placeholder="Add due date"
-        // Room on the right for the clear button, which sits over the chip: without it the date was cut to "Oc".
-        triggerClassName={cn(PROPERTY_TRIGGER_CLASS, 'w-auto', draft.to && 'pr-9', taskIsLate(task) && 'text-danger')}
       />
       {canSetStart && !showStart && (
         <button
           type="button"
           onClick={() => setShowStart(true)}
-          className="inline-flex items-center h-8 pointer-coarse:h-11 px-2 rounded-md t-meta font-display font-semibold text-text-secondary hover:text-text transition-colors duration-150 ease-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
+          className="self-start inline-flex items-center h-8 pointer-coarse:h-11 px-2 rounded-md t-meta font-display font-semibold text-text-secondary hover:text-text transition-colors duration-150 ease-out cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
         >
-          Add start day
+          Add start day and time
         </button>
       )}
     </div>

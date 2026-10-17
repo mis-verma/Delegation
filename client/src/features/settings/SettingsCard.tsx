@@ -27,6 +27,6 @@ export const SettingsCard = ({ icon: Icon, title, aside, hint, tone = 'primary',
       {aside}
     </div>
     {children}
-    {hint && <p className="text-[0.6875rem] sm:text-xs font-display text-text-muted leading-relaxed">{hint}</p>}
+    {hint && <p className="t-meta font-display text-text-muted leading-relaxed">{hint}</p>}
   </section>
 );

@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "arial",
+        "createdAt": "2026-10-17T08:29:12.159Z",
+        "reason": "Claude: Arial is the email-safe fallback in the OTP email HTML (passwordOtp.service.ts); web fonts don't load reliably in email clients"
+      }
+    ]
+  }
+}

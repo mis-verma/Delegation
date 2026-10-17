@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Calendar as CalendarIcon, ChevronRight, X } from 'lucide-react';
+import { ArrowRight, Calendar as CalendarIcon, ChevronRight, Clock, X } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { Button } from '../button';
@@ -44,7 +44,12 @@ interface DateRangePickerProps {
   hidePresets?: boolean;
   /** Earliest moment that can be picked. Earlier days are greyed out and an earlier time is refused. */
   minDate?: Date;
+  tiles?: boolean;
+  invalid?: boolean;
 }
+
+const isEndOfDay = (d: Date) => (d.getHours() === 0 && d.getMinutes() === 0) || (d.getHours() === 23 && d.getMinutes() === 59);
+const endClock = (d: Date) => (isEndOfDay(d) ? 'End of day' : formatClock(d));
 
 const laterOf = (a: Date | null | undefined, b: Date | null | undefined) => {
   if (a && b) return a.getTime() >= b.getTime() ? a : b;
@@ -75,6 +80,8 @@ export function DateRangePicker({
   dueOnly = false,
   hidePresets = false,
   minDate,
+  tiles = false,
+  invalid = false,
 }: DateRangePickerProps) {
   const isPhone = useMediaQuery('(max-width: 639px)');
   const [open, setOpen] = useState(false);
@@ -227,6 +234,46 @@ export function DateRangePicker({
       ].filter(Boolean).join(' to ')
     : placeholder;
 
+
+  const tileSlots = dueOnly
+    ? [{ key: 'to' as const, label: 'Due', date: value.to }]
+    : [{ key: 'from' as const, label: 'Start', date: value.from }, { key: 'to' as const, label: 'End', date: value.to }];
+  const tileTriggerButton = (
+    <button
+      type="button"
+      disabled={disabled}
+      aria-label={hasValue ? `${dueOnly ? 'Due' : 'Dates'}: ${label}` : placeholder}
+      className={cn(
+        'grid w-full items-stretch gap-1.5 rounded-xl border bg-surface p-1.5 text-left transition-all cursor-pointer outline-none focus-visible:ring-4 focus-visible:ring-primary-500/15 focus-visible:border-primary-400',
+        'disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-surface-hover',
+        tileSlots.length === 2 ? 'grid-cols-[1fr_auto_1fr]' : 'grid-cols-1',
+        open ? 'border-primary-500' : invalid ? 'border-danger/60' : 'border-border/70 hover:border-primary-400/70',
+        hasValue && !disabled && 'pr-10 pointer-coarse:pr-12',
+        triggerClassName,
+      )}
+    >
+      {tileSlots.map((slot, i) => (
+        <span key={slot.key} className="contents">
+          {i === 1 && <ArrowRight size={14} className="self-center text-text-light" aria-hidden="true" />}
+          <span className="flex min-w-0 items-center gap-2 rounded-lg bg-surface-hover/60 px-2 py-1.5">
+            <span className={cn('flex size-7 shrink-0 items-center justify-center rounded-md', slot.date ? 'bg-primary-500/10 text-primary-700 dark:bg-primary-500/15 dark:text-primary-300' : 'bg-surface text-text-light')} aria-hidden="true">
+              {slot.key === 'from' ? <CalendarIcon size={14} strokeWidth={2.4} /> : <Clock size={14} strokeWidth={2.4} />}
+            </span>
+            <span className="flex min-w-0 flex-col">
+              <span className="t-meta font-display font-semibold text-text-muted leading-tight">{slot.label}</span>
+              <span className={cn('truncate t-card font-display font-bold leading-tight', slot.date ? 'text-text' : 'text-text-light')}>
+                {slot.date ? formatDay(slot.date) : slot.key === 'from' ? 'Optional' : 'Pick a day'}
+              </span>
+              {showTime && slot.date && !(endTimeOnly && slot.key === 'from') && (
+                <span className="t-meta font-display font-medium tabular-nums text-text-secondary leading-tight">{slot.key === 'to' ? endClock(slot.date) : formatClock(slot.date)}</span>
+              )}
+            </span>
+          </span>
+        </span>
+      ))}
+    </button>
+  );
+
   const complete = isComplete(draft);
   const toMinAt = !endTimeOnly && !dueOnly && draft.from && draft.to && isSameDay(draft.from, draft.to)
     ? laterOf(minDate, draft.from)
@@ -273,6 +320,9 @@ export function DateRangePicker({
               <span className={cn('text-sm font-display font-bold leading-tight', slot.date ? 'text-text' : 'text-text-light')}>
                 {slot.date ? formatDay(slot.date) : slot.active ? 'Pick a day' : 'None'}
               </span>
+              {showTime && slot.date && !(endTimeOnly && slot.key === 'from') && (
+                <span className="t-meta font-display font-medium tabular-nums text-text-muted leading-tight">{slot.key === 'to' ? endClock(slot.date) : formatClock(slot.date)}</span>
+              )}
             </div>
           </div>
         ))}
@@ -342,7 +392,7 @@ export function DateRangePicker({
     <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-surface-hover/80 sm:hidden">
       {([
         { key: 'date', label: 'Date', text: draft.to ? formatDay(draft.to) : 'Pick a day' },
-        { key: 'time', label: 'Time', text: draft.to ? formatClock(draft.to) : 'Day first' },
+        { key: 'time', label: 'Time', text: draft.to ? endClock(draft.to) : 'Day first' },
       ] as const).map((t) => (
         <button
           key={t.key}
@@ -374,7 +424,7 @@ export function DateRangePicker({
           {complete ? 'Done' : dueOnly ? 'Pick the due day' : pickingEnd ? 'Now pick the last day' : 'Pick the first day'}
         </Button>
       )}
-      trigger={
+      trigger={tiles ? tileTriggerButton : (
         <button
           type="button"
           disabled={disabled}
@@ -391,7 +441,7 @@ export function DateRangePicker({
             {label}
           </span>
         </button>
-      }
+      )}
       triggerAside={hasValue && !disabled && (
         // A sibling of the trigger, not nested inside it, so it is a real button of its own.
         <button

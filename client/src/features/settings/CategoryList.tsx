@@ -1,11 +1,12 @@
 import { useMemo, useState, lazy, Suspense } from "react";
-import { Plus, Tag, Building2, Users, Clock, Search } from "lucide-react";
+import { Plus, Tag, Building2, Users, Clock, Search, CircleOff, CirclePower } from "lucide-react";
 import {
   Button, Input, Skeleton, EmptyState, InlineError, useConfirm,
-  ENTITY_CARD_CLASS, ColorIconTile, StatusPill, EntityCardActions,
+  ENTITY_CARD_CLASS, ColorIconTile, EntityCardActions,
 } from "../../components";
 import { useCategoriesQuery, useDeleteCategoryMutation, useUpdateCategoryMutation } from "./hook";
 import type { Category } from "../../api/categories";
+import { CardChip } from "../admin/directory/orgScores";
 
 const CategoryForm = lazy(() =>
   import("./CategoryForm").then(module => ({ default: module.CategoryForm }))
@@ -71,54 +72,36 @@ export const CategoryList = () => {
           return (
             <article
               key={c.id}
-              className={`${ENTITY_CARD_CLASS} justify-start gap-3.5 ${isDeleting ? "opacity-50 pointer-events-none" : ""}`}
+              className={`${ENTITY_CARD_CLASS} justify-start gap-3 ${!c.isActive ? "bg-surface-hover/30" : ""} ${isDeleting || isUpdating ? "opacity-60 pointer-events-none" : ""}`}
             >
-              <header className="flex items-start justify-between gap-2.5">
-                <div className="flex items-center gap-3 min-w-0">
-                  <ColorIconTile icon={Tag} name={c.name} />
-                  <div className="min-w-0 flex flex-col gap-0.5">
-                    <h3
-                      className={`text-sm font-display font-bold truncate ${c.isActive ? "text-text" : "text-text-secondary"}`}
-                      title={c.name}
-                    >
-                      {c.name}
-                    </h3>
-                    <p className="flex items-center gap-1 text-xs font-display text-text-muted min-w-0" title={c.departmentId?.name}>
-                      <Building2 className="size-3 shrink-0 text-text-light" aria-hidden />
-                      <span className="truncate">{c.departmentId?.name ?? "No department"}</span>
-                    </p>
-                  </div>
+              <header className="flex items-start gap-3">
+                <ColorIconTile icon={Tag} name={c.name} />
+                <div className="min-w-0 flex-1 flex flex-col gap-0.5">
+                  <h3 className={`t-card font-display font-bold leading-snug line-clamp-2 break-words ${c.isActive ? "text-text" : "text-text-secondary"}`} title={c.name}>
+                    {c.name}
+                  </h3>
+                  <p className="flex items-center gap-1 t-meta font-display text-text-muted min-w-0" title={c.departmentId?.name}>
+                    <Building2 className="size-3 shrink-0" aria-hidden />
+                    <span className="truncate">{c.departmentId?.name ?? "No department"}</span>
+                  </p>
                 </div>
-
-                <StatusPill
-                  active={c.isActive}
-                  isUpdating={isUpdating}
-                  onToggle={() => toggleActive(c)}
-                  ariaLabel={`${c.isActive ? "Deactivate" : "Activate"} ${c.name}`}
-                />
+                <div className="-mr-2 -mt-1">
+                  <EntityCardActions
+                    onEdit={() => setEditingCategory(c)}
+                    onDelete={() => { void remove(c); }}
+                    isDeleting={isDeleting}
+                    editLabel={`Edit ${c.name}`}
+                    deleteLabel={`Delete ${c.name}`}
+                    extraItems={[{ label: c.isActive ? "Deactivate" : "Activate", icon: c.isActive ? CircleOff : CirclePower, onClick: () => toggleActive(c) }]}
+                  />
+                </div>
               </header>
 
-              <footer className="flex items-center justify-between gap-2 pt-3 mt-auto border-t border-border/60 min-h-14">
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 min-w-0">
-                  <span className="flex items-center gap-1.5 text-xs font-display text-text-secondary" title="Default assignees">
-                    <Users size={14} className="shrink-0 text-text-light" aria-hidden />
-                    <span className="font-bold tabular-nums text-text">{people}</span>
-                    {people === 1 ? "person" : "people"}
-                  </span>
-                  <span className="flex items-center gap-1.5 text-xs font-display text-text-secondary" title="Due within">
-                    <Clock size={14} className="shrink-0 text-text-light" aria-hidden />
-                    {c.tatHours ? <><span className="font-bold tabular-nums text-text">{c.tatHours}</span>h</> : "System default"}
-                  </span>
-                </div>
-
-                <EntityCardActions
-                  onEdit={() => setEditingCategory(c)}
-                  onDelete={() => { void remove(c); }}
-                  isDeleting={isDeleting}
-                  editLabel={`Edit ${c.name} category`}
-                  deleteLabel={`Delete ${c.name} category`}
-                />
-              </footer>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <CardChip icon={Users} tone={people ? "primary" : "warning"} label={people ? `${people} ${people === 1 ? "person" : "people"}` : "Head picks"} title="Who gets it" />
+                <CardChip icon={Clock} label={c.tatHours ? `Due in ${c.tatHours % 24 === 0 ? `${c.tatHours / 24}d` : `${c.tatHours}h`}` : "Default due time"} title="Due within" />
+                {!c.isActive && <CardChip icon={CircleOff} label="Inactive" />}
+              </div>
             </article>
           );
         })}
@@ -130,16 +113,15 @@ export const CategoryList = () => {
 
   return (
     // No max-w wrapper of its own: SettingsLayout (the parent route) already constrains the width.
-    <div className="flex flex-col gap-5 w-full">
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        <div className="min-w-0 sm:flex-1">
-          <h2 className="t-card sm:t-section font-display font-bold text-text">Categories</h2>
-          <p className="text-sm font-display text-text-muted">
-            {isPending ? "Loading" : `${categories.length} ${categories.length === 1 ? "category" : "categories"}`}. Picking one on a ticket fills in its department, default people and due time.
-          </p>
-        </div>
+    <div className="flex flex-col gap-3 sm:gap-4 w-full">
+      <div className="flex flex-col gap-1">
+        <p className="t-meta font-display text-text-muted">
+          {isPending ? "Loading" : `${categories.length} ${categories.length === 1 ? "category" : "categories"}`}. Picking one on a ticket fills in the team, the people and the due time.
+        </p>
+      </div>
+      <div className="flex items-center gap-2">
         {categories.length > 0 && (
-          <div className="sm:w-64">
+          <div className="flex-1 min-w-0 sm:max-w-xs">
             <Input
               id="category-search"
               type="search"
@@ -151,9 +133,9 @@ export const CategoryList = () => {
             />
           </div>
         )}
-        <Button size="sm" variant="primary" className="gap-1.5 shrink-0" onClick={() => setShowForm(true)}>
-          <Plus size={14} />
-          New category
+        <Button size="sm" variant="primary" aria-label="New category" className="gap-1.5 shrink-0 max-sm:size-11 max-sm:px-0 sm:ml-auto" onClick={() => setShowForm(true)}>
+          <Plus size={15} aria-hidden />
+          <span className="max-sm:sr-only">New category</span>
         </Button>
       </div>
 

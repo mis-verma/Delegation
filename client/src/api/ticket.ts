@@ -146,6 +146,9 @@ export type Ticket = {
   submittedAt?: string | null;
   /** Times it went back to work after being handed in or closed; any at all fails compliance. */
   reopenCount?: number;
+  declinedAt?: string | null;
+  declinedBy?: string | null;
+  declineReason?: string | null;
   assignee:      { id: string; email: string; firstName: string; role: string } | null;
   checklists:     Checklist[];
   attachments:    TicketAttachment[];
@@ -286,6 +289,9 @@ export const ticketApi = {
 
   update: (id: string, payload: UpdateTicketPayload) =>
     apiFetch<ApiResponse<Ticket>>(`/tickets/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }).then(r => ({ ...r, data: normalizeTicket(r.data) })),
+
+  decline: (id: string, reason: string) =>
+    apiFetch<ApiResponse<Ticket>>(`/tickets/${id}/decline`, { method: 'POST', body: JSON.stringify({ reason }) }).then(r => ({ ...r, data: normalizeTicket(r.data) })),
 
   verify: (id: string, payload: VerifyTicketPayload) =>
     apiFetch<ApiResponse<Ticket>>(`/tickets/${id}/verify`, { method: 'PATCH', body: JSON.stringify(payload) }).then(r => ({ ...r, data: normalizeTicket(r.data) })),

@@ -69,6 +69,9 @@ export const tickets = mysqlTable(
     // (list/getById/update/addStatusUpdate/verify/reports) must AND in `isNull(tickets.deletedAt)`
     // — see that file's NOT_DELETED constant.
     deletedAt: datetime('deletedAt', { mode: 'date' }),
+    declinedAt: datetime('declinedAt', { mode: 'date' }),
+    declinedBy: varchar('declinedBy', { length: 191 }).references(() => users.id),
+    declineReason: text('declineReason'),
     createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
     updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
   },

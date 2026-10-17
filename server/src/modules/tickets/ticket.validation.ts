@@ -119,6 +119,11 @@ export const statusUpdateSchema = z.object({
     path : ["remark"],
 })
 
+export const declineTicketSchema = z.object({
+    reason : z.string().trim().min(5, "Say why this ticket is declined.").max(1000),
+})
+
+export type DeclineTicketInput = z.infer<typeof declineTicketSchema>;
 export type CreateTicketInput = z.infer<typeof createTicketSchema>;
 export type UpdateTicketInput = z.infer<typeof updateTicketSchema>;
 export type TatReportQuery = z.infer<typeof tatReportQuerySchema>;

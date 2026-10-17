@@ -31,8 +31,6 @@ const validate = (title: string, description: string) => ({
   description: description.trim().length < 10 ? 'Say a bit more about it (at least 10 characters)' : undefined,
 });
 
-const dayOnly = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-
 /**
  * Edits the ticket's title, description, priority and due time in place of the read-only
  * description. Same labelled fields and the same due control as the New ticket form. Its Cancel and
@@ -49,7 +47,7 @@ export const TicketEditForm = ({ ticket, formId, canChangeDue, canChangePriority
   // The due moment is the ticket's TAT deadline. The server only takes it as "hours from now", so it
   // is turned into that on save (same conversion the New ticket form uses).
   const [initialDue] = useState(() => (ticket.tatDueAt ? new Date(ticket.tatDueAt) : null));
-  const [initialStart] = useState(() => (ticket.startDate ? dayOnly(new Date(ticket.startDate)) : null));
+  const [initialStart] = useState(() => (ticket.startDate ? new Date(ticket.startDate) : null));
   const [due, setDue] = useState<Date | null>(initialDue);
   const [start, setStart] = useState<Date | null>(initialStart);
   // Decided when Save is pressed, not on every render: "still ahead" depends on the clock.
@@ -79,10 +77,10 @@ export const TicketEditForm = ({ ticket, formId, canChangeDue, canChangePriority
     e.preventDefault();
     setSubmitted(true);
     const pastDue = dueChanged && !!due && due.getTime() <= Date.now();
-    const startAfterDue = canChangeDue && !!start && !!due && start.getTime() > dayOnly(due).getTime();
+    const startAfterDue = canChangeDue && !!start && !!due && start.getTime() > due.getTime();
     const nextDueError = pastDue
       ? 'Pick a time that is still ahead'
-      : startAfterDue ? 'The start day has to be on or before the due day' : undefined;
+      : startAfterDue ? 'The start has to be before the due time' : undefined;
     setDueError(nextDueError);
     const firstError = errors.title ? 'title' : errors.description ? 'description' : nextDueError ? 'due' : null;
     if (firstError) {

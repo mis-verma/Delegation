@@ -317,7 +317,7 @@ export const scoreService = {
             db
                 .select(ticketCols)
                 .from(tickets)
-                .where(and(isNull(tickets.deletedAt), gte(tickets.tatDueAt, win.start), lt(tickets.tatDueAt, win.end), target.ticketWhere)),
+                .where(and(isNull(tickets.deletedAt), isNull(tickets.declinedAt), gte(tickets.tatDueAt, win.start), lt(tickets.tatDueAt, win.end), target.ticketWhere)),
         ])
 
         const blocks = blocksFor({ now, win }, checklistMetrics, ticketRows, taskRows.map((t) => ({ ...t, finishedAt: finishedAt(t) })))
@@ -390,7 +390,7 @@ export const scoreService = {
         const storeTaskFilter = filter.storeId ? inArray(tasks.departmentId, db.select({ id: departments.id }).from(departments).where(eq(departments.storeId, filter.storeId))) : undefined
         const storeTicketFilter = filter.storeId ? eq(tickets.storeId, filter.storeId) : undefined
         const taskWhere = and(DELEGATION_ONLY, gte(tasks.dueDate, win.start), lt(tasks.dueDate, win.end), onlyDepartment ? eq(tasks.departmentId, onlyDepartment) : undefined, storeTaskFilter)
-        const ticketWhere = and(isNull(tickets.deletedAt), gte(tickets.tatDueAt, win.start), lt(tickets.tatDueAt, win.end), onlyDepartment ? eq(tickets.departmentId, onlyDepartment) : undefined, storeTicketFilter)
+        const ticketWhere = and(isNull(tickets.deletedAt), isNull(tickets.declinedAt), gte(tickets.tatDueAt, win.start), lt(tickets.tatDueAt, win.end), onlyDepartment ? eq(tickets.departmentId, onlyDepartment) : undefined, storeTicketFilter)
 
         const userCols = { id: users.id, firstName: users.firstName, lastName: users.lastName, role: users.role, departmentId: users.departmentId, isActive: users.isActive }
         const [checklist, userRows, deptRows, taskRows, extraAssigneeRows, ticketRows] = await Promise.all([
@@ -448,7 +448,7 @@ export const scoreService = {
                     db
                         .select({ ...ticketCols, assigneeId: tickets.assigneeId, departmentId: tickets.departmentId })
                         .from(tickets)
-                        .where(and(isNull(tickets.deletedAt), gte(tickets.tatDueAt, win.start), lt(tickets.tatDueAt, win.end), storeTicketFilter, inArray(tickets.assigneeId, ids))),
+                        .where(and(isNull(tickets.deletedAt), isNull(tickets.declinedAt), gte(tickets.tatDueAt, win.start), lt(tickets.tatDueAt, win.end), storeTicketFilter, inArray(tickets.assigneeId, ids))),
                 ])
             } else {
                 personTaskRows = []
@@ -571,7 +571,7 @@ export const scoreService = {
             db
                 .select({ ...ticketCols, storeId: tickets.storeId })
                 .from(tickets)
-                .where(and(isNull(tickets.deletedAt), gte(tickets.tatDueAt, win.start), lt(tickets.tatDueAt, win.end))),
+                .where(and(isNull(tickets.deletedAt), isNull(tickets.declinedAt), gte(tickets.tatDueAt, win.start), lt(tickets.tatDueAt, win.end))),
         ])
 
         const checklistByStore = new Map((checklist?.storeTotals ?? []).map((s) => [s.storeId, s]))

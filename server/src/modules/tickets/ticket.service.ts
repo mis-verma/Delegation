@@ -481,7 +481,7 @@ const ownerStatsByColumn = async (
   const closedDueIn = sql`(tickets.status = 'CLOSED' AND tickets.closedAt IS NOT NULL AND tickets.tatDueAt IS NOT NULL AND ${inWindow("tickets.tatDueAt")})`
   const hasWindow = Boolean(window.from || window.to)
 
-  const conditions: SQL[] = [sql`tickets.deletedAt IS NULL`, ...scopeConditions]
+  const conditions: SQL[] = [sql`tickets.deletedAt IS NULL`, sql`tickets.declinedAt IS NULL`, ...scopeConditions]
   if (hasWindow) conditions.push(sql`(${createdIn} OR ${closedIn} OR ${closedDueIn})`)
   const where = sql`WHERE ${sql.join(conditions, sql` AND `)}`
   const groupBy = grouped ? sql`GROUP BY ownerId` : sql``
@@ -898,6 +898,39 @@ export const ticketService = {
   },
 
 
+  async decline(id: string, reason: string, user: AccessTokenPayload) {
+    const [ticket] = await db.select().from(tickets).where(and(eq(tickets.id, id), NOT_DELETED)).limit(1)
+    if (!ticket) throw AppError.notFound("Ticket not found")
+    const isHead = (user.role === "MANAGER" || user.role === "SENIOR") && !!user.departmentId && ticket.departmentId === user.departmentId
+    if (!isVerifierRole(user) && !isHead) throw AppError.forbidden("Only the department head, PC or an admin can decline this ticket.")
+    if (ticket.userId === user.sub && !isVerifierRole(user)) throw AppError.badRequest("You raised this ticket. Withdraw it instead of declining it.")
+    if (!["OPEN", "IN_PROGRESS", "ON_HOLD"].includes(ticket.status)) {
+      throw AppError.badRequest(ticket.status === "PENDING_APPROVAL" ? "This ticket is waiting for approval. Approve it or send it back instead." : "This ticket is already closed.")
+    }
+
+    const now = new Date()
+    const note = reason.trim()
+    const [result] = await db.update(tickets).set({
+      status: "CLOSED",
+      closedAt: now,
+      declinedAt: now,
+      declinedBy: user.sub,
+      declineReason: note,
+      isOverdue: false,
+      updatedAt: now,
+    }).where(and(eq(tickets.id, id), eq(tickets.status, ticket.status), NOT_DELETED))
+    if (result.affectedRows === 0) throw AppError.conflict("Someone changed this ticket a moment ago. Open it again and retry.")
+
+    const [afterRow] = await db.select().from(tickets).where(eq(tickets.id, id)).limit(1)
+    await auditService.record({ entityType: "Ticket", entityId: id, action: "DECLINE", actorId: user.sub, before: ticket, after: afterRow })
+
+    const populated = await getPopulatedTicket(id)
+    emitTicketEvent("ticket:updated", roomTarget(afterRow!), populated)
+    await notifySafely(() => notificationService.notifyTicketDeclined({ _id: id, title: ticket.title, userId: ticket.userId, assigneeId: ticket.assigneeId }, note, user.sub))
+    await dropTicketSummaries()
+    return populated
+  },
+
   async verify(id: string, input: VerifyTicketInput, user: AccessTokenPayload) {
     const [ticket] = await db.select().from(tickets).where(and(eq(tickets.id, id), NOT_DELETED)).limit(1)
     if (!ticket) throw AppError.notFound("Ticket not found")
@@ -1029,7 +1062,7 @@ export const ticketService = {
   async tatReport(groupBy: ReportGroupBy, from?: string, to?: string, departmentId?: string, storeId?: string) {
     const range = resolveReportRange(groupBy, from, to)
 
-    const scope: SQL[] = [sql`tickets.deletedAt IS NULL`]
+    const scope: SQL[] = [sql`tickets.deletedAt IS NULL`, sql`tickets.declinedAt IS NULL`]
     if (departmentId) scope.push(sql`tickets.departmentId = ${departmentId}`)
     if (storeId) scope.push(sql`tickets.storeId = ${storeId}`)
 

@@ -1,6 +1,6 @@
 import { type Request , type Response } from "express"
 import { ticketService } from "./ticket.service.js"
-import { createTicketSchema , paginatioinSchema, updateTicketSchema , tatReportQuerySchema, ownerStatsQuerySchema, verifyTicketSchema, statusUpdateSchema, ticketSummaryQuerySchema } from "./ticket.validation.js"
+import { createTicketSchema , paginatioinSchema, updateTicketSchema , tatReportQuerySchema, ownerStatsQuerySchema, verifyTicketSchema, statusUpdateSchema, ticketSummaryQuerySchema, declineTicketSchema } from "./ticket.validation.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
 import { resolveReportScope } from "../../utils/reportScope.js"
 
@@ -46,6 +46,12 @@ export const ticketController = {
         const files = (req.files as Express.Multer.File[]) ?? [];
         const ticket = await ticketService.addStatusUpdate(req.params.id , input , files , req.user!)
         res.json({ success : true , data : ticket})
+    }),
+
+    decline : asyncHandler(async (req : Request , res : Response) => {
+        const input = declineTicketSchema.parse(req.body);
+        const ticket = await ticketService.decline(req.params.id, input.reason, req.user!)
+        res.json({ success : true , data : ticket })
     }),
 
     verify : asyncHandler ( async (req : Request , res : Response) => {

@@ -151,7 +151,10 @@ export const TicketForm = ({ onClose, defaultDueDate, draft }: TicketFormProps) 
   }), [selectedCategory, assignableUsers]);
   const assigneeChoices = categoryPeople.length ? categoryPeople : assignableUsers;
 
+  const lastDepartmentRef = useRef(departmentId);
   useEffect(() => {
+    if (lastDepartmentRef.current === departmentId) return;
+    lastDepartmentRef.current = departmentId;
     if (categoryId) return;
     setValue('assigneeId', '');
   }, [departmentId, categoryId, setValue]);
@@ -189,13 +192,13 @@ export const TicketForm = ({ onClose, defaultDueDate, draft }: TicketFormProps) 
 
   // The due moment as one Date for the picker; the form keeps it as day + time strings.
   const due = dueDate ? new Date(`${dueDate}T${dueTime || '18:00'}`) : null;
-  const start = startDate ? new Date(`${startDate}T00:00`) : null;
+  const start = startDate ? new Date(startDate.includes('T') ? startDate : `${startDate}T00:00`) : null;
   const setDue = (d: Date | null) => {
     const opts = { shouldValidate: validateOnChange, shouldDirty: true };
     setValue('dueDate', d ? toDateInput(d) : '', opts);
     setValue('dueTime', d ? toTimeInput(d) : '', opts);
   };
-  const setStart = (d: Date | null) => setValue('startDate', d ? toDateInput(d) : '', { shouldValidate: validateOnChange, shouldDirty: true });
+  const setStart = (d: Date | null) => setValue('startDate', d ? `${toDateInput(d)}T${toTimeInput(d)}` : '', { shouldValidate: validateOnChange, shouldDirty: true });
 
   const onSubmit = async (data: TicketFields) => {
     if (submittingRef.current) return;
@@ -218,7 +221,7 @@ export const TicketForm = ({ onClose, defaultDueDate, draft }: TicketFormProps) 
         // Front-line staff only ever carry the category's own person here, never one they picked.
         assigneeId: data.assigneeId || undefined,
         tatHours: tatHours ?? (data.assignmentMode === 'AUTO' ? (selectedCategory?.tatHours ?? 24) : undefined),
-        startDate: data.assignmentMode === 'MANUAL' && !ownScopeOnly && data.startDate ? new Date(`${data.startDate}T00:00`).toISOString() : undefined,
+        startDate: data.assignmentMode === 'MANUAL' && !ownScopeOnly && data.startDate ? new Date(data.startDate.includes('T') ? data.startDate : `${data.startDate}T00:00`).toISOString() : undefined,
         tagIds: !ownScopeOnly && data.tagIds?.length ? data.tagIds : undefined,
       });
       createdId = created.id;
@@ -549,22 +552,23 @@ export const TicketForm = ({ onClose, defaultDueDate, draft }: TicketFormProps) 
                   setValue('assignmentMode', m, { shouldDirty: true });
                   // "By category" means the category decides, so a person picked by hand earlier is put back to the category's.
                   if (m === 'AUTO' && selectedCategory) applyCategory(selectedCategory);
+                  if (m === 'MANUAL') setValue('categoryId', '', { shouldDirty: true });
                 }}
               />
 
-              {categoryField(
+              {assignmentMode === 'AUTO' && categoryField(
                 'Category',
                 isVerifier
                   ? 'Sends the ticket to the right team and sets the due time.'
                   : "Sends the ticket to the right team and sets the due time. Can't find yours? Ask an admin to add it.",
-                assignmentMode === 'AUTO',
+                true,
               )}
 
-              {categorySummary}
+              {assignmentMode === 'AUTO' && categorySummary}
 
               {assignmentMode === 'MANUAL' ? (
                 <>
-                  {departmentField(selectedCategory ? 'Set by the category above.' : 'Which team should handle this?')}
+                  {departmentField('Which team should handle this?')}
 
                   <div data-field="assigneeId">
                     <FormField

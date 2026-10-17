@@ -119,22 +119,37 @@ export const notificationService = {
     const recipientIds: string[] = []; // will collect everyone who should be notified about this assignment
 
     // if the ticket has an assignee, they should definitely be told they've been assigned something
-    if (ticket.assigneeId) recipientIds.push(ticket.assigneeId.toString());
+    const assigneeId = ticket.assigneeId ? ticket.assigneeId.toString() : null;
+    if (assigneeId) recipientIds.push(assigneeId);
 
-    // if the ticket belongs to a department, also notify that department's managers/HODs so they stay in the loop
-    if (ticket.departmentId) {
-      const heads = await db
-        .select({ id: users.id })
-        .from(users)
-        .where(and(eq(users.role, 'MANAGER'), eq(users.departmentId, ticket.departmentId.toString()), eq(users.isActive, true)));
-      recipientIds.push(...heads.map((h) => h.id));
-    }
-
-    // send the same "ticket assigned" notification to everyone we collected above
-    return notificationService.notifyMany(recipientIds, {
+    const sent = await notificationService.notifyMany(recipientIds, {
       type: 'TICKET_ASSIGNED',
-      title: 'Ticket assigned',
-      message: `Ticket "${ticket.title}" has been assigned.`,
+      title: 'Ticket assigned to you',
+      message: `Ticket "${ticket.title}" has been assigned to you.`,
+      ticketId: ticket._id.toString(),
+    });
+
+    if (!ticket.departmentId) return sent;
+    const heads = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(inArray(users.role, ['MANAGER', 'SENIOR']), eq(users.departmentId, ticket.departmentId.toString()), eq(users.isActive, true)));
+    const headIds = heads.map((h) => h.id).filter((id) => id !== assigneeId);
+    const toHeads = await notificationService.notifyMany(headIds, {
+      type: 'TICKET_TO_DEPARTMENT',
+      title: 'Ticket sent to your department',
+      message: `"${ticket.title}" was assigned to someone in your department. Open it to check, reassign it, or decline it.`,
+      ticketId: ticket._id.toString(),
+    });
+    return [...sent, ...toHeads];
+  },
+
+  async notifyTicketDeclined(ticket: { _id: any; title: string; userId: any; assigneeId?: any }, reason: string, actorId: string) {
+    const recipientIds = [ticket.userId?.toString(), ticket.assigneeId?.toString()].filter((id): id is string => !!id && id !== actorId);
+    return notificationService.notifyMany(recipientIds, {
+      type: 'TICKET_DECLINED',
+      title: 'Ticket declined',
+      message: `"${ticket.title}" was declined by the department: ${reason}`,
       ticketId: ticket._id.toString(),
     });
   },
