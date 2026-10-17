@@ -232,6 +232,7 @@ export const checklistInstanceItems = mysqlTable(
     // are matched by wording instead, see matchRunItems in checklistInstanceGenerator.job.ts).
     definitionItemId: varchar('definitionItemId', { length: 191 }),
     issueId: varchar('issueId', { length: 191 }).references(() => tickets.id),
+    reviewTicketId: varchar('reviewTicketId', { length: 191 }).references(() => tickets.id),
     instanceId: varchar('instanceId', { length: 191 })
       .notNull()
       .references(() => checklistInstances.id, { onDelete: 'cascade' }),

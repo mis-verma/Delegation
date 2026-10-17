@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { Input, Button } from "../../components";
 import { forgotPasswordSchema, type ForgotPasswordFields } from "./Schemas";
 import { useForgotPasswordMutation } from "./hooks";
@@ -8,6 +8,7 @@ import { AuthBackground } from "./AuthBackground";
 
 export const ForgotPasswordForm = () => {
   const mutation = useForgotPasswordMutation();
+  const navigate = useNavigate();
 
   const {
     register,
@@ -40,50 +41,42 @@ export const ForgotPasswordForm = () => {
               Reset your password
             </h2>
             <p className="text-xs text-text-secondary font-display">
-              Enter your account email to receive a reset link.
+              Enter your account email. We will send you a 6-digit code.
             </p>
           </div>
 
-          {mutation.isSuccess ? (
-            <div className="flex flex-col gap-3">
-              <p className="text-xs text-text-secondary font-display">
-                If that email is registered, a reset link is on its way. Check your inbox.
-              </p>
-              <Link to="/login" className="font-display text-xs text-primary-600 hover:text-primary-500 transition-colors text-center">
-                Back to sign in
-              </Link>
-            </div>
-          ) : (
-            <form
-              onSubmit={handleSubmit(d => mutation.mutate(d))}
-              className="flex flex-col gap-3.5"
-              noValidate
+          <form
+            onSubmit={handleSubmit(d => mutation.mutate(d, { onSuccess: () => navigate(`/reset-password?email=${encodeURIComponent(d.email.trim().toLowerCase())}`) }))}
+            className="flex flex-col gap-3.5"
+            noValidate
+          >
+            <Input
+              id="email"
+              label="Email address"
+              type="email"
+              placeholder="you@company.com"
+              autoComplete="email"
+              error={errors.email?.message}
+              {...register("email")}
+            />
+
+            <Button
+              type="submit"
+              variant="primary"
+              size="md"
+              isLoading={mutation.isPending}
+              className="mt-1 w-full font-medium bg-gradient-to-r from-primary-800 via-primary-600 to-primary-700 hover:from-primary-700 hover:via-primary-500 hover:to-primary-600 text-white shadow-md transition-all duration-300 py-2 text-sm"
             >
-              <Input
-                id="email"
-                label="Email address"
-                type="email"
-                placeholder="you@company.com"
-                autoComplete="email"
-                error={errors.email?.message}
-                {...register("email")}
-              />
+              Send code
+            </Button>
 
-              <Button
-                type="submit"
-                variant="primary"
-                size="md"
-                isLoading={mutation.isPending}
-                className="mt-1 w-full font-medium bg-gradient-to-r from-primary-800 via-primary-600 to-primary-700 hover:from-primary-700 hover:via-primary-500 hover:to-primary-600 text-white shadow-md transition-all duration-300 py-2 text-sm"
-              >
-                Send reset link
-              </Button>
-
-              <Link to="/login" className="font-display text-xs text-primary-600 hover:text-primary-500 transition-colors text-center mt-1">
-                Back to sign in
-              </Link>
-            </form>
-          )}
+            <Link to="/reset-password" className="font-display text-xs text-primary-600 hover:text-primary-500 transition-colors text-center mt-1">
+              I already have a code
+            </Link>
+            <Link to="/login" className="font-display text-xs text-text-muted hover:text-text transition-colors text-center">
+              Back to sign in
+            </Link>
+          </form>
         </div>
       </div>
     </div>

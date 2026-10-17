@@ -29,7 +29,7 @@ import { auditService } from "../audit/audit.service.js"
 import { cached, cacheKey, bumpVersions, versionTag } from "../../config/queryCache.js"
 import { orgDayStartUtc } from "../../utils/orgDay.js"
 import type { AccessTokenPayload } from "../../middleware/auth/auth.js"
-import type { VerifyChecklistInstanceInput } from "./checklistInstance.validation.js"
+import type { VerifyChecklistInstanceInput, RaiseChecklistTicketInput } from "./checklistInstance.validation.js"
 import type { Role } from "../../db/schema/core.js"
 import { emitChecklistEvent } from "../../sockets/checklistEvent.js"
 import { env } from "../../config/env.js"
@@ -2046,6 +2046,60 @@ export const checklistInstanceService = {
             after: { verificationStatus: "REJECTED", sentBackItemIds: wanted, note },
         })
         await dropChecklistSummaries(assigneeLinks.map((l) => l.userId))
+        emitChecklistEvent("checklist-instance:updated", { storeId: instance.storeId }, { instanceId: id })
+        return getPopulatedInstanceById(id)
+    },
+
+    async raiseTicket(id: string, itemId: string, input: RaiseChecklistTicketInput, user: AccessTokenPayload) {
+        const [instance] = await db.select().from(checklistInstances).where(eq(checklistInstances.id, id)).limit(1)
+        if (!instance) throw AppError.notFound("Checklist instance not found")
+        if (instance.verificationStatus !== "PENDING_APPROVAL") {
+            throw AppError.badRequest("A ticket can be raised only while the checklist is waiting for approval.")
+        }
+
+        const assigneeLinks = await db.select({ userId: checklistInstanceAssignees.userId }).from(checklistInstanceAssignees).where(eq(checklistInstanceAssignees.instanceId, id))
+        const assigneeIds = assigneeLinks.map((l) => l.userId)
+        const assigneeDepartmentIds = await getDepartmentIdsForUserIds(assigneeIds)
+        const reviewerLinks = await db.select({ userId: checklistInstanceReviewers.userId }).from(checklistInstanceReviewers).where(eq(checklistInstanceReviewers.instanceId, id))
+        assertCanVerify(assigneeDepartmentIds, reviewerLinks.map((l) => l.userId), user)
+
+        const [item] = await db.select().from(checklistInstanceItems)
+            .where(and(eq(checklistInstanceItems.id, itemId), eq(checklistInstanceItems.instanceId, id))).limit(1)
+        if (!item) throw AppError.notFound("That question isn't on this checklist.")
+        if (item.reviewTicketId) throw AppError.conflict("A ticket was already raised for this question.")
+
+        const personId = item.completedBy ?? item.sentBackFrom ?? (assigneeIds.length === 1 ? assigneeIds[0] : null)
+        if (!personId) throw AppError.badRequest("Nobody is recorded as answering this question, so there is no one to send the ticket to.")
+        if (personId === user.sub) throw AppError.badRequest("You answered this question yourself, so you can't raise a ticket on it.")
+        const [person] = await db.select({ isActive: users.isActive, departmentId: users.departmentId }).from(users).where(eq(users.id, personId)).limit(1)
+        if (!person?.isActive) throw AppError.badRequest("The person who answered this question is no longer active.")
+
+        const note = input.note.trim()
+        const ticket = await ticketService.create({
+            title: `Checklist: ${item.label}`.slice(0, 191),
+            description: `${note}\n\nRaised during review of the checklist "${instance.title}". Question: ${item.label}`,
+            priority: input.priority ?? "MEDIUM",
+            assignmentMode: "MANUAL",
+            assigneeId: personId,
+            storeId: instance.storeId,
+            departmentId: person.departmentId ?? undefined,
+            tatHours: input.tatHours,
+        }, user)
+        if (!ticket) throw AppError.badRequest("The ticket could not be created. Try again.")
+
+        await db.update(checklistInstanceItems).set({
+            reviewTicketId: ticket.id,
+            sendBackCount: sql`${checklistInstanceItems.sendBackCount} + 1`,
+            sentBackFrom: sql`COALESCE(${checklistInstanceItems.completedBy}, ${checklistInstanceItems.sentBackFrom})`,
+            updatedAt: new Date(),
+        }).where(eq(checklistInstanceItems.id, itemId))
+
+        await auditService.record({
+            entityType: "ChecklistInstance", entityId: id, action: "RAISE_TICKET", actorId: user.sub,
+            before: { itemId, reviewTicketId: null },
+            after: { itemId, question: item.label, reviewTicketId: ticket.id, assigneeId: personId, tatHours: input.tatHours, note },
+        })
+        await dropChecklistSummaries(assigneeIds)
         emitChecklistEvent("checklist-instance:updated", { storeId: instance.storeId }, { instanceId: id })
         return getPopulatedInstanceById(id)
     },

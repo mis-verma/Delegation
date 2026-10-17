@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Ticket as TicketIcon, AlertCircle, Check, Type, AlignLeft, Building2, Flag, Camera, Image as ImageIcon, Route, Clock, UserCheck, ArrowRight } from 'lucide-react';
+import { Ticket as TicketIcon, AlertCircle, Check, FileClock, Type, AlignLeft, Building2, Flag, Camera, Image as ImageIcon, Route, Clock, UserCheck, ArrowRight } from 'lucide-react';
 
 import { Button, Modal, Input, Combobox, DepartmentChip, IconChip } from '../../components';
 import { useConfirm } from '@/components/confirmDialog';
@@ -32,6 +32,8 @@ import { StagedFileChips } from '../tasks/StagedFileChips';
 import { useAuth } from '../../context/AuthContext';
 import { OWN_SCOPE_ROLES } from '../../api/auth';
 import { errorMessage, invalidateScoreCaches } from '../../lib/queryHelpers';
+import type { Draft } from '../../api/drafts';
+import { useDeleteDraftMutation, useSaveDraftMutation } from '../drafts/hook';
 
 // Quiet fill until focused; Input's own danger styling takes over once validation fails.
 const QUIET_FIELD_CLASS = 'font-display border-transparent bg-surface-hover/50 hover:bg-surface-hover focus:bg-surface';
@@ -56,9 +58,10 @@ interface TicketFormProps {
   /** Starts the due date and time on this moment (the Calendar's "New ticket" for the picked day).
    *  Ignored when it is already in the past, since a ticket's due time must be in the future. */
   defaultDueDate?: Date;
+  draft?: Draft;
 }
 
-export const TicketForm = ({ onClose, defaultDueDate }: TicketFormProps) => {
+export const TicketForm = ({ onClose, defaultDueDate, draft }: TicketFormProps) => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const confirm = useConfirm();
@@ -72,6 +75,8 @@ export const TicketForm = ({ onClose, defaultDueDate }: TicketFormProps) => {
   const { data: categories } = useCategoriesQuery();
   const { data: tags } = useTagsQuery(!ownScopeOnly);
   const mutation = useCreateTicketMutation();
+  const saveDraft = useSaveDraftMutation('TICKET');
+  const deleteDraft = useDeleteDraftMutation('TICKET');
   const queryClient = useQueryClient();
   // "Create new" from inside this form: a missing category or department can be added on the spot by
   // Admin/PC (the server only lets them), then it's selected.
@@ -108,11 +113,12 @@ export const TicketForm = ({ onClose, defaultDueDate }: TicketFormProps) => {
     handleSubmit,
     control,
     setValue,
+    getValues,
     formState: { errors, isDirty, submitCount },
   } = useForm<TicketFields>({
     resolver: zodResolver(schema),
     // Front-line staff start on "What is it about?", which is the category route.
-    defaultValues: { priority: 'MEDIUM', assignmentMode: ownScopeOnly ? 'AUTO' : 'MANUAL', ...initialDue },
+    defaultValues: { priority: 'MEDIUM', assignmentMode: ownScopeOnly ? 'AUTO' : 'MANUAL', ...initialDue, ...(draft?.payload as Partial<TicketFields> | undefined) },
   });
   // After the first Create press, every change re-checks its field so a fixed error clears at once.
   const validateOnChange = submitCount > 0;
@@ -216,6 +222,7 @@ export const TicketForm = ({ onClose, defaultDueDate }: TicketFormProps) => {
         tagIds: !ownScopeOnly && data.tagIds?.length ? data.tagIds : undefined,
       });
       createdId = created.id;
+      if (draft) deleteDraft.mutate(draft.id);
     } catch {
       // The server's own message shows next to the Create button (mutation.error).
       submittingRef.current = false;
@@ -252,6 +259,20 @@ export const TicketForm = ({ onClose, defaultDueDate }: TicketFormProps) => {
     anchor.querySelector<HTMLElement>('input:not([type="file"]):not([type="hidden"]), textarea, button')?.focus({ preventScroll: true });
   };
 
+  const handleSaveDraft = async () => {
+    const values = getValues();
+    try {
+      await saveDraft.mutateAsync({ id: draft?.id, title: values.title?.trim() ?? '', payload: values as Record<string, unknown> });
+    } catch {
+      return;
+    }
+    haptic('success');
+    toast.success(photos.length ? 'Draft saved. Photos are not kept in a draft, add them when you send it.' : 'Draft saved', {
+      description: 'Find it under Drafts on the Tickets page.',
+    });
+    onClose();
+  };
+
   const handleCancel = async () => {
     if (dirty && !(await confirm({
       title: 'Discard changes?',
@@ -280,7 +301,11 @@ export const TicketForm = ({ onClose, defaultDueDate }: TicketFormProps) => {
         <Button type="button" variant="outline" size="sm" onClick={handleCancel} disabled={submitting} className="hidden sm:inline-flex font-display">
           Cancel
         </Button>
-        <Button type="submit" form="ticket-form" variant="primary" size="sm" isLoading={submitting} className="max-sm:flex-1 max-sm:h-11 font-display">
+        <Button type="button" variant="outline" size="sm" onClick={() => void handleSaveDraft()} isLoading={saveDraft.isPending} disabled={submitting} className="max-sm:h-11 font-display">
+          {!saveDraft.isPending && <FileClock size={15} aria-hidden />}
+          {draft ? 'Update draft' : 'Save draft'}
+        </Button>
+        <Button type="submit" form="ticket-form" variant="primary" size="sm" isLoading={submitting} disabled={saveDraft.isPending} className="max-sm:flex-1 max-sm:h-11 font-display">
           {!submitting && <Check size={16} strokeWidth={2.5} />}
           {submitting ? (photos.length ? 'Adding photos…' : 'Creating…') : 'Create ticket'}
         </Button>
@@ -411,7 +436,7 @@ export const TicketForm = ({ onClose, defaultDueDate }: TicketFormProps) => {
       dirty={dirty}
       size="2xl"
       icon={<TicketIcon className="w-5 h-5" />}
-      title="New ticket"
+      title={draft ? 'Finish draft ticket' : 'New ticket'}
       description={<span className="hidden sm:inline">Describe the problem on the left, then choose where it goes on the right.</span>}
       footer={footer}
       bodyClassName="p-0 sm:p-0 overflow-y-auto"

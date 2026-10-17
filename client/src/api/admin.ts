@@ -41,6 +41,7 @@ export type CreateUserPayload = {
     reportsToId?: string | null;
     phone?: string;
     weekOffDays?: number[];
+    sendSetupCode?: boolean;
 };
 
 export type UpdateUserPayload = Partial<Omit<CreateUserPayload, "password" | "departmentId" | "storeId" | "gender" | "dressTypeId" | "reportsToId" | "phone">> & {
@@ -99,7 +100,10 @@ export const adminApi = {
     getOne: (id: string) => apiFetch<ApiResponse<AdminUser>>(`/users/${id}`),
 
     create: (payload: CreateUserPayload) =>
-        apiFetch<ApiResponse<AdminUser>>("/users", { method: "POST", body: JSON.stringify(payload) }),
+        apiFetch<ApiResponse<AdminUser> & { setupCodeSent?: boolean }>("/users", { method: "POST", body: JSON.stringify(payload) }),
+
+    sendPasswordCode: (id: string) =>
+        apiFetch<ApiResponse<{ sent: boolean }>>(`/users/${id}/send-password-code`, { method: "POST" }),
 
     update: (id: string, payload: UpdateUserPayload) =>
         apiFetch<ApiResponse<AdminUser>>(`/users/${id}`, { method: "PATCH", body: JSON.stringify(payload) }),

@@ -154,7 +154,7 @@ export const useUserQuery = (id: string) => {
 export const useCreateUserMutation = () => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: (payload: CreateUserPayload) => adminApi.create(payload).then(r => r.data),
+        mutationFn: (payload: CreateUserPayload) => adminApi.create(payload).then(r => ({ ...r.data, setupCodeSent: r.setupCodeSent === true })),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: USER_KEYS.all });
             // Also covers the "/users/assignable" lookups (tasks & tickets hooks) so a newly
@@ -273,6 +273,13 @@ export const useDeleteUserMutation = () => {
         onError: (err) => toast.error(errorMessage(err, 'Failed to delete user')),
     });
 };
+
+export const useSendPasswordCodeMutation = () =>
+    useMutation({
+        mutationFn: (id: string) => adminApi.sendPasswordCode(id),
+        onSuccess: () => toast.success('Code emailed. It works for 24 hours.'),
+        onError: (err) => toast.error(errorMessage(err, "Couldn't email the code")),
+    });
 
 export const useResetUserPasswordMutation = () => {
     return useMutation({

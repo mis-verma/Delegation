@@ -1,3 +1,4 @@
+import { TICKET_PRIORITIES } from "../../db/schema/ticket.js"
 import { z } from "zod"
 import { CAPTURE_METHODS } from "../../db/schema/task.js"
 import { objectId } from "../../utils/index.js"
@@ -83,6 +84,12 @@ export const sendBackChecklistInstanceSchema = z.object({
 
 // A reviewer excuses one question that would count against compliance: the reason is required and is shown
 // to the person and written to the audit log.
+export const raiseChecklistTicketSchema = z.object({
+    note: z.string().trim().min(5, "Say what is wrong and what to fix.").max(2000),
+    tatHours: z.number().positive().max(24 * 30),
+    priority: z.enum(TICKET_PRIORITIES).optional(),
+})
+
 export const waiveChecklistItemSchema = z.object({
     reason: z.string().trim().min(5, "Say why this is being waived.").max(500),
 })
@@ -90,6 +97,7 @@ export const waiveChecklistItemSchema = z.object({
 export type SetChecklistInstanceItemDoneInput = z.infer<typeof setChecklistInstanceItemDoneSchema>
 export type UploadChecklistInstanceImageInput = z.infer<typeof uploadChecklistInstanceImageSchema>
 export type VerifyChecklistInstanceInput = z.infer<typeof verifyChecklistInstanceSchema>
+export type RaiseChecklistTicketInput = z.infer<typeof raiseChecklistTicketSchema>
 export type ChecklistInstanceComplianceReportQuery = z.infer<typeof checklistInstanceComplianceReportQuerySchema>
 
 // Same page/limit convention as listDepartmentsQuerySchema — the list endpoints here were

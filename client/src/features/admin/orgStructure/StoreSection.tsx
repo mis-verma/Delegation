@@ -1,9 +1,10 @@
 import { memo, useId, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ChevronDown, Layers, Store as StoreIcon, Users as UsersIcon } from 'lucide-react';
+import { ChevronDown, CircleOff, Hash, Layers, Store as StoreIcon, Users as UsersIcon } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { EntityIconTile, MetricPill, AvatarStack, StateChip } from '../../../components';
+import { EntityIconTile, AvatarStack } from '../../../components';
+import { CardChip, ScorePill } from '../directory/orgScores';
 import { resolveAvatarUrl } from '../../../lib/uploadsBase';
 import type { OrgMovePatch, StoreNode } from './orgStructureDisplay';
 import { fullName, isLeavingDropTarget, readDraggedUser } from './orgStructureDisplay';
@@ -86,47 +87,43 @@ const StoreSectionComponent = ({
           : 'border-border bg-surface hover:border-coral-300'
       )}
     >
-      <button
-        type="button"
-        onClick={forceOpen ? undefined : () => onToggle(node.store.id)}
-        aria-expanded={open}
-        aria-controls={panelId}
-        // aria-disabled, not disabled: while a search holds every branch open the button must stay focusable.
-        aria-disabled={forceOpen || undefined}
-        className={cn(
-          'flex w-full min-h-11 items-center gap-3 sm:gap-4 p-4 sm:p-5 text-left transition-colors duration-200 hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40',
-          open && 'bg-gradient-to-r from-coral-500/8 to-transparent',
-          forceOpen ? 'cursor-default' : 'cursor-pointer'
-        )}
-      >
-        <EntityIconTile icon={StoreIcon} tone="coral" className="size-10 sm:size-11" />
-        <div className="min-w-0 flex-1 flex flex-col gap-1">
-          <h3 className="flex flex-wrap items-center gap-x-2 gap-y-1 text-base font-display font-bold leading-snug text-text">
-            <span className="line-clamp-2 break-words">{node.store.name}</span>
-            {node.store.code && (
-              <span className="shrink-0 text-xs font-display font-bold px-1.5 py-0.5 rounded-md border border-border bg-surface-hover text-text-secondary">
-                {node.store.code}
-              </span>
+      {/* The score pill is a link, so it sits beside the toggle button, not inside it; the chevron rides with it
+          and lets clicks fall through to the button. */}
+      <div className="relative">
+        <button
+          type="button"
+          onClick={forceOpen ? undefined : () => onToggle(node.store.id)}
+          aria-expanded={open}
+          aria-controls={panelId}
+          // aria-disabled, not disabled: while a search holds every branch open the button must stay focusable.
+          aria-disabled={forceOpen || undefined}
+          className={cn(
+            'flex w-full min-h-11 items-center gap-3 p-4 pr-28 sm:p-5 sm:pr-32 text-left transition-colors duration-200 hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-500/40',
+            open && 'bg-linear-to-r from-coral-500/8 to-transparent',
+            forceOpen ? 'cursor-default' : 'cursor-pointer'
+          )}
+        >
+          <EntityIconTile icon={StoreIcon} tone="coral" className="size-10 sm:size-11" />
+          <div className="min-w-0 flex-1 flex flex-col gap-1.5">
+            <h3 className="t-card font-display font-bold leading-snug text-text line-clamp-2 break-words">{node.store.name}</h3>
+            {isDropTarget ? (
+              <p className="t-meta font-display font-semibold text-coral-700 dark:text-coral-300">Drop to assign here, no department</p>
+            ) : (
+              <div className="flex flex-wrap items-center gap-1.5">
+                {node.store.code && <CardChip icon={Hash} label={node.store.code} />}
+                <CardChip icon={UsersIcon} tone="coral" label={`${node.activeCount} ${node.activeCount === 1 ? 'person' : 'people'}`} />
+                <CardChip icon={Layers} tone="primary" label={`${node.departments.length} ${node.departments.length === 1 ? 'department' : 'departments'}`} />
+                {!node.store.isActive && <CardChip icon={CircleOff} label="Inactive" />}
+              </div>
             )}
-            {!node.store.isActive && (
-              <StateChip active={false} label="Inactive" size="sm" />
-            )}
-          </h3>
-          <p className="text-xs font-display text-text-muted">
-            {isDropTarget
-              ? 'Drop to assign here, no department'
-              : `${node.departments.length} ${node.departments.length === 1 ? 'department' : 'departments'}`}
-            <span className="md:hidden">
-              {isDropTarget ? '' : ` · ${node.activeCount} ${node.activeCount === 1 ? 'person' : 'people'}`}
-            </span>
-          </p>
+          </div>
+          <AvatarStack people={people} max={4} size="sm" className="hidden md:flex shrink-0" />
+        </button>
+        <div className="absolute right-4 sm:right-5 top-1/2 -translate-y-1/2 flex items-center gap-2">
+          <ScorePill kind="store" id={node.store.id} name={node.store.name} />
+          <ChevronDown className={cn('pointer-events-none size-4 text-text-light shrink-0 transition-transform duration-300', open && 'rotate-180')} aria-hidden />
         </div>
-        <div className="hidden md:flex items-center gap-3 shrink-0">
-          <AvatarStack people={people} max={4} size="sm" />
-          <MetricPill icon={UsersIcon}>{node.activeCount} {node.activeCount === 1 ? 'person' : 'people'}</MetricPill>
-        </div>
-        <ChevronDown className={cn('size-4 text-text-light shrink-0 transition-transform duration-300', open && 'rotate-180')} aria-hidden />
-      </button>
+      </div>
 
       <AnimatePresence initial={false}>
         {open && (
@@ -140,17 +137,17 @@ const StoreSectionComponent = ({
           >
             <div className="border-t border-border bg-surface-hover/30 p-4 sm:p-5">
               {node.departments.length === 0 && node.directUsers.length === 0 ? (
-                <p className="flex items-center justify-center gap-2 rounded-xl border border-border px-4 py-6 text-center text-sm font-display text-text-muted">
+                <p className="flex items-center justify-center gap-2 rounded-xl border border-border px-4 py-6 text-center t-meta font-display text-text-muted">
                   <Layers className="size-4 shrink-0 text-text-light" aria-hidden />
                   This store has no departments or staff yet. Assign a department to it from People &amp; Teams.
                 </p>
               ) : (
                 <div className="flex flex-col gap-3">
                   {/* A small label so the level reads at a glance: this row is the store's departments. */}
-                  <p className="flex items-center gap-2 text-xs font-display font-bold text-text-muted">
+                  <p className="flex items-center gap-2 t-meta font-display font-bold text-text-muted">
                     <Layers className="size-3.5" aria-hidden />
                     Departments
-                    <span className="rounded-full bg-border/60 px-1.5 text-text-secondary tabular-nums">{node.departments.length}</span>
+                    <span className="rounded-md bg-border/60 px-1.5 text-text-secondary tabular-nums">{node.departments.length}</span>
                   </p>
                 {/* The hierarchy as branches: the store is the root above, each department hangs off
                     the trunk as a node, and its people hang off the department in turn. */}
@@ -171,7 +168,7 @@ const StoreSectionComponent = ({
                   {node.directUsers.length > 0 && (
                     <TreeItem tone="leaf">
                       <div className="flex flex-col gap-0.5 rounded-xl border border-border bg-surface p-2">
-                        <p className="px-2.5 py-1.5 text-xs font-display font-bold text-text-secondary">
+                        <p className="px-2.5 py-1.5 t-meta font-display font-bold text-text-secondary">
                           Store staff with no department
                         </p>
                         {node.directUsers.map((u) => (

@@ -1,0 +1,2 @@
+ALTER TABLE `ChecklistInstanceItem` ADD `reviewTicketId` varchar(191);--> statement-breakpoint
+ALTER TABLE `ChecklistInstanceItem` ADD CONSTRAINT `ChecklistInstanceItem_reviewTicketId_Ticket_id_fk` FOREIGN KEY (`reviewTicketId`) REFERENCES `Ticket`(`id`) ON DELETE no action ON UPDATE no action;

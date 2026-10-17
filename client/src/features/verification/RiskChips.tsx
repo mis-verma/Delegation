@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { AlertTriangle, CheckCircle2, CornerUpLeft, Flag, Gauge, ImageOff } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, CornerUpLeft, Flag, Gauge, ImageOff, Ticket } from 'lucide-react';
 import { IconChip } from '../../components';
 import { cn } from '@/lib/utils';
 import type { ChecklistRisk } from './verificationModel';
@@ -46,6 +46,9 @@ export const RiskChips = memo(function RiskChips({ risk, className }: RiskChipsP
           label={risk.sentBackTimes === 1 ? 'Sent back once' : `Sent back ${risk.sentBackTimes} times`}
           title="Total times questions in this run were sent back"
         />
+      )}
+      {risk.ticketsRaised > 0 && (
+        <IconChip icon={Ticket} tone="bg-danger" label={plural(risk.ticketsRaised, 'ticket raised', 'tickets raised')} title="Tickets raised on answers in this run" />
       )}
       {risk.clean && <IconChip icon={CheckCircle2} tone="bg-success" label="No issues" title="Fully compliant, photos in, never sent back" />}
     </div>

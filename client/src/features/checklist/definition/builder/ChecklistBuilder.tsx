@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, useBlocker, useSearchParams } from 'react-router';
 import { motion, useReducedMotion } from 'framer-motion';
 import { toast } from 'sonner';
-import { ArrowLeft, AlertCircle, ListChecks, ChevronLeft, ChevronRight, ClipboardX } from 'lucide-react';
+import { ArrowLeft, AlertCircle, ListChecks, ChevronLeft, ChevronRight, ClipboardX, FileClock } from 'lucide-react';
 import {
   Skeleton, Breadcrumbs, Button, ChecklistProgressBar, EmptyState, InlineError, PageHeader, PANEL_CLASS,
 } from '../../../../components';
@@ -31,6 +31,7 @@ import { BuilderReviewStep } from './wizard/BuilderReviewStep';
 import { emptyItemDraft, type ItemDraft } from '../ChecklistDefinitionItemDraftRow';
 import { normalizeItemOrder, cloneItemDraft, MAX_CHECKLIST_ITEMS } from '../itemSections';
 import { BuilderItemsList } from './BuilderItemsList';
+import { useDeleteDraftMutation, useDraftsQuery, useSaveDraftMutation } from '../../../drafts/hook';
 import type {
   ChecklistDefinition, ChecklistRecurrence, ChecklistIcon, ChecklistResponseMode,
   ChecklistDefinitionItem, CreateChecklistDefinitionItemPayload,
@@ -239,6 +240,12 @@ export const ChecklistBuilder = () => {
   const [searchParams] = useSearchParams();
   const copyFromId = isEditing ? '' : searchParams.get('copyFrom') ?? '';
   const isCopying = !!copyFromId;
+  const draftParam = isEditing || isCopying ? '' : searchParams.get('draft') ?? '';
+  const [draftId, setDraftId] = useState(draftParam);
+  const draftsQuery = useDraftsQuery('CHECKLIST', !!draftParam);
+  const draftSource = draftParam ? draftsQuery.data?.find(d => d.id === draftParam) : undefined;
+  const saveDraft = useSaveDraftMutation('CHECKLIST');
+  const deleteDraft = useDeleteDraftMutation('CHECKLIST');
 
   const { data: existing, isPending: isLoadingExisting, isError: loadError, error: loadErrorObj, refetch: refetchExisting } = useChecklistDefinitionQuery(definitionId ?? '');
   const isDeleted = loadErrorObj instanceof ApiError && loadErrorObj.status === 404;
@@ -363,6 +370,30 @@ export const ChecklistBuilder = () => {
     applyDefinition(copySource, true);
   }
 
+  const [hydratedDraftId, setHydratedDraftId] = useState<string | undefined>(undefined);
+  const applyDraft = (payload: Record<string, unknown>) => {
+    const snap = { ...BLANK_SNAPSHOT, ...(payload as Partial<BuilderSnapshot>) };
+    setName(snap.name);
+    setDescription(snap.description);
+    setIcon(snap.icon);
+    setStoreIds(snap.storeIds);
+    setRecurrence(snap.recurrence);
+    setStartDate(snap.startDate);
+    setOpensTime(snap.opensTime);
+    setCutoffTime(snap.cutoffTime);
+    setActiveWeekdays(snap.activeWeekdays);
+    setResponseMode(snap.responseMode);
+    setAssigneeIds(snap.assigneeIds);
+    setReviewerIds(snap.reviewerIds);
+    setItemDrafts(normalizeItemOrder(snap.itemDrafts, snap.sections));
+    setSections(snap.sections);
+    setBaseline(snapshotKey(snap));
+  };
+  if (draftSource && hydratedDraftId !== draftSource.id) {
+    setHydratedDraftId(draftSource.id);
+    applyDraft(draftSource.payload);
+  }
+
   // Brand-new checklist only (a copy brings its own reviewers): PC is the org's default reviewer, so a fresh checklist starts with every
   // PC-role user pre-picked instead of an empty reviewer list nobody remembers to fill in. Still
   // just a starting point: the maker can remove any of them or add a department's HOD from the
@@ -370,8 +401,8 @@ export const ChecklistBuilder = () => {
   // during render, not inside an effect) and folded into `baseline` too, so this doesn't itself
   // count as an unsaved change the moment the form opens.
   const [reviewerDefaultApplied, setReviewerDefaultApplied] = useState(false);
-  const orgWideUsers = useAssignableUsersQuery(undefined, undefined, undefined, !isEditing && !isCopying);
-  if (!isEditing && !isCopying && !reviewerDefaultApplied && orgWideUsers.data) {
+  const orgWideUsers = useAssignableUsersQuery(undefined, undefined, undefined, !isEditing && !isCopying && !draftParam);
+  if (!isEditing && !isCopying && !draftParam && !reviewerDefaultApplied && orgWideUsers.data) {
     setReviewerDefaultApplied(true);
     const pcIds = orgWideUsers.data.filter(u => u.role === 'PC').map(u => u.id);
     if (pcIds.length && !reviewerIds.length) {
@@ -489,7 +520,7 @@ export const ChecklistBuilder = () => {
   // row's closure can point at the wrong item if the array is reordered (drag, another row's
   // removal) between render and click. Stable (setState only) so memoised rows can keep it.
   const updateDraft = useCallback((key: string, patch: Partial<ItemDraft>) =>
-    setItemDrafts(drafts => drafts.map(d => (d.key === key ? { ...d, ...patch } : d))), []);
+    setItemDrafts(drafts => drafts.map(d => (d.key === key ? { ...d, ...patch } : d))), [setItemDrafts]);
 
   // Inserted via normalizeItemOrder rather than a plain append: appending to the end of the flat
   // array would land the new item after whichever section happens to be last in storage order,
@@ -511,10 +542,10 @@ export const ChecklistBuilder = () => {
     // phone the type grid sits below the list, so the card is otherwise off screen.
     window.setTimeout(() => revealAfterRender(() => questionFieldOf(draft.key), false, 'center'), 80);
     return true;
-  }, [activeSection, sections]);
+  }, [activeSection, sections, setItemDrafts]);
 
   const removeItem = useCallback((key: string) =>
-    setItemDrafts(drafts => drafts.filter(d => d.key !== key)), []);
+    setItemDrafts(drafts => drafts.filter(d => d.key !== key)), [setItemDrafts]);
 
   const handleImportTemplate = (templateId: string) => {
     const template = templates?.find(t => t.id === templateId);
@@ -628,12 +659,50 @@ export const ChecklistBuilder = () => {
       });
     } else {
       createDefinition.mutate(payload, {
-        onSuccess: (created) => { markClean(); navigate(`/admin/scheduled-checklists/${created.id}`); },
+        onSuccess: (created) => {
+          if (draftId) deleteDraft.mutate(draftId);
+          markClean();
+          navigate(`/admin/scheduled-checklists/${created.id}`);
+        },
       });
     }
   };
 
-  if ((isEditing && isLoadingExisting) || (isCopying && isLoadingCopy)) return <BuilderSkeleton />;
+  const handleSaveDraft = () => {
+    if (!name.trim()) {
+      toast.error('Give the checklist a name first, so you can find the draft later.');
+      goToStep(0);
+      revealAfterRender(() => document.getElementById('checklist-name'), true);
+      return;
+    }
+    const snapshot: BuilderSnapshot = {
+      name, description, icon, storeIds, recurrence, startDate, opensTime, cutoffTime, activeWeekdays,
+      responseMode, assigneeIds, reviewerIds, itemDrafts, sections,
+    };
+    saveDraft.mutate({ id: draftId || undefined, title: name.trim(), payload: snapshot as unknown as Record<string, unknown> }, {
+      onSuccess: (saved) => {
+        setDraftId(saved.id);
+        setBaseline(snapshotKey(snapshot));
+        toast.success('Draft saved', { description: 'Find it under Drafts on Recurring Checklists. Add the people when they are set up, then create it.' });
+      },
+    });
+  };
+
+  const draftButton = !isEditing && (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      onClick={handleSaveDraft}
+      isLoading={saveDraft.isPending}
+      className="font-display pointer-coarse:h-11"
+    >
+      {!saveDraft.isPending && <FileClock size={14} aria-hidden />}
+      {draftId ? 'Update draft' : 'Save draft'}
+    </Button>
+  );
+
+  if ((isEditing && isLoadingExisting) || (isCopying && isLoadingCopy) || (!!draftParam && draftsQuery.isPending)) return <BuilderSkeleton />;
 
   // 404 means the checklist was actually deleted: retrying just repeats the same doomed request
   // (see lib/queryHelpers.ts's handleQueryRetry), so this gets its own message and a way back
@@ -822,7 +891,7 @@ export const ChecklistBuilder = () => {
 
       <PageHeader
         icon={ListChecks}
-        title={isEditing ? `Editing: ${existing?.name}` : isCopying ? 'Duplicate Checklist' : 'New Checklist'}
+        title={isEditing ? `Editing: ${existing?.name}` : isCopying ? 'Duplicate Checklist' : draftSource ? 'Finish draft checklist' : 'New Checklist'}
         subtitle={
           isEditing && existing
             ? `Version ${existing.version} · ${existing.isActive ? `Live in ${existing.storeIds.length} store${existing.storeIds.length !== 1 ? 's' : ''}` : 'Paused'}`
@@ -831,6 +900,8 @@ export const ChecklistBuilder = () => {
               : 'Build a recurring checklist your team runs on a schedule.'
         }
         actions={
+          <div className="flex items-center gap-2">
+          {draftButton}
           <Button
             type="button"
             variant="secondary"
@@ -842,6 +913,7 @@ export const ChecklistBuilder = () => {
             <ArrowLeft size={13} />
             <span className="hidden sm:inline">Back to Recurring Checklists</span>
           </Button>
+          </div>
         }
       />
 

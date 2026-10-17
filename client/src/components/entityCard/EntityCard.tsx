@@ -5,7 +5,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { Loader } from '../loaders/Loader';
 import { Switch } from '../switch';
-import { Dropdown } from '../dropdown';
+import { Dropdown, type DropdownAction } from '../dropdown';
 import { Skeleton } from '../skeleton';
 import { Tabs, TabsList, TabsTrigger } from '../ui/tabs';
 
@@ -165,16 +165,19 @@ interface EntityCardActionsProps {
    *  (checklists) pass these; Users/Departments/Stores leave them out and look exactly as before. */
   onDuplicate?: () => void;
   duplicateLabel?: string;
+  /** Extra items between Edit and Delete, e.g. Deactivate on the Departments and Stores cards. */
+  extraItems?: DropdownAction[];
 }
-  
+
 // One "more actions" menu instead of a row of pencil, copy and trash icons: Edit, Duplicate (when the
 // thing can be copied) and Delete (red, after a divider). 44px target on touch, 36px with a mouse.
-export const EntityCardActions = ({ onEdit, onDelete, isDeleting, editLabel, deleteLabel, onDuplicate, duplicateLabel }: EntityCardActionsProps) => (
+export const EntityCardActions = ({ onEdit, onDelete, isDeleting, editLabel, deleteLabel, onDuplicate, duplicateLabel, extraItems = [] }: EntityCardActionsProps) => (
   <Dropdown
     align="end"
     items={[
       { label: editLabel, icon: Pencil, onClick: onEdit },
       ...(onDuplicate ? [{ label: duplicateLabel ?? 'Duplicate', icon: Copy, onClick: onDuplicate }] : []),
+      ...extraItems,
       { label: deleteLabel, icon: Trash2, variant: 'destructive' as const, separatorBefore: true, onClick: onDelete },
     ]}
     trigger={

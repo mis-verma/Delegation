@@ -1,6 +1,6 @@
 import type { Request, Response } from "express"
 import { checklistInstanceService, type InstanceRecurrence, type InstanceVerificationStatus } from "./checklistInstance.service.js"
-import { setChecklistInstanceItemDoneSchema, verifyChecklistInstanceSchema, sendBackChecklistInstanceSchema, waiveChecklistItemSchema, checklistInstanceComplianceReportQuerySchema, checklistInstanceByStoreReportQuerySchema, checklistInstanceScoreRunsQuerySchema, listChecklistInstancesQuerySchema, listPendingVerificationQuerySchema, periodReportQuerySchema, decisionsQuerySchema, summaryQuerySchema } from "./checklistInstance.validation.js"
+import { setChecklistInstanceItemDoneSchema, verifyChecklistInstanceSchema, sendBackChecklistInstanceSchema, waiveChecklistItemSchema, raiseChecklistTicketSchema, checklistInstanceComplianceReportQuerySchema, checklistInstanceByStoreReportQuerySchema, checklistInstanceScoreRunsQuerySchema, listChecklistInstancesQuerySchema, listPendingVerificationQuerySchema, periodReportQuerySchema, decisionsQuerySchema, summaryQuerySchema } from "./checklistInstance.validation.js"
 import { asyncHandler } from "../../utils/asyncHandler.js"
 import { resolveChecklistReportScope } from "./checklistReportScope.js"
 import { checklistReportService } from "./checklistReport.service.js"
@@ -231,6 +231,11 @@ export const checklistInstanceController = {
     unwaiveItem: asyncHandler(async (req: Request, res: Response) => {
         const instance = await checklistInstanceService.unwaiveItem(req.params.id, req.params.itemId, req.user!)
         res.json({ success: true, data: instance })
+    }),
+    raiseTicket: asyncHandler(async (req: Request, res: Response) => {
+        const input = raiseChecklistTicketSchema.parse(req.body)
+        const instance = await checklistInstanceService.raiseTicket(req.params.id, req.params.itemId, input, req.user!)
+        res.status(201).json({ success: true, data: instance })
     }),
     sendBack: asyncHandler(async (req: Request, res: Response) => {
         const input = sendBackChecklistInstanceSchema.parse(req.body)

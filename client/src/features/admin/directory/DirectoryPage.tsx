@@ -13,10 +13,10 @@ import { useStoresQuery } from '../../tickets/hook';
 const OrgStructurePage = lazy(() => import('../orgStructure').then((m) => ({ default: m.OrgStructurePage })));
 
 const TABS = [
-  { value: 'users', label: 'Users', icon: Users },
-  { value: 'departments', label: 'Departments', icon: Building2 },
-  { value: 'stores', label: 'Stores', icon: Store },
-  { value: 'structure', label: 'Org structure', icon: Network },
+  { value: 'users', label: 'Users', short: 'People', icon: Users },
+  { value: 'departments', label: 'Departments', short: 'Depts', icon: Building2 },
+  { value: 'stores', label: 'Stores', short: 'Stores', icon: Store },
+  { value: 'structure', label: 'Org structure', short: 'Structure', icon: Network },
 ] as const;
 
 type TabValue = (typeof TABS)[number]['value'];
@@ -68,27 +68,26 @@ export const DirectoryPage = () => {
       <PageHeader icon={Contact} title="People & Teams" subtitle="Add people, place them in departments and stores, and choose what each person can see." />
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as TabValue)} className="gap-4">
-        {/* Scrolls horizontally instead of clipping the last tab on narrow phones: AdminLayout's
-            <main> is overflow-x-hidden, so this row needs its own scroll container. */}
+        {/* On a phone the four views share one row as equal segments (icon over a short name), so
+            nothing wraps or gets cut; from sm they become a row of pills with their counts. */}
         <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          <div className="overflow-x-auto max-w-full">
-            <TabsList className="rounded-full gap-1 h-auto w-fit">
-              {TABS.map(({ value, label, icon: Icon }) => (
-                <TabsTrigger
-                  key={value}
-                  value={value}
-                  className="gap-1.5 min-h-11 sm:min-h-8 px-3.5 py-1.5 text-sm rounded-full font-display"
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  {label}
-                  {counts[value] !== undefined && (
-                    <span className="text-xs font-medium opacity-70">{counts[value]}</span>
-                  )}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </div>
-          {summary && <p className="text-xs font-display text-text-muted">{summary}</p>}
+          <TabsList className="grid w-full grid-cols-4 gap-1 h-auto rounded-xl p-1 sm:flex sm:w-fit sm:rounded-full">
+            {TABS.map(({ value, label, short, icon: Icon }) => (
+              <TabsTrigger
+                key={value}
+                value={value}
+                className="flex-col gap-0.5 min-h-12 px-1 py-1.5 rounded-lg t-meta font-display font-semibold sm:flex-row sm:gap-1.5 sm:min-h-8 sm:px-3.5 sm:rounded-full sm:text-sm"
+              >
+                <Icon className="size-4 sm:size-3.5" aria-hidden />
+                <span className="sm:hidden">{short}</span>
+                <span className="hidden sm:inline">{label}</span>
+                {counts[value] !== undefined && (
+                  <span className="hidden sm:inline t-meta font-medium opacity-70 tabular-nums">{counts[value]}</span>
+                )}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          {summary && <p className="hidden sm:block t-meta font-display text-text-muted">{summary}</p>}
         </div>
 
         <TabsContent value="users">

@@ -3,7 +3,7 @@ import { useForm, useWatch, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { UserPlus, ClipboardCheck, ShieldCheck, Building2, Store, KeyRound, User, Mail, Phone, CalendarOff, Copy, Wand2, Pencil, Shirt, Network } from 'lucide-react';
-import { Input, Button, Modal, Combobox, AvatarUpload, WeekdayPicker, InlineError, useConfirm } from '../../../components';
+import { Input, Button, Modal, Combobox, AvatarUpload, WeekdayPicker, InlineError, Switch, useConfirm } from '../../../components';
 import {
   useCreateUserMutation,
   useUpdateUserMutation,
@@ -109,7 +109,8 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
   const [showPassword, setShowPassword] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   // Set after a successful create: swaps the form for a one-time "share this password" panel.
-  const [created, setCreated] = useState<{ user: AdminUser; password: string } | null>(null);
+  const [created, setCreated] = useState<{ user: AdminUser; password: string; codeSent: boolean } | null>(null);
+  const [emailCode, setEmailCode] = useState(true);
 
   const createMutation = useCreateUserMutation();
   const updateMutation = useUpdateUserMutation();
@@ -293,11 +294,12 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
         dressTypeId: dressTypeId ?? undefined,
         reportsToId: reportsToId ?? undefined,
         weekOffDays: data.weekOffDays.length > 0 ? data.weekOffDays : undefined,
+        sendSetupCode: emailCode,
       },
       {
         onSuccess: (createdUser) => {
           onCreated?.(createdUser);
-          setCreated({ user: createdUser, password });
+          setCreated({ user: createdUser, password, codeSent: createdUser.setupCodeSent });
         },
         onError: handleSaveError,
       },
@@ -364,7 +366,7 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
       draggable
     >
       {created ? (
-        <PasswordSharedPanel password={created.password} email={created.user.email} onDone={onClose} />
+        <PasswordSharedPanel password={created.password} email={created.user.email} codeSent={created.codeSent} onDone={onClose} />
       ) : (
         <>
           <form id="user-form" onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
@@ -447,6 +449,13 @@ export const UserForm = ({ onClose, user, onCreated, prefill }: UserFormProps) =
                         Copy
                       </Button>
                     </div>
+                    <label htmlFor="send-setup-code" className="flex items-start justify-between gap-3 rounded-lg border border-border/60 bg-surface-hover/40 px-3 py-2.5 cursor-pointer">
+                      <span className="flex min-w-0 flex-col gap-0.5">
+                        <span className="t-meta font-display font-semibold text-text">Email them a code to set their own password</span>
+                        <span className="t-meta text-text-muted">A 6-digit code, good for 24 hours. The password above still works too.</span>
+                      </span>
+                      <Switch id="send-setup-code" checked={emailCode} onChange={setEmailCode} />
+                    </label>
                   </div>
                 )}
 

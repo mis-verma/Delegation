@@ -21,6 +21,8 @@ export const updateSettingsSchema = z.object({
     // rather than trusting an arbitrary client-supplied string.
     // 0 = keep forever (matches the retention jobs' own "0 disables the sweep" semantics); capped
     // at ~10 years so a typo can't accidentally mean "unbounded" via an absurdly large number.
+    androidAppUrl : z.string().trim().url("Paste a full link starting with https://").startsWith("https://", "Paste a full link starting with https://").max(500).nullable().optional(),
+    iosAppUrl : z.string().trim().url("Paste a full link starting with https://").startsWith("https://", "Paste a full link starting with https://").max(500).nullable().optional(),
     auditRetentionDays : z.number().int().min(0).max(3650).optional(),
     notificationRetentionDays : z.number().int().min(0).max(3650).optional(),
     inboundMessageRetentionDays : z.number().int().min(0).max(3650).optional(),

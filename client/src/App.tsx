@@ -32,6 +32,7 @@ const AdminLayout = lazy(() => import('./features/admin/AdminLayout').then(m => 
 const ForcePasswordChange = lazy(() => import('./features/auth/ForcePasswordChange').then(m => ({ default: m.ForcePasswordChange })));
 const LoginForm = lazy(() => import('./features/auth/LoginForm').then(m => ({ default: m.LoginForm })));
 const ForgotPasswordForm = lazy(() => import('./features/auth/ForgotPasswordForm').then(m => ({ default: m.ForgotPasswordForm })));
+const GetAppPage = lazy(() => import('./features/getApp').then(m => ({ default: m.GetAppPage })));
 const ResetPasswordForm = lazy(() => import('./features/auth/ResetPasswordForm').then(m => ({ default: m.ResetPasswordForm })));
 const HomePage = lazy(() => import('./features/dashboard/HomePage').then(m => ({ default: m.HomePage })));
 const TicketList = lazy(() => import('./features/tickets/TicketList').then(m => ({ default: m.TicketList})));
@@ -218,6 +219,7 @@ const router = createBrowserRouter([
           { path: '/reset-password', element: <ResetPasswordForm /> },
         ],
       },
+      { path: '/get-app', element: <Suspense fallback={<RouteFallback />}><GetAppPage /></Suspense> },
     ],
   },
   {

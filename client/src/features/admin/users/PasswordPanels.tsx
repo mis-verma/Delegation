@@ -20,12 +20,13 @@ interface PasswordSharedPanelProps {
   password: string;
   /** Shown above the password so it is clear which account it belongs to. */
   email?: string;
+  codeSent?: boolean;
   onDone: () => void;
 }
 
 // Shown once, right after a password is set. The password is not stored anywhere readable after
 // this, so this is the admin's one chance to copy it and pass it on.
-export const PasswordSharedPanel = ({ password, email, onDone }: PasswordSharedPanelProps) => (
+export const PasswordSharedPanel = ({ password, email, codeSent = false, onDone }: PasswordSharedPanelProps) => (
   <NoticeBanner tone="success" icon={CheckCircle2} className="flex-col">
     <div className="flex flex-col gap-3">
       <p className="font-semibold">Temporary password ready. Share it with them.</p>
@@ -41,6 +42,11 @@ export const PasswordSharedPanel = ({ password, email, onDone }: PasswordSharedP
           </Button>
         </div>
       </div>
+      {codeSent && (
+        <p className="font-medium text-text">
+          We also emailed {email ?? 'them'} a 6-digit code. They can use it on the sign-in page under "Have a code? Set password" instead of this password.
+        </p>
+      )}
       <p className="text-text-secondary">
         They choose their own password the first time they sign in, so only they will ever know it. You will not be able to see this one again after you close this.
       </p>

@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { invalidateScoreCaches } from '../../../lib/queryHelpers';
 import { toast } from 'sonner';
-import { Plus, ClipboardList, FileDown, Upload, ListChecks as SelectIcon, X, Trash2, Repeat } from 'lucide-react';
+import { Plus, ClipboardList, FileDown, Upload, ListChecks as SelectIcon, X, Trash2, Repeat, FileClock } from 'lucide-react';
 import { Button, Skeleton, EmptyState, InlineError, PageHeader, ToggleChip, ENTITY_CARD_CLASS } from '../../../components';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useConfirm } from '@/components/confirmDialog';
@@ -15,6 +15,8 @@ import { ChecklistBulkImportModal } from './bulkImport/ChecklistBulkImportModal'
 import { ExportDialog } from '../../reports';
 import { RECURRENCE_LABEL, plural } from '../checklistDisplay';
 import { checklistDefinitionApi, type ChecklistRecurrence } from '../../../api/checklistDefinitions';
+import { useDraftsQuery } from '../../drafts/hook';
+import { DraftsDialog } from '../../drafts/DraftsDialog';
 
 interface ChecklistTemplatesGridProps {
   className?: string;
@@ -65,6 +67,9 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
   const canManage = user?.role === 'ADMIN' || user?.role === 'PC';
   const [showExport, setShowExport] = useState(false);
   const [showBulkImport, setShowBulkImport] = useState(false);
+  const [showDrafts, setShowDrafts] = useState(false);
+  const { data: drafts } = useDraftsQuery('CHECKLIST', canManage);
+  const draftCount = drafts?.length ?? 0;
   // The filters live in the URL (?recurrence=weekly&status=paused), so opening a checklist and
   // pressing Back lands on the same tab, and a filtered view can be shared as a link.
   const recurrenceParam = searchParams.get('recurrence')?.toLowerCase();
@@ -203,6 +208,13 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
             <span className="hidden sm:inline">Select</span>
           </Button>
         )}
+        {draftCount > 0 && (
+          <Button size="sm" variant="secondary" className="min-w-11 sm:min-w-0" onClick={() => setShowDrafts(true)} aria-label={`Drafts, ${draftCount}`}>
+            <FileClock size={14} className="text-text-muted" />
+            <span className="hidden sm:inline">Drafts</span>
+            <span className="t-meta font-bold tabular-nums text-primary-700 dark:text-primary-300">{draftCount}</span>
+          </Button>
+        )}
         <Button size="sm" variant="primary" onClick={() => navigate(BUILDER_PATH)}>
           <Plus size={14} />
           <span className="sm:hidden">New</span>
@@ -219,6 +231,12 @@ export const ChecklistTemplatesGrid = ({ className = '' }: ChecklistTemplatesGri
         title="Recurring Checklists"
         subtitle="Build checklists your stores run on a schedule, with the questions and proof each one needs."
         actions={actions}
+      />
+      <DraftsDialog
+        kind="CHECKLIST"
+        open={showDrafts}
+        onClose={() => setShowDrafts(false)}
+        onOpenDraft={(d) => { setShowDrafts(false); navigate(`${BUILDER_PATH}?draft=${d.id}`); }}
       />
 
       {/* Filters. The server already filters by recurrence and by isActive

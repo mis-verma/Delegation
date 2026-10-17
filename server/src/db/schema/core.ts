@@ -328,6 +328,8 @@ export const settings = mysqlTable('Settings', {
   // falling back to initials.
   orgName: varchar('orgName', { length: 191 }).notNull().default('Karya'),
   logoUrl: varchar('logoUrl', { length: 500 }),
+  androidAppUrl: varchar('androidAppUrl', { length: 500 }),
+  iosAppUrl: varchar('iosAppUrl', { length: 500 }),
   // Replaces AUDIT_RETENTION_DAYS/NOTIFICATION_RETENTION_DAYS/INBOUND_MESSAGE_RETENTION_DAYS env
   // vars — read live by the matching jobs/*Retention.job.ts nightly sweeps. 0 keeps everything
   // forever (same semantics the env vars had), for anyone with a "retain indefinitely" compliance
@@ -441,4 +443,37 @@ export const notifications = mysqlTable(
     updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
   },
   (table) => [index('Notification_recipientId_idx').on(table.recipientId)],
+);
+
+export const DRAFT_KINDS = ['TICKET', 'CHECKLIST'] as const;
+
+export const drafts = mysqlTable(
+  'Draft',
+  {
+    id: varchar('id', { length: 191 }).primaryKey().$defaultFn(() => createId()),
+    kind: mysqlEnum('kind', DRAFT_KINDS).notNull(),
+    userId: varchar('userId', { length: 191 }).notNull().references(() => users.id, { onDelete: 'cascade' }),
+    title: varchar('title', { length: 191 }).notNull(),
+    payload: json('payload').$type<Record<string, unknown>>().notNull(),
+    createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
+    updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
+  },
+  (table) => [index('Draft_userId_kind_updatedAt_idx').on(table.userId, table.kind, table.updatedAt)],
+);
+
+export const PASSWORD_OTP_PURPOSES = ['SETUP', 'RESET'] as const;
+
+export const passwordOtps = mysqlTable(
+  'PasswordOtp',
+  {
+    id: varchar('id', { length: 191 }).primaryKey().$defaultFn(() => createId()),
+    userId: varchar('userId', { length: 191 }).notNull().references(() => users.id, { onDelete: 'cascade' }),
+    purpose: mysqlEnum('purpose', PASSWORD_OTP_PURPOSES).notNull(),
+    codeHash: varchar('codeHash', { length: 191 }).notNull(),
+    attempts: int('attempts').notNull().default(0),
+    expiresAt: datetime('expiresAt', { mode: 'date' }).notNull(),
+    usedAt: datetime('usedAt', { mode: 'date' }),
+    createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
+  },
+  (table) => [index('PasswordOtp_userId_createdAt_idx').on(table.userId, table.createdAt)],
 );

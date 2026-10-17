@@ -43,6 +43,7 @@ import { activityRouter } from "./modules/activity/activity.routes.js"
 import { eventRouter } from "./modules/events/event.routes.js"
 import { smartTaskConversationRouter } from "./modules/smartTaskConversations/smartTaskConversation.routes.js"
 import { todoRouter } from "./modules/todos/todo.routes.js"
+import { draftRouter } from "./modules/drafts/draft.routes.js"
 import { createApiLimiter, createAiLimiter , createWebhookLimiter } from "./middleware/rateLimiter/rateLimiter.js"
 import { whatsappRouter } from "./modules/whatsapp/whatsapp.routes.js"
 import { doubletickRouter } from "./modules/doubletick/doubletick.routes.js"
@@ -211,6 +212,7 @@ class App {
         this.app.use("/events", eventRouter)
         this.app.use("/smart-task-conversations", smartTaskConversationRouter)
         this.app.use("/todos", todoRouter)
+        this.app.use("/drafts", draftRouter)
         this.app.use((_req: Request, res: Response) => res.status(404).json({ success: false, message: 'Not found' }))
     }
 

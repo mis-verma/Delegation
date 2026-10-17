@@ -15,6 +15,7 @@ import { OptionSection, OptionSelect } from "../../../components/optionsSheet";
 import { useMediaQuery } from "../../../lib/useMediaQuery";
 import { OrgStatusSection, OrgTableSkeleton, OrgToolbar } from "../directory/OrgToolbar";
 import { useDirectoryView } from "../directory/useDirectoryView";
+import { useMonthScores } from "../directory/orgScoreData";
 import {
   EmptyState,
   FormChunkFallback,
@@ -74,6 +75,20 @@ export const DepartmentList = () => {
 
   // undefined until the roster arrives, so a card never claims "0 members" while it is still loading.
   const memberCounts = useMemo(() => (users ? countPeopleBy(users, 'departmentId') : undefined), [users]);
+
+  // Who heads each department (Manager or Senior placed in it), first one by name. Undefined until people load.
+  const headByDepartment = useMemo(() => {
+    if (!users) return undefined;
+    const heads = new Map<string, string>();
+    users
+      .filter(u => u.isActive && u.departmentId && (u.role === 'MANAGER' || u.role === 'SENIOR'))
+      .sort((a, b) => a.firstName.localeCompare(b.firstName))
+      .forEach(u => { if (!heads.has(u.departmentId as string)) heads.set(u.departmentId as string, `${u.firstName} ${u.lastName ?? ''}`.trim()); });
+    return heads;
+  }, [users]);
+
+  const scores = useMonthScores('department');
+  const scoreWindow = useMemo(() => ({ from: scores.from, to: scores.to, failed: scores.failed }), [scores.from, scores.to, scores.failed]);
 
   const storeNameById = useMemo(() => {
     const names = new Map<string, string>();
@@ -242,6 +257,9 @@ export const DepartmentList = () => {
               storeLabel={d.storeId ? (stores ? (storeNameById.get(d.storeId) ?? 'Unknown store') : undefined) : null}
               activeCount={memberCounts ? (count?.active ?? 0) : usersError ? null : undefined}
               inactiveCount={count?.inactive ?? 0}
+              headName={headByDepartment ? (headByDepartment.get(d.id) ?? null) : undefined}
+              score={scores.byId ? (scores.byId.get(d.id) ?? null) : scores.failed ? null : undefined}
+              scoreWindow={scoreWindow}
               isUpdating={updateMut.isPending && updateMut.variables?.id === d.id}
               isDeleting={deleteMut.isPending && deleteMut.variables === d.id}
               onToggleActive={toggleActive}

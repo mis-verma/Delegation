@@ -21,6 +21,7 @@ import { ResetPasswordDialog } from './ResetPasswordDialog';
 import { useFilteredUsers } from './useFilteredUsers';
 import { fullName, peopleCount } from './userDisplay';
 import { presenceLabel } from '../presenceDisplay';
+import { useMonthScores } from '../directory/orgScoreData';
 import { ROLE_META, isDepartmentHead } from '../roleBadge';
 import {
   EmptyState,
@@ -83,6 +84,8 @@ export const UserList = () => {
   const departmentNames = useMemo(() => new Map((departments ?? []).map(d => [d.id, d.name])), [departments]);
   const storeNames = useMemo(() => new Map((stores ?? []).map(s => [s.id, s.name])), [stores]);
   const presenceById = useMemo(() => new Map((presenceRows ?? []).map(p => [p.id, p])), [presenceRows]);
+  const scores = useMonthScores('person');
+  const scoreWindow = useMemo(() => ({ from: scores.from, to: scores.to, failed: scores.failed }), [scores.from, scores.to, scores.failed]);
 
   const list = useFilteredUsers({ users, departmentNames, storeNames, presenceById, pageSize: PAGE_SIZE });
   const { filters, filtered, pageRows, view } = list;
@@ -223,6 +226,8 @@ export const UserList = () => {
         storeName={u.storeId ? storeNames.get(u.storeId) : undefined}
         online={presence?.online}
         presenceText={presenceLabel(presence)}
+        score={scores.byId ? (scores.byId.get(u.id) ?? null) : scores.failed ? null : undefined}
+        scoreWindow={scoreWindow}
         busy={busyId === u.id}
         isSelf={u.id === me?.id}
         onEdit={handleEdit}

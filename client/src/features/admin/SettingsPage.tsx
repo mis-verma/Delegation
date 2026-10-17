@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Loader2, Settings as SettingsIcon, CheckSquare, Construction, Bell, Clock, ListChecks, KeyRound, Camera, Building2, Database, Upload, type LucideIcon } from 'lucide-react';
+import { Loader2, Settings as SettingsIcon, CheckSquare, Construction, Bell, Clock, ListChecks, KeyRound, Camera, Building2, Database, Upload, Smartphone, type LucideIcon } from 'lucide-react';
 import { useBlocker } from 'react-router';
 import { Input, Button, Skeleton, PageHeader, Textarea, Switch, BrandLogo, InlineError, useConfirm } from '../../components';
 import { Loader } from '../../components/loaders';
@@ -34,6 +34,8 @@ const settingsSchema = z.object({
   auditRetentionDays: z.number().int().min(0, "Can't be negative").max(3650, 'Must be 3650 days (10 years) or less'),
   notificationRetentionDays: z.number().int().min(0, "Can't be negative").max(3650, 'Must be 3650 days (10 years) or less'),
   inboundMessageRetentionDays: z.number().int().min(0, "Can't be negative").max(3650, 'Must be 3650 days (10 years) or less'),
+  androidAppUrl: z.string().trim().max(500).refine((v) => !v || /^https:\/\/\S+$/.test(v), 'Paste a full link starting with https://'),
+  iosAppUrl: z.string().trim().max(500).refine((v) => !v || /^https:\/\/\S+$/.test(v), 'Paste a full link starting with https://'),
 });
 
 type SettingsFields = z.infer<typeof settingsSchema>;
@@ -165,7 +167,7 @@ export const SettingsPage = () => {
 
   useEffect(() => {
     if (settings) {
-      reset({ ...settings, maintenanceMessage: settings.maintenanceMessage ?? '' });
+      reset({ ...settings, maintenanceMessage: settings.maintenanceMessage ?? '', androidAppUrl: settings.androidAppUrl ?? '', iosAppUrl: settings.iosAppUrl ?? '' });
       setLogoUrl(settings.logoUrl);
     }
   }, [settings, reset]);
@@ -190,7 +192,7 @@ export const SettingsPage = () => {
   }, [isDirty]);
 
   const onSubmit = (data: SettingsFields) =>
-    mutation.mutate({ ...data, maintenanceMessage: data.maintenanceMessage.trim() || null });
+    mutation.mutate({ ...data, maintenanceMessage: data.maintenanceMessage.trim() || null, androidAppUrl: data.androidAppUrl.trim() || null, iosAppUrl: data.iosAppUrl.trim() || null });
 
   if (isError && !settings) {
     return (
@@ -250,6 +252,11 @@ export const SettingsPage = () => {
                 error={errors.orgName?.message}
                 {...register('orgName')}
               />
+            </SettingsCard>
+
+            <SettingsCard icon={Smartphone} title="Mobile app" hint="Shown on everyone's profile under Get the app, and on the page people open from the app link. Leave a box empty to hide that button.">
+              <Input id="androidAppUrl" label="Android app download link" placeholder="https://..." inputMode="url" error={errors.androidAppUrl?.message} {...register('androidAppUrl')} />
+              <Input id="iosAppUrl" label="iPhone App Store link" placeholder="https://apps.apple.com/..." inputMode="url" error={errors.iosAppUrl?.message} {...register('iosAppUrl')} />
             </SettingsCard>
 
             <SettingsCard icon={Upload} title="Tickets and uploads" hint="The default due time for a new ticket, and the limits on what people can attach.">
@@ -459,7 +466,7 @@ export const SettingsPage = () => {
           <div className="sticky bottom-3 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary-500/30 bg-surface px-4 py-3">
             <p className="text-sm font-display font-medium text-text-secondary">You have unsaved changes</p>
             <div className="flex items-center gap-2">
-              <Button type="button" variant="ghost" size="sm" disabled={mutation.isPending} onClick={() => reset({ ...settings, maintenanceMessage: settings?.maintenanceMessage ?? '' })}>
+              <Button type="button" variant="ghost" size="sm" disabled={mutation.isPending} onClick={() => reset({ ...settings, maintenanceMessage: settings?.maintenanceMessage ?? '', androidAppUrl: settings?.androidAppUrl ?? '', iosAppUrl: settings?.iosAppUrl ?? '' })}>
                 Discard
               </Button>
               <Button type="submit" variant="primary" size="sm" isLoading={mutation.isPending}>

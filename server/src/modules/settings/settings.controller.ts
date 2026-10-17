@@ -24,6 +24,8 @@ export const settingsController = {
                 maintenanceMessage: settings!.maintenanceMessage,
                 orgName: settings!.orgName,
                 logoUrl: settings!.logoUrl,
+                androidAppUrl: settings!.androidAppUrl,
+                iosAppUrl: settings!.iosAppUrl,
             },
         })
     }),

@@ -8,7 +8,8 @@ import { authService } from "./auth.service.js";
 // signs into the DB row for that token — see settings.service.ts.
 import { settingsService } from "../../modules/settings/settings.service.js";
 // Zod schemas used to validate/parse each request body before we trust it.
-import { loginSchema, registerSchema, forgotPasswordSchema, resetPasswordSchema } from "./auth.validation.js";
+import { loginSchema, registerSchema, forgotPasswordSchema, resetPasswordSchema, resetPasswordCodeSchema } from "./auth.validation.js";
+import { passwordOtpService } from "./passwordOtp.service.js";
 // A wrapper that catches errors thrown inside async route handlers and forwards them to
 // Express's error-handling middleware (errorHandler.ts), so we don't need try/catch everywhere.
 import { asyncHandler } from "../../utils/asyncHandler.js";
@@ -109,11 +110,17 @@ export const authController = {
     // attacker from using this endpoint to discover which emails are registered.
     forgotPassword: asyncHandler(async (req: Request, res: Response) => {
         const input = forgotPasswordSchema.parse(req.body);
-        await authService.forgotPassword(input.email);
-        res.json({ success: true, message: 'If that email is registered, a reset link has been sent.' });
+        await passwordOtpService.requestReset(input.email);
+        res.json({ success: true, message: 'If that email is registered, a code has been sent to it.' });
     }),
 
     // Handles POST /auth/reset-password - the user arrives here from the link in their email.
+    resetPasswordWithCode: asyncHandler(async (req: Request, res: Response) => {
+        const input = resetPasswordCodeSchema.parse(req.body);
+        await passwordOtpService.resetWithCode(input);
+        res.json({ success: true });
+    }),
+
     resetPassword: asyncHandler(async (req: Request, res: Response) => {
         const input = resetPasswordSchema.parse(req.body);
         await authService.resetPassword(input);

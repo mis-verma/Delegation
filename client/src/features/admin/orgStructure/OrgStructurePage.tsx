@@ -15,6 +15,7 @@ import { StoreSection } from './StoreSection';
 import { DepartmentSection } from './DepartmentSection';
 import { UserRow } from './UserRow';
 import { OrgMoveContext, type MoveTarget, type OrgMoveApi } from './orgMoveContext';
+import { OrgScoresContext, useAllMonthScores } from '../directory/orgScoreData';
 import {
   buildOrgTree,
   filterOrgTree,
@@ -46,9 +47,9 @@ const BucketHeader = ({ title, hint, count }: { title: string; hint: string; cou
     </span>
     <div className="min-w-0 flex-1 flex flex-col gap-0.5">
       <h3 className="t-card font-display font-bold leading-snug text-text">{title}</h3>
-      <p className="text-xs font-display text-text-muted">{hint}</p>
+      <p className="t-meta font-display text-text-muted">{hint}</p>
     </div>
-    <span className="shrink-0 rounded-full border border-warning/30 bg-warning/10 px-2.5 py-0.5 text-xs font-display font-bold tabular-nums text-warning">
+    <span className="shrink-0 rounded-full border border-warning/30 bg-warning/10 px-2.5 py-0.5 t-meta font-display font-bold tabular-nums text-warning">
       {count}
     </span>
   </div>
@@ -74,6 +75,8 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
   const [expandedStores, setExpandedStores] = useState<Set<string>>(new Set());
   const [expandedDepts, setExpandedDepts] = useState<Set<string>>(new Set());
   const [isUnassignDropTarget, setIsUnassignDropTarget] = useState(false);
+  // This month's score on every store, department and person row; each pill opens the Scores page there.
+  const orgScores = useAllMonthScores();
 
   const isPending = storesPending || deptsPending || usersPending;
   const isError = storesError || deptsError || usersError;
@@ -338,11 +341,12 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
 
   const expandCollapse = (
     <>
-      <Button variant="outline" size="sm" onClick={expandAll} disabled={isPending}>
-        <Maximize2 className="w-3.5 h-3.5" aria-hidden /> Expand all
+      {/* Square icon buttons on a phone so they share the search row; the words come back from sm. */}
+      <Button variant="outline" size="sm" onClick={expandAll} disabled={isPending} aria-label="Expand all" className="max-sm:size-11 max-sm:px-0">
+        <Maximize2 className="size-4 sm:size-3.5" aria-hidden /> <span className="max-sm:sr-only">Expand all</span>
       </Button>
-      <Button variant="outline" size="sm" onClick={collapseAll} disabled={isPending}>
-        <Minimize2 className="w-3.5 h-3.5" aria-hidden /> Collapse all
+      <Button variant="outline" size="sm" onClick={collapseAll} disabled={isPending} aria-label="Collapse all" className="max-sm:size-11 max-sm:px-0">
+        <Minimize2 className="size-4 sm:size-3.5" aria-hidden /> <span className="max-sm:sr-only">Collapse all</span>
       </Button>
     </>
   );
@@ -350,6 +354,7 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
   return (
     <MotionConfig reducedMotion="user">
       <OrgMoveContext.Provider value={moveApi}>
+      <OrgScoresContext.Provider value={orgScores}>
         <div className="flex flex-col gap-5 sm:gap-6 w-full">
           {!embedded && (
             <PageHeader
@@ -360,7 +365,25 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
             />
           )}
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          {/* Phone: the four counts as one compact row of tiles; the full stat cards come back from sm. */}
+          <div className="grid grid-cols-4 gap-1.5 sm:hidden" aria-label="Org at a glance">
+            {[
+              { icon: Users, label: 'People', value: users ? people.active : null, tile: 'from-primary-500 to-primary-700' },
+              { icon: Store, label: 'Stores', value: stores ? stores.length : null, tile: 'from-coral-400 to-coral-600' },
+              { icon: Layers, label: 'Depts', value: departments ? departments.length : null, tile: 'from-primary-400 to-primary-600' },
+              { icon: UserX, label: 'Unplaced', value: users ? people.unplaced : null, tile: people.unplaced > 0 ? 'from-warning to-warning' : 'from-success to-success' },
+            ].map(({ icon: Icon, label, value, tile }) => (
+              <div key={label} className={`${PANEL_CLASS} flex flex-col items-center gap-1 px-1 py-2.5`}>
+                <span className={`flex size-7 items-center justify-center rounded-lg bg-linear-to-br text-white ${tile}`} aria-hidden>
+                  <Icon className="size-3.5" strokeWidth={2.5} />
+                </span>
+                {value === null ? <Skeleton className="h-5 w-8" /> : <span className="t-card font-display font-bold tabular-nums text-text">{value.toLocaleString()}</span>}
+                <span className="t-meta font-display text-text-muted">{label}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="hidden sm:grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             <StatCard
               icon={Users}
               label="People"
@@ -415,15 +438,15 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
               {isPending ? (
                 <Skeleton className="h-6 w-1/2" />
               ) : attention.length === 0 ? (
-                <p className="text-sm font-display text-text-muted">
+                <p className="t-meta font-display text-text-muted">
                   Every active department has a store and a head, and everyone is in a department.
                 </p>
               ) : (
                 <ul className="flex flex-wrap items-center gap-2">
                   {attention.map((item) => (
                     <li key={item.key} className="inline-flex items-center gap-2 rounded-full border border-warning/25 bg-warning/10 pl-3 pr-1.5 py-1">
-                      <span className="text-xs font-display text-text">{item.label}</span>
-                      <span className="min-w-6 text-center rounded-full bg-warning/20 px-1.5 text-xs font-display font-bold tabular-nums text-warning">{item.count}</span>
+                      <span className="t-meta font-display font-semibold text-text">{item.label}</span>
+                      <span className="min-w-6 text-center rounded-full bg-warning/20 px-1.5 t-meta font-display font-bold tabular-nums text-warning">{item.count}</span>
                     </li>
                   ))}
                 </ul>
@@ -433,14 +456,14 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
 
           {/* One toolbar sitting directly above the tree it controls: search on the left, the
               deactivated toggle beside it, and Expand / Collapse all pushed to the right edge. */}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-            <div className="flex-1 sm:max-w-xl">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <div className="flex-1 basis-40 min-w-0 sm:max-w-xl">
               <Input
                 id="org-search"
                 type="search"
                 icon={Search}
                 aria-label="Search stores, departments, roles or people"
-                placeholder="Search stores, departments, roles or people..."
+                placeholder="Search stores, departments, people"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
@@ -460,6 +483,7 @@ export const OrgStructurePage = ({ embedded = false }: OrgStructurePageProps) =>
 
           {renderContent()}
         </div>
+      </OrgScoresContext.Provider>
       </OrgMoveContext.Provider>
     </MotionConfig>
   );

@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { User as UserIcon, Phone, Mail, KeyRound, Eye, EyeOff, CalendarOff } from 'lucide-react';
+import { User as UserIcon, Phone, Mail, KeyRound, Eye, EyeOff, CalendarOff, Smartphone } from 'lucide-react';
 import { Input, Button, Skeleton, AvatarUpload, WeekdayPicker, weekdayShortName, RoleChip } from '../../components';
 import { resolveAvatarUrl } from '../../lib/uploadsBase';
+import { GetAppOptions } from '../getApp';
 import {
   useMyProfileQuery,
   useUpdateMyProfileMutation,
@@ -168,6 +169,10 @@ export const AccountSettings = () => {
       </form>
 
       <div className="flex flex-col gap-5">
+      <SettingsCard icon={Smartphone} title="Get the app" hint="The app is the same KaryaOS, just faster to open and with alerts on your phone.">
+        <GetAppOptions />
+      </SettingsCard>
+
       <WeekOffCard
         key={(profile.weekOffDays ?? []).join(',')}
         initial={profile.weekOffDays ?? []}

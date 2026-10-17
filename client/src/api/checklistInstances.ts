@@ -127,6 +127,7 @@ export type ChecklistInstanceItem = {
   waivedBy:           string | null;
   waiveReason:        string | null;
   issueId:            string | null;
+  reviewTicketId?:    string | null;
   instanceId:         string;
   images:             ChecklistInstanceImage[];
   submissions:        ChecklistInstanceItemSubmission[];
@@ -642,6 +643,12 @@ export const checklistInstanceApi = {
   unwaiveItem: (id: string, itemId: string) =>
     apiFetch<ApiResponse<ChecklistInstance>>(`/checklist-instances/${id}/items/${itemId}/waive`, { method: 'DELETE' })
       .then(r => ({ ...r, data: normalizeInstance(r.data) })),
+
+  raiseTicket: (id: string, itemId: string, payload: { note: string; tatHours: number; priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' }) =>
+    apiFetch<ApiResponse<ChecklistInstance>>(`/checklist-instances/${id}/items/${itemId}/raise-ticket`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }).then(r => ({ ...r, data: normalizeInstance(r.data) })),
 
   sendBack: (id: string, payload: SendBackChecklistInstancePayload) =>
     apiFetch<ApiResponse<ChecklistInstance>>(`/checklist-instances/${id}/send-back`, {

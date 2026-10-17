@@ -15,8 +15,6 @@ import { eq, and, isNull } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
 // Custom error class used to throw clean, typed HTTP errors (e.g. 401 Unauthorized).
 import { AppError } from '../../utils/AppError.js';
-// Sends the actual reset-link email (real SMTP if configured, an Ethereal test inbox otherwise).
-import { sendMail } from '../../config/mailer.js';
 // Password hashing/comparison + rank-defaulting helpers — replace the Mongoose virtual
 // setter + pre('validate') hooks that used to live on the User model.
 import { hashPassword, comparePassword, deriveDefaultRank } from '../../utils/password.js';
@@ -250,54 +248,6 @@ export const authService = {
     await db.update(refreshTokens)
       .set({ revokedAt: new Date(), updatedAt: new Date() })
       .where(eq(refreshTokens.tokenHash, hashToken(rawToken)));
-  },
-
-  // Handles a "forgot password" request: if the email belongs to a real, active account, generate
-  // a one-time reset token and email a reset link. Always resolves successfully either way (never
-  // reveals whether the email exists) - the controller responds the same generic message regardless,
-  // which is what actually protects against user enumeration; this just makes sure there's nothing
-  // to leak even if that changed later.
-  async forgotPassword(rawEmail: string) {
-    const [user] = await db.select().from(users)
-      .where(and(eq(users.email, rawEmail.trim().toLowerCase()), eq(users.isActive, true)))
-      .limit(1);
-    if (!user) return;
-
-    const rawToken = crypto.randomBytes(32).toString('hex');
-    const tokenHash = hashToken(rawToken);
-
-    await db.insert(passwordResetTokens).values({
-      userId: user.id,
-      tokenHash,
-      // Reset links are short-lived (1 hour) - much shorter than a refresh token, since this one
-      // grants the ability to take over the account entirely if it leaked (e.g. via a shared inbox).
-      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
-    });
-
-    const resetLink = `${env.CLIENT_URL}/reset-password?token=${rawToken}`;
-    // The raw link is a live account-takeover credential (whoever has it can reset this user's
-    // password), so it's only ever logged outside production, purely as a local-dev convenience
-    // for testing the flow without a working SMTP setup. Production logs just the fact that a
-    // reset was requested, never the token itself — see config/mailer.ts for the actual send.
-    console.log(`[auth] Password reset requested for ${user.email}`);
-    if (env.NODE_ENV !== 'production') {
-      console.log(`[auth] Reset link: ${resetLink}`);
-    }
-
-    // Deliberately NOT awaited: awaiting the actual SMTP round-trip here would make this
-    // function's (and so the controller's) response time depend on whether a real account was
-    // found — a timing side-channel letting an attacker distinguish registered emails from
-    // unregistered ones even though the HTTP response body is identical either way. Any send
-    // failure is caught and logged here instead of propagating out, so it can never surface as a
-    // different response (or a different error) than the "email doesn't exist" case does.
-    const orgName = settingsService.getCached().orgName;
-    void sendMail({
-      to: user.email,
-      subject: `Reset your ${orgName} password`,
-      html: `<p>Someone requested a password reset for your ${orgName} account.</p>
-             <p><a href="${resetLink}">Click here to reset your password</a> (expires in 1 hour).</p>
-             <p>If you didn't request this, you can safely ignore this email.</p>`,
-    }).catch((err) => console.error('[auth] Failed to send password reset email:', err));
   },
 
   // Handles the actual password reset once the user clicks the emailed link and submits a new password.

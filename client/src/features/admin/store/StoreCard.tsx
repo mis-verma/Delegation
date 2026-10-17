@@ -1,19 +1,23 @@
 import { memo } from 'react';
-import { MapPin, Store as StoreIcon, Users } from 'lucide-react';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-import { ENTITY_CARD_CLASS, ColorIconTile, StatusPill, StateChip, EntityCardActions, Skeleton } from '../../../components';
+import { Link } from 'react-router';
+import { Building2, CircleOff, CirclePower, Hash, MapPin, Store as StoreIcon, Users } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { ENTITY_CARD_CLASS, EntityIconTile, EntityCardActions, Skeleton } from '../../../components';
 import type { Store } from '../../../api/stores';
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import type { ExplorerRow } from '../../../api/scores';
+import { CardChip, ScoreStrip } from '../directory/orgScores';
+import { scoresHref } from '../directory/orgScoreData';
 
 interface StoreCardProps {
   store: Store;
   /** undefined while the people list is loading, null if it failed; otherwise active people only. */
   activeCount: number | null | undefined;
   inactiveCount: number;
+  /** Departments filed under this store; undefined while they load. */
+  departmentCount: number | undefined;
+  /** This month's score row: undefined while loading, null when nothing was due. */
+  score: ExplorerRow | null | undefined;
+  scoreWindow: { from: string; to: string; failed: boolean };
   isUpdating: boolean;
   isDeleting: boolean;
   onToggleActive: (store: Store) => void;
@@ -21,105 +25,93 @@ interface StoreCardProps {
   onDelete: (store: Store) => void;
 }
 
-export const StoreCard = memo(({ store, activeCount, inactiveCount, isUpdating, isDeleting, onToggleActive, onEdit, onDelete }: StoreCardProps) => (
-  // justify-start: the footer pins itself with mt-auto, so a taller grid row never spreads the
-  // header and footer apart unevenly.
-  <article className={cn(ENTITY_CARD_CLASS, 'justify-start gap-3.5', isDeleting && 'opacity-50 pointer-events-none')}>
-    <header className="flex items-start justify-between gap-2.5">
-      <div className="flex items-center gap-3 min-w-0">
-        <ColorIconTile icon={StoreIcon} name={store.name} />
-        <div className="min-w-0 flex flex-col gap-0.5">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <h3
-              className={cn(
-                'text-sm font-display font-bold truncate transition-colors duration-150 group-hover:text-primary-600 dark:group-hover:text-primary-400',
-                store.isActive ? 'text-text' : 'text-text-secondary'
-              )}
+/**
+ * A store at a glance: name, code and address, chips for staff and departments, and this month's score. A tap
+ * anywhere opens the store on the Scores page; Edit, Deactivate and Delete live in the menu.
+ */
+export const StoreCard = memo(({
+  store, activeCount, inactiveCount, departmentCount, score, scoreWindow,
+  isUpdating, isDeleting, onToggleActive, onEdit, onDelete,
+}: StoreCardProps) => {
+  const href = scoresHref('store', store.id, store.name, scoreWindow.from, scoreWindow.to);
+  return (
+    <article className={cn(ENTITY_CARD_CLASS, 'justify-start gap-3 hover:border-coral-300', !store.isActive && 'bg-surface-hover/30', (isDeleting || isUpdating) && 'opacity-60 pointer-events-none')}>
+      <header className="flex items-start gap-3">
+        <EntityIconTile icon={StoreIcon} tone="coral" />
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <h3 className="min-w-0">
+            {/* The card's one primary action; its ::after stretches over the card, the menu and score strip sit above it. */}
+            <Link
+              viewTransition
+              to={href}
               title={store.name}
+              className={cn(
+                'block t-card font-display font-bold leading-snug line-clamp-2 break-words outline-none transition-colors duration-150 group-hover:text-coral-700 dark:group-hover:text-coral-300',
+                'after:absolute after:inset-0 after:rounded-2xl focus-visible:after:ring-2 focus-visible:after:ring-primary-500/50',
+                store.isActive ? 'text-text' : 'text-text-secondary',
+              )}
             >
               {store.name}
-            </h3>
-            {store.code ? (
-              <span
-                className="shrink-0 max-w-[40%] truncate px-1.5 py-0.5 rounded-md border border-border bg-surface-hover text-xs font-display font-semibold tabular-nums tracking-wide text-text-secondary"
-                title={`Store code ${store.code}`}
-              >
-                {store.code}
-              </span>
-            ) : (
-              <span className="shrink-0 text-xs font-display italic text-text-light">No code</span>
-            )}
-            {!store.isActive && (
-              <StateChip active={false} label="Inactive" size="sm" />
-            )}
-          </div>
-          <p
-            className={cn('flex items-center gap-1 text-xs font-display min-w-0', store.address ? 'text-text-muted' : 'text-text-light italic')}
-            title={store.address || undefined}
-          >
-            <MapPin className="size-3 shrink-0 text-text-light" aria-hidden />
+            </Link>
+          </h3>
+          <p className={cn('flex min-w-0 items-center gap-1 t-meta font-display', store.address ? 'text-text-muted' : 'text-text-light')} title={store.address || undefined}>
+            <MapPin className="size-3 shrink-0" aria-hidden />
             <span className="truncate">{store.address || 'No address'}</span>
           </p>
         </div>
+        <div className="relative z-10 -mr-2 -mt-1">
+          <EntityCardActions
+            onEdit={() => onEdit(store)}
+            onDelete={() => onDelete(store)}
+            isDeleting={isDeleting}
+            editLabel={`Edit ${store.name}`}
+            deleteLabel={`Delete ${store.name}`}
+            extraItems={[{ label: store.isActive ? 'Deactivate' : 'Activate', icon: store.isActive ? CircleOff : CirclePower, onClick: () => onToggleActive(store) }]}
+          />
+        </div>
+      </header>
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        {store.code && <CardChip icon={Hash} label={store.code} title={`Store code ${store.code}`} />}
+        {activeCount === undefined ? (
+          <Skeleton className="h-5 w-20 rounded-md" />
+        ) : activeCount !== null && (
+          <CardChip
+            icon={Users}
+            tone="coral"
+            label={`${activeCount} staff`}
+            title={inactiveCount > 0 ? `${activeCount} active, ${inactiveCount} deactivated` : undefined}
+          />
+        )}
+        {departmentCount !== undefined && (
+          <CardChip icon={Building2} tone="primary" label={`${departmentCount} ${departmentCount === 1 ? 'department' : 'departments'}`} />
+        )}
+        {!store.isActive && <CardChip icon={CircleOff} label="Inactive" />}
       </div>
 
-      <StatusPill
-        active={store.isActive}
-        isUpdating={isUpdating}
-        onToggle={() => onToggleActive(store)}
-        ariaLabel={`${store.isActive ? 'Deactivate' : 'Activate'} ${store.name}`}
-      />
-    </header>
-
-    <footer className="flex items-center justify-between gap-2 pt-3 mt-auto border-t border-border/60 min-h-14">
-      {activeCount === undefined ? (
-        <Skeleton className="h-6 w-28 rounded-lg" />
-      ) : activeCount === null ? (
-        <span className="text-xs font-display text-text-light">Count unavailable</span>
-      ) : (
-        <div className="flex items-center gap-2" title={inactiveCount > 0 ? `${activeCount} active, ${inactiveCount} deactivated` : undefined}>
-          <span className="flex items-center justify-center size-7 rounded-lg bg-coral-500/10 dark:bg-coral-500/15 text-coral-700 dark:text-coral-300 shrink-0">
-            <Users className="size-3.5" aria-hidden />
-          </span>
-          <p className="flex items-baseline gap-1.5">
-            <span className="text-base font-display font-bold tabular-nums text-text leading-none">{activeCount}</span>
-            <span className="text-xs font-display text-text-muted">{activeCount === 1 ? 'staff member' : 'staff members'}</span>
-          </p>
-        </div>
-      )}
-
-      <EntityCardActions
-        onEdit={() => onEdit(store)}
-        onDelete={() => onDelete(store)}
-        isDeleting={isDeleting}
-        editLabel={`Edit ${store.name} store`}
-        deleteLabel={`Delete ${store.name} store`}
-      />
-    </footer>
-  </article>
-));
+      <div className="mt-auto">
+        <ScoreStrip kind="store" id={store.id} name={store.name} row={score} from={scoreWindow.from} to={scoreWindow.to} failed={scoreWindow.failed} />
+      </div>
+    </article>
+  );
+});
 StoreCard.displayName = 'StoreCard';
 
-// Same chrome and gaps as the card above (header, then a footer that is at least 3.5rem tall), so
-// the grid does not jump when the real rows arrive.
+// Same rows and gaps as the card above (header, chips, score strip), so the grid does not jump when the real rows arrive.
 export const StoreCardSkeleton = () => (
-  <div className={cn(ENTITY_CARD_CLASS, 'justify-start gap-3.5')} aria-hidden>
-    <div className="flex items-start justify-between gap-2.5">
-      <div className="flex items-center gap-3 min-w-0 flex-1">
-        <Skeleton className="size-10 rounded-xl shrink-0" />
-        <div className="flex flex-col gap-1.5 min-w-0 flex-1 max-w-[70%]">
-          <Skeleton className="h-3.5 w-3/4" />
-          <Skeleton className="h-3 w-1/2" />
-        </div>
-      </div>
-      <Skeleton className="h-6 w-16 rounded-full shrink-0" />
-    </div>
-    <div className="flex items-center justify-between gap-2 pt-3 mt-auto border-t border-border/60 min-h-14">
-      <Skeleton className="h-6 w-24 rounded-lg" />
-      <div className="flex gap-1">
-        <Skeleton className="size-8 rounded-lg" />
-        <Skeleton className="size-8 rounded-lg" />
+  <div className={cn(ENTITY_CARD_CLASS, 'justify-start gap-3')} aria-hidden>
+    <div className="flex items-start gap-3">
+      <Skeleton className="size-10 rounded-xl shrink-0" />
+      <div className="flex flex-col gap-1.5 min-w-0 flex-1 max-w-[70%]">
+        <Skeleton className="h-3.5 w-3/4" />
+        <Skeleton className="h-3 w-1/2" />
       </div>
     </div>
+    <div className="flex gap-1.5">
+      <Skeleton className="h-5 w-14 rounded-md" />
+      <Skeleton className="h-5 w-20 rounded-md" />
+      <Skeleton className="h-5 w-24 rounded-md" />
+    </div>
+    <Skeleton className="h-12 w-full rounded-xl" />
   </div>
 );

@@ -43,6 +43,7 @@ checklistInstanceRouter.patch("/:id/verify", checklistInstanceController.verify)
 checklistInstanceRouter.patch("/:id/send-back", checklistInstanceController.sendBack)
 // Excuse one failing question (or take the waiver back). The service allows only department heads, PC and Admin.
 checklistInstanceRouter.patch("/:id/items/:itemId/waive", checklistInstanceController.waiveItem)
+checklistInstanceRouter.post("/:id/items/:itemId/raise-ticket", checklistInstanceController.raiseTicket)
 checklistInstanceRouter.delete("/:id/items/:itemId/waive", checklistInstanceController.unwaiveItem)
 checklistInstanceRouter.patch("/:id/reopen-approval", requireRole("ADMIN"), checklistInstanceController.reopenApproval)
 

@@ -25,6 +25,7 @@ export const createAuthRouter = (rateLimitStoreFactory?: (prefix: string) => Sto
     const loginByIp = createLoginLimiter(rateLimitStoreFactory?.('auth-login'))
     const loginByEmail = createLoginEmailLimiter(rateLimitStoreFactory?.('auth-login-email'))
     const forgotByEmail = createForgotPasswordEmailLimiter(rateLimitStoreFactory?.('auth-forgot-email'))
+    const codeByEmail = createForgotPasswordEmailLimiter(rateLimitStoreFactory?.('auth-code-email'))
 
     // POST /auth/register - closed unless ALLOW_SELF_REGISTRATION=true (checked in the controller).
     authRouter.post('/register', tight, authController.register)
@@ -38,6 +39,7 @@ export const createAuthRouter = (rateLimitStoreFactory?: (prefix: string) => Sto
     authRouter.post('/forgot-password', tight, forgotByEmail, authController.forgotPassword)
     // POST /auth/reset-password - consumes that link's token to actually set a new password.
     authRouter.post('/reset-password', tight, authController.resetPassword)
+    authRouter.post('/reset-password-code', tight, codeByEmail, authController.resetPasswordWithCode)
 
     return authRouter
 }

@@ -41,6 +41,12 @@ export const resetPasswordSchema = z.object({
     password : passwordSchema,
 })
 
+export const resetPasswordCodeSchema = z.object({
+    email : z.string().trim().toLowerCase().email().max(191),
+    code : z.string().trim().regex(/^[0-9]{6}$/, "Enter the 6-digit code from the email."),
+    password : passwordSchema,
+})
+
 // TypeScript trick: z.infer<> reads the Zod schema and generates a matching TypeScript type
 // automatically, so we don't hand-write an interface that could drift out of sync with the schema.
 export type RegisterInput = z.infer<typeof registerSchema>;

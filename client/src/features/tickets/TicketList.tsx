@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { Plus, ChevronDown, Upload, AlertCircle, Inbox, LayoutList, Kanban, Table2, GanttChartSquare, UserCheck, PenLine } from 'lucide-react';
+import { Plus, ChevronDown, Upload, AlertCircle, Inbox, LayoutList, Kanban, Table2, GanttChartSquare, UserCheck, PenLine, FileClock } from 'lucide-react';
 import { PageNav, Fab, ViewToggle, SavedViewsMenu, useSavedViews, EmptyState, InlineError, Button, type ViewTab } from '../../components';
 import { CreatedRangeBanner, CreatedRangePicker, ScoreDrillBanner } from '../../components/createdRangeBanner';
 import { useCreatedRange } from '../../lib/createdRange';
@@ -30,6 +30,9 @@ import { TicketSettingsMenu } from './TicketSettingsMenu';
 import { TicketActiveTags } from './TicketActiveTags';
 import type { Ticket } from '../../api/ticket';
 import { useIsMobile } from '../../lib/useMediaQuery';
+import type { Draft } from '../../api/drafts';
+import { useDraftsQuery } from '../drafts/hook';
+import { DraftsDialog } from '../drafts/DraftsDialog';
 
 // Module scope so the array is referentially stable, same convention as TaskList's own VIEW_TABS.
 const VIEW_TABS: ViewTab<TicketView>[] = [
@@ -49,6 +52,10 @@ export const TicketList = () => {
   const [showExport, setShowExport] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
+  const [showDrafts, setShowDrafts] = useState(false);
+  const [openDraft, setOpenDraft] = useState<Draft | null>(null);
+  const { data: drafts } = useDraftsQuery('TICKET');
+  const draftCount = drafts?.length ?? 0;
 
   const { data: departments } = useDepartmentsQuery();
   const { data: stores } = useStoresQuery();
@@ -226,6 +233,13 @@ export const TicketList = () => {
               wrap in after it, instead of Options jumping sideways each time a chip appears. */}
           <div className="flex items-center gap-x-3 gap-y-2.5 flex-wrap shrink-0 ml-auto">
             <CreatedRangePicker createdRange={createdRange} className="hidden sm:inline-flex shrink-0" />
+            {draftCount > 0 && (
+              <Button variant="outline" size="sm" onClick={() => setShowDrafts(true)} className="h-9 max-sm:h-11 font-display font-semibold">
+                <FileClock size={15} aria-hidden />
+                Drafts
+                <span className="t-meta font-bold tabular-nums text-primary-700 dark:text-primary-300">{draftCount}</span>
+              </Button>
+            )}
             {/* One click opens the form. Admin/PC also get a small chevron for Bulk import (same
                 gate as the server route: creating tickets for other people in bulk is theirs only). */}
             <div className="hidden md:flex items-center">
@@ -356,6 +370,13 @@ export const TicketList = () => {
 
       {/* Popups & Modals */}
       {showForm && <TicketForm onClose={() => setShowForm(false)} />}
+      {openDraft && <TicketForm key={openDraft.id} draft={openDraft} onClose={() => setOpenDraft(null)} />}
+      <DraftsDialog
+        kind="TICKET"
+        open={showDrafts}
+        onClose={() => setShowDrafts(false)}
+        onOpenDraft={(d) => { setShowDrafts(false); setOpenDraft(d); }}
+      />
       {showBulkImport && <TicketBulkImportModal onClose={() => setShowBulkImport(false)} />}
       {showExport && (
         <ExportDialog

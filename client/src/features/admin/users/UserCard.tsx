@@ -1,5 +1,6 @@
 import { memo } from 'react';
-import { Clock, Mail, Phone } from 'lucide-react';
+import { Link } from 'react-router';
+import { Building2, Clock, Mail, Phone, Smartphone, Store } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ENTITY_CARD_CLASS, Avatar, Skeleton, RoleChip, PresenceChip } from '../../../components';
 import type { AdminUser } from '../../../api/admin';
@@ -7,8 +8,12 @@ import { ROLE_META, isDepartmentHead } from '../roleBadge';
 import { resolveAvatarUrl } from '../../../lib/uploadsBase';
 import { formatRelativeTime } from '../../dashboard/dashboardDisplay';
 import { UserActionsMenu, type UserActionHandlers } from './UserActionsMenu';
-import { DepartmentHeadChip, PlaceField } from './UserBits';
+import type { ExplorerRow } from '../../../api/scores';
+import { CardChip, ScoreStrip } from '../directory/orgScores';
+import { scoresHref } from '../directory/orgScoreData';
+import { DepartmentHeadChip } from './UserBits';
 import { deactivatedLabel, fullName } from './userDisplay';
+import { getAppLink, shareAppLink } from '../../../lib/installPrompt';
 
 interface UserCardProps extends UserActionHandlers {
   user: AdminUser;
@@ -22,6 +27,9 @@ interface UserCardProps extends UserActionHandlers {
   presenceText: string;
   busy: boolean;
   isSelf: boolean;
+  /** This month's score row: undefined while loading, null when nothing was due. */
+  score: ExplorerRow | null | undefined;
+  scoreWindow: { from: string; to: string; failed: boolean };
 }
 
 // The colour strip across the top says how far someone's access reaches at a glance: the whole
@@ -36,8 +44,15 @@ const REACH_STRIP = {
 const CONTACT_BUTTON =
   'relative z-10 inline-flex items-center justify-center size-8 pointer-coarse:size-11 rounded-full text-text-muted bg-surface-hover/70 hover:bg-primary-500/10 hover:text-primary-700 dark:hover:text-primary-300 transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50';
 
+const whatsAppAppLink = (phone: string, firstName: string) => {
+  const digits = phone.replace(/\D/g, '');
+  const number = digits.length === 10 ? `91${digits}` : digits;
+  const text = `Hi ${firstName}, install the KaryaOS app here: ${getAppLink()}`;
+  return `https://wa.me/${number}?text=${encodeURIComponent(text)}`;
+};
+
 const UserCardComponent = ({
-  user, departmentName, storeName, online, presenceText, busy, isSelf,
+  user, departmentName, storeName, online, presenceText, busy, isSelf, score, scoreWindow,
   onEdit, onResetPassword, onDeactivate, onReactivate, onDelete,
 }: UserCardProps) => {
   const name = fullName(user);
@@ -100,14 +115,24 @@ const UserCardComponent = ({
         <PresenceChip online={online} text={presenceText} deactivated={!user.isActive} deactivatedLabel={deactivatedLabel(user)} />
       </div>
 
-      {/* One soft panel for where they work, instead of two floating tiles: department on the left,
-          store on the right, a hairline between. Stacks on a narrow card. */}
-      <div className="grid grid-cols-1 min-[22rem]:grid-cols-2 gap-3 min-[22rem]:gap-0 min-[22rem]:divide-x divide-border/60 rounded-xl bg-surface-hover/50 dark:bg-surface-hover/30 p-3">
-        <PlaceField kind="department" name={departmentName} muted={muted} />
-        <div className="min-[22rem]:pl-3">
-          <PlaceField kind="store" name={storeName} muted={muted} />
-        </div>
+      {/* Where they work as two chips; the department one opens that department's scores. */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        {user.departmentId && departmentName ? (
+          <Link
+            viewTransition
+            to={scoresHref('department', user.departmentId, departmentName, scoreWindow.from, scoreWindow.to)}
+            aria-label={`Open ${departmentName}'s scores`}
+            className="relative z-10 max-w-full min-w-0 rounded-md outline-none transition-opacity duration-150 hover:opacity-80 focus-visible:ring-2 focus-visible:ring-primary-500/40"
+          >
+            <CardChip icon={Building2} tone="primary" label={departmentName} />
+          </Link>
+        ) : (
+          <CardChip icon={Building2} label="No department" />
+        )}
+        <CardChip icon={Store} tone={storeName ? 'coral' : 'neutral'} label={storeName ?? 'No store'} />
       </div>
+
+      <ScoreStrip kind="person" id={user.id} name={name} row={score} from={scoreWindow.from} to={scoreWindow.to} failed={scoreWindow.failed} />
 
       <div className="flex items-center justify-between gap-3 pt-3 mt-auto border-t border-border/60">
         <div className="flex flex-col gap-0.5 min-w-0 t-meta font-display font-medium text-text-light">
@@ -123,6 +148,15 @@ const UserCardComponent = ({
           </span>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
+          {user.isActive && (user.phone ? (
+            <a href={whatsAppAppLink(user.phone, user.firstName)} target="_blank" rel="noopener noreferrer" className={CONTACT_BUTTON} aria-label={`Send the app link to ${name} on WhatsApp`} title="Send app link">
+              <Smartphone className="size-4" aria-hidden />
+            </a>
+          ) : (
+            <button type="button" onClick={() => void shareAppLink()} className={CONTACT_BUTTON} aria-label={`Share the app link with ${name}`} title="Share app link">
+              <Smartphone className="size-4" aria-hidden />
+            </button>
+          ))}
           {user.phone && (
             <a href={`tel:${user.phone}`} className={CONTACT_BUTTON} aria-label={`Call ${name}`} title="Call">
               <Phone className="size-4" aria-hidden />
@@ -157,7 +191,11 @@ export const UserCardSkeleton = () => (
       <Skeleton className="h-5 w-20 rounded-md" />
       <Skeleton className="h-4 w-14" />
     </div>
-    <Skeleton className="h-[3.75rem] w-full rounded-xl" />
+    <div className="flex gap-1.5">
+      <Skeleton className="h-5 w-28 rounded-md" />
+      <Skeleton className="h-5 w-24 rounded-md" />
+    </div>
+    <Skeleton className="h-12 w-full rounded-xl" />
     <div className="flex items-center justify-between gap-3 pt-3 mt-auto border-t border-border/60">
       <div className="flex flex-col gap-1.5">
         <Skeleton className="h-3 w-24" />

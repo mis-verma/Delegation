@@ -11,6 +11,7 @@ import { Toaster } from './components/ui/sonner.tsx';
 import { ConfirmDialogProvider } from "./components/confirmDialog"
 import { handleQueryRetry, queryRetryDelay } from './lib/queryHelpers.ts';
 import { registerServiceWorker } from './lib/pwa.ts';
+import { listenForInstallPrompt } from './lib/installPrompt';
 import { OfflineBanner } from './components/offlineBanner/OfflineBanner.tsx';
 
 
@@ -24,6 +25,7 @@ const queryClient = new QueryClient({
 });
 
 registerServiceWorker();
+listenForInstallPrompt();
 
 if (import.meta.env.DEV) {
   document.body.classList.add('debug-screens');

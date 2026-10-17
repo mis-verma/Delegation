@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { authApi, ADMIN_AREA_ROLES } from '../../api/auth';
 import { useAuth } from '../../context/AuthContext';
-import type { LoginPayload, ForgotPasswordPayload, ResetPasswordPayload } from '../../api/auth';
+import type { LoginPayload, ForgotPasswordPayload, ResetPasswordPayload, ResetPasswordCodePayload } from '../../api/auth';
 
 const errorMessage = (err: unknown, fallback: string) => (err instanceof Error ? err.message : fallback);
 
@@ -31,8 +31,19 @@ export const useLoginMutation = () => {
 export const useForgotPasswordMutation = () => {
   return useMutation({
     mutationFn: (payload: ForgotPasswordPayload) => authApi.forgotPassword(payload),
-    onSuccess: () => toast.success('If that email is registered, a reset link has been sent.'),
-    onError: (err) => toast.error(errorMessage(err, 'Failed to send reset link.')),
+    onSuccess: () => toast.success('If that email is registered, a code is on its way.'),
+    onError: (err) => toast.error(errorMessage(err, "Couldn't send the code. Try again.")),
+  });
+};
+
+export const useResetPasswordWithCodeMutation = () => {
+  const navigate = useNavigate();
+  return useMutation({
+    mutationFn: (payload: ResetPasswordCodePayload) => authApi.resetPasswordWithCode(payload),
+    onSuccess: () => {
+      toast.success('Password set. Sign in with your new password.');
+      navigate('/login', { replace: true });
+    },
   });
 };
 

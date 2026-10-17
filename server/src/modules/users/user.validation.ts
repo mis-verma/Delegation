@@ -41,6 +41,7 @@ export const createUserSchema = z.object({
     phone: phoneSchema.optional(),
     // Set at creation too, so a week off chosen in the new-user form is not silently dropped.
     weekOffDays: weekOffDays.optional(),
+    sendSetupCode: z.boolean().optional(),
 });
 
 // Password changes aren't handled through this update endpoint (see user.service.ts's

@@ -13,6 +13,8 @@ export type Settings = {
     refreshTokenExpiresDays : number;
     orgName : string;
     logoUrl : string | null;
+    androidAppUrl : string | null;
+    iosAppUrl : string | null;
     auditRetentionDays : number;
     notificationRetentionDays : number;
     inboundMessageRetentionDays : number;
@@ -21,7 +23,7 @@ export type Settings = {
 // Renamed from the old MaintenanceStatus now that this covers branding too — same public,
 // unauthenticated subset (see settings.routes.ts: registered ahead of the auth gate) used both
 // for the maintenance takeover and for rendering the org name/logo on a signed-out login screen.
-export type PublicSettings = Pick<Settings, 'maintenanceMode' | 'maintenanceMessage' | 'orgName' | 'logoUrl'>;
+export type PublicSettings = Pick<Settings, 'maintenanceMode' | 'maintenanceMessage' | 'orgName' | 'logoUrl' | 'androidAppUrl' | 'iosAppUrl'>;
 
 export type ApiResponse<T> = { success : boolean; data : T};
 export type UpdateSettingsPayload = Partial<Settings>;

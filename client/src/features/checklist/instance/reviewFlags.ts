@@ -37,7 +37,7 @@ export const itemFlags = (item: ChecklistInstanceItem): ItemFlags => {
     waived,
     critical,
     criticalFailed: critical && verdict === 'bad',
-    fixed: sentBack && item.isDone,
+    fixed: sentBack && item.isDone && !item.reviewTicketId,
     needsLook: bad || missingPhotos || sentBack,
   };
 };

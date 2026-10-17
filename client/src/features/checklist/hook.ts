@@ -596,6 +596,17 @@ export const useSendBackChecklistInstanceMutation = () =>
     retryable: true,
   });
 
+export const useRaiseChecklistTicketMutation = () =>
+  useEntityMutation({
+    mutationFn: ({ id, itemId, note, tatHours, priority }: { id: string; itemId: string; note: string; tatHours: number; priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' }) =>
+      checklistInstanceApi.raiseTicket(id, itemId, { note, tatHours, priority }).then(r => r.data),
+    setDetailData: (updated) => ({ key: KEYS.instanceDetail(updated.id), data: updated }),
+    invalidateKeys: [['checklist-instances'], ['checklist-reports'], ['scores'], ['tickets']],
+    successMessage: 'Ticket raised. It counts as a failed check.',
+    errorFallback: "Couldn't raise the ticket. Try again.",
+    retryable: true,
+  });
+
 export const useWaiveChecklistItemMutation = () =>
   useEntityMutation({
     mutationFn: ({ id, itemId, reason }: { id: string; itemId: string; reason: string }) =>

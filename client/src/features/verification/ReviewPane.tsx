@@ -1,6 +1,6 @@
 import { memo, useMemo } from 'react';
 import { Link } from 'react-router';
-import { ExternalLink, Flag, CornerUpLeft, CheckCircle2 } from 'lucide-react';
+import { ExternalLink, Flag, CornerUpLeft, CheckCircle2, Ticket } from 'lucide-react';
 import { IconChip, Modal, PANEL_CLASS } from '../../components';
 import { cn } from '@/lib/utils';
 import { useAuth } from '../../context/AuthContext';
@@ -91,6 +91,9 @@ export const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, picked
               title="Total times questions in this run were sent back"
             />
           )}
+          {risk.ticketsRaised > 0 && (
+            <IconChip icon={Ticket} tone="bg-danger" label={risk.ticketsRaised === 1 ? '1 ticket raised' : `${risk.ticketsRaised} tickets raised`} />
+          )}
           {risk.clean && <IconChip icon={CheckCircle2} tone="bg-success" label="No issues" />}
         </div>
       </header>
@@ -114,6 +117,7 @@ export const ReviewPaneBody = memo(function ReviewPaneBody({ row, picked, picked
       <InstanceReviewPanel
         items={instance.items}
         canWaive={canWaive}
+        canRaiseTicket={!instance.assigneeIds.includes(user?.id ?? '')}
         selected={pickedSet}
         onToggle={onTogglePicked}
         notes={picked}

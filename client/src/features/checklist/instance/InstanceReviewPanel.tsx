@@ -6,6 +6,7 @@ import { answerVerdict, runScores } from '../checklistCompliance';
 import { complianceToneClass, formatDateTime } from '../checklistDisplay';
 import { EvidenceThumb } from './EvidenceThumb';
 import { WaiveAction } from './WaiveAction';
+import { RaiseTicketAction } from './RaiseTicketAction';
 import { useChecklistItemHistoryQuery } from '../hook';
 import { itemFlags, needsLookRank, type ItemFlags } from './reviewFlags';
 import { answerText } from './answerText';
@@ -121,6 +122,7 @@ interface ReviewRowProps {
   item: ChecklistInstanceItem;
   /** A department head, PC or Admin who is not filling this run in: may waive a failing question. */
   canWaive: boolean;
+  canRaiseTicket: boolean;
   flags: ItemFlags;
   selected: boolean;
   disabled: boolean;
@@ -134,7 +136,7 @@ interface ReviewRowProps {
   deadlineMs: number | null;
 }
 
-const ReviewRow = memo(function ReviewRow({ item, canWaive, flags, selected, disabled, onToggle, note, onNoteChange, previousNote, deadlineMs }: ReviewRowProps) {
+const ReviewRow = memo(function ReviewRow({ item, canWaive, canRaiseTicket, flags, selected, disabled, onToggle, note, onNoteChange, previousNote, deadlineMs }: ReviewRowProps) {
   const answer = item.isNotApplicable ? null : answerText(item);
   const answeredLate = deadlineMs != null && item.isDone && !!item.completedAt && new Date(item.completedAt).getTime() > deadlineMs;
   // Each question is its own small card, with space between cards, so a reviewer can read the run at a glance:
@@ -171,7 +173,7 @@ const ReviewRow = memo(function ReviewRow({ item, canWaive, flags, selected, dis
               <IconChip
                 icon={CornerUpLeft}
                 tone="bg-danger"
-                label={item.sendBackCount === 1 ? 'Sent back once' : `Sent back ${item.sendBackCount} times`}
+                label={item.reviewTicketId && item.sendBackCount === 1 ? 'Ticket raised' : item.sendBackCount === 1 ? 'Sent back once' : `Sent back ${item.sendBackCount} times`}
                 title="Counts against compliance"
               />
             )}
@@ -242,7 +244,10 @@ const ReviewRow = memo(function ReviewRow({ item, canWaive, flags, selected, dis
           </span>
           <span className="t-meta font-display font-semibold">{selected ? 'Sending back' : 'Send back'}</span>
         </label>
-        {canWaive && (flags.bad || flags.sentBack || flags.waived) && <WaiveAction instanceId={item.instanceId} item={item} />}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {(canRaiseTicket || item.reviewTicketId) && <RaiseTicketAction item={item} canRaise={canRaiseTicket} />}
+          {canWaive && (flags.bad || flags.sentBack || flags.waived) && <WaiveAction instanceId={item.instanceId} item={item} />}
+        </div>
       </div>
 
       {selected && onNoteChange && (
@@ -265,6 +270,7 @@ interface InstanceReviewPanelProps {
   items: ChecklistInstanceItem[];
   /** Show the Waive button on failing questions. The server still decides who may. */
   canWaive?: boolean;
+  canRaiseTicket?: boolean;
   /** Questions the reviewer has ticked to send back. */
   selected: ReadonlySet<string>;
   onToggle: (itemId: string) => void;
@@ -290,7 +296,7 @@ const SectionTitle = ({ children }: { children: string }) => (
 // question back (with an optional note of its own). Used by the Verification page's review pane and
 // the department Approvals page, so both review the same way.
 export const InstanceReviewPanel = memo(function InstanceReviewPanel({
-  items, canWaive = false, selected, onToggle, disabled = false, notes, onNoteChange, lastSendBackNote = null, showScores = true, deadlineMs = null,
+  items, canWaive = false, canRaiseTicket = false, selected, onToggle, disabled = false, notes, onNoteChange, lastSendBackNote = null, showScores = true, deadlineMs = null,
 }: InstanceReviewPanelProps) {
   const scores = useMemo(() => (showScores ? runScores(items) : null), [items, showScores]);
   const [showRest, setShowRest] = useState(false);
@@ -308,6 +314,7 @@ export const InstanceReviewPanel = memo(function InstanceReviewPanel({
       key={item.id}
       item={item}
       canWaive={canWaive}
+      canRaiseTicket={canRaiseTicket}
       flags={flags}
       selected={selected.has(item.id)}
       disabled={disabled}

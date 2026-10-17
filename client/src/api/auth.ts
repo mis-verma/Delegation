@@ -36,6 +36,7 @@ export type LoginPayload  = { email: string; password: string };
 
 export type ForgotPasswordPayload = { email: string };
 export type ResetPasswordPayload  = { token: string; password: string };
+export type ResetPasswordCodePayload = { email: string; code: string; password: string };
 
 export const authApi = {
   login:   (p: LoginPayload) => apiFetch<AuthResponse>('/auth/login',   { method: 'POST', body: JSON.stringify(p) }),
@@ -45,6 +46,8 @@ export const authApi = {
   forgotPassword: (p: ForgotPasswordPayload) =>
     apiFetch<{ success: boolean; message: string }>('/auth/forgot-password', { method: 'POST', body: JSON.stringify(p) }),
 
+  resetPasswordWithCode: (p: ResetPasswordCodePayload) =>
+    apiFetch<{ success: boolean }>('/auth/reset-password-code', { method: 'POST', body: JSON.stringify(p) }),
   resetPassword: (p: ResetPasswordPayload) =>
     apiFetch<{ success: boolean }>('/auth/reset-password', { method: 'POST', body: JSON.stringify(p) }),
 };

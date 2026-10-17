@@ -1,3 +1,4 @@
+import { passwordOtpService } from "../../middleware/auth/passwordOtp.service.js"
 import type { Request , Response} from 'express'
 import { userService } from './user.service.js'
 import { userOffboardingService } from './userOffboarding.service.js'
@@ -74,8 +75,17 @@ export const userController = {
         // We pass the admin's id along so the service can record who performed this action (for auditing).
         const input = createUserSchema.parse(req.body);
         const user = await userService.create(input , req.user!.sub);
+        let setupCodeSent = false
+        if (input.sendSetupCode) {
+            try {
+                await passwordOtpService.sendSetupCode(user.id, req.user!.sub)
+                setupCodeSent = true
+            } catch (err) {
+                console.error("[users] Failed to send setup code:", err)
+            }
+        }
         // 201 = "Created" - the standard HTTP status code for successfully creating a new resource.
-        res.status(201).json({ success : true , data : user})
+        res.status(201).json({ success : true , data : user, setupCodeSent })
     }),
 
     update : asyncHandler(async (req : Request , res : Response) => {
@@ -85,6 +95,11 @@ export const userController = {
         const input = updateUserSchema.parse(req.body);
         const user = await userService.update(req.params.id , input , req.user!.sub);
         res.json({ success : true , data : user})
+    }),
+
+    sendPasswordCode : asyncHandler(async (req : Request , res : Response) => {
+        await passwordOtpService.sendSetupCode(req.params.id, req.user!.sub);
+        res.json({ success : true , data : { sent : true } })
     }),
 
     resetPassword : asyncHandler(async (req : Request , res : Response) => {

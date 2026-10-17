@@ -86,7 +86,13 @@ export const LoginForm = () => {
                 }
                 {...register("password")}
               />
-              <div className="flex justify-end">
+              <div className="flex items-center justify-between gap-2">
+                <Link
+                  to="/reset-password"
+                  className="font-display t-meta text-text-muted hover:text-text transition-colors"
+                >
+                  Have a code? Set password
+                </Link>
                 <Link
                   to="/forgot-password"
                   className="font-display t-meta text-primary-600 hover:text-primary-500 transition-colors"

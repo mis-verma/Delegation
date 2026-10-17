@@ -97,7 +97,7 @@ export const UserToolbar = ({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex-1 basis-64 min-w-0">
+        <div className="flex-1 basis-36 sm:basis-64 min-w-0">
           <Input
             id="user-search"
             type="text"
@@ -229,10 +229,12 @@ export const UserToolbar = ({
           onClick={onNew}
           onMouseEnter={onPreloadForm}
           onFocus={onPreloadForm}
-          className="group"
+          aria-label="New user"
+          // A square + on a phone so the whole toolbar stays on one row; the word comes back from sm.
+          className="group max-sm:size-11 max-sm:px-0"
         >
-          <Plus className="w-3.5 h-3.5 transition-transform duration-300 group-hover:rotate-90" />
-          New user
+          <Plus className="size-4 sm:size-3.5 transition-transform duration-300 group-hover:rotate-90" aria-hidden />
+          <span className="max-sm:sr-only">New user</span>
         </Button>
       </div>
 

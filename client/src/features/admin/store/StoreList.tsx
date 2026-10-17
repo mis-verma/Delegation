@@ -4,6 +4,7 @@ import { OptionSection, OptionSelect } from '../../../components/optionsSheet';
 import { useMediaQuery } from '../../../lib/useMediaQuery';
 import { OrgStatusSection, OrgTableSkeleton, OrgToolbar } from '../directory/OrgToolbar';
 import { useDirectoryView } from '../directory/useDirectoryView';
+import { useMonthScores } from '../directory/orgScoreData';
 import {
   EmptyState,
   FormChunkFallback,
@@ -73,6 +74,9 @@ export const StoreList = () => {
     });
     return counts;
   }, [departments]);
+
+  const scores = useMonthScores('store');
+  const scoreWindow = useMemo(() => ({ from: scores.from, to: scores.to, failed: scores.failed }), [scores.from, scores.to, scores.failed]);
 
   const statusCounts = useMemo(() => ({
     all: stores.length,
@@ -247,6 +251,9 @@ export const StoreList = () => {
               store={s}
               activeCount={memberCounts ? (count?.active ?? 0) : usersError ? null : undefined}
               inactiveCount={count?.inactive ?? 0}
+              departmentCount={departmentCountByStore ? (departmentCountByStore.get(s.id) ?? 0) : undefined}
+              score={scores.byId ? (scores.byId.get(s.id) ?? null) : scores.failed ? null : undefined}
+              scoreWindow={scoreWindow}
               isUpdating={updateMut.isPending && updateMut.variables?.id === s.id}
               isDeleting={deleteMut.isPending && deleteMut.variables === s.id}
               onToggleActive={toggleActive}

@@ -37,6 +37,7 @@ export interface ChecklistRisk {
   missingPhotos: number;
   /** Total number of times questions in this run were sent back before. */
   sentBackTimes: number;
+  ticketsRaised: number;
   criticalFailed: number;
   /** Questions that need photos, and how many of those have them all. */
   photosNeeded: number;
@@ -54,6 +55,7 @@ export const computeRisk = (instance: Pick<ChecklistInstance, 'items'>): Checkli
   let badAnswers = 0;
   let missingPhotos = 0;
   let sentBackTimes = 0;
+  let ticketsRaised = 0;
   let photosNeeded = 0;
   let photosHave = 0;
   let needsLookCount = 0;
@@ -62,14 +64,16 @@ export const computeRisk = (instance: Pick<ChecklistInstance, 'items'>): Checkli
     if (flags.bad) badAnswers += 1;
     if (flags.missingPhotos) missingPhotos += 1;
     if (flags.needsLook) needsLookCount += 1;
-    sentBackTimes += item.sendBackCount;
+    const raised = item.reviewTicketId ? 1 : 0;
+    ticketsRaised += raised;
+    sentBackTimes += Math.max(0, item.sendBackCount - raised);
     if (!item.isNotApplicable && item.requiredImageCount > 0) {
       photosNeeded += 1;
       if (item.images.length >= item.requiredImageCount) photosHave += 1;
     }
   }
   const criticalFailed = scores.criticalFailed;
-  const needsAttention = badAnswers > 0 || missingPhotos > 0 || sentBackTimes > 0 || criticalFailed > 0;
+  const needsAttention = badAnswers > 0 || missingPhotos > 0 || sentBackTimes > 0 || ticketsRaised > 0 || criticalFailed > 0;
   const compliant = scores.compliance === null || scores.compliance === 100;
   return {
     completion: scores.completion,
@@ -77,6 +81,7 @@ export const computeRisk = (instance: Pick<ChecklistInstance, 'items'>): Checkli
     badAnswers,
     missingPhotos,
     sentBackTimes,
+    ticketsRaised,
     criticalFailed,
     photosNeeded,
     photosHave,
