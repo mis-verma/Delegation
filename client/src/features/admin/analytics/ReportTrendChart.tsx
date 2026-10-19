@@ -125,6 +125,17 @@ export const ReportTrendChart = ({ data, series, groupBy, valueSuffix = '', yDom
     );
   }
 
+  if (points.filter((row) => series.some((s) => row[s.key] != null)).length < 2) {
+    return (
+      <EmptyState
+        size="compact"
+        icon={Activity}
+        title="Not enough data for a trend yet"
+        description="A trend line needs at least two periods with figures. Try a longer period or a smaller Show by."
+      />
+    );
+  }
+
   return (
     <div className="flex flex-col gap-3">
       {series.length > 1 && (

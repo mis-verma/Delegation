@@ -108,11 +108,12 @@ interface AnalyticsControlBarProps extends Omit<GroupByControlProps, 'hideRange'
   onRefresh: () => void;
   actions?: ReactNode;
   hideGroupBy?: boolean;
+  sticky?: boolean;
 }
 
 const formatUpdated = (ms: number) => new Date(ms).toLocaleTimeString(ANALYTICS_LOCALE, { hour: 'numeric', minute: '2-digit' });
 
-export const AnalyticsControlBar = ({ groupBy, onGroupByChange, range, onRangeChange, updatedAt, isRefreshing, onRefresh, actions, hideGroupBy = false }: AnalyticsControlBarProps) => {
+export const AnalyticsControlBar = ({ groupBy, onGroupByChange, range, onRangeChange, updatedAt, isRefreshing, onRefresh, actions, hideGroupBy = false, sticky = true }: AnalyticsControlBarProps) => {
   const { shown, handleChange } = useCompleteRangeOnly(range, onRangeChange);
   const orgToday = useOrgToday();
   const now = useMemo(() => parseDateParam(orgToday) ?? new Date(), [orgToday]);
@@ -144,7 +145,7 @@ export const AnalyticsControlBar = ({ groupBy, onGroupByChange, range, onRangeCh
   );
 
   return (
-    <div className={cn(PANEL_CLASS, 'z-20 flex flex-col gap-3 lg:sticky lg:top-0', CARD_PAD)}>
+    <div className={cn(PANEL_CLASS, 'z-20 flex flex-col gap-3', sticky && 'lg:sticky lg:top-0', CARD_PAD)}>
       <div className="flex flex-col gap-3 sm:hidden">
         <div className={hideGroupBy ? undefined : 'grid grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)] gap-3'}>
           <SelectDropdown label="Period" aria-label="Period" triggerClassName="rounded-lg font-display" value={showCustomPicker ? 'custom' : periodValue} onChange={choosePeriod} options={[...PERIOD_TABS, 'custom' as const].map((key) => ({ value: key, label: labels[key] }))} />

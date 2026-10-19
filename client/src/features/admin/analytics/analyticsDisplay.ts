@@ -178,9 +178,29 @@ export const trendTrimNote = (total: number, shown: number, groupBy: DisplayGrou
     : `Starts at the first ${unit} with figures.`;
 };
 
+export type ValueTone = 'success' | 'warning' | 'danger';
+
+export const pctTone = (value: number | null | undefined): ValueTone | undefined =>
+  value == null || !Number.isFinite(value) ? undefined : value >= 80 ? 'success' : value >= 50 ? 'warning' : 'danger';
+
+export const countTone = (count: number | null | undefined): ValueTone | undefined => (count == null ? undefined : count > 0 ? 'danger' : 'success');
+
 export const NO_TREND: Trend = { direction: 'up', label: '—' };
 
-const rateTrend = (current: number, previous: number): Trend => {
+export const spanDays = (from: string, to: string) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000) + 1;
+
+export const shiftDay = (day: string, n: number) => {
+  const d = new Date(`${day}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+
+export const countTrend = (current: number, previous: number): Trend => {
+  const delta = current - previous;
+  return { direction: delta >= 0 ? 'up' : 'down', label: delta === 0 ? '0' : `${delta > 0 ? '+' : '-'}${Math.abs(delta)}` };
+};
+
+export const rateTrend = (current: number, previous: number): Trend => {
   const delta = Math.round(current) - Math.round(previous);
   return { direction: delta >= 0 ? 'up' : 'down', label: formatPoints(delta) };
 };

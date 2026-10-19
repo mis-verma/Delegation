@@ -1,6 +1,6 @@
 import { memo, useCallback, useId } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
-import { AlertTriangle, ClipboardCheck, FileDown, Info, Repeat, TicketCheck } from 'lucide-react';
+import { AlertTriangle, ArrowRight, ClipboardCheck, FileDown, Info, Repeat, TicketCheck } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button, NoticeBanner } from '../../../components';
 import { useAuth } from '../../../context/AuthContext';
@@ -13,6 +13,7 @@ import { ChecklistInstanceKpiSection } from './ChecklistInstanceKpiSection';
 import { AnalyticsSummaryStrip } from './AnalyticsSummaryStrip';
 import { OrgSnapshotStrip } from './OrgSnapshotStrip';
 import { ApprovalWaitingStrip } from './ApprovalWaitingStrip';
+import { PhoneCollapse } from './PhoneCollapse';
 import { PerformanceLeadersCard } from './PerformanceLeadersCard';
 import { TeamLeaderboardRail } from './TeamLeaderboardRail';
 import { useAnalyticsRefresh } from './useAnalyticsQueries';
@@ -95,7 +96,7 @@ const OverviewTabs = memo(({ groupBy, from, to, windowFrom, windowTo, isOrgWideR
   const section: SectionValue = SECTION_TABS.find((t) => t.value === requested)?.value ?? DEFAULT_SECTION;
 
   return (
-    <section id={SECTIONS_ANCHOR_ID} tabIndex={-1} aria-labelledby={headingId} className="flex flex-col gap-4 scroll-mt-4 focus:outline-none lg:scroll-mt-52">
+    <section id={SECTIONS_ANCHOR_ID} tabIndex={-1} aria-labelledby={headingId} className="flex flex-col gap-4 scroll-mt-4 focus:outline-none">
       <h2 id={headingId} className="sr-only">Performance by area</h2>
       <Tabs value={section} onValueChange={(v) => patch({ tab: v === DEFAULT_SECTION ? null : v })}>
         <TabsList aria-label="Performance area" className="grid w-full grid-flow-col auto-cols-fr sm:inline-flex sm:w-fit h-auto">
@@ -103,7 +104,7 @@ const OverviewTabs = memo(({ groupBy, from, to, windowFrom, windowTo, isOrgWideR
             <TabsTrigger
               key={value}
               value={value}
-              className="min-h-11 sm:min-h-9 px-1.5 sm:px-4 text-xs sm:text-sm text-center leading-tight whitespace-normal sm:whitespace-nowrap"
+              className="min-h-11 sm:min-h-9 px-1.5 sm:px-3 text-xs sm:text-sm text-center leading-tight whitespace-normal sm:whitespace-nowrap"
             >
               <Icon size={16} aria-hidden="true" className="hidden sm:block" />
               {label}
@@ -178,14 +179,20 @@ export const OrgOverview = () => {
         onRangeChange={handleRange}
         updatedAt={updatedAt}
         isRefreshing={isRefreshing}
+        sticky={false}
         onRefresh={() => void refresh()}
-        actions={
+      />
+
+      <AnalyticsSummaryStrip groupBy={groupBy} from={from} to={to} windowFrom={windowFrom} windowTo={windowTo} onViewSection={jumpToSection}
+        isOrgWideRole={orgWide}
+        links={
           orgWide ? (
             <>
-              <Button variant="outline" size="sm" onClick={openRankings}>
+              <Button variant="ghost" size="sm" onClick={openRankings}>
                 Scores
+                <ArrowRight size={14} aria-hidden="true" />
               </Button>
-              <Button variant="outline" size="sm" onClick={() => navigate('/admin/reports')}>
+              <Button variant="ghost" size="sm" onClick={() => navigate('/admin/reports')}>
                 <FileDown size={14} aria-hidden="true" />
                 Reports
               </Button>
@@ -194,24 +201,32 @@ export const OrgOverview = () => {
         }
       />
 
-      <AnalyticsSummaryStrip groupBy={groupBy} from={from} to={to} windowFrom={windowFrom} windowTo={windowTo} onViewSection={jumpToSection} isOrgWideRole={orgWide} />
-
-      {orgWide && <ApprovalWaitingStrip from={windowFrom} to={windowTo} />}
+      {orgWide && (
+        <PhoneCollapse title="Waiting for approval" defaultOpen>
+          <ApprovalWaitingStrip from={windowFrom} to={windowTo} />
+        </PhoneCollapse>
+      )}
 
       {orgWide && scoreWindow && <MyScoresCard initialScope="org" window={scoreWindow} moreHref={scoresHref('department')} />}
 
       {orgWide && (
-        <div className="@container">
-          <div className="grid grid-cols-1 gap-3 @3xl:grid-cols-2">
-            <PerformanceLeadersCard from={windowFrom} to={windowTo} onViewFull={openRankings} />
-            <TeamLeaderboardRail from={windowFrom} to={windowTo} />
+        <PhoneCollapse title="Stores, departments and leaders" hint="Top and lowest scores">
+          <div className="@container">
+            <div className="grid grid-cols-1 items-start gap-3 @3xl:grid-cols-2">
+              <PerformanceLeadersCard from={windowFrom} to={windowTo} onViewFull={openRankings} />
+              <TeamLeaderboardRail from={windowFrom} to={windowTo} />
+            </div>
           </div>
-        </div>
+        </PhoneCollapse>
       )}
 
       <OverviewTabs groupBy={groupBy} from={from} to={to} windowFrom={windowFrom} windowTo={windowTo} isOrgWideRole={orgWide} />
 
-      {orgWide && <OrgSnapshotStrip counts={countsQuery.data} isPending={countsQuery.isPending} isError={countsQuery.isError} onRetry={retrySnapshot} />}
+      {orgWide && (
+        <PhoneCollapse title="Your organisation" hint="Stores, departments and people">
+          <OrgSnapshotStrip counts={countsQuery.data} isPending={countsQuery.isPending} isError={countsQuery.isError} onRetry={retrySnapshot} />
+        </PhoneCollapse>
+      )}
 
     </div>
   );

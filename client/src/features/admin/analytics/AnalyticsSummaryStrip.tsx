@@ -16,7 +16,7 @@ import { useOverviewScores } from './useOverviewScores';
 import { UpdatingNote } from './UpdatingNote';
 import { handleQueryRetry } from '../../../lib/queryHelpers';
 import { useTicketOwnerStatsQuery, useTaskOwnerStatsQuery } from './useAnalyticsQueries';
-import { formatPercent, NO_TREND, periodHeading, statCaption } from './analyticsDisplay';
+import { countTone, countTrend, formatPercent, NO_TREND, pctTone, periodHeading, rateTrend, shiftDay, spanDays, statCaption, type ValueTone } from './analyticsDisplay';
 import type { GroupBy } from './GroupByControl';
 import type { Ticket } from '../../../api/ticket';
 
@@ -30,6 +30,7 @@ interface AnalyticsSummaryStripProps {
   isOrgWideRole: boolean;
   windowFrom?: string;
   windowTo?: string;
+  links?: ReactNode;
 }
 
 export interface StatTileProps {
@@ -44,22 +45,25 @@ export interface StatTileProps {
   isLoading?: boolean;
   onClick?: () => void;
   labelAdornment?: ReactNode;
+  valueTone?: ValueTone;
 }
+
+const VALUE_TONE: Record<ValueTone, string> = { success: 'text-success', warning: 'text-warning', danger: 'text-danger' };
 
 const NO_DATA_VALUE = 'No data';
 const LOADING_VALUE = 'Loading';
 const UNAVAILABLE_VALUE = 'Unavailable';
 
-const MOBILE_TILE_BASE = `${PANEL_CLASS} flex flex-col gap-1 p-3 text-left min-w-0`;
+const MOBILE_TILE_BASE = `${PANEL_CLASS} relative flex h-full flex-col gap-1 p-3 text-left min-w-0`;
 const MOBILE_TILE_INTERACTIVE =
   'cursor-pointer transition-colors duration-150 motion-reduce:transition-none hover:border-border-hover outline-none focus-visible:ring-2 focus-visible:ring-primary-500/50';
 
-const MobileStatTile = ({ label, value, caption, trend, lowerIsBetter = false, isLoading, onClick, labelAdornment }: StatTileProps) => {
+const MobileStatTile = ({ label, value, caption, trend, lowerIsBetter = false, isLoading, onClick, labelAdornment, valueTone }: StatTileProps) => {
   const hasTrend = trend != null && trend.label !== '—';
   const isFlat = hasTrend && Number.parseFloat(trend.label) === 0;
   const isGood = trend ? (trend.direction === 'up') !== lowerIsBetter : true;
   const trendClass = isFlat ? 'text-text-muted' : isGood ? 'text-success' : 'text-danger';
-  const isPlaceholder = value === NO_DATA_VALUE || value === LOADING_VALUE || value === UNAVAILABLE_VALUE;
+  const isPlaceholder = value === NO_DATA_VALUE || value === LOADING_VALUE || value === UNAVAILABLE_VALUE || value === '—';
   const body = (
     <>
       <span className="flex items-start gap-1.5">
@@ -74,7 +78,7 @@ const MobileStatTile = ({ label, value, caption, trend, lowerIsBetter = false, i
         <Skeleton className="h-7 w-14 rounded-md" />
       ) : (
         <span
-          className={`${isPlaceholder ? 't-card' : 't-stat'} font-display font-bold leading-none tabular-nums ${isPlaceholder ? 'text-text-muted' : 'text-text'}`}
+          className={`${isPlaceholder ? 't-card' : 't-stat'} font-display font-bold leading-none tabular-nums ${isPlaceholder ? 'text-text-muted' : valueTone ? VALUE_TONE[valueTone] : 'text-text'}`}
         >
           {typeof value === 'number' ? value.toLocaleString('en-IN') : value}
         </span>
@@ -86,6 +90,7 @@ const MobileStatTile = ({ label, value, caption, trend, lowerIsBetter = false, i
         </span>
       )}
       {caption && <span className="t-meta font-display text-text-muted leading-snug line-clamp-2">{caption}</span>}
+      {onClick && <ArrowUpRight className="absolute right-2.5 top-2.5 size-4 text-primary-600 opacity-70 dark:text-primary-400" aria-hidden="true" />}
     </>
   );
 
@@ -143,7 +148,7 @@ const CHECKLISTS_NOT_DONE = `${MODULE_LABEL.checklist} ${SCORE_LABEL.notDone.toL
 const CHECKLISTS_COMPLETION = `${MODULE_LABEL.checklist} ${SCORE_LABEL.completion.toLowerCase()}`;
 const DELEGATIONS_COMPLETION = `${MODULE_LABEL.delegation} ${SCORE_LABEL.completion.toLowerCase()}`;
 
-const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWideRole, windowFrom, windowTo }: AnalyticsSummaryStripProps) => {
+const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWideRole, windowFrom, windowTo, links }: AnalyticsSummaryStripProps) => {
   const headingId = useId();
   const navigate = useNavigate();
   const { token, user } = useAuth();
@@ -167,14 +172,23 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
   const missedCount = checklist?.notDone ?? 0;
   const lateChecklists = checklist?.late ?? 0;
 
+  const prevWin = scores.win ? { from: shiftDay(scores.win.from, -spanDays(scores.win.from, scores.win.to)), to: shiftDay(scores.win.from, -1) } : null;
+  const prevScores = useOverviewScores(prevWin?.from, prevWin?.to, { enabled: !!prevWin });
+  const prevChecklist = prevScores.total?.checklist;
+  const prevTicket = prevScores.total?.ticket;
+  const prevDelegation = prevScores.total?.delegation;
+  const rateDelta = (now: number | null | undefined, nowCount: number | undefined, before: number | null | undefined, beforeCount: number | undefined) =>
+    now == null || before == null || !nowCount || !beforeCount ? NO_TREND : rateTrend(now, before);
+  const notDoneTrend = checklist && prevChecklist && checklist.due > 0 && prevChecklist.due > 0 ? countTrend(missedCount, prevChecklist.notDone) : NO_TREND;
+
   const overdueCount = overdue.data?.[0]?.overdueCount;
 
   const percentValue = (value: number | null | undefined, count: number | undefined) =>
     scoresFailed ? UNAVAILABLE_VALUE : scoresLoading || !scores.total ? LOADING_VALUE : !count || value == null ? NO_DATA_VALUE : formatPercent(value);
-  const percentCaption = (value: number | null | undefined, count: number | undefined, noDataText: string) =>
+  const percentCaption = (value: number | null | undefined, count: number | undefined, noDataText: string, okText: string) =>
     scoresLoading || scoresFailed || !count || value == null
       ? statCaption({ isPending: scoresLoading, isError: scoresFailed, hasData: !!count && value != null, noDataText })
-      : windowText;
+      : okText;
 
   const onTimeWindow = useMemo(() => (windowFrom && windowTo ? { from: windowFrom, to: windowTo } : from && to ? { from, to } : null), [windowFrom, windowTo, from, to]);
 
@@ -209,11 +223,13 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
       <SectionHeader
         id={headingId}
         title="At a glance"
+        description="Arrows compare with the previous period of the same length."
         actions={
           <>
             <UpdatingNote show={scores.updating} />
-            <p className="t-meta font-display text-text-muted">{periodHeading(groupBy, from, to)}</p>
+            {links}
             <ExportMenu
+              iconOnly
               disabled={anyPending}
               aria-label="Export the headline numbers"
               filename="overview-at-a-glance"
@@ -240,6 +256,7 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
             caption={overdue.isPending || overdue.isError ? statCaption({ isPending: overdue.isPending, isError: overdue.isError, hasData: false, noDataText: '' }) : 'Open tickets past their deadline'}
             trend={NO_TREND}
             lowerIsBetter
+            valueTone={overdue.isPending || overdue.isError ? undefined : countTone(overdueCount ?? 0)}
             onClick={() => setDrilldownKind('overdue')}
           />
           <StatTile
@@ -251,6 +268,7 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
             caption={overdueDelegations.isPending || overdueDelegations.isError ? statCaption({ isPending: overdueDelegations.isPending, isError: overdueDelegations.isError, hasData: false, noDataText: '' }) : 'Past their due date, not done'}
             trend={NO_TREND}
             lowerIsBetter
+            valueTone={overdueDelegations.isPending || overdueDelegations.isError ? undefined : countTone(overdueDelegationCount ?? 0)}
             onClick={() => navigate(overdueDelegationsHref())}
           />
           {checklistSubject && (
@@ -261,8 +279,9 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
               value={scoresFailed ? UNAVAILABLE_VALUE : !checklist ? LOADING_VALUE : missedCount}
               isLoading={scoresLoading}
               caption={scoresLoading || scoresFailed ? statCaption({ isPending: scoresLoading, isError: scoresFailed, hasData: false, noDataText: '' }) : lateChecklists > 0 ? `Not finished, plus ${lateChecklists} finished late` : 'Came due and not finished'}
-              trend={NO_TREND}
+              trend={notDoneTrend}
               lowerIsBetter
+              valueTone={scoresLoading || scoresFailed || !checklist ? undefined : countTone(missedCount)}
               onClick={() => {
                 if (dayFrom && dayTo) navigate(checklistDrillHref(isOrgWideRole, checklistSubject, dayFrom, dayTo, 'notDone'));
               }}
@@ -275,8 +294,9 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
             labelAdornment={<HowCalculated figure="onTime" module="ticket" />}
             value={percentValue(ticket?.onTimeOfFinishedPct, ticket?.done)}
             isLoading={scoresLoading}
-            trend={NO_TREND}
-            caption={percentCaption(ticket?.onTimeOfFinishedPct, ticket?.done, 'No closed tickets with a deadline')}
+            trend={rateDelta(ticket?.onTimeOfFinishedPct, ticket?.done, prevTicket?.onTimeOfFinishedPct, prevTicket?.done)}
+            caption={percentCaption(ticket?.onTimeOfFinishedPct, ticket?.done, 'No closed tickets with a deadline', 'Closed by their deadline')}
+            valueTone={ticket?.done ? pctTone(ticket.onTimeOfFinishedPct) : undefined}
             onClick={() => setDrilldownKind('on-time')}
           />
           <StatTile
@@ -286,8 +306,9 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
             labelAdornment={<HowCalculated figure="completion" module="checklist" />}
             value={percentValue(checklist?.completion, checklist?.due)}
             isLoading={scoresLoading}
-            trend={NO_TREND}
-            caption={percentCaption(checklist?.completion, checklist?.due, 'No checklists were due')}
+            trend={rateDelta(checklist?.completion, checklist?.due, prevChecklist?.completion, prevChecklist?.due)}
+            caption={percentCaption(checklist?.completion, checklist?.due, 'No checklists were due', 'Finished out of those due')}
+            valueTone={checklist?.due ? pctTone(checklist.completion) : undefined}
             onClick={() => onViewSection('store-checklists')}
           />
           <StatTile
@@ -297,8 +318,9 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
             labelAdornment={<HowCalculated figure="completion" module="delegation" />}
             value={percentValue(delegation?.completion, delegation?.due)}
             isLoading={scoresLoading}
-            trend={NO_TREND}
-            caption={percentCaption(delegation?.completion, delegation?.due, 'No delegations were due')}
+            trend={rateDelta(delegation?.completion, delegation?.due, prevDelegation?.completion, prevDelegation?.due)}
+            caption={percentCaption(delegation?.completion, delegation?.due, 'No delegations were due', 'Done out of those due')}
+            valueTone={delegation?.due ? pctTone(delegation.completion) : undefined}
             onClick={() => onViewSection('delegations')}
           />
         </div>

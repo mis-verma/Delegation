@@ -13,7 +13,7 @@ export function getAdminBreadcrumbs(pathname: string): BreadcrumbTrailItem[] | n
     return null;
   }
   if (pathname === '/admin') {
-    return [DASHBOARD, { label: 'Overview' }];
+    return null;
   }
   if (pathname.startsWith('/admin/scores')) {
     return [DASHBOARD, { label: 'Overview', to: '/admin' }, { label: 'Scores' }];

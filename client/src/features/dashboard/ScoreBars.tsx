@@ -150,7 +150,7 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
     const row = chartRows[props.index ?? -1];
     if (!row?.hasData || typeof props.value !== 'number') return null;
     return (
-      <text x={Number(props.x) + Number(props.width) / 2} y={Number(props.y) - 6} textAnchor="middle" fontSize={isMobile ? 15 : 12} fontWeight={isMobile ? 800 : 700} fill="var(--color-text)">
+      <text x={Number(props.x) + Number(props.width) / 2} y={Number(props.y) - 6} textAnchor="middle" fontSize={isMobile ? (series.length > 1 ? 12 : 15) : 12} fontWeight={isMobile ? 800 : 700} fill="var(--color-text)">
         {formatPct(props.value)}
       </text>
     );

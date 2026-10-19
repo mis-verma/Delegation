@@ -1,7 +1,7 @@
 import { memo, useId, useMemo } from 'react';
 import { Link } from 'react-router';
 import { Trophy, AlertTriangle, Building2, Store, ArrowRight } from 'lucide-react';
-import { ActiveRangeBadge, Button, ExportMenu, InlineError, PANEL_CLASS, Skeleton } from '../../../components';
+import { Button, ExportMenu, InlineError, PANEL_CLASS, Skeleton } from '../../../components';
 import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable';
 import { useOverviewScoreWindow } from './useOverviewScores';
 import { scorecardRowHref } from '../../dashboard/scoreDrill';
@@ -110,7 +110,11 @@ const DimensionColumn = ({ icon: Icon, title, rows, isPending, isError, onRetry,
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 @md:grid-cols-2">
-          {!top && !low && !hasEligible ? (
+          {(top && low && top.id === low.id) || (!top && low) ? (
+            <div className="@md:col-span-2">
+              <LeaderEntry icon={((top ?? low)?.overall ?? 100) < NEEDS_ATTENTION_BELOW ? AlertTriangle : Trophy} tone={((top ?? low)?.overall ?? 100) < NEEDS_ATTENTION_BELOW ? 'danger' : 'success'} label="Only one ranked" row={top ?? low} emptyText="" hrefFor={hrefFor} />
+            </div>
+          ) : !top && !low && !hasEligible ? (
             <p className="rounded-lg border border-border px-3 py-3 t-meta text-text-muted @md:col-span-2">Not enough data yet</p>
           ) : (
             <>
@@ -166,12 +170,12 @@ export const PerformanceLeadersCard = ({ from, to, onViewFull }: PerformanceLead
         actions={
           <>
             <UpdatingNote show={updating} />
-            <ActiveRangeBadge from={from} to={to} />
             <Button type="button" variant="ghost" size="sm" onClick={onViewFull}>
               See full ranking
               <ArrowRight size={14} aria-hidden="true" />
             </Button>
             <ExportMenu
+              iconOnly
               disabled={departmentsPending || storesPending}
               aria-label="Export the top and lowest stores and departments"
               filename="overview-leaders"

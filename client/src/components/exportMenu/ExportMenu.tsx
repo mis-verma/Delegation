@@ -26,6 +26,7 @@ export interface ExportMenuProps extends ExportSource {
   onExported?: (format: ExportFormat, rowCount: number) => void;
   'aria-label'?: string;
   className?: string;
+  iconOnly?: boolean;
 }
 
 const FORMATS: { format: ExportFormat; label: string; icon: typeof FileText }[] = [
@@ -35,7 +36,7 @@ const FORMATS: { format: ExportFormat; label: string; icon: typeof FileText }[] 
 
 const isCounted = (table: ExportTable): table is { rows: TableRows; count: number } => !Array.isArray(table);
 
-export const ExportMenu = ({ disabled, more, onExported, 'aria-label': ariaLabel = 'Export', className, ...main }: ExportMenuProps) => {
+export const ExportMenu = ({ disabled, more, onExported, 'aria-label': ariaLabel = 'Export', className, iconOnly = false, ...main }: ExportMenuProps) => {
   const [busy, setBusy] = useState(false);
   const sources: ExportSource[] = [main, ...(more ?? [])];
   const grouped = sources.length > 1;
@@ -68,10 +69,10 @@ export const ExportMenu = ({ disabled, more, onExported, 'aria-label': ariaLabel
           disabled={disabled || busy}
           aria-label={ariaLabel}
           title={ariaLabel}
-          className={cn('shrink-0 pointer-coarse:min-w-11 max-sm:px-2.5', className)}
+          className={cn('shrink-0 pointer-coarse:min-w-11 max-sm:px-2.5', iconOnly && 'size-9 px-0 pointer-coarse:size-11', className)}
         >
           <Download size={14} strokeWidth={2.5} aria-hidden="true" />
-          <span className="hidden sm:inline">{busy ? 'Exporting' : 'Export'}</span>
+          <span className={iconOnly ? 'sr-only' : 'hidden sm:inline'}>{busy ? 'Exporting' : 'Export'}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-52">

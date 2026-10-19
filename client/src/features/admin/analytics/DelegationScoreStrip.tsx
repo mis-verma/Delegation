@@ -1,14 +1,14 @@
 import { useId } from 'react';
 import { useNavigate } from 'react-router';
 import { AlertTriangle, Clock, ListChecks, Percent } from 'lucide-react';
-import { ActiveRangeBadge, ExportMenu, InlineError } from '../../../components';
+import { ExportMenu, InlineError } from '../../../components';
 import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable';
 import { MODULE_LABEL, SCORE_LABEL } from '../../../lib/scoreLabels';
 import { delegationDrillHref } from '../../dashboard/scoreDrill';
 import { HowCalculated } from '../../scores/HowCalculated';
 import { SectionHeader } from '../../scores/SectionHeader';
 import { StatTile } from './AnalyticsSummaryStrip';
-import { formatPercent } from './analyticsDisplay';
+import { countTone, formatPercent, pctTone } from './analyticsDisplay';
 import { UpdatingNote } from './UpdatingNote';
 import { useOverviewScores } from './useOverviewScores';
 
@@ -49,8 +49,8 @@ export const DelegationScoreStrip = ({ from, to }: DelegationScoreStripProps) =>
         actions={
           <>
             <UpdatingNote show={scores.updating} />
-            <ActiveRangeBadge from={from} to={to} />
             <ExportMenu
+              iconOnly
               disabled={!totals}
               aria-label="Export the delegation figures"
               filename="overview-delegations-due"
@@ -76,6 +76,7 @@ export const DelegationScoreStrip = ({ from, to }: DelegationScoreStripProps) =>
               value={text(empty ? 'No data' : formatPercent(totals?.completion))}
               isLoading={loading}
               caption={empty ? 'Done out of due' : `${totals?.done ?? 0} of ${totals?.due ?? 0} done`}
+              valueTone={loading || empty ? undefined : pctTone(totals?.completion)}
             />
             <StatTile
               icon={Clock}
@@ -85,6 +86,7 @@ export const DelegationScoreStrip = ({ from, to }: DelegationScoreStripProps) =>
               value={text(empty || noneFinished ? 'No data' : formatPercent(totals?.onTimeOfFinishedPct))}
               isLoading={loading}
               caption="Of those done, finished by the deadline"
+              valueTone={loading || empty || noneFinished ? undefined : pctTone(totals?.onTimeOfFinishedPct)}
             />
             <StatTile
               icon={AlertTriangle}
@@ -94,6 +96,7 @@ export const DelegationScoreStrip = ({ from, to }: DelegationScoreStripProps) =>
               isLoading={loading}
               caption="Due in the period, not done. Waiting for approval is left out"
               lowerIsBetter
+              valueTone={loading ? undefined : countTone(totals?.overdue ?? 0)}
               onClick={dayFrom && dayTo ? () => navigate(delegationDrillHref({ kind: 'org' }, dayFrom, dayTo, 'notDone')) : undefined}
             />
           </div>

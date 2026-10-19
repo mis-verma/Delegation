@@ -22,7 +22,10 @@ interface StatCardProps {
   highlight?: boolean;
   decorative?: boolean;
   labelAdornment?: ReactNode;
+  valueTone?: 'success' | 'warning' | 'danger';
 }
+
+const VALUE_TONE = { success: 'text-success', warning: 'text-warning', danger: 'text-danger' } as const;
 
 type TrendMood = 'good' | 'bad' | 'flat';
 
@@ -90,6 +93,7 @@ export const StatCard = ({
   decorative = false,
   lowerIsBetter = false,
   labelAdornment,
+  valueTone,
 }: StatCardProps) => {
   const isLink = Boolean(href);
   const isNoData = value === 'No data';
@@ -196,7 +200,7 @@ export const StatCard = ({
               } ${
                 isPlaceholder
                   ? highlight ? 'text-white/50' : isNoData ? 'text-text-muted' : 'text-text-light/60'
-                  : highlight ? 'text-white' : 'text-text'
+                  : highlight ? 'text-white' : valueTone ? VALUE_TONE[valueTone] : 'text-text'
               }`}
               title={typeof value === 'number' && Math.abs(value) >= COMPACT_THRESHOLD ? value.toLocaleString() : undefined}
             >
@@ -230,7 +234,7 @@ export const StatCard = ({
         )}
       </div>
 
-      {(hasTrend || caption || isLink) && (
+      {(hasTrend || caption || isInteractive) && (
         <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mt-1 relative z-10 pointer-events-none">
           {hasTrend && (
             <Badge
@@ -250,7 +254,7 @@ export const StatCard = ({
             </span>
           )}
 
-          {isLink && (
+          {isInteractive && (
             <ArrowUpRight
               size={16}
               aria-hidden="true"

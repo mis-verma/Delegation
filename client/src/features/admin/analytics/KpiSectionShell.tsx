@@ -1,14 +1,15 @@
 import { lazy, Suspense, useId } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { StatCard, type Trend } from '../../dashboard';
-import { ActiveRangeBadge, EntityIconTile, ExportMenu, InlineError, PANEL_CLASS, Skeleton } from '../../../components';
+import { ExportMenu, InlineError, PANEL_CLASS, Skeleton } from '../../../components';
+import { SectionHeader } from '../../scores/SectionHeader';
 import { ApiError } from '../../../api/http';
 import { exportTitle, type TableRows } from '../../../lib/exportTable';
 import type { ScoreFigure, ScoreModule } from '../../../lib/scoreLabels';
 import { CARD_PAD } from '../../scores/controlStyles';
 import { HowCalculated } from '../../scores/HowCalculated';
 import { UpdatingNote } from './UpdatingNote';
-import { defaultWindowLabel, describeLatestPeriod, NO_TREND, statCaption, trendBucketLabel, visibleTrendPoints } from './analyticsDisplay';
+import { defaultWindowLabel, describeLatestPeriod, NO_TREND, pctTone, statCaption, trendBucketLabel, visibleTrendPoints } from './analyticsDisplay';
 import type { ReportTrendChartProps } from './ReportTrendChart';
 
 const ReportTrendChart = lazy(() => import('./ReportTrendChart'));
@@ -61,7 +62,7 @@ const exportNumber = (value: number | null | undefined, unit: KpiCardConfig['uni
   return unit === 'hours' ? Math.round(value * 10) / 10 : Math.round(value);
 };
 
-export const KpiSectionShell = ({ icon: Icon, title, description, isPending, isError, errorMessage, error, onRetry, cards, chart, summaryRows, from, to, updating = false }: KpiSectionShellProps) => {
+export const KpiSectionShell = ({ title, description, isPending, isError, errorMessage, error, onRetry, cards, chart, summaryRows, from, to, updating = false }: KpiSectionShellProps) => {
   const headingId = useId();
   const { label: periodCaption, isWholeRange } = describeLatestPeriod(summaryRows ?? (chart.data as { bucket: string }[]), chart.groupBy);
 
@@ -92,34 +93,31 @@ export const KpiSectionShell = ({ icon: Icon, title, description, isPending, isE
 
   return (
     <section aria-labelledby={headingId} className="flex flex-col gap-4">
-      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <div className="flex min-w-0 items-center gap-3">
-          <EntityIconTile icon={Icon} tone="primary" />
-          <div className="min-w-0">
-            <h2 id={headingId} className="t-section font-display font-bold text-text">{title}</h2>
-            <p className="hidden t-meta text-text-muted sm:block">{description}</p>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center justify-end gap-2">
-          <UpdatingNote show={updating} />
-          <ActiveRangeBadge from={from} to={to} emptyLabel={defaultWindowLabel(chart.groupBy)} />
-          <ExportMenu
-            disabled={isPending || isError}
-            aria-label={`Export the ${title.toLowerCase()} figures`}
-            filename={`overview-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`}
-            sheetName={title}
-            title={exportTitle({
-              what: `Overview, ${title}`,
-              from,
-              to,
-              period: from && to ? undefined : defaultWindowLabel(chart.groupBy),
-              filters: { 'Grouped by': GROUP_WORD[chart.groupBy] },
-            })}
-            getRows={exportRows}
-          />
-        </div>
-      </header>
+      <SectionHeader
+        id={headingId}
+        title={title}
+        description={description}
+        actions={
+          <>
+            <UpdatingNote show={updating} />
+            <ExportMenu
+              iconOnly
+              disabled={isPending || isError}
+              aria-label={`Export the ${title.toLowerCase()} figures`}
+              filename={`overview-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`}
+              sheetName={title}
+              title={exportTitle({
+                what: `Overview, ${title}`,
+                from,
+                to,
+                period: from && to ? undefined : defaultWindowLabel(chart.groupBy),
+                filters: { 'Grouped by': GROUP_WORD[chart.groupBy] },
+              })}
+              getRows={exportRows}
+            />
+          </>
+        }
+      />
 
       {isError ? (
         <InlineError message={error instanceof ApiError && error.status === 400 ? error.message : errorMessage} onRetry={error instanceof ApiError && error.status === 400 ? undefined : onRetry} />
@@ -136,6 +134,7 @@ export const KpiSectionShell = ({ icon: Icon, title, description, isPending, isE
                   compact
                   isLoading={isPending}
                   trend={isWholeRange || !hasData ? NO_TREND : trend}
+                  valueTone={hasData && card.unit === '%' ? pctTone(card.raw ?? (typeof card.value === 'number' ? card.value : null)) : undefined}
                   caption={needsStatus ? statCaption({ isPending, isError, hasData, noDataText: noDataText ?? 'No data for this period' }) : (caption ?? periodCaption)}
                 />
               );

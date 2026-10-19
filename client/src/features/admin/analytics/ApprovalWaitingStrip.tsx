@@ -2,7 +2,7 @@ import { memo, useId } from 'react';
 import { useNavigate } from 'react-router';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Hourglass, ShieldQuestion, Timer } from 'lucide-react';
-import { ActiveRangeBadge, ExportMenu, InlineError } from '../../../components';
+import { ExportMenu, InlineError } from '../../../components';
 import { useAuth } from '../../../context/AuthContext';
 import { reportApi, type ApprovalKind } from '../../../api/reports';
 import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable';
@@ -68,8 +68,8 @@ const ApprovalWaitingStripBase = ({ from, to }: ApprovalWaitingStripProps) => {
         title="Waiting for approval"
         actions={
           <>
-            <ActiveRangeBadge from={from} to={to} />
             <ExportMenu
+              iconOnly
               disabled={!data}
               aria-label="Export the approval figures"
               filename="overview-waiting-for-approval"
@@ -103,6 +103,7 @@ const ApprovalWaitingStripBase = ({ from, to }: ApprovalWaitingStripProps) => {
               value={loading ? 'Loading' : data?.waiting.total.over24h ?? 0}
               isLoading={loading}
               caption={data ? breakdown((k) => data.waiting[k].over24h, 'None past the 24 hour promise') : undefined}
+              valueTone={data ? (data.waiting.total.over24h > 0 ? 'danger' : 'success') : undefined}
               lowerIsBetter
               onClick={open}
             />
@@ -110,7 +111,7 @@ const ApprovalWaitingStripBase = ({ from, to }: ApprovalWaitingStripProps) => {
               icon={Timer}
               iconTint="text-coral-600 dark:text-coral-400"
               label="Average decision time"
-              value={loading ? 'Loading' : data?.avgDecisionHours != null ? formatDuration(data.avgDecisionHours) : 'No data'}
+              value={loading ? 'Loading' : data?.avgDecisionHours != null ? formatDuration(data.avgDecisionHours) : '—'}
               isLoading={loading}
               caption={data ? (data.decided > 0 ? `${data.decided} decided in the period` : 'Nothing was decided in the period') : undefined}
               lowerIsBetter
