@@ -16,8 +16,17 @@ export type Notification = {
 
 export type ApiResponse<T> = { success : boolean ; data : T};
 
+export type PushStatus = { configured : boolean; publicKey : string | null; devices : number };
+export type NotificationPrefs = { quietStart : string | null; quietEnd : string | null; morningDigest : boolean };
+
 export const notificationApi = {
     getAll : () => apiFetch<ApiResponse<Notification[]>>("/notifications"),
     markRead : (id : string) => apiFetch<ApiResponse<Notification>>(`/notifications/${id}/read`, { method : "PATCH"}),
     markAllRead : () => apiFetch<{success : boolean}>('/notifications/read-all', { method : "PATCH"}),
+    markUnread : (ids : string[]) => apiFetch<{success : boolean}>('/notifications/unread', { method : "PATCH", body : JSON.stringify({ ids })}),
+    pushStatus : () => apiFetch<ApiResponse<PushStatus>>('/notifications/push'),
+    pushSubscribe : (subscription : PushSubscriptionJSON) => apiFetch<{success : boolean}>('/notifications/push/subscribe', { method : "POST", body : JSON.stringify(subscription)}),
+    pushUnsubscribe : (endpoint : string) => apiFetch<{success : boolean}>('/notifications/push/unsubscribe', { method : "POST", body : JSON.stringify({ endpoint })}),
+    getPreferences : () => apiFetch<ApiResponse<NotificationPrefs>>('/notifications/preferences'),
+    savePreferences : (prefs : NotificationPrefs) => apiFetch<ApiResponse<NotificationPrefs>>('/notifications/preferences', { method : "PUT", body : JSON.stringify(prefs)}),
 }

@@ -6,7 +6,7 @@
 //
 // Bump CACHE_VERSION when this file's caching rules change. The hashed /assets/* files change name on every build,
 // so a normal deploy needs no bump: the new index.html points at the new files.
-const CACHE_VERSION = 'v4';
+const CACHE_VERSION = 'v5';
 const SHELL_CACHE = `karya-shell-${CACHE_VERSION}`;
 const ASSET_CACHE = `karya-assets-${CACHE_VERSION}`;
 const SHELL_FILES = ['/', '/index.html', '/manifest.webmanifest', '/favicon.svg', '/icon-192.png', '/icon-512.png'];
@@ -82,6 +82,46 @@ self.addEventListener('fetch', (event) => {
         })
         .catch(() => cached || Response.error());
       return cached || network;
+    }),
+  );
+});
+
+self.addEventListener('push', (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = {};
+  }
+  const title = data.title || 'KaryaOS';
+  const badge = typeof data.badge === 'number' ? data.badge : 0;
+  event.waitUntil(
+    Promise.all([
+      self.registration.showNotification(title, {
+        body: data.body || '',
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+        tag: data.tag || undefined,
+        renotify: !!data.tag,
+        data: { url: data.url || '/' },
+      }),
+      self.navigator && self.navigator.setAppBadge ? (badge > 0 ? self.navigator.setAppBadge(badge) : self.navigator.clearAppBadge()).catch(() => undefined) : Promise.resolve(),
+    ]),
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = new URL((event.notification.data && event.notification.data.url) || '/', self.location.origin).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+      for (const client of windows) {
+        if (new URL(client.url).origin === self.location.origin && 'focus' in client) {
+          client.postMessage({ type: 'OPEN_URL', url: target });
+          return client.focus();
+        }
+      }
+      return self.clients.openWindow(target);
     }),
   );
 });

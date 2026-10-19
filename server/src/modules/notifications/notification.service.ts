@@ -5,7 +5,8 @@ import { eq, and, or, desc, inArray } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
 import { missedInstanceIds } from '../checklistInstances/checklistMissedRun.js';
 import { AppError } from '../../utils/AppError.js'; // helper for creating consistent HTTP error objects (e.g. 404 Not Found)
-import { getIO } from '../../sockets/socket.js'; // gives us access to the Socket.IO server so we can push notifications to the browser in real time
+import { getIO } from '../../sockets/socket.js';
+import { pushService } from './push.service.js'; // gives us access to the Socket.IO server so we can push notifications to the browser in real time
 
 // Ticket/task mutations call notificationService.notify* AFTER their own write is already
 // committed, with no shared transaction — the write already succeeded regardless of whether the
@@ -110,6 +111,7 @@ export const notificationService = {
     await db.insert(notifications).values(rows);
     // push each newly created notification to its owner in real time via websockets
     rows.forEach((row) => emitToUser(row.recipientId, row));
+    void pushService.deliver(rows).catch((err) => console.error('Push delivery failed', err));
     return rows;
   },
 
@@ -546,6 +548,14 @@ export const notificationService = {
 
   // Marks EVERY unread notification belonging to this user as read in one bulk update -
   // this is what powers a "mark all as read" button, instead of the user clicking each one individually
+  async markUnread(userId: string, ids: string[]) {
+    if (!ids.length) return;
+    await db
+      .update(notifications)
+      .set({ isRead: false, updatedAt: new Date() })
+      .where(and(eq(notifications.recipientId, userId), inArray(notifications.id, ids)));
+  },
+
   async markAllRead(userId: string) {
     await db
       .update(notifications)

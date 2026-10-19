@@ -20,6 +20,7 @@ import { startAuthTokenPurge } from "./src/jobs/authTokenPurge.job.js";
 import { startScoreDataCheck } from "./src/jobs/scoreDataCheck.job.js";
 import { presenceService } from "./src/modules/presence/presence.service.js";
 import { startNotificationRetention } from "./src/jobs/notificationRetention.job.js";
+import { startNotificationDigest } from "./src/jobs/notificationDigest.job.js";
 import { startInboundMessageRetention } from "./src/jobs/inboundMessageRetention.job.js";
 import { startPendingConversationRetention } from "./src/jobs/pendingConversationRetention.job.js";
 import { settingsService } from "./src/modules/settings/settings.service.js";
@@ -61,6 +62,7 @@ class ServerBootstrap {
       // Presence keys left over from the previous process are stale; live sockets re-register on their next heartbeat.
       void presenceService.clearStale();
       startNotificationRetention();
+      startNotificationDigest();
       startInboundMessageRetention();
       startPendingConversationRetention();
     }

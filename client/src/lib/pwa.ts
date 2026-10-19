@@ -12,6 +12,10 @@ export const registerServiceWorker = () => {
     navigator.serviceWorker
       .register('/sw.js')
       .then((registration) => {
+        navigator.serviceWorker.addEventListener('message', (event) => {
+          const data = event.data as { type?: string; url?: string } | undefined;
+          if (data?.type === 'OPEN_URL' && data.url) window.location.assign(data.url);
+        });
         const offerRefresh = (worker: ServiceWorker) => {
           toast('A new version of KaryaOS is ready', {
             id: 'app-update',

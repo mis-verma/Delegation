@@ -3,6 +3,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { SettingsCard } from './SettingsCard';
 import { Switch } from '../../components/switch';
 import { haptic, hapticsSupported, useHapticsEnabled } from '../../lib/haptics';
+import { NotificationSettings } from './NotificationSettings';
 
 const OPTIONS: { value: 'light' | 'dark' | 'system'; label: string; description: string; icon: LucideIcon }[] = [
   { value: 'light', label: 'Light', description: 'Bright background, always on', icon: Sun },
@@ -95,6 +96,8 @@ export const AppearanceSettings = () => {
           />
         </div>
       </SettingsCard>
+
+      <NotificationSettings />
     </div>
   );
 };

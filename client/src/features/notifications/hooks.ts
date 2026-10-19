@@ -42,7 +42,21 @@ export const useMarkAllNotificationsReadMutation = () => {
             queryClient.setQueryData<Notification[]>(KEY, (old) => old?.map((n) => ({ ...n, isRead : true })));
             return { previous };
         },
-        onSuccess : () => toast.success("All caught up"),
+        onSuccess : (_data, _vars, context) => {
+            const ids = (context?.previous ?? []).filter((n) => !n.isRead).map((n) => n.id);
+            toast.success("All caught up", ids.length === 0 ? undefined : {
+                duration : 8000,
+                action : {
+                    label : "Undo",
+                    onClick : () => {
+                        queryClient.setQueryData<Notification[]>(KEY, (old) => old?.map((n) => (ids.includes(n.id) ? { ...n, isRead : false } : n)));
+                        notificationApi.markUnread(ids)
+                            .catch(() => toast.error("Couldn't undo that. Try again."))
+                            .finally(() => queryClient.invalidateQueries({ queryKey : KEY }));
+                    },
+                },
+            });
+        },
         onError : (_err, _vars, context) => {
             if (context?.previous) queryClient.setQueryData(KEY, context.previous);
             toast.error("Couldn't mark everything as read. Try again.");

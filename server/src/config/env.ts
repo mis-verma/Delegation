@@ -58,6 +58,10 @@ const envSchema = z.object({
     AWS_ACCESS_KEY_ID: z.string().default(''),
     AWS_SECRET_ACCESS_KEY: z.string().default(''),
 
+    VAPID_PUBLIC_KEY: z.string().default(''),
+    VAPID_PRIVATE_KEY: z.string().default(''),
+    VAPID_SUBJECT: z.string().default(''),
+
     SMTP_HOST: z.string().default(''),
     SMTP_PORT: z.coerce.number().default(587),
     SMTP_USER: z.string().default(''),

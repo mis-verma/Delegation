@@ -10,6 +10,7 @@ import { useNotificationSocket } from './useNotificationSocket';
 import { notificationLook, notificationPath, formatNotificationTime, formatRelativeShort, groupNotifications } from './notificationDisplay';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetClose } from '../../components/ui/sheet';
 import { haptic } from '../../lib/haptics';
+import { setAppBadge } from '../../lib/push';
 import { AttentionStrip } from './AttentionStrip';
 
 function cn(...inputs: ClassValue[]) {
@@ -200,6 +201,7 @@ export const NotificationBell = ({ tone = 'light', badgeRing = true, accent = fa
   useEffect(() => () => { if (arrivalTimer.current) clearTimeout(arrivalTimer.current); }, []);
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
+  useEffect(() => { setAppBadge(unreadCount); }, [unreadCount]);
 
   const handleClick = (n: Notification) => {
     if (!n.isRead) markRead.mutate(n.id);

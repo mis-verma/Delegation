@@ -477,3 +477,31 @@ export const passwordOtps = mysqlTable(
   },
   (table) => [index('PasswordOtp_userId_createdAt_idx').on(table.userId, table.createdAt)],
 );
+
+export const pushSubscriptions = mysqlTable(
+  'PushSubscription',
+  {
+    id: varchar('id', { length: 191 }).primaryKey().$defaultFn(() => createId()),
+    userId: varchar('userId', { length: 191 }).notNull().references(() => users.id, { onDelete: 'cascade' }),
+    endpointHash: varchar('endpointHash', { length: 64 }).notNull(),
+    endpoint: text('endpoint').notNull(),
+    p256dh: varchar('p256dh', { length: 255 }).notNull(),
+    auth: varchar('auth', { length: 255 }).notNull(),
+    userAgent: varchar('userAgent', { length: 255 }),
+    createdAt: datetime('createdAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
+    lastUsedAt: datetime('lastUsedAt', { mode: 'date' }),
+  },
+  (table) => [
+    uniqueIndex('PushSubscription_endpointHash_key').on(table.endpointHash),
+    index('PushSubscription_userId_idx').on(table.userId),
+  ],
+);
+
+export const notificationPreferences = mysqlTable('NotificationPreference', {
+  userId: varchar('userId', { length: 191 }).primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  quietStart: varchar('quietStart', { length: 5 }),
+  quietEnd: varchar('quietEnd', { length: 5 }),
+  morningDigest: boolean('morningDigest').notNull().default(false),
+  lastDigestOn: varchar('lastDigestOn', { length: 10 }),
+  updatedAt: datetime('updatedAt', { mode: 'date' }).notNull().$defaultFn(() => new Date()),
+});
