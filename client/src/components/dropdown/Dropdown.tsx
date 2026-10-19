@@ -1,6 +1,9 @@
-import { Fragment, type ReactNode } from 'react';
+import { Fragment, useState, type ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { NavLink } from 'react-router';
+import { PickerShell } from '../dateTime/PickerShell';
+import { useMediaQuery } from '../../lib/useMediaQuery';
+import { haptic } from '../../lib/haptics';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import {
@@ -28,9 +31,52 @@ interface DropdownProps {
   trigger: ReactNode;
   items: DropdownAction[];
   align?: 'start' | 'center' | 'end';
+  title?: string;
 }
 
-export const Dropdown = ({ trigger, items, align = 'end' }: DropdownProps) => (
+const PhoneRow = ({ item, onDone }: { item: DropdownAction; onDone: () => void }) => {
+  const Icon = item.icon;
+  const destructive = item.variant === 'destructive';
+  const rowClass = cn(
+    'flex min-h-12 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-base font-display font-semibold outline-none transition-colors duration-150 cursor-pointer active:bg-surface-hover focus-visible:ring-2 focus-visible:ring-primary-500/40',
+    destructive ? 'text-danger active:bg-danger/10' : 'text-text',
+  );
+  const icon = Icon ? <Icon size={18} strokeWidth={2.25} className={destructive ? 'text-danger' : 'text-text-muted'} aria-hidden="true" /> : null;
+  if (item.to) {
+    return (
+      <NavLink to={item.to} onClick={() => { haptic('tap'); onDone(); }} className={rowClass}>
+        {icon}
+        {item.label}
+      </NavLink>
+    );
+  }
+  return (
+    <button type="button" onClick={() => { haptic('tap'); onDone(); item.onClick?.(); }} className={rowClass}>
+      {icon}
+      {item.label}
+    </button>
+  );
+};
+
+export const Dropdown = ({ trigger, items, align = 'end', title = 'Actions' }: DropdownProps) => {
+  const isPhone = useMediaQuery('(max-width: 639px)');
+  const [open, setOpen] = useState(false);
+
+  if (isPhone) {
+    return (
+      <PickerShell bare open={open} onOpenChange={setOpen} trigger={trigger} title={title}>
+        <ul className="flex flex-col gap-0.5">
+          {items.map((item, index) => (
+            <li key={`${item.label}-${index}`} className={item.separatorBefore ? 'mt-1 border-t border-border/60 pt-1' : undefined}>
+              <PhoneRow item={item} onDone={() => setOpen(false)} />
+            </li>
+          ))}
+        </ul>
+      </PickerShell>
+    );
+  }
+
+  return (
   <DropdownMenu>
     <DropdownMenuTrigger asChild className="focus:outline-none">
       {trigger}
@@ -84,4 +130,5 @@ export const Dropdown = ({ trigger, items, align = 'end' }: DropdownProps) => (
       })}
     </DropdownMenuContent>
   </DropdownMenu>
-);
+  );
+};

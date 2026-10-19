@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
-import { NavLink, useLocation } from 'react-router';
+import { NavLink, useLocation, useNavigate } from 'react-router';
 import {
+  ArrowLeft,
   ChevronDown,
   LayoutDashboard,
   LogOut,
@@ -20,6 +21,8 @@ import { resolveLogoUrl } from '../../lib/uploadsBase';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { getPageLabel } from '../../lib/pageLabels';
 import { cn } from '@/lib/utils';
+import { haptic } from '../../lib/haptics';
+import { hasBackArrow, parentPath } from '../../lib/appNav';
 import { greeting as timeGreeting } from '../../features/dashboard/dashboardDisplay';
 
 const ICON_BUTTON_CLASS =
@@ -59,6 +62,13 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
   const currentDate = now.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
   const firstName = (user?.name ?? '').split(' ')[0];
   const isHome = location.pathname === '/';
+  const navigate = useNavigate();
+  const showBack = hasBackArrow(location.pathname);
+  const goBack = () => {
+    const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
+    if (idx > 0) void navigate(-1);
+    else void navigate(parentPath(location.pathname), { replace: true });
+  };
   const phoneTitle = isHome ? timeGreeting(now) : pageLabel;
   const phoneDateOnly = now.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '');
   const phoneDate = isHome && firstName ? `${firstName}, ${phoneDateOnly}` : phoneDateOnly;
@@ -81,11 +91,21 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
     <header className={`relative shrink-0 mx-3 mt-3 rounded-xl border border-border/70 bg-surface bg-linear-to-r from-primary-500/[0.06] via-surface to-surface dark:from-primary-400/[0.09] z-30`}>
       <div className="flex items-center gap-2 sm:gap-4 h-14 sm:h-16 px-3 sm:px-5">
         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+          {showBack && (
+            <button
+              type="button"
+              onClick={() => { haptic('tap'); goBack(); }}
+              className={cn(ICON_BUTTON_CLASS, 'md:hidden -ml-1 border-border/60 bg-surface-hover/50')}
+              aria-label="Back"
+            >
+              <ArrowLeft size={18} strokeWidth={2} />
+            </button>
+          )}
           {onToggleSidebar && (
             <button
               type="button"
               onClick={onToggleSidebar}
-              className={cn(ICON_BUTTON_CLASS, 'md:hidden -ml-1 border-border/60 bg-surface-hover/50')}
+              className={cn(ICON_BUTTON_CLASS, 'md:hidden -ml-1 border-border/60 bg-surface-hover/50', showBack && 'max-md:hidden')}
               aria-label="Open menu"
             >
               <Menu size={18} strokeWidth={2} />
@@ -147,6 +167,7 @@ export const Header = ({ onToggleSidebar }: { onToggleSidebar?: () => void }) =>
 
           {user && (
             <Dropdown
+              title="Account"
               items={accountActions}
               trigger={
                 <button

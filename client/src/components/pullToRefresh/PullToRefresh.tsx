@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode, type TouchEvent as ReactTouchEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type TouchEvent as ReactTouchEvent } from 'react';
+import { haptic } from '../../lib/haptics';
+import { SCROLL_TOP_EVENT, recalledScroll, rememberScroll } from '../../lib/appNav';
 import { ArrowDown, Loader2 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -21,9 +23,10 @@ export interface PullToRefreshProps {
   children: ReactNode;
   className?: string;
   disabled?: boolean;
+  scrollKey?: string;
 }
 
-export const PullToRefresh = ({ onRefresh, children, className, disabled }: PullToRefreshProps) => {
+export const PullToRefresh = ({ onRefresh, children, className, disabled, scrollKey }: PullToRefreshProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const puckRef = useRef<HTMLDivElement>(null);
@@ -62,6 +65,30 @@ export const PullToRefresh = ({ onRefresh, children, className, disabled }: Pull
 
   useEffect(() => () => { if (frame.current !== null) cancelAnimationFrame(frame.current); }, []);
 
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el || !scrollKey) return;
+    const target = recalledScroll(scrollKey);
+    el.scrollTop = target;
+    if (target === 0) return;
+    const retries = [120, 360, 800].map((ms) => window.setTimeout(() => {
+      if (el.scrollTop !== target && el.scrollHeight - el.clientHeight >= target) el.scrollTop = target;
+    }, ms));
+    return () => retries.forEach((t) => window.clearTimeout(t));
+  }, [scrollKey]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const toTop = () => el.scrollTo({ top: 0, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    window.addEventListener(SCROLL_TOP_EVENT, toTop);
+    return () => window.removeEventListener(SCROLL_TOP_EVENT, toTop);
+  }, []);
+
+  const onScroll = () => {
+    if (scrollKey && scrollRef.current) rememberScroll(scrollKey, scrollRef.current.scrollTop);
+  };
+
   const onTouchStart = (e: ReactTouchEvent) => {
     if (disabled || refreshing) return;
     if ((scrollRef.current?.scrollTop ?? 0) > 0) return;
@@ -87,6 +114,7 @@ export const PullToRefresh = ({ onRefresh, children, className, disabled }: Pull
     touchStartY.current = null;
 
     if (pull.current >= PULL_THRESHOLD) {
+      haptic('tap');
       setRefreshing(true);
       settle(HOLD_HEIGHT);
       try {
@@ -104,6 +132,7 @@ export const PullToRefresh = ({ onRefresh, children, className, disabled }: Pull
     <div
       ref={scrollRef}
       className={cn("relative", className)}
+      onScroll={onScroll}
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}

@@ -10,6 +10,7 @@ import { MaintenanceNotice } from '../../components/offlineBanner/MaintenanceNot
 import { PageMaintenance } from '../../components/error/PageMaintenance';
 import { isPathUnderMaintenance, maintenancePageLabel } from '../../lib/maintenance';
 import { invalidateDashboardQueries } from '../../lib/dashboardQuery';
+import { directionBetween, type NavDirection } from '../../lib/appNav';
 
 export const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -17,6 +18,13 @@ export const Dashboard = () => {
   const pageRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [nav, setNav] = useState<{ path: string; dir: NavDirection }>({ path: location.pathname, dir: 'tab' });
+  if (nav.path !== location.pathname) setNav({ path: location.pathname, dir: directionBetween(nav.path, location.pathname) });
+  const enterClass = nav.dir === 'forward'
+    ? 'max-md:slide-in-from-right-6 md:slide-in-from-bottom-2'
+    : nav.dir === 'back'
+      ? 'max-md:slide-in-from-left-6 md:slide-in-from-bottom-2'
+      : 'slide-in-from-bottom-2';
   const [isMobileViewport, setIsMobileViewport] = useState(
     () => typeof window !== 'undefined' && !window.matchMedia('(min-width: 768px)').matches,
   );
@@ -72,7 +80,7 @@ export const Dashboard = () => {
 
         
         <main className="flex-1 min-w-0 relative">
-          <PullToRefresh onRefresh={handleRefresh} className="relative z-10 h-full overflow-y-auto overflow-x-hidden overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <PullToRefresh onRefresh={handleRefresh} scrollKey={location.pathname} className="relative z-10 h-full overflow-y-auto overflow-x-hidden overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 
             <div className={`px-3 pt-3.5 sm:px-4 lg:px-5 xl:px-6 ${isHome ? 'pb-[calc(6rem+env(safe-area-inset-bottom))]' : 'pb-[calc(10.5rem+env(safe-area-inset-bottom))]'} md:pb-8 max-w-(--container-width) mx-auto w-full min-h-full flex flex-col`}>
               <MaintenanceNotice settingsPath="/admin/settings" />
@@ -92,7 +100,7 @@ export const Dashboard = () => {
                 <div
                   ref={pageRef}
                   key={location.pathname}
-                  className="flex-1 flex flex-col h-full animate-in fade-in slide-in-from-bottom-2 duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:animate-none"
+                  className={`flex-1 flex flex-col h-full animate-in fade-in ${enterClass} duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:animate-none`}
                 >
                   {pageUnderMaintenance ? <PageMaintenance pageName={maintenancePageLabel(location.pathname)} /> : <Outlet />}
                 </div>
