@@ -1,5 +1,5 @@
 import { memo, useMemo } from 'react';
-import { Camera } from 'lucide-react';
+import { AlertTriangle, Camera, Check, CornerUpLeft, Flag, Minus, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { itemFlags, needsLookRank } from '../checklist/instance/reviewFlags';
 import { answerText } from '../checklist/instance/answerText';
@@ -15,15 +15,17 @@ const shortAnswer = (item: ChecklistInstanceItem): string => {
   return text.replace(/^(Answered:?|Entered|Picked|Rated)\s+/, '');
 };
 
-const dotFor = (item: ChecklistInstanceItem): { dot: string; text: string; title: string } => {
+interface Look { icon: LucideIcon; chip: string; text: string; row: string; title: string }
+
+const dotFor = (item: ChecklistInstanceItem): Look => {
   const f = itemFlags(item);
-  if (f.criticalFailed) return { dot: 'bg-danger', text: 'text-danger', title: 'Critical question, not an acceptable answer' };
-  if (f.bad) return { dot: 'bg-warning', text: 'text-warning', title: 'Not an acceptable answer' };
-  if (f.missingPhotos) return { dot: 'bg-danger', text: 'text-danger', title: 'Photos missing' };
-  if (f.sentBack) return { dot: 'bg-coral-500', text: 'text-coral-600 dark:text-coral-300', title: 'Sent back before' };
-  if (item.isNotApplicable) return { dot: 'bg-border-hover', text: 'text-text-muted', title: 'Not applicable' };
-  if (!item.isDone) return { dot: 'bg-border-hover', text: 'text-text-muted', title: 'Not done' };
-  return { dot: 'bg-success', text: 'text-text-secondary', title: 'Answered' };
+  if (f.criticalFailed) return { icon: Flag, chip: 'bg-danger/15 text-danger', text: 'text-danger', row: 'border-danger/40 bg-danger/5', title: 'Critical answer failed' };
+  if (f.bad) return { icon: AlertTriangle, chip: 'bg-warning/15 text-warning', text: 'text-warning', row: 'border-warning/40 bg-warning/5', title: 'Wrong answer' };
+  if (f.missingPhotos) return { icon: Camera, chip: 'bg-danger/15 text-danger', text: 'text-danger', row: 'border-danger/40 bg-danger/5', title: 'Photos missing' };
+  if (f.sentBack) return { icon: CornerUpLeft, chip: 'bg-coral-500/15 text-coral-600 dark:text-coral-300', text: 'text-coral-600 dark:text-coral-300', row: 'border-coral-500/30', title: 'Sent back before' };
+  if (item.isNotApplicable) return { icon: Minus, chip: 'bg-border/60 text-text-muted', text: 'text-text-muted', row: 'border-border/50', title: 'Not applicable' };
+  if (!item.isDone) return { icon: Minus, chip: 'bg-border/60 text-text-muted', text: 'text-text-muted', row: 'border-border/50', title: 'Not done' };
+  return { icon: Check, chip: 'bg-success/15 text-success', text: 'text-text-secondary', row: 'border-border/50', title: 'Answered' };
 };
 
 interface QuestionPreviewProps {
@@ -54,7 +56,7 @@ export const QuestionPreview = memo(function QuestionPreview({ items, onOpen }: 
   if (total === 0) return null;
 
   return (
-    <div className="flex flex-col gap-1.5 rounded-lg border border-border/50 bg-surface-hover/30 px-2.5 py-2">
+    <div className="flex flex-col gap-2 rounded-lg border border-border/50 bg-surface-hover/30 p-2.5">
       <p className="flex flex-wrap items-center gap-x-2 t-meta font-display font-semibold text-text-muted">
         <span className="tabular-nums">{answered} of {total} answered</span>
         {photosNeeded > 0 && (
@@ -64,20 +66,29 @@ export const QuestionPreview = memo(function QuestionPreview({ items, onOpen }: 
           </span>
         )}
       </p>
-      <ul className="flex flex-col gap-1">
+      <ul className="flex flex-col gap-1.5">
         {shown.map((item) => {
           const look = dotFor(item);
+          const Icon = look.icon;
+          const flagged = look.title !== 'Answered' && look.title !== 'Not applicable' && look.title !== 'Not done';
           return (
-            <li key={item.id} className="flex min-w-0 items-center gap-2" title={look.title}>
-              <span className={cn('size-1.5 shrink-0 rounded-full', look.dot)} aria-hidden="true" />
-              <span className="min-w-0 flex-1 truncate t-meta text-text">{item.label}</span>
-              {item.images.length > 0 && (
-                <span className="inline-flex shrink-0 items-center gap-0.5 t-meta text-text-light tabular-nums" aria-label={`${item.images.length} photos`}>
-                  <Camera className="size-3" aria-hidden="true" />
-                  {item.images.length}
+            <li key={item.id} className={cn('flex min-w-0 items-start gap-2.5 rounded-lg border p-2', look.row)}>
+              <span className={cn('mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full', look.chip)} aria-hidden="true">
+                <Icon className="size-3.5" strokeWidth={2.5} />
+              </span>
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="t-meta font-display font-semibold text-text leading-snug line-clamp-2">{item.label}</span>
+                <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 t-meta font-display">
+                  <span className={cn('font-semibold', look.text)}>{shortAnswer(item)}</span>
+                  {flagged && <span className={cn('font-medium', look.text)}>· {look.title}</span>}
+                  {item.images.length > 0 && (
+                    <span className="inline-flex items-center gap-0.5 text-text-muted tabular-nums" aria-label={`${item.images.length} photos`}>
+                      <Camera className="size-3" aria-hidden="true" />
+                      {item.images.length}
+                    </span>
+                  )}
                 </span>
-              )}
-              <span className={cn('max-w-[40%] shrink-0 truncate t-meta font-display font-semibold', look.text)}>{shortAnswer(item)}</span>
+              </span>
             </li>
           );
         })}
