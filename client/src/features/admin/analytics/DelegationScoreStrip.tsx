@@ -1,7 +1,8 @@
+import { SectionExport } from './ExportRegistry';
 import { useId } from 'react';
 import { useNavigate } from 'react-router';
 import { AlertTriangle, Clock, ListChecks, Percent } from 'lucide-react';
-import { ExportMenu, InlineError } from '../../../components';
+import { InlineError } from '../../../components';
 import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable';
 import { MODULE_LABEL, SCORE_LABEL } from '../../../lib/scoreLabels';
 import { delegationDrillHref } from '../../dashboard/scoreDrill';
@@ -49,8 +50,7 @@ export const DelegationScoreStrip = ({ from, to }: DelegationScoreStripProps) =>
         actions={
           <>
             <UpdatingNote show={scores.updating} />
-            <ExportMenu
-              iconOnly
+            <SectionExport
               disabled={!totals}
               aria-label="Export the delegation figures"
               filename="overview-delegations-due"

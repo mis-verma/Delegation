@@ -1,8 +1,9 @@
+import { SectionExport } from './ExportRegistry';
 import { memo, useId } from 'react';
 import { useNavigate } from 'react-router';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Hourglass, ShieldQuestion, Timer } from 'lucide-react';
-import { ExportMenu, InlineError } from '../../../components';
+import { InlineError } from '../../../components';
 import { useAuth } from '../../../context/AuthContext';
 import { reportApi, type ApprovalKind } from '../../../api/reports';
 import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable';
@@ -68,8 +69,7 @@ const ApprovalWaitingStripBase = ({ from, to }: ApprovalWaitingStripProps) => {
         title="Waiting for approval"
         actions={
           <>
-            <ExportMenu
-              iconOnly
+            <SectionExport
               disabled={!data}
               aria-label="Export the approval figures"
               filename="overview-waiting-for-approval"

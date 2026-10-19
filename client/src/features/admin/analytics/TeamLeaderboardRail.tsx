@@ -1,7 +1,8 @@
+import { SectionExport } from './ExportRegistry';
 import { memo, useId, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { ArrowRight, Trophy } from 'lucide-react';
-import { PersonRow, Button, EmptyState, ExportMenu, InlineError, PANEL_CLASS, Skeleton } from '../../../components';
+import { PersonRow, Button, EmptyState, InlineError, PANEL_CLASS, Skeleton } from '../../../components';
 import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable';
 import { UNASSIGNED_ROW_ID } from '../../../api/scores';
 import { SCORE_LABEL } from '../../../lib/scoreLabels';
@@ -96,7 +97,7 @@ export const TeamLeaderboardRail = ({ from, to }: TeamLeaderboardRailProps) => {
               See all people
               <ArrowRight size={14} aria-hidden="true" />
             </Button>
-            <ExportMenu
+            <SectionExport
               disabled={leaderboard.length === 0}
               aria-label="Export the leaderboard"
               filename="overview-leaderboard"

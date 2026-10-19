@@ -1,10 +1,11 @@
+import { SectionExport } from './ExportRegistry';
 import { memo, useId, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { AlertTriangle, ClipboardCheck, ClipboardX, Hourglass, ListChecks, ShieldCheck, type LucideIcon, Minus, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { StatCard, type Trend } from '../../dashboard';
 import { DrilldownModal, type DrilldownRow } from '../../dashboard/DrilldownModal';
-import { ExportMenu, InlineError, PANEL_CLASS, Skeleton } from '../../../components';
+import { InlineError, PANEL_CLASS, Skeleton } from '../../../components';
 import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable';
 import { useAuth } from '../../../context/AuthContext';
 import { ticketApi } from '../../../api/ticket';
@@ -228,8 +229,7 @@ const AnalyticsSummaryStripBase = ({ groupBy, from, to, onViewSection, isOrgWide
           <>
             <UpdatingNote show={scores.updating} />
             {links}
-            <ExportMenu
-              iconOnly
+            <SectionExport
               disabled={anyPending}
               aria-label="Export the headline numbers"
               filename="overview-at-a-glance"

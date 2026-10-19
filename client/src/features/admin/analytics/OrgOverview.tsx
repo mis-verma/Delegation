@@ -14,6 +14,7 @@ import { AnalyticsSummaryStrip } from './AnalyticsSummaryStrip';
 import { OrgSnapshotStrip } from './OrgSnapshotStrip';
 import { ApprovalWaitingStrip } from './ApprovalWaitingStrip';
 import { PhoneCollapse } from './PhoneCollapse';
+import { ExportRegistryProvider, OverviewExportMenu } from './ExportRegistry';
 import { PerformanceLeadersCard } from './PerformanceLeadersCard';
 import { TeamLeaderboardRail } from './TeamLeaderboardRail';
 import { useAnalyticsRefresh } from './useAnalyticsQueries';
@@ -161,6 +162,7 @@ export const OrgOverview = () => {
   const retrySnapshot = useCallback(() => void refetchCounts(), [refetchCounts]);
 
   return (
+    <ExportRegistryProvider>
     <div className="flex w-full flex-col gap-6">
       <h1 className="sr-only">Overview and analytics</h1>
       <ScopeNotice
@@ -180,6 +182,7 @@ export const OrgOverview = () => {
         updatedAt={updatedAt}
         isRefreshing={isRefreshing}
         sticky={false}
+        actions={<OverviewExportMenu />}
         onRefresh={() => void refresh()}
       />
 
@@ -229,5 +232,6 @@ export const OrgOverview = () => {
       )}
 
     </div>
+    </ExportRegistryProvider>
   );
 };

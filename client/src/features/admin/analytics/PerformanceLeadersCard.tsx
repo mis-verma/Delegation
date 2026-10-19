@@ -1,7 +1,8 @@
+import { SectionExport } from './ExportRegistry';
 import { memo, useId, useMemo } from 'react';
 import { Link } from 'react-router';
 import { Trophy, AlertTriangle, Building2, Store, ArrowRight } from 'lucide-react';
-import { Button, ExportMenu, InlineError, PANEL_CLASS, Skeleton } from '../../../components';
+import { Button, InlineError, PANEL_CLASS, Skeleton } from '../../../components';
 import { exportPct, exportTitle, type TableRows } from '../../../lib/exportTable';
 import { useOverviewScoreWindow } from './useOverviewScores';
 import { scorecardRowHref } from '../../dashboard/scoreDrill';
@@ -174,8 +175,7 @@ export const PerformanceLeadersCard = ({ from, to, onViewFull }: PerformanceLead
               See full ranking
               <ArrowRight size={14} aria-hidden="true" />
             </Button>
-            <ExportMenu
-              iconOnly
+            <SectionExport
               disabled={departmentsPending || storesPending}
               aria-label="Export the top and lowest stores and departments"
               filename="overview-leaders"

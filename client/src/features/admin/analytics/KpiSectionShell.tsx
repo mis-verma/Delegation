@@ -1,7 +1,8 @@
+import { SectionExport } from './ExportRegistry';
 import { lazy, Suspense, useId } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { StatCard, type Trend } from '../../dashboard';
-import { ExportMenu, InlineError, PANEL_CLASS, Skeleton } from '../../../components';
+import { InlineError, PANEL_CLASS, Skeleton } from '../../../components';
 import { SectionHeader } from '../../scores/SectionHeader';
 import { ApiError } from '../../../api/http';
 import { exportTitle, type TableRows } from '../../../lib/exportTable';
@@ -100,8 +101,7 @@ export const KpiSectionShell = ({ title, description, isPending, isError, errorM
         actions={
           <>
             <UpdatingNote show={updating} />
-            <ExportMenu
-              iconOnly
+            <SectionExport
               disabled={isPending || isError}
               aria-label={`Export the ${title.toLowerCase()} figures`}
               filename={`overview-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`}
