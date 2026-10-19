@@ -19,7 +19,9 @@ export const WeekDots = ({ cells, compact = false }: { cells: DayCell[]; compact
   <ol className={cn('flex items-end', compact ? 'gap-1' : 'gap-1.5 sm:gap-2')} aria-label="Last 7 days">
     {cells.map((c) => (
       <li key={c.date} className="flex flex-col items-center gap-1" title={`${dayMonthOf(c.date)}: ${DAY_LOOK[c.state].label}${c.total ? ` (${c.done} of ${c.total})` : ''}`}>
-        <span className={cn('rounded-md', compact ? 'size-3' : 'size-6 sm:size-7', DAY_LOOK[c.state].cell)} />
+        <span className={cn('flex items-center justify-center rounded-md', compact ? 'size-3' : 'size-6 sm:size-7', DAY_LOOK[c.state].cell)}>
+          {!compact && DAY_LOOK[c.state].glyph && (() => { const G = DAY_LOOK[c.state].glyph!; return <G className="size-3.5" strokeWidth={3} aria-hidden />; })()}
+        </span>
         {!compact && <span className="t-meta font-medium text-text-muted">{weekdayOf(c.date).slice(0, 2)}</span>}
         <span className="sr-only">{`${dayMonthOf(c.date)}: ${DAY_LOOK[c.state].label}`}</span>
       </li>

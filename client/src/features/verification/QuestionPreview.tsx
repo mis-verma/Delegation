@@ -63,7 +63,7 @@ export const QuestionPreview = memo(function QuestionPreview({ items, onOpen }: 
 
   return (
     <div className="flex flex-col gap-1.5 rounded-lg border border-border/50 bg-surface-hover/30 px-2.5 py-2">
-      <p className="flex flex-wrap items-center gap-x-2 text-[0.6875rem] font-display font-semibold text-text-muted">
+      <p className="flex flex-wrap items-center gap-x-2 t-meta font-display font-semibold text-text-muted">
         <span className="tabular-nums">{answered} of {total} answered</span>
         {photosNeeded > 0 && (
           <span className={cn('inline-flex items-center gap-1 tabular-nums', photosHave < photosNeeded && 'text-danger')}>
@@ -78,20 +78,20 @@ export const QuestionPreview = memo(function QuestionPreview({ items, onOpen }: 
           return (
             <li key={item.id} className="flex min-w-0 items-center gap-2" title={look.title}>
               <span className={cn('size-1.5 shrink-0 rounded-full', look.dot)} aria-hidden="true" />
-              <span className="min-w-0 flex-1 truncate text-[0.6875rem] sm:t-meta text-text">{item.label}</span>
+              <span className="min-w-0 flex-1 truncate t-meta text-text">{item.label}</span>
               {item.images.length > 0 && (
-                <span className="inline-flex shrink-0 items-center gap-0.5 text-[0.6875rem] text-text-light tabular-nums" aria-label={`${item.images.length} photos`}>
+                <span className="inline-flex shrink-0 items-center gap-0.5 t-meta text-text-light tabular-nums" aria-label={`${item.images.length} photos`}>
                   <Camera className="size-3" aria-hidden="true" />
                   {item.images.length}
                 </span>
               )}
-              <span className={cn('max-w-[40%] shrink-0 truncate text-[0.6875rem] sm:t-meta font-display font-semibold', look.text)}>{shortAnswer(item)}</span>
+              <span className={cn('max-w-[40%] shrink-0 truncate t-meta font-display font-semibold', look.text)}>{shortAnswer(item)}</span>
             </li>
           );
         })}
       </ul>
       {rest > 0 && (
-        <button type="button" onClick={onOpen} className="self-start text-[0.6875rem] font-display font-semibold text-primary-600 hover:underline dark:text-primary-300 cursor-pointer">
+        <button type="button" onClick={onOpen} className="self-start t-meta font-display font-semibold text-primary-600 hover:underline dark:text-primary-300 cursor-pointer">
           +{rest} more {rest === 1 ? 'question' : 'questions'}, open to review
         </button>
       )}

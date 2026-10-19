@@ -61,7 +61,7 @@ export const CalendarGrid = ({ days, month, today, selectedDay, itemsByDay, onSe
         {WEEKDAY_LABELS.map((label, i) => (
           <div
             key={label}
-            className={`py-1.5 @min-[38rem]:py-2 text-center text-[0.6875rem] @min-[38rem]:t-meta font-display font-semibold tracking-wide ${i === 0 || i === 6 ? 'text-text-light' : 'text-text-muted'}`}
+            className={`py-1.5 @min-[38rem]:py-2 text-center t-meta font-display font-semibold tracking-wide ${i === 0 || i === 6 ? 'text-text-light' : 'text-text-muted'}`}
           >
             {label}
           </div>
@@ -187,7 +187,7 @@ export const CalendarGrid = ({ days, month, today, selectedDay, itemsByDay, onSe
       {/* The key: one small line of coloured dots and names. */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border/60 px-3 py-2">
         {(Object.keys(CALENDAR_ITEM_LABEL) as CalendarItemType[]).map((type) => (
-          <span key={type} className="inline-flex items-center gap-1 text-[0.6875rem] font-medium text-text-muted">
+          <span key={type} className="inline-flex items-center gap-1 t-meta font-medium text-text-muted">
             <span className={`size-1.5 rounded-full ${CALENDAR_ITEM_DOT_CLASS[type]}`} aria-hidden="true" />
             {CALENDAR_ITEM_LABEL[type]}
           </span>

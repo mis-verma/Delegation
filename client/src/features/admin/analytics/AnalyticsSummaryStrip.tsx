@@ -1,7 +1,7 @@
 import { memo, useId, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, ClipboardCheck, ClipboardX, Hourglass, ListChecks, ShieldCheck, type LucideIcon } from 'lucide-react';
+import { AlertTriangle, ClipboardCheck, ClipboardX, Hourglass, ListChecks, ShieldCheck, type LucideIcon, Minus, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { StatCard, type Trend } from '../../dashboard';
 import { DrilldownModal, type DrilldownRow } from '../../dashboard/DrilldownModal';
 import { ExportMenu, InlineError, PANEL_CLASS, Skeleton } from '../../../components';
@@ -94,7 +94,10 @@ const MobileStatTile = ({ label, value, caption, trend, lowerIsBetter = false, i
         </span>
       )}
       {hasTrend && (
-        <span className={`t-meta font-display font-semibold tabular-nums ${trendClass}`}>{trend.label}</span>
+        <span className={`inline-flex items-center gap-1 t-meta font-display font-semibold tabular-nums ${trendClass}`}>
+          {isFlat ? <Minus className="size-3" aria-hidden="true" /> : trend.direction === 'up' ? <ArrowUpRight className="size-3" aria-hidden="true" /> : <ArrowDownRight className="size-3" aria-hidden="true" />}
+          {trend.label}
+        </span>
       )}
       {caption && <span className="t-meta font-display text-text-muted leading-snug line-clamp-2">{caption}</span>}
     </>

@@ -136,7 +136,7 @@ const checklistRow = (c: ChecklistInstance, now: number): DrilldownRow => {
 const MiniStat = ({ label, shortLabel, value, onClick }: { label: string; shortLabel: string; value: number | null; onClick?: () => void }) => {
   const body = (
     <>
-      <span className="block text-sm sm:text-lg font-display font-semibold sm:font-bold tabular-nums leading-tight text-text">{value ?? '-'}</span>
+      <span className="block t-card sm:text-lg font-display font-semibold sm:font-bold tabular-nums leading-tight text-text">{value ?? '-'}</span>
       <span className="block break-words t-meta leading-tight text-text-muted">
         <span className="sm:hidden">{shortLabel}</span>
         <span className="hidden sm:inline">{label}</span>
@@ -243,7 +243,7 @@ const ModuleCard = ({ view, onOpen, score, scopeTag }: { view: ModuleView; onOpe
               )}
             </button>
             <div className="flex flex-col items-center justify-center border-l border-border/60">
-              <RadialGauge percent={score.value ?? 0} size={84} variant="circle" gradientFrom={gaugeColor(score.value)} gradientTo={gaugeColor(score.value)}>
+              <RadialGauge percent={score.value ?? 0} size={84} variant="circle" ariaLabel={`${score.label === 'Done' ? 'To-dos done' : 'Score this month'} ${formatPct(score.value)}`} gradientFrom={gaugeColor(score.value)} gradientTo={gaugeColor(score.value)}>
                 <span className={cn('text-base font-display font-extrabold tabular-nums', score.value === null ? 'text-text-light' : 'text-text')}>{formatPct(score.value)}</span>
               </RadialGauge>
               <span className="mt-1 flex min-h-[2.8em] items-center justify-center gap-0.5 text-center t-meta font-semibold text-text-muted">
@@ -266,8 +266,8 @@ const ModuleCard = ({ view, onOpen, score, scopeTag }: { view: ModuleView; onOpe
                 <span className="mt-1 block t-meta font-medium text-text-muted">Pending</span>
               </button>
               <div className="flex flex-col items-center border-l border-border/60" aria-label={`${score.label === 'Done' ? 'To-dos done' : 'Score this month'}: ${formatPct(score.value)}`}>
-                <RadialGauge percent={score.value ?? 0} size={50} variant="circle" gradientFrom={gaugeColor(score.value)} gradientTo={gaugeColor(score.value)}>
-                  <span className={cn('text-[0.6875rem] font-display font-extrabold tabular-nums', score.value === null ? 'text-text-light' : 'text-text')}>{formatPct(score.value)}</span>
+                <RadialGauge percent={score.value ?? 0} size={56} variant="circle" ariaLabel={`${score.label === 'Done' ? 'To-dos done' : 'Score this month'} ${formatPct(score.value)}`} gradientFrom={gaugeColor(score.value)} gradientTo={gaugeColor(score.value)}>
+                  <span className={cn('t-meta font-display font-extrabold tabular-nums', score.value === null ? 'text-text-light' : 'text-text')}>{formatPct(score.value)}</span>
                 </RadialGauge>
                 <span className="mt-0.5 t-meta font-medium text-text-muted">{score.label === 'Done' ? 'Done' : 'Score'}</span>
               </div>

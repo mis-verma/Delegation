@@ -97,7 +97,7 @@ export const ScoreTrend = ({ metric = 'overview', scope, id, period, from, to }:
         <SeriesLegend series={series} labels={SERIES_LABEL} />
       </div>
 
-      <div className="relative h-48 w-full sm:h-56" role="img" aria-label={anyData ? `${series.map((k) => SERIES_LABEL[k]).join(' and ')} over time for ${MODULE_LABEL[module]}` : 'Nothing was due in this window'}>
+      <div className="relative h-48 w-full sm:h-56" role="img" aria-label={anyData ? `${series.map((k) => SERIES_LABEL[k]).join(' and ')} over time for ${MODULE_LABEL[module]}: ${chartPoints.map((p) => `${p.label} ${series.map((k) => `${p[k] ?? 'none'}%`).join(', ')}`).join('; ')}` : 'Nothing was due in this window'}>
         {isPending ? (
           <div className="absolute inset-0 flex items-end justify-around gap-3 px-6 pb-8" role="status" aria-label="Loading the trend">
             {[45, 70, 55, 85, 60, 75, 50].map((h, i) => <Skeleton key={i} className="w-5 rounded-t-md sm:w-8" style={{ height: `${h}%` }} />)}

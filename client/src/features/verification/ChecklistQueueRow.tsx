@@ -118,14 +118,14 @@ export const ChecklistQueueRow = memo(function ChecklistQueueRow({
                 {instance.title}
               </span>
               <span
-                className={cn('inline-flex shrink-0 items-center gap-1 text-[0.6875rem] sm:t-meta font-display font-semibold tabular-nums', waitingDays >= 3 ? 'text-warning' : 'text-text-muted')}
+                className={cn('inline-flex shrink-0 items-center gap-1 t-meta font-display font-semibold tabular-nums', waitingDays >= 3 ? 'text-warning' : 'text-text-muted')}
                 title={`Waiting: ${waiting}`}
               >
                 <Clock3 className="size-3" aria-hidden="true" />
                 {waiting}
               </span>
             </span>
-            <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[0.6875rem] sm:t-meta font-display text-text-muted">
+            <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 t-meta font-display text-text-muted">
               {row.storeName && (
                 <span className="inline-flex items-center gap-1">
                   <Store size={11} aria-hidden /> {row.storeName}
@@ -133,7 +133,7 @@ export const ChecklistQueueRow = memo(function ChecklistQueueRow({
               )}
               {showDepartment && <span>{row.deptName}</span>}
             </span>
-            <span className={cn('inline-flex items-center gap-1 text-[0.6875rem] sm:t-meta font-display font-medium', instance.submittedAt ? 'text-text-secondary' : 'text-text-light')}>
+            <span className={cn('inline-flex items-center gap-1 t-meta font-display font-medium', instance.submittedAt ? 'text-text-secondary' : 'text-text-light')}>
               <Send size={11} aria-hidden />
               <span className="truncate">{submitted}</span>
             </span>
@@ -149,13 +149,13 @@ export const ChecklistQueueRow = memo(function ChecklistQueueRow({
             <Button
               size="sm"
               variant="outline"
-              className="h-8 px-3 text-[0.6875rem] border-danger/30 text-danger hover:bg-danger/10 hover:border-danger/50 hover:text-danger"
+              className="h-8 px-3 t-meta border-danger/30 text-danger hover:bg-danger/10 hover:border-danger/50 hover:text-danger"
               onClick={() => onSendBack(id)}
             >
               <CornerUpLeft size={14} aria-hidden />
               Send back
             </Button>
-            <Button size="sm" className="h-8 px-3 text-[0.6875rem] bg-success-strong text-white hover:bg-success-strong/90 hover:text-white" onClick={() => onApprove(id)}>
+            <Button size="sm" className="h-8 px-3 t-meta bg-success-strong text-white hover:bg-success-strong/90 hover:text-white" onClick={() => onApprove(id)}>
               <Check size={14} aria-hidden />
               Approve
             </Button>

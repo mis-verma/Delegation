@@ -170,7 +170,7 @@ export const StatCard = ({
       <div className="flex items-start justify-between gap-2 relative z-10">
         <div className="flex flex-col gap-1 min-w-0 flex-1">
           <div className="flex items-center gap-1.5 min-w-0">
-            <span className={`t-meta font-display font-semibold truncate ${highlight ? 'text-white/80' : 'text-text-muted'}`}>
+            <span className={`t-meta font-display font-semibold line-clamp-2 leading-snug break-words ${highlight ? 'text-white/80' : 'text-text-muted'}`}>
               {label}
             </span>
             {labelAdornment && (
@@ -191,7 +191,7 @@ export const StatCard = ({
             <Skeleton className={`rounded-md ${compact ? 'h-7 sm:h-9' : 'h-8 sm:h-9'} w-20`} />
           ) : (
             <p
-              className={`font-display font-bold tracking-tight leading-none tabular-nums truncate ${
+              className={`font-display font-bold tracking-tight leading-none tabular-nums break-words ${
                 isNoData
                   ? 't-card'
                   : 't-stat'
@@ -238,7 +238,7 @@ export const StatCard = ({
           {hasTrend && (
             <Badge
               variant={highlight ? 'outline' : TREND_VARIANT[trendMood]}
-              className={`text-xs tabular-nums shrink-0 ${
+              className={`t-meta tabular-nums shrink-0 ${
                 highlight ? TREND_STYLE_HIGHLIGHT[trendMood] : TREND_STYLE[trendMood]
               }`}
             >
@@ -248,7 +248,7 @@ export const StatCard = ({
           )}
 
           {caption && (
-            <span className={`t-meta font-medium truncate max-w-full ${highlight ? 'text-white/70' : 'text-text-muted'}`}>
+            <span className={`t-meta font-medium line-clamp-2 leading-snug max-w-full ${highlight ? 'text-white/70' : 'text-text-muted'}`}>
               {caption}
             </span>
           )}

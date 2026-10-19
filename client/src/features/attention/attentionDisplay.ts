@@ -1,4 +1,7 @@
 import {
+  Check,
+  Minus,
+  X,
   CalendarX2, CheckCircle2, CircleDashed, ClipboardX, Clock3, Hourglass, Repeat, Send, TicketX, Timer, Undo2, type LucideIcon,
 } from 'lucide-react';
 import type { AttentionLevel, DayState, PersonAttentionDetail, PersonStatus, RunState } from '../../api/exceptions';
@@ -35,12 +38,12 @@ export const RUN_LOOK: Record<RunState, { label: string; icon: LucideIcon; tone:
   submitted: { label: 'Submitted', icon: CheckCircle2, tone: 'bg-success', text: 'text-success' },
 };
 
-export const DAY_LOOK: Record<DayState, { cell: string; label: string }> = {
-  done: { cell: 'bg-success', label: 'All filled' },
-  partial: { cell: 'bg-warning', label: 'Some not filled' },
-  missed: { cell: 'bg-danger', label: 'Not filled' },
-  open: { cell: 'bg-primary-500/25 ring-1 ring-inset ring-primary-500/50', label: 'Still open' },
-  none: { cell: 'bg-border/60', label: 'Nothing due' },
+export const DAY_LOOK: Record<DayState, { cell: string; label: string; glyph: LucideIcon | null }> = {
+  done: { cell: 'bg-success text-white', label: 'All filled', glyph: Check },
+  partial: { cell: 'bg-warning text-white', label: 'Some not filled', glyph: Minus },
+  missed: { cell: 'bg-danger text-white', label: 'Not filled', glyph: X },
+  open: { cell: 'bg-primary-500/25 ring-1 ring-inset ring-primary-500/50', label: 'Still open', glyph: null },
+  none: { cell: 'bg-border/60', label: 'Nothing due', glyph: null },
 };
 
 const WEEKDAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];

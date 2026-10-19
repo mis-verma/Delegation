@@ -46,11 +46,12 @@ export const ChecklistProgressBar = ({ done, total, className, tone = 'auto', ba
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={percent}
+        aria-label={`${done} of ${total} done`}
         className={cn("flex-1 bg-surface-hover rounded-full overflow-hidden", thin ? "h-1.5" : "h-2")}
       >
         <div
           className={cn("h-full w-full rounded-full origin-left transition-transform duration-500 ease-out", fill)}
-          style={{ transform: `scaleX(${percent / 100})` }}
+          style={{ transform: `scaleX(${done > 0 ? Math.max(percent, 4) / 100 : 0})` }}
         />
       </div>
 

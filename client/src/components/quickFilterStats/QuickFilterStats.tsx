@@ -138,7 +138,7 @@ export function QuickFilterStats<K extends string>({
           >
             <span className="min-w-0 max-w-full">
               <span className={cn(
-                'block t-stat font-extrabold sm:font-bold leading-none',
+                'block t-stat font-extrabold sm:font-bold leading-none max-sm:tracking-tighter max-sm:break-all',
                 // On a phone there is no icon tile, so the picked card's number takes its colour instead.
                 isActive ? cn(iconTint, 'sm:text-text') : count === 0 ? 'text-text-light' : LATE.has(key) ? 'text-danger' : 'text-text',
               )}>
@@ -146,7 +146,7 @@ export function QuickFilterStats<K extends string>({
               </span>
               {/* Phone: up to two lines, never an ellipsis. Five tiles at 320px leave about 50px each, so a
                   long word may hyphenate rather than get cut. The grid row keeps every tile the same height. */}
-              <span className={cn('mt-1 sm:mt-1.5 block max-sm:t-meta max-sm:leading-tight max-sm:line-clamp-2 max-sm:hyphens-auto max-sm:[overflow-wrap:anywhere] sm:truncate sm:text-xs', isActive ? 'font-bold text-text' : 'font-medium text-text-muted')}>
+              <span className={cn('mt-1 sm:mt-1.5 block max-sm:t-meta max-sm:leading-tight max-sm:line-clamp-2 max-sm:hyphens-auto max-sm:[overflow-wrap:anywhere] sm:line-clamp-2 sm:leading-snug sm:t-meta', isActive ? 'font-bold text-text' : 'font-medium text-text-muted')}>
                 {shortLabel ? (<><span className="sm:hidden">{shortLabel}</span><span className="hidden sm:inline">{label}</span></>) : label}
               </span>
               {/* Bigger screens: how much of the whole this bucket is, as a word and a thin bar in its colour. */}

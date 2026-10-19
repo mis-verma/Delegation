@@ -55,7 +55,7 @@ export const DashboardLayoutToolbar = ({ isCustomizing, onStart, onReset, onDone
         </span>
         <div className="flex min-w-0 flex-col">
           <span className="t-meta font-display font-bold text-text">Customize dashboard</span>
-          <span className="text-[0.6875rem] font-medium text-text-muted">{touch ? 'Move cards up or down, or switch them off' : 'Drag a card by its grip to reorder, set its size, or hide it'}</span>
+          <span className="t-meta font-medium text-text-muted">{touch ? 'Move cards up or down, or switch them off' : 'Drag a card by its grip to reorder, set its size, or hide it'}</span>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">

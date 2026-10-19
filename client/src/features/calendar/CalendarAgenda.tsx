@@ -52,7 +52,7 @@ export const CalendarAgenda = ({ day, today, items, isPending, onOpenItem, onCre
             <span className="text-text-light"> · </span>
             {heading}
           </h2>
-          <span className="text-[0.6875rem] font-medium text-text-muted">{countLabel}</span>
+          <span className="t-meta font-medium text-text-muted">{countLabel}</span>
         </div>
 
         <CalendarAddMenu
@@ -80,7 +80,7 @@ export const CalendarAgenda = ({ day, today, items, isPending, onOpenItem, onCre
             </span>
             <div className="flex flex-col gap-0.5">
               <p className="t-meta font-display font-semibold text-text">{isPastDay ? 'Nothing was due this day' : 'A clear day'}</p>
-              <p className="max-w-[18rem] text-[0.6875rem] font-medium text-text-muted">
+              <p className="max-w-[18rem] t-meta font-medium text-text-muted">
                 {isPastDay ? 'You can still log a delegation or ticket against it.' : 'Add a delegation or a ticket for this date.'}
               </p>
             </div>
@@ -112,14 +112,14 @@ export const CalendarAgenda = ({ day, today, items, isPending, onOpenItem, onCre
                     onClick={() => onOpenItem(item.link)}
                     className="group flex w-full items-stretch gap-2.5 rounded-lg px-1.5 py-2 text-left transition-colors duration-150 hover:bg-surface-hover cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40"
                   >
-                    <span className="w-14 shrink-0 pt-px text-right text-[0.6875rem] font-display font-semibold tabular-nums text-text-muted">
+                    <span className="w-14 shrink-0 pt-px text-right t-meta font-display font-semibold tabular-nums text-text-muted">
                       {item.date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
                     </span>
                     {/* The item's colour as a bar, as calendar apps mark an event. */}
                     <span className={cn('w-1 shrink-0 rounded-full', CALENDAR_ITEM_DOT_CLASS[item.type])} aria-hidden="true" />
                     <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                       <span className={cn('line-clamp-2 t-meta font-display font-semibold leading-snug', item.completed ? 'text-text-muted line-through decoration-text-light' : 'text-text')}>{item.title}</span>
-                      <span className="text-[0.6875rem] font-medium text-text-muted">
+                      <span className="t-meta font-medium text-text-muted">
                         {CALENDAR_ITEM_LABEL[item.type]}
                         {hasCalendarStatus(item.type) && (
                           <>

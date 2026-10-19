@@ -160,7 +160,7 @@ export const FillMatrix = ({ data, today, label }: FillMatrixProps) => {
           <caption className="sr-only">Daily checklist fill status, {label}</caption>
           <thead>
             <tr className="border-b border-border">
-              <th scope="col" className="sticky left-0 z-10 bg-surface px-3 sm:px-4 py-2.5 t-meta font-display font-semibold text-text-secondary min-w-36 sm:min-w-48">Checklist</th>
+              <th scope="col" className="sticky left-0 z-10 bg-surface px-3 sm:px-4 py-2.5 t-meta font-display font-semibold text-text-secondary min-w-28 sm:min-w-48">Checklist</th>
               {data.columns.map((col) => (
                 <th key={col.key} scope="col" className={cn('px-1 py-2 text-center', isMonthView ? 'min-w-14' : data.columns.length > 7 ? 'min-w-10' : 'min-w-12')} title={data.holidays[col.key]}>
                   {isMonthView ? (

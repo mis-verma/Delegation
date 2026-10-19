@@ -35,7 +35,7 @@ const Tile = ({ icon: Icon, label, value, tint }: TileProps) => (
       <Icon size={12} strokeWidth={2.5} aria-hidden="true" />
       <span className={`t-card font-display font-bold leading-none tabular-nums ${tint === 'danger' ? 'text-danger' : 'text-text'}`}>{value}</span>
     </span>
-    <span className="truncate text-[0.6875rem] font-medium text-text-muted">{label}</span>
+    <span className="truncate t-meta font-medium text-text-muted">{label}</span>
   </div>
 );
 

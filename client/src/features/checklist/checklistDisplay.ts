@@ -110,6 +110,8 @@ const verificationChipFor = (status: ChecklistVerificationStatus, isComplete: bo
 // because it's less than 50% done would flag every checklist as "urgent" the moment it's
 // generated. Use instanceProgressToneClass/instanceProgressBarClass for that instead, which key
 // off overdue/complete rather than raw fill%.
+export const rateWord = (rate: number | null | undefined) => (rate === null || rate === undefined ? 'No data' : rate >= 80 ? 'Good' : rate >= 50 ? 'Fair' : 'Low');
+
 export const rateToneClass = (rate: number) => {
   if (rate >= 80) return 'text-success';
   if (rate >= 50) return 'text-warning';

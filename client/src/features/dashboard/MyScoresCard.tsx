@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router';
 import { cn } from '@/lib/utils';
 import { ArrowDown, ArrowUp, CalendarDays, Trophy, SlidersHorizontal, ChartColumn, ChartLine, ChevronDown, ChevronLeft, ChevronRight, CircleGauge, type LucideIcon } from 'lucide-react';
 import { Button, Combobox, ExportMenu, Switch, type ComboboxOption, type ExportSource, type ExportTable } from '../../components';
+import { rateWord } from '../checklist/checklistDisplay';
 import { SemiGauge } from '../../components/semiGauge/SemiGauge';
 import { InlineError } from '../../components/inlineError';
 import { useAuth } from '../../context/AuthContext';
@@ -106,7 +107,7 @@ const ScoreTile = ({ title, score, detail, loading, onOpen, change }: ScoreTileP
   const tone = score === null ? 'neutral' : rateTone(score, Number.MAX_SAFE_INTEGER);
   const [from, to] = RING[tone];
   const tileClass = 'flex min-w-0 cursor-pointer flex-col items-center gap-1.5 rounded-lg border border-border bg-surface p-3 text-center transition-colors duration-150 hover:border-border-hover outline-none focus-visible:ring-2 focus-visible:ring-primary-500/40';
-  const label = score === null ? `${title}: nothing due` : `${title}: ${formatPct(score)}${detail ? `, ${detail}` : ''}`;
+  const label = score === null ? `${title}: nothing due` : `${title}: ${formatPct(score)}, ${rateWord(score)}${detail ? `, ${detail}` : ''}`;
   const body = (
     <>
       <SemiGauge
@@ -115,10 +116,11 @@ const ScoreTile = ({ title, score, detail, loading, onOpen, change }: ScoreTileP
         gradientFrom={from}
         gradientTo={to}
         endLabels={false}
-        className="max-w-20 sm:max-w-28"
+        className="max-w-24 sm:max-w-28"
       />
       <span className="t-stat font-display font-extrabold tabular-nums text-text">{loading ? ' ' : score === null ? '-' : formatPct(score)}</span>
       <span className="t-meta font-display font-semibold leading-snug text-text-secondary break-words">{title}</span>
+      {!loading && score !== null && <span className={`t-meta font-display font-bold ${tone === 'success' ? 'text-success' : tone === 'warning' ? 'text-warning' : tone === 'danger' ? 'text-danger' : 'text-text-muted'}`}>{rateWord(score)}</span>}
       {!loading && score !== null && detail && <span className="t-meta font-display leading-snug text-text-muted break-words">{detail}</span>}
       {!loading && score === null && <span className="t-meta font-display text-text-light">Nothing due</span>}
       {change != null && change !== 0 && (
@@ -603,7 +605,7 @@ export const MyScoresCard = ({ initialScope = 'person', window: pageWindow, more
             emptyText={glance ? 'Nothing due yet this month' : simple ? `Nothing was due ${simpleWindow}` : 'Nothing was due in this window'}
           />
         ) : (
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 min-[380px]:grid-cols-3 gap-2 sm:gap-3">
           {([
             { key: 'checklist', title: MODULE_LABEL.checklist },
             { key: 'ticket', title: MODULE_LABEL.ticket },

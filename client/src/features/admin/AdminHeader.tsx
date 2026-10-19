@@ -172,7 +172,7 @@ export const AdminHeader = ({ onToggleSidebar, pageLabel }: AdminHeaderProps) =>
                   <span className="hidden lg:flex flex-col items-start min-w-0 leading-tight py-0.5">
                     <span className="max-w-[120px] truncate t-meta font-display font-bold text-text">{user.name}</span>
                     {user.role && (
-                      <span className="max-w-[120px] truncate text-[0.6875rem] font-medium text-text-muted">{roleLabel(user.role)}</span>
+                      <span className="max-w-[120px] truncate t-meta font-medium text-text-muted">{roleLabel(user.role)}</span>
                     )}
                   </span>
                   <ChevronDown size={14} className="hidden sm:inline text-text-light shrink-0 ml-1 group-hover:text-text-muted transition-colors" strokeWidth={2.5} />

@@ -344,7 +344,7 @@ body {
   /* One size per step, no near-twins. text-sm is exactly the small-text role (t-meta: 12px on a phone growing to
      13px), where it used to be a separate 12.8px sitting between 12 and 13; text-lg and text-xl are one step
      (18.4px) where they were 17.8 and 18.4. */
-  --text-sm: calc(clamp(0.75rem, 0.72rem + 0.12vw, 0.8125rem) * var(--type-scale));
+  --text-sm: max(0.75rem, calc(clamp(0.75rem, 0.72rem + 0.12vw, 0.8125rem) * var(--type-scale)));
   --text-lg: calc(1.15rem * var(--type-scale));
   --text-xl: calc(1.15rem * var(--type-scale));
   /* Must stay larger than --text-xl: it was 1rem (16px), smaller than text-xl (18.4px) and text-lg, so every

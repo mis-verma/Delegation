@@ -65,8 +65,8 @@ const StatTile = ({ icon: Icon, value, label, tone }: { icon: LucideIcon; value:
       <Icon size={18} />
     </span>
     <div className="flex flex-col gap-0.5 min-w-0">
-      <span className="text-lg sm:text-xl font-display font-bold text-text tabular-nums leading-none">{value}</span>
-      <span className="t-meta sm:text-xs font-display text-text-muted leading-snug line-clamp-2">{label}</span>
+      <span className="t-stat font-display font-bold text-text tabular-nums leading-none">{value}</span>
+      <span className="t-meta font-display text-text-muted leading-snug line-clamp-2">{label}</span>
     </div>
   </div>
 );

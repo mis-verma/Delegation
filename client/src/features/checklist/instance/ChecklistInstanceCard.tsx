@@ -15,10 +15,10 @@ import type { ChecklistInstance } from '../../../api/checklistInstances';
 const Metric = ({ label, value, sub, pct, bar, text }: { label: string; value: string; sub?: string; pct: number; bar: string; text: string }) => (
   <div className="flex min-w-0 flex-col gap-1">
     <div className="flex items-baseline justify-between gap-2">
-      <span className="text-[0.6875rem] font-medium text-text-muted">{label}</span>
+      <span className="t-meta font-medium text-text-muted">{label}</span>
       <span className="flex items-baseline gap-1 tabular-nums">
         <span className={cn('t-meta font-display font-bold', text)}>{value}</span>
-        {sub && <span className="text-[0.6875rem] text-text-muted">{sub}</span>}
+        {sub && <span className="t-meta text-text-muted">{sub}</span>}
       </span>
     </div>
     <span className="h-1 w-full overflow-hidden rounded-full bg-surface-hover" aria-hidden="true">
@@ -59,7 +59,7 @@ export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardPr
     >
       <div className="flex flex-col gap-1 min-w-0">
         <p className="t-meta sm:t-card font-display font-semibold text-text leading-snug line-clamp-2">{instance.title}</p>
-        <p className="text-[0.6875rem] sm:t-meta font-medium text-text-muted">
+        <p className="t-meta font-medium text-text-muted">
           {RECURRENCE_LABEL[instance.recurrence]} · {formatPeriodSpan(instance, true)}
           {!isComplete && deadlineTime && <> · Due {deadlineTime}</>}
         </p>
@@ -74,7 +74,7 @@ export const ChecklistInstanceCard = memo(({ instance }: ChecklistInstanceCardPr
       </div>
 
       {doneByOthers && (
-        <p className="text-[0.6875rem] font-medium text-text-muted">Done by {doneByOthers}. You do not need to fill it.</p>
+        <p className="t-meta font-medium text-text-muted">Done by {doneByOthers}. You do not need to fill it.</p>
       )}
 
       {/* The score footer: how much is done, and how much of it was right. */}

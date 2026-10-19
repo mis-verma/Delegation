@@ -176,8 +176,10 @@ export const FillHeatmapPage = () => {
                         <td key={c.date} className={cn('px-0.5 py-1.5 text-center', c.date === data!.today && 'bg-primary-500/10')}>
                           <span
                             title={`${dayMonthOf(c.date)}: ${DAY_LOOK[c.state].label}${c.total ? ` (${c.done} of ${c.total})` : ''}`}
-                            className={cn('mx-auto block size-5 sm:size-6 rounded-md', DAY_LOOK[c.state].cell)}
-                          />
+                            className={cn('mx-auto flex size-5 sm:size-6 items-center justify-center rounded-md', DAY_LOOK[c.state].cell)}
+                          >
+                            {DAY_LOOK[c.state].glyph && (() => { const G = DAY_LOOK[c.state].glyph!; return <G className="size-3" strokeWidth={3} aria-hidden />; })()}
+                          </span>
                           <span className="sr-only">{`${dayMonthOf(c.date)} ${DAY_LOOK[c.state].label}`}</span>
                         </td>
                       ))}

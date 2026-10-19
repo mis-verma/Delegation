@@ -55,5 +55,9 @@ export const ScoreColumn = ({ empty, radius = 8, words = true, ...props }: Colum
       </g>
     );
   }
+  const floor = 3;
+  if (height < floor) {
+    return <Rectangle {...(props as object)} y={y + height - floor} height={floor} radius={[Math.min(radius, 2), Math.min(radius, 2), 0, 0]} />;
+  }
   return <Rectangle {...(props as object)} radius={[radius, radius, 0, 0]} />;
 };

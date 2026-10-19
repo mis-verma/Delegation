@@ -123,7 +123,7 @@ export const TodoFormModal = ({ todo, onClose }: TodoFormModalProps) => {
           </label>
           <div className="flex items-center justify-between gap-2 px-1">
             {error ? <p id="todo-error" role="alert" className="t-meta font-semibold text-danger">{error}</p> : <span />}
-            {text.length > 150 && <span className="text-[0.6875rem] tabular-nums text-text-muted">{text.length}/200</span>}
+            {text.length > 150 && <span className="t-meta tabular-nums text-text-muted">{text.length}/200</span>}
           </div>
         </div>
 
@@ -180,7 +180,7 @@ export const TodoFormModal = ({ todo, onClose }: TodoFormModalProps) => {
           </div>
         </div>
 
-        <p className="flex items-center gap-1.5 text-[0.6875rem] text-text-muted">
+        <p className="flex items-center gap-1.5 t-meta text-text-muted">
           <Lock size={11} aria-hidden="true" />
           Only you see your to-dos.
         </p>

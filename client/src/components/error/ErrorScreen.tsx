@@ -36,7 +36,7 @@ export const ErrorScreen = ({ code, title, message, onRetry }: ErrorScreenProps)
             <Icon size={22} strokeWidth={2.25} />
           </span>
           {tag.toLowerCase() !== title.toLowerCase() && (
-            <span className="rounded-full bg-surface-hover px-2 py-0.5 text-[0.6875rem] font-display font-semibold text-text-muted">{tag}</span>
+            <span className="rounded-full bg-surface-hover px-2 py-0.5 t-meta font-display font-semibold text-text-muted">{tag}</span>
           )}
           <div className="flex flex-col gap-1">
             <h1 className="t-card font-display font-bold text-text">{title}</h1>
@@ -56,7 +56,7 @@ export const ErrorScreen = ({ code, title, message, onRetry }: ErrorScreenProps)
             </Button>
           )}
         </div>
-        <p className="text-[0.6875rem] text-text-light">If this keeps happening, tell your admin what you were doing.</p>
+        <p className="t-meta text-text-light">If this keeps happening, tell your admin what you were doing.</p>
       </div>
     </div>
   );
