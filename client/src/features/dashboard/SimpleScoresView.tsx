@@ -180,7 +180,7 @@ export const SimpleScoresView = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-2 @lg:grid-cols-3 @lg:items-start @lg:gap-3">
+          <div className="grid grid-cols-1 gap-2 @lg:grid-cols-3 @lg:items-stretch @lg:gap-3">
             {MODULES.map(({ key, icon: Icon, tile }) => {
               const n = data ? numbersFor(data, key) : null;
               const score = data ? moduleOverall(data, key) : null;

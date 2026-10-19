@@ -1,6 +1,6 @@
 import { memo, useId, useMemo, type ReactElement } from 'react';
 import { Bar, BarChart, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { ArrowDown, ArrowUp } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronRight, Trophy } from 'lucide-react';
 import { useIsMobile } from '../../lib/useMediaQuery';
 import { ScoreColumn } from './scoreBarShape';
 import type { Scores } from '../../api/scores';
@@ -87,6 +87,52 @@ const Delta = ({ label, value }: { label: string; value: number | null }) =>
     </span>
   );
 
+const ModuleTiles = ({ rows, series, onOpenModule }: { rows: Row[]; series: SeriesKey[]; onOpenModule?: (module: ModuleKey) => void }) => (
+  <ul className="grid grid-cols-1 gap-2 sm:grid-cols-3" aria-label="Scores by module">
+    {rows.map((r) => {
+      const interactive = !!onOpenModule && r.hasData;
+      const body = (
+        <>
+          <span className="flex items-center justify-between gap-2">
+            <span className="t-card font-display font-bold text-text">{r.name}</span>
+            {r.hasData ? (
+              interactive && <ChevronRight className="size-4 shrink-0 text-text-light" aria-hidden="true" />
+            ) : (
+              <span className="t-meta font-display font-semibold text-text-light">Nothing due</span>
+            )}
+          </span>
+          {r.hasData && series.map((k) => (
+            <span key={k} className="flex min-w-0 flex-col gap-1">
+              <span className="flex items-baseline justify-between gap-2">
+                <span className="flex min-w-0 items-center gap-1.5 t-meta text-text-muted">
+                  <span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ backgroundColor: SERIES_COLOR[k] }} />
+                  <span className="truncate">{SERIES_LABEL[k]}</span>
+                </span>
+                <span className={`shrink-0 t-card font-display font-extrabold tabular-nums ${r[k] === null ? 'text-text-light' : 'text-text'}`}>{r[k] === null ? '-' : formatPct(r[k])}</span>
+              </span>
+              <span className="h-1.5 w-full overflow-hidden rounded-full bg-surface-hover" aria-hidden="true">
+                <span className="block h-full rounded-full transition-[width] duration-500 ease-out" style={{ width: `${r[k] === null ? 0 : Math.max(3, Math.min(100, r[k]))}%`, backgroundColor: SERIES_COLOR[k] }} />
+              </span>
+            </span>
+          ))}
+        </>
+      );
+      const cls = 'flex w-full min-w-0 flex-col gap-2 rounded-xl border border-border/60 bg-surface p-3 text-left';
+      return (
+        <li key={r.key}>
+          {interactive ? (
+            <button type="button" onClick={() => onOpenModule?.(r.key)} className={`${cls} cursor-pointer outline-none transition-colors duration-150 hover:border-primary-400/60 focus-visible:ring-2 focus-visible:ring-primary-500/40 active:scale-[0.99]`}>
+              {body}
+            </button>
+          ) : (
+            <div className={`${cls} ${r.hasData ? '' : 'bg-surface-hover/30'}`}>{body}</div>
+          )}
+        </li>
+      );
+    })}
+  </ul>
+);
+
 const CHART_TOP = 22;
 const X_AXIS_HEIGHT = 30;
 const Y_AXIS_WIDTH = 44;
@@ -99,7 +145,7 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
   const series = seriesFor(metric);
   const barSize = series.length === 1 ? (isMobile ? 64 : 96) : isMobile ? 44 : 64;
   const chartRows = useMemo(() => rows.map((r) => (r.hasData ? r : { ...r, completion: 100, compliance: 100, ontime: 100 })), [rows]);
-  const allEmpty = isMobile && rows.length > 0 && rows.every((r) => !r.hasData);
+  const allEmpty = rows.length > 0 && rows.every((r) => !r.hasData);
   const renderLabel = (props: { x?: number | string; y?: number | string; width?: number | string; value?: unknown; index?: number }): ReactElement | null => {
     const row = chartRows[props.index ?? -1];
     if (!row?.hasData || typeof props.value !== 'number') return null;
@@ -116,9 +162,9 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
 
   return (
     <div className="flex flex-col gap-3">
-      {!isMobile && <SeriesLegend series={series} labels={SERIES_LABEL} />}
+      {!allEmpty && <SeriesLegend series={series} labels={SERIES_LABEL} />}
 
-      <div className={`relative h-56 sm:h-64 w-full ${onOpenModule ? '[&_.recharts-bar-rectangle]:cursor-pointer' : ''}`} role="img" aria-label={allEmpty ? emptyText : summary || 'Loading scores'}>
+      <div className={`relative ${allEmpty ? 'flex min-h-24 lg:min-h-64 items-center' : 'h-56 sm:h-64'} w-full ${onOpenModule ? '[&_.recharts-bar-rectangle]:cursor-pointer' : ''}`} role="img" aria-label={allEmpty ? emptyText : summary || 'Loading scores'}>
         {loading && !scores ? (
           <div
             className="absolute inset-0 flex"
@@ -134,8 +180,14 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
             ))}
           </div>
         ) : allEmpty ? (
-          <div className="flex h-full items-center justify-center rounded-lg border border-border px-4 text-center t-card font-medium text-text-muted">
-            {emptyText}
+          <div className="flex w-full items-center gap-3 rounded-xl border border-border/60 bg-surface-hover/30 px-4 py-4">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-surface text-text-light" aria-hidden="true">
+              <Trophy className="size-4.5" />
+            </span>
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <span className="t-card font-display font-semibold text-text">{emptyText}</span>
+              <span className="t-meta text-text-muted">Bars appear once something comes due in this period.</span>
+            </div>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
@@ -169,6 +221,8 @@ export const ScoreBars = memo(({ scores, loading, metric = 'overview', previous,
           </ResponsiveContainer>
         )}
       </div>
+
+      {!allEmpty && rows.length > 0 && <ModuleTiles rows={rows} series={series} onOpenModule={onOpenModule} />}
 
       {previous && scores && (
         <ul className="flex flex-col gap-2 rounded-lg border border-border p-3" aria-label="Change since the previous period">
